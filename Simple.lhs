@@ -6,10 +6,11 @@ Last modified: 27-September-2022
 > import Euterpea
 > import System.Random
 > import Debug.Trace
+> import Euterpea.IO.MIDI.MidiIO
 
 > bb12Together :: Music Pitch
 > bb12Together = tempo 1.75 (instrument Woodblock (drumsPart 79))
->                           :=: (instrument FretlessBass (bassPart (-12)))
+>                           :=: (instrument FretlessBass (bassPart (32)))
 
 > drumsPart :: AbsPitch -> Music Pitch 
 > drumsPart x = if stdvol < thresh then doRest dTime else doNote dTime (pitch x)
@@ -74,8 +75,8 @@ comment ----------------------------------------------
 > fi o d = note d (Fi, o)
 > mS o d = note d (MS, o)
 
-> mel :: Music BluesPitch
-> mel = {- fromBlues -} ( ro 4 qn :+: mt 3 qn :+: fo 4 hn :+: fi 4 hn :+: mS 4 hn )
+> mel :: Music Pitch
+> mel = fromBlues ( ro 4 qn :+: mt 3 qn :+: fo 4 hn :+: fi 4 hn :+: mS 4 hn )
 
 > fromBlues :: Music BluesPitch -> Music Pitch
 > fromBlues (Prim (Note d bp)) = (Prim (Note d (bluesPitchToPitch bp)))
@@ -83,3 +84,120 @@ comment ----------------------------------------------
 > fromBlues (m1 :+: m2) = ((fromBlues m1) :+: (fromBlues m2))
 > fromBlues (m1 :=: m2) = ((fromBlues m1) :=: (fromBlues m2))
 > fromBlues (Modify c m) = (Modify c (fromBlues m))
+
+> f1 :: Int -> [Pitch] -> [Pitch]
+> f1 _ [] = []
+> f1 n ps = map (trans n) ps
+
+> f2 :: [Dur] -> [Music a]
+> f2 ds = map u ds
+>    where u :: Dur -> Music a
+>          u d = (Prim(Rest d))
+
+comment f2 (d:ds) = (Prim(Rest d)) : (f2 ds)
+
+> f3 :: [Music Pitch] -> [Music Pitch]
+> f3 ps = map u ps
+>    where u :: (Music Pitch) -> (Music Pitch)
+>          u (Prim(Note d p)) = (Prim(Note (d/2) p)) :+: (Prim(Rest (d/2)))
+>          u _ = error "f3 takes a list of notes" 
+
+> dog::[a]->[a]
+> dog xs =
+>    let rev acc [] = acc
+>        rev acc (x:xs) = rev (x:acc) xs
+>    in rev [] xs
+
+> cat::[a]->[a]
+> cat xs = let rev mop acc [] = acc
+>              rev mop acc (x:xs) = rev mop (acc `mop` x) xs
+>              in rev revMop [] xs
+
+> revMop a b = b:a
+> mouse xs = foldl revMop [] xs
+
+> house xs = foldl tMop [] xs
+>            where tMop::[r]->r->[r]
+>                  tMop a b = b:a
+
+> louse::[a]->[a]
+> louse = foldl (flip (:)) []
+
+> hat :: Int -> Int
+> hat = ( \x -> (x + 1) )
+
+> blip = flip (flip revMop)
+
+> toPitches :: [AbsPitch] -> [Pitch]
+> toPitches xs = map pitch xs
+
+> quarters :: [AbsPitch] -> Music Pitch
+> quarters xs = foldr (:+:) (rest 0) (map (note wn) (toPitches xs))
+
+> j0, j1 :: InstrumentName
+> j0 = Cello
+> j1 = Banjo
+> baggy = instrument j0 (quarters [32..42])
+> taggy = instrument j1 (rest qn :+: quarters [42..52])
+
+> mello = baggy :=: taggy
+
+> doAllDevices :: Int -> IO ()
+> doAllDevices a =
+>    do
+>       allDevices <- getAllDevices
+>       let numInput = length (fst allDevices)
+>           numOutput = length (snd allDevices)
+>       traceM ("numInput = " ++ show numInput ++ ", numOutput = " ++ show numOutput)
+
+> dumpDevices = do
+>   (devsIn, devsOut) <- getAllDevices
+>   let f (devid, devname) = "  "++show devid ++ "\t" ++ name devname ++ "\n"
+>       strIn = concatMap f devsIn
+>       strOut = concatMap f devsOut
+>   putStrLn "\nInput devices: " >> putStrLn strIn
+>   putStrLn "Output devices: " >> putStrLn strOut
+
+> rep :: (Music a -> Music a) -> (Music a -> Music a) -> Int -> Music a -> Music a
+> rep f g 0 m = rest 0
+> rep f g n m = m :=: g (rep f g (n - 1) (f m))
+>
+> run = rep (transpose 5) (offset tn) 8 (c 4 tn)
+> cascade = rep (transpose 4) (offset en) 8 run
+> cascades = rep id (offset sn) 2 cascade
+> final = cascades :+: retro cascades
+
+> phaseIt factor m = m :=: tempo factor m
+
+> phase1 = phaseIt 1.5 (times 4 final)
+> phase2 = phaseIt 1.1 (times 4 final)
+> phase3 = phaseIt 1.01 (times 4 final)
+
+> run' = rep (offset tn) (transpose 5) 8 (c 4 tn)
+> cascade' = rep (offset tn) (transpose 4) 8 run'
+> cascades' = rep (offset tn) id 2 cascade'
+> final' = cascades' :+: retro cascades'
+
+> tFan1 = c 4 dqn :+: rest en :+: e 4 dqn  :+: rest en :+: g 4 dhn :+: rest qn
+> tFan2 = f 4 hn :+: e 4 hn :+: d 4 hn
+> tFan3 = (bf 3 qn) :+: (bf 3 qn) :+: (bf 3 hn)
+> tFan4 = c 4 dwn
+> tFan = tFan1 :+: tFan2 :+: tFan3 :+: tFan4
+
+> tAns1 = c 4 hn :+: g 4 hn :+: f 4 wn
+> tAns2 = (bf 3 qn) :+: (bf 3 qn) :+: (bf 3 en)
+> tAns3 = a 3 en :+: g 3 qn:+: a 3 qn :+: bf 3 qn :+: c 4 wn
+> tAns = tAns1 :+: tAns2 :+: tAns3
+
+> bFan1 = rest dwn :+: c 3 dhn :+: c 3 qn :+: c 3 hn
+> bFan2 = rest dwn :+: rest wn :+: c 3 dhn :+: c 3 qn :+: c 3 hn
+> bFan = bFan1 :+: bFan2
+
+> bAns1 = rest wn :+: bf 2 dhn :+: a 2 qn :+: g 2 hn
+> bAns2 = rest 0
+> bAns = bAns1 :+: bAns2
+
+> trebleAll = instrument RhodesPiano (tFan :+: tAns)
+> bassAll = instrument Trombone (bFan :+: bAns)
+
+> bothParts = tempo (2/1) (rest wn :+: trebleAll :=: bassAll)
