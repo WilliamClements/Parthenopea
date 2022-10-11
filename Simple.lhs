@@ -177,27 +177,3 @@ comment f2 (d:ds) = (Prim(Rest d)) : (f2 ds)
 > cascade' = rep (offset tn) (transpose 4) 8 run'
 > cascades' = rep (offset tn) id 2 cascade'
 > final' = cascades' :+: retro cascades'
-
-> tFan1 = c 4 dqn :+: rest en :+: e 4 dqn  :+: rest en :+: g 4 dhn :+: rest qn
-> tFan2 = f 4 hn :+: e 4 hn :+: d 4 hn
-> tFan3 = (bf 3 qn) :+: (bf 3 qn) :+: (bf 3 hn)
-> tFan4 = c 4 dwn
-> tFan = tFan1 :+: tFan2 :+: tFan3 :+: tFan4
-
-> tAns1 = c 4 hn :+: g 4 hn :+: f 4 wn
-> tAns2 = (bf 3 qn) :+: (bf 3 qn) :+: (bf 3 en)
-> tAns3 = a 3 en :+: g 3 qn:+: a 3 qn :+: bf 3 qn :+: c 4 wn
-> tAns = tAns1 :+: tAns2 :+: tAns3
-
-> bFan1 = rest dwn :+: c 3 dhn :+: c 3 qn :+: c 3 hn
-> bFan2 = rest dwn :+: rest wn :+: c 3 dhn :+: c 3 qn :+: c 3 hn
-> bFan = bFan1 :+: bFan2
-
-> bAns1 = rest wn :+: bf 2 dhn :+: a 2 qn :+: g 2 hn
-> bAns2 = rest 0
-> bAns = bAns1 :+: bAns2
-
-> trebleAll = instrument RhodesPiano (tFan :+: tAns)
-> bassAll = instrument Trombone (bFan :+: bAns)
-
-> bothParts = tempo (2/1) (rest wn :+: trebleAll :=: bassAll)
