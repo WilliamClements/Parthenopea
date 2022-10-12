@@ -8,24 +8,24 @@ Fanfare
 >                  :+: (e 4 dqn :+: rest en)
 >                  :+: (g 4 wn) :+: rest dhn
 > bFan1 = {- 10 -} rest wn :+: rest hn
->                  :+: (c 3 dhn :+: c 3 qn)
->                  :+: (c 3 qn :+: rest 0)
+>                  :+: (c 3 dhn :+: c 3 qn :+: c 3 qn)
+>                  :=: (g 3 dhn :+: g 3 qn :+: g 3 qn)
 
-> tFan2 = {-  6 -} (f 4 dqn :+: rest en)
->                  :+: (e 4 dqn :+: rest en)
->                  :+: (d 4 hn)
+> tFan2 = {-  6 -} (f 4 hn)
+>                  :+: (e 4 hn)
+>                  :+: (d 4 dqn :+: rest en)
 > bFan2 = {-  6 -} (rest wn :+: rest hn)
 
 > tFan3 = {-  4 -} (bf 3 qn) :+: (bf 3 qn) :+: (bf 3 hn)
 > bFan3 = {-  4 -} rest wn
 
-> tFan4 = {-  9 -} c 4 wn :+: rest wn :+: rest qn
-> bFan4 = {-  9 -} rest hn
->                  :+: (c 3 dhn :+: c 3 qn)
->                  :+: (c 3 hn  :+: rest qn)
+> tFan4 = {-  8 -} c 4 wn :+: rest wn
+> bFan4 = {-  8 -} rest hn
+>                  :+: (c 3 dhn :+: c 3 qn :+: c 3 hn)
+>                  :=: (g 3 dhn :+: g 3 qn :+: g 3 qn)
 
-> tFan5 = {-  0 -} rest 0
-> bFan5 = {-  0 -} rest 0
+> tFan5 = {-  1 -} rest qn
+> bFan5 = {-  1 -} rest qn
 
 > tFan =  {- 32 -} tFan1 :+: tFan2 :+: tFan3 :+: tFan4 :+: tFan5
 > bFan =  {- 32 -} bFan1 :+: bFan2 :+: bFan3 :+: bFan4 :+: bFan5
