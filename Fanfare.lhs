@@ -4,10 +4,10 @@ Fanfare
 > import Euterpea
 > import Debug.Trace
 
-> tFan1 = {- 10 -} (c 4 dqn :+: rest en)
+> tFan1 = {- 11 -} (c 4 dqn :+: rest en)
 >                  :+: (e 4 dqn :+: rest en)
 >                  :+: (g 4 wn) :+: rest dhn
-> bFan1 = {- 10 -} rest wn :+: rest hn
+> bFan1 = {- 11 -} rest wn :+: rest hn
 >                  :+: (c 3 dhn :+: c 3 qn :+: c 3 qn)
 >                  :=: (g 3 dhn :+: g 3 qn :+: g 3 qn)
 
@@ -27,8 +27,8 @@ Fanfare
 > tFan5 = {-  1 -} rest qn
 > bFan5 = {-  1 -} rest qn
 
-> tFan =  {- 32 -} tFan1 :+: tFan2 :+: tFan3 :+: tFan4 :+: tFan5
-> bFan =  {- 32 -} bFan1 :+: bFan2 :+: bFan3 :+: bFan4 :+: bFan5
+> tFan =  {- 30 -} tFan1 :+: tFan2 :+: tFan3 :+: tFan4 :+: tFan5
+> bFan =  {- 30 -} bFan1 :+: bFan2 :+: bFan3 :+: bFan4 :+: bFan5
 
 > tAns1 = {- 14 -} c 4 hn :+: g 4 hn :+: f 4 wn :+: rest wn :+: (bf 3 hn)
 > bAns1 = {- 14 -} rest wn :+: rest wn :+: bf 2 dhn :+: a 2 qn :+: g 2 hn
@@ -49,9 +49,9 @@ Fanfare
 > tAns =  {- 38 -} tAns1 :+: tAns2 :+: tAns3 :+: tAns4
 > bAns =  {- 38 -} bAns1 :+: bAns2 :+: bAns3 :+: bAns4 
 
->         {- 32 + 38 = 70 -}
+>         {- 30 + 38 = 68 -}
 > trebleAll = instrument Trumpet (tFan :+: tAns)
->         {- 70 -}
+>         {- 68 -}
 > bassAll = instrument Cello (bFan :+: bAns)
 
 > bothParts = removeZeros $ tempo (2/1) $ shiftPitches 5
