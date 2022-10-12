@@ -4,6 +4,8 @@ Fanfare
 > import Euterpea
 > import Debug.Trace
 
+Fanfare proper
+
 > tFan1 = {- 11 -} (c 4 dqn :+: rest en)
 >                  :+: (e 4 dqn :+: rest en)
 >                  :+: (g 4 wn) :+: rest dhn
@@ -19,39 +21,43 @@ Fanfare
 > tFan3 = {-  4 -} (bf 3 qn) :+: (bf 3 qn) :+: (bf 3 hn)
 > bFan3 = {-  4 -} rest wn
 
-> tFan4 = {-  8 -} c 4 wn :+: rest wn
-> bFan4 = {-  8 -} rest hn
->                  :+: (c 3 dhn :+: c 3 qn :+: c 3 hn)
+> tFan4 = {-  7 -} c 4 wn :+: rest dhn
+> bFan4 = {-  7 -} rest hn
+>                  :+: (c 3 dhn :+: c 3 qn :+: c 3 qn)
 >                  :=: (g 3 dhn :+: g 3 qn :+: g 3 qn)
 
-> tFan5 = {-  1 -} rest qn
-> bFan5 = {-  1 -} rest qn
+> tFan5 = {-  0 -} rest 0
+> bFan5 = {-  0 -} rest 0
 
-> tFan =  {- 30 -} tFan1 :+: tFan2 :+: tFan3 :+: tFan4 :+: tFan5
-> bFan =  {- 30 -} bFan1 :+: bFan2 :+: bFan3 :+: bFan4 :+: bFan5
+> tFan =  {- 28 -} tFan1 :+: tFan2 :+: tFan3 :+: tFan4 :+: tFan5
+> bFan =  {- 28 -} bFan1 :+: bFan2 :+: bFan3 :+: bFan4 :+: bFan5
 
-> tAns1 = {- 14 -} c 4 hn :+: g 4 hn :+: f 4 wn :+: rest wn :+: (bf 3 hn)
-> bAns1 = {- 14 -} rest wn :+: rest wn :+: bf 2 dhn :+: a 2 qn :+: g 2 hn
+The fanfare's answer
 
-> tAns2 = {-  6 -} (bf 3 hn :+: bf 3 qn)
->                  :+: a 3 qn :+: g 3 hn
+> tAns1 = {- 12 -} c 4 hn :+: g 4 hn :+: f 4 wn :+: rest hn :+: bf 3 qn :+: rest qn
+> bAns1 = {- 12 -} rest wn :+: rest hn
+>                  :+: (bf 2 dhn :+: a 2 qn :+: g 2 hn)
+>                  :=: (d 3 dhn :+: c 2 qn :+: d 2 hn)
+
+> tAns2 = {-  6 -} bf 3 hn
+>                  :+: a 3 qn :+: a 3 qn :+: g 3 hn
 > bAns2 = {-  6 -} rest wn :+: rest hn
 
-> tAns3 = {- 17 -} a 3 hn :+: bf 3 hn :+: c 4 wn
->                  :+: rest wn :+: rest wn :+: rest qn
-> bAns3 = {- 17 -} rest wn :+: rest hn
+> tAns3 = {- 14 -} a 3 hn :+: bf 3 hn :+: c 4 wn
+>                  :+: rest wn :+: rest hn
+> bAns3 = {- 14 -} rest wn :+: rest qn
 >                  :+: g 2 qn :+: g 2 qn :+: c 3 qn :+: g 2 hn
->                  :+: c 3 qn :+: c 3 qn :+: c 2 wn
+>                  :+: c 3 qn :+: c 3 qn :+: c 2 hn
 
-> tAns4 = {-  1 -} rest qn
-> bAns4 = {-  1 -} rest qn
+> tAns4 = {-  0 -} rest 0
+> bAns4 = {-  0 -} rest 0
 
-> tAns =  {- 38 -} tAns1 :+: tAns2 :+: tAns3 :+: tAns4
-> bAns =  {- 38 -} bAns1 :+: bAns2 :+: bAns3 :+: bAns4 
+> tAns =  {- 32 -} tAns1 :+: tAns2 :+: tAns3 :+: tAns4
+> bAns =  {- 32 -} bAns1 :+: bAns2 :+: bAns3 :+: bAns4 
 
->         {- 30 + 38 = 68 -}
+>         {- 28 + 32 = 60 -}
 > trebleAll = instrument Trumpet (tFan :+: tAns)
->         {- 68 -}
+>         {- 60 -}
 > bassAll = instrument Cello (bFan :+: bAns)
 
 > bothParts = removeZeros $ tempo (2/1) $ shiftPitches 5
