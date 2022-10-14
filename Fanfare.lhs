@@ -2,16 +2,18 @@ Fanfare
 
 > module Fanfare where
 > import Euterpea
+> import Euterpea.IO.MIDI.ToMidi2
 > import Debug.Trace
 
 Fanfare proper
 
-> tFan1 = {- 11 -} (c 4 dqn :+: rest en)
+> tFan1 = {- 12 -} (c 4 dqn :+: rest en)
 >                  :+: (e 4 dqn :+: rest en)
->                  :+: (g 4 wn) :+: rest dhn
-> bFan1 = {- 11 -} rest wn :+: rest hn
+>                  :+: (g 4 wn) :+: rest wn
+> bFan1 = {- 12 -} rest wn :+: rest hn
 >                  :+: (c 3 dhn :+: c 3 qn :+: c 3 qn)
 >                  :=: (g 3 dhn :+: g 3 qn :+: g 3 qn)
+>                  :+: rest qn
 
 > tFan2 = {-  6 -} (f 4 hn)
 >                  :+: (e 4 hn)
@@ -29,22 +31,20 @@ Fanfare proper
 > tFan5 = {-  0 -} rest 0
 > bFan5 = {-  0 -} rest 0
 
-> tFan =  {- 28 -} tFan1 :+: tFan2 :+: tFan3 :+: tFan4 :+: tFan5
-> bFan =  {- 28 -} bFan1 :+: bFan2 :+: bFan3 :+: bFan4 :+: bFan5
+> tFan =  {- 29 -} tFan1 :+: tFan2 :+: tFan3 :+: tFan4 :+: tFan5
+> bFan =  {- 29 -} bFan1 :+: bFan2 :+: bFan3 :+: bFan4 :+: bFan5
 
 The fanfare's answer
 
 > tAns1 = {- 12 -} c 4 hn :+: g 4 hn :+: f 4 wn :+: rest hn :+: bf 3 qn :+: rest qn
 > bAns1 = {- 12 -} rest wn :+: rest hn
 >                  :+: (bf 2 dhn :+: a 2 qn :+: g 2 hn)
->                  :=: (d 3 dhn :+: c 2 qn :+: d 2 hn)
+>                  :=: (d 3 dhn  :+: c 2 qn :+: d 2 hn)
 
-> tAns2 = {-  6 -} bf 3 hn
->                  :+: a 3 qn :+: a 3 qn :+: g 3 hn
+> tAns2 = {-  6 -} bf 3 hn :+: a 3 qn :+: a 3 qn :+: g 3 hn
 > bAns2 = {-  6 -} rest wn :+: rest hn
 
-> tAns3 = {- 14 -} a 3 hn :+: bf 3 hn :+: c 4 wn
->                  :+: rest wn :+: rest hn
+> tAns3 = {- 14 -} a 3 hn :+: bf 3 hn :+: c 4 wn :+: rest wn :+: rest hn
 > bAns3 = {- 14 -} rest wn :+: rest qn
 >                  :+: g 2 qn :+: g 2 qn :+: c 3 qn :+: g 2 hn
 >                  :+: c 3 qn :+: c 3 qn :+: c 2 hn
@@ -55,13 +55,18 @@ The fanfare's answer
 > tAns =  {- 32 -} tAns1 :+: tAns2 :+: tAns3 :+: tAns4
 > bAns =  {- 32 -} bAns1 :+: bAns2 :+: bAns3 :+: bAns4 
 
->         {- 28 + 32 = 60 -}
+>         {- 29 + 32 = 61 -}
 > trebleAll = instrument Trumpet (tFan :+: tAns)
->         {- 60 -}
+>         {- 61 -}
 > bassAll = instrument Cello (bFan :+: bAns)
 
-> bothParts = removeZeros $ tempo (2/1) $ shiftPitches 5
->             (trebleAll :=: bassAll)
+> bothParts :: Music Pitch
+> bothParts = removeZeros
+>             $ tempo (2/1)
+>             $ shiftPitches 5 (trebleAll :=: bassAll)
+
+> capture :: Music Pitch -> IO()
+> capture m = writeMidi2 "fanfare.mid" m
 
 > dumpTB, dumpT, dumpB, dumpAll :: Int -> IO ()
 > dumpTB nn =
