@@ -9,7 +9,7 @@ Fanfare proper
 
 > tFan1 = {- 14 -} rest wn :+: (c 4 dqn :+: rest en)
 >                  :+: (e 4 dqn :+: rest en)
->                  :+: (g 4 wn) :+: rest hn
+>                  :+: (g 4 wn) :+: rest wn
 > bFan1 = {- 15 -} rest wn :+: rest wn :+: rest hn
 >                  :+: (c 3 dhn :+: c 3 qn :+: c 3 qn)
 >                  :=: (g 3 dhn :+: g 3 qn :+: g 3 qn)
