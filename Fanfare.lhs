@@ -87,3 +87,61 @@ The fanfare's answer
 >                 dumpTB nn
 >                 dumpT nn
 >                 dumpB nn
+
+New
+
+> addDur       :: Dur -> [Dur -> Music a] -> Music a
+> addDur d ns  =  let f n = n d
+>                 in line (map f ns)
+
+> frag00 = line [g 3 qn, rest en, a 3 en, bf 3 wn]
+> frag01 = tempo (5/2) (addDur qn [bf 3, c 4, bf 3, a 3, g 3])
+> frag02 = line [g 3 qn, f 3 hn, g 3 wn]
+
+> line00 = frag00 :+: frag01 :+: frag02
+
+> frag10 = line [g 3 en, c 4 dqn, c 4 en, c 4 dqn, c 4 en, c 3 hn, rest qn]
+> frag11 = line [c 3 en, g 3 dqn, g 3 en, g 3 dqn, g 3 en, c 3 hn]
+
+> line01 = frag10 :+: frag11
+
+> piece = removeZeros
+>         $ tempo (3/2)
+>         $ instrument(Vibraphone)
+>         $ transpose 10 
+>         $ line00 :+: line01 :+: line00 :+: line01
+
+Newer still
+
+> treblebob =
+>    addDur qn
+>       [ a 3, fs 4
+>       , a 3, fs 4
+>       , a 3, fs 4 
+>       , a 3, fs 4
+>       , a 3,  g 4
+>       , b 3,  g 4]
+>    :+: tempo (3/2)
+>       (addDur en [
+>           g 4, fs 4, e 4, d 4, e 4, fs 4
+>           , a 4, fs 4, e 4, d 4, e 4, g 4])
+
+> altobob = line 
+>    [ rest qn, d 4 qn
+>    , rest qn, d 4 qn
+>    , rest qn, d 4 qn
+>    , rest qn, d 4 qn
+>    , rest qn, d 4 qn
+>    , rest qn, d 4 qn
+>    , rest wn, rest wn]
+
+> bassbob =
+>    line
+>       [ d 2 dwn, rest hn
+>       , g 2 wn, e 2 hn, c 2 hn]
+>       
+
+> bob = tempo (2/2)
+>       $ (instrument Flute (times 2 treblebob))
+>       :=: (instrument Oboe (times 2 altobob))
+>       :=: (instrument Cello (times 2 bassbob))
