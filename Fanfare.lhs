@@ -59,8 +59,8 @@ The fanfare's answer
 >         {- 32 + 32 = 64 -}
 > bassAll = instrument Cello (bFan :+: bAns)
 
-> bothParts :: Music Pitch
-> bothParts = removeZeros
+> theFanfare :: Music Pitch
+> theFanfare = removeZeros
 >             $ tempo (2/1)
 >             $ shiftPitches 5 (trebleAll :=: bassAll)
 
@@ -95,21 +95,21 @@ New
 >                 in line (map f ns)
 
 > frag00 = line [g 3 qn, rest en, a 3 en, bf 3 wn]
-> frag01 = tempo (5/2) (addDur qn [bf 3, c 4, bf 3, a 3, g 3])
-> frag02 = line [g 3 qn, f 3 hn, g 3 wn]
+> frag01 = tempo (5/2) (addDur qn [a 3, bf 3, a 3, g 3, d 3])
+> frag02 = line [g 3 qn, f 3 wn, g 3 wn, rest en]
 
 > line00 = frag00 :+: frag01 :+: frag02
 
-> frag10 = line [g 3 en, c 4 dqn, c 4 en, c 4 dqn, c 4 en, c 3 hn, rest qn]
+> frag10 = line [g 3 en, c 4 dqn, c 4 en, c 4 dqn, c 4 en, c 3 hn, rest dqn]
 > frag11 = line [c 3 en, g 3 dqn, g 3 en, g 3 dqn, g 3 en, c 3 hn]
 
 > line01 = frag10 :+: frag11
 
 > piece = removeZeros
->         $ tempo (3/2)
+>         $ tempo (2/1)
 >         $ instrument(Vibraphone)
 >         $ transpose 10 
->         $ line00 :+: line01 :+: line00 :+: line01
+>         $ rest hn :+: line00 :+: line01 :+: line00 :+: line01
 
 Newer still
 
@@ -145,3 +145,58 @@ Newer still
 >       $ (instrument Flute (times 2 treblebob))
 >       :=: (instrument Oboe (times 2 altobob))
 >       :=: (instrument Cello (times 2 bassbob))
+
+You guessed it
+
+> bill00 =
+>      g 4 hn
+
+> bill01 =
+>      tempo (3/2)
+>         (line [ef 4 qn, f 4 qn, g 4 qn])
+>      :+: af 4 hn
+>      :+: tempo (2/1)
+>             (line [df 4 qn, ef 4 qn, f 4 qn, g 4 qn])
+>      :+: line [af 4 qn, rest en, g 4 en, f 4 hn, ef 4 wn]
+>      :+: line [rest hn, ef 4 qn, f 4 qn, gf 4 hn]
+>      :+: tempo (2/1)
+>             (line [b 3 qn, cs 4 qn, ef 4 qn, f 4 qn])
+>      :+: line [gf 4 qn, rest en, f 4 en, ef 4 hn, df 4 dwn, rest hn]
+
+> bill02 = 
+>      df 4 wn :+: d 4 wn :+: d 4 wn
+>      :+: d 4 hn :+: ef 4 hn :+: f 4 hn
+>      :+: tempo (3/2)
+>             (line [g 3 qn, bf 3 qn, ef 4 qn])
+>      :+: line [f 4 dqn, g 4 en, ef 4 hn, ef 4 hn] 
+
+> bill =
+>    transpose 4
+>      $ tempo (2/1)
+>           (bill00 :+: times 2 (bill01 :+: bill02))
+
+One more
+
+> copper00 =
+>    transpose (-4) 
+>    $ instrument Banjo
+>    $ tempo (2/1)
+>    $ ((line [c 5 hn, c 5 hn, c 5 hn, c 5 hn])
+>      :+: (tempo (5/4) 
+>          (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn]))
+>          :+: a 4 hn :+: g 4 wn)
+
+> gold00 =
+>     transpose 0
+>     $ instrument AltoSax
+>     $ tempo (2/1)
+>     $ (times 2
+>     $ (line [c 4 hn,  c 5 dhn]
+>       :+: addDur qn [ c 5, bf 4,  a 4,  g 4,
+>                       g 4,  f 4,  a 4,  g 4,
+>                       g 4,  f 4,  a 4,  g 4,
+>                       g 4,  c 4,  c 4,  c 4,
+>                       c 5, bf 4,  a 4,  g 4,
+>                       g 4,  f 4,  e 4,  d 4,
+>                       d 4, bf 3, bf 3]))
+>     :+: c 4 hn

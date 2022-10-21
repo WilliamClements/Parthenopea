@@ -73,7 +73,7 @@ Utility function to split a random generator.
 
 > wind :: Double -> StdGen -> AudSF () Double
 > wind secs g = let gs = splitN g in proc _ -> do
->     n    <- noiseWhite (fst $ next (gs !! 0)) -< () -- white noise source
+>     n    <- noiseWhite (fst $ random (gs !! 0)) -< () -- white noise source
 >     vEnv <- randEnv secs 0.05 0    0.1  (0.1)  1.0  (gs !! 2) -< () -- volume envelope
 >     bpF  <- randEnv secs 0.05 2000 50   100    5000 (gs !! 3) -< () -- bandpass center frequency 
 >     bw   <- randEnv secs 0.05 50   5    5      100  (gs !! 4) -< () -- bandpass bandwidth 

@@ -32,7 +32,7 @@ Last modified: 27-September-2022
 
 > randInts :: StdGen -> [Int]
 > randInts g =
->    let (x, g') = next g
+>    let (x, g') = random g
 >    in x : randInts g'
 
 > infiniteList = [9..]
@@ -90,7 +90,7 @@ Last modified: 27-September-2022
 > boxMuller :: Double -> Double -> (Double, Double) -> Double
 > boxMuller mu sigma (r1,r2) =  mu + sigma * sqrt (-2 * log r1) * cos (2 * pi * r2)
 
-> someNormals :: Int -> R [Double]
+> someNormals :: {- Show p => -} Int -> R [Double]
 > someNormals x = liftM (take x) normals
 
 > myAlgorithm :: R [Bool]
@@ -101,3 +101,6 @@ Last modified: 27-September-2022
 >    return $ uncurry (<) <$> xys
 
 comment runRandom myAlgorithm 42
+
+> test :: Int -> IO [Int]
+> test n = sequence $ replicate n $ randomRIO (1,6::Int)
