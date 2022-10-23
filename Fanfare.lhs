@@ -141,7 +141,7 @@ Newer still
 >       , g 2 wn, e 2 hn, c 2 hn]
 >       
 
-> bob = tempo (2/2)
+> bob = tempo (4/2)
 >       $ (instrument Flute (times 2 treblebob))
 >       :=: (instrument Oboe (times 2 altobob))
 >       :=: (instrument Cello (times 2 bassbob))
@@ -181,13 +181,13 @@ One more
 >    transpose (-4) 
 >    $ instrument Banjo
 >    $ tempo (2/1)
->    $ ((line [c 5 hn, c 5 hn, c 5 hn, c 5 hn])
+>    $ ((line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn])
 >      :+: (tempo (5/4) 
 >          (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn]))
 >          :+: a 4 hn :+: g 4 wn)
 
 > gold00 =
->     transpose 0
+>     transpose (-5)
 >     $ instrument AltoSax
 >     $ tempo (2/1)
 >     $ (times 2
@@ -200,3 +200,34 @@ One more
 >                       g 4,  f 4,  e 4,  d 4,
 >                       d 4, bf 3, bf 3]))
 >     :+: c 4 hn
+
+> silverrepeat00 = 
+>   addDur hn
+>      [ a 4,  e 5, cs 5,  a 4, fs 4,
+>        a 4,  b 4, fs 4,  e 4,
+>        a 4,  b 4, fs 4,  e 4,
+>       fs 4, gs 4,  a 4, cs 5 ]
+
+> silverrepeat01 = 
+>   addDur hn
+>      [ e 4, fs 4,  g 4,
+>       fs 4,  a 4,  d 5,
+>       cs 5,  b 4, gs 4,
+>       ds 5,  e 5, fs 5,
+>        e 5, ds 5,  e 5,
+>       fs 4,  e 4, as 4,
+>        b 4, fs 4, gs 4,
+>        a 4, cs 5 ] 
+
+> silver =
+>     transpose (0)
+>     $ instrument Harpsichord
+>     $ tempo (2/1) (rest dwn
+>                    :+: silverrepeat00
+>                    :+: a 4 hn
+>                    :+: silverrepeat00
+>                    :+: a 4 hn
+>                    :+: silverrepeat01
+>                    :+: a 4 hn
+>                    :+: silverrepeat01
+>                    :+: a 4 wn)
