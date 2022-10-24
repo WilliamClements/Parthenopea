@@ -4,6 +4,7 @@ Fanfare
 > import Euterpea
 > import Euterpea.IO.MIDI.ToMidi2
 > import Debug.Trace
+> import Control.Monad
 
 Fanfare proper
 
@@ -181,7 +182,7 @@ Bill
 
 Copper
 
-> copper00 =
+> copper =
 >    transpose (-4) 
 >    $ instrument Banjo
 >    $ tempo (2/1)
@@ -192,7 +193,7 @@ Copper
 
 Gold
 
-> gold00 =
+> gold =
 >     transpose (-5)
 >     $ instrument AltoSax
 >     $ tempo (2/1)
@@ -247,14 +248,41 @@ Silver
 >     $ foldMusic silvermusiclist
 >       :+: foldMusic silvermusiclist
 >
-> mapRange :: ( a -> b ) -> [a] -> [b]
-> mapRange f a = map f a
->
+
 > foldMusic :: [Music a] -> Music a
 > foldMusic as = foldr (:+:) (rest 0) as
 >
-> bronze =
->    let nonzeronats = [1..23]
->        fun it = instrument $ toEnum it
->    in mapRange fun nonzeronats
->    
+> snippet :: Music Pitch
+> snippet = line [c 4 en, e 4 en, bf 3 en, d 4 en, f 4 en]
+>
+> playSnippet :: () -> Int -> IO ()
+> playSnippet () i =
+>    let inst :: InstrumentName
+>        inst = toEnum (i `mod` (fromEnum Gunshot))
+>    in do
+>       traceM ("InstrumentName = " ++ (show inst)) ;
+>       play $ instrument inst snippet
+>
+> playSnippets :: IO ()
+> playSnippets = 
+>    foldM playSnippet () [0..]
+
+>
+> playJingle :: () -> Int -> IO ()
+> playJingle () i =
+>    let jingles =
+>          [theFanfare
+>           , alice
+>           , bob
+>           , bill
+>           , copper
+>           , gold
+>           , silver]
+>        ix = i `mod` length jingles
+>    in do
+>       traceM ( (show i) ++ " jingle" )
+>       play $ jingles !! ix
+>       
+> playJingles :: IO ()
+> playJingles =
+>    foldM playJingle () [0..]
