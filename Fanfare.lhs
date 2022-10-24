@@ -61,8 +61,9 @@ The fanfare's answer
 
 > theFanfare :: Music Pitch
 > theFanfare = removeZeros
->             $ tempo (2/1)
->             $ shiftPitches 5 (trebleAll :=: bassAll)
+>              $ keysig C Major
+>              $ tempo (2/1)
+>              $ shiftPitches 5 (trebleAll :=: bassAll)
 
 > capture :: Music Pitch -> IO()
 > capture m = writeMidi2 "fanfare.mid" m
@@ -88,7 +89,10 @@ The fanfare's answer
 >                 dumpT nn
 >                 dumpB nn
 
-New
+Alice
+
+> slur :: Rational -> Music a -> Music a
+> slur rate = Modify (Phrase [Art (Slurred rate)])
 
 > addDur       :: Dur -> [Dur -> Music a] -> Music a
 > addDur d ns  =  let f n = n d
@@ -105,13 +109,13 @@ New
 
 > line01 = frag10 :+: frag11
 
-> piece = removeZeros
+> alice = removeZeros
 >         $ tempo (2/1)
 >         $ instrument(Vibraphone)
 >         $ transpose 10 
 >         $ rest hn :+: line00 :+: line01 :+: line00 :+: line01
 
-Newer still
+Bob
 
 > treblebob =
 >    addDur qn
@@ -146,7 +150,7 @@ Newer still
 >       :=: (instrument Oboe (times 2 altobob))
 >       :=: (instrument Cello (times 2 bassbob))
 
-You guessed it
+Bill
 
 > bill00 =
 >      g 4 hn
@@ -175,7 +179,7 @@ You guessed it
 >      $ tempo (2/1)
 >           (bill00 :+: times 2 (bill01 :+: bill02))
 
-One more
+Copper
 
 > copper00 =
 >    transpose (-4) 
@@ -185,6 +189,8 @@ One more
 >      :+: (tempo (5/4) 
 >          (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn]))
 >          :+: a 4 hn :+: g 4 wn)
+
+Gold
 
 > gold00 =
 >     transpose (-5)
@@ -200,6 +206,8 @@ One more
 >                       g 4,  f 4,  e 4,  d 4,
 >                       d 4, bf 3, bf 3]))
 >     :+: c 4 hn
+
+Silver
 
 > silverrepeat00 = 
 >   addDur hn
@@ -219,15 +227,34 @@ One more
 >        b 4, fs 4, gs 4,
 >        a 4, cs 5 ] 
 
+> silvermusiclist :: [Music Pitch]
+> silvermusiclist = [
+>  rest dwn
+>  , silverrepeat00
+>  , a 4 hn
+>  , silverrepeat00
+>  , a 4 hn
+>  , silverrepeat01
+>  , a 4 hn
+>  , silverrepeat01
+>  , a 4 wn ]
+
 > silver =
->     transpose (0)
->     $ instrument Harpsichord
->     $ tempo (2/1) (rest dwn
->                    :+: silverrepeat00
->                    :+: a 4 hn
->                    :+: silverrepeat00
->                    :+: a 4 hn
->                    :+: silverrepeat01
->                    :+: a 4 hn
->                    :+: silverrepeat01
->                    :+: a 4 wn)
+>     transpose (-5)
+>     $ instrument MusicBox
+>     $ tempo (2/1)
+>     -- $ slur (3/2)
+>     $ foldMusic silvermusiclist
+>       :+: foldMusic silvermusiclist
+>
+> mapRange :: ( a -> b ) -> [a] -> [b]
+> mapRange f a = map f a
+>
+> foldMusic :: [Music a] -> Music a
+> foldMusic as = foldr (:+:) (rest 0) as
+>
+> bronze =
+>    let nonzeronats = [1..23]
+>        fun it = instrument $ toEnum it
+>    in mapRange fun nonzeronats
+>    
