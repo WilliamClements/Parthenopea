@@ -62,9 +62,10 @@ The fanfare's answer
 
 > theFanfare :: Music Pitch
 > theFanfare = removeZeros
->              $ keysig C Major
 >              $ tempo (2/1)
->              $ shiftPitches 5 (trebleAll :=: bassAll)
+>              $ keysig C Major
+>              $ transpose 5
+>              $ (trebleAll :=: bassAll)
 
 > capture :: Music Pitch -> IO()
 > capture m = writeMidi2 "fanfare.mid" m
@@ -112,8 +113,8 @@ Alice
 
 > alice = removeZeros
 >         $ tempo (2/1)
->         $ instrument(Vibraphone)
 >         $ transpose 10 
+>         $ instrument(Vibraphone)
 >         $ rest hn :+: line00 :+: line01 :+: line00 :+: line01
 
 Bob
@@ -183,9 +184,10 @@ Bill
 Copper
 
 > copper =
->    transpose (-4) 
->    $ instrument Banjo
+>    removeZeros
+>    $ transpose (-4) 
 >    $ tempo (2/1)
+>    $ instrument Banjo
 >    $ ((line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn])
 >      :+: (tempo (5/4) 
 >          (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn]))
@@ -194,9 +196,10 @@ Copper
 Gold
 
 > gold =
->     transpose (-5)
->     $ instrument AltoSax
+>    removeZeros
+>    $ transpose (-5)
 >     $ tempo (2/1)
+>     $ instrument AltoSax
 >     $ (times 2
 >     $ (line [c 4 hn,  c 5 dhn]
 >       :+: addDur qn [ c 5, bf 4,  a 4,  g 4,
@@ -269,7 +272,7 @@ Silver
 
 >
 > playJingle :: () -> Int -> IO ()
-> playJingle () i =
+> playJingle _ i =
 >    let jingles =
 >          [theFanfare
 >           , alice
