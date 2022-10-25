@@ -101,21 +101,21 @@ Alice
 >                 in line (map f ns)
 
 > frag00 = line [g 3 qn, rest en, a 3 en, bf 3 wn]
-> frag01 = tempo (5/2) (addDur qn [a 3, bf 3, a 3, g 3, d 3])
-> frag02 = line [g 3 qn, f 3 wn, g 3 wn, rest en]
+> frag01 = tempo (4/2) $ line [a 3 qn, bf 3 qn, a 3 qn, af 3 qn]
+> frag02 = line [g 3 qn, f 3 dhn,  rest qn, g 3 dhn, rest dqn]
 
-> line00 = frag00 :+: frag01 :+: frag02
+> line00 = foldMusic [frag00, frag01, frag02]
 
 > frag10 = line [g 3 en, c 4 dqn, c 4 en, c 4 dqn, c 4 en, c 3 hn, rest dqn]
-> frag11 = line [c 3 en, g 3 dqn, g 3 en, g 3 dqn, g 3 en, c 3 hn]
+> frag11 = line [c 3 en, g 3 dqn, g 3 en, g 3 dqn, g 3 en, c 3 dqn, rest en]
 
-> line01 = frag10 :+: frag11
+> line01 = foldMusic [frag10, frag11]
 
 > alice = removeZeros
 >         $ tempo (2/1)
 >         $ transpose 10 
 >         $ instrument(Vibraphone)
->         $ rest hn :+: line00 :+: line01 :+: line00 :+: line01
+>         $ foldMusic [rest hn, line00, line01, line00, line01]
 
 Bob
 
@@ -139,7 +139,7 @@ Bob
 >    , rest qn, d 4 qn
 >    , rest qn, d 4 qn
 >    , rest qn, d 4 qn
->    , rest wn, rest wn]
+>    , rest wn]
 
 > bassbob =
 >    line
@@ -213,16 +213,16 @@ Gold
 
 Silver
 
-> silverrepeat00 = 
+> silver00 = 
 >   addDur hn
->      [ a 4,  e 5, cs 5,  a 4, fs 4,
+>   $  [ a 4,  e 5, cs 5,  a 4, fs 4,
 >        a 4,  b 4, fs 4,  e 4,
 >        a 4,  b 4, fs 4,  e 4,
 >       fs 4, gs 4,  a 4, cs 5 ]
 
-> silverrepeat01 = 
+> silver01 =
 >   addDur hn
->      [ e 4, fs 4,  g 4,
+>   $  [ e 4, fs 4,  g 4,
 >       fs 4,  a 4,  d 5,
 >       cs 5,  b 4, gs 4,
 >       ds 5,  e 5, fs 5,
@@ -231,25 +231,20 @@ Silver
 >        b 4, fs 4, gs 4,
 >        a 4, cs 5 ] 
 
-> silvermusiclist :: [Music Pitch]
-> silvermusiclist = [
->  rest dwn
->  , silverrepeat00
->  , a 4 hn
->  , silverrepeat00
->  , a 4 hn
->  , silverrepeat01
->  , a 4 hn
->  , silverrepeat01
->  , a 4 wn ]
+> allSilver :: [Music Pitch]
+> allSilver =
+>    [ rest dwn
+>      , silver00, a 4 hn
+>      , silver00, a 4 hn
+>      , silver01, a 4 hn
+>      , silver01, a 4 wn ]
 
 > silver =
 >     transpose (-5)
 >     $ instrument MusicBox
 >     $ tempo (2/1)
->     -- $ slur (3/2)
->     $ foldMusic silvermusiclist
->       :+: foldMusic silvermusiclist
+>     $ foldMusic allSilver
+>       :+: foldMusic allSilver
 >
 
 > foldMusic :: [Music a] -> Music a
@@ -270,22 +265,23 @@ Silver
 > playSnippets = 
 >    foldM playSnippet () [0..]
 
+> jingles :: [Music Pitch]
+> jingles =
+>    [theFanfare
+>     , alice
+>     , bob
+>     , bill
+>     , copper
+>     , gold
+>     , silver]
+
 >
-> playJingle :: () -> Int -> IO ()
-> playJingle _ i =
->    let jingles =
->          [theFanfare
->           , alice
->           , bob
->           , bill
->           , copper
->           , gold
->           , silver]
->        ix = i `mod` length jingles
->    in do
->       traceM ( (show i) ++ " jingle" )
->       play $ jingles !! ix
+> playJingle :: () -> Music Pitch -> IO ()
+> playJingle _ m =
+>    do
+>       traceM ( (show (dur m)) ++ " jingle time" )
+>       play m
 >       
 > playJingles :: IO ()
 > playJingles =
->    foldM playJingle () [0..]
+>    foldM playJingle () (cycle jingles)
