@@ -6,7 +6,23 @@ Fanfare
 > import Debug.Trace
 > import Control.Monad
 
-Fanfare proper
+
+Utilities =========================================================================
+
+> addDur       :: Dur -> [Dur -> Music a] -> Music a
+> addDur d ns  =  let f n = n d
+>                 in line (map f ns)
+
+> capture :: Music Pitch -> IO()
+> capture m = writeMidi2 "fanfare.mid" m
+
+> foldMusic :: [Music a] -> Music a
+> foldMusic as = foldr (:+:) (rest 0) as
+
+> slur :: Rational -> Music a -> Music a
+> slur rate = Modify (Phrase [Art (Slurred rate)])
+
+Fanfare proper ====================================================================
 
 > tFan1 = {- 14 -} rest wn :+: (c 4 dqn :+: rest en)
 >                  :+: (e 4 dqn :+: rest en)
@@ -67,9 +83,6 @@ The fanfare's answer
 >              $ transpose 5
 >              $ (trebleAll :=: bassAll)
 
-> capture :: Music Pitch -> IO()
-> capture m = writeMidi2 "fanfare.mid" m
-
 > dumpTB, dumpT, dumpB, dumpAll :: Int -> IO ()
 > dumpTB nn =
 >           traceM ("trebleAll = "
@@ -91,14 +104,7 @@ The fanfare's answer
 >                 dumpT nn
 >                 dumpB nn
 
-Alice
-
-> slur :: Rational -> Music a -> Music a
-> slur rate = Modify (Phrase [Art (Slurred rate)])
-
-> addDur       :: Dur -> [Dur -> Music a] -> Music a
-> addDur d ns  =  let f n = n d
->                 in line (map f ns)
+Alice =============================================================================
 
 > frag00 = line [g 3 qn, rest en, a 3 en, bf 3 wn]
 > frag01 = tempo (4/2) $ line [a 3 qn, bf 3 qn, a 3 qn, af 3 qn]
@@ -117,7 +123,7 @@ Alice
 >         $ instrument(Vibraphone)
 >         $ foldMusic [rest hn, line00, line01, line00, line01]
 
-Bob
+Bob ===============================================================================
 
 > treblebob =
 >    addDur qn
@@ -152,7 +158,7 @@ Bob
 >       :=: (instrument Oboe (times 2 altobob))
 >       :=: (instrument Cello (times 2 bassbob))
 
-Bill
+Bill ==============================================================================
 
 > bill00 =
 >      g 4 hn
@@ -179,9 +185,9 @@ Bill
 > bill =
 >    transpose 4
 >      $ tempo (2/1)
->           (bill00 :+: times 2 (bill01 :+: bill02))
+>      $ bill00 :+: times 2 (bill01 :+: bill02)
 
-Copper
+Copper ============================================================================
 
 > copper =
 >    removeZeros
@@ -193,7 +199,7 @@ Copper
 >          (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn]))
 >          :+: a 4 hn :+: g 4 wn)
 
-Gold
+Gold ==============================================================================
 
 > gold =
 >    removeZeros
@@ -211,7 +217,7 @@ Gold
 >                       d 4, bf 3, bf 3]))
 >     :+: c 4 hn
 
-Silver
+Silver ============================================================================
 
 > silver00 = 
 >   addDur hn
@@ -247,9 +253,8 @@ Silver
 >       :+: foldMusic allSilver
 >
 
-> foldMusic :: [Music a] -> Music a
-> foldMusic as = foldr (:+:) (rest 0) as
->
+Tools =============================================================================
+
 > snippet :: Music Pitch
 > snippet = line [c 4 en, e 4 en, bf 3 en, d 4 en, f 4 en]
 >
