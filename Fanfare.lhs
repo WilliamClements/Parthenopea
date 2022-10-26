@@ -25,8 +25,8 @@ Utilities ======================================================================
 Fanfare proper ====================================================================
 
 > tFan1 = {- 14 -} rest wn :+: (c 4 dqn :+: rest en)
->                  :+: (e 4 dqn :+: rest en)
->                  :+: (g 4 wn) :+: rest wn
+>                          :+: (e 4 dqn :+: rest en)
+>                          :+: (g 4 wn) :+: rest wn
 > bFan1 = {- 15 -} rest wn :+: rest wn :+: rest hn
 >                  :+: (c 3 dhn :+: c 3 qn :+: c 3 qn)
 >                  :=: (g 3 dhn :+: g 3 qn :+: g 3 qn)
@@ -36,7 +36,7 @@ Fanfare proper =================================================================
 >                  :+: (d 4 dqn :+: rest en)
 > bFan2 = {-  6 -} (rest wn :+: rest hn)
 
-> tFan3 = {- 10 -} (bf 3 qn) :+: (bf 3 qn) :+: (bf 3 hn) :+: c 4 wn :+: rest hn
+> tFan3 = {- 10 -} line [bf 3 qn, bf 3 qn, bf 3 hn, c 4 wn, rest hn]
 > bFan3 = {- 10 -} rest wn :+: rest qn
 >                  :+: (c 3 dhn :+: c 3 qn :+: c 3 qn)
 >                  :=: (g 3 dhn :+: g 3 qn :+: g 3 qn)
@@ -52,10 +52,10 @@ Fanfare proper =================================================================
 
 The fanfare's answer
 
-> tAns1 = {- 12 -} c 4 hn :+: g 4 hn :+: f 4 wn :+: rest hn :+: bf 3 qn :+: rest qn
+> tAns1 = {- 12 -} line [c 4 hn, g 4 hn, f 4 wn, rest hn, bf 3 qn, rest qn]
 > bAns1 = {- 10 -} rest wn
->                  :+: (bf 2 dhn :+: a 2 qn :+: g 2 hn)
->                  :=: (d 3 dhn  :+: c 2 qn :+: d 2 hn)
+>                  :+: (line [bf 2 dhn, a 2 qn, g 2 hn])
+>                  :=: (line [ d 3 dhn, c 2 qn, d 2 hn])
 
 > tAns2 = {-  6 -} bf 3 hn :+: a 3 qn :+: a 3 qn :+: g 3 hn
 > bAns2 = {-  6 -} rest wn :+: rest hn
@@ -160,32 +160,53 @@ Bob ============================================================================
 
 Bill ==============================================================================
 
-> bill00 =
->      g 4 hn
-
-> bill01 =
->      tempo (3/2)
->         (line [ef 4 qn, f 4 qn, g 4 qn])
->      :+: af 4 hn
->      :+: tempo (2/1)
->             (line [df 4 qn, ef 4 qn, f 4 qn, g 4 qn])
->      :+: line [af 4 qn, rest en, g 4 en, f 4 hn, ef 4 wn]
->      :+: line [rest hn, ef 4 qn, f 4 qn, gf 4 hn]
->      :+: tempo (2/1)
->             (line [b 3 qn, cs 4 qn, ef 4 qn, f 4 qn])
->      :+: line [gf 4 qn, rest en, f 4 en, ef 4 hn, df 4 dwn, rest hn]
-
-> bill02 = 
->      df 4 wn :+: d 4 wn :+: d 4 wn
->      :+: d 4 hn :+: ef 4 hn :+: f 4 hn
->      :+: tempo (3/2)
->             (line [g 3 qn, bf 3 qn, ef 4 qn])
->      :+: line [f 4 dqn, g 4 en, ef 4 hn, ef 4 hn] 
-
 > bill =
->    transpose 4
->      $ tempo (2/1)
->      $ bill00 :+: times 2 (bill01 :+: bill02)
+>    tempo (2/1)
+>    $ transpose 4
+>    $ (instrument Flute     ( g 4 hn :+: (times 2 treblebill)))
+>      :=: (instrument Oboe  (bf 3 hn :+: (times 2 altobill)))
+>      :=: (instrument Cello (ef 3 hn :+: (times 2 bassbill)))
+
+> treblebill00 =
+>      tempo (3/2) (line [ef 4 qn, f 4 qn, g 4 qn])
+>      :+: (af 4 hn)
+>         :+: tempo (2/1) (line [df 4 qn, ef 4 qn, f 4 qn, g 4 qn])
+>         :+: line [af 4 qn, rest en, g 4 en, f 4 hn]
+>      :+: (ef 4 wn) :+: line [rest hn, ef 4 qn, f 4 qn]
+>      :+: (gf 4 hn)
+>         :+: tempo (2/1) (line [b 3 qn, cs 4 qn, ef 4 qn, f 4 qn])
+>         :+: gf 4 qn :+: line [rest en, f 4 en, ef 4 hn]
+>      :+: (df 4 dwn) :+: rest hn
+> altobill00 =
+>       rest hn
+>       :+: (f 4 hn) :+: rest dwn
+>       :+: (c 4 hn) :+: rest dwn
+>       :+: (ef 3 hn) :+: rest dwn
+>       :+: (gf 3 hn) :+: rest dwn
+> bassbill00 =
+>       rest hn
+>       :+: (df 3 hn) :+: rest dwn
+>       :+: (af 2 hn) :+: rest dwn
+>       :+: ( b 2 hn) :+: rest dwn
+>       :+: (bf 2 hn) :+: rest dwn
+
+> treblebill01 = 
+>      tempo (1/3) (df 4 wn)
+>      :+: d 4 hn :+: ef 4 hn :+: f 4 hn
+>      :+: tempo (3/2) (line [g 3 qn, bf 3 qn, ef 4 qn])
+>      :+: line [f 4 dqn, g 4 en, ef 4 hn, ef 4 hn] 
+> altobill01 =
+>       rest wn :+: rest wn :+: (af 2 hn)
+>       :+: rest wn :+: (b 2 hn) :+: rest dwn :+: rest wn
+>
+> bassbill01 =
+>       tempo (1/3) (bf 2 wn) :+: rest wn :+: rest dwn :+: rest wn
+>
+>
+> treblebill = foldMusic [treblebill00, treblebill01]
+> altobill   = foldMusic [altobill00,     altobill01]
+> bassbill   = foldMusic [bassbill00,     bassbill01]
+>
 
 Copper ============================================================================
 
