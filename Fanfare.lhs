@@ -161,9 +161,9 @@ Bill ===========================================================================
 > bill =
 >    tempo (2/1)
 >    $ transpose 4
->    $ (instrument Flute     ( g 4 hn :+: (times 2 treblebill)))
->      :=: (instrument Oboe  (bf 3 hn :+: (times 2 altobill)))
->      :=: (instrument Cello (ef 3 hn :+: (times 2 bassbill)))
+>    $ (instrument Flute     (rest dwn :+: g 4 hn :+: (times 2 treblebill)))
+>      :=: (instrument Oboe  (rest dwn :+: bf 3 hn :+: (times 2 altobill)))
+>      :=: (instrument Cello (rest dwn :+: ef 3 hn :+: (times 2 bassbill)))
 
 > treblebill00 =
 >      tempo (3/2) (line [ef 4 qn, f 4 qn, g 4 qn])
@@ -172,7 +172,7 @@ Bill ===========================================================================
 >         :+: line [af 4 qn, rest en, g 4 en, f 4 hn]
 >      :+: (ef 4 wn) :+: line [rest hn, ef 4 qn, f 4 qn]
 >      :+: (gf 4 hn)
->         :+: tempo (2/1) (line [b 3 qn, cs 4 qn, ef 4 qn, f 4 qn])
+>         :+: tempo (2/1) (line [b 3 qn, df 4 qn, ef 4 qn, f 4 qn])
 >         :+: gf 4 qn :+: line [rest en, f 4 en, ef 4 hn]
 >      :+: (df 4 dwn) :+: rest hn
 > altobill00 =
@@ -189,15 +189,17 @@ Bill ===========================================================================
 >       :+: (bf 2 hn) :+: rest dwn
 
 > treblebill01 = 
->      tempo (1/3) (df 4 wn)
->      :+: line [ d 4 hn, ef 4 hn,  f 4 hn]
+>      line [df 4 hn,  d 4 wn, rest wn]
+>      :+: line [ d 4 dwn, ef 4 hn,  f 4 hn]
 >      :+: tempo (3/2) (line [g 3 qn, bf 3 qn, ef 4 qn])
->      :+: line [f 4 dqn, g 4 en, ef 4 hn, ef 4 hn] 
+>      :+: line [f 4 dqn, g 4 en, ef 4 hn, ef 4 wn] 
 > altobill01 =
->       line [rest wn, rest wn, af 2 hn, rest wn,  b 2 hn, rest dwn, rest wn]
+>       line [rest wn, rest wn, rest hn
+>            ,  af 2 wn, rest wn,  b 2 wn, bf 2 wn, rest wn]
 >
 > bassbill01 =
->       tempo (1/3) (bf 2 wn)
+>       rest wn
+>       :+: tempo (1/3) (bf 2 wn)
 >       :+: line [rest wn, rest dwn, rest wn]
 >
 > treblebill = foldMusic [treblebill00, treblebill01]
@@ -212,6 +214,7 @@ Copper =========================================================================
 >    $ transpose (-4) 
 >    $ tempo (2/1)
 >    $ instrument Banjo
+>    $ times 2
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
 >      :+: tempo (5/4) (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn])
 >      :+: line [ a 4 hn,  g 4 wn]
@@ -306,3 +309,13 @@ Tools ==========================================================================
 > playJingles :: IO ()
 > playJingles =
 >    foldM playJingle () (cycle jingles)
+
+> allJingles =
+>    foldMusic
+>       [theFanfare :+: rest wn
+>        , alice :+: rest wn
+>        , bob :+: rest wn
+>        , bill :+: rest wn
+>        , copper :+: rest wn
+>        , gold :+: rest wn
+>        , silver]
