@@ -105,20 +105,20 @@ The fanfare's answer
 Alice =============================================================================
 
 > frag00 = line [g 3 qn, rest en, a 3 en, bf 3 wn]
-> frag01 = tempo (4/2) $ line [a 3 qn, bf 3 qn, a 3 qn, af 3 qn]
-> frag02 = line [g 3 qn, f 3 dhn,  rest qn, g 3 dhn, rest dqn]
+> frag01 = tempo (5/2) $ line [a 3 qn, bf 3 qn, a 3 qn,  g 3 hn]
+> frag02 = line [f 3 hn, g 3 ddhn]
 
 > line00 = foldMusic [frag00, frag01, frag02]
 
-> frag10 = line [g 3 en, c 4 dqn, c 4 en, c 4 dqn, c 4 en, c 3 hn, rest dqn]
-> frag11 = line [c 3 en, g 3 dqn, g 3 en, g 3 dqn, g 3 en, c 3 dqn, rest en]
+> frag10 = line [g 3 en, c 4 dqn, c 4 en, c 4 dqn, c 4 en, c 3 ddhn]
+> frag11 = line [c 3 en, g 3 dqn, g 3 en, g 3 dqn, g 3 en, c 3 wn, rest hn]
 
 > line01 = foldMusic [frag10, frag11]
 
 > alice = removeZeros
 >         $ tempo (2/1)
 >         $ transpose 10 
->         $ instrument(Vibraphone)
+>         $ instrument Vibraphone
 >         $ foldMusic [rest hn, line00, line01, line00, line01]
 
 Bob ===============================================================================
@@ -161,10 +161,10 @@ Bill ===========================================================================
 > bill =
 >    tempo (2/1)
 >    $ transpose 4
->    $ (instrument Flute     (rest dwn :+: g 4 hn :+: (times 2 treblebill)))
+>    $ (instrument Flute     (rest dwn :+:  g 4 hn :+: (times 2 treblebill)))
 >      :=: (instrument Oboe  (rest dwn :+: bf 3 hn :+: (times 2 altobill)))
 >      :=: (instrument Cello (rest dwn :+: ef 3 hn :+: (times 2 bassbill)))
-
+>
 > treblebill00 =
 >      tempo (3/2) (line [ef 4 qn, f 4 qn, g 4 qn])
 >      :+: (af 4 hn)
@@ -174,20 +174,20 @@ Bill ===========================================================================
 >      :+: (gf 4 hn)
 >         :+: tempo (2/1) (line [b 3 qn, df 4 qn, ef 4 qn, f 4 qn])
 >         :+: gf 4 qn :+: line [rest en, f 4 en, ef 4 hn]
->      :+: (df 4 dwn) :+: rest hn
+>      :+: (df 4 wn) :+: rest wn
 > altobill00 =
 >       rest hn
 >       :+: (f 4 hn) :+: rest dwn
->       :+: (c 4 hn) :+: rest dwn
+>       :+: (c 4 wn) :+: rest wn
 >       :+: (ef 3 hn) :+: rest dwn
->       :+: (gf 3 hn) :+: rest dwn
+>       :+: (gf 3 wn) :+: rest wn
 > bassbill00 =
 >       rest hn
 >       :+: (df 3 hn) :+: rest dwn
->       :+: (af 2 hn) :+: rest dwn
+>       :+: (af 2 wn) :+: rest wn
 >       :+: ( b 2 hn) :+: rest dwn
->       :+: (bf 2 hn) :+: rest dwn
-
+>       :+: (bf 2 wn) :+: rest wn
+>
 > treblebill01 = 
 >      line [df 4 hn,  d 4 wn, rest wn]
 >      :+: line [ d 4 dwn, ef 4 hn,  f 4 hn]
@@ -195,8 +195,7 @@ Bill ===========================================================================
 >      :+: line [f 4 dqn, g 4 en, ef 4 hn, ef 4 wn] 
 > altobill01 =
 >       line [rest wn, rest wn, rest hn
->            ,  af 2 wn, rest wn,  b 2 wn, bf 2 wn, rest wn]
->
+>            , af 2 wn, gf 2 wn,  f 2 hn, b 2 hn, bf 2 wn, rest wn]
 > bassbill01 =
 >       rest wn
 >       :+: tempo (1/3) (bf 2 wn)
@@ -270,8 +269,6 @@ Silver =========================================================================
 >     $ instrument MusicBox
 >     $ tempo (2/1)
 >     $ foldMusic allSilver
->       :+: foldMusic allSilver
->
 
 Tools =============================================================================
 
