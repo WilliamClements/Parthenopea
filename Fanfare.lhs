@@ -24,9 +24,16 @@ Utilities ======================================================================
 
 Fanfare proper ====================================================================
 
-> tFan1 = {- 14 -} line
->                  [rest wn,  c 4 dqn, rest en
->                  ,  e 4 dqn, rest en,  g 4 wn, rest wn]
+> theFanfare :: Music Pitch
+> theFanfare = removeZeros
+>              $ tempo (2/1)
+>              $ transpose 5
+>              $ keysig C Mixolydian
+>              $ times 2
+>              $ (trebleAll :=: bassAll)
+
+> tFan1 = {- 16 -} line [rest wn,  c 4 dqn, rest en]
+>                  :+: line [e 4 dqn, rest en,  g 4 wn, rest wn]
 > bFan1 = {- 15 -} line [rest wn, rest wn, rest hn]
 >                  :+: line [ c 3 dhn,  c 3 qn,  c 3 qn]
 >                  :=: line [ g 3 dhn,  g 3 qn,  g 3 qn]
@@ -45,41 +52,33 @@ Fanfare proper =================================================================
 > tFan5 = {-  0 -} rest 0
 > bFan5 = {-  1 -} rest qn
 
-> tFan =  {- 30 -} foldMusic [tFan1, tFan2, tFan3, tFan4, tFan5]
+> tFan =  {- 32 -} foldMusic [tFan1, tFan2, tFan3, tFan4, tFan5]
 > bFan =  {- 32 -} foldMusic [bFan1, bFan2, bFan3, bFan4, bFan5]
 
 The fanfare's answer
 
-> tAns1 = {- 12 -} line [c 4 hn, g 4 hn, f 4 wn, rest hn, bf 3 qn, rest qn]
+> tAns1 = {- 10 -} line [c 4 hn, g 4 hn, f 4 wn, rest hn]
 > bAns1 = {- 10 -} rest wn
 >                  :+: (line [bf 2 dhn, a 2 qn, g 2 hn])
 >                  :=: (line [ d 3 dhn, c 2 qn, d 2 hn])
 
-> tAns2 = {-  6 -} line [bf 3 hn,  a 3 qn, a 3 qn, g 3 hn]
+> tAns2 = {-  6 -} line [ bf 3 qn, rest qn, bf 3 hn,  a 3 qn, a 3 qn]
 > bAns2 = {-  6 -} line [rest wn, rest hn]
 
-> tAns3 = {- 14 -} line [ a 3 hn, bf 3 hn,  c 4 wn, rest wn, rest hn]
+> tAns3 = {- 10 -} line [ g 3 hn,  a 3 hn, bf 3 hn,  c 4 wn]
 > bAns3 = {-  8 -} line [rest wn, rest wn]            
 
-> tAns4 = {-  2 -} rest 0
-> bAns4 = {-  8 -} line [  g 2 qn,  g 2 qn,  c 3 qn,  g 2 hn
->                       ,  c 3 qn, c  3 qn,  c 2 qn]
+> tAns4 = {-  6 -} line [rest wn, rest hn]
+> bAns4 = {-  8 -} line [  g 2 qn,  g 2 qn,  c 3 qn,  g 2 hn]
+>                  :+: line [ c 3 qn,  c 3 qn,  c 2 qn]
 
-> tAns =  {- 34 -} foldMusic [tAns1, tAns2, tAns3, tAns4]
+> tAns =  {- 32 -} foldMusic [tAns1, tAns2, tAns3, tAns4]
 > bAns =  {- 32 -} foldMusic [bAns1, bAns2, bAns3, bAns4]
 
->         {- 30 + 34 = 64 -}
+>         {- 32 + 32 = 64 -}
 > trebleAll = instrument Trumpet (tFan :+: tAns)
 >         {- 32 + 32 = 64 -}
 > bassAll = instrument Cello (bFan :+: bAns)
-
-> theFanfare :: Music Pitch
-> theFanfare = removeZeros
->              $ tempo (2/1)
->              $ keysig C Major
->              $ transpose 5
->              $ times 2
->              $ (trebleAll :=: bassAll)
 
 > dumpTB, dumpT, dumpB, dumpAll :: Int -> IO ()
 > dumpTB nn =
@@ -118,10 +117,19 @@ Alice ==========================================================================
 > alice = removeZeros
 >         $ tempo (2/1)
 >         $ transpose 10 
+>         $ keysig G Dorian
 >         $ instrument Vibraphone
 >         $ foldMusic [rest hn, line00, line01, line00, line01]
 
 Bob ===============================================================================
+
+> bob = removeZeros
+>       $ tempo (2/1)
+>       $ transpose 0
+>       $ keysig D Mixolydian
+>       $ (instrument Flute (times 4 treblebob))
+>       :=: (instrument Oboe (times 4 altobob))
+>       :=: (instrument Cello (times 4 bassbob))
 
 > treblebob =
 >    addDur qn
@@ -132,9 +140,8 @@ Bob ============================================================================
 >       , a 3,  g 4
 >       , b 3,  g 4]
 >    :+: tempo (3/2)
->       (addDur en [
->           g 4, fs 4, e 4, d 4, e 4, fs 4
->           , a 4, fs 4, e 4, d 4, e 4, g 4])
+>       (addDur en [ g 4, fs 4, e 4, d 4, e 4, fs 4
+>                  , a 4, fs 4, e 4, d 4, e 4, g 4])
 
 > altobob = line 
 >    [ rest qn, d 4 qn
@@ -146,21 +153,16 @@ Bob ============================================================================
 >    , rest wn]
 
 > bassbob =
->    line
->       [ d 2 dwn, rest hn
->       , g 2 wn, e 2 hn, c 2 hn]
+>    line [ d 2 dwn, rest hn,  g 2 wn,  e 2 hn,  c 2 hn]
 >       
-
-> bob = tempo (4/2)
->       $ (instrument Flute (times 4 treblebob))
->       :=: (instrument Oboe (times 4 altobob))
->       :=: (instrument Cello (times 4 bassbob))
 
 Bill ==============================================================================
 
 > bill =
->    tempo (2/1)
+>    removeZeros
+>    $ tempo (2/1)
 >    $ transpose 4
+>    $ keysig Ef Mixolydian
 >    $ (instrument Flute     (rest dwn :+:  g 4 hn :+: (times 2 treblebill)))
 >      :=: (instrument Oboe  (rest dwn :+: bf 3 hn :+: (times 2 altobill)))
 >      :=: (instrument Cello (rest dwn :+: ef 3 hn :+: (times 2 bassbill)))
@@ -210,8 +212,9 @@ Copper =========================================================================
 
 > copper =
 >    removeZeros
->    $ transpose (-4) 
 >    $ tempo (2/1)
+>    $ transpose (-4)
+>    $ keysig C Dorian
 >    $ instrument Banjo
 >    $ times 2
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
@@ -222,11 +225,12 @@ Gold ===========================================================================
 
 > gold =
 >    removeZeros
+>    $ tempo (2/1)
 >    $ transpose (-5)
->     $ tempo (2/1)
->     $ instrument AltoSax
->     $ (times 2
->     $ (line [c 4 hn,  c 5 dhn]
+>    $ keysig C Mixolydian
+>    $ instrument AltoSax
+>    $ (times 2
+>    $ (line [c 4 hn,  c 5 dhn]
 >       :+: addDur qn [ c 5, bf 4,  a 4,  g 4,
 >                       g 4,  f 4,  a 4,  g 4,
 >                       g 4,  f 4,  a 4,  g 4,
@@ -234,9 +238,17 @@ Gold ===========================================================================
 >                       c 5, bf 4,  a 4,  g 4,
 >                       g 4,  f 4,  e 4,  d 4,
 >                       d 4, bf 3, bf 3]))
->     :+: c 4 hn
+>    :+: c 4 hn
 
 Silver ============================================================================
+
+> silver =
+>     removeZeros
+>     $ tempo (2/1)
+>     $ transpose (-5)
+>     $ keysig A Mixolydian
+>     $ instrument MusicBox
+>     $ foldMusic allSilver
 
 > silver00 = 
 >   addDur hn
@@ -264,16 +276,10 @@ Silver =========================================================================
 >      , silver01, a 4 hn
 >      , silver01, a 4 wn ]
 
-> silver =
->     transpose (-5)
->     $ instrument MusicBox
->     $ tempo (2/1)
->     $ foldMusic allSilver
-
 Tools =============================================================================
 
 > snippet :: Music Pitch
-> snippet = line [c 4 en, e 4 en, bf 3 en, d 4 en, f 4 en]
+> snippet = line [c 4 en, e 4 qn, bf 3 en, d 4 qn, f 4 en]
 >
 > playSnippet :: () -> Int -> IO ()
 > playSnippet () i =

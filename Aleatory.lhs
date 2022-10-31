@@ -4,12 +4,14 @@ Last modified: 27-September-2022
 
 > module Aleatory where
 > import Euterpea
+> import Euterpea.Music
 > import System.Random
 > import Debug.Trace
-> import Data.List
+> import Data.List (unfoldr)
 > import Control.Monad (replicateM)
 > import Control.Monad.ST (runST)
 > import Control.Monad.State
+> import Fanfare
 
 > main = do
 >     seed  <- newStdGen
@@ -104,3 +106,37 @@ comment runRandom myAlgorithm 42
 
 > test :: Int -> IO [Int]
 > test n = sequence $ replicate n $ randomRIO (1,6::Int)
+
+> testMidi file = do
+>   x <- importFile file
+>   case x of Left err -> error err
+>             Right m -> do
+>                 let v = fromMidi m
+>                 putStrLn $ show v
+>                 play v
+
+> playRandomly = do
+>    z <- newStdGen
+>    let durations = toRational <$> (randomRs (0.1,2) z :: [Float])
+>    play $ line
+>      [ note 4 duration
+>      | (note, duration) <- zip [c, c, d, e, a, a, g] durations
+>      ]
+
+Yahozna ===========================================================================
+
+> yahozna =
+>     removeZeros
+>     $ tempo (4/1)
+>     $ transpose 0
+>     $ keysig C Mixolydian
+>     $ instrument DistortionGuitar
+>     $ Modify (Phrase [Art $ Staccato (2/3)]) allYahozna
+
+> guitarLick = line [c 3 hn, c 3 qn, c 3 qn, c 3 hn, rest hn]
+>              :+: line [c 3 qn, c 3 qn, c 3 qn, c 3 qn]
+
+> allYahozna :: Music Pitch
+> allYahozna =
+>    rest wn
+>    :+: times 4 (guitarLick :=: transpose 7 guitarLick)
