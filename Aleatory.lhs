@@ -1,23 +1,31 @@
-Examples using random number generation with Euterpea's Music data structures
+{-# LANGUAGE UnicodeSyntax #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
+Playground using random number generation with Euterpea's Music data structures
 William Clements
 Last modified: 27-September-2022
 
 > module Aleatory where
+>
+> import Codec.Midi
+> import Control.Concurrent
+> import Control.Concurrent.STM.TChan
+> import Data.Array
+> import Data.List (unfoldr, elemIndex, sortBy, insertBy)
 > import Euterpea
-> import Euterpea.Music
+> import Euterpea.IO.MIDI.MEvent
+> import FRP.UISF.AuxFunctions (DeltaT)
+> import GHC.Conc
+> import Parthenopea
+> import System.Environment
 > import System.Random
-> import Debug.Trace
-> import Data.List (unfoldr)
-> import Control.Monad (replicateM)
-> import Control.Monad.ST (runST)
-> import Control.Monad.State
-> import Fanfare
 
-> main = do
+> oldmain = do
 >     seed  <- newStdGen
 >     let rs = randomlist 10 seed
 >     print rs
->     let moreRs = randomlist 10 seed
+>     seed2 <- newStdGen
+>     let moreRs = randomlist 10 seed2
 >     print ""
 >     print moreRs
 
@@ -44,7 +52,7 @@ Last modified: 27-September-2022
 > sGen = mkStdGen 59
 
 > randIntegers :: [Int]
-> randIntegers = randomRs (0, 127) sGen
+> randIntegers = randomRs (32, 92) sGen
 
 > getRandInteger :: StdGen -> [Int]
 > getRandInteger sGen = take 10 randIntegers
@@ -63,46 +71,8 @@ Last modified: 27-September-2022
 >        range = ('a', 'z')
 >    in randomR range g
 
-> type R a = State StdGen a
-
-> runRandom :: R a -> Int -> a
-> runRandom action seed = evalState action $ mkStdGen seed
-
-> rand :: R Double
-> rand = do
->    gen <- get
->    let (r, gen') = random gen
->    put gen'
->    return r
-
-> randPair :: R (Double, Double)
-> randPair = do
->    x <- rand
->    y <- rand
->    return (x, y)
-
-> oneNormal :: R Double
-> oneNormal = do
->    pair <- randPair
->    return $ boxMuller 0 1 pair
->
-> normals :: R [Double]
-> normals = mapM (\_ -> oneNormal) $ repeat ()
-
 > boxMuller :: Double -> Double -> (Double, Double) -> Double
 > boxMuller mu sigma (r1,r2) =  mu + sigma * sqrt (-2 * log r1) * cos (2 * pi * r2)
-
-> someNormals :: {- Show p => -} Int -> R [Double]
-> someNormals x = liftM (take x) normals
-
-> myAlgorithm :: R [Bool]
-> myAlgorithm = do
->    xs <- someNormals 10
->    ys <- someNormals 10
->    let xys = zip xs ys
->    return $ uncurry (<) <$> xys
-
-comment runRandom myAlgorithm 42
 
 > test :: Int -> IO [Int]
 > test n = sequence $ replicate n $ randomRIO (1,6::Int)
@@ -114,7 +84,13 @@ comment runRandom myAlgorithm 42
 >                 let v = fromMidi m
 >                 putStrLn $ show v
 >                 play v
-
+>
+> {-
+> arrayList :: [Int] -> Array Int [Int]
+> arrayList [a] = listArray (0, 2) [[a]]
+> -}
+>
+>
 > playRandomly = do
 >    z <- newStdGen
 >    let durations = toRational <$> (randomRs (0.1,2) z :: [Float])
@@ -123,20 +99,157 @@ comment runRandom myAlgorithm 42
 >      | (note, duration) <- zip [c, c, d, e, a, a, g] durations
 >      ]
 
-Yahozna ===========================================================================
+> nub l                   = nub' l []
+>  where
+>    nub' [] _           = []
+>    nub' (x:xs) ls
+>        | x `elem` ls   = nub' xs ls
+>        | otherwise     = x : nub' xs (x:ls)
 
-> yahozna =
->     removeZeros
->     $ tempo (4/1)
->     $ transpose 0
->     $ keysig C Mixolydian
->     $ instrument DistortionGuitar
->     $ Modify (Phrase [Art $ Staccato (2/3)]) allYahozna
+> returnPairList :: Int -> Music Pitch
+> returnPairList seed = 
+>    let z = mkStdGen seed
+>        durations = toRational <$> (randomRs (0.1,2) z :: [Float])
+>    in
+>       line [note 4 duration
+>            | (note, duration) <- zip [c,e,c,b] durations
+>            ]
+>
+> getMidi :: [MEvent] -> Midi
+> getMidi mevs = toMidi mevs
+>
+> makeDistArrayMusic :: Int -> Music (Pitch, Volume) -> Array Int Int
+> makeDistArrayMusic nDivs m
+>   | traceIf msg False = undefined
+>   | otherwise = makeHistogram nDivs
+>                 $ extractTimes
+>                 $ collectMEvents
+>                 $ m
+>   where
+>      msg = unwords
+>            [ "histo="
+>            , show
+>              $ elems
+>              $ makeHistogram nDivs
+>              $ extractTimes
+>              $ collectMEvents
+>              $ m]
+>
+> collectMEvents :: Music (Pitch, Volume) -> Performance
+> collectMEvents m = fst (musicToMEvents defCon (toMusic1 m))
+>
+> extractTimes :: Performance -> [Double]
+> extractTimes p = map (\x -> fromRational $ eTime x) p
+>
+> defCon :: MContext
+> defCon = MContext
+>           {mcTime = 0
+>            , mcInst = AcousticGrandPiano
+>            , mcDur = metro 120 qn
+>            , mcVol=100}
+>
+> metro :: Int -> Dur -> DurT
+> metro setting dur  = 60 / (fromIntegral setting * dur)
+>
 
-> guitarLick = line [c 3 hn, c 3 qn, c 3 qn, c 3 hn, rest hn]
->              :+: line [c 3 qn, c 3 qn, c 3 qn, c 3 qn]
+Aleatory Music ====================================================================
 
-> allYahozna :: Music Pitch
-> allYahozna =
->    rest wn
->    :+: times 4 (guitarLick :=: transpose 7 guitarLick)
+> pitches :: [Pitch]
+> pitches = map pitch randIntegers
+>
+> durations :: [Dur]
+> durations = map toRat randIntegers
+>   where
+>     toRat :: Int -> Rational
+>     toRat i =
+>        let j = i `mod` 8
+>        in (toRational j) / 8
+>
+> aleatoryMusic =
+>    line $ [ note theDur thePitch
+>           | (theDur, thePitch) <- zip durations pitches
+>           ]
+> 
+
+Concurrent ========================================================================
+
+> readQ :: TChan a -> IO a
+> readQ = atomically . readTChan
+>
+> writeQ :: TChan a -> a -> IO ()
+> writeQ ch v = atomically $ writeTChan ch v
+> 
+> realQ :: Int -> IO ()
+> realQ seed = do
+>    putStrLn "entering realQ..."
+>    queue <- atomically $ newTChan
+>    readerThread queue
+>    mapM (sex2Quake queue) $ sextuplets (mkStdGen seed)
+>    error "not expected for mapM to finish"
+>
+>    where
+>
+>       readerThread :: TChan Lake -> IO ThreadId
+>       readerThread queue = forkIO sloop
+>          where
+>             sloop :: IO ()
+>             sloop = do
+>                lake <- readQ queue
+>                music <- quake2Music lake
+>                -- playS music
+>                -- putStrLn $ show music
+>                sloop
+>
+>       sex2Quake :: TChan Lake -> [Double] -> IO Lake
+>       sex2Quake queue rs 
+>          | (length rs >= 6) =
+>               do
+>                  ((getStdRandom $ randomR (100000,10000000)) >>= threadDelay)
+>                  let lake = mkLake rs
+>                  writeQ queue lake
+>                  return lake
+>          | otherwise = error "insufficiently sized list for sex2Quake" 
+>
+>       quake2Music :: Lake -> IO (Music (Pitch, Volume))
+>       quake2Music lake@Lake 
+>                    {cInst = iname
+>                    , cWch = w
+>                    , cPch = k
+>                    , cVol = vol
+>                    , cKey = ck
+>                    , cVel = vel} =
+>          do
+>             putStrLn $ show iname
+>             m <- return
+>                  $ removeZeros
+>                  $ instrument iname
+>                  $ tempo (toRational vel)
+>                  $ transpose (k - absPitch (C,4))
+>                  $ addVolume vol
+>                  $ mel w
+>             return m
+>          where mel _ = c 4 hn
+>
+> data Rake = Rake {bWch     :: Int, 
+>                   bXPos    :: Double, 
+>                   bYPos    :: Double,
+>                   bSnd     :: PercussionSound,
+>                   bVol     :: Volume,
+>                   bVel     :: Double}
+>    deriving (Show, Eq, Ord)
+>
+> rakeXDim, rakeYDim :: Double
+> rakeXDim = 100.0
+> rakeYDim = 161.8
+>
+> sex2Rake :: [Double] -> Rake
+> sex2Rake rs
+>    | (length rs >= 6) = 
+>       Rake {
+>          bWch =    floor           $ denorm (rs!!0) (0,4.99999)
+>          , bXPos =                   denorm (rs!!1) (0,rakeXDim - 0.000001)
+>          , bYPos =                   denorm (rs!!2) (0,rakeYDim - 0.000001)
+>          , bSnd =  toEnum $ round  $ denorm (rs!!3) (0,percussionLimit)
+>          , bVol =  round           $ denorm (rs!!4) (50,110)
+>          , bVel =                    denorm (rs!!5) (2,5)}
+>    | otherwise = error "insufficiently sized list for sex2Rake" 

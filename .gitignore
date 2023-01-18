@@ -1,1 +1,4 @@
 *.m4a
+*.pdf
+toy.lhs
+dist-newstyle/

@@ -38,8 +38,10 @@ WindEffect.exe seconds outFileName [seed]
 .\WindEffect.exe seconds outFileName [seed]
 
 > {-# LANGUAGE Arrows #-}
-> module Main where
+> module WindEffect where
+> import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea
+> import Parthenopea
 > import System.Random
 > import System.Environment
 
@@ -58,27 +60,52 @@ will fill secs number of seconds and be placed according to spacing (number of
 seconds between points). 
 
 > randEnv :: Double -> Double -> Double -> Double -> Double -> Double -> StdGen -> AudSF () Double
-> randEnv secs spacing y0 maxDelta limitL limitU g = 
+> randEnv secs spacing y0 maxDelta limitL limitU g
+>   | traceIf msg False = undefined
+>   | otherwise = 
 >     let n = ceiling (secs / spacing) -- how many envelope points do we need? (Must be finite)
 >         ys = take n $ randomPoints g y0 maxDelta limitL limitU 
 >         xs = take (n-1) $ repeat spacing
 >     in  proc () -> do
 >         y <- envLineSeg ys xs -< ()
->         returnA -< y
+>         returnA -< passY y
+>     where
+>        msg = unwords [ "\n randEnv secs=", show secs
+>                       , " spacing=", show spacing
+>                       , " n = ", show (ceiling (secs / spacing))
+>                       , " y0=", show y0
+>                       , " maxDelta=", show maxDelta
+>                       , " limitL=", show limitL
+>                       , " limitU=", show limitU]
+>
+> passY :: Double -> Double
+> passY y
+>   | traceIf msg False = undefined
+>   | otherwise = y
+>   where msg = "\n passY " ++ show y
 
 Utility function to split a random generator.
 
 > splitN :: StdGen -> [StdGen]
 > splitN g = let (g1,g2) = split g in g1 : splitN g2
-
+>
+> scaleEnv :: Double -> Double -> Double
+> scaleEnv vEnv nBP
+>   | traceNever msg False = undefined
+>   | otherwise = vEnv * nBP
+>   where msg = unwords [ "\n scaleEnv vEnv =" ++ show vEnv ++ " nBP =" ++ show nBP]
+>
 > wind :: Double -> StdGen -> AudSF () Double
-> wind secs g = let gs = splitN g in proc _ -> do
+> wind secs g
+>   | traceIf msg False = undefined
+>   | otherwise = let gs = splitN g in proc _ -> do
 >     n    <- noiseWhite (fst $ random (gs !! 0)) -< () -- white noise source
 >     vEnv <- randEnv secs 0.05 0    0.1  (0.1)  1.0  (gs !! 2) -< () -- volume envelope
 >     bpF  <- randEnv secs 0.05 2000 50   100    5000 (gs !! 3) -< () -- bandpass center frequency 
 >     bw   <- randEnv secs 0.05 50   5    5      100  (gs !! 4) -< () -- bandpass bandwidth 
 >     nBP  <- filterBandPassBW -< (n, bpF, bw)  -- filtered noise
->     returnA -< vEnv * nBP 
+>     returnA -< scaleEnv vEnv nBP 
+>     where msg = unwords [ "\n wind secs =" ++ show secs ]
 
 Since the wind function needs to know the amount of seconds being
 generated, we will wrap outFile to provide seconds in all the places
@@ -99,7 +126,7 @@ supplied then the program will seed itself.
 >   rio <- randomIO
 >   let r = if length args == 3 then read (args !! 2) else rio
 >       g = mkStdGen r
->   putStr ("Random seed: "++show r)
+>   putStr ("Random seed: " ++ show r ++ "\n")
 >   if length args >= 2 then do
 >       let secs = read (args !! 0) :: Double
 >       genWind g secs (args !! 1)

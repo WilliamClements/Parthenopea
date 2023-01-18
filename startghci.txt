@@ -1,0 +1,27 @@
+ghci -package random -package stm -package UISF -package HCodecs -package arrows -package pure-fft
+ghc -package random -package stm -package UISF -package HCodecs -package arrows
+ghc -package random -package stm -package UISF -package HCodecs -package arrows -package pure-fft -o Signals.exe signals
+
+
+runMUI' $ hist1 Nothing
+
+runMUI' $ hist1 64 Nothing $ Left $ bake2 37373
+runMUI' $ hist1 64 Nothing $ Right $ bake3 99
+runMUI' $ hist1 64 Nothing $ Right $ bake4 37373
+runMUI' $ hist1 100 Nothing $ Right $ bake3 37373
+runMUI' $ hist1 100 Nothing $ Right $ bake4 37373
+runMUI' $ hist1 32 Nothing $ Left $ addVolume 100 $ yahozna
+runMUI' $ hist1 8 Nothing $ Left $ addVolume 100 $ snippet
+
+-- listOutOfRangeCases
+--   roger: Viola, OrchestralHarp
+--   cecil: Contrabass, TenorSax, Violin
+--   abby: AcousticGrandPiano
+--   wj: ChurchOrgan, BaritoneSax
+--   shelby: AltoSax, ElectricBassPicked, Vibraphone
+--   waypostpurple: Trumpet, AcousticBass, AcousticGuitarSteel
+--   pendingtonArnt: StringEnsemble1
+--   theFanfare: Cello
+--   bob: Oboe
+--   copper: Banjo
+--   silver: Celesta
