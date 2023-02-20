@@ -1,17 +1,37 @@
+cabal v2-build all
+cabal v2-repl
+(import each)
+
+:lo *LoadEmAll
+
+ghci -package random -package mtl -package stm -package HCodecs -package arrows -package Euterpea -package pure-fft -package UISF -package markov-chain -package HSoM
+ghci -package random -package stm -package HCodecs -package arrows
 ghci -package random -package stm -package UISF -package HCodecs -package arrows -package pure-fft
 ghc -package random -package stm -package UISF -package HCodecs -package arrows
 ghc -package random -package stm -package UISF -package HCodecs -package arrows -package pure-fft -o Signals.exe signals
 
+ghc -package random -package mtl -package stm -package HCodecs -package arrows -package Euterpea -package pure-fft -package UISF -O2 -o Interactive.exe Interactive.lhs
 
-runMUI' $ hist1 Nothing
+cabal v2-install --allow-newer HSoM
+cabal v2-build
 
-runMUI' $ hist1 64 Nothing $ Left $ bake2 37373
-runMUI' $ hist1 64 Nothing $ Right $ bake3 99
-runMUI' $ hist1 64 Nothing $ Right $ bake4 37373
-runMUI' $ hist1 100 Nothing $ Right $ bake3 37373
-runMUI' $ hist1 100 Nothing $ Right $ bake4 37373
-runMUI' $ hist1 32 Nothing $ Left $ addVolume 100 $ yahozna
-runMUI' $ hist1 8 Nothing $ Left $ addVolume 100 $ snippet
+writeMidiA "baked.mid"   p1PMap p1Con $ bakedJingle 673635
+
+/c/Users/Billy/AppData/Roaming/ghc/x86_64-mingw32-9.2.5/environments/.ghc.environment.x86_64-mingw32-9.2.5
+C:\Users\Billy\AppData\Roaming\ghc\x86_64-mingw32-9.2.5\environments\.ghc.environment.x86_64-mingw32-9.2.5
+
+cabal -v install --package-env=/c/Users/Billy/AppData/Roaming/ghc/x86_64-mingw32-9.2.5/environments/.ghc.environment.x86_64-mingw32-9.2.5
+cabal -v install --package-env=C:\Users\Billy\AppData\Roaming\ghc\x86_64-mingw32-9.2.5\environments\.ghc.environment.x86_64-mingw32-9.2.5
+
+runMUI' $ histWidget Nothing
+runMUI' $ histWidget 64 Nothing $ Left $ bake4Consumption 37373
+
+runMUI' $ histWidget 64 Nothing $ Right $ bake4Measuring 99 -- this one has the problem
+runMUI' $ histWidget 64 Nothing $ Right $ bake4Sampling 37373
+runMUI' $ histWidget 100 Nothing $ Right $ bake4Measuring 37373
+runMUI' $ histWidget 100 Nothing $ Right $ bake4Sampling 37373
+runMUI' $ histWidget 32 Nothing $ Left $ yahozna
+runMUI' $ histWidget 8 Nothing $ Left $ addVolume 100 $ pSnippet02
 
 -- listOutOfRangeCases
 --   roger: Viola, OrchestralHarp

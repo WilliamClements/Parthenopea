@@ -1,0 +1,5 @@
+packages: ./
+          ../eut/v2/Euterpea2/
+          ../eut/hsom/HSoM/
+jobs: $ncpus
+package parthenopea

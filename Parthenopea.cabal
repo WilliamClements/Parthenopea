@@ -1,0 +1,46 @@
+name:           Parthenopea
+version:        1.0.0
+build-type:     Simple
+cabal-version:  >= 1.8
+license:
+category:       Sound
+maintainer:     William Clements <william@clementsassociates.net>
+synopsis:       William Clements Music
+description:    William Clements Music using Euterpea
+
+library
+  hs-source-dirs: .
+  ghc-options: -O2 -funbox-strict-fields -fexcess-precision
+  extensions: CPP
+  exposed-modules:
+        Aleatory,
+        Baking,
+        Cecil,
+        Covers,
+        Fanfare,
+        LoadEmAll,
+        Parthenopea,
+        Percussion,
+        Players,
+        Signals,
+        Simple
+  other-modules:
+  build-depends:
+        base >= 4 && < 5,
+        binary >= 0.8.9.0 && < 1.0,
+        markov-chain >= 0.0.3.4 && < 0.0.4,
+        Euterpea >= 2.0.8,
+        arrows >= 0.4 && < 0.5,
+        array>=0.5.0.0 && <=0.6,
+        deepseq>=1.3.0.2 && <=1.5,
+        random>=1.0.1.1 && <=1.2,
+        PortMidi==0.2.0.0,
+        HCodecs >= 0.5.1 && <= 0.6,
+        stm >= 2.4 && <2.6,
+        containers>=0.5.5.1 && <0.7,
+        bytestring>=0.10.4.0 && <= 0.12,
+        heap >= 1.0 && < 2.0,
+        HSoM >= 1.0.0 && < 2.0,
+        UISF >= 0.4.0.0,
+        pure-fft >= 0.2.0,
+        ghc-prim

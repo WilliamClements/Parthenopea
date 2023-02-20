@@ -1,18 +1,21 @@
+> {-# LANGUAGE UnicodeSyntax #-}
+
 Cecil
 William Clements
 December 18, 2022
 
 > module Cecil where
 
-> import Euterpea
-> import Parthenopea
+> import Euterpea.IO.MIDI.Play
+> import Euterpea.Music
+> import Parthenopea ( triad )
 
 Cecil's Asleep ====================================================================
 
 > cecil :: Music (Pitch, Volume)
 > cecil =
 >    removeZeros
->    $ tempo (1/1)
+>    $ tempo 1
 >    $ transpose 0
 >    $ keysig G Dorian
 >    $ addVolume 100
@@ -49,11 +52,11 @@ Cecil's Asleep =================================================================
 >               , rAltoIA, rest sn, rAltoIA, rest sn
 >               , rAltoIB]
 >
-> rAltoIA = (tempo (3/1) $ line [bf 4 qn, bf 4 qn, bf 4 qn])
+> rAltoIA = tempo 3 (line [bf 4 qn, bf 4 qn, bf 4 qn])
 >           :+: line [g 4 den]
-> rAltoIB = (tempo (3/1) $ line [bf 4 qn, bf 4 qn, bf 4 qn])
+> rAltoIB = tempo 3 (line [bf 4 qn, bf 4 qn, bf 4 qn])
 >           :+: line [c 5 den]
-> rAltoIC = (tempo (3/1) $ line [ d 5 qn, d 5 qn,  d 5 qn])
+> rAltoIC = tempo 3 (line [ d 5 qn, d 5 qn,  d 5 qn])
 >           :+: line [g 4 den]
 > whatIsGoingOn
 >         = line [bf 4 qn, c 5 qn, d 5 qn, d 4 qn, g 4 hn, rest hn]
@@ -204,18 +207,18 @@ Abby Cissa =====================================================================
 > abby :: Music (Pitch, Volume)
 > abby =
 >    removeZeros
->    $ tempo (1/1)
+>    $ tempo 1
 >    $ transpose 0
 >    $ keysig C Major
 >    $ addVolume 100
->    $ instrument Sitar
->    $ aLink
+>    $ instrument HonkyTonkPiano
+>      aLink
 >
 >    where
 >
 >    aLink, aLinkI, aLinkII, aLinkIII :: Music Pitch
 >    aLink  = line [aLinkI, aLinkII, aLinkI
->                  , tempo (2/1) (line [aLinkII, aLinkIII])]
+>                  , tempo 2 (line [aLinkII, aLinkIII])]
 >    aLinkI = line [aLinkIA, aLinkIB, aLinkIC, aLinkID, aLinkIE, aLinkIF]
 >
 >    aLinkIA, aLinkIB, aLinkIC, aLinkID, aLinkIE, aLinkIF :: Music Pitch
@@ -278,16 +281,16 @@ There Goes W.J. ================================================================
 > wj :: Music (Pitch, Volume)
 > wj =
 >    removeZeros
->    $ tempo (1/1)
+>    $ tempo 1
 >    $ transpose 0
 >    $ keysig G Dorian
 >    $ addVolume 100
->    $ (instrument Violin
->       $ line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
->      :=: (instrument ChurchOrgan
->       $ line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
->      :=: (instrument BaritoneSax
->       $ line [wjBassI,  wjBassII,  wjBassIII,  wjBassIV])
+>    $ instrument Violin
+>       (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
+>      :=: instrument ChurchOrgan
+>       (line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
+>      :=: instrument BaritoneSax
+>       (line [wjBassI,  wjBassII,  wjBassIII,  wjBassIV])
 >
 >    where
 >
@@ -335,21 +338,21 @@ Shelby Parsley =================================================================
 > shelby :: Music (Pitch, Volume)
 > shelby =
 >   removeZeros
->   $ tempo (1/1)
+>   $ tempo 1
 >   $ transpose 0
 >   $ keysig Ef Mixolydian
 >   $ addVolume 100
->   $ (if skip_SP then rest 0
+>   $ if skip_SP then rest 0
 >                 else
->     ((instrument Vibraphone
->     $ line [spAltoI,  spAltoII,  spAltoIII])
->    :=: (instrument ElectricGuitarClean
->     $ line [spTenrI, spTenrII, spTenrIII])
->    :=: (instrument ElectricBassPicked
->     $ line [spBassI,  spBassII,  spBassIII])))
+>     (instrument Vibraphone
+>       (line [spAltoI,  spAltoII,  spAltoIII])
+>     :=: instrument ElectricGuitarClean
+>       (line [spTenrI, spTenrII, spTenrIII])
+>     :=: instrument ElectricBassPicked
+>       (line [spBassI,  spBassII,  spBassIII]))
 >        :+:
->     (instrument HonkyTonkPiano
->     $  line [ chord [ triad B (CustomMode "Sus4") (B, 3) wn
+>     instrument HonkyTonkPiano
+>       (line [ chord [ triad B (CustomMode "Sus4") (B, 3) wn
 >   --                            Does     It       Have    Trays?
 >                       , line [ e 4 en, ds 4 en, cs 4 qn, b 3 dqn]]]
 >    :+: line [ chord [ triad D Major               (A, 3) wn
@@ -374,11 +377,11 @@ Shelby Parsley =================================================================
 >    :+: line [  spTriF qn, spTriF qn
 >             ,  spTriE qn, spTriE qn
 >             , spTriEf qn, spTriEf qn, spTriB wn, rest wn]
->    :+: line [spTrie en, spTrie en, spTrie qn, spTriB' hn,
->              spTrig en, spTrig en, spTrig qn, spTriD  hn])
+>    :+: line [spTrie en, spTrie en, spTrie qn, spTriB' hn
+>             ,  spTrig en, spTrig en, spTrig qn, spTriD  hn])
 >    :=: (instrument ElectricBassPicked
 >           (times 2 (line [b 2 wn, d 3 wn, c 3 wn, a 2 wn]))
->             :+: (line [f 3 hn, e 3 hn, ef 3 hn, b 2 dwn]))
+>             :+: line [f 3 hn, e 3 hn, ef 3 hn, b 2 dwn])
 >
 >   where
 >
@@ -498,14 +501,15 @@ We Hate Her ====================================================================
 > weHateHer :: Music (Pitch, Volume)
 > weHateHer =
 >    removeZeros
->    $ tempo (1/1)
+>    $ tempo 1
 >    $ transpose 0
 >    $ keysig G Dorian
 >    $ addVolume 100
->    $ instrument Violin whh_mel
+>    $ instrument Violin whhMel
 >
+> whhMel :: Music Pitch
 >    --                      We
-> whh_mel = line [rest dqn, g 4 en
+> whhMel = line  [rest dqn, g 4 en
 >    --             Hate     Her     We      Hate      Her     We  
 >               ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
 >    --             real-     ly      real-    ly      Hate     Her     She

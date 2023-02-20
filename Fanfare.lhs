@@ -1,23 +1,22 @@
+> {-# LANGUAGE UnicodeSyntax #-}
+
 Fanfare
 William Clements
 November 11, 2022
 
 > module Fanfare where
 
-> import Baking
-> import Cecil
-> import Control.Monad (foldM)
-> import Data.Ratio (approxRational)
-> import Debug.Trace
-> import Euterpea
-> import Parthenopea
-> import System.Random
+> import Euterpea.IO.MIDI.Play
+> import Euterpea.Music
+> import HSoM.Examples.MoreMusic ( roll )
+> import Parthenopea (triad, addDur, defSnippet, pSnippet01, playDM)
 
   "triads"
 
-> pTriadG,  pTriadC,   pTriadBf,   pTriadd      :: Dur -> Music Pitch
-> pTriadEf, pTriadF,   pTriadfs,   pTriadb      :: Dur -> Music Pitch
-> pTriade,  pTriadAug, pTriadSusA, pTriadDim7A  :: Dur -> Music Pitch
+> pTriadG,  pTriadC,   pTriadBf,   pTriadD,   pTriadd    :: Dur → Music Pitch
+> pTriadEf, pTriadF,   pTriadfs,   pTriadb,   pTriadAf   :: Dur → Music Pitch
+> pTriade,  pTriadAug, pTriadSusA, pTriada               :: Dur → Music Pitch
+> pTriadDim7A                                            :: Dur → Music Pitch
 >
 > pTriadC      = triad  C Major              ( E, 3)
 > pTriadD      = triad  D Major              ( A, 2)
@@ -38,7 +37,7 @@ November 11, 2022
 Fanfare ===========================================================================
 
 > theFanfare = removeZeros
->              $ tempo (2/1)
+>              $ tempo (5/2)
 >              $ transpose 5
 >              $ keysig C Mixolydian
 >              $ addVolume 100
@@ -73,8 +72,8 @@ The fanfare's answer
 
 >       tAns1 = {- 10 -} line [c 4 hn, g 4 hn, f 4 wn, rest hn]
 >       bAns1 = {- 10 -} rest wn
->                        :+: (line [bf 2 dhn, a 2 qn, g 2 hn])
->                        :=: (line [ d 3 dhn, c 2 qn, d 2 hn])
+>                        :+: line [bf 2 dhn, a 2 qn, g 2 hn]
+>                        :=: line [ d 3 dhn, c 2 qn, d 2 hn]
 >
 >       tAns2 = {-  6 -} line [ bf 3 qn, rest qn, bf 3 hn,  a 3 qn, a 3 qn]
 >       bAns2 = {-  6 -} line [rest wn, rest hn]
@@ -97,7 +96,7 @@ The fanfare's answer
 Alice =============================================================================
 
 > alice = removeZeros
->         $ tempo (2/1)
+>         $ tempo 2
 >         $ transpose 10 
 >         $ keysig G Dorian
 >         $ addVolume 100
@@ -119,24 +118,25 @@ Alice ==========================================================================
 
 Bob ===============================================================================
 
-> bob = removeZeros
->       $ tempo (2/1)
+> bob :: Int → Music (Pitch, Volume)
+> bob nRepeats = removeZeros
+>       $ tempo 2
 >       $ transpose 0
 >       $ keysig D Mixolydian
 >       $ addVolume 100
->       $ (instrument Violin (times 4 treblebob))
->       :=: (instrument Oboe (times 4 altobob))
->       :=: (instrument Cello (times 4 bassbob))
+>       $ instrument Violin (times nRepeats treblebob)
+>       :=: instrument Oboe (times nRepeats altobob)
+>       :=: instrument Cello (times nRepeats bassbob)
 >
 >    where
 >
->       treblebob = (addDur qn
+>       treblebob = addDur qn
 >          [ a 3, fs 4
 >          , a 3, fs 4
 >          , a 3, fs 4 
 >          , a 3, fs 4
 >          , a 3,  g 4
->          , b 3,  g 4])
+>          , b 3,  g 4]
 >          :+: tempo (3/2) (addDur en
 >          [ g 4, fs 4
 >          , e 4, d 4
@@ -160,43 +160,43 @@ Bob ============================================================================
 
 Bill ==============================================================================
 
-> bill =
+> bill nRepeats =
 >    removeZeros
->    $ tempo (2/1)
+>    $ tempo 2
 >    $ transpose 0
 >    $ keysig Ef Mixolydian
 >    $ addVolume 100
->    $ (instrument Violin
->         (rest dwn :+:  g 4 hn :+: (times 2 treblebill)))
->      :=: (instrument AcousticGrandPiano
->         (rest dwn :+: bf 3 hn :+: (times 2 altobill)))
->      :=: (instrument Cello
->         (rest dwn :+: ef 3 hn :+: (times 2 bassbill)))
+>    $ instrument Violin
+>         (rest dwn :+:  g 4 hn :+: times nRepeats treblebill)
+>      :=: instrument AcousticGrandPiano
+>         (rest dwn :+: bf 3 hn :+: times nRepeats altobill)
+>      :=: instrument Cello
+>         (rest dwn :+: ef 3 hn :+: times nRepeats bassbill)
 >
 >    where
 > 
 >    treblebill00 =
 >        tempo (3/2) (line [ef 4 qn, f 4 qn, g 4 qn])
->          :+: (af 4 hn)
->          :+: tempo (2/1) (line [df 4 qn, ef 4 qn, f 4 qn, g 4 qn])
+>          :+: af 4 hn
+>          :+: tempo 2 (line [df 4 qn, ef 4 qn, f 4 qn, g 4 qn])
 >          :+: line [af 4 qn, rest en, g 4 en, f 4 hn]
->          :+: (ef 4 wn) :+: line [rest hn, ef 4 qn, f 4 qn]
->          :+: (gf 4 hn)
->          :+: tempo (2/1) (line [b 3 qn, df 4 qn, ef 4 qn, f 4 qn])
+>          :+: ef 4 wn :+: line [rest hn, ef 4 qn, f 4 qn]
+>          :+: gf 4 hn
+>          :+: tempo 2 (line [b 3 qn, df 4 qn, ef 4 qn, f 4 qn])
 >          :+: gf 4 qn :+: line [rest en, f 4 en, ef 4 hn]
->          :+: (df 4 wn) :+: rest wn
+>          :+: df 4 wn :+: rest wn
 >    altobill00 =
 >          rest hn
->          :+: (f 4 hn) :+: rest dwn
->          :+: (c 4 wn) :+: rest wn
->          :+: (ef 3 hn) :+: rest dwn
->          :+: (gf 3 wn) :+: rest wn
+>          :+: f 4 hn :+: rest dwn
+>          :+: c 4 wn :+: rest wn
+>          :+: ef 3 hn :+: rest dwn
+>          :+: gf 3 wn :+: rest wn
 >    bassbill00 =
 >          rest hn
->          :+: (df 3 hn) :+: rest dwn
->          :+: (af 2 wn) :+: rest wn
->          :+: ( b 2 hn) :+: rest dwn
->          :+: (bf 2 wn) :+: rest wn
+>          :+: df 3 hn :+: rest dwn
+>          :+: af 2 wn :+: rest wn
+>          :+:  b 2 hn :+: rest dwn
+>          :+: bf 2 wn :+: rest wn
 >
 >    treblebill01 = 
 >          line [df 4 hn,  d 4 wn, rest wn]
@@ -220,7 +220,7 @@ Copper =========================================================================
 
 > copper =
 >    removeZeros
->    $ tempo (2/1)
+>    $ tempo 2
 >    $ transpose (-4)
 >    $ keysig C Dorian
 >    $ addVolume 100
@@ -234,27 +234,27 @@ Gold ===========================================================================
 
 > gold =
 >    removeZeros
->    $ tempo (2/1)
+>    $ tempo 2
 >    $ transpose (-5)
 >    $ keysig C Mixolydian
 >    $ addVolume 100
 >    $ instrument AltoSax
->    $ (times 2
->    $ (line [c 4 hn,  c 5 dhn]
+>    $ times 2
+>      (line [c 4 hn,  c 5 dhn]
 >       :+: addDur qn [ c 5, bf 4,  a 4,  g 4,
 >                       g 4,  f 4,  a 4,  g 4,
 >                       g 4,  f 4,  a 4,  g 4,
 >                       g 4,  c 4,  c 4,  c 4,
 >                       c 5, bf 4,  a 4,  g 4,
 >                       g 4,  f 4,  e 4,  d 4,
->                       d 4, bf 3, bf 3]))
+>                       d 4, bf 3, bf 3])
 >    :+: c 4 hn
 
 Silver ============================================================================
 
 > silver =
 >     removeZeros
->     $ tempo (2/1)
+>     $ tempo 2
 >     $ transpose 5
 >     $ keysig A Mixolydian
 >     $ addVolume 100
@@ -265,14 +265,14 @@ Silver =========================================================================
 >
 >     silver00 = 
 >        addDur hn
->        $  [ a 4,  e 5, cs 5,  a 4, fs 4,
+>           [ a 4,  e 5, cs 5,  a 4, fs 4,
 >             a 4,  b 4, fs 4,  e 4,
 >             a 4,  b 4, fs 4,  e 4,
 >            fs 4, gs 4,  a 4, cs 5 ]
 >
 >     silver01 =
 >        addDur hn
->        $  [ e 4, fs 4,  g 4,
+>           [ e 4, fs 4,  g 4,
 >            fs 4,  a 4,  d 5,
 >            cs 5,  b 4, gs 4,
 >            ds 5,  e 5, fs 5,
@@ -288,119 +288,6 @@ Silver =========================================================================
 >         , silver00, a 4 hn
 >         , silver01, a 4 hn
 >         , silver01, a 4 wn ]
-
-Tools =============================================================================
-
-> playSnippet :: () -> Int -> IO ()
-> playSnippet () i =
->    let inst :: InstrumentName
->        inst = toEnum (i `mod` (fromEnum Gunshot))
->    in do
->       traceIO ("InstrumentName = " ++ (show inst))
->       play $ instrument inst snippet
->
-> playSnippets :: IO ()
-> playSnippets = 
->    foldM playSnippet () [0..]
->
-> ajingles, bjingles :: [(String, Music (Pitch, Volume))]
->
-> ajingles =
->    [("theFanfare"      , theFanfare)
->     , ("alice"         , alice)
->     , ("bob"           , bob)
->     , ("copper"        , copper)
->     , ("gold"          , gold)
->     , ("silver"        , silver)]
-> bjingles =
->    [("waypostpurple"   , waypostpurple)
->    , ("snake"          , snake)
->    , ("getCITM"        , getCITM)
->    , ("bake"           , bake)
->    , ("whelpNarp"      , whelpNarp)
->    , ("bill"           , bill)
->    , ("roger"          , roger)
->    , ("pendingtonArnt" , pendingtonArnt)]
-> cjingles =
->    [("cecil"           , cecil)
->    , ("abby"           , abby)
->    , ("wj"             , wj)
->    , ("shelby"         , shelby)
->    , ("weHateHer"      , weHateHer)]
->
-> mVol1 =
->   line [
->     cecil, rest wn,
->     abby, rest wn,
->     wj, rest wn,
->     shelby, rest wn,
->     weHateHer]
-> mVol2 = 
->   line [
->     waypostpurple, rest wn,
->     roger, rest wn,
->     snake, rest wn,
->     getCITM, rest wn,
->     bake, rest wn, 
->     whelpNarp, rest wn, 
->     bill]
-> mVol3 =
->   line [
->     pendingtonArnt, rest wn,
->     theFanfare, rest wn,
->     alice, rest wn,
->     bob, rest wn,
->     copper, rest wn,
->     gold, rest wn,
->     silver]
->
-> playJingle :: () -> (String, Music (Pitch, Volume)) -> IO ()
-> playJingle _ (s, m) =
->    do
->       traceM ( (show s) ++ " " ++ (show (durS (dur m))) ++ " seconds" )
->       playDM m
->       
-> playJingles :: [(String, Music (Pitch, Volume))] -> IO ()
-> playJingles jingles =
->    foldM playJingle () (cycle jingles)
-
-Lake ==============================================================================
-
-> lake :: Music (Pitch, Volume)
-> lake2 :: Music Pitch -> Int -> Music (Pitch, Volume)
->
-> lake = cut 36 $ lake2 pSnippet01 782556
-> lake2 melInput seed =
->           line
->           $ map ((random2Music melInput) . sex2Random)
->           $ sextuplets
->           $ mkStdGen seed
->
-> sex2Random :: [Double] -> Lake
-> sex2Random rs = mkLake rs
->
-> random2Music :: Music Pitch -> Lake -> Music (Pitch, Volume)
-> random2Music melInput lake@Lake 
->                         {cInst = iname
->                         , cWch = w
->                         , cPch = k
->                         , cVol = vol
->                         , cKey = ck
->                         , cVel = vel} = 
->    removeZeros
->    $ instrument iname
->    $ tempo (approxRational vel rationalEpsilon)
->    $ transpose (k - absPitch (C,4))
->    $ addVolume vol
->    $ mels !! w
->
->    where
->
->    mel0 = melInput
->    mel1 = retro melInput
->    mel2 = invert melInput
->    mel3 = (invert.retro) melInput
->    mels = [mel0, mel1, mel2, mel3]
 
 Snake =============================================================================
 
@@ -421,7 +308,7 @@ Snake ==========================================================================
 >
 > snake =
 >    removeZeros
->    $ tempo (2/1)
+>    $ tempo 2
 >    $ transpose 1
 >    $ keysig D Mixolydian
 >    $ addVolume 100
@@ -451,9 +338,9 @@ Snake ==========================================================================
 >    deedee = d 3 dwn :+: rest hn
 >    
 >    -- Relief
->    treb02 = (times 3 $ line [gSnip07, gTail11, gHead11])
+>    treb02 = times 3 (line [gSnip07, gTail11, gHead11])
 >                    :+: line [gSnip07, gTail12, gHead01]
->    alto02 = (times 3 $ line [ceecee, deedee])
+>    alto02 = times 3 (line [ceecee, deedee])
 >                    :+: line [ceecee, dee, gHead02]
 >
 >    -- Doubled Runs
@@ -509,25 +396,25 @@ Country In The Morning =========================================================
 
 > getCITM =
 >    removeZeros
->    $ tempo (1/1)
+>    $ tempo 1
 >    $ transpose 0
 >    $ keysig G Major
 >    $ addVolume 100
 >    $ rest wn
 >      :+:
->         (instrument AltoSax
->          $ line [a1 :+: rest qn, b1, a1 :+: a 4 qn, c1])
+>         instrument AltoSax
+>           (line [a1 :+: rest qn, b1, a1 :+: a 4 qn, c1])
 >      :=:
->         (instrument StringEnsemble1
->          $ line [a2, b2, a2, c2])
+>         instrument StringEnsemble1
+>           (line [a2, b2, a2, c2])
 >      :=:
->         (instrument Cello
->          $ line [ a3 :+: line [a 2 qn, b 2 qn, cs 3 qn], b3
+>         instrument Cello
+>           (line [ a3 :+: line [a 2 qn, b 2 qn, cs 3 qn], b3
 >                 , a3 :+: line [d 2 qn, e 2 qn, fs 2 qn], c3])
 >
 >    where
 >
->       dTriad, eTriad, aTriad, gTriad :: Dur -> Music Pitch
+>       dTriad, eTriad, aTriad, gTriad :: Dur → Music Pitch
 >       dTriad =  triad  D Major ( D, 3)
 >       eTriad =  triad  E Major ( B, 2)
 >       aTriad =  triad  A Major (Cs, 3)
@@ -565,13 +452,13 @@ Whelp Narp =====================================================================
 
 > whelpNarp =
 >    removeZeros
->    $ tempo (2/1)
+>    $ tempo 2
 >    $ keysig C Mixolydian
 >    $ addVolume 100
->    $ (instrument     SopranoSax  $ transpose 4  $     (wnAltoI :+: wnAltoII))
->      :=: (instrument AltoSax     $ transpose 4  $    (wnTenorI :+: wnTenorII))
->      :=: (instrument Contrabass  $ transpose 4  $ (wnBaritoneI :+: wnBaritoneII))
->      :=:                                              (wnPercI :+: wnPercII)
+>    $ instrument     Violin               (transpose 4       (wnAltoI :+: wnAltoII))
+>      :=: instrument OrchestralHarp       (transpose 4      (wnTenorI :+: wnTenorII))
+>      :=: instrument ElectricBassPicked   (transpose 4   (wnBaritoneI :+: wnBaritoneII))
+>      :=:                                                    (wnPercI :+: wnPercII)
 >   where
 >
 > -- It is in 3/4 for 7 measures; the eighth measure is shortened to 2/4;
@@ -682,13 +569,13 @@ Percussion-----
 >   wnP1 = (r1 :+: p1 hn :+: rest dwn)
 >      :+: (r1 :+: p1 hn :+: rest dwn)
 >      :+: (r1 :+: p1 hn :+: rest dwn)
->      :+: (r1 :+: p1 hn :+: p3 wn)
+>      :+: (r1 :+: rest qn :+: roll sn (p2 qn) :+: p3 wn)
 
 Roger =============================================================================
 
 > roger =
 >    removeZeros
->    $ tempo (1/1)
+>    $ tempo 1
 >    $ transpose 0
 >    $ keysig Cs Dorian
 >    $ addVolume 100
@@ -696,8 +583,8 @@ Roger ==========================================================================
 >      :=: instrument OrchestralHarp (line [cTenorI, cTenorII])
 >   where
 >
->   ct_fs, ct_cs, ct_cs', ct__B, ct__B'          :: Dur -> Music Pitch
->   ct__A, ct__E                                 :: Dur -> Music Pitch
+>   ct_fs, ct_cs, ct_cs', ct__B, ct__B'          :: Dur → Music Pitch
+>   ct__A, ct__E                                 :: Dur → Music Pitch
 >   ct_fs    = triad Fs Minor ( A, 3)
 >   ct_cs    = triad Cs Minor (Gs, 3)
 >   ct_cs'   = triad Cs Minor ( E, 3)
@@ -766,7 +653,7 @@ Way Pos' T' Purple =============================================================
 
 > waypostpurple =
 >    removeZeros
->    $ tempo (1/1)
+>    $ tempo 1
 >    $ transpose 0
 >    $ keysig C Major
 >    $ addVolume 100
@@ -800,20 +687,20 @@ Way Pos' T' Purple =============================================================
   "open"
 
 >   pOpenT1 = line [ d 4 qn, g 4 qn, b 3 qn, c 4 qn]
->   pOpenT2 = tempo (3/1) $ line [ f 4 qn, e 4 qn, d 4 qn, a 3 qn, d 4 qn, f 4 qn]
->   pOpenT3 = tempo (3/1) $ line [bf 3 qn, ef 4 qn, g 4 qn]
+>   pOpenT2 = tempo 3 $ line [ f 4 qn, e 4 qn, d 4 qn, a 3 qn, d 4 qn, f 4 qn]
+>   pOpenT3 = tempo 3 $ line [bf 3 qn, ef 4 qn, g 4 qn]
 >   pOpenT4a = line [ a 4 dhn, rest hn]
 >   pOpenT4b = line [ a 4 dhn, b 4 qn, d 5 qn]
 >   pOpenT5a = line [pOpenT1, pOpenT2, pOpenT1, pOpenT2, pOpenT3, pOpenT4a]
 >   pOpenT5b = line [pOpenT1, pOpenT2, pOpenT1, pOpenT2, pOpenT3, pOpenT4b]
 >   pOpenT  = line [pOpenT5a, pOpenT5b]
->   pClosT123A = tempo (3/1)
+>   pClosT123A = tempo 3
 >                (addDur qn [g 3, b 3, d 4, b 3, d 4, g 4,
 >                            d 4, g 4, b 4]) -- throw away , g 4, b 4, d 5])
->   pClosT123B = tempo (3/1)
+>   pClosT123B = tempo 3
 >                (addDur qn [c 5, g 4, e 4, bf 4, f 4, d 4,
 >                            a 4, f 4, d 4]) -- throw away , e 4, c 4, g 3])
->   pClosT123C = tempo (3/1)
+>   pClosT123C = tempo 3
 >                (addDur qn [g 4, ef 4, bf 4])
 >   pClosT4a = line [ a 4 dhn, rest hn]
 >   pClosT4b = line [ a 4 dhn, b 4 qn, d 5 wn]
@@ -878,11 +765,12 @@ Way Pos' T' Purple =============================================================
 
 Pendington Arnt  ==================================================================
 
-> pendingtonArnt =
+> pendingtonArnt nRepeats =
 >    removeZeros
->    $ tempo (1/1)
+>    $ tempo 1
 >    $ transpose 0
 >    $ keysig C Lydian
+>    $ times nRepeats
 >    $ addVolume 100
 >    $ instrument TenorSax
 >      ((if includeOpen then zOpenT        else rest 0)
@@ -895,7 +783,7 @@ Pendington Arnt  ===============================================================
 >         :+: (if includeClos then zClosB  else rest 0))
 >      where
 >         includeOpen = True
->         includeClos = True
+>         includeClos = False -- intentional, TODO: cleanup
 >
 > zOpenT1 = addDur en [c 3, e 3, fs 3, g 3,
 >                      a 3, b 3,  c 4, e 4]
@@ -927,7 +815,7 @@ Pan ============================================================================
 
 > pan =
 >     removeZeros
->     $ tempo (1/1)
+>     $ tempo 1
 >     $ transpose 0
 >     $ keysig Af Mixolydian
 >     $ addVolume 100
