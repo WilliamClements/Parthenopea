@@ -10,7 +10,6 @@ February 6, 2023
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.Music
 > import HSoM.Performance
-> import Parthenopea ( addDur, dim, triad )
   
 playerOne =========================================================================
 

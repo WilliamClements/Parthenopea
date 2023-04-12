@@ -2,3 +2,8 @@
 *.pdf
 toy.lhs
 dist-newstyle/
+regex-base/
+*.svg
+*.sf2
+*.mscz
+*.mp3

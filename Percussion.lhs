@@ -13,6 +13,31 @@ Last modified: 27-September-2022
 > import Euterpea.Music
 > import System.Random
 
+perc helpers ==============================================================================
+
+> percm :: PercussionSound → [Dur] → Music Pitch
+> percm p ds = line (map (perc p) ds)
+>
+> percBDen =  perc BassDrum1     en
+> percOHHen = perc OpenHiHat     en
+> percCHHen = perc ClosedHiHat   en
+> percCCen  = perc CrashCymbal1  en
+> percRCen  = perc RideCymbal1   en
+> percSDen  = perc AcousticSnare en
+> percLTen =  perc LowTom        en
+> percHTen =  perc HighTom       en
+>
+> percBDsn =  perc BassDrum1     sn
+> percOHHsn = perc OpenHiHat     sn
+> percCHHsn = perc ClosedHiHat   sn
+> percCCsn  = perc CrashCymbal1  sn
+> percRCsn  = perc RideCymbal1   sn
+> percSDsn  = perc AcousticSnare sn
+> percLTsn =  perc LowTom        sn
+> percHTsn =  perc HighTom       sn
+
+Piece =====================================================================================
+
 > piece =
 >    removeZeros
 >    $ tempo 2
@@ -24,7 +49,7 @@ Last modified: 27-September-2022
 >
 >       guts = line [rest hn, c 3 qn, c 4 qn, a 3 qn, a 4 qn]
 
-Oceans ============================================================================
+Oceans ====================================================================================
 
 > oceans, seas, water :: Music Pitch    
 > oceans =  line $ map nRandom2Note $ normalizedDoubles $ mkStdGen 259

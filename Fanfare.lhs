@@ -9,7 +9,7 @@ November 11, 2022
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
-> import Parthenopea (triad, addDur, defSnippet, pSnippet01, playDM)
+> import Parthenopea (triad, addDur, defSnippet, pSnippet01, playDM, capture, aggrandize)
 
   "triads"
 
@@ -34,7 +34,7 @@ November 11, 2022
 > pTriadSusA   = triad A (CustomMode "Sus4") ( A, 3)
 > pTriadDim7A  = triad G (CustomMode "Dim")  ( G, 3)
 
-Fanfare ===========================================================================
+Fanfare ===================================================================================
 
 > theFanfare = removeZeros
 >              $ tempo (5/2)
@@ -93,7 +93,7 @@ The fanfare's answer
 >               {- 32 + 32 = 64 -}
 >       bassAll = bFan :+: bAns
 
-Alice =============================================================================
+Alice =====================================================================================
 
 > alice = removeZeros
 >         $ tempo 2
@@ -116,7 +116,7 @@ Alice ==========================================================================
 >
 >       line01 = line [frag10, frag11]
 
-Bob ===============================================================================
+Bob =======================================================================================
 
 > bob :: Int → Music (Pitch, Volume)
 > bob nRepeats = removeZeros
@@ -158,7 +158,7 @@ Bob ============================================================================
 >          line [ d 2 dwn, rest hn,  g 2 wn,  e 2 hn,  c 2 hn]
 >       
 
-Bill ==============================================================================
+Bill ======================================================================================
 
 > bill nRepeats =
 >    removeZeros
@@ -216,21 +216,22 @@ Bill ===========================================================================
 >    bassbill   = line [bassbill00,     bassbill01]
 >
 
-Copper ============================================================================
+Copper ====================================================================================
 
-> copper =
+> copper :: Int → Music (Pitch, Volume)
+> copper n =
 >    removeZeros
 >    $ tempo 2
 >    $ transpose (-4)
 >    $ keysig C Dorian
 >    $ addVolume 100
 >    $ instrument Banjo
->    $ times 2
+>    $ times n
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
 >      :+: tempo (5/4) (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn])
 >      :+: line [ a 4 hn,  g 4 wn]
 
-Gold ==============================================================================
+Gold ======================================================================================
 
 > gold =
 >    removeZeros
@@ -250,7 +251,7 @@ Gold ===========================================================================
 >                       d 4, bf 3, bf 3])
 >    :+: c 4 hn
 
-Silver ============================================================================
+Silver ====================================================================================
 
 > silver =
 >     removeZeros
@@ -289,7 +290,7 @@ Silver =========================================================================
 >         , silver01, a 4 hn
 >         , silver01, a 4 wn ]
 
-Snake =============================================================================
+Snake =====================================================================================
 
 > gSnip01 = line [ c 4 hn,  g 4 hn,  b 3 hn, g 4 qn, a 3 qn
 >                , a 3 qn,  d 4 qn, chord [d 4 dwn, fs 4 dwn]]
@@ -392,7 +393,7 @@ Snake ==========================================================================
 >    gTail22 = line [ a 3 en,  b 3 en,  a 3 dhn, rest qn]
 >    gTail23 = line [ a 3 en,  b 3 en,  d 4 dhn, rest qn]
 
-Country In The Morning ============================================================
+Country In The Morning ====================================================================
 
 > getCITM =
 >    removeZeros
@@ -448,7 +449,7 @@ Country In The Morning =========================================================
 >                 , d 3 den,  d 3 sn,  a 2 den,  a 2 sn, b 2 den, cs 3 sn
 >                 , d 2 hn, rest qn]
 
-Whelp Narp ========================================================================
+Whelp Narp ================================================================================
 
 > whelpNarp =
 >    removeZeros
@@ -571,16 +572,16 @@ Percussion-----
 >      :+: (r1 :+: p1 hn :+: rest dwn)
 >      :+: (r1 :+: rest qn :+: roll sn (p2 qn) :+: p3 wn)
 
-Roger =============================================================================
+Roger =====================================================================================
 
+> roger :: Music (Pitch, Volume)
 > roger =
 >    removeZeros
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig Cs Dorian
->    $ addVolume 100
->    $ instrument Viola    (line [cAltoI,  cAltoIIA, cAltoIIB])
->      :=: instrument OrchestralHarp (line [cTenorI, cTenorII])
+>    $     addVolume 110 (instrument AltoSax        (line [cAltoI,  cAltoIIA, cAltoIIB]))
+>      :=: addVolume  90 (instrument OrchestralHarp (line [cTenorI, cTenorII]))
 >   where
 >
 >   ct_fs, ct_cs, ct_cs', ct__B, ct__B'          :: Dur → Music Pitch
@@ -649,7 +650,7 @@ Roger ==========================================================================
 >   cTenorIIB = line [ ct__B wn, ct_cs wn,  ct__B hn,  ct__A wn]
 >   cTenorIIC = line [ ct__B wn]
 
-Way Pos' T' Purple ================================================================
+Way Pos' T' Purple ========================================================================
 
 > waypostpurple =
 >    removeZeros
@@ -752,7 +753,7 @@ Way Pos' T' Purple =============================================================
   "pool"
 
 >   pPoolT1 = line [gs 4 dqn, a 4 en, gs 4 en, fs 4 en, e 4 hn, d 4 qn]
->   pPoolT2 = line [gs 4 en,  fs 4 en, a 4 en, b 4 en, c 4 qn]
+>   pPoolT2 = line [gs 4 en, fs 4 en,  a 4 en,  b 4 en, c 4 qn]
 >   pPoolT  = line [pPoolT1, pPoolT2, pPoolT2,
 >                   pPoolT1, pPoolT2, pPoolT2]
 >
@@ -763,7 +764,7 @@ Way Pos' T' Purple =============================================================
 >   pPoolB  = line [pPoolB1, pPoolB1]
 >   pPoolP  = rest 0
 
-Pendington Arnt  ==================================================================
+Pendington Arnt  ==========================================================================
 
 > pendingtonArnt nRepeats =
 >    removeZeros
@@ -811,7 +812,7 @@ Pendington Arnt  ===============================================================
 > zOpenB = line [zOpenB1, zOpenB2]
 > zClosB = zOpenB
 
-Pan ============================================================================
+Pan =======================================================================================
 
 > pan =
 >     removeZeros
@@ -833,8 +834,8 @@ Pan ============================================================================
 >         includeClos = True
 >
 > xOpenT1 = addDur hn [gf 3, c 4, ef 4, af 4]
-> xOpenT2 = line [gf 3 hn, af 3 sn, bf 3 sn, c 4 sn,
->                 df 4 sn, ef 4 sn, f 4 sn, gf 4 sn, f 4 sn]
+> xOpenT2 = line [gf 3 hn, af 3 sn,  bf 3 sn,  c 4 sn,
+>                 df 4 sn, ef 4 sn,   f 4 sn, gf 4 sn, f 4 sn]
 > xOpenT3 = line [ef 4 hn, df 4 dhn, ef 4 qn, df 4 en, c 4 en, df 4 en]
 > xOpenT = line [xOpenT1, xOpenT2, xOpenT3]
 > xClosT = xOpenT

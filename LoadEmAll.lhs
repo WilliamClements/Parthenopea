@@ -12,7 +12,9 @@
 > import Fanfare
 > import HSoM
 > import Parthenopea ( aggrandize, durS, playDM, pSnippet02 )
+> import Players
 > import Signals
+> import SunPyg
 
 LoadEmAll =========================================================================
 
@@ -47,7 +49,7 @@ Play Jingles ===================================================================
 >    , ("slot"           , aggrandize (slot 4))
 >    , ("alice"          , aggrandize alice)
 >    , ("bob"            , aggrandize (bob 4))
->    , ("copper"         , aggrandize copper)
+>    , ("copper"         , aggrandize (copper 2))
 >    , ("gold"           , aggrandize gold)
 >    , ("silver"         , aggrandize silver)]
 > bjingles =
@@ -72,7 +74,7 @@ Play Jingles ===================================================================
 > playJingle _ (s, m) =
 >    do
 >       traceM ( show s ++ " " ++ show (durS (dur m)) ++ " seconds" )
->       playDM m
+>       playDM Nothing m
 >       
 > playJingles :: [(String, Music (Pitch, [NoteAttribute]))] → IO ()
 > playJingles jingles =

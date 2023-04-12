@@ -5,38 +5,40 @@
 
 > module Signals where
 
-> import Codec.Wav
-> import Control.Arrow
-> import Control.Arrow.ArrowP
+> import qualified Codec.Wav            as W
+> import qualified Codec.SoundFont      as F
+> import Control.Arrow ( returnA, (<<<), (>>>), Arrow(arr) )
+> import Control.Arrow.ArrowP ( ArrowP(ArrowP) )
 > import Control.DeepSeq (NFData)
-> import Control.SF.SF
+> import Control.SF.SF ( SF(SF) )
 > import Data.Array.Unboxed
-> import Data.Audio
-> import Data.Binary ( Word8 )
-> import qualified Data.ByteString      as   B
-> import qualified Data.ByteString.Lazy as   BL
-> import Data.Int ( Int16, Int32 )
-> import Data.Maybe (catMaybes, fromJust, fromMaybe, listToMaybe)
+> import qualified Data.Audio           as A
+> import qualified Data.ByteString      as B
+> import qualified Data.ByteString.Lazy as BL
+> import Data.Int ( Int8, Int16, Int32 )
+> import Data.Maybe (catMaybes, fromJust, fromMaybe, listToMaybe, mapMaybe)
 > import Data.Typeable ( typeOf )
-> import Data.Word ( Word8 )
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
-> import Euterpea.IO.Audio.Types
-> import Euterpea.Music hiding (SF)
+> import Euterpea.IO.Audio.Types ( Clock(..), AudioSample, AudSF, SigFun, numChans)
+> import Euterpea.IO.MIDI.MidiIO (MidiMessage(..), Message(..))
+> import Euterpea.Music ( Music, Pitch, PitchClass(F, C, D, E), NoteAttribute, d, dur )
 > import FRP.UISF
 > import FRP.UISF.Asynchrony ( Automaton(..) )
 > import FRP.UISF.AuxFunctions (DeltaT)
 > import FRP.UISF.Graphics
 > import FRP.UISF.UITypes (LayoutType, nullLayout, nullTP)
-> import HSoM.MUI ( defaultMUIParams, runMUI )
+> import HSoM.MUI ( defaultMUIParams, midiIn, midiOut, runMUI, runMUI', selectOutput)
 > import HSoM.Examples.FFT ( fftA )
+> import HSoM.Examples.MUIExamples1 (getDeviceIDs)
+> import HSoM.Examples.MUIExamples2 (mergeS, removeNull)
 > import Numeric ( showHex )
-> import Parthenopea( defBins, scoreOnsets, scoreMusic, traceAlways, traceIf )
+> import Parthenopea
 > import System.Environment ( getArgs )
 > import System.IO ( hSeek, withBinaryFile, SeekMode(AbsoluteSeek), IOMode(ReadMode) )
-> import Text.Printf (PrintfArg(formatArg))
-  
+> import Text.Printf ( PrintfArg(formatArg) )
+   
 > -- WOX oldmain = runGraph True
 >
 > clockedSFToUISF :: forall a b c . (NFData b, Clock c) ⇒ DeltaT → SigFun c a b → UISF a [(b, Time)]
@@ -73,20 +75,6 @@
 >                      then 0.0
 >                      else head list
 >           outA ⤙ warg
->
-> {-
-> bling :: SigFun SlwRate () [Double]
-> bling = proc () → do
->           -- WOX bSig ← (fftZ <<< constA 440)
->           -- vib   ← osc sineTable 0  ⤙ rate
->           bSig' ⤙ Just [] -- WOX sigbreakup <<< bSig
->           outA ⤙ bSig'
->         where
->           breakup :: SEvent [Double] → Double
->           breakup xs = head $ fromMaybe [] xs
->           sigbreakup :: SigFun SlwRate [Double] Double
->           sigbreakup = arr breakup
-> -}
 >
 > averageValues :: [Double] → Double
 > averageValues ys = sum $ map (*fact) ys
@@ -259,6 +247,21 @@ runGraph =======================================================================
 >         where
 >           msg = unwords ["psuedo sound = ", show sig]
 >
+> flangeSFMono :: DeltaT → AudSF () Double → AudSF () Double
+> flangeSFMono secs sig = proc () → do
+>   bSig ← sig ⤙ ()
+>   dlsig ← envExpon 0.0005 secs 0.0050 ⤙ ()
+>   z ← delayLine1 0.0050 ⤙ (bSig, dlsig)
+>   outA ⤙ 0.5*bSig + 0.5*z
+>
+> flangeSFStereo :: DeltaT → AudSF () (Double, Double) → AudSF () (Double, Double)
+> flangeSFStereo secs sig = proc () → do
+>   bSig ← sig ⤙ ()
+>   dlsig ← envExpon 0.0005 secs 0.0050 ⤙ ()
+>   z1 ← delayLine1 0.0050 ⤙ (fst bSig, dlsig)
+>   z2 ← delayLine1 0.0050 ⤙ (snd bSig, dlsig)
+>   outA ⤙ (0.5*fst bSig + 0.5*z1 , 0.5*snd bSig + 0.5*z2)
+>
 > supplySound :: Bool → Bool → AudSF () Double
 > supplySound doNoise doFlange = proc () → do
 >   bSig ← if doNoise then noiseBLI nSeed ⤙ nCPS
@@ -327,40 +330,16 @@ runGraph =======================================================================
 >         let x' = if x<0 then 0 else x
 >     display ⤙ x
 >
-> primes :: Int → [Int]
-> primes n = [x | x ← [2..n], prime x]
->
-> prime :: Int → Bool
-> prime n = factors n == [1,n]
->
-> factors :: Int → [Int]
-> factors n = [x | x ← [1..n], n `mod` x == 0]
->
-> seq1, seq2 :: Fractional a => [a]
-> seq1 = [3.0, -2.0, 4.9, 3.2, -0.5]
-> seq2 = [-3.0, 44.6, 7.1]
->
-> array1 :: (IArray a e, Ix i, Fractional e, Num i) => a i e
-> array1 = listArray (0, 4) seq1
-> array2 :: (IArray a e, Ix i, Fractional e, Num i) => a i e
-> array2 = listArray (0, 2) seq2
-> array3 :: (Ix a, Integral a, Fractional b) => Array a b
-> array3 = conv array1 array2
->
-> conv :: (Ix a, Integral a, Num b) ⇒ Array a b → Array a b → Array a b
-> conv x1 x2 = x3
+> convolve :: (Ix a, Integral a, Num b) ⇒ Array a b → Array a b → Array a b
+> convolve x1 x2 = x3
 >    where m1 = snd $ bounds x1
 >          m2 = snd $ bounds x2
 >          m3 = m1 + m2
 >          x3 = listArray (0,m3)
 >                 [
->                    sum [ x1!k * x2!(n-k) | k ← [max 0 (n-m2)..min n m1] ]
+>                    sum [ x1 ! k * x2 ! (n-k) | k ← [max 0 (n-m2)..min n m1] ]
 >                        | n ← [0..m3]
 >                 ]
-> h1, h2, h3 :: Array Int Integer
-> h1 = listArray (0,3) [ 1, 2, 3, 4 ]
-> h2 = listArray (0,4) [ 1, 2, 3, 4, 5 ]
-> h3 = listArray (0,7) [ 1, 4, 10, 20, 30, 34, 31, 20 ]
 >
 > linspace :: Double → Double → Int → [Double]
 > linspace a b n =
@@ -371,7 +350,7 @@ runGraph =======================================================================
 > -- linspace 0.0 1.0 5 == [ 0.0, 0.25, 0.5, 0.75 1.0 ]
 >
 
-fft ===============================================================================
+fft =======================================================================================
 
 > checkItem ldt lfft
 >   | traceAlways msg False = undefined
@@ -450,7 +429,9 @@ fft ============================================================================
 >
 > -- | This example shows off the 'radio' button widget.
 > radioButtonEx :: UISF () ()
-> radioButtonEx = title "Radio Buttons" $ topDown $ radio list 0 >>> arr (list!!) >>> displayStr >>> spacer
+> radioButtonEx = title "Radio Buttons" $ topDown $ radio list 0 >>> arr (list!!)
+>                                                                >>> displayStr
+>                                                                >>> spacer
 >   where
 >     list = ["apple", "orange", "banana"]
 >
@@ -506,92 +487,148 @@ fft ============================================================================
 >     coloredUIText Blue      "!"
 > uitext' = fontUIText Helvetica18 uitext
 >
-> uitextdemo = title "Color and Fonts" $ constA Nothing >>> textField CharWrap uitext' >>> constA ()
->
-> combineTwoWord8s :: Word8 → Word8 → Int16
-> combineTwoWord8s x y = z
->   where
->     x', y', z :: Int16
->     x' = fromIntegral x
->     y' = fromIntegral y
->     z = x' + y'*256
->
-> combineFourWord8s :: Word8 → Word8 → Word8 → Word8 → Int32
-> combineFourWord8s x1 x2 x3 x4 = z
->   where
->     x1', x2', x3', x4', z :: Int32
->     x1' = fromIntegral x1
->     x2' = fromIntegral x2
->     x3' = fromIntegral x3
->     x4' = fromIntegral x4
->     z = x1' + x2'*256 + x3'*65536 + x4'*16777216
->
-> combineWord8sToInt16s :: [Word8] → [Int16]
-> combineWord8sToInt16s [] = []
-> combineWord8sToInt16s [_] = []
-> combineWord8sToInt16s (x:y:xs) = combineTwoWord8s x y : combineWord8sToInt16s xs
->
-> combineWord8sToInt32s :: [Word8] → [Int32]
-> combineWord8sToInt32s xs
->   | 4 > length xs = []
->   | otherwise     = combineFourWord8s (xs!!0) (xs!!1) (xs!!2) (xs!!4) : combineWord8sToInt32s (drop 4 xs)
->
-> normalizeInt16 :: Int16 → Double
-> normalizeInt16 n16 = fromIntegral n16 / 32768
->
-> normalizeInt32 :: Int32 → Double
-> normalizeInt32 n32 = fromIntegral n32 / 2147483648
->
-> readFromSamples :: UArray Int Int32 → Double → Double
-> readFromSamples samples pos =
->   let theBounds = bounds samples
->       sz = snd theBounds - fst theBounds + 1
->       idx = truncate (fromIntegral sz * pos)  -- range must be [0,size]
->   in normalizeInt32 $ samples ! idx
->
-> readFromSamplesA :: Arrow a ⇒ UArray Int Int32 → a Double Double
-> readFromSamplesA = arr . readFromSamples
->
-> wavLookup ::  (Clock p, ArrowCircuit a)
->                ⇒ UArray Int Int32 → Double → DeltaT → Double → ArrowP a p () Double
-> wavLookup samples sr secs iphs =
->   wavLookup_ sr secs iphs >>> readFromSamplesA samples
->
-> wavLookup_ :: (Clock p, ArrowCircuit a)
->                ⇒ Double → DeltaT → Double → ArrowP a p () Double
-> wavLookup_ sr secs phs =
->   let frac :: RealFrac r ⇒ r → r
+> uitextdemo = title "Color and Fonts" $ constA Nothing >>> textField CharWrap uitext'
+>                                                       >>> constA ()
+
+importing sampled sound (from SoundFont or Wave file) =====================================
+
+> data SampleSpec = 
+>   SampleSpec {   ssCount  :: Double
+>                , ssRate   :: Double
+>                , ssChans  :: Double} deriving Show
+>   
+> getSFForPhase          ::  forall a p. (ArrowCircuit a, Clock p) ⇒ 
+>                              SampleSpec
+>                              → Double
+>                              → ArrowP a p () Double
+> getSFForPhase spec iphs =
+>   let frac    :: RealFrac r ⇒ r → r
 >       frac = snd . properFraction
->   in  proc () → do
+>       secs  :: Double            = ssCount spec / ssRate spec
+>       delta   :: Double
+>       delta = ssChans spec / (secs * ssRate spec)
+>   in proc () → do
 >     rec
->       let delta = 1 / (sr * secs)
->           phase = if next > 1 then frac next else next
->       next ← delay phs ⤙ frac (phase + delta)
+>       let phase = if next > 1 then frac next else next
+>       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >
-> waveAudioToSF :: Audio Int32 → (DeltaT, AudSF () Double)
-> waveAudioToSF (Audio rate channels samples) =
->   let theBounds = bounds samples
->       sz = snd theBounds - fst theBounds + 1
->       secs = fromIntegral sz / fromIntegral rate
->       sig :: AudSF () Double
->       sig = wavLookup samples (fromIntegral rate) secs 0
->   in (secs, sig)
+> getSFForOutput         :: forall a p u. (ArrowCircuit a, Clock p, WaveAudioSample u) ⇒
+>                            ArrowP a p Double u 
+>                            → SampleSpec
+>                            → (Int, Int)
+>                            → (DeltaT, ArrowP a p () u)
+> getSFForOutput sig0 spec range
+>   | traceAlways msg False = undefined
+>   | otherwise = (secs, sig)
+>   where
+>     secs  :: Double            = ssCount spec / ssRate spec
+>     sig   :: ArrowP a p () u   = getSFForPhase spec 0 >>> sig0
+>     msg = unwords [ "SampleSpec=", show spec, " (st,en)=", show range, " secs = ", show (ssCount spec / ssRate spec)]
+
+import from SoundFont file ================================================================
+
+> doSoundFont :: FilePath → Effect → IO ()
+> doSoundFont inFile effect =
+>   do
+>     putStrLn "entering doSoundFont"
+>     putStrLn ("inFile=" ++ inFile)
+>     maybeAudio ← F.importFile inFile
+>     case maybeAudio of
+>       Left s → putStrLn $ "SoundFont decoding error: " ++ s
+>       Right soundFont → do
+>         let sdata = F.smpl (F.sdta soundFont)
+>         let m24 = F.sm24 (F.sdta soundFont)
+>         case m24 of
+>           Nothing → print "16-bit"
+>           Just s24data → do
+>             print "24-bit"
+>         let shdrs = F.shdrs (F.pdta soundFont)
+>         let bs =bounds shdrs
+>         let upper = min 10 (snd bs)
+>         mapM_ (shdrDo sdata m24 shdrs) [0..upper]
+>     putStrLn "leaving doSoundFont"
 >
+> shdrDo :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Array Word F.Shdr → Word → IO ()
+> shdrDo sdata m24 shdrs n = do
+>   let shdr = shdrs ! n
+>   let filename = F.sampleName shdr ++ ".wav"
+>   let (st, en) :: (Int, Int)                    = (fromIntegral (F.start shdr), fromIntegral (F.end shdr))
+>   let sr       :: Double                        = fromIntegral $ F.sampleRate shdr  
+>   let ns       :: Double                        = fromIntegral (en - st + 1)
+>   let secs     :: DeltaT                        = ns / sr
+>   let sig0                                      = getSoundFontSamplingSF sdata m24 (st, en)
+>   let spec                                      = SampleSpec ns sr 1
+>   let (secs' :: DeltaT, sig :: AudSF () Double) = getSFForOutput sig0 spec (st, en)
+>   print ("spec=" ++ show spec ++ "secs=" ++ show secs ++ "secs'=" ++ show secs')
+>   outFileNorm filename secs' sig
+>   print filename
+>
+> getSoundFontSamplingSF    :: forall a p. (ArrowCircuit a, Clock p) =>
+>                            A.SampleData Int16 →
+>                     Maybe (A.SampleData Int8) →
+>                            (Int, Int) →
+>                     ArrowP a p Double Double
+> getSoundFontSamplingSF sdt m24 (st, en) = (arr . extractDataPoint) ()
+>  where
+>    extractDataPoint    :: forall u. (AudioSample u, Num u) ⇒ () → Double → u
+>    extractDataPoint () pos = 
+>      let
+>        nc = numChans (undefined :: u)
+>        numS :: Double
+>        numS = fromIntegral $ (en - st + 1) `div` nc
+>        idx :: Int 
+>        idx = case m24 of
+>              Nothing → st + truncate (numS * pos)
+>              Just _  → error "24-bit not yet supported"
+>      in fromIntegral $ sdt ! idx
+> 
+
+import from Wave file =====================================================================
+
 > doWave :: FilePath → IO ()
 > doWave inFile =
 >   do
 >     putStrLn "entering doWave"
 >     putStrLn ("inFile=" ++ inFile)
->     maybeAudio <- importFile inFile
->     case maybeAudio :: Either String (Audio Int32) of
+>     maybeAudio ← W.importFile inFile
+>     case maybeAudio of
 >       Left s → putStrLn $ "wav decoding error: " ++ s
 >       Right aud → do
->         let (secs, sig) = waveAudioToSF aud
->         putStrLn "created signal"
->         outFile "outout.wav" secs sig
->         putStrLn "outout.wav produced"
+>         let chans::Double = fromIntegral $ A.channelNumber aud
+>             sdta = A.sampleData aud
+>             (st, en) =  bounds sdta {- WOX (0, 26) -}
+>             count::Double = fromIntegral (en - st + 1) / chans
+>             rate::Double = fromIntegral $ A.sampleRate aud
+>             secs::Double = count / rate
+>             spec::SampleSpec = SampleSpec count rate chans
+>         putStrLn $ "chans=" ++ show chans ++ " range=" ++ show (st, en) ++ " #=" ++ show count
+>         putStrLn $ "rate=" ++ show rate ++ " secs=" ++ show secs
+>         if 1 == A.channelNumber aud
+>           then do
+>             let sig0  :: AudSF Double Double                       = getWaveSamplingSF sdta (st, en)
+>             let (secs :: DeltaT, sig :: AudSF () Double)           = getSFForOutput sig0 spec (st, en)
+>             outFileNorm "outMono.wav" secs sig
+>             putStrLn "Mono wave file produced"
+>           else do
+>             let sig0  :: AudSF Double (Double, Double)             = getWaveSamplingSF sdta (st, en)
+>             let (secs :: DeltaT, sig :: AudSF () (Double, Double)) = getSFForOutput sig0 spec (st, en)
+>             outFileNorm "outStereo.wav" secs sig
+>             putStrLn "Stereo wave file produced"
 >     putStrLn "leaving doWave"
+>
+> getWaveSamplingSF         :: forall a p u. (ArrowCircuit a, Clock p, WaveAudioSample u) =>
+>                            A.SampleData Int32 → (Int, Int) → ArrowP a p Double u
+> getWaveSamplingSF sdta (st, en) = (arr . extractDataPoint) ()
+>   where
+>     extractDataPoint   :: forall u. (WaveAudioSample u) ⇒ () → Double → u
+>     extractDataPoint () pos = retrieve sdta idx
+>       where
+>         nc = numChans (undefined :: u) 
+>         numS :: Double
+>         numS = fromIntegral $ (en - st + 1) `div` nc
+>         idx :: Int
+>         idx = st + truncate (numS * pos)
 >
 > vmain :: IO ()
 > vmain = do
@@ -602,3 +639,81 @@ fft ============================================================================
 >       leftRight (shoppinglist >>> colorDemo) >>> textboxdemo >>> uitextdemo
 >            else
 >     putStrLn "Later!!!"
+>
+> echoUI :: UISF () ()
+> echoUI = proc _ → do
+>   (mi, mo) ← getDeviceIDs ⤙ ()
+>   m ← midiIn ⤙ mi
+>   r ← title "Decay rate"        $ withDisplay (hSlider (0, 0.9) 0.5) ⤙ ()
+>   ef ← title "Echoing frequency" $ withDisplay (hSlider (1, 10) 10) ⤙ ()
+>   
+>   rec let m' = removeNull $ mergeS m s
+>       s <- vdelay -< (1/ef, fmap (mapMaybe (decay 0.1 r)) m')
+>   
+>   midiOut ⤙ (mo, m')
+>
+> echoMUI = runMUI' echoUI
+>
+> decay :: Time → Double → MidiMessage → Maybe MidiMessage
+> decay dur r m =
+>   let f c k v d = if v > 0
+>                   then let v' = truncate (fromIntegral v*r)
+>                        in Just (ANote c k v' d)
+>                   else Nothing
+>   in case m of 
+>     ANote c k v d      → f c k v d
+>     Std (NoteOn c k v) → f c k v dur
+>     _                  → Nothing
+
+=================
+Bifurcate example
+
+Here is an example with some ideas borrowed from Gary Lee Nelson's
+composition "Bifurcate me, Baby!"
+
+The basic idea is to evaluate the logistic growth function at
+different points and convert the value to a musical note.  The growth
+function is given by
+
+  x_(n+1) = r x_n (1 - x_n)
+
+We start with an initial population x_0 and iteratively apply the
+growth function to it, where r is the growth rate.  For certain values
+of r, the population stablizes to a certain value, but as r increases,
+the period doubles, quadruples, and eventually leads to chaos.  It is
+one of the classic examples in chaos theory.
+
+First we define the growth function which, given a rate r and
+current population x, generates the next population.
+
+> grow :: Double -> Double -> Double
+> grow r x = r * x * (1-x)
+
+Then we define a signal 'tick' that pulsates at a given frequency
+specified by slider f.  This is the signal that will drive the
+simulation.  The timer function takes in a frequency.
+
+The next thing we need is a time-varying population.  This is where 
+the delay function and the rec keyword come in handy.  We initialize 
+the 'pop' signal with the value 0.1, and then on every tick, we 
+grow it with the instantaneous value of the growth rate signal.
+
+We can now write a simple function that maps a population value to a
+musical note:
+
+> popToNote :: Double -> [MidiMessage]
+> popToNote x = [ANote 0 n 64 0.05] where n = truncate (x * 127)
+
+Finally, to play the note, we simply send the current population to 
+popToNote, and send the result to the selected Midi output device.  
+
+> bifurcate = runMUI (defaultMUIParams {uiSize=(300,500), uiTitle="Bifurcate!"}) $ proc _ -> do
+>   mo <- selectOutput -< ()
+>   f  <- title "Frequency" $ withDisplay (hSlider (1, 10) 1) -< ()
+>   r  <- title "Growth rate" $ withDisplay (hSlider (2.4, 4.0) 2.4) -< ()
+>   
+>   tick <- timer -< 1.0 / f
+>   rec pop <- delay 0.1 -<  maybe pop (const $ grow r pop) tick
+>       
+>   _ <- title "Population" $ display -< pop
+>   midiOut -< (mo, fmap (const (popToNote pop)) tick)

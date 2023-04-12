@@ -17,7 +17,7 @@ December 16, 2022
 > import Parthenopea
 > import System.Random ( mkStdGen )
   
-Bake ==============================================================================
+Bake ======================================================================================
 
 >
 > type Baking = (BakingMetrics, Array Int (Music (Pitch, Volume)))
@@ -248,7 +248,6 @@ The progress of the algorithm is expressed in above pair.
 >   where
 >     bins = sHistogram bm
 >     msg = unwords ["\n checkMeasureOk bins =", show bins]
->
 > checkJobOk :: Baking → Bool
 > checkJobOk (bm@BakingMetrics
 >             { sBaked        = nB
@@ -259,14 +258,10 @@ The progress of the algorithm is expressed in above pair.
 >    | otherwise = True
 >    where
 >       msg = unwords
->              [ "checkJobOk: bm ="
->                , show bm
->                , "\n avg skipped start="
->                , show $ safeAverage asps skpd
->                , "avg baked start="
->                , show $ safeAverage aB nB 
->                , "durs="
->                , foldShowDur ms]
+>              [ "checkJobOk: bm =",        show bm
+>                , "\n avg skipped start=", show $ safeAverage asps skpd
+>                , "avg baked start=",      show $ safeAverage aB nB 
+>                , "durs=",                 foldShowDur ms]
 >       safeAverage :: Double → Int → Double
 >       safeAverage d n
 >          | n==0 = 0.0
@@ -279,14 +274,12 @@ The progress of the algorithm is expressed in above pair.
 >                where
 >                   d1 :: Double
 >                   d1 = fromRational (dur m)
->
 > checkUrnOk :: Bake → Bool
 > checkUrnOk urn
 >    | traceIf msg False = undefined
 >    | otherwise = True
 >    where
 >       msg = unwords [ "checkUrnOk: urn = ", show urn ]
->
 > checkZListOk :: [(Int,  Int)] → Bool
 > checkZListOk zlist
 >    | traceAlways msg False = undefined
@@ -294,8 +287,7 @@ The progress of the algorithm is expressed in above pair.
 >    where
 >       msg = unwords [ "checkZListOK: zlist = ", show zlist ]
 >
-> acceptMetrics :: BakingMetrics → Double → Double → SectionSpec → Double
->                → BakingMetrics
+> acceptMetrics :: BakingMetrics → Double → Double → SectionSpec → Double → BakingMetrics
 > acceptMetrics bm@BakingMetrics
 >          { sBaked      = nB
 >          , sRestDur    = rD
@@ -320,23 +312,15 @@ The progress of the algorithm is expressed in above pair.
 >          , sHistogram  = hst'}
 >    where
 >      msg = unwords
->                 [ "acceptMetrics "
->                   , show durSoFar
->                   , " ← durSoFar, os → "
->                   , show os 
->                   , "\n ss = "
->                   , show ss
->                   , "\n newDur="
->                   , show newDur] -- "\n durs="
->                                  -- , show durs
->
+>                 [ "acceptMetrics ", show durSoFar, " ← durSoFar, os → ", show os
+>                 ,       "\n ss = ", show ss,
+>                       "\n newDur=", show newDur]
 >      quantize :: Array Int Int → Double → Double → [(Int,  Int)]
 >      quantize hst os du = [(x, (hst!x) + 1) | x ← [fk..gk]]
 >        where
 >          fk,gk :: Int
 >          fk = histSelect os
 >          gk = histSelect $ computeEnd os du - 0.000001
->
 >      histSelect :: Double → Int
 >      histSelect os = floor $ os * fromIntegral bakingBins / songLength
 >
@@ -374,20 +358,20 @@ The progress of the algorithm is expressed in above pair.
 > computeEnd onset dur = 
 >    min songLength (onset + dur)
 >
-> data Bake = Bake {bIx      :: Int, 
->                   bWch     :: (InstrumentName, (Pitch, Pitch)),
->                   bOnset   :: Double, 
->                   bXpose   :: Double,
->                   bSnd     :: PercussionSound,
->                   bVol     :: Volume,
->                   bVel     :: Double}
+> data Bake = Bake { bIx             :: Int
+>                  , bWch            :: (InstrumentName, (Pitch, Pitch))
+>                  , bOnset          :: Double
+>                  , bXpose          :: Double
+>                  , bSnd            :: PercussionSound
+>                  , bVol            :: Volume
+>                  , bVel            :: Double}
 >    deriving (Show, Eq, Ord)
 >
-> type TimeSpec = (Double, Double)
+> type TimeSpec =      (Double, Double)
 > type SectionSpec = (TimeSpec, TimeSpec)
 >
 > data BakingMetrics =
->   BakingMetrics {sSkipped         :: Int
+>   BakingMetrics {  sSkipped       :: Int
 >                  , sBaked         :: Int
 >                  , sRestDur       :: Double
 >                  , sFillDur       :: Double
@@ -399,6 +383,7 @@ The progress of the algorithm is expressed in above pair.
 > newBakingMetrics =
 >   BakingMetrics 0 0 0 0 0 0 (array (0, eb) [(x, 0) | x ← [0..eb]])
 >     where eb = bakingBins - 1
+> bakingBins = 64
 >
 > songLength, numSections :: Double
 > songLength = 32.0      -- 64 seconds
@@ -407,4 +392,3 @@ The progress of the algorithm is expressed in above pair.
 > numChannels, skipThreshold, bakingBins :: Int
 > numChannels = 7
 > skipThreshold = 16
-> bakingBins = 64

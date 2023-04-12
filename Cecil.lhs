@@ -10,7 +10,7 @@ December 18, 2022
 > import Euterpea.Music
 > import Parthenopea ( triad )
 
-Cecil's Asleep ====================================================================
+Cecil's Asleep ============================================================================
 
 > cecil :: Music (Pitch, Volume)
 > cecil =
@@ -44,7 +44,7 @@ Cecil's Asleep =================================================================
 >
 > -- Section I "Cecil's Asleep"
 >
-> rAltoI  = line [rAltoIAB, c 5 sn, rAltoIC, rest sn, whatIsGoingOn]
+> rAltoI  = line [rAltoIAB, c 5 sn, rAltoIC, rest sn, cutOutAllOfTheNoise, whatIsGoingOn]
 >
 > rAltoIAB
 >         = line [rAltoIA, rest sn, rAltoIA, rest sn
@@ -58,25 +58,27 @@ Cecil's Asleep =================================================================
 >           :+: line [c 5 den]
 > rAltoIC = tempo 3 (line [ d 5 qn, d 5 qn,  d 5 qn])
 >           :+: line [g 4 den]
+>
+> cutOutAllOfTheNoise =
+>   line [g 4 en, f 4 qn, d 4 qn, c 4 en, bf 3 qn, g 3 hn]
+>   
 > whatIsGoingOn
 >         = line [bf 4 qn, c 5 qn, d 5 qn, d 4 qn, g 4 hn, rest hn]
 >
 > rTenrIA = transpose (-12) rAltoIA
 > rTenrIB = transpose (-12) rAltoIB
 >
-> rTenrI  = line [rTenrIA, rest sn, rTenrIA, rest sn
->               , rTenrIB,  c 4 sn, rTenrIA, rest sn
->               , rTenrIA, rest sn, rTenrIA, rest sn
->               , rTenrIB, rest sn, rest wn, rest wn, rest hn]
+> rTenrI  =
+>   line [rTenrIA, rest sn, rTenrIA, rest sn, rTenrIB,  c 4 sn, rTenrIA, rest sn
+>       , rTenrIA, rest sn, rTenrIA, rest sn, rTenrIB, rest sn, rest (4*wn)]
 >
 > rBassI  = line [  rBassIA,  rBassIB]
 >
 > rBassIA = line [  g 2 wn, f 2 qn, ef 2 qn, d 2 hn, f 2 qn, d 2 qn, g 2 wn
 >               ,  rest hn]
-> rBassIB = line [g 2 hn,  d 2 hn, g 2 wn]
+> rBassIB = line [transpose (-12) cutOutAllOfTheNoise, g 2 hn,  d 2 hn, g 2 wn]
 >
-> -- Section II (like Section I until "we better call ... the principal"
-> -- comes where before it was "what is going on?")
+> -- Section II (like Section I until not including "cut out all of the noiae!" etc.
 >
 > rAltoII = line [rAltoIIAB, d 5 sn, rAltoIIC, rAltoIID', rAltoIID'']
 >
@@ -103,7 +105,7 @@ Cecil's Asleep =================================================================
 > rAltoIID'     = line [weBetterCall, thePrincipal] 
 > rAltoIID''    = line [weBetterCall, thePrincipal'] 
 >
-> rTenrII   = line [rTenrI, rest wn, rest wn, rest wn]
+> rTenrII   = line [rTenrI, rest hn, rest wn]
 >
 > rBassII   = line [  rBassIIA,  g 2 wn, rBassIIB]
 >
@@ -202,7 +204,7 @@ Cecil's Asleep =================================================================
 >
 > rBassIV   = rest 0
 
-Abby Cissa ========================================================================
+Abby Cissa ================================================================================
 
 > abby :: Music (Pitch, Volume)
 > abby =
@@ -230,14 +232,13 @@ Abby Cissa =====================================================================
 >    aLinkIC = line [c 5 qn, a 4 den, a 4 sn,  g 4 en, c 5 qn, c 5 en]
 >    --               lives   in    the lib-      rar-    y 
 >    aLinkID = line [c 5 qn, a 4 den, g 4 sn, fs 4 en, c 5 qn, rest en]
->    --                His     is    the  face   that  haunts....    
+>    --                His     is    the       face   that
 >    aLinkIE = line [c 5 qn, a 4 en,  a 4 en,  f 4 qn, c 5 qn]
->    --               It's    Mister Gallants!
->    aLinkIF = line [d 5 dhn, itsykw]
+>    --              haunts... It's    Mis-     -ter    Gall     (-ant's!)
+>    aLinkIF = line [d 5 dhn, g 4 sn, g 4 sn,  a 4 sn,  d 5 sn]
 >
 >    xNote   = Modify (Phrase [Art (Staccato (1/4))]) (g 4 qn)
 >    yNote   = Modify (Phrase [Art (Staccato (1/4))]) (d 4 qn)
->    itsykw  = tempo (4/4) (line [g 4 sn, g 4 sn,  a 4 sn,  d 5 sn]) 
 >
 >    aLinkII = line [aLinkIIA, aLinkIIB, aLinkIIC, aLinkIID, aLinkIIB, aLinkIIC] 
 >
@@ -276,7 +277,7 @@ Abby Cissa =====================================================================
 >    aLinkIIIF3 = line [c 5 tn, b 4 tn, a 4 tn, g 4 tn, f 4 tn, e 4 tn, d 4 tn]
 >    aLinkIIIF4 = transpose (-12) $ line [aLinkIIIF3, c 3 dqn]
 
-There Goes W.J. ===================================================================
+There Goes W.J. ===========================================================================
 
 > wj :: Music (Pitch, Volume)
 > wj =
@@ -333,7 +334,7 @@ There Goes W.J. ================================================================
 >    suspII = triad F (CustomMode "Sus4") (C, 4) wn
 >    rslvII = triad F Major               (C, 4) wn
 
-Shelby Parsley ====================================================================
+Shelby Parsley ============================================================================
 
 > shelby :: Music (Pitch, Volume)
 > shelby =
@@ -496,7 +497,7 @@ Section III - shame on you!
 >                $ line [ ef 2 en, ef 3 en]
 >   spBassIIIC   = line [ ef 2 den, ef 2 sn, ef 3 den, ef 2 sn]
 
-We Hate Her =======================================================================
+We Hate Her ===============================================================================
 
 > weHateHer :: Music (Pitch, Volume)
 > weHateHer =

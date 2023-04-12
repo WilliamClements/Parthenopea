@@ -33,6 +33,8 @@ runMUI' $ histWidget 100 Nothing $ Right $ bake4Sampling 37373
 runMUI' $ histWidget 32 Nothing $ Left $ yahozna
 runMUI' $ histWidget 8 Nothing $ Left $ addVolume 100 $ pSnippet02
 
+D:\g\MusicRepos\fluid\fluidsynth-2.3.1-win10-x64\bin\fluidsynth.exe "D:\g\MusicRepos\fluid\Essential Keys-sforzando-v9.6.sf2" D:\g\MusicRepos\fluid\Korg_X5_Drums.sf2 D:\g\MusicRepos\fluid\Discord.sf2
+
 -- listOutOfRangeCases
 --   roger: Viola, OrchestralHarp
 --   cecil: Contrabass, TenorSax, Violin
