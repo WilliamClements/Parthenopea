@@ -13,8 +13,6 @@
 > import Control.SF.SF ( SF(SF) )
 > import Data.Array.Unboxed
 > import qualified Data.Audio           as A
-> import qualified Data.ByteString      as B
-> import qualified Data.ByteString.Lazy as BL
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.Maybe (catMaybes, fromJust, fromMaybe, listToMaybe, mapMaybe)
 > import Data.Typeable ( typeOf )
