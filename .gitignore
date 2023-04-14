@@ -7,3 +7,5 @@ regex-base/
 *.sf2
 *.mscz
 *.mp3
+*.hi
+*.o

@@ -7,7 +7,6 @@ Last modified: 27-September-2022
 
 > module Percussion where
 >
-> import Data.List (unfoldr)
 > import Debug.Trace
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music

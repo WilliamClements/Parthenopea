@@ -1,13 +1,17 @@
 name:           Parthenopea
 version:        1.0.0
-build-type:     Simple
 cabal-version:  >= 1.8
 license:
 category:       Sound
+stability:      experimental
+build-type:     Simple
 maintainer:     William Clements <william@clementsassociates.net>
 synopsis:       William Clements Music
 description:    William Clements Music using Euterpea library
-library
+extra-source-files:
+        ReadMe.txt
+
+Library
   hs-source-dirs: .
   ghc-options: -O2 -funbox-strict-fields -fexcess-precision
   extensions: CPP

@@ -10,18 +10,21 @@
 > import Control.Arrow ( returnA, (<<<), (>>>), Arrow(arr) )
 > import Control.Arrow.ArrowP ( ArrowP(ArrowP) )
 > import Control.DeepSeq (NFData)
-> import Control.SF.SF ( SF(SF) )
+> import qualified Control.SF.SF        as C
 > import Data.Array.Unboxed
 > import qualified Data.Audio           as A
 > import Data.Int ( Int8, Int16, Int32 )
+> import qualified Data.Map as Map
 > import Data.Maybe (catMaybes, fromJust, fromMaybe, listToMaybe, mapMaybe)
 > import Data.Typeable ( typeOf )
-> import Euterpea.IO.Audio.Basics ( outA )
+> import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
-> import Euterpea.IO.Audio.Types ( Clock(..), AudioSample, AudSF, SigFun, numChans)
+> import Euterpea.IO.Audio.Render
+> import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MidiIO (MidiMessage(..), Message(..))
-> import Euterpea.Music ( Music, Pitch, PitchClass(F, C, D, E), NoteAttribute, d, dur )
+> import Euterpea.Music hiding(SF(SF))
+> import Fanfare
 > import FRP.UISF
 > import FRP.UISF.Asynchrony ( Automaton(..) )
 > import FRP.UISF.AuxFunctions (DeltaT)
@@ -42,8 +45,8 @@
 > clockedSFToUISF :: forall a b c . (NFData b, Clock c) ⇒ DeltaT → SigFun c a b → UISF a [(b, Time)]
 > clockedSFToUISF buffer ~(ArrowP sf) = let r = rate (undefined :: c) 
 >   in asyncVT r buffer (toAutomaton sf)
-> toAutomaton :: forall a b . SF a b → Automaton (→) a b
-> toAutomaton ~(SF f) = Automaton $ \a → let (b, sf) = f a in (b, toAutomaton sf)
+> toAutomaton :: forall a b . C.SF a b → Automaton (→) a b
+> toAutomaton ~(C.SF f) = Automaton $ \a → let (b, sf) = f a in (b, toAutomaton sf)
 >
 > fftZ :: AudSF Double (SEvent [Double])
 > fftZ = fftA 100 1024
@@ -543,7 +546,7 @@ import from SoundFont file =====================================================
 >             print "24-bit"
 >         let shdrs = F.shdrs (F.pdta soundFont)
 >         let bs =bounds shdrs
->         let upper = min 10 (snd bs)
+>         let upper = min 2000 (snd bs)
 >         mapM_ (shdrDo sdata m24 shdrs) [0..upper]
 >     putStrLn "leaving doSoundFont"
 >
@@ -628,6 +631,30 @@ import from Wave file ==========================================================
 >         idx :: Int
 >         idx = st + truncate (numS * pos)
 >
+> getWave :: FilePath -> IO (DeltaT, AudSF () Double)
+> getWave inFile = do
+>   putStrLn "entering getWave"
+>   putStrLn ("inFile=" ++ inFile)
+>   maybeAudio ← W.importFile inFile
+>   case maybeAudio of
+>     Left s → error ("wav decoding error: " ++ s)
+>     Right aud → do
+>       let chans::Double = fromIntegral $ A.channelNumber aud
+>       let sdta = A.sampleData aud
+>       let (st, en) :: (Int, Int) =  bounds sdta {- WOX (0, 26) -}
+>       let count::Double = fromIntegral (en - st + 1) / chans
+>       let rate::Double = fromIntegral $ A.sampleRate aud
+>       let secs::Double = count / rate
+>       let spec::SampleSpec = SampleSpec count rate chans
+>       if 1 == A.channelNumber aud
+>         then do
+>           let sig0  :: AudSF Double Double                       = getWaveSamplingSF sdta (st, en)
+>           let (secs :: DeltaT, sig :: AudSF () Double)           = getSFForOutput sig0 spec (st, en)
+>           putStrLn "Mono signal function extracted"
+>           return (secs, sig)
+>         else do
+>           error "getWave stereo not supported"
+>
 > vmain :: IO ()
 > vmain = do
 >   putStrLn "This freezes the machine! Don't run it!!"
@@ -662,56 +689,71 @@ import from Wave file ==========================================================
 >     ANote c k v d      → f c k v d
 >     Std (NoteOn c k v) → f c k v dur
 >     _                  → Nothing
-
-=================
-Bifurcate example
-
-Here is an example with some ideas borrowed from Gary Lee Nelson's
-composition "Bifurcate me, Baby!"
-
-The basic idea is to evaluate the logistic growth function at
-different points and convert the value to a musical note.  The growth
-function is given by
-
-  x_(n+1) = r x_n (1 - x_n)
-
-We start with an initial population x_0 and iteratively apply the
-growth function to it, where r is the growth rate.  For certain values
-of r, the population stablizes to a certain value, but as r increases,
-the period doubles, quadruples, and eventually leads to chaos.  It is
-one of the classic examples in chaos theory.
-
-First we define the growth function which, given a rate r and
-current population x, generates the next population.
-
-> grow :: Double -> Double -> Double
-> grow r x = r * x * (1-x)
-
-Then we define a signal 'tick' that pulsates at a given frequency
-specified by slider f.  This is the signal that will drive the
-simulation.  The timer function takes in a frequency.
-
-The next thing we need is a time-varying population.  This is where 
-the delay function and the rec keyword come in handy.  We initialize 
-the 'pop' signal with the value 0.1, and then on every tick, we 
-grow it with the instantaneous value of the growth rate signal.
-
-We can now write a simple function that maps a population value to a
-musical note:
-
-> popToNote :: Double -> [MidiMessage]
-> popToNote x = [ANote 0 n 64 0.05] where n = truncate (x * 127)
-
-Finally, to play the note, we simply send the current population to 
-popToNote, and send the result to the selected Midi output device.  
-
-> bifurcate = runMUI (defaultMUIParams {uiSize=(300,500), uiTitle="Bifurcate!"}) $ proc _ -> do
->   mo <- selectOutput -< ()
->   f  <- title "Frequency" $ withDisplay (hSlider (1, 10) 1) -< ()
->   r  <- title "Growth rate" $ withDisplay (hSlider (2.4, 4.0) 2.4) -< ()
->   
->   tick <- timer -< 1.0 / f
->   rec pop <- delay 0.1 -<  maybe pop (const $ grow r pop) tick
->       
->   _ <- title "Population" $ display -< pop
->   midiOut -< (mo, fmap (const (popToNote pop)) tick)
+>
+> main :: IO ()
+> main = do
+>   (secs1, sig1) <- getWave "Oboe-C5.wav"
+>   (secs2, sig2) <- getWave "Cello C3.wav"
+>   let (secs3, sig3) = renderSF rattan fakeMap
+>   outFileNorm "busy.wav" secs3 sig3
+>   return ()
+>
+> reedyWav = tableSinesN 1024 [0.4, 0.3, 0.35, 0.5, 0.1, 0.2, 0.15, 
+>                              0.0, 0.02, 0.05, 0.03]
+>
+> reed :: Instr (Stereo AudRate)
+> reed dur pch vol params = 
+>     let reedy = osc reedyWav 0
+>         freq  = apToHz pch
+>         vel   = fromIntegral vol / 127 / 3
+>         env   = envLineSeg [0, 1, 0.8, 0.6, 0.7, 0.6, 0] 
+>                            (replicate 6 (fromRational dur/6))
+>     in proc _ → do
+>       amp ← env ⤙ ()
+>       r1 ← reedy ⤙ freq
+>       r2 ← reedy ⤙ freq + (0.023 * freq)
+>       r3 ← reedy ⤙ freq + (0.019 * freq)
+>       let [a1, a2, a3] = map (* (amp * vel)) [r1, r2, r3]
+>       let rleft = a1 * 0.5 + a2 * 0.44 * 0.35 + a3 * 0.26 * 0.65
+>           rright = a1 * 0.5 + a2 * 0.44 * 0.65 + a3 * 0.26 * 0.35
+>       outA ⤙ (rleft, rright)
+>
+> saw = tableSinesN 4096 [1, 0.5, 0.333, 0.25, 0.2, 0.166, 0.142, 0.125, 
+>                         0.111, 0.1, 0.09, 0.083, 0.076, 0.071, 0.066, 0.062]
+>
+> plk :: Instr (Stereo AudRate)
+> plk dur pch vol params = 
+>     let vel  = fromIntegral vol / 127 / 3
+>         freq = apToHz pch
+>         sf   = pluck saw freq SimpleAveraging
+>     in proc _→ do
+>          a ← sf ⤙ freq
+>          outA ⤙ (a * vel * 0.4, a * vel * 0.6)
+>
+> myBass, myReed :: InstrumentName
+> myBass = CustomInstrument "pluck-like"
+> myReed = CustomInstrument "reed-like"
+>
+> myMap :: InstrMap (Stereo AudRate)
+> myMap = [{- myBass, plk), (myReed, reed), -} (Violin, reed), (SynthBass1, plk)]
+>
+> takeItToTheWave :: FilePath → Music (Pitch, Volume) → IO()
+> takeItToTheWave fp m = outFile fp secs sig
+>   where
+>     (secs, sig) = renderSF m myMap
+>
+> getFakeInstr :: AudSF Double Double -> DeltaT -> SampleSpec -> (Int, Int) -> Instr (Mono AudRate)
+> getFakeInstr sig0 secs spec (st, en) dur pch vol params =
+>   proc () -> do
+>     let freq :: Double = apToHz pch
+>     let (secs' :: DeltaT, sig' :: AudSF () Double) = getSFForOutput sig0 spec{ssRate = ssCount spec / freq} (st, en)
+>               -- x ⤙ delay 0 ⤙ sig'
+>     outA ⤙ 0  -- sig'
+>
+> -- getInstrSF :: FilePath -> AudSF Double Double
+> -- getInstrSF fp = getWave
+>
+> -- sfV :: AudSF Double Double
+> -- sfV = 
+> fakeMap :: InstrMap (Stereo AudRate)
+> fakeMap = [(Violin, reed), (SynthBass1, plk)]

@@ -74,14 +74,6 @@ Utilities ======================================================================
 > fractionOf   :: Int → Double → Int
 > fractionOf x d = min 127 $ round $ d * fromIntegral x
 >
-> -- this is for reference only; it compiles, but gives exception due to empty map
-> takeItToTheWave :: FilePath → Music (Pitch, Volume) → IO()
-> takeItToTheWave fp m = outFile fp secs sig
->   where
->     noMap :: InstrMap (AudSF () Double)
->     noMap = []
->     (secs, sig) = renderSF m noMap
->
 > slur         :: Rational → Music a → Music a
 > slur rate = Modify (Phrase [Art (Slurred rate)])
 >
