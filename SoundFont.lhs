@@ -76,7 +76,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >         let (sst, sen) = bounds shdrs
 >         let imap = map (extractFromHeader sdata m24 shdrs)
 >                    $ filter isJust
->                    $ map (shouldExtract shdrs) [sst..sen]
+>                    $ map (shouldExtract shdrs) [sst..sen-1]
 >         doPlayInstruments imap
 >     putStrLn "leaving doSoundFont"
 >
