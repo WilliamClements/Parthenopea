@@ -13,7 +13,6 @@
 > import qualified Control.SF.SF        as C
 > import Data.Array.Unboxed
 > import qualified Data.Audio           as A
-> import Data.Int ( Int8, Int16, Int32 )
 > import qualified Data.Map as Map
 > import Data.Maybe (catMaybes, fromJust, fromMaybe, listToMaybe, mapMaybe)
 > import Data.Typeable ( typeOf )
@@ -38,8 +37,7 @@
 > import Parthenopea
 > import System.Environment ( getArgs )
 > import System.IO ( hSeek, withBinaryFile, SeekMode(AbsoluteSeek), IOMode(ReadMode) )
-> import Text.Printf ( PrintfArg(formatArg) )
-   
+>   
 > -- WOX oldmain = runGraph True
 >
 > clockedSFToUISF :: forall a b c . (NFData b, Clock c) ⇒ DeltaT → SigFun c a b → UISF a [(b, Time)]
@@ -490,270 +488,32 @@ fft ============================================================================
 >
 > uitextdemo = title "Color and Fonts" $ constA Nothing >>> textField CharWrap uitext'
 >                                                       >>> constA ()
-
-importing sampled sound (from SoundFont or Wave file) =====================================
-
-> data SampleSpec = 
->   SampleSpec {   ssCount  :: Double
->                , ssRate   :: Double
->                , ssChans  :: Double} deriving Show
->   
-> getSFForPhase          ::  forall a p. (ArrowCircuit a, Clock p) ⇒ 
->                              SampleSpec
->                              → Double
->                              → ArrowP a p () Double
-> getSFForPhase spec iphs =
->   let frac    :: RealFrac r ⇒ r → r
->       frac = snd . properFraction
->       secs  :: Double            = ssCount spec / ssRate spec
->       delta   :: Double
->       delta = ssChans spec / (secs * ssRate spec)
->   in proc () → do
->     rec
->       let phase = if next > 1 then frac next else next
->       next ← delay iphs ⤙ frac (phase + delta)
->     outA ⤙ phase
 >
+> {-
 > getSFForOutput         :: forall a p u. (ArrowCircuit a, Clock p, WaveAudioSample u) ⇒
 >                            ArrowP a p Double u 
 >                            → SampleSpec
 >                            → (Int, Int)
 >                            → (DeltaT, ArrowP a p () u)
-> getSFForOutput sig0 spec range
+> getSFForOutput sig0 spec (st, en)
 >   | traceAlways msg False = undefined
 >   | otherwise = (secs, sig)
 >   where
 >     secs  :: Double            = ssCount spec / ssRate spec
->     sig   :: ArrowP a p () u   = getSFForPhase spec 0 >>> sig0
->     msg = unwords [ "SampleSpec=", show spec, " (st,en)=", show range, " secs = ", show (ssCount spec / ssRate spec)]
-
-import from SoundFont file ================================================================
-
-> doSoundFont :: FilePath → Effect → IO ()
-> doSoundFont inFile effect =
->   do
->     putStrLn "entering doSoundFont"
->     putStrLn ("inFile=" ++ inFile)
->     maybeAudio ← F.importFile inFile
->     case maybeAudio of
->       Left s → putStrLn $ "SoundFont decoding error: " ++ s
->       Right soundFont → do
->         let sdata = F.smpl (F.sdta soundFont)
->         let m24 = F.sm24 (F.sdta soundFont)
->         case m24 of
->           Nothing → print "16-bit"
->           Just s24data → do
->             print "24-bit"
->         let shdrs = F.shdrs (F.pdta soundFont)
->         let bs =bounds shdrs
->         let upper = min 2000 (snd bs)
->         mapM_ (shdrDo sdata m24 shdrs) [0..upper]
->     putStrLn "leaving doSoundFont"
+>     sig   :: ArrowP a p () u   = getSFForPhase spec 0 1 >>> sig0
+>     msg = unwords [ "SampleSpec=", show spec, " (st,en)=", show (st, en), " secs = ", show (ssCount spec / ssRate spec)]
 >
-> shdrDo :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Array Word F.Shdr → Word → IO ()
-> shdrDo sdata m24 shdrs n = do
->   let shdr = shdrs ! n
->   let filename = F.sampleName shdr ++ ".wav"
->   let (st, en) :: (Int, Int)                    = (fromIntegral (F.start shdr), fromIntegral (F.end shdr))
->   let sr       :: Double                        = fromIntegral $ F.sampleRate shdr  
->   let ns       :: Double                        = fromIntegral (en - st + 1)
->   let secs     :: DeltaT                        = ns / sr
->   let sig0                                      = getSoundFontSamplingSF sdata m24 (st, en)
->   let spec                                      = SampleSpec ns sr 1
->   let (secs' :: DeltaT, sig :: AudSF () Double) = getSFForOutput sig0 spec (st, en)
->   print ("spec=" ++ show spec ++ "secs=" ++ show secs ++ "secs'=" ++ show secs')
->   outFileNorm filename secs' sig
->   print filename
->
-> getSoundFontSamplingSF    :: forall a p. (ArrowCircuit a, Clock p) =>
->                            A.SampleData Int16 →
->                     Maybe (A.SampleData Int8) →
->                            (Int, Int) →
->                     ArrowP a p Double Double
-> getSoundFontSamplingSF sdt m24 (st, en) = (arr . extractDataPoint) ()
->  where
->    extractDataPoint    :: forall u. (AudioSample u, Num u) ⇒ () → Double → u
->    extractDataPoint () pos = 
->      let
->        nc = numChans (undefined :: u)
->        numS :: Double
->        numS = fromIntegral $ (en - st + 1) `div` nc
->        idx :: Int 
->        idx = case m24 of
->              Nothing → st + truncate (numS * pos)
->              Just _  → error "24-bit not yet supported"
->      in fromIntegral $ sdt ! idx
-> 
-
-import from Wave file =====================================================================
-
-> doWave :: FilePath → IO ()
-> doWave inFile =
->   do
->     putStrLn "entering doWave"
->     putStrLn ("inFile=" ++ inFile)
->     maybeAudio ← W.importFile inFile
->     case maybeAudio of
->       Left s → putStrLn $ "wav decoding error: " ++ s
->       Right aud → do
->         let chans::Double = fromIntegral $ A.channelNumber aud
->             sdta = A.sampleData aud
->             (st, en) =  bounds sdta {- WOX (0, 26) -}
->             count::Double = fromIntegral (en - st + 1) / chans
->             rate::Double = fromIntegral $ A.sampleRate aud
->             secs::Double = count / rate
->             spec::SampleSpec = SampleSpec count rate chans
->         putStrLn $ "chans=" ++ show chans ++ " range=" ++ show (st, en) ++ " #=" ++ show count
->         putStrLn $ "rate=" ++ show rate ++ " secs=" ++ show secs
->         if 1 == A.channelNumber aud
->           then do
->             let sig0  :: AudSF Double Double                       = getWaveSamplingSF sdta (st, en)
->             let (secs :: DeltaT, sig :: AudSF () Double)           = getSFForOutput sig0 spec (st, en)
->             outFileNorm "outMono.wav" secs sig
->             putStrLn "Mono wave file produced"
->           else do
->             let sig0  :: AudSF Double (Double, Double)             = getWaveSamplingSF sdta (st, en)
->             let (secs :: DeltaT, sig :: AudSF () (Double, Double)) = getSFForOutput sig0 spec (st, en)
->             outFileNorm "outStereo.wav" secs sig
->             putStrLn "Stereo wave file produced"
->     putStrLn "leaving doWave"
->
-> getWaveSamplingSF         :: forall a p u. (ArrowCircuit a, Clock p, WaveAudioSample u) =>
->                            A.SampleData Int32 → (Int, Int) → ArrowP a p Double u
-> getWaveSamplingSF sdta (st, en) = (arr . extractDataPoint) ()
+> getSFForInstr          :: forall a p u. (ArrowCircuit a, Clock p, WaveAudioSample u) ⇒
+>                            ArrowP a p Double u 
+>                            → SampleSpec
+>                            → (Int, Int)
+>                            → Double
+>                            → (DeltaT, ArrowP a p () u)
+> getSFForInstr sig0 spec (st, en) freqFactor
+>   | traceAlways msg False = undefined
+>   | otherwise = (secs, sig)
 >   where
->     extractDataPoint   :: forall u. (WaveAudioSample u) ⇒ () → Double → u
->     extractDataPoint () pos = retrieve sdta idx
->       where
->         nc = numChans (undefined :: u) 
->         numS :: Double
->         numS = fromIntegral $ (en - st + 1) `div` nc
->         idx :: Int
->         idx = st + truncate (numS * pos)
->
-> getWave :: FilePath -> IO (DeltaT, AudSF () Double)
-> getWave inFile = do
->   putStrLn "entering getWave"
->   putStrLn ("inFile=" ++ inFile)
->   maybeAudio ← W.importFile inFile
->   case maybeAudio of
->     Left s → error ("wav decoding error: " ++ s)
->     Right aud → do
->       let chans::Double = fromIntegral $ A.channelNumber aud
->       let sdta = A.sampleData aud
->       let (st, en) :: (Int, Int) =  bounds sdta {- WOX (0, 26) -}
->       let count::Double = fromIntegral (en - st + 1) / chans
->       let rate::Double = fromIntegral $ A.sampleRate aud
->       let secs::Double = count / rate
->       let spec::SampleSpec = SampleSpec count rate chans
->       if 1 == A.channelNumber aud
->         then do
->           let sig0  :: AudSF Double Double                       = getWaveSamplingSF sdta (st, en)
->           let (secs :: DeltaT, sig :: AudSF () Double)           = getSFForOutput sig0 spec (st, en)
->           putStrLn "Mono signal function extracted"
->           return (secs, sig)
->         else do
->           error "getWave stereo not supported"
->
-> vmain :: IO ()
-> vmain = do
->   putStrLn "This freezes the machine! Don't run it!!"
->   if False then
->     runUI (defaultUIParams {uiSize=(500, 520), uiCloseOnEsc=True}) $ 
->       leftRight $ bottomUp (timeEx >>> buttonEx) >>> checkboxEx >>> radioButtonEx >>>
->       leftRight (shoppinglist >>> colorDemo) >>> textboxdemo >>> uitextdemo
->            else
->     putStrLn "Later!!!"
->
-> echoUI :: UISF () ()
-> echoUI = proc _ → do
->   (mi, mo) ← getDeviceIDs ⤙ ()
->   m ← midiIn ⤙ mi
->   r ← title "Decay rate"        $ withDisplay (hSlider (0, 0.9) 0.5) ⤙ ()
->   ef ← title "Echoing frequency" $ withDisplay (hSlider (1, 10) 10) ⤙ ()
->   
->   rec let m' = removeNull $ mergeS m s
->       s <- vdelay -< (1/ef, fmap (mapMaybe (decay 0.1 r)) m')
->   
->   midiOut ⤙ (mo, m')
->
-> echoMUI = runMUI' echoUI
->
-> decay :: Time → Double → MidiMessage → Maybe MidiMessage
-> decay dur r m =
->   let f c k v d = if v > 0
->                   then let v' = truncate (fromIntegral v*r)
->                        in Just (ANote c k v' d)
->                   else Nothing
->   in case m of 
->     ANote c k v d      → f c k v d
->     Std (NoteOn c k v) → f c k v dur
->     _                  → Nothing
->
-> main :: IO ()
-> main = do
->   (secs1, sig1) <- getWave "Oboe-C5.wav"
->   (secs2, sig2) <- getWave "Cello C3.wav"
->   let (secs3, sig3) = renderSF rattan fakeMap
->   outFileNorm "busy.wav" secs3 sig3
->   return ()
->
-> reedyWav = tableSinesN 1024 [0.4, 0.3, 0.35, 0.5, 0.1, 0.2, 0.15, 
->                              0.0, 0.02, 0.05, 0.03]
->
-> reed :: Instr (Stereo AudRate)
-> reed dur pch vol params = 
->     let reedy = osc reedyWav 0
->         freq  = apToHz pch
->         vel   = fromIntegral vol / 127 / 3
->         env   = envLineSeg [0, 1, 0.8, 0.6, 0.7, 0.6, 0] 
->                            (replicate 6 (fromRational dur/6))
->     in proc _ → do
->       amp ← env ⤙ ()
->       r1 ← reedy ⤙ freq
->       r2 ← reedy ⤙ freq + (0.023 * freq)
->       r3 ← reedy ⤙ freq + (0.019 * freq)
->       let [a1, a2, a3] = map (* (amp * vel)) [r1, r2, r3]
->       let rleft = a1 * 0.5 + a2 * 0.44 * 0.35 + a3 * 0.26 * 0.65
->           rright = a1 * 0.5 + a2 * 0.44 * 0.65 + a3 * 0.26 * 0.35
->       outA ⤙ (rleft, rright)
->
-> saw = tableSinesN 4096 [1, 0.5, 0.333, 0.25, 0.2, 0.166, 0.142, 0.125, 
->                         0.111, 0.1, 0.09, 0.083, 0.076, 0.071, 0.066, 0.062]
->
-> plk :: Instr (Stereo AudRate)
-> plk dur pch vol params = 
->     let vel  = fromIntegral vol / 127 / 3
->         freq = apToHz pch
->         sf   = pluck saw freq SimpleAveraging
->     in proc _→ do
->          a ← sf ⤙ freq
->          outA ⤙ (a * vel * 0.4, a * vel * 0.6)
->
-> myBass, myReed :: InstrumentName
-> myBass = CustomInstrument "pluck-like"
-> myReed = CustomInstrument "reed-like"
->
-> myMap :: InstrMap (Stereo AudRate)
-> myMap = [{- myBass, plk), (myReed, reed), -} (Violin, reed), (SynthBass1, plk)]
->
-> takeItToTheWave :: FilePath → Music (Pitch, Volume) → IO()
-> takeItToTheWave fp m = outFile fp secs sig
->   where
->     (secs, sig) = renderSF m myMap
->
-> getFakeInstr :: AudSF Double Double -> DeltaT -> SampleSpec -> (Int, Int) -> Instr (Mono AudRate)
-> getFakeInstr sig0 secs spec (st, en) dur pch vol params =
->   proc () -> do
->     let freq :: Double = apToHz pch
->     let (secs' :: DeltaT, sig' :: AudSF () Double) = getSFForOutput sig0 spec{ssRate = ssCount spec / freq} (st, en)
->               -- x ⤙ delay 0 ⤙ sig'
->     outA ⤙ 0  -- sig'
->
-> -- getInstrSF :: FilePath -> AudSF Double Double
-> -- getInstrSF fp = getWave
->
-> -- sfV :: AudSF Double Double
-> -- sfV = 
-> fakeMap :: InstrMap (Stereo AudRate)
-> fakeMap = [(Violin, reed), (SynthBass1, plk)]
+>     secs  :: Double            = ssCount spec / ssRate spec
+>     sig   :: ArrowP a p () u   = getSFForPhase spec 0 freqFactor >>> sig0
+>     msg = unwords [ "SampleSpec=", show spec, " (st,en)=", show (st, en), " secs = ", show (ssCount spec / ssRate spec)]
+> -}

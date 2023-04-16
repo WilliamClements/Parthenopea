@@ -29,6 +29,7 @@ Library
         Players,
         Signals,
         Simple,
+        SoundFont,
         SunPyg,
         WHC
   other-modules:
