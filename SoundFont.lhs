@@ -23,6 +23,7 @@ SoundFont support ==============================================================
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.Maybe (isJust, fromJust)
 > import Euterpea
+> import Fanfare
 > import FRP.UISF.AuxFunctions
 > import HSoM
 > import Parthenopea
@@ -34,16 +35,16 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > data SampleSpec = 
 >   SampleSpec { ssData     :: A.SampleData Int16
 >                , ssM24    :: Maybe (A.SampleData Int8)
->                , ssRange  :: (Int, Int)
+>                , ssRange  :: (Word, Word)
 >                , ssCount  :: Double
 >                , ssRate   :: Double
 >                , ssChans  :: Double
 >                , ssFreq   :: Double} deriving Show
 >   
-> getSFForPhase          ::      SampleSpec
->                              → Double
->                              → Double
->                              → ArrowP C.SF AudRate () Double 
+> getSFForPhase          :: SampleSpec
+>                           → Double
+>                           → Double
+>                           → ArrowP C.SF AudRate () Double 
 > getSFForPhase spec iphs freqFactor =
 >   let frac             :: RealFrac r ⇒ r → r
 >       frac                           = snd . properFraction
@@ -73,25 +74,23 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >             print "24-bit"
 >         let shdrs = F.shdrs (F.pdta soundFont)
 >         let (sst, sen) = bounds shdrs
->         let jlist = map (shouldExtract shdrs) [sst..sen]
->         let klist = filter isJust jlist
->         let imap = map (extractFromHeader sdata m24 shdrs) klist
+>         let imap = map (extractFromHeader sdata m24 shdrs)
+>                    $ filter isJust
+>                    $ map (shouldExtract shdrs) [sst..sen]
 >         doPlayInstruments imap
 >     putStrLn "leaving doSoundFont"
 >
-> sampler                ::     A.SampleData Int16
->                             → Maybe (A.SampleData Int8)
->                             → (Int, Int)
->                             → ArrowP C.SF AudRate Double Double
-> sampler sdata m24 (st, en) =
+> sampler                :: SampleSpec → ArrowP C.SF AudRate Double Double
+> sampler spec =
 >   let
 >     nc = 1 -- numChans (undefined :: u)
+>     (st, en) = ssRange spec
 >     numS :: Double
->     numS = case m24 of
+>     numS = case ssM24 spec of
 >           Nothing → fromIntegral $ (en - st + 1) `div` nc
 >           Just _  → error "24-bit not yet supported"
 >   in proc pos → do
->     outA ⤙ fromIntegral $ sdata ! (st + truncate (numS * pos))
+>     outA ⤙ fromIntegral $ ssData spec ! (fromIntegral st + truncate (numS * pos))
 >
 > toInstr                :: SampleSpec → Instr (Mono AudRate)
 > toInstr spec dur pch vol params           =
@@ -99,15 +98,14 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     freqFactor :: Double
 >     freqFactor = ssFreq spec / apToHz pch
 >     sig :: ArrowP C.SF AudRate () Double
->     sig = getSFForPhase spec 0 freqFactor
->            >>> sampler (ssData spec) (ssM24 spec) (ssRange spec)
+>     sig = getSFForPhase spec 0 freqFactor >>> sampler spec
 >   in proc _ → do
 >     z ← sig ⤙ ()
 >     outA ⤙ z
 >
 > shouldExtract :: Array Word F.Shdr -> Word -> Maybe (InstrumentName, Word)
 > shouldExtract shdrs n =
->   let shdr = shdrs ! (fromIntegral n)
+>   let shdr = shdrs ! n
 >       ilist = filter (match (F.sampleName shdr)) theExtractMap
 >   in case ilist of
 >     [] -> Nothing
@@ -121,7 +119,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   where
 >     (iname, n) = fromJust mis
 >     shdr = shdrs ! n
->     (st, en) :: (Int, Int)                    = (fromIntegral (F.start shdr), fromIntegral (F.end shdr))
+>     (st, en) :: (Word, Word)                  = (F.start shdr, F.end shdr)
 >     sr       :: Double                        = fromIntegral $ F.sampleRate shdr
 >     ap       :: AbsPitch                      = fromIntegral $ F.originalPitch shdr              
 >     ns       :: Double                        = fromIntegral (en - st + 1)
@@ -131,15 +129,20 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > theExtractMap :: [(String, InstrumentName)]
 > theExtractMap =
 >   [
+> -- remotely appropriate
 >       ("Oboe-A4",        Oboe)
 >     , ("Trumpet-D5",     Trumpet)
 >     , ("Violin f 56(L)", Violin)
 >     , ("Banjo-A4-M-44",  Banjo)
+> -- completely bogus
+>     , ("Trumpet-D5",     TenorSax)
+>     , ("Banjo-A4-M-44",  AcousticGuitarSteel)
+>     , ("Cello C3",       Contrabass)
 >   ]
 >
 > doPlayInstruments      :: InstrMap (Mono AudRate) → IO ()
 > doPlayInstruments imap = do
->   let m = instrument Violin pSnippet02
+>   let m = pendingtonArnt 4
 >   let (d,s) = renderSF m imap
 >   outFileNorm "blaat.wav" d s
 >   return ()
