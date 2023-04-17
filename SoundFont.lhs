@@ -22,19 +22,22 @@ SoundFont support ==============================================================
 > import Data.Default.Class
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.Maybe (isJust, fromJust)
+> import Debug.Trace ( traceIO, traceM )
 > import Euterpea
 > import Fanfare
 > import FRP.UISF.AuxFunctions
 > import HSoM
 > import Parthenopea
-> import System.Environment(getArgs)
->
+> import System.Environment(getArgs)  
 
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
 > data SampleArrays = 
 >   SampleArrays {
->               ssData   :: A.SampleData Int16
+>               ssInsts  :: Array Word F.Inst
+>             , ssIBags  :: Array Word F.Bag
+>             , ssIGens  :: Array Word F.Generator
+>             , ssData   :: A.SampleData Int16
 >             , ssM24    :: Maybe (A.SampleData Int8)}
 >
 > data SampleSpec = 
@@ -84,21 +87,121 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     case maybeAudio of
 >       Left s               → putStrLn $ "SoundFont decoding error: " ++ s
 >       Right soundFont      → do
+>         let pdata = F.pdta soundFont
 >         let sdata = F.sdta soundFont
->         let arrays = SampleArrays (F.smpl sdata) (F.sm24 sdata)
+>         let arrays = SampleArrays (F.insts pdata)
+>                                   (F.ibags pdata)
+>                                   (F.igens pdata)
+>                                   (F.smpl sdata)
+>                                   (F.sm24 sdata)
 >         case ssM24 arrays of
->           Nothing → print "16-bit"
->           Just s24data → do
->             print "24-bit"
->         let shdrs = F.shdrs (F.pdta soundFont)
->         let (sst, sen) = bounds shdrs
->         let extracted = map (shouldExtract shdrs) [sst..sen]
->         let filtered = filter isJust extracted
->         print filtered
->         let imap = map (extractFromHeader arrays shdrs) filtered
->         doPlayInstruments imap
+>           Nothing      → print "16-bit"
+>           Just s24data → print "24-bit"
+>         doInstruments arrays
+>         -- let shdrs = F.shdrs (F.pdta soundFont)
+>         -- let (sst, sen) = bounds shdrs
+>         -- let selected = map (shouldDoSample shdrs) [sst..sen]
+>         -- let filtered = filter isJust selected
+>         -- print filtered
+>         -- let imap = map (extractSample arrays shdrs) filtered
+>         -- doPlayInstruments imap
 >     putStrLn "leaving doSoundFont"
 >
+> doInstruments          :: SampleArrays → IO ()
+> doInstruments arrays = do
+>   let is = ssInsts arrays
+>   let (ist, ien) = bounds is 
+>   let selected = map (shouldDoInstrument is) [ist..ien-1]
+>   let filtered = filter isJust selected
+>   print ("doInstruments filtered = " ++ show filtered)
+>   let imap = map (doInstrument arrays is) filtered
+>   print ("doInstruments = " ++ show imap ++ "\n")
+>   -- print imap
+>   return ()
+>
+> shouldDoInstrument     :: Array Word F.Inst → Word → Maybe (InstrumentName, Word)
+> shouldDoInstrument is n =
+>   let i = is ! n
+>       ilist = filter (match (F.instName i)) selectedInstruments
+>   in case ilist of
+>     [] → Nothing
+>     _  → Just (snd (head ilist), n)
+>   where
+>     match :: String → (String, InstrumentName) → Bool
+>     match iname cand = iname == fst cand
+>
+> doInstrument           :: SampleArrays
+>                           → Array Word F.Inst
+>                           → Maybe (InstrumentName, Word)
+>                           → [[F.Generator]]
+> doInstrument arrays is mis
+>   | traceAlways msg False = undefined
+>   | otherwise = ilist
+>   where
+>     (iname, n) = fromJust mis
+>     iinst = is ! n
+>     jinst = is ! (n + 1)
+>     ibagi = F.instBagNdx iinst
+>     jbagi = F.instBagNdx jinst
+>     zones = [ibagi..jbagi-1]
+>     ilist = map (doZone arrays iinst) zones
+>     m = F.genNdx
+>     -- instr = toInstr arrays spec
+>     msg = unwords ["doInstument ", show (iname, n), " ", show zones, " ", show (length ilist)]
+>
+> doZone                 :: SampleArrays → F.Inst → Word → [F.Generator]
+> doZone arrays iinst w
+>   | traceAlways msg False = undefined
+>   | otherwise = jlist
+>   where
+>     ibags = ssIBags arrays
+>     n = F.instBagNdx iinst
+>     zbag = ibags ! n
+>     ybag = ibags ! (n + 1)
+>     zgeni = F.genNdx zbag
+>     ygeni = F.genNdx ybag
+>     jlist = map (doGenerator arrays iinst) [zgeni..ygeni-1]
+>     msg = unwords ["doZone ", show w]
+>
+> {-
+> doInstrument          :: SampleArrays → Word → IO ()
+> doInstrument arrays n = do
+>   let is = ssInsts arrays
+>   let iinst = is ! n
+>   let jinst = is ! (n + 1)
+>   let ibag = (ssIBags arrays) ! (F.instBagNdx iinst)
+>   let jbag = (ssIBags arrays) ! (F.instBagNdx jinst)
+>   let (gst, gen) = (F.genNdx ibag, F.genNdx jbag)
+>   print iinst
+>   print (gst, gen)
+>   mapM_ (doGenerator arrays iinst) [gst..gen-1]
+>
+> doZones                :: SampleArrays → F.Inst → (Word, Word) → IO ()
+> doZones arrays iinst (zst, zen) = do
+>   mapM_ (doZone arrays iinst) [zst..zen-1]
+> -}
+>
+> doGenerator            :: SampleArrays → F.Inst → Word → F.Generator
+> doGenerator arrays iinst zw = ssIGens arrays ! zw
+> {-
+>   let generator = 
+>   case generator of
+>     F.KeyRange a b       →  do
+>                               traceIO ("KeyRange=" ++ show a ++ "," ++ show b)
+>     F.SampleIndex w      →  do 
+>                               traceIO ("SampleIndex=" ++ show w)
+>     F.SampleMode m       →  do 
+>                               traceIO ("SampleMode=" ++ show m)
+>     F.InstIndex i        →  do 
+>                               traceIO ("InstIndex=" ++ show i)
+>     F.RootKey k          →  do 
+>                               traceIO ("RootKey=" ++ show k)
+>     _                    →  return ()
+>
+>   -- print generator
+>   return ()
+>
+> -}
 > sampler                :: SampleArrays → SampleSpec → AudSF Double Double
 > sampler arrays spec =
 >   let
@@ -122,10 +225,10 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >      z ← sig ⤙ ()
 >      outA ⤙ z
 >
-> shouldExtract :: Array Word F.Shdr → Word → Maybe (InstrumentName, Word)
-> shouldExtract shdrs n =
+> shouldDoSample          :: Array Word F.Shdr → Word → Maybe (InstrumentName, Word)
+> shouldDoSample shdrs n =
 >   let shdr = shdrs ! n
->       ilist = filter (match (F.sampleName shdr)) theExtractMap
+>       ilist = filter (match (F.sampleName shdr)) selectedSamples
 >   in case ilist of
 >     [] → Nothing
 >     _  → Just (snd (head ilist), n)
@@ -133,11 +236,11 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     match :: String → (String, InstrumentName) → Bool
 >     match sname cand = sname == fst cand
 >
-> extractFromHeader      :: SampleArrays
+> extractSample          :: SampleArrays
 >                           → Array Word F.Shdr
 >                           → Maybe (InstrumentName, Word)
 >                           → (InstrumentName, Instr (Mono AudRate))
-> extractFromHeader arrays shdrs mis
+> extractSample arrays shdrs mis
 >   | traceAlways msg False = undefined
 >   | otherwise = (iname, instr)
 >   where
@@ -149,19 +252,17 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     ns       :: Double                        = fromIntegral (en - st + 1)
 >     spec     :: SampleSpec                    = initSampleSpec (F.sampleName shdr) (st, en) ns sr 1 $ apToHz ap 
 >     instr = toInstr arrays spec
->     msg = unwords ["extractFromHeader ", show shdr]
+>     msg = unwords ["extractSample ", show shdr]
 >
-> theExtractMap :: [(String, InstrumentName)]
-> theExtractMap =
+> selectedInstruments    :: [(String, InstrumentName)]
+> selectedInstruments =
 >   [
-> -- remotely appropriate
->       ("Oboe-A4",         Oboe)
->     , ("Trumpet-D5",      Trumpet)
->     , ("Violin f 56(L)",  Violin)
->     , ("Banjo-A4-M-44",   Banjo)
->     , ("Tenor Hard A5 1", TenorSax)
->     , ("Clean Guitar-D3", AcousticGuitarSteel)
->     , ("Cello C3",        Contrabass)
+>       ("Alto Sax XSwitch",   AltoSax)
+>     , ("Cello",              Cello)
+>     , ("Flute",              Flute)
+>     , ("Oboe",               Oboe)
+>     , ("Trumpet",            Trumpet)
+>     , ("Violin3",            Violin)
 >   ]
 >
 > doPlayInstruments      :: InstrMap (Mono AudRate) → IO ()
@@ -174,3 +275,15 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     return ()
 >   where
 >     msg = unwords ["InstrMap ", show $ length imap, " insts=", concatMap (show . fst) imap]
+>
+> selectedSamples        :: [(String, InstrumentName)]
+> selectedSamples =
+>   [
+>       ("Oboe-A4",            Oboe)
+>     , ("Trumpet-D5",         Trumpet)
+>     , ("Violin f 56(L)",     Violin)
+>     , ("Banjo-A4-M-44",      Banjo)
+>     , ("Tenor Hard A5 1",    TenorSax)
+>     , ("Clean Guitar-D3",    AcousticGuitarSteel)
+>     , ("Cello C3",           Contrabass)
+>   ]
