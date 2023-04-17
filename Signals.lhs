@@ -488,32 +488,3 @@ fft ============================================================================
 >
 > uitextdemo = title "Color and Fonts" $ constA Nothing >>> textField CharWrap uitext'
 >                                                       >>> constA ()
->
-> {-
-> getSFForOutput         :: forall a p u. (ArrowCircuit a, Clock p, WaveAudioSample u) ⇒
->                            ArrowP a p Double u 
->                            → SampleSpec
->                            → (Int, Int)
->                            → (DeltaT, ArrowP a p () u)
-> getSFForOutput sig0 spec (st, en)
->   | traceAlways msg False = undefined
->   | otherwise = (secs, sig)
->   where
->     secs  :: Double            = ssCount spec / ssRate spec
->     sig   :: ArrowP a p () u   = getSFForPhase spec 0 1 >>> sig0
->     msg = unwords [ "SampleSpec=", show spec, " (st,en)=", show (st, en), " secs = ", show (ssCount spec / ssRate spec)]
->
-> getSFForInstr          :: forall a p u. (ArrowCircuit a, Clock p, WaveAudioSample u) ⇒
->                            ArrowP a p Double u 
->                            → SampleSpec
->                            → (Int, Int)
->                            → Double
->                            → (DeltaT, ArrowP a p () u)
-> getSFForInstr sig0 spec (st, en) freqFactor
->   | traceAlways msg False = undefined
->   | otherwise = (secs, sig)
->   where
->     secs  :: Double            = ssCount spec / ssRate spec
->     sig   :: ArrowP a p () u   = getSFForPhase spec 0 freqFactor >>> sig0
->     msg = unwords [ "SampleSpec=", show spec, " (st,en)=", show (st, en), " secs = ", show (ssCount spec / ssRate spec)]
-> -}
