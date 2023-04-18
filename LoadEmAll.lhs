@@ -16,7 +16,7 @@
 > import Signals
 > import SunPyg
 
-LoadEmAll =========================================================================
+LoadEmAll =================================================================================
 
 To force inclusion of everything I might want to reference in ghci
 
@@ -27,7 +27,7 @@ To force inclusion of everything I might want to reference in ghci
 >       rN = fromIntegral n
 >   in toss - rN
 
-Play Jingles ======================================================================
+Play Jingles ==============================================================================
 
 > playSnippet :: () → Int → IO ()
 > playSnippet () i =
@@ -81,7 +81,7 @@ Play Jingles ===================================================================
 >    foldM playJingle () (cycle jingles)
 >
 
-CAPTCHA ===========================================================================
+CAPTCHA ===================================================================================
 
 > {-
 > exportMidiFile_par :: FilePath → Midi → IO ()

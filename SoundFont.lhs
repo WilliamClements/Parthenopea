@@ -21,6 +21,7 @@ SoundFont support ==============================================================
 > import Data.Colour.Names
 > import Data.Default.Class
 > import Data.Int ( Int8, Int16, Int32 )
+> import Data.List (find)
 > import Data.Maybe (isJust, fromJust)
 > import Debug.Trace ( traceIO, traceM )
 > import Euterpea
@@ -29,14 +30,25 @@ SoundFont support ==============================================================
 > import HSoM
 > import Parthenopea
 > import System.Environment(getArgs)  
-
+  
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
-> data SampleArrays = 
->   SampleArrays {
+> newtype InstrumentZones =
+>   InstrumentZones {
+>               ssZones  :: [InstrumentZone]} deriving Show
+>
+> data InstrumentZone =
+>   InstrumentZone {
+>           ssSampleIx   :: Word
+>         , ssPchRange   :: (AbsPitch, AbsPitch)  
+>         , ssGenerators :: [F.Generator]} deriving Show
+>
+> data SoundFontArrays = 
+>   SoundFontArrays {
 >               ssInsts  :: Array Word F.Inst
 >             , ssIBags  :: Array Word F.Bag
 >             , ssIGens  :: Array Word F.Generator
+>             , ssShdrs  :: Array Word F.Shdr
 >             , ssData   :: A.SampleData Int16
 >             , ssM24    :: Maybe (A.SampleData Int8)}
 >
@@ -57,16 +69,16 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >                            → Double
 >                            → SampleSpec
 > initSampleSpec nm (st, en) cnt sr ch freq
->   | traceIf msg False = undefined
+>   | traceAlways msg False = undefined
 >   | otherwise = SampleSpec nm (st, en) cnt sr ch freq
 >   where
 >     msg = unwords ["initSampleSpec=", show $ SampleSpec nm (st, en) cnt sr ch freq]
-
-> phaser                 :: SampleSpec
+>
+> eutPhaser              :: SampleSpec
 >                           → Double
 >                           → Double
 >                           → AudSF () Double 
-> phaser spec iphs freqFactor =
+> eutPhaser spec iphs freqFactor =
 >   let frac             :: RealFrac r ⇒ r → r
 >       frac                           = snd . properFraction
 >       secs             :: Double     = ssCount spec / ssRate spec
@@ -89,15 +101,19 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >       Right soundFont      → do
 >         let pdata = F.pdta soundFont
 >         let sdata = F.sdta soundFont
->         let arrays = SampleArrays (F.insts pdata)
->                                   (F.ibags pdata)
->                                   (F.igens pdata)
->                                   (F.smpl sdata)
->                                   (F.sm24 sdata)
+>         let arrays = SoundFontArrays
+>                        (F.insts pdata)
+>                        (F.ibags pdata)
+>                        (F.igens pdata)
+>                        (F.shdrs pdata)
+>                        (F.smpl sdata)
+>                        (F.sm24 sdata)
 >         case ssM24 arrays of
 >           Nothing      → print "16-bit"
 >           Just s24data → print "24-bit"
->         doInstruments arrays
+>         instruments ← doInstruments arrays
+>         traceIO ("doInstruments returned " ++ show instruments)
+>         return ()
 >         -- let shdrs = F.shdrs (F.pdta soundFont)
 >         -- let (sst, sen) = bounds shdrs
 >         -- let selected = map (shouldDoSample shdrs) [sst..sen]
@@ -107,17 +123,14 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >         -- doPlayInstruments imap
 >     putStrLn "leaving doSoundFont"
 >
-> doInstruments          :: SampleArrays → IO ()
+> doInstruments          :: SoundFontArrays → IO [InstrumentZones]
 > doInstruments arrays = do
 >   let is = ssInsts arrays
 >   let (ist, ien) = bounds is 
 >   let selected = map (shouldDoInstrument is) [ist..ien-1]
 >   let filtered = filter isJust selected
 >   print ("doInstruments filtered = " ++ show filtered)
->   let imap = map (doInstrument arrays is) filtered
->   print ("doInstruments = " ++ show imap ++ "\n")
->   -- print imap
->   return ()
+>   return $ map (doInstrument arrays is) filtered
 >
 > shouldDoInstrument     :: Array Word F.Inst → Word → Maybe (InstrumentName, Word)
 > shouldDoInstrument is n =
@@ -130,80 +143,55 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     match :: String → (String, InstrumentName) → Bool
 >     match iname cand = iname == fst cand
 >
-> doInstrument           :: SampleArrays
+> checkInstrument        :: InstrumentZones → InstrumentZones
+> checkInstrument zones
+>   | traceAlways msg False = undefined
+>   | otherwise = zones
+>   where
+>     msg = unwords ["\ncheckInstrument =" , show zones, "\n"]
+>
+> doInstrument           :: SoundFontArrays
 >                           → Array Word F.Inst
 >                           → Maybe (InstrumentName, Word)
->                           → [[F.Generator]]
-> doInstrument arrays is mis
->   | traceAlways msg False = undefined
->   | otherwise = ilist
->   where
->     (iname, n) = fromJust mis
->     iinst = is ! n
->     jinst = is ! (n + 1)
->     ibagi = F.instBagNdx iinst
->     jbagi = F.instBagNdx jinst
->     zones = [ibagi..jbagi-1]
->     ilist = map (doZone arrays iinst) zones
->     m = F.genNdx
+>                           → InstrumentZones
+> doInstrument arrays is mis =
+>   let (iname, n) = fromJust mis
+>       iinst = is ! n
+>       jinst = is ! (n + 1)
+>       ibagi = F.instBagNdx iinst
+>       jbagi = F.instBagNdx jinst
+>       zones = [ibagi..jbagi-1]
+>       ilist = map (doZone arrays iinst) zones
+>   in checkInstrument $ InstrumentZones ilist
+>     
 >     -- instr = toInstr arrays spec
->     msg = unwords ["doInstument ", show (iname, n), " ", show zones, " ", show (length ilist)]
 >
-> doZone                 :: SampleArrays → F.Inst → Word → [F.Generator]
-> doZone arrays iinst w
->   | traceAlways msg False = undefined
->   | otherwise = jlist
->   where
+> doZone                 :: SoundFontArrays → F.Inst → Word → InstrumentZone
+> doZone arrays iinst w =
+>   let
 >     ibags = ssIBags arrays
 >     n = F.instBagNdx iinst
 >     zbag = ibags ! n
 >     ybag = ibags ! (n + 1)
 >     zgeni = F.genNdx zbag
 >     ygeni = F.genNdx ybag
->     jlist = map (doGenerator arrays iinst) [zgeni..ygeni-1]
->     msg = unwords ["doZone ", show w]
+>     selected = map (doGenerator arrays iinst) [zgeni..ygeni-1]
+>     filtered = filter isJust selected
+>   in InstrumentZone 0 {- WOX -} (5, 100) $ map fromJust filtered
 >
-> {-
-> doInstrument          :: SampleArrays → Word → IO ()
-> doInstrument arrays n = do
->   let is = ssInsts arrays
->   let iinst = is ! n
->   let jinst = is ! (n + 1)
->   let ibag = (ssIBags arrays) ! (F.instBagNdx iinst)
->   let jbag = (ssIBags arrays) ! (F.instBagNdx jinst)
->   let (gst, gen) = (F.genNdx ibag, F.genNdx jbag)
->   print iinst
->   print (gst, gen)
->   mapM_ (doGenerator arrays iinst) [gst..gen-1]
+> doGenerator            :: SoundFontArrays → F.Inst → Word → Maybe F.Generator
+> doGenerator arrays iinst zw =
+>   let generator = ssIGens arrays ! zw
+>   in case generator of
+>     F.KeyRange a b       →  Just generator 
+>     F.SampleIndex w      →  Just generator
+>     F.SampleMode m       →  Just generator
+>     F.InstIndex i        →  Just generator
+>     F.RootKey k          →  Just generator
+>     _                    →  Nothing
 >
-> doZones                :: SampleArrays → F.Inst → (Word, Word) → IO ()
-> doZones arrays iinst (zst, zen) = do
->   mapM_ (doZone arrays iinst) [zst..zen-1]
-> -}
->
-> doGenerator            :: SampleArrays → F.Inst → Word → F.Generator
-> doGenerator arrays iinst zw = ssIGens arrays ! zw
-> {-
->   let generator = 
->   case generator of
->     F.KeyRange a b       →  do
->                               traceIO ("KeyRange=" ++ show a ++ "," ++ show b)
->     F.SampleIndex w      →  do 
->                               traceIO ("SampleIndex=" ++ show w)
->     F.SampleMode m       →  do 
->                               traceIO ("SampleMode=" ++ show m)
->     F.InstIndex i        →  do 
->                               traceIO ("InstIndex=" ++ show i)
->     F.RootKey k          →  do 
->                               traceIO ("RootKey=" ++ show k)
->     _                    →  return ()
->
->   -- print generator
->   return ()
->
-> -}
-> sampler                :: SampleArrays → SampleSpec → AudSF Double Double
-> sampler arrays spec =
+> eutSampler             :: SoundFontArrays → SampleSpec → AudSF Double Double
+> eutSampler arrays spec =
 >   let
 >     nc = 1 -- numChans (undefined :: u)
 >     (st, en) = ssRange spec
@@ -214,13 +202,43 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   in proc pos → do
 >     outA ⤙ fromIntegral $ ssData arrays ! (fromIntegral st + truncate (numS * pos))
 >
-> toInstr                :: SampleArrays → SampleSpec → Instr (Mono AudRate)
+> assignInstrument       :: SoundFontArrays → InstrumentZones → Instr (Mono AudRate)
+> assignInstrument arrays zones dur pch vol params =
+>   let
+>     shdr               :: F.Shdr              = findClosestSplit arrays zones pch
+>     (st, en)           :: (Word, Word)        = (F.start shdr, F.end shdr)
+>     sr                 :: Double              = fromIntegral $ F.sampleRate shdr
+>     ap                 :: AbsPitch            = fromIntegral $ F.originalPitch shdr              
+>     ns                 :: Double              = fromIntegral (en - st + 1)
+>     spec               :: SampleSpec          = initSampleSpec (F.sampleName shdr) (st, en) ns sr 1 $ apToHz ap 
+>     freqFactor         :: Double              = ssFreq spec / apToHz pch
+>     sig                :: AudSF () Double     = eutPhaser spec 0 freqFactor >>> eutSampler arrays spec
+>   in proc _ → do
+>     z ← sig ⤙ ()
+>     outA ⤙ z
+>
+> findClosestSplit       :: SoundFontArrays → InstrumentZones → AbsPitch → F.Shdr
+> findClosestSplit arrays zones pch = {- WOX ssShdrs arrays ! 0 -}
+>   let
+>     mzone = find (contained pch) (ssZones zones)
+>     zone = case mzone of
+>              Nothing     → error "replace this error by falling back on Global"
+>              Just zone'  → zone'
+>   in
+>     ssShdrs arrays ! ssSampleIx zone
+>   where
+>     contained          :: AbsPitch → InstrumentZone → Bool
+>     contained ap zone =
+>       let (pst, pen) = ssPchRange zone
+>       in ap >= pst && ap <= pen
+>   
+> toInstr                :: SoundFontArrays → SampleSpec → Instr (Mono AudRate)
 > toInstr arrays spec dur pch vol params =
 >   let
 >     freqFactor :: Double
 >     freqFactor = ssFreq spec / apToHz pch
 >     sig :: AudSF () Double
->     sig = phaser spec 0 freqFactor >>> sampler arrays spec
+>     sig = eutPhaser spec 0 freqFactor >>> eutSampler arrays spec
 >   in proc _ → do
 >      z ← sig ⤙ ()
 >      outA ⤙ z
@@ -236,7 +254,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     match :: String → (String, InstrumentName) → Bool
 >     match sname cand = sname == fst cand
 >
-> extractSample          :: SampleArrays
+> extractSample          :: SoundFontArrays
 >                           → Array Word F.Shdr
 >                           → Maybe (InstrumentName, Word)
 >                           → (InstrumentName, Instr (Mono AudRate))
