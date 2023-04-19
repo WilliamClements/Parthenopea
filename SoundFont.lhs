@@ -62,10 +62,10 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 > makeInstrumentZone     :: Word → (AbsPitch, AbsPitch) → [F.Generator] → InstrumentZone
 > makeInstrumentZone sampleIx (st, en) gens
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise = InstrumentZone sampleIx (st, en) gens
 >   where
->     msg = unwords ["\nmakeInstrumentZone=", show gens, "\n"] -- $ InstrumentZone sampleIx (st, en) gens]
+>     msg = unwords ["\nmakeInstrumentZone=", show gens, "\n"]
 >
 > initSampleSpec         :: String
 >                            → (Word, Word)
@@ -75,26 +75,10 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >                            → Double
 >                            → SampleSpec
 > initSampleSpec nm (st, en) cnt sr ch freq
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise = SampleSpec nm (st, en) cnt sr ch freq
 >   where
 >     msg = unwords ["initSampleSpec=", show $ SampleSpec nm (st, en) cnt sr ch freq]
->
-> eutPhaser              :: SampleSpec
->                           → Double
->                           → Double
->                           → AudSF () Double 
-> eutPhaser spec iphs freqFactor =
->   let frac             :: RealFrac r ⇒ r → r
->       frac                           = snd . properFraction
->       secs             :: Double     = ssCount spec / ssRate spec
->       delta            :: Double
->       delta                          = ssChans spec / (secs * freqFactor * ssRate spec)
->   in proc () → do
->     rec
->       let phase = if next > 1 then frac next else next
->       next ← delay iphs ⤙ frac (phase + delta)
->     outA ⤙ phase
 >
 > doSoundFont            :: FilePath → IO ()
 > doSoundFont inFile =
@@ -185,7 +169,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > 
 > doZone                 :: SoundFontArrays → F.Inst → Word → InstrumentZone
 > doZone arrays iinst bagIndex 
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise = makeInstrumentZone (fromJust $ getSampleIx ready) (fromJust $ getPchRange ready) ready
 >   where
 >     ibags = ssIBags arrays
@@ -220,6 +204,22 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > 
 > doGenerator :: SoundFontArrays → F.Inst → Word → Maybe F.Generator
 > doGenerator arrays iinst zw = Just $ ssIGens arrays ! zw
+>
+> eutPhaser              :: SampleSpec
+>                           → Double
+>                           → Double
+>                           → AudSF () Double 
+> eutPhaser spec iphs freqFactor =
+>   let frac             :: RealFrac r ⇒ r → r
+>       frac                           = snd . properFraction
+>       secs             :: Double     = ssCount spec / ssRate spec
+>       delta            :: Double
+>       delta                          = ssChans spec / (secs * freqFactor * ssRate spec)
+>   in proc () → do
+>     rec
+>       let phase = if next > 1 then frac next else next
+>       next ← delay iphs ⤙ frac (phase + delta)
+>     outA ⤙ phase
 >
 > eutSampler             :: SoundFontArrays → SampleSpec → AudSF Double Double
 > eutSampler arrays spec =
@@ -290,10 +290,8 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > doPlayInstruments imap
 >   | traceIf msg False = undefined
 >   | otherwise = do
->     -- let m = (rest 0) :: Music (Pitch, Volume)
->     -- WOX pendingtonArnt 1
->     let (d,s) = renderSF (copper 2) imap
->     outFileNorm "blaat.wav" d s
->     return ()
+>       let (d,s) = renderSF (copper 2) imap
+>       outFileNorm "blaat.wav" d s
+>       return ()
 >   where
 >     msg = unwords ["doPlayInstruments ", show $ length imap, " insts=", concatMap (show . fst) imap]

@@ -225,7 +225,7 @@ Copper =========================================================================
 >    $ transpose (-4)
 >    $ keysig C Dorian
 >    $ addVolume 100
->    $ instrument Banjo
+>    $ instrument Oboe
 >    $ times n
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
 >      :+: tempo (5/4) (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn])
@@ -663,12 +663,12 @@ Way Pos' T' Purple =============================================================
 >         :+: (if includeCont then pContT  else rest 0)
 >         :+: (if includePool then pPoolT  else rest 0)
 >         :+: (if includeClos then pClosT  else rest 0))
->      :=: instrument AcousticGuitarSteel
+>      :=: instrument AcousticGuitarNylon
 >      ((if includeOpen       then pOpenG  else rest 0)
 >         :+: (if includeCont then pContG  else rest 0)
 >         :+: (if includePool then pPoolG  else rest 0)
 >         :+: (if includeClos then pClosG  else rest 0))
->      :=: instrument AcousticBass
+>      :=: instrument Cello
 >      ((if includeOpen       then pOpenB  else rest 0)
 >         :+: (if includeCont then pContB  else rest 0)
 >         :+: (if includePool then pPoolB  else rest 0)
@@ -776,10 +776,10 @@ Pendington Arnt  ===============================================================
 >    $ instrument TenorSax
 >      ((if includeOpen then zOpenT        else rest 0)
 >         :+: (if includeClos then zClosT  else rest 0))
->      :=: instrument AcousticGuitarSteel
+>      :=: instrument AcousticGuitarNylon
 >      ((if includeOpen then zOpenG        else rest 0)
 >         :+: (if includeClos then zClosG  else rest 0))
->      :=: instrument Contrabass
+>      :=: instrument Cello
 >      ((if includeOpen then zOpenB        else rest 0)
 >         :+: (if includeClos then zClosB  else rest 0))
 >      where
