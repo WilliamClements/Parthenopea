@@ -50,13 +50,21 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , ssSampleIndex      :: Maybe Word
 >   , ssSampleMode       :: Maybe A.SampleMode
 >
->   , ssRootKey          :: Maybe AbsPitch} deriving Show
+>   , ssRootKey          :: Maybe Word} deriving Show
 >
 > defInstrumentZone      :: InstrumentZone
 > defInstrumentZone = InstrumentZone Nothing Nothing Nothing Nothing
 >                                    Nothing Nothing Nothing Nothing
 >                                    Nothing
->                     
+>   
+> data Reconciled =
+>   Reconciled {
+>      rStart             :: Word
+>   ,  rEnd               :: Word
+>   ,  rLoopStart         :: Word
+>   ,  rLoopEnd           :: Word
+>   ,  rRootKey           :: Word} deriving Show
+>           
 > data SoundFontArrays = 
 >   SoundFontArrays {
 >               ssInsts  :: Array Word F.Inst
@@ -65,30 +73,6 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >             , ssShdrs  :: Array Word F.Shdr
 >             , ssData   :: A.SampleData Int16
 >             , ssM24    :: Maybe (A.SampleData Int8)}
->
-> data SampleSpec = 
->   SampleSpec {
->               ssName   :: String
->             , ssRange  :: (Word, Word)
->             , ssLoop   :: (Word, Word)
->             , ssCount  :: Double
->             , ssRate   :: Double
->             , ssChans  :: Double
->             , ssFreq   :: Double} deriving Show
->
-> initSampleSpec         :: String
->                            → (Word, Word)
->                            → (Word, Word)
->                            → Double
->                            → Double
->                            → Double
->                            → Double
->                            → SampleSpec
-> initSampleSpec nm (st, en) (lst, len) cnt sr ch freq
->   | traceIf msg False = undefined
->   | otherwise = SampleSpec nm (st, en) (lst, len) cnt sr ch freq
->   where
->     msg = unwords ["initSampleSpec=", show $ SampleSpec nm (st, en) (lst, len) cnt sr ch freq]
 >
 > doSoundFont            :: FilePath → IO ()
 > doSoundFont inFile =
@@ -212,28 +196,27 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > doGenerator :: SoundFontArrays → F.Inst → Word → Maybe F.Generator
 > doGenerator arrays iinst zw = Just $ ssIGens arrays ! zw
 >
-> eutPhaser              :: SampleSpec
->                           → InstrumentZone
+> eutPhaser              :: InstrumentZone
+>                           → Double
+>                           → Double
 >                           → Double
 >                           → Double
 >                           → AudSF () Double 
-> eutPhaser spec zone iphs freqFactor =
+> eutPhaser zone secs sr iphs freqFactor =
 >   let frac             :: RealFrac r ⇒ r → r
 >       frac                           = snd . properFraction
->       secs             :: Double     = ssCount spec / ssRate spec
 >       delta            :: Double
->       delta                          = ssChans spec / (secs * freqFactor * ssRate spec)
+>       delta                          = 1 / (secs * freqFactor * sr)
 >   in proc () → do
 >     rec
 >       let phase = if next > 1 then frac next else next
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >
-> eutSampler             :: SoundFontArrays → SampleSpec → AudSF Double Double
-> eutSampler arrays spec =
+> eutSampler             :: SoundFontArrays → (Word, Word) → AudSF Double Double
+> eutSampler arrays (st, en) =
 >   let
 >     nc = 1 -- numChans (undefined :: u)
->     (st, en) = ssRange spec
 >     numS :: Double
 >     numS = case ssM24 arrays of
 >           Nothing → fromIntegral $ (en - st + 1) `div` nc
@@ -241,33 +224,44 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   in proc pos → do
 >     outA ⤙ fromIntegral $ ssData arrays ! (fromIntegral st + truncate (numS * pos))
 >
+> checkReconcile     :: F.Shdr -> InstrumentZone -> Reconciled -> Double -> (Word, Word) -> Bool
+> checkReconcile shdr zone recon secs (st, en)
+>   | traceIf msg False = undefined
+>   | otherwise = True
+>   where
+>     msg = unwords ["checkReconcile=", show shdr, show zone, show recon, show secs, show (st, en)]
+
 > assignInstrument       :: SoundFontArrays → InstrumentZones → Instr (Mono AudRate)
 > assignInstrument arrays zones dur pch vol params =
 >   let
 >     (shdr, zone)       :: (F.Shdr
->                            , InstrumentZone)  = findClosestSplit arrays zones pch
->     (st, en)           :: (Word, Word)        = (F.start     shdr, F.end       shdr)
->     (lst, len)         :: (Word, Word)        = (F.startLoop shdr, F.endLoop   shdr)
->     sr                 :: Double              = fromIntegral $ F.sampleRate    shdr
->     sap                :: AbsPitch            = fromIntegral $ F.originalPitch shdr              
->     ap                 :: AbsPitch            = fromMaybe sap (ssRootKey zone)
->     ns                 :: Double              = fromIntegral (en - st + 1)
->     spec               :: SampleSpec          = initSampleSpec
->                                                   (F.sampleName shdr)
->                                                   (st, en)
->                                                   (lst, len)
->                                                   ns
->                                                   sr
->                                                   1
->                                                   $ apToHz ap 
->     freqFactor         :: Double              = ssFreq spec / apToHz  pch
->     sig                :: AudSF () Double     = eutPhaser spec zone 0 freqFactor >>> eutSampler arrays spec
+>                            , InstrumentZone)  = selectZone arrays zones pch
+>     rData              :: Reconciled          = reconcile zone shdr
+>     sr                 :: Double
+>     sr                 :: Double              = fromIntegral $ F.sampleRate shdr
+>     ns                 :: Double              = fromIntegral $ rEnd rData - rStart rData + 1
+>     secs               :: Double              = ns / sr
+> 
+>     (st, en) = if secs <= 2 * fromRational dur
+>                then (rLoopStart rData, rLoopEnd rData)
+>                else (rStart rData,     rEnd rData)
+>
+>     -- ap = fromIntegral (rRootKey rData)
+>     ok = checkReconcile shdr zone rData secs (st, en)
+>     ap = if (not ok)
+>          then error "no good"
+>          else fromIntegral (rRootKey rData)
+>
+>     ns'                :: Double              = fromIntegral (en - st + 1)
+>     secs'              :: Double              = ns' / sr
+>     freqFactor         :: Double              = apToHz ap / apToHz  pch
+>     sig                :: AudSF () Double     = eutPhaser zone secs' sr 0 freqFactor >>> eutSampler arrays (st, en)
 >   in proc _ → do
 >     z ← sig ⤙ ()
 >     outA ⤙ z
 >
-> findClosestSplit       :: SoundFontArrays → InstrumentZones → AbsPitch → (F.Shdr, InstrumentZone)
-> findClosestSplit arrays zones pch =
+> selectZone             :: SoundFontArrays → InstrumentZones → AbsPitch → (F.Shdr, InstrumentZone)
+> selectZone arrays zones pch =
 >   let
 >     mzone = find (contained pch) (ssZones zones)
 >     zone = case mzone of
@@ -280,7 +274,22 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     contained ap zone =
 >       let (pst, pen) = fromJust $ ssKeyRange zone
 >       in ap >= pst && ap <= pen
->   
+>
+> addIntToWord           :: Word -> Int -> Word
+> addIntToWord w i =
+>   let iw :: Int = fromIntegral w
+>       sum :: Int = iw + i
+>   in fromIntegral sum
+>       
+> reconcile              :: InstrumentZone -> F.Shdr -> Reconciled
+> reconcile zone shdr =
+>   Reconciled {
+>     rStart      = addIntToWord (F.start shdr)           (fromMaybe 0 (ssStartOffs zone))
+>   , rEnd        = addIntToWord (F.end shdr)             (fromMaybe 0 (ssEndOffs zone))
+>   , rLoopStart  = addIntToWord (F.startLoop shdr)       (fromMaybe 0 (ssLoopStartOffs zone))
+>   , rLoopEnd    = addIntToWord (F.endLoop shdr)         (fromMaybe 0 (ssLoopEndOffs zone))
+>   , rRootKey    = fromMaybe    (F.originalPitch shdr)   (ssRootKey zone)}
+>
 > selectedInstruments    :: [(String, InstrumentName)]
 > selectedInstruments =
 >   [
