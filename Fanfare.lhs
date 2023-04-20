@@ -890,3 +890,28 @@ Rattan =========================================================================
 > sl_l01 = line [e 2 qn, e 2 qn, e 2 qn, e 2 qn, bf 2 qn, bf 2 qn, c 3 qn, c 3 qn]
 > sl_102 = line [a 2 qn, a 2 qn, a 2 qn, a 2 qn, ef 2 qn, ef 2 qn, ef 2 qn, ef 2 qn]
 > sl_103 = line [d 2 qn, d 2 qn, d 2 qn, d 2 qn, c 2 qn, d 2 qn, e 2 qn]
+>
+> testcello = 
+>     removeZeros
+>     $ tempo 1
+>     $ transpose 0
+>     $ keysig C Mixolydian
+>     $ addVolume 100
+>     $ instrument Cello
+>       (line [c3cello, c2cello])
+>
+> c3cello = line [c 3 wn, c 3 wn, c 3 wn, c 3 wn]
+> c2cello = line [c 2 wn, c 2 wn, c 2 wn, c 2 wn]
+>
+> testaltosax = 
+>     removeZeros
+>     $ tempo 1
+>     $ transpose 0
+>     $ keysig Af Mixolydian
+>     $ addVolume 100
+>     $ instrument Cello
+>       (line [f4altosax, f3altosax, f5altosax])
+>
+> f4altosax = line [f 4 wn, f 4 wn, f 4 wn, f 4 wn]
+> f3altosax = line [f 3 wn, f 3 wn, f 3 wn, f 3 wn]
+> f5altosax = line [f 5 wn, f 5 wn, f 5 wn, f 5 wn]

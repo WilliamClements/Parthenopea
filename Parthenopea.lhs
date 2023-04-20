@@ -407,7 +407,8 @@ instrument range checking ======================================================
 >            , oTranspose   :: AbsPitch
 >            , oPitch       :: Pitch}    deriving (Show, Eq, Ord)
 >
-> type OorDB = Map.Map OorCase Dur
+> type InstDB = Map.Map InstrumentName Int32
+> type OorDB = Map.Map OorCase Int32
 >
 > initCase     :: OorCase
 > initCase = 
@@ -415,37 +416,49 @@ instrument range checking ======================================================
 >            , oTranspose = 0
 >            , oPitch = (C, 4)}
 >
-> listOutOfRangeCases :: Music (Pitch, [NoteAttribute]) → OorDB
-> listOutOfRangeCases m                                    = listOor m initCase Map.empty
->   where
->     listOor :: Music (Pitch, [NoteAttribute]) → OorCase → OorDB → OorDB
->
->     listOor (Prim (Note d (p, a))) ooc db
+> listInstruments        :: Music (Pitch, [NoteAttribute]) → IO ()
+> listInstruments m = do
+>   let (db1, db2) = listOor m initCase (Map.empty, Map.empty)
+>   putStrLn ("\n\n instruments used in that music: " ++ show (Map.keys db1))
+>   if null db2
+>     then putStrLn "\n\n no out of range cases"
+>     else do
+>            putStrLn "\n\n out of range cases:"
+>            print (Map.keys db2)
+>   
+> listOor :: Music (Pitch, [NoteAttribute]) → OorCase → (InstDB, OorDB) → (InstDB, OorDB)
+> listOor (Prim (Note _ (p, a))) ooc (db1, db2)
 >       = case instrumentRange (oInstrument ooc) of
->              Nothing    → report
+>              Nothing    → reportBad
 >              Just range → if withinRange range (oTranspose ooc) p
->                           then db
->                           else report
+>                           then reportGood
+>                           else reportBad
 >       where
->         report = Map.insert ooc{oPitch = p} d db
+>         reportBad  = (Map.insert (oInstrument ooc) 0 db1, Map.insert ooc{oPitch = p} 0 db2)
+>         reportGood = (Map.insert (oInstrument ooc) 0 db1, db2)
 >
->     listOor (Prim (Rest _)) ooc db
->       = db
+> listOor (Prim (Rest _)) ooc (db1, db2) = (db1, db2)
 >
->     listOor (m1 :+: m2) ooc db
->       = Map.union (listOor m1 ooc db) (listOor m2 ooc db)
+> listOor (m1 :+: m2) ooc (db1, db2) = (db1', db2')
+>   where
+>     (m1db1, m1db2) = listOor m1 ooc (db1, db2)
+>     (m2db1, m2db2) = listOor m2 ooc (db1, db2)
+>     (db1', db2') = (Map.union m1db1 m2db1, Map.union m1db2 m2db2)
 >     
->     listOor (m1 :=: m2) ooc db
->       = Map.union (listOor m1 ooc db) (listOor m2 ooc db)
+> listOor (m1 :=: m2) ooc (db1, db2) = (db1', db2')
+>   where
+>     (m1db1, m1db2) = listOor m1 ooc (db1, db2)
+>     (m2db1, m2db2) = listOor m2 ooc (db1, db2)
+>     (db1', db2') = (Map.union m1db1 m2db1, Map.union m1db2 m2db2)
 >
->     listOor (Modify (Instrument iname) m) ooc db
->       = listOor m ooc{oInstrument=iname} db
+> listOor (Modify (Instrument iname) m) ooc (db1, db2)
+>   = listOor m ooc{oInstrument=iname} (db1, db2)
 >
->     listOor (Modify (Transpose newT) m) ooc db
->       = listOor m ooc{oTranspose=oTranspose ooc + newT} db
+> listOor (Modify (Transpose newT) m) ooc (db1, db2)
+>   = listOor m ooc{oTranspose=oTranspose ooc + newT} (db1, db2)
 >
->     listOor (Modify _ m) ooc db
->       = listOor m ooc db
+> listOor (Modify _ m) ooc (db1, db2)
+>   = listOor m ooc (db1, db2)
 >
 > scoreOnsets  :: Int → [Double] → Array Int Int
 > scoreOnsets nBins ts
