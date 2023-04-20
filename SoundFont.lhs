@@ -47,6 +47,8 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 >   , ssInstIndex        :: Maybe Word
 >   , ssKeyRange         :: Maybe (AbsPitch, AbsPitch)
+>   , ssCoarseTune       :: Maybe Int
+>   , ssFineTune         :: Maybe Int
 >   , ssSampleIndex      :: Maybe Word
 >   , ssSampleMode       :: Maybe A.SampleMode
 >
@@ -55,7 +57,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > defInstrumentZone      :: InstrumentZone
 > defInstrumentZone = InstrumentZone Nothing Nothing Nothing Nothing
 >                                    Nothing Nothing Nothing Nothing
->                                    Nothing
+>                                    Nothing Nothing Nothing
 >   
 > data Reconciled =
 >   Reconciled {
@@ -107,8 +109,6 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   let selected = map (shouldDoInstrument is) [ist..ien-1]
 >   let filtered = filter isJust selected
 >   let ready = map (doInstrument arrays is) filtered
->   print ("doInstruments filtered = " ++ show filtered)
->   print ("doInstruments ready length = " ++ show (length ready))
 >   doPlayInstruments ready
 >   return []
 >
@@ -122,13 +122,6 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   where
 >     match :: String → (String, InstrumentName) → Bool
 >     match iname cand = iname == fst cand
->
-> checkInstrument        :: InstrumentZones → Word → Word → InstrumentZones
-> checkInstrument ilist ibagi jbagi
->   | traceIf msg False = undefined
->   | otherwise = ilist
->   where
->     msg = unwords ["\ncheckInstrument =" , show ibagi, " ", show jbagi, "\n"]
 >
 > doInstrument           :: SoundFontArrays
 >                           → Array Word F.Inst
@@ -162,6 +155,8 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 >   F.InstIndex w                  → iz {ssInstIndex =          Just w}
 >   F.KeyRange a b                 → iz {ssKeyRange =           Just (fromIntegral a, fromIntegral b)}
+>   F.CoarseTune i                 → iz {ssCoarseTune =         Just i}
+>   F.FineTune i                   → iz {ssFineTune =           Just i}
 >   F.SampleIndex w                → iz {ssSampleIndex =        Just w}
 >   F.SampleMode a                 → iz {ssSampleMode =         Just a}
 >
@@ -226,7 +221,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 > checkReconcile     :: F.Shdr -> InstrumentZone -> Reconciled -> Double -> (Word, Word) -> Bool
 > checkReconcile shdr zone recon secs (st, en)
->   | traceIf msg False = undefined
+>   | traceAlways msg False = undefined
 >   | otherwise = True
 >   where
 >     msg = unwords ["checkReconcile=", show shdr, show zone, show recon, show secs, show (st, en)]
@@ -248,7 +243,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 >     -- ap = fromIntegral (rRootKey rData)
 >     ok = checkReconcile shdr zone rData secs (st, en)
->     ap = if (not ok)
+>     ap = if not ok
 >          then error "no good"
 >          else fromIntegral (rRootKey rData)
 >
@@ -322,8 +317,19 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > doPlayInstruments imap
 >   | traceIf msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF basicLick imap
+>       let (d,s) = renderSF nylon imap
 >       outFileNorm "blaat.wav" d s
 >       return ()
 >   where
 >     msg = unwords ["doPlayInstruments ", show $ length imap, " insts=", concatMap (show . fst) imap]
+>
+> gUnit :: Music Pitch
+> gUnit = addDur qn [f 5, a 5, b 5, a 5, f 5, a 5, b 5, a 5
+>                    , e 5, a 5, b 5, a 5, e 5, a 5, b 5, a 5]
+> nylon :: Music (Pitch, Volume)
+> nylon =
+>   removeZeros
+>   $ tempo 1
+>   $ transpose (-12)
+>   $ keysig A Major
+>   $ chord [ addVolume  50 $ instrument AcousticGuitarNylon gUnit]
