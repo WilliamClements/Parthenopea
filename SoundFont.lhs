@@ -234,8 +234,8 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >
-> eutSampler             :: SoundFontArrays → Reconciled → Volume → AudSF Double Double
-> eutSampler arrays reconciled vol =
+> eutReconstructor       :: SoundFontArrays → Reconciled → Volume → AudSF Double Double
+> eutReconstructor arrays reconciled vol =
 >   let
 >     (st, en)           :: (Word, Word) = (rStart reconciled, rEnd reconciled)
 >     nc = 1 -- numChans (undefined :: u)
@@ -288,12 +288,20 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 >     ns'                :: Double              = fromIntegral (en - st + 1)
 >     secs'              :: Double              = ns' / sr
->     freqFactor         :: Double              = apToHz ap / apToHz pch
+>     freqFactor         :: Double              = (apToHz ap / adjustFreq pch zone) * 44100/sr
 >     sig                :: AudSF () Double     = eutPhaser zone secs' sr 0 freqFactor
->                                             >>> eutSampler arrays rData' vol
+>                                             >>> eutReconstructor arrays rData' vol
 >   in proc _ → do
 >     z ← sig ⤙ ()
 >     outA ⤙ z
+>
+>   where
+>     adjustFreq         :: AbsPitch → InstrumentZone → Double
+>     adjustFreq pch zone = adj * apToHz pch
+>       where
+>         coarse         :: Double = fromIntegral (fromMaybe 0 $ zCoarseTune zone)
+>         fine           :: Double = fromIntegral (fromMaybe 0 $ zFineTune zone) / 100
+>         adj            :: Double = 2 ** ((coarse + fine)/12)
 >
 > selectZone             :: SoundFontArrays
 >                           → InstrumentZones
@@ -302,7 +310,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >                           → (InstrumentZone, F.Shdr)
 > selectZone arrays zones pch vol =
 >   let
->     -- ToDo : do pick closest zone if pitch is out of range
+>     -- ToDo : do fall back to closest zone if pitch is out of range
 >     mzone = find (contains pch vol) (zZones zones)
 >     zone = case mzone of
 >              Nothing     → head (zZones zones) -- error "all splits failed"
@@ -355,6 +363,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     , ("Clarinet",           Clarinet)
 >     , ("Clean Guitar",       ElectricGuitarClean)
 >     , ("DX7 Rhodes",         RhodesPiano)
+>     , ("F",                  Violin)
 >     , ("Flute",              Flute)
 >     , ("Jazz Guitar",        ElectricGuitarJazz)
 >     , ("MagiCs 5Strg Banjo", Banjo)
@@ -370,14 +379,14 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     , ("Trumpet",            Trumpet)
 >     , ("Tuba",               Tuba)
 >     , ("Upright-Piano-1",    BrightAcousticPiano)
->     , ("Violin3",            Violin)
+>     -- , ("Violin3",            Violin)
 >   ]
 >
 > doPlayInstruments      :: InstrMap (Mono AudRate) → IO ()
 > doPlayInstruments imap
 >   | traceIf msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF roger imap
+>       let (d,s) = renderSF (pendingtonArnt 2) imap
 >       outFileNorm "blaat.wav" d s
 >       return ()
 >   where
@@ -393,4 +402,4 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   $ tempo 1
 >   $ transpose 0
 >   $ keysig A Major
->   $ chord [ addVolume  50 $ instrument AcousticGuitarNylon gUnit]
+>   $ chord [addVolume  50 $ instrument Flute gUnit]
