@@ -18,7 +18,7 @@ SoundFont support ==============================================================
 > import Data.Array.Unboxed
 > import qualified Data.Audio           as A
 > import Data.Int ( Int8, Int16, Int32 )
-> import Data.List (find, foldr)
+> import Data.List (find, foldr, minimumBy)
 > import Data.Maybe (isJust, fromJust, fromMaybe)
 > import Debug.Trace ( traceIO, traceM )
 > import Euterpea.IO.Audio.Basics
@@ -150,7 +150,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     jinst = is ! (n + 1)
 >     ibagi = F.instBagNdx iinst
 >     jbagi = F.instBagNdx jinst
->     zones = [ibagi+1..jbagi-1]
+>     zones = [ibagi..jbagi-1]
 >     ilist = map (doZone arrays iinst) zones
 >     msg = unwords ["doInstrument=", show mis, " n= ", show (snd (fromJust mis)), " ", show iinst, " ", show jinst]
 >     
@@ -212,7 +212,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     filtered = filter isJust selected
 >     gens = map fromJust filtered
 >
->     msg = unwords ["getGenerators=", show words]
+>     msg = unwords ["getGens=", show words]
 > 
 > doGenerator :: SoundFontArrays → F.Inst → Word → Maybe F.Generator
 > doGenerator arrays iinst zw = Just $ ssIGens arrays ! zw
@@ -310,39 +310,63 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >                           → (InstrumentZone, F.Shdr)
 > selectZone arrays zones pch vol =
 >   let
->     -- ToDo : do fall back to closest zone if pitch is out of range
->     mzone = find (contains pch vol) (zZones zones)
+>     -- skip the Global zone as we usually do
+>     mzone = find (qualifyZone pch vol) (tail (zZones zones))
 >     zone = case mzone of
->              Nothing     → head (zZones zones) -- error "all splits failed"
->                                                --       "to contain the pitch"
->              Just zone'  → zone'
+>            Nothing     → pickClosestZone pch vol (tail (zZones zones)) -- error "all splits failed"
+>                                                                        -- "to contain the pitch"
+>            Just zone'  → zone'
 >   in
 >     (zone, ssShdrs arrays ! fromJust (zSampleIndex zone))
->   where
->     contains           :: AbsPitch → Volume → InstrumentZone → Bool
->     contains ap vol zone
->       | isJust (zKeyRange zone)
->         = if isJust (zVelRange zone)
->           then ap >= kst && ap <= ken && vol >= vst && vol <= ven
->           else ap >= kst && ap <= ken
->       | isJust (zVelRange zone)
->         = vol >= vst && vol <= ven
->       | otherwise
->         = True
->       where
->         (kst, ken) = fromJust (zKeyRange zone)
->         (vst, ven) = fromJust (zVelRange zone)
 >
-> sumOfMaybeInts         :: [Maybe Int] -> Int
+> qualifyZone            :: AbsPitch → Volume → InstrumentZone → Bool
+> qualifyZone ap vol zone
+>   | isJust (zKeyRange zone)
+>     = if isJust (zVelRange zone)
+>       then ap >= kst && ap <= ken && vol >= vst && vol <= ven
+>       else ap >= kst && ap <= ken
+>   | isJust (zVelRange zone)
+>     = vol >= vst && vol <= ven
+>   | otherwise
+>     = True
+>   where
+>     (kst, ken) = fromJust (zKeyRange zone)
+>     (vst, ven) = fromJust (zVelRange zone)
+>
+> pickClosestZone        :: AbsPitch → Volume → [InstrumentZone] → InstrumentZone 
+> pickClosestZone pch vol zones = zone
+>   where
+>     scores = map (scoreOneZone pch vol) zones
+>     zone = snd $ minimumBy compareScores scores
+>     
+> scoreOneZone           :: AbsPitch → Volume → InstrumentZone → (Int, InstrumentZone)
+> scoreOneZone pch vol zone = (score, zone)
+>   where
+>     score = score1 + score2
+>     score1 = computeRangeDistance pch (zKeyRange zone)
+>     score2 = computeRangeDistance vol (zVelRange zone)
+>
+> compareScores          :: (Num a, Ord a) ⇒ (a, b) → (a, b) → Ordering
+> compareScores (a1, b1) (a2, b2) = compare a1 a2 
+>                         
+> computeRangeDistance   :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
+> computeRangeDistance cand mrange =
+>   case mrange of
+>     Nothing                   → 0
+>     Just (rangeMin, rangeMax) → if cand < rangeMin
+>                                 then rangeMin - cand
+>                                 else cand - rangeMax
+>
+> sumOfMaybeInts         :: [Maybe Int] → Int
 > sumOfMaybeInts = foldr ((+) . fromMaybe 0) 0
 >       
-> addIntToWord           :: Word -> Int -> Word
+> addIntToWord           :: Word → Int → Word
 > addIntToWord w i =
 >   let iw               :: Int = fromIntegral w
 >       sum              :: Int = iw + i
 >   in fromIntegral sum
 >
-> reconcile              :: InstrumentZone -> F.Shdr -> Reconciled
+> reconcile              :: InstrumentZone → F.Shdr → Reconciled
 > reconcile zone shdr =
 >   Reconciled {
 >     rStart      = addIntToWord (F.start shdr)           (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
@@ -373,6 +397,8 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     , ("Piccolo",            Piccolo)
 >     , ("Pipe Organ",         ChurchOrgan)
 >     , ("String Ensembles",   StringEnsemble1)
+>     , ("Synth 1",            SynthBass1)           -- discord
+>     , ("Synth 2",            SynthBass2)           -- discord
 >     , ("Tenor Both Xfade",   TenorSax)
 >     , ("Timpani 1 JN",       Timpani)
 >     , ("Trombone",           Trombone)
@@ -386,7 +412,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > doPlayInstruments imap
 >   | traceIf msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF (pendingtonArnt 2) imap
+>       let (d,s) = renderSF (ssailor) imap
 >       outFileNorm "blaat.wav" d s
 >       return ()
 >   where
@@ -396,10 +422,16 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > gUnit :: Music Pitch
 > gUnit = addDur qn [f 4, a 4, b 4, a 4, f 4, a 4, b 4, a 4
 >                  , e 4, a 4, b 4, a 4, e 4, a 4, b 4, a 4]
+>
+> gUnitAtVolume          :: Volume → Music (Pitch, Volume)
+> gUnitAtVolume vol = addVolume vol gUnit
+>
 > nylon :: Music (Pitch, Volume)
 > nylon =
 >   removeZeros
 >   $ tempo 1
 >   $ transpose 0
 >   $ keysig A Major
->   $ chord [addVolume  50 $ instrument Flute gUnit]
+>   $ instrument SynthBass1
+>     (line [gUnitAtVolume 40, rest hn, gUnitAtVolume 60, rest hn, gUnitAtVolume 80
+>        , gUnitAtVolume 100, rest hn, gUnitAtVolume 120])
