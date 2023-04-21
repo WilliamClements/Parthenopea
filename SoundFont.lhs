@@ -18,7 +18,7 @@ SoundFont support ==============================================================
 > import Data.Array.Unboxed
 > import qualified Data.Audio           as A
 > import Data.Int ( Int8, Int16, Int32 )
-> import Data.List (find)
+> import Data.List (find, foldr)
 > import Data.Maybe (isJust, fromJust, fromMaybe)
 > import Debug.Trace ( traceIO, traceM )
 > import Euterpea.IO.Audio.Basics
@@ -34,28 +34,42 @@ SoundFont support ==============================================================
   
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
+> ignoreZonePitchOverride = False
+>
 > newtype InstrumentZones =
 >   InstrumentZones {
->               ssZones  :: [InstrumentZone]} deriving Show
+>               zZones  :: [InstrumentZone]} deriving Show
 >
 > data InstrumentZone =
 >   InstrumentZone {
->     ssStartOffs        :: Maybe Int
->   , ssEndOffs          :: Maybe Int
->   , ssLoopStartOffs    :: Maybe Int
->   , ssLoopEndOffs      :: Maybe Int
+>     zStartOffs         :: Maybe Int
+>   , zEndOffs           :: Maybe Int
+>   , zLoopStartOffs     :: Maybe Int
+>   , zLoopEndOffs       :: Maybe Int
 >
->   , ssInstIndex        :: Maybe Word
->   , ssKeyRange         :: Maybe (AbsPitch, AbsPitch)
->   , ssCoarseTune       :: Maybe Int
->   , ssFineTune         :: Maybe Int
->   , ssSampleIndex      :: Maybe Word
->   , ssSampleMode       :: Maybe A.SampleMode
+>   , zStartCoarseOffs   :: Maybe Int
+>   , zEndCoarseOffs     :: Maybe Int
+>   , zLoopStartCoarseOffs
+>                        :: Maybe Int
+>   , zLoopEndCoarseOffs :: Maybe Int
 >
->   , ssRootKey          :: Maybe Word} deriving Show
+>   , zInstIndex         :: Maybe Word
+>   , zKeyRange          :: Maybe (AbsPitch, AbsPitch)
+>   , zVelRange          :: Maybe (Volume, Volume)
+>   , zCoarseTune        :: Maybe Int
+>   , zFineTune          :: Maybe Int
+>   , zSampleIndex       :: Maybe Word
+>   , zSampleMode        :: Maybe A.SampleMode
+>
+>   , zChorus            :: Maybe Int
+>   , zReverb            :: Maybe Int
+>   , zPan               :: Maybe Int
+>   , zRootKey           :: Maybe Word} deriving Show
 >
 > defInstrumentZone      :: InstrumentZone
 > defInstrumentZone = InstrumentZone Nothing Nothing Nothing Nothing
+>                                    Nothing Nothing Nothing Nothing
+>                                    Nothing Nothing Nothing Nothing
 >                                    Nothing Nothing Nothing Nothing
 >                                    Nothing Nothing Nothing
 >   
@@ -95,8 +109,8 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >                        (F.smpl sdata)
 >                        (F.sm24 sdata)
 >         case ssM24 arrays of
->           Nothing      → print "16-bit"
->           Just s24data → print "24-bit"
+>           Nothing      → print "16-bit datapoints"
+>           Just s24data → print "24-bit datapoints"
 >         instruments ← doInstruments arrays
 >         traceIO ("doInstruments returned " ++ show instruments ++ "\n")
 >         return ()
@@ -148,19 +162,31 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > addGen                 :: InstrumentZone → F.Generator → InstrumentZone
 > addGen iz gen =
 >   case gen of
->   F.StartAddressOffset i         → iz {ssStartOffs =          Just i}
->   F.EndAddressOffset i           → iz {ssEndOffs =            Just i}
->   F.LoopStartAddressOffset i     → iz {ssStartOffs =          Just i}
->   F.LoopEndAddressOffset i       → iz {ssEndOffs =            Just i}
+>   F.StartAddressOffset i         → iz {zStartOffs =                Just i}
+>   F.EndAddressOffset i           → iz {zEndOffs =                  Just i}
+>   F.LoopStartAddressOffset i     → iz {zStartOffs =                Just i}
+>   F.LoopEndAddressOffset i       → iz {zEndOffs =                  Just i}
 >
->   F.InstIndex w                  → iz {ssInstIndex =          Just w}
->   F.KeyRange a b                 → iz {ssKeyRange =           Just (fromIntegral a, fromIntegral b)}
->   F.CoarseTune i                 → iz {ssCoarseTune =         Just i}
->   F.FineTune i                   → iz {ssFineTune =           Just i}
->   F.SampleIndex w                → iz {ssSampleIndex =        Just w}
->   F.SampleMode a                 → iz {ssSampleMode =         Just a}
+>   F.StartAddressCoarseOffset i   → iz {zStartCoarseOffs =          Just i}
+>   F.EndAddressCoarseOffset i     → iz {zEndCoarseOffs =            Just i}
+>   F.LoopStartAddressCoarseOffset i
+>                                  → iz {zLoopStartCoarseOffs =      Just i}
+>   F.LoopEndAddressCoarseOffset i
+>                                  → iz {zLoopEndCoarseOffs =        Just i}
 >
->   F.RootKey w                    → iz {ssRootKey =            Just (fromIntegral w)}
+>   F.InstIndex w                  → iz {zInstIndex =                Just w}
+>   F.KeyRange a b                 → iz {zKeyRange =                 Just (fromIntegral a, fromIntegral b)}
+>   F.VelRange a b                 → iz {zVelRange =                 Just (fromIntegral a, fromIntegral b)}
+>   F.CoarseTune i                 → iz {zCoarseTune =               Just i}
+>   F.FineTune i                   → iz {zFineTune =                 Just i}
+>   F.SampleIndex w                → iz {zSampleIndex =              Just w}
+>   F.SampleMode a                 → iz {zSampleMode =               Just a}
+>
+>   F.Chorus i                     → iz {zChorus =                   Just i}
+>   F.Reverb i                     → iz {zReverb =                   Just i}
+>   F.Pan i                        → iz {zPan =                      Just i}
+>
+>   F.RootKey w                    → iz {zRootKey =                  Just (fromIntegral w)}
 >   _                              → iz
 >
 > doZone                 :: SoundFontArrays → F.Inst → Word → InstrumentZone
@@ -208,82 +234,116 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >
-> eutSampler             :: SoundFontArrays → (Word, Word) → AudSF Double Double
-> eutSampler arrays (st, en) =
+> eutSampler             :: SoundFontArrays → Reconciled → Volume → AudSF Double Double
+> eutSampler arrays reconciled vol =
 >   let
+>     (st, en)           :: (Word, Word) = (rStart reconciled, rEnd reconciled)
 >     nc = 1 -- numChans (undefined :: u)
 >     numS :: Double
 >     numS = case ssM24 arrays of
 >           Nothing → fromIntegral $ (en - st + 1) `div` nc
 >           Just _  → error "24-bit not yet supported"
 >   in proc pos → do
->     outA ⤙ fromIntegral $ ssData arrays ! (fromIntegral st + truncate (numS * pos))
+>     let amp            :: Double = fromIntegral vol / 100
+>     let sampleAddress  :: Int = fromIntegral st + truncate (numS * pos)
+>     outA ⤙ amp * fromIntegral (ssData arrays ! sampleAddress)
 >
-> checkReconcile     :: F.Shdr -> InstrumentZone -> Reconciled -> Double -> (Word, Word) -> Bool
+> checkReconcile     :: F.Shdr
+>                       → InstrumentZone
+>                       → Reconciled
+>                       → Double
+>                       → (Word, Word)
+>                       → Bool
 > checkReconcile shdr zone recon secs (st, en)
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise = True
 >   where
->     msg = unwords ["checkReconcile=", show shdr, show zone, show recon, show secs, show (st, en)]
-
+>     msg = unwords ["checkReconcile=", show shdr
+>                                     , show zone
+>                                     , show recon
+>                                     , show secs
+>                                     , show (st, en)]
+>
 > assignInstrument       :: SoundFontArrays → InstrumentZones → Instr (Mono AudRate)
 > assignInstrument arrays zones dur pch vol params =
 >   let
->     (shdr, zone)       :: (F.Shdr
->                            , InstrumentZone)  = selectZone arrays zones pch
->     rData              :: Reconciled          = reconcile zone shdr
->     sr                 :: Double
->     sr                 :: Double              = fromIntegral $ F.sampleRate shdr
->     ns                 :: Double              = fromIntegral $ rEnd rData - rStart rData + 1
->     secs               :: Double              = ns / sr
+>     (zone, shdr)       :: (InstrumentZone
+>                          , F.Shdr)         = selectZone arrays zones pch vol
+>     rData              :: Reconciled       = reconcile zone shdr
+>     sr                 :: Double           = fromIntegral $ F.sampleRate shdr
+>     ns                 :: Double           = fromIntegral $ rEnd rData - rStart rData + 1
+>     secs               :: Double           = ns / sr
 > 
 >     (st, en) = if secs <= 2 * fromRational dur
 >                then (rLoopStart rData, rLoopEnd rData)
 >                else (rStart rData,     rEnd rData)
 >
+>     rData' = rData {rStart = st, rEnd = en}
+>
 >     -- ap = fromIntegral (rRootKey rData)
->     ok = checkReconcile shdr zone rData secs (st, en)
+>     ok = checkReconcile shdr zone rData' secs (st, en)
 >     ap = if not ok
->          then error "no good"
+>          then error "InstrumentZone and F.Shdr could not be reconciled"
 >          else fromIntegral (rRootKey rData)
 >
 >     ns'                :: Double              = fromIntegral (en - st + 1)
 >     secs'              :: Double              = ns' / sr
->     freqFactor         :: Double              = apToHz ap / apToHz  pch
->     sig                :: AudSF () Double     = eutPhaser zone secs' sr 0 freqFactor >>> eutSampler arrays (st, en)
+>     freqFactor         :: Double              = apToHz ap / apToHz pch
+>     sig                :: AudSF () Double     = eutPhaser zone secs' sr 0 freqFactor
+>                                             >>> eutSampler arrays rData' vol
 >   in proc _ → do
 >     z ← sig ⤙ ()
 >     outA ⤙ z
 >
-> selectZone             :: SoundFontArrays → InstrumentZones → AbsPitch → (F.Shdr, InstrumentZone)
-> selectZone arrays zones pch =
+> selectZone             :: SoundFontArrays
+>                           → InstrumentZones
+>                           → AbsPitch
+>                           → Volume
+>                           → (InstrumentZone, F.Shdr)
+> selectZone arrays zones pch vol =
 >   let
->     mzone = find (contained pch) (ssZones zones)
+>     -- ToDo : do pick closest zone if pitch is out of range
+>     mzone = find (contains pch vol) (zZones zones)
 >     zone = case mzone of
->              Nothing     → head (ssZones zones) -- error "all splits failed to contain the pitch"
+>              Nothing     → head (zZones zones) -- error "all splits failed"
+>                                                --       "to contain the pitch"
 >              Just zone'  → zone'
 >   in
->     (ssShdrs arrays ! fromJust (ssSampleIndex zone), zone)
+>     (zone, ssShdrs arrays ! fromJust (zSampleIndex zone))
 >   where
->     contained          :: AbsPitch → InstrumentZone → Bool
->     contained ap zone =
->       let (pst, pen) = fromJust $ ssKeyRange zone
->       in ap >= pst && ap <= pen
+>     contains           :: AbsPitch → Volume → InstrumentZone → Bool
+>     contains ap vol zone
+>       | isJust (zKeyRange zone)
+>         = if isJust (zVelRange zone)
+>           then ap >= kst && ap <= ken && vol >= vst && vol <= ven
+>           else ap >= kst && ap <= ken
+>       | isJust (zVelRange zone)
+>         = vol >= vst && vol <= ven
+>       | otherwise
+>         = True
+>       where
+>         (kst, ken) = fromJust (zKeyRange zone)
+>         (vst, ven) = fromJust (zVelRange zone)
 >
+> sumOfMaybeInts         :: [Maybe Int] -> Int
+> sumOfMaybeInts = foldr ((+) . fromMaybe 0) 0
+>       
 > addIntToWord           :: Word -> Int -> Word
 > addIntToWord w i =
->   let iw :: Int = fromIntegral w
->       sum :: Int = iw + i
+>   let iw               :: Int = fromIntegral w
+>       sum              :: Int = iw + i
 >   in fromIntegral sum
->       
+>
 > reconcile              :: InstrumentZone -> F.Shdr -> Reconciled
 > reconcile zone shdr =
 >   Reconciled {
->     rStart      = addIntToWord (F.start shdr)           (fromMaybe 0 (ssStartOffs zone))
->   , rEnd        = addIntToWord (F.end shdr)             (fromMaybe 0 (ssEndOffs zone))
->   , rLoopStart  = addIntToWord (F.startLoop shdr)       (fromMaybe 0 (ssLoopStartOffs zone))
->   , rLoopEnd    = addIntToWord (F.endLoop shdr)         (fromMaybe 0 (ssLoopEndOffs zone))
->   , rRootKey    = fromMaybe    (F.originalPitch shdr)   (ssRootKey zone)}
+>     rStart      = addIntToWord (F.start shdr)           (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
+>   , rEnd        = addIntToWord (F.end shdr)             (sumOfMaybeInts [zEndOffs       zone, zEndCoarseOffs       zone])
+>   , rLoopStart  = addIntToWord (F.startLoop shdr)       (sumOfMaybeInts [zLoopStartOffs zone, zLoopStartCoarseOffs zone])
+>   , rLoopEnd    = addIntToWord (F.endLoop shdr)         (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
+>   , rRootKey    = fromMaybe    (F.originalPitch shdr)   (if ignoreZonePitchOverride
+>                                                          then Nothing
+>                                                          else zRootKey zone)}
 >
 > selectedInstruments    :: [(String, InstrumentName)]
 > selectedInstruments =
@@ -317,19 +377,20 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > doPlayInstruments imap
 >   | traceIf msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF nylon imap
+>       let (d,s) = renderSF roger imap
 >       outFileNorm "blaat.wav" d s
 >       return ()
 >   where
->     msg = unwords ["doPlayInstruments ", show $ length imap, " insts=", concatMap (show . fst) imap]
+>     msg = unwords ["doPlayInstruments ", show $ length imap
+>                             , " insts=", concatMap (show . fst) imap]
 >
 > gUnit :: Music Pitch
-> gUnit = addDur qn [f 5, a 5, b 5, a 5, f 5, a 5, b 5, a 5
->                    , e 5, a 5, b 5, a 5, e 5, a 5, b 5, a 5]
+> gUnit = addDur qn [f 4, a 4, b 4, a 4, f 4, a 4, b 4, a 4
+>                  , e 4, a 4, b 4, a 4, e 4, a 4, b 4, a 4]
 > nylon :: Music (Pitch, Volume)
 > nylon =
 >   removeZeros
 >   $ tempo 1
->   $ transpose (-12)
+>   $ transpose 0
 >   $ keysig A Major
 >   $ chord [ addVolume  50 $ instrument AcousticGuitarNylon gUnit]
