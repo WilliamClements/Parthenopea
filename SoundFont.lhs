@@ -34,8 +34,6 @@ SoundFont support ==============================================================
   
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
-> ignoreZonePitchOverride = False
->
 > newtype InstrumentZones =
 >   InstrumentZones {
 >               zZones  :: [InstrumentZone]} deriving Show
@@ -61,9 +59,17 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , zSampleIndex       :: Maybe Word
 >   , zSampleMode        :: Maybe A.SampleMode
 >
+>   , zDelayVolEnv       :: Maybe Int
+>   , zAttackVolEnv      :: Maybe Int
+>   , zHoldVolEnv        :: Maybe Int
+>   , zDecayVolEnv       :: Maybe Int
+>   , zSustainVolEnv     :: Maybe Int 
+>   , zReleaseVolEnv     :: Maybe Int
+>
 >   , zChorus            :: Maybe Int
 >   , zReverb            :: Maybe Int
 >   , zPan               :: Maybe Int
+>
 >   , zRootKey           :: Maybe Word} deriving Show
 >
 > defInstrumentZone      :: InstrumentZone
@@ -71,24 +77,27 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >                                    Nothing Nothing Nothing Nothing
 >                                    Nothing Nothing Nothing Nothing
 >                                    Nothing Nothing Nothing Nothing
->                                    Nothing Nothing Nothing
+>                                    Nothing Nothing Nothing Nothing
+>                                    Nothing Nothing Nothing Nothing
+>                                    Nothing
 >   
 > data Reconciled =
 >   Reconciled {
->      rStart             :: Word
->   ,  rEnd               :: Word
->   ,  rLoopStart         :: Word
->   ,  rLoopEnd           :: Word
->   ,  rRootKey           :: Word} deriving Show
+>     rStart             :: Word
+>   , rEnd               :: Word
+>   , rLoopStart         :: Word
+>   , rLoopEnd           :: Word
+>   , rRootKey           :: Word
+>   , rPitchCorrection   :: Double} deriving Show
 >           
 > data SoundFontArrays = 
 >   SoundFontArrays {
->               ssInsts  :: Array Word F.Inst
->             , ssIBags  :: Array Word F.Bag
->             , ssIGens  :: Array Word F.Generator
->             , ssShdrs  :: Array Word F.Shdr
->             , ssData   :: A.SampleData Int16
->             , ssM24    :: Maybe (A.SampleData Int8)}
+>     ssInsts            :: Array Word F.Inst
+>   , ssIBags            :: Array Word F.Bag
+>   , ssIGens            :: Array Word F.Generator
+>   , ssShdrs            :: Array Word F.Shdr
+>   , ssData             :: A.SampleData Int16
+>   , ssM24              :: Maybe (A.SampleData Int8)}
 >
 > doSoundFont            :: FilePath → IO ()
 > doSoundFont inFile =
@@ -152,7 +161,10 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     jbagi = F.instBagNdx jinst
 >     zones = [ibagi..jbagi-1]
 >     ilist = map (doZone arrays iinst) zones
->     msg = unwords ["doInstrument=", show mis, " n= ", show (snd (fromJust mis)), " ", show iinst, " ", show jinst]
+>     msg = unwords ["doInstrument=", show mis
+>                  , " n= ", show (snd (fromJust mis))
+>                  , " ", show iinst
+>                  , " ", show jinst]
 >     
 > fromGens               :: InstrumentZone → [F.Generator] → InstrumentZone
 > fromGens iz [] = iz
@@ -181,6 +193,13 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   F.FineTune i                   → iz {zFineTune =                 Just i}
 >   F.SampleIndex w                → iz {zSampleIndex =              Just w}
 >   F.SampleMode a                 → iz {zSampleMode =               Just a}
+>
+>   F.DelayVolEnv i                → iz {zDelayVolEnv =              Just i}
+>   F.AttackVolEnv i               → iz {zAttackVolEnv =             Just i}
+>   F.HoldVolEnv i                 → iz {zHoldVolEnv =               Just i}
+>   F.DecayVolEnv i                → iz {zDecayVolEnv =              Just i}
+>   F.SustainVolEnv i              → iz {zSustainVolEnv =            Just i}
+>   F.ReleaseVolEnv i              → iz {zReleaseVolEnv =            Just i}
 >
 >   F.Chorus i                     → iz {zChorus =                   Just i}
 >   F.Reverb i                     → iz {zReverb =                   Just i}
@@ -248,12 +267,12 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     let sampleAddress  :: Int = fromIntegral st + truncate (numS * pos)
 >     outA ⤙ amp * fromIntegral (ssData arrays ! sampleAddress)
 >
-> checkReconcile     :: F.Shdr
->                       → InstrumentZone
->                       → Reconciled
->                       → Double
->                       → (Word, Word)
->                       → Bool
+> checkReconcile         :: F.Shdr
+>                           → InstrumentZone
+>                           → Reconciled
+>                           → Double
+>                           → (Word, Word)
+>                           → Bool
 > checkReconcile shdr zone recon secs (st, en)
 >   | traceIf msg False = undefined
 >   | otherwise = True
@@ -273,14 +292,16 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     sr                 :: Double           = fromIntegral $ F.sampleRate shdr
 >     ns                 :: Double           = fromIntegral $ rEnd rData - rStart rData + 1
 >     secs               :: Double           = ns / sr
-> 
+>     ap                 :: AbsPitch
+>
+>     -- if duration is too long, use the looped range
 >     (st, en) = if secs <= 2 * fromRational dur
 >                then (rLoopStart rData, rLoopEnd rData)
 >                else (rStart rData,     rEnd rData)
 >
+>     -- put this result back into the resolved record
 >     rData' = rData {rStart = st, rEnd = en}
 >
->     -- ap = fromIntegral (rRootKey rData)
 >     ok = checkReconcile shdr zone rData' secs (st, en)
 >     ap = if not ok
 >          then error "InstrumentZone and F.Shdr could not be reconciled"
@@ -288,20 +309,14 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 >     ns'                :: Double              = fromIntegral (en - st + 1)
 >     secs'              :: Double              = ns' / sr
->     freqFactor         :: Double              = (apToHz ap / adjustFreq pch zone) * 44100/sr
+>     freqFactor         :: Double              = rPitchCorrection rData' * freqRatio * rateRatio
+>     freqRatio          :: Double              = apToHz ap / apToHz pch
+>     rateRatio          :: Double              = 44100 / sr
 >     sig                :: AudSF () Double     = eutPhaser zone secs' sr 0 freqFactor
 >                                             >>> eutReconstructor arrays rData' vol
 >   in proc _ → do
 >     z ← sig ⤙ ()
 >     outA ⤙ z
->
->   where
->     adjustFreq         :: AbsPitch → InstrumentZone → Double
->     adjustFreq pch zone = adj * apToHz pch
->       where
->         coarse         :: Double = fromIntegral (fromMaybe 0 $ zCoarseTune zone)
->         fine           :: Double = fromIntegral (fromMaybe 0 $ zFineTune zone) / 100
->         adj            :: Double = 2 ** ((coarse + fine)/12)
 >
 > selectZone             :: SoundFontArrays
 >                           → InstrumentZones
@@ -369,13 +384,21 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > reconcile              :: InstrumentZone → F.Shdr → Reconciled
 > reconcile zone shdr =
 >   Reconciled {
->     rStart      = addIntToWord (F.start shdr)           (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
->   , rEnd        = addIntToWord (F.end shdr)             (sumOfMaybeInts [zEndOffs       zone, zEndCoarseOffs       zone])
->   , rLoopStart  = addIntToWord (F.startLoop shdr)       (sumOfMaybeInts [zLoopStartOffs zone, zLoopStartCoarseOffs zone])
->   , rLoopEnd    = addIntToWord (F.endLoop shdr)         (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
->   , rRootKey    = fromMaybe    (F.originalPitch shdr)   (if ignoreZonePitchOverride
->                                                          then Nothing
->                                                          else zRootKey zone)}
+>     rStart           = addIntToWord          (F.start shdr)           (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
+>   , rEnd             = addIntToWord          (F.end shdr)             (sumOfMaybeInts [zEndOffs       zone, zEndCoarseOffs       zone])
+>   , rLoopStart       = addIntToWord          (F.startLoop shdr)       (sumOfMaybeInts [zLoopStartOffs zone, zLoopStartCoarseOffs zone])
+>   , rLoopEnd         = addIntToWord          (F.endLoop shdr)         (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
+>   , rRootKey         = fromMaybe             (F.originalPitch shdr)   (zRootKey zone)
+>   , rPitchCorrection = resolvePitchCorrection(F.pitchCorrection shdr) (zCoarseTune zone) (zFineTune zone)}
+>
+> resolvePitchCorrection :: Int → Maybe Int → Maybe Int → Double
+> resolvePitchCorrection alt mps mpc = 2 ** (fromIntegral cents/12/100)
+>   where
+>     cents              :: Int = if isJust mps || isJust mpc
+>                                 then coarse * 100 + fine
+>                                 else alt
+>     coarse             :: Int = fromMaybe 0 mps
+>     fine               :: Int = fromMaybe 0 mpc
 >
 > selectedInstruments    :: [(String, InstrumentName)]
 > selectedInstruments =
@@ -408,11 +431,17 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     -- , ("Violin3",            Violin)
 >   ]
 >
+> korgInstruments        :: [(String, InstrumentName)]
+> korgInstruments =
+>   [
+>       ("Orchestra",   Percussion)
+>   ]
+>
 > doPlayInstruments      :: InstrMap (Mono AudRate) → IO ()
 > doPlayInstruments imap
 >   | traceIf msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF (ssailor) imap
+>       let (d,s) = renderSF (whelpNarp) imap
 >       outFileNorm "blaat.wav" d s
 >       return ()
 >   where
@@ -433,5 +462,5 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   $ transpose 0
 >   $ keysig A Major
 >   $ instrument SynthBass1
->     (line [gUnitAtVolume 40, rest hn, gUnitAtVolume 60, rest hn, gUnitAtVolume 80
->        , gUnitAtVolume 100, rest hn, gUnitAtVolume 120])
+>     (line [gUnitAtVolume  40, rest hn, gUnitAtVolume  60, rest hn, gUnitAtVolume 80
+>          , gUnitAtVolume 100, rest hn, gUnitAtVolume 120])
