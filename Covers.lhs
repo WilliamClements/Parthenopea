@@ -18,15 +18,15 @@ Saucy Sailor ===================================================================
 >     $ tempo 1
 >     $ transpose 0
 >     $ keysig C Mixolydian
->     $ instrument Violin
+>     $ instrument Flute
 >       ((if includeOpen then xOpenT        else rest 0)
 >          :+: (if includeSong then xSongT  else rest 0)
 >          :+: (if includeClos then xClosT  else rest 0))
->       :=: instrument AcousticGuitarSteel
+>       :=: instrument AcousticGuitarNylon
 >       ((if includeOpen then xOpenG        else rest 0)
 >          :+: (if includeSong then xSongG  else rest 0)
 >          :+: (if includeClos then xClosG  else rest 0))
->       :=: instrument ElectricBassPicked
+>       :=: instrument AcousticGrandPiano
 >       ((if includeOpen then xOpenB        else rest 0)
 >          :+: (if includeSong then xSongB  else rest 0)
 >          :+: (if includeClos then xClosB  else rest 0))

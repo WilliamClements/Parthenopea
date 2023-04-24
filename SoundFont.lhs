@@ -21,19 +21,23 @@ SoundFont support ==============================================================
 > import Data.List (find, foldr, minimumBy)
 > import Data.Maybe (isJust, fromJust, fromMaybe)
 > import Debug.Trace ( traceIO, traceM )
-> import Euterpea.IO.Audio.Basics
-> import Euterpea.IO.Audio.IO
-> import Euterpea.IO.Audio.Render
-> import Euterpea.IO.Audio.Types
+> import Euterpea.IO.Audio.BasicSigFuns ( envASR, envLineSeg )
+> import Euterpea.IO.Audio.Basics ( apToHz, outA )
+> import Euterpea.IO.Audio.IO ( outFileNorm )
+> import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
+> import Euterpea.IO.Audio.Types ( AudRate, AudSF, Mono )
 > import Euterpea.Music
 > import Fanfare
-> import FRP.UISF.AuxFunctions ( ArrowCircuit(delay) )
-> import Parthenopea
+> import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
+> import Parthenopea ( traceIf, traceAlways, addDur, envDAHdSR )
 > import SunPyg
 > import System.Environment(getArgs)  
   
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
+> useEnvelopes = True
+> usePitchCorrection = True
+>
 > newtype InstrumentZones =
 >   InstrumentZones {
 >               zZones  :: [InstrumentZone]} deriving Show
@@ -88,7 +92,8 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , rLoopStart         :: Word
 >   , rLoopEnd           :: Word
 >   , rRootKey           :: Word
->   , rPitchCorrection   :: Double} deriving Show
+>   , rPitchCorrection   :: Double
+>   , rEnvelope          :: Envelope} deriving Show
 >           
 > data SoundFontArrays = 
 >   SoundFontArrays {
@@ -98,6 +103,15 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , ssShdrs            :: Array Word F.Shdr
 >   , ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
+>
+> data Envelope =
+>   Envelope {
+>     eDelay             :: Double
+>   , eAttack            :: Double
+>   , eHold              :: Double
+>   , eDecay             :: Double
+>   , eSustain           :: Double
+>   , eRelease           :: Double} deriving Show
 >
 > doSoundFont            :: FilePath → IO ()
 > doSoundFont inFile =
@@ -138,7 +152,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > shouldDoInstrument     :: Array Word F.Inst → Word → Maybe (InstrumentName, Word)
 > shouldDoInstrument is n =
 >   let i = is ! n
->       ilist = filter (match (F.instName i)) selectedInstruments
+>       ilist = filter (match (F.instName i)) selectedInstruments -- WOX korgInstruments
 >   in case ilist of
 >     [] → Nothing
 >     _  → Just (snd (head ilist), n)
@@ -152,19 +166,25 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >                           → (InstrumentName, Instr (Mono AudRate))
 > doInstrument arrays is mis
 >   | traceIf msg False = undefined
->   | otherwise = (iname, assignInstrument arrays (InstrumentZones ilist))
+>   | otherwise = (iname, assignInstrument arrays (InstrumentZones iList))
 >   where 
 >     (iname, n) = fromJust mis
 >     iinst = is ! n
 >     jinst = is ! (n + 1)
 >     ibagi = F.instBagNdx iinst
 >     jbagi = F.instBagNdx jinst
->     zones = [ibagi..jbagi-1]
->     ilist = map (doZone arrays iinst) zones
+>     gIx   = if jbagi - ibagi < 2
+>             then error "must have one global zone and at least one other zone"
+>             else [ibagi]
+>     oIx   = [ibagi+1..jbagi-1]
+>     gList = map (doZone arrays iinst defInstrumentZone) gIx
+>     oList = map (doZone arrays iinst (head gList))      oIx
+>     iList = gList ++ oList
 >     msg = unwords ["doInstrument=", show mis
 >                  , " n= ", show (snd (fromJust mis))
 >                  , " ", show iinst
->                  , " ", show jinst]
+>                  , " ", show jinst
+>                  , " global generators=", show (head gList)]
 >     
 > fromGens               :: InstrumentZone → [F.Generator] → InstrumentZone
 > fromGens iz [] = iz
@@ -208,17 +228,17 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   F.RootKey w                    → iz {zRootKey =                  Just (fromIntegral w)}
 >   _                              → iz
 >
-> doZone                 :: SoundFontArrays → F.Inst → Word → InstrumentZone
-> doZone arrays iinst bagIndex
+> doZone                 :: SoundFontArrays → F.Inst → InstrumentZone → Word → InstrumentZone
+> doZone arrays iinst fromZone bagIndex
 >   | traceIf msg False = undefined
->   | otherwise = fromGens defInstrumentZone gens
+>   | otherwise = fromGens fromZone gens
 >   where
 >     ibags = ssIBags arrays
->     xbag = ibags ! bagIndex
->     ybag = ibags ! (bagIndex + 1)
->     xgeni = F.genNdx xbag
->     ygeni = F.genNdx ybag
->     gens = getGens arrays iinst [xgeni..ygeni-1]
+>     xgeni = F.genNdx $ ibags!bagIndex
+>     ygeni = F.genNdx $ ibags!(bagIndex + 1)
+>     gens = if ygeni - xgeni < 0
+>            then error "degenerate generator list"
+>            else getGens arrays iinst [xgeni..ygeni-1]
 >
 >     msg = unwords ["doZone xgeni=", show xgeni, " ygeni=", show ygeni, "\n"]
 >
@@ -253,19 +273,46 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >
-> eutReconstructor       :: SoundFontArrays → Reconciled → Volume → AudSF Double Double
-> eutReconstructor arrays reconciled vol =
+> eutRelay               :: SoundFontArrays
+>                           → Reconciled
+>                           → Volume
+>                           → Dur
+>                           → AudSF Double Double
+> eutRelay arrays reconciled vol dur =
 >   let
 >     (st, en)           :: (Word, Word) = (rStart reconciled, rEnd reconciled)
 >     nc = 1 -- numChans (undefined :: u)
->     numS :: Double
+>     numS               :: Double
 >     numS = case ssM24 arrays of
 >           Nothing → fromIntegral $ (en - st + 1) `div` nc
 >           Just _  → error "24-bit not yet supported"
+>     amp                :: Double
+>     amp = fromIntegral vol / 100
+>     renv               :: Envelope
+>     renv = rEnvelope reconciled
+>     secs               :: Double
+>     secs = 2 * fromRational dur
 >   in proc pos → do
->     let amp            :: Double = fromIntegral vol / 100
 >     let sampleAddress  :: Int = fromIntegral st + truncate (numS * pos)
->     outA ⤙ amp * fromIntegral (ssData arrays ! sampleAddress)
+> 
+>     aenv ← if useEnvelopes
+>            then doEnvelope renv secs ⤙ ()
+>            else constA 1             ⤙ ()
+> 
+>     outA ⤙ aenv * amp * fromIntegral (ssData arrays ! sampleAddress)
+>   where
+>     doEnvelope         :: Envelope → Double → AudSF () Double
+>     doEnvelope renv secs
+>       | traceAlways msg False = undefined
+>       | otherwise = envDAHdSR secs
+>                               (eDelay renv)
+>                               (eAttack renv)
+>                               (eHold renv)
+>                               (eDecay renv)
+>                               (eSustain renv)
+>                               (eRelease renv)
+>       where
+>         msg = unwords ["Envelope=", show renv]
 >
 > checkReconcile         :: F.Shdr
 >                           → InstrumentZone
@@ -295,7 +342,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     ap                 :: AbsPitch
 >
 >     -- if duration is too long, use the looped range
->     (st, en) = if secs <= 2 * fromRational dur
+>     (st, en) = if secs < 2 * fromRational dur
 >                then (rLoopStart rData, rLoopEnd rData)
 >                else (rStart rData,     rEnd rData)
 >
@@ -309,11 +356,13 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 >     ns'                :: Double              = fromIntegral (en - st + 1)
 >     secs'              :: Double              = ns' / sr
->     freqFactor         :: Double              = rPitchCorrection rData' * freqRatio * rateRatio
+>     freqFactor         :: Double              = if usePitchCorrection
+>                                                 then freqRatio * rateRatio / rPitchCorrection rData'
+>                                                 else freqRatio * rateRatio
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
 >     rateRatio          :: Double              = 44100 / sr
 >     sig                :: AudSF () Double     = eutPhaser zone secs' sr 0 freqFactor
->                                             >>> eutReconstructor arrays rData' vol
+>                                             >>> eutRelay arrays rData' vol dur
 >   in proc _ → do
 >     z ← sig ⤙ ()
 >     outA ⤙ z
@@ -389,7 +438,13 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , rLoopStart       = addIntToWord          (F.startLoop shdr)       (sumOfMaybeInts [zLoopStartOffs zone, zLoopStartCoarseOffs zone])
 >   , rLoopEnd         = addIntToWord          (F.endLoop shdr)         (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
 >   , rRootKey         = fromMaybe             (F.originalPitch shdr)   (zRootKey zone)
->   , rPitchCorrection = resolvePitchCorrection(F.pitchCorrection shdr) (zCoarseTune zone) (zFineTune zone)}
+>   , rPitchCorrection = resolvePitchCorrection(F.pitchCorrection shdr) (zCoarseTune zone) (zFineTune zone)
+>   , rEnvelope        = deriveEnvelope        (zDelayVolEnv zone)
+>                                              (zAttackVolEnv zone)
+>                                              (zHoldVolEnv zone)
+>                                              (zDecayVolEnv zone)
+>                                              (zSustainVolEnv zone)
+>                                              (zReleaseVolEnv zone)}
 >
 > resolvePitchCorrection :: Int → Maybe Int → Maybe Int → Double
 > resolvePitchCorrection alt mps mpc = 2 ** (fromIntegral cents/12/100)
@@ -399,6 +454,30 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >                                 else alt
 >     coarse             :: Int = fromMaybe 0 mps
 >     fine               :: Int = fromMaybe 0 mpc
+>
+> deriveEnvelope         :: Maybe Int
+>                           → Maybe Int
+>                           → Maybe Int
+>                           → Maybe Int
+>                           → Maybe Int
+>                           → Maybe Int
+>                           → Envelope
+> deriveEnvelope mDelay mAttack mHold mDecay mSustain mRelease
+>   | traceAlways msg False = undefined
+>   | otherwise =
+>     let
+>       iDelay = fromMaybe (-12000) mDelay
+>       iAttack = fromMaybe (-12000) mAttack
+>       iHold   = fromMaybe (-12000) mHold
+>       iDecay  = fromMaybe (-12000) mDecay
+>       iSustain = fromMaybe 0 mSustain
+>       iRelease = fromMaybe (-12000) mRelease
+>     in 
+>       Envelope (conv iDelay) (conv iAttack) (conv iHold) (conv iDecay) (fromIntegral iSustain) (conv iRelease)
+>     where
+>       conv               :: Int -> Double
+>       conv k = 2**(fromIntegral k/1200)
+>       msg = unwords ["mDelay=", show mDelay, "mAttack=", show mAttack, "mHold=", show mHold, "mDecay=", show mDecay, "mSustain=", show mSustain, "mRelease=", show mRelease]
 >
 > selectedInstruments    :: [(String, InstrumentName)]
 > selectedInstruments =
@@ -420,6 +499,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     , ("Piccolo",            Piccolo)
 >     , ("Pipe Organ",         ChurchOrgan)
 >     , ("String Ensembles",   StringEnsemble1)
+>     , ("Strings Pan",        StringEnsemble2)
 >     , ("Synth 1",            SynthBass1)           -- discord
 >     , ("Synth 2",            SynthBass2)           -- discord
 >     , ("Tenor Both Xfade",   TenorSax)
@@ -439,9 +519,9 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 > doPlayInstruments      :: InstrMap (Mono AudRate) → IO ()
 > doPlayInstruments imap
->   | traceIf msg False = undefined
+>   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF (whelpNarp) imap
+>       let (d,s) = renderSF (copper 2) imap
 >       outFileNorm "blaat.wav" d s
 >       return ()
 >   where

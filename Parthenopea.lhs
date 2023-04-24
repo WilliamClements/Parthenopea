@@ -19,6 +19,8 @@ December 12, 2022
 > import Data.Maybe ( fromJust, isJust )
 > import Data.Ratio ( approxRational )
 > import Debug.Trace ( trace )
+> import Euterpea.IO.Audio.Basics ( outA )
+> import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
 > import Euterpea.IO.Audio.IO
 > import Euterpea.IO.Audio.Render
 > import Euterpea.IO.Audio.Types
@@ -30,7 +32,7 @@ December 12, 2022
 > import Euterpea.Music
 > import HSoM.Performance ( metro, Context (cDur) )
 > import System.Random ( Random(randomR), StdGen )
-
+  
 Utilities =================================================================================
 
 > diagnosticsEnabled = False
@@ -544,7 +546,7 @@ snippets to be used with "lake" ================================================
 
 music converter ===========================================================================
 
-> aggrandize   :: Music (Pitch, Volume) → Music (Pitch, [NoteAttribute])
+> aggrandize             :: Music (Pitch, Volume) → Music (Pitch, [NoteAttribute])
 > aggrandize (Prim (Note d (p, v))) =
 >        Prim (Note d (p, [Volume v]))
 > aggrandize (Prim (Rest d)) =
@@ -555,7 +557,7 @@ music converter ================================================================
 >        aggrandize m1 :=: aggrandize m2
 > aggrandize (Modify c m)  = Modify c (aggrandize m)
 
-Wave ===========================================================================
+Wave ======================================================================================
 
 > class AudioSample a ⇒ WaveAudioSample a where
 >   retrieve :: UArray Int Int32 → Int → a
@@ -572,3 +574,38 @@ Wave ===========================================================================
 > instance Clock SlwRate where
 >   rate _ = 4.41
 > type SlwSF a b  = SigFun SlwRate a b
+
+SoundFont =================================================================================
+
+Implements the SoundFont model with:
+  1. delay time
+  2. attack time
+  3. hold time
+  4. decay time
+  5. sustain attenuation level
+  6. release time
+         ___
+        /   \_
+       /      \_
+      /         \
+  ___/           \___
+
+Creates an envelope generator with straight-line (delayed) attack, hold, decay, release.  
+
+> envDAHdSR              :: (Clock p) ⇒
+>                            Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Signal p () Double
+> envDAHdSR secs del att hold dec sus release = 
+>   let
+>     slop = secs - (del + att + hold + dec + release)
+>     sus' = 0.5 -- easier for now
+>     sf = envLineSeg [0,0,1,1,sus',0,0] [del, att, hold, dec, release, max 0 slop]
+>   in proc () → do
+>     env ← sf ⤙ ()
+>     outA ⤙ env

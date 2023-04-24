@@ -9,7 +9,7 @@ module Illiterate where
 import Data.Array
 import Data.Int
 
-aindexAt :: (Integral w) => Array Int w → Int → w
+aindexAt :: (Integral w) ⇒ Array Int w → Int → w
 aindexAt arrayW idx = arrayW ! idx
 
 a16 :: Array Int Int16
