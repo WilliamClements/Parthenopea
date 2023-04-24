@@ -35,7 +35,7 @@ SoundFont support ==============================================================
   
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
-> useEnvelopes = True
+> useEnvelopes = False
 > usePitchCorrection = True
 >
 > newtype InstrumentZones =
@@ -256,13 +256,12 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > doGenerator :: SoundFontArrays → F.Inst → Word → Maybe F.Generator
 > doGenerator arrays iinst zw = Just $ ssIGens arrays ! zw
 >
-> eutPhaser              :: InstrumentZone
->                           → Double
+> eutPhaser              :: Double
 >                           → Double
 >                           → Double
 >                           → Double
 >                           → AudSF () Double 
-> eutPhaser zone secs sr iphs freqFactor =
+> eutPhaser secs sr iphs freqFactor =
 >   let frac             :: RealFrac r ⇒ r → r
 >       frac                           = snd . properFraction
 >       delta            :: Double
@@ -273,23 +272,23 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >
-> eutRelay               :: SoundFontArrays
->                           → Reconciled
+> eutRelay               :: A.SampleData Int16
+>                           → Maybe (A.SampleData Int8)
+>                           → (Word, Word)
+>                           → Envelope
 >                           → Volume
 >                           → Dur
 >                           → AudSF Double Double
-> eutRelay arrays reconciled vol dur =
+> eutRelay s16 ms8 (st, en) renv vol dur =
 >   let
->     (st, en)           :: (Word, Word) = (rStart reconciled, rEnd reconciled)
+>     -- (st, en)           :: (Word, Word) = (rStart reconciled, rEnd reconciled)
 >     nc = 1 -- numChans (undefined :: u)
 >     numS               :: Double
->     numS = case ssM24 arrays of
+>     numS = case ms8 of
 >           Nothing → fromIntegral $ (en - st + 1) `div` nc
 >           Just _  → error "24-bit not yet supported"
 >     amp                :: Double
 >     amp = fromIntegral vol / 100
->     renv               :: Envelope
->     renv = rEnvelope reconciled
 >     secs               :: Double
 >     secs = 2 * fromRational dur
 >   in proc pos → do
@@ -299,7 +298,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >            then doEnvelope renv secs ⤙ ()
 >            else constA 1             ⤙ ()
 > 
->     outA ⤙ aenv * amp * fromIntegral (ssData arrays ! sampleAddress)
+>     outA ⤙ aenv * amp * fromIntegral (s16 ! sampleAddress)
 >   where
 >     doEnvelope         :: Envelope → Double → AudSF () Double
 >     doEnvelope renv secs
@@ -346,10 +345,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >                then (rLoopStart rData, rLoopEnd rData)
 >                else (rStart rData,     rEnd rData)
 >
->     -- put this result back into the resolved record
->     rData' = rData {rStart = st, rEnd = en}
->
->     ok = checkReconcile shdr zone rData' secs (st, en)
+>     ok = checkReconcile shdr zone rData secs (st, en)
 >     ap = if not ok
 >          then error "InstrumentZone and F.Shdr could not be reconciled"
 >          else fromIntegral (rRootKey rData)
@@ -357,12 +353,12 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     ns'                :: Double              = fromIntegral (en - st + 1)
 >     secs'              :: Double              = ns' / sr
 >     freqFactor         :: Double              = if usePitchCorrection
->                                                 then freqRatio * rateRatio / rPitchCorrection rData'
+>                                                 then freqRatio * rateRatio / rPitchCorrection rData
 >                                                 else freqRatio * rateRatio
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
 >     rateRatio          :: Double              = 44100 / sr
->     sig                :: AudSF () Double     = eutPhaser zone secs' sr 0 freqFactor
->                                             >>> eutRelay arrays rData' vol dur
+>     sig                :: AudSF () Double     = eutPhaser secs' sr 0 freqFactor
+>                                             >>> eutRelay (ssData arrays) (ssM24 arrays) (st, en) (rEnvelope rData) vol dur
 >   in proc _ → do
 >     z ← sig ⤙ ()
 >     outA ⤙ z
@@ -521,7 +517,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF (copper 2) imap
+>       let (d,s) = renderSF basicLick imap
 >       outFileNorm "blaat.wav" d s
 >       return ()
 >   where

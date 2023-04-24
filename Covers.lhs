@@ -323,7 +323,7 @@ TC =============================================================================
 >   $ tempo 1
 >   $ transpose (-12)
 >   $ keysig A Major
->   $ chord [ addVolume 105 $ instrument ChorusedPiano       tcV
+>   $ chord [ addVolume 105 $ instrument AcousticGrandPiano  tcV
 >           , addVolume  50 $ instrument AcousticGuitarNylon tcG
 >           , addVolume  60 $ instrument Cello               tcC
 >           , addVolume 100                                  tcP]

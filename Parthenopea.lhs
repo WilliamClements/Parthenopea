@@ -604,8 +604,9 @@ Creates an envelope generator with straight-line (delayed) attack, hold, decay, 
 > envDAHdSR secs del att hold dec sus release = 
 >   let
 >     slop = secs - (del + att + hold + dec + release)
->     sus' = 0.5 -- easier for now
->     sf = envLineSeg [0,0,1,1,sus',0,0] [del, att, hold, dec, release, max 0 slop]
+>     sus' = 0.5  -- easier for now
+>     hold' = 1.0 -- another hack
+>     sf = envLineSeg [0,0,1,1,sus',0,0] [del, att, hold', dec, release, max 0 slop]
 >   in proc () → do
 >     env ← sf ⤙ ()
 >     outA ⤙ env
