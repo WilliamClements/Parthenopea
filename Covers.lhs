@@ -316,14 +316,14 @@ Slot ===========================================================================
 TC ========================================================================================
 
 > licks = 38
->
+> 
 > basicLick :: Music (Pitch, Volume)
 > basicLick =
 >   removeZeros
 >   $ tempo 1
 >   $ transpose (-12)
 >   $ keysig A Major
->   $ chord [ addVolume 105 $ instrument AcousticGrandPiano  tcV
+>   $ chord [ addVolume 105 $ instrument AcousticGuitarSteel tcV
 >           , addVolume  50 $ instrument AcousticGuitarNylon tcG
 >           , addVolume  60 $ instrument Cello               tcC
 >           , addVolume 100                                  tcP]

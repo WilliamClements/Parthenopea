@@ -578,12 +578,12 @@ Wave ===========================================================================
 SoundFont =================================================================================
 
 Implements the SoundFont model with:
-  1. delay time
-  2. attack time
-  3. hold time
-  4. decay time
-  5. sustain attenuation level
-  6. release time
+  1. delay time                      0 → 0
+  2. attack time                     0 → 1
+  3. hold time                       1 → 1
+  4. decay time                      1 → sus
+  5. sustain attenuation level        ---
+  6. release time                  sus → 0
          ___
         /   \_
        /      \_
@@ -605,8 +605,7 @@ Creates an envelope generator with straight-line (delayed) attack, hold, decay, 
 >   let
 >     slop = secs - (del + att + hold + dec + release)
 >     sus' = 0.5  -- easier for now
->     hold' = 1.0 -- another hack
->     sf = envLineSeg [0,0,1,1,sus',0,0] [del, att, hold', dec, release, max 0 slop]
+>     sf = envLineSeg [0,0,1,1,sus',0] [del, att, hold, dec, release]
 >   in proc () → do
 >     env ← sf ⤙ ()
 >     outA ⤙ env

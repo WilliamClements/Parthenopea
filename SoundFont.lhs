@@ -10,6 +10,7 @@ SoundFont support ==============================================================
 
 > module SoundFont where
 >
+> import Cecil
 > import qualified Codec.SoundFont      as F
 > import Control.Arrow
 > import Control.Arrow.ArrowP ( ArrowP(ArrowP), strip )
@@ -113,6 +114,9 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , eSustain           :: Double
 >   , eRelease           :: Double} deriving Show
 >
+  
+slurp in instruments from one SoundFont (*.sf2) file ======================================
+
 > doSoundFont            :: FilePath → IO ()
 > doSoundFont inFile =
 >   do
@@ -143,16 +147,26 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > doInstruments arrays = do
 >   let is = ssInsts arrays
 >   let (ist, ien) = bounds is 
+>   putStrLn ("instrument start/stop=" ++ show (ist, ien) ++ "first instrument name=" ++ show (F.instName (is!ist)))
+>
 >   let selected = map (shouldDoInstrument is) [ist..ien-1]
+>
+>   putStrLn ("# selected=" ++ show (length selected))
+>
 >   let filtered = filter isJust selected
+>
+>   putStrLn ("# filtered=" ++ show (length filtered))
+>
 >   let ready = map (doInstrument arrays is) filtered
+>
+>   putStrLn ("# ready=" ++ show (length ready))
 >   doPlayInstruments ready
 >   return []
 >
 > shouldDoInstrument     :: Array Word F.Inst → Word → Maybe (InstrumentName, Word)
 > shouldDoInstrument is n =
 >   let i = is ! n
->       ilist = filter (match (F.instName i)) selectedInstruments -- WOX korgInstruments
+>       ilist = filter (match (F.instName i)) essentials -- WOX korgInstruments
 >   in case ilist of
 >     [] → Nothing
 >     _  → Just (snd (head ilist), n)
@@ -242,7 +256,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 >     msg = unwords ["doZone xgeni=", show xgeni, " ygeni=", show ygeni, "\n"]
 >
-> getGens                :: SoundFontArrays -> F.Inst -> [Word] -> [F.Generator]
+> getGens                :: SoundFontArrays → F.Inst → [Word] → [F.Generator]
 > getGens arrays iinst words
 >   | traceIf msg False = undefined
 >   | otherwise = gens
@@ -256,6 +270,9 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > doGenerator :: SoundFontArrays → F.Inst → Word → Maybe F.Generator
 > doGenerator arrays iinst zw = Just $ ssIGens arrays ! zw
 >
+  
+define signal functions for playing instruments ===========================================
+
 > eutPhaser              :: Double
 >                           → Double
 >                           → Double
@@ -313,22 +330,6 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >       where
 >         msg = unwords ["Envelope=", show renv]
 >
-> checkReconcile         :: F.Shdr
->                           → InstrumentZone
->                           → Reconciled
->                           → Double
->                           → (Word, Word)
->                           → Bool
-> checkReconcile shdr zone recon secs (st, en)
->   | traceIf msg False = undefined
->   | otherwise = True
->   where
->     msg = unwords ["checkReconcile=", show shdr
->                                     , show zone
->                                     , show recon
->                                     , show secs
->                                     , show (st, en)]
->
 > assignInstrument       :: SoundFontArrays → InstrumentZones → Instr (Mono AudRate)
 > assignInstrument arrays zones dur pch vol params =
 >   let
@@ -363,59 +364,42 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     z ← sig ⤙ ()
 >     outA ⤙ z
 >
+
+zone selection ============================================================================
+
 > selectZone             :: SoundFontArrays
 >                           → InstrumentZones
 >                           → AbsPitch
 >                           → Volume
 >                           → (InstrumentZone, F.Shdr)
 > selectZone arrays zones pch vol =
->   let
+>   let 
 >     -- skip the Global zone as we usually do
->     mzone = find (qualifyZone pch vol) (tail (zZones zones))
->     zone = case mzone of
->            Nothing     → pickClosestZone pch vol (tail (zZones zones)) -- error "all splits failed"
->                                                                        -- "to contain the pitch"
->            Just zone'  → zone'
+>     scores = map (scoreOneZone pch vol) (tail (zZones zones))
+>     zone = snd $ minimumBy compareScores scores
 >   in
 >     (zone, ssShdrs arrays ! fromJust (zSampleIndex zone))
->
-> qualifyZone            :: AbsPitch → Volume → InstrumentZone → Bool
-> qualifyZone ap vol zone
->   | isJust (zKeyRange zone)
->     = if isJust (zVelRange zone)
->       then ap >= kst && ap <= ken && vol >= vst && vol <= ven
->       else ap >= kst && ap <= ken
->   | isJust (zVelRange zone)
->     = vol >= vst && vol <= ven
->   | otherwise
->     = True
->   where
->     (kst, ken) = fromJust (zKeyRange zone)
->     (vst, ven) = fromJust (zVelRange zone)
->
-> pickClosestZone        :: AbsPitch → Volume → [InstrumentZone] → InstrumentZone 
-> pickClosestZone pch vol zones = zone
->   where
->     scores = map (scoreOneZone pch vol) zones
->     zone = snd $ minimumBy compareScores scores
->     
-> scoreOneZone           :: AbsPitch → Volume → InstrumentZone → (Int, InstrumentZone)
-> scoreOneZone pch vol zone = (score, zone)
->   where
->     score = score1 + score2
->     score1 = computeRangeDistance pch (zKeyRange zone)
->     score2 = computeRangeDistance vol (zVelRange zone)
 >
 > compareScores          :: (Num a, Ord a) ⇒ (a, b) → (a, b) → Ordering
 > compareScores (a1, b1) (a2, b2) = compare a1 a2 
 >                         
-> computeRangeDistance   :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
-> computeRangeDistance cand mrange =
+> scoreOneZone           :: AbsPitch → Volume → InstrumentZone → (Int, InstrumentZone)
+> scoreOneZone pch vol zone = (score, zone)
+>   where
+>     score = score1 + score2
+>     score1 = computeDistance pch (zKeyRange zone)
+>     score2 = computeDistance vol (zVelRange zone)
+>
+> computeDistance        :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
+> computeDistance cand mrange =
 >   case mrange of
->     Nothing                   → 0
->     Just (rangeMin, rangeMax) → if cand < rangeMin
->                                 then rangeMin - cand
->                                 else cand - rangeMax
+>     Nothing                   → 128
+>     Just (rangeMin, rangeMax) → if cand >= rangeMin && cand <= rangeMax
+>                                 then 0
+>                                 else min (abs $ rangeMin - cand) (abs $ cand - rangeMax)
+
+reconcile zone and sample header ==========================================================
+
 >
 > sumOfMaybeInts         :: [Maybe Int] → Int
 > sumOfMaybeInts = foldr ((+) . fromMaybe 0) 0
@@ -459,7 +443,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >                           → Maybe Int
 >                           → Envelope
 > deriveEnvelope mDelay mAttack mHold mDecay mSustain mRelease
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise =
 >     let
 >       iDelay = fromMaybe (-12000) mDelay
@@ -469,48 +453,91 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >       iSustain = fromMaybe 0 mSustain
 >       iRelease = fromMaybe (-12000) mRelease
 >     in 
->       Envelope (conv iDelay) (conv iAttack) (conv iHold) (conv iDecay) (fromIntegral iSustain) (conv iRelease)
+>       Envelope (conv iDelay) (conv iAttack)          (conv iHold)
+>                (conv iDecay) (fromIntegral iSustain) (conv iRelease)
 >     where
->       conv               :: Int -> Double
+>       conv               :: Int → Double
 >       conv k = 2**(fromIntegral k/1200)
->       msg = unwords ["mDelay=", show mDelay, "mAttack=", show mAttack, "mHold=", show mHold, "mDecay=", show mDecay, "mSustain=", show mSustain, "mRelease=", show mRelease]
+>       msg = unwords ["mDelay=",   show mDelay,   "mAttack=",    show mAttack
+>                     ,"mHold=",    show mHold,    "mDecay=",     show mDecay
+>                     ,"mSustain=", show mSustain, "mRelease=",   show mRelease]
 >
-> selectedInstruments    :: [(String, InstrumentName)]
-> selectedInstruments =
+> checkReconcile         :: F.Shdr
+>                           → InstrumentZone
+>                           → Reconciled
+>                           → Double
+>                           → (Word, Word)
+>                           → Bool
+> checkReconcile shdr zone recon secs (st, en)
+>   | traceIf msg False = undefined
+>   | otherwise = True
+>   where
+>     msg = unwords ["checkReconcile=", show shdr
+>                                     , show zone
+>                                     , show recon
+>                                     , show secs
+>                                     , show (st, en)]
+>
+
+organize instruments from multiple SoundFont files ========================================
+
+> essentials             :: [(String, InstrumentName)]
+> essentials =
 >   [
->       ("Alto Sax XSwitch",   AltoSax)
->     , ("Bassoon",            Bassoon)
->     , ("Cello",              Cello)
->     , ("ChGrand01v1",        AcousticGrandPiano)
->     , ("Clarinet",           Clarinet)
->     , ("Clean Guitar",       ElectricGuitarClean)
->     , ("DX7 Rhodes",         RhodesPiano)
->     , ("F",                  Violin)
->     , ("Flute",              Flute)
->     , ("Jazz Guitar",        ElectricGuitarJazz)
->     , ("MagiCs 5Strg Banjo", Banjo)
->     , ("Nylon Guitar 1",     AcousticGuitarNylon)
->     , ("Oboe",               Oboe)
->     , ("Palm Muted Guitar",  ElectricGuitarMuted)
->     , ("Piccolo",            Piccolo)
->     , ("Pipe Organ",         ChurchOrgan)
->     , ("String Ensembles",   StringEnsemble1)
->     , ("Strings Pan",        StringEnsemble2)
->     , ("Synth 1",            SynthBass1)           -- discord
->     , ("Synth 2",            SynthBass2)           -- discord
->     , ("Tenor Both Xfade",   TenorSax)
->     , ("Timpani 1 JN",       Timpani)
->     , ("Trombone",           Trombone)
->     , ("Trumpet",            Trumpet)
->     , ("Tuba",               Tuba)
->     , ("Upright-Piano-1",    BrightAcousticPiano)
+>       ("Alto Sax XSwitch",        AltoSax)
+>     , ("B3-1 Slow Rotor",         ReedOrgan)
+>     , ("Bassoon",                 Bassoon)
+>     , ("Cello",                   Cello)
+>     , ("ChGrand01v1",             AcousticGrandPiano)
+>     , ("Clarinet",                Clarinet)
+>     , ("Clean Guitar",            ElectricGuitarClean)
+>     , ("DX7 Rhodes",              RhodesPiano)
+>     , ("F",                       Violin)
+>     , ("Flute",                   Flute)
+>     , ("Jazz Guitar",             ElectricGuitarJazz)
+>     , ("MagiCs 5Strg Banjo",      Banjo)
+>     , ("Nylon Guitar 1",          AcousticGuitarNylon)
+>     , ("Oboe",                    Oboe)
+>     , ("Palm Muted Guitar",       ElectricGuitarMuted)
+>     , ("Piccolo",                 Piccolo)
+>     , ("Pipe Organ",              ChurchOrgan)
+>     , ("Spanish",                 AcousticGuitarSteel)
+>     , ("String Ensembles",        StringEnsemble1)
+>     , ("Strings Pan",             StringEnsemble2)
+>     , ("Synth 1",                 SynthBass1)           -- discord
+>     , ("Synth 2",                 SynthBass2)           -- discord
+>     , ("Tenor Both Xfade",        TenorSax)
+>     , ("Timpani 1 JN",            Timpani)
+>     , ("Trombone",                Trombone)
+>     , ("Trumpet",                 Trumpet)
+>     , ("Tuba",                    Tuba)
+>     , ("Upright-Piano-1",         BrightAcousticPiano)
 >     -- , ("Violin3",            Violin)
 >   ]
 >
 > korgInstruments        :: [(String, InstrumentName)]
 > korgInstruments =
 >   [
->       ("Orchestra",   Percussion)
+>       ("Orchestra",               Percussion)
+>   ]
+>
+> tyrosAcoosticBass      :: [(String, InstrumentName)]
+> tyrosAcoosticBass = 
+>   [
+>       ("TyrosAcoosticBa0",        AcousticBass)
+>     , ("TyrosAcoosticBa1",        ElectricBassPicked)
+>   ]
+>
+> pianoKorgTriton        :: [(String, InstrumentName)]
+> pianoKorgTriton = 
+>   [
+>       ("Piano Korg Triton",       AcousticGrandPiano)
+>   ]
+>
+> glockenspiel        :: [(String, InstrumentName)]
+> glockenspiel = 
+>   [
+>       ("Glockenspiel       ",     Glockenspiel)
 >   ]
 >
 > doPlayInstruments      :: InstrMap (Mono AudRate) → IO ()
@@ -518,6 +545,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   | traceAlways msg False = undefined
 >   | otherwise = do
 >       let (d,s) = renderSF basicLick imap
+>       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
 >   where
@@ -537,6 +565,6 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   $ tempo 1
 >   $ transpose 0
 >   $ keysig A Major
->   $ instrument SynthBass1
->     (line [gUnitAtVolume  40, rest hn, gUnitAtVolume  60, rest hn, gUnitAtVolume 80
+>   $ instrument Glockenspiel
+>     (line [gUnitAtVolume  40, rest hn, gUnitAtVolume  60, rest hn, gUnitAtVolume 80, rest hn
 >          , gUnitAtVolume 100, rest hn, gUnitAtVolume 120])
