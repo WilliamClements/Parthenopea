@@ -16,10 +16,11 @@ SoundFont support ==============================================================
 > import Control.Arrow.ArrowP ( ArrowP(ArrowP), strip )
 > import qualified Control.SF.SF        as C
 > import Covers
-> import Data.Array.Unboxed
+> import Data.Array.Unboxed ( Array, (!), IArray(bounds) )
 > import qualified Data.Audio           as A
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List (find, foldr, minimumBy)
+> import qualified Data.Map as Map
 > import Data.Maybe (isJust, fromJust, fromMaybe)
 > import Debug.Trace ( traceIO, traceM )
 > import Euterpea.IO.Audio.BasicSigFuns ( envASR, envLineSeg )
@@ -36,7 +37,7 @@ SoundFont support ==============================================================
   
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
-> useEnvelopes = False
+> useEnvelopes = True
 > usePitchCorrection = True
 >
 > newtype InstrumentZones =
@@ -138,24 +139,27 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >         case ssM24 arrays of
 >           Nothing      → print "16-bit datapoints"
 >           Just s24data → print "24-bit datapoints"
->         instruments ← doInstruments arrays
+>         let pal = dSoundFontV4Inst
+>         instruments ← doInstruments arrays pal
 >         traceIO ("doInstruments returned " ++ show instruments ++ "\n")
 >         return ()
 >     putStrLn "leaving doSoundFont"
 >
-> doInstruments          :: SoundFontArrays → IO [InstrumentZones]
-> doInstruments arrays = do
+> doInstruments          :: SoundFontArrays
+>                           → [(String, (Desirability, InstrumentName))]
+>                           → IO [InstrumentZones]
+> doInstruments arrays pal = do
 >   let is = ssInsts arrays
 >   let (ist, ien) = bounds is 
 >   putStrLn ("instrument start/stop=" ++ show (ist, ien) ++ "first instrument name=" ++ show (F.instName (is!ist)))
 >
->   let selected = map (shouldDoInstrument is) [ist..ien-1]
+>   let selected = map (shouldDoInstrument is pal) [ist..ien-1]
 >
 >   putStrLn ("# selected=" ++ show (length selected))
 >
 >   let filtered = filter isJust selected
 >
->   putStrLn ("# filtered=" ++ show (length filtered))
+>   putStrLn ("# filtered=" ++ show (length filtered) ++ " out of " ++ show (length pal))
 >
 >   let ready = map (doInstrument arrays is) filtered
 >
@@ -163,15 +167,18 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >   doPlayInstruments ready
 >   return []
 >
-> shouldDoInstrument     :: Array Word F.Inst → Word → Maybe (InstrumentName, Word)
-> shouldDoInstrument is n =
+> shouldDoInstrument     :: Array Word F.Inst
+>                           → [(String, (Desirability, InstrumentName))]
+>                           → Word
+>                           → Maybe (InstrumentName, Word)
+> shouldDoInstrument is pal n =
 >   let i = is ! n
->       ilist = filter (match (F.instName i)) essentials -- WOX korgInstruments
+>       ilist = filter (match (F.instName i)) pal
 >   in case ilist of
 >     [] → Nothing
->     _  → Just (snd (head ilist), n)
+>     _  → Just (snd (snd (head ilist)), n)
 >   where
->     match :: String → (String, InstrumentName) → Bool
+>     match :: String → (String, (Desirability, InstrumentName)) → Bool
 >     match iname cand = iname == fst cand
 >
 > doInstrument           :: SoundFontArrays
@@ -319,7 +326,7 @@ define signal functions for playing instruments ================================
 >   where
 >     doEnvelope         :: Envelope → Double → AudSF () Double
 >     doEnvelope renv secs
->       | traceAlways msg False = undefined
+>       | traceIf msg False = undefined
 >       | otherwise = envDAHdSR secs
 >                               (eDelay renv)
 >                               (eAttack renv)
@@ -481,39 +488,194 @@ reconcile zone and sample header ===============================================
 
 organize instruments from multiple SoundFont files ========================================
 
-> essentials             :: [(String, InstrumentName)]
-> essentials =
+> data Desirability =
+>   DLow | DMed | DHigh
+>
+> soundFontDatabase      :: [   (String
+>                               , (Desirability
+>                                  , ([   (String
+>                                    , (Desirability
+>                                    , InstrumentName))]
+>                                  , [   (String
+>                                    , (Desirability
+>                                    , PercussionSound))])))]
+> soundFontDatabase =
+>   [ ("editDSoundFontV4.sf2",      (DMed, (dSoundFontV4Inst, dSoundFontV4Perc)))
+>    ,("editEssentials.sf2",        (DLow, (essentialsInst, essentialsPerc))) ]
+>
+> dSoundFontV4Inst       :: [(String, (Desirability, InstrumentName))]
+> dSoundFontV4Inst =
 >   [
->       ("Alto Sax XSwitch",        AltoSax)
->     , ("B3-1 Slow Rotor",         ReedOrgan)
->     , ("Bassoon",                 Bassoon)
->     , ("Cello",                   Cello)
->     , ("ChGrand01v1",             AcousticGrandPiano)
->     , ("Clarinet",                Clarinet)
->     , ("Clean Guitar",            ElectricGuitarClean)
->     , ("DX7 Rhodes",              RhodesPiano)
->     , ("F",                       Violin)
->     , ("Flute",                   Flute)
->     , ("Jazz Guitar",             ElectricGuitarJazz)
->     , ("MagiCs 5Strg Banjo",      Banjo)
->     , ("Nylon Guitar 1",          AcousticGuitarNylon)
->     , ("Oboe",                    Oboe)
->     , ("Palm Muted Guitar",       ElectricGuitarMuted)
->     , ("Piccolo",                 Piccolo)
->     , ("Pipe Organ",              ChurchOrgan)
->     , ("Spanish",                 AcousticGuitarSteel)
->     , ("String Ensembles",        StringEnsemble1)
->     , ("Strings Pan",             StringEnsemble2)
->     , ("Synth 1",                 SynthBass1)           -- discord
->     , ("Synth 2",                 SynthBass2)           -- discord
->     , ("Tenor Both Xfade",        TenorSax)
->     , ("Timpani 1 JN",            Timpani)
->     , ("Trombone",                Trombone)
->     , ("Trumpet",                 Trumpet)
->     , ("Tuba",                    Tuba)
->     , ("Upright-Piano-1",         BrightAcousticPiano)
+>       ("+++Gtr Harmonics",        (DMed,  GuitarHarmonics))
+>     , ("60's Organ 1",            (DMed,  RockOrgan))
+>     , ("Accordion1",              (DMed,  Accordion))
+>     , ("Agogo",                   (DMed,  Agogo))
+>     , ("Applause0",               (DMed,  Applause))
+>     , ("Banjo",                   (DMed,  Banjo))
+>     , ("Baritone BV",             (DMed,  BaritoneSax))
+>     , ("Bird",                    (DMed,  BirdTweet))
+>     , ("Bottle Blow",             (DMed,  BlownBottle))
+>     , ("Brass",                   (DMed,  BrassSection))
+>     , ("Breath Noise0",           (DMed,  BreathNoise))
+>     , ("Campana",                 (DMed,  TubularBells))
+>     , ("Celesta",                 (DMed,  Celesta))
+>     , ("Church Organ",            (DMed,  ChurchOrgan))
+>     , ("Clarinet",                (DMed,  Clarinet))
+>     , ("Classical Guitar 1",      (DMed,  AcousticGuitarSteel))
+>     , ("Clavinet1",               (DMed,  Clavinet))
+>     , ("Dulcimer-Hammered",       (DMed,  Dulcimer))
+>     , ("Eddie's English Horn",    (DMed,  EnglishHorn))
+>     , ("Finger Bass",             (DMed,  ElectricBassFingered))
+>     , ("French Horns",            (DMed,  FrenchHorn))
+>     , ("German 8 Harpsichord",    (DMed,  Harpsichord))
+>     , ("Glockenspiel 1",          (DMed,  Glockenspiel))
+>     , ("Grand Piano",             (DMed,  AcousticGrandPiano))
+>     , ("Guitar Fret Noise",       (DMed,  GuitarFretNoise))
+>     , ("Gunshot",                 (DMed,  Gunshot))
+>     , ("Helicopter",              (DMed,  Helicopter))
+>     , ("hrp:Harp",                (DMed,  OrchestralHarp))
+>     , ("Iowa Alto Sax",           (DMed,  AltoSax))
+>     , ("iowa bassoon",            (DMed,  Bassoon))
+>     , ("Iowa Marimba",            (DMed,  Marimba))
+>     , ("Iowa Oboe",               (DMed,  Oboe))
+>     , ("IowaTrumpet",             (DMed,  Trumpet))
+>     , ("Iowa Viola-mf",           (DMed,  Viola))
+>     , ("Iowa Woodblock",          (DMed,  Woodblock))
+>     , ("Iowa Xylophone",          (DMed,  Xylophone))
+>     , ("Kalimba",                 (DMed,  Kalimba))
+>     , ("Koto",                    (DMed,  Koto))
+>     , ("Music Box",               (DMed,  MusicBox))
+>     , ("Ocarina",                 (DMed,  Ocarina))
+>     , ("Ottos Fretless",          (DMed,  FretlessBass))
+>     , ("Pan Flute",               (DMed,  PanFlute))
+>     , ("Piccolo",                 (DMed,  Piccolo))
+>     , ("Picked Bass",             (DMed,  ElectricBassPicked))
+>     , ("Pizzicato",               (DMed,  PizzicatoStrings))
+>     , ("Recorder",                (DMed,  Recorder))
+>     , ("Reed Organ",              (DMed,  ReedOrgan))
+>     , ("Rhodes",                  (DMed,  RhodesPiano))
+>     , ("Seashore",                (DMed,  Seashore))
+>     , ("Shakuhachi",              (DMed,  Shakuhachi))
+>     , ("Shamisen",                (DMed,  Shamisen))
+>     , ("Shenai",                  (DMed,  Shanai))
+>     , ("Sitar",                   (DMed,  Sitar))
+>     , ("soprano sax",             (DMed,  SopranoSax))
+>     , ("Spatial Grand Piano",     (DMed,  ElectricGrandPiano))
+>     , ("Steel Drum",              (DMed,  SteelDrums))
+>     , ("Strat Marshall",          (DMed,  DistortionGuitar))
+>     , ("Stream",                  (DMed,  Pad2Warm))
+>     , ("Synth Bass 3",            (DMed,  SynthBass2))
+>     , ("Synth Drum",              (DMed,  SynthDrum))
+>     , ("Synth Brass 1",           (DMed,  SynthBrass1))
+>     , ("Synth Brass 2",           (DMed,  SynthBrass2))
+>     , ("Synth Strings 1",         (DMed,  SynthStrings1))
+>     , ("Synth Strings 2",         (DMed,  SynthStrings2))
+>     , ("Taiko Drum",              (DMed,  TaikoDrum))
+>     , ("TELEPHONE",               (DMed,  TelephoneRing))
+>     , ("Tenor Both Xfade",        (DMed,  TenorSax))
+>     , ("Timpani All",             (DMed,  Timpani))
+>     , ("Trombone1",               (DMed,  Trombone))
+>     , ("Tuba",                    (DMed,  Tuba))
+>     , ("Ukelele",                 (DMed,  Pad3Polysynth))
+>     , ("vibraphone",              (DMed,  Vibraphone))
+>     , ("Whistle",                 (DMed,  Whistle))
+>   ]
+> dSoundFontV4Perc       :: [(String, (Desirability, PercussionSound))]
+> dSoundFontV4Perc =
+>   []
+>
+> essentialsInst         :: [(String, (Desirability, InstrumentName))]
+> essentialsInst =
+>   [
+>       ("Alto Sax XSwitch",        (DMed,  AltoSax))
+>     , ("B3-1 Slow Rotor",         (DMed,  ReedOrgan))
+>     , ("Bassoon",                 (DMed,  Bassoon))
+>     , ("Cello",                   (DMed,  Cello))
+>     , ("ChGrand01v1",             (DMed,  AcousticGrandPiano))
+>     , ("Clarinet",                (DMed,  Clarinet))
+>     , ("Clean Guitar",            (DMed,  ElectricGuitarClean))
+>     , ("DX7 Rhodes",              (DMed,  RhodesPiano))
+>     , ("F",                       (DMed,  Violin))
+>     , ("Flute",                   (DMed,  Flute))
+>     , ("Group 162",               (DMed,  Viola))
+>     , ("Jazz Guitar",             (DMed,  ElectricGuitarJazz))
+>     , ("MagiCs 5Strg Banjo",      (DMed,  Banjo))
+>     , ("Nylon Guitar 1",          (DMed,  AcousticGuitarNylon))
+>     , ("Oboe",                    (DMed,  Oboe))
+>     , ("Palm Muted Guitar",       (DMed,  ElectricGuitarMuted))
+>     , ("Piccolo",                 (DMed,  Piccolo))
+>     , ("Pipe Organ",              (DMed,  ChurchOrgan))
+>     , ("Spanish",                 (DMed,  AcousticGuitarSteel))
+>     , ("String Ensembles",        (DMed,  StringEnsemble1))
+>     , ("Strings Pan",             (DMed,  StringEnsemble2))
+>     , ("Tenor Both Xfade",        (DMed,  TenorSax))
+>     , ("Timpani 1 JN",            (DMed,  Timpani))
+>     , ("Trombone",                (DMed,  Trombone))
+>     , ("Trumpet",                 (DMed,  Trumpet))
+>     , ("Tuba",                    (DMed,  Tuba))
+>     , ("Upright-Piano-1",         (DMed,  BrightAcousticPiano))
 >     -- , ("Violin3",            Violin)
 >   ]
+> essentialsPerc         :: [(String, (Desirability, PercussionSound))]
+> essentialsPerc =
+>   []
+>
+> evaluateFiles          :: [InstrumentName]
+> evaluateFiles =
+>    let coveredFile = concatMap doFile soundFontDatabase
+>    in coveredFile
+>    where
+>      subtract _ = []
+>      doFile            :: ( String, (Desirability, ([(String, (Desirability, InstrumentName))], [(String, (Desirability, PercussionSound))]))) → [InstrumentName]
+>      doFile file =
+>        let
+>          list1          :: (Desirability, ([(String, (Desirability, InstrumentName))], [(String, (Desirability, PercussionSound))]))
+>          list1 = snd file
+>          list2          :: ([(String, (Desirability, InstrumentName))], [(String, (Desirability, PercussionSound))])
+>          list2 = snd list1
+>          list3          :: [(String, (Desirability, InstrumentName))]
+>          list3 = fst list2
+>
+>          coveredInst   :: [InstrumentName]
+>          coveredInst = map (snd.snd) list3         
+>        in coveredInst
+>
+> type WHCMap1 = Map.Map InstrumentName Int32
+>
+> roundtuit :: IO ()
+> roundtuit =
+>   let
+>     bar = evaluateFiles
+>
+>     dumb :: [InstrumentName] -> WHCMap1 -> WHCMap1
+>     dumb [] whcdi = Map.empty
+>     dumb (x:xs) whcdi = Map.union (Map.insert x 1 whcdi) (dumb xs whcdi)
+>     
+>     st :: Int = fromEnum AcousticGrandPiano
+>     en :: Int = fromEnum Gunshot
+>
+>     alli = [st .. en]
+>     allj = map (\x -> (toEnum x,1)) alli
+>     all = Map.fromList allj
+>     -- all = dumb [(fromEnum AcousticGrandPiano) .. ()]
+>     some = dumb bar Map.empty
+>
+>     leftover = Map.difference all some
+>
+>   in do
+>     print "all"
+>     print all
+>
+>     print "some"
+>     print some
+>
+>     print "leftover"
+>     print $ show leftover
+> {-
+> roundtuit :: IO ()
+> roundtuit = do
+>     let all = [AcousticBassDrum..OpenTriangle]
+>     show all
 >
 > korgInstruments        :: [(String, InstrumentName)]
 > korgInstruments =
@@ -539,12 +701,13 @@ organize instruments from multiple SoundFont files =============================
 >   [
 >       ("Glockenspiel       ",     Glockenspiel)
 >   ]
+> -}
 >
 > doPlayInstruments      :: InstrMap (Mono AudRate) → IO ()
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF basicLick imap
+>       let (d,s) = renderSF (slot 2) imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
