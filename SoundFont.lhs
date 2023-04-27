@@ -139,41 +139,53 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >         case ssM24 arrays of
 >           Nothing      → print "16-bit datapoints"
 >           Just s24data → print "24-bit datapoints"
->         let pal = dSoundFontV4Inst
->         instruments ← doInstruments arrays pal
+>         let ipal = dSoundFontV4Inst
+>         let ppal = dSoundFontV4Perc
+>         instruments ← doInstruments arrays ipal ppal
 >         traceIO ("doInstruments returned " ++ show instruments ++ "\n")
 >         return ()
 >     putStrLn "leaving doSoundFont"
 >
+> isNotNull              :: [a] → Bool
+> isNotNull [] = False
+> isNotNull (x:xs) = True
+>
 > doInstruments          :: SoundFontArrays
 >                           → [(String, (Desirability, InstrumentName))]
+>                           → [(String, (Desirability, PercussionSound))]
 >                           → IO [InstrumentZones]
-> doInstruments arrays pal = do
+> doInstruments arrays ipal ppal = do
 >   let is = ssInsts arrays
 >   let (ist, ien) = bounds is 
 >   putStrLn ("instrument start/stop=" ++ show (ist, ien) ++ "first instrument name=" ++ show (F.instName (is!ist)))
 >
->   let selected = map (shouldDoInstrument is pal) [ist..ien-1]
+>   let selectedI = map (shouldDoInstrument is ipal) [ist..ien-1]
+>   let selectedP = map (shouldDoPercussion is ppal) [ist..ien-1]
 >
->   putStrLn ("# selected=" ++ show (length selected))
+>   putStrLn ("# selected=" ++ show (length selectedI))
 >
->   let filtered = filter isJust selected
+>   let filteredI = filter isJust selectedI
+>   let filteredP = filter isNotNull selectedP
 >
->   putStrLn ("# filtered=" ++ show (length filtered) ++ " out of " ++ show (length pal))
+>   putStrLn ("# filteredI=" ++ show (length filteredI) ++ " out of " ++ show (length ipal))
+>   putStrLn ("# filteredP=" ++ show (length filteredP) ++ " out of " ++ show (length ppal))
 >
->   let ready = map (doInstrument arrays is) filtered
+>   let readyI = map (doInstrument arrays is) filteredI
+>   let readyP = map (doPercussion arrays is) filteredP
 >
->   putStrLn ("# ready=" ++ show (length ready))
->   doPlayInstruments ready
+>   let readyI' = readyI {- WOX ++ assignPercussion arrays readyP -}
+>
+>   putStrLn ("# ready=" ++ show (length readyI'))
+>   doPlayInstruments readyI'
 >   return []
 >
 > shouldDoInstrument     :: Array Word F.Inst
 >                           → [(String, (Desirability, InstrumentName))]
 >                           → Word
 >                           → Maybe (InstrumentName, Word)
-> shouldDoInstrument is pal n =
+> shouldDoInstrument is ipal n =
 >   let i = is ! n
->       ilist = filter (match (F.instName i)) pal
+>       ilist = filter (match (F.instName i)) ipal
 >   in case ilist of
 >     [] → Nothing
 >     _  → Just (snd (snd (head ilist)), n)
@@ -181,6 +193,31 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >     match :: String → (String, (Desirability, InstrumentName)) → Bool
 >     match iname cand = iname == fst cand
 >
+> shouldDoPercussion     :: Array Word F.Inst
+>                           → [(String, (Desirability, PercussionSound))]
+>                           → Word
+>                           → [(PercussionSound, (Word, Word))]
+> shouldDoPercussion is ppal n =
+>   let
+>     iinst = is ! n
+>     jinst = is ! (n + 1)
+>     ibagi = F.instBagNdx iinst
+>     jbagi = F.instBagNdx jinst
+>     jjill = [] -- filter (matchFirst (F.instName iinst)) ppal
+>
+>   in case jjill of
+>           []      → []
+>           (x:xs)  → [] -- WOX unrollZones ibagi jbagi
+>   where
+>     matchFirst :: String → (String, (Desirability, PercussionSound)) → Bool
+>     matchFirst iname cand = iname == fst cand
+>
+> {-
+>     unrollZones        :: Word → Word → [(PercussionSound, (Word, Word))]
+>     unrollZones ibagi ibagj =
+> -}
+>
+>         
 > doInstrument           :: SoundFontArrays
 >                           → Array Word F.Inst
 >                           → Maybe (InstrumentName, Word)
@@ -206,6 +243,15 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >                  , " ", show iinst
 >                  , " ", show jinst
 >                  , " global generators=", show (head gList)]
+>
+> doPercussion           :: SoundFontArrays
+>                           → Array Word F.Inst
+>                           → [(PercussionSound, (Word, Word))]
+>                           → [(PercussionSound, Instr (Mono AudRate))]
+> doPercussion arrays is mis = []
+>
+> assignPercussion       :: SoundFontArrays → Int
+> assignPercussion arrays = 259
 >     
 > fromGens               :: InstrumentZone → [F.Generator] → InstrumentZone
 > fromGens iz [] = iz
@@ -547,6 +593,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Music Box",               (DMed,  MusicBox))
 >     , ("Ocarina",                 (DMed,  Ocarina))
 >     , ("Ottos Fretless",          (DMed,  FretlessBass))
+>     , ("Orchestral Kit",          (DMed,  Percussion))
 >     , ("Pan Flute",               (DMed,  PanFlute))
 >     , ("Piccolo",                 (DMed,  Piccolo))
 >     , ("Picked Bass",             (DMed,  ElectricBassPicked))
