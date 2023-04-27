@@ -23,7 +23,7 @@ SoundFont support ==============================================================
 > import qualified Data.Map as Map
 > import Data.Maybe (isJust, fromJust, fromMaybe)
 > import Debug.Trace ( traceIO, traceM )
-> import Euterpea.IO.Audio.BasicSigFuns ( envASR, envLineSeg )
+> import Euterpea.IO.Audio.BasicSigFuns ( envASR, envLineSeg, filterLowPass )
 > import Euterpea.IO.Audio.Basics ( apToHz, outA )
 > import Euterpea.IO.Audio.IO ( outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
@@ -38,6 +38,7 @@ SoundFont support ==============================================================
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
 > useEnvelopes = True
+> useLowPassFilter = True
 > usePitchCorrection = True
 >
 > newtype InstrumentZones =
@@ -152,7 +153,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >
 > doInstruments          :: SoundFontArrays
 >                           → [(String, (Desirability, InstrumentName))]
->                           → [(String, (Desirability, PercussionSound))]
+>                           → [(String, [(String, (Desirability, PercussionSound))])]
 >                           → IO [InstrumentZones]
 > doInstruments arrays ipal ppal = do
 >   let is = ssInsts arrays
@@ -194,7 +195,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >     match iname cand = iname == fst cand
 >
 > shouldDoPercussion     :: Array Word F.Inst
->                           → [(String, (Desirability, PercussionSound))]
+>                           → [(String, [(String, (Desirability, PercussionSound))])]
 >                           → Word
 >                           → [(PercussionSound, (Word, Word))]
 > shouldDoPercussion is ppal n =
@@ -361,14 +362,19 @@ define signal functions for playing instruments ================================
 >     amp = fromIntegral vol / 100
 >     secs               :: Double
 >     secs = 2 * fromRational dur
+>
 >   in proc pos → do
 >     let sampleAddress  :: Int = fromIntegral st + truncate (numS * pos)
-> 
->     aenv ← if useEnvelopes
->            then doEnvelope renv secs ⤙ ()
->            else constA 1             ⤙ ()
-> 
->     outA ⤙ aenv * amp * fromIntegral (s16 ! sampleAddress)
+>     let a1 =  fromIntegral (s16 ! sampleAddress)
+>     rec
+>       aenv ← if useEnvelopes
+>              then doEnvelope renv secs ⤙ ()
+>              else constA 1             ⤙ ()
+>       a2 ←   if useLowPassFilter
+>              then filterLowPass -< (a1,20000*aenv)
+>              else delay 0 -< a1
+>     outA ⤙ a2*amp*aenv
+>
 >   where
 >     doEnvelope         :: Envelope → Double → AudSF () Double
 >     doEnvelope renv secs
@@ -537,14 +543,11 @@ organize instruments from multiple SoundFont files =============================
 > data Desirability =
 >   DLow | DMed | DHigh
 >
-> soundFontDatabase      :: [   (String
->                               , (Desirability
->                                  , ([   (String
->                                    , (Desirability
->                                    , InstrumentName))]
->                                  , [   (String
->                                    , (Desirability
->                                    , PercussionSound))])))]
+> soundFontDatabase      :: [ (String
+>                             , (Desirability
+>                                , ([  (String, (Desirability, InstrumentName))]
+>                                ,  [  (String, [(String, (Desirability, PercussionSound))])])))]
+>                                    
 > soundFontDatabase =
 >   [ ("editDSoundFontV4.sf2",      (DMed, (dSoundFontV4Inst, dSoundFontV4Perc)))
 >    ,("editEssentials.sf2",        (DLow, (essentialsInst, essentialsPerc))) ]
@@ -627,7 +630,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("vibraphone",              (DMed,  Vibraphone))
 >     , ("Whistle",                 (DMed,  Whistle))
 >   ]
-> dSoundFontV4Perc       :: [(String, (Desirability, PercussionSound))]
+> dSoundFontV4Perc       :: [(String, [(String, (Desirability, PercussionSound))])]
 > dSoundFontV4Perc =
 >   []
 >
@@ -663,7 +666,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Upright-Piano-1",         (DMed,  BrightAcousticPiano))
 >     -- , ("Violin3",            Violin)
 >   ]
-> essentialsPerc         :: [(String, (Desirability, PercussionSound))]
+> essentialsPerc         :: [(String, [(String, (Desirability, PercussionSound))])]
 > essentialsPerc =
 >   []
 >
@@ -673,12 +676,13 @@ organize instruments from multiple SoundFont files =============================
 >    in coveredFile
 >    where
 >      subtract _ = []
->      doFile            :: ( String, (Desirability, ([(String, (Desirability, InstrumentName))], [(String, (Desirability, PercussionSound))]))) → [InstrumentName]
+>      doFile            :: (String, (Desirability, ([(String, (Desirability, InstrumentName))]
+>                                                  , [(String, [(String, (Desirability, PercussionSound))])]))) → [InstrumentName]
 >      doFile file =
 >        let
->          list1          :: (Desirability, ([(String, (Desirability, InstrumentName))], [(String, (Desirability, PercussionSound))]))
+>          list1          :: (Desirability, ([(String, (Desirability, InstrumentName))], [(String, [(String, (Desirability, PercussionSound))])]))
 >          list1 = snd file
->          list2          :: ([(String, (Desirability, InstrumentName))], [(String, (Desirability, PercussionSound))])
+>          list2          :: ([(String, (Desirability, InstrumentName))], [(String, [(String, (Desirability, PercussionSound))])])
 >          list2 = snd list1
 >          list3          :: [(String, (Desirability, InstrumentName))]
 >          list3 = fst list2
@@ -754,7 +758,7 @@ organize instruments from multiple SoundFont files =============================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF (slot 2) imap
+>       let (d,s) = renderSF roger imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
