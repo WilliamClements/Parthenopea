@@ -286,7 +286,7 @@ There Goes W.J. ================================================================
 >    $ transpose 0
 >    $ keysig G Dorian
 >    $ addVolume 100
->    $ instrument Violin
+>    $ instrument AltoSax
 >       (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
 >      :=: instrument ChurchOrgan
 >       (line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
