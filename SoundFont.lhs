@@ -38,14 +38,14 @@ SoundFont support ==============================================================
   
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
-> useEnvelopes = True
-> useLowPassFilter = True
-> usePitchCorrection = True
+> useEnvelopes = False
+> useLowPassFilter = False
+> usePitchCorrection = False
 >
 > data SFInstrument =
 >   SFInstrument {
->               zWord    :: Word
->             , zZones   :: [SFZone]} deriving Show
+>     zWordI             :: Word
+>   , zZones             :: [(Word, SFZone)]} deriving Show
 >
 > data SFZone =
 >   SFZone {
@@ -145,7 +145,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >         let ipal = dSoundFontV4Inst
 >         let ppal = dSoundFontV4Perc
 >         instruments ← buildInstruments arrays
->         doInstruments arrays instruments ipal ppal
+>         assignInstruments arrays instruments ipal ppal
 >         return ()
 >     putStrLn "leaving doSoundFont"
 >
@@ -174,12 +174,12 @@ extract data from SoundFont per instrument =====================================
 >               then error "must have one global zone and at least one other zone"
 >               else [ibagi]
 >       oIx   = [ibagi+1..jbagi-1]
->       gList = map (buildZone arrays iinst defInstrumentZone) gIx
->       oList = map (buildZone arrays iinst (head gList))      oIx
+>       gList = map (buildZone arrays iinst defInstrumentZone)   gIx
+>       oList = map (buildZone arrays iinst (snd (head gList)))  oIx
 >       iList = gList ++ oList
 >   in SFInstrument w iList
 >
-> buildZone              :: SoundFontArrays → F.Inst → SFZone → Word → SFZone
+> buildZone              :: SoundFontArrays → F.Inst → SFZone → Word → (Word, SFZone)
 > buildZone arrays iinst fromZone bagIndex =
 >   let
 >     ibags = ssIBags arrays
@@ -189,7 +189,27 @@ extract data from SoundFont per instrument =====================================
 >            then error "degenerate generator list"
 >            else getGens arrays iinst [xgeni..ygeni-1]
 >     zone = fromGens fromZone gens
->   in zone
+>   in (bagIndex, zone)
+>
+> getZone                :: SFInstrument → Word → SFZone
+> getZone sfinst w = 
+>   case lookup w (zZones sfinst) of
+>     Just i -> i
+>     Nothing -> error "Percussion does not have a matching PercussionSound in the supplied InstrMap."
+>
+> getGens                :: SoundFontArrays → F.Inst → [Word] → [F.Generator]
+> getGens arrays iinst words
+>   | traceIf msg False = undefined
+>   | otherwise = gens
+>   where
+>     selected = map (doGenerator arrays iinst) words
+>     filtered = filter isJust selected
+>     gens = map fromJust filtered
+>
+>     msg = unwords ["getGens=", show words]
+> 
+> doGenerator :: SoundFontArrays → F.Inst → Word → Maybe F.Generator
+> doGenerator arrays iinst zw = Just $ ssIGens arrays ! zw
 >
 > fromGens               :: SFZone → [F.Generator] → SFZone
 > fromGens iz [] = iz
@@ -234,23 +254,23 @@ extract data from SoundFont per instrument =====================================
 >   _                              → iz
 >
   
-process the lists of specified instruments and percussion =================================
+prepare the specified instruments and percussion ==========================================
 
 > getSFInstrument        :: SoundFontArrays
 >                           → [SFInstrument]
 >                           → Word
 >                           → SFInstrument
-> getSFInstrument arrays sfis w = fromJust $ find (\i → w == zWord i) sfis
+> getSFInstrument arrays sfis w = fromJust $ find (\i → w == zWordI i) sfis
 >
-> doInstruments          :: SoundFontArrays
+> assignInstruments      :: SoundFontArrays
 >                           → [SFInstrument]
 >                           → [(String, (Desirability, InstrumentName))]
 >                           → [(String, [(String, (Desirability, PercussionSound))])]
 >                           → IO ()
-> doInstruments arrays sfis ipal ppal = do
+> assignInstruments arrays sfis ipal ppal = do
 >   let is = ssInsts arrays
->   let selectedI = map (shouldDoInstrument is ipal) sfis
->   let selectedP = map (shouldDoPercussion is ppal) sfis
+>   let selectedI = map (shouldAssignI is ipal) sfis
+>   let selectedP = map (shouldAssignP arrays is ppal) sfis
 >
 >   putStrLn ("# selectedI=" ++ show (length selectedI))
 >   putStrLn ("selectedP=" ++ show selectedP)
@@ -261,22 +281,22 @@ process the lists of specified instruments and percussion ======================
 >   putStrLn ("# filteredI=" ++ show (length filteredI) ++ " out of " ++ show (length ipal))
 >   putStrLn ("# filteredP=" ++ show (length filteredP) ++ " out of " ++ show (length ppal))
 >
->   let readyI = map (doInstrument arrays is sfis) filteredI
->   let readyP = map (doPercussion arrays is sfis) filteredP
+>   let readyI = map (doAssignI arrays is sfis) filteredI
+>   let readyP = concatMap (doPercussion arrays is sfis) filteredP
 >
->   let readyI' = readyI {- WOX ++ assignPercussion arrays readyP -}
+>   let readyI' = readyI -- WOX ++ [assignPercussion arrays ]
 >
 >   putStrLn ("# ready=" ++ show (length readyI'))
 >   doPlayInstruments readyI'
 >   return ()
 >
-> shouldDoInstrument     :: Array Word F.Inst 
+> shouldAssignI          :: Array Word F.Inst 
 >                           → [(String, (Desirability, InstrumentName))]
 >                           → SFInstrument
 >                           → Maybe (InstrumentName, Word)
-> shouldDoInstrument is ipal sfinst =
+> shouldAssignI is ipal sfinst =
 >   let
->     w = zWord sfinst
+>     w = zWordI sfinst
 >     iinst = is ! w
 >     ilist = filter (match (F.instName iinst)) ipal
 >   in case ilist of
@@ -286,72 +306,60 @@ process the lists of specified instruments and percussion ======================
 >     match :: String → (String, (Desirability, InstrumentName)) → Bool
 >     match iname cand = iname == fst cand
 >
-> shouldDoPercussion     :: Array Word F.Inst
+> shouldAssignP          :: SoundFontArrays
+>                           → Array Word F.Inst
 >                           → [(String, [(String, (Desirability, PercussionSound))])]
 >                           → SFInstrument
 >                           → [(PercussionSound, (Word, Word))]
-> shouldDoPercussion is ppal sfinst =
+> shouldAssignP arrays is ppal sfinst =
 >   let
->     w = zWord sfinst
->     iinst = is ! w
->     ilist = filter (matchFirst (F.instName iinst)) ppal
->     ippal = head ilist
->   in case ilist of
+>     tag = F.instName (is ! zWordI sfinst)
+>     ippal = filter (matchFirst tag) ppal
+>     ippal' = concatMap snd ippal
+>   in case ippal' of
 >     [] → []
->     _  → findPercussion is w (snd (head ilist))
+>     _  → findPercussion arrays sfinst ippal'
 >   where
->     matchFirst :: String → (String, [(String, (Desirability, PercussionSound))]) → Bool
+>     matchFirst        :: String → (String, [(String, (Desirability, PercussionSound))]) → Bool
 >     matchFirst iname cand = iname == fst cand
 >
-> findPercussion         :: Array Word F.Inst
->                           → Word
+> findPercussion         :: SoundFontArrays
+>                           → SFInstrument
 >                           → [(String, (Desirability, PercussionSound))]
 >                           → [(PercussionSound, (Word, Word))]
-> findPercussion is w plist =
+> findPercussion arrays sfinst plist =
 >   let
->     iinst = is ! w
->     jinst = is ! (w + 1)
->     ibagi = F.instBagNdx iinst
->     jbagi = F.instBagNdx jinst
->     selectedZones = map (shouldDoZone iinst) [ibagi+1..jbagi-1]
->     shouldDoZone       :: F.Inst -> Word -> [(PercussionSound, (Word, Word))]
->     shouldDoZone iinst bagIndex =
->       let
->         foo = "bar"
->         -- ibags = ssIBags arrays
->         -- xgeni = F.genNdx $ ibags!bagIndex
->         -- ygeni = F.genNdx $ ibags!(bagIndex + 1)
->       in
->         []
+>     selected = map (shouldAssignZone arrays sfinst plist) (zZones sfinst) 
+>     filtered = filter isNotNull selected
+>   in []
+>
+> shouldAssignZone       :: SoundFontArrays
+>                           → SFInstrument
+>                           → [(String, (Desirability, PercussionSound))]
+>                           → (Word, SFZone)
+>                           → [(PercussionSound, (Word, Word))]
+> shouldAssignZone arrays sfinst plist (w, zone) =
+>   let
+>     sampleIndex = fromJust (zSampleIndex zone)
+>     sampleName = ssShdrs arrays ! fromJust (zSampleIndex zone)
 >   in
->     []         
-> {-
+>     []
 >
->     let selectedZones = map shouldDoPercussionZone (ibagi+1, jbagi-1)
->         filteredZones1 = filter (matchFirst (F.instName iinst)) ppal
->
->   in case jjill of
->           []      → []
->           (x:xs)  → [] -- WOX unrollZones ibagi jbagi
->   where
->     matchFirst :: String → (String, (Desirability, PercussionSound)) → Bool
->     matchFirst iname cand = iname == fst cand
-> -}
->
-> {-
->     unrollZones        :: Word → Word → [(PercussionSound, (Word, Word))]
->     unrollZones ibagi ibagj =
-> -}
->
-> doInstrument           :: SoundFontArrays
+> doAssignI              :: SoundFontArrays
 >                           → Array Word F.Inst
 >                           → [SFInstrument]
 >                           → Maybe (InstrumentName, Word)
 >                           → (InstrumentName, Instr (Mono AudRate))
-> doInstrument arrays is sfis mis = (iname, assignInstrument arrays sfinst)
+> doAssignI arrays is sfis mis = (iname, assignInstrument arrays sfinst Nothing)
 >   where 
 >     (iname, w) = fromJust mis
 >     sfinst = getSFInstrument arrays sfis w
+>
+> assignPercussion       :: SoundFontArrays → SFInstrument → Maybe (PercussionSound, (Word, Word)) → (InstrumentName, Instr (Mono AudRate))
+> assignPercussion arrays sfinst mis = (Percussion, assignInstrument arrays sfinst mww)
+>   where
+>     (iname, ww) = fromJust mis              --(Percussion, (snd.head) readyP)
+>     mww = Just ww
 >
 > doPercussion           :: SoundFontArrays
 >                           → Array Word F.Inst
@@ -359,38 +367,6 @@ process the lists of specified instruments and percussion ======================
 >                           → [(PercussionSound, (Word, Word))]
 >                           → [(PercussionSound, Instr (Mono AudRate))]
 > doPercussion arrays is sfis mis = []
->
-> assignPercussion       :: SoundFontArrays → Int
-> assignPercussion arrays = 259
->     
-> doZoneI                :: SoundFontArrays → F.Inst → SFZone → Word → SFZone
-> doZoneI arrays iinst fromZone bagIndex
->   | traceIf msg False = undefined
->   | otherwise = fromGens fromZone gens
->   where
->     ibags = ssIBags arrays
->     xgeni = F.genNdx $ ibags!bagIndex
->     ygeni = F.genNdx $ ibags!(bagIndex + 1)
->     gens = if ygeni - xgeni < 0
->            then error "degenerate generator list"
->            else getGens arrays iinst [xgeni..ygeni-1]
->
->     msg = unwords ["doZoneI xgeni=", show xgeni, " ygeni=", show ygeni, "\n"]
->
-> getGens                :: SoundFontArrays → F.Inst → [Word] → [F.Generator]
-> getGens arrays iinst words
->   | traceIf msg False = undefined
->   | otherwise = gens
->   where
->     selected = map (doGenerator arrays iinst) words
->     filtered = filter isJust selected
->     gens = map fromJust filtered
->
->     msg = unwords ["getGens=", show words]
-> 
-> doGenerator :: SoundFontArrays → F.Inst → Word → Maybe F.Generator
-> doGenerator arrays iinst zw = Just $ ssIGens arrays ! zw
->
   
 define signal functions for playing instruments ===========================================
 
@@ -456,11 +432,11 @@ define signal functions for playing instruments ================================
 >       where
 >         msg = unwords ["Envelope=", show renv]
 >
-> assignInstrument       :: SoundFontArrays → SFInstrument → Instr (Mono AudRate)
-> assignInstrument arrays sfinst dur pch vol params =
+> assignInstrument       :: SoundFontArrays → SFInstrument → Maybe (Word, Word) → Instr (Mono AudRate)
+> assignInstrument arrays sfinst mww dur pch vol params =
 >   let
 >     (zone, shdr)       :: (SFZone
->                          , F.Shdr)         = selectZone arrays sfinst pch vol
+>                          , F.Shdr)         = selectZone arrays sfinst mww pch vol
 >     rData              :: Reconciled       = reconcile zone shdr
 >     sr                 :: Double           = fromIntegral $ F.sampleRate shdr
 >     ns                 :: Double           = fromIntegral $ rEnd rData - rStart rData + 1
@@ -490,31 +466,56 @@ define signal functions for playing instruments ================================
 >     z ← sig ⤙ ()
 >     outA ⤙ z
 >
+> -- executePercussion       :: [PercussionSound, Instr (Mono AudRate)] → Instr (Mono AudRate)
+> -- executePercussion pmap dur pch vol params =
+>
+> lookupPerc :: AbsPitch → [(PercussionSound, Instr (Mono AudRate))] → Instr (Mono AudRate)
+> lookupPerc ap pmap =
+>   case lookup ps pmap of
+>     Just i -> i
+>     Nothing -> error "Percussion does not have a matching PercussionSound in the supplied InstrMap."
+>   where
+>     ps :: PercussionSound
+>     ps = toEnum ap -- (fromEnum ap)
 
 zone selection ============================================================================
 
 > selectZone             :: SoundFontArrays
 >                           → SFInstrument
+>                           → Maybe (Word, Word)
 >                           → AbsPitch
 >                           → Volume
 >                           → (SFZone, F.Shdr)
-> selectZone arrays zones pch vol =
->   let 
->     -- skip the Global zone as we usually do
->     scores = map (scoreOneZone pch vol) (tail (zZones zones))
->     zone = snd $ minimumBy compareScores scores
+> selectZone arrays sfinst mww pch vol =
+>   let
+>     zone = case mww of
+>            Nothing       → selectBestZone arrays sfinst pch vol
+>            Just (wI, wZ) → getZone sfinst wZ
 >   in
 >     (zone, ssShdrs arrays ! fromJust (zSampleIndex zone))
 >
+> selectBestZone             :: SoundFontArrays
+>                           → SFInstrument
+>                           → AbsPitch
+>                           → Volume
+>                           → SFZone
+> selectBestZone arrays sfinst pch vol =
+>   let
+>     -- skip the Global zone as we usually do
+>     scores = map (scoreOneZone pch vol) (tail (zZones sfinst))
+>     zone = snd $ minimumBy compareScores scores
+>   in
+>     zone
+>     
 > compareScores          :: (Num a, Ord a) ⇒ (a, b) → (a, b) → Ordering
 > compareScores (a1, b1) (a2, b2) = compare a1 a2 
 >                         
-> scoreOneZone           :: AbsPitch → Volume → SFZone → (Int, SFZone)
-> scoreOneZone pch vol zone = (score, zone)
+> scoreOneZone           :: AbsPitch → Volume → (Word, SFZone) → (Int, SFZone)
+> scoreOneZone pch vol zone = (score, snd zone)
 >   where
 >     score = score1 + score2
->     score1 = computeDistance pch (zKeyRange zone)
->     score2 = computeDistance vol (zVelRange zone)
+>     score1 = computeDistance pch (zKeyRange (snd zone))
+>     score2 = computeDistance vol (zVelRange (snd zone))
 >
 > computeDistance        :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
 > computeDistance cand mrange =
