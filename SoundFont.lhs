@@ -41,8 +41,9 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > useEnvelopes = False
 > useLowPassFilter = False
 > usePitchCorrection = True
->
-> filenames = ["editHiDef.sf2"]
+> useFileIndex = 0 -- hidef
+> {- useFileIndex = 1 -- dsound -}
+> -- useFileIndex = 2    -- essentials
 >
 > data SFFile =
 >   SFFile {
@@ -129,12 +130,12 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
   
 slurp in instruments from one SoundFont (*.sf2) file ======================================
 
-> doSoundFont            :: FilePath → IO ()
-> doSoundFont inFile =
+> doSoundFont            :: IO ()
+> doSoundFont =
 >   do
 >     putStrLn "entering doSoundFont"
->     putStrLn ("inFile=" ++ inFile)
->     maybeAudio ← F.importFile inFile
+>     putStrLn ("inFile=" ++ curFilename)
+>     maybeAudio ← F.importFile curFilename
 >     case maybeAudio of
 >       Left s               → putStrLn $ "SoundFont decoding error: " ++ s
 >       Right soundFont      → do
@@ -151,8 +152,8 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >         case ssM24 arrays of
 >           Nothing      → print "16-bit datapoints"
 >           Just s24data → print "24-bit datapoints"
->         let ipal = hiDefInst
->         let ppal = hiDefPerc
+>         let ipal = curInst
+>         let ppal = curPerc
 >         instruments ← buildInstruments arrays
 >         imap ← assignInstruments arrays instruments ipal
 >         pmap ← assignAllPercussion sffile instruments ppal
@@ -172,7 +173,8 @@ extract data from SoundFont per instrument =====================================
 > buildInstruments arrays = do
 >   let is = ssInsts arrays
 >   let (ist, ien) = bounds is 
->   putStrLn ("instrument start/stop=" ++ show (ist, ien) ++ "first instrument name=" ++ show (F.instName (is!ist)))
+>   putStrLn ("instrument start/stop=" ++ show (ist, ien)
+>          ++ "\nfirst instrument name=" ++ show (F.instName (is!ist)))
 >   let ilist = map (buildInstrument arrays) [ist..ien-1]
 >   return ilist
 >
@@ -238,8 +240,8 @@ extract data from SoundFont per instrument =====================================
 >                                  → iz {zLoopEndCoarseOffs =        Just i}
 >
 >   F.InstIndex w                  → iz {zInstIndex =                Just w}
->   F.KeyRange a b                 → iz {zKeyRange =                 Just (fromIntegral a, fromIntegral b)}
->   F.VelRange a b                 → iz {zVelRange =                 Just (fromIntegral a, fromIntegral b)}
+>   F.KeyRange a b                 → iz {zKeyRange = Just (fromIntegral a, fromIntegral b)}
+>   F.VelRange a b                 → iz {zVelRange = Just (fromIntegral a, fromIntegral b)}
 >   F.CoarseTune i                 → iz {zCoarseTune =               Just i}
 >   F.FineTune i                   → iz {zFineTune =                 Just i}
 >   F.SampleIndex w                → iz {zSampleIndex =              Just w}
@@ -296,7 +298,7 @@ prepare the specified instruments and percussion ===============================
 >   let arrays = zArrays sffile 
 >   let is = ssInsts arrays
 >   let readyP = concatMap (shouldAssignP arrays sfis ppal) sfis
->   putStrLn ("SFFile " ++ head filenames
+>   putStrLn ("SFFile " ++ curFilename
 >          ++ ": loaded "  ++ show (length readyP)
 >          ++ " percussion sounds from "
 >          ++ show (length ppal)
@@ -400,8 +402,8 @@ define signal functions for playing instruments ================================
 >   in proc pos → do
 >     let sampleAddress  :: Int = fromIntegral st + truncate (numS * pos)
 >     let a1 = if isJust ms8
->              then fromIntegral (s16 ! sampleAddress)
->              else compute24 (s16 ! sampleAddress) (fromJust ms8 ! sampleAddress)
+>              then compute24 (s16 ! sampleAddress) (fromJust ms8 ! sampleAddress)
+>              else fromIntegral (s16 ! sampleAddress)
 >     rec
 >       aenv ← if useEnvelopes
 >              then doEnvelope renv secs ⤙ ()
@@ -415,10 +417,12 @@ define signal functions for playing instruments ================================
 >     compute24          :: Int16 → Int8 → Double
 >     compute24 i16 i8 = d24
 >       where
->         i8to16         :: Int16
->         i8to16 = fromIntegral i8
+>         i8to32         :: Int8 -> Int32
+>         i8to32 i8 = fromIntegral i8
+>         i16to32         :: Int16 -> Int32
+>         i16to32 i16 = fromIntegral i16
 >         d24            :: Double
->         d24 = fromIntegral (i16 * 256 + i8to16)       
+>         d24 = fromIntegral (i16to32 i16 * 65536 + i8to32 i8)       
 >      
 >     doEnvelope         :: Envelope → Double → AudSF () Double
 >     doEnvelope renv secs
@@ -669,19 +673,26 @@ organize instruments from multiple SoundFont files =============================
 > data Desirability =
 >   DLow | DMed | DHigh deriving Show
 >
-> soundFontDatabase      :: [ (String
+> soundFontDatabase      :: [ (FilePath
 >                             , (Desirability
 >                                , ([  (String, (Desirability, InstrumentName))]
 >                                ,  [  (String, [(String, (Desirability, PercussionSound))])])))]
->                                    
+>  
+> hiDefInst, essentialsInst, dSoundFontV4Inst :: [(String, (Desirability, InstrumentName))]                                
+> hiDefPerc, essentialsPerc, dSoundFontV4Perc :: [(String, [(String, (Desirability, PercussionSound))])]                                
+>
 > soundFontDatabase =
 >   [
->     ("editDSoundFontV4.sf2",      (DMed,  (dSoundFontV4Inst, dSoundFontV4Perc)))
->    ,("editEssentials.sf2",        (DLow,  (essentialsInst, essentialsPerc)))
->    ,("editHiDef.sf2",            (DHigh,  (hiDefInst, hiDefPerc)))
+>       ("editHiDef.sf2",            (DHigh,  (hiDefInst, hiDefPerc)))
+>     , ("editDSoundFontV4.sf2",      (DMed,  (dSoundFontV4Inst, dSoundFontV4Perc)))
+>     , ("editEssentials.sf2",        (DLow,  (essentialsInst, essentialsPerc)))
 >   ]
 >
-> hiDefInst       :: [(String, (Desirability, InstrumentName))]
+> curData = soundFontDatabase !! useFileIndex
+> curFilename = fst curData
+> curInst = (fst.snd.snd) curData
+> curPerc = (snd.snd.snd) curData
+>
 > hiDefInst =
 >   [
 >       ("*Choir Aahs 2",           (DMed,  ChoirAahs))
@@ -690,10 +701,8 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Bassoon",                 (DMed,  Bassoon))
 >     , ("Harmonica",               (DMed,  Harmonica))
 >   ]
-> hiDefPerc              :: [(String, [(String, (Desirability, PercussionSound))])]
 > hiDefPerc = []
 >
-> dSoundFontV4Inst       :: [(String, (Desirability, InstrumentName))]
 > dSoundFontV4Inst =
 >   [
 >       ("+++Gtr Harmonics",        (DMed,  GuitarHarmonics))
@@ -775,7 +784,6 @@ organize instruments from multiple SoundFont files =============================
 >     , ("vibraphone",              (DMed,  Vibraphone))
 >     , ("Whistle",                 (DMed,  Whistle))
 >   ]
-> dSoundFontV4Perc       :: [(String, [(String, (Desirability, PercussionSound))])]
 > dSoundFontV4Perc =
 >   [
 >       ("Drumkit Basic 1",          [  ("Iowa Splash CymbalL",  (DMed, SplashCymbal))
@@ -797,7 +805,6 @@ organize instruments from multiple SoundFont files =============================
 >     , ("OSDK tom6-room",           [  ("OSDK small-tom1-1L",   (DMed, HighTom))])
 >   ]
 >
-> essentialsInst         :: [(String, (Desirability, InstrumentName))]
 > essentialsInst =
 >   [
 >       ("Alto Sax XSwitch",        (DMed,  AltoSax))
@@ -829,7 +836,6 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Upright-Piano-1",         (DMed,  BrightAcousticPiano))
 >     -- , ("Violin3",            Violin)
 >   ]
-> essentialsPerc         :: [(String, [(String, (Desirability, PercussionSound))])]
 > essentialsPerc =
 >   []
 >
