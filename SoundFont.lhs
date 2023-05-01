@@ -42,7 +42,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > useLowPassFilter = False
 > usePitchCorrection = True
 >
-> filenames = ["editDSoundFontV4.sf2"]
+> filenames = ["editHiDef.sf2"]
 >
 > data SFFile =
 >   SFFile {
@@ -151,8 +151,8 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >         case ssM24 arrays of
 >           Nothing      → print "16-bit datapoints"
 >           Just s24data → print "24-bit datapoints"
->         let ipal = dSoundFontV4Inst
->         let ppal = dSoundFontV4Perc
+>         let ipal = hiDefInst
+>         let ppal = hiDefPerc
 >         instruments ← buildInstruments arrays
 >         imap ← assignInstruments arrays instruments ipal
 >         pmap ← assignAllPercussion sffile instruments ppal
@@ -393,20 +393,15 @@ define signal functions for playing instruments ================================
 >                           → AudSF Double Double
 > eutRelay s16 ms8 (st, en) renv vol dur =
 >   let
->     -- (st, en)           :: (Word, Word) = (rStart reconciled, rEnd reconciled)
->     nc = 1 -- numChans (undefined :: u)
->     numS               :: Double
->     numS = case ms8 of
->           Nothing → fromIntegral $ (en - st + 1) `div` nc
->           Just _  → error "24-bit not yet supported"
->     amp                :: Double
->     amp = fromIntegral vol / 100
->     secs               :: Double
->     secs = 2 * fromRational dur
+>     numS               :: Double = fromIntegral $ (en - st + 1)
+>     amp                :: Double = fromIntegral vol / 100
+>     secs               :: Double = 2 * fromRational dur
 >
 >   in proc pos → do
 >     let sampleAddress  :: Int = fromIntegral st + truncate (numS * pos)
->     let a1 =  fromIntegral (s16 ! sampleAddress)
+>     let a1 = if isJust ms8
+>              then fromIntegral (s16 ! sampleAddress)
+>              else compute24 (s16 ! sampleAddress) (fromJust ms8 ! sampleAddress)
 >     rec
 >       aenv ← if useEnvelopes
 >              then doEnvelope renv secs ⤙ ()
@@ -417,6 +412,14 @@ define signal functions for playing instruments ================================
 >     outA ⤙ a2*amp*aenv
 >
 >   where
+>     compute24          :: Int16 → Int8 → Double
+>     compute24 i16 i8 = d24
+>       where
+>         i8to16         :: Int16
+>         i8to16 = fromIntegral i8
+>         d24            :: Double
+>         d24 = fromIntegral (i16 * 256 + i8to16)       
+>      
 >     doEnvelope         :: Envelope → Double → AudSF () Double
 >     doEnvelope renv secs
 >       | traceIf msg False = undefined
@@ -472,7 +475,7 @@ define signal functions for playing instruments ================================
 >   let
 >     (wI, wZ) = case lookup ps pmap of
 >                Nothing       → error (   "Percussion does not have "
->                                          ++ show ps ++ " in the supplied InstrMap.")
+>                                          ++ show ps ++ " in the supplied pmap.")
 >                Just x → x
 >       
 >     arrays = zArrays sffile
@@ -672,8 +675,23 @@ organize instruments from multiple SoundFont files =============================
 >                                ,  [  (String, [(String, (Desirability, PercussionSound))])])))]
 >                                    
 > soundFontDatabase =
->   [ ("editDSoundFontV4.sf2",      (DMed, (dSoundFontV4Inst, dSoundFontV4Perc)))
->    ,("editEssentials.sf2",        (DLow, (essentialsInst, essentialsPerc))) ]
+>   [
+>     ("editDSoundFontV4.sf2",      (DMed,  (dSoundFontV4Inst, dSoundFontV4Perc)))
+>    ,("editEssentials.sf2",        (DLow,  (essentialsInst, essentialsPerc)))
+>    ,("editHiDef.sf2",            (DHigh,  (hiDefInst, hiDefPerc)))
+>   ]
+>
+> hiDefInst       :: [(String, (Desirability, InstrumentName))]
+> hiDefInst =
+>   [
+>       ("*Choir Aahs 2",           (DMed,  ChoirAahs))
+>     , ("'59 Les Paul",            (DMed,  ElectricGuitarClean))
+>     , ("Accordion",               (DMed,  Accordion))
+>     , ("Bassoon",                 (DMed,  Bassoon))
+>     , ("Harmonica",               (DMed,  Harmonica))
+>   ]
+> hiDefPerc              :: [(String, [(String, (Desirability, PercussionSound))])]
+> hiDefPerc = []
 >
 > dSoundFontV4Inst       :: [(String, (Desirability, InstrumentName))]
 > dSoundFontV4Inst =
@@ -903,7 +921,7 @@ organize instruments from multiple SoundFont files =============================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF basicLick imap
+>       let (d,s) = renderSF (copper 2) imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
