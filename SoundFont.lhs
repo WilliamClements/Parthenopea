@@ -713,6 +713,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Iowa Oboe",               (DMed,  Oboe))
 >     , ("IowaTrumpet",             (DMed,  Trumpet))
 >     , ("Iowa Viola-mf",           (DMed,  Viola))
+>     , ("Iowa Violin-mf",          (DMed,  Violin))
 >     , ("Iowa Woodblock",          (DMed,  Woodblock))
 >     , ("Iowa Xylophone",          (DMed,  Xylophone))
 >     , ("Kalimba",                 (DMed,  Kalimba))
