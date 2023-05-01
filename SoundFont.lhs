@@ -42,6 +42,14 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > useLowPassFilter = False
 > usePitchCorrection = False
 >
+> filenames = ["editDSoundFontV4.sf2"]
+>
+> data SFFile =
+>   SFFile {
+>     zArrays            :: SoundFontArrays
+>   , zWordF             :: Word
+>   , zInstruments       :: [SFInstrument]}
+>
 > data SFInstrument =
 >   SFInstrument {
 >     zWordI             :: Word
@@ -139,6 +147,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >                        (F.shdrs pdata)
 >                        (F.smpl sdata)
 >                        (F.sm24 sdata)
+>         let sffile = SFFile arrays 0 []
 >         case ssM24 arrays of
 >           Nothing      → print "16-bit datapoints"
 >           Just s24data → print "24-bit datapoints"
@@ -146,9 +155,9 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >         let ppal = dSoundFontV4Perc
 >         instruments ← buildInstruments arrays
 >         imap ← assignInstruments arrays instruments ipal
->         pmap ← assignAllPercussion arrays instruments ppal
->         putStrLn ("percussion=" ++ show pmap)
->         _  ← doPlayInstruments imap
+>         pmap ← assignAllPercussion sffile instruments ppal
+>         let imap' = imap ++ [doAssignP sffile pmap instruments]
+>         _  ← doPlayInstruments imap'
 >         return ()
 >     putStrLn "leaving doSoundFont"
 >
@@ -279,25 +288,20 @@ prepare the specified instruments and percussion ===============================
 >
 >   return readyI 
 >
-> assignAllPercussion    :: SoundFontArrays
+> assignAllPercussion    :: SFFile
 >                           → [SFInstrument]
 >                           → [(String, [(String, (Desirability, PercussionSound))])]
->                           → IO [(PercussionSound, SFZone)]
-> assignAllPercussion arrays sfis ppal = do
+>                           → IO [(PercussionSound, (Word, Word))]
+> assignAllPercussion sffile sfis ppal = do
+>   let arrays = zArrays sffile 
 >   let is = ssInsts arrays
->   let selectedP = concatMap (shouldAssignP arrays sfis ppal) sfis
->   let readyP = map refine selectedP
->   putStrLn ("# readyP=" ++ show (length readyP) ++ " out of " ++ show (length ppal))
+>   let readyP = concatMap (shouldAssignP arrays sfis ppal) sfis
+>   putStrLn ("SFFile " ++ head filenames
+>          ++ ": loaded "  ++ show (length readyP)
+>          ++ " percussion sounds from "
+>          ++ show (length ppal)
+>          ++ " Instruments")
 >   return readyP
->
->   where
->     refine             :: (PercussionSound, (Word, Word)) → (PercussionSound, SFZone)
->     refine (ps, (wI, wZ)) =
->       let
->         is = ssInsts arrays
->         sfinst = getSFInstrument arrays sfis wI
->         zone = getZone sfinst wZ
->       in (ps, zone)
 >
 > shouldAssignI          :: Array Word F.Inst 
 >                           → [(String, (Desirability, InstrumentName))]
@@ -327,19 +331,17 @@ prepare the specified instruments and percussion ===============================
 >     maybePresent = lookup itag ppal
 >   in case maybePresent of
 >      Nothing → []
->      Just ppal' →
->        let
->          selectedP = map (shouldAssignZone arrays sfinst ppal') (zZones sfinst)
->        in
->          concatMap (doPercussion arrays sfinst) selectedP
->
+>      Just ppal' → concatMap (shouldAssignZone arrays sfinst ppal') (tail (zZones sfinst))
+> 
 > shouldAssignZone       :: SoundFontArrays
 >                           → SFInstrument
 >                           → [(String, (Desirability, PercussionSound))]
 >                           → (Word, SFZone)
 >                           → [(PercussionSound, (Word, Word))]
-> shouldAssignZone arrays sfinst plist (wZ, zone) =
->   let
+> shouldAssignZone arrays sfinst plist (wZ, zone)
+>   | traceIf msg False = undefined
+>   | otherwise = result
+>   where
 >     wI = zWordI sfinst
 >     sampleIndex = zSampleIndex zone
 >     zname = F.sampleName (ssShdrs arrays ! fromJust sampleIndex)
@@ -347,11 +349,7 @@ prepare the specified instruments and percussion ===============================
 >     result = case mFound of
 >              Nothing      → []
 >              Just matched → [(snd matched, (wI, wZ))]
->   in
->     result
->   where
->     matchOne :: String → (String, (Desirability, PercussionSound)) → Bool
->     matchOne name p = fst p == name
+>     msg = unwords ["zname=", show zname, " mFound=", show mFound]
 >
 > doAssignI              :: SoundFontArrays
 >                           → [SFInstrument]
@@ -362,21 +360,12 @@ prepare the specified instruments and percussion ===============================
 >     (iname, w) = fromJust mis
 >     sfinst = getSFInstrument arrays sfis w
 >
-> percussionInstrument   :: SoundFontArrays
->                           → SFInstrument
->                           → Maybe (PercussionSound, (Word, Word))
->                           → (PercussionSound, SFZone)
-> percussionInstrument arrays sfinst mpsww = (perc, zone)
->   where
->     (perc, (_, w)) = fromJust mpsww
->     zone = getZone sfinst w
->
-> doPercussion           :: SoundFontArrays
->                           → SFInstrument
+> doAssignP              :: SFFile
 >                           → [(PercussionSound, (Word, Word))]
->                           → [(PercussionSound, (Word, Word))]
-> doPercussion arrays sfinst mis = []
-  
+>                           → [SFInstrument]
+>                           → (InstrumentName, Instr (Mono AudRate))
+> doAssignP sffile pmap sfis = (Percussion, assignPercussion sffile pmap sfis)
+
 define signal functions for playing instruments ===========================================
 
 > eutPhaser              :: Double
@@ -475,17 +464,55 @@ define signal functions for playing instruments ================================
 >     z ← sig ⤙ ()
 >     outA ⤙ z
 >
-> -- executePercussion       :: [PercussionSound, Instr (Mono AudRate)] → Instr (Mono AudRate)
-> -- executePercussion pmap dur pch vol params =
+> assignPercussion       :: SFFile
+>                           → [(PercussionSound, (Word, Word))]
+>                           → [SFInstrument]
+>                           → Instr (Mono AudRate)
+> assignPercussion sffile pmap sfis dur pch vol params =
+>   let
+>     (wI, wZ) = case lookup ps pmap of
+>                Nothing       → error (   "Percussion does not have "
+>                                          ++ show ps ++ " in the supplied InstrMap.")
+>                Just x → x
+>       
+>     arrays = zArrays sffile
+>     sfinst = getSFInstrument arrays sfis wI
+>     sfzone = getZone sfinst wZ
 >
-> lookupPerc :: AbsPitch → [(PercussionSound, Instr (Mono AudRate))] → Instr (Mono AudRate)
-> lookupPerc ap pmap =
->   case lookup ps pmap of
->     Just i -> i
->     Nothing -> error "Percussion does not have a matching PercussionSound in the supplied InstrMap."
->   where
+>     -- if duration is too long, use the looped range
+>     (zone, shdr)       :: (SFZone
+>                          , F.Shdr)         = setZone arrays sfinst (Just (wI, wZ)) pch vol
+>     rData              :: Reconciled       = reconcile zone shdr
+>     sr                 :: Double           = fromIntegral $ F.sampleRate shdr
+>     ns                 :: Double           = fromIntegral $ rEnd rData - rStart rData + 1
+>     secs               :: Double           = ns / sr
+>     ap                 :: AbsPitch
+>
+>     (st, en) = if secs < 2 * fromRational dur
+>                then (rLoopStart rData, rLoopEnd rData)
+>                else (rStart rData,     rEnd rData)
+>
+>     ok = checkReconcile shdr zone rData secs (st, en)
+>     ap = if not ok
+>          then error "SFZone and F.Shdr could not be reconciled"
+>          else fromIntegral (rRootKey rData)
+>
 >     ps :: PercussionSound
->     ps = toEnum ap -- (fromEnum ap)
+>     ps = toEnum pch
+>
+>     ns'                :: Double              = fromIntegral (en - st + 1)
+>     secs'              :: Double              = ns' / sr
+>     freqFactor         :: Double              = if usePitchCorrection
+>                                                 then freqRatio * rateRatio / rPitchCorrection rData
+>                                                 else freqRatio * rateRatio
+>     freqRatio          :: Double              = apToHz ap / apToHz pch
+>     rateRatio          :: Double              = 44100 / sr
+>     sig                :: AudSF () Double     = eutPhaser secs' sr 0 freqFactor
+>                                             >>> eutRelay (ssData arrays) (ssM24 arrays) (st, en) (rEnvelope rData) vol dur
+>   in proc _ → do
+>     z ← sig ⤙ ()
+>     outA ⤙ z
+>
 
 zone selection ============================================================================
 
@@ -493,7 +520,7 @@ zone selection =================================================================
 > getZone sfinst w = 
 >   case lookup w (zZones sfinst) of
 >     Just i -> i
->     Nothing -> error "Percussion does not have a matching PercussionSound in the supplied InstrMap."
+>     Nothing -> error "Percussion instrument in the supplied InstrMap does not have specified PercussionSound."
 >
 > getZoneFromTag         :: SoundFontArrays → SFInstrument → String → SFZone
 > getZoneFromTag arrays sfinst tag = 
@@ -638,7 +665,7 @@ reconcile zone and sample header ===============================================
 organize instruments from multiple SoundFont files ========================================
 
 > data Desirability =
->   DLow | DMed | DHigh
+>   DLow | DMed | DHigh deriving Show
 >
 > soundFontDatabase      :: [ (String
 >                             , (Desirability
@@ -693,7 +720,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Music Box",               (DMed,  MusicBox))
 >     , ("Ocarina",                 (DMed,  Ocarina))
 >     , ("Ottos Fretless",          (DMed,  FretlessBass))
->     , ("Orchestral Kit",          (DMed,  Percussion))
+>  -- WOX   , ("Orchestral Kit",          (DMed,  Percussion))
 >     , ("Pan Flute",               (DMed,  PanFlute))
 >     , ("Piccolo",                 (DMed,  Piccolo))
 >     , ("Picked Bass",             (DMed,  ElectricBassPicked))
@@ -730,12 +757,18 @@ organize instruments from multiple SoundFont files =============================
 > dSoundFontV4Perc       :: [(String, [(String, (Desirability, PercussionSound))])]
 > dSoundFontV4Perc =
 >   [
->       ("Orchestra Kit",            [  ("OSDK fhh2L",         (DMed, ClosedHiHat))
->                                     , ("OSDK hohh1L",        (DMed, OpenHiHat))])
+>       ("Drumkit Basic 1",          [  ("Iowa Splash CymbalL",  (DMed, SplashCymbal))
+>                                     , ("Iowa High WoodblockL", (DMed, HiWoodBlock))
+>                                     , ("Iowa Low WoodblockL",  (DMed, LowWoodBlock))])
 >
->     , ("Drumkit Basic 1",          [  ("Iowa SplashCymbalL", (DMed, SplashCymbal))
->                                     , ("Iowa High Woodblock",(DMed, HiWoodBlock))
->                                     , ("Iowa Low Woodblock", (DMed, LowWoodBlock))])
+>     , ("Orchestral Kit",           [  ("OSDK fhh2L",           (DMed, ClosedHiHat))
+>                                     , ("OSDK hohh1L",          (DMed, OpenHiHat))])
+>
+>     , ("OSDK crash1",              [  ("OSDK crash11L",        (DMed, CrashCymbal1))])
+>
+>     , ("OSDK kickdrum",            [  ("OSDK kick1L",          (DMed, BassDrum1))])
+>
+>     , ("OSDK Reverse Cymbal",      [  ("OSDK ride-rev11L",     (DMed, RideCymbal1))])
 >   ]
 >
 > essentialsInst         :: [(String, (Desirability, InstrumentName))]
@@ -862,7 +895,7 @@ organize instruments from multiple SoundFont files =============================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF wj imap
+>       let (d,s) = renderSF whelpNarp imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
