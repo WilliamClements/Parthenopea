@@ -40,7 +40,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 
 > useEnvelopes = False
 > useLowPassFilter = False
-> usePitchCorrection = False
+> usePitchCorrection = True
 >
 > filenames = ["editDSoundFontV4.sf2"]
 >
@@ -477,17 +477,16 @@ define signal functions for playing instruments ================================
 >       
 >     arrays = zArrays sffile
 >     sfinst = getSFInstrument arrays sfis wI
->     sfzone = getZone sfinst wZ
+>     zone = getZone sfinst wZ
+>     shdr = ssShdrs arrays ! fromJust (zSampleIndex zone)
 >
->     -- if duration is too long, use the looped range
->     (zone, shdr)       :: (SFZone
->                          , F.Shdr)         = setZone arrays sfinst (Just (wI, wZ)) pch vol
 >     rData              :: Reconciled       = reconcile zone shdr
 >     sr                 :: Double           = fromIntegral $ F.sampleRate shdr
 >     ns                 :: Double           = fromIntegral $ rEnd rData - rStart rData + 1
 >     secs               :: Double           = ns / sr
 >     ap                 :: AbsPitch
 >
+>     -- if duration is too long, use the looped range
 >     (st, en) = if secs < 2 * fromRational dur
 >                then (rLoopStart rData, rLoopEnd rData)
 >                else (rStart rData,     rEnd rData)
@@ -496,9 +495,6 @@ define signal functions for playing instruments ================================
 >     ap = if not ok
 >          then error "SFZone and F.Shdr could not be reconciled"
 >          else fromIntegral (rRootKey rData)
->
->     ps :: PercussionSound
->     ps = toEnum pch
 >
 >     ns'                :: Double              = fromIntegral (en - st + 1)
 >     secs'              :: Double              = ns' / sr
@@ -513,6 +509,9 @@ define signal functions for playing instruments ================================
 >     z ← sig ⤙ ()
 >     outA ⤙ z
 >
+>   where
+>     ps :: PercussionSound
+>     ps = toEnum (pch - 35)
 
 zone selection ============================================================================
 
@@ -520,7 +519,7 @@ zone selection =================================================================
 > getZone sfinst w = 
 >   case lookup w (zZones sfinst) of
 >     Just i -> i
->     Nothing -> error "Percussion instrument in the supplied InstrMap does not have specified PercussionSound."
+>     Nothing -> error "Instrument in supplied InstrMap does not have specified zone."
 >
 > getZoneFromTag         :: SoundFontArrays → SFInstrument → String → SFZone
 > getZoneFromTag arrays sfinst tag = 
@@ -544,11 +543,11 @@ zone selection =================================================================
 >                           → (SFZone, F.Shdr)
 > setZone arrays sfinst mww pch vol =
 >   let
->     (zone, ssShdrs) = case mww of
+>     (zone, x) = case mww of
 >            Nothing       → selectBestZone arrays sfinst pch vol
->            Just (wI, wZ) → (getZone sfinst wZ, ssShdrs)
+>            Just (wI, wZ) → (getZone sfinst wZ, x)
 >   in
->     (zone, ssShdrs)
+>     (zone, x)
 >
 > selectBestZone         :: SoundFontArrays
 >                           → SFInstrument
@@ -700,6 +699,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Eddie's English Horn",    (DMed,  EnglishHorn))
 >     , ("Finger Bass",             (DMed,  ElectricBassFingered))
 >     , ("French Horns",            (DMed,  FrenchHorn))
+>     , ("Funk Gt.",                (DMed,  AcousticGuitarNylon))
 >     , ("German 8 Harpsichord",    (DMed,  Harpsichord))
 >     , ("Glockenspiel 1",          (DMed,  Glockenspiel))
 >     , ("Grand Piano",             (DMed,  AcousticGrandPiano))
@@ -709,15 +709,17 @@ organize instruments from multiple SoundFont files =============================
 >     , ("hrp:Harp",                (DMed,  OrchestralHarp))
 >     , ("Iowa Alto Sax",           (DMed,  AltoSax))
 >     , ("iowa bassoon",            (DMed,  Bassoon))
+>     , ("Iowa Cello-mf",           (DMed,  Cello))
 >     , ("Iowa Marimba",            (DMed,  Marimba))
 >     , ("Iowa Oboe",               (DMed,  Oboe))
 >     , ("IowaTrumpet",             (DMed,  Trumpet))
 >     , ("Iowa Viola-mf",           (DMed,  Viola))
->     , ("Iowa Violin-mf",          (DMed,  Violin))
+>     , ("AAViolin P",              (DMed,  Violin))
 >     , ("Iowa Woodblock",          (DMed,  Woodblock))
 >     , ("Iowa Xylophone",          (DMed,  Xylophone))
 >     , ("Kalimba",                 (DMed,  Kalimba))
 >     , ("Koto",                    (DMed,  Koto))
+>     , ("Layered Aahs",            (DMed,  ChoirAahs))
 >     , ("Music Box",               (DMed,  MusicBox))
 >     , ("Ocarina",                 (DMed,  Ocarina))
 >     , ("Ottos Fretless",          (DMed,  FretlessBass))
@@ -770,6 +772,11 @@ organize instruments from multiple SoundFont files =============================
 >     , ("OSDK kickdrum",            [  ("OSDK kick1L",          (DMed, BassDrum1))])
 >
 >     , ("OSDK Reverse Cymbal",      [  ("OSDK ride-rev11L",     (DMed, RideCymbal1))])
+>
+>     , ("OSDK snaredrum1",          [  ("OSDK snare-bottom1L",  (DMed, AcousticSnare))])
+>
+>     , ("OSDK Tom",                 [  ("OSDK large-tom1L",     (DMed, LowTom))])
+>     , ("OSDK tom6-room",           [  ("OSDK small-tom1-1L",   (DMed, HighTom))])
 >   ]
 >
 > essentialsInst         :: [(String, (Desirability, InstrumentName))]
@@ -896,7 +903,7 @@ organize instruments from multiple SoundFont files =============================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF whelpNarp imap
+>       let (d,s) = renderSF basicLick imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
