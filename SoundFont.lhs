@@ -92,12 +92,12 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 > defInstrumentZone      :: SFZone
 > defInstrumentZone = SFZone Nothing Nothing Nothing Nothing
->                                    Nothing Nothing Nothing Nothing
->                                    Nothing Nothing Nothing Nothing
->                                    Nothing Nothing Nothing Nothing
->                                    Nothing Nothing Nothing Nothing
->                                    Nothing Nothing Nothing Nothing
->                                    Nothing
+>                            Nothing Nothing Nothing Nothing
+>                            Nothing Nothing Nothing Nothing
+>                            Nothing Nothing Nothing Nothing
+>                            Nothing Nothing Nothing Nothing
+>                            Nothing Nothing Nothing Nothing
+>                            Nothing
 >   
 > data Reconciled =
 >   Reconciled {
@@ -155,7 +155,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >         let ipal = curInst
 >         let ppal = curPerc
 >         instruments ← buildInstruments arrays
->         imap ← assignInstruments arrays instruments ipal
+>         imap ← assignInstruments   sffile instruments ipal
 >         pmap ← assignAllPercussion sffile instruments ppal
 >         let imap' = imap ++ [doAssignP sffile pmap instruments]
 >         _  ← doPlayInstruments imap'
@@ -270,24 +270,24 @@ prepare the specified instruments and percussion ===============================
 >                           → SFInstrument
 > getSFInstrument arrays sfis w = fromJust $ find (\i → w == zWordI i) sfis
 >
-> assignInstruments      :: SoundFontArrays
+> assignInstruments      :: SFFile
 >                           → [SFInstrument]
 >                           → [(String, (Desirability, InstrumentName))]
 >                           → IO [(InstrumentName, Instr (Mono AudRate))]
-> assignInstruments arrays sfis ipal = do
+> assignInstruments sffile sfis ipal = do
+>   let arrays = zArrays sffile 
 >   let is = ssInsts arrays
 >   let selectedI = map (shouldAssignI is ipal) sfis
->
->   putStrLn ("# selectedI=" ++ show (length selectedI))
->
 >   let filteredI = filter isJust selectedI
->
->   putStrLn ("# filteredI=" ++ show (length filteredI) ++ " out of " ++ show (length ipal))
->
 >   let readyI = map (doAssignI arrays sfis) filteredI
->
->   putStrLn ("# readyI=" ++ show (length readyI))
->
+>   putStrLn ("SFFile " ++ curFilename
+>          ++ ": loaded "  ++ show (length readyI)
+>          ++ " from total of "
+>          ++ show (length is)
+>          ++ " Instruments"
+>          ++ " ("
+>          ++ show (length ipal - length filteredI)
+>          ++ " mismatches)")
 >   return readyI 
 >
 > assignAllPercussion    :: SFFile
@@ -296,13 +296,17 @@ prepare the specified instruments and percussion ===============================
 >                           → IO [(PercussionSound, (Word, Word))]
 > assignAllPercussion sffile sfis ppal = do
 >   let arrays = zArrays sffile 
->   let is = ssInsts arrays
+>   let countS = sum $ map (length.snd) ppal
 >   let readyP = concatMap (shouldAssignP arrays sfis ppal) sfis
+>   print readyP
 >   putStrLn ("SFFile " ++ curFilename
 >          ++ ": loaded "  ++ show (length readyP)
 >          ++ " percussion sounds from "
 >          ++ show (length ppal)
->          ++ " Instruments")
+>          ++ " instruments ("
+>          ++ show (countS - length readyP)
+>          ++ " mismatches)")
+
 >   return readyP
 >
 > shouldAssignI          :: Array Word F.Inst 
@@ -341,7 +345,7 @@ prepare the specified instruments and percussion ===============================
 >                           → (Word, SFZone)
 >                           → [(PercussionSound, (Word, Word))]
 > shouldAssignZone arrays sfinst plist (wZ, zone)
->   | traceIf msg False = undefined
+>   | traceAlways msg False = undefined
 >   | otherwise = result
 >   where
 >     wI = zWordI sfinst
@@ -351,7 +355,7 @@ prepare the specified instruments and percussion ===============================
 >     result = case mFound of
 >              Nothing      → []
 >              Just matched → [(snd matched, (wI, wZ))]
->     msg = unwords ["zname=", show zname, " mFound=", show mFound]
+>     msg = unwords ["plist=", show plist, "zname=", show zname, " mFound=", show mFound]
 >
 > doAssignI              :: SoundFontArrays
 >                           → [SFInstrument]
@@ -528,20 +532,6 @@ zone selection =================================================================
 >     Just i -> i
 >     Nothing -> error "Instrument in supplied InstrMap does not have specified zone."
 >
-> getZoneFromTag         :: SoundFontArrays → SFInstrument → String → SFZone
-> getZoneFromTag arrays sfinst tag = 
->   let
->     wmz                :: Maybe (Word, SFZone)
->     wmz = find (matchztag tag) (zZones sfinst)
->   in
->     (snd.fromJust) wmz
->   where
->     matchztag          :: String → (Word, SFZone) → Bool
->     matchztag tag (w, zone) = tag == candTag
->       where
->         shdr = ssShdrs arrays ! fromJust (zSampleIndex zone)
->         candTag = F.sampleName shdr
->
 > setZone                :: SoundFontArrays
 >                           → SFInstrument
 >                           → Maybe (Word, Word)
@@ -696,12 +686,38 @@ organize instruments from multiple SoundFont files =============================
 > hiDefInst =
 >   [
 >       ("*Choir Aahs 2",           (DMed,  ChoirAahs))
+>     , ("*Slow Violin",            (DMed,  Viola))
 >     , ("'59 Les Paul",            (DMed,  ElectricGuitarClean))
 >     , ("Accordion",               (DMed,  Accordion))
+>     , ("Anklung Pad",             (DMed,  VoiceOohs))
+>     , ("Bagpipe Drone",           (DMed,  Bagpipe))
 >     , ("Bassoon",                 (DMed,  Bassoon))
+>     , ("ChurOrg2",                (DMed,  ChurchOrgan))
+>     , ("Elec Bass1",              (DMed,  ElectricBassFingered))
+>     , ("Hard Nylon Guitar",       (DMed,  AcousticGuitarNylon))
 >     , ("Harmonica",               (DMed,  Harmonica))
+>     , ("Sax 10",                  (DMed,  AltoSax))
+>     , ("Sax 20",                  (DMed,  TenorSax))
+>     , ("sitar",                   (DMed,  Sitar))
+>     , ("Syn Bass 1",              (DMed,  SynthBass1))
+>     , ("Syn Bass 2",              (DMed,  SynthBass2))
+>     , ("Synth Strings 2",         (DMed,  SynthStrings1))
+>     , ("Synth Strings 3",         (DMed,  SynthStrings2))
+>     , ("Violin 11",               (DMed,  Violin))
 >   ]
-> hiDefPerc = []
+> hiDefPerc =
+>   [
+>       ("Drum_Kit_K&S_Room",        [  ("Drum_Snare4",          (DMed, AcousticSnare))])
+>
+>     , ("drm: Rock Toms",           [  ("drm-rocktom1m",        (DMed, HighTom))
+>                                     , ("drm-rocktom2m",        (DMed, HiMidTom))
+>                                     , ("drm-rocktom3m",        (DMed, LowTom))])
+>
+>     , ("GS Bass Drum 2",           [  ("analog kickl",         (DMed, BassDrum1))])
+>
+>     , ("XG Percussion E",          [  ("Crash Cymbal 1",       (DMed, CrashCymbal1))
+>                                     , ("Crash Cymbal 2",       (DMed, CrashCymbal2))])
+>   ]
 >
 > dSoundFontV4Inst =
 >   [
@@ -750,7 +766,6 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Music Box",               (DMed,  MusicBox))
 >     , ("Ocarina",                 (DMed,  Ocarina))
 >     , ("Ottos Fretless",          (DMed,  FretlessBass))
->  -- WOX   , ("Orchestral Kit",          (DMed,  Percussion))
 >     , ("Pan Flute",               (DMed,  PanFlute))
 >     , ("Piccolo",                 (DMed,  Piccolo))
 >     , ("Picked Bass",             (DMed,  ElectricBassPicked))
@@ -927,7 +942,7 @@ organize instruments from multiple SoundFont files =============================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF (copper 2) imap
+>       let (d,s) = renderSF wj imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
