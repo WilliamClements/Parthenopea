@@ -662,17 +662,17 @@ reconcile zone and sample header ===============================================
 >   | traceIf msg False = undefined
 >   | otherwise =
 >     let
->       iDelay = fromMaybe (-12000) mDelay
->       iAttack = fromMaybe (-12000) mAttack
->       iHold   = fromMaybe (-12000) mHold
->       iDecay  = fromMaybe (-12000) mDecay
->       iSustain = fromMaybe 0 mSustain
+>       iDelay =   fromMaybe (-12000) mDelay
+>       iAttack =  fromMaybe (-12000) mAttack
+>       iHold   =  fromMaybe (-12000) mHold
+>       iDecay  =  fromMaybe (-12000) mDecay
+>       iSustain = fromMaybe        0 mSustain
 >       iRelease = fromMaybe (-12000) mRelease
 >     in 
 >       Envelope (conv iDelay) (conv iAttack)          (conv iHold)
 >                (conv iDecay) (fromIntegral iSustain) (conv iRelease)
 >     where
->       conv               :: Int → Double
+>       conv             :: Int → Double
 >       conv k = 2**(fromIntegral k/1200)
 >       msg = unwords ["mDelay=",   show mDelay,   "mAttack=",    show mAttack
 >                     ,"mHold=",    show mHold,    "mDecay=",     show mDecay
@@ -711,7 +711,7 @@ organize instruments from multiple SoundFont files =============================
 > soundFontDatabase =
 >   [
 >       ("editHiDef.sf2",            ([DHigh],  (hiDefInst, hiDefPerc)))
->     , ("editDSoundFontV4.sf2",      ([],  (dSoundFontV4Inst, dSoundFontV4Perc)))
+>     , ("editDSoundFontV4.sf2",          ([],  (dSoundFontV4Inst, dSoundFontV4Perc)))
 >     , ("editEssentials.sf2",        ([DLow],  (essentialsInst, essentialsPerc)))
 >   ]
 >
@@ -738,6 +738,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Harp 2",                  ([],  OrchestralHarp))
 >     , ("Oboe",                    ([],  Oboe))
 >     , ("Piano 1",                 ([],  AcousticGrandPiano))
+>     , ("Piccolo 2",               ([],  Piccolo))
 >     , ("Sax 10",                  ([],  AltoSax))
 >     , ("Sax 20",                  ([],  TenorSax))
 >     , ("sitar",                   ([],  Sitar))
@@ -752,8 +753,12 @@ organize instruments from multiple SoundFont files =============================
 >   ]
 > hiDefPerc =
 >   [
->       ("*POP Drums",               [  ("Ride Cymbal 1",        ([], RideCymbal1))
->                                     , ("Ride Cymbal 2)",       ([], RideCymbal2))])
+>       ("*POP Drums",               [  ("Maracas",              ([], Maracas)) 
+>                                     , ("Ride Cymbal 1",        ([], RideCymbal1))
+>                                     , ("Ride Cymbal 2",        ([], RideCymbal2))])
+>
+>     , ("Don's XG Std Kit",         [  ("Cuica Mute",           ([], MuteCuica))
+>                                     , ("Cuica Open",           ([], OpenCuica))])
 >
 >     , ("Drum_Kit_K&S_Room",        [  ("Drum_Snare4",          ([], AcousticSnare))])
 >
@@ -768,7 +773,8 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("Hi-Hat Closed(L)",     ([], ClosedHiHat))
 >                                     , ("Hi-Hat Half-Open(L)",  ([], OpenHiHat))
 >                                     , ("Splash Cymbal",        ([], SplashCymbal))
->                                     , ("Vibra Slap",           ([], Vibraslap))])
+>                                     , ("Vibra Slap",           ([], Vibraslap))
+>                                     , ("High Agogo(L)",        ([], HighAgogo))])
 >   ]
 >
 > dSoundFontV4Inst =
