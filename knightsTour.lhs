@@ -81,8 +81,8 @@
 >
 > -- The center of the chessboard has location (N/2, N/2)
 > boardXDim, boardYDim, numSquares :: Int
-> boardXDim = 4
-> boardYDim = 3
+> boardXDim = 8
+> boardYDim = 8
 > numSquares = boardXDim * boardYDim
 > allSquares :: [(Int, Int)]
 > allSquares = [(x,y) | x ← [0..boardXDim-1], y ← [0..boardYDim-1]]
@@ -170,7 +170,7 @@
 >     angle' = angle + angleInc
 >     radius' = radius - radiusDec
 >     msg = unwords
->       [ " anglleInc=",    show angleInc
+>       [ " angleInc=",     show angleInc
 >        , "radiusDec=",    show radiusDec
 >        , "(radius=",      show radius
 >        , " nangle=",      show angle,

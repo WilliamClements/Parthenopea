@@ -425,7 +425,7 @@ define signal functions for playing instruments ================================
 >              then doEnvelope renv secs ⤙ ()
 >              else constA 1             ⤙ ()
 >       a2 ←   if useLowPassFilter
->              then filterLowPass ⤙ (a1,20000*aenv)
+>              then filterLowPass        ⤙ (a1,20000*aenv)
 >              else delay 0 ⤙ a1
 >     outA ⤙ a2*amp*aenv
 >
@@ -553,7 +553,7 @@ zone selection =================================================================
 > setZone arrays sfinst mww pch vol =
 >   let
 >     zone = case mww of
->            Nothing       → selectBestZone arrays sfinst pch vol
+>            Nothing       → selectBestZone     arrays sfinst          pch vol
 >            Just (wI, wZ) → selectBestPercZone arrays sfinst (wI, wZ) pch vol
 >   in
 >     (zone, ssShdrs arrays ! fromJust (zSampleIndex zone))
@@ -591,15 +591,14 @@ zone selection =================================================================
 >   let
 >     -- skip the Global zone as we usually do
 >     -- form a list of zones sharing same sample index
->     someZone = getZone sfinst wZ
->     sampleIndex = fromJust $ zSampleIndex someZone
+>     ez = getZone sfinst wZ
 >     zlist = map snd (tail (zZones sfinst))
->     zlist' = filter (matchSomeZone sampleIndex) zlist
+>     zlist' = filter (matchZone ez) zlist
 >   in
 >     selectBestZone' arrays zlist' pch vol
 >   where
->     matchSomeZone      ::  Word → SFZone → Bool
->     matchSomeZone w z = w == fromJust (zSampleIndex z)
+>     matchZone      ::  SFZone → SFZone → Bool
+>     matchZone z z' = fromJust (zSampleIndex z) == fromJust (zSampleIndex z')
 >     
 > compareScores          :: (Num a, Ord a) ⇒ (a, b) → (a, b) → Ordering
 > compareScores (a1, b1) (a2, b2) = compare a1 a2 
@@ -984,7 +983,7 @@ organize instruments from multiple SoundFont files =============================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF waypostpurple imap
+>       let (d,s) = renderSF sunPyg imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()

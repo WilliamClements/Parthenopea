@@ -41,13 +41,13 @@ SunPyg =========================================================================
 >                         , times  8 (line [a 1 wn, d 2 wn])
 >                         , times 58 (line [c 2 wn, d 2 wn])]
 >
-> percMusic = addVolume 85 percLine
+> percMusic = addVolume 55 percLine
 >
 > leadMusic = 
 >   transpose (-3)
->   $ addVolume 110
+>   $ addVolume 100
 >   $ keysig C Lydian
->   $ instrument Violin leadLine
+>   $ instrument AcousticGuitarSteel leadLine
 >
 > vocalMusic = 
 >   transpose (-3)
@@ -57,9 +57,9 @@ SunPyg =========================================================================
 >
 > bassMusic =
 >   transpose (-3)
->   $ addVolume 85
+>   $ addVolume 80
 >   $ keysig C Lydian
->   $ instrument SynthBass2 bassLine
+>   $ instrument SynthBass1 bassLine
 >
 > m000 = line [rest dhn, tempo (5/4) (line [percHTsn, percHTen, percLTsn, percLTsn])]
 > m001 = line [percBDen, percOHHen, percCHHen, chord [percCHHen, percBDen]
