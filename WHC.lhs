@@ -44,3 +44,21 @@ Chart ==========================================================================
 >   renderableToFile def "r00tour.svg" chart
 >   putStrLn ("numDots=" ++ show (length vals))
 >   return ()
+>
+> fun :: Int -> Int -> [Double]
+> fun n 0 = []
+> fun n 1 = [1.0]
+> fun n p = replicate n (fromIntegral p)
+>
+> ints :: [Int]
+> ints = [3,4,2,4,5]
+>
+> qmain :: IO ()
+> qmain = do
+>   let x = map (fun 4) ints
+>   putStrLn ("x=" ++ show x)
+>   let y = concat x
+>   putStrLn ("y=" ++ show y)
+>   let z = concatMap (fun 4) ints
+>   putStrLn ("z=" ++ show z)
+>   return ()

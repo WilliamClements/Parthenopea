@@ -20,7 +20,7 @@ SoundFont support ==============================================================
 > import Data.Array.Unboxed ( Array, (!), IArray(bounds) )
 > import qualified Data.Audio           as A
 > import Data.Int ( Int8, Int16, Int32 )
-> import Data.List ( find, foldr, groupBy, minimumBy, sort )
+> import Data.List ( find, foldr, groupBy, minimumBy, sort, sortBy )
 > import qualified Data.Map as Map
 > import Data.Maybe (isJust, fromJust, fromMaybe)
 > import Debug.Trace ( traceIO, traceM )
@@ -28,7 +28,7 @@ SoundFont support ==============================================================
 > import Euterpea.IO.Audio.Basics ( apToHz, outA )
 > import Euterpea.IO.Audio.IO ( outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
-> import Euterpea.IO.Audio.Types ( AudRate, AudSF, Mono )
+> import Euterpea.IO.Audio.Types ( AudRate, AudSF, Mono, Stereo )
 > import Euterpea.Music
 > import Fanfare
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
@@ -279,6 +279,7 @@ prepare the specified instruments and percussion ===============================
 >   let selectedI = map (shouldAssignI is ipal) sfis
 >   let filteredI = filter isJust selectedI
 >   let readyI = map (doAssignI arrays sfis) filteredI
+>
 >   putStrLn ("SFFile " ++ curFilename
 >          ++ ": loaded "  ++ show (length readyI)
 >          ++ " from total of "
@@ -296,21 +297,25 @@ prepare the specified instruments and percussion ===============================
 > assignAllPercussion sffile sfis ppal = do
 >   let arrays = zArrays sffile 
 >   let countSought = sum $ map (length.snd) ppal
->   let readyP =
->           map head
->           $ groupBy areSame
->           $ sort
->           $ concatMap (shouldAssignP arrays sfis) ppal
+>   let withDupes = sort $ concatMap (shouldAssignP arrays sfis) ppal
+>   let readyP = map head (groupBy areSame withDupes)
+>   let groupedByInstrument = groupBy haveSameInst (sortBy sortByInst readyP )
 >
 >   putStrLn ("SFFile " ++ curFilename
->          ++ ": loaded "                ++ show (length readyP)
->          ++ " percussion sounds from " ++ show (length ppal)
->          ++ " instruments")
->
+>          ++ ": loaded "                   ++ show (length readyP)
+>          ++ " (mismatches = "             ++ show (countSought - length readyP)
+>          ++ ") percussion sounds from "   ++ show (length ppal)
+>          ++ " (mismatches = "             ++ show (length ppal - length groupedByInstrument)
+>          ++ ") instruments")
 >   return readyP
+>
 >     where
 >       areSame          :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
 >       areSame x y = (fst x == fst y) && (fst.snd) x == (fst.snd) y
+>       haveSameInst     :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
+>       haveSameInst x y = (fst.snd) x == (fst.snd) y
+>       sortByInst       :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Ordering
+>       sortByInst x y = compare ((fst.snd) x) ((fst.snd) x)
 >
 > shouldAssignI          :: Array Word F.Inst 
 >                           → [(String, ([Hints], InstrumentName))]
@@ -406,7 +411,7 @@ define signal functions for playing instruments ================================
 >                           → AudSF Double Double
 > eutRelay s16 ms8 (st, en) renv vol dur =
 >   let
->     numS               :: Double = fromIntegral $ (en - st + 1)
+>     numS               :: Double = fromIntegral (en - st + 1)
 >     amp                :: Double = fromIntegral vol / 100
 >     secs               :: Double = 2 * fromRational dur
 >
@@ -732,10 +737,15 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Cello 2",                 ([],  Cello))
 >     , ("ChurOrg2",                ([],  ChurchOrgan))
 >     , ("Elec Bass1",              ([],  ElectricBassFingered))
+>     , ("Elec Bass2",              ([],  ElectricBassPicked))
 >     , ("Elec Gtr 11",             ([],  ElectricGuitarJazz))
+>     , ("Elec Org 4",              ([],  RockOrgan))
+>     , ("Flute 2",                 ([],  Flute))
 >     , ("Hard Nylon Guitar",       ([],  AcousticGuitarNylon))
 >     , ("Harmonica",               ([],  Harmonica))
 >     , ("Harp 2",                  ([],  OrchestralHarp))
+>     , ("HonkyTonk1",              ([],  HonkyTonkPiano))
+>     , ("Marimba0",                ([],  Marimba))
 >     , ("Oboe",                    ([],  Oboe))
 >     , ("Piano 1",                 ([],  AcousticGrandPiano))
 >     , ("Piccolo 2",               ([],  Piccolo))
@@ -744,6 +754,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("sitar",                   ([],  Sitar))
 >     , ("Slap Bass10",             ([],  SlapBass1))
 >     , ("Slap Bass2",              ([],  SlapBass2))
+>     , ("SoftStringAsp",           ([],  StringEnsemble1))
 >     , ("Syn Bass 1",              ([],  SynthBass1))
 >     , ("Syn Bass 2",              ([],  SynthBass2))
 >     , ("Synth Strings 2",         ([],  SynthStrings1))
@@ -969,7 +980,7 @@ organize instruments from multiple SoundFont files =============================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF (slot 2) imap
+>       let (d,s) = renderSF basicLick imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
