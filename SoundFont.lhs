@@ -165,7 +165,6 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 > isNotNull              :: [a] → Bool
 > isNotNull [] = False
 > isNotNull (x:xs) = True
->
   
 extract data from SoundFont per instrument ================================================
 
@@ -298,25 +297,16 @@ prepare the specified instruments and percussion ===============================
 >   let arrays = zArrays sffile 
 >   let countSought = sum $ map (length.snd) ppal
 >   let selectedP = concatMap (shouldAssignP arrays sfis) ppal
->   putStrLn "-> assignAllPercussion!!!!"
->   putStrLn ("selectedP=" ++ show selectedP)
 >   let b1 = sort selectedP
 >   let b2 = groupBy areSame b1
 >   let b3 = map head b2
 >   let readyP = b3
->         -- readyP = unique (\a b -> fst a == fst b) (sort selectedP)
 >   putStrLn ("readyP=" ++ show b1 ++ "...." ++ show b2 ++ "...." ++ show b3)
->   putStrLn "<- assignAllPercussion!!!!"
 >
 >   putStrLn ("SFFile " ++ curFilename
->          ++ ": loaded "  ++ show (length readyP)
->          ++ " percussion sounds from "
->          ++ show (length selectedP)
->          ++ " instruments mismatches = ("
->          ++ show (length ppal - length selectedP)
->          ++ " , "
->          ++ show (countSought - length readyP)
->          ++ ")")
+>          ++ ": loaded "                ++ show (length readyP)
+>          ++ " percussion sounds from " ++ show (length ppal)
+>          ++ " instruments")
 >
 >   return readyP
 >     where
@@ -349,7 +339,7 @@ prepare the specified instruments and percussion ===============================
 >     target = fst pentry
 >     maybePresent = find (matchzp arrays target) sfis
 >   in case maybePresent of
->      Nothing → []
+>      Nothing     → []
 >      Just sfinst → concatMap (shouldAssignZone arrays sfinst (snd pentry)) (tail (zZones sfinst))
 >   where
 >     matchzp            :: SoundFontArrays → String → SFInstrument → Bool
@@ -439,12 +429,12 @@ define signal functions for playing instruments ================================
 >     compute24          :: Int16 → Int8 → Double
 >     compute24 i16 i8 = d24
 >       where
->         i8to32         :: Int8 → Int32
->         i8to32 i8 = fromIntegral i8
->         i16to32         :: Int16 → Int32
->         i16to32 i16 = fromIntegral i16
+>         f8to32         :: Int8 → Int32
+>         f8to32 = fromIntegral
+>         f16to32         :: Int16 → Int32
+>         f16to32 = fromIntegral
 >         d24            :: Double
->         d24 = fromIntegral (i16to32 i16 * 65536 + i8to32 i8)       
+>         d24 = fromIntegral (f16to32 i16 * 32768 + f8to32 i8)       
 >      
 >     doEnvelope         :: Envelope → Double → AudSF () Double
 >     doEnvelope renv secs
@@ -740,18 +730,25 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Anklung Pad",             (DMed,  VoiceOohs))
 >     , ("Bagpipe Drone",           (DMed,  Bagpipe))
 >     , ("Bassoon",                 (DMed,  Bassoon))
+>     , ("Cello 2",                 (DMed,  Cello))
 >     , ("ChurOrg2",                (DMed,  ChurchOrgan))
 >     , ("Elec Bass1",              (DMed,  ElectricBassFingered))
+>     , ("Elec Gtr 11",             (DMed,  ElectricGuitarJazz))
 >     , ("Hard Nylon Guitar",       (DMed,  AcousticGuitarNylon))
 >     , ("Harmonica",               (DMed,  Harmonica))
 >     , ("Harp 2",                  (DMed,  OrchestralHarp))
+>     , ("Oboe",                    (DMed,  Oboe))
+>     , ("Piano 1",                 (DMed,  AcousticGrandPiano))
 >     , ("Sax 10",                  (DMed,  AltoSax))
 >     , ("Sax 20",                  (DMed,  TenorSax))
 >     , ("sitar",                   (DMed,  Sitar))
+>     , ("Slap Bass10",             (DMed,  SlapBass1))
+>     , ("Slap Bass2",              (DMed,  SlapBass2))
 >     , ("Syn Bass 1",              (DMed,  SynthBass1))
 >     , ("Syn Bass 2",              (DMed,  SynthBass2))
 >     , ("Synth Strings 2",         (DMed,  SynthStrings1))
 >     , ("Synth Strings 3",         (DMed,  SynthStrings2))
+>     , ("Vibraphone 2",            (DMed,  Vibraphone))
 >     , ("Violin 11",               (DMed,  Violin))
 >   ]
 > hiDefPerc =
@@ -771,7 +768,8 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("Crash Cymbal 2",       (DMed, CrashCymbal2))
 >                                     , ("Hi-Hat Closed(L)",     (DMed, ClosedHiHat))
 >                                     , ("Hi-Hat Half-Open(L)",  (DMed, OpenHiHat))
->                                     , ("Splash Cymbal",       (DMed, SplashCymbal))])
+>                                     , ("Splash Cymbal",        (DMed, SplashCymbal))
+>                                     , ("Vibra Slap",           (DMed, Vibraslap))])
 >   ]
 >
 > dSoundFontV4Inst =
@@ -997,7 +995,7 @@ organize instruments from multiple SoundFont files =============================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF whelpNarp imap
+>       let (d,s) = renderSF theFanfare imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
