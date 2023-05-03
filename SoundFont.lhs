@@ -20,7 +20,7 @@ SoundFont support ==============================================================
 > import Data.Array.Unboxed ( Array, (!), IArray(bounds) )
 > import qualified Data.Audio           as A
 > import Data.Int ( Int8, Int16, Int32 )
-> import Data.List (find, foldr, minimumBy)
+> import Data.List ( find, foldr, groupBy, minimumBy, sort )
 > import qualified Data.Map as Map
 > import Data.Maybe (isJust, fromJust, fromMaybe)
 > import Debug.Trace ( traceIO, traceM )
@@ -296,18 +296,32 @@ prepare the specified instruments and percussion ===============================
 >                           → IO [(PercussionSound, (Word, Word))]
 > assignAllPercussion sffile sfis ppal = do
 >   let arrays = zArrays sffile 
->   let countS = sum $ map (length.snd) ppal
->   let readyP = concatMap (shouldAssignP arrays sfis ppal) sfis
->   print readyP
+>   let countSought = sum $ map (length.snd) ppal
+>   let selectedP = concatMap (shouldAssignP arrays sfis) ppal
+>   putStrLn "-> assignAllPercussion!!!!"
+>   putStrLn ("selectedP=" ++ show selectedP)
+>   let b1 = sort selectedP
+>   let b2 = groupBy areSame b1
+>   let b3 = map head b2
+>   let readyP = b3
+>         -- readyP = unique (\a b -> fst a == fst b) (sort selectedP)
+>   putStrLn ("readyP=" ++ show b1 ++ "...." ++ show b2 ++ "...." ++ show b3)
+>   putStrLn "<- assignAllPercussion!!!!"
+>
 >   putStrLn ("SFFile " ++ curFilename
 >          ++ ": loaded "  ++ show (length readyP)
 >          ++ " percussion sounds from "
->          ++ show (length ppal)
->          ++ " instruments ("
->          ++ show (countS - length readyP)
->          ++ " mismatches)")
-
+>          ++ show (length selectedP)
+>          ++ " instruments mismatches = ("
+>          ++ show (length ppal - length selectedP)
+>          ++ " , "
+>          ++ show (countSought - length readyP)
+>          ++ ")")
+>
 >   return readyP
+>     where
+>       areSame          :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
+>       areSame x y = (fst x == fst y) && (fst.snd) x == (fst.snd) y
 >
 > shouldAssignI          :: Array Word F.Inst 
 >                           → [(String, (Desirability, InstrumentName))]
@@ -327,17 +341,21 @@ prepare the specified instruments and percussion ===============================
 >
 > shouldAssignP          :: SoundFontArrays
 >                           → [SFInstrument]
->                           → [(String, [(String, (Desirability, PercussionSound))])]
->                           → SFInstrument
+>                           → (String, [(String, (Desirability, PercussionSound))])
 >                           → [(PercussionSound, (Word, Word))]
-> shouldAssignP arrays sfis ppal sfinst =
+> shouldAssignP arrays sfis pentry =
 >   let
->     -- what is the name (itag) of this instrument? and is it present in ppal??
->     itag = F.instName (ssInsts arrays ! zWordI sfinst)
->     maybePresent = lookup itag ppal
+>     -- what is the name of target instrument? and is there a match versus ppal??
+>     target = fst pentry
+>     maybePresent = find (matchzp arrays target) sfis
 >   in case maybePresent of
 >      Nothing → []
->      Just ppal' → concatMap (shouldAssignZone arrays sfinst ppal') (tail (zZones sfinst))
+>      Just sfinst → concatMap (shouldAssignZone arrays sfinst (snd pentry)) (tail (zZones sfinst))
+>   where
+>     matchzp            :: SoundFontArrays → String → SFInstrument → Bool
+>     matchzp arrays target sfinst = target == itag
+>       where
+>         itag = F.instName (ssInsts arrays ! zWordI sfinst)
 > 
 > shouldAssignZone       :: SoundFontArrays
 >                           → SFInstrument
@@ -345,7 +363,7 @@ prepare the specified instruments and percussion ===============================
 >                           → (Word, SFZone)
 >                           → [(PercussionSound, (Word, Word))]
 > shouldAssignZone arrays sfinst plist (wZ, zone)
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise = result
 >   where
 >     wI = zWordI sfinst
@@ -421,9 +439,9 @@ define signal functions for playing instruments ================================
 >     compute24          :: Int16 → Int8 → Double
 >     compute24 i16 i8 = d24
 >       where
->         i8to32         :: Int8 -> Int32
+>         i8to32         :: Int8 → Int32
 >         i8to32 i8 = fromIntegral i8
->         i16to32         :: Int16 -> Int32
+>         i16to32         :: Int16 → Int32
 >         i16to32 i16 = fromIntegral i16
 >         d24            :: Double
 >         d24 = fromIntegral (i16to32 i16 * 65536 + i8to32 i8)       
@@ -485,11 +503,11 @@ define signal functions for playing instruments ================================
 >                Nothing       → error (   "Percussion does not have "
 >                                          ++ show ps ++ " in the supplied pmap.")
 >                Just x → x
->       
+>     
 >     arrays = zArrays sffile
 >     sfinst = getSFInstrument arrays sfis wI
->     zone = getZone sfinst wZ
->     shdr = ssShdrs arrays ! fromJust (zSampleIndex zone)
+>
+>     (zone, shdr) = setZone  arrays sfinst (Just (wI, wZ)) pch vol
 >
 >     rData              :: Reconciled       = reconcile zone shdr
 >     sr                 :: Double           = fromIntegral $ F.sampleRate shdr
@@ -529,8 +547,8 @@ zone selection =================================================================
 > getZone                :: SFInstrument → Word → SFZone
 > getZone sfinst w = 
 >   case lookup w (zZones sfinst) of
->     Just i -> i
->     Nothing -> error "Instrument in supplied InstrMap does not have specified zone."
+>     Just i → i
+>     Nothing → error "Instrument in supplied InstrMap does not have specified zone."
 >
 > setZone                :: SoundFontArrays
 >                           → SFInstrument
@@ -540,34 +558,64 @@ zone selection =================================================================
 >                           → (SFZone, F.Shdr)
 > setZone arrays sfinst mww pch vol =
 >   let
->     (zone, x) = case mww of
+>     zone = case mww of
 >            Nothing       → selectBestZone arrays sfinst pch vol
->            Just (wI, wZ) → (getZone sfinst wZ, x)
+>            Just (wI, wZ) → selectBestPercZone arrays sfinst (wI, wZ) pch vol
 >   in
->     (zone, x)
+>     (zone, ssShdrs arrays ! fromJust (zSampleIndex zone))
 >
 > selectBestZone         :: SoundFontArrays
 >                           → SFInstrument
 >                           → AbsPitch
 >                           → Volume
->                           → (SFZone, F.Shdr)
+>                           → SFZone
 > selectBestZone arrays sfinst pch vol =
 >   let
 >     -- skip the Global zone as we usually do
->     scores = map (scoreOneZone pch vol) (tail (zZones sfinst))
->     zone = snd $ minimumBy compareScores scores
+>     zones = map snd (tail (zZones sfinst))
 >   in
->     (zone, ssShdrs arrays ! fromJust (zSampleIndex zone))
+>     selectBestZone' arrays zones pch vol 
+>     
+> selectBestZone'        :: SoundFontArrays
+>                           → [SFZone]
+>                           → AbsPitch
+>                           → Volume
+>                           → SFZone
+> selectBestZone' arrays zones pch vol =
+>   let
+>     scores = map (scoreOneZone pch vol) zones
+>   in
+>     snd $ minimumBy compareScores scores
+>     
+> selectBestPercZone     :: SoundFontArrays
+>                           → SFInstrument
+>                           → (Word, Word)
+>                           → AbsPitch
+>                           → Volume
+>                           → SFZone
+> selectBestPercZone arrays sfinst (wI, wZ) pch vol =
+>   let
+>     -- skip the Global zone as we usually do
+>     -- form a list of zones sharing same sample index
+>     someZone = getZone sfinst wZ
+>     sampleIndex = fromJust $ zSampleIndex someZone
+>     zlist = map snd (tail (zZones sfinst))
+>     zlist' = filter (matchSomeZone sampleIndex) zlist
+>   in
+>     selectBestZone' arrays zlist' pch vol
+>   where
+>     matchSomeZone      ::  Word → SFZone → Bool
+>     matchSomeZone w z = w == fromJust (zSampleIndex z)
 >     
 > compareScores          :: (Num a, Ord a) ⇒ (a, b) → (a, b) → Ordering
 > compareScores (a1, b1) (a2, b2) = compare a1 a2 
 >                         
-> scoreOneZone           :: AbsPitch → Volume → (Word, SFZone) → (Int, SFZone)
-> scoreOneZone pch vol zone = (score, snd zone)
+> scoreOneZone           :: AbsPitch → Volume → SFZone → (Int, SFZone)
+> scoreOneZone pch vol zone = (score, zone)
 >   where
 >     score = score1 + score2
->     score1 = computeDistance pch (zKeyRange (snd zone))
->     score2 = computeDistance vol (zVelRange (snd zone))
+>     score1 = computeDistance pch (zKeyRange zone)
+>     score2 = computeDistance vol (zVelRange zone)
 >
 > computeDistance        :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
 > computeDistance cand mrange =
@@ -696,6 +744,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Elec Bass1",              (DMed,  ElectricBassFingered))
 >     , ("Hard Nylon Guitar",       (DMed,  AcousticGuitarNylon))
 >     , ("Harmonica",               (DMed,  Harmonica))
+>     , ("Harp 2",                  (DMed,  OrchestralHarp))
 >     , ("Sax 10",                  (DMed,  AltoSax))
 >     , ("Sax 20",                  (DMed,  TenorSax))
 >     , ("sitar",                   (DMed,  Sitar))
@@ -707,7 +756,10 @@ organize instruments from multiple SoundFont files =============================
 >   ]
 > hiDefPerc =
 >   [
->       ("Drum_Kit_K&S_Room",        [  ("Drum_Snare4",          (DMed, AcousticSnare))])
+>       ("*POP Drums",               [  ("Ride Cymbal 1",        (DMed, RideCymbal1))
+>                                     , ("Ride Cymbal 2)",       (DMed, RideCymbal2))])
+>
+>     , ("Drum_Kit_K&S_Room",        [  ("Drum_Snare4",          (DMed, AcousticSnare))])
 >
 >     , ("drm: Rock Toms",           [  ("drm-rocktom1m",        (DMed, HighTom))
 >                                     , ("drm-rocktom2m",        (DMed, HiMidTom))
@@ -716,7 +768,10 @@ organize instruments from multiple SoundFont files =============================
 >     , ("GS Bass Drum 2",           [  ("analog kickl",         (DMed, BassDrum1))])
 >
 >     , ("XG Percussion E",          [  ("Crash Cymbal 1",       (DMed, CrashCymbal1))
->                                     , ("Crash Cymbal 2",       (DMed, CrashCymbal2))])
+>                                     , ("Crash Cymbal 2",       (DMed, CrashCymbal2))
+>                                     , ("Hi-Hat Closed(L)",     (DMed, ClosedHiHat))
+>                                     , ("Hi-Hat Half-Open(L)",  (DMed, OpenHiHat))
+>                                     , ("Splash Cymbal",       (DMed, SplashCymbal))])
 >   ]
 >
 > dSoundFontV4Inst =
@@ -882,7 +937,7 @@ organize instruments from multiple SoundFont files =============================
 >   let
 >     bar = evaluateFiles
 >
->     dumb :: [InstrumentName] -> WHCMap1 -> WHCMap1
+>     dumb :: [InstrumentName] → WHCMap1 → WHCMap1
 >     dumb [] whcdi = Map.empty
 >     dumb (x:xs) whcdi = Map.union (Map.insert x 1 whcdi) (dumb xs whcdi)
 >     
@@ -890,7 +945,7 @@ organize instruments from multiple SoundFont files =============================
 >     en :: Int = fromEnum Gunshot
 >
 >     alli = [st .. en]
->     allj = map (\x -> (toEnum x,1)) alli
+>     allj = map (\x → (toEnum x,1)) alli
 >     all = Map.fromList allj
 >     -- all = dumb [(fromEnum AcousticGrandPiano) .. ()]
 >     some = dumb bar Map.empty
@@ -942,7 +997,7 @@ organize instruments from multiple SoundFont files =============================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF wj imap
+>       let (d,s) = renderSF whelpNarp imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
