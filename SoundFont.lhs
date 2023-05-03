@@ -315,7 +315,7 @@ prepare the specified instruments and percussion ===============================
 >       haveSameInst     :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
 >       haveSameInst x y = (fst.snd) x == (fst.snd) y
 >       sortByInst       :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Ordering
->       sortByInst x y = compare ((fst.snd) x) ((fst.snd) x)
+>       sortByInst x y = compare ((fst.snd) x) ((fst.snd) y)
 >
 > shouldAssignI          :: Array Word F.Inst 
 >                           → [(String, ([Hints], InstrumentName))]
@@ -755,10 +755,12 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Slap Bass10",             ([],  SlapBass1))
 >     , ("Slap Bass2",              ([],  SlapBass2))
 >     , ("SoftStringAsp",           ([],  StringEnsemble1))
+>     , ("Steel Gtr 3",             ([],  AcousticGuitarSteel))
 >     , ("Syn Bass 1",              ([],  SynthBass1))
 >     , ("Syn Bass 2",              ([],  SynthBass2))
 >     , ("Synth Strings 2",         ([],  SynthStrings1))
 >     , ("Synth Strings 3",         ([],  SynthStrings2))
+>     , ("Trumpet 2",               ([],  Trumpet))
 >     , ("Vibraphone 2",            ([],  Vibraphone))
 >     , ("Violin 11",               ([],  Violin))
 >   ]
@@ -778,6 +780,8 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("drm-rocktom3m",        ([], LowTom))])
 >
 >     , ("GS Bass Drum 2",           [  ("analog kickl",         ([], BassDrum1))])
+>
+>     , ("SGM rhythm(cym1)",         [  ("Tambourine",           ([], Tambourine))])
 >
 >     , ("XG Percussion E",          [  ("Crash Cymbal 1",       ([], CrashCymbal1))
 >                                     , ("Crash Cymbal 2",       ([], CrashCymbal2))
@@ -980,7 +984,7 @@ organize instruments from multiple SoundFont files =============================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF basicLick imap
+>       let (d,s) = renderSF waypostpurple imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
