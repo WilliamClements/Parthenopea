@@ -296,12 +296,11 @@ prepare the specified instruments and percussion ===============================
 > assignAllPercussion sffile sfis ppal = do
 >   let arrays = zArrays sffile 
 >   let countSought = sum $ map (length.snd) ppal
->   let selectedP = concatMap (shouldAssignP arrays sfis) ppal
->   let b1 = sort selectedP
->   let b2 = groupBy areSame b1
->   let b3 = map head b2
->   let readyP = b3
->   putStrLn ("readyP=" ++ show b1 ++ "...." ++ show b2 ++ "...." ++ show b3)
+>   let readyP =
+>           map head
+>           $ groupBy areSame
+>           $ sort
+>           $ concatMap (shouldAssignP arrays sfis) ppal
 >
 >   putStrLn ("SFFile " ++ curFilename
 >          ++ ": loaded "                ++ show (length readyP)
@@ -959,43 +958,12 @@ organize instruments from multiple SoundFont files =============================
 >
 >     print "leftover"
 >     print $ show leftover
-> {-
-> roundtuit :: IO ()
-> roundtuit = do
->     let all = [AcousticBassDrum..OpenTriangle]
->     show all
->
-> korgInstruments        :: [(String, InstrumentName)]
-> korgInstruments =
->   [
->       ("Orchestra",               Percussion)
->   ]
->
-> tyrosAcoosticBass      :: [(String, InstrumentName)]
-> tyrosAcoosticBass = 
->   [
->       ("TyrosAcoosticBa0",        AcousticBass)
->     , ("TyrosAcoosticBa1",        ElectricBassPicked)
->   ]
->
-> pianoKorgTriton        :: [(String, InstrumentName)]
-> pianoKorgTriton = 
->   [
->       ("Piano Korg Triton",       AcousticGrandPiano)
->   ]
->
-> glockenspiel        :: [(String, InstrumentName)]
-> glockenspiel = 
->   [
->       ("Glockenspiel       ",     Glockenspiel)
->   ]
-> -}
 >
 > doPlayInstruments      :: InstrMap (Mono AudRate) → IO ()
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF theFanfare imap
+>       let (d,s) = renderSF (bill 2) imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
