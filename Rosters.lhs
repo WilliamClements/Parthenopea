@@ -1,0 +1,303 @@
+> {-# LANGUAGE AllowAmbiguousTypes #-}
+> {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE ExistentialQuantification #-}
+> {-# LANGUAGE GADTs #-}
+> {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE UnicodeSyntax #-}
+>
+
+Rosters support ===========================================================================
+
+> module Rosters where
+>
+> import qualified Data.Map as Map
+> import Euterpea.Music
+> import Parthenopea ( addDur )
+> import SoundFont
+
+> runSoundFont             :: IO ()
+> runSoundFont = doSoundFont soundFontDatabase
+
+organize instruments from multiple SoundFont files ========================================
+
+> hiDefInst, essentialsInst, dSoundFontV4Inst :: [(String, ([Hints], InstrumentName))]                                
+> hiDefPerc, essentialsPerc, dSoundFontV4Perc :: [(String, [(String, ([Hints], PercussionSound))])]                                
+>
+> soundFontDatabase =
+>   [
+>       ("editHiDef.sf2",            ([DHigh],  (hiDefInst, hiDefPerc)))
+>     , ("editDSoundFontV4.sf2",          ([],  (dSoundFontV4Inst, dSoundFontV4Perc)))
+>     , ("editEssentials.sf2",        ([DLow],  (essentialsInst, essentialsPerc)))
+>   ]
+>
+> hiDefInst =
+>   [
+>       ("*Choir Aahs 2",           ([],  ChoirAahs))
+>     , ("*Slow Violin",            ([],  Viola))
+>     , ("'59 Les Paul",            ([],  ElectricGuitarClean))
+>     , ("Accordion",               ([],  Accordion))
+>     , ("Anklung Pad",             ([],  VoiceOohs))
+>     , ("Bagpipe Drone",           ([],  Bagpipe))
+>     , ("Bassoon",                 ([],  Bassoon))
+>     , ("Cello 2",                 ([],  Cello))
+>     , ("ChurOrg2",                ([],  ChurchOrgan))
+>     , ("Elec Bass1",              ([],  ElectricBassFingered))
+>     , ("Elec Bass2",              ([],  ElectricBassPicked))
+>     , ("Elec Gtr 11",             ([],  ElectricGuitarJazz))
+>     , ("Elec Org 4",              ([],  RockOrgan))
+>     , ("Flute 2",                 ([],  Flute))
+>     , ("Hard Nylon Guitar",       ([],  AcousticGuitarNylon))
+>     , ("Harmonica",               ([],  Harmonica))
+>     , ("Harp 2",                  ([],  OrchestralHarp))
+>     , ("HonkyTonk1",              ([],  HonkyTonkPiano))
+>     , ("Marimba0",                ([],  Marimba))
+>     , ("Oboe",                    ([],  Oboe))
+>     , ("Piano 1",                 ([],  AcousticGrandPiano))
+>     , ("Piccolo 2",               ([],  Piccolo))
+>     , ("Sax 10",                  ([],  AltoSax))
+>     , ("Sax 20",                  ([],  TenorSax))
+>     , ("sitar",                   ([],  Sitar))
+>     , ("Slap Bass10",             ([],  SlapBass1))
+>     , ("Slap Bass2",              ([],  SlapBass2))
+>     , ("SoftStringAsp",           ([],  StringEnsemble1))
+>     , ("Steel Gtr 3",             ([],  AcousticGuitarSteel))
+>     , ("Syn Bass 1",              ([],  SynthBass1))
+>     , ("Syn Bass 2",              ([],  SynthBass2))
+>     , ("Synth Strings 2",         ([],  SynthStrings1))
+>     , ("Synth Strings 3",         ([],  SynthStrings2))
+>     , ("Trumpet 2",               ([],  Trumpet))
+>     , ("Vibraphone 2",            ([],  Vibraphone))
+>     , ("Violin 11",               ([],  Violin))
+>   ]
+> hiDefPerc =
+>   [
+>       ("*POP Drums",               [  ("Maracas",              ([], Maracas)) 
+>                                     , ("Ride Cymbal 1",        ([], RideCymbal1))
+>                                     , ("Ride Cymbal 2",        ([], RideCymbal2))])
+>
+>     , ("Don's XG Std Kit",         [  ("Cuica Mute",           ([], MuteCuica))
+>                                     , ("Cuica Open",           ([], OpenCuica))])
+>
+>     , ("Drum_Kit_K&S_Room",        [  ("Drum_Snare4",          ([], AcousticSnare))])
+>
+>     , ("drm: Rock Toms",           [  ("drm-rocktom1m",        ([], HighTom))
+>                                     , ("drm-rocktom2m",        ([], HiMidTom))
+>                                     , ("drm-rocktom3m",        ([], LowTom))])
+>
+>     , ("GS Bass Drum 2",           [  ("analog kickl",         ([], BassDrum1))])
+>
+>     , ("SGM rhythm(cym1)",         [  ("Tambourine",           ([], Tambourine))])
+>
+>     , ("XG Percussion E",          [  ("Crash Cymbal 1",       ([], CrashCymbal1))
+>                                     , ("Crash Cymbal 2",       ([], CrashCymbal2))
+>                                     , ("Hi-Hat Closed(L)",     ([], ClosedHiHat))
+>                                     , ("Hi-Hat Half-Open(L)",  ([], OpenHiHat))
+>                                     , ("Splash Cymbal",        ([], SplashCymbal))
+>                                     , ("Vibra Slap",           ([], Vibraslap))
+>                                     , ("High Agogo(L)",        ([], HighAgogo))])
+>   ]
+>
+> dSoundFontV4Inst =
+>   [
+>       ("+++Gtr Harmonics",        ([],  GuitarHarmonics))
+>     , ("60's Organ 1",            ([],  RockOrgan))
+>     , ("Accordion1",              ([],  Accordion))
+>     , ("Agogo",                   ([],  Agogo))
+>     , ("Applause0",               ([],  Applause))
+>     , ("Banjo",                   ([],  Banjo))
+>     , ("Baritone BV",             ([],  BaritoneSax))
+>     , ("Bird",                    ([],  BirdTweet))
+>     , ("Bottle Blow",             ([],  BlownBottle))
+>     , ("Brass",                   ([],  BrassSection))
+>     , ("Breath Noise0",           ([],  BreathNoise))
+>     , ("Campana",                 ([],  TubularBells))
+>     , ("Celesta",                 ([],  Celesta))
+>     , ("Church Organ",            ([],  ChurchOrgan))
+>     , ("Clarinet",                ([],  Clarinet))
+>     , ("Classical Guitar 1",      ([],  AcousticGuitarSteel))
+>     , ("Clavinet1",               ([],  Clavinet))
+>     , ("Dulcimer-Hammered",       ([],  Dulcimer))
+>     , ("Eddie's English Horn",    ([],  EnglishHorn))
+>     , ("Finger Bass",             ([],  ElectricBassFingered))
+>     , ("French Horns",            ([],  FrenchHorn))
+>     , ("Funk Gt.",                ([],  AcousticGuitarNylon))
+>     , ("German 8 Harpsichord",    ([],  Harpsichord))
+>     , ("Glockenspiel 1",          ([],  Glockenspiel))
+>     , ("Grand Piano",             ([],  AcousticGrandPiano))
+>     , ("Guitar Fret Noise",       ([],  GuitarFretNoise))
+>     , ("Gunshot",                 ([],  Gunshot))
+>     , ("Helicopter",              ([],  Helicopter))
+>     , ("hrp:Harp",                ([],  OrchestralHarp))
+>     , ("Iowa Alto Sax",           ([],  AltoSax))
+>     , ("iowa bassoon",            ([],  Bassoon))
+>     , ("Iowa Cello-mf",           ([],  Cello))
+>     , ("Iowa Marimba",            ([],  Marimba))
+>     , ("Iowa Oboe",               ([],  Oboe))
+>     , ("IowaTrumpet",             ([],  Trumpet))
+>     , ("Iowa Viola-mf",           ([],  Viola))
+>     , ("AAViolin P",              ([],  Violin))
+>     , ("Iowa Woodblock",          ([],  Woodblock))
+>     , ("Iowa Xylophone",          ([],  Xylophone))
+>     , ("Kalimba",                 ([],  Kalimba))
+>     , ("Koto",                    ([],  Koto))
+>     , ("Layered Aahs",            ([],  ChoirAahs))
+>     , ("Music Box",               ([],  MusicBox))
+>     , ("Ocarina",                 ([],  Ocarina))
+>     , ("Ottos Fretless",          ([],  FretlessBass))
+>     , ("Pan Flute",               ([],  PanFlute))
+>     , ("Piccolo",                 ([],  Piccolo))
+>     , ("Picked Bass",             ([],  ElectricBassPicked))
+>     , ("Pizzicato",               ([],  PizzicatoStrings))
+>     , ("Recorder",                ([],  Recorder))
+>     , ("Reed Organ",              ([],  ReedOrgan))
+>     , ("Rhodes",                  ([],  RhodesPiano))
+>     , ("Seashore",                ([],  Seashore))
+>     , ("Shakuhachi",              ([],  Shakuhachi))
+>     , ("Shamisen",                ([],  Shamisen))
+>     , ("Shenai",                  ([],  Shanai))
+>     , ("Sitar",                   ([],  Sitar))
+>     , ("soprano sax",             ([],  SopranoSax))
+>     , ("Spatial Grand Piano",     ([],  ElectricGrandPiano))
+>     , ("Steel Drum",              ([],  SteelDrums))
+>     , ("Strat Marshall",          ([],  DistortionGuitar))
+>     , ("Stream",                  ([],  Pad2Warm))
+>     , ("Synth Bass 3",            ([],  SynthBass2))
+>     , ("Synth Drum",              ([],  SynthDrum))
+>     , ("Synth Brass 1",           ([],  SynthBrass1))
+>     , ("Synth Brass 2",           ([],  SynthBrass2))
+>     , ("Synth Strings 1",         ([],  SynthStrings1))
+>     , ("Synth Strings 2",         ([],  SynthStrings2))
+>     , ("Taiko Drum",              ([],  TaikoDrum))
+>     , ("TELEPHONE",               ([],  TelephoneRing))
+>     , ("Tenor Both Xfade",        ([],  TenorSax))
+>     , ("Timpani All",             ([],  Timpani))
+>     , ("Trombone1",               ([],  Trombone))
+>     , ("Tuba",                    ([],  Tuba))
+>     , ("Ukelele",                 ([],  Pad3Polysynth))
+>     , ("vibraphone",              ([],  Vibraphone))
+>     , ("Whistle",                 ([],  Whistle))
+>   ]
+> dSoundFontV4Perc =
+>   [
+>       ("Drumkit Basic 1",          [  ("Iowa Splash CymbalL",  ([], SplashCymbal))
+>                                     , ("Iowa High WoodblockL", ([], HiWoodBlock))
+>                                     , ("Iowa Low WoodblockL",  ([], LowWoodBlock))])
+>
+>     , ("Orchestral Kit",           [  ("OSDK fhh2L",           ([], ClosedHiHat))
+>                                     , ("OSDK hohh1L",          ([], OpenHiHat))])
+>
+>     , ("OSDK crash1",              [  ("OSDK crash11L",        ([], CrashCymbal1))])
+>
+>     , ("OSDK kickdrum",            [  ("OSDK kick1L",          ([], BassDrum1))])
+>
+>     , ("OSDK Reverse Cymbal",      [  ("OSDK ride-rev11L",     ([], RideCymbal1))])
+>
+>     , ("OSDK snaredrum1",          [  ("OSDK snare-bottom1L",  ([], AcousticSnare))])
+>
+>     , ("OSDK Tom",                 [  ("OSDK large-tom1L",     ([], LowTom))])
+>     , ("OSDK tom6-room",           [  ("OSDK small-tom1-1L",   ([], HighTom))])
+>   ]
+>
+> essentialsInst =
+>   [
+>       ("Alto Sax XSwitch",        ([],  AltoSax))
+>     , ("B3-1 Slow Rotor",         ([],  ReedOrgan))
+>     , ("Bassoon",                 ([],  Bassoon))
+>     , ("Cello",                   ([],  Cello))
+>     , ("ChGrand01v1",             ([],  AcousticGrandPiano))
+>     , ("Clarinet",                ([],  Clarinet))
+>     , ("Clean Guitar",            ([],  ElectricGuitarClean))
+>     , ("DX7 Rhodes",              ([],  RhodesPiano))
+>     , ("F",                       ([],  Violin))
+>     , ("Flute",                   ([],  Flute))
+>     , ("Group 162",               ([],  Viola))
+>     , ("Jazz Guitar",             ([],  ElectricGuitarJazz))
+>     , ("MagiCs 5Strg Banjo",      ([],  Banjo))
+>     , ("Nylon Guitar 1",          ([],  AcousticGuitarNylon))
+>     , ("Oboe",                    ([],  Oboe))
+>     , ("Palm Muted Guitar",       ([],  ElectricGuitarMuted))
+>     , ("Piccolo",                 ([],  Piccolo))
+>     , ("Pipe Organ",              ([],  ChurchOrgan))
+>     , ("Spanish",                 ([],  AcousticGuitarSteel))
+>     , ("String Ensembles",        ([],  StringEnsemble1))
+>     , ("Strings Pan",             ([],  StringEnsemble2))
+>     , ("Tenor Both Xfade",        ([],  TenorSax))
+>     , ("Timpani 1 JN",            ([],  Timpani))
+>     , ("Trombone",                ([],  Trombone))
+>     , ("Trumpet",                 ([],  Trumpet))
+>     , ("Tuba",                    ([],  Tuba))
+>     , ("Upright-Piano-1",         ([],  BrightAcousticPiano))
+>     -- , ("Violin3",            Violin)
+>   ]
+> essentialsPerc =
+>   []
+>
+> evaluateFiles          :: [InstrumentName]
+> evaluateFiles =
+>    let coveredFile = concatMap doFile soundFontDatabase
+>    in coveredFile
+>    where
+>      subtract _ = []
+>      doFile            :: (String, ([Hints], ([(String, ([Hints], InstrumentName))]
+>                                                  , [(String, [(String, ([Hints], PercussionSound))])]))) → [InstrumentName]
+>      doFile file =
+>        let
+>          list1          :: ([Hints], ([(String, ([Hints], InstrumentName))], [(String, [(String, ([Hints], PercussionSound))])]))
+>          list1 = snd file
+>          list2          :: ([(String, ([Hints], InstrumentName))], [(String, [(String, ([Hints], PercussionSound))])])
+>          list2 = snd list1
+>          list3          :: [(String, ([Hints], InstrumentName))]
+>          list3 = fst list2
+>
+>          coveredInst   :: [InstrumentName]
+>          coveredInst = map (snd.snd) list3         
+>        in coveredInst
+>
+> type WHCMap1 = Map.Map InstrumentName Int
+>
+> roundtuit :: IO ()
+> roundtuit =
+>   let
+>     bar = evaluateFiles
+>
+>     dumb :: [InstrumentName] → WHCMap1 → WHCMap1
+>     dumb [] whcdi = Map.empty
+>     dumb (x:xs) whcdi = Map.union (Map.insert x 1 whcdi) (dumb xs whcdi)
+>     
+>     st :: Int = fromEnum AcousticGrandPiano
+>     en :: Int = fromEnum Gunshot
+>
+>     alli = [st .. en]
+>     allj = map (\x → (toEnum x,1)) alli
+>     all = Map.fromList allj
+>     -- all = dumb [(fromEnum AcousticGrandPiano) .. ()]
+>     some = dumb bar Map.empty
+>
+>     leftover = Map.difference all some
+>
+>   in do
+>     print "all"
+>     print all
+>
+>     print "some"
+>     print some
+>
+>     print "leftover"
+>     print $ show leftover
+>
+> gUnit :: Music Pitch
+> gUnit = addDur qn [f 4, a 4, b 4, a 4, f 4, a 4, b 4, a 4
+>                  , e 4, a 4, b 4, a 4, e 4, a 4, b 4, a 4]
+>
+> gUnitAtVolume          :: Volume → Music (Pitch, Volume)
+> gUnitAtVolume vol = addVolume vol gUnit
+>
+> nylon :: Music (Pitch, Volume)
+> nylon =
+>   removeZeros
+>   $ tempo 1
+>   $ transpose 0
+>   $ keysig A Major
+>   $ instrument Glockenspiel
+>     (line [gUnitAtVolume  40, rest hn, gUnitAtVolume  60, rest hn, gUnitAtVolume 80, rest hn
+>          , gUnitAtVolume 100, rest hn, gUnitAtVolume 120])
