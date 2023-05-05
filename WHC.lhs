@@ -18,7 +18,8 @@ Chart ==========================================================================
 > import Graphics.Rendering.Chart.Backend
 > import Graphics.Rendering.Chart.Backend.Diagrams
 > import HSoM
-> import KnightsTour
+> -- import -- KnightsTour
+> import Parthenopea
 > import System.Environment(getArgs)
 >
 > --------- vals = [ (x,sin (exp x),sin x/2,cos x/10) | x ← [1..20]]
@@ -32,7 +33,7 @@ Chart ==========================================================================
 >           $ plot_points_title .~ "test data"
 >           $ def
 >
-> layout = layout_title .~ "Knight's Tour"
+> layout = layout_title .~ "SFEnvelope"
 >           $ layout_plots .~ [toPlot cars, toPlot noints]
 >           $ def
 >
@@ -41,8 +42,9 @@ Chart ==========================================================================
 >
 > zmain :: IO ()
 > zmain = do
+>   print $ map (\x → show x ++ " ") vals'
 >   renderableToFile def "r00tour.svg" chart
->   putStrLn ("numDots=" ++ show (length vals))
+>   putStrLn ("numDots=" ++ show (length vals'))
 >   return ()
 >
 > fun :: Int -> Int -> [Double]

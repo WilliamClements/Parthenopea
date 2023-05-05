@@ -23,7 +23,7 @@ To force inclusion of everything I might want to reference in ghci
 > wrapStuff :: Int → Rational
 > wrapStuff n =
 >   let toss, rN :: Rational
->       toss = dur theFanfare
+>       toss = dur (theFanfare 1)
 >       rN = fromIntegral n
 >   in toss - rN
 
@@ -45,7 +45,7 @@ Play Jingles ===================================================================
 >  , cjingles, djingles :: [(String, Music (Pitch, [NoteAttribute]))]
 >
 > ajingles =
->    [("theFanfare"      , aggrandize theFanfare)
+>    [("theFanfare"      , aggrandize (theFanfare 4))
 >    , ("slot"           , aggrandize (slot 4))
 >    , ("alice"          , aggrandize alice)
 >    , ("bob"            , aggrandize (bob 4))

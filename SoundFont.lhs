@@ -37,12 +37,12 @@ SoundFont support ==============================================================
   
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
-> useEnvelopes = False
+> useEnvelopes = True
 > useLowPassFilter = False
 > usePitchCorrection = True
 > -- useFileIndex = 0 -- hidef
-> -- useFileIndex = 1 -- dsound
-> useFileIndex = 2 -- essentials
+> useFileIndex = 1 -- dsound
+> -- useFileIndex = 2 -- essentials
 >
 > data SFFile =
 >   SFFile {
@@ -171,14 +171,13 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF theFanfare imap
+>       let (d,s) = renderSF whelpNarp imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
 >   where
 >     msg = unwords ["doPlayInstruments ", show $ length imap
 >                             , " insts=", concatMap (show . fst) imap]
->
   
 extract data from SoundFont per instrument ================================================
 

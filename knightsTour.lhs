@@ -8,7 +8,6 @@
 > import Data.Array
 > import Data.List ( minimumBy )
 > import Parthenopea ( traceIf, traceNever, diagnosticsEnabled )
-> import Foreign (moveBytes)
 >   
 > visited :: Array Int Bool → (Int, Int) → Bool
 > visited bd move = bd ! calcIndex move

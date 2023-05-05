@@ -101,6 +101,7 @@ organize instruments from multiple SoundFont files =============================
 >   [
 >       ("+++Gtr Harmonics",        ([],  GuitarHarmonics))
 >     , ("60's Organ 1",            ([],  RockOrgan))
+>     , ("AAViolin P",              ([],  Violin))
 >     , ("Accordion1",              ([],  Accordion))
 >     , ("Agogo",                   ([],  Agogo))
 >     , ("Applause0",               ([],  Applause))
@@ -135,7 +136,6 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Iowa Oboe",               ([],  Oboe))
 >     , ("IowaTrumpet",             ([],  Trumpet))
 >     , ("Iowa Viola-mf",           ([],  Viola))
->     , ("AAViolin P",              ([],  Violin))
 >     , ("Iowa Woodblock",          ([],  Woodblock))
 >     , ("Iowa Xylophone",          ([],  Xylophone))
 >     , ("Kalimba",                 ([],  Kalimba))
@@ -161,6 +161,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Steel Drum",              ([],  SteelDrums))
 >     , ("Strat Marshall",          ([],  DistortionGuitar))
 >     , ("Stream",                  ([],  Pad2Warm))
+>     , ("Synth Bass 3 Rubber",     ([],  SynthBass1))
 >     , ("Synth Bass 3",            ([],  SynthBass2))
 >     , ("Synth Drum",              ([],  SynthDrum))
 >     , ("Synth Brass 1",           ([],  SynthBrass1))
@@ -187,6 +188,8 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("OSDK hohh1L",          ([], OpenHiHat))])
 >
 >     , ("OSDK crash1",              [  ("OSDK crash11L",        ([], CrashCymbal1))])
+>
+>     , ("OSDK crash2",              [  ("OSDK crash1L",         ([], CrashCymbal2))])
 >
 >     , ("OSDK kickdrum",            [  ("OSDK kick1L",          ([], BassDrum1))])
 >

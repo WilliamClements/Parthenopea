@@ -584,11 +584,13 @@ Implements the SoundFont model with:
   4. decay time                      1 → sus
   5. sustain attenuation level        ---
   6. release time                  sus → 0
-         ___
-        /   \_
-       /      \_
-      /         \
-  ___/           \___
+          ______
+         /      \
+        /        \_____   5
+       /               \
+      /                 \
+  ___/                   \
+   1    2    3  4      6
 
 Creates an envelope generator with straight-line (delayed) attack, hold, decay, release.  
 
@@ -603,9 +605,24 @@ Creates an envelope generator with straight-line (delayed) attack, hold, decay, 
 >                            → Signal p () Double
 > envDAHdSR secs del att hold dec sus release = 
 >   let
->     slop = secs - (del + att + hold + dec + release)
+>     sustime = secs - (del + att + hold + dec + release)
 >     sus' = 0.5  -- easier for now
->     sf = envLineSeg [0,0,1,1,sus',0] [del, att, hold, dec, release]
+>     sf = envLineSeg [0,0,1,1,sus',sus',0] [del, att, hold, dec, sustime, release]
 >   in proc () → do
 >     env ← sf ⤙ ()
 >     outA ⤙ env
+>
+> vdel     = 1.0
+> vatt     = vdel + 2.0
+> vhold    = vatt + 3.0
+> vdec     = vhold + 1.0
+> vsus     = 5.00000
+> vrel     = vdec + 2.00000
+>
+> vals'                  :: [(Double, Double, Double, Double)]
+> vals' = [ (0     , 0      , 0.3   , 0.3)
+>         , (vdel  , 0      , 0.3   , 0.25)
+>         , (vatt  , 7      , 0.5   , 0.5)
+>         , (vhold , 7      , 0.4   , 0.75)
+>         , (vdec  , 7-vsus , 0.3   , 0.10)
+>         , (vrel  , 0      , 0     , 0)]

@@ -36,12 +36,12 @@ November 11, 2022
 
 Fanfare ===================================================================================
 
-> theFanfare = removeZeros
+> theFanfare n = removeZeros
 >              $ tempo (5/2)
 >              $ transpose 5
 >              $ keysig C Mixolydian
 >              $ addVolume 100
->              $ times 2
+>              $ times n
 >              $ instrument Trumpet trebleAll :=: instrument Cello bassAll
 >    where
 >
@@ -915,3 +915,19 @@ Rattan =========================================================================
 > f4altosax = line [f 4 wn, f 4 wn, f 4 wn, f 4 wn]
 > f3altosax = line [f 3 wn, f 3 wn, f 3 wn, f 3 wn]
 > f5altosax = line [f 5 wn, f 5 wn, f 5 wn, f 5 wn]
+
+Kit =======================================================================================
+
+> kit                    :: Music (Pitch,Volume)
+> kit =
+>   removeZeros
+>   $ tempo 1
+>   $ transpose 0
+>   $ chord [npart, tpart]
+>
+> p1 = perc LowTom
+> p2 = perc AcousticSnare
+> p3 = perc CrashCymbal2
+>
+> npart = addVolume 64 (line [p1 qn, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 qn])
+> tpart = rest 0
