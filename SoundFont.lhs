@@ -43,8 +43,8 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > useSampleLoop      = True
 > useLowPassFilter   = False
 > usePitchCorrection = True
-> useFileIndex = 0 -- hidef
-> -- useFileIndex = 1 -- dsound
+> -- useFileIndex = 0 -- hidef
+> useFileIndex = 1 -- dsound
 > -- useFileIndex = 2 -- essentials
 >
 > data SFFile =
@@ -279,22 +279,21 @@ extract data from SoundFont per instrument =====================================
   
 prepare the specified instruments and percussion ==========================================
 
-> getSFInstrument        :: SoundFontArrays
+> getSFInstrument        :: SFFile
 >                           → [SFInstrument]
 >                           → Word
 >                           → SFInstrument
-> getSFInstrument arrays sfis w = fromJust $ find (\i → w == zWordI i) sfis
+> getSFInstrument sffile sfis w = fromJust $ find (\i → w == zWordI i) sfis
 >
 > assignInstruments      :: SFFile
 >                           → [SFInstrument]
 >                           → [(String, ([Hints], InstrumentName))]
 >                           → IO [(InstrumentName, Instr (Mono AudRate))]
 > assignInstruments sffile sfis ipal = do
->   let arrays = zArrays sffile 
->   let is = ssInsts arrays
+>   let is = ssInsts $ zArrays sffile
 >   let selectedI = map (shouldAssignI is ipal) sfis
 >   let filteredI = filter isJust selectedI
->   let readyI = map (doAssignI arrays sfis) filteredI
+>   let readyI = map (doAssignI sffile sfis) filteredI
 >
 >   putStrLn ("SFFile "                          ++ zFilename sffile
 >          ++ ": loaded "                        ++ show (length readyI)
@@ -387,14 +386,14 @@ prepare the specified instruments and percussion ===============================
 >              Just matched → [(snd matched, (wI, wZ))]
 >     msg = unwords ["plist=", show plist, "zname=", show zname, " mFound=", show mFound]
 >
-> doAssignI              :: SoundFontArrays
+> doAssignI              :: SFFile
 >                           → [SFInstrument]
 >                           → Maybe (InstrumentName, Word)
 >                           → (InstrumentName, Instr (Mono AudRate))
-> doAssignI arrays sfis mis = (iname, assignInstrument arrays sfinst Nothing)
+> doAssignI sffile sfis mis = (iname, assignInstrument sffile sfinst Nothing)
 >   where 
 >     (iname, w) = fromJust mis
->     sfinst = getSFInstrument arrays sfis w
+>     sfinst = getSFInstrument sffile sfis w
 >
 > doAssignP              :: SFFile
 >                           → [(PercussionSound, (Word, Word))]
@@ -472,11 +471,12 @@ define signal functions for playing instruments ================================
 >       where
 >         msg = unwords ["Envelope=", show renv]
 >
-> assignInstrument       :: SoundFontArrays → SFInstrument → Maybe (Word, Word) → Instr (Mono AudRate)
-> assignInstrument arrays sfinst mww dur pch vol params =
+> assignInstrument       :: SFFile → SFInstrument → Maybe (Word, Word) → Instr (Mono AudRate)
+> assignInstrument sffile sfinst mww dur pch vol params =
 >   let
+>     arrays = zArrays sffile 
 >     (zone, shdr)       :: (SFZone
->                          , F.Shdr)         = setZone arrays sfinst mww pch vol
+>                          , F.Shdr)         = setZone sffile sfinst mww pch vol
 >     rData              :: Reconciled       = reconcile zone shdr
 >     sr                 :: Double           = fromIntegral $ F.sampleRate shdr
 >     ns                 :: Double           = fromIntegral $ rEnd rData - rStart rData + 1
@@ -518,9 +518,9 @@ define signal functions for playing instruments ================================
 >                Just x → x
 >     
 >     arrays = zArrays sffile
->     sfinst = getSFInstrument arrays sfis wI
+>     sfinst = getSFInstrument sffile sfis wI
 >
->     (zone, shdr) = setZone  arrays sfinst (Just (wI, wZ)) pch vol
+>     (zone, shdr) = setZone sffile sfinst (Just (wI, wZ)) pch vol
 >
 >     rData              :: Reconciled       = reconcile zone shdr
 >     sr                 :: Double           = fromIntegral $ F.sampleRate shdr
@@ -567,14 +567,15 @@ zone selection =================================================================
 >     Just i → i
 >     Nothing → error "Instrument in supplied InstrMap does not have specified zone."
 >
-> setZone                :: SoundFontArrays
+> setZone                :: SFFile
 >                           → SFInstrument
 >                           → Maybe (Word, Word)
 >                           → AbsPitch
 >                           → Volume
 >                           → (SFZone, F.Shdr)
-> setZone arrays sfinst mww pch vol =
+> setZone sffile sfinst mww pch vol =
 >   let
+>     arrays = zArrays sffile 
 >     zone = case mww of
 >            Nothing       → selectBestZone     arrays sfinst          pch vol
 >            Just (wI, wZ) → selectBestPercZone arrays sfinst (wI, wZ) pch vol
