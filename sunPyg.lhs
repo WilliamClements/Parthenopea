@@ -37,7 +37,7 @@ SunPyg =========================================================================
 >
 > vocalLine = line [rest 190, v190, v192, v194, v196, v198, v200, v202, v204, v206]
 >
-> bassLine = line [rest wn, times 37 (line [c 2 wn, d 2 wn])
+> bassLine = line [rest wn, times 38 (line [c 2 wn, d 2 wn])
 >                         , times  8 (line [a 1 wn, d 2 wn])
 >                         , times 58 (line [c 2 wn, d 2 wn])]
 >
@@ -59,7 +59,7 @@ SunPyg =========================================================================
 >   transpose (-3)
 >   $ addVolume 80
 >   $ keysig C Lydian
->   $ instrument SynthBass1 bassLine
+>   $ instrument Cello bassLine
 >
 > m000 = line [rest dhn, tempo (5/4) (line [percHTsn, percHTen, percLTsn, percLTsn])]
 > m001 = line [percBDen, percOHHen, percCHHen, chord [percCHHen, percBDen]
@@ -1599,3 +1599,16 @@ SunPyg =========================================================================
 > g205 = line [fs 5 en, g 5 sn, a 5 sn, e 5 hn, d 5 en, e 5 en]
 > g206 = line [grace (-1) (c 5 dqn), a 4 en, a 4 (hn + dhn), c 5 qn]
 > g207 = line []
+>
+> shortPig = 
+>   removeZeros
+>   $ tempo 1
+>   $ addVolume 55 m001''
+>
+> m001' = line [percBDen, percOHHen, percOHHen, chord [percOHHen, percBDen]
+>             , chord [percOHHen, percLTen], percOHHen, percOHHen
+>             , chord [percOHHen, percBDen]]
+>
+> m001'' = line [percBDqn, percCHHqn, percCHHqn, chord [percCHHqn, percBDqn]
+>             , chord [percCHHqn, percLTqn], percCHHqn, percCHHqn
+>             , chord [percCHHqn, percBDqn]]

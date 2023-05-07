@@ -31,14 +31,17 @@ SoundFont support ==============================================================
 > import Euterpea.Music
 > import Fanfare
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
-> import Parthenopea ( traceIf, traceAlways, envDAHdSR )
+> import FRP.UISF.UISF
+> import Parthenopea ( traceIf, traceAlways, envDAHdSR, pow )
+> import Signals
 > import SunPyg
 > import System.Environment(getArgs)  
   
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
-> useEnvelopes = True
-> useLowPassFilter = False
+> useEnvelopes       = True
+> useSampleLoop      = True
+> useLowPassFilter   = False
 > usePitchCorrection = True
 > -- useFileIndex = 0 -- hidef
 > useFileIndex = 1 -- dsound
@@ -120,12 +123,12 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >
 > data Envelope =
 >   Envelope {
->     eDelay             :: Double
->   , eAttack            :: Double
->   , eHold              :: Double
->   , eDecay             :: Double
->   , eSustain           :: Double
->   , eRelease           :: Double} deriving Show
+>     eDelayT            :: Double
+>   , eAttackT           :: Double
+>   , eHoldT             :: Double
+>   , eDecayT            :: Double
+>   , eSustainLevel      :: Double
+>   , eReleaseT          :: Double} deriving Show
 >
   
 slurp in instruments from one SoundFont (*.sf2) file ======================================
@@ -171,7 +174,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF whelpNarp imap
+>       let (d,s) = renderSF shortPig imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
@@ -420,15 +423,16 @@ define signal functions for playing instruments ================================
 > eutRelay               :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → (Word, Word)
+>                           → Double
 >                           → Envelope
 >                           → Volume
 >                           → Dur
 >                           → AudSF Double Double
-> eutRelay s16 ms8 (st, en) renv vol dur =
+> eutRelay s16 ms8 (st, en) stime renv vol dur =
 >   let
 >     numS               :: Double = fromIntegral (en - st + 1)
 >     amp                :: Double = fromIntegral vol / 100
->     secs               :: Double = 2 * fromRational dur
+>     dtime              :: Double = 2 * fromRational dur
 >
 >   in proc pos → do
 >     let sampleAddress  :: Int = fromIntegral st + truncate (numS * pos)
@@ -437,8 +441,8 @@ define signal functions for playing instruments ================================
 >              else fromIntegral (s16 ! sampleAddress)
 >     rec
 >       aenv ← if useEnvelopes
->              then doEnvelope renv secs ⤙ ()
->              else constA 1             ⤙ ()
+>              then doEnvelope renv stime ⤙ ()
+>              else constA 1              ⤙ ()
 >       a2 ←   if useLowPassFilter
 >              then filterLowPass        ⤙ (a1,20000*aenv)
 >              else delay 0 ⤙ a1
@@ -457,14 +461,14 @@ define signal functions for playing instruments ================================
 >      
 >     doEnvelope         :: Envelope → Double → AudSF () Double
 >     doEnvelope renv secs
->       | traceIf msg False = undefined
+>       | traceAlways msg False = undefined
 >       | otherwise = envDAHdSR secs
->                               (eDelay renv)
->                               (eAttack renv)
->                               (eHold renv)
->                               (eDecay renv)
->                               (eSustain renv)
->                               (eRelease renv)
+>                               (eDelayT       renv)
+>                               (eAttackT      renv)
+>                               (eHoldT        renv)
+>                               (eDecayT       renv)
+>                               (eSustainLevel renv)
+>                               (eReleaseT     renv)
 >       where
 >         msg = unwords ["Envelope=", show renv]
 >
@@ -480,7 +484,7 @@ define signal functions for playing instruments ================================
 >     ap                 :: AbsPitch
 >
 >     -- if duration is too long, use the looped range
->     (st, en) = if secs < 2 * fromRational dur
+>     (st, en) = if useSampleLoop && secs < 2 * fromRational dur
 >                then (rLoopStart rData, rLoopEnd rData)
 >                else (rStart rData,     rEnd rData)
 >
@@ -497,7 +501,7 @@ define signal functions for playing instruments ================================
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
 >     rateRatio          :: Double              = 44100 / sr
 >     sig                :: AudSF () Double     = eutPhaser secs' sr 0 freqFactor
->                                             >>> eutRelay (ssData arrays) (ssM24 arrays) (st, en) (rEnvelope rData) vol dur
+>                                             >>> eutRelay (ssData arrays) (ssM24 arrays) (st, en) secs' (rEnvelope rData) vol dur
 >   in proc _ → do
 >     z ← sig ⤙ ()
 >     outA ⤙ z
@@ -525,24 +529,28 @@ define signal functions for playing instruments ================================
 >     ap                 :: AbsPitch
 >
 >     -- if duration is too long, use the looped range
->     (st, en) = if secs < 2 * fromRational dur
+>     (st, en) = if useSampleLoop && secs < 2 * fromRational dur
 >                then (rLoopStart rData, rLoopEnd rData)
 >                else (rStart rData,     rEnd rData)
+>     ns'                :: Double              = fromIntegral (en - st + 1)
+>     secs'              :: Double              = ns' / sr
 >
->     ok = checkReconcile shdr zone rData secs (st, en)
+>     ok = checkSampling  ns secs ns' secs'
 >     ap = if not ok
 >          then error "SFZone and F.Shdr could not be reconciled"
 >          else fromIntegral (rRootKey rData)
 >
->     ns'                :: Double              = fromIntegral (en - st + 1)
->     secs'              :: Double              = ns' / sr
+>     ok' = checkReconcile shdr zone rData secs (st, en)
+>     rateRatio = if not ok'
+>          then error "ns and secs could not be calculated"
+>          else 44100 / sr
+>
 >     freqFactor         :: Double              = if usePitchCorrection
 >                                                 then freqRatio * rateRatio / rPitchCorrection rData
 >                                                 else freqRatio * rateRatio
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
->     rateRatio          :: Double              = 44100 / sr
 >     sig                :: AudSF () Double     = eutPhaser secs' sr 0 freqFactor
->                                             >>> eutRelay (ssData arrays) (ssM24 arrays) (st, en) (rEnvelope rData) vol dur
+>                                             >>> eutRelay (ssData arrays) (ssM24 arrays) (st, en) secs' (rEnvelope rData) vol dur
 >   in proc _ → do
 >     z ← sig ⤙ ()
 >     outA ⤙ z
@@ -688,14 +696,31 @@ reconcile zone and sample header ===============================================
 >       iSustain = fromMaybe        0 mSustain
 >       iRelease = fromMaybe (-12000) mRelease
 >     in 
->       Envelope (conv iDelay) (conv iAttack)          (conv iHold)
->                (conv iDecay) (fromIntegral iSustain) (conv iRelease)
+>       Envelope (conv iDelay) (conv iAttack)           (conv iHold)
+>                (conv iDecay) (acceptSustain iSustain) (conv iRelease)
 >     where
 >       conv             :: Int → Double
 >       conv k = 2**(fromIntegral k/1200)
 >       msg = unwords ["mDelay=",   show mDelay,   "mAttack=",    show mAttack
 >                     ,"mHold=",    show mHold,    "mDecay=",     show mDecay
 >                     ,"mSustain=", show mSustain, "mRelease=",   show mRelease]
+>
+> acceptSustain          :: Int -> Double
+> acceptSustain iS = 1/raw iS
+>   where
+>     raw                :: Int -> Double
+>     raw iS = pow 10 (fromIntegral jS/200)
+>       where jS
+>               | iS <= 0 = 0
+>               | iS >= 1000 = 1000
+>               | otherwise = iS
+>
+> checkSampling         :: Double → Double → Double → Double → Bool
+> checkSampling  ns secs ns' secs'
+>   | traceAlways msg False = undefined
+>   | otherwise = True
+>   where
+>     msg = unwords ["ns=", show ns, " secs=", show secs, " ns'=", show ns', " secs'=", show secs' ]
 >
 > checkReconcile         :: F.Shdr
 >                           → SFZone

@@ -176,10 +176,10 @@
 > lay :: Layout
 > lay = makeLayout xlay ylay
 >
-> histWidget :: Int
->          → Maybe Double
->          → Either (Array Int (Music (Pitch, [NoteAttribute]))) (Array Int Int)
->          → UISF () ()
+> histWidget             :: Int
+>                           → Maybe Double
+>                           → Either (Array Int (Music (Pitch, [NoteAttribute]))) (Array Int Int)
+>                           → UISF () ()
 > histWidget nBins md mori =
 >   setSize (1100, 900) $ pad (4,0,4,0) $ leftRight $ 
 >   proc _ → do

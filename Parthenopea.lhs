@@ -575,9 +575,31 @@ Wave ===========================================================================
 >   rate _ = 4.41
 > type SlwSF a b  = SigFun SlwRate a b
 
+Helper Functions
+----------------
+
+> wrap :: (Ord n, Num n) => n -> n -> n
+> wrap val bound = if val > bound then wrap val (val-bound) else val
+
+> clip :: Ord n => n -> n -> n -> n
+> clip val lower upper 
+>     | val <= lower = lower
+>     | val >= upper = upper
+>     | otherwise    = val
+
+Raises 'a' to the power 'b' using logarithms.
+
+> pow :: Floating a => a -> a -> a
+> pow a b = exp (log a * b)
+
+Returns the fractional part of 'x'.
+
+> frac :: RealFrac r => r -> r
+> frac = snd . properFraction
+
 SoundFont =================================================================================
 
-Implements the SoundFont model with:
+Implements the SoundFont envelope model with:
   1. delay time                      0 → 0
   2. attack time                     0 → 1
   3. hold time                       1 → 1
@@ -603,14 +625,18 @@ Creates an envelope generator with straight-line (delayed) attack, hold, decay, 
 >                            → Double
 >                            → Double
 >                            → Signal p () Double
-> envDAHdSR secs del att hold dec sus release = 
+> envDAHdSR secs del att hold dec sus release
+>   | traceAlways msg False = undefined
+>   | otherwise =
 >   let
->     sustime = secs - (del + att + hold + dec + release)
->     sus' = 0.5  -- easier for now
->     sf = envLineSeg [0,0,1,1,sus',sus',0] [del, att, hold, dec, sustime, release]
+>     sf = envLineSeg [0,0,1,1,sus,sus,0] [del, att, hold, dec, max 0 sustime, release]
 >   in proc () → do
 >     env ← sf ⤙ ()
 >     outA ⤙ env
+>   where
+>     sustime = secs - (del + att + hold + dec + release)
+>     msg = unwords [show sus, "=sus/ ", show secs, show (del + att + hold + dec + sustime + release), "=secs,total/", 
+>                    "dahdr=", show del, show att, show hold, show dec, show release]
 >
 > vdel     = 1.0
 > vatt     = vdel + 2.0

@@ -184,14 +184,15 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("Iowa High WoodblockL", ([], HiWoodBlock))
 >                                     , ("Iowa Low WoodblockL",  ([], LowWoodBlock))])
 >
->     , ("Orchestral Kit",           [  ("OSDK fhh2L",           ([], ClosedHiHat))
->                                     , ("OSDK hohh1L",          ([], OpenHiHat))])
+>     , ("OSDK closedhihat",         [  ("OSDK chh19L",          ([], ClosedHiHat))])
 >
 >     , ("OSDK crash1",              [  ("OSDK crash11L",        ([], CrashCymbal1))])
 >
 >     , ("OSDK crash2",              [  ("OSDK crash1L",         ([], CrashCymbal2))])
 >
 >     , ("OSDK kickdrum",            [  ("OSDK kick1L",          ([], BassDrum1))])
+>
+>     , ("OSDK openhihat",           [  ("OSDK hohh1L",          ([], OpenHiHat))])
 >
 >     , ("OSDK Reverse Cymbal",      [  ("OSDK ride-rev11L",     ([], RideCymbal1))])
 >
