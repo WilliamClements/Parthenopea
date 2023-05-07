@@ -14,8 +14,8 @@ SoundFont support ==============================================================
 > import qualified Codec.SoundFont      as F
 > import Control.Arrow
 > import Control.Arrow.ArrowP ( ArrowP(ArrowP), strip )
+> import Control.Monad.Writer
 > import qualified Control.SF.SF        as C
-> import Cecil
 > import Covers
 > import Data.Array.Unboxed ( Array, (!), IArray(bounds) )
 > import qualified Data.Audio           as A
@@ -43,8 +43,8 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 > useSampleLoop      = True
 > useLowPassFilter   = False
 > usePitchCorrection = True
-> -- useFileIndex = 0 -- hidef
-> useFileIndex = 1 -- dsound
+> useFileIndex = 0 -- hidef
+> -- useFileIndex = 1 -- dsound
 > -- useFileIndex = 2 -- essentials
 >
 > data SFFile =
@@ -174,7 +174,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF shortPig imap
+>       let (d,s) = renderSF snake imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
@@ -744,3 +744,28 @@ reconcile zone and sample header ===============================================
 >                             , ([Hints]
 >                                , ([  (String, ([Hints], InstrumentName))]
 >                                ,  [  (String, [(String, ([Hints], PercussionSound))])])))]
+>
+> {-
+> newtype Writer w a = Writer { runWriter :: (a,w) }
+>
+> instance (Monoid w) => Monad (Writer w) where
+>   return a             = Writer (a,mempty)
+>   (Writer (a,w)) >>= f = let (a',w') = runWriter $ f a in Writer (a',w `mappend` w')
+> -}
+> logNumber :: Int -> Writer [String] Int  
+> logNumber x = writer (x, ["Got number: " ++ show x])  -- here
+>
+> logNumber2 :: Int -> Writer [String] Int  
+> logNumber2 x = do
+>   tell ["Got number: " ++ show x]
+>   return x
+>
+> multWithLog :: Writer [String] Int  
+> multWithLog = do  
+>   a <- logNumber2 3  
+>   b <- logNumber2 5
+>   tell ["multiplying " ++ show a ++ " and " ++ show b ]
+>   return (a*b)
+>
+> main :: IO ()
+> main = print $ runWriter multWithLog -- (15,["Got number: 3","Got number: 5","multiplying 3 and 5"])
