@@ -160,12 +160,10 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >         case ssM24 arrays of
 >           Nothing      → print "16-bit datapoints"
 >           Just s24data → print "24-bit datapoints"
->         let ipal = curInst
->         let ppal = curPerc
 >         instruments ← buildInstruments arrays
 >         let sffile' = sffile {zInstruments = instruments}
->         imap ← assignInstruments   sffile' ipal
->         pmap ← assignAllPercussion sffile' ppal
+>         imap ← assignInstruments   sffile' curInst
+>         pmap ← assignAllPercussion sffile' curPerc
 >         let imap' = imap ++ [doAssignP sffile' pmap]
 >         _  ← doPlayInstruments imap'
 >         return ()
@@ -175,7 +173,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF whelpNarp imap
+>       let (d,s) = renderSF basicLick imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
@@ -461,7 +459,7 @@ define signal functions for playing instruments ================================
 >      
 >     doEnvelope         :: Envelope → Double → AudSF () Double
 >     doEnvelope renv secs
->       | traceAlways msg False = undefined
+>       | traceIf msg False = undefined
 >       | otherwise = envDAHdSR secs
 >                               (eDelayT       renv)
 >                               (eAttackT      renv)

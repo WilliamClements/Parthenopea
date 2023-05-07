@@ -626,7 +626,7 @@ Creates an envelope generator with straight-line (delayed) attack, hold, decay, 
 >                            → Double
 >                            → Signal p () Double
 > envDAHdSR secs del att hold dec sus release
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise =
 >   let
 >     sf = envLineSeg [0,0,1,1,sus,sus,0] [del, att, hold, dec, max 0 sustime, release]
