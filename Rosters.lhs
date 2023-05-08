@@ -60,7 +60,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Slap Bass10",             ([],  SlapBass1))
 >     , ("Slap Bass2",              ([],  SlapBass2))
 >     , ("SoftStringAsp",           ([],  StringEnsemble1))
->     , ("Steel Gtr 3",             ([],  AcousticGuitarSteel))
+>     , ("Steel Guitar",            ([],  AcousticGuitarSteel))
 >     , ("Syn Bass 1",              ([],  SynthBass1))
 >     , ("Syn Bass 2",              ([],  SynthBass2))
 >     , ("Synth Strings 2",         ([],  SynthStrings1))

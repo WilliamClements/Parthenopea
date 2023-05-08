@@ -20,7 +20,7 @@ SoundFont support ==============================================================
 > import Data.Array.Unboxed ( Array, (!), IArray(bounds) )
 > import qualified Data.Audio           as A
 > import Data.Int ( Int8, Int16, Int32 )
-> import Data.List ( find, foldr, groupBy, minimumBy, sort, sortBy )
+> import Data.List ( find, foldr, groupBy, minimumBy, sort, sortBy, sortOn )
 > import Data.Maybe (isJust, fromJust, fromMaybe)
 > import Debug.Trace ( traceIO, traceM )
 > import Euterpea.IO.Audio.BasicSigFuns ( envASR, envLineSeg, filterLowPass )
@@ -39,12 +39,12 @@ SoundFont support ==============================================================
   
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
-> useEnvelopes       = True
+> useEnvelopes       = False
 > useSampleLoop      = True
 > useLowPassFilter   = False
 > usePitchCorrection = True
-> -- useFileIndex = 0 -- hidef
-> useFileIndex = 1 -- dsound
+> useFileIndex = 0 -- hidef
+> -- useFileIndex = 1 -- dsound
 > -- useFileIndex = 2 -- essentials
 >
 > data SFFile =
@@ -311,9 +311,9 @@ prepare the specified instruments and percussion ===============================
 >   let arrays = zArrays sffile 
 >   let sfis   = zInstruments sffile
 >   let countSought = sum $ map (length.snd) ppal
->   let withDupes = sortBy sortBySame $ concatMap (shouldAssignP arrays sfis) ppal
+>   let withDupes = sortOn (fst.snd) $ concatMap (shouldAssignP arrays sfis) ppal
 >   let readyP = map head (groupBy areSame withDupes)
->   let groupedByInstrument = groupBy haveSameInst (sortBy sortByInst readyP )
+>   let groupedByInstrument = groupBy haveSameInst (sortOn (fst.snd) readyP )
 >
 >   putStrLn ("SFFile "                          ++ zFilename sffile
 >          ++ ": loaded "                        ++ show (length readyP)
@@ -326,14 +326,8 @@ prepare the specified instruments and percussion ===============================
 >     where
 >       areSame          :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
 >       areSame x y = (fst x == fst y) && (fst.snd) x == (fst.snd) y
->       sortBySame       :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Ordering
->       sortBySame x y 
->         | x == y    = compare ((fst.snd) x) ((fst.snd) y)
->         | otherwise = compare (fst x) (fst y)
 >       haveSameInst     :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
 >       haveSameInst x y = (fst.snd) x == (fst.snd) y
->       sortByInst       :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Ordering
->       sortByInst x y = compare ((fst.snd) x) ((fst.snd) y)
 >
 > shouldAssignI          :: Array Word F.Inst 
 >                           → [(String, ([Hints], InstrumentName))]
@@ -430,7 +424,6 @@ define signal functions for playing instruments ================================
 >   let
 >     numS               :: Double = fromIntegral (en - st + 1)
 >     amp                :: Double = fromIntegral vol / 100
->     dtime              :: Double = 2 * fromRational dur
 >
 >   in proc pos → do
 >     let sampleAddress  :: Int = fromIntegral st + truncate (numS * pos)
@@ -488,7 +481,7 @@ define signal functions for playing instruments ================================
 >                           → AudSF () Double
 > constructSig sffile sfinst mww dur pch vol params =
 >   let
->     arrays = zArrays sffile 
+>     arrays             :: SoundFontArrays  = zArrays sffile 
 >     (zone, shdr)       :: (SFZone
 >                          , F.Shdr)         = setZone sffile sfinst mww pch vol
 >     rData              :: Reconciled       = reconcile zone shdr
@@ -529,8 +522,6 @@ define signal functions for playing instruments ================================
 >                Nothing       → error (   "Percussion does not have "
 >                                          ++ show ps ++ " in the supplied pmap.")
 >                Just x → x
->     arrays = zArrays sffile
->     sfis               :: [SFInstrument]      = zInstruments sffile
 >     sfinst = getSFInstrument sffile wI
 >     sig                :: AudSF () Double     = constructSig sffile sfinst (Just (wI, wZ)) dur pch vol params
 >   in proc _ → do
@@ -748,4 +739,4 @@ reconcile zone and sample header ===============================================
 >   return (a*b)
 >
 > main :: IO ()
-> main = print $ runWriter multWithLog -- (15,["Got number: 3","Got number: 5","multiplying 3 and 5"])
+> main = print $ runWriter multWithLog -- (15,["Got number: 3","Got number: 5","multiplying 3 and 5"])>   return (a*b)
