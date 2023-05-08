@@ -286,11 +286,11 @@ There Goes W.J. ================================================================
 >    $ transpose 0
 >    $ keysig G Dorian
 >    $ addVolume 100
->    $ instrument Violin
+>    $ instrument AltoSax
 >       (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
 >      :=: instrument ChurchOrgan
 >       (line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
->      :=: instrument BaritoneSax
+>      :=: instrument ElectricBassFingered
 >       (line [wjBassI,  wjBassII,  wjBassIII,  wjBassIV])
 >
 >    where
@@ -322,10 +322,10 @@ There Goes W.J. ================================================================
 >
 >    wjBassIII  = line [  c 3 wn, f 4 wn]
 >
->    --                   He       is     om-       ni-      po-    tent
->    wjAltoIV   = line [ g 5 qn, g 5 qn, g 5 qn, bf 5 dqn, g 5 en, g 5 wn]  
->    wjTenorIV  = line [ g 4 qn, g 4 qn, g 4 qn, bf 4 dqn, g 4 en, g 4 wn]
->    wjBassIV   = line [ g 3 qn, g 3 qn, g 3 qn, bf 3 dqn, g 3 en, g 3 wn]
+>    --                   He's     om-       ni-      po-    tent
+>    wjAltoIV   = line [ g 5 hn, g 5 qn, bf 5 dqn, g 5 en, g 5 wn]  
+>    wjTenorIV  = line [ g 4 hn, g 4 qn, bf 4 dqn, g 4 en, g 4 wn]
+>    wjBassIV   = line [ g 3 hn, g 3 qn, bf 3 dqn, g 3 en, g 3 wn]
 >
 >    minrI  = triad G Minor               (D, 4) wn
 >    suspI  = triad C (CustomMode "Sus4") (F, 4) hn

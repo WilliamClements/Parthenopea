@@ -19,6 +19,8 @@ December 12, 2022
 > import Data.Maybe ( fromJust, isJust )
 > import Data.Ratio ( approxRational )
 > import Debug.Trace ( trace )
+> import Euterpea.IO.Audio.Basics ( outA )
+> import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
 > import Euterpea.IO.Audio.IO
 > import Euterpea.IO.Audio.Render
 > import Euterpea.IO.Audio.Types
@@ -30,7 +32,7 @@ December 12, 2022
 > import Euterpea.Music
 > import HSoM.Performance ( metro, Context (cDur) )
 > import System.Random ( Random(randomR), StdGen )
-
+  
 Utilities =================================================================================
 
 > diagnosticsEnabled = False
@@ -73,14 +75,6 @@ Utilities ======================================================================
 >
 > fractionOf   :: Int → Double → Int
 > fractionOf x d = min 127 $ round $ d * fromIntegral x
->
-> -- this is for reference only; it compiles, but gives exception due to empty map
-> takeItToTheWave :: FilePath → Music (Pitch, Volume) → IO()
-> takeItToTheWave fp m = outFile fp secs sig
->   where
->     noMap :: InstrMap (AudSF () Double)
->     noMap = []
->     (secs, sig) = renderSF m noMap
 >
 > slur         :: Rational → Music a → Music a
 > slur rate = Modify (Phrase [Art (Slurred rate)])
@@ -188,39 +182,39 @@ which makes for a cleaner sound on some synthesizers:
 
 > data FigureType = Ascent | Descent | Cluster
 >
-> makeFigure   :: FigureType → AbsPitch → Dur → Music Pitch
-> makeFigure ft ap dur =
->   let
+> glissando              :: [AbsPitch] → Dur → Music Pitch
+> glissando gliss dur =
+>   dim (3/2)
+>   $ slur 2
+>   $ line
+>   $ notes ++ [rest (dur - fromIntegral reach * step)]
+>   where
+>     notes              :: [Music Pitch]
+>     notes = [note step (pitch x) | x ← gliss]
 >     step = sfn
->     maxSteps = 24
+>     reach = length gliss
 >
->     notes :: [Music Pitch]
->     notes = [note step (pitch x) | x ← supplyReach ft]
+> descent2               :: AbsPitch → AbsPitch → Dur → Music Pitch
+> descent2 xLo xHi dur
+>   | traceAlways msg False = undefined
+>   | xHi < xLo = error "not low enough range for descent"
+>   | otherwise = glissando [xHi..xLo] dur
+>   where
+>     msg = unwords ["descent high lo" ++ show xHi ++ " " ++ show xLo]
 >
->     reach :: AbsPitch
->     reach = min maxSteps $ round (dur/step)
+> ascent2                :: AbsPitch → AbsPitch → Dur → Music Pitch
+> ascent2 xLo xHi dur
+>   | traceAlways msg False = undefined
+>   | xHi < xLo = error "not high enough range for ascent"
+>   | otherwise = glissando [xLo..xHi] dur
+>   where
+>     msg = unwords ["ascent lo high" ++ show xLo ++ " " ++ show xHi]
 >
->     supplyReach :: FigureType → [AbsPitch]
->     supplyReach Ascent       = [apLo..apHi]
->       where
->         apLo = ap
->         apHi = apLo + reach - 1
->     supplyReach Descent      = [apHi, apHi-1..apLo]
->       where
->         apHi = ap
->         apLo = apHi - reach + 1
->     supplyReach Cluster      = error "Cluster figures not supported yet."
+> descent                :: InstrumentName → Pitch → Dur → Music Pitch
+> descent iname p = descent2 (absPitch (fst (fromJust (instrumentRange iname)))) (absPitch p) 
 >
->   in dim (3/2)    -- quieter
->      $ slur 2     -- smoother
->      $ line
->      $ notes ++ [rest (dur - fromIntegral reach * step)]
->
-> descent      :: Pitch → Dur → Music Pitch
-> descent p = makeFigure Descent (absPitch p)
->
-> ascent       :: Pitch → Dur → Music Pitch
-> ascent p = makeFigure Ascent (absPitch p)
+> ascent                 :: InstrumentName → Pitch → Dur → Music Pitch
+> ascent iname p =  ascent2 (absPitch p) (absPitch (snd (fromJust (instrumentRange iname))))
 
   "lake"
 
@@ -347,7 +341,10 @@ also
 >                                    $ map (fromJust . instrumentRange)
 >                                          (Violin:Viola:[Cello])
 >
->       Banjo                     → Just (( C, 3), ( C, 6))
+>       Banjo                     → Just (( C, 3), ( E, 5))
+>
+>       ChoirAahs                 → Just (( E, 3), ( C, 6))
+>
 >       _                         → Nothing
 >
 > rangedInstruments :: Array Int (InstrumentName, (Pitch, Pitch))
@@ -415,7 +412,8 @@ instrument range checking ======================================================
 >            , oTranspose   :: AbsPitch
 >            , oPitch       :: Pitch}    deriving (Show, Eq, Ord)
 >
-> type OorDB = Map.Map OorCase Dur
+> type InstDB = Map.Map InstrumentName Int32
+> type OorDB = Map.Map OorCase Int32
 >
 > initCase     :: OorCase
 > initCase = 
@@ -423,37 +421,49 @@ instrument range checking ======================================================
 >            , oTranspose = 0
 >            , oPitch = (C, 4)}
 >
-> listOutOfRangeCases :: Music (Pitch, [NoteAttribute]) → OorDB
-> listOutOfRangeCases m                                    = listOor m initCase Map.empty
->   where
->     listOor :: Music (Pitch, [NoteAttribute]) → OorCase → OorDB → OorDB
->
->     listOor (Prim (Note d (p, a))) ooc db
+> listInstruments        :: Music (Pitch, [NoteAttribute]) → IO ()
+> listInstruments m = do
+>   let (db1, db2) = listOor m initCase (Map.empty, Map.empty)
+>   putStrLn ("\n\n instruments used in that music: " ++ show (Map.keys db1))
+>   if null db2
+>     then putStrLn "\n\n no out of range cases"
+>     else do
+>            putStrLn "\n\n out of range cases:"
+>            print (Map.keys db2)
+>   
+> listOor :: Music (Pitch, [NoteAttribute]) → OorCase → (InstDB, OorDB) → (InstDB, OorDB)
+> listOor (Prim (Note _ (p, a))) ooc (db1, db2)
 >       = case instrumentRange (oInstrument ooc) of
->              Nothing    → report
+>              Nothing    → reportBad
 >              Just range → if withinRange range (oTranspose ooc) p
->                           then db
->                           else report
+>                           then reportGood
+>                           else reportBad
 >       where
->         report = Map.insert ooc{oPitch = p} d db
+>         reportBad  = (Map.insert (oInstrument ooc) 0 db1, Map.insert ooc{oPitch = p} 0 db2)
+>         reportGood = (Map.insert (oInstrument ooc) 0 db1, db2)
 >
->     listOor (Prim (Rest _)) ooc db
->       = db
+> listOor (Prim (Rest _)) ooc (db1, db2) = (db1, db2)
 >
->     listOor (m1 :+: m2) ooc db
->       = Map.union (listOor m1 ooc db) (listOor m2 ooc db)
+> listOor (m1 :+: m2) ooc (db1, db2) = (db1', db2')
+>   where
+>     (m1db1, m1db2) = listOor m1 ooc (db1, db2)
+>     (m2db1, m2db2) = listOor m2 ooc (db1, db2)
+>     (db1', db2') = (Map.union m1db1 m2db1, Map.union m1db2 m2db2)
 >     
->     listOor (m1 :=: m2) ooc db
->       = Map.union (listOor m1 ooc db) (listOor m2 ooc db)
+> listOor (m1 :=: m2) ooc (db1, db2) = (db1', db2')
+>   where
+>     (m1db1, m1db2) = listOor m1 ooc (db1, db2)
+>     (m2db1, m2db2) = listOor m2 ooc (db1, db2)
+>     (db1', db2') = (Map.union m1db1 m2db1, Map.union m1db2 m2db2)
 >
->     listOor (Modify (Instrument iname) m) ooc db
->       = listOor m ooc{oInstrument=iname} db
+> listOor (Modify (Instrument iname) m) ooc (db1, db2)
+>   = listOor m ooc{oInstrument=iname} (db1, db2)
 >
->     listOor (Modify (Transpose newT) m) ooc db
->       = listOor m ooc{oTranspose=oTranspose ooc + newT} db
+> listOor (Modify (Transpose newT) m) ooc (db1, db2)
+>   = listOor m ooc{oTranspose=oTranspose ooc + newT} (db1, db2)
 >
->     listOor (Modify _ m) ooc db
->       = listOor m ooc db
+> listOor (Modify _ m) ooc (db1, db2)
+>   = listOor m ooc (db1, db2)
 >
 > scoreOnsets  :: Int → [Double] → Array Int Int
 > scoreOnsets nBins ts
@@ -539,7 +549,7 @@ snippets to be used with "lake" ================================================
 
 music converter ===========================================================================
 
-> aggrandize   :: Music (Pitch, Volume) → Music (Pitch, [NoteAttribute])
+> aggrandize             :: Music (Pitch, Volume) → Music (Pitch, [NoteAttribute])
 > aggrandize (Prim (Note d (p, v))) =
 >        Prim (Note d (p, [Volume v]))
 > aggrandize (Prim (Rest d)) =
@@ -550,7 +560,7 @@ music converter ================================================================
 >        aggrandize m1 :=: aggrandize m2
 > aggrandize (Modify c m)  = Modify c (aggrandize m)
 
-Wave ===========================================================================
+Wave ======================================================================================
 
 > class AudioSample a ⇒ WaveAudioSample a where
 >   retrieve :: UArray Int Int32 → Int → a
@@ -567,3 +577,81 @@ Wave ===========================================================================
 > instance Clock SlwRate where
 >   rate _ = 4.41
 > type SlwSF a b  = SigFun SlwRate a b
+
+Helper Functions
+----------------
+
+> wrap :: (Ord n, Num n) => n -> n -> n
+> wrap val bound = if val > bound then wrap val (val-bound) else val
+
+> clip :: Ord n => n -> n -> n -> n
+> clip val lower upper 
+>     | val <= lower = lower
+>     | val >= upper = upper
+>     | otherwise    = val
+
+Raises 'a' to the power 'b' using logarithms.
+
+> pow :: Floating a => a -> a -> a
+> pow a b = exp (log a * b)
+
+Returns the fractional part of 'x'.
+
+> frac :: RealFrac r => r -> r
+> frac = snd . properFraction
+
+SoundFont =================================================================================
+
+Implements the SoundFont envelope model with:
+  1. delay time                      0 → 0
+  2. attack time                     0 → 1
+  3. hold time                       1 → 1
+  4. decay time                      1 → sus
+  5. sustain attenuation level        ---
+  6. release time                  sus → 0
+          ______
+         /      \
+        /        \_____   5
+       /               \
+      /                 \
+  ___/                   \
+   1    2    3  4      6
+
+Creates an envelope generator with straight-line (delayed) attack, hold, decay, release.  
+
+> envDAHdSR              :: (Clock p) ⇒
+>                            Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Signal p () Double
+> envDAHdSR secs del att hold dec sus release
+>   | traceIf msg False = undefined
+>   | otherwise =
+>   let
+>     sf = envLineSeg [0,0,1,1,sus,sus,0] [del, att, hold, dec, max 0 sustime, release]
+>   in proc () → do
+>     env ← sf ⤙ ()
+>     outA ⤙ env
+>   where
+>     sustime = secs - (del + att + hold + dec + release)
+>     msg = unwords [show sus, "=sus/ ", show secs, show (del + att + hold + dec + sustime + release), "=secs,total/", 
+>                    "dahdr=", show del, show att, show hold, show dec, show release]
+>
+> vdel     = 1.0
+> vatt     = vdel + 2.0
+> vhold    = vatt + 3.0
+> vdec     = vhold + 1.0
+> vsus     = 5.00000
+> vrel     = vdec + 2.00000
+>
+> vals'                  :: [(Double, Double, Double, Double)]
+> vals' = [ (0     , 0      , 0.3   , 0.3)
+>         , (vdel  , 0      , 0.3   , 0.25)
+>         , (vatt  , 7      , 0.5   , 0.5)
+>         , (vhold , 7      , 0.4   , 0.75)
+>         , (vdec  , 7-vsus , 0.3   , 0.10)
+>         , (vrel  , 0      , 0     , 0)]

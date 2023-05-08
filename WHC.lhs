@@ -8,19 +8,24 @@ Chart ==========================================================================
 
 > module WHC  where
 >
+> import Control.Applicative
+> import Control.Applicative.Alternative
 > import Control.Arrow
 > import Control.Lens
+> import Data.Char
 > import Data.Colour
 > import Data.Colour.Names
 > import Data.Default.Class
-> import Euterpea
+> -- import Euterpea
 > import Graphics.Rendering.Chart
 > import Graphics.Rendering.Chart.Backend
 > import Graphics.Rendering.Chart.Backend.Diagrams
 > import HSoM
-> import KnightsTour
+> -- import -- KnightsTour
+> import Parthenopea
 > import System.Environment(getArgs)
->
+> import GHC.Num (naturalAnd)
+  
 > --------- vals = [ (x,sin (exp x),sin x/2,cos x/10) | x ← [1..20]]
 >
 > cars = plot_errbars_values .~ [symErrPoint x y dx dy | (x,y,dx,dy) ← vals']
@@ -32,7 +37,7 @@ Chart ==========================================================================
 >           $ plot_points_title .~ "test data"
 >           $ def
 >
-> layout = layout_title .~ "Knight's Tour"
+> layout = layout_title .~ "SFEnvelope"
 >           $ layout_plots .~ [toPlot cars, toPlot noints]
 >           $ def
 >
@@ -41,52 +46,105 @@ Chart ==========================================================================
 >
 > zmain :: IO ()
 > zmain = do
+>   print $ map (\x → show x ++ " ") vals'
 >   renderableToFile def "r00tour.svg" chart
->   putStrLn ("numDots=" ++ show (length vals))
+>   putStrLn ("numDots=" ++ show (length vals'))
 >   return ()
 >
-> reedyWav = tableSinesN 1024 [0.4, 0.3, 0.35, 0.5, 0.1, 0.2, 0.15, 
->                              0.0, 0.02, 0.05, 0.03]
+> fun :: Int -> Int -> [Double]
+> fun n 0 = []
+> fun n 1 = [1.0]
+> fun n p = replicate n (fromIntegral p)
 >
-> reed :: Instr (Stereo AudRate)
-> reed dur pch vol params = 
->     let reedy = osc reedyWav 0
->         freq  = apToHz pch
->         vel   = fromIntegral vol / 127 / 3
->         env   = envLineSeg [0, 1, 0.8, 0.6, 0.7, 0.6, 0] 
->                            (replicate 6 (fromRational dur/6))
->     in proc _ → do
->       amp ← env ⤙ ()
->       r1 ← reedy ⤙ freq
->       r2 ← reedy ⤙ freq + (0.023 * freq)
->       r3 ← reedy ⤙ freq + (0.019 * freq)
->       let [a1, a2, a3] = map (* (amp * vel)) [r1, r2, r3]
->       let rleft = a1 * 0.5 + a2 * 0.44 * 0.35 + a3 * 0.26 * 0.65
->           rright = a1 * 0.5 + a2 * 0.44 * 0.65 + a3 * 0.26 * 0.35
->       outA ⤙ (rleft, rright)
+> ints :: [Int]
+> ints = [3,4,2,4,5]
 >
-> saw = tableSinesN 4096 [1, 0.5, 0.333, 0.25, 0.2, 0.166, 0.142, 0.125, 
->                         0.111, 0.1, 0.09, 0.083, 0.076, 0.071, 0.066, 0.062]
+> qmain :: IO ()
+> qmain = do
+>   let x = map (fun 4) ints
+>   putStrLn ("x=" ++ show x)
+>   let y = concat x
+>   putStrLn ("y=" ++ show y)
+>   let z = concatMap (fun 4) ints
+>   putStrLn ("z=" ++ show z)
+>   return ()
 >
-> plk :: Instr (Stereo AudRate)
-> plk dur pch vol params = 
->     let vel  = fromIntegral vol / 127 / 3
->         freq = apToHz pch
->         sf   = pluck saw freq SimpleAveraging
->     in proc _→ do
->          a ← sf ⤙ freq
->          outA ⤙ (a * vel * 0.4, a * vel * 0.6)
+> newtype Parser a = P (String -> [(a, String)])
 >
-> myBass, myReed :: InstrumentName
-> myBass = CustomInstrument "pluck-like"
-> myReed = CustomInstrument "reed-like"
+> parse :: Parser a -> String -> [(a, String)]
+> parse (P p) inp = p inp
 >
-> myMap :: InstrMap (Stereo AudRate)
-> myMap = [{- myBass, plk), (myReed, reed), -} (Violin, reed), (SynthBass1, plk)]
+> item :: Parser Char
+> item = P (\inp -> case inp of
+>                   [] -> []
+>                   (x:xs) -> [(x, xs)])
 >
-> -- this is for reference only; it compiles, but gives exception due to empty map
-> takeItToTheWave :: FilePath → Music (Pitch, Volume) → IO()
-> takeItToTheWave fp m = outFile fp secs sig
->   where
->     (secs, sig) = renderSF m myMap
-
+> instance Functor Parser where
+>   fmap g p = P (\inp -> case parse p inp of
+>                       [] -> []
+>                       [(v, out)] -> [(g v, out)])
+>
+> string :: String -> Parser String
+> string [] = return []
+> string (x:xs) = do
+>                   char x
+>                   string xs
+>                   return (x:xs)
+> char :: Char -> Parser Char
+> char x = sat (== x)
+>
+> sat :: (Char -> Bool) -> Parser Char
+> sat p =
+>   do
+>     x <- item
+>     if p x then return x else empty
+>
+> {-
+> class Applicative f => Alternative f where
+>   empty :: f a
+>   (<|>)  :: f a -> f a -> f a
+>   -- many :: f a -> f [a]
+>   many x = some x <!> pure []
+>   -- some :: f a -> f [a]
+>   some x = pure (:) <*> x <*> many x
+> -}
+>
+> instance Monad Parser where
+>   p >>= f = P (\inp -> case parse p inp of
+>                        [] -> []
+>                        [(v, out)] -> parse (f v) out)
+>
+> instance Alternative Parser where
+>   empty = P (\inp -> [])
+>   p <|> q = P (\inp -> case parse p inp of
+>                        [] -> parse q inp
+>                        [(v, out)] -> [(v, out)])
+>
+> digit :: Parser Char
+> digit = sat isDigit
+>
+> nat :: Parser Int
+> nat =
+>   do
+>     xs <- some digit
+>     return (read xs)
+>
+> mInteger :: Parser Int
+> mInteger =
+>   do
+>     char '-'
+>     n <- nat
+>     return (-n)
+>     -- <|> nat
+>     
+> instance Applicative Parser where
+>   pure v = P (\inp -> [(v, inp)])
+>
+>   pg <*> px = P (\inp -> case parse pg inp of
+>                          [] -> []
+>                          [(g, out)] -> parse (fmap g px) out)
+>
+> m_gulag :: Parser String
+> m_gulag = fmap (show) mInteger
+>
+> 

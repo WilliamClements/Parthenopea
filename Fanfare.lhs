@@ -10,7 +10,7 @@ November 11, 2022
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
 > import Parthenopea (triad, addDur, defSnippet, pSnippet01, playDM, capture, aggrandize)
-
+  
   "triads"
 
 > pTriadG,  pTriadC,   pTriadBf,   pTriadD,   pTriadd    :: Dur → Music Pitch
@@ -36,12 +36,12 @@ November 11, 2022
 
 Fanfare ===================================================================================
 
-> theFanfare = removeZeros
+> theFanfare n = removeZeros
 >              $ tempo (5/2)
 >              $ transpose 5
 >              $ keysig C Mixolydian
 >              $ addVolume 100
->              $ times 2
+>              $ times n
 >              $ instrument Trumpet trebleAll :=: instrument Cello bassAll
 >    where
 >
@@ -225,7 +225,7 @@ Copper =========================================================================
 >    $ transpose (-4)
 >    $ keysig C Dorian
 >    $ addVolume 100
->    $ instrument Banjo
+>    $ instrument Trumpet
 >    $ times n
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
 >      :+: tempo (5/4) (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn])
@@ -663,12 +663,12 @@ Way Pos' T' Purple =============================================================
 >         :+: (if includeCont then pContT  else rest 0)
 >         :+: (if includePool then pPoolT  else rest 0)
 >         :+: (if includeClos then pClosT  else rest 0))
->      :=: instrument AcousticGuitarSteel
+>      :=: instrument AcousticGuitarNylon
 >      ((if includeOpen       then pOpenG  else rest 0)
 >         :+: (if includeCont then pContG  else rest 0)
 >         :+: (if includePool then pPoolG  else rest 0)
 >         :+: (if includeClos then pClosG  else rest 0))
->      :=: instrument AcousticBass
+>      :=: instrument Cello
 >      ((if includeOpen       then pOpenB  else rest 0)
 >         :+: (if includeCont then pContB  else rest 0)
 >         :+: (if includePool then pPoolB  else rest 0)
@@ -776,10 +776,10 @@ Pendington Arnt  ===============================================================
 >    $ instrument TenorSax
 >      ((if includeOpen then zOpenT        else rest 0)
 >         :+: (if includeClos then zClosT  else rest 0))
->      :=: instrument AcousticGuitarSteel
+>      :=: instrument AcousticGuitarNylon
 >      ((if includeOpen then zOpenG        else rest 0)
 >         :+: (if includeClos then zClosG  else rest 0))
->      :=: instrument Contrabass
+>      :=: instrument Cello
 >      ((if includeOpen then zOpenB        else rest 0)
 >         :+: (if includeClos then zClosB  else rest 0))
 >      where
@@ -849,3 +849,85 @@ Pan ============================================================================
 > xOpenB2 = line [af 1 hn]
 > xOpenB = line [xOpenB1, xOpenB2]
 > xClosB = xOpenB
+
+Rattan ====================================================================================
+
+> rattan =
+>     removeZeros
+>     $ tempo 1
+>     $ transpose 0
+>     $ keysig Af Mixolydian
+>     $ chord [vpart, spart]
+>
+> vpart =
+>     addVolume 110
+>     $ instrument Violin (times 2 vline)
+>
+> spart = 
+>     addVolume 80
+>     $ instrument SynthBass1 (times 2 sline)
+>
+> vline = line [vl_l01a, vl_101b, vl_l01a, vl_101b', vl_l01a, vl_101b, vl_l01a, vl_101b''
+>             , vl_201a, vl_201a, vl_201a, vl_201a,  vl_201b, vl_201b, vl_201b, vl_201b
+>             , vl_301a, vl_301a, vl_301a, vl_301a,  vl_301b]
+>
+> vl_l01a = line [chord [af 4 dqn, d 5 dqn, g 5 dqn]
+>               , chord [af 4 en,  d 5 en,  g 5 en]
+>               , rest en, f 5 en, e 5 en, d 5 en
+>               , c 5 en, d 5 en, e 5 en, f 5 en]
+> vl_101b = line [e 5 qn, c 5 qn]
+> vl_101b' = e 5 hn
+> vl_101b'' = line [e 5 en, d 5 en, c 5 en, b 4 en]
+> vl_201a = triad A Minor (A, 4) qn
+> vl_201b = triad F Major (A, 4) qn
+> vl_301a = chord [af 4 qn, d 5 qn, gf 5 qn]
+> vl_301b = tempo (3/2) (line [c 4 en, d 4 en, e 4 en, d 4 en, e 4 en, fs 4 en, e 4 en, fs 4 en, gs 4 en])
+> vl_102 = rest 0
+> vl_103 = rest 0
+>
+> sline = line [sl_l01, sl_l01, sl_l01, sl_l01, sl_102, sl_103]
+>
+> sl_l01 = line [e 2 qn, e 2 qn, e 2 qn, e 2 qn, bf 2 qn, bf 2 qn, c 3 qn, c 3 qn]
+> sl_102 = line [a 2 qn, a 2 qn, a 2 qn, a 2 qn, ef 2 qn, ef 2 qn, ef 2 qn, ef 2 qn]
+> sl_103 = line [d 2 qn, d 2 qn, d 2 qn, d 2 qn, c 2 qn, d 2 qn, e 2 qn]
+>
+> testcello = 
+>     removeZeros
+>     $ tempo 1
+>     $ transpose 0
+>     $ keysig C Mixolydian
+>     $ addVolume 100
+>     $ instrument Cello
+>       (line [c3cello, c2cello])
+>
+> c3cello = line [c 3 wn, c 3 wn, c 3 wn, c 3 wn]
+> c2cello = line [c 2 wn, c 2 wn, c 2 wn, c 2 wn]
+>
+> testaltosax = 
+>     removeZeros
+>     $ tempo 1
+>     $ transpose 0
+>     $ keysig Af Mixolydian
+>     $ addVolume 100
+>     $ instrument Cello
+>       (line [f4altosax, f3altosax, f5altosax])
+>
+> f4altosax = line [f 4 wn, f 4 wn, f 4 wn, f 4 wn]
+> f3altosax = line [f 3 wn, f 3 wn, f 3 wn, f 3 wn]
+> f5altosax = line [f 5 wn, f 5 wn, f 5 wn, f 5 wn]
+
+Kit =======================================================================================
+
+> kit                    :: Music (Pitch,Volume)
+> kit =
+>   removeZeros
+>   $ tempo 1
+>   $ transpose 0
+>   $ chord [npart, tpart]
+>
+> p1 = perc LowTom
+> p2 = perc AcousticSnare
+> p3 = perc CrashCymbal2
+>
+> npart = addVolume 64 (line [p1 qn, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 qn])
+> tpart = rest 0

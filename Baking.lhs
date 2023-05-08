@@ -10,7 +10,8 @@ December 16, 2022
 > module Baking where
 
 > import Data.Array
-> import Data.List ( sortBy )
+> import Data.List ( sortBy, sortOn )
+> import Data.Ord (comparing)
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
@@ -58,7 +59,7 @@ The progress of the algorithm is expressed in above pair.
 > bake4Consumption seed =
 >    consumeBakes
 >    $ zipWith (\a b → b{bIx = a}) [0..]
->    $ sortBy sortByOnset
+>    $ sortOn bOnset
 >    $ map sex2Bake
 >    $ take (round numSections)
 >    $ sextuplets
@@ -68,7 +69,7 @@ The progress of the algorithm is expressed in above pair.
 > bake4Measuring seed =
 >    measureBakes
 >    $ zipWith (\a b → b{bIx = a}) [0..]
->    $ sortBy sortByOnset
+>    $ sortOn bOnset
 >    $ map sex2Bake
 >    $ take (round numSections)
 >    $ sextuplets

@@ -1,13 +1,17 @@
 name:           Parthenopea
 version:        1.0.0
-build-type:     Simple
 cabal-version:  >= 1.8
 license:
 category:       Sound
+stability:      experimental
+build-type:     Simple
 maintainer:     William Clements <william@clementsassociates.net>
 synopsis:       William Clements Music
 description:    William Clements Music using Euterpea library
-library
+extra-source-files:
+        ReadMe.txt
+
+Library
   hs-source-dirs: .
   ghc-options: -O2 -funbox-strict-fields -fexcess-precision
   extensions: CPP
@@ -23,16 +27,16 @@ library
         Parthenopea,
         Percussion,
         Players,
+        Rosters,
         Signals,
         Simple,
+        SoundFont,
         SunPyg,
         WHC
   other-modules:
   build-depends:
         array>=0.5.0.0 && <=0.6,
         base >= 4 && < 5,
-        binary >= 0.8.9.0 && < 1.0,
-        bytestring >= 0.10.4.0 && <= 0.12,
         Chart >= 1.9.4 && <= 2.0,
         Chart-diagrams >= 1.9.4 && < 2.0,
         colour >= 2.3.6 && < 3.0,
@@ -43,7 +47,8 @@ library
         HCodecs >= 0.5.1 && <= 0.6,
         HSoM >= 1.0.0 && < 2.0,
         lens >= 5.2.1 && < 6.0,
-        PortMidi==0.2.0.0,
+        monadplus >= 1.4.3 && < 2.0,
+        mtl >= 2.2.0 && < 3.0,
         random>=1.0.1.1 && <=1.2,
         stm >= 2.4 && <2.6,
         UISF >= 0.4.0.0,

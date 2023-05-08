@@ -7,7 +7,6 @@ Last modified: 27-September-2022
 
 > module Percussion where
 >
-> import Data.List (unfoldr)
 > import Debug.Trace
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
@@ -17,6 +16,15 @@ perc helpers ===================================================================
 
 > percm :: PercussionSound → [Dur] → Music Pitch
 > percm p ds = line (map (perc p) ds)
+>
+> percBDqn =  perc BassDrum1     qn
+> percOHHqn = perc OpenHiHat     qn
+> percCHHqn = perc ClosedHiHat   qn
+> percCCqn  = perc CrashCymbal1  qn
+> percRCqn  = perc RideCymbal1   qn
+> percSDqn  = perc AcousticSnare qn
+> percLTqn =  perc LowTom        qn
+> percHTqn =  perc HighTom       qn
 >
 > percBDen =  perc BassDrum1     en
 > percOHHen = perc OpenHiHat     en
