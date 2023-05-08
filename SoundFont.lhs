@@ -40,7 +40,7 @@ SoundFont support ==============================================================
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
 > useEnvelopes       = False
-> useSampleLoop      = True
+> useSampleLoop      = False
 > useLowPassFilter   = False
 > usePitchCorrection = True
 > useFileIndex = 0 -- hidef
@@ -323,11 +323,11 @@ prepare the specified instruments and percussion ===============================
 >          ++ ") instruments")
 >   return readyP
 >
->     where
->       areSame          :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
->       areSame x y = (fst x == fst y) && (fst.snd) x == (fst.snd) y
->       haveSameInst     :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
->       haveSameInst x y = (fst.snd) x == (fst.snd) y
+>   where
+>     areSame          :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
+>     areSame x y = (fst x == fst y) && (fst.snd) x == (fst.snd) y
+>     haveSameInst     :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
+>     haveSameInst x y = (fst.snd) x == (fst.snd) y
 >
 > shouldAssignI          :: Array Word F.Inst 
 >                           → [(String, ([Hints], InstrumentName))]

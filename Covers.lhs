@@ -363,7 +363,7 @@ TC =============================================================================
 >   tcV01C = -- measures 6, 7
 >     line [
 >   {-  1   -}   tempo (3/2)   (line [ cs 6 qn])
->   {-  4   -} , cs 6  (1/12 + qn), descent (Cs, 6) (qn*3)
+>   {-  4   -} , cs 6  (1/12 + qn), descent AcousticGuitarSteel (Cs, 6) (qn*3)
 >   {-  4   -} , tempo (5/4) tcVnt58
 >   {-  1   -} , grace (-2) (b 5 den), a 5 sn
 >   {-  1   -} , tempo (3/2)   (line [a 5 en, g 5 qn])
@@ -376,7 +376,7 @@ TC =============================================================================
 >   tcV01D = -- measure 8
 >     line [
 >   {-  1   -}   tempo (3/2)   (line [f 5 sn, e 5 sn, e 5 qn])
->   {-  7   -} , e 5 wn, ascent (F,5) dhn]
+>   {-  7   -} , e 5 wn, ascent AcousticGuitarSteel (F,5) dhn]
 >
 >   tcV02 = line [tcV02A, tcV02B, tcV02C, tcV02D, tcV02E, tcV02F, tcV02G]
 >
@@ -449,7 +449,7 @@ TC =============================================================================
 >   {-  1   -}   d 5 en, e 5 en, cs 5 en
 >   {-  1   -} , tempo (3/2)   (line [cs 5 en, b 4 sn])
 >   {-  4   -} , cs 5 wn
->   {-  2   -} , cs 5 qn, descent (Cs,6) qn]
+>   {-  2   -} , cs 5 qn, descent AcousticGuitarSteel (Cs,6) qn]
 >
 >   tcV03 = line [tcV03A, tcV03B, tcV03C, tcV03D, tcV03E, tcV03F, tcV03G, tcV03H]
 >
@@ -481,7 +481,7 @@ TC =============================================================================
 >   {-  2   -}   tempo (3/2)   tcVnt01
 >   {-  2   -} , tempo (7/4)   tcVnt02
 >   {-  2   -} , tempo (7/4)   tcVnt03
->   {-  2   -} , ascent (E,5) hn
+>   {-  2   -} , ascent AcousticGuitarSteel (E,5) hn
 >        ]
 >   tcV03C = -- measure 19
 >     line [
@@ -604,7 +604,7 @@ TC =============================================================================
 >
 >   tcV04F = -- measure 32
 >     line [
->   {-  4   -}    cs 5 en, cs 5 sn, d 5 sn, descent (E,5) dhn
+>   {-  4   -}    cs 5 en, cs 5 sn, d 5 sn, descent AcousticGuitarSteel (E,5) dhn
 >   {-  4   -}  , rest hn,  a 6 sn, a 6 sn, e 6 en, a 6 qn]
 >
 >   tcV04G = rest 0
@@ -623,7 +623,7 @@ TC =============================================================================
 >
 >   tcV05B = -- measure 34
 >     line [
->   {-  6   -}   e 6 sn, descent (E,6) (en + ddqn), rest dqn, rest hn
+>   {-  6   -}   e 6 sn, descent AcousticGuitarSteel (E,6) (en + ddqn), rest dqn, rest hn
 >   {-  2   -} , f 6 sn, d 6 sn, cs 6 en, cs 6 sn, d 6 sn, e 6 en]
 >
 >   tcVnt10 =
@@ -887,7 +887,7 @@ TC =============================================================================
 >
 >   tcV08D = -- measure 59
 >     line [
->   {-  4   -}   tempo (5/4) (addDur en [d 5, e 5, f 5, e 5, d 5]), descent (E,5) hn
+>   {-  4   -}   tempo (5/4) (addDur en [d 5, e 5, f 5, e 5, d 5]), descent AcousticGuitarSteel (E,5) hn
 >   {-  2   -} , tempo (3/2)   (line [d 4 qn, cs 4 en, d 4 en, d 4 en, e 4 en])
 >   {-  2   -} , tempo (3/2)   (line [e 4 en,  f 4 en, e 4 en, d 4 qn, d 4 en])]
 >
@@ -914,7 +914,7 @@ TC =============================================================================
 >   tcV08G = -- measure 62
 >     line [
 >   {-  0.7 -}   tempo (3/2)   (line [a 5 en, b 5 en])
->   {-  5.3 -} , cs 6 ((1/12) + hn), ascent (Cs, 6) qn, rest hn
+>   {-  5.3 -} , cs 6 ((1/12) + hn), descent AcousticGuitarSteel (Cs, 6) qn, rest hn
 >   {-  2.0 -} , tempo (3/2)   (line [cs 6 qn, cs 6 qn, cs 6 qn])]
 >
 >   tcV08H = -- measure 63

@@ -182,39 +182,39 @@ which makes for a cleaner sound on some synthesizers:
 
 > data FigureType = Ascent | Descent | Cluster
 >
-> makeFigure   :: FigureType → AbsPitch → Dur → Music Pitch
-> makeFigure ft ap dur =
->   let
+> glissando              :: [AbsPitch] → Dur → Music Pitch
+> glissando gliss dur =
+>   dim (3/2)
+>   $ slur 2
+>   $ line
+>   $ notes ++ [rest (dur - fromIntegral reach * step)]
+>   where
+>     notes              :: [Music Pitch]
+>     notes = [note step (pitch x) | x ← gliss]
 >     step = sfn
->     maxSteps = 24
+>     reach = length gliss
 >
->     notes :: [Music Pitch]
->     notes = [note step (pitch x) | x ← supplyReach ft]
+> descent2               :: AbsPitch → AbsPitch → Dur → Music Pitch
+> descent2 xLo xHi dur
+>   | traceAlways msg False = undefined
+>   | xHi < xLo = error "not low enough range for descent"
+>   | otherwise = glissando [xHi..xLo] dur
+>   where
+>     msg = unwords ["descent high lo" ++ show xHi ++ " " ++ show xLo]
 >
->     reach :: AbsPitch
->     reach = min maxSteps $ round (dur/step)
+> ascent2                :: AbsPitch → AbsPitch → Dur → Music Pitch
+> ascent2 xLo xHi dur
+>   | traceAlways msg False = undefined
+>   | xHi < xLo = error "not high enough range for ascent"
+>   | otherwise = glissando [xLo..xHi] dur
+>   where
+>     msg = unwords ["ascent lo high" ++ show xLo ++ " " ++ show xHi]
 >
->     supplyReach :: FigureType → [AbsPitch]
->     supplyReach Ascent       = [apLo..apHi]
->       where
->         apLo = ap
->         apHi = apLo + reach - 1
->     supplyReach Descent      = [apHi, apHi-1..apLo]
->       where
->         apHi = ap
->         apLo = apHi - reach + 1
->     supplyReach Cluster      = error "Cluster figures not supported yet."
+> descent                :: InstrumentName → Pitch → Dur → Music Pitch
+> descent iname p = descent2 (absPitch (fst (fromJust (instrumentRange iname)))) (absPitch p) 
 >
->   in dim (3/2)    -- quieter
->      $ slur 2     -- smoother
->      $ line
->      $ notes ++ [rest (dur - fromIntegral reach * step)]
->
-> descent      :: Pitch → Dur → Music Pitch
-> descent p = makeFigure Descent (absPitch p)
->
-> ascent       :: Pitch → Dur → Music Pitch
-> ascent p = makeFigure Ascent (absPitch p)
+> ascent                 :: InstrumentName → Pitch → Dur → Music Pitch
+> ascent iname p =  ascent2 (absPitch p) (absPitch (snd (fromJust (instrumentRange iname))))
 
   "lake"
 
@@ -341,7 +341,10 @@ also
 >                                    $ map (fromJust . instrumentRange)
 >                                          (Violin:Viola:[Cello])
 >
->       Banjo                     → Just (( C, 3), ( C, 6))
+>       Banjo                     → Just (( C, 3), ( E, 5))
+>
+>       ChoirAahs                 → Just (( E, 3), ( C, 6))
+>
 >       _                         → Nothing
 >
 > rangedInstruments :: Array Int (InstrumentName, (Pitch, Pitch))
