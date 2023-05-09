@@ -91,16 +91,52 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , zReverb            :: Maybe Int
 >   , zPan               :: Maybe Int
 >
->   , zRootKey           :: Maybe Word} deriving Show
+>   , zRootKey           :: Maybe Word
+>
+>   , zModLfoToPitch     :: Maybe Int
+>   , zVibLfoToPitch     :: Maybe Int
+>   , zModEnvToPitch     :: Maybe Int
+>   , zInitFc            :: Maybe Int
+>   , zInitQ             :: Maybe Int
+>   , zModLfoToFc        :: Maybe Int
+>   , zModEnvToFc        :: Maybe Int
+>   , zModLfoToVol       :: Maybe Int
+>   , zDelayModLfo       :: Maybe Int
+>   , zFreqModLfo        :: Maybe Int
+>   , zDelayVibLfo       :: Maybe Int
+>   , zFreqVibLfo        :: Maybe Int
+>   , zDelayModEnv       :: Maybe Int
+>   , zAttackModEnv      :: Maybe Int
+>   , zHoldModEnv        :: Maybe Int
+>   , zDecayModEnv       :: Maybe Int
+>   , zSustainModEnv     :: Maybe Int
+>   , zReleaseModEnv     :: Maybe Int
+>   , zKeyToModEnvHold   :: Maybe Int
+>   , zKeyToModEnvDecay  :: Maybe Int
+>   , zKeyToVolEnvHold   :: Maybe Int
+>   , zKeyToVolEnvDecay  :: Maybe Int} deriving Show
 >
 > defInstrumentZone      :: SFZone
 > defInstrumentZone = SFZone Nothing Nothing Nothing Nothing
+>
 >                            Nothing Nothing Nothing Nothing
+>
 >                            Nothing Nothing Nothing Nothing
+>                            Nothing Nothing Nothing
+>
 >                            Nothing Nothing Nothing Nothing
->                            Nothing Nothing Nothing Nothing
->                            Nothing Nothing Nothing Nothing
+>                            Nothing Nothing
+>
+>                            Nothing Nothing Nothing
+>
 >                            Nothing
+>
+>                            Nothing Nothing Nothing Nothing
+>                            Nothing Nothing Nothing Nothing
+>                            Nothing Nothing Nothing Nothing
+>                            Nothing Nothing Nothing Nothing
+>                            Nothing Nothing Nothing Nothing
+>                            Nothing Nothing
 >   
 > data Reconciled =
 >   Reconciled {
@@ -173,7 +209,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF basicLick imap
+>       let (d,s) = renderSF sunPyg imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
@@ -273,9 +309,31 @@ extract data from SoundFont per instrument =====================================
 >   F.Pan i                        → iz {zPan =                      Just i}
 >
 >   F.RootKey w                    → iz {zRootKey =                  Just (fromIntegral w)}
->   _                              → iz
 >
-  
+>   F.ModLfoToPitch i              → iz {zModLfoToPitch =            Just i}
+>   F.VibLfoToPitch i              → iz {zVibLfoToPitch =            Just i}
+>   F.ModEnvToPitch i              → iz {zModEnvToPitch =            Just i}
+>   F.InitFc i                     → iz {zInitFc =                   Just i}
+>   F.InitQ i                      → iz {zInitQ =                    Just i}
+>   F.ModLfoToFc i                 → iz {zModLfoToFc =               Just i}
+>   F.ModEnvToFc i                 → iz {zModEnvToFc =               Just i}
+>   F.ModLfoToVol i                → iz {zModLfoToVol =              Just i}
+>   F.DelayModLfo i                → iz {zDelayModLfo =              Just i}
+>   F.FreqModLfo i                 → iz {zFreqModLfo =               Just i}
+>   F.DelayVibLfo i                → iz {zDelayVibLfo =              Just i}
+>   F.FreqVibLfo i                 → iz {zFreqVibLfo =               Just i}
+>   F.DelayModEnv i                → iz {zDelayModEnv =              Just i}
+>   F.AttackModEnv i               → iz {zAttackModEnv =             Just i}
+>   F.HoldModEnv i                 → iz {zHoldModEnv =               Just i}
+>   F.DecayModEnv i                → iz {zDecayModEnv =              Just i}
+>   F.SustainModEnv i              → iz {zSustainModEnv =            Just i}
+>   F.ReleaseModEnv i              → iz {zReleaseModEnv =            Just i}
+>   F.KeyToModEnvHold i            → iz {zKeyToModEnvHold =          Just i}
+>   F.KeyToModEnvDecay i           → iz {zKeyToModEnvDecay =         Just i}
+>   F.KeyToVolEnvHold i            → iz {zKeyToVolEnvHold =          Just i}
+>   F.KeyToVolEnvDecay i           → iz {zKeyToVolEnvDecay =         Just i}
+>   _                              → iz
+
 prepare the specified instruments and percussion ==========================================
 
 > getSFInstrument        :: SFFile
@@ -296,10 +354,10 @@ prepare the specified instruments and percussion ===============================
 >   let filteredI = filter isJust selectedI
 >   let readyI = map (doAssignI sffile) filteredI
 >
->   putStrLn ("SFFile "                          ++ zFilename sffile
->          ++ ": loaded "                        ++ show (length readyI)
->          ++ " (mismatches = "                  ++ show (length ipal - length filteredI)
->          ++ ") from total of "                 ++ show (length is)
+>   putStrLn ("SFFile "                    ++ zFilename sffile
+>          ++ ": loaded "                  ++ show (length readyI)
+>          ++ " (mismatches = "            ++ show (length ipal - length filteredI)
+>          ++ ") from total of "           ++ show (length is)
 >          ++ " Instruments")
 >          
 >   return readyI 
@@ -315,12 +373,13 @@ prepare the specified instruments and percussion ===============================
 >   let readyP = map head (groupBy areSame withDupes)
 >   let groupedByInstrument = groupBy haveSameInst (sortOn (fst.snd) readyP )
 >
->   putStrLn ("SFFile "                          ++ zFilename sffile
->          ++ ": loaded "                        ++ show (length readyP)
->          ++ " (mismatches = "                  ++ show (countSought - length readyP)
->          ++ ") percussion sounds from "        ++ show (length ppal)
->          ++ " (mismatches = "                  ++ show (length ppal - length groupedByInstrument)
+>   putStrLn ("SFFile "                    ++ zFilename sffile
+>          ++ ": loaded "                  ++ show (length readyP)
+>          ++ " (mismatches = "            ++ show (countSought - length readyP)
+>          ++ ") percussion sounds from "  ++ show (length ppal)
+>          ++ " (mismatches = "            ++ show (length ppal - length groupedByInstrument)
 >          ++ ") instruments")
+>
 >   return readyP
 >
 >   where
@@ -739,4 +798,6 @@ reconcile zone and sample header ===============================================
 >   return (a*b)
 >
 > main :: IO ()
-> main = print $ runWriter multWithLog -- (15,["Got number: 3","Got number: 5","multiplying 3 and 5"])>   return (a*b)
+> -- main = print $ runWriter multWithLog
+> --        (15,["Got number: 3","Got number: 5","multiplying 3 and 5"])>   return (a*b)
+> main = print $ runWriter multWithLog
