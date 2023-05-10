@@ -931,3 +931,10 @@ Kit ============================================================================
 >
 > npart = addVolume 64 (line [p1 qn, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 qn])
 > tpart = rest 0
+
+Pit =======================================================================================
+
+> pit1 = line [b 3 en, cs 4 en, ds 4 en, cs 4 en, fs 4 en, ds 4 en, cs 4 en, f 4 en]
+> pit2 = line [c 4 en, ds 4 en,  f 4 en, ds 4 en, fs 4 en, ds 4 en, d 4 en, ds 4 en]
+>
+> pit = line [times 4 pit1, times 4 pit2]

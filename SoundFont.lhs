@@ -205,7 +205,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 >         return ()
 >     putStrLn "leaving doSoundFont"
 >
-> doPlayInstruments      :: InstrMap (Mono AudRate) → IO ()
+> doPlayInstruments      :: InstrMap (Stereo AudRate) → IO ()
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
@@ -350,7 +350,7 @@ prepare the specified instruments and percussion ===============================
 >
 > assignInstruments      :: SFFile
 >                           → [(String, ([Hints], InstrumentName))]
->                           → IO [(InstrumentName, Instr (Mono AudRate))]
+>                           → IO [(InstrumentName, Instr (Stereo AudRate))]
 > assignInstruments sffile ipal = do
 >   let arrays = zArrays sffile
 >   let sfis   = zInstruments sffile
@@ -447,7 +447,7 @@ prepare the specified instruments and percussion ===============================
 >
 > doAssignI              :: SFFile
 >                           → Maybe (InstrumentName, Word)
->                           → (InstrumentName, Instr (Mono AudRate))
+>                           → (InstrumentName, Instr (Stereo AudRate))
 > doAssignI sffile mis = (iname, assignInstrument sffile sfinst Nothing)
 >   where 
 >     (iname, w) = fromJust mis
@@ -455,7 +455,7 @@ prepare the specified instruments and percussion ===============================
 >
 > doAssignP              :: SFFile
 >                           → [(PercussionSound, (Word, Word))]
->                           → (InstrumentName, Instr (Mono AudRate))
+>                           → (InstrumentName, Instr (Stereo AudRate))
 > doAssignP sffile pmap = (Percussion, assignPercussion sffile pmap)
 
 define signal functions for playing instruments ===========================================
@@ -476,7 +476,7 @@ define signal functions for playing instruments ================================
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >
-> eutRelay               :: A.SampleData Int16
+> eutRelayMono           :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → (Word, Word)
 >                           → Double
@@ -484,7 +484,7 @@ define signal functions for playing instruments ================================
 >                           → Volume
 >                           → Dur
 >                           → AudSF Double Double
-> eutRelay s16 ms8 (st, en) stime renv vol dur =
+> eutRelayMono s16 ms8 (st, en) stime renv vol dur =
 >   let
 >     numS               :: Double = fromIntegral (en - st + 1)
 >     amp                :: Double = fromIntegral vol / 100
@@ -527,13 +527,73 @@ define signal functions for playing instruments ================================
 >       where
 >         msg = unwords ["Envelope=", show renv]
 >
-> assignInstrument       :: SFFile → SFInstrument → Maybe (Word, Word) → Instr (Mono AudRate)
+> eutRelayStereo         :: A.SampleData Int16
+>                           → Maybe (A.SampleData Int8)
+>                           → (Word, Word)
+>                           → (Word, Word)
+>                           → Double
+>                           → Envelope
+>                           → Volume
+>                           → Dur
+>                           → AudSF Double (Double, Double)
+> eutRelayStereo s16 ms8 (stL, enL) (stR, enR) stime renv vol dur =
+>   let
+>     numS               :: Double = fromIntegral (enL - stL + 1)
+>     amp                :: Double = fromIntegral vol / 100
+>
+>   in proc pos → do
+>     let saddrL         :: Int = fromIntegral stL + truncate (numS * pos)
+>     let saddrR         :: Int = fromIntegral stR + truncate (numS * pos)
+>     let (a1L, a1R) =
+>              if isJust ms8
+>              then (compute24 (s16 ! saddrL) (fromJust ms8 ! saddrL)
+>                  , compute24 (s16 ! saddrR) (fromJust ms8 ! saddrR))
+>              else (fromIntegral (s16 ! saddrL)
+>                  , fromIntegral (s16 ! saddrR))
+>     rec
+>       aenv ← if useEnvelopes
+>              then doEnvelope renv stime ⤙ ()
+>              else constA 1              ⤙ ()
+>       a2L  ← if useLowPassFilter
+>              then filterLowPass         ⤙ (a1L,20000*aenv)
+>              else delay 0 ⤙ a1L
+>       a2R  ← if useLowPassFilter
+>              then filterLowPass         ⤙ (a1R,20000*aenv)
+>              else delay 0 ⤙ a1R
+>     outA ⤙ (a2L*amp*aenv, a2R*amp*aenv)
+>
+>   where
+>     compute24          :: Int16 → Int8 → Double
+>     compute24 i16 i8 = d24
+>       where
+>         f8to32         :: Int8 → Int32
+>         f8to32 = fromIntegral
+>         f16to32         :: Int16 → Int32
+>         f16to32 = fromIntegral
+>         d24            :: Double
+>         d24 = fromIntegral (f16to32 i16 * 32768 + f8to32 i8)       
+>      
+>     doEnvelope         :: Envelope → Double → AudSF () Double
+>     doEnvelope renv secs
+>       | traceIf msg False = undefined
+>       | otherwise = envDAHdSR secs
+>                               (eDelayT       renv)
+>                               (eAttackT      renv)
+>                               (eHoldT        renv)
+>                               (eDecayT       renv)
+>                               (eSustainLevel renv)
+>                               (eReleaseT     renv)
+>       where
+>         msg = unwords ["Envelope=", show renv]
+>
+>
+> assignInstrument       :: SFFile → SFInstrument → Maybe (Word, Word) → Instr (Stereo AudRate)
 > assignInstrument sffile sfinst mww dur pch vol params =
 >   let
->     sig                :: AudSF () Double     = constructSig sffile sfinst mww dur pch vol params
+>     sig                :: AudSF () (Double, Double)     = constructSig sffile sfinst mww dur pch vol params
 >   in proc _ → do
->     z ← sig ⤙ ()
->     outA ⤙ z
+>     (zL, zR) ← sig ⤙ ()
+>     outA ⤙ (zL, zR)
 >
 > constructSig           :: SFFile
 >                           → SFInstrument
@@ -542,7 +602,7 @@ define signal functions for playing instruments ================================
 >                           → AbsPitch
 >                           → Volume
 >                           → [Double]
->                           → AudSF () Double
+>                           → AudSF () (Double, Double)
 > constructSig sffile sfinst mww dur pch vol params =
 >   let
 >     arrays             :: SoundFontArrays  = zArrays sffile 
@@ -571,13 +631,14 @@ define signal functions for playing instruments ================================
 >                                                 else freqRatio * rateRatio
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
 >     rateRatio          :: Double              = 44100 / sr
->     sig                :: AudSF () Double     = eutPhaser secs' sr 0 freqFactor
->                                             >>> eutRelay (ssData arrays) (ssM24 arrays) (st, en) secs' (rEnvelope rData) vol dur
+>     sig                :: AudSF () (Double, Double)
+>                                               = eutPhaser secs' sr 0 freqFactor
+>                                             >>> eutRelayStereo (ssData arrays) (ssM24 arrays) (st, en) {- WOX -} (st, en) secs' (rEnvelope rData) vol dur
 >   in sig
 >
 > assignPercussion       :: SFFile
 >                           → [(PercussionSound, (Word, Word))]
->                           → Instr (Mono AudRate)
+>                           → Instr (Stereo AudRate)
 > assignPercussion sffile pmap dur pch vol params =
 >   let
 >     ps :: PercussionSound
@@ -587,10 +648,10 @@ define signal functions for playing instruments ================================
 >                                          ++ show ps ++ " in the supplied pmap.")
 >                Just x → x
 >     sfinst = getSFInstrument sffile wI
->     sig                :: AudSF () Double     = constructSig sffile sfinst (Just (wI, wZ)) dur pch vol params
+>     sig                :: AudSF () (Double, Double)     = constructSig sffile sfinst (Just (wI, wZ)) dur pch vol params
 >   in proc _ → do
->     z ← sig ⤙ ()
->     outA ⤙ z
+>     (zL, zR) ← sig ⤙ ()
+>     outA ⤙ (zL, zR)
 >
 
 zone selection ============================================================================
