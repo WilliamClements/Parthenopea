@@ -209,7 +209,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF roger imap
+>       let (d,s) = renderSF whelpNarp imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
@@ -256,8 +256,49 @@ extract data from SoundFont per instrument =====================================
 >     gens = if ygeni - xgeni < 0
 >            then error "degenerate generator list"
 >            else getGens sffile iinst [xgeni..ygeni-1]
->     zone = fromGens fromZone gens
+>     zone = checkBuiltZone $ fromGens fromZone gens
 >   in (bagIndex, zone)
+>   where
+>     checkBuiltZone     :: SFZone → SFZone
+>     checkBuiltZone zone
+>       | traceAlways msg False = undefined
+>       | otherwise = zone
+>        where 
+>          msg = unwords ["checkBuiltZone ", hasRejects zone]
+>     hasRejects         :: SFZone → String
+>     hasRejects zone =
+>       let
+>         suspiciousOnes = [
+>                             ("Chorus",          zChorus zone)
+>                           , ("Reverb",          zReverb zone)
+>                           , ("Pan",             zPan zone)
+>
+>                           , ("ModLfoToPitch", zModLfoToPitch zone)
+>                           , ("VibLfoToPitch", zVibLfoToPitch zone)
+>                           , ("ModEnvToPitch", zModEnvToPitch zone)
+>                           , ("InitFc",        zInitFc zone)
+>                           , ("InitQ",         zInitQ zone)
+>                           , ("ModLfoToFc",    zModLfoToFc zone)
+>                           , ("ModEnvToFc",    zModEnvToFc zone)
+>                           , ("ModLfoToVol",   zModLfoToVol zone)
+>                           , ("DelayModLfo",   zDelayModLfo zone)
+>                           , ("FreqModLfo",    zFreqModLfo zone)
+>                           , ("DelayVibLfo",   zDelayVibLfo zone)
+>                           , ("FreqVibLfo",    zFreqVibLfo zone)
+>                           , ("DelayModEnv",   zDelayModEnv zone)
+>                           , ("AttackModEnv",  zAttackModEnv zone)
+>                           , ("HoldModEnv",    zHoldModEnv zone)
+>                           , ("DecayModEnv",   zDecayModEnv zone)
+>                           , ("SustainModEnv", zSustainModEnv zone)
+>                           , ("ReleaseModEnv", zReleaseModEnv zone)
+>                           , ("KeyToModEnvHold", zKeyToModEnvHold zone)
+>                           , ("KeyToModEnvDecay", zKeyToModEnvDecay zone)
+>                           , ("KeyToVolEnvHold", zKeyToVolEnvHold zone)
+>                           , ("KeyToVolEnvDecay", zKeyToVolEnvDecay zone)
+>                          ]
+>         agg = concatMap showIf suspiciousOnes
+>         showIf a = if isJust (snd a) then show a else ""
+>        in agg
 >
 > getGens                :: SFFile → F.Inst → [Word] → [F.Generator]
 > getGens sffile iinst words
@@ -460,21 +501,52 @@ prepare the specified instruments and percussion ===============================
 
 define signal functions for playing instruments ===========================================
 
-> eutPhaser              :: Double
->                           → Double
->                           → Double
+> eutPhaserNormal        :: Double
 >                           → Double
 >                           → AudSF () Double 
-> eutPhaser secs sr iphs freqFactor =
+> eutPhaserNormal iphs delta =
 >   let frac             :: RealFrac r ⇒ r → r
 >       frac                           = snd . properFraction
->       delta            :: Double
->       delta                          = 1 / (secs * freqFactor * sr)
 >   in proc () → do
 >     rec
 >       let phase = if next > 1 then frac next else next
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
+>
+> eutPhaserLooping       :: Double
+>                           → Double
+>                           → (Double, Double)
+>                           → AudSF () Double 
+> eutPhaserLooping iphs delta (st, en) =
+>   let frac             :: RealFrac r ⇒ r → r
+>       frac                           = snd . properFraction
+>   in proc () → do
+>     rec
+>       let phase = if next > en then frac next + st else next
+>       next ← delay iphs ⤙ frac (phase + delta)
+>     outA ⤙ phase
+>
+> eutPhaser              :: Reconciled
+>                           → Double
+>                           → Double
+>                           → Double
+>                           → Double
+>                           → Double
+>                           → (Double, Double)
+>                           → AudSF () Double 
+> eutPhaser recon secsSample secsTotal sr iphs freqFactor (st, en) =
+>   let frac             :: RealFrac r ⇒ r → r
+>       frac                               = snd . properFraction
+>       delta            :: Double         = 1 / (secsSample * freqFactor * sr)
+>   in proc () → do
+>     env1   ← envLineSeg  [0, 1, 0] 
+>                           [0, secsSample]               ⤙ ()
+>     env2   ← envLineSeg  [0, 1, 1] 
+>                           [secsSample, secsTotal]       ⤙ ()
+>     pnorm  ← eutPhaserNormal 0 delta                    ⤙ ()
+>     ploop  ← eutPhaserLooping st delta (normalizeLooping recon)
+>                                                         ⤙ ()
+>     outA ⤙ env1*pnorm + env2*ploop
 >
 > eutRelayStereo         :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
@@ -568,16 +640,19 @@ define signal functions for playing instruments ================================
 >                                            = reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
 >     sr                 :: Double           = fromIntegral $ F.sampleRate shdrL
 >     ns                 :: Double           = fromIntegral $ rEnd rDataL - rStart rDataL + 1
->     secs               :: Double           = ns / sr
+>     secsSamplePoints   :: Double           = ns / sr
+>     secsTotal          :: Double           = 2 * fromRational dur
 >     ap                 :: AbsPitch
 >
->     ok = checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) rDataL rDataR secs (st, en)
+>     ok = checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) rDataL rDataR secsSamplePoints
 >     ap = if not ok
 >          then error "SFZone and F.Shdr could not be reconciled"
 >          else fromIntegral (rRootKey rDataL)
 >
->     (st, en)           :: (Word, Word)        = (rStart rDataL, rEnd rDataL)
->     ns'                :: Double              = fromIntegral (en - st + 1)
+>     (nst, nen)         :: (Double, Double)    = (fromIntegral $ rStart     rDataL, fromIntegral $ rEnd rDataL)
+>     (pst, pen)         :: (Double, Double)    = (fromIntegral $ rLoopStart rDataL, fromIntegral $ rLoopEnd rDataL)
+>
+>     ns'                :: Double              = nst - nen + 1
 >     secs'              :: Double              = ns' / sr
 >     freqFactor         :: Double              = if usePitchCorrection
 >                                                 then freqRatio * rateRatio / rPitchCorrection rDataL
@@ -585,7 +660,7 @@ define signal functions for playing instruments ================================
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
 >     rateRatio          :: Double              = 44100 / sr
 >     sig                :: AudSF () (Double, Double)
->                                               = eutPhaser secs' sr 0 freqFactor
+>                                               = eutPhaser rDataL secsSamplePoints secsTotal sr 0 freqFactor (pst, pen)
 >                                             >>> eutRelayStereo (ssData arrays) (ssM24 arrays)
 >                                                                secs'
 >                                                                (rDataL, rDataR)
@@ -701,7 +776,7 @@ zone selection =================================================================
 >                                 then fromIntegral $ fromJust $ zRootKey zone
 >                                 else 0
 >     score3 = if isJust (zRootKey zone)
->              then 10 * abs (anInt - pch)
+>              then min 128 $ 10 * abs (anInt - pch)
 >              else 128
 >
 > computeDistance        :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
@@ -725,7 +800,15 @@ reconcile zone and sample header ===============================================
 >   in fromIntegral sum
 >
 > reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → (Reconciled, Reconciled)
-> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) = (reconcile (zoneL, shdrL), reconcile (zoneR, shdrR))
+> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) =
+>   let
+>     recL = reconcile (zoneL, shdrL)
+>     recR = reconcile (zoneR, shdrR)
+>     recR' = recR{
+>               rRootKey = rRootKey recL
+>             , rPitchCorrection = rPitchCorrection recL} 
+>   in
+>     (recL, recR')
 >
 > reconcile              :: (SFZone, F.Shdr) → Reconciled 
 > reconcile (zone, shdr) =
@@ -743,6 +826,19 @@ reconcile zone and sample header ===============================================
 >                                              (zSustainVolEnv zone)
 >                                              (zReleaseVolEnv zone)}
 >
+> normalizeLooping       :: Reconciled → (Double, Double)
+> normalizeLooping recon =
+>   let
+>     nst                :: Double = fromIntegral $ rStart recon 
+>     nen                :: Double = fromIntegral $ rEnd recon 
+>     pst                :: Double = fromIntegral $ rLoopStart recon 
+>     pen                :: Double = fromIntegral $ rLoopEnd recon 
+>     len                :: Double = nen - nst + 1
+>     mst                :: Double = (pst - nst) / len
+>     men                :: Double = (pen - nen) / len
+>   in
+>     (mst, men)
+>     
 > resolvePitchCorrection :: Int → Maybe Int → Maybe Int → Double
 > resolvePitchCorrection alt mps mpc = 2 ** (fromIntegral cents/12/100)
 >   where
@@ -800,17 +896,15 @@ reconcile zone and sample header ===============================================
 >                           → Reconciled
 >                           → Reconciled
 >                           → Double
->                           → (Word, Word)
 >                           → Bool
-> checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) reconL reconR secs (st, en)
+> checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) reconL reconR secs
 >   | traceIf msg False = undefined
 >   | otherwise = True
 >   where
 >     msg = unwords ["checkReconcile=", show shdrL
 >                                     , show zoneL
 >                                     , show reconL
->                                     , show secs
->                                     , show (st, en)]
+>                                     , show secs]
 > data Hints =
 >   DLow | DMed | DHigh deriving Show
 >
