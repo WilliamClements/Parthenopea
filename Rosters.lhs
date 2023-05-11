@@ -25,9 +25,18 @@ organize instruments from multiple SoundFont files =============================
 >
 > soundFontDatabase =
 >   [
->       ("editHiDef.sf2",            ([DHigh],  (hiDefInst, hiDefPerc)))
+>       ("editLofi.sf2",             ([DHigh],  (lofiInst, lofiPerc)))
+>     , ("editHiDef.sf2",            ([DHigh],  (hiDefInst, hiDefPerc)))
 >     , ("editDSoundFontV4.sf2",          ([],  (dSoundFontV4Inst, dSoundFontV4Perc)))
 >     , ("editEssentials.sf2",        ([DLow],  (essentialsInst, essentialsPerc)))
+>   ]
+>
+> lofiInst =
+>   [
+>       ("Lofi Casio Synth 1",      ([],  AcousticGrandPiano))
+>   ]
+> lofiPerc =
+>   [
 >   ]
 >
 > hiDefInst =
@@ -35,6 +44,7 @@ organize instruments from multiple SoundFont files =============================
 >       ("*Choir Aahs 2",           ([],  ChoirAahs))
 >     , ("*Slow Violin",            ([],  Viola))
 >     , ("'59 Les Paul",            ([],  ElectricGuitarClean))
+>     , ("Don's Piano V2",          ([],  BrightAcousticPiano))
 >     , ("Accordion",               ([],  Accordion))
 >     , ("Anklung Pad",             ([],  VoiceOohs))
 >     , ("Bagpipe Drone",           ([],  Bagpipe))

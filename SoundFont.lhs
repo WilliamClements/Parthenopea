@@ -40,12 +40,12 @@ SoundFont support ==============================================================
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
 > useEnvelopes       = False
-> useSampleLoop      = False
 > useLowPassFilter   = False
 > usePitchCorrection = True
-> useFileIndex = 0 -- hidef
-> -- useFileIndex = 1 -- dsound
-> -- useFileIndex = 2 -- essentials
+> -- useFileIndex = 0 -- lofi
+> useFileIndex = 1 -- hidef
+> -- useFileIndex = 2 -- dsound
+> -- useFileIndex = 3 -- essentials
 >
 > data SFFile =
 >   SFFile {
@@ -146,7 +146,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , rLoopEnd           :: Word
 >   , rRootKey           :: Word
 >   , rPitchCorrection   :: Double
->   , rEnvelope          :: Envelope} deriving Show
+>   , rEnvelope          :: Envelope} deriving (Eq, Show)
 >           
 > data SoundFontArrays = 
 >   SoundFontArrays {
@@ -164,7 +164,7 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , eHoldT             :: Double
 >   , eDecayT            :: Double
 >   , eSustainLevel      :: Double
->   , eReleaseT          :: Double} deriving Show
+>   , eReleaseT          :: Double} deriving (Eq, Show)
 >
   
 slurp in instruments from one SoundFont (*.sf2) file ======================================
@@ -209,7 +209,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF sunPyg imap
+>       let (d,s) = renderSF roger imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
@@ -386,9 +386,9 @@ prepare the specified instruments and percussion ===============================
 >   return readyP
 >
 >   where
->     areSame          :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
+>     areSame          :: (PercussionSound, (Word, Word)) → (PercussionSound, (Word, Word)) → Bool
 >     areSame x y = (fst x == fst y) && (fst.snd) x == (fst.snd) y
->     haveSameInst     :: (PercussionSound, (Word, Word)) -> (PercussionSound, (Word, Word)) -> Bool
+>     haveSameInst     :: (PercussionSound, (Word, Word)) → (PercussionSound, (Word, Word)) → Bool
 >     haveSameInst x y = (fst.snd) x == (fst.snd) y
 >
 > shouldAssignI          :: Array Word F.Inst 
@@ -476,74 +476,25 @@ define signal functions for playing instruments ================================
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >
-> eutRelayMono           :: A.SampleData Int16
->                           → Maybe (A.SampleData Int8)
->                           → (Word, Word)
->                           → Double
->                           → Envelope
->                           → Volume
->                           → Dur
->                           → AudSF Double Double
-> eutRelayMono s16 ms8 (st, en) stime renv vol dur =
->   let
->     numS               :: Double = fromIntegral (en - st + 1)
->     amp                :: Double = fromIntegral vol / 100
->
->   in proc pos → do
->     let sampleAddress  :: Int = fromIntegral st + truncate (numS * pos)
->     let a1 = if isJust ms8
->              then compute24 (s16 ! sampleAddress) (fromJust ms8 ! sampleAddress)
->              else fromIntegral (s16 ! sampleAddress)
->     rec
->       aenv ← if useEnvelopes
->              then doEnvelope renv stime ⤙ ()
->              else constA 1              ⤙ ()
->       a2 ←   if useLowPassFilter
->              then filterLowPass        ⤙ (a1,20000*aenv)
->              else delay 0 ⤙ a1
->     outA ⤙ a2*amp*aenv
->
->   where
->     compute24          :: Int16 → Int8 → Double
->     compute24 i16 i8 = d24
->       where
->         f8to32         :: Int8 → Int32
->         f8to32 = fromIntegral
->         f16to32         :: Int16 → Int32
->         f16to32 = fromIntegral
->         d24            :: Double
->         d24 = fromIntegral (f16to32 i16 * 32768 + f8to32 i8)       
->      
->     doEnvelope         :: Envelope → Double → AudSF () Double
->     doEnvelope renv secs
->       | traceIf msg False = undefined
->       | otherwise = envDAHdSR secs
->                               (eDelayT       renv)
->                               (eAttackT      renv)
->                               (eHoldT        renv)
->                               (eDecayT       renv)
->                               (eSustainLevel renv)
->                               (eReleaseT     renv)
->       where
->         msg = unwords ["Envelope=", show renv]
->
 > eutRelayStereo         :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
->                           → (Word, Word)
->                           → (Word, Word)
 >                           → Double
->                           → Envelope
+>                           → (Reconciled, Reconciled)
 >                           → Volume
 >                           → Dur
 >                           → AudSF Double (Double, Double)
-> eutRelayStereo s16 ms8 (stL, enL) (stR, enR) stime renv vol dur =
+> eutRelayStereo s16 ms8 stime (rDataL, rDataR) vol dur
+>   | traceIf msg False = undefined
+>   | otherwise =
 >   let
->     numS               :: Double = fromIntegral (enL - stL + 1)
->     amp                :: Double = fromIntegral vol / 100
+>     (stL, enL)         :: (Word, Word)     = (rStart rDataL, rEnd rDataL)
+>     (stR, enR)         :: (Word, Word)     = (rStart rDataR, rEnd rDataR)
+>     numS               :: Double           = fromIntegral (enL - stL + 1)
+>     amp                :: Double           = fromIntegral vol / 100
 >
 >   in proc pos → do
->     let saddrL         :: Int = fromIntegral stL + truncate (numS * pos)
->     let saddrR         :: Int = fromIntegral stR + truncate (numS * pos)
+>     let saddrL         :: Int              = fromIntegral stL + truncate (numS * pos)
+>     let saddrR         :: Int              = fromIntegral stR + truncate (numS * pos)
 >     let (a1L, a1R) =
 >              if isJust ms8
 >              then (compute24 (s16 ! saddrL) (fromJust ms8 ! saddrL)
@@ -551,18 +502,22 @@ define signal functions for playing instruments ================================
 >              else (fromIntegral (s16 ! saddrL)
 >                  , fromIntegral (s16 ! saddrR))
 >     rec
->       aenv ← if useEnvelopes
->              then doEnvelope renv stime ⤙ ()
->              else constA 1              ⤙ ()
->       a2L  ← if useLowPassFilter
->              then filterLowPass         ⤙ (a1L,20000*aenv)
->              else delay 0 ⤙ a1L
->       a2R  ← if useLowPassFilter
->              then filterLowPass         ⤙ (a1R,20000*aenv)
->              else delay 0 ⤙ a1R
->     outA ⤙ (a2L*amp*aenv, a2R*amp*aenv)
+>       aenvL ← if useEnvelopes
+>               then doEnvelope (rEnvelope rDataL) stime ⤙ ()
+>               else constA 1                            ⤙ ()
+>       aenvR ← if useEnvelopes
+>               then doEnvelope (rEnvelope rDataR) stime ⤙ ()
+>               else constA 1                            ⤙ ()
+>       a2L   ← if useLowPassFilter
+>               then filterLowPass         ⤙ (a1L,20000*aenvL)
+>               else delay 0 ⤙ a1L
+>       a2R   ← if useLowPassFilter
+>               then filterLowPass         ⤙ (a1R,20000*aenvR)
+>               else delay 0 ⤙ a1R
+>     outA ⤙ (a2L*amp*aenvL, a2R*amp*aenvR)
 >
 >   where
+>     msg = unwords ["eutRelayStereo=", show rDataL, "<-L...", show (rDataL == rDataR), "...R->", show rDataR]
 >     compute24          :: Int16 → Int8 → Double
 >     compute24 i16 i8 = d24
 >       where
@@ -606,34 +561,35 @@ define signal functions for playing instruments ================================
 > constructSig sffile sfinst mww dur pch vol params =
 >   let
 >     arrays             :: SoundFontArrays  = zArrays sffile 
->     (zone, shdr)       :: (SFZone
->                          , F.Shdr)         = setZone sffile sfinst mww pch vol
->     rData              :: Reconciled       = reconcile zone shdr
->     sr                 :: Double           = fromIntegral $ F.sampleRate shdr
->     ns                 :: Double           = fromIntegral $ rEnd rData - rStart rData + 1
+>     ((zoneL, shdrL), (zoneR, shdrR))
+>                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
+>                                            = setZone sffile sfinst mww pch vol
+>     (rDataL, rDataR)   :: (Reconciled, Reconciled)
+>                                            = reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
+>     sr                 :: Double           = fromIntegral $ F.sampleRate shdrL
+>     ns                 :: Double           = fromIntegral $ rEnd rDataL - rStart rDataL + 1
 >     secs               :: Double           = ns / sr
 >     ap                 :: AbsPitch
 >
->     -- if duration is too long, use the looped range
->     (st, en) = if useSampleLoop && secs < 2 * fromRational dur
->                then (rLoopStart rData, rLoopEnd rData)
->                else (rStart rData,     rEnd rData)
->
->     ok = checkReconcile shdr zone rData secs (st, en)
+>     ok = checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) rDataL rDataR secs (st, en)
 >     ap = if not ok
 >          then error "SFZone and F.Shdr could not be reconciled"
->          else fromIntegral (rRootKey rData)
+>          else fromIntegral (rRootKey rDataL)
 >
+>     (st, en)           :: (Word, Word)        = (rStart rDataL, rEnd rDataL)
 >     ns'                :: Double              = fromIntegral (en - st + 1)
 >     secs'              :: Double              = ns' / sr
 >     freqFactor         :: Double              = if usePitchCorrection
->                                                 then freqRatio * rateRatio / rPitchCorrection rData
+>                                                 then freqRatio * rateRatio / rPitchCorrection rDataL
 >                                                 else freqRatio * rateRatio
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
 >     rateRatio          :: Double              = 44100 / sr
 >     sig                :: AudSF () (Double, Double)
 >                                               = eutPhaser secs' sr 0 freqFactor
->                                             >>> eutRelayStereo (ssData arrays) (ssM24 arrays) (st, en) {- WOX -} (st, en) secs' (rEnvelope rData) vol dur
+>                                             >>> eutRelayStereo (ssData arrays) (ssM24 arrays)
+>                                                                secs'
+>                                                                (rDataL, rDataR)
+>                                                                vol dur
 >   in sig
 >
 > assignPercussion       :: SFFile
@@ -667,15 +623,15 @@ zone selection =================================================================
 >                           → Maybe (Word, Word)
 >                           → AbsPitch
 >                           → Volume
->                           → (SFZone, F.Shdr)
+>                           → ((SFZone, F.Shdr), (SFZone, F.Shdr))
 > setZone sffile sfinst mww pch vol =
 >   let
 >     arrays = zArrays sffile 
->     zone = case mww of
->            Nothing       → selectBestZone     sffile sfinst          pch vol
->            Just (wI, wZ) → selectBestPercZone sffile sfinst (wI, wZ) pch vol
+>     zone = selectBestZone sffile sfinst pch vol
+>     (zoneL, zoneR) = selectLinkedZone sffile sfinst zone
 >   in
->     (zone, ssShdrs arrays ! fromJust (zSampleIndex zone))
+>     ((zoneL, ssShdrs arrays ! fromJust (zSampleIndex zoneL))
+>     ,(zoneR, ssShdrs arrays ! fromJust (zSampleIndex zoneR)))
 >
 > selectBestZone         :: SFFile
 >                           → SFInstrument
@@ -699,35 +655,54 @@ zone selection =================================================================
 >     scores = map (scoreOneZone pch vol) zones
 >   in
 >     snd $ minimumBy compareScores scores
->     
-> selectBestPercZone     :: SFFile
+>
+> selectLinkedZone       :: SFFile
 >                           → SFInstrument
->                           → (Word, Word)
->                           → AbsPitch
->                           → Volume
 >                           → SFZone
-> selectBestPercZone sffile sfinst (wI, wZ) pch vol =
->   let
->     -- skip the Global zone as we usually do
->     -- form a list of zones sharing same sample index
->     ez = getZone sfinst wZ
->     zlist = map snd (tail (zZones sfinst))
->     zlist' = filter (matchZone ez) zlist
->   in
->     selectBestZone' sffile zlist' pch vol
+>                           → (SFZone, SFZone)
+> selectLinkedZone sffile sfinst zone = (zoneL, zoneR)
 >   where
->     matchZone      ::  SFZone → SFZone → Bool
->     matchZone z z' = fromJust (zSampleIndex z) == fromJust (zSampleIndex z')
->     
+>     arrays = zArrays sffile 
+>     sin = fromJust (zSampleIndex zone)
+>     shdr = ssShdrs arrays ! sin
+>     stype = F.sampleType shdr
+>     slink = if stype == 2 || stype == 4
+>             then F.sampleLink shdr
+>             else error "sample must be L or R"
+>     -- skip the Global zone as we usually do
+>     mzone = find (matchPair sffile sfinst sin) (tail (zZones sfinst))
+>     (zoneL, zoneR) =
+>       case mzone of
+>         Nothing           → (zone, zone)
+>         Just (w, ozone)   → if stype == 2
+>                             then (zone, ozone)
+>                             else (ozone, zone)
+>     matchPair          :: SFFile → SFInstrument → Word → (Word, SFZone) → Bool
+>     matchPair sffile sfinst sin (w, ezone) = mylink == sin
+>       where
+>         arrays = zArrays sffile 
+>         sin' = fromJust (zSampleIndex ezone)
+>         shdr = ssShdrs arrays ! sin'
+>         stype = F.sampleType shdr
+>         mylink = if stype == 2 || stype == 4
+>                  then F.sampleLink shdr
+>                  else 0
+>
 > compareScores          :: (Num a, Ord a) ⇒ (a, b) → (a, b) → Ordering
 > compareScores (a1, b1) (a2, b2) = compare a1 a2 
 >                         
 > scoreOneZone           :: AbsPitch → Volume → SFZone → (Int, SFZone)
 > scoreOneZone pch vol zone = (score, zone)
 >   where
->     score = score1 + score2
+>     score = score1 + score2 + score3
 >     score1 = computeDistance pch (zKeyRange zone)
 >     score2 = computeDistance vol (zVelRange zone)
+>     anInt              :: Int = if isJust (zRootKey zone)
+>                                 then fromIntegral $ fromJust $ zRootKey zone
+>                                 else 0
+>     score3 = if isJust (zRootKey zone)
+>              then 10 * abs (anInt - pch)
+>              else 128
 >
 > computeDistance        :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
 > computeDistance cand mrange =
@@ -749,8 +724,11 @@ reconcile zone and sample header ===============================================
 >       sum              :: Int = iw + i
 >   in fromIntegral sum
 >
-> reconcile              :: SFZone → F.Shdr → Reconciled
-> reconcile zone shdr =
+> reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → (Reconciled, Reconciled)
+> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) = (reconcile (zoneL, shdrL), reconcile (zoneR, shdrR))
+>
+> reconcile              :: (SFZone, F.Shdr) → Reconciled 
+> reconcile (zone, shdr) =
 >   Reconciled {
 >     rStart           = addIntToWord          (F.start shdr)           (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
 >   , rEnd             = addIntToWord          (F.end shdr)             (sumOfMaybeInts [zEndOffs       zone, zEndCoarseOffs       zone])
@@ -801,10 +779,10 @@ reconcile zone and sample header ===============================================
 >                     ,"mHold=",    show mHold,    "mDecay=",     show mDecay
 >                     ,"mSustain=", show mSustain, "mRelease=",   show mRelease]
 >
-> acceptSustain          :: Int -> Double
+> acceptSustain          :: Int → Double
 > acceptSustain iS = 1/raw iS
 >   where
->     raw                :: Int -> Double
+>     raw                :: Int → Double
 >     raw iS = pow 10 (fromIntegral jS/200)
 >       where jS
 >               | iS <= 0 = 0
@@ -818,19 +796,19 @@ reconcile zone and sample header ===============================================
 >   where
 >     msg = unwords ["ns=", show ns, " secs=", show secs, " ns'=", show ns', " secs'=", show secs' ]
 >
-> checkReconcile         :: F.Shdr
->                           → SFZone
+> checkReconcile         :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
+>                           → Reconciled
 >                           → Reconciled
 >                           → Double
 >                           → (Word, Word)
 >                           → Bool
-> checkReconcile shdr zone recon secs (st, en)
+> checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) reconL reconR secs (st, en)
 >   | traceIf msg False = undefined
 >   | otherwise = True
 >   where
->     msg = unwords ["checkReconcile=", show shdr
->                                     , show zone
->                                     , show recon
+>     msg = unwords ["checkReconcile=", show shdrL
+>                                     , show zoneL
+>                                     , show reconL
 >                                     , show secs
 >                                     , show (st, en)]
 > data Hints =
@@ -848,10 +826,10 @@ reconcile zone and sample header ===============================================
 >   return a             = Writer (a,mempty)
 >   (Writer (a,w)) >>= f = let (a',w') = runWriter $ f a in Writer (a',w `mappend` w')
 > -}
-> logNumber :: Int -> Writer [String] Int  
+> logNumber :: Int → Writer [String] Int  
 > logNumber x = writer (x, ["Got number: " ++ show x])  -- here
 >
-> logNumber2 :: Int -> Writer [String] Int  
+> logNumber2 :: Int → Writer [String] Int  
 > logNumber2 x = do
 >   tell ["Got number: " ++ show x]
 >   return x
