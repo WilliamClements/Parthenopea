@@ -261,7 +261,7 @@ extract data from SoundFont per instrument =====================================
 >   where
 >     checkBuiltZone     :: SFZone → SFZone
 >     checkBuiltZone zone
->       | traceAlways msg False = undefined
+>       | traceIf msg False = undefined
 >       | otherwise = zone
 >        where 
 >          msg = unwords ["checkBuiltZone ", hasRejects zone]
@@ -506,7 +506,7 @@ define signal functions for playing instruments ================================
 >                           → AudSF () Double 
 > eutPhaserNormal iphs delta =
 >   let frac             :: RealFrac r ⇒ r → r
->       frac                           = snd . properFraction
+>       frac = snd . properFraction
 >   in proc () → do
 >     rec
 >       let phase = if next > 1 then frac next else next
@@ -522,7 +522,7 @@ define signal functions for playing instruments ================================
 >       frac                           = snd . properFraction
 >   in proc () → do
 >     rec
->       let phase = if next > en then frac next + st else next
+>       let phase = if next > en then frac st else next
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >
@@ -534,19 +534,38 @@ define signal functions for playing instruments ================================
 >                           → Double
 >                           → (Double, Double)
 >                           → AudSF () Double 
-> eutPhaser recon secsSample secsTotal sr iphs freqFactor (st, en) =
->   let frac             :: RealFrac r ⇒ r → r
->       frac                               = snd . properFraction
+> eutPhaser recon secsSample secsTotal sr iphs freqFactor (st, en)
+>   | traceAlways msg False = undefined
+>   | otherwise =
+>     let
 >       delta            :: Double         = 1 / (secsSample * freqFactor * sr)
->   in proc () → do
->     env1   ← envLineSeg  [0, 1, 0] 
->                           [0, secsSample]               ⤙ ()
->     env2   ← envLineSeg  [0, 1, 1] 
->                           [secsSample, secsTotal]       ⤙ ()
->     pnorm  ← eutPhaserNormal 0 delta                    ⤙ ()
->     ploop  ← eutPhaserLooping st delta (normalizeLooping recon)
->                                                         ⤙ ()
->     outA ⤙ env1*pnorm + env2*ploop
+>       eps              :: Double         = 0.000001
+>     in proc () → do
+>       envn   ← envLineSeg  [0, 1, 1, 0, 0] 
+>                             [eps, secsSample, eps, 100]            ⤙ ()
+>       envl   ← envLineSeg  [0, 0, 1, 1] 
+>                             [secsSample, eps, 100]                 ⤙ ()
+>       pnorm  ← eutPhaserNormal 0 delta                             ⤙ ()
+>       ploop  ← eutPhaserLooping st delta (normalizeLooping recon)  ⤙ ()
+>     
+>       let ok = lookAtEveryPoint envn pnorm envl ploop
+>       let curPos = if ok
+>                    then envn*pnorm + envl*ploop
+>                    else error "bad point"
+>     
+>       outA ⤙ curPos
+>   where
+>     lookAtEveryPoint :: Double → Double → Double → Double → Bool
+>     lookAtEveryPoint env1 pnorm env2 ploop
+>       | traceIf msg False = undefined
+>       | otherwise = True
+>       where
+>         msg = unwords ["phaser=",   show env1
+>                      , " ",         show pnorm
+>                      , " ",         show env2
+>                      , " ",         show ploop
+>                      , "... pos =", show (env1*pnorm + env2*ploop)]
+>     msg = unwords ["eutPhaser secsSample = ", show secsSample, " secsTotal = ", show secsTotal]
 >
 > eutRelayStereo         :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
@@ -556,7 +575,7 @@ define signal functions for playing instruments ================================
 >                           → Dur
 >                           → AudSF Double (Double, Double)
 > eutRelayStereo s16 ms8 stime (rDataL, rDataR) vol dur
->   | traceIf msg False = undefined
+>   | traceAlways msg False = undefined
 >   | otherwise =
 >   let
 >     (stL, enL)         :: (Word, Word)     = (rStart rDataL, rEnd rDataL)
@@ -567,12 +586,10 @@ define signal functions for playing instruments ================================
 >   in proc pos → do
 >     let saddrL         :: Int              = fromIntegral stL + truncate (numS * pos)
 >     let saddrR         :: Int              = fromIntegral stR + truncate (numS * pos)
->     let (a1L, a1R) =
->              if isJust ms8
->              then (compute24 (s16 ! saddrL) (fromJust ms8 ! saddrL)
->                  , compute24 (s16 ! saddrR) (fromJust ms8 ! saddrR))
->              else (fromIntegral (s16 ! saddrL)
->                  , fromIntegral (s16 ! saddrR))
+>     let ok = True
+>     let (a1L, a1R) = if ok
+>                      then getSampleVals (saddrL, saddrR)
+>                      else error "bad addrs"
 >     rec
 >       aenvL ← if useEnvelopes
 >               then doEnvelope (rEnvelope rDataL) stime ⤙ ()
@@ -602,7 +619,7 @@ define signal functions for playing instruments ================================
 >      
 >     doEnvelope         :: Envelope → Double → AudSF () Double
 >     doEnvelope renv secs
->       | traceIf msg False = undefined
+>       | traceAlways msg False = undefined
 >       | otherwise = envDAHdSR secs
 >                               (eDelayT       renv)
 >                               (eAttackT      renv)
@@ -612,7 +629,18 @@ define signal functions for playing instruments ================================
 >                               (eReleaseT     renv)
 >       where
 >         msg = unwords ["Envelope=", show renv]
->
+>      
+>     getSampleVals      :: (Int, Int) → (Double, Double)
+>     getSampleVals (saddrL, saddrR)
+>       | traceIf msg' False = undefined
+>       | otherwise = 
+>         if isJust ms8
+>         then (compute24 (s16 ! saddrL) (fromJust ms8 ! saddrL)
+>             , compute24 (s16 ! saddrR) (fromJust ms8 ! saddrR))
+>         else (fromIntegral (s16 ! saddrL)
+>             , fromIntegral (s16 ! saddrR))
+>       where
+>         msg' = unwords ["saddrL=", show saddrL, "saddrR=", show saddrR]
 >
 > assignInstrument       :: SFFile → SFInstrument → Maybe (Word, Word) → Instr (Stereo AudRate)
 > assignInstrument sffile sfinst mww dur pch vol params =
@@ -640,11 +668,11 @@ define signal functions for playing instruments ================================
 >                                            = reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
 >     sr                 :: Double           = fromIntegral $ F.sampleRate shdrL
 >     ns                 :: Double           = fromIntegral $ rEnd rDataL - rStart rDataL + 1
->     secsSamplePoints   :: Double           = ns / sr
->     secsTotal          :: Double           = 2 * fromRational dur
+>     secsSample         :: Double           = ns / sr
+>     secsTotal          :: Double           = fromRational dur
 >     ap                 :: AbsPitch
 >
->     ok = checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) rDataL rDataR secsSamplePoints
+>     ok = checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) rDataL rDataR secsSample
 >     ap = if not ok
 >          then error "SFZone and F.Shdr could not be reconciled"
 >          else fromIntegral (rRootKey rDataL)
@@ -660,7 +688,7 @@ define signal functions for playing instruments ================================
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
 >     rateRatio          :: Double              = 44100 / sr
 >     sig                :: AudSF () (Double, Double)
->                                               = eutPhaser rDataL secsSamplePoints secsTotal sr 0 freqFactor (pst, pen)
+>                                               = eutPhaser rDataL secsSample secsTotal sr 0 freqFactor (pst, pen)
 >                                             >>> eutRelayStereo (ssData arrays) (ssM24 arrays)
 >                                                                secs'
 >                                                                (rDataL, rDataR)

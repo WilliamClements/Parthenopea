@@ -230,6 +230,14 @@ Copper =========================================================================
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
 >      :+: tempo (5/4) (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn])
 >      :+: line [ a 4 hn,  g 4 wn]
+>
+> copper' =
+>    removeZeros
+>    $ tempo 1
+>    $ transpose 0
+>    $ addVolume 100
+>    -- $ instrument Trumpet
+>    $ line [perc AcousticSnare dwn]
 
 Gold ======================================================================================
 
