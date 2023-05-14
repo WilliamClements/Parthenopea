@@ -23,6 +23,7 @@ Chart ==========================================================================
 > import HSoM
 > -- import -- KnightsTour
 > import Parthenopea
+> import Synthesizer
 > import System.Environment(getArgs)
 > import GHC.Num (naturalAnd)
   

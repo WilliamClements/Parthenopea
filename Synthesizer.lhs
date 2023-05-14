@@ -164,28 +164,6 @@ Signal function-based synth ====================================================
 >       where
 >         msg' = unwords ["saddrL=", show saddrL, "saddrR=", show saddrR]
 >
-
-Utility types =============================================================================
-
-> data Reconciled =
->   Reconciled {
->     rStart             :: Word
->   , rEnd               :: Word
->   , rLoopStart         :: Word
->   , rLoopEnd           :: Word
->   , rRootKey           :: Word
->   , rPitchCorrection   :: Double
->   , rEnvelope          :: Envelope} deriving (Eq, Show)
->           
-> data Envelope =
->   Envelope {
->     eDelayT            :: Double
->   , eAttackT           :: Double
->   , eHoldT             :: Double
->   , eDecayT            :: Double
->   , eSustainLevel      :: Double
->   , eReleaseT          :: Double} deriving (Eq, Show)
-
 > normalizeLooping       :: Reconciled → (Double, Double)
 > normalizeLooping recon =
 >   let
@@ -244,6 +222,81 @@ Utility types ==================================================================
 >               | iS <= 0 = 0
 >               | iS >= 1000 = 1000
 >               | otherwise = iS
+
+Implements the SoundFont envelope model with:
+  1. delay time                      0 → 0
+  2. attack time                     0 → 1
+  3. hold time                       1 → 1
+  4. decay time                      1 → sus
+  5. sustain attenuation level        ---
+  6. release time                  sus → 0
+          ______
+         /      \
+        /        \_____   5
+       /               \
+      /                 \
+  ___/                   \
+   1    2    3  4      6
+
+Creates an envelope generator with straight-line (delayed) attack, hold, decay, release.  
+
+> envDAHdSR              :: (Clock p) ⇒
+>                            Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Double
+>                            → Signal p () Double
+> envDAHdSR secs del att hold dec sus release
+>   | traceIf msg False = undefined
+>   | otherwise =
+>   let
+>     sf = envLineSeg [0,0,1,1,sus,sus,0] [del, att, hold, dec, max 0 sustime, release]
+>   in proc () → do
+>     env ← sf ⤙ ()
+>     outA ⤙ env
+>   where
+>     sustime = secs - (del + att + hold + dec + release)
+>     msg = unwords [show sus, "=sus/ ", show secs, show (del + att + hold + dec + sustime + release), "=secs,total/", 
+>                    "dahdr=", show del, show att, show hold, show dec, show release]
+>
+> vdel     = 1.0
+> vatt     = vdel + 2.0
+> vhold    = vatt + 3.0
+> vdec     = vhold + 1.0
+> vsus     = 5.00000
+> vrel     = vdec + 2.00000
+>
+> vals'                  :: [(Double, Double, Double, Double)]
+> vals' = [ (0     , 0      , 0.3   , 0.3)
+>         , (vdel  , 0      , 0.3   , 0.25)
+>         , (vatt  , 7      , 0.5   , 0.5)
+>         , (vhold , 7      , 0.4   , 0.75)
+>         , (vdec  , 7-vsus , 0.3   , 0.10)
+>         , (vrel  , 0      , 0     , 0)]
+
+Utility types =============================================================================
+
+> data Reconciled =
+>   Reconciled {
+>     rStart             :: Word
+>   , rEnd               :: Word
+>   , rLoopStart         :: Word
+>   , rLoopEnd           :: Word
+>   , rRootKey           :: Word
+>   , rPitchCorrection   :: Double
+>   , rEnvelope          :: Envelope} deriving (Eq, Show)
+>           
+> data Envelope =
+>   Envelope {
+>     eDelayT            :: Double
+>   , eAttackT           :: Double
+>   , eHoldT             :: Double
+>   , eDecayT            :: Double
+>   , eSustainLevel      :: Double
+>   , eReleaseT          :: Double} deriving (Eq, Show)
 
 Knobs and buttons =========================================================================
 

@@ -28,7 +28,7 @@ SoundFont support ==============================================================
 > import Euterpea.IO.Audio.Types ( AudRate, AudSF, Mono, Stereo )
 > import Euterpea.Music
 > import Fanfare
-> import Parthenopea ( traceIf, traceAlways, envDAHdSR, pow )
+> import Parthenopea ( traceIf, traceAlways, pow )
 > import Signals
 > import SunPyg
 > import Synthesizer
