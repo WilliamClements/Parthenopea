@@ -14,8 +14,7 @@ SoundFont support ==============================================================
 > import qualified Codec.SoundFont      as F
 > import Control.Arrow
 > import Control.Arrow.ArrowP ( ArrowP(ArrowP), strip )
-> import Control.Monad.Writer
-> import qualified Control.SF.SF        as C
+> import Control.Monad.Writer ( runWriter, MonadWriter(tell, writer), Writer )
 > import Covers
 > import Data.Array.Unboxed ( Array, (!), IArray(bounds) )
 > import qualified Data.Audio           as A
@@ -54,6 +53,15 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , zWordF             :: Word
 >   , zInstruments       :: [SFInstrument]}
 >
+> data SoundFontArrays = 
+>   SoundFontArrays {
+>     ssInsts            :: Array Word F.Inst
+>   , ssIBags            :: Array Word F.Bag
+>   , ssIGens            :: Array Word F.Generator
+>   , ssShdrs            :: Array Word F.Shdr
+>   , ssData             :: A.SampleData Int16
+>   , ssM24              :: Maybe (A.SampleData Int8)}
+>
 > data SFInstrument =
 >   SFInstrument {
 >     zWordI             :: Word
@@ -87,9 +95,9 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , zSustainVolEnv     :: Maybe Int 
 >   , zReleaseVolEnv     :: Maybe Int
 >
->   , zChorus            :: Maybe Int
->   , zReverb            :: Maybe Int
->   , zPan               :: Maybe Int
+>   , zChorus            :: Maybe Int -- designated M
+>   , zReverb            :: Maybe Int -- designated VH
+>   , zPan               :: Maybe Int -- designated VH
 >
 >   , zRootKey           :: Maybe Word
 >
@@ -97,20 +105,20 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , zVibLfoToPitch     :: Maybe Int
 >   , zModEnvToPitch     :: Maybe Int
 >   , zInitFc            :: Maybe Int
->   , zInitQ             :: Maybe Int
+>   , zInitQ             :: Maybe Int -- designated L
 >   , zModLfoToFc        :: Maybe Int
 >   , zModEnvToFc        :: Maybe Int
 >   , zModLfoToVol       :: Maybe Int
 >   , zDelayModLfo       :: Maybe Int
->   , zFreqModLfo        :: Maybe Int
+>   , zFreqModLfo        :: Maybe Int -- designated M
 >   , zDelayVibLfo       :: Maybe Int
->   , zFreqVibLfo        :: Maybe Int
+>   , zFreqVibLfo        :: Maybe Int -- designated M
 >   , zDelayModEnv       :: Maybe Int
->   , zAttackModEnv      :: Maybe Int
+>   , zAttackModEnv      :: Maybe Int -- designated M
 >   , zHoldModEnv        :: Maybe Int
 >   , zDecayModEnv       :: Maybe Int
->   , zSustainModEnv     :: Maybe Int
->   , zReleaseModEnv     :: Maybe Int
+>   , zSustainModEnv     :: Maybe Int -- designated M
+>   , zReleaseModEnv     :: Maybe Int -- designated L
 >   , zKeyToModEnvHold   :: Maybe Int
 >   , zKeyToModEnvDecay  :: Maybe Int
 >   , zKeyToVolEnvHold   :: Maybe Int
@@ -138,6 +146,44 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >                            Nothing Nothing Nothing Nothing
 >                            Nothing Nothing
 >   
+> instrumentName         :: SFFile → F.Inst → String
+> instrumentName sffile iinst =
+>   let
+>     arrays = zArrays sffile
+>   in
+>     F.instName iinst
+>
+> instrumentName'         :: SFFile → SFInstrument → String
+> instrumentName' sffile sfinst =
+>   let
+>     arrays = zArrays sffile
+>     iinst = ssInsts arrays ! zWordI sfinst
+>   in
+>     instrumentName sffile iinst
+>
+> zoneNameI               :: SFFile → F.Inst → SFZone → String
+> zoneNameI sffile iinst sfzone =
+>   let
+>     arrays = zArrays sffile
+>   in
+>     instrumentName sffile iinst
+>     ++ "/"
+>     ++ if isJust (zSampleIndex sfzone)
+>        then F.sampleName (ssShdrs arrays ! fromJust (zSampleIndex sfzone))
+>        else "Global"
+>
+> zoneNameI'              :: SFFile → SFInstrument → SFZone → String
+> zoneNameI' sffile sfinst sfzone =
+>   let
+>     arrays = zArrays sffile
+>     iinst = ssInsts arrays ! zWordI sfinst
+>   in
+>     instrumentName' sffile sfinst
+>     ++ "/"
+>     ++ if isJust (zSampleIndex sfzone)
+>        then F.sampleName (ssShdrs arrays ! fromJust (zSampleIndex sfzone))
+>        else "Global"
+>
 > data Reconciled =
 >   Reconciled {
 >     rStart             :: Word
@@ -148,15 +194,6 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >   , rPitchCorrection   :: Double
 >   , rEnvelope          :: Envelope} deriving (Eq, Show)
 >           
-> data SoundFontArrays = 
->   SoundFontArrays {
->     ssInsts            :: Array Word F.Inst
->   , ssIBags            :: Array Word F.Bag
->   , ssIGens            :: Array Word F.Generator
->   , ssShdrs            :: Array Word F.Shdr
->   , ssData             :: A.SampleData Int16
->   , ssM24              :: Maybe (A.SampleData Int8)}
->
 > data Envelope =
 >   Envelope {
 >     eDelayT            :: Double
@@ -209,7 +246,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF whelpNarp imap
+>       let (d,s) = renderSF sunPyg imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
@@ -256,45 +293,47 @@ extract data from SoundFont per instrument =====================================
 >     gens = if ygeni - xgeni < 0
 >            then error "degenerate generator list"
 >            else getGens sffile iinst [xgeni..ygeni-1]
->     zone = checkBuiltZone $ fromGens fromZone gens
+>     zone = checkBuiltZone sffile iinst $ fromGens fromZone gens
 >   in (bagIndex, zone)
 >   where
->     checkBuiltZone     :: SFZone → SFZone
->     checkBuiltZone zone
+>     checkBuiltZone     :: SFFile → F.Inst → SFZone → SFZone
+>     checkBuiltZone sffile iinst zone
 >       | traceIf msg False = undefined
 >       | otherwise = zone
 >        where 
->          msg = unwords ["checkBuiltZone ", hasRejects zone]
->     hasRejects         :: SFZone → String
->     hasRejects zone =
+>          msg = unwords [
+>            "checkBuiltZone ", show (zoneNameI sffile iinst zone)
+>           , " ", show $ hasRejects sffile iinst zone]
+>     hasRejects         :: SFFile → F.Inst → SFZone → String
+>     hasRejects sffile iinst zone =
 >       let
 >         suspiciousOnes = [
->                             ("Chorus",          zChorus zone)
->                           , ("Reverb",          zReverb zone)
->                           , ("Pan",             zPan zone)
+>                             ("Chorus",             zChorus zone)
+>                           , ("Reverb",             zReverb zone)
+>                           , ("Pan",                zPan zone)
 >
->                           , ("ModLfoToPitch", zModLfoToPitch zone)
->                           , ("VibLfoToPitch", zVibLfoToPitch zone)
->                           , ("ModEnvToPitch", zModEnvToPitch zone)
->                           , ("InitFc",        zInitFc zone)
->                           , ("InitQ",         zInitQ zone)
->                           , ("ModLfoToFc",    zModLfoToFc zone)
->                           , ("ModEnvToFc",    zModEnvToFc zone)
->                           , ("ModLfoToVol",   zModLfoToVol zone)
->                           , ("DelayModLfo",   zDelayModLfo zone)
->                           , ("FreqModLfo",    zFreqModLfo zone)
->                           , ("DelayVibLfo",   zDelayVibLfo zone)
->                           , ("FreqVibLfo",    zFreqVibLfo zone)
->                           , ("DelayModEnv",   zDelayModEnv zone)
->                           , ("AttackModEnv",  zAttackModEnv zone)
->                           , ("HoldModEnv",    zHoldModEnv zone)
->                           , ("DecayModEnv",   zDecayModEnv zone)
->                           , ("SustainModEnv", zSustainModEnv zone)
->                           , ("ReleaseModEnv", zReleaseModEnv zone)
->                           , ("KeyToModEnvHold", zKeyToModEnvHold zone)
->                           , ("KeyToModEnvDecay", zKeyToModEnvDecay zone)
->                           , ("KeyToVolEnvHold", zKeyToVolEnvHold zone)
->                           , ("KeyToVolEnvDecay", zKeyToVolEnvDecay zone)
+>                           , ("ModLfoToPitch",      zModLfoToPitch zone)
+>                           , ("VibLfoToPitch",      zVibLfoToPitch zone)
+>                           , ("ModEnvToPitch",      zModEnvToPitch zone)
+>                           , ("InitFc",             zInitFc zone)
+>                           , ("InitQ",              zInitQ zone)
+>                           , ("ModLfoToFc",         zModLfoToFc zone)
+>                           , ("ModEnvToFc",         zModEnvToFc zone)
+>                           , ("ModLfoToVol",        zModLfoToVol zone)
+>                           , ("DelayModLfo",        zDelayModLfo zone)
+>                           , ("FreqModLfo",         zFreqModLfo zone)
+>                           , ("DelayVibLfo",        zDelayVibLfo zone)
+>                           , ("FreqVibLfo",         zFreqVibLfo zone)
+>                           , ("DelayModEnv",        zDelayModEnv zone)
+>                           , ("AttackModEnv",       zAttackModEnv zone)
+>                           , ("HoldModEnv",         zHoldModEnv zone)
+>                           , ("DecayModEnv",        zDecayModEnv zone)
+>                           , ("SustainModEnv",      zSustainModEnv zone)
+>                           , ("ReleaseModEnv",      zReleaseModEnv zone)
+>                           , ("KeyToModEnvHold",    zKeyToModEnvHold zone)
+>                           , ("KeyToModEnvDecay",   zKeyToModEnvDecay zone)
+>                           , ("KeyToVolEnvHold",    zKeyToVolEnvHold zone)
+>                           , ("KeyToVolEnvDecay",   zKeyToVolEnvDecay zone)
 >                          ]
 >         agg = concatMap showIf suspiciousOnes
 >         showIf a = if isJust (snd a) then show a else ""
@@ -535,7 +574,7 @@ define signal functions for playing instruments ================================
 >                           → (Double, Double)
 >                           → AudSF () Double 
 > eutPhaser recon secsSample secsTotal sr iphs freqFactor (st, en)
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise =
 >     let
 >       delta            :: Double         = 1 / (secsSample * freqFactor * sr)
@@ -575,7 +614,7 @@ define signal functions for playing instruments ================================
 >                           → Dur
 >                           → AudSF Double (Double, Double)
 > eutRelayStereo s16 ms8 stime (rDataL, rDataR) vol dur
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise =
 >   let
 >     (stL, enL)         :: (Word, Word)     = (rStart rDataL, rEnd rDataL)
@@ -599,10 +638,10 @@ define signal functions for playing instruments ================================
 >               else constA 1                            ⤙ ()
 >       a2L   ← if useLowPassFilter
 >               then filterLowPass         ⤙ (a1L,20000*aenvL)
->               else delay 0 ⤙ a1L
+>               else delay 0               ⤙ a1L
 >       a2R   ← if useLowPassFilter
 >               then filterLowPass         ⤙ (a1R,20000*aenvR)
->               else delay 0 ⤙ a1R
+>               else delay 0               ⤙ a1R
 >     outA ⤙ (a2L*amp*aenvL, a2R*amp*aenvR)
 >
 >   where
@@ -698,7 +737,9 @@ define signal functions for playing instruments ================================
 > assignPercussion       :: SFFile
 >                           → [(PercussionSound, (Word, Word))]
 >                           → Instr (Stereo AudRate)
-> assignPercussion sffile pmap dur pch vol params =
+> assignPercussion sffile pmap dur pch vol params
+>   | traceAlways msg False = undefined
+>   | otherwise =
 >   let
 >     ps :: PercussionSound
 >     ps = toEnum (pch - 35)
@@ -711,7 +752,8 @@ define signal functions for playing instruments ================================
 >   in proc _ → do
 >     (zL, zR) ← sig ⤙ ()
 >     outA ⤙ (zL, zR)
->
+>   where
+>     msg = unwords ["assignPercussion ", show pch, " ", show (pch - 35), "wI, wZ = ", show (lookup (toEnum (pch - 35)) pmap)]
 
 zone selection ============================================================================
 
@@ -797,23 +839,33 @@ zone selection =================================================================
 > scoreOneZone           :: AbsPitch → Volume → SFZone → (Int, SFZone)
 > scoreOneZone pch vol zone = (score, zone)
 >   where
->     score = score1 + score2 + score3
->     score1 = computeDistance pch (zKeyRange zone)
->     score2 = computeDistance vol (zVelRange zone)
->     anInt              :: Int = if isJust (zRootKey zone)
->                                 then fromIntegral $ fromJust $ zRootKey zone
->                                 else 0
->     score3 = if isJust (zRootKey zone)
->              then min 128 $ 10 * abs (anInt - pch)
->              else 128
+>     score = score1 + score2
+>     score1 = computePitchDistance pch (zKeyRange zone)
+>     score2 = computeVolumeDistance vol (zVelRange zone)
 >
-> computeDistance        :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
-> computeDistance cand mrange =
+> computePitchDistance        :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
+> computePitchDistance cand mrange =
 >   case mrange of
->     Nothing                   → 128
->     Just (rangeMin, rangeMax) → if cand >= rangeMin && cand <= rangeMax
->                                 then 0
->                                 else min (abs $ rangeMin - cand) (abs $ cand - rangeMax)
+>     Nothing                   → 1000
+>     Just (rangeMin, rangeMax) → let
+>                                   dist1 = abs $ cand - rangeMin
+>                                   dist2 = abs $ cand - rangeMax
+>                                 in
+>                                   if cand >= rangeMin && cand <= rangeMax
+>                                   then 100 * max dist1 dist2
+>                                   else 1000 * min dist1 dist2
+>
+> computeVolumeDistance        :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
+> computeVolumeDistance cand mrange =
+>   case mrange of
+>     Nothing                   → 100
+>     Just (rangeMin, rangeMax) → let
+>                                   dist1 = abs $ cand - rangeMin
+>                                   dist2 = abs $ cand - rangeMax
+>                                 in
+>                                   if cand >= rangeMin && cand <= rangeMax
+>                                   then 10 * max dist1 dist2
+>                                   else 100 * min dist1 dist2
 
 reconcile zone and sample header ==========================================================
 
