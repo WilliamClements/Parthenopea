@@ -36,7 +36,6 @@ SoundFont support ==============================================================
   
 importing sampled sound (from SoundFont (*.sf2) file) =====================================
 
-> usePitchCorrection = True
 > -- useFileIndex = 0 -- lofi
 > useFileIndex = 1 -- hidef
 > -- useFileIndex = 2 -- dsound
@@ -542,32 +541,12 @@ define signal functions for playing instruments ================================
 >     (rDataL, rDataR)   :: (Reconciled, Reconciled)
 >                                            = reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
 >     sr                 :: Double           = fromIntegral $ F.sampleRate shdrL
->     ns                 :: Double           = fromIntegral $ rEnd rDataL - rStart rDataL + 1
->     secsSample         :: Double           = ns / sr
->     secsTotal          :: Double           = fromRational dur
->     ap                 :: AbsPitch
->
->     ok = checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) rDataL rDataR secsSample
->     ap = if not ok
->          then error "SFZone and F.Shdr could not be reconciled"
->          else fromIntegral (rRootKey rDataL)
->
->     (nst, nen)         :: (Double, Double)    = (fromIntegral $ rStart     rDataL, fromIntegral $ rEnd rDataL)
->     (pst, pen)         :: (Double, Double)    = (fromIntegral $ rLoopStart rDataL, fromIntegral $ rLoopEnd rDataL)
->
->     ns'                :: Double              = nst - nen + 1
->     secs'              :: Double              = ns' / sr
->     freqFactor         :: Double              = if usePitchCorrection
->                                                 then freqRatio * rateRatio / rPitchCorrection rDataL
->                                                 else freqRatio * rateRatio
->     freqRatio          :: Double              = apToHz ap / apToHz pch
->     rateRatio          :: Double              = 44100 / sr
 >     sig                :: AudSF () (Double, Double)
->                                               = eutPhaser rDataL secsSample secsTotal sr 0 freqFactor (pst, pen)
->                                             >>> eutRelayStereo (ssData arrays) (ssM24 arrays)
->                                                                secs'
->                                                                (rDataL, rDataR)
->                                                                vol dur
+>
+>     ok = checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) rDataL rDataR
+>     sig = if not ok
+>           then error "SFZone and F.Shdr could not be reconciled"
+>           else eutSynthesize (rDataL, rDataR) sr dur pch vol params (ssData arrays) (ssM24 arrays)
 >   in sig
 >
 > assignPercussion       :: SFFile
@@ -752,16 +731,14 @@ reconcile zone and sample header ===============================================
 > checkReconcile         :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
 >                           → Reconciled
 >                           → Reconciled
->                           → Double
 >                           → Bool
-> checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) reconL reconR secs
+> checkReconcile ((zoneL, shdrL), (zoneR, shdrR)) reconL reconR
 >   | traceIf msg False = undefined
 >   | otherwise = True
 >   where
 >     msg = unwords ["checkReconcile=", show shdrL
 >                                     , show zoneL
->                                     , show reconL
->                                     , show secs]
+>                                     , show reconL]
 > data Hints =
 >   DLow | DMed | DHigh deriving Show
 >

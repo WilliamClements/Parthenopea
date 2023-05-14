@@ -23,6 +23,37 @@
 
 Signal function-based synth ===============================================================
 
+> eutSynthesize          :: (Reconciled, Reconciled)
+>                           → Double
+>                           → Dur
+>                           → AbsPitch
+>                           → Volume
+>                           → [Double]
+>                           → A.SampleData Int16
+>                           → Maybe (A.SampleData Int8)
+>                           → AudSF () (Double, Double)
+> eutSynthesize (rDataL, rDataR) sr dur pch vol params s16 ms8 =
+>   let
+>     ap                 :: AbsPitch         = fromIntegral (rRootKey rDataL)
+>     ns                 :: Double           = fromIntegral $ rEnd rDataL - rStart rDataL + 1
+>     secsSample         :: Double           = ns / sr
+>     secsTotal          :: Double           = fromRational dur
+>
+>     (nst, nen)         :: (Double, Double)    = (fromIntegral $ rStart     rDataL, fromIntegral $ rEnd rDataL)
+>     (pst, pen)         :: (Double, Double)    = (fromIntegral $ rLoopStart rDataL, fromIntegral $ rLoopEnd rDataL)
+>
+>     ns'                :: Double              = nst - nen + 1
+>     secs'              :: Double              = ns' / sr
+>     freqFactor         :: Double              = if usePitchCorrection
+>                                                 then freqRatio * rateRatio / rPitchCorrection rDataL
+>                                                 else freqRatio * rateRatio
+>     freqRatio          :: Double              = apToHz ap / apToHz pch
+>     rateRatio          :: Double              = 44100 / sr
+>     sig                :: AudSF () (Double, Double)
+>                                               = eutPhaser rDataL secsSample secsTotal sr 0 freqFactor (pst, pen)
+>                                             >>> eutRelayStereo s16 ms8 secs' (rDataL, rDataR) vol dur
+>   in sig
+>
 > eutPhaserNormal        :: Double
 >                           → Double
 >                           → AudSF () Double 
@@ -300,5 +331,6 @@ Utility types ==================================================================
 
 Knobs and buttons =========================================================================
 
+> usePitchCorrection = True
 > useEnvelopes       = False
 > useLowPassFilter   = False
