@@ -16,7 +16,7 @@
 > import Euterpea.IO.Audio.Basics
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types
-> import Euterpea.Music
+> import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
 > import FRP.UISF.UISF
 > import Parthenopea
@@ -34,15 +34,14 @@ Signal function-based synth ====================================================
 >                           → AudSF () (Double, Double)
 > eutSynthesize (rDataL, rDataR) sr dur pch vol params s16 ms8 =
 >   let
->     ap                 :: AbsPitch         = fromIntegral (rRootKey rDataL)
->     ns                 :: Double           = fromIntegral $ rEnd rDataL - rStart rDataL + 1
->     secsSample         :: Double           = ns / sr
->     secsTotal          :: Double           = fromRational dur
+>     ap                 :: AbsPitch            = fromIntegral (rRootKey rDataL)
+>     ns                 :: Double              = fromIntegral $ rEnd rDataL - rStart rDataL + 1
+>     secsSample         :: Double              = ns / sr
+>     secsTotal          :: Double              = fromRational dur
 >
->     (nst, nen)         :: (Double, Double)    = (fromIntegral $ rStart     rDataL, fromIntegral $ rEnd rDataL)
->     (pst, pen)         :: (Double, Double)    = (fromIntegral $ rLoopStart rDataL, fromIntegral $ rLoopEnd rDataL)
+>     (fst, fen)         :: (Double, Double)    = (fromIntegral $ rStart     rDataL, fromIntegral $ rEnd rDataL)
 >
->     ns'                :: Double              = nst - nen + 1
+>     ns'                :: Double              = fen - fst + 1
 >     secs'              :: Double              = ns' / sr
 >     freqFactor         :: Double              = if usePitchCorrection
 >                                                 then freqRatio * rateRatio / rPitchCorrection rDataL
@@ -50,14 +49,16 @@ Signal function-based synth ====================================================
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
 >     rateRatio          :: Double              = 44100 / sr
 >     sig                :: AudSF () (Double, Double)
->                                               = eutPhaser rDataL secsSample secsTotal sr 0 freqFactor (pst, pen)
+>                                               = eutPhaser rDataL secsSample secsTotal sr 0 freqFactor
 >                                             >>> eutRelayStereo s16 ms8 secs' (rDataL, rDataR) vol dur
 >   in sig
 >
 > eutPhaserNormal        :: Double
 >                           → Double
 >                           → AudSF () Double 
-> eutPhaserNormal iphs delta =
+> eutPhaserNormal iphs delta
+>   | traceIf msg False = undefined
+>   | otherwise =
 >   let frac             :: RealFrac r ⇒ r → r
 >       frac = snd . properFraction
 >   in proc () → do
@@ -65,19 +66,25 @@ Signal function-based synth ====================================================
 >       let phase = if next > 1 then frac next else next
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
+>   where
+>     msg = unwords ["eutPhaserNormal iphs=", show iphs, "delta=", show delta]
 >
 > eutPhaserLooping       :: Double
 >                           → Double
 >                           → (Double, Double)
 >                           → AudSF () Double 
-> eutPhaserLooping iphs delta (st, en) =
+> eutPhaserLooping iphs delta (lst, len)
+>   | traceIf msg False = undefined
+>   | otherwise =
 >   let frac             :: RealFrac r ⇒ r → r
 >       frac                           = snd . properFraction
 >   in proc () → do
 >     rec
->       let phase = if next > en then frac st else next
+>       let phase = if next > len then frac lst else next
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
+>   where
+>     msg = unwords ["eutPhaseLooping iphs=", show iphs, "delta=", show delta, "lst, len=", show (lst, len)]
 >
 > eutPhaser              :: Reconciled
 >                           → Double
@@ -85,39 +92,36 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → Double
 >                           → Double
->                           → (Double, Double)
 >                           → AudSF () Double 
-> eutPhaser recon secsSample secsTotal sr iphs freqFactor (st, en)
->   | traceIf msg False = undefined
+> eutPhaser recon secsSample secsTotal sr iphs freqFactor
+>   | traceAlways msg False = undefined
 >   | otherwise =
 >     let
 >       delta            :: Double         = 1 / (secsSample * freqFactor * sr)
 >       eps              :: Double         = 0.000001
+>       (normst,normen)  :: (Double, Double)
+>                                          = normalizeLooping recon
 >     in proc () → do
->       envn   ← envLineSeg  [0, 1, 1, 0, 0] 
->                             [eps, secsSample, eps, 100]            ⤙ ()
+>       envf   ← envLineSeg  [0, 1, 1, 0, 0] 
+>                             [eps, secsSample, eps, 100]              ⤙ ()
 >       envl   ← envLineSeg  [0, 0, 1, 1] 
->                             [secsSample, eps, 100]                 ⤙ ()
->       pnorm  ← eutPhaserNormal 0 delta                             ⤙ ()
->       ploop  ← eutPhaserLooping st delta (normalizeLooping recon)  ⤙ ()
+>                             [secsSample, eps, 100]                   ⤙ ()
+>       pfull  ← eutPhaserNormal 0 delta                               ⤙ ()
+>       ploop  ← eutPhaserLooping normst delta (normst, normen)        ⤙ ()
 >     
->       let ok = lookAtEveryPoint envn pnorm envl ploop
+>       let ok = lookAtEveryPoint envf pfull envl ploop
 >       let curPos = if ok
->                    then envn*pnorm + envl*ploop
+>                    then envf*pfull + envl*ploop
 >                    else error "bad point"
 >     
 >       outA ⤙ curPos
 >   where
 >     lookAtEveryPoint :: Double → Double → Double → Double → Bool
->     lookAtEveryPoint env1 pnorm env2 ploop
+>     lookAtEveryPoint envf pfull envl ploop
 >       | traceIf msg False = undefined
 >       | otherwise = True
 >       where
->         msg = unwords ["phaser=",   show env1
->                      , " ",         show pnorm
->                      , " ",         show env2
->                      , " ",         show ploop
->                      , "... pos =", show (env1*pnorm + env2*ploop)]
+>         msg = unwords [show (envf*pfull + envl*ploop), "=", show envf, ",", show pfull,  ",", show envl, ",", show ploop]
 >     msg = unwords ["eutPhaser secsSample = ", show secsSample, " secsTotal = ", show secsTotal]
 >
 > eutRelayStereo         :: A.SampleData Int16
@@ -172,7 +176,7 @@ Signal function-based synth ====================================================
 >      
 >     doEnvelope         :: Envelope → Double → AudSF () Double
 >     doEnvelope renv secs
->       | traceAlways msg False = undefined
+>       | traceIf msg False = undefined
 >       | otherwise = envDAHdSR secs
 >                               (eDelayT       renv)
 >                               (eAttackT      renv)
@@ -196,17 +200,18 @@ Signal function-based synth ====================================================
 >         msg' = unwords ["saddrL=", show saddrL, "saddrR=", show saddrR]
 >
 > normalizeLooping       :: Reconciled → (Double, Double)
-> normalizeLooping recon =
->   let
->     nst                :: Double = fromIntegral $ rStart recon 
->     nen                :: Double = fromIntegral $ rEnd recon 
->     pst                :: Double = fromIntegral $ rLoopStart recon 
->     pen                :: Double = fromIntegral $ rLoopEnd recon 
->     len                :: Double = nen - nst + 1
->     mst                :: Double = (pst - nst) / len
->     men                :: Double = (pen - nen) / len
->   in
->     (mst, men)
+> normalizeLooping recon
+>   | traceIf msg False = undefined
+>   | otherwise = (normst, normen)
+>   where
+>     fullst             :: Double = fromIntegral $ rStart recon 
+>     fullen             :: Double = fromIntegral $ rEnd recon 
+>     loopst             :: Double = fromIntegral $ rLoopStart recon 
+>     loopen             :: Double = fromIntegral $ rLoopEnd recon 
+>     denom              :: Double = fullen - fullst + 1
+>     normst             :: Double = (loopst - fullst) / denom
+>     normen             :: Double = (loopen - fullst) / denom
+>     msg = unwords ["normalizeLooping, recon= ", show recon, " full=", show fullst, " ", show fullen, " loop=", show loopst, " ", show loopen, " denom=", show denom]
 >     
 > resolvePitchCorrection :: Int → Maybe Int → Maybe Int → Double
 > resolvePitchCorrection alt mps mpc = 2 ** (fromIntegral cents/12/100)

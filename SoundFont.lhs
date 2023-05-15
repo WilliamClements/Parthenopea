@@ -178,7 +178,6 @@ importing sampled sound (from SoundFont (*.sf2) file) ==========================
 >     ++ if isJust (zSampleIndex sfzone)
 >        then F.sampleName (ssShdrs arrays ! fromJust (zSampleIndex sfzone))
 >        else "Global"
->
 
 slurp in instruments from one SoundFont (*.sf2) file ======================================
 
@@ -222,7 +221,7 @@ slurp in instruments from one SoundFont (*.sf2) file ===========================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF sunPyg imap
+>       let (d,s) = renderSF basicLick imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
@@ -553,7 +552,7 @@ define signal functions for playing instruments ================================
 >                           → [(PercussionSound, (Word, Word))]
 >                           → Instr (Stereo AudRate)
 > assignPercussion sffile pmap dur pch vol params
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise =
 >   let
 >     ps :: PercussionSound
@@ -695,7 +694,9 @@ reconcile zone and sample header ===============================================
 >   in fromIntegral sum
 >
 > reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → (Reconciled, Reconciled)
-> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) =
+> reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
+>   | traceIf msg False = undefined
+>   | otherwise =
 >   let
 >     recL = reconcile (zoneL, shdrL)
 >     recR = reconcile (zoneR, shdrR)
@@ -704,14 +705,16 @@ reconcile zone and sample header ===============================================
 >             , rPitchCorrection = rPitchCorrection recL} 
 >   in
 >     (recL, recR')
+>   where
+>     msg = unwords ["reconcileLR zoneL=", show zoneL, " shdrL=", show shdrL, ", zoneR=", show zoneR, " shdrR=", show shdrR]
 >
 > reconcile              :: (SFZone, F.Shdr) → Reconciled 
 > reconcile (zone, shdr) =
 >   Reconciled {
->     rStart           = addIntToWord          (F.start shdr)           (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
->   , rEnd             = addIntToWord          (F.end shdr)             (sumOfMaybeInts [zEndOffs       zone, zEndCoarseOffs       zone])
->   , rLoopStart       = addIntToWord          (F.startLoop shdr)       (sumOfMaybeInts [zLoopStartOffs zone, zLoopStartCoarseOffs zone])
->   , rLoopEnd         = addIntToWord          (F.endLoop shdr)         (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
+>     rStart           = addIntToWord          (F.start shdr)           0 -- (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
+>   , rEnd             = addIntToWord          (F.end shdr)             0 -- (sumOfMaybeInts [zEndOffs       zone, zEndCoarseOffs       zone])
+>   , rLoopStart       = addIntToWord          (F.startLoop shdr)       0 -- (sumOfMaybeInts [zLoopStartOffs zone, zLoopStartCoarseOffs zone])
+>   , rLoopEnd         = addIntToWord          (F.endLoop shdr)         0 -- (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
 >   , rRootKey         = fromMaybe             (F.originalPitch shdr)   (zRootKey zone)
 >   , rPitchCorrection = resolvePitchCorrection(F.pitchCorrection shdr) (zCoarseTune zone) (zFineTune zone)
 >   , rEnvelope        = deriveEnvelope        (zDelayVolEnv zone)

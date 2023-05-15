@@ -35,7 +35,20 @@ SunPyg =========================================================================
 >                , g169_172, g173_176, g177_180, g181_184, g185_188, g189_192, g193_196
 >                , g197_200, g201_204, g205_207]
 >
-> vocalLine = line [rest 190, v190, v192, v194, v196, v198, v200, v202, v204, v206]
+> vocalLine = line [vocalTacit, vocalActive]
+> vocalTacit = rest 190
+> vocalActive = line [v190, v192, v194, v196, v198, v200, v202, v204, v206]
+> vocalsOnly =
+>   transpose (-3)
+>   $ addVolume 110
+>   $ keysig C Lydian
+>   $ instrument ChoirAahs vocalActive
+>
+> vocalsNote =
+>   transpose (-3)
+>   $ addVolume 110
+>   $ keysig C Lydian
+>   $ instrument ChoirAahs (line [a 4 wn])
 >
 > bassLine = line [rest wn, times 38 (line [c 2 wn, d 2 wn])
 >                         , times  8 (line [a 1 wn, d 2 wn])
