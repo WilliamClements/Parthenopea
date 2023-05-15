@@ -18,7 +18,6 @@
 > import Euterpea.IO.Audio.Types
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
-> import FRP.UISF.UISF
 > import Parthenopea
 
 Signal function-based synth ===============================================================
@@ -49,14 +48,14 @@ Signal function-based synth ====================================================
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
 >     rateRatio          :: Double              = 44100 / sr
 >     sig                :: AudSF () (Double, Double)
->                                               = eutPhaser rDataL secsSample secsTotal sr 0 freqFactor
+>                                               = eutDriver rDataL secsSample secsTotal sr 0 freqFactor
 >                                             >>> eutRelayStereo s16 ms8 secs' (rDataL, rDataR) vol dur
 >   in sig
 >
-> eutPhaserNormal        :: Double
+> eutDriverFull        :: Double
 >                           → Double
 >                           → AudSF () Double 
-> eutPhaserNormal iphs delta
+> eutDriverFull iphs delta
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let frac             :: RealFrac r ⇒ r → r
@@ -67,13 +66,13 @@ Signal function-based synth ====================================================
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >   where
->     msg = unwords ["eutPhaserNormal iphs=", show iphs, "delta=", show delta]
+>     msg = unwords ["eutDriverFull iphs=", show iphs, "delta=", show delta]
 >
-> eutPhaserLooping       :: Double
+> eutDriverLooping       :: Double
 >                           → Double
 >                           → (Double, Double)
 >                           → AudSF () Double 
-> eutPhaserLooping iphs delta (lst, len)
+> eutDriverLooping iphs delta (lst, len)
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let frac             :: RealFrac r ⇒ r → r
@@ -86,14 +85,14 @@ Signal function-based synth ====================================================
 >   where
 >     msg = unwords ["eutPhaseLooping iphs=", show iphs, "delta=", show delta, "lst, len=", show (lst, len)]
 >
-> eutPhaser              :: Reconciled
+> eutDriver              :: Reconciled
 >                           → Double
 >                           → Double
 >                           → Double
 >                           → Double
 >                           → Double
 >                           → AudSF () Double 
-> eutPhaser recon secsSample secsTotal sr iphs freqFactor
+> eutDriver recon secsSample secsTotal sr iphs freqFactor
 >   | traceAlways msg False = undefined
 >   | otherwise =
 >     let
@@ -106,8 +105,8 @@ Signal function-based synth ====================================================
 >                             [eps, secsSample, eps, 100]              ⤙ ()
 >       envl   ← envLineSeg  [0, 0, 1, 1] 
 >                             [secsSample, eps, 100]                   ⤙ ()
->       pfull  ← eutPhaserNormal 0 delta                               ⤙ ()
->       ploop  ← eutPhaserLooping normst delta (normst, normen)        ⤙ ()
+>       pfull  ← eutDriverFull 0 delta                                 ⤙ ()
+>       ploop  ← eutDriverLooping normst delta (normst, normen)        ⤙ ()
 >     
 >       let ok = lookAtEveryPoint envf pfull envl ploop
 >       let curPos = if ok
@@ -122,7 +121,7 @@ Signal function-based synth ====================================================
 >       | otherwise = True
 >       where
 >         msg = unwords [show (envf*pfull + envl*ploop), "=", show envf, ",", show pfull,  ",", show envl, ",", show ploop]
->     msg = unwords ["eutPhaser secsSample = ", show secsSample, " secsTotal = ", show secsTotal]
+>     msg = unwords ["eutDriver secsSample = ", show secsSample, " secsTotal = ", show secsTotal]
 >
 > eutRelayStereo         :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
