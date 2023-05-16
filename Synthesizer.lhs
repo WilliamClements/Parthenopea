@@ -83,7 +83,7 @@ Signal function-based synth ====================================================
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >   where
->     msg = unwords ["eutPhaseLooping iphs=", show iphs, "delta=", show delta, "lst, len=", show (lst, len)]
+>     msg = unwords ["eutDriverLooping iphs=", show iphs, "delta=", show delta, "lst, len=", show (lst, len)]
 >
 > eutDriver              :: Reconciled
 >                           → Double
@@ -210,7 +210,7 @@ Signal function-based synth ====================================================
 >     denom              :: Double = fullen - fullst + 1
 >     normst             :: Double = (loopst - fullst) / denom
 >     normen             :: Double = (loopen - fullst) / denom
->     msg = unwords ["normalizeLooping, recon= ", show recon, " full=", show fullst, " ", show fullen, " loop=", show loopst, " ", show loopen, " denom=", show denom]
+>     msg = unwords ["normalizeLooping, recon= ", show recon, " full=", show fullst, " ", show fullen, " loop=", show loopst, " , ", show loopen, ", denom=", show denom]
 >     
 > resolvePitchCorrection :: Int → Maybe Int → Maybe Int → Double
 > resolvePitchCorrection alt mps mpc = 2 ** (fromIntegral cents/12/100)
@@ -336,5 +336,5 @@ Utility types ==================================================================
 Knobs and buttons =========================================================================
 
 > usePitchCorrection = True
-> useEnvelopes       = False
+> useEnvelopes       = True
 > useLowPassFilter   = False
