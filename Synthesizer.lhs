@@ -93,7 +93,7 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → AudSF () Double 
 > eutDriver recon secsSample secsTotal sr iphs freqFactor
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise =
 >     let
 >       delta            :: Double         = 1 / (secsSample * freqFactor * sr)
@@ -288,12 +288,22 @@ Creates an envelope generator with straight-line (delayed) attack, hold, decay, 
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
->     sf = envLineSeg [0,0,1,1,sus,sus,0] [del, att, hold, dec, max 0 sustime, release]
+>     sf = envLineSeg [0,0,1,1,sus,sus,0,0] [del, att, hold, dec, max 0 sustime, release, 100]
 >   in proc () → do
 >     env ← sf ⤙ ()
->     outA ⤙ env
+>     let ok = lookAtEveryPoint env
+>     let eOut = if ok
+>                then env
+>                else error "bad point"
+>     outA ⤙ eOut
 >   where
 >     sustime = secs - (del + att + hold + dec + release)
+>     lookAtEveryPoint   :: Double → Bool
+>     lookAtEveryPoint point
+>       | traceIf msg False = undefined
+>       | otherwise = True
+>       where
+>         msg = unwords ["envDAHdSR=", show point]
 >     msg = unwords [show sus, "=sus/ ", show secs, show (del + att + hold + dec + sustime + release), "=secs,total/", 
 >                    "dahdr=", show del, show att, show hold, show dec, show release]
 >
@@ -337,4 +347,4 @@ Knobs and buttons ==============================================================
 
 > usePitchCorrection = True
 > useEnvelopes       = True
-> useLowPassFilter   = False
+> useLowPassFilter   = True
