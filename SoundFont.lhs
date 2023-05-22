@@ -34,7 +34,7 @@ SoundFont support ==============================================================
 > import Synthesizer
 > import System.Environment(getArgs)  
   
-importing sampled sound (from SoundFont (*.sf2) file) =====================================
+importing sampled sound (from SoundFont (*.sf2) files) ====================================
 
 > data PerGMInstr =
 >   PerGMInstr {
@@ -229,13 +229,13 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
   
 extract data from SoundFont per instrument ================================================
 
-> chooseInstrument       :: SFFile
+> chooseI                  :: SFFile
 >                           → [(String, ([Hints], InstrumentName))]
 >                           → SFIdentityMap
 >                           → SFLocatorMaps
 >                           → SFLocatorMaps
-> chooseInstrument sffile []     idmap (imap, pmap) = (imap, pmap)
-> chooseInstrument sffile (x:xs) idmap (imap, pmap) =
+> chooseI sffile []     _     (imap, pmap) = (imap, pmap)
+> chooseI sffile (x:xs) idmap (imap, pmap) =
 >   let
 >     iname              :: InstrumentName = (snd.snd) x
 >     mPrevious          :: Maybe PerGMInstr
@@ -249,36 +249,36 @@ extract data from SoundFont per instrument =====================================
 >             then Map.insert iname (PerGMInstr 0 (zWordF sffile) (fromJust mInst) 0) imap
 >             else imap
 >   in
->     chooseInstrument sffile xs idmap (imap', pmap)
+>     chooseI sffile xs idmap (imap', pmap)
 >
-> choosePercussion       :: SFFile
+> chooseP                  :: SFFile
 >                           → [(String, [(String, ([Hints], PercussionSound))])]
 >                           → SFIdentityMap
 >                           → SFLocatorMaps
 >                           → SFLocatorMaps
-> choosePercussion sffile []     idmap (imap, pmap) = (imap, pmap)
-> choosePercussion sffile (x:xs) idmap (imap, pmap) =
+> chooseP sffile []     _     (imap, pmap) = (imap, pmap)
+> chooseP sffile (x:xs) idmap (imap, pmap) =
 >   let
 >     mwInstr = Map.lookup (fst x) idmap
 >     (imap', pmap') =
 >       if isNothing mwInstr
 >       then (imap, pmap)
->       else chooseForInstr sffile (fromJust mwInstr) (snd x) idmap (imap, pmap)
+>       else chooseSounds sffile (fromJust mwInstr) (snd x) idmap (imap, pmap)
 >   in
->     choosePercussion sffile xs idmap (imap', pmap')
+>     chooseP sffile xs idmap (imap', pmap')
 >   where
->     chooseForInstr     :: SFFile
+>     chooseSounds       :: SFFile
 >                           → Word
 >                           → [(String, ([Hints], PercussionSound))]
 >                           → SFIdentityMap
 >                           → SFLocatorMaps
 >                           → SFLocatorMaps
->     chooseForInstr sffile wordI []     idmap (imap, pmap) = (imap, pmap)
->     chooseForInstr sffile wordI (x:xs) idmap (imap, pmap) =
+>     chooseSounds sffile wordI []     idmap (imap, pmap) = (imap, pmap)
+>     chooseSounds sffile wordI (x:xs) idmap (imap, pmap) =
 >       let
 >         pmap' = Map.insert ((snd.snd) x) (PerGMInstr 0 (zWordF sffile) wordI 0) pmap
 >       in
->         chooseForInstr sffile wordI xs idmap (imap, pmap')
+>         chooseSounds sffile wordI xs idmap (imap, pmap')
 >
 > chooseIAndP            :: (SFFile, ([(String, ([Hints], InstrumentName))], [(String, [(String, ([Hints], PercussionSound))])]))
 >                           → SFLocatorMaps
@@ -288,8 +288,8 @@ extract data from SoundFont per instrument =====================================
 >   | otherwise =
 >   let
 >     idmap = makeIdentityMap sffile
->     (imap', pmap')   = chooseInstrument sffile is idmap (imap, pmap)
->     (imap'', pmap'') = choosePercussion sffile ps idmap (imap', pmap')
+>     (imap', pmap')   = chooseI sffile is idmap (imap, pmap)
+>     (imap'', pmap'') = chooseP sffile ps idmap (imap', pmap')
 >   in
 >     (imap'', pmap'')
 >   where
@@ -387,6 +387,7 @@ extract data from SoundFont per instrument =====================================
 >   F.KeyToVolEnvHold i            → iz {zKeyToVolEnvHold =          Just i}
 >   F.KeyToVolEnvDecay i           → iz {zKeyToVolEnvDecay =         Just i}
 >   _                              → iz
+>
 > sfscore                :: [Hints] → Int
 > sfscore = foldr sfscorehint 0
 >
