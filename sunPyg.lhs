@@ -45,10 +45,10 @@ SunPyg =========================================================================
 >   $ instrument ChoirAahs vocalActive
 >
 > vocalsNote =
->   transpose (-3)
+>   transpose 0
 >   $ addVolume 110
 >   $ keysig C Lydian
->   $ instrument ChoirAahs (line [a 4 wn])
+>   $ instrument AcousticGuitarSteel (line [a 4 wn])
 >
 > bassLine = line [rest wn, times 38 (line [c 2 wn, d 2 wn])
 >                         , times  8 (line [a 1 wn, d 2 wn])

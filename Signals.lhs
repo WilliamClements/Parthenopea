@@ -40,10 +40,10 @@
 >   
 > -- WOX oldmain = runGraph True
 >
-> clockedSFToUISF :: forall a b c . (NFData b, Clock c) ⇒ DeltaT → SigFun c a b → UISF a [(b, Time)]
+> clockedSFToUISF :: ∀ a b c . (NFData b, Clock c) ⇒ DeltaT → SigFun c a b → UISF a [(b, Time)]
 > clockedSFToUISF buffer ~(ArrowP sf) = let r = rate (undefined :: c) 
 >   in asyncVT r buffer (toAutomaton sf)
-> toAutomaton :: forall a b . C.SF a b → Automaton (→) a b
+> toAutomaton :: ∀ a b . C.SF a b → Automaton (→) a b
 > toAutomaton ~(C.SF f) = Automaton $ \a → let (b, sf) = f a in (b, toAutomaton sf)
 >
 > fftZ :: AudSF Double (SEvent [Double])

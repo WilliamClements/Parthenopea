@@ -8,27 +8,29 @@
 
 Rosters support ===========================================================================
 
-> module Rosters where
+> module Main where
 >
 > import qualified Data.Map as Map
 > import Euterpea.Music
 > import Parthenopea ( addDur )
 > import SoundFont
 
-> runSoundFont             :: IO ()
-> runSoundFont = doSoundFont soundFontDatabase
+> main                   :: IO ()
+> main = doSoundFont soundFontDatabase
 
 organize instruments from multiple SoundFont files ========================================
 
-> hiDefInst, essentialsInst, dSoundFontV4Inst :: [(String, ([Hints], InstrumentName))]                                
-> hiDefPerc, essentialsPerc, dSoundFontV4Perc :: [(String, [(String, ([Hints], PercussionSound))])]                                
+> lofiInst, hiDefInst, essentialsInst, dSoundFontV4Inst :: [(String, ([Hints], InstrumentName))]                                
+> lofiPerc, hiDefPerc, essentialsPerc, dSoundFontV4Perc :: [(String, [(String, ([Hints], PercussionSound))])]                                
 >
 > soundFontDatabase =
 >   [
+> {-
 >       ("editLofi.sf2",             ([DHigh],  (lofiInst, lofiPerc)))
->     , ("editHiDef.sf2",            ([DHigh],  (hiDefInst, hiDefPerc)))
+>     , -} ("editHiDef.sf2" ,            ([DHigh],  (hiDefInst, hiDefPerc)))
+> {-
 >     , ("editDSoundFontV4.sf2",          ([],  (dSoundFontV4Inst, dSoundFontV4Perc)))
->     , ("editEssentials.sf2",        ([DLow],  (essentialsInst, essentialsPerc)))
+>     ,  ("editEssentials.sf2",        ([DLow],  (essentialsInst, essentialsPerc))) -}
 >   ]
 >
 > lofiInst =

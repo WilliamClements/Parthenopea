@@ -288,7 +288,7 @@ Creates an envelope generator with straight-line (delayed) attack, hold, decay, 
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
->     sf = envLineSeg [0,0,1,1,sus,sus,0,0] [del, att, hold, dec, max 0 sustime, release, 100]
+>     sf = envLineSeg [0,0,1,1,sus,sus,0,0] [del, att, hold, dec, max 0 sustime, release, secs]
 >   in proc () → do
 >     env ← sf ⤙ ()
 >     let ok = lookAtEveryPoint env
