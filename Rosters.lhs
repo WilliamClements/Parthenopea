@@ -25,10 +25,11 @@ organize instruments from multiple SoundFont files =============================
 >
 > soundFontDatabase =
 >   [
->       ("editLofi.sf2",             ([DHigh],   (lofiInst, lofiPerc)))
->     , ("editHiDef.sf2" ,           ([DHigh],   (hiDefInst, hiDefPerc)))
->     , ("editDSoundFontV4.sf2",          ([],   (dSoundFontV4Inst, dSoundFontV4Perc)))
->     , ("editEssentials.sf2",        ([DLow],   (essentialsInst, essentialsPerc)))
+>       ("editLofi.sf2",            ([DHigh],       (lofiInst, lofiPerc)))
+>     , ("editHiDef.sf2",           ([DHigh],      (hiDefInst, hiDefPerc)))
+>     , ("editKorg_X5_Drums.sf2",   ([],            (korgInst, korgPerc)))
+>     , ("editDSoundFontV4.sf2",    ([],     (dSoundFontV4Inst, dSoundFontV4Perc)))
+>     , ("editEssentials.sf2",      ([DLow],   (essentialsInst, essentialsPerc)))
 >   ]
 >
 > lofiInst =
@@ -97,15 +98,54 @@ organize instruments from multiple SoundFont files =============================
 >
 >     , ("GS Bass Drum 2",           [  ("analog kickl",         ([], BassDrum1))])
 >
->     , ("SGM rhythm(cym1)",         [  ("Tambourine",           ([], Tambourine))])
+>     , ("SGM rhythm(cym1)",         [  ("Bongo Hi Op(L)",       ([], HiBongo))
+>                                     , ("Bongo Lo Op(L)",       ([], LowBongo))
+>                                     , ("Tambourine",           ([], Tambourine))])
 >
->     , ("XG Percussion E",          [  ("Crash Cymbal 1",       ([], CrashCymbal1))
+>     , ("XG Percussion E",          [  ("Cabasa(L)",            ([], Cabasa))
+>                                     , ("Crash Cymbal 1",       ([], CrashCymbal1))
 >                                     , ("Crash Cymbal 2",       ([], CrashCymbal2))
 >                                     , ("Hi-Hat Closed(L)",     ([], ClosedHiHat))
 >                                     , ("Hi-Hat Half-Open(L)",  ([], OpenHiHat))
 >                                     , ("Splash Cymbal",        ([], SplashCymbal))
->                                     , ("Vibra Slap",           ([], Vibraslap))
->                                     , ("High Agogo(L)",        ([], HighAgogo))])
+>                                     , ("Vibra Slap",           ([], Vibraslap))])
+>   ]
+>
+> korgInst =
+>   [
+>   ]
+> korgPerc =
+>   [
+>       ("Brush",                    [  ("Jazz Tom Mid",         ([], LowMidTom))])
+>
+>     , ("CymbalsACO",               [  ("China Crash",          ([], ChineseCymbal))])
+>
+>     , ("Electro",                  [  ("Electro Snare",        ([], ElectricSnare))])
+>
+>     , ("HiHatTECH",                [  ("Hi-Hat Pedal Ana",     ([], PedalHiHat))])
+>
+>     , ("PercussionACOS",           [  ("Clave",                ([], Claves))
+>                                     , ("Conga Low",            ([], LowConga))
+>                                     , ("Conga Hi",             ([], OpenHiConga))
+>                                     , ("Conga Slap",           ([], MuteHiConga))
+>                                     , ("Guiro Long",           ([], LongGuiro))
+>                                     , ("Guiro Short",          ([], ShortGuiro))
+>                                     , ("Triangle Muted",       ([], MuteTriangle))
+>                                     , ("Triangle Open",        ([], OpenTriangle))])
+>
+>     , ("Standard",                 [  ("Agogo Hi",             ([], HighAgogo))
+>                                     , ("Agogo Lo",             ([], LowAgogo))
+>                                     , ("Clap",                 ([], HandClap))
+>                                     , ("Cowbell",              ([], Cowbell))
+>                                     , ("Ride Bell",            ([], RideBell))
+>                                     , ("Rim Shot Stan",        ([], SideStick))
+>                                     , ("Standard Tom Floor",   ([], LowFloorTom))
+>                                     , ("Standard Tom Lo",      ([], AcousticBassDrum))
+>                                     , ("Standard Tom High",    ([], HighFloorTom))
+>                                     , ("Timbale Hi",           ([], HighTimbale))
+>                                     , ("Timbale Low",          ([], LowTimbale))
+>                                     , ("Whistle Long",         ([], LongWhistle))
+>                                     , ("Whistle Short",        ([], ShortWhistle))])
 >   ]
 >
 > dSoundFontV4Inst =
