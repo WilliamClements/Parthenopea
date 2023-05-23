@@ -43,16 +43,16 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     , pWordI           :: Word
 >     , pWordZ           :: Word} deriving Show
 >
-> type SFInstrLocatorMap = Map.Map InstrumentName PerGMInstr
-> type SFPercLocatorMap  = Map.Map PercussionSound PerGMInstr
-> type SFLocatorMaps     = (SFInstrLocatorMap, SFPercLocatorMap)
+> type SFInstrLocator = Map.Map InstrumentName PerGMInstr
+> type SFPercLocator  = Map.Map PercussionSound PerGMInstr
+> type SFLocators     = (SFInstrLocator, SFPercLocator)
 >
 > type SFIdentityMap     = Map.Map String Word
 >
 > data SFRoster =
 >   SFRoster {
 >     zFiles             :: Array Int SFFile
->   , zMaps              :: SFLocatorMaps}
+>   , zMaps              :: SFLocators}
 >
 > data SFFile =
 >   SFFile {
@@ -151,11 +151,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >                            Nothing Nothing
 >
 > instrumentName         :: SFFile → F.Inst → String
-> instrumentName sffile iinst =
->   let
->     arrays = zArrays sffile
->   in
->     F.instName iinst
+> instrumentName sffile = F.instName
 >
 > zoneName               :: SFFile → F.Inst → SFZone → String
 > zoneName sffile iinst sfzone =
@@ -176,7 +172,8 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 > doSoundFont            :: SoundFontDatabase → IO ()
 > doSoundFont sfdb =
 >   do
->     sffilesp ← mapM readSoundFontFile sfdb
+>     let numberedDB = zip [0..] sfdb
+>     sffilesp ← mapM readSoundFontFile numberedDB
 >     let lm = foldr chooseIAndP (Map.empty, Map.empty) sffilesp
 >     let sfrost = SFRoster (array (0, length sffilesp - 1) (zip [0..] (map fst sffilesp))) lm
 >     let imap = assignInstruments sfrost (fst lm)
@@ -185,13 +182,14 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     _  ← doPlayInstruments imap'
 >     return ()
 >  
-> readSoundFontFile      :: ( FilePath
->                           , (   [Hints]
+> readSoundFontFile      :: (Word
+>                           , ( FilePath
+>                             , (   [Hints]
 >                               , (   [(String, ([Hints], InstrumentName))]
->                                  ,  [(String, [(String, ([Hints], PercussionSound))])])))
+>                                  ,  [(String, [(String, ([Hints], PercussionSound))])]))))
 >                           → IO (SFFile, (   [(String, ([Hints], InstrumentName))]
 >                                          ,  [(String, [(String, ([Hints], PercussionSound))])]))
-> readSoundFontFile (filename, (filehints, (ilist, plist))) =
+> readSoundFontFile (wFile, (filename, (filehints, (ilist, plist)))) =
 >   do
 >     putStrLn "entering readSoundFontFile"
 >     putStrLn ("inFile=" ++ filename)
@@ -208,7 +206,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                        (F.shdrs pdata)
 >                        (F.smpl sdata)
 >                        (F.sm24 sdata)
->         let sffile = SFFile filename arrays 0 (1000 * sfscore filehints) Map.empty
+>         let sffile = SFFile filename arrays wFile (1000 * sfscore filehints) Map.empty
 >         case ssM24 arrays of
 >           Nothing          → print "16-bit datapoints"
 >           Just s24data     → print "24-bit datapoints"
@@ -219,7 +217,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 > doPlayInstruments imap
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF basicLick imap
+>       let (d,s) = renderSF ssailor imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
 >       outFileNorm "blaat.wav" d s
 >       return ()
@@ -232,57 +230,63 @@ extract data from SoundFont per instrument =====================================
 > chooseI                  :: SFFile
 >                           → [(String, ([Hints], InstrumentName))]
 >                           → SFIdentityMap
->                           → SFLocatorMaps
->                           → SFLocatorMaps
+>                           → SFLocators
+>                           → SFLocators
 > chooseI sffile []     _     (imap, pmap) = (imap, pmap)
 > chooseI sffile (x:xs) idmap (imap, pmap) =
 >   let
+>     mwInstr            :: Maybe Word     = Map.lookup (fst x) idmap
+>     imap'              :: SFInstrLocator =
+>       if isNothing mwInstr
+>       then imap
+>       else
+>         if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
+>         then Map.insert iname (PerGMInstr myScore (zWordF sffile) (fromJust mwInstr) 0) imap
+>         else imap
 >     iname              :: InstrumentName = (snd.snd) x
 >     mPrevious          :: Maybe PerGMInstr
 >                                          = Map.lookup ((snd.snd) x) imap
->     mInst              :: Maybe Word
->                                          = Map.lookup (fst x) idmap
->     myScore            :: Int            = 0
->     theirScore         :: Int            = 0
->
->     imap' = if isNothing mPrevious || myScore > theirScore
->             then Map.insert iname (PerGMInstr 0 (zWordF sffile) (fromJust mInst) 0) imap
->             else imap
+>     myScore            :: Int            = zScore sffile + 100 * sfscore ((fst.snd) x)
 >   in
 >     chooseI sffile xs idmap (imap', pmap)
 >
 > chooseP                  :: SFFile
 >                           → [(String, [(String, ([Hints], PercussionSound))])]
 >                           → SFIdentityMap
->                           → SFLocatorMaps
->                           → SFLocatorMaps
+>                           → SFLocators
+>                           → SFLocators
 > chooseP sffile []     _     (imap, pmap) = (imap, pmap)
 > chooseP sffile (x:xs) idmap (imap, pmap) =
 >   let
->     mwInstr = Map.lookup (fst x) idmap
+>     mwInstr            :: Maybe Word     = Map.lookup (fst x) idmap
 >     (imap', pmap') =
 >       if isNothing mwInstr
 >       then (imap, pmap)
->       else chooseSounds sffile (fromJust mwInstr) (snd x) idmap (imap, pmap)
+>       else chooseSounds sffile (fromJust mwInstr) (snd x) (imap, pmap)
 >   in
 >     chooseP sffile xs idmap (imap', pmap')
 >   where
 >     chooseSounds       :: SFFile
 >                           → Word
 >                           → [(String, ([Hints], PercussionSound))]
->                           → SFIdentityMap
->                           → SFLocatorMaps
->                           → SFLocatorMaps
->     chooseSounds sffile wordI []     idmap (imap, pmap) = (imap, pmap)
->     chooseSounds sffile wordI (x:xs) idmap (imap, pmap) =
+>                           → SFLocators
+>                           → SFLocators
+>     chooseSounds sffile wordI []     (imap, pmap) = (imap, pmap)
+>     chooseSounds sffile wordI (x:xs) (imap, pmap) =
 >       let
->         pmap' = Map.insert ((snd.snd) x) (PerGMInstr 0 (zWordF sffile) wordI 0) pmap
+>         myScore = zScore sffile + 10 * sfscore ((fst.snd) x)
+>         pmap' = 
+>           if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
+>           then Map.insert ((snd.snd) x) (PerGMInstr myScore (zWordF sffile) wordI 0) pmap
+>           else pmap
+>         mPrevious      :: Maybe PerGMInstr
+>                                          = Map.lookup ((snd.snd) x) pmap
 >       in
->         chooseSounds sffile wordI xs idmap (imap, pmap')
+>         chooseSounds sffile wordI xs (imap, pmap')
 >
 > chooseIAndP            :: (SFFile, ([(String, ([Hints], InstrumentName))], [(String, [(String, ([Hints], PercussionSound))])]))
->                           → SFLocatorMaps
->                           → SFLocatorMaps
+>                           → SFLocators
+>                           → SFLocators
 > chooseIAndP (sffile, (is, ps)) (imap, pmap)
 >   | traceAlways msg False = undefined
 >   | otherwise =
@@ -411,9 +415,9 @@ extract data from SoundFont per instrument =====================================
 >     kv                 :: Word → (String, Word)
 >     kv inum =
 >       let
->        idata = is ! inum
+>        iinst = is ! inum
 >       in 
->        (F.instName idata, inum)
+>        (F.instName iinst, inum)
 >   in
 >     Map.fromList kvpairs 
 >     
@@ -649,7 +653,7 @@ reconcile zone and sample header ===============================================
 >     recL = reconcile (zoneL, shdrL)
 >     recR = reconcile (zoneR, shdrR)
 >     recR' = recR{
->               rRootKey = rRootKey recL
+>               rRootKey         = rRootKey recL
 >             , rPitchCorrection = rPitchCorrection recL} 
 >   in
 >     (recL, recR')

@@ -25,12 +25,10 @@ organize instruments from multiple SoundFont files =============================
 >
 > soundFontDatabase =
 >   [
-> {-
->       ("editLofi.sf2",             ([DHigh],  (lofiInst, lofiPerc)))
->     , -} ("editHiDef.sf2" ,            ([DHigh],  (hiDefInst, hiDefPerc)))
-> {-
->     , ("editDSoundFontV4.sf2",          ([],  (dSoundFontV4Inst, dSoundFontV4Perc)))
->     ,  ("editEssentials.sf2",        ([DLow],  (essentialsInst, essentialsPerc))) -}
+>       ("editLofi.sf2",             ([DHigh],   (lofiInst, lofiPerc)))
+>     , ("editHiDef.sf2" ,           ([DHigh],   (hiDefInst, hiDefPerc)))
+>     , ("editDSoundFontV4.sf2",          ([],   (dSoundFontV4Inst, dSoundFontV4Perc)))
+>     , ("editEssentials.sf2",        ([DLow],   (essentialsInst, essentialsPerc)))
 >   ]
 >
 > lofiInst =
