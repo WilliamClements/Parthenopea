@@ -9,12 +9,9 @@ SoundFont support ==============================================================
 
 > module SoundFont where
 >
-> import Baking
-> import Cecil
 > import qualified Codec.SoundFont      as F
 > import Control.Arrow
 > import Control.Monad.Writer ( runWriter, MonadWriter(tell, writer), Writer )
-> import Covers
 > import qualified Data.Audio           as A
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds) )
 > import Data.Int ( Int8, Int16, Int32 )
@@ -26,10 +23,7 @@ SoundFont support ==============================================================
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, AudSF, Mono, Stereo )
 > import Euterpea.Music
-> import Fanfare
 > import Parthenopea ( traceIf, traceAlways )
-> import Signals
-> import SunPyg
 > import Synthesizer
 > import System.Environment(getArgs)  
   
@@ -168,11 +162,11 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 > fileByIndex            :: SFRoster → Word → SFFile
 > fileByIndex sfrost wFile = zFiles sfrost ! fromIntegral wFile
 >
-> doSoundFont            :: SoundFontDatabase → IO ()
-> doSoundFont sfdb =
+> doSoundFont            :: SoundFontDatabase → [(String, Music (Pitch, [NoteAttribute]))] → IO ()
+> doSoundFont sfdb exposed =
 >   do
 >     let numberedDB = zip [0..] sfdb
->     sffilesp ← mapM readSoundFontFile numberedDB
+>     sffilesp ← mapM (uncurry readSoundFontFile) numberedDB
 >     let (iloc, ploc) = foldr chooseIAndP (Map.empty, Map.empty) sffilesp
 >     let sfrost = SFRoster
 >                    (array (0, length sffilesp - 1) (zip [0..] (map fst sffilesp)))
@@ -180,17 +174,17 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     let imap = assignInstruments sfrost iloc
 >     let pmap = assignAllPercussion sfrost ploc
 >     let imap' = imap ++ [doAssignP sfrost pmap]
->     _  ← doPlayInstruments imap'
+>     _  ← doPlayInstruments imap' exposed
 >     return ()
 >  
-> readSoundFontFile      :: (Word
->                           , ( FilePath
+> readSoundFontFile      :: Word
+>                           → ( FilePath
 >                             , (   [Hints]
 >                               , (   [(String, ([Hints], InstrumentName))]
->                                  ,  [(String, [(String, ([Hints], PercussionSound))])]))))
+>                                 ,   [(String, [(String, ([Hints], PercussionSound))])])))
 >                           → IO (SFFile, (   [(String, ([Hints], InstrumentName))]
 >                                          ,  [(String, [(String, ([Hints], PercussionSound))])]))
-> readSoundFontFile (wFile, (filename, (filehints, (ilist, plist)))) =
+> readSoundFontFile wFile (filename, (filehints, (ilist, plist))) =
 >   do
 >     putStrLn "entering readSoundFontFile"
 >     putStrLn ("inFile=" ++ filename)
@@ -214,14 +208,22 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >         putStrLn "leaving readSoundFontFile"
 >         return (sffile, (ilist, plist))
 >
-> doPlayInstruments      :: InstrMap (Stereo AudRate) → IO ()
-> doPlayInstruments imap
+> doPlaySong             :: InstrMap (Stereo AudRate) → String → Music (Pitch, [NoteAttribute]) → IO ()
+> doPlaySong imap name song
 >   | traceAlways msg False = undefined
 >   | otherwise = do
->       let (d,s) = renderSF whelpNarp imap
+>       let (d,s) = renderSF song imap
 >       putStrLn ("duration=" ++ show d ++ " seconds")
->       outFileNorm "blaat.wav" d s
+>       outFileNorm (name ++ ".wav") d s
 >       return ()
+>   where
+>     msg = unwords ["doPlaySong ", name]
+>
+> doPlayInstruments      :: InstrMap (Stereo AudRate) → [(String, Music (Pitch, [NoteAttribute]))] → IO ()
+> doPlayInstruments imap exposed
+>   | traceAlways msg False = undefined
+>   | otherwise = do
+>       mapM_ (uncurry (doPlaySong imap)) exposed
 >   where
 >     msg = unwords ["doPlayInstruments ", show $ length imap
 >                             , " insts=", concatMap (show . fst) imap]

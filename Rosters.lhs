@@ -10,13 +10,75 @@ Rosters support ================================================================
 
 > module Main where
 >
+> import Baking
+> import Cecil
+> import Control.Monad (foldM)
+> import Covers
 > import qualified Data.Map as Map
+> import Debug.Trace ( traceIO, traceM )
+> import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
-> import Parthenopea ( addDur )
+> import Fanfare
+> import Parthenopea
 > import SoundFont
+> import SunPyg
 
 > main                   :: IO ()
-> main = doSoundFont soundFontDatabase
+> main = doSoundFont soundFontDatabase ajingles
+
+organize exposed music ====================================================================
+
+> playSnippet            :: () → Int → IO ()
+> playSnippet () i =
+>    let inst :: InstrumentName
+>        inst = toEnum (i `mod` fromEnum Gunshot)
+>    in do
+>       traceIO ("InstrumentName = " ++ show inst)
+>       play $ instrument inst pSnippet02
+>
+> playSnippets           :: IO ()
+> playSnippets = 
+>    foldM playSnippet () [0..]
+>
+> ajingles, bjingles
+>  , cjingles, djingles  :: [(String, Music (Pitch, [NoteAttribute]))]
+>
+> ajingles =
+>    [("theFanfare"      , aggrandize (theFanfare 4))
+>    , ("slot"           , aggrandize (slot 4))
+>    , ("alice"          , aggrandize alice)
+>    , ("bob"            , aggrandize (bob 4))
+>    , ("copper"         , aggrandize (copper 2))
+>    , ("gold"           , aggrandize gold)
+>    , ("silver"         , aggrandize silver)]
+> bjingles =
+>    [("getCITM"         , aggrandize getCITM)
+>    , ("bake"           , bakedJingle 345)
+>    , ("bill"           , aggrandize (bill 4))
+>    , ("roger"          , aggrandize roger)]
+> cjingles =
+>    [("cecil"           , aggrandize cecil)
+>    , ("abby"           , aggrandize abby)
+>    , ("wj"             , aggrandize wj)
+>    , ("shelby"         , aggrandize shelby)
+>    , ("weHateHer"      , aggrandize weHateHer)]
+> djingles =
+>    [("waypostpurple"   , aggrandize waypostpurple)
+>    , ("whelpNarp"      , aggrandize whelpNarp)
+>    , ("snake"          , aggrandize snake)
+>    , ("pendingtonArnt" , aggrandize (pendingtonArnt 2))
+>    , ("ssailor"        , aggrandize ssailor)]
+>
+> playJingle             :: () → (String, Music (Pitch, [NoteAttribute])) → IO ()
+> playJingle _ (s, m) =
+>    do
+>       traceM ( show s ++ " " ++ show (durS (dur m)) ++ " seconds" )
+>       playDM Nothing m
+>       
+> playJingles            :: [(String, Music (Pitch, [NoteAttribute]))] → IO ()
+> playJingles jingles =
+>    foldM playJingle () (cycle jingles)
+>
 
 organize instruments from multiple SoundFont files ========================================
 
@@ -46,7 +108,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("*Slow Violin",            ([],  Viola))
 >     , ("'59 Les Paul",            ([],  ElectricGuitarClean))
 >     , ("Accordion",               ([],  Accordion))
->     , ("Anklung Pad",             ([],  VoiceOohs))
+>     , ("Group 1",                 ([],  VoiceOohs))
 >     , ("Bagpipe Drone",           ([],  Bagpipe))
 >     , ("Bassoon",                 ([],  Bassoon))
 >     , ("Cello 2",                 ([],  Cello))
