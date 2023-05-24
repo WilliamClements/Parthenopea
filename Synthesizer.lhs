@@ -184,7 +184,7 @@ Signal function-based synth ====================================================
 >                               (eSustainLevel renv)
 >                               (eReleaseT     renv)
 >       where
->         msg = unwords ["Envelope=", show renv]
+>         msg = unwords ["doEnvelope=", show renv]
 >      
 >     getSampleVals      :: (Int, Int) → (Double, Double)
 >     getSampleVals (saddrL, saddrR)
@@ -258,7 +258,7 @@ Signal function-based synth ====================================================
 >               | iS >= 1000 = 1000
 >               | otherwise = iS
 
-Implements the SoundFont envelope model with:
+Implement the SoundFont envelope model with specified:
   1. delay time                      0 → 0
   2. attack time                     0 → 1
   3. hold time                       1 → 1
@@ -273,7 +273,13 @@ Implements the SoundFont envelope model with:
   ___/                   \
    1    2    3  4      6
 
-Creates an envelope generator with straight-line (delayed) attack, hold, decay, release.  
+Create a straight-line envelope generator with following phases:
+ - delay - zero most of the time
+   attack
+   hold
+   decay
+   sustain
+   release  
 
 > envDAHdSR              :: (Clock p) ⇒
 >                            Double
@@ -307,6 +313,9 @@ Creates an envelope generator with straight-line (delayed) attack, hold, decay, 
 >     msg = unwords [show sus, "=sus/ ", show secs, show (del + att + hold + dec + sustime + release), "=secs,total/", 
 >                    "dahdr=", show del, show att, show hold, show dec, show release]
 >
+
+I charted these:
+
 > vdel     = 1.0
 > vatt     = vdel + 2.0
 > vhold    = vatt + 3.0

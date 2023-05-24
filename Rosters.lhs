@@ -133,7 +133,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("sitar",                   ([],  Sitar))
 >     , ("Slap Bass10",             ([],  SlapBass1))
 >     , ("Slap Bass2",              ([],  SlapBass2))
->     , ("SoftStringAsp",           ([],  StringEnsemble1))
+>     {- , ("SoftStringAsp",           ([],  StringEnsemble1)) -}
 >     , ("Steel Guitar",            ([],  AcousticGuitarSteel))
 >     , ("Syn Bass 1",              ([],  SynthBass1))
 >     , ("Syn Bass 2",              ([],  SynthBass2))

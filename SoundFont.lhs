@@ -244,7 +244,10 @@ extract data from SoundFont per instrument =====================================
 >       then imap
 >       else
 >         if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
->         then Map.insert iname (PerGMInstr myScore (zWordF sffile) (fromJust mwInstr) 0) imap
+>         then Map.insert
+>                iname
+>                (PerGMInstr myScore (zWordF sffile) (fromJust mwInstr) 0)
+>                imap
 >         else imap
 >     iname              :: InstrumentName = (snd.snd) x
 >     mPrevious          :: Maybe PerGMInstr
