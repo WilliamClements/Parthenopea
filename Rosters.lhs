@@ -24,7 +24,7 @@ Rosters support ================================================================
 > import SunPyg
 
 > main                   :: IO ()
-> main = doSoundFont soundFontDatabase ajingles
+> main = doSoundFont soundFontDatabase sj -- zjingles
 
 organize exposed music ====================================================================
 
@@ -68,6 +68,11 @@ organize exposed music =========================================================
 >    , ("snake"          , aggrandize snake)
 >    , ("pendingtonArnt" , aggrandize (pendingtonArnt 2))
 >    , ("ssailor"        , aggrandize ssailor)]
+> zjingles =
+>    [("basicLick"       , aggrandize basicLick)
+>    , ("sunPyg"         , aggrandize sunPyg)]
+> sj =
+>    [("copper'"  , aggrandize (copper'))]
 >
 > playJingle             :: () → (String, Music (Pitch, [NoteAttribute])) → IO ()
 > playJingle _ (s, m) =
@@ -90,8 +95,8 @@ organize instruments from multiple SoundFont files =============================
 >       ("editLofi.sf2",            ([DHigh],       (lofiInst, lofiPerc)))
 >     , ("editHiDef.sf2",           ([DHigh],      (hiDefInst, hiDefPerc)))
 >     , ("editKorg_X5_Drums.sf2",   ([],            (korgInst, korgPerc)))
->     , ("editDSoundFontV4.sf2",    ([],     (dSoundFontV4Inst, dSoundFontV4Perc)))
->     , ("editEssentials.sf2",      ([DLow],   (essentialsInst, essentialsPerc)))
+>     , ("editDSoundFontV4.sf2",    ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
+>     , ("editEssentials.sf2",      ([DLow],  (essentialsInst, essentialsPerc)))
 >   ]
 >
 > lofiInst =
@@ -149,10 +154,12 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("Ride Cymbal 1",        ([], RideCymbal1))
 >                                     , ("Ride Cymbal 2",        ([], RideCymbal2))])
 >
->     , ("Don's XG Std Kit",         [  ("Cuica Mute",           ([], MuteCuica))
+>     , ("Don's XG Std Kit",         [  ("Agogo High",           ([], HighAgogo))
+>                                     , ("Agogo Low",            ([], LowAgogo))
+>                                     , ("Cuica Mute",           ([], MuteCuica))
 >                                     , ("Cuica Open",           ([], OpenCuica))])
 >
->     , ("Drum_Kit_K&S_Room",        [  ("Drum_Snare4",          ([], AcousticSnare))])
+>     -- WOX, ("Drum_Kit_K&S_Room",        [  ("Drum_Snare4",          ([], AcousticSnare))])
 >
 >     , ("drm: Rock Toms",           [  ("drm-rocktom1m",        ([], HighTom))
 >                                     , ("drm-rocktom2m",        ([], HiMidTom))
@@ -186,7 +193,9 @@ organize instruments from multiple SoundFont files =============================
 >
 >     , ("HiHatTECH",                [  ("Hi-Hat Pedal Ana",     ([], PedalHiHat))])
 >
->     , ("PercussionACOS",           [  ("Clave",                ([], Claves))
+>     , ("PercussionACOS",           [  ("Agogo Hi",             ([], HighAgogo))
+>                                     , ("Agogo Lo",             ([], LowAgogo))
+>                                     , ("Clave",                ([], Claves))
 >                                     , ("Conga Low",            ([], LowConga))
 >                                     , ("Conga Hi",             ([], OpenHiConga))
 >                                     , ("Conga Slap",           ([], MuteHiConga))
@@ -195,9 +204,10 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("Triangle Muted",       ([], MuteTriangle))
 >                                     , ("Triangle Open",        ([], OpenTriangle))])
 >
->     , ("Standard",                 [  ("Agogo Hi",             ([], HighAgogo))
->                                     , ("Agogo Lo",             ([], LowAgogo))
->                                     , ("Clap",                 ([], HandClap))
+>     , ("Room",                     [  ("Room Snare",           ([], ElectricSnare))
+>                                     , ("Standard Snare 38",    ([], AcousticSnare))])
+>
+>     , ("Standard",                 [  ("Clap",                 ([], HandClap))
 >                                     , ("Cowbell",              ([], Cowbell))
 >                                     , ("Ride Bell",            ([], RideBell))
 >                                     , ("Rim Shot Stan",        ([], SideStick))
@@ -309,7 +319,7 @@ organize instruments from multiple SoundFont files =============================
 >
 >     , ("OSDK Reverse Cymbal",      [  ("OSDK ride-rev11L",     ([], RideCymbal1))])
 >
->     , ("OSDK snaredrum1",          [  ("OSDK snare-bottom1L",  ([], AcousticSnare))])
+>     -- , ("OSDK snaredrum1",          [  ("OSDK snare-bottom1L",  ([], AcousticSnare))])
 >
 >     , ("OSDK Tom",                 [  ("OSDK large-tom1L",     ([], LowTom))])
 >     , ("OSDK tom6-room",           [  ("OSDK small-tom1-1L",   ([], HighTom))])

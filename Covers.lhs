@@ -251,6 +251,14 @@ Yahozna ========================================================================
 
 Slot ======================================================================================
 
+> testslot =
+>    removeZeros
+>    $ tempo 2
+>    $ transpose 0
+>    $ keysig G Dorian
+>    $ addVolume 110 $ instrument Violin (line [ f 4 en,  g 4 en,  a 4 en,  b 4 en,  c 5 en,  d 5 en
+>         ,  c 5 qn ] )
+>
 > slot :: Int → Music (Pitch, Volume)
 > slot n =
 >    removeZeros
@@ -317,6 +325,17 @@ TC =============================================================================
 
 > licks = 38
 > 
+> realBasicLick          :: Music (Pitch, Volume)
+> realBasicLick =
+>   removeZeros
+>   $ tempo 1
+>   $ transpose (-12)
+>   $ keysig A Major
+>   $ addVolume 50 $ instrument AcousticGuitarNylon tcgBasic
+>   where
+>     tcgBasic = addDur qn [f 5, a 5, b 5, a 5]
+>
+>
 > basicLick :: Music (Pitch, Volume)
 > basicLick =
 >   removeZeros
@@ -328,7 +347,6 @@ TC =============================================================================
 >           , addVolume  60 $ instrument Cello               tcC
 >           , addVolume 100                                  tcP]
 >   where
->
 >   gUnit :: Music Pitch
 >   gUnit = addDur qn [f 5, a 5, b 5, a 5, f 5, a 5, b 5, a 5
 >                    , e 5, a 5, b 5, a 5, e 5, a 5, b 5, a 5]

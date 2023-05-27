@@ -12,6 +12,7 @@
 > import Data.Array.Unboxed ( Array, (!), IArray(bounds) )
 > import qualified Data.Audio           as A
 > import Data.Int ( Int8, Int16, Int32 )
+> import Data.List
 > import Data.Maybe (isJust, fromJust, fromMaybe)
 > import Euterpea.IO.Audio.Basics
 > import Euterpea.IO.Audio.BasicSigFuns
@@ -36,7 +37,7 @@ Signal function-based synth ====================================================
 >     ap                 :: AbsPitch            = fromIntegral (rRootKey rDataL)
 >     ns                 :: Double              = fromIntegral $ rEnd rDataL - rStart rDataL + 1
 >     secsSample         :: Double              = ns / sr
->     secsTotal          :: Double              = fromRational dur
+>     secsScored         :: Double              = 2 * fromRational dur
 >
 >     (fst, fen)         :: (Double, Double)    = (fromIntegral $ rStart     rDataL, fromIntegral $ rEnd rDataL)
 >
@@ -48,8 +49,8 @@ Signal function-based synth ====================================================
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
 >     rateRatio          :: Double              = 44100 / sr
 >     sig                :: AudSF () (Double, Double)
->                                               = eutDriver rDataL secsSample secsTotal sr 0 freqFactor
->                                             >>> eutRelayStereo s16 ms8 secs' (rDataL, rDataR) vol dur
+>                                               = eutDriver rDataL secsSample secsScored sr 0 freqFactor
+>                                             >>> eutRelayStereo s16 ms8 secsScored (rDataL, rDataR) vol dur
 >   in sig
 >
 > eutDriverFull        :: Double
@@ -92,7 +93,7 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → Double
 >                           → AudSF () Double 
-> eutDriver recon secsSample secsTotal sr iphs freqFactor
+> eutDriver recon secsSample secsScored sr iphs freqFactor
 >   | traceIf msg False = undefined
 >   | otherwise =
 >     let
@@ -102,15 +103,17 @@ Signal function-based synth ====================================================
 >                                          = normalizeLooping recon
 >     in proc () → do
 >       envf   ← envLineSeg  [0, 1, 1, 0, 0] 
->                             [eps, secsSample, eps, 100]              ⤙ ()
+>                             [eps, secsSample, eps, secsScored - secsSample]    ⤙ ()
 >       envl   ← envLineSeg  [0, 0, 1, 1] 
->                             [secsSample, eps, 100]                   ⤙ ()
->       pfull  ← eutDriverFull 0 delta                                 ⤙ ()
->       ploop  ← eutDriverLooping normst delta (normst, normen)        ⤙ ()
+>                             [secsSample, eps, secsScored - secsSample]         ⤙ ()
+>       pfull  ← eutDriverFull 0 delta                                           ⤙ ()
+>       ploop  ← eutDriverLooping normst delta (normst, normen)                  ⤙ ()
 >     
 >       let ok = lookAtEveryPoint envf pfull envl ploop
 >       let curPos = if ok
->                    then envf*pfull + envl*ploop
+>                    then if useLoopSwitching
+>                         then envf*pfull + envl*ploop
+>                         else envf*pfull
 >                    else error "bad point"
 >     
 >       outA ⤙ curPos
@@ -121,7 +124,7 @@ Signal function-based synth ====================================================
 >       | otherwise = True
 >       where
 >         msg = unwords [show (envf*pfull + envl*ploop), "=", show envf, ",", show pfull,  ",", show envl, ",", show ploop]
->     msg = unwords ["eutDriver secsSample = ", show secsSample, " secsTotal = ", show secsTotal]
+>     msg = unwords ["eutDriver secsSample = ", show secsSample, " secsScored = ", show secsScored]
 >
 > eutRelayStereo         :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
@@ -159,10 +162,28 @@ Signal function-based synth ====================================================
 >       a2R   ← if useLowPassFilter
 >               then filterLowPass         ⤙ (a1R,20000*aenvR)
 >               else delay 0               ⤙ a1R
->     outA ⤙ (a2L*amp*aenvL, a2R*amp*aenvR)
+>     let (zL, zR) = (a2L*amp*aenvL, a2R*amp*aenvR)
+>     let ok = lookAtEveryPoint amp a2L aenvL a2R aenvR
+>     let (zL', zR') = if ok
+>                      then (zL, zR)
+>                      else error "bad point"
+>
+>     outA ⤙ (zL', zR')
 >
 >   where
->     msg = unwords ["eutRelayStereo=", show rDataL, "<-L...", show (rDataL == rDataR), "...R->", show rDataR]
+>     msg = unwords ["eutRelayStereo = ", show stime, " , ", show dur]
+>
+>     lookAtEveryPoint   :: Double → Double → Double → Double → Double → Bool
+>     lookAtEveryPoint amp a2L aenvL a2R aenvR
+>       | traceIf msg False = undefined
+>       | otherwise = True
+>       where
+>         msg = unwords ["amp=", show amp
+>                        , "\na2L=", show a2L
+>                        , " aenvL=", show aenvL
+>                        , "\na2R=", show a2R
+>                        , " aenvR=", show aenvR]
+>
 >     compute24          :: Int16 → Int8 → Double
 >     compute24 i16 i8 = d24
 >       where
@@ -274,7 +295,7 @@ Implement the SoundFont envelope model with specified:
    1    2    3  4      6
 
 Create a straight-line envelope generator with following phases:
- - delay - zero most of the time
+ - delay - ~zero most of the time
    attack
    hold
    decay
@@ -294,7 +315,13 @@ Create a straight-line envelope generator with following phases:
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
->     sf = envLineSeg [0,0,1,1,sus,sus,0,0] [del, att, hold, dec, max 0 sustime, release, secs]
+>     sum = del + att + hold + dec + release
+>     sustime = secs - sum
+>     amps =   [0, 0, 1, 1, sus, sus, 0, 0]
+>     deltaTs = [del, att, hold, dec, max 0 sustime, min secs release, secs]
+>     sf = if sustime >= 0 || not useShortening
+>          then envLineSeg      amps deltaTs
+>          else shortenEnvelope secs amps deltaTs
 >   in proc () → do
 >     env ← sf ⤙ ()
 >     let ok = lookAtEveryPoint env
@@ -310,9 +337,48 @@ Create a straight-line envelope generator with following phases:
 >       | otherwise = True
 >       where
 >         msg = unwords ["envDAHdSR=", show point]
->     msg = unwords [show sus, "=sus/ ", show secs, show (del + att + hold + dec + sustime + release), "=secs,total/", 
+>     msg = unwords [show sus,     "=sus/ "
+>                  , show sustime, "=sustime/"
+>                  , show secs, show (del + att + hold + dec + sustime + release), "=secs,total/", 
 >                    "dahdr=", show del, show att, show hold, show dec, show release]
 >
+> computeDeltaTs         :: Double
+>                           → [Double]
+>                           → [Double]
+> computeDeltaTs limit xs = ys
+>   where
+>     (sum, ys) = foldl' (foldFun limit) (0, []) xs
+>     foldFun            :: Double
+>                           → (Double, [Double])
+>                           → Double
+>                           → (Double, [Double])
+>     foldFun limit (sum, vs) val 
+>       | sum >= limit       = (val + sum, vs)
+>       | val + sum > limit  = (val + sum, vs ++ [limit - sum])
+>       | otherwise          = (val + sum, vs ++ [val])   
+>     
+> shortenEnvelope        :: (Clock p) ⇒
+>                           Double
+>                           → [Double]
+>                           → [Double]
+>                           → Signal p () Double
+> shortenEnvelope secs amps deltaTs
+>   | traceIf msg False = undefined
+>   | otherwise = envLineSeg amps' deltaTs''
+>   where
+>     deltaTs'  = computeDeltaTs secs deltaTs
+>     ix        = length deltaTs' - 1
+>     torig     = deltaTs  !! ix
+>     tnew      = deltaTs' !! ix
+>     fact      = if torig == 0
+>                 then 1.0
+>                 else tnew / torig
+>     a0        = amps !! ix
+>     a1        = amps !! (ix + 1 )
+>     a'        = a0 + fact * (a1 - a0)    
+>     amps'     = take (ix+1) amps ++ [a', 0, 0]
+>     deltaTs'' = deltaTs' ++ [0.001, 0.001]
+>     msg       = unwords ["shortenEnvelope = ", show amps', " , ", show deltaTs'']
 
 I charted these:
 
@@ -356,4 +422,6 @@ Knobs and buttons ==============================================================
 
 > usePitchCorrection = True
 > useEnvelopes       = True
-> useLowPassFilter   = True
+> useShortening      = True
+> useLoopSwitching   = True
+> useLowPassFilter   = False
