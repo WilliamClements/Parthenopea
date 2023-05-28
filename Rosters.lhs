@@ -24,7 +24,7 @@ Rosters support ================================================================
 > import SunPyg
 
 > main                   :: IO ()
-> main = doSoundFont soundFontDatabase sj -- zjingles
+> main = doSoundFont soundFontDatabase bjingles
 
 organize exposed music ====================================================================
 
@@ -93,6 +93,7 @@ organize instruments from multiple SoundFont files =============================
 > soundFontDatabase =
 >   [
 >       ("editLofi.sf2",            ([DHigh],       (lofiInst, lofiPerc)))
+>     , ("editArachno.sf2",         ([],         (arachnoInst, arachnoPerc)))
 >     , ("editHiDef.sf2",           ([DHigh],      (hiDefInst, hiDefPerc)))
 >     , ("editKorg_X5_Drums.sf2",   ([],            (korgInst, korgPerc)))
 >     , ("editDSoundFontV4.sf2",    ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
@@ -104,6 +105,15 @@ organize instruments from multiple SoundFont files =============================
 >       ("Lofi Casio Synth 1",      ([],  AcousticGrandPiano))
 >   ]
 > lofiPerc =
+>   [
+>   ]
+>
+> arachnoInst =
+>   [
+>        ("ContraBass5",            ([], Contrabass))
+>      , ("Orchestral Harp1",       ([], ElectricGrandPiano))
+>   ]
+> arachnoPerc =
 >   [
 >   ]
 >
@@ -201,7 +211,7 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("Conga Slap",           ([], MuteHiConga))
 >                                     , ("Guiro Long",           ([], LongGuiro))
 >                                     , ("Guiro Short",          ([], ShortGuiro))
->                                     , ("Triangle Muted",       ([], MuteTriangle))
+>                                     , ("Triangle Closed",      ([], MuteTriangle))
 >                                     , ("Triangle Open",        ([], OpenTriangle))])
 >
 >     , ("Room",                     [  ("Room Snare",           ([], ElectricSnare))

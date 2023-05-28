@@ -171,7 +171,8 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >   do
 >     let numberedDB = zip [0..] sfdb
 >     sffilesp ← mapM (uncurry readSoundFontFile) numberedDB
->     let (iloc, ploc) = foldr chooseIAndP (Map.empty, Map.empty) sffilesp
+>     let ((iloc, ploc), msgs) = foldr chooseIAndP ((Map.empty, Map.empty), []) sffilesp
+>     mapM_ print msgs
 >     let sfrost = SFRoster
 >                    (array (0, length sffilesp - 1) (zip [0..] (map fst sffilesp)))
 >                    (iloc, ploc)
@@ -211,103 +212,108 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >         return (sffile, (ilist, plist))
 >
 > renderSong             :: InstrMap (Stereo AudRate) → String → Music (Pitch, [NoteAttribute]) → IO ()
-> renderSong imap name song
->   | traceAlways msg False = undefined
->   | otherwise = do
->       let (d,s) = renderSF song imap
->       putStrLn ("duration=" ++ show d ++ " seconds")
->       outFileNorm (name ++ ".wav") d s
->       return ()
->   where
->     msg = unwords ["renderSong ", name]
+> renderSong imap name song =
+>   do
+>     let path = name ++ ".wav"
+>     putStr path
+>     let (d,s) = renderSF song imap
+>     putStrLn (" written: " ++ show d ++ " seconds")
+>     outFileNorm path d s
+>     return ()
 >
 > doPlayInstruments      :: InstrMap (Stereo AudRate) → [(String, Music (Pitch, [NoteAttribute]))] → IO ()
-> doPlayInstruments imap exposed
->   | traceAlways msg False = undefined
->   | otherwise = do
->       mapM_ (uncurry (renderSong imap)) exposed
->   where
->     msg = unwords ["doPlayInstruments ", show $ length imap
->                             , " insts=", concatMap (show . fst) imap]
+> doPlayInstruments imap exposed =
+>   do
+>     mapM_ (uncurry (renderSong imap)) exposed
   
 extract data from SoundFont per instrument ================================================
 
 > chooseI                  :: SFFile
 >                           → [(String, ([Hints], InstrumentName))]
->                           → NameMap
->                           → Locators
->                           → Locators
-> chooseI sffile []     _     (imap, pmap) = (imap, pmap)
-> chooseI sffile (x:xs) idmap (imap, pmap) =
+>                           → NameMaps
+>                           → (Locators, [String])
+>                           → (Locators, [String])
+> chooseI sffile []     _     cur          = cur
+> chooseI sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), msgs) =
 >   let
->     mwInstr            :: Maybe Word     = Map.lookup (fst x) idmap
->     imap'              :: InstrLocator   =
+>     mwInstr            :: Maybe Word     = Map.lookup (fst x) nMapI
+>     ((iloc', ploc'), msgs')
+>                        :: (Locators, [String])
+>                                          =
 >       if isNothing mwInstr
->       then imap
+>       then ((iloc, ploc), ("Instrument" ++ fst x ++ " not found") : msgs)
 >       else
 >         if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
->         then Map.insert
->                iname
->                (PerGMInstr myScore (zWordF sffile) (fromJust mwInstr) 0)
->                imap
->         else imap
+>         then ((Map.insert
+>                  iname
+>                  (PerGMInstr myScore (zWordF sffile) (fromJust mwInstr) 0)
+>                  iloc, ploc), msgs)
+>         else ((iloc, ploc), msgs)
 >     iname              :: InstrumentName = (snd.snd) x
 >     mPrevious          :: Maybe PerGMInstr
->                                          = Map.lookup ((snd.snd) x) imap
+>                                          = Map.lookup ((snd.snd) x) iloc
 >     myScore            :: Int            = zScore sffile + 100 * sfscore ((fst.snd) x)
 >   in
->     chooseI sffile xs idmap (imap', pmap)
+>     chooseI sffile xs (nMapI, nMapZ) ((iloc', ploc), msgs')
 >
 > chooseP                  :: SFFile
 >                           → [(String, [(String, ([Hints], PercussionSound))])]
->                           → NameMap
->                           → Locators
->                           → Locators
-> chooseP sffile []     _     (imap, pmap) = (imap, pmap)
-> chooseP sffile (x:xs) idmap (imap, pmap) =
+>                           → NameMaps
+>                           → (Locators, [String])
+>                           → (Locators, [String])
+> chooseP sffile [] _ cur                  = cur
+> chooseP sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), msgs) =
 >   let
->     mwInstr            :: Maybe Word     = Map.lookup (fst x) idmap
->     pmap'              :: PercLocator    =
+>     mwInstr            :: Maybe Word     = Map.lookup (fst x) nMapI
+>     ((iloc', ploc'), msgs')
+>                        :: (Locators, [String])
+>                                          =
 >       if isNothing mwInstr
->       then pmap
->       else chooseSounds sffile (fromJust mwInstr) (snd x) pmap
+>       then ((iloc, ploc), ("Instrument" ++ fst x ++ "not found") : msgs)
+>       else chooseSounds sffile (fromJust mwInstr) (snd x) (nMapI, nMapZ) ((iloc, ploc), msgs)
 >   in
->     chooseP sffile xs idmap (imap, pmap')
+>     chooseP sffile xs (nMapI, nMapZ) ((iloc', ploc'), msgs')
 >   where
 >     chooseSounds       :: SFFile
 >                           → Word
 >                           → [(String, ([Hints], PercussionSound))]
->                           → PercLocator
->                           → PercLocator
->     chooseSounds sffile wordI []     pmap = pmap
->     chooseSounds sffile wordI (x:xs) pmap =
+>                           → NameMaps
+>                           → (Locators, [String])
+>                           → (Locators, [String])
+>     chooseSounds sffile wordI [] _ cur = cur
+>     chooseSounds sffile wordI (x:xs) (nMapI, nMapZ) ((iloc, ploc), msgs) =
 >       let
+>         mwZone         :: Maybe Word     = Map.lookup (fst x) nMapZ
 >         myScore = zScore sffile + 10 * sfscore ((fst.snd) x)
->         pmap' = 
->           if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
->           then Map.insert
->                  ((snd.snd) x)
->                  (PerGMInstr myScore (zWordF sffile) wordI 0)
->                  pmap
->           else pmap
+>         ((iloc', ploc'), msgs')
+>                        :: (Locators, [String])
+>                                          =
+>           if isNothing mwZone
+>           then ((iloc, ploc), ("Zone " ++ fst x ++ " not found") : msgs)
+>           else
+>             if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
+>             then ((iloc, Map.insert 
+>                         ((snd.snd) x)
+>                         (PerGMInstr myScore (zWordF sffile) wordI 0)
+>                         ploc), msgs)
+>             else ((iloc, ploc), msgs)
 >         mPrevious      :: Maybe PerGMInstr
->                                          = Map.lookup ((snd.snd) x) pmap
+>                                          = Map.lookup ((snd.snd) x) ploc
 >       in
->         chooseSounds sffile wordI xs pmap'
+>         chooseSounds sffile wordI xs (nMapI, nMapZ) ((iloc', ploc'), msgs')
 >
 > chooseIAndP            :: (SFFile, ([(String, ([Hints], InstrumentName))], [(String, [(String, ([Hints], PercussionSound))])]))
->                           → Locators
->                           → Locators
-> chooseIAndP (sffile, (is, ps)) (imap, pmap)
+>                           → (Locators, [String])
+>                           → (Locators, [String])
+> chooseIAndP (sffile, (is, ps)) ((iloc, ploc), msgs)
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
->     (nMapI, nMapZ) = makeNameMaps sffile
->     (imap', pmap')   = chooseI sffile is nMapI (imap, pmap)
->     -- TODO: change to (nMapI, nMapZ)
->     (imap'', pmap'') = chooseP sffile ps nMapI  (imap', pmap')
+>     (nMapI, nMapZ)                       = makeNameMaps sffile
+>     ((iloc', ploc'), msgs')              = chooseI sffile is (nMapI, nMapZ) ((iloc, ploc), msgs)
+>     ((iloc'', ploc''), msgs'')           = chooseP sffile ps (nMapI, nMapZ) ((iloc', ploc'), msgs')
 >   in
->     (imap'', pmap'')
+>     ((iloc'', ploc''), msgs'')
 >   where
 >     msg = unwords ["chooseIAndP ", show (is, ps)]
 >  
