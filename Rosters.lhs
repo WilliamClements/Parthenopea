@@ -112,6 +112,8 @@ organize instruments from multiple SoundFont files =============================
 >   [
 >        ("ContraBass5",            ([], Contrabass))
 >      , ("Orchestral Harp1",       ([], ElectricGrandPiano))
+>      , ("Charang0",               ([], OverdrivenGuitar))
+>      , ("Cello",                  ([], Cello))
 >   ]
 > arachnoPerc =
 >   [
