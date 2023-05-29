@@ -24,22 +24,10 @@ Rosters support ================================================================
 > import SunPyg
 
 > main                   :: IO ()
-> main = doSoundFont littleSoundFontDatabase zjingles
+> main = doSoundFont littleSoundFontDatabase ajingles
 
 organize exposed music ====================================================================
 
-> playSnippet            :: () → Int → IO ()
-> playSnippet () i =
->    let inst :: InstrumentName
->        inst = toEnum (i `mod` fromEnum Gunshot)
->    in do
->       traceIO ("InstrumentName = " ++ show inst)
->       play $ instrument inst pSnippet02
->
-> playSnippets           :: IO ()
-> playSnippets = 
->    foldM playSnippet () [0..]
->
 > ajingles, bjingles
 >  , cjingles, djingles  :: [(String, Music (Pitch, [NoteAttribute]))]
 >
@@ -73,17 +61,6 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)]
 > sj =
 >    [("littlePendingtonArnt"    , aggrandize littlePendingtonArnt)]
->
-> playJingle             :: () → (String, Music (Pitch, [NoteAttribute])) → IO ()
-> playJingle _ (s, m) =
->    do
->       traceM ( show s ++ " " ++ show (durS (dur m)) ++ " seconds" )
->       playDM Nothing m
->       
-> playJingles            :: [(String, Music (Pitch, [NoteAttribute]))] → IO ()
-> playJingles jingles =
->    foldM playJingle () (cycle jingles)
->
 
 organize instruments from multiple SoundFont files ========================================
 
@@ -325,27 +302,31 @@ organize instruments from multiple SoundFont files =============================
 >   ]
 > dSoundFontV4Perc =
 >   [
->       ("Drumkit Basic 1",          [  ("Iowa Splash CymbalL",  ([], SplashCymbal))
->                                     , ("Iowa High WoodblockL", ([], HiWoodBlock))
->                                     , ("Iowa Low WoodblockL",  ([], LowWoodBlock))])
+>       ("Drumkit Basic 1",         [  ("Agogo High",           ([], HighAgogo))
+>                                    , ("Agogo Low",            ([], LowAgogo))
+>                                    , ("Iowa High WoodblockL", ([], HiWoodBlock))
+>                                    , ("Iowa Low WoodblockL",  ([], LowWoodBlock))
+>                                    , ("Iowa Splash CymbalL",  ([], SplashCymbal))])
 >
->     , ("OSDK closedhihat",         [  ("OSDK chh19L",          ([], ClosedHiHat))])
+>     , ("Iowa Castanets",          [  ("Iowa CastanetL",       ([], Maracas))])
 >
->     , ("OSDK crash1",              [  ("OSDK crash11L",        ([], CrashCymbal1))])
+>     , ("OSDK closedhihat",        [  ("OSDK chh19L",          ([], ClosedHiHat))])
+> 
+>     , ("OSDK crash1",             [  ("OSDK crash11L",        ([], CrashCymbal1))])
 >
->     , ("OSDK crash2",              [  ("OSDK crash1L",         ([], CrashCymbal2))])
+>     , ("OSDK crash2",             [  ("OSDK crash1L",         ([], CrashCymbal2))])
+> 
+>     , ("OSDK kickdrum",           [  ("OSDK kick1L",          ([], BassDrum1))])
 >
->     , ("OSDK kickdrum",            [  ("OSDK kick1L",          ([], BassDrum1))])
+>     , ("OSDK openhihat",          [  ("OSDK hohh1L",          ([], OpenHiHat))])
 >
->     , ("OSDK openhihat",           [  ("OSDK hohh1L",          ([], OpenHiHat))])
+>     , ("OSDK Reverse Cymbal",     [  ("OSDK ride-rev11L",     ([], RideCymbal1))])
 >
->     , ("OSDK Reverse Cymbal",      [  ("OSDK ride-rev11L",     ([], RideCymbal1))])
+>     , ("OSDK snaredrum1",         [  ("OSDK snare-bottom1L",  ([], AcousticSnare))])
 >
->     , ("OSDK snaredrum1",          [  ("OSDK snare-bottom1L",  ([], AcousticSnare))])
+>     , ("OSDK Tom",                [  ("OSDK large-tom1L",     ([], LowTom))])
 >
->     , ("OSDK Tom",                 [  ("OSDK large-tom1L",     ([], LowTom))])
->
->     , ("OSDK tom6-room",           [  ("OSDK small-tom1-1L",   ([], HighTom))])
+>     , ("OSDK tom6-room",          [  ("OSDK small-tom1-1L",   ([], HighTom))])
 >   ]
 >
 > essentialsInst =
@@ -382,61 +363,30 @@ organize instruments from multiple SoundFont files =============================
 > essentialsPerc =
 >   []
 >
-> {-
-> evaluateFiles          :: [InstrumentName]
-> evaluateFiles =
->    let coveredFile = concatMap doFile soundFontDatabase
->    in coveredFile
->    where
->      subtract _ = []
->      doFile            :: (String, ([Hints], ([(String, ([Hints], InstrumentName))]
->                                                  , [(String, [(String, ([Hints], PercussionSound))])]))) → [InstrumentName]
->      doFile file =
->        let
->          list1          :: ([Hints], ([(String, ([Hints], InstrumentName))], [(String, [(String, ([Hints], PercussionSound))])]))
->          list1 = snd file
->          list2          :: ([(String, ([Hints], InstrumentName))], [(String, [(String, ([Hints], PercussionSound))])])
->          list2 = snd list1
->          list3          :: [(String, ([Hints], InstrumentName))]
->          list3 = fst list2
+
+a few playthings ... get it? ==============================================================
+
+> playJingle             :: () → (String, Music (Pitch, [NoteAttribute])) → IO ()
+> playJingle _ (s, m) =
+>    do
+>       traceM ( show s ++ " " ++ show (durS (dur m)) ++ " seconds" )
+>       playDM Nothing m
+>       
+> playJingles            :: [(String, Music (Pitch, [NoteAttribute]))] → IO ()
+> playJingles jingles =
+>    foldM playJingle () (cycle jingles)
 >
->          coveredInst   :: [InstrumentName]
->          coveredInst = map (snd.snd) list3         
->        in coveredInst
+> playSnippet            :: () → Int → IO ()
+> playSnippet () i =
+>    let inst :: InstrumentName
+>        inst = toEnum (i `mod` fromEnum Gunshot)
+>    in do
+>       traceIO ("InstrumentName = " ++ show inst)
+>       play $ instrument inst pSnippet02
 >
-> type WHCMap1 = Map.Map InstrumentName Int
->
-> roundtuit :: IO ()
-> roundtuit =
->   let
->     bar = evaluateFiles
->
->     dumb :: [InstrumentName] → WHCMap1 → WHCMap1
->     dumb [] whcdi = Map.empty
->     dumb (x:xs) whcdi = Map.union (Map.insert x 1 whcdi) (dumb xs whcdi)
->     
->     st :: Int = fromEnum AcousticGrandPiano
->     en :: Int = fromEnum Gunshot
->
->     alli = [st .. en]
->     allj = map (\x → (toEnum x,1)) alli
->     all = Map.fromList allj
->     -- all = dumb [(fromEnum AcousticGrandPiano) .. ()]
->     some = dumb bar Map.empty
->
->     leftover = Map.difference all some
->
->   in do
->     print "all"
->     print all
->
->     print "some"
->     print some
->
->     print "leftover"
->     print $ show leftover
-> -}
->
+> playSnippets           :: IO ()
+> playSnippets = 
+>    foldM playSnippet () [0..]
 > gUnit :: Music Pitch
 > gUnit = addDur qn [f 4, a 4, b 4, a 4, f 4, a 4, b 4, a 4
 >                  , e 4, a 4, b 4, a 4, e 4, a 4, b 4, a 4]

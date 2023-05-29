@@ -123,10 +123,9 @@ Bob ============================================================================
 >       $ tempo 2
 >       $ transpose 0
 >       $ keysig D Mixolydian
->       $ addVolume 100
->       $ instrument Violin (times nRepeats treblebob)
->       :=: instrument Oboe (times nRepeats altobob)
->       :=: instrument Cello (times nRepeats bassbob)
+>          (addVolume 110  (instrument Violin (times nRepeats treblebob)))
+>       :=: addVolume  90  (instrument Oboe (times nRepeats altobob))
+>       :=: addVolume  70  (instrument Cello (times nRepeats bassbob))
 >
 >    where
 >
