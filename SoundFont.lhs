@@ -11,13 +11,12 @@ SoundFont support ==============================================================
 >
 > import qualified Codec.SoundFont      as F
 > import Control.Arrow
-> import Control.Monad.Writer ( runWriter, MonadWriter(tell, writer), Writer )
 > import qualified Data.Audio           as A
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds) )
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List ( find, foldr, minimumBy )
 > import qualified Data.Map             as Map
-> import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
+> import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing )
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
@@ -25,7 +24,7 @@ SoundFont support ==============================================================
 > import Euterpea.Music
 > import Parthenopea ( traceIf, traceAlways )
 > import Synthesizer
-> import System.Environment(getArgs)  
+> import System.Environment ( getArgs )  
   
 importing sampled sound (from SoundFont (*.sf2) files) ====================================
 
@@ -171,8 +170,8 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >   do
 >     let numberedDB = zip [0..] sfdb
 >     sffilesp ← mapM (uncurry readSoundFontFile) numberedDB
->     let ((iloc, ploc), msgs) = foldr chooseIAndP ((Map.empty, Map.empty), []) sffilesp
->     mapM_ print msgs
+>     let ((iloc, ploc), probs) = foldr chooseIAndP ((Map.empty, Map.empty), []) sffilesp
+>     mapM_ print probs
 >     let sfrost = SFRoster
 >                    (array (0, length sffilesp - 1) (zip [0..] (map fst sffilesp)))
 >                    (iloc, ploc)
@@ -235,27 +234,27 @@ extract data from SoundFont per instrument =====================================
 >                           → (Locators, [String])
 >                           → (Locators, [String])
 > chooseI sffile []     _     cur          = cur
-> chooseI sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), msgs) =
+> chooseI sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
 >   let
 >     mwInstr            :: Maybe Word     = Map.lookup (fst x) nMapI
->     ((iloc', ploc'), msgs')
+>     ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
 >                                          =
 >       if isNothing mwInstr
->       then ((iloc, ploc), ("Instrument " ++ fst x ++ " not found") : msgs)
+>       then ((iloc, ploc), ("Instrument " ++ fst x ++ " not found") : probs)
 >       else
 >         if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
 >         then ((Map.insert
 >                  iname
 >                  (PerGMInstr myScore (zWordF sffile) (fromJust mwInstr) Nothing)
->                  iloc, ploc), msgs)
->         else ((iloc, ploc), msgs)
+>                  iloc, ploc), probs)
+>         else ((iloc, ploc), probs)
 >     iname              :: InstrumentName = (snd.snd) x
 >     mPrevious          :: Maybe PerGMInstr
 >                                          = Map.lookup ((snd.snd) x) iloc
 >     myScore            :: Int            = zScore sffile + 100 * sfscore ((fst.snd) x)
 >   in
->     chooseI sffile xs (nMapI, nMapZ) ((iloc', ploc), msgs')
+>     chooseI sffile xs (nMapI, nMapZ) ((iloc', ploc), probs')
 >
 > chooseP                  :: SFFile
 >                           → [(String, [(String, ([Hints], PercussionSound))])]
@@ -263,17 +262,17 @@ extract data from SoundFont per instrument =====================================
 >                           → (Locators, [String])
 >                           → (Locators, [String])
 > chooseP sffile [] _ cur                  = cur
-> chooseP sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), msgs) =
+> chooseP sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
 >   let
 >     mwInstr            :: Maybe Word     = Map.lookup (fst x) nMapI
->     ((iloc', ploc'), msgs')
+>     ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
 >                                          =
 >       if isNothing mwInstr
->       then ((iloc, ploc), ("Instrument" ++ fst x ++ "not found") : msgs)
->       else chooseSounds sffile (fromJust mwInstr) (snd x) (nMapI, nMapZ) ((iloc, ploc), msgs)
+>       then ((iloc, ploc), ("Instrument " ++ fst x ++ "not found") : probs)
+>       else chooseSounds sffile (fromJust mwInstr) (snd x) (nMapI, nMapZ) ((iloc, ploc), probs)
 >   in
->     chooseP sffile xs (nMapI, nMapZ) ((iloc', ploc'), msgs')
+>     chooseP sffile xs (nMapI, nMapZ) ((iloc', ploc'), probs')
 >   where
 >     chooseSounds       :: SFFile
 >                           → Word
@@ -282,39 +281,39 @@ extract data from SoundFont per instrument =====================================
 >                           → (Locators, [String])
 >                           → (Locators, [String])
 >     chooseSounds sffile wordI [] _ cur = cur
->     chooseSounds sffile wordI (x:xs) (nMapI, nMapZ) ((iloc, ploc), msgs) =
+>     chooseSounds sffile wordI (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
 >       let
 >         mwZone         :: Maybe Word     = Map.lookup (fst x) nMapZ
 >         myScore = zScore sffile + 10 * sfscore ((fst.snd) x)
->         ((iloc', ploc'), msgs')
+>         ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
 >                                          =
 >           if isNothing mwZone
->           then ((iloc, ploc), ("Zone " ++ fst x ++ " not found") : msgs)
+>           then ((iloc, ploc), ("Zone " ++ fst x ++ " not found") : probs)
 >           else
 >             if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
 >             then ((iloc, Map.insert 
 >                         ((snd.snd) x)
 >                         (PerGMInstr myScore (zWordF sffile) wordI Nothing)
->                         ploc), msgs)
->             else ((iloc, ploc), msgs)
+>                         ploc), probs)
+>             else ((iloc, ploc), probs)
 >         mPrevious      :: Maybe PerGMInstr
 >                                          = Map.lookup ((snd.snd) x) ploc
 >       in
->         chooseSounds sffile wordI xs (nMapI, nMapZ) ((iloc', ploc'), msgs')
+>         chooseSounds sffile wordI xs (nMapI, nMapZ) ((iloc', ploc'), probs')
 >
 > chooseIAndP            :: (SFFile, ([(String, ([Hints], InstrumentName))], [(String, [(String, ([Hints], PercussionSound))])]))
 >                           → (Locators, [String])
 >                           → (Locators, [String])
-> chooseIAndP (sffile, (is, ps)) ((iloc, ploc), msgs)
+> chooseIAndP (sffile, (is, ps)) ((iloc, ploc), probs)
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
 >     (nMapI, nMapZ)                       = makeNameMaps sffile
->     ((iloc', ploc'), msgs')              = chooseI sffile is (nMapI, nMapZ) ((iloc, ploc), msgs)
->     ((iloc'', ploc''), msgs'')           = chooseP sffile ps (nMapI, nMapZ) ((iloc', ploc'), msgs')
+>     ((iloc', ploc'), probs')             = chooseI sffile is (nMapI, nMapZ) ((iloc, ploc), probs)
+>     ((iloc'', ploc''), probs'')          = chooseP sffile ps (nMapI, nMapZ) ((iloc', ploc'), probs')
 >   in
->     ((iloc'', ploc''), msgs'')
+>     ((iloc'', ploc''), probs'')
 >   where
 >     msg = unwords ["chooseIAndP ", show (is, ps)]
 >  
@@ -497,11 +496,7 @@ prepare the specified instruments and percussion ===============================
 > assignAllPercussion    :: SFRoster
 >                           → Map.Map PercussionSound PerGMInstr
 >                           → [(PercussionSound, (Word, Word))]
-> assignAllPercussion sfrost ppal
->   | traceIf msg False = undefined
->   | otherwise = Map.foldrWithKey (ppal2pmap sfrost) [] ppal
->   where
->     msg = unwords ["assignAllPercussion ", show ppal]
+> assignAllPercussion sfrost = Map.foldrWithKey (ppal2pmap sfrost) []
 >
 > ppal2pmap              :: SFRoster
 >                           → PercussionSound
@@ -513,11 +508,7 @@ prepare the specified instruments and percussion ===============================
 > doAssignP              :: SFRoster
 >                           → [(PercussionSound, (Word, Word))]
 >                           → (InstrumentName, Instr (Stereo AudRate))
-> doAssignP sfrost pmap
->   | traceAlways msg False = undefined
->   | otherwise = (Percussion, assignPercussion sfrost pmap)
->   where
->     msg = unwords ["doAssignP ", concatMap (show . fst) pmap]
+> doAssignP sfrost pmap = (Percussion, assignPercussion sfrost pmap)
 
 define signal functions for playing instruments ===========================================
 
@@ -564,21 +555,19 @@ define signal functions for playing instruments ================================
 > assignPercussion       :: SFRoster
 >                           → [(PercussionSound, (Word, Word))]
 >                           → Instr (Stereo AudRate)
-> assignPercussion sfrost pmap dur pch vol params
->   | traceIf msg False = undefined
->   | otherwise =
+> assignPercussion sfrost pmap dur pch vol params =
 >   let
->     ps                 :: PercussionSound  = toEnum (pch - 35)
+>     ps                 :: PercussionSound
+>                                          = toEnum (pch - 35)
 >     (wF, wI) = case lookup ps pmap of
 >                Nothing   → error (   "Percussion does not have "
 >                                      ++ show ps ++ " in the supplied pmap.")
 >                Just x    → x
->     sig                :: AudSF () (Double, Double)     = constructSig sfrost (wF, wI) dur pch vol params
+>     sig                :: AudSF () (Double, Double)
+>                                          = constructSig sfrost (wF, wI) dur pch vol params
 >   in proc _ → do
 >     (zL, zR) ← sig ⤙ ()
 >     outA ⤙ (zL, zR)
->   where
->     msg = unwords ["assignPercussion ", show pch, " ", show (pch - 35), "wI, wZ = ", show (lookup (toEnum (pch - 35)) pmap)]
 
 zone selection ============================================================================
 
@@ -684,7 +673,7 @@ zone selection =================================================================
 reconcile zone and sample header ==========================================================
 
 > sumOfMaybeInts         :: [Maybe Int] → Int
-> sumOfMaybeInts = foldr ((+) . fromMaybe 0) 0
+> sumOfMaybeInts = foldr ((+).fromMaybe 0) 0
 >       
 > addIntToWord           :: Word → Int → Word
 > addIntToWord w i =
@@ -777,30 +766,3 @@ reconcile zone and sample header ===============================================
 >             Just zWord  → "/" ++ F.sampleName ishdr
 >   in
 >     fileName sfrost (pWordF pergm) ++ "/" ++ instrName sffile iinst ++ showZ
->
-> {-
-> newtype Writer w a = Writer { runWriter :: (a,w) }
->
-> instance (Monoid w) => Monad (Writer w) where
->   return a             = Writer (a,mempty)
->   (Writer (a,w)) >>= f = let (a',w') = runWriter $ f a in Writer (a',w `mappend` w')
-> -}
-> logNumber :: Int → Writer [String] Int  
-> logNumber x = writer (x, ["Got number: " ++ show x])  -- here
->
-> logNumber2 :: Int → Writer [String] Int  
-> logNumber2 x = do
->   tell ["Got number: " ++ show x]
->   return x
->
-> multWithLog :: Writer [String] Int  
-> multWithLog = do  
->   a <- logNumber2 3  
->   b <- logNumber2 5
->   tell ["multiplying " ++ show a ++ " and " ++ show b ]
->   return (a*b)
->
-> zmain                  :: IO ()
-> -- main = print $ runWriter multWithLog
-> --        (15,["Got number: 3","Got number: 5","multiplying 3 and 5"])>   return (a*b)
-> zmain = print $ runWriter multWithLog

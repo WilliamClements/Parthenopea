@@ -38,11 +38,6 @@ Signal function-based synth ====================================================
 >     ns                 :: Double              = fromIntegral $ rEnd rDataL - rStart rDataL + 1
 >     secsSample         :: Double              = ns / sr
 >     secsScored         :: Double              = 2 * fromRational dur
->
->     (fst, fen)         :: (Double, Double)    = (fromIntegral $ rStart rDataL, fromIntegral $ rEnd rDataL)
->
->     ns'                :: Double              = fen - fst + 1
->     secs'              :: Double              = ns' / sr
 >     freqFactor         :: Double              = if usePitchCorrection
 >                                                 then freqRatio * rateRatio / rPitchCorrection rDataL
 >                                                 else freqRatio * rateRatio
@@ -77,7 +72,7 @@ Signal function-based synth ====================================================
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let frac             :: RealFrac r ⇒ r → r
->       frac                           = snd . properFraction
+>       frac = snd . properFraction
 >   in proc () → do
 >     rec
 >       let phase = if next > len then frac lst else next
@@ -133,7 +128,7 @@ Signal function-based synth ====================================================
 >                           → Volume
 >                           → Dur
 >                           → AudSF Double (Double, Double)
-> eutRelayStereo s16 ms8 stime (rDataL, rDataR) vol dur
+> eutRelayStereo s16 ms8 secsScored (rDataL, rDataR) vol dur
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
@@ -151,11 +146,11 @@ Signal function-based synth ====================================================
 >                      else error "bad addrs"
 >     rec
 >       aenvL ← if useEnvelopes
->               then doEnvelope (rEnvelope rDataL) stime ⤙ ()
->               else constA 1                            ⤙ ()
+>               then doEnvelope (rEnvelope rDataL) secsScored ⤙ ()
+>               else constA 1                                 ⤙ ()
 >       aenvR ← if useEnvelopes
->               then doEnvelope (rEnvelope rDataR) stime ⤙ ()
->               else constA 1                            ⤙ ()
+>               then doEnvelope (rEnvelope rDataR) secsScored ⤙ ()
+>               else constA 1                                 ⤙ ()
 >       a2L   ← if useLowPassFilter
 >               then filterLowPass         ⤙ (a1L,20000*aenvL)
 >               else delay 0               ⤙ a1L
@@ -171,7 +166,7 @@ Signal function-based synth ====================================================
 >     outA ⤙ (zL', zR')
 >
 >   where
->     msg = unwords ["eutRelayStereo = ", show stime, " , ", show dur]
+>     msg = unwords ["eutRelayStereo = ", show secsScored, " , ", show dur]
 >
 >     lookAtEveryPoint   :: Double → Double → Double → Double → Double → Bool
 >     lookAtEveryPoint amp a2L aenvL a2R aenvR
@@ -184,6 +179,7 @@ Signal function-based synth ====================================================
 >                        , "\na2R=", show a2R
 >                        , " aenvR=", show aenvR]
 >
+>     -- not 100% sure there is not a signed/unsigned problem with the 8 bit part
 >     compute24          :: Int16 → Int8 → Double
 >     compute24 i16 i8 = d24
 >       where
@@ -195,9 +191,9 @@ Signal function-based synth ====================================================
 >         d24 = fromIntegral (f16to32 i16 * 32768 + f8to32 i8)       
 >      
 >     doEnvelope         :: Envelope → Double → AudSF () Double
->     doEnvelope renv secs
+>     doEnvelope renv secsScored
 >       | traceIf msg False = undefined
->       | otherwise = envDAHdSR secs
+>       | otherwise = envDAHdSR secsScored
 >                               (eDelayT       renv)
 >                               (eAttackT      renv)
 >                               (eHoldT        renv)
@@ -231,7 +227,12 @@ Signal function-based synth ====================================================
 >     denom              :: Double = fullen - fullst + 1
 >     normst             :: Double = (loopst - fullst) / denom
 >     normen             :: Double = (loopen - fullst) / denom
->     msg = unwords ["normalizeLooping, recon= ", show recon, " full=", show fullst, " ", show fullen, " loop=", show loopst, " , ", show loopen, ", denom=", show denom]
+>     msg = unwords ["normalizeLooping, recon= ", show recon
+>                  , " full=",                    show fullst
+>                  , " ",                         show fullen
+>                  , " loop=",                    show loopst
+>                  , " , ",                       show loopen
+>                  , ", denom=",                  show denom]
 >     
 > resolvePitchCorrection :: Int → Maybe Int → Maybe Int → Double
 > resolvePitchCorrection alt mps mpc = 2 ** (fromIntegral cents/12/100)
@@ -311,17 +312,17 @@ Create a straight-line envelope generator with following phases:
 >                            → Double
 >                            → Double
 >                            → Signal p () Double
-> envDAHdSR secs del att hold dec sus release
+> envDAHdSR secsScored del att hold dec sus release
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
 >     sum = del + att + hold + dec + release
->     sustime = secs - sum
+>     sustime = secsScored - sum
 >     amps =   [0, 0, 1, 1, sus, sus, 0, 0]
->     deltaTs = [del, att, hold, dec, max 0 sustime, min secs release, secs]
+>     deltaTs = [del, att, hold, dec, max 0 sustime, min secsScored release, secsScored]
 >     sf = if sustime >= 0 || not useShortening
 >          then envLineSeg      amps deltaTs
->          else shortenEnvelope secs amps deltaTs
+>          else shortenEnvelope secsScored amps deltaTs
 >   in proc () → do
 >     env ← sf ⤙ ()
 >     let ok = lookAtEveryPoint env
@@ -330,7 +331,7 @@ Create a straight-line envelope generator with following phases:
 >                else error "bad point"
 >     outA ⤙ eOut
 >   where
->     sustime = secs - (del + att + hold + dec + release)
+>     sustime = secsScored - (del + att + hold + dec + release)
 >     lookAtEveryPoint   :: Double → Bool
 >     lookAtEveryPoint point
 >       | traceIf msg False = undefined
@@ -339,7 +340,7 @@ Create a straight-line envelope generator with following phases:
 >         msg = unwords ["envDAHdSR=", show point]
 >     msg = unwords [show sus,     "=sus/ "
 >                  , show sustime, "=sustime/"
->                  , show secs, show (del + att + hold + dec + sustime + release), "=secs,total/", 
+>                  , show secsScored, show (del + att + hold + dec + sustime + release), "=secsScored,total/", 
 >                    "dahdr=", show del, show att, show hold, show dec, show release]
 >
 > computeDeltaTs         :: Double
@@ -347,7 +348,7 @@ Create a straight-line envelope generator with following phases:
 >                           → [Double]
 > computeDeltaTs limit xs = ys
 >   where
->     (sum, ys) = foldl' (foldFun limit) (0, []) xs
+>     (sum, ys)              = foldl' (foldFun limit) (0, []) xs
 >     foldFun            :: Double
 >                           → (Double, [Double])
 >                           → Double
@@ -362,11 +363,11 @@ Create a straight-line envelope generator with following phases:
 >                           → [Double]
 >                           → [Double]
 >                           → Signal p () Double
-> shortenEnvelope secs amps deltaTs
+> shortenEnvelope secsScored amps deltaTs
 >   | traceIf msg False = undefined
 >   | otherwise = envLineSeg amps' deltaTs''
 >   where
->     deltaTs'  = computeDeltaTs secs deltaTs
+>     deltaTs'  = computeDeltaTs secsScored deltaTs
 >     ix        = length deltaTs' - 1
 >     torig     = deltaTs  !! ix
 >     tnew      = deltaTs' !! ix

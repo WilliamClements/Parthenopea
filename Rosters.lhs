@@ -24,7 +24,7 @@ Rosters support ================================================================
 > import SunPyg
 
 > main                   :: IO ()
-> main = doSoundFont littleSoundFontDatabase ajingles
+> main = doSoundFont littleSoundFontDatabase djingles
 
 organize exposed music ====================================================================
 
@@ -298,6 +298,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Tuba",                    ([],  Tuba))
 >     , ("Ukelele",                 ([],  Pad3Polysynth))
 >     , ("vibraphone",              ([],  Vibraphone))
+>     , ("Vocal Oooh",              ([],  VoiceOohs))
 >     , ("Whistle",                 ([],  Whistle))
 >   ]
 > dSoundFontV4Perc =
