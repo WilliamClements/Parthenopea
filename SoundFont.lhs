@@ -262,7 +262,9 @@ extract data from SoundFont per instrument =====================================
 >                           → (Locators, [String])
 >                           → (Locators, [String])
 > chooseP sffile [] _ cur                  = cur
-> chooseP sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
+> chooseP sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs)
+>   | traceIf msg False = undefined
+>   | otherwise =
 >   let
 >     mwInstr            :: Maybe Word     = Map.lookup (fst x) nMapI
 >     ((iloc', ploc'), probs')
@@ -274,6 +276,7 @@ extract data from SoundFont per instrument =====================================
 >   in
 >     chooseP sffile xs (nMapI, nMapZ) ((iloc', ploc'), probs')
 >   where
+>     msg = unwords ["nMapZ=", show nMapZ]
 >     chooseSounds       :: SFFile
 >                           → Word
 >                           → [(String, ([Hints], PercussionSound))]
@@ -699,10 +702,11 @@ reconcile zone and sample header ===============================================
 > reconcile              :: (SFZone, F.Shdr) → Reconciled 
 > reconcile (zone, shdr) =
 >   Reconciled {
->     rStart           = addIntToWord          (F.start shdr)           0 -- WOX (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
->   , rEnd             = addIntToWord          (F.end shdr)             0 -- WOX (sumOfMaybeInts [zEndOffs       zone, zEndCoarseOffs       zone])
->   , rLoopStart       = addIntToWord          (F.startLoop shdr)       0 -- WOX (sumOfMaybeInts [zLoopStartOffs zone, zLoopStartCoarseOffs zone])
->   , rLoopEnd         = addIntToWord          (F.endLoop shdr)         0 -- WOX (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
+>     rSampleMode      = fromMaybe             (A.NoLoop)               (zSampleMode zone)
+>   , rStart           = addIntToWord          (F.start shdr)           (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
+>   , rEnd             = addIntToWord          (F.end shdr)             (sumOfMaybeInts [zEndOffs       zone, zEndCoarseOffs       zone])
+>   , rLoopStart       = addIntToWord          (F.startLoop shdr)       (sumOfMaybeInts [zLoopStartOffs zone, zLoopStartCoarseOffs zone])
+>   , rLoopEnd         = addIntToWord          (F.endLoop shdr)         (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
 >   , rRootKey         = fromMaybe             (F.originalPitch shdr)   (zRootKey zone)
 >   , rPitchCorrection = resolvePitchCorrection(F.pitchCorrection shdr) (zCoarseTune zone) (zFineTune zone)
 >   , rEnvelope        = deriveEnvelope        (zDelayVolEnv zone)

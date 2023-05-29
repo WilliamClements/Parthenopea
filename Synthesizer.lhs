@@ -106,7 +106,7 @@ Signal function-based synth ====================================================
 >     
 >       let ok = lookAtEveryPoint envf pfull envl ploop
 >       let curPos = if ok
->                    then if useLoopSwitching
+>                    then if (rSampleMode recon /= A.NoLoop) && useLoopSwitching
 >                         then envf*pfull + envl*ploop
 >                         else envf*pfull
 >                    else error "bad point"
@@ -402,7 +402,8 @@ Utility types ==================================================================
 
 > data Reconciled =
 >   Reconciled {
->     rStart             :: Word
+>     rSampleMode        :: A.SampleMode
+>   , rStart             :: Word
 >   , rEnd               :: Word
 >   , rLoopStart         :: Word
 >   , rLoopEnd           :: Word

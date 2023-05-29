@@ -24,7 +24,7 @@ Rosters support ================================================================
 > import SunPyg
 
 > main                   :: IO ()
-> main = doSoundFont littleSoundFontDatabase djingles
+> main = doSoundFont soundFontDatabaseOrig zjingles
 
 organize exposed music ====================================================================
 
@@ -60,7 +60,7 @@ organize exposed music =========================================================
 >    [("basicLick"       , aggrandize basicLick)
 >    , ("sunPyg"         , aggrandize sunPyg)]
 > sj =
->    [("littlePendingtonArnt"    , aggrandize littlePendingtonArnt)]
+>    [("bake"            , bakedJingle 5345)]
 
 organize instruments from multiple SoundFont files ========================================
 
@@ -69,7 +69,8 @@ organize instruments from multiple SoundFont files =============================
 >
 > littleSoundFontDatabase =
 >   [
->     ("editDSoundFontV4.sf2",    ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
+>     ("editDSoundFontV4.sf2",      ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
+>     , ("editKorg_X5_Drums.sf2",   ([],            (korgInst, korgPerc)))
 >   ]
 >
 > soundFontDatabaseOrig =
@@ -197,6 +198,7 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("Conga Slap",           ([], MuteHiConga))
 >                                     , ("Guiro Long",           ([], LongGuiro))
 >                                     , ("Guiro Short",          ([], ShortGuiro))
+>                                     , ("Tambourine",           ([], Tambourine))
 >                                     , ("Triangle Closed",      ([], MuteTriangle))
 >                                     , ("Triangle Open",        ([], OpenTriangle))])
 >
@@ -209,6 +211,7 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("Rim Shot Stan",        ([], SideStick))
 >                                     , ("Standard Tom Floor",   ([], LowFloorTom))
 >                                     , ("Standard Tom Lo",      ([], AcousticBassDrum))
+>                                     , ("Standard Tom Mid Hig", ([], HiMidTom))
 >                                     , ("Standard Tom High",    ([], HighFloorTom))
 >                                     , ("Timbale Hi",           ([], HighTimbale))
 >                                     , ("Timbale Low",          ([], LowTimbale))
@@ -225,13 +228,14 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Agogo",                   ([],  Agogo))
 >     , ("Applause0",               ([],  Applause))
 >     , ("Banjo",                   ([],  Banjo))
->     , ("Bass31",                  ([],  Contrabass))
+>     , ("Bass31",                  ([],  SlapBass1))
 >     , ("Baritone BV",             ([],  BaritoneSax))
 >     , ("Bird",                    ([],  BirdTweet))
 >     , ("Bottle Blow",             ([],  BlownBottle))
 >     , ("Brass",                   ([],  BrassSection))
 >     , ("Breath Noise0",           ([],  BreathNoise))
 >     , ("Bright Piano",            ([],  HonkyTonkPiano))
+>     , ("Bright Spatial Grand",    ([],  BrightAcousticPiano))
 >     , ("Campana",                 ([],  TubularBells))
 >     , ("Celesta",                 ([],  Celesta))
 >     , ("Church Organ",            ([],  ChurchOrgan))
@@ -251,6 +255,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Helicopter",              ([],  Helicopter))
 >     , ("hrp:Harp",                ([],  OrchestralHarp))
 >     , ("Iowa Alto Sax",           ([],  AltoSax))
+>     , ("Iowa Arco Bass-ff",       ([],  Contrabass))
 >     , ("iowa bassoon",            ([],  Bassoon))
 >     , ("Iowa Cello-mf",           ([],  Cello))
 >     , ("Iowa Marimba",            ([],  Marimba))
@@ -294,6 +299,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("TELEPHONE",               ([],  TelephoneRing))
 >     , ("Tenor Both Xfade",        ([],  TenorSax))
 >     , ("Timpani All",             ([],  Timpani))
+>     , ("Tremolo Strings",         ([],  StringEnsemble1))
 >     , ("Trombone1",               ([],  Trombone))
 >     , ("Tuba",                    ([],  Tuba))
 >     , ("Ukelele",                 ([],  Pad3Polysynth))
@@ -307,7 +313,8 @@ organize instruments from multiple SoundFont files =============================
 >                                    , ("Agogo Low",            ([], LowAgogo))
 >                                    , ("Iowa High WoodblockL", ([], HiWoodBlock))
 >                                    , ("Iowa Low WoodblockL",  ([], LowWoodBlock))
->                                    , ("Iowa Splash CymbalL",  ([], SplashCymbal))])
+>                                    , ("Iowa Splash CymbalL",  ([], SplashCymbal))
+>                                    , ("VibraslapL",           ([], Vibraslap))])
 >
 >     , ("Iowa Castanets",          [  ("Iowa CastanetL",       ([], Maracas))])
 >
@@ -323,11 +330,21 @@ organize instruments from multiple SoundFont files =============================
 >
 >     , ("OSDK Reverse Cymbal",     [  ("OSDK ride-rev11L",     ([], RideCymbal1))])
 >
+>     , ("OSDK ride1",              [  ("OSDK ride-mid-in1L",   ([], RideCymbal2))])
+>
 >     , ("OSDK snaredrum1",         [  ("OSDK snare-bottom1L",  ([], AcousticSnare))])
 >
->     , ("OSDK Tom",                [  ("OSDK large-tom1L",     ([], LowTom))])
+>     , ("OSDK tom1",               [  ("OSDK large-tom1L",     ([], LowFloorTom))])
+>
+>     , ("OSDK tom3",               [  ("OSDK medium-tom1L",    ([], LowTom))])
 >
 >     , ("OSDK tom6-room",          [  ("OSDK small-tom1-1L",   ([], HighTom))])
+>
+>     , ("Standard 12",             [  ("Cabasa",               ([], Cabasa))
+>                                    , ("M Bongo Tone",         ([], HiBongo))
+>                                    , ("Low Tumba",            ([], LowBongo))
+>                                    , ("Cuica Mute",           ([], MuteCuica))
+>                                    , ("Cuica Open",           ([], OpenCuica))])
 >   ]
 >
 > essentialsInst =
