@@ -772,6 +772,9 @@ Way Pos' T' Purple =============================================================
 >   pPoolB  = line [pPoolB1, pPoolB1]
 >   pPoolP  = rest 0
 
+> littlePendingtonArnt =
+>   instrument TenorSax $ addVolume 120 $ addDur en [c 3, e 3, fs 3, g 3]
+
 Pendington Arnt  ==========================================================================
 
 > pendingtonArnt nRepeats =

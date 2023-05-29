@@ -24,7 +24,7 @@ Rosters support ================================================================
 > import SunPyg
 
 > main                   :: IO ()
-> main = doSoundFont soundFontDatabase bjingles
+> main = doSoundFont littleSoundFontDatabase zjingles
 
 organize exposed music ====================================================================
 
@@ -72,7 +72,7 @@ organize exposed music =========================================================
 >    [("basicLick"       , aggrandize basicLick)
 >    , ("sunPyg"         , aggrandize sunPyg)]
 > sj =
->    [("copper'"  , aggrandize (copper'))]
+>    [("littlePendingtonArnt"    , aggrandize littlePendingtonArnt)]
 >
 > playJingle             :: () → (String, Music (Pitch, [NoteAttribute])) → IO ()
 > playJingle _ (s, m) =
@@ -90,7 +90,12 @@ organize instruments from multiple SoundFont files =============================
 > lofiInst, hiDefInst, essentialsInst, dSoundFontV4Inst :: [(String, ([Hints], InstrumentName))]                                
 > lofiPerc, hiDefPerc, essentialsPerc, dSoundFontV4Perc :: [(String, [(String, ([Hints], PercussionSound))])]                                
 >
-> soundFontDatabase =
+> littleSoundFontDatabase =
+>   [
+>     ("editDSoundFontV4.sf2",    ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
+>   ]
+>
+> soundFontDatabaseOrig =
 >   [
 >       ("editLofi.sf2",            ([DHigh],       (lofiInst, lofiPerc)))
 >     , ("editArachno.sf2",         ([],         (arachnoInst, arachnoPerc)))
@@ -190,6 +195,8 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("Hi-Hat Half-Open(L)",  ([], OpenHiHat))
 >                                     , ("Splash Cymbal",        ([], SplashCymbal))
 >                                     , ("Vibra Slap",           ([], Vibraslap))])
+>
+>     , ("XG Room Kit",              [  ("DR_SD3_DR_S_038_D_1",  ([], AcousticSnare))])
 >   ]
 >
 > korgInst =
@@ -241,11 +248,13 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Agogo",                   ([],  Agogo))
 >     , ("Applause0",               ([],  Applause))
 >     , ("Banjo",                   ([],  Banjo))
+>     , ("Bass31",                  ([],  Contrabass))
 >     , ("Baritone BV",             ([],  BaritoneSax))
 >     , ("Bird",                    ([],  BirdTweet))
 >     , ("Bottle Blow",             ([],  BlownBottle))
 >     , ("Brass",                   ([],  BrassSection))
 >     , ("Breath Noise0",           ([],  BreathNoise))
+>     , ("Bright Piano",            ([],  HonkyTonkPiano))
 >     , ("Campana",                 ([],  TubularBells))
 >     , ("Celesta",                 ([],  Celesta))
 >     , ("Church Organ",            ([],  ChurchOrgan))
@@ -273,6 +282,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Iowa Viola-mf",           ([],  Viola))
 >     , ("Iowa Woodblock",          ([],  Woodblock))
 >     , ("Iowa Xylophone",          ([],  Xylophone))
+>     , ("Ixox Flute 1",            ([],  Flute))
 >     , ("Kalimba",                 ([],  Kalimba))
 >     , ("Koto",                    ([],  Koto))
 >     , ("Layered Aahs",            ([],  ChoirAahs))
@@ -331,9 +341,10 @@ organize instruments from multiple SoundFont files =============================
 >
 >     , ("OSDK Reverse Cymbal",      [  ("OSDK ride-rev11L",     ([], RideCymbal1))])
 >
->     -- , ("OSDK snaredrum1",          [  ("OSDK snare-bottom1L",  ([], AcousticSnare))])
+>     , ("OSDK snaredrum1",          [  ("OSDK snare-bottom1L",  ([], AcousticSnare))])
 >
 >     , ("OSDK Tom",                 [  ("OSDK large-tom1L",     ([], LowTom))])
+>
 >     , ("OSDK tom6-room",           [  ("OSDK small-tom1-1L",   ([], HighTom))])
 >   ]
 >
@@ -371,6 +382,7 @@ organize instruments from multiple SoundFont files =============================
 > essentialsPerc =
 >   []
 >
+> {-
 > evaluateFiles          :: [InstrumentName]
 > evaluateFiles =
 >    let coveredFile = concatMap doFile soundFontDatabase
@@ -423,6 +435,7 @@ organize instruments from multiple SoundFont files =============================
 >
 >     print "leftover"
 >     print $ show leftover
+> -}
 >
 > gUnit :: Music Pitch
 > gUnit = addDur qn [f 4, a 4, b 4, a 4, f 4, a 4, b 4, a 4

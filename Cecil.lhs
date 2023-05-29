@@ -336,6 +336,18 @@ There Goes W.J. ================================================================
 
 Shelby Parsley ============================================================================
 
+> spEflat'      = triad Ef Major               (Bf, 3)
+>
+> littleshelby           :: Music (Pitch, Volume)
+> littleshelby =
+>   removeZeros
+>   $ tempo 1
+>   $ transpose 0
+>   $ keysig Ef Mixolydian
+>   (instrument Vibraphone ((addVolume 100 (line [rest qn, spEflat' qn])))
+>   :=: (instrument ElectricBassPicked ((addVolume 100) (line [ ef 2 wn ])))
+>   :=: (instrument ElectricGuitarClean ((addVolume 100) (line [ rest 0 ]))))
+>
 > shelby :: Music (Pitch, Volume)
 > shelby =
 >   removeZeros

@@ -39,7 +39,7 @@ Signal function-based synth ====================================================
 >     secsSample         :: Double              = ns / sr
 >     secsScored         :: Double              = 2 * fromRational dur
 >
->     (fst, fen)         :: (Double, Double)    = (fromIntegral $ rStart     rDataL, fromIntegral $ rEnd rDataL)
+>     (fst, fen)         :: (Double, Double)    = (fromIntegral $ rStart rDataL, fromIntegral $ rEnd rDataL)
 >
 >     ns'                :: Double              = fen - fst + 1
 >     secs'              :: Double              = ns' / sr
@@ -53,7 +53,7 @@ Signal function-based synth ====================================================
 >                                             >>> eutRelayStereo s16 ms8 secsScored (rDataL, rDataR) vol dur
 >   in sig
 >
-> eutDriverFull        :: Double
+> eutDriverFull          :: Double
 >                           → Double
 >                           → AudSF () Double 
 > eutDriverFull iphs delta
@@ -380,7 +380,7 @@ Create a straight-line envelope generator with following phases:
 >     deltaTs'' = deltaTs' ++ [0.001, 0.001]
 >     msg       = unwords ["shortenEnvelope = ", show amps', " , ", show deltaTs'']
 
-I charted these:
+Charting ==================================================================================
 
 > vdel     = 1.0
 > vatt     = vdel + 2.0

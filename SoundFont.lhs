@@ -14,7 +14,6 @@ SoundFont support ==============================================================
 > import Control.Monad.Writer ( runWriter, MonadWriter(tell, writer), Writer )
 > import qualified Data.Audio           as A
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds) )
-> import Data.Foldable ( toList )
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List ( find, foldr, minimumBy )
 > import qualified Data.Map             as Map
