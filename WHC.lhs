@@ -53,7 +53,7 @@ Chart ==========================================================================
 >   putStrLn ("numDots=" ++ show (length vals'))
 >   return ()
 >
-> fun :: Int -> Int -> [Double]
+> fun :: Int → Int → [Double]
 > fun n 0 = []
 > fun n 1 = [1.0]
 > fun n p = replicate n (fromIntegral p)
@@ -71,56 +71,56 @@ Chart ==========================================================================
 >   putStrLn ("z=" ++ show z)
 >   return ()
 >
-> newtype Parser a = P (String -> [(a, String)])
+> newtype Parser a = P (String → [(a, String)])
 >
-> parse :: Parser a -> String -> [(a, String)]
+> parse :: Parser a → String → [(a, String)]
 > parse (P p) inp = p inp
 >
 > item :: Parser Char
-> item = P (\inp -> case inp of
->                   [] -> []
->                   (x:xs) -> [(x, xs)])
+> item = P (\inp → case inp of
+>                   [] → []
+>                   (x:xs) → [(x, xs)])
 >
 > instance Functor Parser where
->   fmap g p = P (\inp -> case parse p inp of
->                       [] -> []
->                       [(v, out)] -> [(g v, out)])
+>   fmap g p = P (\inp → case parse p inp of
+>                       [] → []
+>                       [(v, out)] → [(g v, out)])
 >
-> string :: String -> Parser String
+> string :: String → Parser String
 > string [] = return []
 > string (x:xs) = do
 >                   char x
 >                   string xs
 >                   return (x:xs)
-> char :: Char -> Parser Char
+> char :: Char → Parser Char
 > char x = sat (== x)
 >
-> sat :: (Char -> Bool) -> Parser Char
+> sat :: (Char → Bool) → Parser Char
 > sat p =
 >   do
 >     x <- item
 >     if p x then return x else empty
 >
 > {-
-> class Applicative f => Alternative f where
+> class Applicative f ⇒ Alternative f where
 >   empty :: f a
->   (<|>)  :: f a -> f a -> f a
->   -- many :: f a -> f [a]
+>   (<|>)  :: f a → f a → f a
+>   -- many :: f a → f [a]
 >   many x = some x <!> pure []
->   -- some :: f a -> f [a]
+>   -- some :: f a → f [a]
 >   some x = pure (:) <*> x <*> many x
 > -}
 >
 > instance Monad Parser where
->   p >>= f = P (\inp -> case parse p inp of
->                        [] -> []
->                        [(v, out)] -> parse (f v) out)
+>   p >>= f = P (\inp → case parse p inp of
+>                        [] → []
+>                        [(v, out)] → parse (f v) out)
 >
 > instance Alternative Parser where
->   empty = P (\inp -> [])
->   p <|> q = P (\inp -> case parse p inp of
->                        [] -> parse q inp
->                        [(v, out)] -> [(v, out)])
+>   empty = P (\inp → [])
+>   p <|> q = P (\inp → case parse p inp of
+>                        [] → parse q inp
+>                        [(v, out)] → [(v, out)])
 >
 > digit :: Parser Char
 > digit = sat isDigit
@@ -140,11 +140,11 @@ Chart ==========================================================================
 >     -- <|> nat
 >     
 > instance Applicative Parser where
->   pure v = P (\inp -> [(v, inp)])
+>   pure v = P (\inp → [(v, inp)])
 >
->   pg <*> px = P (\inp -> case parse pg inp of
->                          [] -> []
->                          [(g, out)] -> parse (fmap g px) out)
+>   pg <*> px = P (\inp → case parse pg inp of
+>                          [] → []
+>                          [(g, out)] → parse (fmap g px) out)
 >
 > m_gulag :: Parser String
 > m_gulag = fmap (show) mInteger

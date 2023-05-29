@@ -581,10 +581,10 @@ Wave ===========================================================================
 Helper Functions
 ----------------
 
-> wrap :: (Ord n, Num n) => n -> n -> n
+> wrap :: (Ord n, Num n) ⇒ n → n → n
 > wrap val bound = if val > bound then wrap val (val-bound) else val
 
-> clip :: Ord n => n -> n -> n -> n
+> clip :: Ord n ⇒ n → n → n → n
 > clip val lower upper 
 >     | val <= lower = lower
 >     | val >= upper = upper
@@ -592,12 +592,12 @@ Helper Functions
 
 Raises 'a' to the power 'b' using logarithms.
 
-> pow :: Floating a => a -> a -> a
+> pow :: Floating a ⇒ a → a → a
 > pow a b = exp (log a * b)
 
 Returns the fractional part of 'x'.
 
-> frac :: RealFrac r => r -> r
+> frac :: RealFrac r ⇒ r → r
 > frac = snd . properFraction
 
 SoundFont =================================================================================
