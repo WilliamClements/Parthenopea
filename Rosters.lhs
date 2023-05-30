@@ -24,7 +24,7 @@ Rosters support ================================================================
 > import SunPyg
 
 > main                   :: IO ()
-> main = doSoundFont soundFontDatabaseOrig zjingles
+> main = doSoundFont soundFontDatabaseOrig bjingles
 
 organize exposed music ====================================================================
 
@@ -60,12 +60,14 @@ organize exposed music =========================================================
 >    [("basicLick"       , aggrandize basicLick)
 >    , ("sunPyg"         , aggrandize sunPyg)]
 > sj =
->    [("bake"            , bakedJingle 5345)]
+>    [("sunPyg"          , aggrandize sunPyg)]
 
 organize instruments from multiple SoundFont files ========================================
 
-> lofiInst, hiDefInst, essentialsInst, dSoundFontV4Inst :: [(String, ([Hints], InstrumentName))]                                
-> lofiPerc, hiDefPerc, essentialsPerc, dSoundFontV4Perc :: [(String, [(String, ([Hints], PercussionSound))])]                                
+> lofiInst, hiDefInst, essentialsInst, dSoundFontV4Inst
+>                        :: [(String, ([Hints], InstrumentName))]                                
+> lofiPerc, hiDefPerc, essentialsPerc, dSoundFontV4Perc
+>                        :: [(String, [(String, ([Hints], PercussionSound))])]                                
 >
 > littleSoundFontDatabase =
 >   [
@@ -108,7 +110,6 @@ organize instruments from multiple SoundFont files =============================
 >     , ("*Slow Violin",            ([],  Viola))
 >     , ("'59 Les Paul",            ([],  ElectricGuitarClean))
 >     , ("Accordion",               ([],  Accordion))
->     , ("Group 1",                 ([],  VoiceOohs))
 >     , ("Bagpipe Drone",           ([],  Bagpipe))
 >     , ("Bassoon",                 ([],  Bassoon))
 >     , ("Cello 2",                 ([],  Cello))
@@ -120,6 +121,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Elec Gtr 11",             ([],  ElectricGuitarJazz))
 >     , ("Elec Org 4",              ([],  RockOrgan))
 >     , ("Flute 2",                 ([],  Flute))
+>     , ("Group 1",                 ([],  VoiceOohs))
 >     , ("Hard Nylon Guitar",       ([],  AcousticGuitarNylon))
 >     , ("Harmonica",               ([],  Harmonica))
 >     , ("Harp 2",                  ([],  OrchestralHarp))

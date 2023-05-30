@@ -22,7 +22,7 @@ SoundFont support ==============================================================
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, AudSF, Mono, Stereo )
 > import Euterpea.Music
-> import Parthenopea ( traceIf, traceAlways )
+> import Parthenopea ( traceIf, traceAlways, listI, initCase, listP )
 > import Synthesizer
 > import System.Environment ( getArgs )  
   
@@ -165,21 +165,24 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 > fileByIndex            :: SFRoster → Word → SFFile
 > fileByIndex sfrost wFile = zFiles sfrost ! fromIntegral wFile
 >
-> doSoundFont            :: SoundFontDatabase → [(String, Music (Pitch, [NoteAttribute]))] → IO ()
-> doSoundFont sfdb exposed =
+> doSoundFont            :: SoundFontDatabase
+>                           → [(String, Music (Pitch, [NoteAttribute]))]
+>                           → IO ()
+> doSoundFont sfdb songs =
 >   do
 >     let numberedDB = zip [0..] sfdb
 >     sffilesp ← mapM (uncurry readSoundFontFile) numberedDB
->     let ((iloc, ploc), probs) = foldr chooseIAndP ((Map.empty, Map.empty), []) sffilesp
->     mapM_ print probs
+>     let ((iloc, ploc), probs) = foldr (uncurry chooseIAndP)
+>                                       ((Map.empty, Map.empty), [])
+>                                       sffilesp
+>     mapM_ putStrLn probs
 >     let sfrost = SFRoster
 >                    (array (0, length sffilesp - 1) (zip [0..] (map fst sffilesp)))
 >                    (iloc, ploc)
->     printChoices sfrost
 >     let imap = assignInstruments sfrost iloc
 >     let pmap = assignAllPercussion sfrost ploc
 >     let imap' = imap ++ [doAssignP sfrost pmap]
->     _  ← doPlayInstruments imap' exposed
+>     _  ← renderSongs sfrost imap' songs
 >     return ()
 >  
 > readSoundFontFile      :: Word
@@ -187,8 +190,9 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                             , (   [Hints]
 >                               , (   [(String, ([Hints], InstrumentName))]
 >                                 ,   [(String, [(String, ([Hints], PercussionSound))])])))
->                           → IO (SFFile, (   [(String, ([Hints], InstrumentName))]
->                                          ,  [(String, [(String, ([Hints], PercussionSound))])]))
+>                           → IO (SFFile
+>                                 , (   [(String, ([Hints], InstrumentName))]
+>                                    ,  [(String, [(String, ([Hints], PercussionSound))])]))
 > readSoundFontFile wFile (filename, (filehints, (ilist, plist))) =
 >   do
 >     putStr ("accessing " ++ filename)
@@ -211,24 +215,36 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >           Just s24data     → putStrLn (" - 24-bit datapoints")
 >         return (sffile, (ilist, plist))
 >
-> renderSong             :: InstrMap (Stereo AudRate) → String → Music (Pitch, [NoteAttribute]) → IO ()
-> renderSong imap name song =
+> renderSong             :: SFRoster
+>                           → InstrMap (Stereo AudRate)
+>                           → String
+>                           → Music (Pitch, [NoteAttribute])
+>                           → IO ()
+> renderSong sfrost imap name song =
 >   do
+>     let (dbI, _) = listI song initCase (Map.empty, Map.empty)
+>     let dbP = listP song initCase Map.empty
+>     let is = Map.keys dbI
+>     let ps = Map.keys dbP
+>     printChoices sfrost is ps
 >     let path = name ++ ".wav"
->     putStr path
+>     putStr (path)
 >     let (d,s) = renderSF song imap
->     putStrLn (" written: " ++ show d ++ " seconds")
 >     outFileNorm path d s
+>     putStrLn (" written: " ++ show d ++ " seconds\n")
 >     return ()
 >
-> doPlayInstruments      :: InstrMap (Stereo AudRate) → [(String, Music (Pitch, [NoteAttribute]))] → IO ()
-> doPlayInstruments imap exposed =
+> renderSongs            :: SFRoster
+>                           → InstrMap (Stereo AudRate)
+>                           → [(String, Music (Pitch, [NoteAttribute]))]
+>                           → IO ()
+> renderSongs sfrost imap songs =
 >   do
->     mapM_ (uncurry (renderSong imap)) exposed
+>     mapM_ (uncurry (renderSong sfrost imap)) songs
   
 extract data from SoundFont per instrument ================================================
 
-> chooseI                  :: SFFile
+> chooseI                :: SFFile
 >                           → [(String, ([Hints], InstrumentName))]
 >                           → NameMaps
 >                           → (Locators, [String])
@@ -271,8 +287,9 @@ extract data from SoundFont per instrument =====================================
 >                        :: (Locators, [String])
 >                                          =
 >       if isNothing mwInstr
->       then ((iloc, ploc), ("Instrument " ++ fst x ++ "not found") : probs)
->       else chooseSounds sffile (fromJust mwInstr) (snd x) (nMapI, nMapZ) ((iloc, ploc), probs)
+>       then ((iloc, ploc), ("Instrument " ++ fst x ++ "not found in " ++ zFilename sffile) : probs)
+>       else chooseSounds sffile (fromJust mwInstr)
+>                         (snd x) (nMapI, nMapZ) ((iloc, ploc), probs)
 >   in
 >     chooseP sffile xs (nMapI, nMapZ) ((iloc', ploc'), probs')
 >   where
@@ -292,7 +309,7 @@ extract data from SoundFont per instrument =====================================
 >                        :: (Locators, [String])
 >                                          =
 >           if isNothing mwZone
->           then ((iloc, ploc), ("Zone " ++ fst x ++ " not found") : probs)
+>           then ((iloc, ploc), ("Zone " ++ fst x ++ " not found in " ++ zFilename sffile) : probs)
 >           else
 >             if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
 >             then ((iloc, Map.insert 
@@ -305,16 +322,20 @@ extract data from SoundFont per instrument =====================================
 >       in
 >         chooseSounds sffile wordI xs (nMapI, nMapZ) ((iloc', ploc'), probs')
 >
-> chooseIAndP            :: (SFFile, ([(String, ([Hints], InstrumentName))], [(String, [(String, ([Hints], PercussionSound))])]))
+> chooseIAndP            :: SFFile
+>                           → (  [(String, ([Hints], InstrumentName))]
+>                              , [(String, [(String, ([Hints], PercussionSound))])])
 >                           → (Locators, [String])
 >                           → (Locators, [String])
-> chooseIAndP (sffile, (is, ps)) ((iloc, ploc), probs)
+> chooseIAndP sffile (is, ps) ((iloc, ploc), probs)
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
->     (nMapI, nMapZ)                       = makeNameMaps sffile
->     ((iloc', ploc'), probs')             = chooseI sffile is (nMapI, nMapZ) ((iloc, ploc), probs)
->     ((iloc'', ploc''), probs'')          = chooseP sffile ps (nMapI, nMapZ) ((iloc', ploc'), probs')
+>     (nMapI, nMapZ)                 = makeNameMaps sffile
+>     ((iloc', ploc'), probs')       = chooseI sffile is
+>                                              (nMapI, nMapZ) ((iloc, ploc), probs)
+>     ((iloc'', ploc''), probs'')    = chooseP sffile ps
+>                                              (nMapI, nMapZ) ((iloc', ploc'), probs')
 >   in
 >     ((iloc'', ploc''), probs'')
 >   where
@@ -518,7 +539,10 @@ define signal functions for playing instruments ================================
 > assignInstrument       :: SFRoster → PerGMInstr → Instr (Stereo AudRate)
 > assignInstrument sfrost pergm dur pch vol params =
 >   let
->     sig                :: AudSF () (Double, Double)     = constructSig sfrost (pWordF pergm, pWordI pergm) dur pch vol params
+>     sig                :: AudSF () (Double, Double)
+>                                          = constructSig sfrost
+>                                                         (pWordF pergm, pWordI pergm)
+>                                                         dur pch vol params
 >   in proc _ → do
 >     (zL, zR) ← sig ⤙ ()
 >     outA ⤙ (zL, zR)
@@ -736,23 +760,34 @@ reconcile zone and sample header ===============================================
 >                                , ([  (String, ([Hints], InstrumentName))]
 >                                ,  [  (String, [(String, ([Hints], PercussionSound))])])))]
 >
-> printChoices           :: SFRoster → IO ()
-> printChoices sfrost = do
->   let (iloc, ploc) = zLocs sfrost
->   let ilist = Map.assocs iloc
->   let plist = Map.assocs ploc
->   let istrings = map showI ilist
->   let pstrings = map showP plist
->   mapM_ print istrings
->   mapM_ print pstrings
+> printChoices           :: SFRoster → [InstrumentName] → [PercussionSound] → IO ()
+> printChoices sfrost is ps = do
+>   let istrings = map (showI sfrost) is
+>   let pstrings = map (showP sfrost) ps
+>   mapM_ putStrLn istrings
+>   mapM_ putStrLn pstrings
 >   where
->     showI              :: (InstrumentName, PerGMInstr) → String
->     showI (iname, pergm) =
->       show iname ++ "/" ++ showPerGM sfrost pergm
+>     showI              :: SFRoster → InstrumentName → String
+>     showI sfrost iname =
+>       let
+>         (iloc, _) = zLocs sfrost
+>         mpergm = Map.lookup iname iloc
+>         result = if isJust mpergm
+>                  then show iname ++ "/" ++ showPerGM sfrost (fromJust mpergm)
+>                  else show iname ++ " not found"
+>       in
+>         result       
 >
->     showP               :: (PercussionSound, PerGMInstr) → String
->     showP (psound, pergm) = do
->       show psound ++ "/" ++ showPerGM sfrost pergm
+>     showP               :: SFRoster → PercussionSound → String
+>     showP sfrost psound =
+>       let
+>         (_, ploc) = zLocs sfrost
+>         mpergm = Map.lookup psound ploc
+>         result = if isJust mpergm
+>                  then show psound ++ "/" ++ showPerGM sfrost (fromJust mpergm)
+>                  else show psound ++ " not found"
+>       in
+>         result
 >
 > showPerGM              :: SFRoster  → PerGMInstr  → String
 > showPerGM sfrost pergm =

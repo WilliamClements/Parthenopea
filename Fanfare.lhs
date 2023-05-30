@@ -314,6 +314,11 @@ Snake ==========================================================================
 >                     , fs 3,  g 3, fs 3,  f 3]
 > gSnip07 = line [ c 4 hn, e 4 hn, fs 4 hn, g 4 dqn, g 4 en]
 >
+> littlesnake =
+>   instrument AltoSax  
+>   $ addVolume 100
+>   $ line [a 3 wn]
+>
 > snake =
 >    removeZeros
 >    $ tempo 2
