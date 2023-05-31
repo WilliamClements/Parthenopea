@@ -36,15 +36,15 @@ Saucy Sailor ===================================================================
 >         includeClos = False
 >
 >         xOpenT = rest 0
->         xSongT = line [rest hn, addVolume 95 xSongTA, addVolume 115 xSongTB]
+>         xSongT = line [rest hn, addVolume 90 xSongTA, addVolume 115 xSongTB]
 >         xClosT = rest 0
 >
 >         xOpenG = rest 0
->         xSongG = line [rest dhn, addVolume 50 (times 7 xSongGrep)]
+>         xSongG = line [rest dhn, addVolume 35 (times 7 xSongGrep)]
 >         xClosG = rest 0
 >
 >         xOpenB = rest 0
->         xSongB = addVolume 70
+>         xSongB = addVolume 60
 >                  $ line [rest dhn
 >                       , times 6 (line [xSongB1, xSongB2])
 >                       , xSongB1

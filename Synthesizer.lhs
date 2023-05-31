@@ -187,7 +187,7 @@ Signal function-based synth ====================================================
 >         f16to32         :: Int16 → Int32
 >         f16to32 = fromIntegral
 >         d24            :: Double
->         d24 = fromIntegral (f16to32 i16 * 32768 + f8to32 w8) / 8388608.0
+>         d24 = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 8388608.0
 >      
 >     compute16         :: Int16 → Double
 >     compute16 i16 = fromIntegral i16 / 32768.0

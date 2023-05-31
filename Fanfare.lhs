@@ -324,10 +324,8 @@ Snake ==========================================================================
 >    $ tempo 2
 >    $ transpose 1
 >    $ keysig D Mixolydian
->    $ addVolume 100
->    $ rest wn :+: rest wn
->      :+: instrument AltoSax         treblePart
->      :=: instrument Viola           altoPart
+>    $     addVolume  65 (instrument AltoSax treblePart)
+>      :=: addVolume 100 (instrument Viola altoPart)
 >    where
 >
 >    treblePart = line [treb00, treb01, treb02, treb03, treb04]
