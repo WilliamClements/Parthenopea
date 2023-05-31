@@ -1,3 +1,5 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 > {-# LANGUAGE AllowAmbiguousTypes #-}
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE ExistentialQuantification #-}
@@ -24,7 +26,7 @@ Rosters support ================================================================
 > import SunPyg
 
 > main                   :: IO ()
-> main = doSoundFont soundFontDatabaseOrig bjingles
+> main = doSoundFont littleSoundFontDatabase djingles
 
 organize exposed music ====================================================================
 
@@ -60,7 +62,7 @@ organize exposed music =========================================================
 >    [("basicLick"       , aggrandize basicLick)
 >    , ("sunPyg"         , aggrandize sunPyg)]
 > sj =
->    [("sunPyg"          , aggrandize sunPyg)]
+>    [("getCITM"         , aggrandize getCITM)]
 
 organize instruments from multiple SoundFont files ========================================
 
@@ -98,7 +100,7 @@ organize instruments from multiple SoundFont files =============================
 >        ("ContraBass5",            ([], Contrabass))
 >      , ("Orchestral Harp1",       ([], ElectricGrandPiano))
 >      , ("Charang0",               ([], OverdrivenGuitar))
->      , ("Cello",                  ([], Cello))
+>      , ("Cello0",                 ([], Cello))
 >   ]
 > arachnoPerc =
 >   [

@@ -17,6 +17,8 @@ Chart ==========================================================================
 > import Data.Colour
 > import Data.Colour.Names
 > import Data.Default.Class
+> import Data.Int
+> import Data.Word
 > -- import Euterpea
 > import Graphics.Rendering.Chart
 > import Graphics.Rendering.Chart.Backend
@@ -150,3 +152,14 @@ Chart ==========================================================================
 > m_gulag = fmap (show) mInteger
 >
 > 
+> convu8tos32 :: Word8 → Int32
+> convu8tos32 w = fromIntegral w
+>
+> convs8tos32 :: Int8 → Int32
+> convs8tos32 w = fromIntegral w
+>
+> convs8tou32 :: Int8 → Word32
+> convs8tou32 w = fromIntegral w
+>
+> convs8tou8 :: Int8 → Word8
+> convs8tou8 i = fromIntegral i

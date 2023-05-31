@@ -14,6 +14,7 @@
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List
 > import Data.Maybe (isJust, fromJust, fromMaybe)
+> import Data.Word
 > import Euterpea.IO.Audio.Basics
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types
@@ -46,6 +47,7 @@ Signal function-based synth ====================================================
 >     sig                :: AudSF () (Double, Double)
 >                                               = eutDriver rDataL secsSample secsScored sr 0 freqFactor
 >                                             >>> eutRelayStereo s16 ms8 secsScored (rDataL, rDataR) vol dur
+>                                             >>> eutEffects (rEffects rDataL)
 >   in sig
 >
 > eutDriverFull          :: Double
@@ -146,17 +148,17 @@ Signal function-based synth ====================================================
 >                      else error "bad addrs"
 >     rec
 >       aenvL ← if useEnvelopes
->               then doEnvelope (rEnvelope rDataL) secsScored ⤙ ()
+>               then doEnvelope secsScored (rEnvelope rDataL) ⤙ ()
 >               else constA 1                                 ⤙ ()
 >       aenvR ← if useEnvelopes
->               then doEnvelope (rEnvelope rDataR) secsScored ⤙ ()
+>               then doEnvelope secsScored (rEnvelope rDataR) ⤙ ()
 >               else constA 1                                 ⤙ ()
 >       a2L   ← if useLowPassFilter
->               then filterLowPass         ⤙ (a1L,20000*aenvL)
->               else delay 0               ⤙ a1L
+>               then filterLowPass                            ⤙ (a1L,20000*aenvL)
+>               else delay 0                                  ⤙ a1L
 >       a2R   ← if useLowPassFilter
->               then filterLowPass         ⤙ (a1R,20000*aenvR)
->               else delay 0               ⤙ a1R
+>               then filterLowPass                            ⤙ (a1R,20000*aenvR)
+>               else delay 0                                  ⤙ a1R
 >     let (zL, zR) = (a2L*amp*aenvL, a2R*amp*aenvR)
 >     let ok = lookAtEveryPoint amp a2L aenvL a2R aenvR
 >     let (zL', zR') = if ok
@@ -170,48 +172,40 @@ Signal function-based synth ====================================================
 >
 >     lookAtEveryPoint   :: Double → Double → Double → Double → Double → Bool
 >     lookAtEveryPoint amp a2L aenvL a2R aenvR
->       | traceIf msg False = undefined
+>       | traceNever msg False = undefined
 >       | otherwise = True
 >       where
->         msg = unwords ["amp=", show amp
->                        , "\na2L=", show a2L
->                        , " aenvL=", show aenvL
->                        , "\na2R=", show a2R
->                        , " aenvR=", show aenvR]
+>         (eeL, eeR) = (a2L*amp*aenvL, a2R*amp*aenvR)
+>         msg = unwords ["eeL=", show eeL, " eeR=", show eeR]
 >
 >     -- not 100% sure there is not a signed/unsigned problem with the 8 bit part
->     compute24          :: Int16 → Int8 → Double
->     compute24 i16 i8 = d24
+>     compute24          :: Int16 → Word8 → Double
+>     compute24 i16 w8 = d24
 >       where
->         f8to32         :: Int8 → Int32
+>         f8to32         :: Word8 → Int32
 >         f8to32 = fromIntegral
 >         f16to32         :: Int16 → Int32
 >         f16to32 = fromIntegral
 >         d24            :: Double
->         d24 = fromIntegral (f16to32 i16 * 32768 + f8to32 i8)       
+>         d24 = fromIntegral (f16to32 i16 * 32768 + f8to32 w8) / 8388608.0
 >      
->     doEnvelope         :: Envelope → Double → AudSF () Double
->     doEnvelope renv secsScored
->       | traceIf msg False = undefined
->       | otherwise = envDAHdSR secsScored
->                               (eDelayT       renv)
->                               (eAttackT      renv)
->                               (eHoldT        renv)
->                               (eDecayT       renv)
->                               (eSustainLevel renv)
->                               (eReleaseT     renv)
+>     compute16         :: Int16 → Double
+>     compute16 i16 = fromIntegral i16 / 32768.0
+>
+>     doEnvelope         :: (Clock p) ⇒ Double → Envelope → Signal p () Double
+>     doEnvelope secsScored renv = envLineSeg (sAmps segments) (sDeltaTs segments)
 >       where
->         msg = unwords ["doEnvelope=", show renv]
+>         segments = computeSegments secsScored renv
 >      
 >     getSampleVals      :: (Int, Int) → (Double, Double)
 >     getSampleVals (saddrL, saddrR)
 >       | traceIf msg' False = undefined
 >       | otherwise = 
 >         if isJust ms8
->         then (compute24 (s16 ! saddrL) (fromJust ms8 ! saddrL)
->             , compute24 (s16 ! saddrR) (fromJust ms8 ! saddrR))
->         else (fromIntegral (s16 ! saddrL)
->             , fromIntegral (s16 ! saddrR))
+>         then (compute24 (s16 ! saddrL) (fromIntegral (fromJust ms8 ! saddrL))
+>             , compute24 (s16 ! saddrR) (fromIntegral (fromJust ms8 ! saddrR)))
+>         else (compute16 (s16 ! saddrL)
+>             , compute16 (s16 ! saddrR))
 >       where
 >         msg' = unwords ["saddrL=", show saddrL, "saddrR=", show saddrR]
 >
@@ -270,6 +264,18 @@ Signal function-based synth ====================================================
 >                     ,"mHold=",    show mHold,    "mDecay=",     show mDecay
 >                     ,"mSustain=", show mSustain, "mRelease=",   show mRelease]
 >
+> deriveEffects          :: Maybe Int → Maybe Int → Maybe Int → Effects
+> deriveEffects mChorus mReverb mPan =
+>   Effects (fmap (conv (0, 100)) mChorus)
+>           (fmap (conv (0, 100)) mReverb)
+>           (fmap (conv (-50, 50)) mPan)
+>   where
+>     conv               :: (Int, Int) → Int → Double
+>     conv (nMin, nMax) nEffect = fromIntegral nEffect''/100
+>       where
+>         nEffect' = max nMin nEffect
+>         nEffect'' = min nMax nEffect'
+>
 > acceptSustain          :: Int → Double
 > acceptSustain iS = 1/raw iS
 >   where
@@ -303,45 +309,23 @@ Create a straight-line envelope generator with following phases:
    sustain
    release  
 
-> envDAHdSR              :: (Clock p) ⇒
->                            Double
->                            → Double
->                            → Double
->                            → Double
->                            → Double
->                            → Double
->                            → Double
->                            → Signal p () Double
-> envDAHdSR secsScored del att hold dec sus release
->   | traceIf msg False = undefined
->   | otherwise =
+> computeSegments        :: Double → Envelope → Segments
+> computeSegments secsScored rEnv =
 >   let
->     sum = del + att + hold + dec + release
+>     del = eDelayT rEnv
+>     att = eAttackT rEnv
+>     hold = eHoldT rEnv
+>     dec = eDecayT rEnv
+>     sus = eSustainLevel rEnv
+>     rel = eReleaseT rEnv
+>     sum = del + att + hold + dec + rel
 >     sustime = secsScored - sum
 >     amps =   [0, 0, 1, 1, sus, sus, 0, 0]
->     deltaTs = [del, att, hold, dec, max 0 sustime, min secsScored release, secsScored]
->     sf = if sustime >= 0 || not useShortening
->          then envLineSeg      amps deltaTs
->          else shortenEnvelope secsScored amps deltaTs
->   in proc () → do
->     env ← sf ⤙ ()
->     let ok = lookAtEveryPoint env
->     let eOut = if ok
->                then env
->                else error "bad point"
->     outA ⤙ eOut
->   where
->     sustime = secsScored - (del + att + hold + dec + release)
->     lookAtEveryPoint   :: Double → Bool
->     lookAtEveryPoint point
->       | traceIf msg False = undefined
->       | otherwise = True
->       where
->         msg = unwords ["envDAHdSR=", show point]
->     msg = unwords [show sus,     "=sus/ "
->                  , show sustime, "=sustime/"
->                  , show secsScored, show (del + att + hold + dec + sustime + release), "=secsScored,total/", 
->                    "dahdr=", show del, show att, show hold, show dec, show release]
+>     deltaTs = [del, att, hold, dec, max 0 sustime, min secsScored rel, secsScored]
+>   in
+>     if sustime >= 0 || not useShortening
+>     then Segments amps deltaTs
+>     else shortenEnvelope secsScored amps deltaTs
 >
 > computeDeltaTs         :: Double
 >                           → [Double]
@@ -358,14 +342,11 @@ Create a straight-line envelope generator with following phases:
 >       | val + sum > limit  = (val + sum, vs ++ [limit - sum])
 >       | otherwise          = (val + sum, vs ++ [val])   
 >     
-> shortenEnvelope        :: (Clock p) ⇒
->                           Double
+> shortenEnvelope        :: Double
 >                           → [Double]
 >                           → [Double]
->                           → Signal p () Double
-> shortenEnvelope secsScored amps deltaTs
->   | traceIf msg False = undefined
->   | otherwise = envLineSeg amps' deltaTs''
+>                           → Segments
+> shortenEnvelope secsScored amps deltaTs = Segments amps' deltaTs''
 >   where
 >     deltaTs'  = computeDeltaTs secsScored deltaTs
 >     ix        = length deltaTs' - 1
@@ -379,7 +360,21 @@ Create a straight-line envelope generator with following phases:
 >     a'        = a0 + fact * (a1 - a0)    
 >     amps'     = take (ix+1) amps ++ [a', 0, 0]
 >     deltaTs'' = deltaTs' ++ [0.001, 0.001]
->     msg       = unwords ["shortenEnvelope = ", show amps', " , ", show deltaTs'']
+>
+> eutEffects             :: Effects → AudSF (Double, Double) (Double, Double)
+> eutEffects eff = 
+>   proc (a, b) → do
+>     let (a', b') = (doChorus (efChorus eff) a, doChorus (efChorus eff) b)
+>     let (a', b') = (doReverb (efReverb eff) a, doReverb (efReverb eff) b)
+>     let (a'', b'') = doPan (efPan eff) (a', b')
+>     outA ⤙ (a'',b'')
+> 
+> doChorus               :: Maybe Double → Double → Double
+> doChorus mE a = a
+> doReverb               :: Maybe Double → Double → Double
+> doReverb mE a = a
+> doPan                  :: Maybe Double → (Double, Double) → (Double, Double)
+> doPan mE (x, y) = (x, y)
 
 Charting ==================================================================================
 
@@ -409,7 +404,8 @@ Utility types ==================================================================
 >   , rLoopEnd           :: Word
 >   , rRootKey           :: Word
 >   , rPitchCorrection   :: Double
->   , rEnvelope          :: Envelope} deriving (Eq, Show)
+>   , rEnvelope          :: Envelope
+>   , rEffects           :: Effects} deriving (Eq, Show)
 >           
 > data Envelope =
 >   Envelope {
@@ -419,6 +415,17 @@ Utility types ==================================================================
 >   , eDecayT            :: Double
 >   , eSustainLevel      :: Double
 >   , eReleaseT          :: Double} deriving (Eq, Show)
+>
+> data Segments =
+>   Segments {
+>     sAmps              :: [Double]
+>   , sDeltaTs           :: [Double]} deriving Show
+>
+> data Effects =
+>   Effects {
+>     efChorus           :: Maybe Double
+>   , efReverb           :: Maybe Double
+>   , efPan              :: Maybe Double} deriving (Eq, Show)
 
 Knobs and buttons =========================================================================
 

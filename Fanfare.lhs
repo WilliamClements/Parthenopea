@@ -407,6 +407,18 @@ Snake ==========================================================================
 
 Country In The Morning ====================================================================
 
+> littleECountry =
+>   addVolume 110
+>   $ instrument Flute
+>   $ line [triad D Major ( D, 3) wn]
+>   
+> littleACountry =
+>   addVolume 15
+>   $ instrument AltoSax
+>   $ line [fs 4 wn]
+>   
+> littleCITM = littleECountry :=: littleACountry
+>
 > getCITM =
 >    removeZeros
 >    $ tempo 1
@@ -592,7 +604,7 @@ Roger ==========================================================================
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig Cs Dorian
->    $     addVolume 110 (instrument AltoSax        (line [cAltoI,  cAltoIIA, cAltoIIB]))
+>    $     addVolume  80 (instrument AltoSax        (line [cAltoI,  cAltoIIA, cAltoIIB]))
 >      :=: addVolume  90 (instrument OrchestralHarp (line [cTenorI, cTenorII]))
 >   where
 >

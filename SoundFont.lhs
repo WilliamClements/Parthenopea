@@ -30,10 +30,10 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 
 > data PerGMInstr =
 >   PerGMInstr {
->       pScore           :: Int
->     , pWordF           :: Word
->     , pWordI           :: Word
->     , pWordZ           :: Maybe Word} deriving (Eq, Ord, Show)
+>     pScore             :: Int
+>   , pWordF             :: Word
+>   , pWordI             :: Word
+>   , pWordZ             :: Maybe Word} deriving (Eq, Ord, Show)
 >
 > type InstrLocator   = Map.Map InstrumentName PerGMInstr
 > type PercLocator    = Map.Map PercussionSound PerGMInstr
@@ -257,7 +257,7 @@ extract data from SoundFont per instrument =====================================
 >                        :: (Locators, [String])
 >                                          =
 >       if isNothing mwInstr
->       then ((iloc, ploc), ("Instrument " ++ fst x ++ " not found") : probs)
+>       then ((iloc, ploc), ("Instrument " ++ fst x ++ " not found in " ++ zFilename sffile) : probs)
 >       else
 >         if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
 >         then ((Map.insert
@@ -651,7 +651,7 @@ zone selection =================================================================
 >     -- WOX should base it on sample type?
 >     ozone = case mlinked of
 >             Nothing → zone
->             Just _ → snd $ fromJust $ find (withslink slink) zones
+>             Just _  → snd $ fromJust $ find (withslink slink) zones
 >     (zoneL, zoneR) = if stype == 2
 >                      then (zone, ozone)
 >                      else (ozone, zone)
@@ -738,7 +738,10 @@ reconcile zone and sample header ===============================================
 >                                              (zHoldVolEnv zone)
 >                                              (zDecayVolEnv zone)
 >                                              (zSustainVolEnv zone)
->                                              (zReleaseVolEnv zone)}
+>                                              (zReleaseVolEnv zone)
+>   , rEffects         = deriveEffects         (zChorus zone)
+>                                              (zReverb zone)
+>                                              (zPan    zone)}
 >
 > checkReconcile         :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
 >                           → Reconciled

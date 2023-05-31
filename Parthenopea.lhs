@@ -1,3 +1,4 @@
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 > {-# HLINT ignore "Use head" #-}
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE EmptyDataDecls #-}
@@ -407,6 +408,9 @@ instrument range checking ======================================================
 >        maxP = absPitch $ snd range
 >    in minP <= aP && maxP >= aP
 >
+
+examine song for instrument and percussion usage ==========================================
+
 > data OorCase =
 >   OorCase {  oInstrument  :: InstrumentName
 >            , oTranspose   :: AbsPitch
