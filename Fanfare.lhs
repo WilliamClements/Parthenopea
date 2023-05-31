@@ -602,7 +602,7 @@ Roger ==========================================================================
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig Cs Dorian
->    $     addVolume  80 (instrument AltoSax        (line [cAltoI,  cAltoIIA, cAltoIIB]))
+>    $     addVolume  60 (instrument AltoSax        (line [cAltoI,  cAltoIIA, cAltoIIB]))
 >      :=: addVolume  90 (instrument OrchestralHarp (line [cTenorI, cTenorII]))
 >   where
 >

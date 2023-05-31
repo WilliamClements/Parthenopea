@@ -26,7 +26,7 @@ Rosters support ================================================================
 > import SunPyg
 
 > main                   :: IO ()
-> main = doSoundFont soundFontDatabaseOrig bjingles
+> main = doSoundFont soundFontDatabaseOrig zjingles
 
 organize exposed music ====================================================================
 

@@ -222,13 +222,11 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                           → IO ()
 > renderSong sfrost imap name song =
 >   do
->     let (dbI, _) = listI song initCase (Map.empty, Map.empty)
->     let dbP = listP song initCase Map.empty
->     let is = Map.keys dbI
->     let ps = Map.keys dbP
+>     let is = Map.keys $ fst $ listI song initCase (Map.empty, Map.empty)
+>     let ps = Map.keys $ listP song initCase Map.empty
 >     printChoices sfrost is ps
 >     let path = name ++ ".wav"
->     putStr (path)
+>     putStr path
 >     let (d,s) = renderSF song imap
 >     outFileNorm path d s
 >     putStrLn (" written: " ++ show d ++ " seconds\n")

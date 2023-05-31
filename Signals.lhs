@@ -37,9 +37,10 @@
 > import Parthenopea
 > import System.Environment ( getArgs )
 > import System.IO ( hSeek, withBinaryFile, SeekMode(AbsoluteSeek), IOMode(ReadMode) )
->   
-> -- WOX oldmain = runGraph True
->
+>  
+
+re-implement part of FRP.UISF.Asynchrony because not exported
+
 > clockedSFToUISF :: ∀ a b c . (NFData b, Clock c) ⇒ DeltaT → SigFun c a b → UISF a [(b, Time)]
 > clockedSFToUISF buffer ~(ArrowP sf) = let r = rate (undefined :: c) 
 >   in asyncVT r buffer (toAutomaton sf)

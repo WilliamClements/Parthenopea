@@ -435,7 +435,10 @@ examine song for instrument and percussion usage ===============================
 >            putStrLn "\n\n out of range cases:"
 >            print (Map.keys db2)
 >   
-> listI                  :: Music (Pitch, [NoteAttribute]) → OorCase → (InstDB, OorDB) → (InstDB, OorDB)
+> listI                  :: Music (Pitch, [NoteAttribute])
+>                           → OorCase
+>                           → (InstDB, OorDB)
+>                           → (InstDB, OorDB)
 > listI (Prim (Note _ (p, a))) ooc (db1, db2)
 >       = case instrumentRange (oInstrument ooc) of
 >              Nothing    → reportBad
@@ -504,6 +507,9 @@ examine song for instrument and percussion usage ===============================
 > listP (Modify _ m) ooc db1
 >   = listP m ooc db1
 >
+
+tournament among instruments in various soundfont files ===================================
+
 > scoreOnsets  :: Int → [Double] → Array Int Int
 > scoreOnsets nBins ts
 >   | traceAlways msg False = undefined
