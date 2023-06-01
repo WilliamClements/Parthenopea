@@ -47,7 +47,7 @@ Signal function-based synth ====================================================
 >     sig                :: AudSF () (Double, Double)
 >                                               = eutDriver rDataL secsSample secsScored sr 0 freqFactor
 >                                             >>> eutRelayStereo s16 ms8 secsScored (rDataL, rDataR) vol dur
->                                             >>> eutEffects (rEffects rDataL)
+>                                             >>> eutEffects (rDataL, rDataR)
 >   in sig
 >
 > eutDriverFull          :: Double
@@ -361,20 +361,30 @@ Create a straight-line envelope generator with following phases:
 >     amps'     = take (ix+1) amps ++ [a', 0, 0]
 >     deltaTs'' = deltaTs' ++ [0.001, 0.001]
 >
-> eutEffects             :: Effects → AudSF (Double, Double) (Double, Double)
-> eutEffects eff = 
->   proc (a, b) → do
->     let (a', b') = (doChorus (efChorus eff) a, doChorus (efChorus eff) b)
->     let (a', b') = (doReverb (efReverb eff) a, doReverb (efReverb eff) b)
->     let (a'', b'') = doPan (efPan eff) (a', b')
->     outA ⤙ (a'',b'')
+> eutEffects             :: (Reconciled, Reconciled) → AudSF (Double, Double) (Double, Double)
+> eutEffects (zL, zR) = 
+>   proc (aL, aR)  → do
+>     let (effL, effR) = (rEffects zL, rEffects zR)
+>     let aLCh      = doChorus (efChorus effL) aL
+>     let aRCh      = doChorus (efChorus effR) aR
+>     let bLRb      = doReverb (efReverb effL) aL
+>     let bRRb      = doReverb (efReverb effR) aR
+>     let mixL = (aLCh + bLRb) / 2
+>     let mixR = (aRCh + bRRb) / 2
+>     let ((cL, cR), (dL, dR))  = (doPan (efPan effL) mixL, doPan (efPan effR) mixR)
+>     outA ⤙ ((cL + dL) / 2, (cR + dR) / 2)
 > 
 > doChorus               :: Maybe Double → Double → Double
 > doChorus mE a = a
 > doReverb               :: Maybe Double → Double → Double
 > doReverb mE a = a
-> doPan                  :: Maybe Double → (Double, Double) → (Double, Double)
-> doPan mE (x, y) = (x, y)
+> doPan                  :: Maybe Double → Double → (Double, Double)
+> doPan azimuth input = (ampL, ampR)
+>   where
+>     ampL = input * cos (rad $ fromMaybe 0 azimuth)
+>     ampR = input - ampL
+>     rad                :: Double → Double
+>     rad x = (x + 50) * pi / 200
 
 Charting ==================================================================================
 

@@ -26,7 +26,7 @@ Rosters support ================================================================
 > import SunPyg
 
 > main                   :: IO ()
-> main = doSoundFont soundFontDatabaseOrig zjingles
+> main = doSoundFont soundFontDatabaseOrig ajingles
 
 organize exposed music ====================================================================
 
@@ -43,7 +43,7 @@ organize exposed music =========================================================
 >    , ("silver"         , aggrandize silver)]
 > bjingles =
 >    [("getCITM"         , aggrandize getCITM)
->    , ("bake"           , bakedJingle 345)
+>    , ("bake"           , bakedJingle 9345)
 >    , ("bill"           , aggrandize (bill 4))
 >    , ("roger"          , aggrandize roger)]
 > cjingles =

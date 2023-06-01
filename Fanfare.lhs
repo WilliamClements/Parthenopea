@@ -422,18 +422,19 @@ Country In The Morning =========================================================
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig G Major
->    $ addVolume 100
->    $ rest wn
->      :+:
+>    $ chord [     
 >         instrument AltoSax
+>         $ addVolume 79
 >           (line [a1 :+: rest qn, b1, a1 :+: a 4 qn, c1])
->      :=:
+>      ,
 >         instrument StringEnsemble1
+>         $ addVolume 70
 >           (line [a2, b2, a2, c2])
->      :=:
+>      ,
 >         instrument Cello
+>         $ addVolume 95
 >           (line [ a3 :+: line [a 2 qn, b 2 qn, cs 3 qn], b3
->                 , a3 :+: line [d 2 qn, e 2 qn, fs 2 qn], c3])
+>                 , a3 :+: line [d 2 qn, e 2 qn, fs 2 qn], c3])]
 >
 >    where
 >
