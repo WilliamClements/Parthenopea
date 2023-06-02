@@ -224,7 +224,7 @@ Copper =========================================================================
 >    $ transpose (-4)
 >    $ keysig C Dorian
 >    $ addVolume 100
->    $ instrument Trumpet
+>    $ instrument ElectricGrandPiano
 >    $ times n
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
 >      :+: tempo (5/4) (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn])
@@ -424,15 +424,15 @@ Country In The Morning =========================================================
 >    $ keysig G Major
 >    $ chord [     
 >         instrument AltoSax
->         $ addVolume 79
+>         $ addVolume 70
 >           (line [a1 :+: rest qn, b1, a1 :+: a 4 qn, c1])
 >      ,
 >         instrument StringEnsemble1
->         $ addVolume 70
+>         $ addVolume 60
 >           (line [a2, b2, a2, c2])
 >      ,
 >         instrument Cello
->         $ addVolume 95
+>         $ addVolume 100
 >           (line [ a3 :+: line [a 2 qn, b 2 qn, cs 3 qn], b3
 >                 , a3 :+: line [d 2 qn, e 2 qn, fs 2 qn], c3])]
 >

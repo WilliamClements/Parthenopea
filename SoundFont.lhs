@@ -24,7 +24,6 @@ SoundFont support ==============================================================
 > import Euterpea.Music
 > import Parthenopea ( traceIf, traceAlways, listI, initCase, listP )
 > import Synthesizer
-> import System.Environment ( getArgs )  
   
 importing sampled sound (from SoundFont (*.sf2) files) ====================================
 
@@ -806,3 +805,7 @@ reconcile zone and sample header ===============================================
 >             Just zWord  → "/" ++ F.sampleName ishdr
 >   in
 >     fileName sfrost (pWordF pergm) ++ "/" ++ instrName sffile iinst ++ showZ
+>
+> digAll                 :: IO ()
+> digAll = do
+>   putStrLn "not yet implemented"

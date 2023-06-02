@@ -24,9 +24,16 @@ Rosters support ================================================================
 > import Parthenopea
 > import SoundFont
 > import SunPyg
+> import System.Environment ( getArgs )  
 
 > main                   :: IO ()
-> main = doSoundFont soundFontDatabaseOrig ajingles
+> main = do
+>   args ← getArgs
+>   let dig = (length args == 1) && ("dig" == head args)
+>   _	← if dig
+>        then digAll
+>        else doSoundFont littleSoundFontDatabase bjingles
+>   return ()
 
 organize exposed music ====================================================================
 
@@ -62,7 +69,7 @@ organize exposed music =========================================================
 >    [("basicLick"       , aggrandize basicLick)
 >    , ("sunPyg"         , aggrandize sunPyg)]
 > sj =
->    [("getCITM"         , aggrandize getCITM)]
+>    [("copper"          , aggrandize (copper 4))]
 
 organize instruments from multiple SoundFont files ========================================
 
@@ -97,10 +104,10 @@ organize instruments from multiple SoundFont files =============================
 >
 > arachnoInst =
 >   [
->        ("ContraBass5",            ([], Contrabass))
->      , ("Orchestral Harp1",       ([], ElectricGrandPiano))
->      , ("Charang0",               ([], OverdrivenGuitar))
->      , ("Cello0",                 ([], Cello))
+>       ("ContraBass5",             ([], Contrabass))
+>     , ("Orchestral Harp1",        ([], ElectricGrandPiano))
+>     , ("Charang0",                ([], OverdrivenGuitar))
+>     , ("Cello0",                  ([], Cello))
 >   ]
 > arachnoPerc =
 >   [

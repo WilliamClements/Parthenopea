@@ -328,10 +328,7 @@ TC =============================================================================
 > realBasicLick          :: Music (Pitch, Volume)
 > realBasicLick =
 >   removeZeros
->   $ tempo 1
->   $ transpose (-12)
->   $ keysig A Major
->   $ addVolume 50 $ instrument AcousticGuitarNylon tcgBasic
+>   $ addVolume 80 $ instrument AcousticGuitarSteel tcgBasic
 >   where
 >     tcgBasic = addDur qn [f 5, a 5, b 5, a 5]
 >

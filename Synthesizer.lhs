@@ -47,7 +47,7 @@ Signal function-based synth ====================================================
 >     sig                :: AudSF () (Double, Double)
 >                                               = eutDriver rDataL secsSample secsScored sr 0 freqFactor
 >                                             >>> eutRelayStereo s16 ms8 secsScored (rDataL, rDataR) vol dur
->                                             >>> eutEffects (rDataL, rDataR)
+>                                             >>> eutEffects secsScored (rDataL, rDataR)
 >   in sig
 >
 > eutDriverFull          :: Double
@@ -266,12 +266,12 @@ Signal function-based synth ====================================================
 >
 > deriveEffects          :: Maybe Int → Maybe Int → Maybe Int → Effects
 > deriveEffects mChorus mReverb mPan =
->   Effects (fmap (conv (0, 100)) mChorus)
->           (fmap (conv (0, 100)) mReverb)
->           (fmap (conv (-50, 50)) mPan)
+>   Effects (fmap (conv (0, 1000)) mChorus)
+>           (fmap (conv (0, 1000)) mReverb)
+>           (fmap (conv (-500, 500)) mPan)
 >   where
 >     conv               :: (Int, Int) → Int → Double
->     conv (nMin, nMax) nEffect = fromIntegral nEffect''/100
+>     conv (nMin, nMax) nEffect = fromIntegral nEffect''/1000
 >       where
 >         nEffect' = max nMin nEffect
 >         nEffect'' = min nMax nEffect'
@@ -361,30 +361,73 @@ Create a straight-line envelope generator with following phases:
 >     amps'     = take (ix+1) amps ++ [a', 0, 0]
 >     deltaTs'' = deltaTs' ++ [0.001, 0.001]
 >
-> eutEffects             :: (Reconciled, Reconciled) → AudSF (Double, Double) (Double, Double)
-> eutEffects (zL, zR) = 
->   proc (aL, aR)  → do
->     let (effL, effR) = (rEffects zL, rEffects zR)
->     let aLCh      = doChorus (efChorus effL) aL
->     let aRCh      = doChorus (efChorus effR) aR
->     let bLRb      = doReverb (efReverb effL) aL
->     let bRRb      = doReverb (efReverb effR) aR
->     let mixL = (aLCh + bLRb) / 2
->     let mixR = (aRCh + bRRb) / 2
->     let ((cL, cR), (dL, dR))  = (doPan (efPan effL) mixL, doPan (efPan effR) mixR)
+> eutEffects             :: Double → (Reconciled, Reconciled) → AudSF (Double, Double) (Double, Double)
+> eutEffects secsScored (zL, zR)
+>   | traceAlways msg False = undefined
+>   | otherwise =
+>   proc (aL, aR) → do
+>     let cFactorL = if useEffectChorus
+>                    then fromMaybe 0 (efChorus effL)
+>                    else 0.0
+>     let cFactorR = if useEffectChorus
+>                    then fromMaybe 0 (efChorus effR)
+>                    else 0.0
+>     let rFactorL = if useEffectReverb
+>                    then fromMaybe 0 (efReverb effL)
+>                    else 0.0
+>     let rFactorR = if useEffectReverb
+>                    then fromMaybe 0 (efReverb effR)
+>                    else 0.0
+>     let pFactorL = if useEffectPan
+>                    then fromMaybe 0 (efPan effL)
+>                    else 0.0
+>     let pFactorR = if useEffectPan
+>                    then fromMaybe 0 (efPan effR)
+>                    else 0.0
+>
+>     chL ← eutChorus 10.0 0.2 ⤙ aL
+>     chR ← eutChorus 10.0 0.2 ⤙ aR
+>
+>     rbL ← eutReverb secsScored ⤙ aL
+>     rbR ← eutReverb secsScored ⤙ aR
+>
+>     let mixL = (cFactorL * chL
+>                 + rFactorL * rbL
+>                 + (1 - cFactorL) * aL
+>                 + (1 - rFactorL) * aL) / 2
+>     let mixR = (cFactorR * chR
+>                 + rFactorR * rbR
+>                 + (1 - cFactorR) * aR
+>                 + (1 - rFactorR) * aR) / 2
+>
+>     let ((cL, cR), (dL, dR))  = (doPan pFactorL mixL, doPan pFactorR mixR)
 >     outA ⤙ ((cL + dL) / 2, (cR + dR) / 2)
+>   where
+>     (effL, effR) = (rEffects zL, rEffects zR)
+>     msg = unwords ["eutEffects=", show effL, "=LR=", show effR]
 > 
-> doChorus               :: Maybe Double → Double → Double
-> doChorus mE a = a
-> doReverb               :: Maybe Double → Double → Double
-> doReverb mE a = a
-> doPan                  :: Maybe Double → Double → (Double, Double)
+> eutChorus              :: Double → Double → AudSF Double Double
+> eutChorus rate depth =
+>   proc sin → do
+>     lfo ← osc (tableSines 4096 [1]) 0 ⤙ rate
+>     z1 ← delayLine1 0.030 ⤙ (sin, 0.010 + depth * lfo)
+>     z2 ← delayLine1 0.030 ⤙ (sin, 0.020 + depth * lfo)
+>     z3 ← delayLine1 0.030 ⤙ (sin, 0.030 + depth * lfo)
+>     outA ⤙ (sin + z1 + z2 + z3)/4
+>
+> eutReverb              :: Double → AudSF Double Double
+> eutReverb secsScored =
+>     proc input → do
+>       rb ← filterComb 0.1 ⤙ (input, 0.5)
+>       outA ⤙ rb
+>
+> doPan                  :: Double → Double → (Double, Double)
 > doPan azimuth input = (ampL, ampR)
 >   where
->     ampL = input * cos (rad $ fromMaybe 0 azimuth)
+>     ampL = input * cos (rad $ azimuth)
 >     ampR = input - ampL
 >     rad                :: Double → Double
->     rad x = (x + 50) * pi / 200
+>     rad x = (x + 0.5) * pi / 2
 
 Charting ==================================================================================
 
@@ -444,3 +487,6 @@ Knobs and buttons ==============================================================
 > useShortening      = True
 > useLoopSwitching   = True
 > useLowPassFilter   = False
+> useEffectReverb    = True
+> useEffectChorus    = True
+> useEffectPan       = True
