@@ -356,14 +356,14 @@ Create a straight-line envelope generator with following phases:
 >                 then 1.0
 >                 else tnew / torig
 >     a0        = amps !! ix
->     a1        = amps !! (ix + 1 )
+>     a1        = amps !! (ix + 1)
 >     a'        = a0 + fact * (a1 - a0)    
 >     amps'     = take (ix+1) amps ++ [a', 0, 0]
 >     deltaTs'' = deltaTs' ++ [0.001, 0.001]
 >
 > eutEffects             :: Double → (Reconciled, Reconciled) → AudSF (Double, Double) (Double, Double)
 > eutEffects secsScored (zL, zR)
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise =
 >   proc (aL, aR) → do
 >     let cFactorL = if useEffectChorus
@@ -385,11 +385,11 @@ Create a straight-line envelope generator with following phases:
 >                    then fromMaybe 0 (efPan effR)
 >                    else 0.0
 >
->     chL ← eutChorus 10.0 0.2 ⤙ aL
->     chR ← eutChorus 10.0 0.2 ⤙ aR
+>     chL ← eutChorus 15.0 0.005 0.1 ⤙ aL
+>     chR ← eutChorus 15.0 0.005 0.1 ⤙ aR
 >
->     rbL ← eutReverb secsScored ⤙ aL
->     rbR ← eutReverb secsScored ⤙ aR
+>     rbL ← eutReverb 0.01 0.09 ⤙ aL
+>     rbR ← eutReverb 0.01 0.09 ⤙ aR
 >
 >     let mixL = (cFactorL * chL
 >                 + rFactorL * rbL
@@ -401,33 +401,53 @@ Create a straight-line envelope generator with following phases:
 >                 + (1 - rFactorR) * aR) / 2
 >
 >     let ((cL, cR), (dL, dR))  = (doPan pFactorL mixL, doPan pFactorR mixR)
->     outA ⤙ ((cL + dL) / 2, (cR + dR) / 2)
+>     let (wtL, wtR)	= ((cL + dL) / 2, (cR + dR) / 2)
+>
+>     dcL ← dcBlock 0.99 ⤙ wtL
+>     dcR ← dcBlock 0.99 ⤙ wtR
+>
+>     let (oaL, oaR) = if useDCBlock
+>                      then (dcL, dcR)
+>                      else (wtL, wtR)
+>     outA ⤙ (oaL, oaR)
+>
 >   where
 >     (effL, effR) = (rEffects zL, rEffects zR)
 >     msg = unwords ["eutEffects=", show effL, "=LR=", show effR]
 > 
-> eutChorus              :: Double → Double → AudSF Double Double
-> eutChorus rate depth =
+> eutChorus              :: Double → Double → Double → AudSF Double Double
+> eutChorus rate depth gain =
 >   proc sin → do
->     lfo ← osc (tableSines 4096 [1]) 0 ⤙ rate
->     z1 ← delayLine1 0.030 ⤙ (sin, 0.010 + depth * lfo)
->     z2 ← delayLine1 0.030 ⤙ (sin, 0.020 + depth * lfo)
->     z3 ← delayLine1 0.030 ⤙ (sin, 0.030 + depth * lfo)
->     outA ⤙ (sin + z1 + z2 + z3)/4
+>     rec
+>       lfo ← osc (tableSines 4096 [1]) 0 ⤙ rate
+>       z1 ← delayLine1 0.030 ⤙ (sin, 0.010 + depth * lfo)
+>       z2 ← delayLine1 0.030 ⤙ (sin, 0.020 + depth * lfo)
+>       z3 ← delayLine1 0.030 ⤙ (sin, 0.030 + depth * lfo)
+>       r ← delayLine 0.0001 ⤙ (sin + z1 + z2 + z3)/4 + r * gain
+>     outA ⤙ r
 >
-> eutReverb              :: Double → AudSF Double Double
-> eutReverb secsScored =
->     proc input → do
->       rb ← filterComb 0.1 ⤙ (input, 0.5)
->       outA ⤙ rb
+> eutReverb              :: Double → Double → AudSF Double Double
+> eutReverb loopT reverbT =
+>     proc sin → do
+>       rb1 ← filterComb loopT ⤙ (sin, reverbT)
+>       rb2 ← filterComb loopT ⤙ (rb1, reverbT)
+>       outA ⤙ rb2
 >
 > doPan                  :: Double → Double → (Double, Double)
-> doPan azimuth input = (ampL, ampR)
+> doPan azimuth sin = (ampL, ampR)
 >   where
->     ampL = input * cos (rad $ azimuth)
->     ampR = input - ampL
+>     ampL = sin * cos (rad $ azimuth)
+>     ampR = sin - ampL
 >     rad                :: Double → Double
 >     rad x = (x + 0.5) * pi / 2
+>
+> dcBlock                :: Double → AudSF Double Double
+> dcBlock a = proc xn → do
+>   rec
+>     let yn = xn - xn_l + a * yn_l
+>     xn_l ← delay 0 ⤙ xn
+>     yn_l ← delay 0 ⤙ yn
+>   outA ⤙ yn
 
 Charting ==================================================================================
 
@@ -487,6 +507,7 @@ Knobs and buttons ==============================================================
 > useShortening      = True
 > useLoopSwitching   = True
 > useLowPassFilter   = False
-> useEffectReverb    = True
-> useEffectChorus    = True
+> useEffectReverb    = False
+> useEffectChorus    = False
 > useEffectPan       = True
+> useDCBlock         = True

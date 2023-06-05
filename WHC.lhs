@@ -13,6 +13,7 @@ Chart ==========================================================================
 > import Control.Applicative.Alternative
 > import Control.Arrow
 > import Control.Lens
+> import Data.Array
 > import Data.Char
 > import Data.Colour
 > import Data.Colour.Names
@@ -163,3 +164,22 @@ Chart ==========================================================================
 >
 > convs8tou8 :: Int8 → Word8
 > convs8tou8 i = fromIntegral i
+>
+> busterHill :: Array Int Int
+> busterHill = array (1, 99) [(3,7)]
+>
+> loopGain1 = 0.742
+> loopGain2 = 0.733
+> loopGain3 = 0.715
+> loopGain4 = 0.697
+> loopGain5 = 0.7
+> loopGain6 = 0.7
+>
+> delayTime1 = 0.004799
+> delayTime2 = 0.004999
+> delayTime3 = 0.005399
+> delayTime4 = 0.005801
+> delayTime5 = 0.001051
+> delayTime6 = 0.000337
+>
+

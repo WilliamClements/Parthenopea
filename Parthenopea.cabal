@@ -32,6 +32,7 @@ Library
         SoundFont,
         SunPyg,
         Synthesizer,
+        Syntoolkit,
         WHC
   other-modules:
   build-depends:

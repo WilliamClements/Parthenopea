@@ -263,7 +263,7 @@ Silver =========================================================================
 > silver =
 >     removeZeros
 >     $ tempo 2
->     $ transpose 5
+>     $ transpose 17
 >     $ keysig A Mixolydian
 >     $ addVolume 100
 >     $ instrument Celesta
