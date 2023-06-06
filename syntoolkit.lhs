@@ -4,6 +4,8 @@
 > {-# LANGUAGE EmptyDataDecls #-}
 > {-# LANGUAGE FlexibleInstances #-}
 > {-# LANGUAGE InstanceSigs #-}
+> {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE StandaloneDeriving #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > 
@@ -13,8 +15,9 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 > module Syntoolkit where
 >
 > import Data.Array
+> import Data.Int
 > import Data.Word
-> import Euterpea (InstrumentName(BrassSection))
+> import System.Random
    
 > class Filter a where
 >   ftick                :: StkFrames → Word64 → a → StkFrames 
@@ -105,8 +108,8 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >
 > newBowTable = BowTable 0.0 0.1 0.01 0.98
 >
-> data BeeThree =
->   BeeThree
+> data FM =
+>   FM
 >   {
 >       eADSR            :: [ADSR]
 >     , eWaves           :: Array Word FileLoop
@@ -124,7 +127,7 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >     , eFMAttTimes      :: Array Word Double
 >   } deriving (Show, Eq, Ord)
 >
-> newBeeThree = BeeThree initADSRs
+> newBeeThree = FM       initADSRs
 >                        initWaves
 >                        initVibrato
 >                        -- WOX initTwoZero
@@ -171,21 +174,35 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >   {
 >       gData            :: [Double]
 >     , gDataRate        :: Double
->     , gNFrames         :: Word64 
+>     , gNFrames         :: Word 
 >     , gNChannels       :: Word
 >     , gSize            :: Word64
 >     , gBufferSize      :: Word64
 >   } deriving (Show, Eq, Ord)
 >
-> newStkFrames = StkFrames [0]
+> newStkFrames = StkFrames []
 >                          0
 >                          0
 >                          0
 >                          0
 >                          0
 >
-> globTable              :: StkFrames
-> globTable = newStkFrames
+> newStkFrames1          :: StkFrames → [Double] → StkFrames
+> newStkFrames1 stkFrames theData = stkFrames {gData = theData}
+>
+> newStkFrames2          :: Word → Word → StkFrames
+> newStkFrames2 numFrames numChannels =
+>   let
+>     size, bufferSize    :: Word64
+>     size = fromIntegral $ numFrames * numChannels
+>     bufferSize = size
+>     dataRate           :: Double
+>     dataRate = stkSampleRate
+>   in
+>     StkFrames [] dataRate numFrames numChannels size bufferSize
+>
+> -- WOX globTable              :: StkFrames
+> -- WOX globTable = newStkFrames2
 >
 > data SineWave =
 >   SineWave
@@ -278,7 +295,7 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >       oJetTable        :: JetTable
 >     , oResonator       :: BiQuad
 >     , oDCBlock         :: PoleZero
->     , oNoise           :: Noise
+>     , oNoise           :: Noise Int
 >     , oADSR            :: ADSR
 >     , oVibrato         :: SineWave
 >     , oMaxPressure     :: Double
@@ -290,7 +307,7 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 > newBlowBotl = BlowBotl newJetTable
 >                        newBiQuad
 >                        newPoleZero
->                        newNoise
+>                        (newNoise 1171)
 >                        newADSR
 >                        newSineWave
 >                        0
@@ -307,7 +324,7 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >     , pTonehole        :: PoleZero
 >     , pVent            :: PoleZero
 >     , pEnvelope        :: Envelope
->     , pNoise           :: Noise
+>     , pNoise           :: Noise Int
 >     , pVibrato         :: SineWave
 >     , pScatter         :: Double
 >     , pTHCoeff         :: Double
@@ -323,13 +340,36 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >   } deriving (Show, Eq, Ord)
 >
 > newJetTable = JetTable
->   
-> data Noise =
->   Noise
+> 
+> instance Generator (Noise a) where
+>   gtick                :: StkFrames → Word64 → Noise a → StkFrames
+>   gtick frames chan noise = frames'
+>     where
+>       data' = map newSample [0..(fromIntegral (gNFrames frames))]
+>       -- sample = (gData stkFrames) !! fromIntegral w
+>       frames'       :: StkFrames
+>       frames' = frames {gData = data'}
+>       newSample        :: Int → Double
+>       newSample i = 2.0 * fst (random (ggStdGen noise))
+>
+> newtype GeneratorData =
+>   GeneratorData
 >   {
+>     ooLastFrame        :: StkFrames
 >   } deriving (Show, Eq, Ord)
 >
-> newNoise = Noise
+> data Noise a =
+>   Noise
+>   {
+>       ggStdGen           :: StdGen
+>     , ggGeneratorData    :: GeneratorData
+>   } deriving Show
+>
+> instance Eq a => Eq (Noise a) where a == b = True
+> instance Ord a => Ord (Noise a) where compare n1 n2 = EQ
+>
+> newNoise               :: Int → Noise a
+> newNoise seed = Noise (mkStdGen seed) (GeneratorData newStkFrames)
 >
 > data Envelope =
 >   Envelope
@@ -441,7 +481,7 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >     , wReedTable       :: ReedTable
 >     , wFilter          :: OneZero
 >     , wEnvelope        :: Envelope
->     , wNoise           :: Noise
+>     , wNoise           :: Noise Int
 >     , wVibrato         :: SineWave
 >     , wOutputGain      :: Double
 >     , wNoiseGain       :: Double
@@ -460,3 +500,266 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >                        0.2
 >                        0.1
 > -}
+>
+> data Delay =
+>   Delay
+>   {
+>       xInPoint         :: Word64
+>     , xOutPoint        :: Word64
+>     , xDelay           :: Word64
+>   } deriving (Show, Eq, Ord)
+>
+> newDelay delay maxDelay = Delay 0 0 delay
+>
+> data DelayA = 
+>   DelayA
+>   {
+>       yInPoint         :: Word64
+>     , yOutPoint        :: Word64
+>     , yDelay           :: Double
+>     , yAlpha           :: Double
+>     , yCoeff           :: Double
+>     , yAPInput         :: Double
+>     , yNextOutput      :: Double
+>     , yNextOut         :: Bool
+>   } deriving (Show, Eq, Ord)
+>
+> data Drummer =
+>   Drummer
+>   {
+>       zWaves           :: Array Word FileWvIn
+>     , zFilters         :: Array Word OnePole
+>     , zSoundOrder      :: [Int]
+>     , zSoundNumber     :: [Int]
+>     , zNSounding       :: Int
+>   } deriving (Show, Eq, Ord)
+>
+> data FileWvIn =
+>   FileWvIn
+>   {
+>       aaFile           :: FileRead
+>     , aaFinished       :: Bool
+>     , aaInterpolate    :: Bool
+>     , aaInt2FloatScaling
+>                        :: Bool
+>     , aaChunking       :: Bool
+>     , aaTime           :: Double
+>     , aaRate           :: Double
+>     , aaFileSize       :: Word64
+>     , aaChunkThreshold :: Word64
+>     , aaChunkSize      :: Word64
+>     , aaChunkPointer   :: Int64
+>   } deriving (Show, Eq, Ord)
+>
+> data FileRead =
+>   FileRead
+>   {
+>       bbFd             :: File
+>     , bbByteSwap       :: Bool
+>     , bbWavFile        :: Bool
+>     , bbFileSize       :: Word64
+>     , bbDataOffset     :: Word64
+>     , bbChannels       :: Word
+>     , bbDataType       :: StkFormat
+>     , bbFileRate       :: Double
+>   } deriving (Show, Eq, Ord)
+>
+> type StkFormat = Word64
+>
+> data Echo =
+>   Echo
+>   {
+>       ccDelayLine      :: Delay
+>     , ccLength         :: Word64
+>   } deriving (Show, Eq, Ord)
+>
+> data FileWrite =
+>   FileWrite
+>   {
+>       ddFd             :: File
+>     , ddFileType       :: FileType
+>     , ddDataType       :: StkFormat
+>     , ddChannels       :: Word64
+>     , ddFrameCounter   :: Word64
+>     , ddByteSwap       :: Bool
+>   } deriving (Show, Eq, Ord)
+>
+> type File = Word64
+> type FileType = Word64
+>
+> data FileWvOut =
+>   FileWvOut
+>   {
+>       eeFile           :: FileWrite
+>     , eeBufferFrames   :: Word64
+>     , eeBufferIndex    :: Word64
+>     , eeIData          :: Int64
+>   } deriving (Show, Eq, Ord)
+>
+> data Fir =
+>   Fir
+>   {
+>   } deriving (Show, Eq, Ord)
+>
+> data Flute =
+>   Flute
+>   {
+>       ffJetDelay       :: DelayL
+>     , ffBoreDelay      :: DelayL
+>     , ffJetTable       :: JetTable
+>     , ffFilter         :: OnePole
+>     , ffDCBlock        :: PoleZero
+>     , ffNoise          :: Noise Int
+>     , ffADSR           :: ADSR
+>     , ffVibrato        :: SineWave
+>     , ffLastFrequency  :: Double
+>     , ffMaxPressure    :: Double
+>     , ffJetReflection  :: Double
+>     , ffEndReflection  :: Double
+>     , ffNoiseGain      :: Double
+>     , ffVibratoGain    :: Double
+>     , ffOutputGain     :: Double
+>     , ffJetRatio       :: Double
+>   } deriving (Show, Eq, Ord)
+>
+> data FMVoices =
+>   FMVoices
+>   {
+>       ggCurrentVowel   :: Int
+>     , ggTilt           :: Array Word Double
+>     , ggMods           :: Array Word Double
+>   } deriving (Show, Eq, Ord)
+>
+> data FormSweep =
+>   FormSweep
+>   {
+>       hhDirty          :: Bool
+>     , hhFrequency      :: Double
+>     , hhRadius         :: Double
+>     , hhStartFrequency :: Double
+>     , hhStartRadius    :: Double
+>     , hhStartGain      :: Double
+>     , hhTargetFrequency
+>                        :: Double
+>     , hhTargetRadius   :: Double
+>     , hhTargetGain     :: Double
+>     , hhDeltaFrequency :: Double
+>     , hhDeltaRadius    :: Double
+>     , hhDeltaGain      :: Double
+>     , hhSweepState     :: Double
+>     , hhSweepRate      :: Double
+>   } deriving (Show, Eq, Ord)
+>
+> data FreeVerb =
+>   FreeVerb
+>   {
+>       iiG              :: Double
+>     , iiGain           :: Double
+>     , iiRoomSizeMem    :: Double
+>     , iiRoomSize       :: Double
+>     , iiDampMem        :: Double
+>     , iiDamp           :: Double
+>     , iiWet1           :: Double
+>     , iiWet2           :: Double
+>     , iiDry            :: Double
+>     , iiWidth          :: Double
+>     , iiFrozenMode     :: Bool
+>     , iiCombDelayL     :: Array Word Delay
+>     , iiCombDelayR     :: Array Word Delay
+>     , iiCombLPL        :: Array Word OnePole
+>     , iiCombLPR        :: Array Word OnePole
+>     , iiAllPassDelayL  :: Array Word Delay
+>     , iiAllPassDelayR  :: Array Word Delay
+>   } deriving (Show, Eq, Ord)
+>
+> data GrainState =
+>       GRAIN_STOPPED
+>     | GRAIN_FADEIN
+>     | GRAIN_SUSTAIN
+>     | GRAIN_FADEOUT deriving (Show, Eq, Ord)
+>
+> data Grain =
+>   Grain
+>   {
+>       jjScaler         :: Double
+>     , jjRate           :: Double
+>     , jjAttackCount    :: Word64
+>     , jjSustainCount   :: Word64
+>     , jjDecayCount     :: Word64
+>     , jjDelayCount     :: Word64
+>     , jjCounter        :: Word64
+>     , jjPointer        :: Double
+>     , jjStartPointer   :: Word64
+>     , jjRepeats        :: Word64
+>     , jjState          :: GrainState
+>   } deriving (Show, Eq, Ord)
+>
+> data Granulate =
+>   Granulate
+>   {
+>       kkData           :: StkFrames
+>     , kkGrains         :: [Grain]
+>     , kkNoise          :: Noise Int
+>     , kkGPointer       :: Double
+>     , kkGDuration      :: Word64
+>     , kkGRampPercent   :: Word64
+>     , kkGDelay         :: Word64
+>     , kkGStretch       :: Word64
+>     , kkStretchCounter :: Word64
+>     , kkGOffset        :: Int64
+>     , kkGRandomFactor  :: Double
+>     , kkGain           :: Double
+>   } deriving (Show, Eq, Ord)
+>
+> data Guitar =
+>   Guitar
+>   {
+>       mmStrings        :: Array Word Twang
+>     , mmStringState    :: Array Word Int
+>     , mmDecayCounter   :: Array Word Word64
+>     , mmFilePointer    :: Array Word Word64
+>     , mmPluckGains     :: Array Word Double
+>     , mmPickFilter     :: OnePole
+>     , mmCouplingFilter :: OnePole
+>     , mmCouplingGain   :: Double
+>     , mmExcitation     :: StkFrames
+>     , mmLastFrame      :: StkFrames
+>   } deriving (Show, Eq, Ord)
+>
+> data Twang =
+>   Twang
+>   {
+>       lldelayLine      :: DelayA
+>     , llcombDelay      :: DelayL
+>     , llLoopFilter     :: Fir
+>     , llLastOutput     :: Double
+>     , llFrequency      :: Double
+>     , llLoopGain       :: Double
+>     , llPluckPosition  :: Double
+>   } deriving (Show, Eq, Ord)
+>
+> data JCRev =
+>   JCRev
+>   {
+>       nnAllpassDelays  :: Array Word Delay
+>     , nnCombDelays     :: Array Word Delay
+>     , nnCombFilters    :: Array Word OnePole
+>     , nnOutLeftDelay   :: Delay
+>     , nnOutRightDelay  :: Delay
+>     , nnAllpassCoefficient
+>                        :: Double
+>     , nnCombCoefficient:: Array Word Double
+>   } deriving (Show, Eq, Ord)
+
+sample programs ===========================================================================
+
+> noiseMain              :: IO ()
+> noiseMain = do
+>   -- output               :: StkFrames
+>   let output :: StkFrames = newStkFrames2 20 1
+>   let noise = newNoise 737
+>   let output' = gtick output 0 noise
+>   mapM_ (doOutput output') [0..19]
+>   where
+>     doOutput           :: StkFrames → Int → IO ()
+>     doOutput output' i = putStr $ show $ gData output' !! i
