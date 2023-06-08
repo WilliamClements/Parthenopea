@@ -11,12 +11,14 @@ SoundFont support ==============================================================
 >
 > import qualified Codec.SoundFont      as F
 > import Control.Arrow
+> import Control.Monad.IO.Class
 > import qualified Data.Audio           as A
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds) )
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List ( find, foldr, minimumBy )
 > import qualified Data.Map             as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing )
+> import Data.Time.Clock
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
@@ -169,8 +171,12 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                           → IO ()
 > doSoundFont sfdb songs =
 >   do
+>     putStrLn "processing..."
+>     ts1 ← getCurrentTime
 >     let numberedDB = zip [0..] sfdb
 >     sffilesp ← mapM (uncurry readSoundFontFile) numberedDB
+>     ts2 ← getCurrentTime
+>     putStrLn ("___load files: " ++ show (diffUTCTime ts2 ts1))
 >     let ((iloc, ploc), probs) = foldr (uncurry chooseIAndP)
 >                                       ((Map.empty, Map.empty), [])
 >                                       sffilesp
@@ -181,7 +187,11 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     let imap = assignInstruments sfrost iloc
 >     let pmap = assignAllPercussion sfrost ploc
 >     let imap' = imap ++ [doAssignP sfrost pmap]
+>     ts3 ← getCurrentTime
+>     putStrLn ("___prepare instruments: " ++ show (diffUTCTime ts3 ts2))
 >     _  ← renderSongs sfrost imap' songs
+>     ts4 ← getCurrentTime
+>     putStrLn ("___render songs: " ++ show (diffUTCTime ts4 ts3))
 >     return ()
 >  
 > readSoundFontFile      :: Word
@@ -194,7 +204,8 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                                    ,  [(String, [(String, ([Hints], PercussionSound))])]))
 > readSoundFontFile wFile (filename, (filehints, (ilist, plist))) =
 >   do
->     putStr ("accessing " ++ filename)
+>     putStr filename
+>     ts1 ← getCurrentTime
 >     maybeAudio ← F.importFile filename
 >     case maybeAudio of
 >       Left s               → error $ "SoundFont decoding error: " ++ s
@@ -209,9 +220,13 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                        (F.smpl sdata)
 >                        (F.sm24 sdata)
 >         let sffile = SFFile filename arrays wFile (1000 * sfscore filehints) Map.empty
->         case ssM24 arrays of
->           Nothing          → putStrLn (" - 16-bit datapoints")
->           Just s24data     → putStrLn (" - 24-bit datapoints")
+>
+>         ts2 ← getCurrentTime
+>         let nBits = case ssM24 arrays of
+>               Nothing          → 16
+>               Just s24data     → 24
+>         putStrLn (" (" ++ show nBits ++ ") loaded in " ++ show (diffUTCTime ts2 ts1))
+>
 >         return (sffile, (ilist, plist))
 >
 > renderSong             :: SFRoster
@@ -221,14 +236,16 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                           → IO ()
 > renderSong sfrost imap name song =
 >   do
+>     ts1 ← getCurrentTime
 >     let is = Map.keys $ fst $ listI song initCase (Map.empty, Map.empty)
 >     let ps = Map.keys $ listP song initCase Map.empty
 >     printChoices sfrost is ps
 >     let path = name ++ ".wav"
 >     putStr path
 >     let (d,s) = renderSF song imap
->     outFileNorm path d s
->     putStrLn (" written: " ++ show d ++ " seconds\n")
+>     outFile path d s
+>     ts2 ← getCurrentTime
+>     putStrLn (" (dur=" ++ show d ++ ") written in " ++ show (diffUTCTime ts2 ts1))
 >     return ()
 >
 > renderSongs            :: SFRoster

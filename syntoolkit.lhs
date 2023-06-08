@@ -12,13 +12,13 @@
 
 Port (C++ to Haskell) of STK (called here Syntoolkit)
 
-> module Syntoolkit where
+> module SynToolkit where
 >
 > import Data.Array
 > import Data.Int
 > import Data.Word
 > import System.Random
-   
+>
 > class Filter a where
 >   ftick                :: StkFrames → Word64 → a → StkFrames 
 >
@@ -216,26 +216,6 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >
 > newSineWave = SineWave 0 1 0 0 0
 >
-> data FilterData =
->   FilterData
->   {
->       jGain            :: Double
->     , jChannelsIn      :: Word64
->     , jLastFrame       :: StkFrames
->     , jB               :: [Double]
->     , jA               :: [Double]
->     , jOutputs         :: StkFrames
->     , jInputs          :: StkFrames
->   } deriving (Show, Eq, Ord)
->
-> newFilterData = FilterData 0
->                            0
->                            newStkFrames
->                            [0,0,0]
->                            []
->                            newStkFrames
->                            newStkFrames
->
 > data BiQuad =
 >   BiQuad
 >   {
@@ -245,7 +225,7 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >     , kFilterData      :: FilterData
 >   } deriving (Show, Eq, Ord)
 >
-> newBiQuad = BiQuad 0 0 1 newFilterData
+> -- WOX newBiQuad = BiQuad 0 0 1 newFilterData
 >
 > data Blit =
 >   Blit
@@ -304,6 +284,7 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >     , oOutputGain      :: Double
 >   } deriving (Show, Eq, Ord)
 >
+> {-
 > newBlowBotl = BlowBotl newJetTable
 >                        newBiQuad
 >                        newPoleZero
@@ -314,6 +295,7 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >                        20
 >                        0
 >                        0
+> -}
 >
 > data BlowHole =
 >   BlowHole
@@ -446,11 +428,6 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >     , tBetaRatio       :: Double
 >   } deriving (Show, Eq, Ord)
 >
-> data OnePole =
->   OnePole
->   {
->   } deriving (Show, Eq, Ord)
->
 > data Brass =
 >   Brass
 >   {
@@ -500,16 +477,6 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >                        0.2
 >                        0.1
 > -}
->
-> data Delay =
->   Delay
->   {
->       xInPoint         :: Word64
->     , xOutPoint        :: Word64
->     , xDelay           :: Word64
->   } deriving (Show, Eq, Ord)
->
-> newDelay delay maxDelay = Delay 0 0 delay
 >
 > data DelayA = 
 >   DelayA
@@ -650,28 +617,6 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >     , hhSweepRate      :: Double
 >   } deriving (Show, Eq, Ord)
 >
-> data FreeVerb =
->   FreeVerb
->   {
->       iiG              :: Double
->     , iiGain           :: Double
->     , iiRoomSizeMem    :: Double
->     , iiRoomSize       :: Double
->     , iiDampMem        :: Double
->     , iiDamp           :: Double
->     , iiWet1           :: Double
->     , iiWet2           :: Double
->     , iiDry            :: Double
->     , iiWidth          :: Double
->     , iiFrozenMode     :: Bool
->     , iiCombDelayL     :: Array Word Delay
->     , iiCombDelayR     :: Array Word Delay
->     , iiCombLPL        :: Array Word OnePole
->     , iiCombLPR        :: Array Word OnePole
->     , iiAllPassDelayL  :: Array Word Delay
->     , iiAllPassDelayR  :: Array Word Delay
->   } deriving (Show, Eq, Ord)
->
 > data GrainState =
 >       GRAIN_STOPPED
 >     | GRAIN_FADEIN
@@ -750,6 +695,67 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >                        :: Double
 >     , nnCombCoefficient:: Array Word Double
 >   } deriving (Show, Eq, Ord)
+>
+> data FreeVerb =
+>   FreeVerb
+>   {
+>       iiWetDryMix      :: Double
+>     , iiG              :: Double
+>     , iiGain           :: Double
+>     , iiRoomSize       :: Double
+>     , iiDamp           :: Double
+>     , iiWet1           :: Double
+>     , iiWet2           :: Double
+>     , iiDry            :: Double
+>     , iiWidth          :: Double
+>     , iiCombDelayL     :: Array Word Word64
+>     , iiCombDelayR     :: Array Word Word64
+>     , iiCombLPL        :: Array Word FilterData
+>     , iiCombLPR        :: Array Word FilterData
+>     , iiAllPassDelayL  :: Array Word Word64
+>     , iiAllPassDelayR  :: Array Word Word64
+>   } deriving (Show, Eq, Ord)
+>
+> data Delay =
+>   Delay
+>   {
+>       xInPoint         :: Word64
+>     , xOutPoint        :: Word64
+>     , xDelay           :: Word64
+>   } deriving (Show, Eq, Ord)
+>
+> newDelay delay maxDelay = Delay 0 0 delay
+>
+> data OnePole =
+>   OnePole
+>   {
+>   } deriving (Show, Eq, Ord)
+>
+> data FilterData =
+>   FilterData
+>   {
+>       jGain            :: Double
+>     , jChannelsIn      :: Word64
+>     -- WOX , jLastFrame       :: StkFrames
+>     , jB               :: [Double]
+>     , jA               :: [Double]
+>     -- WOX , jOutputs         :: StkFrames
+>     -- WOX , jInputs          :: StkFrames
+>   } deriving (Show, Eq, Ord)
+>
+> newOnePole             :: Double → FilterData
+> newOnePole pole =
+>   let
+>     b0 = if pole > 0
+>          then 1 - pole
+>          else 1 + pole
+>     a0 = 1
+>     a1 = (-pole)
+>   in
+>     FilterData 1
+>                2
+>                [b0]
+>                [a0, a1]
 
 sample programs ===========================================================================
 
