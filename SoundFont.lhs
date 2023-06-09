@@ -243,7 +243,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     let path = name ++ ".wav"
 >     putStr path
 >     let (d,s) = renderSF song imap
->     outFile path d s
+>     outFileNorm path d s
 >     ts2 ← getCurrentTime
 >     putStrLn (" (dur=" ++ show d ++ ") written in " ++ show (diffUTCTime ts2 ts1))
 >     return ()

@@ -520,6 +520,10 @@ We Hate Her ====================================================================
 >    $ addVolume 100
 >    $ instrument Violin whhMel
 >
+> littleWeHateHer =
+>    addVolume 100
+>    $ instrument Violin (bf 4 (2 * wn) {- :+: rest wn :+: bf 4 en :+: rest wn :+: bf 4 qn -})
+>
 > whhMel :: Music Pitch
 >    --                      We
 > whhMel = line  [rest dqn, g 4 en
