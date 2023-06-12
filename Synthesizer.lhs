@@ -271,7 +271,7 @@ Signal function-based synth ====================================================
 >     
 > resolvePitchCorrection :: Int → Maybe Int → Maybe Int → Double
 > resolvePitchCorrection alt mps mpc = if usePitchCorrection
->                                      then 1.02 ** (fromIntegral cents/12/100)
+>                                      then 2 ** (fromIntegral cents/12/100)
 >                                      else 1.0
 >   where
 >     cents              :: Int = if isJust mps || isJust mpc
