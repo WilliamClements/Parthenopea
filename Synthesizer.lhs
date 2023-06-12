@@ -55,14 +55,15 @@ Signal function-based synth ====================================================
 >                                             >>> eutEffects secsScored (rDataL, rDataR)
 >   in sig
 >
-> pSwitch                :: [Evt (AudSF () Double)]  -- Initial SF collection.
->                           → AudSF () [Evt (AudSF () Double)]    -- Input event stream.
->                           → ([Evt (AudSF () Double)]
->                                   → [Evt (AudSF () Double)]
->                                   → [Evt (AudSF () Double)])
+> pSwitch                :: forall p col a. (Clock p, Functor col, Foldable col) =>
+>                           col (Evt (Signal p () Double))  -- Initial SF collection.
+>                           → Signal p () (col (Evt (Signal p () Double)))    -- Input event stream.
+>                           → (col (Evt (Signal p () Double))
+>                                   → col (Evt (Signal p () Double))
+>                                   → col (Evt (Signal p () Double)))
 >                           -- A Modifying function that modifies the collection of SF
 >                           --   based on the event that is occuring.
->                           → AudSF () [Double]
+>                           → Signal p () (col Double)
 >                           -- The resulting collection of output values obtained from
 >                           --   running all SFs in the collection.
 > pSwitch col esig modsf = 
@@ -71,12 +72,12 @@ Signal function-based synth ====================================================
 >     rec
 >       -- perhaps this can be run at a lower rate using upsample
 >       sfcol ← delay col ⤙ modsf sfcol' evts  
->       let k = (fst.last) sfcol
->       let rs = map (\ns → runSF (strip (snd ns)) ()) sfcol
->       let (as, sfcol' :: [Evt (AudSF () Double)]) = (map fst rs, map (arrow2SF k) rs)
+>       let k = foldl' (\a i → fst i) 0 sfcol
+>       let rs = fmap (\ns → runSF (strip (snd ns)) ()) sfcol
+>       let (as, sfcol' :: col (Evt (Signal p () Double))) = (fmap fst rs, fmap (arrow2SF k) rs)
 >     outA ⤙ as
 >   where
->     arrow2SF :: Int → (Double, SF () Double) → Evt (AudSF () Double)
+>     arrow2SF           :: Int → (Double, SF () Double) → Evt (Signal p () Double)
 >     arrow2SF t r = (t, (ArrowP . snd) r)
 >
 > eutDriverFull          :: Double → Double → AudSF () Double 
