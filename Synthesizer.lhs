@@ -1,13 +1,17 @@
 > {-# LANGUAGE AllowAmbiguousTypes #-}
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE ExistentialQuantification #-}
+> {-# LANGUAGE FlexibleContexts #-}
 > {-# LANGUAGE GADTs #-}
+> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
 > module Synthesizer where
 >
 > import Control.Arrow
+> import Control.Arrow.ArrowP
+> import Control.SF.SF
 > -- import Control.Arrow.ArrowP ( ArrowP(ArrowP), strip )
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds) )
 > import qualified Data.Audio           as A
@@ -17,9 +21,10 @@
 > import Data.Word
 > import Euterpea.IO.Audio.Basics
 > import Euterpea.IO.Audio.BasicSigFuns
+> import Euterpea.IO.Audio.Render
 > import Euterpea.IO.Audio.Types
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
-> import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
+> import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA, DeltaT )
 > import Parthenopea
 > import qualified SynToolkit           as STK
   
@@ -37,23 +42,44 @@ Signal function-based synth ====================================================
 > eutSynthesize (rDataL, rDataR) sr dur pch vol params s16 ms8 =
 >   let
 >     ap                 :: AbsPitch            = fromIntegral (rRootKey rDataL)
->     ns                 :: Double              = fromIntegral $ rEnd rDataL - rStart rDataL + 1
+>     (st, en)           :: (Word, Word)        = (rStart rDataL, rEnd rDataL)
+>     ns                 :: Double              = fromIntegral (en - st + 1)
 >     secsSample         :: Double              = ns / sr
 >     secsScored         :: Double              = 2 * fromRational dur
->     freqFactor         :: Double              = if usePitchCorrection
->                                                 then freqRatio * rateRatio / rPitchCorrection rDataL
->                                                 else freqRatio * rateRatio
 >     freqRatio          :: Double              = apToHz ap / apToHz pch
 >     rateRatio          :: Double              = 44100 / sr
+>     freqFactor         :: Double              = freqRatio * rateRatio / rPitchCorrection rDataL
 >     sig                :: AudSF () (Double, Double)
 >                                               = eutDriver rDataL secsSample secsScored sr 0 freqFactor
 >                                             >>> eutRelayStereo s16 ms8 secsScored (rDataL, rDataR) vol dur
 >                                             >>> eutEffects secsScored (rDataL, rDataR)
 >   in sig
 >
-> eutDriverFull          :: Double
->                           → Double
->                           → AudSF () Double 
+> pSwitch                :: [Evt (AudSF () Double)]  -- Initial SF collection.
+>                           → AudSF () [Evt (AudSF () Double)]    -- Input event stream.
+>                           → ([Evt (AudSF () Double)]
+>                                   → [Evt (AudSF () Double)]
+>                                   → [Evt (AudSF () Double)])
+>                           -- A Modifying function that modifies the collection of SF
+>                           --   based on the event that is occuring.
+>                           → AudSF () [Double]
+>                           -- The resulting collection of output values obtained from
+>                           --   running all SFs in the collection.
+> pSwitch col esig modsf = 
+>   proc _ → do
+>     evts ← esig ⤙ ()
+>     rec
+>       -- perhaps this can be run at a lower rate using upsample
+>       sfcol ← delay col ⤙ modsf sfcol' evts  
+>       let k = (fst.last) sfcol
+>       let rs = map (\ns → runSF (strip (snd ns)) ()) sfcol
+>       let (as, sfcol' :: [Evt (AudSF () Double)]) = (map fst rs, map (arrow2SF k) rs)
+>     outA ⤙ as
+>   where
+>     arrow2SF :: Int → (Double, SF () Double) → Evt (AudSF () Double)
+>     arrow2SF t r = (t, (ArrowP . snd) r)
+>
+> eutDriverFull          :: Double → Double → AudSF () Double 
 > eutDriverFull iphs delta
 >   | traceIf msg False = undefined
 >   | otherwise =
@@ -70,7 +96,7 @@ Signal function-based synth ====================================================
 > eutDriverLooping       :: Double
 >                           → Double
 >                           → (Double, Double)
->                           → AudSF () Double 
+>                           → AudSF () Double
 > eutDriverLooping iphs delta (lst, len)
 >   | traceIf msg False = undefined
 >   | otherwise =
@@ -91,38 +117,51 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → Double
 >                           → AudSF () Double 
-> eutDriver recon secsSample secsScored sr iphs freqFactor
->   | traceIf msg False = undefined
->   | otherwise =
->     let
->       delta            :: Double         = 1 / (secsSample * freqFactor * sr)
->       eps              :: Double         = 0.000001
->       (normst,normen)  :: (Double, Double)
->                                          = normalizeLooping recon
->     in proc () → do
->       envf   ← envLineSeg  [0, 1, 1, 0, 0] 
->                             [eps, secsSample, eps, secsScored - secsSample]    ⤙ ()
->       envl   ← envLineSeg  [0, 0, 1, 1] 
->                             [secsSample, eps, secsScored - secsSample]         ⤙ ()
->       pfull  ← eutDriverFull 0 delta                                           ⤙ ()
->       ploop  ← eutDriverLooping normst delta (normst, normen)                  ⤙ ()
->     
->       let ok = lookAtEveryPoint envf pfull envl ploop
->       let curPos = if ok
->                    then if (rSampleMode recon /= A.NoLoop) && useLoopSwitching
->                         then envf*pfull + envl*ploop
->                         else envf*pfull
->                    else error "bad point"
->     
->       outA ⤙ curPos
+> eutDriver recon secsSample secsScored sr iphs freqFactor =
+>   proc () → do
+>     curPos ← sf ⤙ ()
+>     let curPos' = if checkPos curPos
+>                   then curPos
+>                   else error "bad pos in eutDriver"
+>     outA ⤙ curPos'
+>
 >   where
->     lookAtEveryPoint :: Double → Double → Double → Double → Bool
->     lookAtEveryPoint envf pfull envl ploop
->       | traceIf msg False = undefined
+>     allsf              :: AudSF () [Double]  = pSwitch [] (evtsf secsSample) modsf
+>                                                -- add up all samples
+>     sf                 :: AudSF () Double    = allsf >>> arr (foldl' mix zero)
+>     delta              :: Double             = 1 / (secsSample * freqFactor * sr)
+>     eps                :: Double             = 0.000001
+>     (normst,normen)    :: (Double, Double)
+>                                            = normalizeLooping recon
+>
+>     evtsf              :: DeltaT → AudSF () [Evt (AudSF () Double)]
+>     evtsf secsSample =
+>       proc () → do
+>         rec
+>           let t' = t + 1
+>           t ← delay 0 ⤙ t'
+>           let evs = if t < secsSample * 44100
+>                     then [(0, eutDriverFull 0 delta)]
+>                     else [(1, eutDriverLooping normst delta (normst, normen))]
+>         outA ⤙ evs
+>
+>     modsf              :: [Evt (AudSF () Double)] → [Evt (AudSF () Double)] → [Evt (AudSF () Double)]
+>     modsf sfs evts =
+>       let
+>         evt = last evts
+>         result
+>           | null sfs = [evt]
+>           | fst evt == fst (last sfs) = sfs
+>           | otherwise = [evt]
+>       in
+>         result
+>
+>     checkPos           :: Double  → Bool
+>     checkPos pos
+>       | traceNever msg False = undefined
 >       | otherwise = True
 >       where
->         msg = unwords [show (envf*pfull + envl*ploop), "=", show envf, ",", show pfull,  ",", show envl, ",", show ploop]
->     msg = unwords ["eutDriver secsSample = ", show secsSample, " secsScored = ", show secsScored]
+>         msg = unwords ["eutDriver pos=", show pos]
 >
 > eutRelayStereo         :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
@@ -230,7 +269,9 @@ Signal function-based synth ====================================================
 >                  , ", denom=",                  show denom]
 >     
 > resolvePitchCorrection :: Int → Maybe Int → Maybe Int → Double
-> resolvePitchCorrection alt mps mpc = 2 ** (fromIntegral cents/12/100)
+> resolvePitchCorrection alt mps mpc = if usePitchCorrection
+>                                      then 1.02 ** (fromIntegral cents/12/100)
+>                                      else 1.0
 >   where
 >     cents              :: Int = if isJust mps || isJust mpc
 >                                 then coarse * 100 + fine
@@ -620,6 +661,8 @@ Utility types ==================================================================
 >     efChorus           :: Maybe Double
 >   , efReverb           :: Maybe Double
 >   , efPan              :: Maybe Double} deriving (Eq, Show)
+>
+> type Evt a = (Int, a) -- 0 or 1 indicating full or looping, and the given SF
 
 Knobs and buttons =========================================================================
 

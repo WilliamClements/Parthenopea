@@ -522,7 +522,7 @@ We Hate Her ====================================================================
 >
 > littleWeHateHer =
 >    addVolume 100
->    $ instrument Violin (bf 4 (2 * wn) {- :+: rest wn :+: bf 4 en :+: rest wn :+: bf 4 qn -})
+>    $ instrument AltoSax (bf 4 (2 * wn) {- :+: rest wn :+: bf 4 en :+: rest wn :+: bf 4 qn -})
 >
 > whhMel :: Music Pitch
 >    --                      We

@@ -10,7 +10,6 @@ SoundFont support ==============================================================
 > module SoundFont where
 >
 > import qualified Codec.SoundFont      as F
-> import Control.Arrow
 > import Control.Monad.IO.Class
 > import qualified Data.Audio           as A
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds) )
@@ -231,7 +230,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >
 > renderSong             :: SFRoster
 >                           → InstrMap (Stereo AudRate)
->                           → String
+>                           → FilePath
 >                           → Music (Pitch, [NoteAttribute])
 >                           → IO ()
 > renderSong sfrost imap name song =
@@ -588,7 +587,8 @@ define signal functions for playing instruments ================================
 >     arrays             :: SoundFontArrays  = zArrays sffile 
 >     sig = if not ok
 >           then error "SFZone and F.Shdr could not be reconciled"
->           else eutSynthesize (rDataL, rDataR) sr dur pch vol params (ssData arrays) (ssM24 arrays)
+>           else eutSynthesize (rDataL, rDataR) sr dur pch vol params
+>                              (ssData arrays) (ssM24 arrays)
 >   in sig
 >   where
 >     msg = unwords ["constructSig ", show (zF, zI)]
