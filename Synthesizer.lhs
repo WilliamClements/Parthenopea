@@ -56,14 +56,14 @@ Signal function-based synth ====================================================
 >   in sig
 >
 > pSwitch                :: forall p col a. (Clock p, Functor col, Foldable col) =>
->                           col (Evt (Signal p () Double))  -- Initial SF collection.
->                           → Signal p () (col (Evt (Signal p () Double)))    -- Input event stream.
->                           → (col (Evt (Signal p () Double))
->                                   → col (Evt (Signal p () Double))
->                                   → col (Evt (Signal p () Double)))
+>                           col (Evt (Signal p () a))  -- Initial SF collection.
+>                           → Signal p () (col (Evt (Signal p () a)))    -- Input event stream.
+>                           → (col (Evt (Signal p () a))
+>                                   → col (Evt (Signal p () a))
+>                                   → col (Evt (Signal p () a)))
 >                           -- A Modifying function that modifies the collection of SF
 >                           --   based on the event that is occuring.
->                           → Signal p () (col Double)
+>                           → Signal p () (col a)
 >                           -- The resulting collection of output values obtained from
 >                           --   running all SFs in the collection.
 > pSwitch col esig modsf = 
@@ -74,11 +74,8 @@ Signal function-based synth ====================================================
 >       sfcol ← delay col ⤙ modsf sfcol' evts  
 >       let k = foldl' (\a i → fst i) 0 sfcol
 >       let rs = fmap (\ns → runSF (strip (snd ns)) ()) sfcol
->       let (as, sfcol' :: col (Evt (Signal p () Double))) = (fmap fst rs, fmap (arrow2SF k) rs)
+>       let (as, sfcol' :: col (Evt (Signal p () a))) = (fmap fst rs, fmap (\r → (k, (ArrowP . snd) r)) rs)
 >     outA ⤙ as
->   where
->     arrow2SF           :: Int → (Double, SF () Double) → Evt (Signal p () Double)
->     arrow2SF t r = (t, (ArrowP . snd) r)
 >
 > eutDriverFull          :: Double → Double → AudSF () Double 
 > eutDriverFull iphs delta
