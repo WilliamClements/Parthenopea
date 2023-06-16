@@ -16,7 +16,7 @@ SoundFont support ==============================================================
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List ( find, foldr, minimumBy )
 > import qualified Data.Map             as Map
-> import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing )
+> import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, catMaybes, mapMaybe )
 > import Data.Time.Clock
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
@@ -63,6 +63,34 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , ssShdrs            :: Array Word F.Shdr
 >   , ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
+>
+> data SampleType =
+>   SampleTypeMono
+>   | SampleTypeRight
+>   | SampleTypeLeft
+>   | SampleTypeLinked
+>   | SampleTypeOggVorbis
+>   | SampleTypeRom deriving (Eq, Show)
+>
+> toSampleType           :: Word → SampleType
+> toSampleType n =
+>   case n of
+>     0x1    → SampleTypeMono
+>     0x2    → SampleTypeRight
+>     0x4    → SampleTypeLeft
+>     0x8    → SampleTypeLinked
+>     0x10   → SampleTypeOggVorbis
+>     0x8000 → SampleTypeRom
+>
+> fromSampleType      :: SampleType → Word
+> fromSampleType stype =
+>   case stype of
+>     SampleTypeMono      → 0x1
+>     SampleTypeRight     → 0x2
+>     SampleTypeLeft      → 0x4
+>     SampleTypeLinked    → 0x8
+>     SampleTypeOggVorbis → 0x10
+>     SampleTypeRom       → 0x8000
 >
 > data SFZone =
 >   SFZone {
@@ -262,7 +290,7 @@ extract data from SoundFont per instrument =====================================
 >                           → NameMaps
 >                           → (Locators, [String])
 >                           → (Locators, [String])
-> chooseI sffile []     _     cur          = cur
+> chooseI sffile []     _              cur                   = cur
 > chooseI sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
 >   let
 >     mwInstr            :: Maybe Word     = Map.lookup (fst x) nMapI
@@ -622,7 +650,7 @@ zone selection =================================================================
 >   | traceIf msg False = undefined
 >   | otherwise = ((zoneL, sampleL) ,(zoneR, sampleR))
 >   where
->     zone = selectBestZone sfrost zones pch vol
+>     zone = selectBestZone sfrost wF zones pch vol
 >     (zoneL, zoneR) = selectLinkedZone sfrost (wF, wI) zones zone
 >     sffile = fileByIndex sfrost wF
 >     arrays = zArrays sffile
@@ -638,15 +666,19 @@ zone selection =================================================================
 >             , ")"]
 >
 > selectBestZone         :: SFRoster
+>                           → Word
 >                           → [(Word, SFZone)]
 >                           → AbsPitch
 >                           → Volume
 >                           → SFZone
-> selectBestZone sfrost zones pch vol =
+> selectBestZone sfrost zF zones pch vol =
 >   let
->     scores = map (scoreOneZone pch vol) zones
+>     scores = mapMaybe (scoreOneZone sfrost zF pch vol) zones
+>     whichZ = if null scores
+>              then error "no qualified zone"
+>              else minimumBy compareScores scores
 >   in
->     snd $ minimumBy compareScores scores
+>     snd whichZ
 >
 > selectLinkedZone       :: SFRoster
 >                           → (Word, Word)
@@ -679,11 +711,23 @@ zone selection =================================================================
 > compareScores          :: (Num a, Ord a) ⇒ (a, b) → (a, b) → Ordering
 > compareScores (a1, b1) (a2, b2) = compare a1 a2 
 >                         
-> scoreOneZone           :: AbsPitch → Volume → (Word, SFZone) → (Int, SFZone)
-> scoreOneZone pch vol dzone = (score, zone)
+> scoreOneZone           :: SFRoster
+>                           → Word
+>                           → AbsPitch
+>                           → Volume
+>                           → (Word, SFZone)
+>                           → Maybe (Int, SFZone)
+> scoreOneZone sfrost zF pch vol dzone =
+>     if qualify zone
+>     then Just (score, zone)
+>     else Nothing
 >   where
->     zone = snd dzone
+>     qualify            :: SFZone → Bool
+>     qualify z = not demandStereo || isStereoZone sfrost zF z
+>
 >     score = score1 + score2
+>     zone = snd dzone
+>
 >     score1 = computePitchDistance pch (zKeyRange zone)
 >     score2 = computeVolumeDistance vol (zVelRange zone)
 >
@@ -747,10 +791,10 @@ reconcile zone and sample header ===============================================
 >   , rLoopEnd         = addIntToWord          (F.endLoop shdr)         (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
 >   , rRootKey         = fromMaybe             (F.originalPitch shdr)   (zRootKey zone)
 >   , rPitchCorrection = resolvePitchCorrection(F.pitchCorrection shdr) (zCoarseTune zone) (zFineTune zone)
->   , rEnvelope        = deriveEnvelope        (zDelayVolEnv zone)
->                                              (zAttackVolEnv zone)
->                                              (zHoldVolEnv zone)
->                                              (zDecayVolEnv zone)
+>   , rEnvelope        = deriveEnvelope        (zDelayVolEnv   zone)
+>                                              (zAttackVolEnv  zone)
+>                                              (zHoldVolEnv    zone)
+>                                              (zDecayVolEnv   zone)
 >                                              (zSustainVolEnv zone)
 >                                              (zReleaseVolEnv zone)
 >   , rEffects         = deriveEffects         (zChorus zone)
@@ -806,7 +850,7 @@ reconcile zone and sample header ===============================================
 >       in
 >         result
 >
-> showPerGM              :: SFRoster  → PerGMInstr  → String
+> showPerGM              :: SFRoster  → PerGMInstr → String
 > showPerGM sfrost pergm =
 >   let
 >     wFile = pWordF pergm
@@ -826,3 +870,14 @@ reconcile zone and sample header ===============================================
 > digAll                 :: IO ()
 > digAll = do
 >   putStrLn "not yet implemented"
+>
+> isStereoZone           :: SFRoster → Word → SFZone → Bool
+> isStereoZone sfrost zF zone =    stype == fromSampleType SampleTypeLeft
+>                               || stype == fromSampleType SampleTypeRight
+>   where
+>     sffile = fileByIndex sfrost zF
+>     arrays = zArrays sffile 
+>     sin = fromJust (zSampleIndex zone)
+>     shdr = ssShdrs arrays ! sin
+>     stype              :: Word
+>     stype = fromIntegral $ F.sampleType shdr

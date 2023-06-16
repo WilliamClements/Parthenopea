@@ -59,8 +59,8 @@ Signal function-based synth ====================================================
 >                           col (Evt (Signal p () a))  -- Initial SF collection.
 >                           → Signal p () (col (Evt (Signal p () a)))    -- Input event stream.
 >                           → (col (Evt (Signal p () a))
->                                   → col (Evt (Signal p () a))
->                                   → col (Evt (Signal p () a)))
+>                                → col (Evt (Signal p () a))
+>                                → col (Evt (Signal p () a)))
 >                           -- A Modifying function that modifies the collection of SF
 >                           --   based on the event that is occuring.
 >                           → Signal p () (col a)
@@ -74,7 +74,8 @@ Signal function-based synth ====================================================
 >       sfcol ← delay col ⤙ modsf sfcol' evts  
 >       let k = foldl' (\a i → fst i) 0 sfcol
 >       let rs = fmap (\ns → runSF (strip (snd ns)) ()) sfcol
->       let (as, sfcol' :: col (Evt (Signal p () a))) = (fmap fst rs, fmap (\r → (k, (ArrowP . snd) r)) rs)
+>       let (as, sfcol' :: col (Evt (Signal p () a)))
+>            = (fmap fst rs, fmap (\r → (k, (ArrowP . snd) r)) rs)
 >     outA ⤙ as
 >
 > eutDriverFull          :: Double → Double → AudSF () Double 
@@ -129,8 +130,7 @@ Signal function-based synth ====================================================
 >     sf                 :: AudSF () Double    = allsf >>> arr (foldl' mix zero)
 >     delta              :: Double             = 1 / (secsSample * freqFactor * sr)
 >     eps                :: Double             = 0.000001
->     (normst,normen)    :: (Double, Double)
->                                            = normalizeLooping recon
+>     (normst,normen)    :: (Double, Double) = normalizeLooping recon
 >
 >     evtsf              :: DeltaT → AudSF () [Evt (AudSF () Double)]
 >     evtsf secsSample =
@@ -140,7 +140,7 @@ Signal function-based synth ====================================================
 >           t ← delay 0 ⤙ t'
 >           let evs = if t < secsSample * 44100
 >                     then [(0, eutDriverFull 0 delta)]
->                     else [(1, eutDriverLooping normst delta (normst, normen))]
+>                     else [(1, eutDriverLooping normen delta (normst, normen))]
 >         outA ⤙ evs
 >
 >     modsf              :: [Evt (AudSF () Double)] → [Evt (AudSF () Double)] → [Evt (AudSF () Double)]
@@ -672,4 +672,6 @@ Knobs and buttons ==============================================================
 > useEffectReverb    = False
 > useEffectChorus    = False
 > useEffectPan       = True
-> useDCBlock         = False
+> useDCBlock         = True
+>
+> demandStereo       = False

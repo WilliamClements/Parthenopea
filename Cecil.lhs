@@ -344,9 +344,8 @@ Shelby Parsley =================================================================
 >   $ tempo 1
 >   $ transpose 0
 >   $ keysig Ef Mixolydian
->   (instrument Vibraphone ((addVolume 100 (line [rest qn, spEflat' qn])))
->   :=: (instrument ElectricBassPicked ((addVolume 100) (line [ ef 2 wn ])))
->   :=: (instrument ElectricGuitarClean ((addVolume 100) (line [ rest 0 ]))))
+>   (instrument Vibraphone             (addVolume 100 (line [rest qn, spEflat' qn]))
+>   :=: instrument ElectricBassPicked  (addVolume 100 (line [ ef 2 wn ])))
 >
 > shelby :: Music (Pitch, Volume)
 > shelby =
@@ -359,8 +358,6 @@ Shelby Parsley =================================================================
 >                 else
 >     (instrument Vibraphone
 >       (line [spAltoI,  spAltoII,  spAltoIII])
->     :=: instrument ElectricGuitarClean
->       (line [spTenrI, spTenrII, spTenrIII])
 >     :=: instrument ElectricBassPicked
 >       (line [spBassI,  spBassII,  spBassIII]))
 >        :+:
@@ -403,10 +400,6 @@ Shelby Parsley =================================================================
 >   spAltoI      = line [spAltoIA, spAltoIB]
 >   spAltoII     = line [spAltoIIA, spAltoIIB]
 >   spAltoIII    = line [spAltoIIIA, spAltoIIIB, spAltoIIIC, spAltoIIID]
->
->   spTenrI      = rest 0
->   spTenrII     = rest 0
->   spTenrIII    = rest 0
 >
 >   spBassI      = line [spBassIA,   spBassIB]
 >   spBassII     = line [spBassIIA,  spBassIIB]

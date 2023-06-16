@@ -32,7 +32,7 @@ Rosters support ================================================================
 >   let dig = (length args == 1) && ("dig" == head args)
 >   _	← if dig
 >        then digAll
->        else doSoundFont soundFontDatabaseOrig zjingles
+>        else doSoundFont littleSoundFontDatabase sj
 >   return ()
 
 organize exposed music ====================================================================
@@ -70,7 +70,7 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [("normlittleWeHateHer" , aggrandize littleWeHateHer)]
+>    [("pendingtonArnt"  , aggrandize (pendingtonArnt 2))]
 
 organize instruments from multiple SoundFont files ========================================
 
