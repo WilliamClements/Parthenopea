@@ -9,7 +9,7 @@ November 11, 2022
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
-> import Parthenopea (triad, addDur, defSnippet, pSnippet01, playDM, capture, aggrandize)
+> import Parthenopea (triad, addDur, defSnippet, pSnippet01, playDM, capture, aggrandize, t32)
   
   "triads"
 
@@ -40,7 +40,7 @@ Fanfare ========================================================================
 >              $ tempo (5/2)
 >              $ transpose 5
 >              $ keysig C Mixolydian
->              $ addVolume 100
+>              $ addVolume 40
 >              $ times n
 >              $ instrument Trumpet trebleAll :=: instrument Cello bassAll
 >    where
@@ -123,9 +123,9 @@ Bob ============================================================================
 >       $ tempo 2
 >       $ transpose 0
 >       $ keysig D Mixolydian
->          (addVolume 110  (instrument Violin (times nRepeats treblebob)))
->       :=: addVolume  90  (instrument Oboe (times nRepeats altobob))
->       :=: addVolume  70  (instrument Cello (times nRepeats bassbob))
+>          (addVolume  90  (instrument RhodesPiano     (times nRepeats treblebob)))
+>       :=: addVolume  70  (instrument Oboe            (times nRepeats altobob))
+>       :=: addVolume  60  (instrument Cello           (times nRepeats bassbob))
 >
 >    where
 >
@@ -223,7 +223,7 @@ Copper =========================================================================
 >    $ tempo 2
 >    $ transpose (-4)
 >    $ keysig C Dorian
->    $ addVolume 100
+>    $ addVolume 30
 >    $ instrument ElectricGrandPiano
 >    $ times n
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
@@ -234,7 +234,7 @@ Copper =========================================================================
 >    removeZeros
 >    $ tempo 1
 >    $ transpose 0
->    $ addVolume 100
+>    $ addVolume 30
 >    -- $ instrument Trumpet
 >    $ line [perc AcousticSnare dwn]
 
@@ -245,7 +245,7 @@ Gold ===========================================================================
 >    $ tempo 2
 >    $ transpose (-5)
 >    $ keysig C Mixolydian
->    $ addVolume 100
+>    $ addVolume 30
 >    $ instrument AltoSax
 >    $ times 2
 >      (line [c 4 hn,  c 5 dhn]
@@ -265,7 +265,7 @@ Silver =========================================================================
 >     $ tempo 2
 >     $ transpose 17
 >     $ keysig A Mixolydian
->     $ addVolume 100
+>     $ addVolume 30
 >     $ instrument Celesta
 >     $ line allSilver
 >
@@ -964,3 +964,20 @@ Pit ============================================================================
 > pit2 = line [c 4 en, ds 4 en,  f 4 en, ds 4 en, fs 4 en, ds 4 en, d 4 en, ds 4 en]
 >
 > pit = line [times 4 pit1, times 4 pit2]
+
+Dit =======================================================================================
+
+> dit = 
+>   removeZeros
+>   $ tempo 1
+>   $ transpose (-6)
+>   $ keysig Af Mixolydian
+>   $ instrument SynthBass1
+>   $ addVolume 60 (times 2 ditbody)
+>
+> ditbody =
+>   line [rest dhn, ds 4 qn, fs 4 den, e 4 sn, ds 4 qn, e 4 den, cs 4 sn, a 3 qn, ds 3 den, ds 3 sn
+>       , ds 4 den, e 4 sn, ds 4 sn, cs 4 en, cs 4 sn, b 3 den, a 3 sn, fs 3 den
+>       , e 3 sn, ds 3 den, e 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn
+>       , fs 3 qn, fs 4 dqn, fs 4 en, t32 [e 4 en, ds 4 en, cs 4 en], cs 4 den, cs 4 sn
+>       , b 3 den, cs 4 sn, ds 4 qn] 

@@ -49,11 +49,10 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > data SFFile =
 >   SFFile {
->     zFilename          :: String
+>     zFilename          :: FilePath
 >   , zArrays            :: SoundFontArrays
 >   , zWordF             :: Word
->   , zScore             :: Int
->   , zInstrumentLookup  :: Map.Map String Word}
+>   , zScore             :: Int}
 >
 > data SoundFontArrays = 
 >   SoundFontArrays {
@@ -246,7 +245,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                        (F.shdrs pdata)
 >                        (F.smpl sdata)
 >                        (F.sm24 sdata)
->         let sffile = SFFile filename arrays wFile (1000 * sfscore filehints) Map.empty
+>         let sffile = SFFile filename arrays wFile (1000 * sfscore filehints)
 >
 >         ts2 ← getCurrentTime
 >         let nBits = case ssM24 arrays of
@@ -270,7 +269,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     let path = name ++ ".wav"
 >     putStr path
 >     let (d,s) = renderSF song imap
->     outFileNorm path d s
+>     outFile path d s
 >     ts2 ← getCurrentTime
 >     putStrLn (" (dur=" ++ show d ++ ") written in " ++ show (diffUTCTime ts2 ts1))
 >     return ()
@@ -779,7 +778,10 @@ reconcile zone and sample header ===============================================
 >   in
 >     (recL, recR')
 >   where
->     msg = unwords ["reconcileLR zoneL=", show zoneL, " shdrL=", show shdrL, ", zoneR=", show zoneR, " shdrR=", show shdrR]
+>     msg = unwords ["reconcileLR zoneL=", show zoneL
+>                  , ", shdrL=",           show shdrL
+>                  , ", zoneR=",           show zoneR
+>                  , ", shdrR=",            show shdrR]
 >
 > reconcile              :: (SFZone, F.Shdr) → Reconciled 
 > reconcile (zone, shdr) =

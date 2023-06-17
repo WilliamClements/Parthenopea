@@ -672,6 +672,6 @@ Knobs and buttons ==============================================================
 > useEffectReverb    = False
 > useEffectChorus    = False
 > useEffectPan       = True
-> useDCBlock         = True
+> useDCBlock         = False
 >
 > demandStereo       = False

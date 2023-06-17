@@ -339,9 +339,9 @@ TC =============================================================================
 >   $ tempo 1
 >   $ transpose (-12)
 >   $ keysig A Major
->   $ chord [ addVolume 105 $ instrument DistortionGuitar    tcV
->           , addVolume  50 $ instrument Flute               tcG
->           , addVolume  60 $ instrument Contrabass          tcC
+>   $ chord [ addVolume 105 $ instrument AcousticGrandPiano  tcV
+>           , addVolume  50 $ instrument FrenchHorn          tcG
+>           , addVolume  60 $ transpose (-12) $ instrument Tuba tcC
 >           , addVolume 100                                  tcP]
 >   where
 >   gUnit :: Music Pitch

@@ -70,7 +70,7 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [("pendingtonArnt"  , aggrandize (pendingtonArnt 2))]
+>    [("basicLick"       , aggrandize basicLick)]
 
 organize instruments from multiple SoundFont files ========================================
 
@@ -249,7 +249,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Bright Piano",            ([],  HonkyTonkPiano))
 >     , ("Bright Spatial Grand",    ([],  BrightAcousticPiano))
 >     , ("Campana",                 ([],  TubularBells))
->     , ("Celesta",                 ([],  Celesta))
+>     , ("Church Bell",             ([],  Celesta))
 >     , ("Church Organ",            ([],  ChurchOrgan))
 >     , ("Clarinet",                ([],  Clarinet))
 >     , ("Classical Guitar 1",      ([],  AcousticGuitarSteel))
@@ -289,16 +289,16 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Pizzicato",               ([],  PizzicatoStrings))
 >     , ("Recorder",                ([],  Recorder))
 >     , ("Reed Organ",              ([],  ReedOrgan))
->     , ("Rhodes",                  ([],  RhodesPiano))
 >     , ("Seashore",                ([],  Seashore))
 >     , ("Shakuhachi",              ([],  Shakuhachi))
 >     , ("Shamisen",                ([],  Shamisen))
 >     , ("Shenai",                  ([],  Shanai))
 >     , ("Sitar",                   ([],  Sitar))
+>     , ("skerratt_london_pian",    ([],  RhodesPiano))
 >     , ("soprano sax",             ([],  SopranoSax))
 >     , ("Spatial Grand Piano",     ([],  ElectricGrandPiano))
 >     , ("Steel Drum",              ([],  SteelDrums))
->     , ("Strat Marshall",          ([],  DistortionGuitar))
+>     -- WOX , ("Strat Marshall",          ([],  DistortionGuitar))
 >     , ("Stream",                  ([],  Pad2Warm))
 >     , ("Synth Bass 3 Rubber",     ([],  SynthBass1))
 >     , ("Synth Bass 3",            ([],  SynthBass2))
