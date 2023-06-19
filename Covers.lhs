@@ -534,7 +534,7 @@ TC =============================================================================
 >   {-  4   -} , tempo (7/4)   tcVnt04
 >   {-  4   -} , tempo (7/4)   tcVnt05
 >   {-  1.5 -} , tempo (4/3)   tcVnt06
->   {-  1   -} , rest qn -- WOX
+>   {-  1   -} , rest qn -- TODO: resolve
 >   {-  1.5 -} , tempo 3       (line [g 4 en,  f 4 en, f 4 en, f 4 en, e 4 en
 >                               , e 4 en,  e 4 en, f 4 en, e 4 en])
 >   {-  2.5 -} , tempo (3/5)   (line [e 4 en, cs 4 en, d 4 en])

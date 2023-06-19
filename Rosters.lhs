@@ -32,13 +32,14 @@ Rosters support ================================================================
 >   let dig = (length args == 1) && ("dig" == head args)
 >   _	← if dig
 >        then digAll
->        else doSoundFont littleSoundFontDatabase sj
+>        else doSoundFont soundFontDatabaseOrig cjingles
 >   return ()
 
 organize exposed music ====================================================================
 
 > ajingles, bjingles
->  , cjingles, djingles  :: [(String, Music (Pitch, [NoteAttribute]))]
+>  , cjingles, djingles
+>  , zjingles            :: [(String, Music (Pitch, [NoteAttribute]))]
 >
 > ajingles =
 >    [("theFanfare"      , aggrandize (theFanfare 4))
@@ -70,7 +71,7 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [("basicLick"       , aggrandize basicLick)]
+>    [("waypostpurple"   , aggrandize waypostpurple)]
 
 organize instruments from multiple SoundFont files ========================================
 
@@ -87,12 +88,12 @@ organize instruments from multiple SoundFont files =============================
 >
 > soundFontDatabaseOrig =
 >   [
->       ("editLofi.sf2",            ([DHigh],       (lofiInst, lofiPerc)))
+>       ("editLofi.sf2",            ([],            (lofiInst, lofiPerc)))
 >     , ("editArachno.sf2",         ([],         (arachnoInst, arachnoPerc)))
->     , ("editHiDef.sf2",           ([DHigh],      (hiDefInst, hiDefPerc)))
+>     , ("editHiDef.sf2",           ([],           (hiDefInst, hiDefPerc)))
 >     , ("editKorg_X5_Drums.sf2",   ([],            (korgInst, korgPerc)))
 >     , ("editDSoundFontV4.sf2",    ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
->     , ("editEssentials.sf2",      ([DLow],  (essentialsInst, essentialsPerc)))
+>     , ("editEssentials.sf2",      ([],      (essentialsInst, essentialsPerc)))
 >   ]
 >
 > lofiInst =
@@ -105,10 +106,11 @@ organize instruments from multiple SoundFont files =============================
 >
 > arachnoInst =
 >   [
->       ("ContraBass5",             ([], Contrabass))
->     , ("Orchestral Harp1",        ([], ElectricGrandPiano))
->     , ("Charang0",                ([], OverdrivenGuitar))
+>       ("Bassoon00",               ([], Bassoon))
 >     , ("Cello0",                  ([], Cello))
+>     , ("Charang0",                ([], OverdrivenGuitar))
+>     , ("ContraBass5",             ([], Contrabass))
+>     , ("Orchestral Harp1",        ([], ElectricGrandPiano))
 >   ]
 > arachnoPerc =
 >   [
@@ -252,7 +254,6 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Church Bell",             ([],  Celesta))
 >     , ("Church Organ",            ([],  ChurchOrgan))
 >     , ("Clarinet",                ([],  Clarinet))
->     , ("Classical Guitar 1",      ([],  AcousticGuitarSteel))
 >     , ("Clavinet1",               ([],  Clavinet))
 >     , ("Dulcimer-Hammered",       ([],  Dulcimer))
 >     , ("Eddie's English Horn",    ([],  EnglishHorn))
@@ -298,7 +299,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("soprano sax",             ([],  SopranoSax))
 >     , ("Spatial Grand Piano",     ([],  ElectricGrandPiano))
 >     , ("Steel Drum",              ([],  SteelDrums))
->     -- WOX , ("Strat Marshall",          ([],  DistortionGuitar))
+>     , ("Strat Marshall",          ([],  DistortionGuitar))
 >     , ("Stream",                  ([],  Pad2Warm))
 >     , ("Synth Bass 3 Rubber",     ([],  SynthBass1))
 >     , ("Synth Bass 3",            ([],  SynthBass2))
@@ -312,6 +313,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Tenor Both Xfade",        ([],  TenorSax))
 >     , ("Timpani All",             ([],  Timpani))
 >     , ("Tremolo Strings",         ([],  StringEnsemble1))
+>     , ("Trig D",                  ([],  AcousticGuitarSteel))
 >     , ("Trombone1",               ([],  Trombone))
 >     , ("Tuba",                    ([],  Tuba))
 >     , ("Ukelele",                 ([],  Pad3Polysynth))
@@ -345,6 +347,8 @@ organize instruments from multiple SoundFont files =============================
 >     , ("OSDK ride1",              [  ("OSDK ride-mid-in1L",   ([], RideCymbal2))])
 >
 >     , ("OSDK snaredrum1",         [  ("OSDK snare-bottom1L",  ([], AcousticSnare))])
+>
+>     , ("OSDK snaredrum1-room",    [  ("OSDK snare-bottom-1L", ([], ElectricSnare))])
 >
 >     , ("OSDK tom1",               [  ("OSDK large-tom1L",     ([], LowFloorTom))])
 >

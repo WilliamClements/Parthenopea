@@ -37,13 +37,24 @@ November 11, 2022
 Fanfare ===================================================================================
 
 > theFanfare n = removeZeros
+>              $ times n
 >              $ tempo (5/2)
 >              $ transpose 5
 >              $ keysig C Mixolydian
->              $ addVolume 40
->              $ times n
->              $ instrument Trumpet trebleAll :=: instrument Cello bassAll
+>              $ theTreble :=: theBass
 >    where
+>
+>       theTreble =
+>         addVolume 75
+>         $ instrument Trumpet
+>         $ tFan :+: tAns
+>       theBass =
+>         addVolume 70
+>         $ instrument Bassoon
+>         $ bFan :+: bAns
+>
+>       tFan =  {- 32 -} line [tFan1, tFan2, tFan3, tFan4, tFan5]
+>       bFan =  {- 32 -} line [bFan1, bFan2, bFan3, bFan4, bFan5]
 >
 >       tFan1 = {- 16 -} line [rest wn,  c 4 dqn, rest en]
 >                        :+: line [e 4 dqn, rest en,  g 4 wn, rest wn]
@@ -64,9 +75,6 @@ Fanfare ========================================================================
 >
 >       tFan5 = {-  0 -} rest 0
 >       bFan5 = {-  1 -} rest qn
->
->       tFan =  {- 32 -} line [tFan1, tFan2, tFan3, tFan4, tFan5]
->       bFan =  {- 32 -} line [bFan1, bFan2, bFan3, bFan4, bFan5]
 
 The fanfare's answer
 
@@ -87,11 +95,6 @@ The fanfare's answer
 >
 >       tAns =  {- 32 -} line [tAns1, tAns2, tAns3, tAns4]
 >       bAns =  {- 32 -} line [bAns1, bAns2, bAns3, bAns4]
->
->               {- 32 + 32 = 64 -}
->       trebleAll = tFan :+: tAns
->               {- 32 + 32 = 64 -}
->       bassAll = bFan :+: bAns
 
 Alice =====================================================================================
 
@@ -680,27 +683,26 @@ Way Pos' T' Purple =============================================================
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig C Major
->    $ addVolume 100
->    $ instrument Trumpet
+>    $ addVolume 90 (instrument Trumpet
 >      ((if includeOpen       then pOpenT  else rest 0)
 >         :+: (if includeCont then pContT  else rest 0)
 >         :+: (if includePool then pPoolT  else rest 0)
->         :+: (if includeClos then pClosT  else rest 0))
->      :=: instrument AcousticGuitarNylon
+>         :+: (if includeClos then pClosT  else rest 0)))
+>      :=: addVolume 70 (instrument AcousticGuitarNylon
 >      ((if includeOpen       then pOpenG  else rest 0)
 >         :+: (if includeCont then pContG  else rest 0)
 >         :+: (if includePool then pPoolG  else rest 0)
->         :+: (if includeClos then pClosG  else rest 0))
->      :=: instrument Cello
+>         :+: (if includeClos then pClosG  else rest 0)))
+>      :=: addVolume 70 (instrument Bassoon
 >      ((if includeOpen       then pOpenB  else rest 0)
 >         :+: (if includeCont then pContB  else rest 0)
 >         :+: (if includePool then pPoolB  else rest 0)
->         :+: (if includeClos then pClosB  else rest 0))
->      :=: instrument Percussion
+>         :+: (if includeClos then pClosB  else rest 0)))
+>      :=: addVolume 70 (instrument Percussion
 >      ((if includeOpen       then pOpenP  else rest 0)
 >         :+: (if includeCont then pContP  else rest 0)
 >         :+: (if includePool then pPoolP  else rest 0)
->         :+: (if includeClos then pClosP  else rest 0))
+>         :+: (if includeClos then pClosP  else rest 0)))
 >   where
 >
 >   includeOpen = True

@@ -425,11 +425,11 @@ Create a straight-line envelope generator with following phases:
 >                    then fromMaybe 0 (efPan effR)
 >                    else 0.0
 >
->     -- WOX chL ← eutChorus 15.0 0.005 0.1 ⤙ aL
->     -- WOX chR ← eutChorus 15.0 0.005 0.1 ⤙ aR
+>     -- TODO chL ← eutChorus 15.0 0.005 0.1 ⤙ aL
+>     -- TODO chR ← eutChorus 15.0 0.005 0.1 ⤙ aR
 >     let (chL, chR) = (aL, aR)
 >
->     -- WOX (rbL, rbR) ← eutReverb 0.75 0.25 1.0 ⤙ (aL, aR)
+>     -- TODO (rbL, rbR) ← eutReverb 0.75 0.25 1.0 ⤙ (aL, aR)
 >     let (rbL, rbR) = (aL, aR)
 >
 >     let mixL = (cFactorL * chL
@@ -674,4 +674,7 @@ Knobs and buttons ==============================================================
 > useEffectPan       = True
 > useDCBlock         = False
 >
-> demandStereo       = False
+> data Desires =
+>   DAllOff | DPreferOff | DNeutral | DPreferOn | DAllOn deriving (Eq, Show)
+>
+> desireReStereo     = DPreferOn

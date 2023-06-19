@@ -201,9 +201,6 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >   in
 >     StkFrames [] dataRate numFrames numChannels size bufferSize
 >
-> -- WOX globTable              :: StkFrames
-> -- WOX globTable = newStkFrames2
->
 > data SineWave =
 >   SineWave
 >   {

@@ -28,23 +28,31 @@ SoundFont support ==============================================================
   
 importing sampled sound (from SoundFont (*.sf2) files) ====================================
 
-> data PerGMInstr =
->   PerGMInstr {
->     pScore             :: Int
->   , pWordF             :: Word
+> data PerGMKey =
+>   PerGMKey {
+>     pWordF             :: Word
 >   , pWordI             :: Word
 >   , pWordZ             :: Maybe Word} deriving (Eq, Ord, Show)
 >
-> type InstrLocator   = Map.Map InstrumentName PerGMInstr
-> type PercLocator    = Map.Map PercussionSound PerGMInstr
+> data PerGMScored =
+>   PerGMScored {
+>     pStaticScore       :: Int
+>   , pPerGMKey          :: PerGMKey} deriving (Eq, Ord, Show)
+>
+> type InstrLocator   = Map.Map InstrumentName PerGMScored
+> type PercLocator    = Map.Map PercussionSound PerGMScored
 > type Locators       = (InstrLocator, PercLocator)
 >
 > type NameMap        = Map.Map String Word
 > type NameMaps       = (NameMap, NameMap)
 >
+> type ZoneMap        = Map.Map PerGMKey [(Word, SFZone)]
+>
 > data SFRoster =
 >   SFRoster {
->     zFiles             :: Array Int SFFile
+>     zDatabase          :: SoundFontDatabase
+>   , zFiles             :: Array Int SFFile
+>   , zZoneMap           :: ZoneMap
 >   , zLocs              :: Locators}
 >
 > data SFFile =
@@ -74,22 +82,22 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > toSampleType           :: Word → SampleType
 > toSampleType n =
 >   case n of
->     0x1    → SampleTypeMono
->     0x2    → SampleTypeRight
->     0x4    → SampleTypeLeft
->     0x8    → SampleTypeLinked
->     0x10   → SampleTypeOggVorbis
->     0x8000 → SampleTypeRom
+>     0x1                    → SampleTypeMono
+>     0x2                    → SampleTypeRight
+>     0x4                    → SampleTypeLeft
+>     0x8                    → SampleTypeLinked
+>     0x10                   → SampleTypeOggVorbis
+>     0x8000                 → SampleTypeRom
 >
 > fromSampleType      :: SampleType → Word
 > fromSampleType stype =
 >   case stype of
->     SampleTypeMono      → 0x1
->     SampleTypeRight     → 0x2
->     SampleTypeLeft      → 0x4
->     SampleTypeLinked    → 0x8
->     SampleTypeOggVorbis → 0x10
->     SampleTypeRom       → 0x8000
+>     SampleTypeMono         → 0x1
+>     SampleTypeRight        → 0x2
+>     SampleTypeLeft         → 0x4
+>     SampleTypeLinked       → 0x8
+>     SampleTypeOggVorbis    → 0x10
+>     SampleTypeRom          → 0x8000
 >
 > data SFZone =
 >   SFZone {
@@ -186,6 +194,16 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     ++ if isJust (zSampleIndex sfzone)
 >        then F.sampleName (ssShdrs arrays ! fromJust (zSampleIndex sfzone))
 >        else "Global"
+>
+> getStaticScore         :: PerGMScored → Int
+> getStaticScore = pStaticScore
+>
+> computeStaticScore     :: SFFile → PerGMKey → Int
+> computeStaticScore sffile pergm =
+>   let
+>     arrays = zArrays sffile
+>   in
+>     0 -- WOX
 
 slurp in instruments from SoundFont (*.sf2) files =========================================
 
@@ -201,14 +219,18 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     ts1 ← getCurrentTime
 >     let numberedDB = zip [0..] sfdb
 >     sffilesp ← mapM (uncurry readSoundFontFile) numberedDB
+>     let zonesP = cacheZones (map fst sffilesp)
+>     putStrLn ("# available instr =" ++ show (Map.size zonesP))
 >     ts2 ← getCurrentTime
 >     putStrLn ("___load files: " ++ show (diffUTCTime ts2 ts1))
 >     let ((iloc, ploc), probs) = foldr (uncurry chooseIAndP)
->                                       ((Map.empty, Map.empty), [])
->                                       sffilesp
+>                                         ((Map.empty, Map.empty), [])
+>                                         sffilesp
 >     mapM_ putStrLn probs
 >     let sfrost = SFRoster
+>                    sfdb
 >                    (array (0, length sffilesp - 1) (zip [0..] (map fst sffilesp)))
+>                    zonesP
 >                    (iloc, ploc)
 >     let imap = assignInstruments sfrost iloc
 >     let pmap = assignAllPercussion sfrost ploc
@@ -245,7 +267,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                        (F.shdrs pdata)
 >                        (F.smpl sdata)
 >                        (F.sm24 sdata)
->         let sffile = SFFile filename arrays wFile (1000 * sfscore filehints)
+>         let sffile = SFFile filename arrays wFile (2 * sfscore filehints)
 >
 >         ts2 ← getCurrentTime
 >         let nBits = case ssM24 arrays of
@@ -292,21 +314,27 @@ extract data from SoundFont per instrument =====================================
 > chooseI sffile []     _              cur                   = cur
 > chooseI sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
 >   let
+>     zF = zWordF sffile
 >     mwInstr            :: Maybe Word     = Map.lookup (fst x) nMapI
 >     ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
->                                          =
->       if isNothing mwInstr
->       then ((iloc, ploc), ("Instrument " ++ fst x ++ " not found in " ++ zFilename sffile) : probs)
->       else
->         if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
->         then ((Map.insert
->                  iname
->                  (PerGMInstr myScore (zWordF sffile) (fromJust mwInstr) Nothing)
->                  iloc, ploc), probs)
->         else ((iloc, ploc), probs)
+>       | isNothing mwInstr
+>                        = ((iloc, ploc), ("Instrument "
+>                                          ++ fst x
+>                                          ++ " not found in "
+>                                          ++ zFilename sffile) : probs)
+>       | isNothing mPrevious
+>         || computeStaticScore sffile (PerGMKey zF (fromJust mwInstr) Nothing)
+>            > getStaticScore (fromJust mPrevious)
+>                        = ((Map.insert iname
+>                                       (PerGMScored myScore (PerGMKey (zWordF sffile) (fromJust mwInstr) Nothing))
+>                                       iloc
+>                            , ploc)
+>                           , probs)
+>       | otherwise
+>                        = ((iloc, ploc), probs)
 >     iname              :: InstrumentName = (snd.snd) x
->     mPrevious          :: Maybe PerGMInstr
+>     mPrevious          :: Maybe PerGMScored
 >                                          = Map.lookup ((snd.snd) x) iloc
 >     myScore            :: Int            = zScore sffile + 100 * sfscore ((fst.snd) x)
 >   in
@@ -325,11 +353,16 @@ extract data from SoundFont per instrument =====================================
 >     mwInstr            :: Maybe Word     = Map.lookup (fst x) nMapI
 >     ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
->                                          =
->       if isNothing mwInstr
->       then ((iloc, ploc), ("Instrument " ++ fst x ++ "not found in " ++ zFilename sffile) : probs)
->       else chooseSounds sffile (fromJust mwInstr)
->                         (snd x) (nMapI, nMapZ) ((iloc, ploc), probs)
+>       | isNothing mwInstr
+>                        =  ((iloc, ploc), ("Instrument "
+>                                           ++ fst x
+>                                           ++ "not found in "
+>                                           ++ zFilename sffile) : probs)
+>       | otherwise      = chooseSounds sffile
+>                                         (fromJust mwInstr)
+>                                         (snd x)
+>                                         (nMapI, nMapZ)
+>                                         ((iloc, ploc), probs)
 >   in
 >     chooseP sffile xs (nMapI, nMapZ) ((iloc', ploc'), probs')
 >   where
@@ -344,21 +377,24 @@ extract data from SoundFont per instrument =====================================
 >     chooseSounds sffile wordI (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
 >       let
 >         mwZone         :: Maybe Word     = Map.lookup (fst x) nMapZ
->         myScore = zScore sffile + 10 * sfscore ((fst.snd) x)
+>         -- WOX myScore = zScore sffile + 10 * sfscore ((fst.snd) x)
 >         ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
->                                          =
->           if isNothing mwZone
->           then ((iloc, ploc), ("Zone " ++ fst x ++ " not found in " ++ zFilename sffile) : probs)
->           else
->             if isNothing mPrevious || myScore > pScore (fromJust mPrevious)
->             then ((iloc, Map.insert 
->                         ((snd.snd) x)
->                         (PerGMInstr myScore (zWordF sffile) wordI Nothing)
->                         ploc), probs)
->             else ((iloc, ploc), probs)
->         mPrevious      :: Maybe PerGMInstr
+>           | isNothing mwZone
+>                        = ((iloc, ploc), ("Zone "
+>                                          ++ fst x
+>                                          ++ " not found in "
+>                                          ++ zFilename sffile) : probs)
+>           | isNothing mPrevious || myScore > getStaticScore (fromJust mPrevious)
+>                        = ((iloc, Map.insert ((snd.snd) x)
+>                                               (PerGMScored myScore (PerGMKey (zWordF sffile) wordI Nothing))
+>                                               ploc)
+>                           , probs)
+>           | otherwise  = ((iloc, ploc), probs)
+>         mPrevious      :: Maybe PerGMScored
 >                                          = Map.lookup ((snd.snd) x) ploc
+>         -- WOX I versus Z
+>         myScore        :: Int            = computeStaticScore sffile (PerGMKey (zWordF sffile) wordI Nothing)
 >       in
 >         chooseSounds sffile wordI xs (nMapI, nMapZ) ((iloc', ploc'), probs')
 >
@@ -486,7 +522,7 @@ extract data from SoundFont per instrument =====================================
 > sfscorehint            :: Hints → Int →  Int
 > sfscorehint hint accum = accum + sfscorehints hint   
 >
-> makeNameMapI           :: SFFile → Map.Map String Word
+> makeNameMapI           :: SFFile → NameMap
 > makeNameMapI sffile =
 >   let
 >     arrays = zArrays sffile
@@ -504,7 +540,7 @@ extract data from SoundFont per instrument =====================================
 >   in
 >     Map.fromList ivs
 >     
-> makeNameMapP           :: SFFile → Map.Map String Word
+> makeNameMapP           :: SFFile → NameMap
 > makeNameMapP sffile =
 >   let
 >     arrays = zArrays sffile
@@ -522,19 +558,34 @@ extract data from SoundFont per instrument =====================================
 >   in
 >     Map.fromList pvs
 >     
-> makeNameMaps           :: SFFile → (Map.Map String Word, Map.Map String Word)
+> makeNameMaps           :: SFFile → NameMaps
 > makeNameMaps sffile = (makeNameMapI sffile, makeNameMapP sffile)
 
 prepare the specified instruments and percussion ==========================================
 
-> getZones        :: SFRoster → (Word, Word) → [(Word, SFZone)]
-> getZones sfrost (zF, zI) =
+> cacheZones             :: [SFFile] → ZoneMap
+> cacheZones sffiles = Map.fromList $ concatMap cacheF sffiles
+>   where
+>     cacheF             :: SFFile → [(PerGMKey, [(Word, SFZone)])]
+>     cacheF sffile = concatMap (cacheI sffile) [fst boundsI..snd boundsI]
+>       where
+>         arrays = zArrays sffile
+>         boundsI = bounds (ssInsts arrays)
+>         cacheI         :: SFFile → Word → [(PerGMKey, [(Word, SFZone)])]
+>         cacheI sffile wI =
+>           let
+>             wF         :: Word           = zWordF sffile
+>             zs         :: [(Word, SFZone)]
+>                                          = getZones sffile (wF, wI)
+>           in
+>             [(PerGMKey wF wI Nothing, zs)]
+>   
+> getZones               :: SFFile → (Word, Word) → [(Word, SFZone)]
+> getZones sffile (zF, zI) =
 >   let
->     sffile             :: SFFile         = fileByIndex sfrost zF
->     wInst              :: Word           = zI
 >     arrays = zArrays sffile
->     iinst  = ssInsts arrays ! wInst
->     jinst  = ssInsts arrays ! (wInst+1)
+>     iinst  = ssInsts arrays ! zI
+>     jinst  = ssInsts arrays ! (zI+1)
 >     ibagi  = F.instBagNdx iinst
 >     jbagi  = F.instBagNdx jinst
 >     gIx    = if jbagi - ibagi < 2
@@ -546,28 +597,32 @@ prepare the specified instruments and percussion ===============================
 >   in gList ++ oList
 >
 > assignInstruments      :: SFRoster
->                           → Map.Map InstrumentName PerGMInstr
+>                           → InstrLocator
 >                           → [(InstrumentName, Instr (Stereo AudRate))]
 > assignInstruments sfrost = Map.foldrWithKey (ipal2imap sfrost) []
 >
 > ipal2imap              :: SFRoster
 >                           → InstrumentName
->                           → PerGMInstr
+>                           → PerGMScored
 >                           → [(InstrumentName, Instr (Stereo AudRate))]
 >                           → [(InstrumentName, Instr (Stereo AudRate))]
-> ipal2imap sfrost iname pergm accum = (iname, assignInstrument sfrost pergm) : accum
+> ipal2imap sfrost iname pergm accum = (iname, assignInstrument sfrost pergm') : accum
+>   where
+>     pergm' = pPerGMKey pergm
 >
 > assignAllPercussion    :: SFRoster
->                           → Map.Map PercussionSound PerGMInstr
+>                           → PercLocator
 >                           → [(PercussionSound, (Word, Word))]
 > assignAllPercussion sfrost = Map.foldrWithKey (ppal2pmap sfrost) []
 >
 > ppal2pmap              :: SFRoster
 >                           → PercussionSound
->                           → PerGMInstr
+>                           → PerGMScored
 >                           → [(PercussionSound, (Word, Word))]
 >                           → [(PercussionSound, (Word, Word))]
-> ppal2pmap sfrost psound pergm accum = (psound, (pWordF pergm, pWordI pergm)) : accum
+> ppal2pmap sfrost psound pergm accum = (psound, (pWordF pergm', pWordI pergm')) : accum
+>   where
+>     pergm' = pPerGMKey pergm
 >
 > doAssignP              :: SFRoster
 >                           → [(PercussionSound, (Word, Word))]
@@ -576,7 +631,7 @@ prepare the specified instruments and percussion ===============================
 
 define signal functions for playing instruments ===========================================
 
-> assignInstrument       :: SFRoster → PerGMInstr → Instr (Stereo AudRate)
+> assignInstrument       :: SFRoster → PerGMKey → Instr (Stereo AudRate)
 > assignInstrument sfrost pergm dur pch vol params =
 >   let
 >     sig                :: AudSF () (Double, Double)
@@ -598,20 +653,22 @@ define signal functions for playing instruments ================================
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
->     zones              :: [(Word, SFZone)] = getZones sfrost (zF, zI)
+>     zones              :: [(Word, SFZone)]
+>                                          = fromJust $ Map.lookup (PerGMKey zF zI Nothing)
+>                                                                  (zZoneMap sfrost)
 >     ((zoneL, shdrL), (zoneR, shdrR))
 >                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
->                                            = setZone sfrost (zF, zI) (tail zones) pch vol
+>                                          = setZone sfrost (zF, zI) (tail zones) pch vol
 >     (rDataL, rDataR)   :: (Reconciled, Reconciled)
->                                            = reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
->     sr                 :: Double           = fromIntegral $ F.sampleRate shdrL
+>                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
+>     sr                 :: Double         = fromIntegral $ F.sampleRate shdrL
 >     sig                :: AudSF () (Double, Double)
->     ok                 :: Bool             = checkReconcile
->                                                ((zoneL, shdrL), (zoneR, shdrR))
->                                                rDataL
->                                                rDataR
->     sffile             :: SFFile           = fileByIndex sfrost zF
->     arrays             :: SoundFontArrays  = zArrays sffile 
+>     ok                 :: Bool           = checkReconcile
+>                                              ((zoneL, shdrL), (zoneR, shdrR))
+>                                              rDataL
+>                                              rDataR
+>     sffile             :: SFFile         = fileByIndex sfrost zF
+>     arrays             :: SoundFontArrays= zArrays sffile 
 >     sig = if not ok
 >           then error "SFZone and F.Shdr could not be reconciled"
 >           else eutSynthesize (rDataL, rDataR) sr dur pch vol params
@@ -658,10 +715,8 @@ zone selection =================================================================
 >     sampleR = ssShdrs arrays ! fromJust (zSampleIndex zoneR)
 >     msg = unwords [
 >             "setZone ", show (wF, wI)
->             , " = ", show (zFilename sffile)
->             , " , ", show $ instrName sffile iinst 
->             , " , (", show $ F.sampleName sampleL
->             , " , ", show $ F.sampleName sampleR
+>             , " = ",    show (zFilename sffile)
+>             , " , ",    show $ instrName sffile iinst 
 >             , ")"]
 >
 > selectBestZone         :: SFRoster
@@ -693,7 +748,7 @@ zone selection =================================================================
 >     stype = F.sampleType shdr
 >     slink = F.sampleLink shdr
 >     mlinked = find (withslink slink) zones
->     -- WOX should base it on sample type?
+>     -- TODO: should base it strictly on Stereo sample type?
 >     ozone = case mlinked of
 >             Nothing → zone
 >             Just _  → snd $ fromJust $ find (withslink slink) zones
@@ -707,7 +762,7 @@ zone selection =================================================================
 >       in
 >         sin == tomatch
 >
-> compareScores          :: (Num a, Ord a) ⇒ (a, b) → (a, b) → Ordering
+> compareScores          :: (Ord a) ⇒ (a, b) → (a, b) → Ordering
 > compareScores (a1, b1) (a2, b2) = compare a1 a2 
 >                         
 > scoreOneZone           :: SFRoster
@@ -722,7 +777,7 @@ zone selection =================================================================
 >     else Nothing
 >   where
 >     qualify            :: SFZone → Bool
->     qualify z = not demandStereo || isStereoZone sfrost zF z
+>     qualify z = DAllOn /= desireReStereo || isStereoZone sfrost zF z
 >
 >     score = score1 + score2
 >     zone = snd dzone
@@ -852,12 +907,13 @@ reconcile zone and sample header ===============================================
 >       in
 >         result
 >
-> showPerGM              :: SFRoster  → PerGMInstr → String
+> showPerGM              :: SFRoster → PerGMScored → String
 > showPerGM sfrost pergm =
 >   let
->     wFile = pWordF pergm
->     wInst = pWordI pergm
->     wZone = pWordZ pergm
+>     pergm' = pPerGMKey pergm 
+>     wFile = pWordF pergm'
+>     wInst = pWordI pergm'
+>     wZone = pWordZ pergm'
 >
 >     sffile = zFiles sfrost ! fromIntegral wFile
 >     arrays = zArrays sffile
@@ -867,7 +923,7 @@ reconcile zone and sample header ===============================================
 >             Nothing     → ""
 >             Just zWord  → "/" ++ F.sampleName ishdr
 >   in
->     fileName sfrost (pWordF pergm) ++ "/" ++ instrName sffile iinst ++ showZ
+>     fileName sfrost (pWordF pergm') ++ "/" ++ instrName sffile iinst ++ showZ
 >
 > digAll                 :: IO ()
 > digAll = do

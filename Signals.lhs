@@ -61,7 +61,6 @@ re-implement part of FRP.UISF.Asynchrony because not exported
 > tbling :: Double → IO ()
 > tbling secs = outFileNorm "pamper.wav" secs pamper
 > 
-> -- WOX comber = constA 440 >>> fftZ >>> flatten
 > comber :: AudSF () Double
 > comber = s441' >>> fftZ >>> flatten
 >
@@ -380,7 +379,7 @@ fft ============================================================================
 >     sig :: AudSF Double Double
 >     sig = proc fVal → do
 >       sVal ← osc (tableSinesN 4096 [1]) 0 ⤙ fVal
->       -- WOX fftData ← fftA 100 256 ⤙ sVal
+>       -- TODO: fix fftData ← fftA 100 256 ⤙ sVal
 >       outA ⤙ sVal
 >
 > tfft :: IO ()
