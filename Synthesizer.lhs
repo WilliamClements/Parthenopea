@@ -678,3 +678,18 @@ Knobs and buttons ==============================================================
 >   DAllOff | DPreferOff | DNeutral | DPreferOn | DAllOn deriving (Eq, Show)
 >
 > desireReStereo     = DPreferOn
+> desireRe24Bit      = DPreferOff
+> desireReMaxSplits  = DPreferOn
+>
+> scoreDesire            :: Desires → Int
+> scoreDesire d = case d of
+>   DAllOff          → (-1)
+>   DPreferOff       → (-1)
+>   DNeutral         → 0
+>   DPreferOn        → 1
+>   DAllOn           → 1
+>
+> scoreBool              :: Bool → Int
+> scoreBool b = if b then 1 else (-1)
+>
+> splitThreshold         :: Word           = 5
