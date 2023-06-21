@@ -709,9 +709,9 @@ zone selection =================================================================
 >     sampleL = ssShdrs arrays ! fromJust (zSampleIndex zoneL)
 >     sampleR = ssShdrs arrays ! fromJust (zSampleIndex zoneR)
 >     msg = unwords [
->             "setZone ", show (wF, wI)
->             , " = ",    show (zFilename sffile)
->             , " , ",    show $ instrName sffile iinst 
+>             "setZone (", show (wF, wI)
+>             , " = ",     show (zFilename sffile)
+>             , " , ",     show (zoneName sffile iinst zoneL)
 >             , ")"]
 >
 > selectBestZone         :: SFRoster

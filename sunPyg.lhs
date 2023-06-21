@@ -72,7 +72,7 @@ SunPyg =========================================================================
 >   transpose (-3)
 >   $ addVolume 80
 >   $ keysig C Lydian
->   $ instrument Tuba bassLine
+>   $ instrument SynthBass1 bassLine
 >
 > m000 = line [rest dhn, tempo (5/4) (line [percHTsn, percHTen, percLTsn, percLTsn])]
 > m001 = line [percBDen, percOHHen, percCHHen, chord [percCHHen, percBDen]

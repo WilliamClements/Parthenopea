@@ -689,7 +689,6 @@ Utility types ==================================================================
 >     SampleTypeLinked       → 0x8
 >     SampleTypeOggVorbis    → 0x10
 >     SampleTypeRom          → 0x8000
->
 
 Knobs and buttons =========================================================================
 
@@ -707,7 +706,7 @@ Knobs and buttons ==============================================================
 >   DAllOff | DPreferOff | DNeutral | DPreferOn | DAllOn deriving (Eq, Show)
 >
 > desireReStereo     = DPreferOn
-> desireRe24Bit      = DPreferOff
+> desireRe24Bit      = DNeutral
 > desireReMaxSplits  = DPreferOn
 >
 > scoreDesire            :: Desires → Int
