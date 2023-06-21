@@ -32,7 +32,7 @@ Rosters support ================================================================
 >   let dig = (length args == 1) && ("dig" == head args)
 >   _	← if dig
 >        then digAll
->        else doSoundFont littleSoundFontDatabase sj
+>        else doSoundFont soundFontDatabaseOrig zjingles
 >   return ()
 
 organize exposed music ====================================================================

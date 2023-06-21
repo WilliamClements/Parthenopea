@@ -344,8 +344,8 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >     , ggGeneratorData    :: GeneratorData
 >   } deriving Show
 >
-> instance Eq a => Eq (Noise a) where a == b = True
-> instance Ord a => Ord (Noise a) where compare n1 n2 = EQ
+> instance Eq a ⇒ Eq (Noise a) where a == b = True
+> instance Ord a ⇒ Ord (Noise a) where compare n1 n2 = EQ
 >
 > newNoise               :: Int → Noise a
 > newNoise seed = Noise (mkStdGen seed) (GeneratorData newStkFrames)

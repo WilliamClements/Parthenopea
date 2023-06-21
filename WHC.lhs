@@ -101,7 +101,7 @@ Chart ==========================================================================
 > sat :: (Char → Bool) → Parser Char
 > sat p =
 >   do
->     x <- item
+>     x ← item
 >     if p x then return x else empty
 >
 > {-
@@ -131,14 +131,14 @@ Chart ==========================================================================
 > nat :: Parser Int
 > nat =
 >   do
->     xs <- some digit
+>     xs ← some digit
 >     return (read xs)
 >
 > mInteger :: Parser Int
 > mInteger =
 >   do
 >     char '-'
->     n <- nat
+>     n ← nat
 >     return (-n)
 >     -- <|> nat
 >     

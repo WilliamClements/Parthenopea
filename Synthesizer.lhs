@@ -55,7 +55,7 @@ Signal function-based synth ====================================================
 >                                             >>> eutEffects secsScored (rDataL, rDataR)
 >   in sig
 >
-> pSwitch                :: forall p col a. (Clock p, Functor col, Foldable col) =>
+> pSwitch                :: forall p col a. (Clock p, Functor col, Foldable col) ⇒
 >                           col (Evt (Signal p () a))  -- Initial SF collection.
 >                           → Signal p () (col (Evt (Signal p () a)))    -- Input event stream.
 >                           → (col (Evt (Signal p () a))
@@ -661,6 +661,35 @@ Utility types ==================================================================
 >   , efPan              :: Maybe Double} deriving (Eq, Show)
 >
 > type Evt a = (Int, a) -- 0 or 1 indicating full or looping, and the given SF
+>
+> data SampleType =
+>   SampleTypeMono
+>   | SampleTypeRight
+>   | SampleTypeLeft
+>   | SampleTypeLinked
+>   | SampleTypeOggVorbis
+>   | SampleTypeRom deriving (Eq, Show)
+>
+> toSampleType           :: Word → SampleType
+> toSampleType n =
+>   case n of
+>     0x1                    → SampleTypeMono
+>     0x2                    → SampleTypeRight
+>     0x4                    → SampleTypeLeft
+>     0x8                    → SampleTypeLinked
+>     0x10                   → SampleTypeOggVorbis
+>     0x8000                 → SampleTypeRom
+>
+> fromSampleType      :: SampleType → Word
+> fromSampleType stype =
+>   case stype of
+>     SampleTypeMono         → 0x1
+>     SampleTypeRight        → 0x2
+>     SampleTypeLeft         → 0x4
+>     SampleTypeLinked       → 0x8
+>     SampleTypeOggVorbis    → 0x10
+>     SampleTypeRom          → 0x8000
+>
 
 Knobs and buttons =========================================================================
 

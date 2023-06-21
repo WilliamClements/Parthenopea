@@ -71,34 +71,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
 >
-> data SampleType =
->   SampleTypeMono
->   | SampleTypeRight
->   | SampleTypeLeft
->   | SampleTypeLinked
->   | SampleTypeOggVorbis
->   | SampleTypeRom deriving (Eq, Show)
->
-> toSampleType           :: Word → SampleType
-> toSampleType n =
->   case n of
->     0x1                    → SampleTypeMono
->     0x2                    → SampleTypeRight
->     0x4                    → SampleTypeLeft
->     0x8                    → SampleTypeLinked
->     0x10                   → SampleTypeOggVorbis
->     0x8000                 → SampleTypeRom
->
-> fromSampleType      :: SampleType → Word
-> fromSampleType stype =
->   case stype of
->     SampleTypeMono         → 0x1
->     SampleTypeRight        → 0x2
->     SampleTypeLeft         → 0x4
->     SampleTypeLinked       → 0x8
->     SampleTypeOggVorbis    → 0x10
->     SampleTypeRom          → 0x8000
->
 > data SFZone =
 >   SFZone {
 >     zStartOffs         :: Maybe Int
@@ -417,6 +389,7 @@ extract data from SoundFont per instrument =====================================
 >     chooseSounds zc sffile wordI (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
 >       let
 >         mwZone         :: Maybe Word     = Map.lookup (fst x) nMapZ
+>         zF = zWordF sffile
 >         ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
 >           | isNothing mwZone
@@ -427,16 +400,16 @@ extract data from SoundFont per instrument =====================================
 >           | isNothing mPrevious || myScore > oldScore
 >                        = ((iloc, Map.insert ((snd.snd) x)
 >                                             (PerGMScored myScore
->                                                            (PerGMKey (zWordF sffile)
+>                                                            (PerGMKey zF
 >                                                                      wordI
 >                                                                      Nothing))
 >                                             ploc), probs)
 >           | otherwise  = ((iloc, ploc), probs)
 >         mPrevious      :: Maybe PerGMScored
 >                                          = Map.lookup ((snd.snd) x) ploc
->         myScore        :: Int            =   computeStaticScore zc
->                                                                 sffile
->                                                                 (PerGMKey (zWordF sffile) wordI Nothing)
+>         myScore        :: Int            = computeStaticScore zc
+>                                                               sffile
+>                                                               (PerGMKey zF wordI Nothing)
 >                                            + zScore sffile + sfscore ((fst.snd) x)
 >         oldScore       :: Int            = getStaticScore (fromJust mPrevious)
 >       in
@@ -452,7 +425,8 @@ extract data from SoundFont per instrument =====================================
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
->     (nMapI, nMapZ)                 = makeNameMaps sffile
+>     arrays = zArrays sffile
+>     (nMapI, nMapZ)                 = makeNameMaps arrays
 >     ((iloc', ploc'), probs')       = chooseI zc sffile is
 >                                              (nMapI, nMapZ) ((iloc, ploc), probs)
 >     ((iloc'', ploc''), probs'')    = chooseP zc sffile ps
@@ -578,24 +552,11 @@ extract data from SoundFont per instrument =====================================
 >     akv                :: Word → (String, Word)
 >     akv anum = (getString (as ! anum), anum)
 > 
-> makeNameMapI           :: SFFile → NameMap
-> makeNameMapI sffile =
->   let
->     arrays = zArrays sffile
->     is = ssInsts arrays
->   in
->     makeNameMap is F.instName
+> makeNameMapI arrays = makeNameMap (ssInsts arrays) F.instName
+> makeNameMapP arrays = makeNameMap (ssShdrs arrays) F.sampleName
 >     
-> makeNameMapP           :: SFFile → NameMap
-> makeNameMapP sffile =
->   let
->     arrays = zArrays sffile
->     hs = ssShdrs arrays
->   in
->     makeNameMap hs F.sampleName
->     
-> makeNameMaps           :: SFFile → NameMaps
-> makeNameMaps sffile = (makeNameMapI sffile, makeNameMapP sffile)
+> makeNameMaps           :: SoundFontArrays → NameMaps
+> makeNameMaps arrays = (makeNameMapI arrays, makeNameMapP arrays)
 
 prepare the specified instruments and percussion ==========================================
 
