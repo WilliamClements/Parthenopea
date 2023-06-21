@@ -170,9 +170,9 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > getStaticScore = pStaticScore
 >
 > computeStaticScore     :: ZoneCache → SFFile → PerGMKey → Int
-> computeStaticScore zc sffile pergm = sum h''
+> computeStaticScore zc sffile pergm       = sum h''
 >   where
->     zs                                   = tail $ fromJust $ Map.lookup pergm zc
+>     zs                                   = tail $ getZonesFromCache zc pergm
 >     arrays                               = zArrays sffile
 >
 >     desires                              =  [desireReStereo
@@ -322,31 +322,33 @@ extract data from SoundFont per instrument =====================================
 > chooseI _ _ [] _ cur                     = cur
 > chooseI zc sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
 >   let
->     zF = zWordF sffile
->     mwInstr            :: Maybe Word     = Map.lookup (fst x) nMapI
+>     zF                 :: Word           = zWordF sffile
+>     nameI              :: String         = fst x 
+>     hints              :: [Hints]        = (fst.snd) x
+>     iname              :: InstrumentName = (snd.snd) x
+>
+>     mwInstr            :: Maybe Word     = Map.lookup nameI nMapI
+>
+>     pergm              :: PerGMKey       = PerGMKey zF (fromJust mwInstr) Nothing
+>     pergm'             :: PerGMScored    = PerGMScored myScore pergm
+>     mPrevious          :: Maybe PerGMScored
+>                                          = Map.lookup iname iloc
+>
+>     myScore            :: Int            = computeStaticScore zc sffile pergm
+>                                            + zScore sffile + sfscore hints
+>     oldScore           :: Int            = getStaticScore $ fromJust mPrevious
+>
 >     ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
->       | isNothing mwInstr
->                        = ((iloc, ploc), ("Instrument "
->                                          ++ fst x
->                                          ++ " not found in "
->                                          ++ zFilename sffile) : probs)
+>       | isNothing mwInstr                = ((iloc, ploc), ("Instrument "
+>                                                           ++ nameI
+>                                                           ++ " not found in "
+>                                                           ++ zFilename sffile) : probs)
 >       | isNothing mPrevious || myScore > oldScore
->                        = ((Map.insert iname
->                                       (PerGMScored myScore
->                                                    (PerGMKey zF
->                                                              (fromJust mwInstr)
->                                                              Nothing))
->                                       iloc, ploc), probs)
->       | otherwise      = ((iloc, ploc), probs)
->     iname              :: InstrumentName = (snd.snd) x
->     mPrevious          :: Maybe PerGMScored
->                                          = Map.lookup ((snd.snd) x) iloc
->     myScore            :: Int            = computeStaticScore zc
->                                                               sffile
->                                                               (PerGMKey zF (fromJust mwInstr) Nothing)
->                                          + zScore sffile + sfscore ((fst.snd) x)
->     oldScore           :: Int            = getStaticScore $ fromJust mPrevious
+>                                          = ((Map.insert iname
+>                                                         pergm'
+>                                                         iloc, ploc), probs)
+>       | otherwise                        = ((iloc, ploc), probs)
 >   in
 >     chooseI zc sffile xs (nMapI, nMapZ) ((iloc', ploc), probs')
 >
@@ -357,63 +359,66 @@ extract data from SoundFont per instrument =====================================
 >                           → (Locators, [String])
 >                           → (Locators, [String])
 > chooseP _ _ [] _ cur                  = cur
-> chooseP zc sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs)
->   | traceIf msg False = undefined
->   | otherwise =
+> chooseP zc sffile (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
 >   let
->     mwInstr            :: Maybe Word     = Map.lookup (fst x) nMapI
+>     zF                 :: Word           = zWordF sffile
+>     nameI              :: String         = fst x
+>     sounds             :: [(String, ([Hints], PercussionSound))]
+>                                          = snd x
+>
+>     mwInstr            :: Maybe Word     = Map.lookup nameI nMapI
+>
 >     ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
->       | isNothing mwInstr
->                        =  ((iloc, ploc), ("Instrument "
->                                           ++ fst x
->                                           ++ "not found in "
->                                           ++ zFilename sffile) : probs)
->       | otherwise      = chooseSounds zc sffile
->                                         (fromJust mwInstr)
->                                         (snd x)
->                                         (nMapI, nMapZ)
->                                         ((iloc, ploc), probs)
+>       | isNothing mwInstr                = ((iloc, ploc), ("Instrument "
+>                                                           ++ nameI
+>                                                           ++ "not found in "
+>                                                           ++ zFilename sffile) : probs)
+>       | otherwise                        = chooseSound zc
+>                                                        sffile
+>                                                        (fromJust mwInstr)
+>                                                        sounds
+>                                                        (nMapI, nMapZ)
+>                                                        ((iloc, ploc), probs)
 >   in
 >     chooseP zc sffile xs (nMapI, nMapZ) ((iloc', ploc'), probs')
 >   where
->     msg = unwords ["nMapZ=", show nMapZ]
->     chooseSounds       :: ZoneCache
+>     chooseSound        :: ZoneCache
 >                           → SFFile
 >                           → Word
 >                           → [(String, ([Hints], PercussionSound))]
 >                           → NameMaps
 >                           → (Locators, [String])
 >                           → (Locators, [String])
->     chooseSounds _ _ _ [] _ cur = cur
->     chooseSounds zc sffile wordI (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
+>     chooseSound _ _ _ [] _ cur           = cur
+>     chooseSound zc sffile wordI (x:xs) (nMapI, nMapZ) ((iloc, ploc), probs) =
 >       let
->         mwZone         :: Maybe Word     = Map.lookup (fst x) nMapZ
->         zF = zWordF sffile
+>         zF             :: Word           = zWordF sffile
+>         nameZ          :: String         = fst x
+>         psound         :: PercussionSound= (snd.snd) x
+>         hints          :: [Hints]        = (fst.snd) x
+>
+>         mwZone         :: Maybe Word     = Map.lookup nameZ nMapZ
+>         pergm          :: PerGMKey       = PerGMKey zF wordI Nothing
+>         pergm'         :: PerGMScored    = PerGMScored myScore pergm
+>         mPrevious      :: Maybe PerGMScored
+>                                          = Map.lookup psound ploc
+>
+>         myScore        :: Int            = computeStaticScore zc sffile pergm
+>                                            + zScore sffile + sfscore hints
+>         oldScore       :: Int            = getStaticScore (fromJust mPrevious)
+>
 >         ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
->           | isNothing mwZone
->                        = ((iloc, ploc), ("Zone "
->                                          ++ fst x
->                                          ++ " not found in "
->                                          ++ zFilename sffile) : probs)
+>           | isNothing mwZone             = ((iloc, ploc), ("Zone "
+>                                                           ++ nameZ
+>                                                           ++ " not found in "
+>                                                           ++ zFilename sffile) : probs)
 >           | isNothing mPrevious || myScore > oldScore
->                        = ((iloc, Map.insert ((snd.snd) x)
->                                             (PerGMScored myScore
->                                                            (PerGMKey zF
->                                                                      wordI
->                                                                      Nothing))
->                                             ploc), probs)
->           | otherwise  = ((iloc, ploc), probs)
->         mPrevious      :: Maybe PerGMScored
->                                          = Map.lookup ((snd.snd) x) ploc
->         myScore        :: Int            = computeStaticScore zc
->                                                               sffile
->                                                               (PerGMKey zF wordI Nothing)
->                                            + zScore sffile + sfscore ((fst.snd) x)
->         oldScore       :: Int            = getStaticScore (fromJust mPrevious)
+>                                          = ((iloc, Map.insert psound pergm' ploc), probs)
+>           | otherwise                    = ((iloc, ploc), probs)
 >       in
->         chooseSounds zc sffile wordI xs (nMapI, nMapZ) ((iloc', ploc'), probs')
+>         chooseSound zc sffile wordI xs (nMapI, nMapZ) ((iloc', ploc'), probs')
 >
 > chooseIAndP            :: ZoneCache
 >                           → SFFile
@@ -570,9 +575,10 @@ prepare the specified instruments and percussion ===============================
 >         boundsI = bounds (ssInsts arrays)
 >
 >     cacheI         :: SFFile → Word → [(PerGMKey, [(Word, SFZone)])]
->     cacheI sffile wI = [(PerGMKey wF wI Nothing, zs)]
+>     cacheI sffile wI = [(pergm, zs)]
 >       where
 >         wF         :: Word           = zWordF sffile
+>         pergm      :: PerGMKey       = PerGMKey wF wI Nothing 
 >         zs         :: [(Word, SFZone)]
 >                                      = getZones sffile (wF, wI)
 >        
@@ -590,6 +596,9 @@ prepare the specified instruments and percussion ===============================
 >         oIx   = [ibagi+1..jbagi-1]
 >         gList = map (buildZone sffile iinst defInstrumentZone)   gIx
 >         oList = map (buildZone sffile iinst (snd (head gList)))  oIx
+>
+> getZonesFromCache      :: ZoneCache → PerGMKey → [(Word, SFZone)]
+> getZonesFromCache zc pergm           = fromJust $ Map.lookup pergm zc
 >
 > assignInstruments      :: SFRoster
 >                           → InstrLocator
@@ -648,12 +657,13 @@ define signal functions for playing instruments ================================
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
+>     zc                 :: ZoneCache      = zZoneCache sfrost
+>     pergm              :: PerGMKey       = PerGMKey zF zI Nothing
 >     zones              :: [(Word, SFZone)]
->                                          = fromJust $ Map.lookup (PerGMKey zF zI Nothing)
->                                                                  (zZoneCache sfrost)
+>                                          = tail $ getZonesFromCache zc pergm
 >     ((zoneL, shdrL), (zoneR, shdrR))
 >                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
->                                          = setZone sfrost (zF, zI) (tail zones) pch vol
+>                                          = setZone sfrost (zF, zI) zones pch vol
 >     (rDataL, rDataR)   :: (Reconciled, Reconciled)
 >                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
 >     sr                 :: Double         = fromIntegral $ F.sampleRate shdrL
