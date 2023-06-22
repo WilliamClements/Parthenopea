@@ -228,7 +228,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                        (F.shdrs pdata)
 >                        (F.smpl sdata)
 >                        (F.sm24 sdata)
->         let sffile = SFFile filename arrays wFile (weightFileHints * sfscore filehints)
+>         let sffile = SFFile filename arrays wFile (sfscore filehints)
 >
 >         ts2 ← getCurrentTime
 >         let nBits = case ssM24 arrays of
@@ -389,7 +389,7 @@ tournament to choose instrument from among SoundFont files =====================
 >   where
 >     msg = unwords ["chooseIAndP ", show (is, ps)]
 >
-> transactScoring        :: forall a. (Ord a) ⇒
+> transactScoring        :: forall a. (Ord a, Show a) ⇒
 >                           ZoneCache
 >                           → SFFile
 >                           → PerGMKey
@@ -399,27 +399,26 @@ tournament to choose instrument from among SoundFont files =====================
 >                           → Map.Map a PerGMScored
 >                           → Map.Map a PerGMScored
 > transactScoring zc sffile pergm name kind hints loc
->   | traceIf msg False = undefined
+>   | traceAlways msg False = undefined
 >   | otherwise = loc'
 >   where
 >     loc' 
->       | isNothing mPrevious || myScore > oldScore
->                                           = Map.insert kind pergm' loc
+>       | myScore > oldScore                = Map.insert kind pergm' loc
 >       | otherwise                         = loc
 >
->     mPrevious          :: Maybe PerGMScored
->                                          = Map.lookup kind loc
->     oldScore           :: Int            = pStaticScore $ fromJust mPrevious
+>     oldScore           :: Int            = maybe (-5000)
+>                                                  pStaticScore
+>                                                  (Map.lookup kind loc)
 >     myScore            :: Int            = computeStaticScore zc sffile pergm hints
 >                                            -- + zScore sffile
 >                                            -- + weightInstrumentHints * sfscore hints
 >     pergm'             :: PerGMScored    = PerGMScored myScore pergm
->     msg = unwords ["transactScoring ", show pergm]                           
+>     msg = unwords ["transactScoring ", show kind, " old=", show oldScore, " new=", show myScore] 
 >
 > computeStaticScore     :: ZoneCache → SFFile → PerGMKey → [Hints] → Int
 > computeStaticScore zc sffile pergm hints
 >   | traceAlways msg False = undefined
->   | otherwise = sum h'' + filehints + instrhints
+>   | otherwise = sum weightedScores
 >   where
 >     zs                                   = tail $ getZonesFromCache zc pergm
 >     arrays                               = zArrays sffile
@@ -427,17 +426,27 @@ tournament to choose instrument from among SoundFont files =====================
 >     desires                              = [desireReStereo
 >                                           , desireRe24Bit
 >                                           , desireReMaxSplits]
->     weights                              = [weightStereo, weight24Bit, weightMaxSplits]
 >     empiricals                           = [scoreBool $ isStereoInst arrays zs
 >                                           , scoreBool $ is24BitInst arrays zs
 >                                           , scoreBool $ hasMaxSplits arrays zs]
 >
->     h                                    = map scoreDesire    desires
->     h'                                   = zipWith (*) h      weights
->     h''                                  = zipWith (*) h'     empiricals
->     filehints                            = zScore sffile
->     instrhints                           = weightInstrumentHints * sfscore hints
->     msg = unwords ["computeStaticScore ", show pergm, " ", show  h'', " ", show (filehints, instrhints)]
+>     s                                    = map scoreDesire    desires
+>     s'                                   = zipWith (*) s      empiricals
+>
+>     baseScores         :: [Int]          = [   zScore sffile 
+>                                              , sfscore hints
+>                                              , s' !! 0
+>                                              , s' !! 1
+>                                              , s' !! 2]
+>     weights                              = [   weightFileHints
+>                                              , weightInstrumentHints
+>                                              , weightStereo
+>                                              , weight24Bit
+>                                              , weightMaxSplits]
+>     weightedScores                       = zipWith (*) baseScores weights
+>     msg = unwords [   "computeStaticScore "  , show baseScores
+>                     , " X "                  , show weights
+>                     , " = "                  , show weightedScores]
 >
 > isStereoInst, is24BitInst, hasMaxSplits
 >                        :: SoundFontArrays → [(Word, SFZone)] → Bool
