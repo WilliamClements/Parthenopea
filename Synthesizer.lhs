@@ -721,3 +721,10 @@ Knobs and buttons ==============================================================
 > scoreBool b = if b then 1 else (-1)
 >
 > splitThreshold         :: Word           = 5
+>
+> weightFileHints        :: Int            = 2
+> weightInstrumentHints  :: Int            = 5
+>
+> weightStereo           :: Int            = 2
+> weight24Bit            :: Int            = 1
+> weightMaxSplits        :: Int            = 1

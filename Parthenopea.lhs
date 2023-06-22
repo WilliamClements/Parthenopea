@@ -173,7 +173,7 @@ which makes for a cleaner sound on some synthesizers:
 
   "ceilingPowerOfTwo"
 
-> ceilingPowerOfTwo :: Integer → Integer
+> ceilingPowerOfTwo :: Int → Int
 > ceilingPowerOfTwo num
 >   | num < 1  = error "ceilingPowerOfTwo requires input >= 1"
 >   | otherwise = ceiling $ logBase 2.0 (fromIntegral num)

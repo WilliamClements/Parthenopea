@@ -18,7 +18,7 @@ Saucy Sailor ===================================================================
 >     $ tempo 1
 >     $ transpose 0
 >     $ keysig C Mixolydian
->     $ instrument VoiceOohs
+>     $ instrument Violin
 >       ((if includeOpen then xOpenT        else rest 0)
 >          :+: (if includeSong then xSongT  else rest 0)
 >          :+: (if includeClos then xClosT  else rest 0))

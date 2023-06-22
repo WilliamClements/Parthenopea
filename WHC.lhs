@@ -19,6 +19,7 @@ Chart ==========================================================================
 > import Data.Colour.Names
 > import Data.Default.Class
 > import Data.Int
+> import Data.List
 > import Data.Word
 > -- import Euterpea
 > import Graphics.Rendering.Chart
@@ -28,6 +29,7 @@ Chart ==========================================================================
 > -- import -- KnightsTour
 > import Parthenopea
 > import Synthesizer
+> import qualified Text.FuzzyFind as T
 > import System.Environment(getArgs)
 > import GHC.Num (naturalAnd)
   
@@ -182,4 +184,41 @@ Chart ==========================================================================
 > delayTime5 = 0.001051
 > delayTime6 = 0.000337
 >
-
+> qstrings               :: [String]       = ["piano", "guitar", "snare"]
+> istrings               :: [String]       = ["Grand Piano 2", "pianobad", "Guitar Harmonics", "snake"]
+>
+> -- findFuzzy              :: [String] → String → [T.Alignment]
+> -- findFuzzy qs i = flip fuzzyFind [i] qs
+>
+> ymain :: IO ()
+> ymain = do
+>   -- let buzz = map tryAll (findFuzzy qstrings) istrings
+>   let results = map tryAll qstrings
+>   mapM_ eval results
+>   -- let alignments = fuzzyFind qstrings istrings
+>   -- putStrLn ("pairs=" ++ show showers)
+>
+> tryAll                 :: String → (String, [T.Alignment])
+> tryAll q = (q, T.fuzzyFind [q] istrings)
+>
+> eval                   :: (String, [T.Alignment]) → IO ()
+> eval (q, als) =
+>   do
+>     let n = length als
+>     let str = if null als
+>               then "empty"
+>               else showAlign (maximum als)
+>     putStrLn (q ++ ": num candidates = " ++ show n ++ " = " ++ str)
+>
+> showAlign              :: T.Alignment → String
+> showAlign r = reformed
+>   where
+>     t = T.score r
+>     u = T.result r
+>     reformed = concatMap isos $ T.segments u
+>     isos               :: T.ResultSegment → String
+>     isos r = case r of
+>               T.Gap s → s
+>               T.Match s → s
+>              
+>       

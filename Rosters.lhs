@@ -32,7 +32,7 @@ Rosters support ================================================================
 >   let dig = (length args == 1) && ("dig" == head args)
 >   _	← if dig
 >        then digAll
->        else doSoundFont soundFontDatabaseOrig zjingles
+>        else doSoundFont soundFontDatabaseOrig sj
 >   return ()
 
 organize exposed music ====================================================================
@@ -168,7 +168,8 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("Cuica Mute",           ([], MuteCuica))
 >                                     , ("Cuica Open",           ([], OpenCuica))])
 >
->     -- WOX, ("Drum_Kit_K&S_Room",        [  ("Drum_Snare4",          ([], AcousticSnare))])
+>     , ("Drum_Kit_K&S_Room",        [  ("Drum_Snare4",          ([DLow]
+>                                                                    , AcousticSnare))])
 >
 >     , ("drm: Rock Toms",           [  ("drm-rocktom1m",        ([], HighTom))
 >                                     , ("drm-rocktom2m",        ([], HiMidTom))
@@ -237,7 +238,7 @@ organize instruments from multiple SoundFont files =============================
 >   [
 >       ("+++Gtr Harmonics",        ([],  GuitarHarmonics))
 >     , ("60's Organ 1",            ([],  RockOrgan))
->     , ("AAViolin P",              ([],  Violin))
+>     , ("AAViolin P",              ([DLow],  Violin))
 >     , ("Accordion1",              ([],  Accordion))
 >     , ("Agogo",                   ([],  Agogo))
 >     , ("Applause0",               ([],  Applause))
@@ -346,7 +347,10 @@ organize instruments from multiple SoundFont files =============================
 >
 >     , ("OSDK ride1",              [  ("OSDK ride-mid-in1L",   ([], RideCymbal2))])
 >
->     , ("OSDK snaredrum1",         [  ("OSDK snare-bottom1L",  ([], AcousticSnare))])
+>     , ("OSDK snaredrum1",         [  ("OSDK snare-bottom1L",  ([DLow]
+>                                                                  , AcousticSnare))])
+>
+>     , ("OSDK snaredrum2",         [  ("OSDK snare-top1L",     ([], AcousticSnare))])
 >
 >     , ("OSDK snaredrum1-room",    [  ("OSDK snare-bottom-1L", ([], ElectricSnare))])
 >
@@ -373,7 +377,8 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Clarinet",                ([],  Clarinet))
 >     , ("Clean Guitar",            ([],  ElectricGuitarClean))
 >     , ("DX7 Rhodes",              ([],  RhodesPiano))
->     , ("F",                       ([],  Violin))
+>     , ("F",                       ([DLow]
+>                                      ,  Violin))
 >     , ("Flute",                   ([],  Flute))
 >     , ("Group 162",               ([],  Viola))
 >     , ("Jazz Guitar",             ([],  ElectricGuitarJazz))
@@ -392,7 +397,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Trumpet",                 ([],  Trumpet))
 >     , ("Tuba",                    ([],  Tuba))
 >     , ("Upright-Piano-1",         ([],  BrightAcousticPiano))
->     -- , ("Violin3",            Violin)
+>     , ("Violin3",                 ([],  Violin))
 >   ]
 > essentialsPerc =
 >   []
