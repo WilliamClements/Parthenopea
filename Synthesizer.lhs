@@ -125,22 +125,36 @@ Signal function-based synth ====================================================
 >     outA ⤙ curPos'
 >
 >   where
->     allsf              :: AudSF () [Double]  = pSwitch [] (evtsf secsSample) modsf
->                                                -- add up all samples
->     sf                 :: AudSF () Double    = allsf >>> arr (foldl' mix zero)
->     delta              :: Double             = 1 / (secsSample * freqFactor * sr)
->     eps                :: Double             = 0.000001
->     (normst,normen)    :: (Double, Double) = normalizeLooping recon
+>     allsf              :: AudSF () [Double]
+>                                            -- add up all samples
+>                                          = pSwitch [] (evtsf secsSample) modsf
+>     sf                 :: AudSF () Double
+>                                          = allsf >>> arr (foldl' mix zero)
+>     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
+>     eps                :: Double         = 0.000001
+>     phase              :: Double         = 0
+>     (normst,normen)    :: (Double, Double)
+>                                          = normalizeLooping recon
+>
+>     switchPhase        :: (Double, Double) → (Double, Double)
+>     switchPhase (phase, delta) = (phase + angle, delta)
+>       where
+>         angle'         :: Double         = snd (properFraction angle)
+>         angle          :: Double         = (secsSample/sr) * delta -- TODO: duh    ... / (2 * pi)
 >
 >     evtsf              :: DeltaT → AudSF () [Evt (AudSF () Double)]
 >     evtsf secsSample =
+>       let (phase', delta')               = if useLoopPhaseCalc
+>                                            then switchPhase (phase, delta)
+>                                            else (normen, delta)
+>       in
 >       proc () → do
 >         rec
 >           let t' = t + 1
 >           t ← delay 0 ⤙ t'
 >           let evs = if t < secsSample * 44100
->                     then [(0, eutDriverFull 0 delta)]
->                     else [(1, eutDriverLooping normen delta (normst, normen))]
+>                     then [(0, eutDriverFull phase delta)]
+>                     else [(1, eutDriverLooping phase' delta' (normst, normen))]
 >         outA ⤙ evs
 >
 >     modsf              :: [Evt (AudSF () Double)] → [Evt (AudSF () Double)] → [Evt (AudSF () Double)]
@@ -696,6 +710,7 @@ Knobs and buttons ==============================================================
 > useEnvelopes       = True
 > useShortening      = True
 > useLoopSwitching   = True
+> useLoopPhaseCalc   = False
 > useLowPassFilter   = False
 > useEffectReverb    = False
 > useEffectChorus    = False

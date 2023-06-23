@@ -511,7 +511,7 @@ We Hate Her ====================================================================
 >    $ transpose 0
 >    $ keysig G Dorian
 >    $ addVolume 100
->    $ instrument Violin whhMel
+>    $ instrument Harmonica whhMel
 >
 > littleWeHateHer =
 >    addVolume 100

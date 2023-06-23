@@ -126,7 +126,7 @@ Bob ============================================================================
 >       $ tempo 2
 >       $ transpose 0
 >       $ keysig D Mixolydian
->          (addVolume  90  (instrument RhodesPiano     (times nRepeats treblebob)))
+>          (addVolume  90  (instrument Flute     (times nRepeats treblebob)))
 >       :=: addVolume  70  (instrument Oboe            (times nRepeats altobob))
 >       :=: addVolume  60  (instrument Cello           (times nRepeats bassbob))
 >
@@ -169,15 +169,15 @@ Bill ===========================================================================
 >    $ keysig Ef Mixolydian
 >    $ addVolume 100
 >    $ instrument Violin
->         (rest dwn :+:  g 4 hn :+: times nRepeats treblebill)
+>         (rest dwn :+:  g 4 hn :+: times nRepeats treble)
 >      :=: instrument AcousticGrandPiano
->         (rest dwn :+: bf 3 hn :+: times nRepeats altobill)
+>         (rest dwn :+: bf 3 hn :+: times nRepeats alto)
 >      :=: instrument Cello
->         (rest dwn :+: ef 3 hn :+: times nRepeats bassbill)
+>         (rest dwn :+: ef 3 hn :+: times nRepeats bass)
 >
 >    where
 > 
->    treblebill00 =
+>    treble00 =
 >        tempo (3/2) (line [ef 4 qn, f 4 qn, g 4 qn])
 >          :+: af 4 hn
 >          :+: tempo 2 (line [df 4 qn, ef 4 qn, f 4 qn, g 4 qn])
@@ -187,35 +187,35 @@ Bill ===========================================================================
 >          :+: tempo 2 (line [b 3 qn, df 4 qn, ef 4 qn, f 4 qn])
 >          :+: gf 4 qn :+: line [rest en, f 4 en, ef 4 hn]
 >          :+: df 4 wn :+: rest wn
->    altobill00 =
+>    alto00 =
 >          rest hn
 >          :+: f 4 hn :+: rest dwn
 >          :+: c 4 wn :+: rest wn
 >          :+: ef 3 hn :+: rest dwn
 >          :+: gf 3 wn :+: rest wn
->    bassbill00 =
+>    bass00 =
 >          rest hn
 >          :+: df 3 hn :+: rest dwn
 >          :+: af 2 wn :+: rest wn
 >          :+:  b 2 hn :+: rest dwn
 >          :+: bf 2 wn :+: rest wn
 >
->    treblebill01 = 
+>    treble01 = 
 >          line [df 4 hn,  d 4 wn, rest wn]
 >          :+: line [ d 4 dwn, ef 4 hn,  f 4 hn]
 >          :+: tempo (3/2) (line [g 3 qn, bf 3 qn, ef 4 qn])
 >          :+: line [f 4 dqn, g 4 en, ef 4 hn, bf 3 hn, ef 4 hn] 
->    altobill01 =
+>    alto01 =
 >          line [rest wn, rest wn, rest hn
 >              , af 2 wn, gf 2 wn,  f 2 hn, b 2 hn, bf 2 wn, rest wn]
->    bassbill01 =
+>    bass01 =
 >          rest wn
 >          :+: tempo (1/3) (bf 2 wn)
 >          :+: line [rest wn, rest dwn, rest wn]
 >
->    treblebill = line [treblebill00, treblebill01]
->    altobill   = line [altobill00,     altobill01]
->    bassbill   = line [bassbill00,     bassbill01]
+>    treble = line [treble00, treble01]
+>    alto   = line [alto00,     alto01]
+>    bass   = line [bass00,     bass01]
 >
 
 Copper ====================================================================================
@@ -328,7 +328,7 @@ Snake ==========================================================================
 >    $ transpose 1
 >    $ keysig D Mixolydian
 >    $     addVolume  65 (instrument AltoSax treblePart)
->      :=: addVolume 100 (instrument Viola altoPart)
+>      :=: addVolume  80 (instrument Oboe altoPart)
 >    where
 >
 >    treblePart = line [treb00, treb01, treb02, treb03, treb04]
@@ -482,7 +482,7 @@ Whelp Narp =====================================================================
 >    $ tempo 2
 >    $ keysig C Mixolydian
 >    $ addVolume 100
->    $ instrument     Violin               (transpose 4       (wnAltoI :+: wnAltoII))
+>    $ instrument     Flute                (transpose 4       (wnAltoI :+: wnAltoII))
 >      :=: instrument OrchestralHarp       (transpose 4      (wnTenorI :+: wnTenorII))
 >      :=: instrument ElectricBassPicked   (transpose 4   (wnBaritoneI :+: wnBaritoneII))
 >      :=:                                                    (wnPercI :+: wnPercII)

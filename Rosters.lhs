@@ -29,14 +29,19 @@ Rosters support ================================================================
 > main                   :: IO ()
 > main = do
 >   args ← getArgs
->   let dig = (length args == 1) && ("dig" == head args)
+>   let dig =     (length args == 1) && ("dig" == head args)
+>   let playAll = (length args == 1) && ("all" == head args)
 >   _	← if dig
 >        then digAll
->        else doSoundFont soundFontDatabaseOrig sj
+>        else if playAll
+>             then doSoundFont soundFontDatabaseOrig combineAll
+>             else doSoundFont littleSoundFontDatabase sj
 >   return ()
 
 organize exposed music ====================================================================
 
+> combineAll = ajingles ++ bjingles ++ cjingles ++ djingles ++ zjingles
+>
 > ajingles, bjingles
 >  , cjingles, djingles
 >  , zjingles            :: [(String, Music (Pitch, [NoteAttribute]))]
@@ -385,6 +390,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("MagiCs 5Strg Banjo",      ([],  Banjo))
 >     , ("Nylon Guitar 1",          ([],  AcousticGuitarNylon))
 >     , ("Oboe",                    ([],  Oboe))
+>     , ("P",                       ([],  Violin))
 >     , ("Palm Muted Guitar",       ([],  ElectricGuitarMuted))
 >     , ("Piccolo",                 ([],  Piccolo))
 >     , ("Pipe Organ",              ([],  ChurchOrgan))
@@ -397,7 +403,8 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Trumpet",                 ([],  Trumpet))
 >     , ("Tuba",                    ([],  Tuba))
 >     , ("Upright-Piano-1",         ([],  BrightAcousticPiano))
->     , ("Violin3",                 ([],  Violin))
+>     , ("Violin3",                 ([DLow]
+>                                      ,  Violin))
 >   ]
 > essentialsPerc =
 >   []

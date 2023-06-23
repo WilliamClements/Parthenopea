@@ -14,7 +14,7 @@ SoundFont support ==============================================================
 > import qualified Data.Audio           as A
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds) )
 > import Data.Int ( Int8, Int16, Int32 )
-> import Data.List ( find, foldr, minimumBy )
+> import Data.List ( find, foldr, minimumBy, singleton )
 > import qualified Data.Map             as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, catMaybes, mapMaybe )
 > import Data.Time.Clock
@@ -39,14 +39,14 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     pStaticScore       :: Int
 >   , pPerGMKey          :: PerGMKey} deriving (Eq, Ord, Show)
 >
-> type InstrLocator   = Map.Map InstrumentName PerGMScored
-> type PercLocator    = Map.Map PercussionSound PerGMScored
-> type Locators       = (InstrLocator, PercLocator)
+> type InstrLocator      = Map.Map InstrumentName PerGMScored
+> type PercLocator       = Map.Map PercussionSound PerGMScored
+> type Locators          = (InstrLocator, PercLocator)
 >
-> type NameMap        = Map.Map String Word
-> type NameMaps       = (NameMap, NameMap)
+> type NameMap           = Map.Map String Word
+> type NameMaps          = (NameMap, NameMap)
 >
-> type ZoneCache      = Map.Map PerGMKey [(Word, SFZone)]
+> type ZoneCache         = Map.Map PerGMKey [(Word, SFZone)]
 >
 > data SFRoster =
 >   SFRoster {
@@ -165,7 +165,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     instrName sffile iinst
 >     ++ "/"
 >     ++ maybe "Global" (\a → F.sampleName (ssShdrs arrays ! a)) msin
->
 
 slurp in instruments from SoundFont (*.sf2) files =========================================
 
@@ -403,8 +402,8 @@ tournament to choose instrument from among SoundFont files =====================
 >   | otherwise = loc'
 >   where
 >     loc' 
->       | myScore > oldScore                = Map.insert kind pergm' loc
->       | otherwise                         = loc
+>       | myScore > oldScore               = Map.insert kind pergm' loc
+>       | otherwise                        = loc
 >
 >     oldScore           :: Int            = maybe (-5000)
 >                                                  pStaticScore
@@ -426,18 +425,18 @@ tournament to choose instrument from among SoundFont files =====================
 >     desires                              = [desireReStereo
 >                                           , desireRe24Bit
 >                                           , desireReMaxSplits]
->     empiricals                           = [scoreBool $ isStereoInst arrays zs
->                                           , scoreBool $ is24BitInst arrays zs
->                                           , scoreBool $ hasMaxSplits arrays zs]
+>     empiricals                           = [   scoreBool $ isStereoInst arrays zs
+>                                              , scoreBool $ is24BitInst  arrays zs
+>                                              , scoreBool $ hasMaxSplits arrays zs]
 >
->     s                                    = map scoreDesire    desires
->     s'                                   = zipWith (*) s      empiricals
+>     s                  :: [Int]          = map scoreDesire    desires
+>     s'                 :: [Int]          = zipWith (*) s      empiricals
 >
 >     baseScores         :: [Int]          = [   zScore sffile 
 >                                              , sfscore hints
->                                              , s' !! 0
->                                              , s' !! 1
->                                              , s' !! 2]
+>                                              , head s'
+>                                              , (head.tail) s'
+>                                              , (head.tail.tail) s']
 >     weights                              = [   weightFileHints
 >                                              , weightInstrumentHints
 >                                              , weightStereo
@@ -451,10 +450,9 @@ tournament to choose instrument from among SoundFont files =====================
 > isStereoInst, is24BitInst, hasMaxSplits
 >                        :: SoundFontArrays → [(Word, SFZone)] → Bool
 >
->
 > isStereoInst arrays zs = isJust $ find (isStereoZone arrays) (map snd zs)
 >       
-> isStereoZone       :: SoundFontArrays → SFZone → Bool
+> isStereoZone           :: SoundFontArrays → SFZone → Bool
 > isStereoZone arrays zone = stype == SampleTypeRight || stype == SampleTypeLeft
 >   where
 >     sin = fromJust $ zSampleIndex zone
@@ -467,8 +465,8 @@ tournament to choose instrument from among SoundFont files =====================
 extract data from SoundFont per instrument ================================================
 
 > buildZone              :: SFFile → F.Inst → SFZone → Word → (Word, SFZone)
-> buildZone sffile iinst fromZone bagIndex =
->   let
+> buildZone sffile iinst fromZone bagIndex = (bagIndex, zone)
+>   where
 >     arrays = zArrays sffile
 >     ibags = ssIBags arrays
 >     xgeni = F.genNdx $ ibags!bagIndex
@@ -477,7 +475,6 @@ extract data from SoundFont per instrument =====================================
 >            then error "degenerate generator list"
 >            else getGens sffile iinst [xgeni..ygeni-1]
 >     zone = fromGens fromZone gens
->   in (bagIndex, zone)
 >
 > getGens                :: SFFile → F.Inst → [Word] → [F.Generator]
 > getGens sffile iinst words
@@ -599,13 +596,13 @@ prepare the specified instruments and percussion ===============================
 >         arrays = zArrays sffile
 >         boundsI = bounds (ssInsts arrays)
 >
->     cacheI         :: SFFile → Word → [(PerGMKey, [(Word, SFZone)])]
+>     cacheI             :: SFFile → Word → [(PerGMKey, [(Word, SFZone)])]
 >     cacheI sffile wI = [(pergm, zs)]
 >       where
->         wF         :: Word           = zWordF sffile
->         pergm      :: PerGMKey       = PerGMKey wF wI Nothing 
->         zs         :: [(Word, SFZone)]
->                                      = getZones sffile (wF, wI)
+>         wF             :: Word           = zWordF sffile
+>         pergm          :: PerGMKey       = PerGMKey wF wI Nothing 
+>         zs             :: [(Word, SFZone)]
+>                                          = getZones sffile (wF, wI)
 >        
 >     getZones           :: SFFile → (Word, Word) → [(Word, SFZone)]
 >     getZones sffile (zF, zI) = gList ++ oList
@@ -617,13 +614,13 @@ prepare the specified instruments and percussion ===============================
 >         jbagi  = F.instBagNdx jinst
 >         gIx    = if jbagi - ibagi < 2
 >                  then error "must have one global zone and at least one other zone"
->                  else [ibagi]
->         oIx   = [ibagi+1..jbagi-1]
->         gList = map (buildZone sffile iinst defInstrumentZone)   gIx
->         oList = map (buildZone sffile iinst (snd (head gList)))  oIx
+>                  else singleton ibagi
+>         oIx    = [ibagi+1..jbagi-1]
+>         gList  = map (buildZone sffile iinst defInstrumentZone)   gIx
+>         oList  = map (buildZone sffile iinst (snd (head gList)))  oIx
 >
 > getZonesFromCache      :: ZoneCache → PerGMKey → [(Word, SFZone)]
-> getZonesFromCache zc pergm           = fromJust $ Map.lookup pergm zc
+> getZonesFromCache zc pergm = fromJust $ Map.lookup pergm zc
 >
 > assignInstruments      :: SFRoster
 >                           → InstrLocator
