@@ -76,7 +76,7 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [("roger"           , aggrandize roger)]
+>    [("littlesnake"     , aggrandize littlesnake)]
 
 organize instruments from multiple SoundFont files ========================================
 

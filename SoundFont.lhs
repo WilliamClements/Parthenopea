@@ -212,7 +212,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                                    ,  [(String, [(String, ([Hints], PercussionSound))])]))
 > readSoundFontFile wFile (filename, (filehints, (ilist, plist))) =
 >   do
->     putStr filename
+>     putStr (show wFile ++ " " ++ filename)
 >     ts1 ← getCurrentTime
 >     maybeAudio ← F.importFile filename
 >     case maybeAudio of
@@ -398,7 +398,7 @@ tournament to choose instrument from among SoundFont files =====================
 >                           → Map.Map a PerGMScored
 >                           → Map.Map a PerGMScored
 > transactScoring zc sffile pergm name kind hints loc
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise = loc'
 >   where
 >     loc' 
@@ -409,14 +409,12 @@ tournament to choose instrument from among SoundFont files =====================
 >                                                  pStaticScore
 >                                                  (Map.lookup kind loc)
 >     myScore            :: Int            = computeStaticScore zc sffile pergm hints
->                                            -- + zScore sffile
->                                            -- + weightInstrumentHints * sfscore hints
 >     pergm'             :: PerGMScored    = PerGMScored myScore pergm
 >     msg = unwords ["transactScoring ", show kind, " old=", show oldScore, " new=", show myScore] 
 >
 > computeStaticScore     :: ZoneCache → SFFile → PerGMKey → [Hints] → Int
 > computeStaticScore zc sffile pergm hints
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise = sum weightedScores
 >   where
 >     zs                                   = tail $ getZonesFromCache zc pergm
@@ -738,11 +736,13 @@ zone selection =================================================================
 >     sffile = fileByIndex sfrost wF
 >     arrays = zArrays sffile
 >     iinst = ssInsts arrays ! wI
->     sampleL = ssShdrs arrays ! fromJust (zSampleIndex zoneL)
->     sampleR = ssShdrs arrays ! fromJust (zSampleIndex zoneR)
+>     sinL = fromJust $ zSampleIndex zoneL
+>     sinR = fromJust $ zSampleIndex zoneR
+>     sampleL = ssShdrs arrays ! sinL
+>     sampleR = ssShdrs arrays ! sinR
 >     msg = unwords [
->             "setZone (", show (wF, wI)
->             , " = ",     show (zFilename sffile)
+>             "setZone ( wF, wI = ", show (wF, wI)
+>             , ", sinL, sinR = ", show (sinL, sinR)
 >             , " , ",     show (zoneName sffile iinst zoneL)
 >             , ")"]
 >
@@ -781,8 +781,8 @@ zone selection =================================================================
 >             Nothing → zone
 >             Just _  → snd $ fromJust $ find (withslink slink) zones
 >     (zoneL, zoneR) = if stype == 2
->                      then (zone, ozone)
->                      else (ozone, zone)
+>                      then (ozone, zone)
+>                      else (zone, ozone)
 >     withslink          :: Word → (Word, SFZone) → Bool
 >     withslink tomatch (wZ, zone) =
 >       let
@@ -950,7 +950,7 @@ reconcile zone and sample header ===============================================
 >             Nothing     → ""
 >             Just zWord  → "/" ++ F.sampleName ishdr
 >   in
->        fileName sfrost (pWordF pergm)
+>        show (pWordF pergm)
 >     ++ "/"
 >     ++ instrName sffile iinst
 >     ++ showZ

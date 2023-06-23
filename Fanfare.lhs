@@ -320,7 +320,7 @@ Snake ==========================================================================
 > littlesnake =
 >   instrument AltoSax  
 >   $ addVolume 100
->   $ line [a 3 wn]
+>   $ line [a 3 (2*wn)]
 >
 > snake =
 >    removeZeros

@@ -80,7 +80,7 @@ Signal function-based synth ====================================================
 >
 > eutDriverFull          :: Double → Double → AudSF () Double 
 > eutDriverFull iphs delta
->   | traceIf msg False = undefined
+>   | traceAlways msg False = undefined
 >   | otherwise =
 >   let frac             :: RealFrac r ⇒ r → r
 >       frac = snd . properFraction
@@ -97,7 +97,7 @@ Signal function-based synth ====================================================
 >                           → (Double, Double)
 >                           → AudSF () Double
 > eutDriverLooping iphs delta (lst, len)
->   | traceIf msg False = undefined
+>   | traceAlways msg False = undefined
 >   | otherwise =
 >   let frac             :: RealFrac r ⇒ r → r
 >       frac = snd . properFraction
@@ -143,7 +143,9 @@ Signal function-based synth ====================================================
 >         angle          :: Double         = (secsSample/sr) * delta -- TODO: duh    ... / (2 * pi)
 >
 >     evtsf              :: DeltaT → AudSF () [Evt (AudSF () Double)]
->     evtsf secsSample =
+>     evtsf secsSample
+>       | traceAlways msg False = undefined
+>       | otherwise =
 >       let (phase', delta')               = if useLoopPhaseCalc
 >                                            then switchPhase (phase, delta)
 >                                            else (normen, delta)
@@ -156,6 +158,8 @@ Signal function-based synth ====================================================
 >                     then [(0, eutDriverFull phase delta)]
 >                     else [(1, eutDriverLooping phase' delta' (normst, normen))]
 >         outA ⤙ evs
+>       where
+>         msg = unwords ["evtsf secsSample=", show secsSample, " ", show (secsSample * 44100), " ", show (secsSample * sr)]
 >
 >     modsf              :: [Evt (AudSF () Double)] → [Evt (AudSF () Double)] → [Evt (AudSF () Double)]
 >     modsf sfs evts =
@@ -263,7 +267,7 @@ Signal function-based synth ====================================================
 >
 > normalizeLooping       :: Reconciled → (Double, Double)
 > normalizeLooping recon
->   | traceIf msg False = undefined
+>   | traceAlways msg False = undefined
 >   | otherwise = (normst, normen)
 >   where
 >     fullst             :: Double = fromIntegral $ rStart recon 
