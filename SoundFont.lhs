@@ -1,7 +1,4 @@
-> {-# LANGUAGE AllowAmbiguousTypes #-}
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE ExistentialQuantification #-}
-> {-# LANGUAGE GADTs #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -728,7 +725,7 @@ zone selection =================================================================
 >                           → Volume
 >                           → ((SFZone, F.Shdr), (SFZone, F.Shdr))
 > setZone sfrost (wF, wI) zones pch vol
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise = ((zoneL, sampleL) ,(zoneR, sampleR))
 >   where
 >     zone = selectBestZone sfrost wF zones pch vol

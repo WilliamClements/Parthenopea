@@ -1,9 +1,4 @@
-> {-# LANGUAGE AllowAmbiguousTypes #-}
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE ExistentialQuantification #-}
-> {-# LANGUAGE FlexibleContexts #-}
-> {-# LANGUAGE GADTs #-}
-> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
@@ -41,21 +36,23 @@ Signal function-based synth ====================================================
 >                           → AudSF () (Double, Double)
 > eutSynthesize (rDataL, rDataR) sr dur pch vol params s16 ms8 =
 >   let
->     ap                 :: AbsPitch            = fromIntegral (rRootKey rDataL)
->     (st, en)           :: (Word, Word)        = (rStart rDataL, rEnd rDataL)
->     ns                 :: Double              = fromIntegral (en - st + 1)
->     secsSample         :: Double              = ns / sr
->     secsScored         :: Double              = 2 * fromRational dur
->     freqRatio          :: Double              = apToHz ap / apToHz pch
->     rateRatio          :: Double              = 44100 / sr
->     freqFactor         :: Double              = freqRatio * rateRatio / rPitchCorrection rDataL
+>     ap                 :: AbsPitch       = fromIntegral (rRootKey rDataL)
+>     (st, en)           :: (Word, Word)   = (rStart rDataL, rEnd rDataL)
+>     ns                 :: Double         = fromIntegral (en - st + 1)
+>     secsSample         :: Double         = ns / sr
+>     secsScored         :: Double         = 2 * fromRational dur
+>     freqRatio          :: Double         = apToHz ap / apToHz pch
+>     rateRatio          :: Double         = 44100 / sr
+>     freqFactor         :: Double         = freqRatio * rateRatio / rPitchCorrection rDataL
 >     sig                :: AudSF () (Double, Double)
->                                               = (if looping
->                                                 then eutDriverLooping 0 delta (normalizeLooping rDataL)
->                                                 else eutDriverNotLooping 0 delta)
+>                                          = (if looping
+>                                             then eutDriverLooping 0 delta (normalizeLooping rDataL)
+>                                             else eutDriverNotLooping 0 delta)
 >                                             >>> eutRelayStereo s16 ms8 secsScored (rDataL, rDataR) vol dur
 >                                             >>> eutEffects secsScored (rDataL, rDataR)
->     looping            :: Bool                = secsScored > secsSample && (rSampleMode rDataL /= A.NoLoop) && useLoopSwitching
+>     looping            :: Bool           = secsScored > secsSample
+>                                            && (rSampleMode rDataL /= A.NoLoop)
+>                                            && useLoopSwitching
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
 >   in sig
 >
@@ -80,7 +77,7 @@ Signal function-based synth ====================================================
 >                           → (Double, Double)
 >                           → AudSF () Double 
 > eutDriverLooping iphs delta (lst, len)
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise =
 >   let frac             :: RealFrac r ⇒ r → r
 >       frac = snd . properFraction
@@ -186,7 +183,7 @@ Signal function-based synth ====================================================
 >
 > normalizeLooping       :: Reconciled → (Double, Double)
 > normalizeLooping recon
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise = (normst, normen)
 >   where
 >     fullst             :: Double = fromIntegral $ rStart recon 

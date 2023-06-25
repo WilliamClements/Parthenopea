@@ -1,6 +1,3 @@
-> {-# LANGUAGE GADTs #-}
-> {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
 > module KnightsTour where

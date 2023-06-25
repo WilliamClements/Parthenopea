@@ -9,7 +9,7 @@ December 16, 2022
 
 > module Baking where
 
-> import Data.Array
+> import Data.Array ( Array, (!), (//), array )
 > import Data.List ( sortBy, sortOn )
 > import Data.Ord (comparing)
 > import Euterpea.IO.MIDI.Play

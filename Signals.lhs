@@ -1,5 +1,4 @@
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 

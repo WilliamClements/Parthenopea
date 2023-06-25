@@ -1,10 +1,6 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
-> {-# LANGUAGE AllowAmbiguousTypes #-}
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE ExistentialQuantification #-}
-> {-# LANGUAGE GADTs #-}
-> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
 
