@@ -50,37 +50,20 @@ Signal function-based synth ====================================================
 >     rateRatio          :: Double              = 44100 / sr
 >     freqFactor         :: Double              = freqRatio * rateRatio / rPitchCorrection rDataL
 >     sig                :: AudSF () (Double, Double)
->                                               = eutDriver rDataL secsSample secsScored sr 0 freqFactor
+>                                               = (if looping
+>                                                 then eutDriverLooping 0 delta (normalizeLooping rDataL)
+>                                                 else eutDriverNotLooping 0 delta)
 >                                             >>> eutRelayStereo s16 ms8 secsScored (rDataL, rDataR) vol dur
 >                                             >>> eutEffects secsScored (rDataL, rDataR)
+>     looping            :: Bool                = secsScored > secsSample && (rSampleMode rDataL /= A.NoLoop) && useLoopSwitching
+>     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
 >   in sig
 >
-> pSwitch                :: forall p col a. (Clock p, Functor col, Foldable col) ⇒
->                           col (Evt (Signal p () a))  -- Initial SF collection.
->                           → Signal p () (col (Evt (Signal p () a)))    -- Input event stream.
->                           → (col (Evt (Signal p () a))
->                                → col (Evt (Signal p () a))
->                                → col (Evt (Signal p () a)))
->                           -- A Modifying function that modifies the collection of SF
->                           --   based on the event that is occuring.
->                           → Signal p () (col a)
->                           -- The resulting collection of output values obtained from
->                           --   running all SFs in the collection.
-> pSwitch col esig modsf = 
->   proc _ → do
->     evts ← esig ⤙ ()
->     rec
->       -- perhaps this can be run at a lower rate using upsample
->       sfcol ← delay col ⤙ modsf sfcol' evts  
->       let k = foldl' (\a i → fst i) 0 sfcol
->       let rs = fmap (\ns → runSF (strip (snd ns)) ()) sfcol
->       let (as, sfcol' :: col (Evt (Signal p () a)))
->            = (fmap fst rs, fmap (\r → (k, (ArrowP . snd) r)) rs)
->     outA ⤙ as
->
-> eutDriverFull          :: Double → Double → AudSF () Double 
-> eutDriverFull iphs delta
->   | traceAlways msg False = undefined
+> eutDriverNotLooping    :: Double
+>                           → Double
+>                           → AudSF () Double 
+> eutDriverNotLooping iphs delta
+>   | traceIf msg False = undefined
 >   | otherwise =
 >   let frac             :: RealFrac r ⇒ r → r
 >       frac = snd . properFraction
@@ -90,12 +73,12 @@ Signal function-based synth ====================================================
 >       next ← delay iphs ⤙ frac (phase + delta)
 >     outA ⤙ phase
 >   where
->     msg = unwords ["eutDriverFull iphs=", show iphs, "delta=", show delta]
+>     msg = unwords ["eutDriverNotLooping iphs=", show iphs, "delta=", show delta]
 >
 > eutDriverLooping       :: Double
 >                           → Double
 >                           → (Double, Double)
->                           → AudSF () Double
+>                           → AudSF () Double 
 > eutDriverLooping iphs delta (lst, len)
 >   | traceAlways msg False = undefined
 >   | otherwise =
@@ -103,81 +86,17 @@ Signal function-based synth ====================================================
 >       frac = snd . properFraction
 >   in proc () → do
 >     rec
->       let phase = if next > len then frac lst else next
->       next ← delay iphs ⤙ frac (phase + delta)
->     outA ⤙ phase
+>       let sentinel     = if next > 1
+>                          then len
+>                          else 0.999
+>       let phase'       = if phase > sentinel
+>                          then lst 
+>                          else phase
+>       next ← delay iphs ⤙ next + delta
+>       phase ← delay iphs ⤙ frac (phase' + delta)
+>     outA ⤙ frac phase'
 >   where
 >     msg = unwords ["eutDriverLooping iphs=", show iphs, "delta=", show delta, "lst, len=", show (lst, len)]
->
-> eutDriver              :: Reconciled
->                           → Double
->                           → Double
->                           → Double
->                           → Double
->                           → Double
->                           → AudSF () Double 
-> eutDriver recon secsSample secsScored sr iphs freqFactor =
->   proc () → do
->     curPos ← sf ⤙ ()
->     let curPos' = if checkPos curPos
->                   then curPos
->                   else error "bad pos in eutDriver"
->     outA ⤙ curPos'
->
->   where
->     allsf              :: AudSF () [Double]
->                                            -- add up all samples
->                                          = pSwitch [] (evtsf secsSample) modsf
->     sf                 :: AudSF () Double
->                                          = allsf >>> arr (foldl' mix zero)
->     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
->     eps                :: Double         = 0.000001
->     phase              :: Double         = 0
->     (normst,normen)    :: (Double, Double)
->                                          = normalizeLooping recon
->
->     switchPhase        :: (Double, Double) → (Double, Double)
->     switchPhase (phase, delta) = (phase + angle, delta)
->       where
->         angle'         :: Double         = snd (properFraction angle)
->         angle          :: Double         = (secsSample/sr) * delta -- TODO: duh    ... / (2 * pi)
->
->     evtsf              :: DeltaT → AudSF () [Evt (AudSF () Double)]
->     evtsf secsSample
->       | traceAlways msg False = undefined
->       | otherwise =
->       let (phase', delta')               = if useLoopPhaseCalc
->                                            then switchPhase (phase, delta)
->                                            else (normen, delta)
->       in
->       proc () → do
->         rec
->           let t' = t + 1
->           t ← delay 0 ⤙ t'
->           let evs = if t < secsSample * 44100
->                     then [(0, eutDriverFull phase delta)]
->                     else [(1, eutDriverLooping phase' delta' (normst, normen))]
->         outA ⤙ evs
->       where
->         msg = unwords ["evtsf secsSample=", show secsSample, " ", show (secsSample * 44100), " ", show (secsSample * sr)]
->
->     modsf              :: [Evt (AudSF () Double)] → [Evt (AudSF () Double)] → [Evt (AudSF () Double)]
->     modsf sfs evts =
->       let
->         evt = last evts
->         result
->           | null sfs = [evt]
->           | fst evt == fst (last sfs) = sfs
->           | otherwise = [evt]
->       in
->         result
->
->     checkPos           :: Double  → Bool
->     checkPos pos
->       | traceNever msg False = undefined
->       | otherwise = True
->       where
->         msg = unwords ["eutDriver pos=", show pos]
 >
 > eutRelayStereo         :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
