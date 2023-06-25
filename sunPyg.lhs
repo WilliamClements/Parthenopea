@@ -8,7 +8,7 @@ March 20, 2023
 
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
-> import Parthenopea
+> import Parthenopea ( t32, addDur, ascent, descent, grace )
 > import Percussion
   
 SunPyg ====================================================================================

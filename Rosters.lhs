@@ -21,7 +21,7 @@ Rosters support ================================================================
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
 > import Fanfare
-> import Parthenopea
+> import Parthenopea ( aggrandize, playDM, addDur, durS, pSnippet02 )
 > import SoundFont
 > import SunPyg
 > import System.Environment ( getArgs )  
