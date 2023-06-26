@@ -816,8 +816,7 @@ zone selection =================================================================
 >   where
 >     sffile = fileByIndex sfrost zF
 >     arrays = zArrays sffile 
->     sin = fromJust (zSampleIndex zone)
->     shdr = ssShdrs arrays ! sin
+>     shdr = ssShdrs arrays ! fromJust (zSampleIndex zone)
 >     stype = F.sampleType shdr
 >     slink = F.sampleLink shdr
 >     mlinked = find (withSlink slink) zones
