@@ -81,7 +81,7 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [("sunPyg"          , aggrandize sunPyg)]
+>    [("littlesilver"    , aggrandize littlesilver)]
 
 organize instruments from multiple SoundFont files ====================================================================
 
@@ -270,7 +270,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Bright Piano",            ([],  HonkyTonkPiano))
 >     , ("Bright Spatial Grand",    ([],  BrightAcousticPiano))
 >     , ("Campana",                 ([],  TubularBells))
->     , ("Church Bell",             ([],  Celesta))
+>     , ("Celesta",                 ([],  Celesta))
 >     , ("Church Organ",            ([],  ChurchOrgan))
 >     , ("Clarinet",                ([],  Clarinet))
 >     , ("Clavinet1",               ([],  Clavinet))

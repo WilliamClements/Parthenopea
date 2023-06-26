@@ -262,6 +262,13 @@ Gold ===========================================================================
 
 Silver ================================================================================================================
 
+> littlesilver =
+>     removeZeros
+>     $ keysig A Mixolydian
+>     $ addVolume 30
+>     $ instrument Celesta
+>     $ line [cs 5 (2*wn)]
+>     
 > silver =
 >     removeZeros
 >     $ tempo 2
