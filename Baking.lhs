@@ -18,7 +18,7 @@ December 16, 2022
 > import Parthenopea
 > import System.Random ( mkStdGen )
   
-Bake ======================================================================================
+Bake ==================================================================================================================
 
 >
 > type Baking = (BakingMetrics, Array Int (Music (Pitch, Volume)))
@@ -359,6 +359,9 @@ The progress of the algorithm is expressed in above pair.
 > computeEnd onset dur = 
 >    min songLength (onset + dur)
 >
+  
+Definitions ===========================================================================================================
+
 > data Bake = Bake { bIx             :: Int
 >                  , bWch            :: (InstrumentName, (Pitch, Pitch))
 >                  , bOnset          :: Double

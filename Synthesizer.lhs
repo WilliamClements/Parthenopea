@@ -23,7 +23,7 @@
 > import Parthenopea
 > import qualified SynToolkit           as STK
   
-Signal function-based synth ===============================================================
+Signal function-based synth ===========================================================================================
 
 > eutSynthesize          :: (Reconciled, Reconciled)
 >                           → Double
@@ -211,6 +211,9 @@ Signal function-based synth ====================================================
 >     coarse             :: Int = fromMaybe 0 mps
 >     fine               :: Int = fromMaybe 0 mpc
 >
+
+Envelopes =============================================================================================================
+
 > deriveEnvelope         :: Maybe Int
 >                           → Maybe Int
 >                           → Maybe Int
@@ -335,6 +338,9 @@ Create a straight-line envelope generator with following phases:
 >     amps'     = take (ix+1) amps ++ [a', 0, 0]
 >     deltaTs'' = deltaTs' ++ [0.001, 0.001]
 >
+
+Effects ===============================================================================================================
+
 > eutEffects             :: Double → (Reconciled, Reconciled) → AudSF (Double, Double) (Double, Double)
 > eutEffects secsScored (zL, zR)
 >   | traceIf msg False = undefined
@@ -543,7 +549,7 @@ Create a straight-line envelope generator with following phases:
 >     yn_l ← delay 0 ⤙ yn
 >   outA ⤙ yn
 
-Charting ==================================================================================
+Charting ==============================================================================================================
 
 > vdel     = 1.0
 > vatt     = vdel + 2.0
@@ -560,7 +566,7 @@ Charting =======================================================================
 >         , (vdec  , 7-vsus , 0.3   , 0.10)
 >         , (vrel  , 0      , 0     , 0)]
 
-Utility types =============================================================================
+Utility types =========================================================================================================
 
 > data Reconciled =
 >   Reconciled {
@@ -624,7 +630,7 @@ Utility types ==================================================================
 >     SampleTypeOggVorbis    → 0x10
 >     SampleTypeRom          → 0x8000
 
-Knobs and buttons =========================================================================
+Knobs and buttons =====================================================================================================
 
 > usePitchCorrection = True
 > useEnvelopes       = True

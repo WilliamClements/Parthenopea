@@ -2,7 +2,7 @@
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
-SoundFont support =========================================================================
+SoundFont support =====================================================================================================
 
 > module SoundFont where
 >
@@ -23,7 +23,7 @@ SoundFont support ==============================================================
 > import Parthenopea ( traceIf, traceAlways, listI, initCase, listP )
 > import Synthesizer
   
-importing sampled sound (from SoundFont (*.sf2) files) ====================================
+importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
 > data PerGMKey =
 >   PerGMKey {
@@ -163,7 +163,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     ++ "/"
 >     ++ maybe "Global" (\a → F.sampleName (ssShdrs arrays ! a)) msin
 
-slurp in instruments from SoundFont (*.sf2) files =========================================
+slurp in instruments from SoundFont (*.sf2) files =====================================================================
 
 > fileByIndex            :: SFRoster → Word → SFFile
 > fileByIndex sfrost wFile = zFiles sfrost ! fromIntegral wFile
@@ -307,7 +307,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >   do
 >     mapM_ (uncurry (renderSong sfrost imap)) songs
   
-tournament among GM instruments from SoundFont files ======================================
+tournament among GM instruments from SoundFont files ==================================================================
 
 > chooseI                :: ZoneCache
 >                           → SFFile
@@ -502,7 +502,7 @@ tournament among GM instruments from SoundFont files ===========================
 > is24BitInst arrays _                     = isJust $ ssM24 arrays       
 > hasMaxSplits _ zs                        = length zs > fromIntegral splitThreshold
  
-extract data from SoundFont per instrument ================================================
+extract data from SoundFont per instrument ============================================================================
 
 > buildZone              :: SFFile → F.Inst → SFZone → Word → (Word, SFZone)
 > buildZone sffile iinst fromZone bagIndex = (bagIndex, zone)
@@ -625,7 +625,7 @@ extract data from SoundFont per instrument =====================================
 > makeNameMaps           :: SoundFontArrays → NameMaps
 > makeNameMaps arrays = (makeNameMapI arrays, makeNameMapP arrays)
 
-prepare the specified instruments and percussion ==========================================
+prepare the specified instruments and percussion ======================================================================
 
 > cacheZones             :: [SFFile] → ZoneCache
 > cacheZones sffiles                       = Map.fromList $ concatMap cacheF sffiles
@@ -695,7 +695,7 @@ prepare the specified instruments and percussion ===============================
 >                           → (InstrumentName, Instr (Stereo AudRate))
 > doAssignP sfrost pmap                    = (Percussion, assignPercussion sfrost pmap)
 
-define signal functions for playing instruments ===========================================
+define signal functions for playing instruments =======================================================================
 
 > assignInstrument       :: SFRoster → PerGMKey → Instr (Stereo AudRate)
 > assignInstrument sfrost pergm dur pch vol params
@@ -763,7 +763,7 @@ define signal functions for playing instruments ================================
 >     (zL, zR) ← sig ⤙ ()
 >     outA ⤙ (zL, zR)
 
-zone selection ============================================================================
+zone selection ========================================================================================================
 
 > setZone                :: SFRoster
 >                           → (Word, Word)
@@ -876,7 +876,7 @@ zone selection =================================================================
 >                                   then 10 * max dist1 dist2
 >                                   else 100 * min dist1 dist2
 
-reconcile zone and sample header ==========================================================
+reconcile zone and sample header ======================================================================================
 
 > sumOfMaybeInts         :: [Maybe Int] → Int
 > sumOfMaybeInts                           = foldr ((+).fromMaybe 0) 0

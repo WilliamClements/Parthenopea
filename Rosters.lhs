@@ -4,7 +4,7 @@
 > {-# LANGUAGE UnicodeSyntax #-}
 >
 
-Rosters support ===========================================================================
+Rosters support =======================================================================================================
 
 > module Main where
 >
@@ -36,14 +36,14 @@ Rosters support ================================================================
 
 >
 
-generate haskell from SoundFont ===========================================================
+generate haskell from SoundFont =======================================================================================
 
 > digAll                 :: IO ()
 > digAll = do
 >   putStrLn "under construction"
 >   doSoundFontDig soundFontTemplate "Rosters.lhs"
 
-organize exposed music ====================================================================
+organize exposed music ================================================================================================
 
 > combineAll = ajingles ++ bjingles ++ cjingles ++ djingles ++ zjingles
 >
@@ -83,11 +83,11 @@ organize exposed music =========================================================
 > sj =
 >    [("sunPyg"          , aggrandize sunPyg)]
 
-organize instruments from multiple SoundFont files ========================================
+organize instruments from multiple SoundFont files ====================================================================
 
-> lofiInst, hiDefInst, essentialsInst, dSoundFontV4Inst
+> lofiInst, arachnoInst, hiDefInst, korgInst, dSoundFontV4Inst, essentialsInst
 >                        :: [(String, ([Hints], InstrumentName))]                                
-> lofiPerc, hiDefPerc, essentialsPerc, dSoundFontV4Perc
+> lofiPerc, arachnoPerc, hiDefPerc, korgPerc, dSoundFontV4Perc, essentialsPerc
 >                        :: [(String, [(String, ([Hints], PercussionSound))])]                                
 >
 > littleSoundFontDatabase =
@@ -106,12 +106,12 @@ organize instruments from multiple SoundFont files =============================
 >   ]
 > soundFontTemplate =
 >   [
->       ("editLofi.sf2", "lofi")
->     , ("editArachno.sf2", "arachno")
->     , ("editHiDef.sf2", "hiDef")
->     , ("editKorg_X5_Drums.sf2", "korg")
->     , ("editDSoundFontV4.sf2", "dSoundFontV4")
->     , ("editEssentials.sf2", "essentials")
+>       ("editLofi.sf2"                    , "lofi")
+>     , ("editArachno.sf2"                 , "arachno")
+>     , ("editHiDef.sf2"                   , "hiDef")
+>     , ("editKorg_X5_Drums.sf2"           , "korg")
+>     , ("editDSoundFontV4.sf2"            , "dSoundFontV4")
+>     , ("editEssentials.sf2"              , "essentials")
 >   ]
 >
 > lofiInst =
@@ -423,7 +423,7 @@ organize instruments from multiple SoundFont files =============================
 >   []
 >
 
-a few playthings ... get it? ==============================================================
+a few playthings ... get it? ==========================================================================================
 
 > playJingle             :: () → (String, Music (Pitch, [NoteAttribute])) → IO ()
 > playJingle _ (s, m) =

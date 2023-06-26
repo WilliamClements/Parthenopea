@@ -34,7 +34,7 @@ December 12, 2022
 > import HSoM.Performance ( metro, Context (cDur) )
 > import System.Random ( Random(randomR), StdGen )
   
-Utilities =================================================================================
+Utilities =============================================================================================================
 
 > diagnosticsEnabled = False
 > traceIf      :: String → a → a
@@ -378,7 +378,7 @@ also
 > wideOpen :: (Pitch, Pitch)
 > wideOpen = (pitch 0, pitch 127)
 
-instrument range checking =================================================================
+instrument range checking =============================================================================================
 
 > union2Ranges :: (Pitch, Pitch) → (Pitch, Pitch) → (Pitch, Pitch)
 > union2Ranges r1 r2 = unionRanges (r1:[r2])
@@ -409,7 +409,7 @@ instrument range checking ======================================================
 >    in minP <= aP && maxP >= aP
 >
 
-examine song for instrument and percussion usage ==========================================
+examine song for instrument and percussion usage ======================================================================
 
 > data OorCase =
 >   OorCase {  oInstrument  :: InstrumentName
@@ -508,7 +508,7 @@ examine song for instrument and percussion usage ===============================
 >   = listP m ooc db1
 >
 
-tournament among instruments in various soundfont files ===================================
+tournament among instruments in various soundfont files ===============================================================
 
 > scoreOnsets  :: Int → [Double] → Array Int Int
 > scoreOnsets nBins ts
@@ -575,7 +575,7 @@ tournament among instruments in various soundfont files ========================
 > percussionLimit :: Double
 > percussionLimit = fromIntegral $ fromEnum OpenTriangle
 
-snippets to be used with "lake" ===========================================================
+snippets to be used with "lake" =======================================================================================
 
 > pSnippet01, pSnippet02, defSnippet :: Music Pitch
 > pSnippet01 = tempo (3/2) (line [ e 4 qn, e 4 en, e 4 qn, e 4 en])
@@ -592,7 +592,7 @@ snippets to be used with "lake" ================================================
 >     mel2 = invert melInput
 >     mel3 = (invert.retro) melInput
 
-music converter ===========================================================================
+music converter =======================================================================================================
 
 > aggrandize             :: Music (Pitch, Volume) → Music (Pitch, [NoteAttribute])
 > aggrandize (Prim (Note d (p, v))) =
@@ -605,7 +605,7 @@ music converter ================================================================
 >        aggrandize m1 :=: aggrandize m2
 > aggrandize (Modify c m)  = Modify c (aggrandize m)
 
-Wave ======================================================================================
+Wave ==================================================================================================================
 
 > class AudioSample a ⇒ WaveAudioSample a where
 >   retrieve :: UArray Int Int32 → Int → a
@@ -645,5 +645,5 @@ Returns the fractional part of 'x'.
 > frac :: RealFrac r ⇒ r → r
 > frac = snd . properFraction
 
-SoundFont =================================================================================
+SoundFont =============================================================================================================
 

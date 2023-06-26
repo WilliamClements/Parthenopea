@@ -11,7 +11,7 @@ February 6, 2023
 > import Euterpea.Music
 > import HSoM.Performance
   
-playerOne =========================================================================
+playerOne =============================================================================================================
 
 > p1PMap :: String → Player (Pitch, [NoteAttribute])
 > p1PMap "PlayerOne"    = playerOne
