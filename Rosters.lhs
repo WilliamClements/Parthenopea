@@ -30,9 +30,18 @@ Rosters support ================================================================
 >   _	← if dig
 >        then digAll
 >        else if playAll
->             then doSoundFont soundFontDatabaseOrig combineAll
->             else doSoundFont littleSoundFontDatabase sj
+>             then doSoundFontMusic soundFontDatabaseOrig combineAll
+>             else doSoundFontMusic littleSoundFontDatabase sj
 >   return ()
+
+>
+
+generate haskell from SoundFont ===========================================================
+
+> digAll                 :: IO ()
+> digAll = do
+>   putStrLn "under construction"
+>   doSoundFontDig soundFontTemplate "Rosters.lhs"
 
 organize exposed music ====================================================================
 
@@ -86,7 +95,6 @@ organize instruments from multiple SoundFont files =============================
 >     ("editDSoundFontV4.sf2",      ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
 >     , ("editKorg_X5_Drums.sf2",   ([],            (korgInst, korgPerc)))
 >   ]
->
 > soundFontDatabaseOrig =
 >   [
 >       ("editLofi.sf2",            ([],            (lofiInst, lofiPerc)))
@@ -95,6 +103,15 @@ organize instruments from multiple SoundFont files =============================
 >     , ("editKorg_X5_Drums.sf2",   ([],            (korgInst, korgPerc)))
 >     , ("editDSoundFontV4.sf2",    ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
 >     , ("editEssentials.sf2",      ([],      (essentialsInst, essentialsPerc)))
+>   ]
+> soundFontTemplate =
+>   [
+>       ("editLofi.sf2", "lofi")
+>     , ("editArachno.sf2", "arachno")
+>     , ("editHiDef.sf2", "hiDef")
+>     , ("editKorg_X5_Drums.sf2", "korg")
+>     , ("editDSoundFontV4.sf2", "dSoundFontV4")
+>     , ("editEssentials.sf2", "essentials")
 >   ]
 >
 > lofiInst =

@@ -106,14 +106,14 @@ Signal function-based synth ====================================================
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
->     (stL, enL)         :: (Word, Word)     = (rStart rDataL, rEnd rDataL)
->     (stR, enR)         :: (Word, Word)     = (rStart rDataR, rEnd rDataR)
->     numS               :: Double           = fromIntegral (enL - stL + 1)
->     amp                :: Double           = fromIntegral vol / 100
+>     (stL, enL)         :: (Word, Word)   = (rStart rDataL, rEnd rDataL)
+>     (stR, enR)         :: (Word, Word)   = (rStart rDataR, rEnd rDataR)
+>     numS               :: Double         = fromIntegral (enL - stL + 1)
+>     amp                :: Double         = fromIntegral vol / 100
 >
 >   in proc pos → do
->     let saddrL         :: Int              = fromIntegral stL + truncate (numS * pos)
->     let saddrR         :: Int              = fromIntegral stR + truncate (numS * pos)
+>     let saddrL         :: Int            = fromIntegral stL + truncate (numS * pos)
+>     let saddrR         :: Int            = fromIntegral stR + truncate (numS * pos)
 >     let ok = True
 >     let (a1L, a1R) = if ok
 >                      then getSampleVals (saddrL, saddrR)
