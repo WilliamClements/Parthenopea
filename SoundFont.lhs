@@ -22,6 +22,7 @@ SoundFont support ==============================================================
 > import Euterpea.Music
 > import Parthenopea ( traceIf, traceAlways, listI, initCase, listP )
 > import Synthesizer
+> import Text.FuzzyFind
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
@@ -55,6 +56,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data SFFile =
 >   SFFile {
 >     zFilename          :: FilePath
+>   , zNickname          :: String
 >   , zArrays            :: SoundFontArrays
 >   , zWordF             :: Word
 >   , zScore             :: Int}
@@ -177,7 +179,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     ts1 ← getCurrentTime
 >     let numberedDB = zip [0..] sfdb
 >     sffilesp ← mapM (uncurry readSoundFontFile) numberedDB
->     let zonesP = cacheZones (map fst sffilesp)
+>     zonesP ← cacheZones (map fst sffilesp)
 >     putStrLn ("# available instr =" ++ show (Map.size zonesP))
 >     ts2 ← getCurrentTime
 >     putStrLn ("___load files: " ++ show (diffUTCTime ts2 ts1))
@@ -205,13 +207,21 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 > doSoundFontDig sft outFilename =
 >   do
 >     putStrLn "processing..."
->     ts1 ← getCurrentTime
 >     let numberedDB = zip [0..] sft
+>     ts1 ← getCurrentTime
+>
 >     sffilesp ← mapM (uncurry digSoundFontFile) numberedDB
->     let zonesP = cacheZones sffilesp
->     putStrLn ("# available instr =" ++ show (Map.size zonesP))
 >     ts2 ← getCurrentTime
 >     putStrLn ("___load files: " ++ show (diffUTCTime ts2 ts1))
+>
+>     zc ← cacheZones sffilesp
+>     ts3 ← getCurrentTime
+>     putStrLn ("cache zones: " ++ show (diffUTCTime ts3 ts2))
+>
+>     all ← spillRosters zc sffilesp
+>     writeFile outFilename all
+>     ts4 ← getCurrentTime
+>     putStrLn ("write rosters: " ++ show (diffUTCTime ts4 ts3))
 >
 > readSoundFontFile      :: Word
 >                           → ( FilePath
@@ -238,7 +248,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                        (F.shdrs pdata)
 >                        (F.smpl sdata)
 >                        (F.sm24 sdata)
->         let sffile = SFFile filename arrays wFile (sfscore filehints)
+>         let sffile = SFFile filename "no nickname" arrays wFile (sfscore filehints)
 >
 >         ts2 ← getCurrentTime
 >         let nBits = case ssM24 arrays of
@@ -268,7 +278,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                        (F.shdrs pdata)
 >                        (F.smpl sdata)
 >                        (F.sm24 sdata)
->         let sffile = SFFile filename arrays wFile 0
+>         let sffile = SFFile filename nickname arrays wFile 0
 >
 >         ts2 ← getCurrentTime
 >         let nBits = case ssM24 arrays of
@@ -462,10 +472,10 @@ tournament among GM instruments from SoundFont files ===========================
 >     zs                                   = tail $ getZonesFromCache zc pergm
 >     arrays                               = zArrays sffile
 >
->     desires                              = [desireReStereo
+>     desires            :: [Desires]      = [desireReStereo
 >                                           , desireRe24Bit
 >                                           , desireReMaxSplits]
->     empiricals                           = [   scoreBool $ isStereoInst arrays zs
+>     empiricals         :: [Int]          = [   scoreBool $ isStereoInst arrays zs
 >                                              , scoreBool $ is24BitInst  arrays zs
 >                                              , scoreBool $ hasMaxSplits arrays zs]
 >
@@ -477,12 +487,13 @@ tournament among GM instruments from SoundFont files ===========================
 >                                              , head s'
 >                                              , (head.tail) s'
 >                                              , (head.tail.tail) s']
->     weights                              = [   weightFileHints
+>     weights            :: [Int]          = [   weightFileHints
 >                                              , weightInstrumentHints
 >                                              , weightStereo
 >                                              , weight24Bit
 >                                              , weightMaxSplits]
->     weightedScores                       = zipWith (*) baseScores weights
+>     weightedScores     :: [Int]          = zipWith (*) baseScores weights
+>
 >     msg = unwords [   "computeStaticScore "  , show baseScores
 >                     , " X "                  , show weights
 >                     , " = "                  , show weightedScores]
@@ -627,8 +638,9 @@ extract data from SoundFont per instrument =====================================
 
 prepare the specified instruments and percussion ======================================================================
 
-> cacheZones             :: [SFFile] → ZoneCache
-> cacheZones sffiles                       = Map.fromList $ concatMap cacheF sffiles
+> cacheZones             :: [SFFile] → IO ZoneCache
+> cacheZones sffiles                       = do
+>   return $ Map.fromList $ concatMap cacheF sffiles
 >   where
 >     cacheF             :: SFFile → [(PerGMKey, [(Word, SFZone)])]
 >     cacheF sffile                        = concatMap (cacheI sffile) [fst boundsI..snd boundsI]
@@ -998,3 +1010,66 @@ reconcile zone and sample header ===============================================
 >     ++ " (s="
 >     ++ show (pStaticScore pergm')
 >     ++ ")"
+>
+> spillRosters           :: ZoneCache → [SFFile] → IO String
+> spillRosters zc sffilesp                             = do
+>   let whole =    preface
+>               ++ concatMap (spillF zc) sffilesp
+>               ++ epilog
+>   return whole
+>   where
+>     preface =     "> {-# LANGUAGE ScopedTypeVariables #-}\n"
+>                ++ "> {-# LANGUAGE UnicodeSyntax #-}\n"
+>                ++ ">\n"
+>                ++ "> module SyntheticRosters where\n"
+>                ++ ">\n"
+>                ++ "> import Euterpea.Music\n"
+>                ++ "> import SoundFont\n"
+>                ++ "\nThis file was generated from source SoundFont files\n\n"
+>     epilog =      "> \n"
+>
+> spillF                 :: ZoneCache → SFFile → String
+> spillF zc sffile                         = preface ++ concat spilt ++ epilog
+>   where
+>     arrays = zArrays sffile
+>     boundsI = bounds $ ssInsts arrays
+>
+>     spilt = map (spillI zc sffile) [fst boundsI..snd boundsI]
+>
+>     preface = "> "       ++ zNickname sffile ++ "Inst =\n>   [\n"
+>     epilog = ">   ]\n> " ++ zNickname sffile ++ "Perc =\n>   [\n>   ]\n"
+>
+> makeLineI              :: Bool → String → String
+> makeLineI isComment nameI                = iline
+>   where
+>     preface
+>       | isComment = "> --"
+>       | otherwise = ">"
+>     iline =
+>        preface
+>             ++ "       (\""
+>             ++ nameI
+>             ++ "\","
+>             ++ replicate (31 - length nameI) ' '
+>             ++ "([], "
+>             ++ "ElectricGrandPiano))\n"
+>     
+> spillI                 :: ZoneCache → SFFile → Word → String
+> spillI zc sffile wordI                   = iline
+>   where
+>     arrays = zArrays sffile
+>     iinst  = ssInsts arrays ! wordI
+>     pergm  = PerGMKey (zWordF sffile) wordI Nothing
+>     zones  = getZonesFromCache zc pergm
+>     nameI  = quoteSyntheticText $ F.instName iinst
+>     mm     = bestMatch "piano" nameI
+>     iline  = makeLineI (isNothing mm) nameI
+>
+> quoteSyntheticText     :: String → String
+> quoteSyntheticText z                     = z'
+>   where
+>     z'                 :: String         = concatMap quote z
+>     quote              :: Char → String
+>     quote c = case c of
+>                 '\"'      → "\\\""
+>                 _ → [c]

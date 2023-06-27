@@ -6,7 +6,7 @@
 
 Rosters support =======================================================================================================
 
-> module Main where
+> module Rosters where
 >
 > import Baking
 > import Cecil
@@ -28,20 +28,14 @@ Rosters support ================================================================
 >   let dig =     (length args == 1) && ("dig" == head args)
 >   let playAll = (length args == 1) && ("all" == head args)
 >   _	← if dig
->        then digAll
+>        then doSoundFontDig littleSoundFontTemplate "SyntheticRosters.lhs"
 >        else if playAll
 >             then doSoundFontMusic soundFontDatabaseOrig combineAll
 >             else doSoundFontMusic littleSoundFontDatabase sj
 >   return ()
-
 >
-
-generate haskell from SoundFont =======================================================================================
-
-> digAll                 :: IO ()
-> digAll = do
->   putStrLn "under construction"
->   doSoundFontDig soundFontTemplate "Rosters.lhs"
+> digAll = doSoundFontDig littleSoundFontTemplate "SyntheticRosters.lhs"
+>
 
 organize exposed music ================================================================================================
 
@@ -104,7 +98,12 @@ organize instruments from multiple SoundFont files =============================
 >     , ("editDSoundFontV4.sf2",    ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
 >     , ("editEssentials.sf2",      ([],      (essentialsInst, essentialsPerc)))
 >   ]
-> soundFontTemplate =
+> littleSoundFontTemplate =
+>   [
+>       ("editKorg_X5_Drums.sf2"           , "korg")
+>     , ("editDSoundFontV4.sf2"            , "dSoundFontV4")
+>   ]
+> soundFontTemplateOrig =
 >   [
 >       ("editLofi.sf2"                    , "lofi")
 >     , ("editArachno.sf2"                 , "arachno")
