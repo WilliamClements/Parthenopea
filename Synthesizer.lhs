@@ -117,7 +117,7 @@ Signal function-based synth ====================================================
 >     let ok = True
 >     let (a1L, a1R) = if ok
 >                      then getSampleVals (saddrL, saddrR)
->                      else error "bad addrs"
+>                      else error "bad addrs (wink)"
 >     rec
 >       aenvL ← if useEnvelopes
 >               then doEnvelope secsScored (rEnvelope rDataL) ⤙ ()
@@ -135,8 +135,7 @@ Signal function-based synth ====================================================
 >     let ok = lookAtEveryPoint amp a2L aenvL a2R aenvR
 >     let (zL', zR') = if ok
 >                      then (zL, zR)
->                      else error "bad point"
->
+>                      else error "bad point (wink)"
 >     outA ⤙ (zL', zR')
 >
 >   where

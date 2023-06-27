@@ -1066,9 +1066,8 @@ reconcile zone and sample header ===============================================
 >     iline  = makeLineI (isNothing mm) nameI
 >
 > quoteSyntheticText     :: String → String
-> quoteSyntheticText z                     = z'
+> quoteSyntheticText                       = concatMap quote
 >   where
->     z'                 :: String         = concatMap quote z
 >     quote              :: Char → String
 >     quote c = case c of
 >                 '\"'      → "\\\""

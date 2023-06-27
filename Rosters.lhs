@@ -2,11 +2,10 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE UnicodeSyntax #-}
->
 
 Rosters support =======================================================================================================
 
-> module Rosters where
+> module Main where
 >
 > import Baking
 > import Cecil
