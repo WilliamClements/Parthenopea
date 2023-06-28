@@ -62,9 +62,7 @@ Signal function-based synth ====================================================
 > eutDriverNotLooping iphs delta
 >   | traceIf msg False = undefined
 >   | otherwise =
->   let frac             :: RealFrac r ⇒ r → r
->       frac = snd . properFraction
->   in proc () → do
+>   proc () → do
 >     rec
 >       let phase = if next > 1 then frac next else next
 >       next ← delay iphs ⤙ frac (phase + delta)
@@ -79,9 +77,7 @@ Signal function-based synth ====================================================
 > eutDriverLooping iphs delta (lst, len)
 >   | traceIf msg False = undefined
 >   | otherwise =
->   let frac             :: RealFrac r ⇒ r → r
->       frac = snd . properFraction
->   in proc () → do
+>   proc () → do
 >     rec
 >       let sentinel     = if next > 1
 >                          then len
@@ -132,12 +128,12 @@ Signal function-based synth ====================================================
 >       a2R   ← if useLowPassFilter
 >               then filterLowPass                            ⤙ (a1R,20000*aenvR)
 >               else delay 0                                  ⤙ a1R
->     let (reconL, reconR) = (a2L*amp*aenvL, a2R*amp*aenvR)
+>     let (sL, sR) = (a2L*amp*aenvL, a2R*amp*aenvR)
 >     let ok = lookAtEveryPoint amp a2L aenvL a2R aenvR
->     let (reconL', reconR') = if ok
->                      then (reconL, reconR)
+>     let (sL', sR') = if ok
+>                      then (sL, sR)
 >                      else error "bad point (wink)"
->     outA ⤙ (reconL', reconR')
+>     outA ⤙ (sL', sR')
 >
 >   where
 >     msg = unwords ["eutRelayStereo = ", show secsScored, " , ", show dur]

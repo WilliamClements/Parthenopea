@@ -53,13 +53,11 @@ Utilities ======================================================================
 > addDur d ns  =  let f n = n d
 >                 in line (map f ns)
 >
-> grace        :: Int → Music Pitch → Music Pitch
-> grace n (Prim (Note d p)) = note (frac * d) gp :+: note ((1 - frac) * d) p
+> grace                  :: Int → Music Pitch → Music Pitch
+> grace n (Prim (Note d p)) = note (est * d) (trans n p) :+: note ((1 - est) * d) p
 >   where
->     gp :: Pitch
->     gp = trans n p
->     frac :: Rational
->     frac = case compare d (1/8) of
+>     est                :: Rational
+>     est = case compare d (1/8) of
 >                 LT → 1/2
 >                 _  → 1/8
 > grace n  _                  = 
