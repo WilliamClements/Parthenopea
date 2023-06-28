@@ -74,7 +74,8 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [("littlesilver"    , aggrandize littlesilver)]
+>    [("littlePendingtonArnt"
+>                        , aggrandize littlePendingtonArnt)]
 
 organize instruments from multiple SoundFont files ====================================================================
 
@@ -85,7 +86,8 @@ organize instruments from multiple SoundFont files =============================
 >
 > littleSoundFontDatabase =
 >   [
->     ("editDSoundFontV4.sf2",      ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
+>     ("editArachno.sf2",           ([],         (arachnoInst, arachnoPerc)))
+>     , ("editDSoundFontV4.sf2",    ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
 >     , ("editKorg_X5_Drums.sf2",   ([],            (korgInst, korgPerc)))
 >   ]
 > soundFontDatabaseOrig =
@@ -126,6 +128,8 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Cello0",                  ([], Cello))
 >     , ("Charang0",                ([], OverdrivenGuitar))
 >     , ("ContraBass5",             ([], Contrabass))
+>     , ("Muted Trumpet",           ([DHigh]
+>                                      , Trumpet))
 >     , ("Orchestral Harp1",        ([], ElectricGrandPiano))
 >   ]
 > arachnoPerc =

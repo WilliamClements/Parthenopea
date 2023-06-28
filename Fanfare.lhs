@@ -796,7 +796,7 @@ Way Pos' T' Purple =============================================================
 >   pPoolP  = rest 0
 
 > littlePendingtonArnt =
->   instrument TenorSax $ addVolume 120 $ addDur en [c 3, e 3, fs 3, g 3]
+>   instrument Trumpet $ addVolume 120 $ addDur en [c 5, e 5, fs 5, g 5]
 
 Pendington Arnt  ======================================================================================================
 

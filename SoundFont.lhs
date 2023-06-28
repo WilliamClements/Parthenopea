@@ -718,8 +718,8 @@ define signal functions for playing instruments ================================
 >                                                         (pWordF pergm, pWordI pergm)
 >                                                         dur pch vol params
 >   in proc _ → do
->     (zL, zR) ← sig ⤙ ()
->     outA ⤙ (zL, zR)
+>     (reconL, reconR) ← sig ⤙ ()
+>     outA ⤙ (reconL, reconR)
 >
 > constructSig           :: SFRoster
 >                           → (Word, Word)
@@ -739,19 +739,19 @@ define signal functions for playing instruments ================================
 >     ((zoneL, shdrL), (zoneR, shdrR))
 >                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
 >                                          = setZone sfrost (zF, zI) zones pch vol
->     (rDataL, rDataR)   :: (Reconciled, Reconciled)
+>     (reconL, reconR)   :: (Reconciled, Reconciled)
 >                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
 >     sr                 :: Double         = fromIntegral $ F.sampleRate shdrL
 >     sig                :: AudSF () (Double, Double)
 >     ok                 :: Bool           = checkReconcile
 >                                              ((zoneL, shdrL), (zoneR, shdrR))
->                                              rDataL
->                                              rDataR
+>                                              reconL
+>                                              reconR
 >     sffile             :: SFFile         = fileByIndex sfrost zF
 >     arrays             :: SoundFontArrays= zArrays sffile 
 >     sig = if not ok
 >           then error "SFZone and F.Shdr could not be reconciled"
->           else eutSynthesize (rDataL, rDataR) sr dur pch vol params
+>           else eutSynthesize (reconL, reconR) sr dur pch vol params
 >                              (ssData arrays) (ssM24 arrays)
 >   in sig
 >   where
@@ -772,8 +772,8 @@ define signal functions for playing instruments ================================
 >     sig                :: AudSF () (Double, Double)
 >                                          = constructSig sfrost (wF, wI) dur pch vol params
 >   in proc _ → do
->     (zL, zR) ← sig ⤙ ()
->     outA ⤙ (zL, zR)
+>     (reconL, reconR) ← sig ⤙ ()
+>     outA ⤙ (reconL, reconR)
 
 zone selection ========================================================================================================
 

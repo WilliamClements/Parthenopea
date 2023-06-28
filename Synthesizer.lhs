@@ -1,4 +1,5 @@
 > {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
@@ -7,7 +8,6 @@
 > import Control.Arrow
 > import Control.Arrow.ArrowP
 > import Control.SF.SF
-> -- import Control.Arrow.ArrowP ( ArrowP(ArrowP), strip )
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds) )
 > import qualified Data.Audio           as A
 > import Data.Int ( Int8, Int16, Int32 )
@@ -34,24 +34,24 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → AudSF () (Double, Double)
-> eutSynthesize (rDataL, rDataR) sr dur pch vol params s16 ms8 =
+> eutSynthesize (reconL, reconR) sr dur pch vol params s16 ms8 =
 >   let
->     ap                 :: AbsPitch       = fromIntegral (rRootKey rDataL)
->     (st, en)           :: (Word, Word)   = (rStart rDataL, rEnd rDataL)
+>     ap                 :: AbsPitch       = fromIntegral (rRootKey reconL)
+>     (st, en)           :: (Word, Word)   = (rStart reconL, rEnd reconL)
 >     ns                 :: Double         = fromIntegral (en - st + 1)
 >     secsSample         :: Double         = ns / sr
 >     secsScored         :: Double         = 2 * fromRational dur
 >     freqRatio          :: Double         = apToHz ap / apToHz pch
 >     rateRatio          :: Double         = 44100 / sr
->     freqFactor         :: Double         = freqRatio * rateRatio / rPitchCorrection rDataL
+>     freqFactor         :: Double         = freqRatio * rateRatio / rPitchCorrection reconL
 >     sig                :: AudSF () (Double, Double)
 >                                          = (if looping
->                                             then eutDriverLooping 0 delta (normalizeLooping rDataL)
+>                                             then eutDriverLooping 0 delta (normalizeLooping reconL)
 >                                             else eutDriverNotLooping 0 delta)
->                                             >>> eutRelayStereo s16 ms8 secsScored (rDataL, rDataR) vol dur
->                                             >>> eutEffects secsScored (rDataL, rDataR)
+>                                             >>> eutRelayStereo s16 ms8 secsScored (reconL, reconR) vol dur
+>                                             >>> eutEffects secsScored (reconL, reconR)
 >     looping            :: Bool           = secsScored > secsSample
->                                            && (rSampleMode rDataL /= A.NoLoop)
+>                                            && (rSampleMode reconL /= A.NoLoop)
 >                                            && useLoopSwitching
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
 >   in sig
@@ -93,7 +93,8 @@ Signal function-based synth ====================================================
 >       phase ← delay iphs ⤙ frac (phase' + delta)
 >     outA ⤙ frac phase'
 >   where
->     msg = unwords ["eutDriverLooping iphs=", show iphs, "delta=", show delta, "lst, len=", show (lst, len)]
+>     msg = unwords ["eutDriverLooping iphs=", show iphs, "delta=", show delta
+>                               , "lst, len=", show (lst, len)]
 >
 > eutRelayStereo         :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
@@ -102,12 +103,12 @@ Signal function-based synth ====================================================
 >                           → Volume
 >                           → Dur
 >                           → AudSF Double (Double, Double)
-> eutRelayStereo s16 ms8 secsScored (rDataL, rDataR) vol dur
+> eutRelayStereo s16 ms8 secsScored (reconL, reconR) vol dur
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   let
->     (stL, enL)         :: (Word, Word)   = (rStart rDataL, rEnd rDataL)
->     (stR, enR)         :: (Word, Word)   = (rStart rDataR, rEnd rDataR)
+>     (stL, enL)         :: (Word, Word)   = (rStart reconL, rEnd reconL)
+>     (stR, enR)         :: (Word, Word)   = (rStart reconR, rEnd reconR)
 >     numS               :: Double         = fromIntegral (enL - stL + 1)
 >     amp                :: Double         = fromIntegral vol / 100
 >
@@ -120,10 +121,10 @@ Signal function-based synth ====================================================
 >                      else error "bad addrs (wink)"
 >     rec
 >       aenvL ← if useEnvelopes
->               then doEnvelope secsScored (rEnvelope rDataL) ⤙ ()
+>               then doEnvelope secsScored (rEnvelope reconL) ⤙ ()
 >               else constA 1                                 ⤙ ()
 >       aenvR ← if useEnvelopes
->               then doEnvelope secsScored (rEnvelope rDataR) ⤙ ()
+>               then doEnvelope secsScored (rEnvelope reconR) ⤙ ()
 >               else constA 1                                 ⤙ ()
 >       a2L   ← if useLowPassFilter
 >               then filterLowPass                            ⤙ (a1L,20000*aenvL)
@@ -131,12 +132,12 @@ Signal function-based synth ====================================================
 >       a2R   ← if useLowPassFilter
 >               then filterLowPass                            ⤙ (a1R,20000*aenvR)
 >               else delay 0                                  ⤙ a1R
->     let (zL, zR) = (a2L*amp*aenvL, a2R*amp*aenvR)
+>     let (reconL, reconR) = (a2L*amp*aenvL, a2R*amp*aenvR)
 >     let ok = lookAtEveryPoint amp a2L aenvL a2R aenvR
->     let (zL', zR') = if ok
->                      then (zL, zR)
+>     let (reconL', reconR') = if ok
+>                      then (reconL, reconR)
 >                      else error "bad point (wink)"
->     outA ⤙ (zL', zR')
+>     outA ⤙ (reconL', reconR')
 >
 >   where
 >     msg = unwords ["eutRelayStereo = ", show secsScored, " , ", show dur]
@@ -340,36 +341,19 @@ Create a straight-line envelope generator with following phases:
 
 Effects ===============================================================================================================
 
-> eutEffects             :: Double → (Reconciled, Reconciled) → AudSF (Double, Double) (Double, Double)
-> eutEffects secsScored (zL, zR)
+> eutEffects             :: Double
+>                           → (Reconciled, Reconciled)
+>                           → AudSF (Double, Double) (Double, Double)
+> eutEffects secsScored (reconL, reconR)
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   proc (aL, aR) → do
->     let cFactorL = if useEffectChorus
->                    then fromMaybe 0 (efChorus effL)
->                    else 0.0
->     let cFactorR = if useEffectChorus
->                    then fromMaybe 0 (efChorus effR)
->                    else 0.0
->     let rFactorL = if useEffectReverb
->                    then fromMaybe 0 (efReverb effL)
->                    else 0.0
->     let rFactorR = if useEffectReverb
->                    then fromMaybe 0 (efReverb effR)
->                    else 0.0
->     let pFactorL = if useEffectPan
->                    then fromMaybe 0 (efPan effL)
->                    else 0.0
->     let pFactorR = if useEffectPan
->                    then fromMaybe 0 (efPan effR)
->                    else 0.0
->
->     -- TODO chL ← eutChorus 15.0 0.005 0.1 ⤙ aL
->     -- TODO chR ← eutChorus 15.0 0.005 0.1 ⤙ aR
->     let (chL, chR) = (aL, aR)
->
->     -- TODO (rbL, rbR) ← eutReverb 0.75 0.25 1.0 ⤙ (aL, aR)
->     let (rbL, rbR) = (aL, aR)
+>     (chL, chR) ← if cFactorL <= 0 || cFactorR <= 0
+>                  then delay (0,0) ⤙ (aL, aR)
+>                  else eutChorus 15.0 0.005 0.1 ⤙ (aL, aR)
+>     (rbL, rbR) ← if rFactorL <= 0 || rFactorR <= 0
+>                  then delay (0,0) ⤙ (aL, aR)
+>                  else eutReverb 0.75 0.25 1.0 ⤙ (aL, aR)
 >
 >     let mixL = (cFactorL * chL
 >                 + rFactorL * rbL
@@ -380,35 +364,54 @@ Effects ========================================================================
 >                 + (1 - cFactorR) * aR
 >                 + (1 - rFactorR) * aR) / 2
 >
->     let ((cL, cR), (dL, dR))  = (doPan pFactorL mixL, doPan pFactorR mixR)
->     let (wtL, wtR)	= ((cL + dL) / 2, (cR + dR) / 2)
->
-> {-
->     dcL ← dcBlock 0.99 ⤙ wtL
->     dcR ← dcBlock 0.99 ⤙ wtR
->
->     let (oaL, oaR) = if useDCBlock
->                      then (dcL, dcR)
->                      else (wtL, wtR)
-> -}
->     let (oaL, oaR) = (wtL, wtR)
->
->     outA ⤙ (oaL, oaR)
+>     let (cL, cR) = doPan (pFactorL, pFactorR) (mixL, mixR)
+>     let (wtL, wtR) = (cL / 2, cR / 2)
+>     outA ⤙ (wtL, wtR)
 >
 >   where
->     (effL, effR) = (rEffects zL, rEffects zR)
->     msg = unwords ["eutEffects=", show effL, "=LR=", show effR]
+>     cFactorL = if useEffectChorus
+>                then fromMaybe 0 (efChorus effL)
+>                else 0.0
+>     cFactorR = if useEffectChorus
+>                then fromMaybe 0 (efChorus effR)
+>                else 0.0
+>     rFactorL = if useEffectReverb
+>                then fromMaybe 0 (efReverb effL)
+>                else 0.0
+>     rFactorR = if useEffectReverb
+>                then fromMaybe 0 (efReverb effR)
+>                else 0.0
+>     pFactorL = if useEffectPan
+>                then fromMaybe 0 (efPan effL)
+>                else 0.0
+>     pFactorR = if useEffectPan
+>                then fromMaybe 0 (efPan effR)
+>                else 0.0
+>
+>     (effL, effR) = (rEffects reconL, rEffects reconR)
+>
+>     msg = unwords ["eutEffects=", show effL, "=LR=", show effR, "rFactor*=", show rFactorL, " ", show rFactorR]
 > 
-> eutChorus              :: Double → Double → Double → AudSF Double Double
+> eutChorus              :: Double
+>                           → Double
+>                           → Double
+>                           → AudSF (Double, Double) (Double, Double)
 > eutChorus rate depth gain =
->   proc sin → do
+>   proc (sinL, sinR) → do
 >     rec
 >       lfo ← osc (tableSines 4096 [1]) 0 ⤙ rate
->       z1 ← delayLine1 0.030 ⤙ (sin, 0.010 + depth * lfo)
->       z2 ← delayLine1 0.030 ⤙ (sin, 0.020 + depth * lfo)
->       z3 ← delayLine1 0.030 ⤙ (sin, 0.030 + depth * lfo)
->       r ← delayLine 0.0001 ⤙ (sin + z1 + z2 + z3)/4 + r * gain
->     outA ⤙ r
+>
+>       z1L ← delayLine1 0.030 ⤙ (sinL, 0.010 + depth * lfo)
+>       z2L ← delayLine1 0.030 ⤙ (sinL, 0.020 + depth * lfo)
+>       z3L ← delayLine1 0.030 ⤙ (sinL, 0.030 + depth * lfo)
+>
+>       z1R ← delayLine1 0.030 ⤙ (sinR, 0.010 + depth * lfo)
+>       z2R ← delayLine1 0.030 ⤙ (sinR, 0.020 + depth * lfo)
+>       z3R ← delayLine1 0.030 ⤙ (sinR, 0.030 + depth * lfo)
+>
+>       rL ← delayLine 0.0001 ⤙ (sinL + z1L + z2L + z3L)/4 + rL * gain
+>       rR ← delayLine 0.0001 ⤙ (sinR + z1R + z2R + z3R)/4 + rR * gain
+>     outA ⤙ (rL, rR)
 >
 > eutReverb              :: Double → Double → Double → AudSF (Double, Double) (Double, Double)
 > eutReverb roomSize damp width =
@@ -429,7 +432,9 @@ Effects ========================================================================
 > windices               :: [Word]   = [0..7]
 >
 > makeFreeVerb           :: Double → Double → Double → STK.FreeVerb
-> makeFreeVerb roomSize damp width =
+> makeFreeVerb roomSize damp width
+>   | traceIf msg False = undefined
+>   | otherwise =
 >   let
 >     wet = fvScaleWet * fvWetDryMix
 >     dry = fvScaleDry * (1 - fvWetDryMix)
@@ -459,86 +464,99 @@ Effects ========================================================================
 >                  initCombFilter
 >                  initAllpassDelay
 >                  initAllpassDelay
+>   where
+>     msg = unwords [   "makeFreeVerb roomSize="
+>                     , show roomSize
+>                     , " damp="
+>                     , show damp
+>                     , " width="
+>                     , show width]
+>   
 >
 > eatFreeVerb            :: STK.FreeVerb → AudSF (Double, Double) (Double, Double)
-> eatFreeVerb fv@STK.FreeVerb
->   {   STK.iiWetDryMix      = mix             {- 0.2    -}
->     , STK.iiG              = coeff           {- 0.5    -}
->     , STK.iiGain           = gain            {- 0.015  -}
->     , STK.iiRoomSize       = roomSize        {- 0.75   -}
->     , STK.iiDamp           = damp            {- 0.25   -}
->     , STK.iiWet1           = wet1
->     , STK.iiWet2           = wet2
->     , STK.iiDry            = dry
->     , STK.iiWidth          = width           {- 1.0    -}
->     , STK.iiCombDelayL     = cdL
->     , STK.iiCombDelayR     = cdR 
->     , STK.iiCombLPL        = lpL
->     , STK.iiCombLPR        = lpR
->     , STK.iiAllPassDelayL  = adL
->     , STK.iiAllPassDelayR  = adR} =
+> eatFreeVerb STK.FreeVerb
+>   {   STK.iiWetDryMix      {- 0.2    -}
+>     , STK.iiG              {- 0.5    -}
+>     , STK.iiGain           {- 0.015  -}
+>     , STK.iiRoomSize       {- 0.75   -}
+>     , STK.iiDamp           {- 0.25   -}
+>     , STK.iiWet1           
+>     , STK.iiWet2           
+>     , STK.iiDry            
+>     , STK.iiWidth          {- 1.0    -}
+>     , STK.iiCombDelayL     
+>     , STK.iiCombDelayR      
+>     , STK.iiCombLPL        
+>     , STK.iiCombLPR        
+>     , STK.iiAllPassDelayL  
+>     , STK.iiAllPassDelayR  } =
 >
 >     proc (sinL, sinR) → do
->       cdL0 ← comb (cdL ! 0) (lpL ! 0) ⤙ sinL
->       cdL1 ← comb (cdL ! 1) (lpL ! 1) ⤙ sinL
->       cdL2 ← comb (cdL ! 2) (lpL ! 2) ⤙ sinL
->       cdL3 ← comb (cdL ! 3) (lpL ! 3) ⤙ sinL
->       cdL4 ← comb (cdL ! 4) (lpL ! 4) ⤙ sinL
->       cdL5 ← comb (cdL ! 5) (lpL ! 5) ⤙ sinL
->       cdL6 ← comb (cdL ! 6) (lpL ! 6) ⤙ sinL
->       cdL7 ← comb (cdL ! 7) (lpL ! 7) ⤙ sinL
+>       cdL0 ← comb (iiCombDelayL ! 0) (iiCombLPL ! 0) ⤙ sinL
+>       cdL1 ← comb (iiCombDelayL ! 1) (iiCombLPL ! 1) ⤙ sinL
+>       cdL2 ← comb (iiCombDelayL ! 2) (iiCombLPL ! 2) ⤙ sinL
+>       cdL3 ← comb (iiCombDelayL ! 3) (iiCombLPL ! 3) ⤙ sinL
+>       cdL4 ← comb (iiCombDelayL ! 4) (iiCombLPL ! 4) ⤙ sinL
+>       cdL5 ← comb (iiCombDelayL ! 5) (iiCombLPL ! 5) ⤙ sinL
+>       cdL6 ← comb (iiCombDelayL ! 6) (iiCombLPL ! 6) ⤙ sinL
+>       cdL7 ← comb (iiCombDelayL ! 7) (iiCombLPL ! 7) ⤙ sinL
 >
->       cdR0 ← comb (cdR ! 0) (lpR ! 0) ⤙ sinR
->       cdR1 ← comb (cdR ! 1) (lpR ! 1) ⤙ sinR
->       cdR2 ← comb (cdR ! 2) (lpR ! 2) ⤙ sinR
->       cdR3 ← comb (cdR ! 3) (lpR ! 3) ⤙ sinR
->       cdR4 ← comb (cdR ! 4) (lpR ! 4) ⤙ sinR
->       cdR5 ← comb (cdR ! 5) (lpR ! 5) ⤙ sinR
->       cdR6 ← comb (cdR ! 6) (lpR ! 6) ⤙ sinR
->       cdR7 ← comb (cdR ! 7) (lpR ! 7) ⤙ sinR
+>       cdR0 ← comb (iiCombDelayR ! 0) (iiCombLPR ! 0) ⤙ sinR
+>       cdR1 ← comb (iiCombDelayR ! 1) (iiCombLPR ! 1) ⤙ sinR
+>       cdR2 ← comb (iiCombDelayR ! 2) (iiCombLPR ! 2) ⤙ sinR
+>       cdR3 ← comb (iiCombDelayR ! 3) (iiCombLPR ! 3) ⤙ sinR
+>       cdR4 ← comb (iiCombDelayR ! 4) (iiCombLPR ! 4) ⤙ sinR
+>       cdR5 ← comb (iiCombDelayR ! 5) (iiCombLPR ! 5) ⤙ sinR
+>       cdR6 ← comb (iiCombDelayR ! 6) (iiCombLPR ! 6) ⤙ sinR
+>       cdR7 ← comb (iiCombDelayR ! 7) (iiCombLPR ! 7) ⤙ sinR
 >
 >       let sumL = cdL0+cdL1+cdL2+cdL3+cdL4+cdL5+cdL6+cdL7
 >       let sumR = cdR0+cdR1+cdR2+cdR3+cdR4+cdR5+cdR6+cdR7
 >
 >       let (fp0L, fp0R) = (sumL/8, sumR/8)
 >
->       fp1L ← allpass (adL ! 0) ⤙ fp0L
->       fp2L ← allpass (adL ! 1) ⤙ fp1L
->       fp3L ← allpass (adL ! 2) ⤙ fp2L
->       fp4L ← allpass (adL ! 3) ⤙ fp3L
+>       fp1L ← allpass (iiAllPassDelayL ! 0) ⤙ fp0L
+>       fp2L ← allpass (iiAllPassDelayL ! 1) ⤙ fp1L
+>       fp3L ← allpass (iiAllPassDelayL ! 2) ⤙ fp2L
+>       fp4L ← allpass (iiAllPassDelayL ! 3) ⤙ fp3L
 >             
->       fp1R ← allpass (adR ! 0) ⤙ fp0R
->       fp2R ← allpass (adR ! 1) ⤙ fp1R
->       fp3R ← allpass (adR ! 2) ⤙ fp2R
->       fp4R ← allpass (adR ! 3) ⤙ fp3R
+>       fp1R ← allpass (iiAllPassDelayR ! 0) ⤙ fp0R
+>       fp2R ← allpass (iiAllPassDelayR ! 1) ⤙ fp1R
+>       fp3R ← allpass (iiAllPassDelayR ! 2) ⤙ fp2R
+>       fp4R ← allpass (iiAllPassDelayR ! 3) ⤙ fp3R
 >
 >       outA ⤙ (fp4L, fp4R)
 >
-> comb                   :: Word64 → STK.FilterData → AudSF Double Double
-> comb delay filter =
->   proc sin → do
+> comb                   :: forall p . Clock p => Word64 → STK.FilterData → Signal p Double Double
+> comb maxDel filter
+>   | traceIf msg False = undefined
+>   | otherwise =
+>   let
+>     sr = rate (undefined :: p)
+>   in proc sin → do
 >     rec
->       r ← del ⤙ sin + r * STK.jGain filter
+>       r ← delayLine (fromIntegral maxDel/sr) ⤙ sin + r * STK.jGain filter
 >     outA ⤙ r
 >   where
->     del = delayLine (fromIntegral delay/1000.0)
+>     msg = unwords ["comb delay (samples)=", show maxDel, " filter=", show filter]
 > 
-> allpass                :: Word64 → AudSF Double Double
-> allpass delay =
->   proc sin → do
->     rec
->       r ← del ⤙ sin
+> allpass                :: forall p . Clock p => Word64 → Signal p Double Double
+> allpass maxDel
+>   | traceAlways msg False = undefined
+>   | otherwise =
+>   let
+>     sr = rate (undefined :: p)
+>   in proc sin → do
+>     r ← delayLine (fromIntegral maxDel/sr) ⤙ sin
 >     outA ⤙ r
 >   where
->     del = delayLine (fromIntegral delay/1000.0)
+>     msg = unwords ["allpass delay (samples)=", show maxDel]
 > 
-> doPan                  :: Double → Double → (Double, Double)
-> doPan azimuth sin = (ampL, ampR)
+> doPan                  :: (Double, Double) → (Double, Double) → (Double, Double)
+> doPan (azimuth, _) (sinL, sinR) = (ampL, ampR)
 >   where
->     ampL = sin * cos (rad azimuth)
->     ampR = sin - ampL
->     rad                :: Double → Double
->     rad x = (x + 0.5) * pi / 2
+>     ampL = sinL * cos ((azimuth + 0.5) * pi / 2)
+>     ampR = sinR - ampL
 >
 > dcBlock                :: Double → AudSF Double Double
 > dcBlock a = proc xn → do
@@ -637,7 +655,7 @@ Knobs and buttons ==============================================================
 > useLoopSwitching   = True
 > useLoopPhaseCalc   = False
 > useLowPassFilter   = False
-> useEffectReverb    = False
+> useEffectReverb    = True
 > useEffectChorus    = False
 > useEffectPan       = True
 > useDCBlock         = False
