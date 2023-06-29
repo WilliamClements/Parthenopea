@@ -20,7 +20,7 @@ SoundFont support ==============================================================
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, AudSF, Mono, Stereo )
 > import Euterpea.Music
-> import Parthenopea ( traceIf, traceAlways, listI, initCase, listP )
+> import Parthenopea ( traceIf, traceAlways, listI, initCase, listP, findMatchingInstrument )
 > import Synthesizer
 > import Text.FuzzyFind
   
@@ -1029,22 +1029,36 @@ reconcile zone and sample header ===============================================
 >     epilog =      "> \n"
 >
 > spillF                 :: ZoneCache → SFFile → String
-> spillF zc sffile                         = preface ++ concat spilt ++ epilog
+> spillF zc sffile                         = preface ++ concatMap literate spilt' ++ epilog
 >   where
 >     arrays = zArrays sffile
 >     boundsI = bounds $ ssInsts arrays
 >
->     spilt = map (spillI zc sffile) [fst boundsI..snd boundsI]
+>     spilt = zip [0..] $ map (spillI zc sffile) [fst boundsI..snd boundsI]
+>     mfound = find (fst.snd) spilt
+>     spilt' = map (settleLine mfound) spilt
 >
 >     preface = "> "       ++ zNickname sffile ++ "Inst =\n>   [\n"
 >     epilog = ">   ]\n> " ++ zNickname sffile ++ "Perc =\n>   [\n>   ]\n"
 >
-> makeLineI              :: Bool → String → String
-> makeLineI isComment nameI                = iline
+>     settleLine   :: Maybe (Int, (Bool, String)) → (Int, (Bool, String)) → String
+>     settleLine mfound (nix, (matched, str))
+>       | not matched                      = str
+>       | nix /= target                    = ", " ++ str
+>       | otherwise                        = "  " ++ str
+>       where
+>         target = (fst . fromJust) mfound
+>
+> literate               :: String → String
+> literate inp                             = "> " ++ inp
+>
+> makeLineI              :: String → Maybe InstrumentName → (Bool, String)
+> makeLineI nameI mi                       = (matched, iline)
 >   where
+>     matched = isJust mi
 >     preface
->       | isComment = "> --"
->       | otherwise = ">"
+>       | matched    = ""
+>       | otherwise  = "--"
 >     iline =
 >        preface
 >             ++ "       (\""
@@ -1052,9 +1066,11 @@ reconcile zone and sample header ===============================================
 >             ++ "\","
 >             ++ replicate (31 - length nameI) ' '
 >             ++ "([], "
->             ++ "ElectricGrandPiano))\n"
+>             ++ outp 
+>             ++ "))\n"
+>     outp = maybe "" show mi
 >     
-> spillI                 :: ZoneCache → SFFile → Word → String
+> spillI                 :: ZoneCache → SFFile → Word → (Bool, String)
 > spillI zc sffile wordI                   = iline
 >   where
 >     arrays = zArrays sffile
@@ -1062,13 +1078,13 @@ reconcile zone and sample header ===============================================
 >     pergm  = PerGMKey (zWordF sffile) wordI Nothing
 >     zones  = getZonesFromCache zc pergm
 >     nameI  = quoteSyntheticText $ F.instName iinst
->     mm     = bestMatch "piano" nameI
->     iline  = makeLineI (isNothing mm) nameI
+>     mi     = findMatchingInstrument nameI
+>     iline  = makeLineI nameI mi
 >
 > quoteSyntheticText     :: String → String
 > quoteSyntheticText                       = concatMap quote
 >   where
 >     quote              :: Char → String
 >     quote c = case c of
->                 '\"'      → "\\\""
->                 _ → [c]
+>                 '\"'   → "\\\""
+>                 _      → [c]

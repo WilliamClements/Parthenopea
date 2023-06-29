@@ -254,10 +254,7 @@ Envelopes ======================================================================
 >   where
 >     raw                :: Int → Double
 >     raw iS = pow 10 (fromIntegral jS/200)
->       where jS
->               | iS <= 0 = 0
->               | iS >= 1000 = 1000
->               | otherwise = iS
+>       where jS = clip iS 0 1000
 
 Implement the SoundFont envelope model with specified:
   1. delay time                      0 → 0
