@@ -22,7 +22,7 @@ SoundFont support ==============================================================
 > import Euterpea.Music
 > import Parthenopea ( traceIf, traceAlways, listI, initCase, listP, findMatchingInstrument )
 > import Synthesizer
-> import Text.FuzzyFind
+> import qualified Text.FuzzyFind as FF
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
@@ -950,7 +950,10 @@ reconcile zone and sample header ===============================================
 >                                     , show reconL]
 >
 > data Hints =
->   DLow | DMed | DHigh deriving Show
+>   DLow
+>   | DMed
+>   | DHigh
+>   | DScore Double deriving Show
 >
 > type SoundFontDatabase = [ (FilePath
 >                             , ([Hints]
@@ -1025,7 +1028,11 @@ reconcile zone and sample header ===============================================
 >                ++ ">\n"
 >                ++ "> import Euterpea.Music\n"
 >                ++ "> import SoundFont\n"
->                ++ "\nThis file was generated from source SoundFont files\n\n"
+>                ++ "\nThis file was generated from source SoundFont files:\n\n"
+>                ++ concatMap formatFilename sffilesp
+>                ++ "\n\n"
+>     formatFilename     :: SFFile → String
+>     formatFilename sffile                = show (zWordF sffile) ++ " " ++ (zFilename sffile) ++ "\n"
 >     epilog =      "> \n"
 >
 > spillF                 :: ZoneCache → SFFile → String
@@ -1052,10 +1059,18 @@ reconcile zone and sample header ===============================================
 > literate               :: String → String
 > literate inp                             = "> " ++ inp
 >
-> makeLineI              :: String → Maybe InstrumentName → (Bool, String)
-> makeLineI nameI mi                       = (matched, iline)
+> makeLineI              :: String → (Bool, String)
+> makeLineI nameI
+>   | traceAlways msg False = undefined
+>   | otherwise                            = (matched, iline)
 >   where
->     matched = isJust mi
+>     mmisc              :: Maybe (InstrumentName, Double)
+>                                          = findMatchingInstrument nameI
+>     ffScore            :: Double         = maybe 0 snd mmisc
+>     inamestr           :: String         = maybe "" (show.fst) mmisc
+>
+>     matched            :: Bool           = ffScore > 75
+>
 >     preface
 >       | matched    = ""
 >       | otherwise  = "--"
@@ -1065,21 +1080,26 @@ reconcile zone and sample header ===============================================
 >             ++ nameI
 >             ++ "\","
 >             ++ replicate (31 - length nameI) ' '
->             ++ "([], "
->             ++ outp 
+>             ++ "(["
+>             ++ hintstr
+>             ++ "], "
+>             ++ inamestr 
 >             ++ "))\n"
->     outp = maybe "" show mi
->     
+>     hintstr  = if includeFFScores
+>                then maybe "" (fscore.snd) mmisc
+>                else ""
+>
+>     msg = unwords ["makeLineI=", show mmisc]
+>
+> fscore                 :: Double → String
+> fscore sc                                = "DScore " ++ show sc
+>
 > spillI                 :: ZoneCache → SFFile → Word → (Bool, String)
-> spillI zc sffile wordI                   = iline
+> spillI zc sffile wordI                   = makeLineI nameI
 >   where
 >     arrays = zArrays sffile
 >     iinst  = ssInsts arrays ! wordI
->     pergm  = PerGMKey (zWordF sffile) wordI Nothing
->     zones  = getZonesFromCache zc pergm
 >     nameI  = quoteSyntheticText $ F.instName iinst
->     mi     = findMatchingInstrument nameI
->     iline  = makeLineI nameI mi
 >
 > quoteSyntheticText     :: String → String
 > quoteSyntheticText                       = concatMap quote

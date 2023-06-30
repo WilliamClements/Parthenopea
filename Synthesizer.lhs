@@ -22,7 +22,8 @@
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA, DeltaT )
 > import Parthenopea
 > import qualified SynToolkit           as STK
-  
+> import qualified Text.FuzzyFind       as FF
+ 
 Signal function-based synth ===========================================================================================
 
 > eutSynthesize          :: (Reconciled, Reconciled)
@@ -679,3 +680,6 @@ Knobs and buttons ==============================================================
 > weightStereo           :: Int            = 2
 > weight24Bit            :: Int            = 1
 > weightMaxSplits        :: Int            = 1
+>
+> includeFFScores        :: Bool           = True
+> ffThreshold            :: FF.Score       = 75

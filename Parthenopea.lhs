@@ -514,25 +514,30 @@ apply fuzzyfind to mining instruments + percussion =============================
 > instrumentFFKeys :: InstrumentName → Maybe [String]
 > instrumentFFKeys inst =
 >    case inst of
->       Piccolo                   → Just $ singleton "piccolo"
->       Flute                     → Just $ singleton "flute"
->       Oboe                      → Just $ singleton "oboe"
->       EnglishHorn               → Just $          ["horn", "english"]
->       Clarinet                  → Just $ singleton "clarinet"
->       Bassoon                   → Just $ singleton "bassoon"
->       SopranoSax                → Just $          ["sax" , "soprano"]
->       AltoSax                   → Just $          ["sax" , "alto"]
->       TenorSax                  → Just $          ["sax" , "tenor"]
->       BaritoneSax               → Just $          ["sax" , "baritone"]
->       FrenchHorn                → Just $          ["horn", "french"]
->       Trumpet                   → Just $ singleton "trumpet"
->       Trombone                  → Just $ singleton "trombone"
->       Tuba                      → Just $ singleton "tuba"
->       Timpani                   → Just $ singleton "timpani"
->       Xylophone                 → Just $ singleton "xylophone"
->       Marimba                   → Just $ singleton "marimba"
+>       AcousticGrandPiano        → Just $          ["piano", "grand", "acoustic"]
+>       BrightAcousticPiano       → Just $          ["piano", "bright", "acoustic"]
+>       ElectricGrandPiano        → Just $          ["piano", "grand", "electric"]
+>       HonkyTonkPiano            → Just $          ["piano", "honkytonk"]
+>       RhodesPiano               → Just $          ["piano", "rhodes"]
+>       ChorusedPiano             → Just $          ["piano", "chorused"]
+>       Harpsichord               → Just $          ["harpsichord"]
+>       Clavinet                  → Just $          ["clavinet"]   
+>       Celesta                   → Just $          ["celesta"]
 >       Glockenspiel              → Just $ singleton "glockenspiel"
+>       MusicBox                  → Just $          ["musicbox"]
 >       Vibraphone                → Just $ singleton "vibraphone"
+>       Marimba                   → Just $ singleton "marimba"
+>       Xylophone                 → Just $ singleton "xylophone"
+>       TubularBells              → Just $          ["bells", "tubular"]
+>       Dulcimer                  → Just $          ["dulcimer"]
+>       HammondOrgan              → Just $          ["organ", "hammond"]
+>       PercussiveOrgan           → Just $          ["organ", "percussive"]
+>       RockOrgan                 → Just $          ["organ", "rock"] 
+>       ChurchOrgan               → Just $          ["organ", "church"]
+>       ReedOrgan                 → Just $          ["organ", "reed"]
+>       Accordion                 → Just $          ["accordion"]
+>       Harmonica                 → Just $          ["harmonica"]
+>       TangoAccordion            → Just $          ["accordion", "tango"]
 >       AcousticGuitarNylon       → Just $          ["guitar", "acoustic", "nylon"]
 >       AcousticGuitarSteel       → Just $          ["guitar", "acoustic", "steel"]
 >       ElectricGuitarJazz        → Just $          ["guitar", "electric", "jazz"]
@@ -540,33 +545,109 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       ElectricGuitarMuted       → Just $          ["guitar", "electric", "muted"]
 >       OverdrivenGuitar          → Just $          ["guitar", "electric", "overdrive"]
 >       DistortionGuitar          → Just $          ["guitar", "electric", "distortion"]
->       OrchestralHarp            → Just $ singleton "harp"
+>       GuitarHarmonics           → Just $          ["guitar", "harmonics"]
 >       AcousticBass              → Just $          ["bass", "acoustic"]
 >       ElectricBassFingered      → Just $          ["bass", "electric", "finger"]
 >       ElectricBassPicked        → Just $          ["bass", "electric", "pick"]
->       Sitar                     → Just $ singleton "sitar"
+>       FretlessBass              → Just $          ["bass", "fretless"] 
 >       SlapBass1                 → Just $          ["bass", "slap", "1"]
 >       SlapBass2                 → Just $          ["bass", "slap", "2"]
->       AcousticGrandPiano        → Just $          ["piano", "grand", "acoustic"]
->       BrightAcousticPiano       → Just $          ["piano", "bright", "acoustic"]
->       ElectricGrandPiano        → Just $          ["piano", "grand", "electric"]
->       HonkyTonkPiano            → Just $          ["piano", "honkytonk"]
->       RhodesPiano               → Just $          ["piano", "rhodes"]
->       ChorusedPiano             → Just $          ["piano", "chorused"]
->       Celesta                   → Just $          ["celesta"]
->       Harpsichord               → Just $          ["harpsichord"]
->       ChurchOrgan               → Just $          ["organ", "church"]
+>       SynthBass1                → Just $          ["bass", "synth", "1"]
+>       SynthBass2                → Just $          ["bass", "synth", "2"]
 >       Violin                    → Just $          ["violin"]
 >       Viola                     → Just $          ["viola"]
 >       Cello                     → Just $          ["cello"]
 >       Contrabass                → Just $          ["contrabass"]
->       StringEnsemble1           → Just $          ["ensemble", "string"]
->       Banjo                     → Just $          ["banjo"]
+>       TremoloStrings            → Just $          ["strings", "tremolo"]
+>       PizzicatoStrings          → Just $          ["strings", "pizzicato"]
+>       OrchestralHarp            → Just $ singleton "harp"
+>       Timpani                   → Just $ singleton "timpani"
+>       StringEnsemble1           → Just $          ["ensemble", "string", "1"]
+>       StringEnsemble2           → Just $          ["ensemble", "string", "2"]
+>       SynthStrings1             → Just $          ["strings", "synth", "1"]
+>       SynthStrings2             → Just $          ["strings", "synth", "2"]
 >       ChoirAahs                 → Just $          ["choir", "aahs"]
+>       VoiceOohs                 → Just $          ["voice", "oohs"]
+>       SynthVoice                → Just $          ["synth", "voice"]
+>       OrchestraHit              → Just $          ["orchestra", "hit"]
+>       Trumpet                   → Just $ singleton "trumpet"
+>       Trombone                  → Just $ singleton "trombone"
+>       Tuba                      → Just $ singleton "tuba"
+>       MutedTrumpet              → Just $          ["trumpet", "muted"]
+>       FrenchHorn                → Just $          ["horn", "french"]
+>       BrassSection              → Just $          ["brass", "section"]
+>       SynthBrass1               → Just $          ["brass", "synth", "1"]
+>       SynthBrass2               → Just $          ["brass", "synth", "2"]
+>       SopranoSax                → Just $          ["sax" , "soprano"]
+>       AltoSax                   → Just $          ["sax" , "alto"]
+>       TenorSax                  → Just $          ["sax" , "tenor"]
+>       BaritoneSax               → Just $          ["sax" , "baritone"]
+>       Oboe                      → Just $ singleton "oboe"
+>       Bassoon                   → Just $ singleton "bassoon"
+>       EnglishHorn               → Just $          ["horn", "english"]
+>       Clarinet                  → Just $ singleton "clarinet"
+>       Piccolo                   → Just $ singleton "piccolo"
+>       Flute                     → Just $ singleton "flute"
+>       Recorder                  → Just $ singleton "recorder"
+>       PanFlute                  → Just $ singleton "panflute"
+>       BlownBottle               → Just $          ["bottle", "blown"]
+>       Shakuhachi                → Just $ singleton "shakuhachi"
+>       Whistle                   → Just $ singleton "whistle"
+>       Ocarina                   → Just $ singleton "ocarina"
+>       Lead1Square               → Just $ singleton "lead1square"
+>       Lead2Sawtooth             → Just $ singleton "lead2sawtooth"
+>       Lead3Calliope             → Just $ singleton "lead3calliope"
+>       Lead4Chiff                → Just $ singleton "lead4chiff"
+>       Lead5Charang              → Just $ singleton "lead5charang"
+>       Lead6Voice                → Just $ singleton "lead6voice"
+>       Lead7Fifths               → Just $ singleton "lead7fifths"
+>       Lead8BassLead             → Just $ singleton "lead8basslead"
+>       Pad1NewAge                → Just $ singleton "pad1newage"
+>       Pad2Warm                  → Just $ singleton "pad2warm"
+>       Pad3Polysynth             → Just $ singleton "pad3polysynth"
+>       Pad4Choir                 → Just $ singleton "pad4choir"
+>       Pad5Bowed                 → Just $ singleton "pad5bowed"
+>       Pad6Metallic              → Just $ singleton "pad6metallic"
+>       Pad7Halo                  → Just $ singleton "pad7halo"
+>       Pad8Sweep                 → Just $ singleton "pad8sweep"
+>       FX1Train                  → Just $ singleton "fx1train"
+>       FX2Soundtrack             → Just $ singleton "fx2soundtrack"
+>       FX3Crystal                → Just $ singleton "fx3crystal"
+>       FX4Atmosphere             → Just $ singleton "fx4atmosphere"
+>       FX5Brightness             → Just $ singleton "fx5brightness"
+>       FX6Goblins                → Just $ singleton "fx6goblins"
+>       FX7Echoes                 → Just $ singleton "fx7echoes"
+>       FX8SciFi                  → Just $ singleton "fx8scifi"
+>       Sitar                     → Just $ singleton "sitar"
+>       Banjo                     → Just $ singleton "banjo"
+>       Shamisen                  → Just $ singleton "shamisen"
+>       Koto                      → Just $ singleton "koto"
+>       Kalimba                   → Just $ singleton "kalimba"
+>       Bagpipe                   → Just $ singleton "bagpipe"
+>       Fiddle                    → Just $ singleton "fiddle"
+>       Shanai                    → Just $ singleton "shanai"
+>       TinkleBell                → Just $          ["bell", "tinkle"]
+>       Agogo                     → Just $ singleton "agogo"
+>       SteelDrums                → Just $          ["drums", "steel"]
+>       Woodblock                 → Just $ singleton "woodblock"
+>       TaikoDrum                 → Just $          ["drum", "taiko"]
+>       MelodicDrum               → Just $          ["drum", "melodic"]
+>       SynthDrum                 → Just $          ["drum", "synth"]
+>       ReverseCymbal             → Just $          ["cymbal", "reverse"]
+>       GuitarFretNoise           → Just $          ["guitar", "fret", "noise"]
+>       BreathNoise               → Just $          ["breath", "noise"]
+>       Seashore                  → Just $ singleton "seashore"
+>       BirdTweet                 → Just $          ["tweet", "bird"]
+>       TelephoneRing             → Just $          ["ring", "telephone"]
+>       Helicopter                → Just $ singleton "helicopter"
+>       Applause                  → Just $ singleton "applause"
+>       Gunshot                   → Just $ singleton "gunshot"
 >       _                         → Nothing
 >
-> findMatchingInstrument :: String → Maybe InstrumentName
-> findMatchingInstrument inp = result
+> findMatchingInstrument :: String → Maybe (InstrumentName, Double)
+> findMatchingInstrument inp
+>   | traceAlways msg False = undefined
+>   | otherwise                            = mmiscore
 >   where
 >     nlist = [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
 >     ilist = map toEnum nlist
@@ -576,30 +657,49 @@ apply fuzzyfind to mining instruments + percussion =============================
 >     eval1             :: InstrumentName → Maybe (InstrumentName, [String])
 >     eval1 iname                          = mr
 >       where
->         mm                               = instrumentFFKeys iname
+>         mffk                             = instrumentFFKeys iname
 >         mr
->          | isNothing mm                  = Nothing
->          | otherwise                     = Just (iname, fromJust mm) 
+>          | isNothing mffk                = Nothing
+>          | otherwise                     = Just (iname, fromJust mffk) 
 >
 >     scored = mapMaybe eval2 lookups
 >
->     eval2              :: (InstrumentName, [String]) → Maybe (InstrumentName, FF.Score)
+>     eval2              :: (InstrumentName, [String]) → Maybe (InstrumentName, Double)
 >     eval2 (iname, keys)                  = ms
 >       where
->         tot                              = sum $ zipWith eval3 keys [2, 3, 5, 8, 13, 21]
->         ms
+>         dv             :: Double         = fromIntegral $ length keys
+>         weights        :: [Double]       = [7/dv, 5/dv, 3/dv, 2/dv]
+>         withWeights    :: [(String, Double)]
+>                                          = zip keys weights
+>         tot            :: Double         = snd $ foldl' eval3 (True, 0) withWeights
+>         ms             :: Maybe (InstrumentName, Double)
 >           | tot <= 0                     = Nothing
 >           | otherwise                    = Just (iname, tot)
 >
->     eval3              :: String → Int → Int
->     eval3 key fib                        = maybe 0 ((`div` fib) . FF.score) (FF.bestMatch key inp)
+>     eval3              :: (Bool, Double) → (String, Double) → (Bool, Double)
+>     eval3 (active, accum) (key, weight)
+>       | traceAlways msg False = undefined
+>       | otherwise                            = (active', accum')
+>       where
+>         malign = FF.bestMatch key inp
+>         active' = active && isJust malign
+>         accum' = if active
+>                  then accum + maybe 0 ((* weight) . fromIntegral . FF.score) malign
+>                  else accum
+>         msg = unwords ["eval3", show key, show weight, " and accum=", show accum, " and accum'=", show accum']
 >
->     result
+>     mmiscore           :: Maybe (InstrumentName, Double)
+>     mmiscore
 >       | null scored                      = Nothing
->       | otherwise                        = Just $ fst $ maximumBy eval4 scored
+>       | otherwise                        = Just winner 
+>       where
+>         winner         :: (InstrumentName, Double)
+>                                          = maximumBy eval4 scored
 >
->     eval4              :: (InstrumentName, FF.Score) → (InstrumentName, FF.Score) → Ordering
+>     eval4              :: (InstrumentName, Double) → (InstrumentName, Double) → Ordering
 >     eval4 (_, s1) (_, s2)                = compare s1 s2
+>
+>     msg = unwords ["findMatchingInstrument=", show inp, "\n\n", show scored]
 
 tournament among instruments in various soundfont files ===============================================================
 
