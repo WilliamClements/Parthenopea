@@ -516,7 +516,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >    case inst of
 >       AcousticGrandPiano        → Just $          ["piano", "grand", "acoustic"]
 >       BrightAcousticPiano       → Just $          ["piano", "bright", "acoustic"]
->       ElectricGrandPiano        → Just $          ["piano", "grand", "electric"]
+>       ElectricGrandPiano        → Just $          ["piano", "electric", "grand"]
 >       HonkyTonkPiano            → Just $          ["piano", "honkytonk"]
 >       RhodesPiano               → Just $          ["piano", "rhodes"]
 >       ChorusedPiano             → Just $          ["piano", "chorused"]
@@ -667,26 +667,24 @@ apply fuzzyfind to mining instruments + percussion =============================
 >     eval2              :: (InstrumentName, [String]) → Maybe (InstrumentName, Double)
 >     eval2 (iname, keys)                  = ms
 >       where
->         dv             :: Double         = fromIntegral $ length keys
->         weights        :: [Double]       = [7/dv, 5/dv, 3/dv, 2/dv]
+>         lk             :: Double         = fromIntegral $ length keys
+>         weights        :: [Double]       = [7/lk, 5/lk, 3/lk, 2/lk]
 >         withWeights    :: [(String, Double)]
 >                                          = zip keys weights
->         tot            :: Double         = snd $ foldl' eval3 (True, 0) withWeights
+>         pieces         :: [Double]       = map eval3 withWeights
+>         tot            :: Double         = sum pieces
 >         ms             :: Maybe (InstrumentName, Double)
 >           | tot <= 0                     = Nothing
 >           | otherwise                    = Just (iname, tot)
 >
->     eval3              :: (Bool, Double) → (String, Double) → (Bool, Double)
->     eval3 (active, accum) (key, weight)
+>     eval3              :: (String, Double) → Double
+>     eval3 (key, weight)
 >       | traceAlways msg False = undefined
->       | otherwise                            = (active', accum')
+>       | otherwise                            = piece
 >       where
 >         malign = FF.bestMatch key inp
->         active' = active && isJust malign
->         accum' = if active
->                  then accum + maybe 0 ((* weight) . fromIntegral . FF.score) malign
->                  else accum
->         msg = unwords ["eval3", show key, show weight, " and accum=", show accum, " and accum'=", show accum']
+>         piece  = maybe 0 ((* weight) . fromIntegral . FF.score) malign
+>         msg = unwords ["eval3", show key, show weight, " and piece=", show piece]
 >
 >     mmiscore           :: Maybe (InstrumentName, Double)
 >     mmiscore
