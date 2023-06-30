@@ -560,7 +560,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Contrabass                → Just $          ["contrabass"]
 >       TremoloStrings            → Just $          ["strings", "tremolo"]
 >       PizzicatoStrings          → Just $          ["strings", "pizzicato"]
->       OrchestralHarp            → Just $ singleton "harp"
+>       OrchestralHarp            → Just $          ["harp", "orchestra"]
 >       Timpani                   → Just $ singleton "timpani"
 >       StringEnsemble1           → Just $          ["ensemble", "string", "1"]
 >       StringEnsemble2           → Just $          ["ensemble", "string", "2"]
@@ -637,12 +637,15 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       GuitarFretNoise           → Just $          ["guitar", "fret", "noise"]
 >       BreathNoise               → Just $          ["breath", "noise"]
 >       Seashore                  → Just $ singleton "seashore"
->       BirdTweet                 → Just $          ["tweet", "bird"]
+>       BirdTweet                 → Just $          ["bird", "tweet"]
 >       TelephoneRing             → Just $          ["ring", "telephone"]
 >       Helicopter                → Just $ singleton "helicopter"
 >       Applause                  → Just $ singleton "applause"
 >       Gunshot                   → Just $ singleton "gunshot"
 >       _                         → Nothing
+>
+> tryMining              :: String → [String] → [Maybe FF.Alignment]
+> tryMining inp pieces = map ((flip FF.bestMatch) inp) pieces
 >
 > findMatchingInstrument :: String → Maybe (InstrumentName, Double)
 > findMatchingInstrument inp
@@ -667,8 +670,12 @@ apply fuzzyfind to mining instruments + percussion =============================
 >     eval2              :: (InstrumentName, [String]) → Maybe (InstrumentName, Double)
 >     eval2 (iname, keys)                  = ms
 >       where
->         lk             :: Double         = fromIntegral $ length keys
->         weights        :: [Double]       = [7/lk, 5/lk, 3/lk, 2/lk]
+>         lFactor        :: Double         = sqrt $ fromIntegral $ length keys
+>         weights        :: [Double]       = [1.5 / lFactor
+>                                           , 1.4 / lFactor
+>                                           , 1.3 / lFactor
+>                                           , 1.2 / lFactor
+>                                           , 1.1 / lFactor]
 >         withWeights    :: [(String, Double)]
 >                                          = zip keys weights
 >         pieces         :: [Double]       = map eval3 withWeights
