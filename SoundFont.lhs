@@ -262,9 +262,8 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >         sn = length ".sf2" + 1
 >         n = length fp
 >         nick = if n > pn + sn
->
 >                then map (toLower . (fp !!)) [pn..(n-sn)]
->                else error ("filename " ++ fp ++ "too short")
+>                else error ("filename " ++ fp ++ " too short")
 >
 > readSoundFontFile      :: Word
 >                           → ( FilePath

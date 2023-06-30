@@ -45,6 +45,7 @@ Library
         data-default-class >= 0.1.2.0 && < 2.0,
         deepseq>=1.3.0.2 && <=1.5,
         Euterpea >= 2.0.8,
+        filepattern >= 0.1.3,
         fuzzyfind >= 3.0.1,
         HCodecs >= 0.5.1 && <= 0.6,
         HSoM >= 1.0.0 && < 2.0,
