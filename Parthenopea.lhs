@@ -679,7 +679,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >
 >     eval3              :: (String, Double) → Double
 >     eval3 (key, weight)
->       | traceAlways msg False = undefined
+>       | traceNever msg False = undefined
 >       | otherwise                            = piece
 >       where
 >         malign = FF.bestMatch key inp

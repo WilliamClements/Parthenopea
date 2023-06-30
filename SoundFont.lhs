@@ -6,10 +6,11 @@ SoundFont support ==============================================================
 
 > module SoundFont where
 >
-> import qualified Codec.SoundFont      as F
+> import qualified Codec.SoundFont         as F
 > import Control.Monad.IO.Class
-> import qualified Data.Audio           as A
+> import qualified Data.Audio              as A
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds) )
+> import Data.Char
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List ( find, foldr, minimumBy, singleton )
 > import qualified Data.Map             as Map
@@ -22,7 +23,9 @@ SoundFont support ==============================================================
 > import Euterpea.Music
 > import Parthenopea ( traceIf, traceAlways, listI, initCase, listP, findMatchingInstrument )
 > import Synthesizer
-> import qualified Text.FuzzyFind as FF
+> import qualified System.FilePattern.Directory
+>                                          as FP
+> import qualified Text.FuzzyFind          as FF
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
@@ -222,6 +225,46 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     writeFile outFilename all
 >     ts4 ← getCurrentTime
 >     putStrLn ("write rosters: " ++ show (diffUTCTime ts4 ts3))
+>
+> doSoundFontDig'        :: String → FilePath → IO ()
+> doSoundFontDig' prefix outFilename =
+>   do
+>
+>     putStrLn "processing..."
+>
+>     ts1 ← getCurrentTime
+>     fps ← FP.getDirectoryFiles "." (singleton "edit*.sf2")
+>     putStrLn ("ls " ++ show fps)
+>
+>     let fpsn = map (addNickname prefix) fps
+>     let numberedDB = zip [0..] fpsn
+>
+>     sffilesp ← mapM (uncurry digSoundFontFile) numberedDB
+>
+>     ts2 ← getCurrentTime
+>     putStrLn ("___load files: " ++ show (diffUTCTime ts2 ts1))
+>
+>     zc ← cacheZones sffilesp
+>     ts3 ← getCurrentTime
+>     putStrLn ("cache zones: " ++ show (diffUTCTime ts3 ts2))
+>
+>     all ← spillRosters zc sffilesp
+>     writeFile outFilename all
+>     ts4 ← getCurrentTime
+>     putStrLn ("write rosters: " ++ show (diffUTCTime ts4 ts3))
+>
+>   where
+>
+>     addNickname        :: String → String → (String, String)
+>     addNickname prefix fp = (fp, nick)
+>       where
+>         pn = length prefix
+>         sn = length ".sf2" + 1
+>         n = length fp
+>         nick = if n > pn + sn
+>
+>                then map (toLower . (fp !!)) [pn..(n-sn)]
+>                else error ("filename " ++ fp ++ "too short")
 >
 > readSoundFontFile      :: Word
 >                           → ( FilePath
@@ -1051,8 +1094,8 @@ reconcile zone and sample header ===============================================
 >     settleLine   :: Maybe (Int, (Bool, String)) → (Int, (Bool, String)) → String
 >     settleLine mfound (nix, (matched, str))
 >       | not matched                      = str
->       | nix /= target                    = ", " ++ str
->       | otherwise                        = "  " ++ str
+>       | nix /= target                    = "     , " ++ str
+>       | otherwise                        = "       " ++ str
 >       where
 >         target = (fst . fromJust) mfound
 >
@@ -1060,26 +1103,26 @@ reconcile zone and sample header ===============================================
 > literate inp                             = "> " ++ inp
 >
 > makeLineI              :: String → (Bool, String)
-> makeLineI nameI
->   | traceAlways msg False = undefined
+> makeLineI inp
+>   | traceIf msg False = undefined
 >   | otherwise                            = (matched, iline)
 >   where
 >     mmisc              :: Maybe (InstrumentName, Double)
->                                          = findMatchingInstrument nameI
+>                                          = findMatchingInstrument inp
 >     ffScore            :: Double         = maybe 0 snd mmisc
 >     inamestr           :: String         = maybe "" (show.fst) mmisc
 >
->     matched            :: Bool           = ffScore > 75
+>     matched            :: Bool           = ffScore > ffThreshold
 >
 >     preface
 >       | matched    = ""
->       | otherwise  = "--"
+>       | otherwise  = "     --"
 >     iline =
 >        preface
 >             ++ "       (\""
->             ++ nameI
+>             ++ inp
 >             ++ "\","
->             ++ replicate (31 - length nameI) ' '
+>             ++ replicate (31 - length inp) ' '
 >             ++ "(["
 >             ++ hintstr
 >             ++ "], "
@@ -1092,14 +1135,14 @@ reconcile zone and sample header ===============================================
 >     msg = unwords ["makeLineI=", show mmisc]
 >
 > fscore                 :: Double → String
-> fscore sc                                = "DScore " ++ show sc
+> fscore sc                                = "DScore " ++ show (round sc)
 >
 > spillI                 :: ZoneCache → SFFile → Word → (Bool, String)
-> spillI zc sffile wordI                   = makeLineI nameI
+> spillI zc sffile wordI                   = makeLineI inp
 >   where
 >     arrays = zArrays sffile
 >     iinst  = ssInsts arrays ! wordI
->     nameI  = quoteSyntheticText $ F.instName iinst
+>     inp    = quoteSyntheticText $ F.instName iinst
 >
 > quoteSyntheticText     :: String → String
 > quoteSyntheticText                       = concatMap quote

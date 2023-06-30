@@ -682,4 +682,4 @@ Knobs and buttons ==============================================================
 > weightMaxSplits        :: Int            = 1
 >
 > includeFFScores        :: Bool           = True
-> ffThreshold            :: FF.Score       = 75
+> ffThreshold            :: Double         = 75
