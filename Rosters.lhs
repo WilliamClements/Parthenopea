@@ -27,14 +27,12 @@ Rosters support ================================================================
 >   let dig =     (length args == 1) && ("dig" == head args)
 >   let playAll = (length args == 1) && ("all" == head args)
 >   _	← if dig
->        then doSoundFontDig soundFontTemplateOrig "SyntheticRosters.lhs"
+>        then doSoundFontDig' "edit" "SyntheticRosters'.lhs"
 >        else if playAll
 >             then doSoundFontMusic soundFontDatabaseOrig combineAll
 >             else doSoundFontMusic littleSoundFontDatabase sj
+>
 >   return ()
->
-> digAll = doSoundFontDig littleSoundFontTemplate "SyntheticRosters.lhs"
->
 
 organize exposed music ================================================================================================
 
@@ -74,8 +72,7 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [("littlePendingtonArnt"
->                        , aggrandize littlePendingtonArnt)]
+>    [("basicLick"       , aggrandize basicLick)]
 
 organize instruments from multiple SoundFont files ====================================================================
 
@@ -84,21 +81,26 @@ organize instruments from multiple SoundFont files =============================
 > lofiPerc, arachnoPerc, hiDefPerc, korgPerc, dSoundFontV4Perc, essentialsPerc
 >                        :: [(String, [(String, ([Hints], PercussionSound))])]                                
 >
+> littleSoundFontDatabase::[SoundFontInit]
 > littleSoundFontDatabase =
 >   [
->     ("editArachno.sf2",           ([],         (arachnoInst, arachnoPerc)))
->     , ("editDSoundFontV4.sf2",    ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
->     , ("editKorg_X5_Drums.sf2",   ([],            (korgInst, korgPerc)))
+>       SoundFontInit "editDSoundFontV4.sf2"     "dSoundFontV4"      dSoundFontV4Inst      dSoundFontV4Perc
+>     , SoundFontInit "editKorg_X5_Drums.sf2"    "korg"              korgInst              korgPerc
+>     , SoundFontInit "editEssentials.sf2"       "essentials"        essentialsInst        essentialsPerc
 >   ]
+>
+> soundFontDatabaseOrig  ::[SoundFontInit]
 > soundFontDatabaseOrig =
 >   [
->       ("editLofi.sf2",            ([],            (lofiInst, lofiPerc)))
->     , ("editArachno.sf2",         ([],         (arachnoInst, arachnoPerc)))
->     , ("editHiDef.sf2",           ([],           (hiDefInst, hiDefPerc)))
->     , ("editKorg_X5_Drums.sf2",   ([],            (korgInst, korgPerc)))
->     , ("editDSoundFontV4.sf2",    ([],    (dSoundFontV4Inst, dSoundFontV4Perc)))
->     , ("editEssentials.sf2",      ([],      (essentialsInst, essentialsPerc)))
+>       SoundFontInit "editLofi.sf2"             "lofi"              lofiInst              lofiPerc
+>     , SoundFontInit "editArachno.sf2"          "arachno"           arachnoInst           arachnoPerc
+>     , SoundFontInit "editHiDef.sf2"            "hiDef"             hiDefInst             hiDefPerc
+>     , SoundFontInit "editKorg_X5_Drums.sf2"    "korg"              korgInst              korgPerc
+>     , SoundFontInit "editDSoundFontV4.sf2"     "dSoundFontV4"      dSoundFontV4Inst      dSoundFontV4Perc
+>     , SoundFontInit "editEssentials.sf2"       "essentials"        essentialsInst        essentialsPerc
 >   ]
+>
+> {-
 > littleSoundFontTemplate =
 >   [
 >       ("editKorg_X5_Drums.sf2"           , "korg")
@@ -113,6 +115,8 @@ organize instruments from multiple SoundFont files =============================
 >     , ("editDSoundFontV4.sf2"            , "dSoundFontV4")
 >     , ("editEssentials.sf2"              , "essentials")
 >   ]
+>
+> -}
 >
 > lofiInst =
 >   [

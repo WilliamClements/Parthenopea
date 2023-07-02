@@ -536,7 +536,7 @@ Effects ========================================================================
 > 
 > allpass                :: forall p . Clock p => Word64 → Signal p Double Double
 > allpass maxDel
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise =
 >   let
 >     sr = rate (undefined :: p)

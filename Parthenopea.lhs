@@ -514,83 +514,83 @@ apply fuzzyfind to mining instruments + percussion =============================
 > instrumentFFKeys :: InstrumentName → Maybe [String]
 > instrumentFFKeys inst =
 >    case inst of
->       AcousticGrandPiano        → Just $          ["piano", "grand", "acoustic"]
->       BrightAcousticPiano       → Just $          ["piano", "bright", "acoustic"]
->       ElectricGrandPiano        → Just $          ["piano", "electric", "grand"]
->       HonkyTonkPiano            → Just $          ["piano", "honkytonk"]
->       RhodesPiano               → Just $          ["piano", "rhodes"]
->       ChorusedPiano             → Just $          ["piano", "chorused"]
->       Harpsichord               → Just $          ["harpsichord"]
->       Clavinet                  → Just $          ["clavinet"]   
->       Celesta                   → Just $          ["celesta"]
+>       AcousticGrandPiano        → Just            ["piano", "grand", "acoustic"]
+>       BrightAcousticPiano       → Just            ["piano", "bright", "acoustic"]
+>       ElectricGrandPiano        → Just            ["piano", "electric", "grand"]
+>       HonkyTonkPiano            → Just            ["piano", "honkytonk"]
+>       RhodesPiano               → Just            ["piano", "rhodes"]
+>       ChorusedPiano             → Just            ["piano", "chorused"]
+>       Harpsichord               → Just $ singleton "harpsichord"
+>       Clavinet                  → Just $ singleton "clavinet"
+>       Celesta                   → Just $ singleton "celesta"
 >       Glockenspiel              → Just $ singleton "glockenspiel"
->       MusicBox                  → Just $          ["musicbox"]
+>       MusicBox                  → Just $ singleton "musicbox"
 >       Vibraphone                → Just $ singleton "vibraphone"
 >       Marimba                   → Just $ singleton "marimba"
 >       Xylophone                 → Just $ singleton "xylophone"
->       TubularBells              → Just $          ["bells", "tubular"]
->       Dulcimer                  → Just $          ["dulcimer"]
->       HammondOrgan              → Just $          ["organ", "hammond"]
->       PercussiveOrgan           → Just $          ["organ", "percussive"]
->       RockOrgan                 → Just $          ["organ", "rock"] 
->       ChurchOrgan               → Just $          ["organ", "church"]
->       ReedOrgan                 → Just $          ["organ", "reed"]
->       Accordion                 → Just $          ["accordion"]
->       Harmonica                 → Just $          ["harmonica"]
->       TangoAccordion            → Just $          ["accordion", "tango"]
->       AcousticGuitarNylon       → Just $          ["guitar", "acoustic", "nylon"]
->       AcousticGuitarSteel       → Just $          ["guitar", "acoustic", "steel"]
->       ElectricGuitarJazz        → Just $          ["guitar", "electric", "jazz"]
->       ElectricGuitarClean       → Just $          ["guitar", "electric", "clean"]
->       ElectricGuitarMuted       → Just $          ["guitar", "electric", "muted"]
->       OverdrivenGuitar          → Just $          ["guitar", "electric", "overdrive"]
->       DistortionGuitar          → Just $          ["guitar", "electric", "distortion"]
->       GuitarHarmonics           → Just $          ["guitar", "harmonics"]
->       AcousticBass              → Just $          ["bass", "acoustic"]
->       ElectricBassFingered      → Just $          ["bass", "electric", "finger"]
->       ElectricBassPicked        → Just $          ["bass", "electric", "pick"]
->       FretlessBass              → Just $          ["bass", "fretless"] 
->       SlapBass1                 → Just $          ["bass", "slap", "1"]
->       SlapBass2                 → Just $          ["bass", "slap", "2"]
->       SynthBass1                → Just $          ["bass", "synth", "1"]
->       SynthBass2                → Just $          ["bass", "synth", "2"]
->       Violin                    → Just $          ["violin"]
->       Viola                     → Just $          ["viola"]
->       Cello                     → Just $          ["cello"]
->       Contrabass                → Just $          ["contrabass"]
->       TremoloStrings            → Just $          ["strings", "tremolo"]
->       PizzicatoStrings          → Just $          ["strings", "pizzicato"]
->       OrchestralHarp            → Just $          ["harp", "orchestra"]
+>       TubularBells              → Just            ["bells", "tubular"]
+>       Dulcimer                  → Just $ singleton "dulcimer"
+>       HammondOrgan              → Just            ["organ", "hammond"]
+>       PercussiveOrgan           → Just            ["organ", "percussive"]
+>       RockOrgan                 → Just            ["organ", "rock"] 
+>       ChurchOrgan               → Just            ["organ", "church"]
+>       ReedOrgan                 → Just            ["organ", "reed"]
+>       Accordion                 → Just $ singleton "accordion"
+>       Harmonica                 → Just $ singleton "harmonica"
+>       TangoAccordion            → Just            ["accordion", "tango"]
+>       AcousticGuitarNylon       → Just            ["guitar", "acoustic", "nylon"]
+>       AcousticGuitarSteel       → Just            ["guitar", "acoustic", "steel"]
+>       ElectricGuitarJazz        → Just            ["guitar", "electric", "jazz"]
+>       ElectricGuitarClean       → Just            ["guitar", "electric", "clean"]
+>       ElectricGuitarMuted       → Just            ["guitar", "electric", "muted"]
+>       OverdrivenGuitar          → Just            ["guitar", "electric", "overdrive"]
+>       DistortionGuitar          → Just            ["guitar", "electric", "distortion"]
+>       GuitarHarmonics           → Just            ["guitar", "harmonics"]
+>       AcousticBass              → Just            ["bass", "acoustic"]
+>       ElectricBassFingered      → Just            ["bass", "electric", "finger"]
+>       ElectricBassPicked        → Just            ["bass", "electric", "pick"]
+>       FretlessBass              → Just            ["bass", "fretless"] 
+>       SlapBass1                 → Just            ["bass", "slap", "1"]
+>       SlapBass2                 → Just            ["bass", "slap", "2"]
+>       SynthBass1                → Just            ["bass", "synth", "1"]
+>       SynthBass2                → Just            ["bass", "synth", "2"]
+>       Violin                    → Just $ singleton "violin"
+>       Viola                     → Just $ singleton "viola"
+>       Cello                     → Just $ singleton "cello"
+>       Contrabass                → Just $ singleton "contrabass"
+>       TremoloStrings            → Just            ["strings", "tremolo"]
+>       PizzicatoStrings          → Just            ["strings", "pizzicato"]
+>       OrchestralHarp            → Just            ["harp", "orchestra"]
 >       Timpani                   → Just $ singleton "timpani"
->       StringEnsemble1           → Just $          ["ensemble", "string", "1"]
->       StringEnsemble2           → Just $          ["ensemble", "string", "2"]
->       SynthStrings1             → Just $          ["strings", "synth", "1"]
->       SynthStrings2             → Just $          ["strings", "synth", "2"]
->       ChoirAahs                 → Just $          ["choir", "aahs"]
->       VoiceOohs                 → Just $          ["voice", "oohs"]
->       SynthVoice                → Just $          ["synth", "voice"]
->       OrchestraHit              → Just $          ["orchestra", "hit"]
+>       StringEnsemble1           → Just            ["ensemble", "string", "1"]
+>       StringEnsemble2           → Just            ["ensemble", "string", "2"]
+>       SynthStrings1             → Just            ["strings", "synth", "1"]
+>       SynthStrings2             → Just            ["strings", "synth", "2"]
+>       ChoirAahs                 → Just            ["choir", "aahs"]
+>       VoiceOohs                 → Just            ["voice", "oohs"]
+>       SynthVoice                → Just            ["synth", "voice"]
+>       OrchestraHit              → Just            ["orchestra", "hit"]
 >       Trumpet                   → Just $ singleton "trumpet"
 >       Trombone                  → Just $ singleton "trombone"
 >       Tuba                      → Just $ singleton "tuba"
->       MutedTrumpet              → Just $          ["trumpet", "muted"]
->       FrenchHorn                → Just $          ["horn", "french"]
->       BrassSection              → Just $          ["brass", "section"]
->       SynthBrass1               → Just $          ["brass", "synth", "1"]
->       SynthBrass2               → Just $          ["brass", "synth", "2"]
->       SopranoSax                → Just $          ["sax" , "soprano"]
->       AltoSax                   → Just $          ["sax" , "alto"]
->       TenorSax                  → Just $          ["sax" , "tenor"]
->       BaritoneSax               → Just $          ["sax" , "baritone"]
+>       MutedTrumpet              → Just            ["trumpet", "muted"]
+>       FrenchHorn                → Just            ["horn", "french"]
+>       BrassSection              → Just            ["brass", "section"]
+>       SynthBrass1               → Just            ["brass", "synth", "1"]
+>       SynthBrass2               → Just            ["brass", "synth", "2"]
+>       SopranoSax                → Just            ["sax" , "soprano"]
+>       AltoSax                   → Just            ["sax" , "alto"]
+>       TenorSax                  → Just            ["sax" , "tenor"]
+>       BaritoneSax               → Just            ["sax" , "baritone"]
 >       Oboe                      → Just $ singleton "oboe"
 >       Bassoon                   → Just $ singleton "bassoon"
->       EnglishHorn               → Just $          ["horn", "english"]
+>       EnglishHorn               → Just            ["horn", "english"]
 >       Clarinet                  → Just $ singleton "clarinet"
 >       Piccolo                   → Just $ singleton "piccolo"
 >       Flute                     → Just $ singleton "flute"
 >       Recorder                  → Just $ singleton "recorder"
 >       PanFlute                  → Just $ singleton "panflute"
->       BlownBottle               → Just $          ["bottle", "blown"]
+>       BlownBottle               → Just            ["bottle", "blown"]
 >       Shakuhachi                → Just $ singleton "shakuhachi"
 >       Whistle                   → Just $ singleton "whistle"
 >       Ocarina                   → Just $ singleton "ocarina"
@@ -626,34 +626,34 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Bagpipe                   → Just $ singleton "bagpipe"
 >       Fiddle                    → Just $ singleton "fiddle"
 >       Shanai                    → Just $ singleton "shanai"
->       TinkleBell                → Just $          ["bell", "tinkle"]
+>       TinkleBell                → Just            ["bell", "tinkle"]
 >       Agogo                     → Just $ singleton "agogo"
->       SteelDrums                → Just $          ["drums", "steel"]
+>       SteelDrums                → Just            ["drums", "steel"]
 >       Woodblock                 → Just $ singleton "woodblock"
->       TaikoDrum                 → Just $          ["drum", "taiko"]
->       MelodicDrum               → Just $          ["drum", "melodic"]
->       SynthDrum                 → Just $          ["drum", "synth"]
->       ReverseCymbal             → Just $          ["cymbal", "reverse"]
->       GuitarFretNoise           → Just $          ["guitar", "fret", "noise"]
->       BreathNoise               → Just $          ["breath", "noise"]
+>       TaikoDrum                 → Just            ["drum", "taiko"]
+>       MelodicDrum               → Just            ["drum", "melodic"]
+>       SynthDrum                 → Just            ["drum", "synth"]
+>       ReverseCymbal             → Just            ["cymbal", "reverse"]
+>       GuitarFretNoise           → Just            ["guitar", "fret", "noise"]
+>       BreathNoise               → Just            ["breath", "noise"]
 >       Seashore                  → Just $ singleton "seashore"
->       BirdTweet                 → Just $          ["bird", "tweet"]
->       TelephoneRing             → Just $          ["ring", "telephone"]
+>       BirdTweet                 → Just            ["bird", "tweet"]
+>       TelephoneRing             → Just            ["ring", "telephone"]
 >       Helicopter                → Just $ singleton "helicopter"
 >       Applause                  → Just $ singleton "applause"
 >       Gunshot                   → Just $ singleton "gunshot"
 >       _                         → Nothing
 >
-> tryMining              :: String → [String] → [Maybe FF.Alignment]
-> tryMining inp pieces = map ((flip FF.bestMatch) inp) pieces
+> quickFFTest            :: String → [String] → [Maybe FF.Alignment]
+> quickFFTest inp pieces = map ((flip FF.bestMatch) inp) pieces
 >
 > findMatchingInstrument :: String → Maybe (InstrumentName, Double)
 > findMatchingInstrument inp
->   | traceAlways msg False = undefined
+>   | traceIf msg False = undefined
 >   | otherwise                            = mmiscore
 >   where
->     nlist = [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
->     ilist = map toEnum nlist
+>     ilist              :: [InstrumentName]
+>                                          = map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
 >     
 >     lookups = mapMaybe eval1 ilist
 >
@@ -704,7 +704,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >     eval4              :: (InstrumentName, Double) → (InstrumentName, Double) → Ordering
 >     eval4 (_, s1) (_, s2)                = compare s1 s2
 >
->     msg = unwords ["findMatchingInstrument=", show inp, "\n\n", show scored]
+>     msg = unwords ["findMatchingInstrument=", show inp, "\n", show scored]
 
 tournament among instruments in various soundfont files ===============================================================
 
