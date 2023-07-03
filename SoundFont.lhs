@@ -715,7 +715,8 @@ prepare the specified instruments and percussion ===============================
 >         ibagi  = F.instBagNdx iinst
 >         jbagi  = F.instBagNdx jinst
 >         gIx    = if jbagi - ibagi < 2
->                  then error "must have one global zone and at least one other zone"
+>                  then error ("must have one global zone and at least one other zone"
+>                              ++ " (" ++ show (zF, zI) ++ ")")
 >                  else singleton ibagi
 >         oIx    = [ibagi+1..jbagi-1]
 >         gList  = map (buildZone sffile iinst defInstrumentZone)   gIx
