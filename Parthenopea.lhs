@@ -644,6 +644,26 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Gunshot                   → Just $ singleton "gunshot"
 >       _                         → Nothing
 >
+> percussionFFKeys :: PercussionSound → Maybe [String]
+> percussionFFKeys perc =
+>    case perc of
+>       AcousticBassDrum          → Just            ["drum", "bass", "acoustic"]
+>       BassDrum1                 → Just            ["bass", "drum"]
+>       SideStick                 → Just            ["side", "stick"]
+>       AcousticSnare             → Just            ["drum", "snare", "acoustic"]
+>       HandClap                  → Just            ["clap", "hand"]
+>       ElectricSnare             → Just            ["snare", "electric", "drum"]
+>       LowFloorTom               → Just            ["floor", "tom", "low"]
+>       ClosedHiHat               → Just            ["hihat", "closed"]
+>       HighFloorTom              → Just            ["floor", "tom", "high"]
+>       PedalHiHat                → Just            ["hihat", "pedal"]
+>       LowTom                    → Just            ["tom", "low"]
+>       OpenHiHat                 → Just            ["hihat", "open"]
+>       LowMidTom                 → Just            ["tom", "mid", "low"]
+>       HiMidTom                  → Just            ["tom", "mid", "high"]
+>       CrashCymbal1              → Just            ["crash", "cymbal"]
+>       HighTom                   → Just            ["tom", "high"]
+>
 > quickFFTest            :: String → [String] → [Maybe FF.Alignment]
 > quickFFTest inp pieces = map ((flip FF.bestMatch) inp) pieces
 >

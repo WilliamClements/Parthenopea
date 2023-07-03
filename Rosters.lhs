@@ -29,8 +29,8 @@ Rosters support ================================================================
 >   _	← if dig
 >        then doSoundFontDig' "edit" "SyntheticRosters'.lhs"
 >        else if playAll
->             then doSoundFontMusic soundFontDatabaseOrig combineAll
->             else doSoundFontMusic littleSoundFontDatabase sj
+>             then doSoundFontMusic zsoundFontDatabaseOrig combineAll
+>             else doSoundFontMusic zlittleSoundFontDatabase sj
 >
 >   return ()
 
@@ -76,71 +76,29 @@ organize exposed music =========================================================
 
 organize instruments from multiple SoundFont files ====================================================================
 
-> lofiInst, arachnoInst, hiDefInst, korgInst, dSoundFontV4Inst, essentialsInst
+> zhiDefInst, zkorgInst, zdSoundFontV4Inst, zessentialsInst
 >                        :: [(String, ([Hints], InstrumentName))]                                
-> lofiPerc, arachnoPerc, hiDefPerc, korgPerc, dSoundFontV4Perc, essentialsPerc
+> zhiDefPerc, zkorgPerc, zdSoundFontV4Perc, zessentialsPerc
 >                        :: [(String, [(String, ([Hints], PercussionSound))])]                                
 >
-> littleSoundFontDatabase::[SoundFontInit]
-> littleSoundFontDatabase =
+> zlittleSoundFontDatabase::[SoundFontInit]
+> zlittleSoundFontDatabase =
 >   [
->       SoundFontInit "editDSoundFontV4.sf2"     "dSoundFontV4"      dSoundFontV4Inst      dSoundFontV4Perc
->     , SoundFontInit "editKorg_X5_Drums.sf2"    "korg"              korgInst              korgPerc
->     , SoundFontInit "editEssentials.sf2"       "essentials"        essentialsInst        essentialsPerc
+>       SoundFontInit "editDSoundFontV4.sf2"     "zdSoundFontV4"      zdSoundFontV4Inst      zdSoundFontV4Perc
+>     , SoundFontInit "editKorg_X5_Drums.sf2"    "zkorg"              zkorgInst              zkorgPerc
+>     , SoundFontInit "editEssentials.sf2"       "zessentials"        zessentialsInst        zessentialsPerc
 >   ]
 >
-> soundFontDatabaseOrig  ::[SoundFontInit]
-> soundFontDatabaseOrig =
+> zsoundFontDatabaseOrig  ::[SoundFontInit]
+> zsoundFontDatabaseOrig =
 >   [
->       SoundFontInit "editLofi.sf2"             "lofi"              lofiInst              lofiPerc
->     , SoundFontInit "editArachno.sf2"          "arachno"           arachnoInst           arachnoPerc
->     , SoundFontInit "editHiDef.sf2"            "hiDef"             hiDefInst             hiDefPerc
->     , SoundFontInit "editKorg_X5_Drums.sf2"    "korg"              korgInst              korgPerc
->     , SoundFontInit "editDSoundFontV4.sf2"     "dSoundFontV4"      dSoundFontV4Inst      dSoundFontV4Perc
->     , SoundFontInit "editEssentials.sf2"       "essentials"        essentialsInst        essentialsPerc
+>       SoundFontInit "editHiDef.sf2"            "zhiDef"             zhiDefInst             zhiDefPerc
+>     , SoundFontInit "editKorg_X5_Drums.sf2"    "zkorg"              zkorgInst              zkorgPerc
+>     , SoundFontInit "editDSoundFontV4.sf2"     "zdSoundFontV4"      zdSoundFontV4Inst      zdSoundFontV4Perc
+>     , SoundFontInit "editEssentials.sf2"       "zessentials"        zessentialsInst        zessentialsPerc
 >   ]
 >
-> {-
-> littleSoundFontTemplate =
->   [
->       ("editKorg_X5_Drums.sf2"           , "korg")
->     , ("editDSoundFontV4.sf2"            , "dSoundFontV4")
->   ]
-> soundFontTemplateOrig =
->   [
->       ("editLofi.sf2"                    , "lofi")
->     , ("editArachno.sf2"                 , "arachno")
->     , ("editHiDef.sf2"                   , "hiDef")
->     , ("editKorg_X5_Drums.sf2"           , "korg")
->     , ("editDSoundFontV4.sf2"            , "dSoundFontV4")
->     , ("editEssentials.sf2"              , "essentials")
->   ]
->
-> -}
->
-> lofiInst =
->   [
->       ("Lofi Casio Synth 1",      ([],  AcousticGrandPiano))
->   ]
-> lofiPerc =
->   [
->   ]
->
-> arachnoInst =
->   [
->       ("Bassoon00",               ([], Bassoon))
->     , ("Cello0",                  ([], Cello))
->     , ("Charang0",                ([], OverdrivenGuitar))
->     , ("ContraBass5",             ([], Contrabass))
->     , ("Muted Trumpet",           ([DHigh]
->                                      , Trumpet))
->     , ("Orchestral Harp1",        ([], ElectricGrandPiano))
->   ]
-> arachnoPerc =
->   [
->   ]
->
-> hiDefInst =
+> zhiDefInst =
 >   [
 >       ("*Choir Aahs 2",           ([],  ChoirAahs))
 >     , ("*Slow Violin",            ([],  Viola))
@@ -181,7 +139,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Vibraphone 2",            ([],  Vibraphone))
 >     , ("Violin 11",               ([],  Violin))
 >   ]
-> hiDefPerc =
+> zhiDefPerc =
 >   [
 >       ("*POP Drums",               [  ("Maracas",              ([], Maracas)) 
 >                                     , ("Ride Cymbal 1",        ([], RideCymbal1))
@@ -216,10 +174,10 @@ organize instruments from multiple SoundFont files =============================
 >     , ("XG Room Kit",              [  ("DR_SD3_DR_S_038_D_1",  ([], AcousticSnare))])
 >   ]
 >
-> korgInst =
+> zkorgInst =
 >   [
 >   ]
-> korgPerc =
+> zkorgPerc =
 >   [
 >       ("Brush",                    [  ("Jazz Tom Mid",         ([], LowMidTom))])
 >
@@ -258,7 +216,7 @@ organize instruments from multiple SoundFont files =============================
 >                                     , ("Whistle Short",        ([], ShortWhistle))])
 >   ]
 >
-> dSoundFontV4Inst =
+> zdSoundFontV4Inst =
 >   [
 >       ("+++Gtr Harmonics",        ([],  GuitarHarmonics))
 >     , ("60's Organ 1",            ([],  RockOrgan))
@@ -346,7 +304,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Vocal Oooh",              ([],  VoiceOohs))
 >     , ("Whistle",                 ([],  Whistle))
 >   ]
-> dSoundFontV4Perc =
+> zdSoundFontV4Perc =
 >   [
 >       ("Drumkit Basic 1",         [  ("Agogo High",           ([], HighAgogo))
 >                                    , ("Agogo Low",            ([], LowAgogo))
@@ -391,7 +349,7 @@ organize instruments from multiple SoundFont files =============================
 >                                    , ("Cuica Open",           ([], OpenCuica))])
 >   ]
 >
-> essentialsInst =
+> zessentialsInst =
 >   [
 >       ("Alto Sax XSwitch",        ([],  AltoSax))
 >     , ("B3-1 Slow Rotor",         ([],  ReedOrgan))
@@ -425,7 +383,7 @@ organize instruments from multiple SoundFont files =============================
 >     , ("Violin3",                 ([DLow]
 >                                      ,  Violin))
 >   ]
-> essentialsPerc =
+> zessentialsPerc =
 >   []
 >
 
