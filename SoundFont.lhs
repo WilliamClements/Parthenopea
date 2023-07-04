@@ -184,7 +184,9 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                           → IO ()
 > doSoundFontMusic sfdb songs =
 >   do
+>
 >     putStrLn "processing..."
+>
 >     ts1 ← getCurrentTime
 >     let numberedDB = zip [0..] sfdb
 >     sffilesp ← mapM (uncurry readSoundFontFile) numberedDB
@@ -210,30 +212,8 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     putStrLn ("___render songs: " ++ show (diffUTCTime ts4 ts3))
 >     return ()
 >  
-> doSoundFontDig         :: SoundFontTemplate
->                           → FilePath
->                           → IO ()
-> doSoundFontDig sft outFilename =
->   do
->     putStrLn "processing..."
->     let numberedDB = zip [0..] sft
->     ts1 ← getCurrentTime
->
->     sffilesp ← mapM (uncurry digSoundFontFile) numberedDB
->     ts2 ← getCurrentTime
->     putStrLn ("___load files: " ++ show (diffUTCTime ts2 ts1))
->
->     zc ← cacheZones sffilesp
->     ts3 ← getCurrentTime
->     putStrLn ("cache zones: " ++ show (diffUTCTime ts3 ts2))
->
->     all ← spillRosters zc sffilesp
->     writeFile outFilename all
->     ts4 ← getCurrentTime
->     putStrLn ("write rosters: " ++ show (diffUTCTime ts4 ts3))
->
-> doSoundFontDig'        :: String → FilePath → IO ()
-> doSoundFontDig' prefix outFilename =
+> doSoundFontDig         :: String → FilePath → IO ()
+> doSoundFontDig prefix outFilename =
 >   do
 >
 >     putStrLn "processing..."
