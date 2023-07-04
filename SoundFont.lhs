@@ -1048,13 +1048,13 @@ reconcile zone and sample header ===============================================
 >
 > spillRosters           :: ZoneCache → [SFFile] → IO String
 > spillRosters zc sffilesp                 = do
->   let whole =    preface
+>   let whole =    prolog
 >               ++ concatMap (spillF zc) sffilesp
 >               ++ epilog
 >   return whole
 >   where
 >     flist              :: String         = concat $ zipWith reformat [0..] (map format sffilesp)
->     preface =     "> {-# LANGUAGE ScopedTypeVariables #-}\n"
+>     prolog =     "> {-# LANGUAGE ScopedTypeVariables #-}\n"
 >                ++ "> {-# LANGUAGE UnicodeSyntax #-}\n"
 >                ++ ">\n"
 >                ++ "> module SyntheticRosters where\n"
@@ -1088,17 +1088,20 @@ reconcile zone and sample header ===============================================
 >     epilog =      ">\n"
 >
 > spillF                 :: ZoneCache → SFFile → String
-> spillF zc sffile                         = preface ++ concatMap literate spilt' ++ epilog
+> spillF zc sffile                         = spillI zc sffile ++ spillP zc sffile
+>
+> spillI                 :: ZoneCache → SFFile → String
+> spillI zc sffile                         = prolog ++ concatMap literate spilt' ++ epilog
 >   where
 >     arrays = zArrays sffile
 >     boundsI = bounds $ ssInsts arrays
 >
->     spilt = zip [0..] $ map (spillI zc sffile) [fst boundsI..snd boundsI]
+>     spilt = zip [0..] $ map (spillI' zc sffile) [fst boundsI..snd boundsI]
 >     mfound = find (fst.snd) spilt
 >     spilt' = map (settleLine mfound) spilt
 >
->     preface = "> "       ++ zNickname sffile ++ "Inst =\n>   [\n"
->     epilog = ">   ]\n> " ++ zNickname sffile ++ "Perc =\n>   [\n>   ]\n>\n"
+>     prolog = "> "       ++ zNickname sffile ++ "Inst =\n>   [\n"
+>     epilog = ">   ]\n"
 >
 >     settleLine   :: Maybe (Int, (Bool, String)) → (Int, (Bool, String)) → String
 >     settleLine mfound (nix, (matched, str))
@@ -1107,6 +1110,29 @@ reconcile zone and sample header ===============================================
 >       | otherwise                        = "       " ++ str
 >       where
 >         target = (fst . fromJust) mfound
+>
+> spillI'                :: ZoneCache → SFFile → Word → (Bool, String)
+> spillI' zc sffile wordI                   = makeLineI inp
+>   where
+>     arrays = zArrays sffile
+>     iinst  = ssInsts arrays ! wordI
+>     inp    = quoteSyntheticText $ F.instName iinst
+>
+> spillP                 :: ZoneCache → SFFile → String
+> spillP zc sffile                         = prolog ++ concatMap literate spilt' ++ epilog
+>   where
+>     prolog = "> "       ++ zNickname sffile ++ "Perc =\n>   [\n"
+>     epilog = ">   ]\n"
+>
+>     spilt' = []
+>
+> quoteSyntheticText     :: String → String
+> quoteSyntheticText                       = concatMap quote
+>   where
+>     quote              :: Char → String
+>     quote c = case c of
+>                 '\"'   → "\\\""
+>                 _      → [c]
 >
 > literate               :: String → String
 > literate inp                             = "> " ++ inp
@@ -1123,11 +1149,11 @@ reconcile zone and sample header ===============================================
 >
 >     matched            :: Bool           = ffScore > ffThreshold
 >
->     preface
+>     prolog
 >       | matched    = ""
 >       | otherwise  = "     --"
 >     iline =
->        preface
+>        prolog
 >             ++ "       (\""
 >             ++ inp
 >             ++ "\","
@@ -1145,18 +1171,3 @@ reconcile zone and sample header ===============================================
 >
 > fscore                 :: Double → String
 > fscore sc                                = "DScore " ++ show (round sc)
->
-> spillI                 :: ZoneCache → SFFile → Word → (Bool, String)
-> spillI zc sffile wordI                   = makeLineI inp
->   where
->     arrays = zArrays sffile
->     iinst  = ssInsts arrays ! wordI
->     inp    = quoteSyntheticText $ F.instName iinst
->
-> quoteSyntheticText     :: String → String
-> quoteSyntheticText                       = concatMap quote
->   where
->     quote              :: Char → String
->     quote c = case c of
->                 '\"'   → "\\\""
->                 _      → [c]
