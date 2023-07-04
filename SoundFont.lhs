@@ -27,6 +27,23 @@ SoundFont support ==============================================================
 >                                          as FP
 > import qualified Text.FuzzyFind          as FF
   
+notes on three kinds of scoring =======================================================================================
+
+In order of when they occur in the overall process:
+
+1. FuzzyFind      - Presented with each *.sf2 file, we record items into roster based on their names in the file --
+                    e.g. "Iowa Viola-pp". The scores are a function of FuzzyFind results on keywords we have
+                    associated with GM InstrumentName and PercussionSound. The resulting rosters typically include
+                    MANY candidates for each GM item.  
+  
+2. static scoring - Before rendering, we match up maximum of one instrument or percussion to each GM item. 
+                    We determine the highest scoring candidate for each given GM item, and record it into a runtime
+                    map. Static scoring (computeStaticScore) takes into account attributes like stereo, 24-bit, number
+                    of splits. See Locators.
+
+3. zone scoring   - While rendering, presented with a note, choose the zone that best fits the required pitch,
+                    velocity, etc. Each such attribute is weighted according to its assumed relative importance.
+
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
 > data PerGMKey =
@@ -369,7 +386,7 @@ tournament among GM instruments from SoundFont files ===========================
 >                                                           ++ nameI
 >                                                           ++ " not found in "
 >                                                           ++ zFilename sffile) : probs)
->       | otherwise                        = ((transactScoring zc
+>       | otherwise                        = ((xaStaticScoring zc
 >                                                              sffile
 >                                                              pergm
 >                                                              nameI
@@ -435,7 +452,7 @@ tournament among GM instruments from SoundFont files ===========================
 >                                                           ++ nameZ
 >                                                           ++ " not found in "
 >                                                           ++ zFilename sffile) : probs)
->           | otherwise                    = ((iloc, transactScoring zc
+>           | otherwise                    = ((iloc, xaStaticScoring zc
 >                                                                    sffile
 >                                                                    pergm
 >                                                                    nameZ
@@ -467,7 +484,7 @@ tournament among GM instruments from SoundFont files ===========================
 >   where
 >     msg = unwords ["chooseIAndP ", show (is, ps)]
 >
-> transactScoring        :: forall a. (Ord a, Show a) ⇒
+> xaStaticScoring        :: forall a. (Ord a, Show a) ⇒
 >                           ZoneCache
 >                           → SFFile
 >                           → PerGMKey
@@ -476,7 +493,7 @@ tournament among GM instruments from SoundFont files ===========================
 >                           → [Hints]
 >                           → Map.Map a PerGMScored
 >                           → Map.Map a PerGMScored
-> transactScoring zc sffile pergm name kind hints loc
+> xaStaticScoring zc sffile pergm name kind hints loc
 >   | traceIf msg False = undefined
 >   | otherwise = loc'
 >   where
@@ -489,7 +506,7 @@ tournament among GM instruments from SoundFont files ===========================
 >                                                  (Map.lookup kind loc)
 >     myScore            :: Int            = computeStaticScore zc sffile pergm hints
 >     pergm'             :: PerGMScored    = PerGMScored myScore pergm
->     msg = unwords ["transactScoring ", show kind, " old=", show oldScore, " new=", show myScore] 
+>     msg = unwords ["xaStaticScoring ", show kind, " old=", show oldScore, " new=", show myScore] 
 >
 > computeStaticScore     :: ZoneCache → SFFile → PerGMKey → [Hints] → Int
 > computeStaticScore zc sffile pergm hints
@@ -1093,15 +1110,15 @@ reconcile zone and sample header ===============================================
 > spillI                 :: ZoneCache → SFFile → String
 > spillI zc sffile                         = prolog ++ concatMap literate spilt' ++ epilog
 >   where
+>     prolog = "> "       ++ zNickname sffile ++ "Inst =\n>   [\n"
+>     epilog = ">   ]\n"
+>
 >     arrays = zArrays sffile
 >     boundsI = bounds $ ssInsts arrays
 >
 >     spilt = zip [0..] $ map (spillI' zc sffile) [fst boundsI..snd boundsI]
 >     mfound = find (fst.snd) spilt
 >     spilt' = map (settleLine mfound) spilt
->
->     prolog = "> "       ++ zNickname sffile ++ "Inst =\n>   [\n"
->     epilog = ">   ]\n"
 >
 >     settleLine   :: Maybe (Int, (Bool, String)) → (Int, (Bool, String)) → String
 >     settleLine mfound (nix, (matched, str))
@@ -1123,6 +1140,9 @@ reconcile zone and sample header ===============================================
 >   where
 >     prolog = "> "       ++ zNickname sffile ++ "Perc =\n>   [\n"
 >     epilog = ">   ]\n"
+>
+>     arrays = zArrays sffile
+>     boundsI = bounds $ ssInsts arrays
 >
 >     spilt' = []
 >
