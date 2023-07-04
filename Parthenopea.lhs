@@ -511,6 +511,18 @@ examine song for instrument and percussion usage ===============================
 
 apply fuzzyfind to mining instruments + percussion ====================================================================
 
+> class GMPlayable a where
+>   getFFKeys            :: a → Maybe [String]
+>   getList              :: [a]
+>
+> instance GMPlayable InstrumentName where
+>   getFFKeys = instrumentFFKeys
+>   getList = map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>
+> instance GMPlayable PercussionSound where
+>   getFFKeys = percussionFFKeys
+>   getList = map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
+>
 > instrumentFFKeys :: InstrumentName → Maybe [String]
 > instrumentFFKeys inst =
 >    case inst of
@@ -650,7 +662,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       AcousticBassDrum          → Just            ["drum", "bass", "acoustic"]
 >       BassDrum1                 → Just            ["bass", "drum"]
 >       SideStick                 → Just            ["side", "stick"]
->       AcousticSnare             → Just            ["drum", "snare", "acoustic"]
+>       AcousticSnare             → Just            ["snare", "drum", "acoustic"]
 >       HandClap                  → Just            ["clap", "hand"]
 >       ElectricSnare             → Just            ["snare", "electric", "drum"]
 >       LowFloorTom               → Just            ["floor", "tom", "low"]
@@ -661,33 +673,70 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       OpenHiHat                 → Just            ["hihat", "open"]
 >       LowMidTom                 → Just            ["tom", "mid", "low"]
 >       HiMidTom                  → Just            ["tom", "mid", "high"]
->       CrashCymbal1              → Just            ["crash", "cymbal"]
+>       CrashCymbal1              → Just            ["crash", "cymbal", "1"]
 >       HighTom                   → Just            ["tom", "high"]
+>       RideCymbal1               → Just            ["cymbal", "ride", "1"]
+>       ChineseCymbal             → Just            ["cymbal", "chinese"]
+>       RideBell                  → Just            ["bell", "ride"]
+>       Tambourine                → Just            ["tambourine"]
+>       SplashCymbal              → Just            ["cymbal", "splash"]
+>       Cowbell                   → Just            ["cowbell"]
+>       CrashCymbal2              → Just            ["crash", "cymbal", "2"]
+>       Vibraslap                 → Just            ["vibraslap"]
+>       RideCymbal2               → Just            ["cymbal", "ride", "2"]
+>       HiBongo                   → Just            ["bongo", "high"]
+>       LowBongo                  → Just            ["bongo", "low"]
+>       MuteHiConga               → Just            ["conga", "mute", "high"]
+>       OpenHiConga               → Just            ["conga", "open", "high"]
+>       LowConga                  → Just            ["conga", "low"]
+>       HighTimbale               → Just            ["timbale", "high"]
+>       LowTimbale                → Just            ["timbale", "low"]
+>       HighAgogo                 → Just            ["agogo", "high"]
+>       LowAgogo                  → Just            ["agogo", "low"]
+>       Cabasa                    → Just            ["cabasa"]
+>       Maracas                   → Just            ["maracas"]
+>       ShortWhistle              → Just            ["whistle", "short"]
+>       LongWhistle               → Just            ["whistle", "long"]
+>       ShortGuiro                → Just            ["guiro", "short"]
+>       LongGuiro                 → Just            ["guiro", "long"]
+>       Claves                    → Just            ["claves"]
+>       HiWoodBlock               → Just            ["woodblock", "high"]
+>       LowWoodBlock              → Just            ["woodblock", "low"]
+>       MuteCuica                 → Just            ["cuica", "mute"]
+>       OpenCuica                 → Just            ["cuica", "open"]
+>       MuteTriangle              → Just            ["triangle", "mute"]
+>       OpenTriangle              → Just            ["triangle", "open"]
 >
 > quickFFTest            :: String → [String] → [Maybe FF.Alignment]
-> quickFFTest inp pieces = map ((flip FF.bestMatch) inp) pieces
+> quickFFTest inp = map (`FF.bestMatch` inp)
 >
-> findMatchingInstrument :: String → Maybe (InstrumentName, Double)
-> findMatchingInstrument inp
->   | traceIf msg False = undefined
->   | otherwise                            = mmiscore
+> evalPick               :: forall a. (Ord a, Show a) ⇒ Maybe (a, Double) → Double
+> evalPick Nothing = 0
+> evalPick (Just (playable, x)) = x
+>
+> findMatchingA          :: forall a. (Ord a, Show a, GMPlayable a) ⇒
+>                           String
+>                           → Maybe (a, Double)
+> findMatchingA inp
+>   | traceIf msg False                    = undefined
+>   | otherwise                            = chooseWinner asScored
 >   where
->     ilist              :: [InstrumentName]
->                                          = map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>     asList              :: [a]           = getList
 >     
->     lookups = mapMaybe eval1 ilist
+>     asLooks = mapMaybe (eval1 getFFKeys) asList
 >
->     eval1             :: InstrumentName → Maybe (InstrumentName, [String])
->     eval1 iname                          = mr
+>     eval1              :: forall a. (Ord a, Show a) ⇒ (a → Maybe [String]) → a → Maybe (a, [String])
+>     eval1 lookupKeys item                = mr
 >       where
->         mffk                             = instrumentFFKeys iname
+>         mffk           :: Maybe [String] = lookupKeys item
+>         mr             :: Maybe (a, [String])
 >         mr
 >          | isNothing mffk                = Nothing
->          | otherwise                     = Just (iname, fromJust mffk) 
+>          | otherwise                     = Just (item, fromJust mffk) 
 >
->     scored = mapMaybe eval2 lookups
+>     asScored = mapMaybe eval2 asLooks
 >
->     eval2              :: (InstrumentName, [String]) → Maybe (InstrumentName, Double)
+>     eval2              :: forall a. (Ord a, Show a) ⇒ (a, [String]) → Maybe (a, Double)
 >     eval2 (iname, keys)                  = ms
 >       where
 >         lFactor        :: Double         = sqrt $ fromIntegral $ length keys
@@ -700,7 +749,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >                                          = zip keys weights
 >         pieces         :: [Double]       = map eval3 withWeights
 >         tot            :: Double         = sum pieces
->         ms             :: Maybe (InstrumentName, Double)
+>         ms             :: Maybe (a, Double)
 >           | tot <= 0                     = Nothing
 >           | otherwise                    = Just (iname, tot)
 >
@@ -713,18 +762,51 @@ apply fuzzyfind to mining instruments + percussion =============================
 >         piece  = maybe 0 ((* weight) . fromIntegral . FF.score) malign
 >         msg = unwords ["eval3", show key, show weight, " and piece=", show piece]
 >
->     mmiscore           :: Maybe (InstrumentName, Double)
->     mmiscore
->       | null scored                      = Nothing
->       | otherwise                        = Just winner 
+>     chooseWinner       :: [(a, Double)] → Maybe (a, Double)
+>     chooseWinner scores
+>       | null scores                     = Nothing
+>       | otherwise                       = Just winner 
 >       where
->         winner         :: (InstrumentName, Double)
->                                          = maximumBy eval4 scored
+>         winner         :: (a, Double)   = maximumBy eval4 scores
 >
->     eval4              :: (InstrumentName, Double) → (InstrumentName, Double) → Ordering
+>     eval4              :: (a, Double) → (a, Double) → Ordering
 >     eval4 (_, s1) (_, s2)                = compare s1 s2
 >
->     msg = unwords ["findMatchingInstrument=", show inp, "\n", show scored]
+>     msg = unwords ["findMatchingA", show inp] -- , "\n", show result]
+>
+> findMatchingAExcludingB:: forall a b. (Ord a, Show a, GMPlayable a, Ord b, Show b, GMPlayable b) ⇒
+>                           Maybe (a, Double) → Maybe (b, Double) → Maybe (a, Double)
+> findMatchingAExcludingB ma Nothing = ma
+> findMatchingAExcludingB Nothing mb = Nothing
+> findMatchingAExcludingB ma mb =
+>   let
+>     ascore = evalPick ma
+>     bscore = evalPick mb
+>   in
+>     if ascore >= bscore
+>     then ma
+>     else Nothing
+>     
+> findMatchingInstrument :: String → Maybe (InstrumentName, Double)
+> findMatchingInstrument inp =
+>   let
+>     ma                 :: Maybe (InstrumentName, Double)
+>                                          = findMatchingA inp
+>     mb                 :: Maybe (PercussionSound, Double)
+>                                          = findMatchingA inp
+>   in
+>     findMatchingAExcludingB ma mb
+>
+> findMatchingPercussion :: String → Maybe (PercussionSound, Double)
+> findMatchingPercussion inp =
+>   let
+>     ma                 :: Maybe (PercussionSound, Double)
+>                                          = findMatchingA inp
+>     mb                 :: Maybe (InstrumentName, Double)
+>                                          = findMatchingA inp
+>   in
+>     findMatchingAExcludingB ma mb
+>
 
 tournament among instruments in various soundfont files ===============================================================
 

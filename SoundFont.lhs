@@ -21,7 +21,7 @@ SoundFont support ==============================================================
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, AudSF, Mono, Stereo )
 > import Euterpea.Music
-> import Parthenopea ( traceIf, traceAlways, listI, initCase, listP, findMatchingInstrument )
+> import Parthenopea ( traceIf, traceAlways, listI, initCase, listP, findMatchingInstrument, findMatchingPercussion )
 > import Synthesizer
 > import qualified System.FilePattern.Directory
 >                                          as FP
@@ -346,7 +346,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     ts1 ← getCurrentTime
 >     let is = Map.keys $ fst $ listI song initCase (Map.empty, Map.empty)
 >     let ps = Map.keys $ listP song initCase Map.empty
->     putStrLn ("name=" ++ name ++ " lengths=" ++ show (length is) ++ " <- is, ps -> " ++ show (length ps))
+>     putStrLn (name ++ ": lengths=" ++ show (length is) ++ " <- is, ps -> " ++ show (length ps))
 >     printChoices sfrost is ps
 >     let path = name ++ ".wav"
 >     putStr path
