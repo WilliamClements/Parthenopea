@@ -196,9 +196,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 > fileByIndex            :: SFRoster → Word → SFFile
 > fileByIndex sfrost wFile = zFiles sfrost ! fromIntegral wFile
 >
-> doSoundFontMusic       :: [SoundFontInit]
->                           → [(String, Music (Pitch, [NoteAttribute]))]
->                           → IO ()
+> doSoundFontMusic       :: [SoundFontInit] → [(String, Music (Pitch, [NoteAttribute]))] → IO ()
 > doSoundFontMusic sfdb songs =
 >   do
 >
@@ -233,11 +231,10 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 > doSoundFontDig prefix outFilename =
 >   do
 >
->     putStrLn "processing..."
+>     putStrLn "digging..."
 >
 >     ts1 ← getCurrentTime
 >     fps ← FP.getDirectoryFiles "." (singleton "edit*.sf2")
->     putStrLn ("ls " ++ show fps)
 >
 >     let fpsn = map (addNickname prefix) fps
 >     let numberedDB = zip [0..] fpsn
@@ -251,8 +248,8 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     ts3 ← getCurrentTime
 >     putStrLn ("cache zones: " ++ show (diffUTCTime ts3 ts2))
 >
->     all ← spillRosters zc sffilesp
->     writeFile outFilename all
+>     spillRosters zc sffilesp outFilename
+>
 >     ts4 ← getCurrentTime
 >     putStrLn ("write rosters: " ++ show (diffUTCTime ts4 ts3))
 >
@@ -323,6 +320,10 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                        (F.smpl sdata)
 >                        (F.sm24 sdata)
 >         let sffile = SFFile filename nickname arrays wFile
+>         putStrLn ("digSoundFontFile ssInsts" ++ show (bounds $ ssInsts arrays))
+>         putStrLn ("digSoundFontFile ssIBags" ++ show (bounds $ ssIBags arrays))
+>         putStrLn ("digSoundFontFile ssIGens" ++ show (bounds $ ssIGens arrays))
+>         putStrLn ("digSoundFontFile ssShdrs" ++ show (bounds $ ssShdrs arrays))
 >
 >         ts2 ← getCurrentTime
 >         let nBits = case ssM24 arrays of
@@ -1063,12 +1064,12 @@ reconcile zone and sample header ===============================================
 >     ++ show (pStaticScore pergm')
 >     ++ ")"
 >
-> spillRosters           :: ZoneCache → [SFFile] → IO String
-> spillRosters zc sffilesp                 = do
->   let whole =    prolog
->               ++ concatMap (spillF zc) sffilesp
->               ++ epilog
->   return whole
+> spillRosters           :: ZoneCache → [SFFile] → FilePath → IO ()
+> spillRosters zc sffilesp outFile         = do
+>   putStrLn ("spillRosters " ++ show (length zc))
+>   appendFile outFile prolog
+>   mapM_ (spillF zc outFile) sffilesp
+>   appendFile outFile epilog
 >   where
 >     flist              :: String         = concat $ zipWith reformat [0..] (map format sffilesp)
 >     prolog =     "> {-# LANGUAGE ScopedTypeVariables #-}\n"
@@ -1104,8 +1105,14 @@ reconcile zone and sample header ===============================================
 >                  ++ iline
 >     epilog =      ">\n"
 >
-> spillF                 :: ZoneCache → SFFile → String
-> spillF zc sffile                         = spillI zc sffile ++ spillP zc sffile
+> spillF                 :: ZoneCache → FilePath → SFFile → IO ()
+> spillF zc outFile sffile
+>   | traceAlways msg False                = undefined
+>   | otherwise                            = do
+>     appendFile outFile (spillI zc sffile)
+>     appendFile outFile (spillP zc sffile)
+>   where
+>     msg = unwords ["spillF " ++ zFilename sffile]
 >
 > spillI                 :: ZoneCache → SFFile → String
 > spillI zc sffile                         = prolog ++ concatMap literate spilt' ++ epilog
@@ -1129,7 +1136,14 @@ reconcile zone and sample header ===============================================
 >         target = (fst . fromJust) mfound
 >
 > spillI'                :: ZoneCache → SFFile → Word → (Bool, String)
-> spillI' zc sffile wordI                   = makeLineI inp
+> spillI' _ sffile wordI                   = makeLineI inp
+>   where
+>     arrays = zArrays sffile
+>     iinst  = ssInsts arrays ! wordI
+>     inp    = quoteSyntheticText $ F.instName iinst
+>
+> spillI''                :: ZoneCache → SFFile → Word → (Word, String)
+> spillI'' _ sffile wordI                   = (wordI, inp)
 >   where
 >     arrays = zArrays sffile
 >     iinst  = ssInsts arrays ! wordI
@@ -1138,13 +1152,56 @@ reconcile zone and sample header ===============================================
 > spillP                 :: ZoneCache → SFFile → String
 > spillP zc sffile                         = prolog ++ concatMap literate spilt' ++ epilog
 >   where
->     prolog = "> "       ++ zNickname sffile ++ "Perc =\n>   [\n"
+>     prolog = "> " ++ zNickname sffile ++ "Perc =\n>   [\n"
 >     epilog = ">   ]\n"
 >
 >     arrays = zArrays sffile
 >     boundsI = bounds $ ssInsts arrays
 >
->     spilt' = []
+>     spiltI = map (spillI'' zc sffile) [fst boundsI..snd boundsI]
+>     spiltI' = map (grabZones zc sffile) spiltI
+>     spiltI'' = filter filterOutEmpty spiltI'
+>     spilt' = concatMap format spiltI''
+>
+> filterOutEmpty         :: (String, [(String, PercussionSound)]) → Bool
+> filterOutEmpty (_, ps) = not (null ps)
+>
+> format                 :: (String, [(String, PercussionSound)]) → [String]
+> format (istring, ps)                     = ("       (\"" ++ istring ++ "\"    ,            [\n")  : map doPerc ps
+>
+> doPerc                 :: (String, PercussionSound) → String
+> doPerc (pstring, psound) = "                                          \"" ++ pstring ++ "\"     ,     " ++ show psound ++ "\n"
+>
+> grabZones              :: ZoneCache → SFFile → (Word, String) → (String, [(String, PercussionSound)])
+> grabZones zc sffile (zI, istring)
+>   | traceAlways msg False                = undefined
+>   | otherwise                            = (istring, percPairs)
+>   where
+>     pergm                                = PerGMKey (zWordF sffile) zI Nothing
+>     zs                 :: [(Word, SFZone)]
+>                                          = tail $ getZonesFromCache zc pergm
+>     percPairs          :: [(String, PercussionSound)]
+>                                          = mapMaybe (grabZone sffile) zs
+>     msg                                  = unwords ["grabZones ", show $ length zs]
+> 
+> grabZone               :: SFFile → (Word, SFZone) → Maybe (String, PercussionSound)
+> grabZone sffile (_, zone)
+>   | traceAlways msg False                = undefined
+>   | otherwise                            = getZZZ inp mmisc
+>   where
+>     sin                                  = fromJust (zSampleIndex zone)
+>     shdr                                 = ssShdrs arrays ! sin
+>     inp                                  = quoteSyntheticText $ F.sampleName shdr
+>     arrays                               = zArrays sffile
+>     mmisc              :: Maybe (PercussionSound, Double)
+>                                          = findMatchingPercussion inp
+>     msg                                  = unwords ["grabZone ", show sin]
+>
+> getZZZ                 :: String → Maybe (PercussionSound, Double) → Maybe (String, PercussionSound)
+> getZZZ inp = maybe Nothing (getZZZ' inp)
+>
+> getZZZ'                 :: String → (PercussionSound, Double) → Maybe (String, PercussionSound)
+> getZZZ' inp (psound, _) = Just (inp, psound)
 >
 > quoteSyntheticText     :: String → String
 > quoteSyntheticText                       = concatMap quote
