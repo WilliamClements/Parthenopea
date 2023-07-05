@@ -775,37 +775,35 @@ apply fuzzyfind to mining instruments + percussion =============================
 >     msg = unwords ["findMatchingA", show inp] -- , "\n", show result]
 >
 > findMatchingAExcludingB:: forall a b. (Ord a, Show a, GMPlayable a, Ord b, Show b, GMPlayable b) ⇒
->                           Maybe (a, Double) → Maybe (b, Double) → Maybe (a, Double)
-> findMatchingAExcludingB ma Nothing = ma
-> findMatchingAExcludingB Nothing mb = Nothing
-> findMatchingAExcludingB ma mb =
+>                           Maybe (a, Double) → Maybe (b, Double) → Double → Maybe (a, Double)
+> findMatchingAExcludingB ma mb thresh =
 >   let
 >     ascore = evalPick ma
 >     bscore = evalPick mb
 >   in
->     if ascore >= bscore
+>     if ascore > thresh && ascore >= bscore
 >     then ma
 >     else Nothing
 >     
-> findMatchingInstrument :: String → Maybe (InstrumentName, Double)
-> findMatchingInstrument inp =
+> findMatchingInstrument :: String → Double → Maybe (InstrumentName, Double)
+> findMatchingInstrument inp thresh =
 >   let
 >     ma                 :: Maybe (InstrumentName, Double)
 >                                          = findMatchingA inp
 >     mb                 :: Maybe (PercussionSound, Double)
 >                                          = findMatchingA inp
 >   in
->     findMatchingAExcludingB ma mb
+>     findMatchingAExcludingB ma mb thresh
 >
-> findMatchingPercussion :: String → Maybe (PercussionSound, Double)
-> findMatchingPercussion inp =
+> findMatchingPercussion :: String → Double → Maybe (PercussionSound, Double)
+> findMatchingPercussion inp thresh =
 >   let
 >     ma                 :: Maybe (PercussionSound, Double)
 >                                          = findMatchingA inp
 >     mb                 :: Maybe (InstrumentName, Double)
 >                                          = findMatchingA inp
 >   in
->     findMatchingAExcludingB ma mb
+>     findMatchingAExcludingB ma mb thresh
 >
 
 tournament among instruments in various soundfont files ===============================================================

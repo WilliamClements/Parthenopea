@@ -31,18 +31,18 @@ notes on three kinds of scoring ================================================
 
 In order of when they occur in the overall process:
 
-1. FuzzyFind      - Presented with each *.sf2 file, we record items into roster based on their names in the file --
-                    e.g. "Iowa Viola-pp". The scores are a function of FuzzyFind results on keywords we have
-                    associated with GM InstrumentName and PercussionSound. The resulting rosters typically include
-                    MANY candidates for each GM item.  
+1. FuzzyFind      - Presented with each *.sf2 file, we record qualifying items into roster based on their names
+                    in the file -- e.g. "Iowa Viola-pp". The qualification scores are a function of FuzzyFind
+                    results on keywords we have associated with GM InstrumentName and PercussionSound. The resulting
+                    rosters typically include MANY candidates for each GM item.  
   
 2. static scoring - Before rendering, we match up maximum of one instrument or percussion to each GM item. 
-                    We determine the highest scoring candidate for each given GM item, and record it into a runtime
-                    map. Static scoring (computeStaticScore) takes into account attributes like stereo, 24-bit, number
+                    We build a runtime map of highest scoring candidate for each given GM item. Static scoring
+                    (computeStaticScore) takes into account attributes like stereo, 24-bit, number
                     of splits. See Locators.
 
-3. zone scoring   - While rendering, presented with a note, choose the zone that best fits the required pitch,
-                    velocity, etc. Each such attribute is weighted according to its assumed relative importance.
+3. zone scoring   - While rendering, presented with a note, choose the zone that best fits (highest score) the
+                    required pitch, velocity, etc. These attributes are weighted in score computation.
 
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
@@ -95,6 +95,12 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , iNickname          :: String
 >   , iInstSpecs         :: [(String, ([Hints], InstrumentName))]
 >   , iPercSpecs         :: [(String, [(String, ([Hints], PercussionSound))])]}
+>
+> data Hints =
+>   DLow
+>   | DMed
+>   | DHigh
+>   | DScore Double deriving Show
 >
 > data SFZone =
 >   SFZone {
@@ -607,8 +613,8 @@ extract data from SoundFont per instrument =====================================
 >                                  → iz {zLoopEndCoarseOffs =        Just i}
 >
 >   F.InstIndex w                  → iz {zInstIndex =                Just w}
->   F.KeyRange a b                 → iz {zKeyRange = Just (fromIntegral a, fromIntegral b)}
->   F.VelRange a b                 → iz {zVelRange = Just (fromIntegral a, fromIntegral b)}
+>   F.KeyRange a b                 → iz {zKeyRange =                 Just (fromIntegral a, fromIntegral b)}
+>   F.VelRange a b                 → iz {zVelRange =                 Just (fromIntegral a, fromIntegral b)}
 >   F.CoarseTune i                 → iz {zCoarseTune =               Just i}
 >   F.FineTune i                   → iz {zFineTune =                 Just i}
 >   F.SampleIndex w                → iz {zSampleIndex =              Just w}
@@ -689,7 +695,7 @@ prepare the specified instruments and percussion ===============================
 >
 >   where
 >     cacheF             :: SFFile → [(PerGMKey, [(Word, SFZone)])]
->     cacheF sffile                        = concatMap (cacheI sffile) [fst boundsI..snd boundsI]
+>     cacheF sffile                        = concatMap (cacheI sffile) [fst boundsI..snd boundsI-1]
 >       where
 >         arrays = zArrays sffile
 >         boundsI = bounds (ssInsts arrays)
@@ -718,7 +724,7 @@ prepare the specified instruments and percussion ===============================
 >                  else singleton ibagi
 >         oIx    = [ibagi+1..jbagi-1]
 >         gList  = map (buildZone sffile iinst defInstrumentZone)   gIx
->         oList  = map (buildZone sffile iinst (snd (head gList)))  oIx
+>         oList  = map (buildZone sffile iinst ((snd.head) gList))  oIx
 >         msg = unwords ["getZones=", show (zF, zI) ] -- show $ length gList, " ", show $ length oList
 >
 > getZonesFromCache      :: ZoneCache → PerGMKey → [(Word, SFZone)]
@@ -768,8 +774,8 @@ define signal functions for playing instruments ================================
 >                                                         (pWordF pergm, pWordI pergm)
 >                                                         dur pch vol params
 >   in proc _ → do
->     (reconL, reconR) ← sig ⤙ ()
->     outA ⤙ (reconL, reconR)
+>     (zL, zR) ← sig ⤙ ()
+>     outA ⤙ (zL, zR)
 >
 > constructSig           :: SFRoster
 >                           → (Word, Word)
@@ -778,17 +784,16 @@ define signal functions for playing instruments ================================
 >                           → Volume
 >                           → [Double]
 >                           → AudSF () (Double, Double)
-> constructSig sfrost (zF, zI) dur pch vol params
+> constructSig sfrost (wF, wI) dur pch vol params
 >   | traceIf msg False = undefined
 >   | otherwise                            =
 >   let
 >     zc                 :: ZoneCache      = zZoneCache sfrost
->     pergm              :: PerGMKey       = PerGMKey zF zI Nothing
 >     zones              :: [(Word, SFZone)]
->                                          = tail $ getZonesFromCache zc pergm
+>                                          = tail $ getZonesFromCache zc (PerGMKey wF wI Nothing)
 >     ((zoneL, shdrL), (zoneR, shdrR))
 >                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
->                                          = setZone sfrost (zF, zI) zones pch vol
+>                                          = setZone sfrost (wF, wI) zones pch vol
 >     (reconL, reconR)   :: (Reconciled, Reconciled)
 >                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
 >     sr                 :: Double         = fromIntegral $ F.sampleRate shdrL
@@ -797,7 +802,7 @@ define signal functions for playing instruments ================================
 >                                              ((zoneL, shdrL), (zoneR, shdrR))
 >                                              reconL
 >                                              reconR
->     sffile             :: SFFile         = fileByIndex sfrost zF
+>     sffile             :: SFFile         = fileByIndex sfrost wF
 >     arrays             :: SoundFontArrays= zArrays sffile 
 >     sig = if not ok
 >           then error "SFZone and F.Shdr could not be reconciled"
@@ -805,7 +810,7 @@ define signal functions for playing instruments ================================
 >                              (ssData arrays) (ssM24 arrays)
 >   in sig
 >   where
->     msg = unwords ["constructSig ", show (zF, zI)]
+>     msg = unwords ["constructSig ", show (wF, wI)]
 >
 > assignPercussion       :: SFRoster
 >                           → [(PercussionSound, (Word, Word))]
@@ -822,8 +827,8 @@ define signal functions for playing instruments ================================
 >     sig                :: AudSF () (Double, Double)
 >                                          = constructSig sfrost (wF, wI) dur pch vol params
 >   in proc _ → do
->     (reconL, reconR) ← sig ⤙ ()
->     outA ⤙ (reconL, reconR)
+>     (zL, zR) ← sig ⤙ ()
+>     outA ⤙ (zL, zR)
 
 zone selection ========================================================================================================
 
@@ -999,18 +1004,9 @@ reconcile zone and sample header ===============================================
 >                                     , show zoneL
 >                                     , show reconL]
 >
-> data Hints =
->   DLow
->   | DMed
->   | DHigh
->   | DScore Double deriving Show
->
-> type SoundFontDatabase = [ (FilePath
->                             , ([Hints]
->                                , ([  (String, ([Hints], InstrumentName))]
->                                ,  [  (String, [(String, ([Hints], PercussionSound))])])))]
-> type SoundFontTemplate = [(FilePath, String)]
->
+
+emit text indicating what choices we made for GM items ================================================================
+
 > printChoices           :: SFRoster → [InstrumentName] → [PercussionSound] → IO ()
 > printChoices sfrost is ps                = do
 >   let istrings = map (showI sfrost) is
@@ -1064,6 +1060,9 @@ reconcile zone and sample header ===============================================
 >     ++ show (pStaticScore pergm')
 >     ++ ")"
 >
+
+mine instrument/percussion candidates (sampled sounds) from SoundFont (*.sf2) files ===================================
+
 > spillRosters           :: ZoneCache → [SFFile] → FilePath → IO ()
 > spillRosters zc sffilesp outFile         = do
 >   putStrLn ("spillRosters " ++ show (length zc))
@@ -1109,13 +1108,16 @@ reconcile zone and sample header ===============================================
 > spillF zc outFile sffile
 >   | traceAlways msg False                = undefined
 >   | otherwise                            = do
->     appendFile outFile (spillI zc sffile)
->     appendFile outFile (spillP zc sffile)
+>     spillI zc outFile sffile
+>     spillP zc outFile sffile
 >   where
 >     msg = unwords ["spillF " ++ zFilename sffile]
 >
-> spillI                 :: ZoneCache → SFFile → String
-> spillI zc sffile                         = prolog ++ concatMap literate spilt' ++ epilog
+> spillI                 :: ZoneCache → FilePath → SFFile → IO ()
+> spillI zc outFile sffile                 = do
+>     appendFile outFile prolog
+>     appendFile outFile $ concatMap literate spilt'
+>     appendFile outFile epilog
 >   where
 >     prolog = "> "       ++ zNickname sffile ++ "Inst =\n>   [\n"
 >     epilog = ">   ]\n"
@@ -1123,7 +1125,7 @@ reconcile zone and sample header ===============================================
 >     arrays = zArrays sffile
 >     boundsI = bounds $ ssInsts arrays
 >
->     spilt = zip [0..] $ map (spillI' zc sffile) [fst boundsI..snd boundsI]
+>     spilt = zip [0..] $ map (spillI' zc sffile) [fst boundsI..snd boundsI-1]
 >     mfound = find (fst.snd) spilt
 >     spilt' = map (settleLine mfound) spilt
 >
@@ -1149,8 +1151,11 @@ reconcile zone and sample header ===============================================
 >     iinst  = ssInsts arrays ! wordI
 >     inp    = quoteSyntheticText $ F.instName iinst
 >
-> spillP                 :: ZoneCache → SFFile → String
-> spillP zc sffile                         = prolog ++ concatMap literate spilt' ++ epilog
+> spillP                 :: ZoneCache → FilePath → SFFile → IO ()
+> spillP zc outFile sffile                 = do
+>     appendFile outFile prolog
+>     appendFile outFile $ concatMap literate spilt'
+>     appendFile outFile epilog
 >   where
 >     prolog = "> " ++ zNickname sffile ++ "Perc =\n>   [\n"
 >     epilog = ">   ]\n"
@@ -1158,7 +1163,7 @@ reconcile zone and sample header ===============================================
 >     arrays = zArrays sffile
 >     boundsI = bounds $ ssInsts arrays
 >
->     spiltI = map (spillI'' zc sffile) [fst boundsI..snd boundsI]
+>     spiltI = map (spillI'' zc sffile) [fst boundsI..snd boundsI-1]
 >     spiltI' = map (grabZones zc sffile) spiltI
 >     spiltI'' = filter filterOutEmpty spiltI'
 >     spilt' = concatMap format spiltI''
@@ -1194,7 +1199,7 @@ reconcile zone and sample header ===============================================
 >     inp                                  = quoteSyntheticText $ F.sampleName shdr
 >     arrays                               = zArrays sffile
 >     mmisc              :: Maybe (PercussionSound, Double)
->                                          = findMatchingPercussion inp
+>                                          = findMatchingPercussion inp ffThreshold
 >     msg                                  = unwords ["grabZone ", show sin]
 >
 > getZZZ                 :: String → Maybe (PercussionSound, Double) → Maybe (String, PercussionSound)
@@ -1220,7 +1225,7 @@ reconcile zone and sample header ===============================================
 >   | otherwise                            = (matched, iline)
 >   where
 >     mmisc              :: Maybe (InstrumentName, Double)
->                                          = findMatchingInstrument inp
+>                                          = findMatchingInstrument inp ffThreshold
 >     ffScore            :: Double         = maybe 0 snd mmisc
 >     inamestr           :: String         = maybe "" (show.fst) mmisc
 >
