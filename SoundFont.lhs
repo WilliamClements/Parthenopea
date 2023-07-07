@@ -10,9 +10,11 @@ SoundFont support ==============================================================
 > import Control.Monad.IO.Class
 > import qualified Data.Audio              as A
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds) )
+> import qualified Data.Bifunctor          as BF
 > import Data.Char
+> import Data.Foldable
 > import Data.Int ( Int8, Int16, Int32 )
-> import Data.List ( find, foldr, minimumBy, singleton )
+> import Data.List ( find, foldr, minimumBy, singleton, foldl' )
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, catMaybes, mapMaybe )
 > import Data.Time.Clock
@@ -21,7 +23,7 @@ SoundFont support ==============================================================
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, AudSF, Mono, Stereo )
 > import Euterpea.Music
-> import Parthenopea ( traceIf, traceAlways, listI, initCase, listP, findMatchingInstrument, findMatchingPercussion )
+> import Parthenopea ( traceIf, traceAlways, listI, initCase, listP, findMatchingInstrument', findMatchingPercussion' )
 > import Synthesizer
 > import qualified System.FilePattern.Directory
 >                                          as FP
@@ -310,7 +312,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                           → IO SFFile
 > digSoundFontFile wFile (filename, nickname) =
 >   do
->     putStr (show wFile ++ " " ++ filename)
+>     putStr (show wFile ++ " " ++ filename ++ "\n")
 >     ts1 ← getCurrentTime
 >     maybeAudio ← F.importFile filename
 >     case maybeAudio of
@@ -1003,7 +1005,6 @@ reconcile zone and sample header ===============================================
 >     msg = unwords ["checkReconcile=", show shdrL
 >                                     , show zoneL
 >                                     , show reconL]
->
 
 emit text indicating what choices we made for GM items ================================================================
 
@@ -1106,7 +1107,7 @@ mine instrument/percussion candidates (sampled sounds) from SoundFont (*.sf2) fi
 >
 > spillF                 :: ZoneCache → FilePath → SFFile → IO ()
 > spillF zc outFile sffile
->   | traceAlways msg False                = undefined
+>   | traceIf msg False                    = undefined
 >   | otherwise                            = do
 >     spillI zc outFile sffile
 >     spillP zc outFile sffile
@@ -1114,9 +1115,9 @@ mine instrument/percussion candidates (sampled sounds) from SoundFont (*.sf2) fi
 >     msg = unwords ["spillF " ++ zFilename sffile]
 >
 > spillI                 :: ZoneCache → FilePath → SFFile → IO ()
-> spillI zc outFile sffile                 = do
+> spillI _ outFile sffile                 = do
 >     appendFile outFile prolog
->     appendFile outFile $ concatMap literate spilt'
+>     appendFile outFile $ concat $ emitData $ specifyInstruments $ mapMaybe qualifyI inps
 >     appendFile outFile epilog
 >   where
 >     prolog = "> "       ++ zNickname sffile ++ "Inst =\n>   [\n"
@@ -1125,88 +1126,61 @@ mine instrument/percussion candidates (sampled sounds) from SoundFont (*.sf2) fi
 >     arrays = zArrays sffile
 >     boundsI = bounds $ ssInsts arrays
 >
->     spilt = zip [0..] $ map (spillI' zc sffile) [fst boundsI..snd boundsI-1]
->     mfound = find (fst.snd) spilt
->     spilt' = map (settleLine mfound) spilt
+>     inps               :: [String]       = map (getInput (ssInsts arrays)) [fst boundsI..snd boundsI-1]
 >
->     settleLine   :: Maybe (Int, (Bool, String)) → (Int, (Bool, String)) → String
->     settleLine mfound (nix, (matched, str))
->       | not matched                      = str
->       | nix /= target                    = "     , " ++ str
->       | otherwise                        = "       " ++ str
->       where
->         target = (fst . fromJust) mfound
+>     getInput           :: Array Word F.Inst → Word → String
+>     getInput iinsts wI                   = quoteSyntheticText $ F.instName (iinsts ! wI)
 >
-> spillI'                :: ZoneCache → SFFile → Word → (Bool, String)
-> spillI' _ sffile wordI                   = makeLineI inp
->   where
->     arrays = zArrays sffile
->     iinst  = ssInsts arrays ! wordI
->     inp    = quoteSyntheticText $ F.instName iinst
->
-> spillI''                :: ZoneCache → SFFile → Word → (Word, String)
-> spillI'' _ sffile wordI                   = (wordI, inp)
->   where
->     arrays = zArrays sffile
->     iinst  = ssInsts arrays ! wordI
->     inp    = quoteSyntheticText $ F.instName iinst
+>     qualifyI           :: String → Maybe (InstrumentName, String)
+>     qualifyI inp                         = findMatchingInstrument' inp ffThreshold 
 >
 > spillP                 :: ZoneCache → FilePath → SFFile → IO ()
 > spillP zc outFile sffile                 = do
 >     appendFile outFile prolog
->     appendFile outFile $ concatMap literate spilt'
+>     appendFile outFile $ concat $ emitData $ specifyPercussion eable
 >     appendFile outFile epilog
 >   where
 >     prolog = "> " ++ zNickname sffile ++ "Perc =\n>   [\n"
 >     epilog = ">   ]\n"
 >
->     arrays = zArrays sffile
->     boundsI = bounds $ ssInsts arrays
+>     insts = ssInsts $ zArrays sffile
+>     shdrs = ssShdrs $ zArrays sffile
 >
->     spiltI = map (spillI'' zc sffile) [fst boundsI..snd boundsI-1]
->     spiltI' = map (grabZones zc sffile) spiltI
->     spiltI'' = filter filterOutEmpty spiltI'
->     spilt' = concatMap format spiltI''
+>     getInputI          :: Word → String
+>     getInputI wI                         = quoteSyntheticText $ F.instName (insts ! wI)
 >
-> filterOutEmpty         :: (String, [(String, PercussionSound)]) → Bool
-> filterOutEmpty (_, ps) = not (null ps)
+>     getInputP          :: Word → String
+>     getInputP sin                        = quoteSyntheticText $ F.sampleName (shdrs ! sin)
 >
-> format                 :: (String, [(String, PercussionSound)]) → [String]
-> format (istring, ps)                     = ("       (\"" ++ istring ++ "\"    ,            [\n")  : map doPerc ps
+>     boundsI                              = bounds insts
+>     pergms                               = map (\i → PerGMKey (zWordF sffile) i Nothing )                     [fst boundsI..snd boundsI-1]
+>     seeds                                = map (\p → (tail $ getZonesFromCache zc p, pWordI p))               pergms
+>     words                                = map (BF.first (map (fromJust . zSampleIndex . snd)))               seeds
+>     idents                               = map (BF.bimap (map getInputP) getInputI)                           words
+>     eable                                = map (BF.first (mapMaybe (`findMatchingPercussion'` ffThreshold)))  idents
+
+Table-driven emission → SyntheticRosters ==============================================================================
+
+> data Emission =
+>   StringToField String Int
+>   | EndOfLine deriving Show
 >
-> doPerc                 :: (String, PercussionSound) → String
-> doPerc (pstring, psound) = "                                          \"" ++ pstring ++ "\"     ,     " ++ show psound ++ "\n"
->
-> grabZones              :: ZoneCache → SFFile → (Word, String) → (String, [(String, PercussionSound)])
-> grabZones zc sffile (zI, istring)
->   | traceAlways msg False                = undefined
->   | otherwise                            = (istring, percPairs)
+> emitData               :: [Emission] → [String]
+> emitData es
+>   | traceIf msg False                    = undefined
+>   | otherwise                            = foldl' emitItem [""] es
 >   where
->     pergm                                = PerGMKey (zWordF sffile) zI Nothing
->     zs                 :: [(Word, SFZone)]
->                                          = tail $ getZonesFromCache zc pergm
->     percPairs          :: [(String, PercussionSound)]
->                                          = mapMaybe (grabZone sffile) zs
->     msg                                  = unwords ["grabZones ", show $ length zs]
-> 
-> grabZone               :: SFFile → (Word, SFZone) → Maybe (String, PercussionSound)
-> grabZone sffile (_, zone)
->   | traceAlways msg False                = undefined
->   | otherwise                            = getZZZ inp mmisc
+>     msg = unwords ["emitData=", show es]
+>
+> emitItem               :: [String] → Emission → [String]
+> emitItem outP e = outP'
 >   where
->     sin                                  = fromJust (zSampleIndex zone)
->     shdr                                 = ssShdrs arrays ! sin
->     inp                                  = quoteSyntheticText $ F.sampleName shdr
->     arrays                               = zArrays sffile
->     mmisc              :: Maybe (PercussionSound, Double)
->                                          = findMatchingPercussion inp ffThreshold
->     msg                                  = unwords ["grabZone ", show sin]
+>     outP' = init outP ++ [last outP ++ makeString e]
 >
-> getZZZ                 :: String → Maybe (PercussionSound, Double) → Maybe (String, PercussionSound)
-> getZZZ inp = maybe Nothing (getZZZ' inp)
->
-> getZZZ'                 :: String → (PercussionSound, Double) → Maybe (String, PercussionSound)
-> getZZZ' inp (psound, _) = Just (inp, psound)
+> makeString             :: Emission → String
+> makeString e = case e of
+>                StringToField str sz → str ++ replicate (sz - length str) ' '
+>                EndOfLine            → "\n"
 >
 > quoteSyntheticText     :: String → String
 > quoteSyntheticText                       = concatMap quote
@@ -1216,40 +1190,58 @@ mine instrument/percussion candidates (sampled sounds) from SoundFont (*.sf2) fi
 >                 '\"'   → "\\\""
 >                 _      → [c]
 >
-> literate               :: String → String
-> literate inp                             = "> " ++ inp
->
-> makeLineI              :: String → (Bool, String)
-> makeLineI inp
->   | traceIf msg False = undefined
->   | otherwise                            = (matched, iline)
+> specifyInstruments     :: [(InstrumentName, String)] → [Emission]
+> specifyInstruments ipairs                = concat $ zipWith specifyOneI [0..] ipairs
 >   where
->     mmisc              :: Maybe (InstrumentName, Double)
->                                          = findMatchingInstrument inp ffThreshold
->     ffScore            :: Double         = maybe 0 snd mmisc
->     inamestr           :: String         = maybe "" (show.fst) mmisc
+>     specifyOneI         :: Int → (InstrumentName, String) → [Emission]
+>     specifyOneI nthI (iname, ident)      = es0 : es1 : es2 : es3 : [es4]
+>       where
+>         es0 = StringToField "" 4
+>         es1 = if nthI == 0
+>               then StringToField "" 2
+>               else StringToField "," 2
+>         ifield = "(" ++ show ident ++ ","
+>         es2 = StringToField ifield 25
+>         jfield = "([],  " ++ show iname ++ "))"
+>         es3 = StringToField jfield 35
+>         es4 = EndOfLine
 >
->     matched            :: Bool           = ffScore > ffThreshold
+> specifyPercussion      :: [([(PercussionSound, String)], String)] → [Emission]
+> specifyPercussion ipairs                 = concat $ zipWith specifyOneI [0..] ipairs
+>   where
+>     specifyOneI         :: Int → ([(PercussionSound, String)], String) → [Emission]
+>     specifyOneI nthI (ipairs, istring)   = concat $ zipWith (specifyOneP nthI istring (length ipairs - 1) )
+>                                                             [0..]
+>                                                             ipairs
 >
->     prolog
->       | matched    = ""
->       | otherwise  = "     --"
->     iline =
->        prolog
->             ++ "       (\""
->             ++ inp
->             ++ "\","
->             ++ replicate (31 - length inp) ' '
->             ++ "(["
->             ++ hintstr
->             ++ "], "
->             ++ inamestr 
->             ++ "))\n"
->     hintstr  = if includeFFScores
->                then maybe "" (fscore.snd) mmisc
->                else ""
+>     specifyOneP         :: Int → String → Int → Int → (PercussionSound, String) → [Emission]
+>     specifyOneP nthI istring top nthP (psound, pstring)  
+>                                          = 
+>       if nthP == 0
+>       then withI nthI istring (psound, pstring) top nthP
+>       else withoutI (psound, pstring) top nthP 
 >
->     msg = unwords ["makeLineI=", show mmisc]
+>     withI               :: Int → String → (PercussionSound, String) → Int → Int → [Emission]
+>     withI nthI istring (psound, pstring) top nthP = es0 : es1 : es2 : es3 : es4 : [es5]
+>       where
+>         es0 = StringToField "" 4
+>         es1 = if nthI == 0
+>               then StringToField "" 2
+>               else StringToField "," 2
+>         ifield = "(" ++ show istring ++ ","
+>         es2 = StringToField ifield 25
+>         jfield = "[ (" ++ show pstring ++ ","
+>         es3 = StringToField jfield 27
+>         kfield = "([], " ++ show psound ++ "))" ++ if nthP == top then "])" else ""
+>         es4 = StringToField kfield 27
+>         es5 = EndOfLine
 >
-> fscore                 :: Double → String
-> fscore sc                                = "DScore " ++ show (round sc)
+>     withoutI           :: (PercussionSound, String) → Int → Int → [Emission]
+>     withoutI (psound, pstring) top nthP = es0 : es1 : es2 : [es3]
+>       where
+>         es0 = StringToField "" 31
+>         jfield = ", (" ++ show pstring ++ ","
+>         es1 = StringToField jfield 27
+>         kfield = "([], " ++ show psound ++ "))" ++ if nthP == top then "])" else ""
+>         es2 = StringToField kfield 27
+>         es3 = EndOfLine

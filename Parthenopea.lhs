@@ -805,6 +805,25 @@ apply fuzzyfind to mining instruments + percussion =============================
 >   in
 >     findMatchingAExcludingB ma mb thresh
 >
+> wink                  :: forall a. (GMPlayable a) ⇒ String → Maybe (a, Double) → Maybe (a, String)
+> wink inp                                 = maybe Nothing (wink' inp)
+>
+> wink'                 :: forall a. (GMPlayable a) ⇒ String → (a, Double) → Maybe (a, String)
+> wink' inp (iname, _)                     = Just (iname, inp)
+>
+>
+> findMatchingInstrument' :: String → Double → Maybe (InstrumentName, String)
+> findMatchingInstrument' inp thresh = wink inp ma
+>   where
+>     ma                 :: Maybe (InstrumentName, Double)
+>                                          = findMatchingInstrument inp thresh
+>
+> findMatchingPercussion' :: String → Double → Maybe (PercussionSound, String)
+> findMatchingPercussion' inp thresh = wink inp ma
+>   where
+>     ma                 :: Maybe (PercussionSound, Double)
+>                                          = findMatchingPercussion inp thresh
+>
 
 tournament among instruments in various soundfont files ===============================================================
 
