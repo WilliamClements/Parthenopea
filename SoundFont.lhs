@@ -1157,7 +1157,8 @@ mine instrument/percussion candidates (sampled sounds) from SoundFont (*.sf2) fi
 >     seeds                                = map (\p → (tail $ getZonesFromCache zc p, pWordI p))               pergms
 >     words                                = map (BF.first (map (fromJust . zSampleIndex . snd)))               seeds
 >     idents                               = map (BF.bimap (map getInputP) getInputI)                           words
->     eable                                = map (BF.first (mapMaybe (`findMatchingPercussion'` ffThreshold)))  idents
+>     matched                              = map (BF.first (mapMaybe (`findMatchingPercussion'` ffThreshold)))  idents
+>     eable                                = filter (not . (null . fst)) matched
 
 Table-driven emission → SyntheticRosters ==============================================================================
 
@@ -1194,8 +1195,9 @@ Table-driven emission → SyntheticRosters =====================================
 > specifyInstruments ipairs                = concat $ zipWith specifyOneI [0..] ipairs
 >   where
 >     specifyOneI         :: Int → (InstrumentName, String) → [Emission]
->     specifyOneI nthI (iname, ident)      = es0 : es1 : es2 : es3 : [es4]
+>     specifyOneI nthI (iname, ident)      = esL : es0 : es1 : es2 : es3 : [es4]
 >       where
+>         esL = StringToField "> " 2
 >         es0 = StringToField "" 4
 >         es1 = if nthI == 0
 >               then StringToField "" 2
@@ -1222,8 +1224,9 @@ Table-driven emission → SyntheticRosters =====================================
 >       else withoutI (psound, pstring) top nthP 
 >
 >     withI               :: Int → String → (PercussionSound, String) → Int → Int → [Emission]
->     withI nthI istring (psound, pstring) top nthP = es0 : es1 : es2 : es3 : es4 : [es5]
+>     withI nthI istring (psound, pstring) top nthP = esL : es0 : es1 : es2 : es3 : es4 : [es5]
 >       where
+>         esL = StringToField "> " 2
 >         es0 = StringToField "" 4
 >         es1 = if nthI == 0
 >               then StringToField "" 2
@@ -1237,8 +1240,9 @@ Table-driven emission → SyntheticRosters =====================================
 >         es5 = EndOfLine
 >
 >     withoutI           :: (PercussionSound, String) → Int → Int → [Emission]
->     withoutI (psound, pstring) top nthP = es0 : es1 : es2 : [es3]
+>     withoutI (psound, pstring) top nthP = esL : es0 : es1 : es2 : [es3]
 >       where
+>         esL = StringToField "> " 2
 >         es0 = StringToField "" 31
 >         jfield = ", (" ++ show pstring ++ ","
 >         es1 = StringToField jfield 27
