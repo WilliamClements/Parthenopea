@@ -23,7 +23,7 @@ SoundFont support ==============================================================
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, AudSF, Mono, Stereo )
 > import Euterpea.Music
-> import Parthenopea ( traceIf, traceAlways, listI, initCase, listP, findMatchingInstrument', findMatchingPercussion' )
+> import Parthenopea ( traceIf, traceAlways, listI, initCase, listP, findMatchingInstrument', findMatchingPercussion', quoteText)
 > import Synthesizer
 > import qualified System.FilePattern.Directory
 >                                          as FP
@@ -353,13 +353,21 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     let is = Map.keys $ fst $ listI song initCase (Map.empty, Map.empty)
 >     let ps = Map.keys $ listP song initCase Map.empty
 >     putStrLn (name ++ ": lengths=" ++ show (length is) ++ " <- is, ps -> " ++ show (length ps))
->     printChoices sfrost is ps
->     let path = name ++ ".wav"
->     putStr path
->     let (d,s) = renderSF song imap
->     outFile path d s
->     ts2 ← getCurrentTime
->     putStrLn (" (dur=" ++ show d ++ ") written in " ++ show (diffUTCTime ts2 ts1))
+>     let results                          = printChoices sfrost is ps
+>     mapM_ (putStrLn . snd) (fst results)
+>     mapM_ (putStrLn . snd) (snd results)
+>
+>     -- render song only if all OK
+>     if all fst (fst results) && all fst (snd results)
+>       then do
+>         let path = name ++ ".wav"
+>         putStr path
+>         let (d,s) = renderSF song imap
+>         outFile path d s
+>         ts2 ← getCurrentTime
+>         putStrLn (" (dur=" ++ show d ++ ") written in " ++ show (diffUTCTime ts2 ts1))
+>       else
+>         putStrLn "skipping..."
 >     return ()
 >
 > renderSongs            :: SFRoster
@@ -458,7 +466,7 @@ tournament among GM instruments from SoundFont files ===========================
 >         ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
 >           | isNothing mwZone             = ((iloc, ploc), ("Zone "
->                                                           ++ nameZ
+>                                                           ++ show nameZ
 >                                                           ++ " not found in "
 >                                                           ++ zFilename sffile) : probs)
 >           | otherwise                    = ((iloc, xaStaticScoring zc
@@ -1008,32 +1016,28 @@ reconcile zone and sample header ===============================================
 
 emit text indicating what choices we made for GM items ================================================================
 
-> printChoices           :: SFRoster → [InstrumentName] → [PercussionSound] → IO ()
-> printChoices sfrost is ps                = do
->   let istrings = map (showI sfrost) is
->   let pstrings = map (showP sfrost) ps
->   mapM_ putStrLn istrings
->   mapM_ putStrLn pstrings
+> printChoices           :: SFRoster → [InstrumentName] → [PercussionSound] → ([(Bool, String)], [(Bool, String)])
+> printChoices sfrost is ps                = (map (showI sfrost) is, map (showP sfrost) ps)
 >   where
->     showI              :: SFRoster → InstrumentName → String
+>     showI              :: SFRoster → InstrumentName → (Bool, String)
 >     showI sfrost iname                   =
 >       let
 >         (iloc, _) = zLocs sfrost
 >         mpergm = Map.lookup iname iloc
 >         result = if isJust mpergm
->                  then show iname ++ "/" ++ showPerGM sfrost (fromJust mpergm)
->                  else show iname ++ " not found"
+>                  then (True, show iname ++ "/" ++ showPerGM sfrost (fromJust mpergm))
+>                  else (False, show iname ++ " not found")
 >       in
 >         result       
 >
->     showP               :: SFRoster → PercussionSound → String
+>     showP               :: SFRoster → PercussionSound → (Bool, String)
 >     showP sfrost psound                  =
 >       let
 >         (_, ploc) = zLocs sfrost
 >         mpergm = Map.lookup psound ploc
 >         result = if isJust mpergm
->                  then show psound ++ "/" ++ showPerGM sfrost (fromJust mpergm)
->                  else show psound ++ " not found"
+>                  then (True, show psound ++ "/" ++ showPerGM sfrost (fromJust mpergm))
+>                  else (False, show psound ++ " not found")
 >       in
 >         result
 >
@@ -1115,21 +1119,20 @@ mine instrument/percussion candidates (sampled sounds) from SoundFont (*.sf2) fi
 >     msg = unwords ["spillF " ++ zFilename sffile]
 >
 > spillI                 :: ZoneCache → FilePath → SFFile → IO ()
-> spillI _ outFile sffile                 = do
+> spillI _ outFile sffile                  = do
 >     appendFile outFile prolog
 >     appendFile outFile $ concat $ emitData $ specifyInstruments $ mapMaybe qualifyI inps
 >     appendFile outFile epilog
 >   where
->     prolog = "> "       ++ zNickname sffile ++ "Inst =\n>   [\n"
->     epilog = ">   ]\n"
+>     prolog                               = "> "       ++ zNickname sffile ++ "Inst =\n>   [\n"
+>     epilog                               = ">   ]\n"
 >
->     arrays = zArrays sffile
->     boundsI = bounds $ ssInsts arrays
+>     insts                                = ssInsts $ zArrays sffile
+>     shdrs                                = ssShdrs $ zArrays sffile
+>     boundsI                              = bounds insts
 >
->     inps               :: [String]       = map (getInput (ssInsts arrays)) [fst boundsI..snd boundsI-1]
->
->     getInput           :: Array Word F.Inst → Word → String
->     getInput iinsts wI                   = quoteSyntheticText $ F.instName (iinsts ! wI)
+>     inps               :: [String]       = map (\wI → quoteText (F.instName (insts ! wI)))
+>                                                [fst boundsI..snd boundsI-1]
 >
 >     qualifyI           :: String → Maybe (InstrumentName, String)
 >     qualifyI inp                         = findMatchingInstrument' inp ffThreshold 
@@ -1140,19 +1143,19 @@ mine instrument/percussion candidates (sampled sounds) from SoundFont (*.sf2) fi
 >     appendFile outFile $ concat $ emitData $ specifyPercussion eable
 >     appendFile outFile epilog
 >   where
->     prolog = "> " ++ zNickname sffile ++ "Perc =\n>   [\n"
->     epilog = ">   ]\n"
+>     prolog                               = "> " ++ zNickname sffile ++ "Perc =\n>   [\n"
+>     epilog                               = ">   ]\n"
 >
->     insts = ssInsts $ zArrays sffile
->     shdrs = ssShdrs $ zArrays sffile
+>     insts                                = ssInsts $ zArrays sffile
+>     shdrs                                = ssShdrs $ zArrays sffile
+>     boundsI                              = bounds insts
 >
 >     getInputI          :: Word → String
->     getInputI wI                         = quoteSyntheticText $ F.instName (insts ! wI)
+>     getInputI wI                         = quoteText $ F.instName (insts ! wI)
 >
 >     getInputP          :: Word → String
->     getInputP sin                        = quoteSyntheticText $ F.sampleName (shdrs ! sin)
+>     getInputP sin                        = quoteText $ F.sampleName (shdrs ! sin)
 >
->     boundsI                              = bounds insts
 >     pergms                               = map (\i → PerGMKey (zWordF sffile) i Nothing )                     [fst boundsI..snd boundsI-1]
 >     seeds                                = map (\p → (tail $ getZonesFromCache zc p, pWordI p))               pergms
 >     words                                = map (BF.first (map (fromJust . zSampleIndex . snd)))               seeds
@@ -1182,14 +1185,6 @@ Table-driven emission → SyntheticRosters =====================================
 > makeString e = case e of
 >                StringToField str sz → str ++ replicate (sz - length str) ' '
 >                EndOfLine            → "\n"
->
-> quoteSyntheticText     :: String → String
-> quoteSyntheticText                       = concatMap quote
->   where
->     quote              :: Char → String
->     quote c = case c of
->                 '\"'   → "\\\""
->                 _      → [c]
 >
 > specifyInstruments     :: [(InstrumentName, String)] → [Emission]
 > specifyInstruments ipairs                = concat $ zipWith specifyOneI [0..] ipairs

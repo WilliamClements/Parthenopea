@@ -225,8 +225,8 @@ Copper =========================================================================
 >    $ tempo 2
 >    $ transpose (-4)
 >    $ keysig C Dorian
->    $ addVolume 30
->    $ instrument ElectricGrandPiano
+>    $ addVolume 50
+>    $ instrument Banjo
 >    $ times n
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
 >      :+: tempo (5/4) (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn])

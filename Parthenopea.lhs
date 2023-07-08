@@ -556,7 +556,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       ElectricGuitarClean       → Just            ["guitar", "electric", "clean"]
 >       ElectricGuitarMuted       → Just            ["guitar", "electric", "muted"]
 >       OverdrivenGuitar          → Just            ["guitar", "electric", "overdrive"]
->       DistortionGuitar          → Just            ["guitar", "electric", "distortion"]
+>       DistortionGuitar          → Just            ["guitar", "fuzz", "distortion"]
 >       GuitarHarmonics           → Just            ["guitar", "harmonics"]
 >       AcousticBass              → Just            ["bass", "acoustic"]
 >       ElectricBassFingered      → Just            ["bass", "electric", "finger"]
@@ -660,14 +660,14 @@ apply fuzzyfind to mining instruments + percussion =============================
 > percussionFFKeys perc =
 >    case perc of
 >       AcousticBassDrum          → Just            ["drum", "bass", "acoustic"]
->       BassDrum1                 → Just            ["bass", "drum"]
+>       BassDrum1                 → Just            ["drum", "bass", "kick"]
 >       SideStick                 → Just            ["side", "stick"]
 >       AcousticSnare             → Just            ["snare", "drum", "acoustic"]
 >       HandClap                  → Just            ["clap", "hand"]
->       ElectricSnare             → Just            ["snare", "electric", "drum"]
->       LowFloorTom               → Just            ["floor", "tom", "low"]
+>       ElectricSnare             → Just            ["electric", "snare", "drum"]
+>       LowFloorTom               → Just            ["tom", "low", "floor"]
 >       ClosedHiHat               → Just            ["hihat", "closed"]
->       HighFloorTom              → Just            ["floor", "tom", "high"]
+>       HighFloorTom              → Just            ["tom", "high", "floor"]
 >       PedalHiHat                → Just            ["hihat", "pedal"]
 >       LowTom                    → Just            ["tom", "low"]
 >       OpenHiHat                 → Just            ["hihat", "open"]
@@ -961,3 +961,14 @@ Returns the fractional part of 'x'.
 
 > frac :: RealFrac r ⇒ r → r
 > frac = snd . properFraction
+
+Takes care of characters that need quoting like '"'
+
+> quoteText     :: String → String
+> quoteText                       = concatMap quote
+>   where
+>     quote              :: Char → String
+>     quote c = case c of
+>                 '\"'   → "\\\""
+>                 _      → [c]
+>
