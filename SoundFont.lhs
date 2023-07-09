@@ -352,8 +352,8 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     ts1 ← getCurrentTime
 >     let is = Map.keys $ fst $ listI song initCase (Map.empty, Map.empty)
 >     let ps = Map.keys $ listP song initCase Map.empty
->     putStrLn (name ++ ": lengths=" ++ show (length is) ++ " <- is, ps -> " ++ show (length ps))
->     let results                          = printChoices sfrost is ps
+>     putStrLn (name ++ ": " ++ show (length is) ++ " <- instruments, percussion -> " ++ show (length ps))
+>     let results = printChoices sfrost is ps
 >     mapM_ (putStrLn . snd) (fst results)
 >     mapM_ (putStrLn . snd) (snd results)
 >
@@ -1020,26 +1020,23 @@ emit text indicating what choices we made for GM items =========================
 > printChoices sfrost is ps                = (map (showI sfrost) is, map (showP sfrost) ps)
 >   where
 >     showI              :: SFRoster → InstrumentName → (Bool, String)
->     showI sfrost iname                   =
->       let
->         (iloc, _) = zLocs sfrost
->         mpergm = Map.lookup iname iloc
->         result = if isJust mpergm
->                  then (True, show iname ++ "/" ++ showPerGM sfrost (fromJust mpergm))
->                  else (False, show iname ++ " not found")
->       in
->         result       
+>     showI sfrost iname                   = result
+>       where
+>         (iloc, _)                         = zLocs sfrost
+>         mpergm                            = Map.lookup iname iloc
+>         result
+>           | isJust mpergm                 = (True, show iname ++ "/" ++ showPerGM sfrost (fromJust mpergm))
+>           | iname == Percussion           = (True, show iname ++ "(pseudo-instrument)")
+>           | otherwise                     = (False, show iname ++ " not found")
 >
 >     showP               :: SFRoster → PercussionSound → (Bool, String)
->     showP sfrost psound                  =
->       let
+>     showP sfrost psound                  = result
+>       where
 >         (_, ploc) = zLocs sfrost
 >         mpergm = Map.lookup psound ploc
 >         result = if isJust mpergm
->                  then (True, show psound ++ "/" ++ showPerGM sfrost (fromJust mpergm))
->                  else (False, show psound ++ " not found")
->       in
->         result
+>                    then (True, show psound ++ "/" ++ showPerGM sfrost (fromJust mpergm))
+>                    else (False, show psound ++ " not found")
 >
 > showPerGM              :: SFRoster → PerGMScored → String
 > showPerGM sfrost pergm'                  =
