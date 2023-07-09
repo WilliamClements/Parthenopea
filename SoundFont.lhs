@@ -254,16 +254,16 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >
 >     zc ← cacheZones sffilesp
 >     ts3 ← getCurrentTime
->     putStrLn ("cache zones: " ++ show (diffUTCTime ts3 ts2))
+>     putStrLn ("___cache zones: " ++ show (diffUTCTime ts3 ts2))
 >
 >     spillRosters zc sffilesp outFilename
 >
 >     ts4 ← getCurrentTime
->     putStrLn ("write rosters: " ++ show (diffUTCTime ts4 ts3))
+>     putStrLn ("___write rosters: " ++ show (diffUTCTime ts4 ts3))
 >
 >   where
 >
->     addNickname        :: String → String → (String, String)
+>     addNickname        :: FilePath → String → (FilePath, String)
 >     addNickname prefix fp = (fp, nick)
 >       where
 >         pn = length prefix

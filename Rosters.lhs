@@ -27,16 +27,16 @@ Rosters support ================================================================
 >   let dig =     (length args == 1) && ("dig" == head args)
 >   let playAll = (length args == 1) && ("all" == head args)
 >   _	← if dig
->        then doSoundFontDig "edit" "SyntheticRosters'.lhs"
->        else if playAll
->             then doSoundFontMusic zsoundFontDatabaseOrig combineAll
->             else doSoundFontMusic zlittleSoundFontDatabase sj
+>         then doSoundFontDig "edit" "SyntheticRosters'.lhs"
+>         else if playAll
+>                then doSoundFontMusic zsoundFontDatabaseOrig combineAll
+>                else doSoundFontMusic zlittleSoundFontDatabase sj
 >
 >   return ()
 
 organize exposed music ================================================================================================
 
-> combineAll = ajingles ++ bjingles ++ cjingles ++ djingles ++ zjingles
+> combineAll = ajingles ++ bjingles ++ cjingles ++ djingles ++ ejingles ++ zjingles
 >
 > ajingles, bjingles
 >  , cjingles, djingles
@@ -67,6 +67,10 @@ organize exposed music =========================================================
 >    , ("snake"          , aggrandize snake)
 >    , ("pendingtonArnt" , aggrandize (pendingtonArnt 2))
 >    , ("ssailor"        , aggrandize ssailor)]
+> ejingles =
+>    [("kit"             , aggrandize kit)
+>    , ("pit"            , aggrandize pit)
+>    , ("dit"            , aggrandize dit)]
 > zjingles =
 >    [("basicLick"       , aggrandize basicLick)
 >    , ("sunPyg"         , aggrandize sunPyg)

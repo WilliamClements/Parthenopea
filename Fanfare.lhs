@@ -970,8 +970,32 @@ Pit ============================================================================
 
 > pit1 = line [b 3 en, cs 4 en, ds 4 en, cs 4 en, fs 4 en, ds 4 en, cs 4 en, f 4 en]
 > pit2 = line [c 4 en, ds 4 en,  f 4 en, ds 4 en, fs 4 en, ds 4 en, d 4 en, ds 4 en]
+> pitA = times 2 $ line [times 4 pit1, times 4 pit2]
+> pitB = times 2 $ line [times 4 $ b 2 wn, times 4 $ gs 2 wn]
+> pitC = line [rest (4 * wn),  b 3 sn,  c 4 sn, cs 4 sn,  d 4 sn
+>                           , ds 4 sn,  e 4 sn,  f 4 sn, fs 4 sn
+>                           ,  g 4 sn, gs 4 sn,  a 4 sn, as 4 sn
+>                           , times 4 (chord [b 4 qn, ds 4 qn, fs 4 qn])
+>                           , times 2 (chord [c 5 qn,  d 5 qn, fs 4 qn])
+>                           , times 2 (chord [c 5 qn, fs 5 qn, as 4 qn])
+>                           ,  c 5 sn,  b 4 sn,  as 4 sn,  a 4 sn
+>                           , gs 4 sn,  f 4 sn,   e 4 sn, ds 4 sn
+>                           ,  d 4 sn, cs 4 sn,   c 4 sn,  b 3 sn
+>                           , as 3 sn,  a 3 sn,  gs 3 sn,  g 3 sn
+>                           , fs 3 sn,  f 3 sn,   e 3 sn,  f 3 sn
+>                           , fs 3 wn,  f 3 wn,  fs 3 qn, gs 3 qn
+>                           ,  a 3 wn, chord [ d 3 hn,  f 3 hn,  b 3 hn]
+>                                    , chord [ds 3 wn, fs 3 wn,  c 4 wn]
+>             ]
 >
-> pit = line [times 4 pit1, times 4 pit2]
+> pit =
+>   removeZeros
+>   $ tempo 1
+>   $ transpose 0
+>   $ keysig B Lydian
+>   $     instrument EnglishHorn (addVolume 60 pitA)
+>     :=: instrument SynthBass2  (addVolume 50 pitB)
+>     :=: instrument DistortionGuitar (addVolume 70 pitC)
 
 Dit ===================================================================================================================
 
