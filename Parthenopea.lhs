@@ -940,6 +940,33 @@ Wave ===========================================================================
 >   rate _ = 4.41
 > type SlwSF a b  = SigFun SlwRate a b
 
+Histogram ==============================================================================================================
+
+> numIN = (fromEnum Gunshot - fromEnum AcousticGrandPiano) + 1
+> numPS = (fromEnum OpenTriangle - fromEnum AcousticBassDrum) + 1
+>
+> type Histogram = Array Int Int
+>
+> zeroHistogram           :: Int → Histogram
+> zeroHistogram n = listArray (0, n-1) (replicate n 0)
+>
+> zeroHistogramI          :: Histogram
+> zeroHistogramI = zeroHistogram numIN
+>
+> zeroHistogramP          :: Histogram
+> zeroHistogramP = zeroHistogram numPS
+>
+> combineHistograms      :: Histogram → Histogram → Histogram
+> combineHistograms h1 h2 = accumArray (+) 0 (e, f) (assocs h1 ++ assocs h2)
+>   where
+>     (a, b) = bounds h1
+>     (c, d) = bounds h2
+>     n = 1 + max b d
+>     (e, f)
+>       | a /= 0 || c /= 0 = error "Histograms must be zero-based"
+>       | b /= d           = error "Histograms being combined must have same dimension"
+>       | otherwise        = (0, n - 1)
+
 Helper Functions
 ----------------
 

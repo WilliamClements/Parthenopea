@@ -26,11 +26,15 @@ Rosters support ================================================================
 >   args ← getArgs
 >   let dig =     (length args == 1) && ("dig" == head args)
 >   let playAll = (length args == 1) && ("all" == head args)
+>   let count   = (length args == 1) && ("count" == head args)
 >   _	← if dig
 >         then doSoundFontDig "edit" "SyntheticRosters'.lhs"
->         else if playAll
->                then doSoundFontMusic zsoundFontDatabaseOrig combineAll
->                else doSoundFontMusic zlittleSoundFontDatabase sj
+>         else if count
+>                then 
+>                  countSoundFontGMItems zsoundFontDatabaseOrig
+>                else if playAll
+>                       then doSoundFontMusic zsoundFontDatabaseOrig sj
+>                       else doSoundFontMusic zlittleSoundFontDatabase sj
 >
 >   return ()
 

@@ -7,12 +7,12 @@ SoundFont support ==============================================================
 > module SoundFont where
 >
 > import qualified Codec.SoundFont         as F
-> import Control.Monad.IO.Class
+> import qualified Control.Monad           as CM
 > import qualified Data.Audio              as A
-> import Data.Array.Unboxed ( array, Array, (!), IArray(bounds) )
+> import Data.Array.Unboxed ( array, Array, (!), IArray(bounds), (//), assocs )
 > import qualified Data.Bifunctor          as BF
 > import Data.Char
-> import Data.Foldable
+> import Data.Foldable ( Foldable(foldl'), find, minimumBy )
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List ( find, foldr, minimumBy, singleton, foldl' )
 > import qualified Data.Map                as Map
@@ -23,7 +23,7 @@ SoundFont support ==============================================================
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, AudSF, Mono, Stereo )
 > import Euterpea.Music
-> import Parthenopea ( traceIf, traceAlways, listI, initCase, listP, findMatchingInstrument', findMatchingPercussion', quoteText)
+> import Parthenopea
 > import Synthesizer
 > import qualified System.FilePattern.Directory
 >                                          as FP
@@ -36,15 +36,17 @@ In order of when they occur in the overall process:
 1. FuzzyFind      - Presented with each *.sf2 file, we record qualifying items into roster based on their names
                     in the file -- e.g. "Iowa Viola-pp". The qualification scores are a function of FuzzyFind
                     results on keywords we have associated with GM InstrumentName and PercussionSound. The resulting
-                    rosters typically include MANY candidates for each GM item.  
+                    rosters typically include some GM items with MANY candidates and some with zero.
   
-2. static scoring - Before rendering, we match up maximum of one instrument or percussion to each GM item. 
-                    We build a runtime map of highest scoring candidate for each given GM item. Static scoring
-                    (computeStaticScore) takes into account attributes like stereo, 24-bit, number
+2. static scoring - Before rendering, we bind maximum of one instrument or percussion per each GM item, resulting 
+                    in runtime map of highest scoring candidate for each given GM item. Static scoring
+                    (see computeStaticScore) takes into account attributes like stereo, 24-bit, number
                     of splits. See Locators.
 
 3. zone scoring   - While rendering, presented with a note, choose the zone that best fits (highest score) the
-                    required pitch, velocity, etc. These attributes are weighted in score computation.
+                    required pitch, velocity, etc. These attributes are weighted in score computation. Note that
+                    zone scoring determines runtime choice of percussion instruments -- zone associations in
+                    db are irrelevant; only the instrument associations matter.
 
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
@@ -210,29 +212,35 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >
 >     putStrLn "processing..."
 >
->     ts1 ← getCurrentTime
->     let numberedDB = zip [0..] sfdb
->     sffilesp ← mapM (uncurry readSoundFontFile) numberedDB
->     zonesP ← cacheZones (map fst sffilesp)
->     putStrLn ("# available instr =" ++ show (Map.size zonesP))
->     ts2 ← getCurrentTime
->     putStrLn ("___load files: " ++ show (diffUTCTime ts2 ts1))
->     let ((iloc, ploc), probs) = foldr (uncurry (chooseIAndP zonesP))
->                                       ((Map.empty, Map.empty), [])
->                                       sffilesp
+>     ts1                ← getCurrentTime
+>
+>     sffilesp           ← CM.zipWithM readSoundFontFile [0..] sfdb
+>     zonesP             ← cacheZones (map fst sffilesp)
+>     putStrLn ("# available instr ="      ++ show (Map.size zonesP))
+>
+>     ts2                ← getCurrentTime
+>
+>     putStrLn ("___load files: "          ++ show (diffUTCTime ts2 ts1))
+>
+>     let ((iloc, ploc), probs)
+>                        = foldr (uncurry (chooseIAndP zonesP)) ((Map.empty, Map.empty), []) sffilesp
 >     mapM_ putStrLn probs
->     let sfrost = SFRoster sfdb
->                           (array (0, length sffilesp - 1) (zip [0..] (map fst sffilesp)))
->                           zonesP
->                           (iloc, ploc)
->     let imap = assignInstruments sfrost iloc
->     let pmap = assignAllPercussion sfrost ploc
->     let imap' = imap ++ [doAssignP sfrost pmap]
->     ts3 ← getCurrentTime
+>     let sfrost         = SFRoster sfdb
+>                                   (array (0, length sffilesp - 1) (zip [0..] (map fst sffilesp)))
+>                                   zonesP
+>                                   (iloc, ploc)
+>     let imap           = assignInstruments sfrost iloc
+>     let pmap           = assignAllPercussion sfrost ploc
+>     let imap'          = imap ++ [doAssignP sfrost pmap]
+>
+>     ts3                ← getCurrentTime
+>
 >     putStrLn ("___prepare instruments: " ++ show (diffUTCTime ts3 ts2))
->     _  ← renderSongs sfrost imap' songs
->     ts4 ← getCurrentTime
->     putStrLn ("___render songs: " ++ show (diffUTCTime ts4 ts3))
+>     _                  ← renderSongs sfrost imap' songs
+>
+>     ts4                ← getCurrentTime
+>
+>     putStrLn ("___render songs: "        ++ show (diffUTCTime ts4 ts3))
 >     return ()
 >  
 > doSoundFontDig         :: String → FilePath → IO ()
@@ -241,37 +249,34 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >
 >     putStrLn "digging..."
 >
->     ts1 ← getCurrentTime
->     fps ← FP.getDirectoryFiles "." (singleton "edit*.sf2")
+>     ts1                ← getCurrentTime
 >
->     let fpsn = map (addNickname prefix) fps
->     let numberedDB = zip [0..] fpsn
->
->     sffilesp ← mapM (uncurry digSoundFontFile) numberedDB
+>     fps                ← FP.getDirectoryFiles "." (singleton "edit*.sf2")
+>     let fpsn           = map (addNickname prefix) fps
+>     sffilesp           ← CM.zipWithM digSoundFontFile [0..] fpsn
 >
 >     ts2 ← getCurrentTime
+>
 >     putStrLn ("___load files: " ++ show (diffUTCTime ts2 ts1))
 >
->     zc ← cacheZones sffilesp
->     ts3 ← getCurrentTime
+>     zc                 ← cacheZones sffilesp
+>     ts3                ← getCurrentTime
 >     putStrLn ("___cache zones: " ++ show (diffUTCTime ts3 ts2))
->
 >     spillRosters zc sffilesp outFilename
 >
 >     ts4 ← getCurrentTime
+>
 >     putStrLn ("___write rosters: " ++ show (diffUTCTime ts4 ts3))
 >
+> addNickname        :: FilePath → String → (FilePath, String)
+> addNickname prefix fp = (fp, nick)
 >   where
->
->     addNickname        :: FilePath → String → (FilePath, String)
->     addNickname prefix fp = (fp, nick)
->       where
->         pn = length prefix
->         sn = length ".sf2" + 1
->         n = length fp
->         nick = if n > pn + sn
->                then map (toLower . (fp !!)) [pn..(n-sn)]
->                else error ("filename " ++ fp ++ " too short")
+>     pn = length prefix
+>     sn = length ".sf2" + 1
+>     n = length fp
+>     nick = if n > pn + sn
+>              then map (toLower . (fp !!)) [pn..(n-sn)]
+>              else error ("filename " ++ fp ++ " too short")
 >
 > readSoundFontFile      :: Word
 >                           → SoundFontInit
@@ -377,7 +382,47 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 > renderSongs sfrost imap songs =
 >   do
 >     mapM_ (uncurry (renderSong sfrost imap)) songs
-  
+>
+> countSoundFontGMItems  :: [SoundFontInit] → IO ()
+> countSoundFontGMItems sfinits = do
+>   putStrLn "\nInstruments:"
+>   let finI = foldl' combineHistograms zeroHistogramI (map countInstrumentsF sfinits)
+>   mapM_ printOneI (assocs finI)
+>   putStrLn "\nPercussion:"
+>   let finP = foldl' combineHistograms zeroHistogramP (map countPercussionF sfinits)
+>   mapM_ printOneP (assocs finP)
+>
+> printOneI              :: (Int, Int) -> IO ()
+> printOneI (iname', count)                = putStrLn (show iname ++ ":=" ++ show count)
+>   where
+>     iname              :: InstrumentName = toEnum iname'
+>     
+> printOneP              :: (Int, Int) -> IO ()
+> printOneP (psound', count)               = putStrLn (show psound ++ " ::= " ++ show count)
+>   where
+>     psound             :: PercussionSound= toEnum psound'
+>     
+> countInstrumentsF      :: SoundFontInit → Histogram
+> countInstrumentsF sfinit                 = countIF (iInstSpecs sfinit)
+>
+> countPercussionF      :: SoundFontInit → Histogram
+> countPercussionF sfinit                  = countPF (iPercSpecs sfinit)
+>
+> countIF                :: [(String, ([Hints], InstrumentName))] → Histogram
+> countIF iss = foldl' combineHistograms zeroHistogramI (map countOneI iss)
+>
+> countPF                :: [(String, [(String, ([Hints], PercussionSound))])] → Histogram
+> countPF pss = foldl' combineHistograms zeroHistogramP (map countOneP' pss)
+>
+> countOneI              :: (String, ([Hints], InstrumentName)) → Histogram
+> countOneI (_, (_, iname)) = zeroHistogramI // singleton (fromEnum iname, 1)
+>
+> countOneP'             :: (String, [(String, ([Hints], PercussionSound))]) → Histogram
+> countOneP' (_, sshp) = foldl' combineHistograms zeroHistogramP (map countOneP sshp)
+>
+> countOneP             :: (String, ([Hints], PercussionSound)) → Histogram
+> countOneP (_, (_, psound)) = zeroHistogramP // singleton (fromEnum psound, 1)
+
 tournament among GM instruments from SoundFont files ==================================================================
 
 > chooseI                :: ZoneCache
