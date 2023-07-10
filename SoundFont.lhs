@@ -357,7 +357,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     ts1 ← getCurrentTime
 >     let is = Map.keys $ fst $ listI song initCase (Map.empty, Map.empty)
 >     let ps = Map.keys $ listP song initCase Map.empty
->     putStrLn (name ++ ": " ++ show (length is) ++ " <- instruments, percussion -> " ++ show (length ps))
+>     putStrLn ("\n" ++ name ++ ": " ++ show (length is) ++ " <- instruments, percussion -> " ++ show (length ps))
 >     let results = printChoices sfrost is ps
 >     mapM_ (putStrLn . snd) (fst results)
 >     mapM_ (putStrLn . snd) (snd results)
@@ -510,10 +510,10 @@ tournament among GM instruments from SoundFont files ===========================
 >
 >         ((iloc', ploc'), probs')
 >                        :: (Locators, [String])
->           | isNothing mwZone             = ((iloc, ploc), ("Zone "
->                                                           ++ show nameZ
->                                                           ++ " not found in "
->                                                           ++ zFilename sffile) : probs)
+>           | isNothing mwZone             =  ((iloc, ploc)
+>                                            , ("Zone " ++ show nameZ
+>                                               ++ " not found in "
+>                                               ++ zFilename sffile) : probs)
 >           | otherwise                    = ((iloc, xaStaticScoring zc
 >                                                                    sffile
 >                                                                    pergm
@@ -1004,10 +1004,10 @@ reconcile zone and sample header ===============================================
 > sumOfMaybeInts                           = foldr ((+).fromMaybe 0) 0
 >       
 > addIntToWord           :: Word → Int → Word
-> addIntToWord w i                         =
->   let iw               :: Int = fromIntegral w
->       sum              :: Int = iw + i
->   in fromIntegral sum
+> addIntToWord w i                         = fromIntegral sum
+>   where
+>     iw               :: Int              = fromIntegral w
+>     sum              :: Int              = iw + i
 >
 > reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → (Reconciled, Reconciled)
 > reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
@@ -1173,7 +1173,7 @@ mine instrument/percussion candidates (sampled sounds) from SoundFont (*.sf2) fi
 >     shdrs                                = ssShdrs $ zArrays sffile
 >     boundsI                              = bounds insts
 >
->     inps               :: [String]       = map (\wI → quoteText (F.instName (insts ! wI)))
+>     inps               :: [String]       = map (\wI → quoteCodeString (F.instName (insts ! wI)))
 >                                                [fst boundsI..snd boundsI-1]
 >
 >     qualifyI           :: String → Maybe (InstrumentName, String)
@@ -1193,17 +1193,23 @@ mine instrument/percussion candidates (sampled sounds) from SoundFont (*.sf2) fi
 >     boundsI                              = bounds insts
 >
 >     getInputI          :: Word → String
->     getInputI wI                         = quoteText $ F.instName (insts ! wI)
+>     getInputI wI                         = quoteCodeString $ F.instName (insts ! wI)
 >
 >     getInputP          :: Word → String
->     getInputP sin                        = quoteText $ F.sampleName (shdrs ! sin)
+>     getInputP sin                        = quoteCodeString $ F.sampleName (shdrs ! sin)
 >
->     pergms                               = map (\i → PerGMKey (zWordF sffile) i Nothing )                     [fst boundsI..snd boundsI-1]
->     seeds                                = map (\p → (tail $ getZonesFromCache zc p, pWordI p))               pergms
->     words                                = map (BF.first (map (fromJust . zSampleIndex . snd)))               seeds
->     idents                               = map (BF.bimap (map getInputP) getInputI)                           words
->     matched                              = map (BF.first (mapMaybe (`findMatchingPercussion'` ffThreshold)))  idents
->     eable                                = filter (not . (null . fst)) matched
+>     pergms                               = map (\i → PerGMKey (zWordF sffile) i Nothing )
+>                                                [fst boundsI..snd boundsI-1]
+>     seeds                                = map (\p → (tail $ getZonesFromCache zc p, pWordI p))
+>                                                pergms
+>     words                                = map (BF.first (map (fromJust . zSampleIndex . snd)))               
+>                                                seeds
+>     idents                               = map (BF.bimap (map getInputP) getInputI)
+>                                                words
+>     matched                              = map (BF.first (mapMaybe (`findMatchingPercussion'` ffThreshold)))
+>                                                idents
+>     eable                                = filter (not . (null . fst))
+>                                                matched
 
 Table-driven emission → SyntheticRosters ==============================================================================
 

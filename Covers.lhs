@@ -18,7 +18,7 @@ Saucy Sailor ===================================================================
 >     $ tempo 1
 >     $ transpose 0
 >     $ keysig C Mixolydian
->     $ instrument Violin
+>     $ instrument Trumpet
 >       ((if includeOpen then xOpenT        else rest 0)
 >          :+: (if includeSong then xSongT  else rest 0)
 >          :+: (if includeClos then xClosT  else rest 0))
@@ -265,9 +265,9 @@ Slot ===========================================================================
 >    $ tempo 2
 >    $ transpose 0
 >    $ keysig G Dorian
->    $ chord [ addVolume 110 $ instrument Violin              (vSlotV n)
->            , addVolume  80 $ instrument OrchestralHarp      (vSlotG n)
->            , addVolume  80 $ instrument Cello               (vSlotC n)
+>    $ chord [ addVolume 110 $ instrument Flute               (vSlotV n)
+>            , addVolume  80 $ instrument AcousticGuitarNylon (vSlotG n)
+>            , addVolume  80 $ instrument SlapBass2           (vSlotC n)
 >            , addVolume 100                                  (vSlotP n)]
 >      
 > vSlotV :: Int → Music Pitch

@@ -49,9 +49,6 @@ Utilities ======================================================================
 > traceNever   :: String → a → a
 > traceNever str expr = expr
 >
-> data Effect =
->   NoEffect | Flange deriving (Eq, Show)
->
 > addDur       :: Dur → [Dur → Music a] → Music a
 > addDur d ns  =  let f n = n d
 >                 in line (map f ns)
@@ -129,7 +126,7 @@ which makes for a cleaner sound on some synthesizers:
   "triad"
 
 > triad        :: PitchClass → Mode → Pitch → Dur → Music Pitch
-> triad key mode base dur = chord [ n1, n2, n3] where
+> triad key mode base dur = chord [n1, n2, n3] where
 >   rkP = absPitch (key, snd base - 1)
 >   bP  = absPitch base
 >   ocd = (bP - rkP) `div` 12
@@ -138,8 +135,8 @@ which makes for a cleaner sound on some synthesizers:
 >   is  = formExact apD mode
 >   n1, n2, n3 :: Music Pitch
 >   n1 = note dur $ pitch bP
->   n2 = note dur $ pitch (bP + head is)
->   n3 = note dur $ pitch (bP + is!!1)
+>   n2 = note dur $ pitch (bP + head        is)
+>   n3 = note dur $ pitch (bP + (head.tail) is)
 >   formExact :: AbsPitch → Mode → [AbsPitch]
 >   formExact apDelta mode = offsets2intervals apDelta $ mode2offsets mode
 >     where
@@ -217,33 +214,10 @@ which makes for a cleaner sound on some synthesizers:
 >
 > ascent                 :: InstrumentName → Pitch → Dur → Music Pitch
 > ascent iname p =  ascent2 (absPitch p) (absPitch (snd (fromJust (instrumentRange iname))))
-
-  "lake"
-
-> data Lake = Lake { 
->                   lInst    :: InstrumentName, 
->                   lWch     :: Music Pitch, 
->                   lPch     :: AbsPitch,
->                   lVol     :: Volume,
->                   lKey     :: (PitchClass, Mode),
->                   lVel     :: Double}
->      deriving Show
 >
 >   -- calibrate (0,1) to (lo,up) e.g. (24,92)
 > denorm       :: Double → (Double, Double) → Double
 > denorm r (lo, up) = lo + r * (up-lo)
->
-> mkLake       :: [Music Pitch] → [Double] → Lake
-> mkLake mels rs =
->   let cnt :: Double
->       cnt = fromIntegral (length mels) - 0.000001
->   in Lake {  
->       lInst  = toEnum $ round   $ denorm (rs!!0) (0,instrumentLimit)
->       , lWch =  mels !! floor    (denorm (rs!!1) (0,cnt))
->       , lPch =  round           $ denorm (rs!!2) (24,92)
->       , lVol =  round           $ denorm (rs!!3) (80,120)
->       , lKey =  (toEnum $ round $ denorm (rs!!4) (0,12), Major)
->       , lVel =                    denorm (rs!!5) (1,3)}
 >
 > sextuplets   :: StdGen → [[Double]]
 > sextuplets g =
@@ -991,8 +965,8 @@ Returns the fractional part of 'x'.
 
 Takes care of characters that need quoting like '"'
 
-> quoteText     :: String → String
-> quoteText                       = concatMap quote
+> quoteCodeString        :: String → String
+> quoteCodeString                          = concatMap quote
 >   where
 >     quote              :: Char → String
 >     quote c = case c of

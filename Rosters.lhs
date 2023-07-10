@@ -74,7 +74,8 @@ organize exposed music =========================================================
 > ejingles =
 >    [("kit"             , aggrandize kit)
 >    , ("pit"            , aggrandize pit)
->    , ("dit"            , aggrandize dit)]
+>    , ("dit"            , aggrandize dit)
+>    , ("rattan"         , aggrandize rattan)]
 > zjingles =
 >    [("basicLick"       , aggrandize basicLick)
 >    , ("sunPyg"         , aggrandize sunPyg)

@@ -10,6 +10,7 @@ November 11, 2022
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
 > import Parthenopea (triad, addDur, defSnippet, pSnippet01, playDM, capture, aggrandize, t32)
+> import Percussion
   
   "triads"
 
@@ -890,8 +891,8 @@ Rattan =========================================================================
 >     removeZeros
 >     $ tempo 1
 >     $ transpose 0
->     $ keysig Af Mixolydian
->     $ chord [vpart, spart]
+>     $ keysig E Locrian
+>     $ chord [vpart, spart, ppart]
 >
 > vpart =
 >     addVolume 110
@@ -900,6 +901,10 @@ Rattan =========================================================================
 > spart = 
 >     addVolume 80
 >     $ instrument SynthBass1 (times 2 sline)
+>
+> ppart =
+>     addVolume 90
+>     $ times 2 pline
 >
 > vline = line [vl_l01a, vl_101b, vl_l01a, vl_101b', vl_l01a, vl_101b, vl_l01a, vl_101b''
 >             , vl_201a, vl_201a, vl_201a, vl_201a,  vl_201b, vl_201b, vl_201b, vl_201b
@@ -924,6 +929,11 @@ Rattan =========================================================================
 > sl_l01 = line [e 2 qn, e 2 qn, e 2 qn, e 2 qn, bf 2 qn, bf 2 qn, c 3 qn, c 3 qn]
 > sl_102 = line [a 2 qn, a 2 qn, a 2 qn, a 2 qn, ef 2 qn, ef 2 qn, ef 2 qn, ef 2 qn]
 > sl_103 = line [d 2 qn, d 2 qn, d 2 qn, d 2 qn, c 2 qn, d 2 qn, e 2 qn]
+>
+> pline   = line [pline01, pline02, pline03]
+> pline01 = line [times 2 (line [percLTqn, percHTen, roll sn (perc AcousticSnare wn), percCCen, percCCqn])]
+> pline02 = line [times 2 (line [percCHHen, percOHHqn, percOHHqn, percBDqn])]
+> pline03 = line [times 2 (line [roll en (perc ClosedHiHat 2), percCHHen, percOHHqn, percOHHqn, percBDqn])]
 >
 > testcello = 
 >     removeZeros
@@ -955,16 +965,39 @@ Kit ============================================================================
 > kit                    :: Music (Pitch,Volume)
 > kit =
 >   removeZeros
->   $ tempo 1
->   $ transpose 0
->   $ chord [npart, tpart]
+>   $ tempo 2
+>   $ chord [addVolume 64 npart, instrument FrenchHorn $ addVolume 60 tpart]
 >
 > p1 = perc LowTom
 > p2 = perc AcousticSnare
 > p3 = perc CrashCymbal2
 >
-> npart = addVolume 64 (line [p1 qn, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 qn])
-> tpart = rest 0
+> c1qn = chord [c 4 qn, e 4 qn, fs 4 qn, g 4 qn]
+> c1en = chord [c 4 en, e 4 en, fs 4 en, g 4 en]
+> c2qn = chord [b 3 qn, ds 4 qn, f 4 qn, g 4 qn]
+> c2en = chord [b 3 en, ds 4 en, f 4 en, g 4 en]
+> c3qn = chord [ds 4 qn, f 4 qn, a 4 qn, c 5 qn]
+> c3en = chord [ds 4 en, f 4 en, a 4 en, c 5 en]
+> c4qn = chord [e 4 qn, fs 4 qn, as 4 qn, c 5 qn]
+> c4en = chord [e 4 en, fs 4 en, as 4 en, c 5 en]
+> c5qn = chord [b 4 qn, ds 5 qn]
+> c5en = chord [b 4 en, ds 5 en]
+> c6qn = chord [a 4 qn, cs 5 qn]
+> c6en = chord [a 4 en, cs 5 en]
+> c7qn = chord [g 4 qn, b 4 qn]
+> c7en = chord [g 4 en, b 4 en]
+
+> npart = line [npart01, npart02]
+> npart01 = times 4 nline01
+> npart02 = percCCqn
+> nline01 = line [p1 qn, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p2 en, p2 en, p2 qn, p2 qn]
+> tpart =   line [tpart01, tpart02]
+> tpart01 = line [tline01, tline01, tline02, tline02]
+> tpart02 = line [tline03, tline04]
+> tline03 = line [c5en, c6qn, c6en]
+> tline04 = line [c6en, c6qn, c7en]
+> tline01 = line [c1qn, times 6 c1en, times 2 c2en, times 2 c2qn]
+> tline02 = line [c3qn, times 6 c3en, times 2 c4en, times 2 c4qn]
 
 Pit ===================================================================================================================
 

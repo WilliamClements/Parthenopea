@@ -121,6 +121,27 @@ Aleatory Music =================================================================
 
 Lake ==================================================================================================================
 
+> data Lake = Lake { 
+>                   lInst    :: InstrumentName, 
+>                   lWch     :: Music Pitch, 
+>                   lPch     :: AbsPitch,
+>                   lVol     :: Volume,
+>                   lKey     :: (PitchClass, Mode),
+>                   lVel     :: Double}
+>      deriving Show
+>
+> mkLake       :: [Music Pitch] → [Double] → Lake
+> mkLake mels rs =
+>   let cnt :: Double
+>       cnt = fromIntegral (length mels) - 0.000001
+>   in Lake {  
+>       lInst  = toEnum $ round   $ denorm (rs!!0) (0,instrumentLimit)
+>       , lWch =  mels !! floor    (denorm (rs!!1) (0,cnt))
+>       , lPch =  round           $ denorm (rs!!2) (24,92)
+>       , lVol =  round           $ denorm (rs!!3) (80,120)
+>       , lKey =  (toEnum $ round $ denorm (rs!!4) (0,12), Major)
+>       , lVel =                    denorm (rs!!5) (1,3)}
+>
 > lake :: Music (Pitch, Volume)
 > lake2 :: Music Pitch → Int → Music (Pitch, Volume)
 >

@@ -147,7 +147,6 @@ Signal function-based synth ====================================================
 >         (eeL, eeR) = (a2L*amp*aenvL, a2R*amp*aenvR)
 >         msg = unwords ["eeL=", show eeL, " eeR=", show eeR]
 >
->     -- not 100% sure there is not a signed/unsigned problem with the 8 bit part
 >     compute24          :: Int16 → Word8 → Double
 >     compute24 i16 w8 = d24
 >       where
@@ -648,7 +647,7 @@ Knobs and buttons ==============================================================
 > useShortening      = True
 > useLoopSwitching   = True
 > useLoopPhaseCalc   = False
-> useLowPassFilter   = False
+> useLowPassFilter   = True
 > useEffectReverb    = True
 > useEffectChorus    = False
 > useEffectPan       = True
@@ -681,5 +680,4 @@ Knobs and buttons ==============================================================
 > weight24Bit            :: Int            = 1
 > weightMaxSplits        :: Int            = 1
 >
-> includeFFScores        :: Bool           = True
 > ffThreshold            :: Double         = 150
