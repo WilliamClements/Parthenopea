@@ -107,7 +107,7 @@ Signal function-based synth ====================================================
 >     (stL, enL)         :: (Word, Word)   = (rStart reconL, rEnd reconL)
 >     (stR, enR)         :: (Word, Word)   = (rStart reconR, rEnd reconR)
 >     numS               :: Double         = fromIntegral (enL - stL + 1)
->     amp                :: Double         = fromIntegral vol / 100
+>     amp                :: Double         = fromIntegral vol / 100 / rAttenuation reconL
 >
 >   in proc pos → do
 >     let saddrL         :: Int            = fromIntegral stL + truncate (numS * pos)
@@ -197,16 +197,18 @@ Signal function-based synth ====================================================
 >                  , ", denom=",                  show denom]
 >     
 > resolvePitchCorrection :: Int → Maybe Int → Maybe Int → Double
-> resolvePitchCorrection alt mps mpc = if usePitchCorrection
->                                      then 2 ** (fromIntegral cents/12/100)
->                                      else 1.0
+> resolvePitchCorrection alt mps mpc       = if usePitchCorrection
+>                                              then 2 ** (fromIntegral cents/12/100)
+>                                              else 1.0
 >   where
->     cents              :: Int = if isJust mps || isJust mpc
->                                 then coarse * 100 + fine
->                                 else alt
->     coarse             :: Int = fromMaybe 0 mps
->     fine               :: Int = fromMaybe 0 mpc
+>     cents              :: Int            = if isJust mps || isJust mpc
+>                                              then coarse * 100 + fine
+>                                              else alt
+>     coarse             :: Int            = fromMaybe 0 mps
+>     fine               :: Int            = fromMaybe 0 mpc
 >
+> fromCentibels          :: Maybe Int → Double
+> fromCentibels mcents                     = 10**(fromIntegral (fromMaybe 0 mcents)/100)
 
 Envelopes =============================================================================================================
 
@@ -587,6 +589,9 @@ Utility types ==================================================================
 >   , rLoopEnd           :: Word
 >   , rRootKey           :: Word
 >   , rPitchCorrection   :: Double
+>   , rForceKey          :: Maybe AbsPitch
+>   , rForceVel          :: Maybe Volume
+>   , rAttenuation       :: Double
 >   , rEnvelope          :: Envelope
 >   , rEffects           :: Effects} deriving (Eq, Show)
 >           
@@ -647,7 +652,7 @@ Knobs and buttons ==============================================================
 > useShortening      = True
 > useLoopSwitching   = True
 > useLoopPhaseCalc   = False
-> useLowPassFilter   = True
+> useLowPassFilter   = False
 > useEffectReverb    = True
 > useEffectChorus    = False
 > useEffectPan       = True

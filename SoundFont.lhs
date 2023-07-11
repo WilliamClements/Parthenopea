@@ -89,6 +89,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     ssInsts            :: Array Word F.Inst
 >   , ssIBags            :: Array Word F.Bag
 >   , ssIGens            :: Array Word F.Generator
+>   , ssIMods            :: Array Word F.Mod
 >   , ssShdrs            :: Array Word F.Shdr
 >   , ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
@@ -122,10 +123,15 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , zInstIndex         :: Maybe Word
 >   , zKeyRange          :: Maybe (AbsPitch, AbsPitch)
 >   , zVelRange          :: Maybe (Volume, Volume)
+>   , zKey               :: Maybe Word
+>   , zVel               :: Maybe Word
+>   , zInitAtten         :: Maybe Int
 >   , zCoarseTune        :: Maybe Int
 >   , zFineTune          :: Maybe Int
 >   , zSampleIndex       :: Maybe Word
 >   , zSampleMode        :: Maybe A.SampleMode
+>   , zScaleTuning       :: Maybe Int
+>   , zExclusiveClass    :: Maybe Int
 >
 >   , zDelayVolEnv       :: Maybe Int
 >   , zAttackVolEnv      :: Maybe Int
@@ -169,7 +175,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >                                            Nothing Nothing Nothing Nothing
 >
 >                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing
+>                                            Nothing Nothing Nothing Nothing
+>                                            Nothing Nothing Nothing Nothing
 >
 >                                            Nothing Nothing Nothing Nothing
 >                                            Nothing Nothing
@@ -278,6 +285,37 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >              then map (toLower . (fp !!)) [pn..(n-sn)]
 >              else error ("filename " ++ fp ++ " too short")
 >
+> openSoundFontFile      :: Word → FilePath → String → IO SFFile
+> openSoundFontFile wFile filename nickname      = do
+>   putStr (show wFile ++ " " ++ filename)
+>   ts1 ← getCurrentTime
+>   maybeAudio ← F.importFile filename
+>   case maybeAudio of
+>     Left s               → error $ "SoundFont decoding error: " ++ s
+>     Right soundFont      → do
+>       let pdata = F.pdta soundFont
+>       let sdata = F.sdta soundFont
+>       let arrays = SoundFontArrays
+>                      (F.insts pdata)
+>                      (F.ibags pdata)
+>                      (F.igens pdata)
+>                      (F.imods pdata)
+>                      (F.shdrs pdata)
+>                      (F.smpl sdata)
+>                      (F.sm24 sdata)
+>       let sffile = SFFile filename nickname arrays wFile
+>       let nBits = case ssM24 (zArrays sffile) of
+>             Nothing          → 16
+>             Just s24data     → 24
+>       ts2 ← getCurrentTime
+>       putStrLn (" (" ++ show nBits ++ ") loaded in " ++ show (diffUTCTime ts2 ts1))
+>       putStrLn ("openSoundFontFile ssInsts" ++ show (bounds $ ssInsts arrays))
+>       putStrLn ("openSoundFontFile ssIBags" ++ show (bounds $ ssIBags arrays))
+>       putStrLn ("openSoundFontFile ssIGens" ++ show (bounds $ ssIGens arrays))
+>       putStrLn ("openSoundFontFile ssIMods" ++ show (bounds $ ssIMods arrays))
+>       putStrLn ("openSoundFontFile ssShdrs" ++ show (bounds $ ssShdrs arrays))
+>       return sffile
+>     
 > readSoundFontFile      :: Word
 >                           → SoundFontInit
 >                           → IO (SFFile
@@ -287,65 +325,14 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >   let
 >     (filename, (ilist, plist)) = (iFilename sfinit, (iInstSpecs sfinit, iPercSpecs sfinit))
 >   in do
->     putStr (show wFile ++ " " ++ filename)
->     ts1 ← getCurrentTime
->     maybeAudio ← F.importFile filename
->     case maybeAudio of
->       Left s               → error $ "SoundFont decoding error: " ++ s
->       Right soundFont      → do
->         let pdata = F.pdta soundFont
->         let sdata = F.sdta soundFont
->         let arrays = SoundFontArrays
->                        (F.insts pdata)
->                        (F.ibags pdata)
->                        (F.igens pdata)
->                        (F.shdrs pdata)
->                        (F.smpl sdata)
->                        (F.sm24 sdata)
->         let sffile = SFFile filename "no nickname" arrays wFile
+>     sffile ← openSoundFontFile wFile filename "no nickname"
+>     return (sffile, (ilist, plist))
 >
->         ts2 ← getCurrentTime
->         let nBits = case ssM24 arrays of
->               Nothing          → 16
->               Just s24data     → 24
->         putStrLn (" (" ++ show nBits ++ ") loaded in " ++ show (diffUTCTime ts2 ts1))
->
->         return (sffile, (ilist, plist))
->
-> digSoundFontFile       :: Word
->                           → (FilePath, String)
->                           → IO SFFile
+> digSoundFontFile       :: Word → (FilePath, String) → IO SFFile
 > digSoundFontFile wFile (filename, nickname) =
 >   do
->     putStr (show wFile ++ " " ++ filename ++ "\n")
->     ts1 ← getCurrentTime
->     maybeAudio ← F.importFile filename
->     case maybeAudio of
->       Left s               → error $ "SoundFont decoding error: " ++ s
->       Right soundFont      → do
->         let pdata = F.pdta soundFont
->         let sdata = F.sdta soundFont
->         let arrays = SoundFontArrays
->                        (F.insts pdata)
->                        (F.ibags pdata)
->                        (F.igens pdata)
->                        (F.shdrs pdata)
->                        (F.smpl sdata)
->                        (F.sm24 sdata)
->         let sffile = SFFile filename nickname arrays wFile
->         putStrLn ("digSoundFontFile ssInsts" ++ show (bounds $ ssInsts arrays))
->         putStrLn ("digSoundFontFile ssIBags" ++ show (bounds $ ssIBags arrays))
->         putStrLn ("digSoundFontFile ssIGens" ++ show (bounds $ ssIGens arrays))
->         putStrLn ("digSoundFontFile ssShdrs" ++ show (bounds $ ssShdrs arrays))
->
->         ts2 ← getCurrentTime
->         let nBits = case ssM24 arrays of
->               Nothing          → 16
->               Just s24data     → 24
->         putStrLn (" (" ++ show nBits ++ ") loaded in " ++ show (diffUTCTime ts2 ts1))
->
->         -- let statements = writeStatements
->         return sffile
+>     sffile ← openSoundFontFile wFile filename nickname
+>     return sffile
 >
 > renderSong             :: SFRoster
 >                           → InstrMap (Stereo AudRate)
@@ -632,6 +619,15 @@ extract data from SoundFont per instrument =====================================
 >            else getGens sffile iinst [xgeni..ygeni-1]
 >     zone = fromGens fromZone gens
 >
+> checkModulators        :: Array Word F.Mod → [Word] → Bool
+> checkModulators vMod ws
+>   | traceAlways msg False = undefined
+>   | otherwise = True
+>     where
+>       msg =  unwords ["checkModulators ws=", show ws, "mods="] ++ unwords [concatMap showEach ws]
+>       showEach         :: Word → String 
+>       showEach w = "\n" ++ show (vMod ! w)
+>
 > getGens                :: SFFile → F.Inst → [Word] → [F.Generator]
 > getGens sffile iinst words
 >   | traceIf msg False = undefined
@@ -670,10 +666,15 @@ extract data from SoundFont per instrument =====================================
 >   F.InstIndex w                  → iz {zInstIndex =                Just w}
 >   F.KeyRange a b                 → iz {zKeyRange =                 Just (fromIntegral a, fromIntegral b)}
 >   F.VelRange a b                 → iz {zVelRange =                 Just (fromIntegral a, fromIntegral b)}
+>   F.Key i                        → iz {zKey =                      Just i}
+>   F.Vel i                        → iz {zVel =                      Just i}
+>   F.InitAtten i                  → iz {zInitAtten =                Just i}
 >   F.CoarseTune i                 → iz {zCoarseTune =               Just i}
 >   F.FineTune i                   → iz {zFineTune =                 Just i}
 >   F.SampleIndex w                → iz {zSampleIndex =              Just w}
 >   F.SampleMode a                 → iz {zSampleMode =               Just a}
+>   F.ScaleTuning i                → iz {zScaleTuning =              Just i}
+>   F.ExclusiveClass i             → iz {zExclusiveClass =           Just i}
 >
 >   F.DelayVolEnv i                → iz {zDelayVolEnv =              Just i}
 >   F.AttackVolEnv i               → iz {zAttackVolEnv =             Just i}
@@ -851,6 +852,8 @@ define signal functions for playing instruments ================================
 >                                          = setZone sfrost (wF, wI) zones pch vol
 >     (reconL, reconR)   :: (Reconciled, Reconciled)
 >                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
+>     pch'               :: AbsPitch       = fromMaybe pch (rForceKey reconL)
+>     vol'               :: Volume         = fromMaybe vol (rForceVel reconL)
 >     sr                 :: Double         = fromIntegral $ F.sampleRate shdrL
 >     sig                :: AudSF () (Double, Double)
 >     ok                 :: Bool           = checkReconcile
@@ -861,7 +864,7 @@ define signal functions for playing instruments ================================
 >     arrays             :: SoundFontArrays= zArrays sffile 
 >     sig = if not ok
 >           then error "SFZone and F.Shdr could not be reconciled"
->           else eutSynthesize (reconL, reconR) sr dur pch vol params
+>           else eutSynthesize (reconL, reconR) sr dur pch' vol' params
 >                              (ssData arrays) (ssM24 arrays)
 >   in sig
 >   where
@@ -1030,13 +1033,16 @@ reconcile zone and sample header ===============================================
 > reconcile              :: (SFZone, F.Shdr) → Reconciled 
 > reconcile (zone, shdr)                   =
 >   Reconciled {
->     rSampleMode      = fromMaybe             (A.NoLoop)               (zSampleMode zone)
+>     rSampleMode      = fromMaybe             (A.NoLoop)               (zSampleMode    zone)
 >   , rStart           = addIntToWord          (F.start shdr)           (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
 >   , rEnd             = addIntToWord          (F.end shdr)             (sumOfMaybeInts [zEndOffs       zone, zEndCoarseOffs       zone])
 >   , rLoopStart       = addIntToWord          (F.startLoop shdr)       (sumOfMaybeInts [zLoopStartOffs zone, zLoopStartCoarseOffs zone])
 >   , rLoopEnd         = addIntToWord          (F.endLoop shdr)         (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
->   , rRootKey         = fromMaybe             (F.originalPitch shdr)   (zRootKey zone)
->   , rPitchCorrection = resolvePitchCorrection(F.pitchCorrection shdr) (zCoarseTune zone) (zFineTune zone)
+>   , rRootKey         = fromMaybe             (F.originalPitch shdr)   (zRootKey       zone)
+>   , rPitchCorrection = resolvePitchCorrection(F.pitchCorrection shdr) (zCoarseTune    zone) (zFineTune zone)
+>   , rForceKey        = fmap                  fromIntegral             (zKey           zone)
+>   , rForceVel        = fmap                  fromIntegral             (zVel           zone)
+>   , rAttenuation     = fromCentibels                                  (zInitAtten     zone)
 >   , rEnvelope        = deriveEnvelope        (zDelayVolEnv   zone)
 >                                              (zAttackVolEnv  zone)
 >                                              (zHoldVolEnv    zone)

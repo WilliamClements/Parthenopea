@@ -896,7 +896,7 @@ Rattan =========================================================================
 >
 > vpart =
 >     addVolume 110
->     $ instrument Violin (times 2 vline)
+>     $ instrument Flute (times 2 vline)
 >
 > spart = 
 >     addVolume 80
