@@ -1,4 +1,5 @@
 > {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -259,8 +260,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     ts1                ← getCurrentTime
 >
 >     fps                ← FP.getDirectoryFiles "." (singleton "edit*.sf2")
->     let fpsn           = map (addNickname prefix) fps
->     sffilesp           ← CM.zipWithM digSoundFontFile [0..] fpsn
+>     sffilesp           ← CM.zipWithM (openSoundFontFile prefix) [0..] fps
 >
 >     ts2 ← getCurrentTime
 >
@@ -275,18 +275,8 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >
 >     putStrLn ("___write rosters: " ++ show (diffUTCTime ts4 ts3))
 >
-> addNickname        :: FilePath → String → (FilePath, String)
-> addNickname prefix fp = (fp, nick)
->   where
->     pn = length prefix
->     sn = length ".sf2" + 1
->     n = length fp
->     nick = if n > pn + sn
->              then map (toLower . (fp !!)) [pn..(n-sn)]
->              else error ("filename " ++ fp ++ " too short")
->
-> openSoundFontFile      :: Word → FilePath → String → IO SFFile
-> openSoundFontFile wFile filename nickname      = do
+> openSoundFontFile      :: String → Word → FilePath → IO SFFile
+> openSoundFontFile nick wFile filename    = do
 >   putStr (show wFile ++ " " ++ filename)
 >   ts1 ← getCurrentTime
 >   maybeAudio ← F.importFile filename
@@ -303,7 +293,7 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >                      (F.shdrs pdata)
 >                      (F.smpl sdata)
 >                      (F.sm24 sdata)
->       let sffile = SFFile filename nickname arrays wFile
+>       let sffile = SFFile filename nick arrays wFile
 >       let nBits = case ssM24 (zArrays sffile) of
 >             Nothing          → 16
 >             Just s24data     → 24
@@ -325,14 +315,8 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >   let
 >     (filename, (ilist, plist)) = (iFilename sfinit, (iInstSpecs sfinit, iPercSpecs sfinit))
 >   in do
->     sffile ← openSoundFontFile wFile filename "no nickname"
+>     sffile ← openSoundFontFile "no nickname" wFile filename 
 >     return (sffile, (ilist, plist))
->
-> digSoundFontFile       :: Word → (FilePath, String) → IO SFFile
-> digSoundFontFile wFile (filename, nickname) =
->   do
->     sffile ← openSoundFontFile wFile filename nickname
->     return sffile
 >
 > renderSong             :: SFRoster
 >                           → InstrMap (Stereo AudRate)
@@ -1033,7 +1017,7 @@ reconcile zone and sample header ===============================================
 > reconcile              :: (SFZone, F.Shdr) → Reconciled 
 > reconcile (zone, shdr)                   =
 >   Reconciled {
->     rSampleMode      = fromMaybe             (A.NoLoop)               (zSampleMode    zone)
+>     rSampleMode      = fromMaybe             A.NoLoop                 (zSampleMode    zone)
 >   , rStart           = addIntToWord          (F.start shdr)           (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
 >   , rEnd             = addIntToWord          (F.end shdr)             (sumOfMaybeInts [zEndOffs       zone, zEndCoarseOffs       zone])
 >   , rLoopStart       = addIntToWord          (F.startLoop shdr)       (sumOfMaybeInts [zLoopStartOffs zone, zLoopStartCoarseOffs zone])

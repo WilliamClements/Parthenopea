@@ -28,7 +28,6 @@ Library
         Players,
         Rosters,
         Signals,
-        Simple,
         SoundFont,
         SunPyg,
         Synthesizer,

@@ -1,6 +1,8 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Use camelCase" #-}
 > {-# LANGUAGE GADTs #-}
-> {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE ExistentialQuantification #-}
+> {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
@@ -79,17 +81,17 @@ Chart ==========================================================================
 > newtype Parser a = P (String → [(a, String)])
 >
 > parse :: Parser a → String → [(a, String)]
-> parse (P p) inp = p inp
+> parse (P p) = p
 >
 > item :: Parser Char
-> item = P (\inp → case inp of
->                   [] → []
->                   (x:xs) → [(x, xs)])
+> item = P (\case
+>              []        → []
+>              (x : xs)  → [(x, xs)])
 >
 > instance Functor Parser where
 >   fmap g p = P (\inp → case parse p inp of
->                       [] → []
->                       [(v, out)] → [(g v, out)])
+>                          [] → []
+>                          [(v, out)] → [(g v, out)])
 >
 > string :: String → Parser String
 > string [] = return []
@@ -122,7 +124,7 @@ Chart ==========================================================================
 >                        [(v, out)] → parse (f v) out)
 >
 > instance Alternative Parser where
->   empty = P (\inp → [])
+>   empty = P (const [])
 >   p <|> q = P (\inp → case parse p inp of
 >                        [] → parse q inp
 >                        [(v, out)] → [(v, out)])
@@ -152,20 +154,20 @@ Chart ==========================================================================
 >                          [(g, out)] → parse (fmap g px) out)
 >
 > m_gulag :: Parser String
-> m_gulag = fmap (show) mInteger
+> m_gulag = fmap show mInteger
 >
 > 
 > convu8tos32 :: Word8 → Int32
-> convu8tos32 w = fromIntegral w
+> convu8tos32 = fromIntegral
 >
 > convs8tos32 :: Int8 → Int32
-> convs8tos32 w = fromIntegral w
+> convs8tos32 = fromIntegral
 >
 > convs8tou32 :: Int8 → Word32
-> convs8tou32 w = fromIntegral w
+> convs8tou32 = fromIntegral
 >
 > convs8tou8 :: Int8 → Word8
-> convs8tou8 i = fromIntegral i
+> convs8tou8 = fromIntegral
 >
 > busterHill :: Array Int Int
 > busterHill = array (1, 99) [(3,7)]
