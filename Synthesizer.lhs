@@ -203,14 +203,8 @@ Signal function-based synth ====================================================
 >     
 > resolvePitchCorrection :: Int → Maybe Int → Maybe Int → Double
 > resolvePitchCorrection alt mps mpc       = if usePitchCorrection
->                                              then 2 ** (fromIntegral cents/12/100)
+>                                              then fromMaybe (fromCents alt) (fromCents' mps mpc)
 >                                              else 1.0
->   where
->     cents              :: Int            = if isJust mps || isJust mpc
->                                              then coarse * 100 + fine
->                                              else alt
->     coarse             :: Int            = fromMaybe 0 mps
->     fine               :: Int            = fromMaybe 0 mpc
 >
 > resolveAttenuation     :: Maybe Int → Double
 > resolveAttenuation matten                = if useAttenuation
@@ -229,19 +223,9 @@ Envelopes ======================================================================
 > deriveEnvelope mDelay mAttack mHold mDecay mSustain mRelease
 >   | traceIf msg False = undefined
 >   | otherwise =
->     let
->       iDelay =   fromMaybe (-12000) mDelay
->       iAttack =  fromMaybe (-12000) mAttack
->       iHold   =  fromMaybe (-12000) mHold
->       iDecay  =  fromMaybe (-12000) mDecay
->       iSustain = fromMaybe        0 mSustain
->       iRelease = fromMaybe (-12000) mRelease
->     in 
->       Envelope (conv iDelay) (conv iAttack)           (conv iHold)
->                (conv iDecay) (acceptSustain iSustain) (conv iRelease)
+>     Envelope (fromTimecents mDelay) (fromTimecents mAttack)      (fromTimecents mHold)
+>              (fromTimecents mDecay) (fromTithe mSustain)         (fromTimecents mRelease)
 >     where
->       conv             :: Int → Double
->       conv k = 2**(fromIntegral k/1200)
 >       msg = unwords ["mDelay=",   show mDelay,   "mAttack=",    show mAttack
 >                     ,"mHold=",    show mHold,    "mDecay=",     show mDecay
 >                     ,"mSustain=", show mSustain, "mRelease=",   show mRelease]
@@ -258,12 +242,6 @@ Envelopes ======================================================================
 >         nEffect' = max nMin nEffect
 >         nEffect'' = min nMax nEffect'
 >
-> acceptSustain          :: Int → Double
-> acceptSustain iS = 1/raw iS
->   where
->     raw                :: Int → Double
->     raw iS = pow 10 (fromIntegral jS/200)
->       where jS = clip iS 0 1000
 
 Implement the SoundFont envelope model with specified:
   1. delay time                      0 → 0

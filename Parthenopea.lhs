@@ -972,6 +972,31 @@ Takes care of characters that need quoting like '"'
 >                 '\"'   → "\\\""
 >                 _      → [c]
 
+Returns the amplitude ratio
+
 > fromCentibels          :: Maybe Int → Double
 > fromCentibels mcents                     = 10**(fromIntegral (fromMaybe 0 mcents)/100)
 
+Returns the elapsed time in seconds
+
+> fromTimecents          :: Maybe Int → Double
+> fromTimecents mcents                     = 2**(fromIntegral (fromMaybe (-12000) mcents)/1200)
+
+Returns the attenuation (based on input 10ths of a percent)
+
+> fromTithe              :: Maybe Int → Double
+> fromTithe iS                             = 1 / pow 10 (fromIntegral jS/200)
+>   where
+>     jS = clip (fromMaybe 0 iS) 0 1000
+
+Returns the frequency ratio
+
+> fromCents              :: Int → Double
+> fromCents cents                          = 2**(fromIntegral cents/12/100)
+>
+> fromCents'             :: Maybe Int → Maybe Int → Maybe Double
+> fromCents' mcoarse mfine
+>   | isNothing mcoarse && isNothing mfine = Nothing
+>   | otherwise                            = Just $ fromCents cents
+>   where
+>     cents = fromMaybe 0 mcoarse * 100 + fromMaybe 0 mfine
