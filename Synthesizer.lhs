@@ -37,15 +37,15 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL, reconR) sr dur pch vol params s16 ms8 =
->   let
+> eutSynthesize (reconL, reconR) sr dur pch vol params s16 ms8 = sig
+>   where
 >     ap                 :: AbsPitch       = fromIntegral (rRootKey reconL)
 >     (st, en)           :: (Word, Word)   = (rStart reconL, rEnd reconL)
 >     ns                 :: Double         = fromIntegral (en - st + 1)
 >     secsSample         :: Double         = ns / sr
 >     secsScored         :: Double         = 2 * fromRational dur
 >     freqRatio          :: Double         = apToHz ap / apToHz pch
->     rateRatio          :: Double         = 44100 / sr
+>     rateRatio          :: Double         = mysr / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / rPitchCorrection reconL
 >     sig                :: Signal p () (Double, Double)
 >                                          = (if looping
@@ -57,7 +57,7 @@ Signal function-based synth ====================================================
 >                                            && (rSampleMode reconL /= A.NoLoop)
 >                                            && useLoopSwitching
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
->   in sig
+>     mysr               :: Double         = rate (undefined::p)
 >
 > eutDriverNotLooping    :: forall p . Clock p ⇒
 >                           Double
@@ -129,10 +129,10 @@ Signal function-based synth ====================================================
 >               then doEnvelope secsScored (rEnvelope reconR) ⤙ ()
 >               else constA 1                                 ⤙ ()
 >       a2L   ← if useLowPassFilter
->               then filterLowPass                            ⤙ (a1L,20000*aenvL)
+>               then filterLowPassBW                          ⤙ (a1L,20000)
 >               else delay 0                                  ⤙ a1L
 >       a2R   ← if useLowPassFilter
->               then filterLowPass                            ⤙ (a1R,20000*aenvR)
+>               then filterLowPassBW                          ⤙ (a1R,20000)
 >               else delay 0                                  ⤙ a1R
 >     let (sL, sR) = (a2L*amp*aenvL, a2R*amp*aenvR)
 >     let ok = lookAtEveryPoint amp a2L aenvL a2R aenvR
@@ -666,7 +666,7 @@ Knobs and buttons ==============================================================
 > useShortening          = True
 > useLoopSwitching       = True
 > useLoopPhaseCalc       = False
-> useLowPassFilter       = False
+> useLowPassFilter       = True
 > useEffectReverb        = True
 > useEffectChorus        = False
 > useEffectPan           = True

@@ -36,7 +36,7 @@ Rosters support ================================================================
 >                  countSoundFontGMItems zsoundFontDatabaseOrig
 >                else if playAll
 >                       then doSoundFontMusic zsoundFontDatabaseOrig combineAll
->                       else doSoundFontMusic zsoundFontDatabaseOrig sj
+>                       else doSoundFontMusic zlittleSoundFontDatabase sj
 >
 >   return ()
 
@@ -83,7 +83,7 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [("basicLick"       , aggrandize basicLick)]
+>    [("rattan"          , aggrandize (cut 4 rattan))]
 
 organize instruments from multiple SoundFont files ====================================================================
 
