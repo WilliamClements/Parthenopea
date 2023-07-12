@@ -1,4 +1,5 @@
 > {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -26,7 +27,8 @@
  
 Signal function-based synth ===========================================================================================
 
-> eutSynthesize          :: (Reconciled, Reconciled)
+> eutSynthesize          :: forall p . Clock p ⇒
+>                           (Reconciled, Reconciled)
 >                           → Double
 >                           → Dur
 >                           → AbsPitch
@@ -34,7 +36,7 @@ Signal function-based synth ====================================================
 >                           → [Double]
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
->                           → AudSF () (Double, Double)
+>                           → Signal p () (Double, Double)
 > eutSynthesize (reconL, reconR) sr dur pch vol params s16 ms8 =
 >   let
 >     ap                 :: AbsPitch       = fromIntegral (rRootKey reconL)
@@ -45,7 +47,7 @@ Signal function-based synth ====================================================
 >     freqRatio          :: Double         = apToHz ap / apToHz pch
 >     rateRatio          :: Double         = 44100 / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / rPitchCorrection reconL
->     sig                :: AudSF () (Double, Double)
+>     sig                :: Signal p () (Double, Double)
 >                                          = (if looping
 >                                             then eutDriverLooping 0 delta (normalizeLooping reconL)
 >                                             else eutDriverNotLooping 0 delta)
@@ -57,9 +59,10 @@ Signal function-based synth ====================================================
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
 >   in sig
 >
-> eutDriverNotLooping    :: Double
+> eutDriverNotLooping    :: forall p . Clock p ⇒
+>                           Double
 >                           → Double
->                           → AudSF () Double 
+>                           → Signal p () Double 
 > eutDriverNotLooping iphs delta
 >   | traceIf msg False = undefined
 >   | otherwise =
@@ -71,10 +74,11 @@ Signal function-based synth ====================================================
 >   where
 >     msg = unwords ["eutDriverNotLooping iphs=", show iphs, "delta=", show delta]
 >
-> eutDriverLooping       :: Double
+> eutDriverLooping       :: forall p . Clock p ⇒
+>                           Double
 >                           → Double
 >                           → (Double, Double)
->                           → AudSF () Double 
+>                           → Signal p () Double 
 > eutDriverLooping iphs delta (lst, len)
 >   | traceIf msg False = undefined
 >   | otherwise =
@@ -93,13 +97,14 @@ Signal function-based synth ====================================================
 >     msg = unwords ["eutDriverLooping iphs=", show iphs, "delta=", show delta
 >                               , "lst, len=", show (lst, len)]
 >
-> eutRelayStereo         :: A.SampleData Int16
+> eutRelayStereo         :: forall p . Clock p ⇒
+>                           A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Double
 >                           → (Reconciled, Reconciled)
 >                           → Volume
 >                           → Dur
->                           → AudSF Double (Double, Double)
+>                           → Signal p Double (Double, Double)
 > eutRelayStereo s16 ms8 secsScored (reconL, reconR) vol dur
 >   | traceIf msg False = undefined
 >   | otherwise =
@@ -160,7 +165,7 @@ Signal function-based synth ====================================================
 >     compute16         :: Int16 → Double
 >     compute16 i16 = fromIntegral i16 / 32768.0
 >
->     doEnvelope         :: (Clock p) ⇒ Double → Envelope → Signal p () Double
+>     doEnvelope         :: forall p . Clock p ⇒ Double → Envelope → Signal p () Double
 >     doEnvelope secsScored renv = envLineSeg (sAmps segments) (sDeltaTs segments)
 >       where
 >         segments = computeSegments secsScored renv
@@ -207,8 +212,10 @@ Signal function-based synth ====================================================
 >     coarse             :: Int            = fromMaybe 0 mps
 >     fine               :: Int            = fromMaybe 0 mpc
 >
-> fromCentibels          :: Maybe Int → Double
-> fromCentibels mcents                     = 10**(fromIntegral (fromMaybe 0 mcents)/100)
+> resolveAttenuation     :: Maybe Int → Double
+> resolveAttenuation matten                = if useAttenuation
+>                                              then fromCentibels matten
+>                                              else 1.0
 
 Envelopes =============================================================================================================
 
@@ -336,9 +343,10 @@ Create a straight-line envelope generator with following phases:
 
 Effects ===============================================================================================================
 
-> eutEffects             :: Double
+> eutEffects             :: forall p . Clock p ⇒
+>                           Double
 >                           → (Reconciled, Reconciled)
->                           → AudSF (Double, Double) (Double, Double)
+>                           → Signal p (Double, Double) (Double, Double)
 > eutEffects secsScored (reconL, reconR)
 >   | traceIf msg False = undefined
 >   | otherwise =
@@ -387,10 +395,11 @@ Effects ========================================================================
 >
 >     msg = unwords ["eutEffects=", show effL, "=LR=", show effR, "rFactor*=", show rFactorL, " ", show rFactorR]
 > 
-> eutChorus              :: Double
+> eutChorus              :: forall p . Clock p ⇒
+>                           Double
 >                           → Double
 >                           → Double
->                           → AudSF (Double, Double) (Double, Double)
+>                           → Signal p (Double, Double) (Double, Double)
 > eutChorus rate depth gain =
 >   proc (sinL, sinR) → do
 >     rec
@@ -408,7 +417,11 @@ Effects ========================================================================
 >       rR ← delayLine 0.0001 ⤙ (sinR + z1R + z2R + z3R)/4 + rR * gain
 >     outA ⤙ (rL, rR)
 >
-> eutReverb              :: Double → Double → Double → AudSF (Double, Double) (Double, Double)
+> eutReverb              :: forall p . Clock p ⇒
+>                           Double
+>                           → Double
+>                           → Double
+>                           → Signal p (Double, Double) (Double, Double)
 > eutReverb roomSize damp width =
 >   eatFreeVerb $ makeFreeVerb roomSize damp width
 >
@@ -468,7 +481,7 @@ Effects ========================================================================
 >                     , show width]
 >   
 >
-> eatFreeVerb            :: STK.FreeVerb → AudSF (Double, Double) (Double, Double)
+> eatFreeVerb            :: forall p . Clock p ⇒ STK.FreeVerb → Signal p (Double, Double) (Double, Double)
 > eatFreeVerb STK.FreeVerb
 >   {   STK.iiWetDryMix      {- 0.2    -}
 >     , STK.iiG              {- 0.5    -}
@@ -522,7 +535,7 @@ Effects ========================================================================
 >
 >       outA ⤙ (fp4L, fp4R)
 >
-> comb                   :: forall p . Clock p => Word64 → STK.FilterData → Signal p Double Double
+> comb                   :: forall p . Clock p ⇒ Word64 → STK.FilterData → Signal p Double Double
 > comb maxDel filter
 >   | traceIf msg False = undefined
 >   | otherwise =
@@ -535,7 +548,7 @@ Effects ========================================================================
 >   where
 >     msg = unwords ["comb delay (samples)=", show maxDel, " filter=", show filter]
 > 
-> allpass                :: forall p . Clock p => Word64 → Signal p Double Double
+> allpass                :: forall p . Clock p ⇒ Word64 → Signal p Double Double
 > allpass maxDel
 >   | traceIf msg False = undefined
 >   | otherwise =
@@ -553,7 +566,7 @@ Effects ========================================================================
 >     ampL = sinL * cos ((azimuth + 0.5) * pi / 2)
 >     ampR = sinR - ampL
 >
-> dcBlock                :: Double → AudSF Double Double
+> dcBlock                :: forall p . Clock p ⇒ Double → Signal p Double Double
 > dcBlock a = proc xn → do
 >   rec
 >     let yn = xn - xn_l + a * yn_l
@@ -647,16 +660,17 @@ Utility types ==================================================================
 
 Knobs and buttons =====================================================================================================
 
-> usePitchCorrection = True
-> useEnvelopes       = True
-> useShortening      = True
-> useLoopSwitching   = True
-> useLoopPhaseCalc   = False
-> useLowPassFilter   = False
-> useEffectReverb    = True
-> useEffectChorus    = False
-> useEffectPan       = True
-> useDCBlock         = False
+> usePitchCorrection     = True
+> useAttenuation         = False
+> useEnvelopes           = True
+> useShortening          = True
+> useLoopSwitching       = True
+> useLoopPhaseCalc       = False
+> useLowPassFilter       = False
+> useEffectReverb        = True
+> useEffectChorus        = False
+> useEffectPan           = True
+> useDCBlock             = False
 >
 > data Desires =
 >   DAllOff | DPreferOff | DNeutral | DPreferOn | DAllOn deriving (Eq, Show)
@@ -664,6 +678,7 @@ Knobs and buttons ==============================================================
 > desireReStereo     = DPreferOn
 > desireRe24Bit      = DNeutral
 > desireReMaxSplits  = DPreferOn
+> desireReUnsupported= DAllOff
 >
 > scoreDesire            :: Desires → Int
 > scoreDesire d = case d of
@@ -678,11 +693,11 @@ Knobs and buttons ==============================================================
 >
 > splitThreshold         :: Word           = 5
 >
-> weightFileHints        :: Int            = 2
 > weightInstrumentHints  :: Int            = 5
 >
 > weightStereo           :: Int            = 2
 > weight24Bit            :: Int            = 1
 > weightMaxSplits        :: Int            = 1
+> weightConformant       :: Int            = 10
 >
 > ffThreshold            :: Double         = 150

@@ -168,7 +168,9 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , zKeyToModEnvHold   :: Maybe Int
 >   , zKeyToModEnvDecay  :: Maybe Int
 >   , zKeyToVolEnvHold   :: Maybe Int
->   , zKeyToVolEnvDecay  :: Maybe Int} deriving Show
+>   , zKeyToVolEnvDecay  :: Maybe Int
+>
+>   , zModulators        :: Maybe (Word, Word)} deriving Show
 >
 > defInstrumentZone      :: SFZone
 > defInstrumentZone                        = SFZone Nothing Nothing Nothing Nothing
@@ -192,6 +194,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >                                            Nothing Nothing Nothing Nothing
 >                                            Nothing Nothing Nothing Nothing
 >                                            Nothing Nothing
+>
+>                                            Nothing
 >
 > fileName               :: SFRoster → Word → String
 > fileName sfrost wordF = zFilename (zFiles sfrost ! fromIntegral wordF)
@@ -551,10 +555,12 @@ tournament among GM instruments from SoundFont files ===========================
 >
 >     desires            :: [Desires]      = [desireReStereo
 >                                           , desireRe24Bit
->                                           , desireReMaxSplits]
+>                                           , desireReMaxSplits
+>                                           , desireReUnsupported]
 >     empiricals         :: [Int]          = [   scoreBool $ isStereoInst arrays zs
 >                                              , scoreBool $ is24BitInst  arrays zs
->                                              , scoreBool $ hasMaxSplits arrays zs]
+>                                              , scoreBool $ hasMaxSplits arrays zs
+>                                              , scoreBool $ instConforms arrays zs]
 >
 >     s                  :: [Int]          = map scoreDesire    desires
 >     s'                 :: [Int]          = zipWith (*) s      empiricals
@@ -562,12 +568,13 @@ tournament among GM instruments from SoundFont files ===========================
 >     baseScores         :: [Int]          = [  sfscore hints
 >                                              , head s'
 >                                              , (head.tail) s'
->                                              , (head.tail.tail) s']
->     weights            :: [Int]          = [   weightFileHints
->                                              , weightInstrumentHints
+>                                              , (head.tail.tail) s'
+>                                              , (head.tail.tail.tail) s']
+>     weights            :: [Int]          = [   weightInstrumentHints
 >                                              , weightStereo
 >                                              , weight24Bit
->                                              , weightMaxSplits]
+>                                              , weightMaxSplits
+>                                              , weightConformant]
 >     weightedScores     :: [Int]          = zipWith (*) baseScores weights
 >
 >     msg = unwords [   "computeStaticScore "  , show baseScores
@@ -586,6 +593,43 @@ tournament among GM instruments from SoundFont files ===========================
 >     shdr = ssShdrs arrays ! sin
 >     stype = toSampleType $ F.sampleType shdr 
 >         
+> instConforms           :: SoundFontArrays → [(Word, SFZone)] → Bool
+> instConforms arrays                      = all (zoneConforms arrays)
+>
+> zoneConforms           :: SoundFontArrays → (Word, SFZone) → Bool
+> zoneConforms arrays (_, zone)            =
+>   or unsupported
+>   where
+>     unsupported        :: [Bool]
+>     unsupported                          =
+>       [
+>           isJust $ zScaleTuning          zone
+>         , isJust $ zExclusiveClass       zone
+>         , isJust $ zChorus               zone
+>         , isJust $ zModLfoToPitch        zone
+>         , isJust $ zModEnvToPitch        zone
+>         , isJust $ zInitFc               zone
+>         , isJust $ zInitQ                zone
+>         , isJust $ zModLfoToFc           zone
+>         , isJust $ zModEnvToFc           zone
+>         , isJust $ zModLfoToVol          zone
+>         , isJust $ zDelayModLfo          zone
+>         , isJust $ zFreqModLfo           zone
+>         , isJust $ zDelayVibLfo          zone
+>         , isJust $ zFreqVibLfo           zone
+>         , isJust $ zDelayModEnv          zone
+>         , isJust $ zAttackModEnv         zone
+>         , isJust $ zHoldModEnv           zone
+>         , isJust $ zDecayModEnv          zone
+>         , isJust $ zSustainModEnv        zone
+>         , isJust $ zReleaseModEnv        zone
+>         , isJust $ zKeyToModEnvHold      zone
+>         , isJust $ zKeyToModEnvDecay     zone
+>         , isJust $ zKeyToVolEnvHold      zone
+>         , isJust $ zKeyToVolEnvDecay     zone
+>         , isJust $ zModulators           zone
+>       ]
+>
 > is24BitInst arrays _                     = isJust $ ssM24 arrays       
 > hasMaxSplits _ zs                        = length zs > fromIntegral splitThreshold
  
@@ -601,16 +645,12 @@ extract data from SoundFont per instrument =====================================
 >     gens = if ygeni - xgeni < 0
 >            then error "SoundFont file is corrupt: degenerate generator list"
 >            else getGens sffile iinst [xgeni..ygeni-1]
->     zone = fromGens fromZone gens
->
-> checkModulators        :: Array Word F.Mod → [Word] → Bool
-> checkModulators vMod ws
->   | traceAlways msg False = undefined
->   | otherwise = True
->     where
->       msg =  unwords ["checkModulators ws=", show ws, "mods="] ++ unwords [concatMap showEach ws]
->       showEach         :: Word → String 
->       showEach w = "\n" ++ show (vMod ! w)
+>     xmodi = F.modNdx $ ibags!bagIndex
+>     ymodi = F.modNdx $ ibags!(bagIndex + 1)
+>     zone = fromGens (fromZone {zModulators =
+>                                  if xmodi == ymodi
+>                                    then Nothing
+>                                    else Just (xmodi, ymodi)}) gens
 >
 > getGens                :: SFFile → F.Inst → [Word] → [F.Generator]
 > getGens sffile iinst words
@@ -1012,7 +1052,7 @@ reconcile zone and sample header ===============================================
 >     msg = unwords ["reconcileLR zoneL=", show zoneL
 >                  , ", shdrL=",           show shdrL
 >                  , ", zoneR=",           show zoneR
->                  , ", shdrR=",            show shdrR]
+>                  , ", shdrR=",           show shdrR]
 >
 > reconcile              :: (SFZone, F.Shdr) → Reconciled 
 > reconcile (zone, shdr)                   =
@@ -1026,7 +1066,7 @@ reconcile zone and sample header ===============================================
 >   , rPitchCorrection = resolvePitchCorrection(F.pitchCorrection shdr) (zCoarseTune    zone) (zFineTune zone)
 >   , rForceKey        = fmap                  fromIntegral             (zKey           zone)
 >   , rForceVel        = fmap                  fromIntegral             (zVel           zone)
->   , rAttenuation     = fromCentibels                                  (zInitAtten     zone)
+>   , rAttenuation     = resolveAttenuation                             (zInitAtten     zone)
 >   , rEnvelope        = deriveEnvelope        (zDelayVolEnv   zone)
 >                                              (zAttackVolEnv  zone)
 >                                              (zHoldVolEnv    zone)

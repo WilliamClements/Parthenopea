@@ -35,8 +35,8 @@ Rosters support ================================================================
 >                then 
 >                  countSoundFontGMItems zsoundFontDatabaseOrig
 >                else if playAll
->                       then doSoundFontMusic zsoundFontDatabaseOrig sj
->                       else doSoundFontMusic zlittleSoundFontDatabase sj
+>                       then doSoundFontMusic zsoundFontDatabaseOrig combineAll
+>                       else doSoundFontMusic zsoundFontDatabaseOrig sj
 >
 >   return ()
 

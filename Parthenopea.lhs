@@ -19,7 +19,7 @@ December 12, 2022
 > import Data.Int ( Int16, Int32 )
 > import Data.List
 > import qualified Data.Map as Map
-> import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe )
+> import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe )
 > import Data.Ratio ( approxRational )
 > import Debug.Trace ( trace )
 > import Euterpea.IO.Audio.Basics ( outA )
@@ -941,8 +941,7 @@ Histogram ======================================================================
 >       | b /= d           = error "Histograms being combined must have same dimension"
 >       | otherwise        = (0, n - 1)
 
-Helper Functions
-----------------
+Conversion functions and general helpers ==============================================================================
 
 > wrap :: (Ord n, Num n) ⇒ n → n → n
 > wrap val bound = if val > bound then wrap val (val-bound) else val
@@ -972,4 +971,7 @@ Takes care of characters that need quoting like '"'
 >     quote c = case c of
 >                 '\"'   → "\\\""
 >                 _      → [c]
->
+
+> fromCentibels          :: Maybe Int → Double
+> fromCentibels mcents                     = 10**(fromIntegral (fromMaybe 0 mcents)/100)
+
