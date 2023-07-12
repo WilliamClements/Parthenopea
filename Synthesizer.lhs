@@ -173,12 +173,9 @@ Signal function-based synth ====================================================
 >     getSampleVals      :: (Int, Int) → (Double, Double)
 >     getSampleVals (saddrL, saddrR)
 >       | traceNever msg' False = undefined
->       | otherwise = 
->         if isJust ms8
->         then (compute24 (s16 ! saddrL) (fromIntegral (fromJust ms8 ! saddrL))
->             , compute24 (s16 ! saddrR) (fromIntegral (fromJust ms8 ! saddrR)))
->         else (compute16 (s16 ! saddrL)
->             , compute16 (s16 ! saddrR))
+>       | otherwise =
+>           ( compute24 (s16 ! saddrL) (fromIntegral (maybe 0 (! saddrL) ms8))
+>           , compute24 (s16 ! saddrR) (fromIntegral (maybe 0 (! saddrR) ms8)))
 >       where
 >         msg' = unwords ["saddrL=", show saddrL, "saddrR=", show saddrR]
 >

@@ -263,8 +263,8 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >
 >     ts1                ← getCurrentTime
 >
->     fps                ← FP.getDirectoryFiles "." (singleton "edit*.sf2")
->     sffilesp           ← CM.zipWithM (openSoundFontFile prefix) [0..] fps
+>     fps                ← FP.getDirectoryFiles "." (singleton (prefix ++ "*.sf2"))
+>     sffilesp           ← CM.zipWithM (openWithNickname prefix) [0..] fps
 >
 >     ts2 ← getCurrentTime
 >
@@ -278,6 +278,19 @@ slurp in instruments from SoundFont (*.sf2) files ==============================
 >     ts4 ← getCurrentTime
 >
 >     putStrLn ("___write rosters: " ++ show (diffUTCTime ts4 ts3))
+>
+> openWithNickname       :: String → Word → FilePath → IO SFFile
+> openWithNickname prefix wFile filename   = openSoundFontFile (getNickname filename prefix) wFile filename
+>
+> getNickname            :: FilePath → String → String
+> getNickname fp prefix                    = nick
+>   where
+>     pn = length prefix
+>     sn = length ".sf2" + 1
+>     n = length fp
+>     nick = if n > pn + sn
+>              then map (toLower . (fp !!)) [pn..(n-sn)]
+>              else error ("filename " ++ fp ++ " too short")
 >
 > openSoundFontFile      :: String → Word → FilePath → IO SFFile
 > openSoundFontFile nick wFile filename    = do
