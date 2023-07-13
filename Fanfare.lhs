@@ -9,7 +9,8 @@ November 11, 2022
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
-> import Parthenopea (triad, addDur, defSnippet, pSnippet01, playDM, capture, aggrandize)
+> import Parthenopea (triad, addDur, defSnippet, pSnippet01, playDM, capture, aggrandize, t32)
+> import Percussion
   
   "triads"
 
@@ -34,16 +35,27 @@ November 11, 2022
 > pTriadSusA   = triad A (CustomMode "Sus4") ( A, 3)
 > pTriadDim7A  = triad G (CustomMode "Dim")  ( G, 3)
 
-Fanfare ===================================================================================
+Fanfare ===============================================================================================================
 
 > theFanfare n = removeZeros
+>              $ times n
 >              $ tempo (5/2)
 >              $ transpose 5
 >              $ keysig C Mixolydian
->              $ addVolume 100
->              $ times n
->              $ instrument Trumpet trebleAll :=: instrument Cello bassAll
+>              $ theTreble :=: theBass
 >    where
+>
+>       theTreble =
+>         addVolume 75
+>         $ instrument Trumpet
+>         $ tFan :+: tAns
+>       theBass =
+>         addVolume 70
+>         $ instrument Bassoon
+>         $ bFan :+: bAns
+>
+>       tFan =  {- 32 -} line [tFan1, tFan2, tFan3, tFan4, tFan5]
+>       bFan =  {- 32 -} line [bFan1, bFan2, bFan3, bFan4, bFan5]
 >
 >       tFan1 = {- 16 -} line [rest wn,  c 4 dqn, rest en]
 >                        :+: line [e 4 dqn, rest en,  g 4 wn, rest wn]
@@ -64,9 +76,6 @@ Fanfare ========================================================================
 >
 >       tFan5 = {-  0 -} rest 0
 >       bFan5 = {-  1 -} rest qn
->
->       tFan =  {- 32 -} line [tFan1, tFan2, tFan3, tFan4, tFan5]
->       bFan =  {- 32 -} line [bFan1, bFan2, bFan3, bFan4, bFan5]
 
 The fanfare's answer
 
@@ -87,13 +96,8 @@ The fanfare's answer
 >
 >       tAns =  {- 32 -} line [tAns1, tAns2, tAns3, tAns4]
 >       bAns =  {- 32 -} line [bAns1, bAns2, bAns3, bAns4]
->
->               {- 32 + 32 = 64 -}
->       trebleAll = tFan :+: tAns
->               {- 32 + 32 = 64 -}
->       bassAll = bFan :+: bAns
 
-Alice =====================================================================================
+Alice =================================================================================================================
 
 > alice = removeZeros
 >         $ tempo 2
@@ -116,17 +120,16 @@ Alice ==========================================================================
 >
 >       line01 = line [frag10, frag11]
 
-Bob =======================================================================================
+Bob ===================================================================================================================
 
 > bob :: Int → Music (Pitch, Volume)
 > bob nRepeats = removeZeros
 >       $ tempo 2
 >       $ transpose 0
 >       $ keysig D Mixolydian
->       $ addVolume 100
->       $ instrument Violin (times nRepeats treblebob)
->       :=: instrument Oboe (times nRepeats altobob)
->       :=: instrument Cello (times nRepeats bassbob)
+>          (addVolume  90  (instrument Flute     (times nRepeats treblebob)))
+>       :=: addVolume  70  (instrument Oboe            (times nRepeats altobob))
+>       :=: addVolume  60  (instrument Cello           (times nRepeats bassbob))
 >
 >    where
 >
@@ -158,7 +161,7 @@ Bob ============================================================================
 >          line [ d 2 dwn, rest hn,  g 2 wn,  e 2 hn,  c 2 hn]
 >       
 
-Bill ======================================================================================
+Bill ==================================================================================================================
 
 > bill nRepeats =
 >    removeZeros
@@ -167,15 +170,15 @@ Bill ===========================================================================
 >    $ keysig Ef Mixolydian
 >    $ addVolume 100
 >    $ instrument Violin
->         (rest dwn :+:  g 4 hn :+: times nRepeats treblebill)
+>         (rest dwn :+:  g 4 hn :+: times nRepeats treble)
 >      :=: instrument AcousticGrandPiano
->         (rest dwn :+: bf 3 hn :+: times nRepeats altobill)
+>         (rest dwn :+: bf 3 hn :+: times nRepeats alto)
 >      :=: instrument Cello
->         (rest dwn :+: ef 3 hn :+: times nRepeats bassbill)
+>         (rest dwn :+: ef 3 hn :+: times nRepeats bass)
 >
 >    where
 > 
->    treblebill00 =
+>    treble00 =
 >        tempo (3/2) (line [ef 4 qn, f 4 qn, g 4 qn])
 >          :+: af 4 hn
 >          :+: tempo 2 (line [df 4 qn, ef 4 qn, f 4 qn, g 4 qn])
@@ -185,38 +188,37 @@ Bill ===========================================================================
 >          :+: tempo 2 (line [b 3 qn, df 4 qn, ef 4 qn, f 4 qn])
 >          :+: gf 4 qn :+: line [rest en, f 4 en, ef 4 hn]
 >          :+: df 4 wn :+: rest wn
->    altobill00 =
+>    alto00 =
 >          rest hn
 >          :+: f 4 hn :+: rest dwn
 >          :+: c 4 wn :+: rest wn
 >          :+: ef 3 hn :+: rest dwn
 >          :+: gf 3 wn :+: rest wn
->    bassbill00 =
+>    bass00 =
 >          rest hn
 >          :+: df 3 hn :+: rest dwn
 >          :+: af 2 wn :+: rest wn
 >          :+:  b 2 hn :+: rest dwn
 >          :+: bf 2 wn :+: rest wn
 >
->    treblebill01 = 
+>    treble01 = 
 >          line [df 4 hn,  d 4 wn, rest wn]
 >          :+: line [ d 4 dwn, ef 4 hn,  f 4 hn]
 >          :+: tempo (3/2) (line [g 3 qn, bf 3 qn, ef 4 qn])
 >          :+: line [f 4 dqn, g 4 en, ef 4 hn, bf 3 hn, ef 4 hn] 
->    altobill01 =
->          line [rest wn, rest wn, rest hn
->              , af 2 wn, gf 2 wn,  f 2 hn, b 2 hn, bf 2 wn, rest wn]
->    bassbill01 =
+>    alto01 =
+>          line [rest wn, rest wn, rest hn, af 2 wn, gf 2 wn,  f 2 hn, b 2 hn, bf 2 wn, rest wn]
+>    bass01 =
 >          rest wn
 >          :+: tempo (1/3) (bf 2 wn)
 >          :+: line [rest wn, rest dwn, rest wn]
 >
->    treblebill = line [treblebill00, treblebill01]
->    altobill   = line [altobill00,     altobill01]
->    bassbill   = line [bassbill00,     bassbill01]
+>    treble = line [treble00, treble01]
+>    alto   = line [alto00,     alto01]
+>    bass   = line [bass00,     bass01]
 >
 
-Copper ====================================================================================
+Copper ================================================================================================================
 
 > copper :: Int → Music (Pitch, Volume)
 > copper n =
@@ -224,21 +226,29 @@ Copper =========================================================================
 >    $ tempo 2
 >    $ transpose (-4)
 >    $ keysig C Dorian
->    $ addVolume 100
->    $ instrument Trumpet
+>    $ addVolume 50
+>    $ instrument Banjo
 >    $ times n
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
 >      :+: tempo (5/4) (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn])
 >      :+: line [ a 4 hn,  g 4 wn]
+>
+> copper' =
+>    removeZeros
+>    $ tempo 1
+>    $ transpose 0
+>    $ addVolume 30
+>    -- $ instrument Trumpet
+>    $ line [perc AcousticSnare dwn]
 
-Gold ======================================================================================
+Gold ==================================================================================================================
 
 > gold =
 >    removeZeros
 >    $ tempo 2
 >    $ transpose (-5)
 >    $ keysig C Mixolydian
->    $ addVolume 100
+>    $ addVolume 30
 >    $ instrument AltoSax
 >    $ times 2
 >      (line [c 4 hn,  c 5 dhn]
@@ -251,14 +261,21 @@ Gold ===========================================================================
 >                       d 4, bf 3, bf 3])
 >    :+: c 4 hn
 
-Silver ====================================================================================
+Silver ================================================================================================================
 
+> littlesilver =
+>     removeZeros
+>     $ keysig A Mixolydian
+>     $ addVolume 30
+>     $ instrument Celesta
+>     $ line [cs 5 (2*wn)]
+>     
 > silver =
 >     removeZeros
 >     $ tempo 2
->     $ transpose 5
+>     $ transpose 17
 >     $ keysig A Mixolydian
->     $ addVolume 100
+>     $ addVolume 30
 >     $ instrument Celesta
 >     $ line allSilver
 >
@@ -290,7 +307,7 @@ Silver =========================================================================
 >         , silver01, a 4 hn
 >         , silver01, a 4 wn ]
 
-Snake =====================================================================================
+Snake =================================================================================================================
 
 > gSnip01 = line [ c 4 hn,  g 4 hn,  b 3 hn, g 4 qn, a 3 qn
 >                , a 3 qn,  d 4 qn, chord [d 4 dwn, fs 4 dwn]]
@@ -307,15 +324,18 @@ Snake ==========================================================================
 >                     , fs 3,  g 3, fs 3,  f 3]
 > gSnip07 = line [ c 4 hn, e 4 hn, fs 4 hn, g 4 dqn, g 4 en]
 >
+> littlesnake =
+>   instrument AltoSax  
+>   $ addVolume 100
+>   $ line [a 3 (2*wn)]
+>
 > snake =
 >    removeZeros
 >    $ tempo 2
 >    $ transpose 1
 >    $ keysig D Mixolydian
->    $ addVolume 100
->    $ rest wn :+: rest wn
->      :+: instrument AltoSax         treblePart
->      :=: instrument Viola           altoPart
+>    $     addVolume  65 (instrument AltoSax treblePart)
+>      :=: addVolume  80 (instrument Oboe altoPart)
 >    where
 >
 >    treblePart = line [treb00, treb01, treb02, treb03, treb04]
@@ -393,25 +413,38 @@ Snake ==========================================================================
 >    gTail22 = line [ a 3 en,  b 3 en,  a 3 dhn, rest qn]
 >    gTail23 = line [ a 3 en,  b 3 en,  d 4 dhn, rest qn]
 
-Country In The Morning ====================================================================
+Country In The Morning ================================================================================================
 
+> littleECountry =
+>   addVolume 110
+>   $ instrument Flute
+>   $ line [triad D Major ( D, 3) wn]
+>   
+> littleACountry =
+>   addVolume 15
+>   $ instrument AltoSax
+>   $ line [fs 4 wn]
+>   
+> littleCITM = littleECountry :=: littleACountry
+>
 > getCITM =
 >    removeZeros
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig G Major
->    $ addVolume 100
->    $ rest wn
->      :+:
+>    $ chord [     
 >         instrument AltoSax
+>         $ addVolume 70
 >           (line [a1 :+: rest qn, b1, a1 :+: a 4 qn, c1])
->      :=:
+>      ,
 >         instrument StringEnsemble1
+>         $ addVolume 60
 >           (line [a2, b2, a2, c2])
->      :=:
+>      ,
 >         instrument Cello
+>         $ addVolume 100
 >           (line [ a3 :+: line [a 2 qn, b 2 qn, cs 3 qn], b3
->                 , a3 :+: line [d 2 qn, e 2 qn, fs 2 qn], c3])
+>                 , a3 :+: line [d 2 qn, e 2 qn, fs 2 qn], c3])]
 >
 >    where
 >
@@ -449,14 +482,14 @@ Country In The Morning =========================================================
 >                 , d 3 den,  d 3 sn,  a 2 den,  a 2 sn, b 2 den, cs 3 sn
 >                 , d 2 hn, rest qn]
 
-Whelp Narp ================================================================================
+Whelp Narp ============================================================================================================
 
 > whelpNarp =
 >    removeZeros
 >    $ tempo 2
 >    $ keysig C Mixolydian
 >    $ addVolume 100
->    $ instrument     Violin               (transpose 4       (wnAltoI :+: wnAltoII))
+>    $ instrument     Flute                (transpose 4       (wnAltoI :+: wnAltoII))
 >      :=: instrument OrchestralHarp       (transpose 4      (wnTenorI :+: wnTenorII))
 >      :=: instrument ElectricBassPicked   (transpose 4   (wnBaritoneI :+: wnBaritoneII))
 >      :=:                                                    (wnPercI :+: wnPercII)
@@ -572,7 +605,7 @@ Percussion-----
 >      :+: (r1 :+: p1 hn :+: rest dwn)
 >      :+: (r1 :+: rest qn :+: roll sn (p2 qn) :+: p3 wn)
 
-Roger =====================================================================================
+Roger =================================================================================================================
 
 > roger :: Music (Pitch, Volume)
 > roger =
@@ -580,7 +613,7 @@ Roger ==========================================================================
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig Cs Dorian
->    $     addVolume 110 (instrument AltoSax        (line [cAltoI,  cAltoIIA, cAltoIIB]))
+>    $     addVolume  60 (instrument AltoSax        (line [cAltoI,  cAltoIIA, cAltoIIB]))
 >      :=: addVolume  90 (instrument OrchestralHarp (line [cTenorI, cTenorII]))
 >   where
 >
@@ -650,34 +683,33 @@ Roger ==========================================================================
 >   cTenorIIB = line [ ct__B wn, ct_cs wn,  ct__B hn,  ct__A wn]
 >   cTenorIIC = line [ ct__B wn]
 
-Way Pos' T' Purple ========================================================================
+Way Pos' T' Purple ====================================================================================================
 
 > waypostpurple =
 >    removeZeros
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig C Major
->    $ addVolume 100
->    $ instrument Trumpet
+>    $ addVolume 90 (instrument Trumpet
 >      ((if includeOpen       then pOpenT  else rest 0)
 >         :+: (if includeCont then pContT  else rest 0)
 >         :+: (if includePool then pPoolT  else rest 0)
->         :+: (if includeClos then pClosT  else rest 0))
->      :=: instrument AcousticGuitarNylon
+>         :+: (if includeClos then pClosT  else rest 0)))
+>      :=: addVolume 70 (instrument AcousticGuitarNylon
 >      ((if includeOpen       then pOpenG  else rest 0)
 >         :+: (if includeCont then pContG  else rest 0)
 >         :+: (if includePool then pPoolG  else rest 0)
->         :+: (if includeClos then pClosG  else rest 0))
->      :=: instrument Cello
+>         :+: (if includeClos then pClosG  else rest 0)))
+>      :=: addVolume 70 (instrument Bassoon
 >      ((if includeOpen       then pOpenB  else rest 0)
 >         :+: (if includeCont then pContB  else rest 0)
 >         :+: (if includePool then pPoolB  else rest 0)
->         :+: (if includeClos then pClosB  else rest 0))
->      :=: instrument Percussion
+>         :+: (if includeClos then pClosB  else rest 0)))
+>      :=: addVolume 70 (instrument Percussion
 >      ((if includeOpen       then pOpenP  else rest 0)
 >         :+: (if includeCont then pContP  else rest 0)
 >         :+: (if includePool then pPoolP  else rest 0)
->         :+: (if includeClos then pClosP  else rest 0))
+>         :+: (if includeClos then pClosP  else rest 0)))
 >   where
 >
 >   includeOpen = True
@@ -764,7 +796,10 @@ Way Pos' T' Purple =============================================================
 >   pPoolB  = line [pPoolB1, pPoolB1]
 >   pPoolP  = rest 0
 
-Pendington Arnt  ==========================================================================
+> littlePendingtonArnt =
+>   instrument Trumpet $ addVolume 120 $ addDur en [c 5, e 5, fs 5, g 5]
+
+Pendington Arnt  ======================================================================================================
 
 > pendingtonArnt nRepeats =
 >    removeZeros
@@ -812,7 +847,7 @@ Pendington Arnt  ===============================================================
 > zOpenB = line [zOpenB1, zOpenB2]
 > zClosB = zOpenB
 
-Pan =======================================================================================
+Pan ===================================================================================================================
 
 > pan =
 >     removeZeros
@@ -850,22 +885,26 @@ Pan ============================================================================
 > xOpenB = line [xOpenB1, xOpenB2]
 > xClosB = xOpenB
 
-Rattan ====================================================================================
+Rattan ================================================================================================================
 
 > rattan =
 >     removeZeros
 >     $ tempo 1
 >     $ transpose 0
->     $ keysig Af Mixolydian
->     $ chord [vpart, spart]
+>     $ keysig E Locrian
+>     $ chord [vpart, spart, ppart]
 >
 > vpart =
 >     addVolume 110
->     $ instrument Violin (times 2 vline)
+>     $ instrument Flute (times 2 vline)
 >
 > spart = 
 >     addVolume 80
 >     $ instrument SynthBass1 (times 2 sline)
+>
+> ppart =
+>     addVolume 90
+>     $ times 2 pline
 >
 > vline = line [vl_l01a, vl_101b, vl_l01a, vl_101b', vl_l01a, vl_101b, vl_l01a, vl_101b''
 >             , vl_201a, vl_201a, vl_201a, vl_201a,  vl_201b, vl_201b, vl_201b, vl_201b
@@ -890,6 +929,11 @@ Rattan =========================================================================
 > sl_l01 = line [e 2 qn, e 2 qn, e 2 qn, e 2 qn, bf 2 qn, bf 2 qn, c 3 qn, c 3 qn]
 > sl_102 = line [a 2 qn, a 2 qn, a 2 qn, a 2 qn, ef 2 qn, ef 2 qn, ef 2 qn, ef 2 qn]
 > sl_103 = line [d 2 qn, d 2 qn, d 2 qn, d 2 qn, c 2 qn, d 2 qn, e 2 qn]
+>
+> pline   = line [pline01, pline02, pline03]
+> pline01 = line [times 2 (line [percLTqn, percHTen, roll sn (perc AcousticSnare wn), percCCen, percCCqn])]
+> pline02 = line [times 2 (line [percCHHen, percOHHqn, percOHHqn, percBDqn])]
+> pline03 = line [times 2 (line [roll en (perc ClosedHiHat 2), percCHHen, percOHHqn, percOHHqn, percBDqn])]
 >
 > testcello = 
 >     removeZeros
@@ -916,18 +960,89 @@ Rattan =========================================================================
 > f3altosax = line [f 3 wn, f 3 wn, f 3 wn, f 3 wn]
 > f5altosax = line [f 5 wn, f 5 wn, f 5 wn, f 5 wn]
 
-Kit =======================================================================================
+Kit ===================================================================================================================
 
 > kit                    :: Music (Pitch,Volume)
 > kit =
 >   removeZeros
->   $ tempo 1
->   $ transpose 0
->   $ chord [npart, tpart]
+>   $ tempo 2
+>   $ chord [addVolume 64 npart, instrument FrenchHorn $ addVolume 60 tpart]
 >
 > p1 = perc LowTom
 > p2 = perc AcousticSnare
 > p3 = perc CrashCymbal2
 >
-> npart = addVolume 64 (line [p1 qn, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p1 qn])
-> tpart = rest 0
+> c1qn = chord [c 4 qn, e 4 qn, fs 4 qn, g 4 qn]
+> c1en = chord [c 4 en, e 4 en, fs 4 en, g 4 en]
+> c2qn = chord [b 3 qn, ds 4 qn, f 4 qn, g 4 qn]
+> c2en = chord [b 3 en, ds 4 en, f 4 en, g 4 en]
+> c3qn = chord [ds 4 qn, f 4 qn, a 4 qn, c 5 qn]
+> c3en = chord [ds 4 en, f 4 en, a 4 en, c 5 en]
+> c4qn = chord [e 4 qn, fs 4 qn, as 4 qn, c 5 qn]
+> c4en = chord [e 4 en, fs 4 en, as 4 en, c 5 en]
+> c5qn = chord [b 4 qn, ds 5 qn]
+> c5en = chord [b 4 en, ds 5 en]
+> c6qn = chord [a 4 qn, cs 5 qn]
+> c6en = chord [a 4 en, cs 5 en]
+> c7qn = chord [g 4 qn, b 4 qn]
+> c7en = chord [g 4 en, b 4 en]
+
+> npart = line [npart01, npart02]
+> npart01 = times 4 nline01
+> npart02 = percCCqn
+> nline01 = line [p1 qn, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p2 en, p2 en, p2 qn, p2 qn]
+> tpart =   line [tpart01, tpart02]
+> tpart01 = line [tline01, tline01, tline02, tline02]
+> tpart02 = line [tline03, tline04]
+> tline03 = line [c5en, c6qn, c6en]
+> tline04 = line [c6en, c6qn, c7en]
+> tline01 = line [c1qn, times 6 c1en, times 2 c2en, times 2 c2qn]
+> tline02 = line [c3qn, times 6 c3en, times 2 c4en, times 2 c4qn]
+
+Pit ===================================================================================================================
+
+> pit1 = line [b 3 en, cs 4 en, ds 4 en, cs 4 en, fs 4 en, ds 4 en, cs 4 en, f 4 en]
+> pit2 = line [c 4 en, ds 4 en,  f 4 en, ds 4 en, fs 4 en, ds 4 en, d 4 en, ds 4 en]
+> pitA = times 2 $ line [times 4 pit1, times 4 pit2]
+> pitB = times 2 $ line [times 4 $ b 2 wn, times 4 $ gs 2 wn]
+> pitC = line [rest (4 * wn),  b 3 sn,  c 4 sn, cs 4 sn,  d 4 sn
+>                           , ds 4 sn,  e 4 sn,  f 4 sn, fs 4 sn
+>                           ,  g 4 sn, gs 4 sn,  a 4 sn, as 4 sn
+>                           , times 4 (chord [b 4 qn, ds 4 qn, fs 4 qn])
+>                           , times 2 (chord [c 5 qn,  d 5 qn, fs 4 qn])
+>                           , times 2 (chord [c 5 qn, fs 5 qn, as 4 qn])
+>                           ,  c 5 sn,  b 4 sn,  as 4 sn,  a 4 sn
+>                           , gs 4 sn,  f 4 sn,   e 4 sn, ds 4 sn
+>                           ,  d 4 sn, cs 4 sn,   c 4 sn,  b 3 sn
+>                           , as 3 sn,  a 3 sn,  gs 3 sn,  g 3 sn
+>                           , fs 3 sn,  f 3 sn,   e 3 sn,  f 3 sn
+>                           , fs 3 wn,  f 3 wn,  fs 3 qn, gs 3 qn
+>                           ,  a 3 wn, chord [ d 3 hn,  f 3 hn,  b 3 hn]
+>                                    , chord [ds 3 wn, fs 3 wn,  c 4 wn]
+>             ]
+>
+> pit =
+>   removeZeros
+>   $ tempo 1
+>   $ transpose 0
+>   $ keysig B Lydian
+>   $     instrument EnglishHorn (addVolume 60 pitA)
+>     :=: instrument SynthBass2  (addVolume 50 pitB)
+>     :=: instrument DistortionGuitar (addVolume 70 pitC)
+
+Dit ===================================================================================================================
+
+> dit = 
+>   removeZeros
+>   $ tempo 1
+>   $ transpose (-6)
+>   $ keysig Af Mixolydian
+>   $ instrument SynthBass1
+>   $ addVolume 60 (times 2 ditbody)
+>
+> ditbody =
+>   line [rest dhn, ds 4 qn, fs 4 den, e 4 sn, ds 4 qn, e 4 den, cs 4 sn, a 3 qn, ds 3 den, ds 3 sn
+>       , ds 4 den, e 4 sn, ds 4 sn, cs 4 en, cs 4 sn, b 3 den, a 3 sn, fs 3 den
+>       , e 3 sn, ds 3 den, e 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn
+>       , fs 3 qn, fs 4 dqn, fs 4 en, t32 [e 4 en, ds 4 en, cs 4 en], cs 4 den, cs 4 sn
+>       , b 3 den, cs 4 sn, ds 4 qn] 

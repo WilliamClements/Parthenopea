@@ -11,14 +11,14 @@ January 13, 2023
 > import Parthenopea ( addDur, ascent, descent, dim, grace, triad, slur )
 > import Codec.Midi (Message(PitchWheel))
   
-Saucy Sailor ==============================================================================
+Saucy Sailor ==========================================================================================================
 
 > ssailor =
 >     removeZeros
 >     $ tempo 1
 >     $ transpose 0
 >     $ keysig C Mixolydian
->     $ instrument Flute
+>     $ instrument Trumpet
 >       ((if includeOpen then xOpenT        else rest 0)
 >          :+: (if includeSong then xSongT  else rest 0)
 >          :+: (if includeClos then xClosT  else rest 0))
@@ -40,11 +40,11 @@ Saucy Sailor ===================================================================
 >         xClosT = rest 0
 >
 >         xOpenG = rest 0
->         xSongG = line [rest dhn, addVolume 60 (times 7 xSongGrep)]
+>         xSongG = line [rest dhn, addVolume 35 (times 7 xSongGrep)]
 >         xClosG = rest 0
 >
 >         xOpenB = rest 0
->         xSongB = addVolume 100
+>         xSongB = addVolume 60
 >                  $ line [rest dhn
 >                       , times 6 (line [xSongB1, xSongB2])
 >                       , xSongB1
@@ -204,7 +204,7 @@ Saucy Sailor ===================================================================
 >    --  2 + 27 + 26.5 + 27.5 + 26 + 28 + 26 + 28  = 2 + 189 = 191
 >    --                                         7 * 27 = 189
 
-Yahozna ===================================================================================
+Yahozna ===============================================================================================================
 
 > yahozna =
 >    removeZeros
@@ -249,17 +249,25 @@ Yahozna ========================================================================
 >     :+: line [g 3 (wn + wn), a 3 wn, a 3 dwn, a 3 hn, bf 3 wn, bf 3 wn]
 >     :+: line [rest wn, bf 3 hn,  c 4 hn,  a 3 dwn]
 
-Slot ======================================================================================
+Slot ==================================================================================================================
 
+> testslot =
+>    removeZeros
+>    $ tempo 2
+>    $ transpose 0
+>    $ keysig G Dorian
+>    $ addVolume 110 $ instrument Violin (line [ f 4 en,  g 4 en,  a 4 en,  b 4 en,  c 5 en,  d 5 en
+>         ,  c 5 qn ] )
+>
 > slot :: Int → Music (Pitch, Volume)
 > slot n =
 >    removeZeros
 >    $ tempo 2
 >    $ transpose 0
 >    $ keysig G Dorian
->    $ chord [ addVolume 110 $ instrument Violin              (vSlotV n)
->            , addVolume  80 $ instrument OrchestralHarp      (vSlotG n)
->            , addVolume  80 $ instrument Cello               (vSlotC n)
+>    $ chord [ addVolume 110 $ instrument Flute               (vSlotV n)
+>            , addVolume  80 $ instrument AcousticGuitarNylon (vSlotG n)
+>            , addVolume  80 $ instrument SlapBass2           (vSlotC n)
 >            , addVolume 100                                  (vSlotP n)]
 >      
 > vSlotV :: Int → Music Pitch
@@ -313,22 +321,29 @@ Slot ===========================================================================
 > vSlotP03
 >   = line [perc ClosedHiHat hn, rest qn, times 2 (perc OpenHiHat dhn)]
 
-TC ========================================================================================
+TC ====================================================================================================================
 
 > licks = 38
 > 
+> realBasicLick          :: Music (Pitch, Volume)
+> realBasicLick =
+>   removeZeros
+>   $ addVolume 80 $ instrument AcousticGuitarSteel tcgBasic
+>   where
+>     tcgBasic = addDur qn [f 5, a 5, b 5, a 5]
+>
+>
 > basicLick :: Music (Pitch, Volume)
 > basicLick =
 >   removeZeros
 >   $ tempo 1
 >   $ transpose (-12)
 >   $ keysig A Major
->   $ chord [ addVolume 105 $ instrument AcousticGuitarSteel tcV
->           , addVolume  50 $ instrument AcousticGuitarNylon tcG
->           , addVolume  60 $ instrument Cello               tcC
+>   $ chord [ addVolume 105 $ instrument AcousticGrandPiano  tcV
+>           , addVolume  50 $ instrument FrenchHorn          tcG
+>           , addVolume  60 $ transpose (-12) $ instrument Tuba tcC
 >           , addVolume 100                                  tcP]
 >   where
->
 >   gUnit :: Music Pitch
 >   gUnit = addDur qn [f 5, a 5, b 5, a 5, f 5, a 5, b 5, a 5
 >                    , e 5, a 5, b 5, a 5, e 5, a 5, b 5, a 5]
@@ -464,8 +479,7 @@ TC =============================================================================
 >
 >   tcVnt01 = 
 >     line [
->   {-  3   -}   tempo (3/2)   (line [f 5 en, e 5 en, d 5 en])
->              , e 5 en, e 5 en, d 5 en, cs 5 en]
+>   {-  3   -}   tempo (3/2)   (line [f 5 en, e 5 en, d 5 en]), e 5 en, e 5 en, d 5 en, cs 5 en]
 >
 >   tcVnt02 = 
 >     line [
@@ -519,7 +533,7 @@ TC =============================================================================
 >   {-  4   -} , tempo (7/4)   tcVnt04
 >   {-  4   -} , tempo (7/4)   tcVnt05
 >   {-  1.5 -} , tempo (4/3)   tcVnt06
->   {-  1   -} , rest qn -- WOX
+>   {-  1   -} , rest qn -- TODO: resolve
 >   {-  1.5 -} , tempo 3       (line [g 4 en,  f 4 en, f 4 en, f 4 en, e 4 en
 >                               , e 4 en,  e 4 en, f 4 en, e 4 en])
 >   {-  2.5 -} , tempo (3/5)   (line [e 4 en, cs 4 en, d 4 en])

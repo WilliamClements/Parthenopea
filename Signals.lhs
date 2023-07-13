@@ -1,5 +1,4 @@
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -37,13 +36,14 @@
 > import Parthenopea
 > import System.Environment ( getArgs )
 > import System.IO ( hSeek, withBinaryFile, SeekMode(AbsoluteSeek), IOMode(ReadMode) )
->   
-> -- WOX oldmain = runGraph True
->
-> clockedSFToUISF :: forall a b c . (NFData b, Clock c) ⇒ DeltaT → SigFun c a b → UISF a [(b, Time)]
+>  
+
+re-implement part of FRP.UISF.Asynchrony because not exported
+
+> clockedSFToUISF :: ∀ a b c . (NFData b, Clock c) ⇒ DeltaT → SigFun c a b → UISF a [(b, Time)]
 > clockedSFToUISF buffer ~(ArrowP sf) = let r = rate (undefined :: c) 
 >   in asyncVT r buffer (toAutomaton sf)
-> toAutomaton :: forall a b . C.SF a b → Automaton (→) a b
+> toAutomaton :: ∀ a b . C.SF a b → Automaton (→) a b
 > toAutomaton ~(C.SF f) = Automaton $ \a → let (b, sf) = f a in (b, toAutomaton sf)
 >
 > fftZ :: AudSF Double (SEvent [Double])
@@ -60,7 +60,6 @@
 > tbling :: Double → IO ()
 > tbling secs = outFileNorm "pamper.wav" secs pamper
 > 
-> -- WOX comber = constA 440 >>> fftZ >>> flatten
 > comber :: AudSF () Double
 > comber = s441' >>> fftZ >>> flatten
 >
@@ -349,7 +348,7 @@ runGraph =======================================================================
 > -- linspace 0.0 1.0 5 == [ 0.0, 0.25, 0.5, 0.75 1.0 ]
 >
 
-fft =======================================================================================
+fft ===================================================================================================================
 
 > checkItem ldt lfft
 >   | traceAlways msg False = undefined
@@ -379,7 +378,7 @@ fft ============================================================================
 >     sig :: AudSF Double Double
 >     sig = proc fVal → do
 >       sVal ← osc (tableSinesN 4096 [1]) 0 ⤙ fVal
->       -- WOX fftData ← fftA 100 256 ⤙ sVal
+>       -- TODO: fix fftData ← fftA 100 256 ⤙ sVal
 >       outA ⤙ sVal
 >
 > tfft :: IO ()

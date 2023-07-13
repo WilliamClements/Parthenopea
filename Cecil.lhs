@@ -10,7 +10,7 @@ December 18, 2022
 > import Euterpea.Music
 > import Parthenopea ( triad )
 
-Cecil's Asleep ============================================================================
+Cecil's Asleep ========================================================================================================
 
 > cecil :: Music (Pitch, Volume)
 > cecil =
@@ -204,7 +204,7 @@ Cecil's Asleep =================================================================
 >
 > rBassIV   = rest 0
 
-Abby Cissa ================================================================================
+Abby Cissa ============================================================================================================
 
 > abby :: Music (Pitch, Volume)
 > abby =
@@ -277,7 +277,7 @@ Abby Cissa =====================================================================
 >    aLinkIIIF3 = line [c 5 tn, b 4 tn, a 4 tn, g 4 tn, f 4 tn, e 4 tn, d 4 tn]
 >    aLinkIIIF4 = transpose (-12) $ line [aLinkIIIF3, c 3 dqn]
 
-There Goes W.J. ===========================================================================
+There Goes W.J. =======================================================================================================
 
 > wj :: Music (Pitch, Volume)
 > wj =
@@ -334,8 +334,19 @@ There Goes W.J. ================================================================
 >    suspII = triad F (CustomMode "Sus4") (C, 4) wn
 >    rslvII = triad F Major               (C, 4) wn
 
-Shelby Parsley ============================================================================
+Shelby Parsley ========================================================================================================
 
+> spEflat'      = triad Ef Major               (Bf, 3)
+>
+> littleshelby           :: Music (Pitch, Volume)
+> littleshelby =
+>   removeZeros
+>   $ tempo 1
+>   $ transpose 0
+>   $ keysig Ef Mixolydian
+>   (instrument Vibraphone             (addVolume 100 (line [rest qn, spEflat' qn]))
+>   :=: instrument ElectricBassPicked  (addVolume 100 (line [ ef 2 wn ])))
+>
 > shelby :: Music (Pitch, Volume)
 > shelby =
 >   removeZeros
@@ -347,8 +358,6 @@ Shelby Parsley =================================================================
 >                 else
 >     (instrument Vibraphone
 >       (line [spAltoI,  spAltoII,  spAltoIII])
->     :=: instrument ElectricGuitarClean
->       (line [spTenrI, spTenrII, spTenrIII])
 >     :=: instrument ElectricBassPicked
 >       (line [spBassI,  spBassII,  spBassIII]))
 >        :+:
@@ -391,10 +400,6 @@ Shelby Parsley =================================================================
 >   spAltoI      = line [spAltoIA, spAltoIB]
 >   spAltoII     = line [spAltoIIA, spAltoIIB]
 >   spAltoIII    = line [spAltoIIIA, spAltoIIIB, spAltoIIIC, spAltoIIID]
->
->   spTenrI      = rest 0
->   spTenrII     = rest 0
->   spTenrIII    = rest 0
 >
 >   spBassI      = line [spBassIA,   spBassIB]
 >   spBassII     = line [spBassIIA,  spBassIIB]
@@ -497,7 +502,7 @@ Section III - shame on you!
 >                $ line [ ef 2 en, ef 3 en]
 >   spBassIIIC   = line [ ef 2 den, ef 2 sn, ef 3 den, ef 2 sn]
 
-We Hate Her ===============================================================================
+We Hate Her ===========================================================================================================
 
 > weHateHer :: Music (Pitch, Volume)
 > weHateHer =
@@ -506,7 +511,11 @@ We Hate Her ====================================================================
 >    $ transpose 0
 >    $ keysig G Dorian
 >    $ addVolume 100
->    $ instrument Violin whhMel
+>    $ instrument Harmonica whhMel
+>
+> littleWeHateHer =
+>    addVolume 100
+>    $ instrument AltoSax (bf 4 (2 * wn) {- :+: rest wn :+: bf 4 en :+: rest wn :+: bf 4 qn -})
 >
 > whhMel :: Music Pitch
 >    --                      We

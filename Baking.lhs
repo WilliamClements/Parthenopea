@@ -9,7 +9,7 @@ December 16, 2022
 
 > module Baking where
 
-> import Data.Array
+> import Data.Array ( Array, (!), (//), array )
 > import Data.List ( sortBy, sortOn )
 > import Data.Ord (comparing)
 > import Euterpea.IO.MIDI.Play
@@ -18,7 +18,7 @@ December 16, 2022
 > import Parthenopea
 > import System.Random ( mkStdGen )
   
-Bake ======================================================================================
+Bake ==================================================================================================================
 
 >
 > type Baking = (BakingMetrics, Array Int (Music (Pitch, Volume)))
@@ -31,13 +31,13 @@ The progress of the algorithm is expressed in above pair.
 > consumeBakes :: [Bake] → Array Int (Music (Pitch, [NoteAttribute]))
 > consumeBakes bakes = if checkJobOk (bm, ms)
 >                      then aggrandize <$> ms
->                      else error "consumeBakes: bad job"
+>                      else error "consumeBakes: bad job (wink)"
 >   where (bm, ms) = buildChannels bakes
 >
 > measureBakes :: [Bake] → Array Int Int
 > measureBakes bakes = if checkJobOk (bm, ms) && checkMeasureOk (bm, ms)
 >                      then sHistogram bm
->                      else error "measureBakes: bad job"
+>                      else error "measureBakes: bad job (wink)"
 >    where (bm, ms) = buildChannels bakes
 >
 > sampleBakes :: [Bake] → Array Int Int
@@ -116,7 +116,7 @@ The progress of the algorithm is expressed in above pair.
 >              baking' = acceptSection urn baking
 >          in if checkUrnOk urn
 >             then build urns inns' baking'
->             else error "acceptUrn: bad job"
+>             else error "acceptUrn: bad job (wink)"
 >                 
 >       skipUrn urn urns inns baking = build urns inns baking'
 >          where baking' = skipSection urn baking
@@ -359,6 +359,9 @@ The progress of the algorithm is expressed in above pair.
 > computeEnd onset dur = 
 >    min songLength (onset + dur)
 >
+  
+Definitions ===========================================================================================================
+
 > data Bake = Bake { bIx             :: Int
 >                  , bWch            :: (InstrumentName, (Pitch, Pitch))
 >                  , bOnset          :: Double

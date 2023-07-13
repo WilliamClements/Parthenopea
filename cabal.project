@@ -4,5 +4,6 @@ packages: ./
           ../MusicRepos/UISF/UISF
           ../MusicRepos/haskell-chart/chart
           ../MusicRepos/haskell-chart/chart-diagrams
+          ../MusicRepos/fuzzyfind/fuzzyfind
 jobs: $ncpus
 package parthenopea

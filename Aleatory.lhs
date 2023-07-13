@@ -12,7 +12,7 @@ Last modified: 27-September-2022
 > import Control.Concurrent ( ThreadId, threadDelay, forkIO )
 > import Control.Concurrent.STM.TChan ( newTChan, readTChan, writeTChan, TChan )
 > import Control.Monad ( replicateM )
-> import Data.List (unfoldr, elemIndex, sortBy, insertBy)
+> import Data.List ( unfoldr, elemIndex, sortBy, insertBy )
 > import Euterpea.Music
 > import Euterpea.IO.MIDI ( play )
 > import GHC.Conc ( ThreadId, threadDelay, forkIO, atomically )
@@ -101,7 +101,7 @@ Last modified: 27-September-2022
 >            ]
 >
 
-Aleatory Music ============================================================================
+Aleatory Music ========================================================================================================
 
 > pitches :: [Pitch]
 > pitches = map pitch randIntegers
@@ -119,8 +119,29 @@ Aleatory Music =================================================================
 >           | (theDur, thePitch) ← zip durations pitches
 >           ]
 
-Lake ======================================================================================
+Lake ==================================================================================================================
 
+> data Lake = Lake { 
+>                   lInst    :: InstrumentName, 
+>                   lWch     :: Music Pitch, 
+>                   lPch     :: AbsPitch,
+>                   lVol     :: Volume,
+>                   lKey     :: (PitchClass, Mode),
+>                   lVel     :: Double}
+>      deriving Show
+>
+> mkLake       :: [Music Pitch] → [Double] → Lake
+> mkLake mels rs =
+>   let cnt :: Double
+>       cnt = fromIntegral (length mels) - 0.000001
+>   in Lake {  
+>       lInst  = toEnum $ round   $ denorm (rs!!0) (0,instrumentLimit)
+>       , lWch =  mels !! floor    (denorm (rs!!1) (0,cnt))
+>       , lPch =  round           $ denorm (rs!!2) (24,92)
+>       , lVol =  round           $ denorm (rs!!3) (80,120)
+>       , lKey =  (toEnum $ round $ denorm (rs!!4) (0,12), Major)
+>       , lVel =                    denorm (rs!!5) (1,3)}
+>
 > lake :: Music (Pitch, Volume)
 > lake2 :: Music Pitch → Int → Music (Pitch, Volume)
 >
@@ -152,7 +173,7 @@ Lake ===========================================================================
 >
 >    mels = stdMels melInput
 
-Concurrent ================================================================================
+Concurrent ============================================================================================================
 
 > readQ :: TChan a → IO a
 > readQ = atomically . readTChan

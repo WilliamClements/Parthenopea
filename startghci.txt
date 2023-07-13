@@ -47,3 +47,6 @@ D:\g\MusicRepos\fluid\fluidsynth-2.3.1-win10-x64\bin\fluidsynth.exe "D:\g\MusicR
 --   bob: Oboe
 --   copper: Banjo
 --   silver: Celesta
+
+cmd /c '.\pkt259.exe dig 1>d:\zh\zh220a.log 2>d:\zh\zh220b.log'
+cmd /c '.\Rosters.exe 1>d:\zh\zj005a.log 2>d:\zh\zj005b.log'
