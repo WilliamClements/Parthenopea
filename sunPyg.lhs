@@ -13,6 +13,12 @@ March 20, 2023
   
 SunPyg ================================================================================================================
 
+> littleSunPyg =
+>      transpose 0
+>      $ addVolume 70
+>      $ keysig C Lydian
+>      $ instrument ElectricGuitarClean (line [a 4 wn])
+>   
 > sunPyg =
 >   removeZeros
 >   $ tempo 1
@@ -46,12 +52,6 @@ SunPyg =========================================================================
 >      $ keysig C Lydian
 >      $ instrument ChoirAahs vocalActive
 >
->    vocalsNote =
->      transpose 0
->      $ addVolume 110
->      $ keysig C Lydian
->      $ instrument AcousticGuitarSteel (line [a 4 wn])
->   
 >    bassLine = line [rest wn, times 38 (line [c 2 wn, d 2 wn])
 >                            , times  8 (line [a 1 wn, d 2 wn])
 >                            , times 58 (line [c 2 wn, d 2 wn])]
@@ -62,7 +62,7 @@ SunPyg =========================================================================
 >      transpose (-3)
 >      $ addVolume 100
 >      $ keysig C Lydian
->      $ instrument AcousticGuitarSteel leadLine
+>      $ instrument ElectricGuitarClean leadLine
 >   
 >    vocalMusic = 
 >      transpose (-3)
@@ -74,7 +74,7 @@ SunPyg =========================================================================
 >      transpose (-3)
 >      $ addVolume 80
 >      $ keysig C Lydian
->      $ instrument SynthBass1 bassLine
+>      $ instrument ElectricBassFingered bassLine
 >   
 >    m000 = line [rest dhn, tempo (5/4) (line [percHTsn, percHTen, percLTsn, percLTsn])]
 >    m001 = line [percBDen, percOHHen, percCHHen, chord [percCHHen, percBDen]

@@ -26,6 +26,7 @@ Library
         Parthenopea,
         Percussion,
         Players,
+        -- RosterDef,
         Rosters,
         Signals,
         SoundFont,
@@ -36,6 +37,7 @@ Library
   other-modules:
   build-depends:
         array >= 0.5.0.0 && <= 0.6,
+        arrows >= 0.4 && < 0.5,
         base >= 4 && < 5,
         Chart >= 1.9.4 && <= 2.0,
         Chart-diagrams >= 1.9.4 && < 2.0,
@@ -51,6 +53,7 @@ Library
         lens >= 5.2.1 && < 6.0,
         monadplus >= 1.4.3 && < 2.0,
         mtl >= 2.2.0 && < 3.0,
+        pure-fft >= 0.2.0 && < 1.0,
         random >= 1.0.1.1 && <= 1.2,
         stm >= 2.4 && <2.6,
         time >= 1.11.1.1 && < 2.0,

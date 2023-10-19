@@ -1,9 +1,9 @@
 > {-# LANGUAGE UnicodeSyntax #-}
 > {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-Playground Examples with Percussion and Randomness
+Percussion-related Utilities
 William Clements
-Last modified: 27-September-2022
+Last modified: 18-Jul-2023
 
 > module Percussion where
 >
@@ -59,28 +59,22 @@ Piece ==========================================================================
 
 Oceans ================================================================================================================
 
-> oceans, seas, water :: Music Pitch    
-> oceans =  line $ map nRandom2Note $ normalizedDoubles $ mkStdGen 259
-> seas =    line $ map nRandom2Perc $ normalizedDoubles $ mkStdGen 747
-> water =   (rest en :+: oceans) :=: seas
+> oceans, seas, water    :: Music Pitch    
+> oceans                                   = line $ map nRandom2Note $ normalizedDoubles $ mkStdGen 259
+> seas                                     = line $ map nRandom2Perc $ normalizedDoubles $ mkStdGen 747
+> water                                    = (rest en :+: oceans) :=: seas
 >
-> normalizedDoubles :: StdGen → [Double]
-> normalizedDoubles g =
->    let (x, g') = randomR (0,1) g
->    in x : normalizedDoubles g'
->
-> nRandom2Note :: Double → Music Pitch
-> nRandom2Note r =
->    note qn $ pitch $ round $ normalized2ranged r pitchRange
+> normalizedDoubles      :: StdGen → [Double]
+> normalizedDoubles g                      = x : normalizedDoubles g'
 >    where
->       pitchRange = (24, 92)
+>      (x, g') = randomR (0,1) g
+>
+> nRandom2Note           :: Double → Music Pitch
+> nRandom2Note r                           = note qn $ pitch $ round $ normalized2ranged r (24, 92)
 >
 >   -- calibrate [0,1] to [lo,up]
-> normalized2ranged :: Double → (Double, Double) → Double
-> normalized2ranged r (lo, up)= lo + r * (up-lo)
+> normalized2ranged      :: Double → (Double, Double) → Double
+> normalized2ranged r (lo, up)             = lo + r * (up-lo)
 >
-> nRandom2Perc :: Double → Music Pitch
-> nRandom2Perc r =
->    perc (toEnum $ round $ normalized2ranged r pitchRange) qn
->    where
->       pitchRange = (0, 46)
+> nRandom2Perc           :: Double → Music Pitch
+> nRandom2Perc r                           = perc (toEnum $ round $ normalized2ranged r (0, 46)) qn

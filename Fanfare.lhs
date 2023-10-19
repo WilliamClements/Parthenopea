@@ -99,6 +99,8 @@ The fanfare's answer
 
 Alice =================================================================================================================
 
+> littleAlice = instrument Vibraphone $ addVolume 70 $ c 4 wn
+>
 > alice = removeZeros
 >         $ tempo 2
 >         $ transpose 10 
@@ -127,9 +129,9 @@ Bob ============================================================================
 >       $ tempo 2
 >       $ transpose 0
 >       $ keysig D Mixolydian
->          (addVolume  90  (instrument Flute     (times nRepeats treblebob)))
->       :=: addVolume  70  (instrument Oboe            (times nRepeats altobob))
->       :=: addVolume  60  (instrument Cello           (times nRepeats bassbob))
+>          (addVolume  90  (instrument Violin          (times nRepeats treblebob)))
+>       :=: addVolume  40  (instrument Oboe            (times nRepeats altobob))
+>       :=: addVolume  30  (instrument Cello           (times nRepeats bassbob))
 >
 >    where
 >
@@ -168,13 +170,12 @@ Bill ===========================================================================
 >    $ tempo 2
 >    $ transpose 0
 >    $ keysig Ef Mixolydian
->    $ addVolume 100
 >    $ instrument Violin
->         (rest dwn :+:  g 4 hn :+: times nRepeats treble)
+>         (addVolume 45 (rest dwn :+:  g 4 hn :+: times nRepeats treble))
 >      :=: instrument AcousticGrandPiano
->         (rest dwn :+: bf 3 hn :+: times nRepeats alto)
+>         (addVolume 95 (rest dwn :+: bf 3 hn :+: times nRepeats alto))
 >      :=: instrument Cello
->         (rest dwn :+: ef 3 hn :+: times nRepeats bass)
+>         (addVolume 45 (rest dwn :+: ef 3 hn :+: times nRepeats bass))
 >
 >    where
 > 
@@ -226,7 +227,7 @@ Copper =========================================================================
 >    $ tempo 2
 >    $ transpose (-4)
 >    $ keysig C Dorian
->    $ addVolume 50
+>    $ addVolume 80
 >    $ instrument Banjo
 >    $ times n
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
@@ -237,9 +238,9 @@ Copper =========================================================================
 >    removeZeros
 >    $ tempo 1
 >    $ transpose 0
->    $ addVolume 30
+>    $ addVolume 70
 >    -- $ instrument Trumpet
->    $ line [perc AcousticSnare dwn]
+>    $ line [perc OpenHiHat dwn]
 
 Gold ==================================================================================================================
 
@@ -249,7 +250,7 @@ Gold ===========================================================================
 >    $ transpose (-5)
 >    $ keysig C Mixolydian
 >    $ addVolume 30
->    $ instrument AltoSax
+>    $ instrument Harpsichord
 >    $ times 2
 >      (line [c 4 hn,  c 5 dhn]
 >       :+: addDur qn [ c 5, bf 4,  a 4,  g 4,
@@ -275,7 +276,7 @@ Silver =========================================================================
 >     $ tempo 2
 >     $ transpose 17
 >     $ keysig A Mixolydian
->     $ addVolume 30
+>     $ addVolume 100
 >     $ instrument Celesta
 >     $ line allSilver
 >
@@ -325,7 +326,7 @@ Snake ==========================================================================
 > gSnip07 = line [ c 4 hn, e 4 hn, fs 4 hn, g 4 dqn, g 4 en]
 >
 > littlesnake =
->   instrument AltoSax  
+>   instrument AcousticGuitarSteel  
 >   $ addVolume 100
 >   $ line [a 3 (2*wn)]
 >
@@ -335,7 +336,7 @@ Snake ==========================================================================
 >    $ transpose 1
 >    $ keysig D Mixolydian
 >    $     addVolume  65 (instrument AltoSax treblePart)
->      :=: addVolume  80 (instrument Oboe altoPart)
+>      :=: addVolume  80 (instrument Clarinet altoPart)
 >    where
 >
 >    treblePart = line [treb00, treb01, treb02, treb03, treb04]
@@ -417,8 +418,8 @@ Country In The Morning =========================================================
 
 > littleECountry =
 >   addVolume 110
->   $ instrument Flute
->   $ line [triad D Major ( D, 3) wn]
+>   $ instrument SynthStrings1
+>   $ line [d 4 (2*wn)]
 >   
 > littleACountry =
 >   addVolume 15
@@ -434,15 +435,15 @@ Country In The Morning =========================================================
 >    $ keysig G Major
 >    $ chord [     
 >         instrument AltoSax
->         $ addVolume 70
+>         $ addVolume 64
 >           (line [a1 :+: rest qn, b1, a1 :+: a 4 qn, c1])
 >      ,
->         instrument StringEnsemble1
->         $ addVolume 60
+>         instrument AcousticGuitarSteel
+>         $ addVolume 75
 >           (line [a2, b2, a2, c2])
 >      ,
->         instrument Cello
->         $ addVolume 100
+>         instrument ElectricBassFingered
+>         $ addVolume 75
 >           (line [ a3 :+: line [a 2 qn, b 2 qn, cs 3 qn], b3
 >                 , a3 :+: line [d 2 qn, e 2 qn, fs 2 qn], c3])]
 >
@@ -488,11 +489,10 @@ Whelp Narp =====================================================================
 >    removeZeros
 >    $ tempo 2
 >    $ keysig C Mixolydian
->    $ addVolume 100
->    $ instrument     Flute                (transpose 4       (wnAltoI :+: wnAltoII))
->      :=: instrument OrchestralHarp       (transpose 4      (wnTenorI :+: wnTenorII))
->      :=: instrument ElectricBassPicked   (transpose 4   (wnBaritoneI :+: wnBaritoneII))
->      :=:                                                    (wnPercI :+: wnPercII)
+>    $     addVolume 80 (instrument Flute                     (transpose 4       (wnAltoI :+: wnAltoII)))
+>      :=: addVolume 75 (instrument OrchestralHarp            (transpose 4      (wnTenorI :+: wnTenorII)))
+>      :=: addVolume 70 (instrument ElectricBassPicked        (transpose 4   (wnBaritoneI :+: wnBaritoneII)))
+>      :=: addVolume 90                                                          (wnPercI :+: wnPercII)
 >   where
 >
 > -- It is in 3/4 for 7 measures; the eighth measure is shortened to 2/4;
@@ -613,8 +613,8 @@ Roger ==========================================================================
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig Cs Dorian
->    $     addVolume  60 (instrument AltoSax        (line [cAltoI,  cAltoIIA, cAltoIIB]))
->      :=: addVolume  90 (instrument OrchestralHarp (line [cTenorI, cTenorII]))
+>    $     addVolume  60 (instrument AltoSax             (line [cAltoI,  cAltoIIA, cAltoIIB]))
+>      :=: addVolume  90 (instrument AcousticGuitarNylon (line [cTenorI, cTenorII]))
 >   where
 >
 >   ct_fs, ct_cs, ct_cs', ct__B, ct__B'          :: Dur → Music Pitch
@@ -690,12 +690,12 @@ Way Pos' T' Purple =============================================================
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig C Major
->    $ addVolume 90 (instrument Trumpet
+>    $ addVolume 80 (instrument AcousticGrandPiano
 >      ((if includeOpen       then pOpenT  else rest 0)
 >         :+: (if includeCont then pContT  else rest 0)
 >         :+: (if includePool then pPoolT  else rest 0)
 >         :+: (if includeClos then pClosT  else rest 0)))
->      :=: addVolume 70 (instrument AcousticGuitarNylon
+>      :=: addVolume 70 (instrument OrchestralHarp
 >      ((if includeOpen       then pOpenG  else rest 0)
 >         :+: (if includeCont then pContG  else rest 0)
 >         :+: (if includePool then pPoolG  else rest 0)
@@ -797,7 +797,7 @@ Way Pos' T' Purple =============================================================
 >   pPoolP  = rest 0
 
 > littlePendingtonArnt =
->   instrument Trumpet $ addVolume 120 $ addDur en [c 5, e 5, fs 5, g 5]
+>   instrument TenorSax $ addVolume 70 (e 3 dwn)
 
 Pendington Arnt  ======================================================================================================
 
@@ -1026,9 +1026,9 @@ Pit ============================================================================
 >   $ tempo 1
 >   $ transpose 0
 >   $ keysig B Lydian
->   $     instrument EnglishHorn (addVolume 60 pitA)
->     :=: instrument SynthBass2  (addVolume 50 pitB)
->     :=: instrument DistortionGuitar (addVolume 70 pitC)
+>   $     instrument EnglishHorn        (addVolume 60 pitA)
+>     :=: instrument SynthBass1         (addVolume 50 pitB)
+>     :=: instrument ElectricGuitarJazz (addVolume 70 pitC)
 
 Dit ===================================================================================================================
 

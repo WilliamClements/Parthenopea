@@ -4,7 +4,9 @@
 > {-# LANGUAGE EmptyDataDecls #-}
 > {-# LANGUAGE FlexibleInstances #-}
 > {-# LANGUAGE InstanceSigs #-}
+> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
@@ -14,16 +16,22 @@ December 12, 2022
 
 > module Parthenopea where
 >
+> import Control.Arrow.ArrowP
 > import Control.DeepSeq (NFData)
+> import Control.SF.SF
 > import Data.Array.Unboxed
-> import Data.Int ( Int16, Int32 )
+> import qualified Data.Audio              as A
+> import Data.Int ( Int8, Int16, Int32 )
 > import Data.List
 > import qualified Data.Map as Map
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe )
+> import Data.Ord
 > import Data.Ratio ( approxRational )
+> import qualified Data.Set as Set
+> import Data.Word
 > import Debug.Trace ( trace )
 > import Euterpea.IO.Audio.Basics ( outA )
-> import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
+> import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg, Table, tableSinesN )
 > import Euterpea.IO.Audio.IO
 > import Euterpea.IO.Audio.Render
 > import Euterpea.IO.Audio.Types
@@ -33,21 +41,28 @@ December 12, 2022
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.IO.MIDI.ToMidi2 (writeMidi2)
 > import Euterpea.Music
+> import FRP.UISF.AuxFunctions ( ArrowCircuit(delay) )
 > import HSoM.Performance ( metro, Context (cDur) )
 > import System.Random ( Random(randomR), StdGen )
-> import qualified Text.FuzzyFind as FF
+> import qualified Text.FuzzyFind          as FF
   
 Utilities =============================================================================================================
 
-> diagnosticsEnabled = False
 > traceIf      :: String → a → a
 > traceIf str expr = if diagnosticsEnabled
 >                    then trace str expr
 >                    else expr
+> traceNow  :: String → a → a
+> traceNow = trace
 > traceAlways  :: String → a → a
 > traceAlways = trace
 > traceNever   :: String → a → a
 > traceNever str expr = expr
+>
+> hasDuplicates :: (Ord a) => [a] -> Bool
+> hasDuplicates list = length list /= length set
+>   where
+>     set = Set.fromList list
 >
 > addDur       :: Dur → [Dur → Music a] → Music a
 > addDur d ns  =  let f n = n d
@@ -57,9 +72,10 @@ Utilities ======================================================================
 > grace n (Prim (Note d p)) = note (est * d) (trans n p) :+: note ((1 - est) * d) p
 >   where
 >     est                :: Rational
->     est = case compare d (1/8) of
->                 LT → 1/2
->                 _  → 1/8
+>     est
+>       | d < 1/8                          = 1/2
+>       | d > (2*wn)                       = 1/(8*d)
+>       | otherwise                        = 1/8
 > grace n  _                  = 
 >           error "Can only add a grace note to a note."
 >
@@ -169,55 +185,50 @@ which makes for a cleaner sound on some synthesizers:
 >         | apDelta == (os!!2) = ((os!!3) - (os!!2)) : [(os!!4) - (os!!2)]
 >         | otherwise          = error "Malformed Triad"
 
-  "ceilingPowerOfTwo"
-
-> ceilingPowerOfTwo :: Int → Int
-> ceilingPowerOfTwo num
->   | num < 1  = error "ceilingPowerOfTwo requires input >= 1"
->   | otherwise = ceiling $ logBase 2.0 (fromIntegral num)
->   
-
   "ascent/descent"
 
-> data FigureType = Ascent | Descent | Cluster
->
-> glissando              :: [AbsPitch] → Dur → Music Pitch
-> glissando gliss dur =
->   dim (3/2)
->   $ slur 2
->   $ line
->   $ notes ++ [rest (dur - fromIntegral reach * step)]
+> glissando'              :: [AbsPitch] → Dur → Music Pitch
+> glissando' gliss dur
+>   | traceIf msg False                    = undefined
+>   | otherwise                            = music
 >   where
->     notes              :: [Music Pitch]
->     notes = [note step (pitch x) | x ← gliss]
->     step = sfn
->     reach = length gliss
+>     music = 
+>       dim (3/2)
+>       $ slur 2
+>       $ line
+>         notes 
+>     notes              :: [Music Pitch]  = [note (dur * 9 / (reach * 10)) (pitch x) | x ← gliss]
+>     reach              :: Rational       = fromIntegral $ length gliss
+>     msg                                  = unwords ["glissando' " ++ show music]
 >
-> descent2               :: AbsPitch → AbsPitch → Dur → Music Pitch
-> descent2 xLo xHi dur
->   | traceAlways msg False = undefined
->   | xHi < xLo = error "not low enough range for descent"
->   | otherwise = glissando [xHi..xLo] dur
+> glissando              :: Bool → AbsPitch → AbsPitch → Dur → Music Pitch
+> glissando _ _ _ 0                        = rest 0
+> glissando desc xLo xHi dur
+>   | traceIf msg False                    = undefined
+>   | xHi < xLo + 6                        = error "glissando: not enough range"
+>   | dur < 1 / 8                          = error "glissando: not enough duration"
+>   | otherwise                            = if skipGlissandi
+>                                              then
+>                                                rest dur
+>                                              else
+>                                                glissando' nList dur
 >   where
->     msg = unwords ["descent high lo" ++ show xHi ++ " " ++ show xLo]
->
-> ascent2                :: AbsPitch → AbsPitch → Dur → Music Pitch
-> ascent2 xLo xHi dur
->   | traceAlways msg False = undefined
->   | xHi < xLo = error "not high enough range for ascent"
->   | otherwise = glissando [xLo..xHi] dur
->   where
->     msg = unwords ["ascent lo high" ++ show xLo ++ " " ++ show xHi]
+>     nList                                = if desc
+>                                              then reverse [xLo..xHi]
+>                                              else [xLo..xHi]
+>     msg                                  = unwords ["glissando " ++ show nList]
 >
 > descent                :: InstrumentName → Pitch → Dur → Music Pitch
-> descent iname p = descent2 (absPitch (fst (fromJust (instrumentRange iname)))) (absPitch p) 
+> descent iname p dur = chord [rest dur, glissando True  (absPitch (fst (fromJust (instrumentRange iname))))
+>                                                        (absPitch p) dur]
 >
 > ascent                 :: InstrumentName → Pitch → Dur → Music Pitch
-> ascent iname p =  ascent2 (absPitch p) (absPitch (snd (fromJust (instrumentRange iname))))
+> ascent iname p dur =  chord [rest dur, glissando False (absPitch p)
+>                                                        (absPitch (snd (fromJust (instrumentRange iname)))) dur]
 >
 >   -- calibrate (0,1) to (lo,up) e.g. (24,92)
-> denorm       :: Double → (Double, Double) → Double
-> denorm r (lo, up) = lo + r * (up-lo)
+> denorm                 :: Double → (Double, Double) → Double
+> denorm r (lo, up)                        = lo + r * (up-lo)
 >
 > sextuplets   :: StdGen → [[Double]]
 > sextuplets g =
@@ -323,35 +334,50 @@ also
 >
 >       _                         → Nothing
 >
-> rangedInstruments :: Array Int (InstrumentName, (Pitch, Pitch))
-> rangedInstruments = selectInstruments
->                     (isJust . instrumentRange)
->                     (take 128 (enumFrom AcousticGrandPiano))
+> nonPitchedInstrument   :: InstrumentName → Bool
+> nonPitchedInstrument kind                =
+>   case kind of
+>     Agogo                                  → True
+>     Applause                               → True
+>     BirdTweet                              → True
+>     BreathNoise                            → True
+>     Gunshot                                → True
+>     Helicopter                             → True
+>     ReverseCymbal                          → True
+>     Seashore                               → True
+>     SynthDrum                              → True
+>     TaikoDrum                              → True
+>     TelephoneRing                          → True
+>     Timpani                                → True
+>     Woodblock                              → True
+>     _                                      → False
 >
-> selectInstruments :: (InstrumentName → Bool)
->                      → [InstrumentName]
->                      → Array Int (InstrumentName, (Pitch, Pitch))
-> selectInstruments pred is =
->   let
->     justs = [(i, fromJust $ instrumentRange i) | i ← is, pred i]
->     inits = zip [1..] justs
->   in 
->     array (1, length inits) inits
+> nonPitchedInstruments  :: [InstrumentName]
+> nonPitchedInstruments                    = filter nonPitchedInstrument getList
+>
+> selectRanged           :: [InstrumentName] → Array Int (InstrumentName, (Pitch, Pitch))
+> selectRanged is                          = listArray (1, length qual) qual
+>   where
+>     qual                                 = mapMaybe (\i → instrumentRange i >>= Just . (i,)) is
 >
 > denormInstrument :: Double
 >                     → Array Int (InstrumentName, (Pitch, Pitch))
 >                     → (InstrumentName, (Pitch, Pitch))
-> denormInstrument norm insts
->   | norm < 0 || norm > 1 = error "Must pass normalized range to selectInstrument"
->   | otherwise = foundIt
->       where
->         ifirst  = 1
->         ilast   = length insts
->         iselect = floor $ denorm norm (fromIntegral ifirst, fromIntegral ilast)
->         foundIt = insts ! iselect
+> denormInstrument norm insts              = profess
+>                                              (norm >= 0 && norm <= 1)
+>                                              "denormInstrument"
+>                                              (insts ! iselect)
+>   where
+>     ifirst                               = 1
+>     ilast                                = length insts
+>     iselect                              = floor $ denorm norm (fromIntegral ifirst, fromIntegral ilast)
 >
 > wideOpen :: (Pitch, Pitch)
 > wideOpen = (pitch 0, pitch 127)
+>
+> type PercussionPair = [PercussionSound]
+> getPairs               :: [PercussionPair]
+> getPairs                                 = [ [AcousticBassDrum, BassDrum1], [LowMidTom, HiMidTom]]
 
 instrument range checking =============================================================================================
 
@@ -482,59 +508,72 @@ examine song for instrument and percussion usage ===============================
 > listP (Modify _ m) ooc db1
 >   = listP m ooc db1
 >
+> pitchToPerc            :: AbsPitch → Maybe PercussionSound
+> pitchToPerc ap                           =
+>   let
+>     ad                                   = ap - 35
+>   in
+>     if ad >= fromEnum AcousticBassDrum && ad <= fromEnum OpenTriangle
+>     then Just (toEnum ad)
+>     else Nothing
 
 apply fuzzyfind to mining instruments + percussion ====================================================================
 
 > class GMPlayable a where
 >   getFFKeys            :: a → Maybe [String]
 >   getList              :: [a]
+>   matchingAs           :: BothMatchingAs → [(a, (String, Fuzz))]
 >
 > instance GMPlayable InstrumentName where
->   getFFKeys = instrumentFFKeys
->   getList = map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>   getFFKeys                              = instrumentFFKeys
+>   getList                                = map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>   matchingAs                             = instAs
 >
 > instance GMPlayable PercussionSound where
->   getFFKeys = percussionFFKeys
->   getList = map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
+>   getFFKeys                              = percussionFFKeys
+>   getList                                = map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
+>   matchingAs                             = percAs
+>
+> type Fuzz = Double
 >
 > instrumentFFKeys :: InstrumentName → Maybe [String]
 > instrumentFFKeys inst =
 >    case inst of
->       AcousticGrandPiano        → Just            ["piano", "grand", "acoustic"]
->       BrightAcousticPiano       → Just            ["piano", "bright", "acoustic"]
->       ElectricGrandPiano        → Just            ["piano", "electric", "grand"]
+>       AcousticGrandPiano        → Just            ["piano", "grand"]
+>       BrightAcousticPiano       → Just            ["piano", "bright", "brite"]
+>       ElectricGrandPiano        → Just            ["piano", "elec"]
 >       HonkyTonkPiano            → Just            ["piano", "honkytonk"]
 >       RhodesPiano               → Just            ["piano", "rhodes"]
 >       ChorusedPiano             → Just            ["piano", "chorused"]
->       Harpsichord               → Just $ singleton "harpsichord"
+>       Harpsichord               → Just            ["harpsi", "harpsichord"]
 >       Clavinet                  → Just $ singleton "clavinet"
 >       Celesta                   → Just $ singleton "celesta"
 >       Glockenspiel              → Just $ singleton "glockenspiel"
 >       MusicBox                  → Just $ singleton "musicbox"
->       Vibraphone                → Just $ singleton "vibraphone"
+>       Vibraphone                → Just            ["vibra", "phone"]
 >       Marimba                   → Just $ singleton "marimba"
 >       Xylophone                 → Just $ singleton "xylophone"
 >       TubularBells              → Just            ["bells", "tubular"]
 >       Dulcimer                  → Just $ singleton "dulcimer"
->       HammondOrgan              → Just            ["organ", "hammond"]
->       PercussiveOrgan           → Just            ["organ", "percussive"]
->       RockOrgan                 → Just            ["organ", "rock"] 
->       ChurchOrgan               → Just            ["organ", "church"]
->       ReedOrgan                 → Just            ["organ", "reed"]
+>       HammondOrgan              → Just            ["org", "hammond"]
+>       PercussiveOrgan           → Just            ["org", "percuss"]
+>       RockOrgan                 → Just            ["org", "rock"] 
+>       ChurchOrgan               → Just            ["org", "church"]
+>       ReedOrgan                 → Just            ["org", "reed"]
 >       Accordion                 → Just $ singleton "accordion"
 >       Harmonica                 → Just $ singleton "harmonica"
 >       TangoAccordion            → Just            ["accordion", "tango"]
->       AcousticGuitarNylon       → Just            ["guitar", "acoustic", "nylon"]
->       AcousticGuitarSteel       → Just            ["guitar", "acoustic", "steel"]
->       ElectricGuitarJazz        → Just            ["guitar", "electric", "jazz"]
->       ElectricGuitarClean       → Just            ["guitar", "electric", "clean"]
->       ElectricGuitarMuted       → Just            ["guitar", "electric", "muted"]
->       OverdrivenGuitar          → Just            ["guitar", "electric", "overdrive"]
->       DistortionGuitar          → Just            ["guitar", "fuzz", "distortion"]
->       GuitarHarmonics           → Just            ["guitar", "harmonics"]
->       AcousticBass              → Just            ["bass", "acoustic"]
->       ElectricBassFingered      → Just            ["bass", "electric", "finger"]
->       ElectricBassPicked        → Just            ["bass", "electric", "pick"]
+>       AcousticGuitarNylon       → Just            ["guit", "nylon"]
+>       AcousticGuitarSteel       → Just            ["guit", "steel"]
+>       ElectricGuitarJazz        → Just            ["guit", "jazz"]
+>       ElectricGuitarClean       → Just            ["guit", "clean"]
+>       ElectricGuitarMuted       → Just            ["guit", "mute"]
+>       OverdrivenGuitar          → Just            ["guit", "overdrive"]
+>       DistortionGuitar          → Just            ["guit", "fuzz", "distort"]
+>       GuitarHarmonics           → Just            ["guit", "harmonics"]
+>       AcousticBass              → Just            ["bass", "acou"]
+>       ElectricBassFingered      → Just            ["bass", "elec", "finger"]
+>       ElectricBassPicked        → Just            ["bass", "elec", "pick"]
 >       FretlessBass              → Just            ["bass", "fretless"] 
 >       SlapBass1                 → Just            ["bass", "slap", "1"]
 >       SlapBass2                 → Just            ["bass", "slap", "2"]
@@ -544,22 +583,22 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Viola                     → Just $ singleton "viola"
 >       Cello                     → Just $ singleton "cello"
 >       Contrabass                → Just $ singleton "contrabass"
->       TremoloStrings            → Just            ["strings", "tremolo"]
->       PizzicatoStrings          → Just            ["strings", "pizzicato"]
->       OrchestralHarp            → Just            ["harp", "orchestra"]
->       Timpani                   → Just $ singleton "timpani"
+>       TremoloStrings            → Just            ["string", "tremolo"]
+>       PizzicatoStrings          → Just            ["string", "pizzicato"]
+>       OrchestralHarp            → Just            ["harp", "orchest"]
+>       Timpani                   → Just            ["timpani", "timp"]
 >       StringEnsemble1           → Just            ["ensemble", "string", "1"]
 >       StringEnsemble2           → Just            ["ensemble", "string", "2"]
->       SynthStrings1             → Just            ["strings", "synth", "1"]
->       SynthStrings2             → Just            ["strings", "synth", "2"]
->       ChoirAahs                 → Just            ["choir", "aahs"]
->       VoiceOohs                 → Just            ["voice", "oohs"]
->       SynthVoice                → Just            ["synth", "voice"]
->       OrchestraHit              → Just            ["orchestra", "hit"]
->       Trumpet                   → Just $ singleton "trumpet"
+>       SynthStrings1             → Just            ["string", "synth", "1"]
+>       SynthStrings2             → Just            ["string", "synth", "2"]
+>       ChoirAahs                 → Just            ["choir", "aahs", "chorus"]
+>       VoiceOohs                 → Just            ["voice", "oohs", "chorus"]
+>       SynthVoice                → Just            ["voice", "synth"]
+>       OrchestraHit              → Just            ["orchest", "hit"]
+>       Trumpet                   → Just            ["trumpet", "trump"]
 >       Trombone                  → Just $ singleton "trombone"
 >       Tuba                      → Just $ singleton "tuba"
->       MutedTrumpet              → Just            ["trumpet", "muted"]
+>       MutedTrumpet              → Just            ["trumpet", "mute"]
 >       FrenchHorn                → Just            ["horn", "french"]
 >       BrassSection              → Just            ["brass", "section"]
 >       SynthBrass1               → Just            ["brass", "synth", "1"]
@@ -620,7 +659,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       MelodicDrum               → Just            ["drum", "melodic"]
 >       SynthDrum                 → Just            ["drum", "synth"]
 >       ReverseCymbal             → Just            ["cymbal", "reverse"]
->       GuitarFretNoise           → Just            ["guitar", "fret", "noise"]
+>       GuitarFretNoise           → Just            ["guit", "fret", "noise"]
 >       BreathNoise               → Just            ["breath", "noise"]
 >       Seashore                  → Just $ singleton "seashore"
 >       BirdTweet                 → Just            ["bird", "tweet"]
@@ -633,20 +672,20 @@ apply fuzzyfind to mining instruments + percussion =============================
 > percussionFFKeys :: PercussionSound → Maybe [String]
 > percussionFFKeys perc =
 >    case perc of
->       AcousticBassDrum          → Just            ["drum", "bass", "acoustic"]
->       BassDrum1                 → Just            ["drum", "bass", "kick"]
+>       AcousticBassDrum          → Just            ["drum", "acou", "bass"]
+>       BassDrum1                 → Just            ["kick", "drum"]
 >       SideStick                 → Just            ["side", "stick"]
->       AcousticSnare             → Just            ["snare", "drum", "acoustic"]
+>       AcousticSnare             → Just            ["snare", "drum", "acou"]
 >       HandClap                  → Just            ["clap", "hand"]
->       ElectricSnare             → Just            ["electric", "snare", "drum"]
->       LowFloorTom               → Just            ["tom", "low", "floor"]
->       ClosedHiHat               → Just            ["hihat", "closed"]
+>       ElectricSnare             → Just            ["snare", "elec", "drum"]
+>       LowFloorTom               → Just            ["tom", "floor", "low"]
+>       ClosedHiHat               → Just            ["hihat", "close"]
 >       HighFloorTom              → Just            ["tom", "high", "floor"]
 >       PedalHiHat                → Just            ["hihat", "pedal"]
 >       LowTom                    → Just            ["tom", "low"]
 >       OpenHiHat                 → Just            ["hihat", "open"]
 >       LowMidTom                 → Just            ["tom", "mid", "low"]
->       HiMidTom                  → Just            ["tom", "mid", "high"]
+>       HiMidTom                  → Just            ["tom", "high", "mid"]
 >       CrashCymbal1              → Just            ["crash", "cymbal", "1"]
 >       HighTom                   → Just            ["tom", "high"]
 >       RideCymbal1               → Just            ["cymbal", "ride", "1"]
@@ -658,14 +697,14 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       CrashCymbal2              → Just            ["crash", "cymbal", "2"]
 >       Vibraslap                 → Just            ["vibraslap"]
 >       RideCymbal2               → Just            ["cymbal", "ride", "2"]
->       HiBongo                   → Just            ["bongo", "high"]
+>       HiBongo                   → Just            ["bongo", "hi"]
 >       LowBongo                  → Just            ["bongo", "low"]
->       MuteHiConga               → Just            ["conga", "mute", "high"]
->       OpenHiConga               → Just            ["conga", "open", "high"]
+>       MuteHiConga               → Just            ["conga", "mute", "hi"]
+>       OpenHiConga               → Just            ["conga", "open", "hi"]
 >       LowConga                  → Just            ["conga", "low"]
->       HighTimbale               → Just            ["timbale", "high"]
+>       HighTimbale               → Just            ["timbale", "hi"]
 >       LowTimbale                → Just            ["timbale", "low"]
->       HighAgogo                 → Just            ["agogo", "high"]
+>       HighAgogo                 → Just            ["agogo", "hi"]
 >       LowAgogo                  → Just            ["agogo", "low"]
 >       Cabasa                    → Just            ["cabasa"]
 >       Maracas                   → Just            ["maracas"]
@@ -674,130 +713,63 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       ShortGuiro                → Just            ["guiro", "short"]
 >       LongGuiro                 → Just            ["guiro", "long"]
 >       Claves                    → Just            ["claves"]
->       HiWoodBlock               → Just            ["woodblock", "high"]
+>       HiWoodBlock               → Just            ["woodblock", "hi"]
 >       LowWoodBlock              → Just            ["woodblock", "low"]
 >       MuteCuica                 → Just            ["cuica", "mute"]
 >       OpenCuica                 → Just            ["cuica", "open"]
 >       MuteTriangle              → Just            ["triangle", "mute"]
 >       OpenTriangle              → Just            ["triangle", "open"]
 >
-> quickFFTest            :: String → [String] → [Maybe FF.Alignment]
-> quickFFTest inp = map (`FF.bestMatch` inp)
+> adhocFuzz              :: String → [String] → [Maybe FF.Alignment]
+> adhocFuzz inp                            = map (`FF.bestMatch` inp)
 >
-> evalPick               :: forall a. (Ord a, Show a) ⇒ Maybe (a, Double) → Double
-> evalPick Nothing = 0
-> evalPick (Just (playable, x)) = x
->
-> findMatchingA          :: forall a. (Ord a, Show a, GMPlayable a) ⇒
->                           String
->                           → Maybe (a, Double)
-> findMatchingA inp
->   | traceIf msg False                    = undefined
->   | otherwise                            = chooseWinner asScored
+
+handle "matching as" cache misses =====================================================================================
+
+> computeMatchingAs      :: ∀ a. (GMPlayable a) ⇒ String → [(a, (String, Fuzz))]
+> computeMatchingAs inp                    = sortOn (Down . snd) asScored
 >   where
->     asList              :: [a]           = getList
->     
->     asLooks = mapMaybe (eval1 getFFKeys) asList
+>     -- weed out candidates with no fuzzy keys
+>     asLooks            :: [(a, [String])]
+>                                          = mapMaybe eval1 getList
 >
->     eval1              :: forall a. (Ord a, Show a) ⇒ (a → Maybe [String]) → a → Maybe (a, [String])
->     eval1 lookupKeys item                = mr
->       where
->         mffk           :: Maybe [String] = lookupKeys item
->         mr             :: Maybe (a, [String])
->         mr
->          | isNothing mffk                = Nothing
->          | otherwise                     = Just (item, fromJust mffk) 
+>     eval1              :: a → Maybe (a, [String])
+>     eval1 kind                           = Just . (kind,) =<< getFFKeys kind
 >
->     asScored = mapMaybe eval2 asLooks
+>     -- weed out candidates with no fuzzy key matches
+>     asScored           :: [(a, (String, Fuzz))]
+>                                          = mapMaybe (computeEvalAgainstKeys inp) asLooks
 >
->     eval2              :: forall a. (Ord a, Show a) ⇒ (a, [String]) → Maybe (a, Double)
->     eval2 (iname, keys)                  = ms
->       where
->         lFactor        :: Double         = sqrt $ fromIntegral $ length keys
->         weights        :: [Double]       = [1.5 / lFactor
+> computeEvalAgainstKeys :: ∀ a. (GMPlayable a) ⇒ String → (a, [String]) → Maybe (a, (String, Double))
+> computeEvalAgainstKeys inp (kind, keys)  = if tot <= 0 then Nothing else Just (kind, (inp, tot))
+>   where
+>     lFactor        :: Double             = sqrt $ fromIntegral $ length keys
+>     weights        :: [Double]           = [1.6 / lFactor
 >                                           , 1.4 / lFactor
->                                           , 1.3 / lFactor
->                                           , 1.2 / lFactor
->                                           , 1.1 / lFactor]
->         withWeights    :: [(String, Double)]
->                                          = zip keys weights
->         pieces         :: [Double]       = map eval3 withWeights
->         tot            :: Double         = sum pieces
->         ms             :: Maybe (a, Double)
->           | tot <= 0                     = Nothing
->           | otherwise                    = Just (iname, tot)
+>                                           , 1.25 / lFactor
+>                                           , 1.17 / lFactor
+>                                           , 1.14 / lFactor]
+>     tot            :: Double             = sum $ zipWith evalAgainstOne keys weights
 >
->     eval3              :: (String, Double) → Double
->     eval3 (key, weight)
->       | traceNever msg False = undefined
->       | otherwise                            = piece
->       where
->         malign = FF.bestMatch key inp
->         piece  = maybe 0 ((* weight) . fromIntegral . FF.score) malign
->         msg = unwords ["eval3", show key, show weight, " and piece=", show piece]
+>     evalAgainstOne     :: String → Double → Double
+>     evalAgainstOne key weight            = maybe 0 ((* weight) . fromIntegral . FF.score) (FF.bestMatch key inp)
 >
->     chooseWinner       :: [(a, Double)] → Maybe (a, Double)
->     chooseWinner scores
->       | null scores                     = Nothing
->       | otherwise                       = Just winner 
->       where
->         winner         :: (a, Double)   = maximumBy eval4 scores
+
+use "matching as" cache ===============================================================================================
+
+> getEvalAgainstKind     :: ∀ a. (GMPlayable a, Eq a) ⇒ a → [(a, (String, Fuzz))] → Fuzz
+> getEvalAgainstKind kind mas              = maybe 0 snd (lookup kind mas)
+>   
+> bestQualifying         :: ∀ a. (GMPlayable a) ⇒ [(a, (String, Fuzz))] → Double → Maybe (a, (String, Fuzz))
+> bestQualifying mas thresh
+>   | null mas                             = Nothing
+>   | (snd . snd . head) mas < thresh      = Nothing
+>   | otherwise                            = Just (head mas)
 >
->     eval4              :: (a, Double) → (a, Double) → Ordering
->     eval4 (_, s1) (_, s2)                = compare s1 s2
->
->     msg = unwords ["findMatchingA", show inp] -- , "\n", show result]
->
-> findMatchingAExcludingB:: forall a b. (Ord a, Show a, GMPlayable a, Ord b, Show b, GMPlayable b) ⇒
->                           Maybe (a, Double) → Maybe (b, Double) → Double → Maybe (a, Double)
-> findMatchingAExcludingB ma mb thresh =
->   let
->     ascore = evalPick ma
->     bscore = evalPick mb
->   in
->     if ascore > thresh && ascore >= bscore
->     then ma
->     else Nothing
->     
-> findMatchingInstrument :: String → Double → Maybe (InstrumentName, Double)
-> findMatchingInstrument inp thresh =
->   let
->     ma                 :: Maybe (InstrumentName, Double)
->                                          = findMatchingA inp
->     mb                 :: Maybe (PercussionSound, Double)
->                                          = findMatchingA inp
->   in
->     findMatchingAExcludingB ma mb thresh
->
-> findMatchingPercussion :: String → Double → Maybe (PercussionSound, Double)
-> findMatchingPercussion inp thresh =
->   let
->     ma                 :: Maybe (PercussionSound, Double)
->                                          = findMatchingA inp
->     mb                 :: Maybe (InstrumentName, Double)
->                                          = findMatchingA inp
->   in
->     findMatchingAExcludingB ma mb thresh
->
-> wink                  :: forall a. (GMPlayable a) ⇒ String → Maybe (a, Double) → Maybe (a, String)
-> wink inp                                 = maybe Nothing (wink' inp)
->
-> wink'                 :: forall a. (GMPlayable a) ⇒ String → (a, Double) → Maybe (a, String)
-> wink' inp (iname, _)                     = Just (iname, inp)
->
->
-> findMatchingInstrument' :: String → Double → Maybe (InstrumentName, String)
-> findMatchingInstrument' inp thresh = wink inp ma
->   where
->     ma                 :: Maybe (InstrumentName, Double)
->                                          = findMatchingInstrument inp thresh
->
-> findMatchingPercussion' :: String → Double → Maybe (PercussionSound, String)
-> findMatchingPercussion' inp thresh = wink inp ma
->   where
->     ma                 :: Maybe (PercussionSound, Double)
->                                          = findMatchingPercussion inp thresh
->
+> data BothMatchingAs =
+>   BothMatchingAs {
+>     instAs             :: [(InstrumentName, (String, Fuzz))]
+>   , percAs             :: [(PercussionSound, (String, Fuzz))]} deriving Show
 
 tournament among instruments in various soundfont files ===============================================================
 
@@ -886,68 +858,127 @@ snippets to be used with "lake" ================================================
 music converter =======================================================================================================
 
 > aggrandize             :: Music (Pitch, Volume) → Music (Pitch, [NoteAttribute])
-> aggrandize (Prim (Note d (p, v))) =
->        Prim (Note d (p, [Volume v]))
-> aggrandize (Prim (Rest d)) =
->        Prim (Rest d)
-> aggrandize (m1 :+: m2)            =
->        aggrandize m1 :+: aggrandize m2
-> aggrandize (m1 :=: m2)            =
->        aggrandize m1 :=: aggrandize m2
-> aggrandize (Modify c m)  = Modify c (aggrandize m)
+> aggrandize (Prim (Note d (p, v)))        = Prim (Note d (p, [Volume v]))
+> aggrandize (Prim (Rest d))               = Prim (Rest d)
+> aggrandize (m1 :+: m2)                   = aggrandize m1 :+: aggrandize m2
+> aggrandize (m1 :=: m2)                   = aggrandize m1 :=: aggrandize m2
+> aggrandize (Modify c m)                  = Modify c (aggrandize m)
+>
+> linten                 :: Music (Pitch, [NoteAttribute]) → [String]
+> linten                                   = mFold f (++) (++) h
+>   where
+>     f (Note _ (_, na))                   = concatMap g na
+>     f _                                  = []
+>     g (Volume v)                         = [show v | v < 0]
+>     g _                                  = []
+>     h (Phrase pa) ss                     = ss ++ concatMap j pa
+>     h _ ss                               = ss
+>     j (Dyn dyn)                          = [show dyn]
+>     j _                                  = []
 
-Wave ==================================================================================================================
+Sampling ==============================================================================================================
 
+> type SampleAnalysis    = Double
+>
+> toSamples :: ∀ a p. (AudioSample a, Clock p) => Double → Signal p () a → [Double]
+> toSamples dur sf
+>   | traceIf msg False                    = undefined
+>   | otherwise                            = take numSamples $ concatMap collapse $ unfold $ strip sf
+>   where
+>     sr                                   = rate     (undefined :: p)
+>     numChannels                          = numChans (undefined :: a)
+>     numSamples                           = truncate (dur * sr) * numChannels
+>
+>     msg = unwords ["toSamples   dur= " ++ show dur
+>                             ++ " sr= " ++ show sr
+>                             ++ " ch= " ++ show numChannels
+>                             ++ " ns= " ++ show numSamples]
+>
+> maxSample :: ∀ a p. (AudioSample a, Clock p) => Double -> Signal p () a -> Double
+> maxSample dur sf = maximum (map abs (toSamples dur sf))
+>
+> sineTable :: Table
+> sineTable = tableSinesN 4096 [1]
+>
+> sineTable441 :: Table
+> sineTable441 = tableSinesN 100 [1]
+>
 > class AudioSample a ⇒ WaveAudioSample a where
->   retrieve :: UArray Int Int32 → Int → a
+>   retrieve             :: UArray Int Int32 → Int → a
 >
 > instance WaveAudioSample Double where
->   retrieve :: UArray Int Int32 → Int → Double
->   retrieve sData idx = fromIntegral (sData ! idx)
+>   retrieve             :: UArray Int Int32 → Int → Double
+>   retrieve sData idx                     = fromIntegral (sData ! idx)
 >
 > instance WaveAudioSample (Double,Double) where
->   retrieve :: UArray Int Int32 → Int → (Double, Double)
->   retrieve sData idx = (fromIntegral (sData ! idx), fromIntegral (sData ! (idx + 1)))
+>   retrieve             :: UArray Int Int32 → Int → (Double, Double)
+>   retrieve sData idx                     = (fromIntegral (sData ! idx), fromIntegral (sData ! (idx + 1)))
 >
 > data SlwRate
 > instance Clock SlwRate where
 >   rate _ = 4.41
 > type SlwSF a b  = SigFun SlwRate a b
-
-Histogram ==============================================================================================================
-
-> numIN = (fromEnum Gunshot - fromEnum AcousticGrandPiano) + 1
-> numPS = (fromEnum OpenTriangle - fromEnum AcousticBassDrum) + 1
 >
-> type Histogram = Array Int Int
+> sumUpFft               :: [[Double]] → Double
+> sumUpFft xs                              =
+>   let
+>     (t, l)                               = foldl' (summer (qqNumTakeFftChunks defC)) (0,0) xs
+>   in t/l
 >
-> zeroHistogram           :: Int → Histogram
-> zeroHistogram n = listArray (0, n-1) (replicate n 0)
->
-> zeroHistogramI          :: Histogram
-> zeroHistogramI = zeroHistogram numIN
->
-> zeroHistogramP          :: Histogram
-> zeroHistogramP = zeroHistogram numPS
->
-> combineHistograms      :: Histogram → Histogram → Histogram
-> combineHistograms h1 h2 = accumArray (+) 0 (e, f) (assocs h1 ++ assocs h2)
+> summer                 :: Int → (Double, Double) → [Double] → (Double, Double)
+> summer n (t, l) xs                   = (t', l')
 >   where
->     (a, b) = bounds h1
->     (c, d) = bounds h2
->     n = 1 + max b d
->     (e, f)
->       | a /= 0 || c /= 0 = error "Histograms must be zero-based"
->       | b /= d           = error "Histograms being combined must have same dimension"
->       | otherwise        = (0, n - 1)
+>     n' = min n (length xs)
+>     t' = t + sum (take n' xs)
+>     l' = l + fromIntegral n'
+>
+> showFft                :: Int → [[Double]] → String
+> showFft nChunks vFft                     = concatMap (showChunk vFft) [0..]
+>   where
+>     showChunk          :: [[Double]] → Int → String
+>     showChunk vFft ix                    = show ix ++ ">" ++ show (vFft !! ix) ++ "\n"
+>
+> delay' :: forall p . Clock p => Signal p (Double, Double) Double
+> delay' =
+>     proc (x, _) -> do
+>       y <- delay 0 -< x  
+>       outA -< y
 
 Conversion functions and general helpers ==============================================================================
 
+> checkForNan            :: Double → String → Double
+> checkForNan y msg                        = profess
+>                                              (not $ isNaN y || isInfinite y)
+>                                              ("NaN " ++ msg)
+>                                              y
+>
+> profess                :: Bool → String → a → a
+> profess assertion msg something          = if not assertion
+>                                              then error ("profess error " ++ msg)
+>                                              else something
+>                                            
+> sumOfMaybeInts         :: [Maybe Int] → Int
+> sumOfMaybeInts                           = foldr ((+).fromMaybe 0) 0
+>       
+> addIntToWord           :: Word → Int → Word
+> addIntToWord w i                         = fromIntegral sum
+>   where
+>     iw                 :: Int            = fromIntegral w
+>     sum                :: Int            = iw + i
+>
 > wrap :: (Ord n, Num n) ⇒ n → n → n
 > wrap val bound = if val > bound then wrap val (val-bound) else val
-
-> clip :: Ord n ⇒ n → n → n → n
-> clip val lower upper 
+>
+> safeAt                 :: Show a ⇒ Array Word a → Word → a
+> safeAt v i                               = profess
+>                                              (i >= imin && i <= imax)
+>                                              ("safeAt " ++ show i)
+>                                              (v ! i)
+>   where
+>     (imin, imax)                         = bounds v
+>
+> clip :: Ord n ⇒ (n, n) → n → n
+> clip (lower, upper) val
 >     | val <= lower = lower
 >     | val >= upper = upper
 >     | otherwise    = val
@@ -972,31 +1003,189 @@ Takes care of characters that need quoting like '"'
 >                 '\"'   → "\\\""
 >                 _      → [c]
 
+> unquoteCodeString      :: String → String
+> unquoteCodeString                        = concatMap unquote
+>   where
+>     unquote            :: Char → String
+>     unquote c = case c of
+>                 '\\'   → ""
+>                 _      → [c]
+
 Returns the amplitude ratio
 
 > fromCentibels          :: Maybe Int → Double
-> fromCentibels mcents                     = 10**(fromIntegral (fromMaybe 0 mcents)/100)
+> fromCentibels mcentibels                 = fromCentibels' $ fromIntegral (fromMaybe 0 mcentibels)
+
+> fromCentibels'         :: Double → Double
+> fromCentibels' centibels                 = 10**(centibels/100)
 
 Returns the elapsed time in seconds
 
 > fromTimecents          :: Maybe Int → Double
-> fromTimecents mcents                     = 2**(fromIntegral (fromMaybe (-12000) mcents)/1200)
+> fromTimecents mtimecents                 = 2**(fromIntegral (fromMaybe (-12000) mtimecents)/1200)
 
 Returns the attenuation (based on input 10ths of a percent)
 
 > fromTithe              :: Maybe Int → Double
-> fromTithe iS                             = 1 / pow 10 (fromIntegral jS/200)
+> fromTithe iS                             = 1 / pow 10 (jS/200)
 >   where
->     jS = clip (fromMaybe 0 iS) 0 1000
+>     jS                 :: Double         = maybe 0 (clip (0, 1000) . fromIntegral) iS
 
 Returns the frequency ratio
 
-> fromCents              :: Int → Double
-> fromCents cents                          = 2**(fromIntegral cents/12/100)
+> fromCents              :: Double → Double
+> fromCents cents                          = 2**(cents/12/100)
 >
 > fromCents'             :: Maybe Int → Maybe Int → Maybe Double
 > fromCents' mcoarse mfine
 >   | isNothing mcoarse && isNothing mfine = Nothing
->   | otherwise                            = Just $ fromCents cents
+>   | otherwise                            = Just $ fromCents $ coarse * 100 + fine
 >   where
->     cents = fromMaybe 0 mcoarse * 100 + fromMaybe 0 mfine
+>     coarse = maybe 0 fromIntegral mcoarse
+>     fine   = maybe 0 fromIntegral mfine
+
+Returns the frequency
+
+> fromAbsoluteCents      :: Int → Double
+> fromAbsoluteCents cents                  = 2^fac * absoluteCentTable ! rem
+>   where
+>     icents             :: Int            = clip (1500, 13500) cents + 300
+>     fac                                  = icents `div` 1200
+>     rem                                  = icents `mod` 1200
+>
+>     absoluteCentTable  :: Array Int Double
+>                                          = listArray (0, 1199) (map calcTableValue [0..1199])
+>     calcTableValue     :: Int → Double
+>     calcTableValue i                     = 6.875 * pow 2.0 (fromIntegral i / 1200.0)
+
+Returns amplitude based on sample point
+
+> compute24              :: Int16 → Word8 → Double
+> compute24 i16 w8                         = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 8388608.0
+>   where
+>     f8to32             :: Word8 → Int32  = fromIntegral
+>     f16to32            :: Int16 → Int32  = fromIntegral
+>      
+> compute16              :: Int16 → Double
+> compute16 i16                            = fromIntegral i16 / 32768.0
+>
+> lookupSamplePoint      :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Int → Double
+> lookupSamplePoint s16 ms8 ix             = compute24 (s16 ! ix) (fromIntegral (maybe 0 (! ix) ms8))
+
+Emission capability ===================================================================================================
+
+> data Emission =
+>   ToFieldL String Int
+>   | ToFieldR String Int
+>   | Unblocked String
+>   | Blanks Int
+>   | Empty 
+>   | EndOfLine deriving Show
+>
+> makeString             :: Emission → String
+> makeString e                             = case e of
+>                                            ToFieldL str sz         → fillFieldL str sz
+>                                            ToFieldR str sz         → fillFieldR str sz
+>                                            Unblocked str           → str
+>                                            Blanks sz               → replicate sz ' '
+>                                            Empty                   → ""
+>                                            EndOfLine               → "\n"
+>
+> emitLine               :: [Emission] → [Emission]
+> emitLine es                              = [literate] ++ es ++ [EndOfLine]
+>
+> literate               :: Emission       = ToFieldL ">" 2
+>
+> commaOrNot             :: Int → Emission
+> commaOrNot nth                           = if nth == 0
+>                                              then ToFieldL ""  2
+>                                              else ToFieldL "," 2
+>
+> parens                 :: [Emission] → [Emission]
+> parens es                                = [Unblocked "("] ++ es ++ [Unblocked ")"]
+>
+> bracks                 :: [Emission] → [Emission]
+> bracks es                                = [Unblocked "["] ++ es ++ [Unblocked "]"]
+>
+> comma                  :: Emission       = Unblocked ", "
+>
+> emitComment            :: [Emission] → [Emission]
+> emitComment es                           = [EndOfLine] ++ es ++ [EndOfLine, EndOfLine]
+>
+> emitNextComment        :: [Emission] → [Emission]
+> emitNextComment es                       = es ++ [EndOfLine, EndOfLine]
+>
+> emitShowL              :: ∀ a. (Show a) ⇒ a → Int → Emission
+> emitShowL a                              = ToFieldL (show a)
+>
+> emitShowR              :: ∀ a. (Show a) ⇒ a → Int → Emission
+> emitShowR a                              = ToFieldR (show a)
+>
+> emitDefault            :: ∀ a. (Show a) ⇒ a → Emission
+> emitDefault a                            = Unblocked (show a)
+>
+> gmId                   :: ∀ a. (Show a) ⇒ a → Emission
+> gmId i                                   = emitShowL i 22
+>
+> gmName                 :: String → Emission
+> gmName str                               = emitShowL str 22
+>
+> reapEmissions          :: [Emission] → String
+> reapEmissions es                         = concat $ foldl' reapItem [""] es
+>
+> reapItem               :: [String] → Emission → [String]
+> reapItem outP e                          = init outP ++ [last outP ++ makeString e]
+>
+> fillFieldL             :: String → Int → String
+> fillFieldL str fieldSz                   = str ++ safeReplicate (length str) fieldSz ' '
+>
+> fillFieldR             :: String → Int → String
+> fillFieldR str fieldSz                   = safeReplicate (length str) fieldSz ' ' ++ str
+>
+> safeReplicate          :: Int → Int → Char → String
+> safeReplicate sz maxSz                   = profess
+>                                              (sz <= maxSz)
+>                                              ("safeReplicate " ++ show sz ++ " " ++ show maxSz) 
+>                                              (replicate (maxSz - sz))
+>
+> emitTaggedLine         :: String → String → String → [Emission]
+> emitTaggedLine prolog item epilog        = emitLine [Unblocked prolog, Unblocked item, Unblocked epilog]
+>
+> emitPragmaLine         ::  String → [Emission]
+> emitPragmaLine lang                      = emitTaggedLine "{-# LANGUAGE " lang " #-}"
+>
+> emitModuleLine         ::  String → [Emission]
+> emitModuleLine mod                       = emitTaggedLine "module " mod " where"
+>
+> emitImportLine         ::  String → [Emission]
+> emitImportLine imp                       = emitTaggedLine "import " imp ""
+>
+> writeFileBySections    :: FilePath → [[Emission]] → IO ()
+> writeFileBySections fp sections = do
+>   mapM_ appendSection sections
+>   where
+>     appendSection      :: [Emission] → IO ()
+>     appendSection section                = appendFile fp (reapEmissions section)
+
+Configurable parameters ===============================================================================================
+
+> diagnosticsEnabled                       = qqDiagnosticsEnabled         defC 
+> skipReporting                            = qqSkipReporting              defC 
+> skipGlissandi                            = qqSkipGlissandi              defC
+>
+> data ControlSettings =
+>   ControlSettings {
+>     qqDiagnosticsEnabled                 :: Bool
+>   , qqSkipReporting                      :: Bool
+>   , qqSkipGlissandi                      :: Bool
+>   , qqDumpFftChunks                      :: Bool
+>   , qqNumTakeFftChunks                   :: Int} deriving (Eq, Show)
+>
+> defC                   :: ControlSettings
+> defC =
+>   ControlSettings {
+>     qqDiagnosticsEnabled                 = False
+>   , qqSkipReporting                      = False
+>   , qqSkipGlissandi                      = False
+>   , qqDumpFftChunks                      = False
+>   , qqNumTakeFftChunks                   = 3}

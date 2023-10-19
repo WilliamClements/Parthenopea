@@ -15,21 +15,25 @@ Chart ==========================================================================
 > import Control.Applicative.Alternative
 > import Control.Arrow
 > import Control.Lens
+> import Covers
 > import Data.Array
 > import Data.Char
+> import qualified Data.Bifunctor          as BF
 > import Data.Colour
 > import Data.Colour.Names
 > import Data.Default.Class
 > import Data.Int
 > import Data.List
+> import Data.Maybe
 > import Data.Word
-> -- import Euterpea
+> import Euterpea
 > import Graphics.Rendering.Chart
 > import Graphics.Rendering.Chart.Backend
 > import Graphics.Rendering.Chart.Backend.Diagrams
 > import HSoM
 > -- import -- KnightsTour
 > import Parthenopea
+> import Percussion
 > import Synthesizer
 > import qualified Text.FuzzyFind as T
 > import System.Environment(getArgs)
@@ -78,18 +82,18 @@ Chart ==========================================================================
 >   putStrLn ("z=" ++ show z)
 >   return ()
 >
-> newtype Parser a = P (String → [(a, String)])
+> newtype Parser a = Ped (String → [(a, String)])
 >
 > parse :: Parser a → String → [(a, String)]
-> parse (P p) = p
+> parse (Ped p) = p
 >
 > item :: Parser Char
-> item = P (\case
+> item = Ped (\case
 >              []        → []
 >              (x : xs)  → [(x, xs)])
 >
 > instance Functor Parser where
->   fmap g p = P (\inp → case parse p inp of
+>   fmap g p = Ped (\inp → case parse p inp of
 >                          [] → []
 >                          [(v, out)] → [(g v, out)])
 >
@@ -119,13 +123,13 @@ Chart ==========================================================================
 > -}
 >
 > instance Monad Parser where
->   p >>= f = P (\inp → case parse p inp of
+>   p >>= f = Ped (\inp → case parse p inp of
 >                        [] → []
 >                        [(v, out)] → parse (f v) out)
 >
 > instance Alternative Parser where
->   empty = P (const [])
->   p <|> q = P (\inp → case parse p inp of
+>   empty = Ped (const [])
+>   p <|> q = Ped (\inp → case parse p inp of
 >                        [] → parse q inp
 >                        [(v, out)] → [(v, out)])
 >
@@ -147,9 +151,9 @@ Chart ==========================================================================
 >     -- <|> nat
 >     
 > instance Applicative Parser where
->   pure v = P (\inp → [(v, inp)])
+>   pure v = Ped (\inp → [(v, inp)])
 >
->   pg <*> px = P (\inp → case parse pg inp of
+>   pg <*> px = Ped (\inp → case parse pg inp of
 >                          [] → []
 >                          [(g, out)] → parse (fmap g px) out)
 >
@@ -222,3 +226,62 @@ Chart ==========================================================================
 >     isos r = case r of
 >               T.Gap s → s
 >               T.Match s → s
+>
+> type Si = (Int, [(String, Int)])
+>
+> foo                    :: Int → [(String, [String])]
+> foo n                                    =
+>   let
+>     isOddLength        :: String → Maybe Int
+>     isOddLength s                        = if length s `mod` 2 == 1
+>                                              then Just $ length s
+>                                              else Nothing
+>     hoop               :: [Si]
+>     hoop                                 = [(101, [("gh",3),("h",5),("i",7)]), (103, [("m", 11),("nnn",13)] )]
+>
+>     words                                = map (BF.second (map snd)) hoop
+>     idents                               = map (BF.bimap show (map show)) words
+>     matched                              = map (BF.second (mapMaybe isOddLength)) idents
+>   in
+>     idents
+>
+> class Hankable a where
+>   getFFKeys            :: a → Maybe [String]
+>   getList              :: [a]
+>
+> instance Hankable InstrumentName where
+>   getFFKeys = instrumentFFKeys
+>   getList = map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>
+> instance Hankable PercussionSound where
+>   getFFKeys = percussionFFKeys
+>   getList = map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
+> 
+> primes :: (Integral a) => [a]
+> primes = 2 : 3 : ([5,7..] `minus`
+>                      foldr (\(x:xs) -> (x:) . union xs) []
+>                           [[p*p, p*p+2*p..] | p <- tail primes])
+>
+>  -- ordered lists, difference and union
+> minus (x:xs) (y:ys) = case (compare x y) of 
+>            LT -> x : minus  xs  (y:ys)
+>            EQ ->     minus  xs     ys 
+>            GT ->     minus (x:xs)  ys
+> minus  xs     _     = xs
+>
+> {-
+> union (x:xs) (y:ys) = case (compare x y) of 
+>            LT -> x : union  xs  (y:ys)
+>            EQ -> x : union  xs     ys 
+>            GT -> y : union (x:xs)  ys
+> union  xs     []    = xs
+> union  []     ys    = ys
+> -}
+
+> m1 >=> m2 = \x ->
+>   let (y, s1) = m1 x
+>       (z, s2) = m2 y
+>    in (z, s1 ++ s2)
+>
+> mmm1 n = (-n, "foody")
+> mmm2 n = (n+1, "goofy")

@@ -9,3 +9,9 @@ regex-base/
 *.mp3
 *.hi
 *.o
+*.exe
+*.mid
+*.json
+*.wav
+*.autosave
+.mscbackup/

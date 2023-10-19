@@ -93,9 +93,6 @@ re-implement part of FRP.UISF.Asynchrony because not exported
 >    outA ⤙ count
 > -}
 >
-> sineTable441 :: Table
-> sineTable441 = tableSinesN 100 [1]
-
 > s441 :: AudSF () Double
 > s441 = proc () → do
 >          rec s ← delayLineT 100 sineTable441 ⤙ s
@@ -129,9 +126,6 @@ re-implement part of FRP.UISF.Asynchrony because not exported
 > tModVib :: IO ()
 > tModVib = outFile "modvib.wav" 6 $
 >                   constA 220 >>> osc sineTable 0 >>> modVib 9 0.001
-
-> sineTable :: Table
-> sineTable = tableSinesN 4096 [1]
 
 > flute ::  Time → Double → Double → Double → Double 
 >           → AudSF () Double
@@ -335,8 +329,7 @@ runGraph =======================================================================
 >          m3 = m1 + m2
 >          x3 = listArray (0,m3)
 >                 [
->                    sum [ x1 ! k * x2 ! (n-k) | k ← [max 0 (n-m2)..min n m1] ]
->                        | n ← [0..m3]
+>                    sum [ x1 ! k * x2 ! (n-k) | k ← [max 0 (n-m2)..min n m1] ] | n ← [0..m3]
 >                 ]
 >
 > linspace :: Double → Double → Int → [Double]

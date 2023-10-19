@@ -353,7 +353,7 @@ Shelby Parsley =================================================================
 >   $ tempo 1
 >   $ transpose 0
 >   $ keysig Ef Mixolydian
->   $ addVolume 100
+>   $ addVolume 80
 >   $ if skip_SP then rest 0
 >                 else
 >     (instrument Vibraphone
