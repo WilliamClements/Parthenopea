@@ -332,11 +332,11 @@ new route ======================================================================
 >     putStrLn ("___load files: " ++ show (diffUTCTime tsLoaded tsStarted))
 >
 >     -- track the complete populations of: samples, instruments, percussion
->     presks             ← formMasterSampleList (zFiles preRoster)
->     pergmsI            ← formMasterInstList   (zFiles preRoster)
+>     presks             ← formMasterSampleList preRoster
+>     pergmsI            ← formMasterInstList   preRoster
 >
->     let preRoster'  = preRoster  {  zPreSampleCache = formPreSampleCache (zFiles preRoster) presks
->                                   , zPreInstCache   = formPreInstCache   (zFiles preRoster) pergmsI}
+>     let preRoster'  = preRoster  {  zPreSampleCache = formPreSampleCache preRoster presks
+>                                   , zPreInstCache   = formPreInstCache   preRoster pergmsI}
 >     let preRoster'' = preRoster' {  zZoneCache = formZoneCache preRoster' pergmsI}
 >
 >     tsZoned            ← getCurrentTime
@@ -345,9 +345,7 @@ new route ======================================================================
 >     -- filter master lists down to appropriate candidates
 >     let filteredI =  filter (flavor InstCatInst (zZoneCache preRoster'')) pergmsI
 >     let filteredIP = filter (flavor InstCatPerc (zZoneCache preRoster'')) pergmsI
->     pergmsP            ← formMasterPercussionList filteredIP
->                                                   (zPreSampleCache preRoster'')
->                                                   (zZoneCache      preRoster'')
+>     pergmsP            ← formMasterPercussionList preRoster'' filteredIP
 >     let pergmsI' = filteredI
 >     let pergmsP' = pergmsP
 >
@@ -432,7 +430,7 @@ new route ======================================================================
 >         mk             :: Maybe (InstrumentName, (String, Double))
 >                                          = bestQualifying (matchingAs isBmas) stands
 >         kind                             = (fst . fromJust) mk
->         aresult                          = xaEnterTournament zFiles zZoneCache isBmas pergm kind [] wip
+>         aresult                          = xaEnterTournament sfrost isBmas pergm kind [] wip
 >     
 >     wpFolder           :: (Map.Map PercussionSound [PerGMScored], [String])
 >                           → PerGMKey
@@ -448,7 +446,7 @@ new route ======================================================================
 >         preS@PreSample{psBmas}           = getPreSampleFromCache zPreSampleCache pergm
 >         mkind          :: Maybe PercussionSound
 >                                          = mpWordZ pergm >>= lookupZone pZonePairs >>= getAP >>= pitchToPerc
->         aresult                          = xaEnterTournament zFiles zZoneCache psBmas pergm (fromJust mkind) [] wip
+>         aresult                          = xaEnterTournament sfrost psBmas pergm (fromJust mkind) [] wip
 >
 >         lookupZone     :: [(ZoneHeader, SFZone)] → Word → Maybe SFZone
 >         lookupZone zs wZ                 = lookup wZ (map (BF.first pwZone) zs)
@@ -459,9 +457,10 @@ new route ======================================================================
 >     finalize           :: Map.Map a [PerGMScored] → Map.Map a [PerGMScored]
 >     finalize                             = Map.map (sortOn (Down . pScore . pArtifactGrade))
 >
-> formMasterSampleList   :: Array Word SFFile → IO [PreSampleKey]
-> formMasterSampleList vFile               = do
->   return $ concatMap formFS vFile
+> formMasterSampleList   :: SFRoster → IO [PreSampleKey]
+> formMasterSampleList sfrost@SFRoster{zFiles}
+>                                          = do
+>   return $ concatMap formFS zFiles
 >   where
 >     formFS                 :: SFFile → [PreSampleKey]
 >     formFS sffile = map (PreSampleKey (zWordF sffile)) [st..en - 1]
@@ -470,17 +469,19 @@ new route ======================================================================
 >         st             :: Word           = (fst . bounds) hdrs
 >         en             :: Word           = (snd . bounds) hdrs
 >   
-> formPreSampleCache     :: Array Word SFFile → [PreSampleKey] → PreSampleCache
-> formPreSampleCache vFile                 = foldl' smFolder Map.empty
+> formPreSampleCache     :: SFRoster → [PreSampleKey] → PreSampleCache
+> formPreSampleCache sfrost@SFRoster{zFiles}
+>                                          = foldl' smFolder Map.empty
 >   where
 >     smFolder           :: PreSampleCache → PreSampleKey → PreSampleCache
->     smFolder sm k                        = Map.insert k (computePreSample (vFile ! sWordF k) k) sm
+>     smFolder sm k@PreSampleKey{sWordF}   = Map.insert k (computePreSample (zFiles ! sWordF) k) sm
 >
-> formPreInstCache       :: Array Word SFFile → [PerGMKey] → PreInstCache
-> formPreInstCache vFile                   = foldl' imFolder Map.empty
+> formPreInstCache       :: SFRoster → [PerGMKey] → PreInstCache
+> formPreInstCache sfrost@SFRoster{zFiles}
+>                                          = foldl' imFolder Map.empty
 >   where
 >     imFolder           :: PreInstCache → PerGMKey → PreInstCache
->     imFolder im pergm                    = Map.insert pergm (computePreInstrument (vFile ! pWordF pergm) pergm) im
+>     imFolder im pergm                    = Map.insert pergm (computePreInstrument (zFiles ! pWordF pergm) pergm) im
 >
 > getPreSampleFromCache sc pergm           = fromMaybe (error $ "PreSample missing from cache: " ++ show pergm)
 >                                                      (Map.lookup (toPreSampleKey pergm) sc)
@@ -510,12 +511,11 @@ new route ======================================================================
 >     msg = unwords ["computePreSample ", show inp, " ", show k]
 >
 > computePreInstrument       :: SFFile → PerGMKey → PreInstrument
-> computePreInstrument sffile pergm
+> computePreInstrument sffile@SFFile{zArrays} pergm@PerGMKey{pWordI}
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = PreInstrument inp bmas
 >   where
->     arrays                               = zArrays sffile
->     iinst                                = ssInsts arrays ! pWordI pergm
+>     iinst                                = ssInsts zArrays ! pWordI
 >
 >     inp                                  = F.instName iinst    
 >     bmas                                 = BothMatchingAs (computeMatchingAs inp)
@@ -537,38 +537,37 @@ new route ======================================================================
 >                                                                    , " ",   show (bCrit1, bCrit2, bCrit3)
 >                                                                    , " = ", show bCrit]
 >
-> formMasterInstList
->                        :: Array Word SFFile → IO [PerGMKey]
-> formMasterInstList sffiles = do
->   return $ concatMap formFI sffiles
+> formMasterInstList     :: SFRoster → IO [PerGMKey]
+> formMasterInstList sfrost@SFRoster{zFiles}
+>                                          = do
+>   return $ concatMap formFI zFiles
 >
 > formFI                 :: SFFile → [PerGMKey]
-> formFI sffile = pergmsI
+> formFI sffile@SFFile{zArrays, zWordF}    = pergmsI
 >   where
->     arrays                               = zArrays sffile
->     wordF                                = zWordF sffile
->     boundsI                              = bounds (ssInsts arrays)
+>     boundsI                              = bounds (ssInsts zArrays)
 >     pergmsI                              = mapMaybe qualifyInst [fst boundsI..snd boundsI-1]
 >
 >     qualifyInst        :: Word → Maybe PerGMKey
 >     qualifyInst wordI
->       | (jbagi - ibagi) >= 2             = Just $ PerGMKey wordF wordI Nothing
+>       | (jbagi - ibagi) >= 2             = Just $ PerGMKey zWordF wordI Nothing
 >       | otherwise                        = Nothing
 >       where
->         iinst                            = ssInsts arrays ! wordI
->         jinst                            = ssInsts arrays ! (wordI+1)
+>         iinst                            = ssInsts zArrays ! wordI
+>         jinst                            = ssInsts zArrays ! (wordI+1)
 >         ibagi                            = F.instBagNdx iinst
 >         jbagi                            = F.instBagNdx jinst
 >
-> formMasterPercussionList        :: [PerGMKey] → PreSampleCache → ZoneCache → IO [PerGMKey]
-> formMasterPercussionList pergmsI sc zc = do
+> formMasterPercussionList        :: SFRoster → [PerGMKey] → IO [PerGMKey]
+> formMasterPercussionList sfrost@SFRoster{zFiles, zZoneCache, zPreSampleCache} pergmsI 
+>                                          = do
 >   let pergmsP = foldl' ffFolder [] pergmsI
 >   return pergmsP
 >   where
 >     ffFolder           :: [PerGMKey] → PerGMKey → [PerGMKey]
 >     ffFolder pergmsP pergmI              =
 >       let
->         perI = getPerInstrumentFromCache zc pergmI{mpWordZ = Nothing}
+>         perI = getPerInstrumentFromCache zZoneCache pergmI{mpWordZ = Nothing}
 >       in
 >         pergmsP ++ instrumentPercList pergmI perI 
 >
@@ -650,42 +649,41 @@ new route ======================================================================
 tournament among GM instruments and percussion from SoundFont files ===================================================
 
 > xaEnterTournament      :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
->                           Array Word SFFile
->                           → ZoneCache
+>                           SFRoster
 >                           → BothMatchingAs
 >                           → PerGMKey
 >                           → a
 >                           → [SSHint]
 >                           → (Map.Map a [PerGMScored], [String])
 >                           → (Map.Map a [PerGMScored], [String])
-> xaEnterTournament vFile zc bmas pergm kind hints (wix, ss)
+> xaEnterTournament sfrost@SFRoster{zFiles} bmas pergm kind hints (wix, ss)
 >                                          = (Map.insert kind now wix, ss)
 >   where
 >     soFar              :: [PerGMScored]  = fromMaybe [] (Map.lookup kind wix)
 >     now                :: [PerGMScored]  = pergm' : soFar
 >     akResult                             = getEvalAgainstKind kind (matchingAs bmas) 
->     grade                                = computeGrade vFile zc pergm kind hints akResult
+>
+>     grade                                = computeGrade sfrost pergm kind hints akResult
 >
 >     arrays             :: SoundFontArrays
->                                          = zArrays (vFile ! pWordF pergm)
+>                                          = zArrays (zFiles ! pWordF pergm)
 >     nameI                                = F.instName $ ssInsts arrays ! pWordI pergm
 >     mnameZ             :: Maybe String   = (\w → Just (F.sampleName (ssShdrs arrays ! w))) =<< mpWordZ pergm
 >     pergm'             :: PerGMScored    = PerGMScored grade (toKind kind) akResult pergm nameI mnameZ 
 >
 > computeGrade           :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
->                           Array Word SFFile
->                           → ZoneCache
+>                           SFRoster
 >                           → PerGMKey
 >                           → a
 >                           → [SSHint]
 >                           → AgainstKindResult
 >                           → ArtifactGrade
-> computeGrade vFile zc pergm kind hints againtKindResult
+> computeGrade sfrost@SFRoster{zFiles, zZoneCache} pergm kind hints againtKindResult
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = ArtifactGrade (sum weightedScores) baseScores
 >   where
 >     arrays             :: SoundFontArrays
->                                          = zArrays (vFile ! pWordF pergm)
+>                                          = zArrays (zFiles ! pWordF pergm)
 >     zs                                   = tail $ pZonePairs perI
 >     desires            :: [Desires]      = [qqDesireReStereo      defT
 >                                           , qqDesireRe24Bit       defT
@@ -719,7 +717,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                     , " and "         , show baseScores
 >                     , " X "           , show ssWeights
 >                     , " = "           , show weightedScores]
->     perI                                 = getPerInstrumentFromCache zc pergm{mpWordZ = Nothing}
+>     perI                                 = getPerInstrumentFromCache zZoneCache pergm{mpWordZ = Nothing}
 >
 > computeSplitCharacteristic  :: ∀ a. (SFScorable a, Ord a, Show a) ⇒
 >                                a
