@@ -37,14 +37,13 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL, reconR) sr dur pch vol params s16 ms8
+> eutSynthesize (reconL@Reconciled{rModulation = modsL}, reconR@Reconciled{rModulation = modsR})
+>               sr dur pch vol params s16 ms8
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = sig
 >   where
 >     (st, en)           :: (Word, Word)   = (rStart reconL, rEnd reconL)
 >     rk                 :: AbsPitch       = fromIntegral (rRootKey reconL)
->     (modsL, modsR)     :: (Modulation, Modulation)
->                                          = (rModulation reconL, rModulation reconR)
 >
 >     ns                 :: Double         = fromIntegral (en - st)
 >     secsSample         :: Double         = ns / sr
@@ -68,15 +67,6 @@ Signal function-based synth ====================================================
 >
 >     msg                                  = unwords ["eutSynthesize ", show (dur, pch, vol)]
 >
-> eutIgniteModSignals    :: ∀ p. Clock p ⇒ Modulation → Double → Signal p () ModSignals
-> eutIgniteModSignals mods@Modulation{mModEnv, mModLfo, mVibLfo} secsScored
->                                          =
->   proc _ → do
->     a1 ← doEnvelope  mModEnv  secsScored ⤙ ()
->     b1 ← doLFO       mModLfo             ⤙ ()
->     c1 ← doLFO       mVibLfo             ⤙ ()
->     outA ⤙ ModSignals a1 b1 c1
->
 > eutDriverNotLooping    :: ∀ p. Clock p ⇒ Double → Double → Modulation → Signal p ModSignals (Double, ModSignals)
 > eutDriverNotLooping iphs idelta mods@Modulation{toPitchSummary}
 >   | traceIf msg False = undefined
@@ -89,11 +79,21 @@ Signal function-based synth ====================================================
 >     outA ⤙ (phase, modSig)
 >   where
 >     modDelta           :: ModSignals → [Double] → Double
->     modDelta modSig fs                   = idelta / calculateVibFactor modSig fs
+>     modDelta modSig fs                   = idelta / calculateModFactor modSig fs
 >     msg                                  = unwords [  "eutDriverNotLooping iphs=", show iphs
 >                                                     , "idelta=", show idelta
 >                                                     , "\nmods=", show mods]
 >
+> normalizeLooping       :: Reconciled → (Double, Double)
+> normalizeLooping recon@Reconciled{rStart, rEnd, rLoopStart, rLoopEnd}
+>                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)
+>   where
+>     (fullst, fullen)   :: (Double, Double)
+>                                          = (fromIntegral rStart, fromIntegral rEnd)
+>     (loopst, loopen)   :: (Double, Double)
+>                                          = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
+>     denom              :: Double         = fullen - fullst
+>     
 > eutDriverLooping       :: ∀ p . Clock p ⇒ Double → Double →  Modulation → (Double, Double)
 >                                            → Signal p ModSignals (Double, ModSignals)
 > eutDriverLooping iphs idelta mods@Modulation{toPitchSummary} (lst, len)
@@ -113,7 +113,7 @@ Signal function-based synth ====================================================
 >     outA ⤙ (frac phase', modSig)
 >   where
 >     modDelta           :: ModSignals → [Double] → Double
->     modDelta modSig fs                   = idelta / calculateVibFactor modSig fs
+>     modDelta modSig fs                   = idelta / calculateModFactor modSig fs
 >     msg                                  = unwords ["eutDriverLooping iphs=", show iphs
 >                                                    , "idelta=", show idelta
 >                                                    , "\nmods=", show mods
@@ -152,6 +152,36 @@ Signal function-based synth ====================================================
 >                                                     , "<=>", show (a1L*ampL, a1R*ampR)]
 >      
 >     msg = unwords ["eutPumpSamples numS = ", show numS]
+
+Modulation ============================================================================================================
+
+> deriveModTarget        :: Maybe Int → Maybe Int → Maybe Int → ModTarget
+> deriveModTarget toPitch toFilterFc toVolume
+>                                          =
+>   ModTarget (maybe 0 fromIntegral toPitch)
+>             (maybe 0 fromIntegral toFilterFc)
+>             (maybe 0 fromIntegral toVolume)
+>
+> deriveLFO              :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
+> deriveLFO del freq toPitch toFilterFc toVolume
+>   | traceNever msg False                 = undefined
+>   | otherwise                            = if useLFO && anyJust
+>                                              then Just $ LFO (fromTimecents del)
+>                                                              (maybe 8.176 fromAbsoluteCents freq)
+>                                                              (deriveModTarget toPitch toFilterFc toVolume)
+>                                              else Nothing
+>   where
+>     anyJust        :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
+>     msg                              = unwords ["deriveLFO ", show toPitch, " ", show toFilterFc, " ", show toVolume]
+>
+> eutIgniteModSignals    :: ∀ p. Clock p ⇒ Modulation → Double → Signal p () ModSignals
+> eutIgniteModSignals mods@Modulation{mModEnv, mModLfo, mVibLfo} secsScored
+>                                          =
+>   proc _ → do
+>     a1 ← doEnvelope  mModEnv  secsScored ⤙ ()
+>     b1 ← doLFO       mModLfo             ⤙ ()
+>     c1 ← doLFO       mVibLfo             ⤙ ()
+>     outA ⤙ ModSignals a1 b1 c1
 >
 > eutModulate            :: ∀ p . Clock p ⇒
 >                           Double
@@ -179,8 +209,8 @@ Signal function-based synth ====================================================
 >         msg'                             = unwords ["modulate ", show (aL, aR)
 >                                                         , "<=>", show (aL*envL, aR*envR)]
 >
-> calculateVibFactor     :: ModSignals → [Double] → Double
-> calculateVibFactor modSigg@ModSignals{srModEnvPos, srModlfoPos, srViblfoPos} targetList
+> calculateModFactor     :: ModSignals → [Double] → Double
+> calculateModFactor ms@ModSignals{srModEnvPos, srModlfoPos, srViblfoPos} targetList
 >  | traceNever msg False                  = undefined
 >  | otherwise                             = fromCents (x1 + x2 + x3)
 >  where
@@ -190,19 +220,6 @@ Signal function-based synth ====================================================
 >
 >    msg                                   = unwords ["\ncalculateVibFactor=", show (x1, x2, x3)]
 >
-> doEnvelope             :: ∀ p . Clock p ⇒ Maybe Envelope → Double → Signal p () Double
-> doEnvelope menv secsScored               = case menv of
->                                              Nothing            → constA 1
->                                              Just env           → makeSF env
->   where
->     makeSF             :: Envelope → Signal p () Double
->     makeSF env
->       | traceIf msg False                = undefined
->       | otherwise                        = envLineSeg sAmps sDeltaTs
->       where
->         segs@Segments{sAmps, sDeltaTs}   = computeSegments secsScored env
->         msg = unwords ["doEnvelope/makeSF ", show (sAmps, sDeltaTs)]
->
 > addResonance           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, ModSignals) Double
 > addResonance mods@Modulation{mLowPass, toFilterFcSummary}
 >                                          = maybe delay' makeSF mLowPass
@@ -211,11 +228,13 @@ Signal function-based synth ====================================================
 >     makeSF lp@LowPass{lowPassFc, lowPassQ} 
 >                                          =
 >       proc (x, modSig) → do
->         let modFc fs = lowPassFc / calculateVibFactor modSig fs
->         let fc = maybe lowPassFc modFc toFilterFcSummary
+>         let fc = maybe lowPassFc (modFc lowPassFc modSig) toFilterFcSummary
 >         y ← filterLowPassBW              ⤙ (x, fc)
 >         outA                             ⤙ y
->                                         
+>
+>     modFc          :: Double → ModSignals → [Double] → Double
+>     modFc fc ms fs                   = fc / calculateModFactor ms fs
+>                             
 >     delay'             :: Signal p (Double, ModSignals) Double
 >                                          =
 >       proc (x, _) -> do
@@ -233,6 +252,9 @@ Signal function-based synth ====================================================
 >         z ← delayLine lfoDelay           ⤙ y
 >         outA                             ⤙ z  
 >
+
+FFT ===================================================================================================================
+
 > eutAnalyzeSample       :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → F.Shdr
@@ -309,35 +331,6 @@ Signal function-based synth ====================================================
 >                        , "bounds vNormed =", show (bounds vNormed)
 >                        , "length vResampled =", show (length vResampled)
 >                        , " nsI, nsI' =", show nsI, " ", show nsI', "\n"]
->
-> normalizeLooping       :: Reconciled → (Double, Double)
-> normalizeLooping recon@Reconciled{rStart, rEnd, rLoopStart, rLoopEnd}
->                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)
->   where
->     (fullst, fullen)   :: (Double, Double)
->                                          = (fromIntegral rStart, fromIntegral rEnd)
->     (loopst, loopen)   :: (Double, Double)
->                                          = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
->     denom              :: Double         = fullen - fullst
->     
-> deriveModTarget        :: Maybe Int → Maybe Int → Maybe Int → ModTarget
-> deriveModTarget toPitch toFilterFc toVolume
->                                          =
->   ModTarget (maybe 0 fromIntegral toPitch)
->             (maybe 0 fromIntegral toFilterFc)
->             (maybe 0 fromIntegral toVolume)
->
-> deriveLFO              :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
-> deriveLFO del freq toPitch toFilterFc toVolume
->   | traceNever msg False                 = undefined
->   | otherwise                            = if useLFO && anyJust
->                                              then Just $ LFO (fromTimecents del)
->                                                              (maybe 8.176 fromAbsoluteCents freq)
->                                                              (deriveModTarget toPitch toFilterFc toVolume)
->                                              else Nothing
->   where
->     anyJust        :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
->     msg                              = unwords ["deriveLFO ", show toPitch, " ", show toFilterFc, " ", show toVolume]
 
 Envelopes =============================================================================================================
 
@@ -380,14 +373,18 @@ Envelopes ======================================================================
 >                                                                        , "mTarget=",   show mTarget]
 >                                              else unwords ["deriveEnvelope (none)"]
 >
-> deriveEffects          :: Maybe Int → Maybe Int → Maybe Int → Effects
-> deriveEffects mChorus mReverb mPan =
->   Effects (fmap (conv (0, 1000)) mChorus)
->           (fmap (conv (0, 1000)) mReverb)
->           (fmap (conv (-500, 500)) mPan)
+> doEnvelope             :: ∀ p . Clock p ⇒ Maybe Envelope → Double → Signal p () Double
+> doEnvelope menv secsScored               = case menv of
+>                                              Nothing            → constA 1
+>                                              Just env           → makeSF env
 >   where
->     conv               :: (Int, Int) → Int → Double
->     conv range nEffect = fromIntegral (clip range nEffect) / 1000
+>     makeSF             :: Envelope → Signal p () Double
+>     makeSF env
+>       | traceIf msg False                = undefined
+>       | otherwise                        = envLineSeg sAmps sDeltaTs
+>       where
+>         segs@Segments{sAmps, sDeltaTs}   = computeSegments secsScored env
+>         msg = unwords ["doEnvelope/makeSF ", show (sAmps, sDeltaTs)]
 
 Implement the SoundFont envelope model with specified:
   1. delay time                      0 → 0
@@ -419,7 +416,7 @@ Create a straight-line envelope generator with following phases:
 >     minA               :: Double         = minAttackTime
 >     minR               :: Double         = minReleaseTime
 >
->     maxOnsetRelease    :: Double         = max 0 secsScored - minR
+>     maxOnsetRelease    :: Double         = max 0 (secsScored - minR)
 >     amps               :: [Double]       = [0, 0, 1, 1, susL, susL, 0, 0]
 >     -- delay time
 >     del                :: Double         = eDelayT rEnv
@@ -429,17 +426,17 @@ Create a straight-line envelope generator with following phases:
 >     -- attack time
 >     att                :: Double         = max minA (eAttackT rEnv)
 >     att'               :: Double         = if del' + att >= maxOnsetRelease
->                                              then max 0 maxOnsetRelease - del'
+>                                              then max 0 (maxOnsetRelease - del')
 >                                              else att
 >     -- hold time
 >     hold               :: Double         = eHoldT rEnv
 >     hold'              :: Double         = if del' + att' + hold > maxOnsetRelease
->                                              then max 0 maxOnsetRelease - (del' + att')
+>                                              then max 0 (maxOnsetRelease - (del' + att'))
 >                                              else hold
 >     -- decay time
 >     dec                :: Double         = eDecayT rEnv
 >     dec'               :: Double         = if del' + att' + hold' + dec > maxOnsetRelease
->                                              then max 0 maxOnsetRelease - (del' + att' + hold')
+>                                              then max 0 (maxOnsetRelease - (del' + att' + hold'))
 >                                              else dec
 >     -- release time
 >     rel                :: Double         = eReleaseT rEnv
@@ -447,12 +444,21 @@ Create a straight-line envelope generator with following phases:
 >                                              then minR
 >                                              else rel
 >     -- sustain time
->     susT               :: Double         = max 0 secsScored - (del' + att' + hold' + dec' + rel')
+>     susT               :: Double         = max 0 (secsScored - (del' + att' + hold' + dec' + rel'))
 >    
 >     deltaTs = [del', att', hold', dec', susT, rel', minR]
 
 Effects ===============================================================================================================
 
+> deriveEffects          :: Maybe Int → Maybe Int → Maybe Int → Effects
+> deriveEffects mChorus mReverb mPan =
+>   Effects (fmap (conv (0, 1000)) mChorus)
+>           (fmap (conv (0, 1000)) mReverb)
+>           (fmap (conv (-500, 500)) mPan)
+>   where
+>     conv               :: (Int, Int) → Int → Double
+>     conv range nEffect = fromIntegral (clip range nEffect) / 1000
+>
 > eutEffects             :: ∀ p . Clock p ⇒
 >                           Double
 >                           → (Reconciled, Reconciled)
