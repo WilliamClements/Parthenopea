@@ -34,6 +34,7 @@
 > import HSoM.Examples.MUIExamples2 (mergeS, removeNull)
 > import Numeric ( showHex )
 > import Parthenopea
+> import Synthesizer
 > import System.Environment ( getArgs )
 > import System.IO ( hSeek, withBinaryFile, SeekMode(AbsoluteSeek), IOMode(ReadMode) )
 >  
@@ -116,16 +117,11 @@ re-implement part of FRP.UISF.Asynchrony because not exported
 >          rec fb  ← delayLine 0.5 ⤙ s + 0.7*fb
 >          outA ⤙ fb/3
 
-> modVib :: Double → Double → AudSF Double Double
-> modVib rate depth =
->   proc sin → do
->     vib   ← osc sineTable 0  ⤙ rate
->     sout  ← delayLine1 0.2   ⤙ (sin,0.1+0.005*vib)
->     outA ⤙ sout
-
 > tModVib :: IO ()
-> tModVib = outFile "modvib.wav" 6 $
->                   constA 220 >>> osc sineTable 0 >>> modVib 9 0.001
+> tModVib = outFile "modvib.wav" 6 sig                  
+>   where
+>     sig :: AudSF () Double
+>     sig = constA 220 >>> osc sineTable 0 >>> modVib 9 0.001
 
 > flute ::  Time → Double → Double → Double → Double 
 >           → AudSF () Double
