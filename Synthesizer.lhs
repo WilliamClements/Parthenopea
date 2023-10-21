@@ -478,7 +478,7 @@ Effects ========================================================================
 >     mdReverb           :: Maybe Double   = if useReverb
 >                                              then fmap (conv (0, 1000)) mReverb
 >                                              else Nothing
->     mdPan              :: Maybe Double   = if useChorus
+>     mdPan              :: Maybe Double   = if usePan
 >                                              then fmap (conv (-500, 500)) mPan
 >                                              else Nothing
 >
