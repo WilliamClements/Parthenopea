@@ -152,7 +152,7 @@ The progress of the algorithm is expressed in above pair.
 >                        :: Double
 >
 >         -- use rest to pass the time until our onset
->         restDur                          = (bOnset - durSoFar)
+>         restDur                          = bOnset - durSoFar
 >         restTempo                        = 1.0
 >
 >         -- meat part of the section

@@ -263,7 +263,7 @@ Chart ==========================================================================
 >                           [[p*p, p*p+2*p..] | p <- tail primes])
 >
 >  -- ordered lists, difference and union
-> minus (x:xs) (y:ys) = case (compare x y) of 
+> minus (x:xs) (y:ys) = case compare x y of 
 >            LT -> x : minus  xs  (y:ys)
 >            EQ ->     minus  xs     ys 
 >            GT ->     minus (x:xs)  ys

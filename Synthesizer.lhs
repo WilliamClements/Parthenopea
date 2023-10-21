@@ -66,7 +66,9 @@ Signal function-based synth ====================================================
 >                                              >>> eutModulate    secsScored secsToPlay (reconL, reconR)
 >                                              >>> eutEffects     secsScored (reconL, reconR)
 >
->     msg                                  = unwords ["eutSynthesize ", show (dur, pch, vol)]
+>     msg                                  = unwords [ "eutSynthesize ", show (dur, pch, vol)
+>                                                    , "\nsample, scored, toplay = "
+>                                                    , show secsSample, " , ", show secsScored, " , ", show secsToPlay]
 >
 > eutDriver              :: ∀ p . Clock p ⇒
 >                           Double
@@ -74,19 +76,22 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → Bool
 >                           → Signal p ModSignals (Double, ModSignals)
-> eutDriver _ (reconL, _) delta looping
+> eutDriver _ (reconL@Reconciled{rModulation}, _) idelta looping
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = if looping
 >                                              then procL
 >                                              else procNL
 >   where
+>     mods@Modulation{toPitchSummary}      = rModulation
 >     procNL                               = proc modSig → do
+>       let delta                          = maybe idelta (\xs → idelta / calculateModFactor modSig xs) toPitchSummary
 >       rec
 >         let phase                        = if next > 1 then frac next else next
 >         next ← delay 0                   ⤙ frac (phase + delta)                           
 >       outA                               ⤙ (phase, modSig)
 >         
 >     procL                                = proc modSig → do
+>       let delta                          = maybe idelta (\xs → idelta / calculateModFactor modSig xs) toPitchSummary
 >       rec
 >         let sentinel                     = if next > 1
 >                                              then len
@@ -101,7 +106,7 @@ Signal function-based synth ====================================================
 >     (lst, len)         :: (Double, Double)
 >                                          = normalizeLooping reconL
 >
->     msg                                  = unwords ["eutDriver delta=", show delta, " looping=", show looping]
+>     msg                                  = unwords ["eutDriver idelta=", show idelta, " looping=", show looping]
 >
 > normalizeLooping       :: Reconciled → (Double, Double)
 > normalizeLooping r@Reconciled{rStart, rEnd, rLoopStart, rLoopEnd}
@@ -121,24 +126,23 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p (Double, ModSignals) ((Double, Double), ModSignals)
-> eutPumpSamples _ (  reconL@Reconciled{rAttenuation = attenL}
->                   , reconR@Reconciled{rAttenuation = attenR}) vol dur s16 ms8
+> eutPumpSamples _ (  reconL@Reconciled{rAttenuation = attenL, rStart = stL, rEnd = enL}
+>                   , reconR@Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR}) vol dur s16 ms8
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   proc (pos, modSig) → do
 >     let saddrL         :: Int            = fromIntegral stL + truncate (numS * pos)
 >     let saddrR         :: Int            = fromIntegral stR + truncate (numS * pos)
 >     let (a1L, a1R)                       = (lookupSamplePoint s16 ms8 saddrL, lookupSamplePoint s16 ms8 saddrR)
->     outA ⤙ (pump ampL a1L ampR a1R, modSig)
+>     outA ⤙ (pump (ampL, ampR) (a1L, a1R), modSig)
 >
 >   where
->     (stL, enL)         :: (Word, Word)   = (rStart reconL, rEnd reconL)
->     (stR, enR)         :: (Word, Word)   = (rStart reconR, rEnd reconR)
->     numS               :: Double         = fromIntegral (enL - stL)
 >     (ampL, ampR)       :: (Double, Double)
 >                                          = (fromIntegral vol / 100 / attenL, fromIntegral vol / 100 / attenR)
->     pump               :: Double → Double → Double → Double → (Double, Double)
->     pump ampL a1L ampR a1R
+>     numS               :: Double         = fromIntegral (enL - stL)
+>
+>     pump               :: (Double, Double) → (Double, Double) → (Double, Double)
+>     pump (ampL, ampR) (a1L, a1R)
 >       | traceNever msg' False            = undefined
 >       | otherwise                        = (a1L * ampL, a1R * ampR)
 >       where
@@ -429,8 +433,9 @@ Create a straight-line envelope generator with following phases:
 >     susL               :: Double         = eSustainLevel rEnv
 >     minA               :: Double         = minAttackTime
 >     minR               :: Double         = minReleaseTime
+>     minDeltaT          :: Double         = fromTimecents Nothing
 >
->     maxOnsetRelease    :: Double         = max 0 (secsScored - minR)
+>     maxOnsetRelease    :: Double         = max minDeltaT (secsToPlay - minR)
 >     amps               :: [Double]       = [0, 0, 1, 1, susL, susL, 0, 0]
 >     -- delay time
 >     del                :: Double         = eDelayT rEnv
@@ -440,36 +445,43 @@ Create a straight-line envelope generator with following phases:
 >     -- attack time
 >     att                :: Double         = max minA (eAttackT rEnv)
 >     att'               :: Double         = if del' + att >= maxOnsetRelease
->                                              then max 0 (maxOnsetRelease - del')
+>                                              then max minDeltaT (maxOnsetRelease - del')
 >                                              else att
 >     -- hold time
 >     hold               :: Double         = eHoldT rEnv
 >     hold'              :: Double         = if del' + att' + hold > maxOnsetRelease
->                                              then max 0 (maxOnsetRelease - (del' + att'))
+>                                              then max minDeltaT (maxOnsetRelease - (del' + att'))
 >                                              else hold
 >     -- decay time
 >     dec                :: Double         = eDecayT rEnv
 >     dec'               :: Double         = if del' + att' + hold' + dec > maxOnsetRelease
->                                              then max 0 (maxOnsetRelease - (del' + att' + hold'))
+>                                              then max minDeltaT (maxOnsetRelease - (del' + att' + hold'))
 >                                              else dec
 >     -- release time
 >     rel                :: Double         = eReleaseT rEnv
->     rel'               :: Double         = if del' + att' + hold' + dec' + rel > secsScored
->                                              then minR
+>     rel'               :: Double         = if del' + att' + hold' + dec' + rel > secsToPlay
+>                                              then minDeltaT
 >                                              else rel
 >     -- sustain time
->     susT               :: Double         = max 0 (secsScored - (del' + att' + hold' + dec' + rel'))
+>     susT               :: Double         = max minDeltaT (secsToPlay - (del' + att' + hold' + dec' + rel'))
 >    
->     deltaTs = [del', att', hold', dec', susT, rel', minR + (secsScored - secsToPlay)]
+>     deltaTs = [del', att', hold', dec', susT, rel', secsScored]
 
 Effects ===============================================================================================================
 
 > deriveEffects          :: Maybe Int → Maybe Int → Maybe Int → Effects
-> deriveEffects mChorus mReverb mPan =
->   Effects (fmap (conv (0, 1000)) mChorus)
->           (fmap (conv (0, 1000)) mReverb)
->           (fmap (conv (-500, 500)) mPan)
+> deriveEffects mChorus mReverb mPan       = Effects mdChorus mdReverb mdPan
 >   where
+>     mdChorus           :: Maybe Double   = if useChorus
+>                                              then fmap (conv (0, 1000)) mChorus
+>                                              else Nothing
+>     mdReverb           :: Maybe Double   = if useReverb
+>                                              then fmap (conv (0, 1000)) mReverb
+>                                              else Nothing
+>     mdPan              :: Maybe Double   = if useChorus
+>                                              then fmap (conv (-500, 500)) mPan
+>                                              else Nothing
+>
 >     conv               :: (Int, Int) → Int → Double
 >     conv range nEffect = fromIntegral (clip range nEffect) / 1000
 >
@@ -481,12 +493,8 @@ Effects ========================================================================
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   proc ((aL, aR), modSig) → do
->     (chL, chR) ← if cFactorL <= 0 || cFactorR <= 0
->                  then delay (0,0) ⤙ (aL, aR)
->                  else eutChorus {- 15.0 0.005 -} 0.1 ⤙ (aL, aR)
->     (rbL, rbR) ← if rFactorL <= 0 || rFactorR <= 0
->                  then delay (0,0) ⤙ (aL, aR)
->                  else eutReverb 0.75 0.25 1.0 ⤙ (aL, aR)
+>     (chL, chR) ← eutChorus cL ⤙ (aL, aR)
+>     (rbL, rbR) ← eutReverb rL ⤙ (aL, aR)
 >
 >     let mixL = (cFactorL * chL
 >                 + rFactorL * rbL
@@ -508,54 +516,49 @@ Effects ========================================================================
 >     outA ⤙ (pL', pR')
 >
 >   where
->     cFactorL = if useChorus
->                then fromMaybe 0 (efChorus effL)
->                else 0.0
->     cFactorR = if useChorus
->                then fromMaybe 0 (efChorus effR)
->                else 0.0
->     rFactorL = if useReverb
->                then fromMaybe 0 (efReverb effL)
->                else 0.0
->     rFactorR = if useReverb
->                then fromMaybe 0 (efReverb effR)
->                else 0.0
->     pFactorL = if usePan
->                then fromMaybe 0 (efPan effL)
->                else 0.0
->     pFactorR = if usePan
->                then fromMaybe 0 (efPan effR)
->                else 0.0
+>     ecL@Effects{efChorus = cL, efReverb = rL, efPan = pL} = effL
+>     ecR@Effects{efChorus = cR, efReverb = rR, efPan = pR} = effR
+>
+>     cFactorL = fromMaybe 0 cL
+>     cFactorR = fromMaybe 0 cR
+>     rFactorL = fromMaybe 0 rL
+>     rFactorR = fromMaybe 0 rR
+>     pFactorL = fromMaybe 0 pL
+>     pFactorR = fromMaybe 0 pR
 >
 >     msg = unwords ["eutEffects=", show effL, "=LR=", show effR, "rFactor*=", show rFactorL, " ", show rFactorR]
 > 
-> eutChorus              :: ∀ p . Clock p ⇒
->                           Double
->                           → Signal p (Double, Double) (Double, Double)
-> eutChorus gain =
->   proc (sinL, sinR) → do
->     z1L ← delayLine 0.010 ⤙ sinL
->     z2L ← delayLine 0.020 ⤙ sinL
->     z3L ← delayLine 0.030 ⤙ sinL
+> eutChorus              :: ∀ p . Clock p ⇒ Maybe Double → Signal p (Double, Double) (Double, Double)
+> eutChorus                                = maybe (delay (0, 0)) makeSF
+>   where
+>     gain                                 = 0.1
 >
->     z1R ← delayLine 0.010 ⤙ sinR
->     z2R ← delayLine 0.020 ⤙ sinR
->     z3R ← delayLine 0.030 ⤙ sinR
+>     makeSF             :: Double → Signal p (Double, Double) (Double, Double)
+>     makeSF _ = proc (sinL, sinR) → do
+>       z1L ← delayLine 0.010 ⤙ sinL
+>       z2L ← delayLine 0.020 ⤙ sinL
+>       z3L ← delayLine 0.030 ⤙ sinL
 >
->     rec
->       rL ← delayLine 0.0001 ⤙ (sinL + z1L + z2L + z3L)/4 + rL * gain
->       rR ← delayLine 0.0001 ⤙ (sinR + z1R + z2R + z3R)/4 + rR * gain
+>       z1R ← delayLine 0.010 ⤙ sinR
+>       z2R ← delayLine 0.020 ⤙ sinR
+>       z3R ← delayLine 0.030 ⤙ sinR
 >
->     outA ⤙ (rL, rR)
+>       rec
+>         rL ← delayLine 0.0001 ⤙ (sinL + z1L + z2L + z3L)/4 + rL * gain
+>         rR ← delayLine 0.0001 ⤙ (sinR + z1R + z2R + z3R)/4 + rR * gain
 >
-> eutReverb              :: ∀ p . Clock p ⇒
->                           Double
->                           → Double
->                           → Double
->                           → Signal p (Double, Double) (Double, Double)
-> eutReverb roomSize damp width =
->   eatFreeVerb $ makeFreeVerb roomSize damp width
+>       outA ⤙ (rL, rR)
 >
+> eutReverb              :: ∀ p . Clock p ⇒ Maybe Double → Signal p (Double, Double) (Double, Double)
+> eutReverb                                = maybe (delay (0, 0)) makeSF
+>   where
+>     roomSize                             = 0.75
+>     damp                                 = 0.25
+>     width                                = 1.0
+>
+>     makeSF             :: Double → Signal p (Double, Double) (Double, Double)
+>     makeSF _                             = eatFreeVerb $ makeFreeVerb roomSize damp width
+>   
 > fvWetDryMix     = 0.2
 > fvCoefficient   = 0.5
 > fvFixedGain     = 0.015;

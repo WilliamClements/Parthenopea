@@ -764,6 +764,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         , violates zKeyToModEnvDecay
 >         , violates zKeyToVolEnvHold
 >         , violates zKeyToVolEnvDecay
+>         , violates zModulators
 >       ]
 >
 > is24BitInst _                     = True -- WOX isJust $ ssM24 arrays       
