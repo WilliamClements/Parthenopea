@@ -63,8 +63,9 @@ Signal function-based synth ====================================================
 >                                          = eutIgniteModSignals  secsScored (reconL, reconR)
 >                                              >>> eutDriver      secsScored (reconL, reconR) delta looping
 >                                              >>> eutPumpSamples secsScored (reconL, reconR) vol dur s16 ms8
->                                              >>> eutModulate    secsScored secsToPlay (reconL, reconR)
+>                                              >>> eutModulate    secsScored (reconL, reconR)
 >                                              >>> eutEffects     secsScored (reconL, reconR)
+>                                              >>> eutAmplify     secsScored secsToPlay (reconL, reconR)
 >
 >     msg                                  = unwords [ "eutSynthesize ", show (dur, pch, vol)
 >                                                    , "\nsample, scored, toplay = "
@@ -150,45 +151,72 @@ Signal function-based synth ====================================================
 >                                                     , "<=>", show (a1L*ampL, a1R*ampR)]
 >      
 >     msg = unwords ["eutPumpSamples numS = ", show numS]
-
-Modulation ============================================================================================================
-
-> eutModulate            :: ∀ p . Clock p ⇒
+>
+> eutAmplify             :: ∀ p . Clock p ⇒
 >                           Double
 >                           → Double
 >                           → (Reconciled, Reconciled)
->                           → Signal p ((Double, Double), ModSignals) ((Double, Double), ModSignals)
-> eutModulate secsScored
+>                           → Signal p ((Double, Double), ModSignals) (Double, Double)
+> eutAmplify secsScored
 >             secsToPlay
->             (rL@Reconciled{rVolEnv = envL, rModulation = modsL}
->            , rR@Reconciled{rVolEnv = envR, rModulation = modsR})
+>             (rL@Reconciled{rVolEnv = envL}
+>            , rR@Reconciled{rVolEnv = envR})
 >                                          =
 >   proc ((a1L, a1R), modSig) → do
 >     aenvL ← doEnvelope envL secsScored secsToPlay ⤙ ()
 >     aenvR ← doEnvelope envR secsScored secsToPlay ⤙ ()
 >
->     a2L   ← addResonance modsL           ⤙ (a1L * aenvL, modSig)
->     a2R   ← addResonance modsR           ⤙ (a1R * aenvR, modSig)
+>     let (a2L, a2R) = (a1L * aenvL, a1R * aenvR)
 >
->     let (a3L, a3R)                       = modulate
+>     let (a3L, a3R)                       = amplify
 >                                              (a1L, a1R)
 >                                              (aenvL, aenvR)
 >                                              (a2L, a2R)
 >
->     outA                                 ⤙ ((a3L, a3R), modSig)
+>     outA                                 ⤙ (a3L, a3R)
 >
 >   where
->     modulate           :: (Double, Double) → (Double, Double) → (Double, Double) → (Double, Double)
->     modulate (a1L, a1R) (aenvL, aenvR) (a2L, a2R)
+>     amplify            :: (Double, Double) → (Double, Double) → (Double, Double) → (Double, Double)
+>     amplify (a1L, a1R) (aenvL, aenvR) (a3L, a3R)
 >       | traceNever msg' False            = undefined
->       | otherwise                        = (a2L, a2R)
+>       | otherwise                        = (a3L, a3R)
 >       where
->         (a2L', a2R')                     = (checkForNan a2L "a2L", checkForNan a2R "a2R" )
+>         (a3L', a3R')                     = (checkForNan a3L "a3L", checkForNan a3R "a3R" )
 >
->         msg'                             = unwords ["modulate sin = ", show (a1L,       a1R)
+>         msg'                             = unwords ["amplify sin = ",  show (a1L,       a1R)
 >                                                   , "\n   env = ",     show (aenvL,     aenvR)
 >                                                   , "\n       = ",     show (a1L*aenvL, a1R*aenvR)
->                                                   , "\n   sout = ",    show (a2L',      a2R')]
+>                                                   , "\n   sout = ",    show (a3L',      a3R')]
+>
+
+Modulation ============================================================================================================
+
+> eutModulate            :: ∀ p . Clock p ⇒
+>                           Double
+>                           → (Reconciled, Reconciled)
+>                           → Signal p ((Double, Double), ModSignals) ((Double, Double), ModSignals)
+> eutModulate secsScored
+>             (rL@Reconciled{rVolEnv = envL, rModulation = modsL}
+>            , rR@Reconciled{rVolEnv = envR, rModulation = modsR})
+>                                          =
+>   proc ((a1L, a1R), modSig) → do
+>     a2L   ← addResonance modsL           ⤙ (a1L, modSig)
+>     a2R   ← addResonance modsR           ⤙ (a1R, modSig)
+>
+>     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
+>
+>     outA                                 ⤙ ((a3L', a3R'), modSig)
+>
+>   where
+>     modulate           :: (Double, Double) →  (Double, Double) → (Double, Double)
+>     modulate (a1L, a1R) (a2L, a2R)
+>       | traceNow msg' False              = undefined
+>       | otherwise                        = (a2L, a2R)
+>       where
+>         (a3L, a3R)                       = (checkForNan a2L "a2L", checkForNan a2R "a2R" )
+>
+>         msg'                             = unwords ["modulate sin = ", show (a1L,       a1R)
+>                                                   , "\n   sout = ",    show (a2L,      a2R)]
 >
 > deriveModTarget        :: Maybe Int → Maybe Int → Maybe Int → ModTarget
 > deriveModTarget toPitch toFilterFc toVolume
@@ -493,7 +521,7 @@ Effects ========================================================================
 > eutEffects             :: ∀ p . Clock p ⇒
 >                           Double
 >                           → (Reconciled, Reconciled)
->                           → Signal p ((Double, Double), ModSignals) (Double, Double)
+>                           → Signal p ((Double, Double), ModSignals) ((Double, Double), ModSignals)
 > eutEffects _ (reconL@Reconciled{rEffects = effL}, reconR@Reconciled{rEffects = effR})
 >   | traceNever msg False = undefined
 >   | otherwise =
@@ -518,7 +546,7 @@ Effects ========================================================================
 >     pR' ←        if not useDCBlock
 >                  then delay 0       ⤙ pR
 >                  else dcBlock 0.995 ⤙ pR
->     outA ⤙ (pL', pR')
+>     outA ⤙ ((pL', pR'), modSig)
 >
 >   where
 >     ecL@Effects{efChorus = cL, efReverb = rL, efPan = pL} = effL

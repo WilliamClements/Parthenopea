@@ -79,7 +79,7 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [ ("copper'"        , aggrandize copper')]
+>    [ ("bake"           , bakedJingle 9345) ]
 
 a few playthings ... get it? ==========================================================================================
 
