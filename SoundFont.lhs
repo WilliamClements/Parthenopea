@@ -682,15 +682,8 @@ tournament among GM instruments and percussion from SoundFont files ============
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = ArtifactGrade (sum weightedScores) baseScores
 >   where
->     arrays             :: SoundFontArrays
->                                          = zArrays (zFiles ! pWordF pergm)
->     zs                                   = tail $ pZonePairs perI
->     desires            :: [Desires]      = [qqDesireReStereo      defT
->                                           , qqDesireRe24Bit       defT
->                                           , qqDesireReSplitCharacteristic
->                                                                   defT
->                                           , qqDesireReConformance defT
->                                           , qqDesireReFuzzy       defT]
+>     perI@PerInstrument{pZonePairs}       = getPerInstrumentFromCache zZoneCache pergm{mpWordZ = Nothing}
+>     zs                                   = tail pZonePairs
 >     empiricals         :: [Int]          = [   scoreBool $ isStereoInst zs
 >                                              , scoreBool $ is24BitInst zs
 >                                              , round $ computeSplitCharacteristic kind zs
@@ -701,15 +694,14 @@ tournament among GM instruments and percussion from SoundFont files ============
 >       | howgood > 0.000001               = max 0 (logBase 2 howgood) * fuzzFactor kind
 >       | otherwise                        = 0
 >
->     s                  :: [Int]          = map scoreDesire    desires
->     s'                 :: [Int]          = zipWith (*) s      empiricals
+>     ss                 :: [Int]          = zipWith (*) qqDesires' empiricals
 >
 >     baseScores         :: [Int]          = [  foldHints hints
->                                              , head s'
->                                              , s' !! 1
->                                              , s' !! 2
->                                              , s' !! 3
->                                              , s' !! 4]
+>                                              , head ss
+>                                              , ss !! 1
+>                                              , ss !! 2
+>                                              , ss !! 3
+>                                              , ss !! 4]
 >
 >     weightedScores     :: [Int]          = zipWith (*) baseScores ssWeights
 >
@@ -717,12 +709,8 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                     , " and "         , show baseScores
 >                     , " X "           , show ssWeights
 >                     , " = "           , show weightedScores]
->     perI                                 = getPerInstrumentFromCache zZoneCache pergm{mpWordZ = Nothing}
 >
-> computeSplitCharacteristic  :: ∀ a. (SFScorable a, Ord a, Show a) ⇒
->                                a
->                                → [(ZoneHeader, SFZone)]
->                                → Double
+> computeSplitCharacteristic  :: ∀ a. (SFScorable a) ⇒ a → [(ZoneHeader, SFZone)] → Double
 > computeSplitCharacteristic kind zs = log (3 * splitCount kind zs * factor)
 >   where
 >     factor             :: Double         = if isStereoInst zs
@@ -910,7 +898,7 @@ prepare the specified instruments and percussion ===============================
 >                        → [(ZoneHeader, SFZone)]
 >                        → InstCat
 > categorizeInst arrays pergm sc ic zs
->   | traceIf msg False                    = undefined
+>   | traceNever msg False                 = undefined
 >   | otherwise                            = fromMaybe InstCatPerc latched
 >   where
 >     preI                                 = getPreInstrumentFromCache ic pergm
@@ -954,7 +942,7 @@ prepare the specified instruments and percussion ===============================
 >
 >     computeCanBePerc   :: (ZoneHeader, SFZone) → Bool
 >     computeCanBePerc (zh, zone)
->       | traceIf msg' False               = undefined
+>       | traceNever msg' False            = undefined
 >       | otherwise                        = pinned || nonPitchedByFuzz || nonPitchedByFft
 >       where
 >         pergm'         :: PerGMKey       = pergm{mpWordZ = Just (pwZone zh)}
@@ -1193,45 +1181,43 @@ reconcile zone and sample header ===============================================
 >   , rLoopEnd         = addIntToWord          (F.endLoop shdr)
 >                                                (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
 >   , rRootKey         = fromIntegral (fromMaybe
->                                              (F.originalPitch shdr)   (zRootKey       zone))
->   , rForceKey        = fmap                  fromIntegral             (zKey           zone)
->   , rForceVel        = fmap                  fromIntegral             (zVel           zone)
->   , rAttenuation     = resolveAttenuation                             (zInitAtten     zone)
->   , rVolEnv          = deriveEnvelope                                 (zDelayVolEnv   zone)
->                                                                       (zAttackVolEnv  zone)
->                                                                       (zHoldVolEnv    zone)
->                                                                       (zDecayVolEnv   zone)
->                                                                       (zSustainVolEnv zone)
->                                                                       (zReleaseVolEnv zone)
+>                                              (F.originalPitch shdr)   (zRootKey              zone))
+>   , rForceKey        = fmap                  fromIntegral             (zKey                  zone)
+>   , rForceVel        = fmap                  fromIntegral             (zVel                  zone)
+>   , rAttenuation     = resAttenuation                                 (zInitAtten            zone)
+>   , rVolEnv          = deriveEnvelope                                 (zDelayVolEnv          zone)
+>                                                                       (zAttackVolEnv         zone)
+>                                                                       (zHoldVolEnv           zone)
+>                                                                       (zDecayVolEnv          zone)
+>                                                                       (zSustainVolEnv        zone)
+>                                                                       (zReleaseVolEnv        zone)
 >                                                                       Nothing
 >   , rPitchCorrection = if usePitchCorrection
->                          then Just $ resolvePitchCorrection           (F.pitchCorrection shdr)
->                                                                       (zCoarseTune    zone)
->                                                                       (zFineTune      zone)
+>                          then Just $ resPitchCorrection               (F.pitchCorrection     shdr)
+>                                                                       (zCoarseTune           zone)
+>                                                                       (zFineTune             zone)
 >                          else Nothing
 >
->   , rModulation      =                                                mods
->   , rEffects         = deriveEffects                                  (zChorus        zone)
->                                                                       (zReverb        zone)
->                                                                       (zPan           zone)}
+>   , rModulation      =                                                (resModulation         zone)
+>   , rEffects         = deriveEffects                                  (zChorus               zone)
+>                                                                       (zReverb               zone)
+>                                                                       (zPan                  zone)}
+>
 >   where
->     mods             = resolveModulation     zone
+>     resPitchCorrection :: Int → Maybe Int → Maybe Int → Double
+>     resPitchCorrection alt mps mpc       = fromMaybe ((fromCents . fromIntegral) alt) (fromCents' mps mpc)
 >
-> resolvePitchCorrection ::
->                        Int → Maybe Int → Maybe Int → Double
-> resolvePitchCorrection alt mps mpc       = fromMaybe ((fromCents . fromIntegral) alt) (fromCents' mps mpc)
->
-> resolveAttenuation     :: Maybe Int → Double
-> resolveAttenuation matten                = if useAttenuation
+>     resAttenuation     :: Maybe Int → Double
+>     resAttenuation matten                = if useAttenuation
 >                                              then fromCentibels matten
 >                                              else 1.0
 >
-> resolveModulation      :: SFZone → Modulation
-> resolveModulation z@SFZone{
->                       zModLfoToPitch, zVibLfoToPitch, zModEnvToPitch
->                     , zInitFc, zInitQ
->                     , zModLfoToFc, zModEnvToFc, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
->                     , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv}
+>     resModulation     :: SFZone → Modulation
+>     resModulation z@SFZone{
+>                           zModLfoToPitch, zVibLfoToPitch, zModEnvToPitch
+>                         , zInitFc, zInitQ
+>                         , zModLfoToFc, zModEnvToFc, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
+>                         , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv}
 >                                          = Modulation mLowPass
 >                                                       mModEnv
 >                                                       mModLfo
@@ -1239,15 +1225,16 @@ reconcile zone and sample header ===============================================
 >                                                       (summarize toPitch    mModEnv mModLfo mVibLfo)
 >                                                       (summarize toFilterFc mModEnv mModLfo mVibLfo)
 >                                                       (summarize toVolume   mModEnv mModLfo mVibLfo)
->   where
->     initFc             :: Double         = fromAbsoluteCents $ fromMaybe 13500 zInitFc
->     initQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ
 >
->     mLowPass           :: Maybe LowPass  = if useLowPass && (isJust zInitFc || isJust zInitQ)
+>       where
+>         initFc         :: Double         = fromAbsoluteCents $ fromMaybe 13500 zInitFc
+>         initQ          :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ
+>
+>         mLowPass       :: Maybe LowPass  = if useLowPass && (isJust zInitFc || isJust zInitQ)
 >                                              then Just $ LowPass initFc initQ
 >                                              else Nothing
 >
->     mModEnv            :: Maybe Envelope = deriveEnvelope
+>         mModEnv        :: Maybe Envelope = deriveEnvelope
 >                                              zDelayModEnv
 >                                              zAttackModEnv
 >                                              zHoldModEnv
@@ -1255,18 +1242,18 @@ reconcile zone and sample header ===============================================
 >                                              zSustainModEnv
 >                                              zReleaseModEnv
 >                                              (Just (zModEnvToPitch, zModEnvToFc))
->     mModLfo            :: Maybe LFO      = deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc Nothing
->     mVibLfo            :: Maybe LFO      = deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
+>         mModLfo        :: Maybe LFO      = deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc Nothing
+>         mVibLfo        :: Maybe LFO      = deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
 >
->     summarize          :: (ModTarget → Double) → Maybe Envelope → Maybe LFO → Maybe LFO → Maybe [Double]
->     summarize funWhich menv mmodlfo mviblfo
+>         summarize      :: (ModTarget → Double) → Maybe Envelope → Maybe LFO → Maybe LFO → Maybe [Double]
+>         summarize funWhich menv mmodlfo mviblfo
 >                                          = if any (/= 0.0) targetList
 >                                              then Just targetList
 >                                              else Nothing
->       where
->         targetList = [  funWhich $ maybe defModTarget eModTarget mModEnv
->                       , funWhich $ maybe defModTarget lModTarget mModLfo
->                       , funWhich $ maybe defModTarget lModTarget mVibLfo]
+>           where
+>             targetList = [  funWhich $ maybe defModTarget eModTarget mModEnv
+>                           , funWhich $ maybe defModTarget lModTarget mModLfo
+>                           , funWhich $ maybe defModTarget lModTarget mVibLfo]
 
 carry out and cache play situations ===================================================================================
 

@@ -95,7 +95,7 @@ Signal function-based synth ====================================================
 >       rec
 >         let sentinel                     = if next > 1
 >                                              then len
->                                              else 0.9999
+>                                              else 0.99999
 >         let phase'                       = if phase > sentinel
 >                                              then lst 
 >                                              else phase
@@ -180,13 +180,15 @@ Modulation =====================================================================
 >   where
 >     modulate           :: (Double, Double) → (Double, Double) → (Double, Double) → (Double, Double)
 >     modulate (a1L, a1R) (aenvL, aenvR) (a2L, a2R)
->       | traceIf msg' False               = undefined
+>       | traceNever msg' False            = undefined
 >       | otherwise                        = (a2L, a2R)
 >       where
+>         (a2L', a2R')                     = (checkForNan a2L "a2L", checkForNan a2R "a2R" )
+>
 >         msg'                             = unwords ["modulate sin = ", show (a1L,       a1R)
 >                                                   , "\n   env = ",     show (aenvL,     aenvR)
 >                                                   , "\n       = ",     show (a1L*aenvL, a1R*aenvR)
->                                                   , "\n   sout = ",    show (a2L,       a2R)]
+>                                                   , "\n   sout = ",    show (a2L',      a2R')]
 >
 > deriveModTarget        :: Maybe Int → Maybe Int → Maybe Int → ModTarget
 > deriveModTarget toPitch toFilterFc toVolume
@@ -361,34 +363,37 @@ Envelopes ======================================================================
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe Envelope
 > deriveEnvelope mDelay mAttack mHold mDecay mSustain mRelease mTarget
->   | traceIf msg False                   = undefined
+>   | traceIf msg False                    = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTarget
 >                                              then Just env
 >                                              else Nothing
->     where
->       inp                                = [mDelay, mAttack, mHold, mDecay, mSustain, mRelease]
->       env                                = Envelope (fromTimecents mDelay) (fromTimecents mAttack)      (fromTimecents mHold)
+>   where
+>     inp                                  = [mDelay, mAttack, mHold, mDecay, mSustain, mRelease]
+>     env                                  = Envelope (fromTimecents mDelay) (fromTimecents mAttack)      (fromTimecents mHold)
 >                                                     (fromTimecents mDecay) (fromTithe mSustain)         (fromTimecents mRelease)
 >                                                     (makeModTarget mTarget)
 >
->       doUse            :: Maybe (Maybe Int, Maybe Int) → Bool
->       doUse mTarget                      = case mTarget of
+>     doUse            :: Maybe (Maybe Int, Maybe Int) → Bool
+>     doUse mTarget                        = case mTarget of
 >                                              Nothing           → True
 >                                              Just target       → (isJust . fst) target || (isJust . snd) target
 >
->       makeModTarget    :: Maybe (Maybe Int, Maybe Int) → ModTarget
->       makeModTarget mTarget              = case mTarget of
+>     makeModTarget    :: Maybe (Maybe Int, Maybe Int) → ModTarget
+>     makeModTarget mTarget                = case mTarget of
 >                                              Nothing           → defModTarget
 >                                              Just target       → uncurry deriveModTarget target Nothing
 >
->       msg                                = if useEnvelopes
->                                              then unwords ["deriveEnvelope mDelay=",   show mDelay
->                                                                        , "mAttack=",   show mAttack
->                                                                        , "mHold=",     show mHold
->                                                                        , "mDecay=",    show mDecay
->                                                                        , "mSustain=",  show mSustain
->                                                                        , "mRelease=",  show mRelease
->                                                                        , "mTarget=",   show mTarget]
+>     msg                                  = if useEnvelopes
+>                                              then unwords ["deriveEnvelope ", if isJust mTarget
+>                                                                                 then "modEnv "
+>                                                                                 else "volEnv "
+>                                                                        , "mDelay=  ", show mDelay
+>                                                                        , "mAttack= ", show mAttack
+>                                                                        , "mHold=   ", show mHold
+>                                                                        , "mDecay=  ", show mDecay
+>                                                                        , "mSustain=", show mSustain
+>                                                                        , "mRelease=", show mRelease
+>                                                                        , "mTarget= ", show mTarget]
 >                                              else unwords ["deriveEnvelope (none)"]
 >
 > doEnvelope             :: ∀ p . Clock p ⇒ Maybe Envelope → Double → Double → Signal p () Double
@@ -490,7 +495,7 @@ Effects ========================================================================
 >                           → (Reconciled, Reconciled)
 >                           → Signal p ((Double, Double), ModSignals) (Double, Double)
 > eutEffects _ (reconL@Reconciled{rEffects = effL}, reconR@Reconciled{rEffects = effR})
->   | traceIf msg False = undefined
+>   | traceNever msg False = undefined
 >   | otherwise =
 >   proc ((aL, aR), modSig) → do
 >     (chL, chR) ← eutChorus cL ⤙ (aL, aR)
@@ -671,7 +676,7 @@ Effects ========================================================================
 >
 > comb                   :: ∀ p . Clock p ⇒ Word64 → STK.FilterData → Signal p Double Double
 > comb maxDel filter
->   | traceIf msg False = undefined
+>   | traceNever msg False = undefined
 >   | otherwise =
 >   let
 >     sr = rate (undefined :: p)
@@ -684,7 +689,7 @@ Effects ========================================================================
 > 
 > allpass                :: ∀ p . Clock p ⇒ Word64 → Signal p Double Double
 > allpass maxDel
->   | traceIf msg False = undefined
+>   | traceNever msg False = undefined
 >   | otherwise =
 >   let
 >     sr = rate (undefined :: p)
@@ -940,6 +945,13 @@ Flags for customization ========================================================
 > scoreBool              :: Bool → Int
 > scoreBool b = if b then 1 else (-1)
 >
+> qqDesires              :: [Desires]      = [qqDesireReStereo      defT
+>                                           , qqDesireRe24Bit       defT
+>                                           , qqDesireReSplitCharacteristic
+>                                                                   defT
+>                                           , qqDesireReConformance defT
+>                                           , qqDesireReFuzzy       defT]
+> qqDesires'             :: [Int]          = map scoreDesire        qqDesires
 
 Turn Knobs Here =======================================================================================================
 

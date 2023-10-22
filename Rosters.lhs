@@ -79,7 +79,7 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [ ("weHateHer"      , aggrandize weHateHer)]
+>    [ ("copper'"        , aggrandize copper')]
 
 a few playthings ... get it? ==========================================================================================
 

@@ -58,6 +58,8 @@ Utilities ======================================================================
 > traceAlways = trace
 > traceNever   :: String → a → a
 > traceNever str expr = expr
+> traceNot   :: String → a → a
+> traceNot str expr = expr
 >
 > hasDuplicates :: (Ord a) => [a] -> Bool
 > hasDuplicates list = length list /= length set
@@ -948,8 +950,8 @@ Conversion functions and general helpers =======================================
 
 > checkForNan            :: Double → String → Double
 > checkForNan y msg                        = profess
->                                              (not $ isNaN y || isInfinite y)
->                                              ("NaN " ++ msg)
+>                                              (not $ isNaN y || isInfinite y || y > 20000)
+>                                              (msg ++ " bad Double = " ++ show y)
 >                                              y
 >
 > profess                :: Bool → String → a → a
