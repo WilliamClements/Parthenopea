@@ -60,8 +60,7 @@ Signal function-based synth ====================================================
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
 >
 >     sig                :: Signal p () (Double, Double)
->                                          = eutIgniteModSignals  secsScored (reconL, reconR)
->                                              >>> eutDriver      secsScored (reconL, reconR) delta looping
+>                                          =       eutDriver      secsScored (reconL, reconR) delta looping
 >                                              >>> eutPumpSamples secsScored (reconL, reconR) vol dur s16 ms8
 >                                              >>> eutModulate    secsScored (reconL, reconR)
 >                                              >>> eutEffects     secsScored (reconL, reconR)
@@ -76,22 +75,24 @@ Signal function-based synth ====================================================
 >                           → (Reconciled, Reconciled)
 >                           → Double
 >                           → Bool
->                           → Signal p ModSignals (Double, ModSignals)
-> eutDriver _ (reconL@Reconciled{rModulation}, _) idelta looping
+>                           → Signal p () (Double, ModSignals)
+> eutDriver secsScored (reconL@Reconciled{rModulation}, reconR) idelta looping
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = if looping
 >                                              then procL
 >                                              else procNL
 >   where
 >     mods@Modulation{toPitchSummary}      = rModulation
->     procNL                               = proc modSig → do
+>     procNL                               = proc () → do
+>       modSig ← eutIgniteModSignals secsScored (reconL, reconR) ⤙ ()
 >       let delta                          = maybe idelta (\xs → idelta / calculateModFactor modSig xs) toPitchSummary
 >       rec
 >         let phase                        = if next > 1 then frac next else next
 >         next ← delay 0                   ⤙ frac (phase + delta)                           
 >       outA                               ⤙ (phase, modSig)
 >         
->     procL                                = proc modSig → do
+>     procL                                = proc () → do
+>       modSig ← eutIgniteModSignals secsScored (reconL, reconR) ⤙ ()
 >       let delta                          = maybe idelta (\xs → idelta / calculateModFactor modSig xs) toPitchSummary
 >       rec
 >         let sentinel                     = if next > 1
@@ -156,13 +157,13 @@ Signal function-based synth ====================================================
 >                           Double
 >                           → Double
 >                           → (Reconciled, Reconciled)
->                           → Signal p ((Double, Double), ModSignals) (Double, Double)
+>                           → Signal p (Double, Double) (Double, Double)
 > eutAmplify secsScored
 >             secsToPlay
 >             (rL@Reconciled{rVolEnv = envL}
 >            , rR@Reconciled{rVolEnv = envR})
 >                                          =
->   proc ((a1L, a1R), modSig) → do
+>   proc (a1L, a1R) → do
 >     aenvL ← doEnvelope envL secsScored secsToPlay ⤙ ()
 >     aenvR ← doEnvelope envR secsScored secsToPlay ⤙ ()
 >
@@ -194,7 +195,7 @@ Modulation =====================================================================
 > eutModulate            :: ∀ p . Clock p ⇒
 >                           Double
 >                           → (Reconciled, Reconciled)
->                           → Signal p ((Double, Double), ModSignals) ((Double, Double), ModSignals)
+>                           → Signal p ((Double, Double), ModSignals) (Double, Double)
 > eutModulate secsScored
 >             (rL@Reconciled{rVolEnv = envL, rModulation = modsL}
 >            , rR@Reconciled{rVolEnv = envR, rModulation = modsR})
@@ -205,7 +206,7 @@ Modulation =====================================================================
 >
 >     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
 >
->     outA                                 ⤙ ((a3L', a3R'), modSig)
+>     outA                                 ⤙ (a3L', a3R')
 >
 >   where
 >     modulate           :: (Double, Double) →  (Double, Double) → (Double, Double)
@@ -521,11 +522,11 @@ Effects ========================================================================
 > eutEffects             :: ∀ p . Clock p ⇒
 >                           Double
 >                           → (Reconciled, Reconciled)
->                           → Signal p ((Double, Double), ModSignals) ((Double, Double), ModSignals)
+>                           → Signal p (Double, Double) (Double, Double)
 > eutEffects _ (reconL@Reconciled{rEffects = effL}, reconR@Reconciled{rEffects = effR})
 >   | traceNever msg False = undefined
 >   | otherwise =
->   proc ((aL, aR), modSig) → do
+>   proc (aL, aR) → do
 >     (chL, chR) ← eutChorus cL ⤙ (aL, aR)
 >     (rbL, rbR) ← eutReverb rL ⤙ (aL, aR)
 >
@@ -546,7 +547,7 @@ Effects ========================================================================
 >     pR' ←        if not useDCBlock
 >                  then delay 0       ⤙ pR
 >                  else dcBlock 0.995 ⤙ pR
->     outA ⤙ ((pL', pR'), modSig)
+>     outA ⤙ (pL', pR')
 >
 >   where
 >     ecL@Effects{efChorus = cL, efReverb = rL, efPan = pL} = effL
@@ -1014,7 +1015,7 @@ Turn Knobs Here ================================================================
 >   , qqMinAttackTime                      = 0 -- 1/64
 >   , qqMinReleaseTime                     = 0 -- 1/16
 >   , qqUseLoopSwitching                   = True
->   , qqUseLowPass                         = False
+>   , qqUseLowPass                         = True
 >   , qqUseLFO                             = True
 >   , qqUseEffectReverb                    = True
 >   , qqUseEffectChorus                    = True
