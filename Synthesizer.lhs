@@ -37,13 +37,11 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL@Reconciled{rSampleMode, rStart, rEnd, rLoopStart, rLoopEnd, rModulation}, reconR)
+> eutSynthesize (reconL@Reconciled{rSampleMode, rStart, rEnd, rRootKey, rModulation}, reconR)
 >               sr dur pch vol params s16 ms8
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = sig
 >   where
->     rk                 :: AbsPitch       = fromIntegral (rRootKey reconL)
->
 >     ns                 :: Double         = fromIntegral (rEnd - rStart)
 >     secsSample         :: Double         = ns / sr
 >     secsScored         :: Double         = 2 * fromRational dur
@@ -54,7 +52,7 @@ Signal function-based synth ====================================================
 >                                              then secsScored
 >                                              else min secsSample secsScored
 >
->     freqRatio          :: Double         = apToHz rk / apToHz pch
+>     freqRatio          :: Double         = apToHz (fromIntegral rRootKey) / apToHz pch
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 (rPitchCorrection reconL)
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
@@ -64,7 +62,7 @@ Signal function-based synth ====================================================
 >                                              >>> eutPumpSamples secsScored (reconL, reconR) vol dur s16 ms8
 >                                              >>> eutModulate    secsScored (reconL, reconR)
 >                                              >>> eutEffects     secsScored (reconL, reconR)
->                                              >>> eutAmplify     secsScored secsToPlay (reconL, reconR)
+>                                              >>> eutAmplify     secsScored (reconL, reconR) secsToPlay
 >
 >     msg                                  = unwords [ "eutSynthesize ", show (dur, pch, vol)
 >                                                    , "\nsample, scored, toplay = "
@@ -75,7 +73,7 @@ Signal function-based synth ====================================================
 >                           → (Reconciled, Reconciled)
 >                           → Double
 >                           → Bool
->                           → Signal p () (Double, ModSignals)
+>                           → Signal p () (Double, (ModSignals, ModSignals))
 > eutDriver secsScored (reconL@Reconciled{rModulation}, reconR) idelta looping
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = if looping
@@ -84,16 +82,18 @@ Signal function-based synth ====================================================
 >   where
 >     mods@Modulation{toPitchSummary}      = rModulation
 >     procNL                               = proc () → do
->       modSig ← eutIgniteModSignals secsScored (reconL, reconR) ⤙ ()
->       let delta                          = maybe idelta (\xs → idelta / calculateModFactor modSig xs) toPitchSummary
+>       (modSigL, modSigR) ← eutIgniteModSignals secsScored (reconL, reconR)
+>                                          ⤙ ()
+>       let delta                          = maybe idelta (\xs → idelta / calculateModFactor modSigL xs) toPitchSummary
 >       rec
 >         let phase                        = if next > 1 then frac next else next
 >         next ← delay 0                   ⤙ frac (phase + delta)                           
->       outA                               ⤙ (phase, modSig)
+>       outA                               ⤙ (phase, (modSigL, modSigR))
 >         
 >     procL                                = proc () → do
->       modSig ← eutIgniteModSignals secsScored (reconL, reconR) ⤙ ()
->       let delta                          = maybe idelta (\xs → idelta / calculateModFactor modSig xs) toPitchSummary
+>       (modSigL, modSigR) ← eutIgniteModSignals secsScored (reconL, reconR)
+>                                          ⤙ ()
+>       let delta                          = maybe idelta (\xs → idelta / calculateModFactor modSigL xs) toPitchSummary
 >       rec
 >         let sentinel                     = if next > 1
 >                                              then len
@@ -103,7 +103,7 @@ Signal function-based synth ====================================================
 >                                              else phase
 >         next           ← delay 0         ⤙ next + delta
 >         phase          ← delay 0         ⤙ frac (phase' + delta)                           
->       outA                               ⤙ (phase, modSig)
+>       outA                               ⤙ (phase, (modSigL, modSigR))
 >
 >     (lst, len)         :: (Double, Double)
 >                                          = normalizeLooping reconL
@@ -127,7 +127,7 @@ Signal function-based synth ====================================================
 >                           → Dur
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
->                           → Signal p (Double, ModSignals) ((Double, Double), ModSignals)
+>                           → Signal p (Double, (ModSignals, ModSignals)) ((Double, Double), (ModSignals, ModSignals))
 > eutPumpSamples _ (  reconL@Reconciled{rAttenuation = attenL, rStart = stL, rEnd = enL}
 >                   , reconR@Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR}) vol dur s16 ms8
 >   | traceIf msg False = undefined
@@ -155,14 +155,12 @@ Signal function-based synth ====================================================
 >
 > eutAmplify             :: ∀ p . Clock p ⇒
 >                           Double
->                           → Double
 >                           → (Reconciled, Reconciled)
+>                           → Double
 >                           → Signal p (Double, Double) (Double, Double)
-> eutAmplify secsScored
->             secsToPlay
->             (rL@Reconciled{rVolEnv = envL}
->            , rR@Reconciled{rVolEnv = envR})
->                                          =
+> eutAmplify   secsScored
+>              (rL@Reconciled{rVolEnv = envL},  rR@Reconciled{rVolEnv = envR})
+>              secsToPlay                  =
 >   proc (a1L, a1R) → do
 >     aenvL ← doEnvelope envL secsScored secsToPlay ⤙ ()
 >     aenvR ← doEnvelope envR secsScored secsToPlay ⤙ ()
@@ -195,14 +193,14 @@ Modulation =====================================================================
 > eutModulate            :: ∀ p . Clock p ⇒
 >                           Double
 >                           → (Reconciled, Reconciled)
->                           → Signal p ((Double, Double), ModSignals) (Double, Double)
+>                           → Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
 > eutModulate secsScored
 >             (rL@Reconciled{rVolEnv = envL, rModulation = modsL}
 >            , rR@Reconciled{rVolEnv = envR, rModulation = modsR})
 >                                          =
->   proc ((a1L, a1R), modSig) → do
->     a2L   ← addResonance modsL           ⤙ (a1L, modSig)
->     a2R   ← addResonance modsR           ⤙ (a1R, modSig)
+>   proc ((a1L, a1R), (modSigL, modSigR)) → do
+>     a2L   ← addResonance modsL           ⤙ (a1L, modSigL)
+>     a2R   ← addResonance modsR           ⤙ (a1R, modSigR)
 >
 >     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
 >
@@ -211,7 +209,7 @@ Modulation =====================================================================
 >   where
 >     modulate           :: (Double, Double) →  (Double, Double) → (Double, Double)
 >     modulate (a1L, a1R) (a2L, a2R)
->       | traceNow msg' False              = undefined
+>       | traceNever msg' False            = undefined
 >       | otherwise                        = (a2L, a2R)
 >       where
 >         (a3L, a3R)                       = (checkForNan a2L "a2L", checkForNan a2R "a2R" )
@@ -236,21 +234,27 @@ Modulation =====================================================================
 >                                              else Nothing
 >   where
 >     anyJust        :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
->     msg                              = unwords ["deriveLFO ", show toPitch, " ", show toFilterFc, " ", show toVolume]
+>     msg                              = unwords ["deriveLFO ", show toPitch,    " "
+>                                                             , show toFilterFc, " "
+>                                                             , show toVolume]
 >
 > eutIgniteModSignals    :: ∀ p. Clock p ⇒
 >                           Double
 >                           → (Reconciled, Reconciled)
->                           → Signal p () ModSignals
-> eutIgniteModSignals secs (reconL@Reconciled{rModulation}, reconR)
+>                           → Signal p () (ModSignals, ModSignals)
+> eutIgniteModSignals secs (reconL@Reconciled{rModulation = modsL}, reconR@Reconciled{rModulation = modsR})
 >                                          =
 >   proc _ → do
->     a1 ← doEnvelope  mModEnv  secs  secs ⤙ ()
->     b1 ← doLFO       mModLfo             ⤙ ()
->     c1 ← doLFO       mVibLfo             ⤙ ()
->     outA ⤙ ModSignals a1 b1 c1
+>     aL1 ← doEnvelope  mModEnvL  secs  secs ⤙ ()
+>     aL2 ← doLFO       mModLfoL             ⤙ ()
+>     aL3 ← doLFO       mVibLfoL             ⤙ ()
+>     aR1 ← doEnvelope  mModEnvR  secs  secs ⤙ ()
+>     aR2 ← doLFO       mModLfoR             ⤙ ()
+>     aR3 ← doLFO       mVibLfoR             ⤙ ()
+>     outA ⤙ (ModSignals aL1 aL2 aL3, ModSignals aR1 aR2 aR3)
 >   where
->     mod@Modulation{mModEnv, mModLfo, mVibLfo} = rModulation
+>     mL@Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = modsL
+>     mR@Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = modsR
 >
 > calculateModFactor     :: ModSignals → [Double] → Double
 > calculateModFactor ms@ModSignals{srModEnvPos, srModlfoPos, srViblfoPos} targetList
