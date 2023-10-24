@@ -206,6 +206,16 @@ Cecil's Asleep =================================================================
 
 Abby Cissa ============================================================================================================
 
+> littleAbby :: Music (Pitch, Volume)
+> littleAbby =
+>    removeZeros
+>    $ tempo 1
+>    $ transpose 0
+>    $ keysig C Major
+>    $ addVolume 100
+>    $ instrument BrightAcousticPiano
+>      (c 4 den)
+>
 > abby :: Music (Pitch, Volume)
 > abby =
 >    removeZeros
@@ -213,7 +223,7 @@ Abby Cissa =====================================================================
 >    $ transpose 0
 >    $ keysig C Major
 >    $ addVolume 100
->    $ instrument HonkyTonkPiano
+>    $ instrument BrightAcousticPiano
 >      aLink
 >
 >    where
@@ -361,7 +371,7 @@ Shelby Parsley =================================================================
 >     :=: instrument ElectricBassPicked
 >       (line [spBassI,  spBassII,  spBassIII]))
 >        :+:
->     instrument HonkyTonkPiano
+>     instrument BrightAcousticPiano
 >       (line [ chord [ triad B (CustomMode "Sus4") (B, 3) wn
 >   --                            Does     It       Have    Trays?
 >                       , line [ e 4 en, ds 4 en, cs 4 qn, b 3 dqn]]]

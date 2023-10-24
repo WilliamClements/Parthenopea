@@ -172,7 +172,7 @@ Bill ===========================================================================
 >    $ keysig Ef Mixolydian
 >    $ instrument Violin
 >         (addVolume 45 (rest dwn :+:  g 4 hn :+: times nRepeats treble))
->      :=: instrument AcousticGrandPiano
+>      :=: instrument BrightAcousticPiano
 >         (addVolume 95 (rest dwn :+: bf 3 hn :+: times nRepeats alto))
 >      :=: instrument Cello
 >         (addVolume 45 (rest dwn :+: ef 3 hn :+: times nRepeats bass))
@@ -240,7 +240,7 @@ Copper =========================================================================
 >    $ transpose 0
 >    $ addVolume 70
 >    -- $ instrument Trumpet
->    $ line [percm Vibraslap [dwn, wn, hn, qn, en]]
+>    $ line [percm HandClap [dwn, wn, hn, qn, en]] :+: instrument BrightAcousticPiano (line [a 3 wn]) :+: line [percm HandClap [sn, sn, sn, sn]]
 
 Gold ==================================================================================================================
 
@@ -690,7 +690,7 @@ Way Pos' T' Purple =============================================================
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig C Major
->    $ addVolume 80 (instrument AcousticGrandPiano
+>    $ addVolume 80 (instrument BrightAcousticPiano
 >      ((if includeOpen       then pOpenT  else rest 0)
 >         :+: (if includeCont then pContT  else rest 0)
 >         :+: (if includePool then pPoolT  else rest 0)

@@ -13,7 +13,6 @@ Rosters support ================================================================
 > import Cecil
 > import Control.Monad ( foldM )
 > import Covers
-> import qualified Data.Map as Map
 > import Debug.Trace ( traceIO, traceM )
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
@@ -30,7 +29,7 @@ Rosters support ================================================================
 >   let playAll          = (length args == 1) && ("all" == head args)
 >   _ ← if playAll
 >         then doEverything combineAll
->         else doEverything sj -- WOX pitchSamples 80
+>         else doEverything sj -- cjingles -- pitchSamples 80
 >
 >   return ()
 >
@@ -79,7 +78,10 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [ ("slot"           , aggrandize (slot 1))]
+>    [ ("littleAbby"         , aggrandize littleAbby)]
+>    -- [ ("copper'"         , aggrandize copper')]
+>    -- [ ("bake"           , cut 1.5 $ bakedJingle 23434)]
+>    -- [ ("slot"           , aggrandize (slot 1))]
 
 a few playthings ... get it? ==========================================================================================
 

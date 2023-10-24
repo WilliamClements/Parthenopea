@@ -631,9 +631,11 @@ new route ======================================================================
 >         let path = name ++ ".wav"
 >         putStr path
 >         let (d,s) = renderSF song imap
->         if normalizingOutput
->           then outFileNorm path d s
->           else outFile     path d s
+>         if scanningOutput
+>           then findOutliers d s
+>           else if normalizingOutput
+>                  then outFileNorm path d s
+>                  else outFile     path d s
 >         ts2 ← getCurrentTime
 >         putStrLn (" (dur=" ++ show d ++ ") written in " ++ show (diffUTCTime ts2 ts1))
 >       else
@@ -886,11 +888,6 @@ prepare the specified instruments and percussion ===============================
 > toPreSampleKey         :: PerGMKey → PreSampleKey
 > toPreSampleKey pergm                     = PreSampleKey (pWordF pergm) (fromJust (mpWordZ pergm))
 >
-> latchingFolder         :: forall a. Maybe a → Maybe a → Maybe a
-> latchingFolder x y
->   | isNothing x                          = y
->   | otherwise                            = x
->     
 > categorizeInst         :: SoundFontArrays
 >                        → PerGMKey
 >                        → PreSampleCache

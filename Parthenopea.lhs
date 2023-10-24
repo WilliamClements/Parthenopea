@@ -61,7 +61,7 @@ Utilities ======================================================================
 > traceNot   :: String → a → a
 > traceNot str expr = expr
 >
-> hasDuplicates :: (Ord a) => [a] -> Bool
+> hasDuplicates :: (Ord a) ⇒ [a] → Bool
 > hasDuplicates list = length list /= length set
 >   where
 >     set = Set.fromList list
@@ -882,9 +882,9 @@ Sampling =======================================================================
 
 > type SampleAnalysis    = Double
 >
-> toSamples :: ∀ a p. (AudioSample a, Clock p) => Double → Signal p () a → [Double]
+> toSamples              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [Double]
 > toSamples dur sf
->   | traceIf msg False                    = undefined
+>   | traceNow msg False                   = undefined
 >   | otherwise                            = take numSamples $ concatMap collapse $ unfold $ strip sf
 >   where
 >     sr                                   = rate     (undefined :: p)
@@ -896,8 +896,8 @@ Sampling =======================================================================
 >                             ++ " ch= " ++ show numChannels
 >                             ++ " ns= " ++ show numSamples]
 >
-> maxSample :: ∀ a p. (AudioSample a, Clock p) => Double -> Signal p () a -> Double
-> maxSample dur sf = maximum (map abs (toSamples dur sf))
+> maxSample              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → Double
+> maxSample dur sf                         = maximum (map abs (toSamples dur sf))
 >
 > sineTable :: Table
 > sineTable = tableSinesN 4096 [1]
@@ -940,23 +940,23 @@ Sampling =======================================================================
 >     showChunk          :: [[Double]] → Int → String
 >     showChunk vFft ix                    = show ix ++ ">" ++ show (vFft !! ix) ++ "\n"
 >
-> delay' :: forall p . Clock p => Signal p (Double, Double) Double
-> delay' =
->     proc (x, _) -> do
->       y <- delay 0 -< x  
->       outA -< y
+> delay'                 :: ∀ p . Clock p ⇒ Signal p (Double, Double) Double
+> delay'                                   =
+>     proc (x, _) → do
+>       y ← delay 0                        ⤙ x  
+>       outA                               ⤙ y
 
 Conversion functions and general helpers ==============================================================================
 
 > checkForNan            :: Double → String → Double
 > checkForNan y msg                        = profess
->                                              (not $ isNaN y || isInfinite y || y > 20000)
+>                                              (not $ isNaN y || isInfinite y || abs y > 200000)
 >                                              (msg ++ " bad Double = " ++ show y)
 >                                              y
 >
 > profess                :: Bool → String → a → a
 > profess assertion msg something          = if not assertion
->                                              then error ("profess error " ++ msg)
+>                                              then error ("Failed assertion -- " ++ msg)
 >                                              else something
 >                                            
 > sumOfMaybeInts         :: [Maybe Int] → Int
@@ -1187,7 +1187,7 @@ Configurable parameters ========================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = False
+>   , qqSkipReporting                      = True
 >   , qqSkipGlissandi                      = False
 >   , qqDumpFftChunks                      = False
 >   , qqNumTakeFftChunks                   = 3}

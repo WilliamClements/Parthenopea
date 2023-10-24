@@ -4,8 +4,6 @@
 
 > module Signals where
 
-> import qualified Codec.Wav            as W
-> import qualified Codec.SoundFont      as F
 > import Control.Arrow ( returnA, (<<<), (>>>), Arrow(arr) )
 > import Control.Arrow.ArrowP ( ArrowP(ArrowP) )
 > import Control.DeepSeq (NFData)
@@ -37,7 +35,6 @@
 > import Synthesizer
 > import System.Environment ( getArgs )
 > import System.IO ( hSeek, withBinaryFile, SeekMode(AbsoluteSeek), IOMode(ReadMode) )
->  
 
 re-implement part of FRP.UISF.Asynchrony because not exported
 

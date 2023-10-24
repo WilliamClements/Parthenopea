@@ -257,16 +257,16 @@ Chart ==========================================================================
 >   getFFKeys = percussionFFKeys
 >   getList = map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
 > 
-> primes :: (Integral a) => [a]
+> primes :: (Integral a) ⇒ [a]
 > primes = 2 : 3 : ([5,7..] `minus`
->                      foldr (\(x:xs) -> (x:) . union xs) []
->                           [[p*p, p*p+2*p..] | p <- tail primes])
+>                      foldr (\(x:xs) → (x:) . union xs) []
+>                           [[p*p, p*p+2*p..] | p ← tail primes])
 >
 >  -- ordered lists, difference and union
 > minus (x:xs) (y:ys) = case compare x y of 
->            LT -> x : minus  xs  (y:ys)
->            EQ ->     minus  xs     ys 
->            GT ->     minus (x:xs)  ys
+>            LT → x : minus  xs  (y:ys)
+>            EQ →     minus  xs     ys 
+>            GT →     minus (x:xs)  ys
 > minus  xs     _     = xs
 >
 > {-
@@ -278,7 +278,7 @@ Chart ==========================================================================
 > union  []     ys    = ys
 > -}
 
-> m1 >=> m2 = \x ->
+> m1 >=> m2 = \x →
 >   let (y, s1) = m1 x
 >       (z, s2) = m2 y
 >    in (z, s1 ++ s2)

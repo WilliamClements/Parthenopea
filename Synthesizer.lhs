@@ -13,6 +13,8 @@
 > import qualified Data.Audio              as A
 > import Data.Complex
 > import Data.Int ( Int8, Int16 )
+> import Data.List ( maximumBy )
+> import Data.Ord ( comparing )
 > import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
 > import Data.Word
 > import Euterpea.IO.Audio.Basics
@@ -58,7 +60,7 @@ Signal function-based synth ====================================================
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
 >
 >     sig                :: Signal p () (Double, Double)
->                                          =       eutDriver      secsScored (reconL, reconR) delta looping
+>                                          =       eutDriver      secsScored (reconL, reconR) secsToPlay delta looping
 >                                              >>> eutPumpSamples secsScored (reconL, reconR) vol dur s16 ms8
 >                                              >>> eutModulate    secsScored (reconL, reconR)
 >                                              >>> eutEffects     secsScored (reconL, reconR)
@@ -72,9 +74,10 @@ Signal function-based synth ====================================================
 >                           Double
 >                           → (Reconciled, Reconciled)
 >                           → Double
+>                           → Double
 >                           → Bool
 >                           → Signal p () (Double, (ModSignals, ModSignals))
-> eutDriver secsScored (reconL@Reconciled{rModulation}, reconR) idelta looping
+> eutDriver secsScored (reconL@Reconciled{rModulation}, reconR) secsToPlay idelta looping
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = if looping
 >                                              then procL
@@ -82,18 +85,18 @@ Signal function-based synth ====================================================
 >   where
 >     mods@Modulation{toPitchSummary}      = rModulation
 >     procNL                               = proc () → do
->       (modSigL, modSigR) ← eutIgniteModSignals secsScored (reconL, reconR)
+>       (modSigL, modSigR) ← eutIgniteModSignals secsScored secsToPlay (reconL, reconR)
 >                                          ⤙ ()
->       let delta                          = maybe idelta (\xs → idelta / calculateModFactor modSigL xs) toPitchSummary
+>       let delta                          = maybe idelta (\xs → idelta * calculateModFactor "eutDriver procNL" modSigL xs) toPitchSummary
 >       rec
 >         let phase                        = if next > 1 then frac next else next
 >         next ← delay 0                   ⤙ frac (phase + delta)                           
 >       outA                               ⤙ (phase, (modSigL, modSigR))
 >         
 >     procL                                = proc () → do
->       (modSigL, modSigR) ← eutIgniteModSignals secsScored (reconL, reconR)
+>       (modSigL, modSigR) ← eutIgniteModSignals secsScored secsToPlay (reconL, reconR)
 >                                          ⤙ ()
->       let delta                          = maybe idelta (\xs → idelta / calculateModFactor modSigL xs) toPitchSummary
+>       let delta                          = maybe idelta (\xs → idelta * calculateModFactor "eutDriver procL" modSigL xs) toPitchSummary
 >       rec
 >         let sentinel                     = if next > 1
 >                                              then len
@@ -165,7 +168,7 @@ Signal function-based synth ====================================================
 >     aenvL ← doEnvelope envL secsScored secsToPlay ⤙ ()
 >     aenvR ← doEnvelope envR secsScored secsToPlay ⤙ ()
 >
->     let (a2L, a2R) = (a1L * aenvL, a1R * aenvR)
+>     let (a2L, a2R)                       = (a1L * aenvL, a1R * aenvR)
 >
 >     let (a3L, a3R)                       = amplify
 >                                              (a1L, a1R)
@@ -180,12 +183,7 @@ Signal function-based synth ====================================================
 >       | traceNever msg' False            = undefined
 >       | otherwise                        = (a3L, a3R)
 >       where
->         (a3L', a3R')                     = (checkForNan a3L "a3L", checkForNan a3R "a3R" )
->
->         msg'                             = unwords ["amplify sin = ",  show (a1L,       a1R)
->                                                   , "\n   env = ",     show (aenvL,     aenvR)
->                                                   , "\n       = ",     show (a1L*aenvL, a1R*aenvR)
->                                                   , "\n   sout = ",    show (a3L',      a3R')]
+>         msg'                             = unwords ["amplify env = ",  show aenvL]
 >
 
 Modulation ============================================================================================================
@@ -194,7 +192,7 @@ Modulation =====================================================================
 >                           Double
 >                           → (Reconciled, Reconciled)
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
-> eutModulate secsScored
+> eutModulate _
 >             (rL@Reconciled{rVolEnv = envL, rModulation = modsL}
 >            , rR@Reconciled{rVolEnv = envR, rModulation = modsR})
 >                                          =
@@ -212,10 +210,10 @@ Modulation =====================================================================
 >       | traceNever msg' False            = undefined
 >       | otherwise                        = (a2L, a2R)
 >       where
->         (a3L, a3R)                       = (checkForNan a2L "a2L", checkForNan a2R "a2R" )
+>         (a3L, a3R)                       = (checkForNan a2L "mod a2L", checkForNan a2R "mod a2R" )
 >
->         msg'                             = unwords ["modulate sin = ", show (a1L,       a1R)
->                                                   , "\n   sout = ",    show (a2L,      a2R)]
+>         msg'                             = unwords ["modulate\n sin = ", show (a1L,       a1R)
+>                                                   , "\nsout = ",         show (a3L,       a3R)]
 >
 > deriveModTarget        :: Maybe Int → Maybe Int → Maybe Int → ModTarget
 > deriveModTarget toPitch toFilterFc toVolume
@@ -240,54 +238,74 @@ Modulation =====================================================================
 >
 > eutIgniteModSignals    :: ∀ p. Clock p ⇒
 >                           Double
+>                           → Double
 >                           → (Reconciled, Reconciled)
 >                           → Signal p () (ModSignals, ModSignals)
-> eutIgniteModSignals secs (reconL@Reconciled{rModulation = modsL}, reconR@Reconciled{rModulation = modsR})
+> eutIgniteModSignals secsScored secsToPlay (reconL@Reconciled{rModulation = modsL}, reconR@Reconciled{rModulation = modsR})
 >                                          =
 >   proc _ → do
->     aL1 ← doEnvelope  mModEnvL  secs  secs ⤙ ()
->     aL2 ← doLFO       mModLfoL             ⤙ ()
->     aL3 ← doLFO       mVibLfoL             ⤙ ()
->     aR1 ← doEnvelope  mModEnvR  secs  secs ⤙ ()
->     aR2 ← doLFO       mModLfoR             ⤙ ()
->     aR3 ← doLFO       mVibLfoR             ⤙ ()
+>     aL1 ← doEnvelope  mModEnvL secsScored secsToPlay ⤙ ()
+>     aL2 ← doLFO       mModLfoL                       ⤙ ()
+>     aL3 ← doLFO       mVibLfoL                       ⤙ ()
+>     aR1 ← doEnvelope  mModEnvR secsScored secsToPlay ⤙ ()
+>     aR2 ← doLFO       mModLfoR                       ⤙ ()
+>     aR3 ← doLFO       mVibLfoR                       ⤙ ()
 >     outA ⤙ (ModSignals aL1 aL2 aL3, ModSignals aR1 aR2 aR3)
 >   where
 >     mL@Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = modsL
 >     mR@Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = modsR
 >
-> calculateModFactor     :: ModSignals → [Double] → Double
-> calculateModFactor ms@ModSignals{srModEnvPos, srModlfoPos, srViblfoPos} targetList
+> calculateModFactor     :: String → ModSignals → [Double] → Double
+> calculateModFactor tag ms@ModSignals{srModEnvPos, srModlfoPos, srViblfoPos} targetList
 >  | traceNever msg False                  = undefined
->  | otherwise                             = fromCents (x1 + x2 + x3)
+>  | otherwise                             = fact
 >  where
 >    x1                                    = srModEnvPos * head targetList
 >    x2                                    = srModlfoPos * (targetList !! 1)
 >    x3                                    = srViblfoPos * (targetList !! 2)
+>    fact                                  = fromCents (x1 + x2 + x3)
 >
->    msg                                   = unwords ["\ncalculateVibFactor=", show (x1, x2, x3)]
+>    msg                                   = unwords ["calculateModFactor=", show fact, " for ", tag, "...", show (srModEnvPos, srModlfoPos, srViblfoPos), " ", show (x1, x2, x3)]
 >
 > addResonance           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, ModSignals) Double
 > addResonance mods@Modulation{mLowPass, toFilterFcSummary}
 >                                          = maybe delay' makeSF mLowPass
 >   where
 >     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
->     makeSF lp@LowPass{lowPassFc, lowPassQ} 
->                                          =
+>     makeSF lp@LowPass{lowPassFc, lowPassQ}
+>       | traceIf msg False               = undefined
+>       | otherwise                        =
 >       proc (x, modSig) → do
 >         let fc = maybe lowPassFc (modFc lowPassFc modSig) toFilterFcSummary
 >         y ← filterLowPassBW              ⤙ (x, fc)
->         outA                             ⤙ y
+>         outA                             ⤙ resonate x fc y
+>       where
+>         msg = unwords ["WOX addResonance/makeSF ", show lowPassFc, " ", show toFilterFcSummary]
 >
 >     modFc          :: Double → ModSignals → [Double] → Double
->     modFc fc ms fs                   = fc / calculateModFactor ms fs
->                             
+>     modFc fc ms fs
+>       | traceNever msg False               = undefined
+>       | otherwise                        = fc'
+>       where
+>         mf                               = calculateModFactor "addResonance" ms fs
+>         fc'                              = fc * mf
+>
+>         msg = unwords ["modFC ", show fc, " * ", show mf, " = ", show fc']                     
+>
 >     delay'             :: Signal p (Double, ModSignals) Double
 >                                          =
->       proc (x, _) -> do
->         y <- delay 0 -< x  
->         outA -< y
+>       proc (x, _) → do
+>         y ← delay 0                      ⤙ x  
+>         outA                             ⤙ y
 >
+>     resonate           :: Double → Double → Double→ Double
+>     resonate x fc y
+>       | traceNever msg' False            = undefined
+>       | otherwise                        = y
+>       where
+>         msg'                             = unwords ["resonate\nsin  = ", show x
+>                                                           , "\nfc   = ", show fc
+>                                                           , "\nsout = ", show y]
 > doLFO                  :: ∀ p . Clock p ⇒ Maybe LFO → Signal p () Double
 > doLFO                                    = maybe (constA 0) makeSF
 >   where
@@ -308,6 +326,22 @@ Modulation =====================================================================
 
 FFT ===================================================================================================================
 
+> findOutliers           :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → IO ()
+> findOutliers secs sig                    = do
+>   putStrLn (findOutliersString secs sig)
+>   return ()
+>
+> findOutliersString     :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → String
+> findOutliersString secs sig              = "findOutliers " ++ show secs ++ "..." ++ show (abs x) ++ " ... " ++ show y ++ " / " ++ show h ++ " = " ++ show z
+>   where
+>     ss                                   = toSamples (secs + 0.5) sig
+>     pers               :: Double         = secs / fromIntegral (length ss)
+>     ts                                   = map ((*pers) . fromIntegral) [0..(length ss - 1)]
+>     timedPoints                          = zip ts ss 
+>     (x, y)                               = maximumBy (comparing (abs . snd)) timedPoints
+>     h                  :: Double         = fromIntegral $ length timedPoints
+>     z                  :: Double         = secs * abs x / h
+>
 > eutAnalyzeSample       :: A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → F.Shdr
@@ -437,10 +471,19 @@ Envelopes ======================================================================
 >     makeSF             :: Envelope → Signal p () Double
 >     makeSF env
 >       | traceIf msg False                = undefined
->       | otherwise                        = envLineSeg sAmps sDeltaTs
+>       | otherwise                        = dumpSF secsScored secsToPlay sf
 >       where
+>         sf = envLineSeg sAmps sDeltaTs
 >         segs@Segments{sAmps, sDeltaTs}   = computeSegments secsScored secsToPlay env
->         msg = unwords ["doEnvelope/makeSF ", show (sAmps, sDeltaTs)]
+>         msg = unwords ["doEnvelope/makeSF ", show (secsScored, secsToPlay), " ",  show (sAmps, sDeltaTs)]
+>
+>     dumpSF             :: Double → Double → Signal p () Double → Signal p () Double
+>     dumpSF secsScored secsToUse sigIn
+>       | traceNever msg' False            = undefined
+>       | otherwise                        = sigIn
+>       where
+>         str1 = findOutliersString secsScored sigIn
+>         msg' = unwords ["dumpSF ", str1]
 
 Implement the SoundFont envelope model with specified:
   1. delay time                      0 → 0
@@ -466,44 +509,43 @@ Create a straight-line envelope generator with following phases:
    release  
 
 > computeSegments        :: Double → Double → Envelope → Segments
-> computeSegments secsScored secsToPlay rEnv = Segments amps deltaTs
+> computeSegments secsScored secsToPlay rEnv@Envelope{eDelayT, eAttackT, eHoldT, eDecayT, eSustainLevel, eReleaseT}
+>   | traceNever msg False                   = undefined
+>   | otherwise                            = Segments amps deltaTs
 >   where
->     susL               :: Double         = eSustainLevel rEnv
->     minA               :: Double         = minAttackTime
->     minR               :: Double         = minReleaseTime
->     minDeltaT          :: Double         = fromTimecents Nothing
+>     amps               :: [Double]       = [0, 0, 1, 1, fSusLevel, fSusLevel, 0, 0]
+>     deltaTs            :: [Double]       = [fDelayT, fAttackT, fHoldT, fDecayT, fSustainT, fReleaseT, fPostT]
 >
->     maxOnsetRelease    :: Double         = max minDeltaT (secsToPlay - minR)
->     amps               :: [Double]       = [0, 0, 1, 1, susL, susL, 0, 0]
->     -- delay time
->     del                :: Double         = eDelayT rEnv
->     del'               :: Double         = if del >= maxOnsetRelease
->                                              then maxOnsetRelease
->                                              else del
->     -- attack time
->     att                :: Double         = max minA (eAttackT rEnv)
->     att'               :: Double         = if del' + att >= maxOnsetRelease
->                                              then max minDeltaT (maxOnsetRelease - del')
->                                              else att
->     -- hold time
->     hold               :: Double         = eHoldT rEnv
->     hold'              :: Double         = if del' + att' + hold > maxOnsetRelease
->                                              then max minDeltaT (maxOnsetRelease - (del' + att'))
->                                              else hold
->     -- decay time
->     dec                :: Double         = eDecayT rEnv
->     dec'               :: Double         = if del' + att' + hold' + dec > maxOnsetRelease
->                                              then max minDeltaT (maxOnsetRelease - (del' + att' + hold'))
->                                              else dec
->     -- release time
->     rel                :: Double         = eReleaseT rEnv
->     rel'               :: Double         = if del' + att' + hold' + dec' + rel > secsToPlay
->                                              then minDeltaT
->                                              else rel
->     -- sustain time
->     susT               :: Double         = max minDeltaT (secsToPlay - (del' + att' + hold' + dec' + rel'))
->    
->     deltaTs = [del', att', hold', dec', susT, rel', secsScored]
+>     minDeltaT          :: Double         = fromTimecents Nothing
+>     secsToUse          :: Double         = profess (secsToPlay > 16 * minDeltaT)
+>                                                    "time too short for envelope"
+>                                                    secsToPlay
+>
+>     -- pin down onset of Release phase
+>     rpCand1            :: Double         = max (secsToUse - eReleaseT)
+>                                                (8 * minDeltaT)
+>     rpCand2                              = min (eDelayT + eAttackT + eHoldT + eDecayT + minDeltaT)
+>                                                (secsToUse - (8 * minDeltaT))
+>     rp                                   = (rpCand1 + rpCand2) / 2
+>
+>     fSusLevel          :: Double         = clip (0, 1) eSustainLevel
+>
+>     fReleaseT          :: Double         = secsToUse - rp
+>     fDelayT                              = clip (minDeltaT, max minDeltaT rp)
+>                                              eDelayT
+>     fAttackT                             = clip (minDeltaT, max minDeltaT $ rp - fDelayT)
+>                                              eAttackT
+>     fHoldT                               = clip (minDeltaT, max minDeltaT $ rp - (fDelayT + fAttackT))
+>                                              eHoldT
+>     fDecayT                              = clip (minDeltaT, max minDeltaT $ rp - (fDelayT + fAttackT + fHoldT))
+>                                              eDecayT
+>     fSustainT                            = max minDeltaT (secsToUse - (fReleaseT + fDelayT + fAttackT + fHoldT + fDecayT + minDeltaT))
+>     fPostT                               = (2*minDeltaT) + secsScored - secsToUse
+>
+>     altogether          :: Double        = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + fReleaseT + fPostT
+>     msg                                  = unwords ["computeSegments secs = "
+>                                                   , show (secsScored, secsToUse)
+>                                                   , " time = ", show altogether, " rp =", show (rpCand1, rpCand2, rp)]
 
 Effects ===============================================================================================================
 
@@ -909,7 +951,8 @@ Flags for customization ========================================================
 >   , qqUseEffectChorus      :: Bool
 >   , qqUseEffectPan         :: Bool
 >   , qqUseEffectDCBlock     :: Bool
->   , qqNormalizingOutput    :: Bool} deriving (Eq, Show)
+>   , qqNormalizingOutput    :: Bool
+>   , qqScanningOutput       :: Bool} deriving (Eq, Show)
 >
 > data ScoringSettings =
 >   ScoringSettings {
@@ -946,6 +989,7 @@ Flags for customization ========================================================
 > usePan                                   = qqUseEffectPan               defS
 > useDCBlock                               = qqUseEffectDCBlock           defS
 > normalizingOutput                        = qqNormalizingOutput          defS
+> scanningOutput                           = qqScanningOutput             defS
 >
 > weighHints                               = qqWeighHints                 defT
 > weighStereo                              = qqWeighStereo                defT
@@ -1025,4 +1069,5 @@ Turn Knobs Here ================================================================
 >   , qqUseEffectChorus                    = True
 >   , qqUseEffectPan                       = True
 >   , qqUseEffectDCBlock                   = True
->   , qqNormalizingOutput                  = True}
+>   , qqNormalizingOutput                  = True
+>   , qqScanningOutput                     = False}
