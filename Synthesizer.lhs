@@ -510,7 +510,7 @@ Create a straight-line envelope generator with following phases:
 
 > computeSegments        :: Double → Double → Envelope → Segments
 > computeSegments secsScored secsToPlay rEnv@Envelope{eDelayT, eAttackT, eHoldT, eDecayT, eSustainLevel, eReleaseT}
->   | traceNever msg False                   = undefined
+>   | traceNever msg False                 = undefined
 >   | otherwise                            = Segments amps deltaTs
 >   where
 >     amps               :: [Double]       = [0, 0, 1, 1, fSusLevel, fSusLevel, 0, 0]
@@ -531,15 +531,16 @@ Create a straight-line envelope generator with following phases:
 >     fSusLevel          :: Double         = clip (0, 1) eSustainLevel
 >
 >     fReleaseT          :: Double         = secsToUse - rp
->     fDelayT                              = clip (minDeltaT, max minDeltaT rp)
->                                              eDelayT
->     fAttackT                             = clip (minDeltaT, max minDeltaT $ rp - fDelayT)
->                                              eAttackT
->     fHoldT                               = clip (minDeltaT, max minDeltaT $ rp - (fDelayT + fAttackT))
->                                              eHoldT
->     fDecayT                              = clip (minDeltaT, max minDeltaT $ rp - (fDelayT + fAttackT + fHoldT))
->                                              eDecayT
->     fSustainT                            = max minDeltaT (secsToUse - (fReleaseT + fDelayT + fAttackT + fHoldT + fDecayT + minDeltaT))
+>     fDelayT                              =
+>       clip (minDeltaT, max minDeltaT rp)                                         eDelayT
+>     fAttackT                             =
+>       clip (minDeltaT, max minDeltaT $ rp - fDelayT)                             eAttackT
+>     fHoldT                               =
+>       clip (minDeltaT, max minDeltaT $ rp - (fDelayT + fAttackT))                eHoldT
+>     fDecayT                              =
+>       clip (minDeltaT, max minDeltaT $ rp - (fDelayT + fAttackT + fHoldT))       eDecayT
+>     fSustainT                            =
+>       max minDeltaT (secsToUse - (fReleaseT + fDelayT + fAttackT + fHoldT + fDecayT + minDeltaT))
 >     fPostT                               = (2*minDeltaT) + secsScored - secsToUse
 >
 >     altogether          :: Double        = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + fReleaseT + fPostT
