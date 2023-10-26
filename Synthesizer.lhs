@@ -67,6 +67,7 @@ Signal function-based synth ====================================================
 >                                              >>> eutAmplify     secsScored (reconL, reconR) secsToPlay
 >
 >     msg                                  = unwords [ "eutSynthesize ", show (dur, pch, vol)
+>                                                    , "ns, sr, ns/sr= ", show (ns, sr, ns/sr)
 >                                                    , "\nsample, scored, toplay = "
 >                                                    , show secsSample, " , ", show secsScored, " , ", show secsToPlay]
 >
@@ -90,7 +91,7 @@ Signal function-based synth ====================================================
 >       let delta                          = maybe idelta (\xs → idelta * calculateModFactor "eutDriver procNL" modSigL xs) toPitchSummary
 >       rec
 >         let phase                        = if next > 1 then frac next else next
->         next ← delay 0                   ⤙ frac (phase + delta)                           
+>         next           ← delay 0         ⤙ frac (phase + delta)                           
 >       outA                               ⤙ (phase, (modSigL, modSigR))
 >         
 >     procL                                = proc () → do
@@ -98,14 +99,8 @@ Signal function-based synth ====================================================
 >                                          ⤙ ()
 >       let delta                          = maybe idelta (\xs → idelta * calculateModFactor "eutDriver procL" modSigL xs) toPitchSummary
 >       rec
->         let sentinel                     = if next > 1
->                                              then len
->                                              else 0.99999
->         let phase'                       = if phase > sentinel
->                                              then lst 
->                                              else phase
->         next           ← delay 0         ⤙ next + delta
->         phase          ← delay 0         ⤙ frac (phase' + delta)                           
+>         let phase                        = if next > len then lst else next
+>         next           ← delay 0         ⤙ frac (phase + delta)
 >       outA                               ⤙ (phase, (modSigL, modSigR))
 >
 >     (lst, len)         :: (Double, Double)
@@ -513,11 +508,11 @@ Create a straight-line envelope generator with following phases:
 >   | traceNever msg False                 = undefined
 >   | otherwise                            = Segments amps deltaTs
 >   where
->     amps               :: [Double]       = [0, 0, 1, 1, fSusLevel, fSusLevel, 0, 0]
->     deltaTs            :: [Double]       = [fDelayT, fAttackT, fHoldT, fDecayT, fSustainT, fReleaseT, fPostT]
+>     amps               :: [Double]       = [0,       0,       1,       1,     fSusLevel, fSusLevel,      0,      0]
+>     deltaTs            :: [Double]       = [  fDelayT, fAttackT, fHoldT,  fDecayT, fSustainT, fReleaseT,   fPostT]
 >
 >     minDeltaT          :: Double         = fromTimecents Nothing
->     secsToUse          :: Double         = profess (secsToPlay > 16 * minDeltaT)
+>     secsToUse          :: Double         = profess (secsToPlay > 10 * minDeltaT)
 >                                                    "time too short for envelope"
 >                                                    secsToPlay
 >
@@ -543,10 +538,9 @@ Create a straight-line envelope generator with following phases:
 >       max minDeltaT (secsToUse - (fReleaseT + fDelayT + fAttackT + fHoldT + fDecayT + minDeltaT))
 >     fPostT                               = (2*minDeltaT) + secsScored - secsToUse
 >
->     altogether          :: Double        = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + fReleaseT + fPostT
->     msg                                  = unwords ["computeSegments secs = "
->                                                   , show (secsScored, secsToUse)
->                                                   , " time = ", show altogether, " rp =", show (rpCand1, rpCand2, rp)]
+>     msg                                  = unwords ["computeSegments secs = ", show (secsScored, secsToUse)
+>                                                   , " time = ",                show (sum deltaTs)
+>                                                   , " rp =",                   show (rpCand1, rpCand2, rp)]
 
 Effects ===============================================================================================================
 
@@ -574,7 +568,9 @@ Effects ========================================================================
 >   | traceNever msg False = undefined
 >   | otherwise =
 >   proc (aL, aR) → do
->     (chL, chR) ← eutChorus cL ⤙ (aL, aR)
+>     chL ← eutChorus 15.0 0.005 0.1 cL ⤙ aL
+>     chR ← eutChorus 15.0 0.005 0.1 cR ⤙ aR
+>
 >     (rbL, rbR) ← eutReverb rL ⤙ (aL, aR)
 >
 >     let mixL = (cFactorL * chL
@@ -609,26 +605,20 @@ Effects ========================================================================
 >
 >     msg = unwords ["eutEffects=", show effL, "=LR=", show effR, "rFactor*=", show rFactorL, " ", show rFactorR]
 > 
-> eutChorus              :: ∀ p . Clock p ⇒ Maybe Double → Signal p (Double, Double) (Double, Double)
-> eutChorus                                = maybe (delay (0, 0)) makeSF
+> eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Maybe Double → Signal p Double Double
+> eutChorus rate gain depth               = maybe (delay 0) makeSF
 >   where
 >     gain                                 = 0.1
 >
->     makeSF             :: Double → Signal p (Double, Double) (Double, Double)
->     makeSF _ = proc (sinL, sinR) → do
->       z1L ← delayLine 0.010 ⤙ sinL
->       z2L ← delayLine 0.020 ⤙ sinL
->       z3L ← delayLine 0.030 ⤙ sinL
->
->       z1R ← delayLine 0.010 ⤙ sinR
->       z2R ← delayLine 0.020 ⤙ sinR
->       z3R ← delayLine 0.030 ⤙ sinR
->
+>     makeSF             :: Double → Signal p Double Double
+>     makeSF rate = proc sin → do
+>       lfo ← osc (tableSines 4096 [1]) 0 ⤙ rate
+>       z1 ← delayLine1 0.030 ⤙ (sin, 0.010 + depth * lfo)
+>       z2 ← delayLine1 0.030 ⤙ (sin, 0.020 + depth * lfo)
+>       z3 ← delayLine1 0.030 ⤙ (sin, 0.030 + depth * lfo)
 >       rec
->         rL ← delayLine 0.0001 ⤙ (sinL + z1L + z2L + z3L)/4 + rL * gain
->         rR ← delayLine 0.0001 ⤙ (sinR + z1R + z2R + z3R)/4 + rR * gain
->
->       outA ⤙ (rL, rR)
+>         r ← delayLine 0.0001 ⤙ (sin + z1 + z2 + z3)/4 + r * gain
+>       outA ⤙ r
 >
 > eutReverb              :: ∀ p . Clock p ⇒ Maybe Double → Signal p (Double, Double) (Double, Double)
 > eutReverb                                = maybe (delay (0, 0)) makeSF
