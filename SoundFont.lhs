@@ -21,13 +21,12 @@ SoundFont support ==============================================================
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
 > import Data.Ord ( Down(Down), comparing )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
-> import Debug.Trace ( trace, traceIO )
+> import Debug.Trace ( traceIO )
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, Mono, Stereo, Clock, Signal )
 > import Euterpea.Music
-> import GHC.Base ( (<|>) )
 > import Parthenopea
 > import Synthesizer
 > import qualified System.FilePattern.Directory
@@ -919,7 +918,7 @@ prepare the specified instruments and percussion ===============================
 >
 >             byZone     :: [Bool]         = map computeCanBePerc zs
 >             howPercish :: Double         = fromIntegral (length (filter id byZone)) / fromIntegral (length byZone)
->             latched    :: Maybe InstCat  = foldr (<|>) Nothing alts
+>             latched    :: Maybe InstCat  = foldr CM.mplus Nothing alts
 >             msg                          = unwords ["categorizeInst ", show iName, " ", show pergm
 >                                                    , "---\n", show latched, " = ", show alts]
 >
