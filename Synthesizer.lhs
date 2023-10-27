@@ -286,7 +286,7 @@ Modulation =====================================================================
 >         y ← delay 0                      ⤙ x  
 >         outA                             ⤙ y
 >
->     resonate           :: Double → Double → Double→ Double
+>     resonate           :: Double → Double → Double → Double
 >     resonate x fc y
 >       | traceNever msg' False            = undefined
 >       | otherwise                        = y
@@ -294,6 +294,7 @@ Modulation =====================================================================
 >         msg'                             = unwords ["resonate\nsin  = ", show x
 >                                                           , "\nfc   = ", show fc
 >                                                           , "\nsout = ", show y]
+>
 > doLFO                  :: ∀ p . Clock p ⇒ Maybe LFO → Signal p () Double
 > doLFO                                    = maybe (constA 0) makeSF
 >   where
