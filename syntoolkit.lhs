@@ -733,11 +733,8 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 >   {
 >       jGain            :: Double
 >     , jChannelsIn      :: Word64
->     -- WOX , jLastFrame       :: StkFrames
 >     , jB               :: [Double]
 >     , jA               :: [Double]
->     -- WOX , jOutputs         :: StkFrames
->     -- WOX , jInputs          :: StkFrames
 >   } deriving (Show, Eq, Ord)
 >
 > newOnePole             :: Double → FilterData

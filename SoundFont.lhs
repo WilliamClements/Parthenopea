@@ -312,7 +312,7 @@ sample pitching scaffold =======================================================
 >     msg = unwords ["pitchOne ", show ix]
 >   
 
-new route =============================================================================================================
+executive =============================================================================================================
 
 > doEverything           :: [(String, Music (Pitch, [NoteAttribute]))] → IO ()
 > doEverything songs = do
@@ -488,6 +488,9 @@ new route ======================================================================
 >
 > getPreInstrumentFromCache ic pergm       = fromMaybe (error $ "PreInstrument missing from cache: " ++ show pergm)
 >                                                      (Map.lookup pergm ic)
+>
+> toPreSampleKey         :: PerGMKey → PreSampleKey
+> toPreSampleKey pergm                     = PreSampleKey (pWordF pergm) (fromJust (mpWordZ pergm))
 >
 > computePreSample       :: SFFile → PreSampleKey → PreSample
 > computePreSample sffile k
@@ -684,7 +687,8 @@ tournament among GM instruments and percussion from SoundFont files ============
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = ArtifactGrade (sum weightedScores) baseScores
 >   where
->     perI@PerInstrument{pZonePairs}       = getPerInstrumentFromCache zZoneCache pergm{mpWordZ = Nothing}
+>     perI@PerInstrument{pZonePairs, pInstCat}
+>                                          = getPerInstrumentFromCache zZoneCache pergm{mpWordZ = Nothing}
 >     zs                                   = tail pZonePairs
 >     empiricals         :: [Int]          = [   scoreBool $ isStereoInst zs
 >                                              , scoreBool $ is24BitInst zs
@@ -707,7 +711,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >     weightedScores     :: [Int]          = zipWith (*) baseScores ssWeights
 >
->     msg = unwords [   "computeGrade " , show (pInstCat perI)
+>     msg = unwords [   "computeGrade " , show pInstCat
 >                     , " and "         , show baseScores
 >                     , " X "           , show ssWeights
 >                     , " = "           , show weightedScores]
@@ -761,34 +765,6 @@ tournament among GM instruments and percussion from SoundFont files ============
  
 extract data from SoundFont per instrument ============================================================================
 
-> buildZone              :: PreSampleCache → SFFile → F.Inst → SFZone → Word → (ZoneHeader, SFZone)
-> buildZone sc sffile iinst fromZone bagIndex
->                                          = (zh, zone)
->   where
->     meval              :: Maybe Bool     = zSampleIndex
->                                            >>= \w → Just (PreSampleKey (zWordF sffile) w)
->                                            >>= flip Map.lookup sc
->                                            >>= isNonPitchedByFft
->     arrays@SoundFontArrays{ssShdrs}      = zArrays sffile
->
->     ibags                                = ssIBags arrays
->     xgeni                                = F.genNdx $ ibags!bagIndex
->     ygeni                                = F.genNdx $ ibags!(bagIndex + 1)
->     xmodi                                = F.modNdx $ ibags!bagIndex
->     ymodi                                = F.modNdx $ ibags!(bagIndex + 1)
->     fromZone'                            = fromZone {zModulators =
->                                              if xmodi == ymodi
->                                                then Nothing
->                                                else Just (xmodi, ymodi)}
->     gens               :: [F.Generator]  = profess
->                                              (xgeni <= ygeni)
->                                              "SoundFont file corrupt (buildZone)"
->                                              (map (\zw → ssIGens arrays ! zw) [xgeni..ygeni-1])
->     zone@SFZone{zSampleIndex}            = foldl' addGen fromZone' gens
->
->     wZ                                   = fromMaybe 0 zSampleIndex
->     zh                                   = ZoneHeader wZ (ssShdrs ! wZ) (fromMaybe True meval)
->
 > addGen                 :: SFZone → F.Generator → SFZone
 > addGen iz gen =
 >   case gen of
@@ -864,51 +840,73 @@ prepare the specified instruments and percussion ===============================
 >     zcFolder pergm                       = Map.insert pergm (computePerInst pergm)
 >
 >     computePerInst     :: PerGMKey → PerInstrument
->     computePerInst pergm 
->       | traceNever msg False             = undefined
->       | otherwise                        = PerInstrument iinst icat (gList ++ oList)
+>     computePerInst pergm@PerGMKey{pWordF, pWordI} 
+>                                          = PerInstrument iinst (categorizeInst oList) (gList ++ oList)
 >       where
->         wordF                            = pWordF pergm
->         wordI                            = pWordI pergm
->         sffile                           = zFiles ! wordF
->         arrays                           = zArrays sffile
->         iinst                            = ssInsts arrays ! wordI
->         jinst                            = ssInsts arrays ! (wordI+1)
+>         arrays@SoundFontArrays{ssInsts, ssIBags, ssIGens, ssIMods, ssShdrs}
+>                                          = zArrays (zFiles ! pWordF)
+>         preI@PreInstrument{iName, isBmas}
+>                                          = getPreInstrumentFromCache zPreInstCache pergm
+>
+>         iinst                            = ssInsts ! pWordI
+>         jinst                            = ssInsts ! (pWordI+1)
 >         ibagi                            = F.instBagNdx iinst
 >         jbagi                            = F.instBagNdx jinst
 >
->         gIx                              = singleton ibagi
->         oIx                              = [ibagi+1..jbagi-1]
->         gList                            = map (buildZone zPreSampleCache sffile iinst defInstrumentZone)   gIx
->         oList                            = map (buildZone zPreSampleCache sffile iinst ((snd.head) gList))  oIx
+>         (gIx, oIx)                       = profess
+>                                              (ibagi <= jbagi)
+>                                              "SoundFont file corrupt (computePerInst)"
+>                                              (singleton ibagi, [ibagi+1..jbagi-1])
 >
->         icat           :: InstCat        = categorizeInst arrays pergm zPreSampleCache zPreInstCache oList
->         msg                              = unwords ["computePerInstrument icat = ", show icat]
+>         gList                            = map (buildZone defInstrumentZone)   gIx
+>         oList                            = map (buildZone ((snd.head) gList))  oIx
 >
-> toPreSampleKey         :: PerGMKey → PreSampleKey
-> toPreSampleKey pergm                     = PreSampleKey (pWordF pergm) (fromJust (mpWordZ pergm))
+>         buildZone      :: SFZone → Word → (ZoneHeader, SFZone)
+>         buildZone fromZone bagIndex      = (zh, zone)
+>           where
+>             xgeni                        = F.genNdx $ ssIBags!bagIndex
+>             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
+>             xmodi                        = F.modNdx $ ssIBags!bagIndex
+>             ymodi                        = F.modNdx $ ssIBags!(bagIndex + 1)
 >
-> categorizeInst         :: SoundFontArrays
->                        → PerGMKey
->                        → PreSampleCache
->                        → PreInstCache
->                        → [(ZoneHeader, SFZone)]
->                        → InstCat
-> categorizeInst arrays pergm sc ic zs
->   | traceNever msg False                 = undefined
->   | otherwise                            = fromMaybe InstCatPerc latched
->   where
->     preI                                 = getPreInstrumentFromCache ic pergm
+>             gens       :: [F.Generator]  = profess
+>                                              (xgeni <= ygeni)
+>                                              "SoundFont file corrupt (buildZone gens)"
+>                                              (map (ssIGens !) [xgeni..ygeni-1])
+>             mods       :: [F.Mod]        = profess
+>                                              (xmodi <= ymodi)
+>                                              "SoundFont file corrupt (buildZone mods)"
+>                                              (map (ssIMods !) [xgeni..ygeni-1])
 >
->     confirmed                            = bqForce preI isConfirmed
->     standing                             = bqForce preI stands
->     possible                             = bqForce preI isPossible
->     unknown                              = (Nothing, Nothing) == possible
+>             meval      :: Maybe Bool     = zSampleIndex
+>                                            >>= \w → Just (PreSampleKey pWordF w)
+>                                            >>= flip Map.lookup zPreSampleCache
+>                                            >>= isNonPitchedByFft
 >
->     badrom             :: Maybe InstCat  = if any hasRom zs
+>             fromZone'                    = fromZone {zModulators =
+>                                              if xmodi == ymodi
+>                                                then Nothing
+>                                                else Just (xmodi, ymodi)}
+>
+>             zone@SFZone{zSampleIndex}    = foldl' addGen fromZone' gens
+>
+>             wZ                           = fromMaybe 0 zSampleIndex
+>             zh                           = ZoneHeader wZ (ssShdrs ! wZ) (fromMaybe True meval)
+>
+>         categorizeInst :: [(ZoneHeader, SFZone)] → InstCat
+>         categorizeInst zs
+>           | traceNever msg False         = undefined
+>           | otherwise                    = fromMaybe InstCatPerc latched
+>           where
+>             confirmed                    = bqForce isConfirmed
+>             standing                     = bqForce stands
+>             possible                     = bqForce isPossible
+>             unknown                      = (Nothing, Nothing) == possible
+>
+>             badrom     :: Maybe InstCat  = if any hasRom zs
 >                                              then Just InstCatDisq
 >                                              else Nothing
->     alts               :: [Maybe InstCat]
+>             alts       :: [Maybe InstCat]
 >                                          = [ badrom
 >                                            , fst confirmed
 >                                            , snd confirmed
@@ -920,37 +918,36 @@ prepare the specified instruments and percussion ===============================
 >                                            , fst possible
 >                                            , snd possible]
 >
->     byZone             :: [Bool]         = map computeCanBePerc zs
->     howPercish         :: Double         = fromIntegral (length (filter id byZone)) / fromIntegral (length byZone)
->     latched            :: Maybe InstCat  = foldr (<|>) Nothing alts
->
->     bqForce            :: PreInstrument → Double → (Maybe InstCat, Maybe InstCat)
->     bqForce preI@PreInstrument{iName, isBmas} thresh =
->         (          (\x → Just InstCatInst) =<< bestQualifying (instAs isBmas) thresh
->         ,          (\x → Just InstCatPerc) =<< bestQualifying (percAs isBmas) thresh)
->
->     msg                                  = unwords ["categorizeInst ", show (iName preI), " ", show pergm
+>             byZone     :: [Bool]         = map computeCanBePerc zs
+>             howPercish :: Double         = fromIntegral (length (filter id byZone)) / fromIntegral (length byZone)
+>             latched    :: Maybe InstCat  = foldr (<|>) Nothing alts
+>             msg                          = unwords ["categorizeInst ", show iName, " ", show pergm
 >                                                    , "---\n", show latched, " = ", show alts]
 >
->     hasRom             :: (ZoneHeader, SFZone) → Bool
->     hasRom (zh@ZoneHeader {pSample}, zone)                    = sType >= 0x8000
->       where
->         sType = F.sampleType pSample
+>         bqForce        :: Double → (Maybe InstCat, Maybe InstCat)
+>         bqForce thresh =
+>           (            (\x → Just InstCatInst) =<< bestQualifying (instAs isBmas) thresh
+>           ,            (\x → Just InstCatPerc) =<< bestQualifying (percAs isBmas) thresh)
 >
->     computeCanBePerc   :: (ZoneHeader, SFZone) → Bool
->     computeCanBePerc (zh, zone)
->       | traceNever msg' False            = undefined
->       | otherwise                        = pinned || nonPitchedByFuzz || nonPitchedByFft
->       where
->         pergm'         :: PerGMKey       = pergm{mpWordZ = Just (pwZone zh)}
->         preS@PreSample{sName}            = getPreSampleFromCache sc pergm'
->         sbmas          :: BothMatchingAs = psBmas preS
->         pinned                           = maybe False pinnedKR (zKeyRange zone)
->         nonPitchedByFuzz                 = any (isPossible' . flip getEvalAgainstKind (matchingAs sbmas))
+>
+>         hasRom         :: (ZoneHeader, SFZone) → Bool
+>         hasRom (zh@ZoneHeader {pSample}, zone)
+>                                          = F.sampleType pSample >= 0x8000
+>
+>         computeCanBePerc
+>                        :: (ZoneHeader, SFZone) → Bool
+>         computeCanBePerc (zh@ZoneHeader{pwZone}, zone)
+>           | traceNever msg' False        = undefined
+>           | otherwise                    = pinned || nonPitchedByFuzz || nonPitchedByFft
+>           where
+>             preS@PreSample{sName, psBmas}
+>                                          = getPreSampleFromCache zPreSampleCache pergm{mpWordZ = Just pwZone}
+>             pinned                       = maybe False pinnedKR (zKeyRange zone)
+>             nonPitchedByFuzz             = any (isPossible' . flip getEvalAgainstKind (matchingAs psBmas))
 >                                                nonPitchedInstruments
->         nonPitchedByFft                  = sampleAnalyisEnabled && pbIsNonPitched zh
+>             nonPitchedByFft              = sampleAnalyisEnabled && pbIsNonPitched zh
 >
->         msg'                             = unwords ["computeCanBePerc "       ++ show sName
+>             msg'                         = unwords ["computeCanBePerc "       ++ show sName
 >                                                  ++ " "                       ++ show pinned
 >                                                  ++ " "                       ++ show nonPitchedByFuzz
 >                                                  ++ " "                       ++ show nonPitchedByFft]

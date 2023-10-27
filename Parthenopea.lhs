@@ -213,7 +213,7 @@ which makes for a cleaner sound on some synthesizers:
 >                                              then
 >                                                rest dur
 >                                              else
->                                                glissando' nList dur
+>                                                glissando' (take 28 nList) dur
 >   where
 >     nList                                = if desc
 >                                              then reverse [xLo..xHi]

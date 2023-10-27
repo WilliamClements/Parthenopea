@@ -268,24 +268,17 @@ Modulation =====================================================================
 >   where
 >     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
 >     makeSF lp@LowPass{lowPassFc, lowPassQ}
->       | traceIf msg False               = undefined
+>       | traceIf msg False                = undefined
 >       | otherwise                        =
 >       proc (x, modSig) → do
 >         let fc = maybe lowPassFc (modFc lowPassFc modSig) toFilterFcSummary
 >         y ← filterLowPassBW              ⤙ (x, fc)
 >         outA                             ⤙ resonate x fc y
 >       where
->         msg = unwords ["WOX addResonance/makeSF ", show lowPassFc, " ", show toFilterFcSummary]
+>         msg = unwords ["addResonance/makeSF ", show lowPassFc, " ", show toFilterFcSummary]
 >
 >     modFc          :: Double → ModSignals → [Double] → Double
->     modFc fc ms fs
->       | traceNever msg False               = undefined
->       | otherwise                        = fc'
->       where
->         mf                               = calculateModFactor "addResonance" ms fs
->         fc'                              = fc * mf
->
->         msg = unwords ["modFC ", show fc, " * ", show mf, " = ", show fc']                     
+>     modFc fc ms fs                       = fc * calculateModFactor "addResonance" ms fs
 >
 >     delay'             :: Signal p (Double, ModSignals) Double
 >                                          =
