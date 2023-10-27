@@ -751,7 +751,6 @@ tournament among GM instruments and percussion from SoundFont files ============
 >           A.PressLoop == fromMaybe A.NoLoop (zSampleMode zone)
 >         , violates zScaleTuning
 >         , violates zExclusiveClass
->         , violates zInitFc
 >         , violates zInitQ
 >         , violates zModLfoToVol
 >         , violates zKeyToModEnvHold
@@ -1227,7 +1226,6 @@ reconcile zone and sample header ===============================================
 >         mLowPass       :: Maybe LowPass  = if useLowPass && (isJust zInitFc || isJust zInitQ)
 >                                              then Just $ LowPass initFc initQ
 >                                              else Nothing
->
 >         mModEnv        :: Maybe Envelope = deriveEnvelope
 >                                              zDelayModEnv
 >                                              zAttackModEnv
@@ -1257,7 +1255,8 @@ carry out and cache play situations ============================================
 >                           → Map.Map PlayKey (Reconciled, Maybe Reconciled)
 > createPlayCache sfrost                   = Map.foldrWithKey cpFolder Map.empty
 >   where
->     cpFolder           :: a → PerGMScored
+>     cpFolder           :: a
+>                           → PerGMScored
 >                           → Map.Map PlayKey (Reconciled, Maybe Reconciled)
 >                           → Map.Map PlayKey (Reconciled, Maybe Reconciled)
 >     cpFolder kind pergm ps               = Map.union ps (precalcNotes kind pergm)
@@ -1316,20 +1315,21 @@ emit standard output text detailing what choices we made for rendering GM items 
 >           | otherwise                    = (False, [gmId kind, Unblocked " not found", EndOfLine])
 >
 > showPerGM              :: SFRoster → PerGMScored → [Emission]
-> showPerGM sfrost pergm'                  = [emitShowL (pWordF pergm) 4] ++ showI (pWordI pergm) ++ showmZ
+> showPerGM sfrost@SFRoster{zFiles} pergm'@PerGMScored{pPerGMKey}
+>                                          = [emitShowL pWordF 4] ++ showI pWordI ++ showmZ
 >   where
->     pergm = pPerGMKey pergm'
->
->     sffile = zFiles sfrost ! fromIntegral (pWordF pergm)
->     arrays = zArrays sffile
+>     pergm@PerGMKey{pWordF, pWordI, mpWordZ}
+>                                          = pPerGMKey
+>     arrays@SoundFontArrays{ssInsts, ssShdrs}
+>                                          = zArrays (zFiles ! pWordF)
 >
 >     showI              :: Word → [Emission]
->     showI wordI                          = [Unblocked ".", gmName (F.instName (ssInsts arrays ! wordI))]
+>     showI wordI                          = [Unblocked ".", gmName (F.instName (ssInsts ! wordI))]
 >
->     showmZ = maybe [] showZ (mpWordZ pergm)
+>     showmZ                               = maybe [] showZ mpWordZ
 >
 >     showZ              :: Word → [Emission]
->     showZ wordZ                          = [Unblocked ".", gmName (F.sampleName (ssShdrs arrays ! wordZ))]
+>     showZ wordZ                          = [Unblocked ".", gmName (F.sampleName (ssShdrs ! wordZ))]
 >
 > emitFileListC          :: Array Word SFFile → [Emission]
 > emitFileListC vFile                      = comment
