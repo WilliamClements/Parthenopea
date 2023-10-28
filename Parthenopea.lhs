@@ -984,6 +984,9 @@ Conversion functions and general helpers =======================================
 >     | val <= lower = lower
 >     | val >= upper = upper
 >     | otherwise    = val
+>
+> safeRange :: Integral n ⇒ n → n → [n]
+> safeRange x y = if x > y || y == 0 then [] else [x..(y-1)]
 
 Raises 'a' to the power 'b' using logarithms.
 

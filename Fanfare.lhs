@@ -37,36 +37,44 @@ November 11, 2022
 
 Fanfare ===============================================================================================================
 
-> theFanfare n = removeZeros
->              $ times n
+> theFanfare   = removeZeros
 >              $ tempo (5/2)
 >              $ transpose 5
 >              $ keysig C Mixolydian
->              $ theTreble :=: theBass
+>              $ (tTreble1 :=: bBass) :+: (tTreble1 :=: tTreble2 :=: bBass)
 >    where
 >
->       theTreble =
+>       tTreble1 =
 >         addVolume 75
 >         $ instrument Trumpet
 >         $ tFan :+: tAns
->       theBass =
+>       tTreble2 =
+>         addVolume 75
+>         $ instrument Trumpet
+>         $ uFan :+: uAns
+>       bBass =
 >         addVolume 70
->         $ instrument Bassoon
+>         $ instrument Trombone
 >         $ bFan :+: bAns
 >
 >       tFan =  {- 32 -} line [tFan1, tFan2, tFan3, tFan4, tFan5]
+>       uFan =  {- 32 -} line [uFan1, uFan2, uFan3]
 >       bFan =  {- 32 -} line [bFan1, bFan2, bFan3, bFan4, bFan5]
 >
 >       tFan1 = {- 16 -} line [rest wn,  c 4 dqn, rest en]
 >                        :+: line [e 4 dqn, rest en,  g 4 wn, rest wn]
+>       uFan1 = {- 16 -} line [rest wn,  e 4 dqn, rest en]
+>                        :+: line [g 4 dqn, rest en,  c 5 wn, rest wn]
 >       bFan1 = {- 15 -} line [rest wn, rest wn, rest hn]
 >                        :+: line [ c 3 dhn,  c 3 qn,  c 3 qn]
 >                        :=: line [ g 3 dhn,  g 3 qn,  g 3 qn]
 >
 >       tFan2 = {-  6 -} line [ f 4 hn,  e 4 hn,  d 4 dqn, rest en]
+>       uFan2 = {-  6 -} line [ a 4 hn,  g 4 hn,  f 4 dqn, rest en]
 >       bFan2 = {-  6 -} line [rest wn, rest hn]
 >
 >       tFan3 = {- 10 -} line [bf 3 qn, bf 3 qn, bf 3 hn, c 4 wn, rest hn]
+>       uFan3 =          line [ d 4 qn,  d 4 qn,  d 4 hn, e 4 wn, rest hn]
 >       bFan3 = {- 10 -} line [rest wn, rest qn]
 >                        :+: line [ c 3 dhn,  c 3 qn,  c 3 qn]
 >                        :=: line [ g 3 dhn,  g 3 qn,  g 3 qn]
@@ -79,15 +87,18 @@ Fanfare ========================================================================
 
 The fanfare's answer
 
->       tAns1 = {- 10 -} line [c 4 hn, g 4 hn, f 4 wn, rest hn]
+>       tAns1 = {- 10 -} line [c 4 hn, g 4 hn,  f 4 wn, rest hn]
+>       uAns1 =          line [e 4 hn, c 5 hn, bf 4 wn, rest hn]
 >       bAns1 = {- 10 -} rest wn
 >                        :+: line [bf 2 dhn, a 2 qn, g 2 hn]
 >                        :=: line [ d 3 dhn, c 2 qn, d 2 hn]
 >
 >       tAns2 = {-  6 -} line [ bf 3 qn, rest qn, bf 3 hn,  a 3 qn, a 3 qn]
+>       uAns2 = {-  6 -} line [  d 4 qn, rest qn,  d 4 hn,  c 4 qn, c 4 qn]
 >       bAns2 = {-  6 -} line [rest wn, rest hn]
 >
->       tAns3 = {- 10 -} line [ g 3 hn,  a 3 hn, bf 3 hn,  c 4 wn]
+>       tAns3 = {- 10 -} line [  g 3 hn,  a 3 hn, bf 3 hn,  c 4 wn]
+>       uAns3 = {- 10 -} line [ bf 3 hn,  c 4 hn,  d 4 hn,  g 4 wn]
 >       bAns3 = {-  8 -} line [rest wn, rest wn]            
 >
 >       tAns4 = {-  6 -} line [rest wn, rest hn]
@@ -95,6 +106,7 @@ The fanfare's answer
 >                        :+: line [ c 3 qn,  c 3 qn,  c 2 qn]
 >
 >       tAns =  {- 32 -} line [tAns1, tAns2, tAns3, tAns4]
+>       uAns =  {- 32 -} line [uAns1, uAns2, uAns3]
 >       bAns =  {- 32 -} line [bAns1, bAns2, bAns3, bAns4]
 
 Alice =================================================================================================================

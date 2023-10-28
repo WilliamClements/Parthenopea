@@ -14,6 +14,7 @@ SoundFont support ==============================================================
 > import Data.Array.Unboxed ( listArray, Array, (!), bounds )
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
+> import Data.Bits
 > import Data.Foldable ( toList )
 > import Data.Int ( Int8, Int16 )
 > import Data.List ( find, foldr, minimumBy, singleton, foldl', sortOn )
@@ -226,7 +227,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , zKeyToVolEnvHold   :: Maybe Int
 >   , zKeyToVolEnvDecay  :: Maybe Int
 >
->   , zModulators        :: Maybe (Word, Word)} deriving Show
+>   , zModulators        :: [Modulator]} deriving Show
 >
 > defInstrumentZone      :: SFZone
 > defInstrumentZone                        = SFZone Nothing Nothing Nothing Nothing
@@ -251,7 +252,27 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >                                            Nothing Nothing Nothing Nothing
 >                                            Nothing Nothing
 >
->                                            Nothing
+>                                            []
+>
+> data Modulator =
+>   Modulator {
+>     mrModSrc           :: ModSrc
+>     , mrModDest        :: Word
+>     , mrModAmount      :: Double
+>     , mrAmountSrc      :: ModSrc} deriving Show
+>    
+> defModulator           :: Modulator
+> defModulator                             = Modulator defModSrc 0 0 defModSrc
+>
+> data ModSrc =
+>   ModSrc {
+>       msIndex          :: Word
+>     , msCCBit          :: Bool
+>     , msMinToMax       :: Bool
+>     , msBiPolar        :: Bool} deriving Show
+>
+> defModSrc              :: ModSrc
+> defModSrc                                = ModSrc 0 False False False
 >
 > data PlayKey =
 >   PlayKey {
@@ -682,7 +703,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → [SSHint]
 >                           → AgainstKindResult
 >                           → ArtifactGrade
-> computeGrade sfrost@SFRoster{zFiles, zZoneCache} pergm kind hints againtKindResult
+> computeGrade sfrost@SFRoster{zFiles, zZoneCache} pergm kind hints againstKindResult
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = ArtifactGrade (sum weightedScores) baseScores
 >   where
@@ -694,7 +715,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                              , round $ computeSplitCharacteristic kind zs
 >                                              , scoreBool $ instConforms zs
 >                                              , round fuzz]
->     howgood                              = againtKindResult - stands
+>     howgood                              = againstKindResult - stands
 >     fuzz               :: Double
 >       | howgood > 0.000001               = max 0 (logBase 2 howgood) * fuzzFactor kind
 >       | otherwise                        = 0
@@ -740,14 +761,15 @@ tournament among GM instruments and percussion from SoundFont files ============
 > itemViolates z f                         = isJust (f z)
 >
 > zoneConforms           :: (ZoneHeader, SFZone) → Bool
-> zoneConforms (_, zone)            = not $ or unsupported
+> zoneConforms (_, zone@SFZone{zSampleMode, zModulators})
+>                                          = not $ or unsupported
 >   where
 >     violates                             = itemViolates zone
 >
 >     unsupported        :: [Bool]
 >     unsupported                          =
 >       [
->           A.PressLoop == fromMaybe A.NoLoop (zSampleMode zone)
+>           A.PressLoop == fromMaybe A.NoLoop zSampleMode
 >         , violates zScaleTuning
 >         , violates zExclusiveClass
 >         , violates zInitQ
@@ -756,7 +778,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         , violates zKeyToModEnvDecay
 >         , violates zKeyToVolEnvHold
 >         , violates zKeyToVolEnvDecay
->         , violates zModulators
+>         , not $ null zModulators
 >       ]
 >
 > is24BitInst _                     = True -- WOX isJust $ ssM24 arrays       
@@ -827,6 +849,26 @@ extract data from SoundFont per instrument =====================================
 >   F.KeyToVolEnvHold i            → iz {zKeyToVolEnvHold =          Just i}
 >   F.KeyToVolEnvDecay i           → iz {zKeyToVolEnvDecay =         Just i}
 >   _                              → iz
+>
+> addMod                 :: SFZone → F.Mod → SFZone
+> addMod iz@SFZone{zModulators = soFar} raw
+>   | traceIf msg False                    = undefined
+>   | otherwise                            = maybe iz (addModulator iz) (makeModulator raw)
+>   where
+>     msg = unwords ["addMod ", show raw]
+>
+> addModulator           :: SFZone → Modulator → SFZone
+> addModulator zone@SFZone{zModulators = soFar} mod
+>                                          = zone{zModulators = mod : soFar}
+>
+> makeModulator          :: F.Mod → Maybe Modulator
+> makeModulator raw                        = mm
+>   where
+>     mm = unpackSrc (F.srcOper raw)
+>          >>= addSrc
+>          >>= addDest (F.destOper raw)
+>          >>= addAmount (F.amount raw)
+>          >>= addAmtSrc (unpackSrc (F.amtSrcOper raw))
 
 prepare the specified instruments and percussion ======================================================================
 
@@ -854,14 +896,23 @@ prepare the specified instruments and percussion ===============================
 >         (gIx, oIx)                       = profess
 >                                              (ibagi <= jbagi)
 >                                              "SoundFont file corrupt (computePerInst)"
->                                              (singleton ibagi, [ibagi+1..jbagi-1])
+>                                              (singleton ibagi, safeRange (ibagi+1) jbagi)
 >
 >         gList                            = map (buildZone defInstrumentZone)   gIx
 >         oList                            = map (buildZone ((snd.head) gList))  oIx
 >
 >         buildZone      :: SFZone → Word → (ZoneHeader, SFZone)
->         buildZone fromZone bagIndex      = (zh, zone)
+>         buildZone fromZone bagIndex
+>           | traceIf msg False            = undefined
+>           | otherwise                    = (zh, zone)
 >           where
+>             msg                          = unwords ["buildZone ", show (xgeni, ygeni)
+>                                                            , " ", show (xmodi, ymodi)
+>                                                            , " ", show (bounds ssIGens)
+>                                                            , " ", show (bounds ssIMods)
+>                                                            , " ", show (safeRange xgeni ygeni)
+>                                                            , " ", show (safeRange xmodi ymodi)]
+>
 >             xgeni                        = F.genNdx $ ssIBags!bagIndex
 >             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
 >             xmodi                        = F.modNdx $ ssIBags!bagIndex
@@ -870,30 +921,26 @@ prepare the specified instruments and percussion ===============================
 >             gens       :: [F.Generator]  = profess
 >                                              (xgeni <= ygeni)
 >                                              "SoundFont file corrupt (buildZone gens)"
->                                              (map (ssIGens !) [xgeni..ygeni-1])
+>                                              (map (ssIGens !) (safeRange xgeni ygeni))
 >             mods       :: [F.Mod]        = profess
 >                                              (xmodi <= ymodi)
 >                                              "SoundFont file corrupt (buildZone mods)"
->                                              (map (ssIMods !) [xgeni..ygeni-1])
+>                                              (map (ssIMods !) (safeRange xmodi ymodi))
 >
 >             meval      :: Maybe Bool     = zSampleIndex
 >                                            >>= \w → Just (PreSampleKey pWordF w)
 >                                            >>= flip Map.lookup zPreSampleCache
 >                                            >>= isNonPitchedByFft
 >
->             fromZone'                    = fromZone {zModulators =
->                                              if xmodi == ymodi
->                                                then Nothing
->                                                else Just (xmodi, ymodi)}
->
->             zone@SFZone{zSampleIndex}    = foldl' addGen fromZone' gens
+>             zone'                        = foldl' addGen fromZone  gens
+>             zone@SFZone{zSampleIndex}    = foldl' addMod zone'     mods
 >
 >             wZ                           = fromMaybe 0 zSampleIndex
 >             zh                           = ZoneHeader wZ (ssShdrs ! wZ) (fromMaybe True meval)
 >
 >         categorizeInst :: [(ZoneHeader, SFZone)] → InstCat
 >         categorizeInst zs
->           | traceNever msg False         = undefined
+>           | traceIf msg False            = undefined
 >           | otherwise                    = fromMaybe InstCatPerc latched
 >           where
 >             confirmed                    = bqForce isConfirmed
@@ -1245,6 +1292,45 @@ reconcile zone and sample header ===============================================
 >             targetList = [  funWhich $ maybe defModTarget eModTarget mModEnv
 >                           , funWhich $ maybe defModTarget lModTarget mModLfo
 >                           , funWhich $ maybe defModTarget lModTarget mVibLfo]
+>
+> unpackSrc              :: Word → Maybe ModSrc
+> unpackSrc wIn                            = modSrc
+>  where
+>    index                                 = wIn `mod` 128
+>    ccBit                                 = (wIn `shift` (-6)) `mod` 2
+>    min2Max                               = (wIn `shift` (-7)) `mod` 2
+>    bipolar                               = (wIn `shift` (-8)) `mod` 2
+>
+>    modSrc              :: Maybe ModSrc   = Just defModSrc
+>                                                   >>= addIndex
+>                                                   >>= addCCBit
+>                                                   >>= addMin2Max
+>                                                   >>= addBiPolar
+>    addIndex from                         = case index of
+>                                              0 → Nothing
+>                                              2 → Just from{msIndex = index}
+>                                              3 → Just from{msIndex = index}
+>                                              _ → Nothing
+>    addCCBit from                         = if ccBit /= 0   then Nothing
+>                                                            else Just from{msCCBit = False}
+>    addMin2Max from                       = if min2Max /= 0 then Just from{msMinToMax = True}
+>                                                            else Just from{msMinToMax = False}
+>    addBiPolar from                       = if bipolar /= 0 then Just from{msBiPolar = True}
+>                                                            else Just from{msBiPolar = False}
+>
+> addSrc                 :: ModSrc → Maybe Modulator
+> addSrc modSrc                            = Just defModulator{mrModSrc = modSrc}
+>
+> addDest                :: Word → Modulator → Maybe Modulator
+> addDest wIn from                         = case wIn of
+>                                              8 → Just from{mrModDest = wIn}
+>                                              _ → Nothing
+>
+> addAmount              :: Int → Modulator → Maybe Modulator
+> addAmount iIn from                       = Just (from{mrModAmount = fromIntegral iIn})
+>
+> addAmtSrc              :: Maybe ModSrc → Modulator → Maybe Modulator
+> addAmtSrc modSrc from                    = modSrc >>= \m → Just from{mrAmountSrc = m}
 
 carry out and cache play situations ===================================================================================
 
