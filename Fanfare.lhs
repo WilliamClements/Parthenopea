@@ -98,7 +98,7 @@ The fanfare's answer
 >       bAns2 = {-  6 -} line [rest wn, rest hn]
 >
 >       tAns3 = {- 10 -} line [  g 3 hn,  a 3 hn, bf 3 hn,  c 4 wn]
->       uAns3 = {- 10 -} line [ bf 3 hn,  c 4 hn,  d 4 hn,  g 4 wn]
+>       uAns3 = {- 10 -} line [ bf 3 hn,  c 4 hn,  d 4 hn,  e 4 wn]
 >       bAns3 = {-  8 -} line [rest wn, rest wn]            
 >
 >       tAns4 = {-  6 -} line [rest wn, rest hn]
