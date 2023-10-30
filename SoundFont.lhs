@@ -254,26 +254,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 >                                            []
 >
-> data Modulator =
->   Modulator {
->     mrModSrc           :: ModSrc
->     , mrModDest        :: Word
->     , mrModAmount      :: Double
->     , mrAmountSrc      :: ModSrc} deriving Show
->    
-> defModulator           :: Modulator
-> defModulator                             = Modulator defModSrc 0 0 defModSrc
->
-> data ModSrc =
->   ModSrc {
->       msIndex          :: Word
->     , msCCBit          :: Bool
->     , msMinToMax       :: Bool
->     , msBiPolar        :: Bool} deriving Show
->
-> defModSrc              :: ModSrc
-> defModSrc                                = ModSrc 0 False False False
->
 > data PlayKey =
 >   PlayKey {
 >     xItem              :: PerGMKey
@@ -778,7 +758,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         , violates zKeyToModEnvDecay
 >         , violates zKeyToVolEnvHold
 >         , violates zKeyToVolEnvDecay
->         , not $ null zModulators
+>          -- temporarily ignoring zModulators et al
 >       ]
 >
 > is24BitInst _                     = True -- WOX isJust $ ssM24 arrays       
@@ -851,34 +831,33 @@ extract data from SoundFont per instrument =====================================
 >   _                              → iz
 >
 > addMod                 :: SFZone → F.Mod → SFZone
-> addMod iz@SFZone{zModulators = soFar} raw
+> addMod iz raw
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = maybe iz (addModulator iz) (makeModulator raw)
 >   where
 >     msg = unwords ["addMod ", show raw]
 >
 > addModulator           :: SFZone → Modulator → SFZone
-> addModulator zone@SFZone{zModulators = soFar} mod
->                                          = zone{zModulators = mod : soFar}
+> addModulator zone@SFZone{zModulators} mod
+>                                          = zone{zModulators = mod : zModulators}
 >
 > makeModulator          :: F.Mod → Maybe Modulator
-> makeModulator raw                        = mm
+> makeModulator raw                        = mm'
 >   where
+>     mm, mm'            :: Maybe Modulator
 >     mm = unpackSrc (F.srcOper raw)
->          >>= addSrc
+>          >>= addSrc defModulator
 >          >>= addDest (F.destOper raw)
 >          >>= addAmount (F.amount raw)
->          >>= addAmtSrc (unpackSrc (F.amtSrcOper raw))
+>     mm' = unpackSrc (F.amtSrcOper raw)
+>          >>= addAmtSrc mm
 
 prepare the specified instruments and percussion ======================================================================
 
 > formZoneCache          :: SFRoster → [PerGMKey] → ZoneCache
-> formZoneCache sfrost@SFRoster{ zFiles, zPreSampleCache, zPreInstCache}
->                                          = foldr zcFolder Map.empty
+> formZoneCache sfrost@SFRoster{zFiles, zPreSampleCache, zPreInstCache}
+>                                          = foldr (\p → Map.insert p (computePerInst p)) Map.empty
 >   where
->     zcFolder           :: PerGMKey → ZoneCache → ZoneCache
->     zcFolder pergm                       = Map.insert pergm (computePerInst pergm)
->
 >     computePerInst     :: PerGMKey → PerInstrument
 >     computePerInst pergm@PerGMKey{pWordF, pWordI} 
 >                                          = PerInstrument iinst (categorizeInst oList) (gList ++ oList)
@@ -906,12 +885,7 @@ prepare the specified instruments and percussion ===============================
 >           | traceIf msg False            = undefined
 >           | otherwise                    = (zh, zone)
 >           where
->             msg                          = unwords ["buildZone ", show (xgeni, ygeni)
->                                                            , " ", show (xmodi, ymodi)
->                                                            , " ", show (bounds ssIGens)
->                                                            , " ", show (bounds ssIMods)
->                                                            , " ", show (safeRange xgeni ygeni)
->                                                            , " ", show (safeRange xmodi ymodi)]
+>             msg                          = unwords ["buildZone ", show mods]
 >
 >             xgeni                        = F.genNdx $ ssIBags!bagIndex
 >             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
@@ -976,7 +950,7 @@ prepare the specified instruments and percussion ===============================
 >
 >
 >         hasRom         :: (ZoneHeader, SFZone) → Bool
->         hasRom (zh@ZoneHeader {pSample}, zone)
+>         hasRom (zh@ZoneHeader{pSample}, zone)
 >                                          = F.sampleType pSample >= 0x8000
 >
 >         computeCanBePerc
@@ -1019,10 +993,12 @@ define signal functions and instrument maps to support rendering ===============
 
 > prepareInstruments     :: SFRoster → [(InstrumentName, Instr (Stereo AudRate))]
 > prepareInstruments sfrost@SFRoster{zFiles, zWinningRecord}
->                                          = imap ++ singleton (Percussion, assignPercussion pmap)
+>                                          = (Percussion, assignPercussion pmap)                   : imap
 >   where
->     imap                                 = Map.foldrWithKey imapFolder [] (pWinningI zWinningRecord)
->     pmap                                 = Map.foldrWithKey pmapFolder [] (pWinningP zWinningRecord)
+>     zWR@WinningRecord{pWinningI, pWinningP}
+>                                          = zWinningRecord
+>     imap                                 = Map.foldrWithKey imapFolder [] pWinningI
+>     pmap                                 = Map.foldrWithKey pmapFolder [] pWinningP
 >
 >     imapFolder kind pergm accum          = (kind, assignInstrument (pPerGMKey pergm))            : accum
 >
@@ -1192,20 +1168,20 @@ zone selection for rendering ===================================================
 
 reconcile zone and sample header ======================================================================================
 
-> reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → (Reconciled, Reconciled)
-> reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
+> reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → (AbsPitch, Volume) → (Reconciled, Reconciled)
+> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) (p, v)
 >   | traceNever msg False                 = undefined
 >   | otherwise                            = (recL, recR')
 >   where
->     recL = reconcile (zoneL, shdrL)
->     recR = reconcile (zoneR, shdrR)
+>     recL = reconcile (zoneL, shdrL) (p, v)
+>     recR = reconcile (zoneR, shdrR) (p, v)
 >     recR' = recR{
 >               rRootKey                   = rRootKey recL
 >             , rPitchCorrection           = rPitchCorrection recL}
 >     msg = unwords ["reconcileLR recL=", show recL, "\n  zoneL=", show zoneL, "\n  shdrL=", show shdrL]
 >
-> reconcile              :: (SFZone, F.Shdr) → Reconciled 
-> reconcile (zone, shdr)                   =
+> reconcile              :: (SFZone, F.Shdr) → (AbsPitch, Volume) → Reconciled 
+> reconcile (zone, shdr) (p, v)            =
 >   Reconciled {
 >     rSampleMode      = fromMaybe             A.NoLoop
 >                                                (zSampleMode    zone)
@@ -1223,6 +1199,8 @@ reconcile zone and sample header ===============================================
 >                                              (F.originalPitch shdr)   (zRootKey              zone))
 >   , rForceKey        = fmap                  fromIntegral             (zKey                  zone)
 >   , rForceVel        = fmap                  fromIntegral             (zVel                  zone)
+>   , rNoteOnVel       = v
+>   , rNoteOnKeyNumber = p
 >   , rAttenuation     = resAttenuation                                 (zInitAtten            zone)
 >   , rVolEnv          = deriveEnvelope                                 (zDelayVolEnv          zone)
 >                                                                       (zAttackVolEnv         zone)
@@ -1256,14 +1234,15 @@ reconcile zone and sample header ===============================================
 >                           zModLfoToPitch, zVibLfoToPitch, zModEnvToPitch
 >                         , zInitFc, zInitQ
 >                         , zModLfoToFc, zModEnvToFc, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
->                         , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv}
+>                         , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv
+>                         , zModulators}
 >                                          = Modulation mLowPass
 >                                                       mModEnv
 >                                                       mModLfo
 >                                                       mVibLfo
->                                                       (summarize toPitch    mModEnv mModLfo mVibLfo)
->                                                       (summarize toFilterFc mModEnv mModLfo mVibLfo)
->                                                       (summarize toVolume   mModEnv mModLfo mVibLfo)
+>                                                       (summarize ToPitch    mModEnv mModLfo mVibLfo)
+>                                                       (summarize ToFilterFc mModEnv mModLfo mVibLfo)
+>                                                       (summarize ToVolume   mModEnv mModLfo mVibLfo)
 >
 >       where
 >         initFc         :: Double         = fromAbsoluteCents $ fromMaybe 13500 zInitFc
@@ -1283,33 +1262,34 @@ reconcile zone and sample header ===============================================
 >         mModLfo        :: Maybe LFO      = deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc Nothing
 >         mVibLfo        :: Maybe LFO      = deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
 >
->         summarize      :: (ModTarget → Double) → Maybe Envelope → Maybe LFO → Maybe LFO → Maybe [Double]
->         summarize funWhich menv mmodlfo mviblfo
->                                          = if any (/= 0.0) targetList
->                                              then Just targetList
->                                              else Nothing
+>         summarize      :: ModDestType → Maybe Envelope → Maybe LFO → Maybe LFO → ([Double], [Modulator])
+>         summarize toWhich menv mmodlfo mviblfo
+>                                          = (targets, modulators)
 >           where
->             targetList = [  funWhich $ maybe defModTarget eModTarget mModEnv
->                           , funWhich $ maybe defModTarget lModTarget mModLfo
->                           , funWhich $ maybe defModTarget lModTarget mVibLfo]
+>             targets = 
+>               [  chooseFromModTarget toWhich $ maybe defModTarget eModTarget mModEnv
+>                , chooseFromModTarget toWhich $ maybe defModTarget lModTarget mModLfo
+>                , chooseFromModTarget toWhich $ maybe defModTarget lModTarget mVibLfo]
+>             modulators = filter (\x → toWhich == mrModDest x) zModulators
 >
 > unpackSrc              :: Word → Maybe ModSrc
-> unpackSrc wIn                            = modSrc
+> unpackSrc wIn                            = mmodSrc
 >  where
 >    index                                 = wIn `mod` 128
 >    ccBit                                 = (wIn `shift` (-6)) `mod` 2
 >    min2Max                               = (wIn `shift` (-7)) `mod` 2
 >    bipolar                               = (wIn `shift` (-8)) `mod` 2
 >
->    modSrc              :: Maybe ModSrc   = Just defModSrc
->                                                   >>= addIndex
->                                                   >>= addCCBit
->                                                   >>= addMin2Max
->                                                   >>= addBiPolar
->    addIndex from                         = case index of
+>    mmodSrc             :: Maybe ModSrc   = Just defModSrc
+>                                              >>= addIndex index
+>                                              >>= addCCBit
+>                                              >>= addMin2Max
+>                                              >>= addBiPolar
+>
+>    addIndex index from@ModSrc{msType}    = case index of
 >                                              0 → Nothing
->                                              2 → Just from{msIndex = index}
->                                              3 → Just from{msIndex = index}
+>                                              2 → Just from{msType = NoteOnVelocity}
+>                                              3 → Just from{msType = NoteOnKeyNumber}
 >                                              _ → Nothing
 >    addCCBit from                         = if ccBit /= 0   then Nothing
 >                                                            else Just from{msCCBit = False}
@@ -1318,19 +1298,21 @@ reconcile zone and sample header ===============================================
 >    addBiPolar from                       = if bipolar /= 0 then Just from{msBiPolar = True}
 >                                                            else Just from{msBiPolar = False}
 >
-> addSrc                 :: ModSrc → Maybe Modulator
-> addSrc modSrc                            = Just defModulator{mrModSrc = modSrc}
+> addSrc                 :: Modulator → ModSrc → Maybe Modulator
+> addSrc from modSrc                       = Just from{mrModSrc = modSrc}
 >
 > addDest                :: Word → Modulator → Maybe Modulator
-> addDest wIn from                         = case wIn of
->                                              8 → Just from{mrModDest = wIn}
+> addDest wIn from
+>   | (wIn .&. 0x8000) /= 0                = Nothing
+>   | otherwise                            = case wIn of
+>                                              8 → Just from{mrModDest = ToFilterFc}
 >                                              _ → Nothing
 >
 > addAmount              :: Int → Modulator → Maybe Modulator
 > addAmount iIn from                       = Just (from{mrModAmount = fromIntegral iIn})
 >
-> addAmtSrc              :: Maybe ModSrc → Modulator → Maybe Modulator
-> addAmtSrc modSrc from                    = modSrc >>= \m → Just from{mrAmountSrc = m}
+> addAmtSrc              :: Maybe Modulator → ModSrc → Maybe Modulator
+> addAmtSrc mmod modSrc                    = mmod >>= (\x → Just x{mrAmountSrc = modSrc})
 
 carry out and cache play situations ===================================================================================
 
@@ -1364,7 +1346,7 @@ carry out and cache play situations ============================================
 >                                          = setZone sfrost pergm pch vol
 >         (reconL, reconR)
 >                        :: (Reconciled, Reconciled)
->                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR))
+>                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) (pch, vol)
 >         playValue                        = (reconL, if reconR == reconL
 >                                                       then Nothing
 >                                                       else Just reconR)

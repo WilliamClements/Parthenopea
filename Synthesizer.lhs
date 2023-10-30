@@ -11,19 +11,18 @@
 > import Control.Arrow.ArrowP
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds), listArray )
 > import qualified Data.Audio              as A
-> import Data.Complex
+> import Data.Complex ( Complex(..), magnitude )
 > import Data.Int ( Int8, Int16 )
 > import Data.List ( maximumBy )
 > import Data.Ord ( comparing )
 > import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
-> import Data.Word
-> import Euterpea.IO.Audio.Basics
+> import Data.Word ( Word64 )
+> import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
-> import Euterpea.IO.Audio.Render
-> import Euterpea.IO.Audio.Types
+> import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA, DeltaT )
-> import Numeric.FFT
+> import Numeric.FFT ( fft )
 > import Parthenopea
 > import qualified SynToolkit              as STK
   
@@ -78,29 +77,29 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → Bool
 >                           → Signal p () (Double, (ModSignals, ModSignals))
-> eutDriver secsScored (reconL@Reconciled{rModulation}, reconR) secsToPlay idelta looping
+> eutDriver secsScored (reconL@Reconciled{rModulation, rNoteOnVel, rNoteOnKeyNumber}, reconR) secsToPlay idelta looping
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = if looping
->                                              then procL
->                                              else procNL
+>                                              then procDriver calcLooping
+>                                              else procDriver calcNotLooping
 >   where
->     mods@Modulation{toPitchSummary}      = rModulation
->     procNL                               = proc () → do
+>     calcLooping, calcNotLooping
+>                        :: Double → Double
+>     calcLooping next                     = if next > len    then lst           else next
+>     calcNotLooping next                  = if next > 1      then frac next     else next
+>
+>     m@Modulation{toPitchSummary}         = rModulation
+>     procDriver calcPhase                 = proc () → do
 >       (modSigL, modSigR) ← eutIgniteModSignals secsScored secsToPlay (reconL, reconR)
 >                                          ⤙ ()
->       let delta                          = maybe idelta (\xs → idelta * calculateModFactor "eutDriver procNL" modSigL xs) toPitchSummary
+>       let delta                          = idelta * calculateModFactor
+>                                                       "eutDriver"
+>                                                        modSigL
+>                                                        (rNoteOnVel, rNoteOnKeyNumber)
+>                                                        toPitchSummary
 >       rec
->         let phase                        = if next > 1 then frac next else next
+>         let phase                        = calcPhase next
 >         next           ← delay 0         ⤙ frac (phase + delta)                           
->       outA                               ⤙ (phase, (modSigL, modSigR))
->         
->     procL                                = proc () → do
->       (modSigL, modSigR) ← eutIgniteModSignals secsScored secsToPlay (reconL, reconR)
->                                          ⤙ ()
->       let delta                          = maybe idelta (\xs → idelta * calculateModFactor "eutDriver procL" modSigL xs) toPitchSummary
->       rec
->         let phase                        = if next > len then lst else next
->         next           ← delay 0         ⤙ frac (phase + delta)
 >       outA                               ⤙ (phase, (modSigL, modSigR))
 >
 >     (lst, len)         :: (Double, Double)
@@ -130,11 +129,11 @@ Signal function-based synth ====================================================
 >                   , reconR@Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR}) vol dur s16 ms8
 >   | traceIf msg False = undefined
 >   | otherwise =
->   proc (pos, modSig) → do
+>   proc (pos, msig) → do
 >     let saddrL         :: Int            = fromIntegral stL + truncate (numS * pos)
 >     let saddrR         :: Int            = fromIntegral stR + truncate (numS * pos)
 >     let (a1L, a1R)                       = (lookupSamplePoint s16 ms8 saddrL, lookupSamplePoint s16 ms8 saddrR)
->     outA ⤙ (pump (ampL, ampR) (a1L, a1R), modSig)
+>     outA ⤙ (pump (ampL, ampR) (a1L, a1R), msig)
 >
 >   where
 >     (ampL, ampR)       :: (Double, Double)
@@ -187,13 +186,10 @@ Modulation =====================================================================
 >                           Double
 >                           → (Reconciled, Reconciled)
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
-> eutModulate _
->             (rL@Reconciled{rVolEnv = envL, rModulation = modsL}
->            , rR@Reconciled{rVolEnv = envR, rModulation = modsR})
->                                          =
+> eutModulate _ (rL, rR)                   =
 >   proc ((a1L, a1R), (modSigL, modSigR)) → do
->     a2L   ← addResonance modsL           ⤙ (a1L, modSigL)
->     a2R   ← addResonance modsR           ⤙ (a1R, modSigR)
+>     a2L   ← addResonance rL              ⤙ (a1L, modSigL)
+>     a2R   ← addResonance rR              ⤙ (a1R, modSigR)
 >
 >     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
 >
@@ -236,7 +232,7 @@ Modulation =====================================================================
 >                           → Double
 >                           → (Reconciled, Reconciled)
 >                           → Signal p () (ModSignals, ModSignals)
-> eutIgniteModSignals secsScored secsToPlay (reconL@Reconciled{rModulation = modsL}, reconR@Reconciled{rModulation = modsR})
+> eutIgniteModSignals secsScored secsToPlay (reconL@Reconciled{rModulation = mL}, reconR@Reconciled{rModulation = mR})
 >                                          =
 >   proc _ → do
 >     aL1 ← doEnvelope  mModEnvL secsScored secsToPlay ⤙ ()
@@ -247,38 +243,67 @@ Modulation =====================================================================
 >     aR3 ← doLFO       mVibLfoR                       ⤙ ()
 >     outA ⤙ (ModSignals aL1 aL2 aL3, ModSignals aR1 aR2 aR3)
 >   where
->     mL@Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = modsL
->     mR@Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = modsR
+>     mL'@Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = mL
+>     mR'@Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = mR
 >
-> calculateModFactor     :: String → ModSignals → [Double] → Double
-> calculateModFactor tag ms@ModSignals{srModEnvPos, srModlfoPos, srViblfoPos} targetList
+> calculateModFactor     :: String → ModSignals → (AbsPitch, Volume) → ([Double], [Modulator]) → Double
+> calculateModFactor tag msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} (p, v) (targetList, modulatorList)
 >  | traceNever msg False                  = undefined
 >  | otherwise                             = fact
 >  where
 >    x1                                    = srModEnvPos * head targetList
->    x2                                    = srModlfoPos * (targetList !! 1)
->    x3                                    = srViblfoPos * (targetList !! 2)
->    fact                                  = fromCents (x1 + x2 + x3)
+>    x2                                    = srModLfoPos * (targetList !! 1)
+>    x3                                    = srVibLfoPos * (targetList !! 2)
+>    x4                                    = sum $ map (evaluateModulator msig) modulatorList
+>    fact                                  = fromCents (x1 + x2 + x3 + x4)
 >
->    msg                                   = unwords ["calculateModFactor=", show fact, " for ", tag, "...", show (srModEnvPos, srModlfoPos, srViblfoPos), " ", show (x1, x2, x3)]
+>    srcValue            :: ModSrc → ModSignals → Double
+>    srcValue msrc@ModSrc{msMinToMax, msBiPolar, msType} msig
+>      | useModulators                     = case msType of
+>                                              NoteOnVelocity       → quantifyNoteOn v
+>                                              NoteOnKeyNumber      → quantifyNoteOn p
+>                                              _                    → 0
+>      | otherwise                         = 0
+>      where
+>        quantifyNoteOn      :: Int → Double
+>        quantifyNoteOn n                  = val''
+>          where
+>            val                           = fromIntegral n / 128
+>            val'                          = if msMinToMax then 1 - val
+>                                                          else val
+>            val''                         = if msBiPolar  then val' * 2 - 1
+>                                                          else val'
+>   
+>    msg                                   = unwords ["calculateModFactor: "
+>                                                     , show x1, " + "
+>                                                     , show x2, " + "
+>                                                     , show x3, " + "
+>                                                     , show x4, " = ", show (x1+x2+x3+x4), " => ", show fact]
 >
-> addResonance           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, ModSignals) Double
-> addResonance mods@Modulation{mLowPass, toFilterFcSummary}
+>    evaluateModulator   :: ModSignals → Modulator → Double
+>    evaluateModulator msig m@Modulator{mrModSrc, mrAmountSrc}
+>                                          = srcValue mrModSrc msig * srcValue mrAmountSrc msig
+>
+> addResonance           :: ∀ p . Clock p ⇒ Reconciled → Signal p (Double, ModSignals) Double
+> addResonance recon@Reconciled{rNoteOnVel, rNoteOnKeyNumber, rModulation}
 >                                          = maybe delay' makeSF mLowPass
 >   where
+>     m@Modulation{mLowPass, toFilterFcSummary}
+>                                          = rModulation
 >     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
 >     makeSF lp@LowPass{lowPassFc, lowPassQ}
 >       | traceIf msg False                = undefined
 >       | otherwise                        =
->       proc (x, modSig) → do
->         let fc = maybe lowPassFc (modFc lowPassFc modSig) toFilterFcSummary
+>       proc (x, msig) → do
+>         let fc = lowPassFc * calculateModFactor
+>                                "addResonance"
+>                                msig
+>                                (rNoteOnVel, rNoteOnKeyNumber)
+>                                toFilterFcSummary
 >         y ← filterLowPassBW              ⤙ (x, fc)
 >         outA                             ⤙ resonate x fc y
 >       where
->         msg = unwords ["addResonance/makeSF ", show lowPassFc, " ", show toFilterFcSummary]
->
->     modFc          :: Double → ModSignals → [Double] → Double
->     modFc fc ms fs                       = fc * calculateModFactor "addResonance" ms fs
+>         msg = unwords ["addResonance/makeSF ", show lowPassFc ]
 >
 >     delay'             :: Signal p (Double, ModSignals) Double
 >                                          =
@@ -830,6 +855,8 @@ Utility types ==================================================================
 >   , rRootKey           :: AbsPitch
 >   , rForceKey          :: Maybe AbsPitch
 >   , rForceVel          :: Maybe Volume
+>   , rNoteOnVel         :: Volume
+>   , rNoteOnKeyNumber   :: AbsPitch
 >   , rAttenuation       :: Double
 >   , rVolEnv            :: Maybe Envelope
 >   , rPitchCorrection   :: Maybe Double
@@ -856,12 +883,24 @@ Utility types ==================================================================
 >     lowPassFc          :: Double
 >   , lowPassQ           :: Double} deriving (Eq, Show)
 >
+> data ModSignals =
+>   ModSignals {
+>     srModEnvPos        :: Double
+>   , srModLfoPos        :: Double
+>   , srVibLfoPos        :: Double} deriving (Show)
+>
 > data ModTarget =
 >   ModTarget {
->     toPitch            :: Double
->   , toFilterFc         :: Double
->   , toVolume           :: Double} deriving (Eq, Show)
+>     mtPitch            :: Double
+>   , mtFilterFc         :: Double
+>   , mtVolume           :: Double} deriving (Eq, Show)
 >
+> chooseFromModTarget    :: ModDestType → ModTarget → Double
+> chooseFromModTarget mdtype mt@ModTarget{mtPitch, mtFilterFc, mtVolume}
+>                                          = case mdtype of
+>                                              ToPitch     → mtPitch
+>                                              ToFilterFc  → mtFilterFc
+>                                              ToVolume    → mtVolume
 > defModTarget                             = ModTarget 0 0 0
 >
 > data LFO =
@@ -876,21 +915,44 @@ Utility types ==================================================================
 >   , mModEnv            :: Maybe Envelope
 >   , mModLfo            :: Maybe LFO
 >   , mVibLfo            :: Maybe LFO
->   , toPitchSummary     :: Maybe [Double]
->   , toFilterFcSummary  :: Maybe [Double]
->   , toVolumeSummary    :: Maybe [Double]} deriving (Eq, Show)
+>   , toPitchSummary     :: ([Double], [Modulator])
+>   , toFilterFcSummary  :: ([Double], [Modulator])
+>   , toVolumeSummary    :: ([Double], [Modulator])} deriving (Eq, Show)
+>
+> data Modulator =
+>   Modulator {
+>     mrModSrc         :: ModSrc
+>   , mrModDest        :: ModDestType
+>   , mrModAmount      :: Double
+>   , mrAmountSrc      :: ModSrc} deriving (Eq, Show)
+>    
+> defModulator           :: Modulator
+> defModulator                             = Modulator defModSrc NoDestination 0 defModSrc
+>
+> data ModDestType =
+>     NoDestination
+>   | ToPitch
+>   | ToFilterFc
+>   | ToVolume deriving (Eq, Show)
+>
+> data ModSrcType =
+>   NoSource | NoteOnVelocity | NoteOnKeyNumber deriving (Eq, Show)
+>
+> data ModSrc =
+>   ModSrc {
+>       msCCBit          :: Bool
+>     , msMinToMax       :: Bool
+>     , msBiPolar        :: Bool
+>     , msType           :: ModSrcType} deriving (Eq, Show)
+>
+> defModSrc              :: ModSrc
+> defModSrc                                = ModSrc False False False NoSource
 >
 > data Effects =
 >   Effects {
 >     efChorus           :: Maybe Double
 >   , efReverb           :: Maybe Double
 >   , efPan              :: Maybe Double} deriving (Eq, Show)
->
-> data ModSignals =
->   ModSignals {
->     srModEnvPos        :: Double
->   , srModlfoPos        :: Double
->   , srViblfoPos        :: Double} deriving (Show)
 >
 > data SampleType =
 >   SampleTypeMono
@@ -927,6 +989,7 @@ Flags for customization ========================================================
 >     qqUsePitchCorrection   :: Bool
 >   , qqUseAttenuation       :: Bool
 >   , qqUseEnvelopes         :: Bool
+>   , qqUseModulators        :: Bool
 >   , qqMinAttackTime        :: Double
 >   , qqMinReleaseTime       :: Double
 >   , qqUseLoopSwitching     :: Bool
@@ -964,6 +1027,7 @@ Flags for customization ========================================================
 > usePitchCorrection                       = qqUsePitchCorrection         defS
 > useAttenuation                           = qqUseAttenuation             defS
 > useEnvelopes                             = qqUseEnvelopes               defS
+> useModulators                            = qqUseModulators              defS
 > minAttackTime                            = qqMinAttackTime              defS
 > minReleaseTime                           = qqMinReleaseTime             defS
 > useLoopSwitching                         = qqUseLoopSwitching           defS
@@ -1045,6 +1109,7 @@ Turn Knobs Here ================================================================
 >     qqUsePitchCorrection                 = True
 >   , qqUseAttenuation                     = False
 >   , qqUseEnvelopes                       = True
+>   , qqUseModulators                      = True
 >   , qqMinAttackTime                      = 0 -- 1/64
 >   , qqMinReleaseTime                     = 0 -- 1/16
 >   , qqUseLoopSwitching                   = True

@@ -958,7 +958,10 @@ Conversion functions and general helpers =======================================
 > profess assertion msg something          = if not assertion
 >                                              then error ("Failed assertion -- " ++ msg)
 >                                              else something
->                                            
+>
+> professIsJust          :: Maybe a → String → a
+> professIsJust item msg                   = profess (isJust item) msg (fromJust item)
+>
 > sumOfMaybeInts         :: [Maybe Int] → Int
 > sumOfMaybeInts                           = foldr ((+).fromMaybe 0) 0
 >       
