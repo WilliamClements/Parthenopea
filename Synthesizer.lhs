@@ -14,6 +14,7 @@
 > import Data.Complex ( Complex(..), magnitude )
 > import Data.Int ( Int8, Int16 )
 > import Data.List ( maximumBy )
+> import qualified Data.Map                as Map
 > import Data.Ord ( comparing )
 > import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
 > import Data.Word ( Word64 )
@@ -94,9 +95,10 @@ Signal function-based synth ====================================================
 >                                          ⤙ ()
 >       let delta                          = idelta * calculateModFactor
 >                                                       "eutDriver"
->                                                        modSigL
->                                                        (rNoteOnVel, rNoteOnKeyNumber)
->                                                        toPitchSummary
+>                                                       m
+>                                                       ToPitch
+>                                                       modSigL
+>                                                       (rNoteOnVel, rNoteOnKeyNumber)
 >       rec
 >         let phase                        = calcPhase next
 >         next           ← delay 0         ⤙ frac (phase + delta)                           
@@ -246,43 +248,58 @@ Modulation =====================================================================
 >     mL'@Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = mL
 >     mR'@Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = mR
 >
-> calculateModFactor     :: String → ModSignals → (AbsPitch, Volume) → ([Double], [Modulator]) → Double
-> calculateModFactor tag msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} (p, v) (targetList, modulatorList)
+> calculateModFactor     :: String → Modulation → ModDestType → ModSignals → (AbsPitch, Volume) → Double
+> calculateModFactor tag m@Modulation{modGraph, toPitchSummary, toFilterFcSummary, toVolumeSummary}
+>                    md msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} (p, v)
 >  | traceNever msg False                  = undefined
 >  | otherwise                             = fact
 >  where
+>    targetListIn        :: [Double]       = case md of
+>                                              ToPitch        → toPitchSummary
+>                                              ToFilterFc     → toFilterFcSummary
+>                                              ToVolume       → toVolumeSummary
+>                                              _              → error $ "category error in calculateModFactor " ++ show md
+>    targetList                            = profess
+>                                              (length targetListIn >= 3)
+>                                              "bad targetList"
+>                                              targetListIn
 >    x1                                    = srModEnvPos * head targetList
 >    x2                                    = srModLfoPos * (targetList !! 1)
 >    x3                                    = srVibLfoPos * (targetList !! 2)
->    x4                                    = sum $ map (evaluateModulator msig) modulatorList
+>    x4                                    = sum $ maybe [] (map evaluateModulator) (Map.lookup md modGraph)
 >    fact                                  = fromCents (x1 + x2 + x3 + x4)
 >
->    srcValue            :: ModSrc → ModSignals → Double
->    srcValue msrc@ModSrc{msMinToMax, msBiPolar, msType} msig
->      | useModulators                     = case msType of
+>    evaluateModulator   :: Modulator → Double
+>    evaluateModulator m@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
+>                                          = srcValue mrModSrc * mrModAmount * srcValue mrAmountSrc
+>      where
+>        srcValue            :: ModSrc → Double
+>        srcValue msrc@ModSrc{msMinToMax, msBiPolar, msType}
+>          | useModulators                 = case msType of
 >                                              NoteOnVelocity       → quantifyNoteOn v
 >                                              NoteOnKeyNumber      → quantifyNoteOn p
+>                                              LinkedModulators      → sum $ maybe
+>                                                                             []
+>                                                                             (map evaluateModulator)
+>                                                                             (Map.lookup (ToLink mrModId) modGraph)
 >                                              _                    → 0
->      | otherwise                         = 0
->      where
->        quantifyNoteOn      :: Int → Double
->        quantifyNoteOn n                  = val''
+>          | otherwise                     = 0
 >          where
->            val                           = fromIntegral n / 128
->            val'                          = if msMinToMax then 1 - val
->                                                          else val
->            val''                         = if msBiPolar  then val' * 2 - 1
->                                                          else val'
->   
+>            quantifyNoteOn
+>                        :: Int → Double
+>            quantifyNoteOn n              = val''
+>              where
+>                val                           = fromIntegral n / 128
+>                val'                          = if msMinToMax then 1 - val
+>                                                              else val
+>                val''                         = if msBiPolar  then val' * 2 - 1
+>                                                              else val'
+>
 >    msg                                   = unwords ["calculateModFactor: "
 >                                                     , show x1, " + "
 >                                                     , show x2, " + "
 >                                                     , show x3, " + "
 >                                                     , show x4, " = ", show (x1+x2+x3+x4), " => ", show fact]
->
->    evaluateModulator   :: ModSignals → Modulator → Double
->    evaluateModulator msig m@Modulator{mrModSrc, mrAmountSrc}
->                                          = srcValue mrModSrc msig * srcValue mrAmountSrc msig
 >
 > addResonance           :: ∀ p . Clock p ⇒ Reconciled → Signal p (Double, ModSignals) Double
 > addResonance recon@Reconciled{rNoteOnVel, rNoteOnKeyNumber, rModulation}
@@ -297,9 +314,10 @@ Modulation =====================================================================
 >       proc (x, msig) → do
 >         let fc = lowPassFc * calculateModFactor
 >                                "addResonance"
+>                                m
+>                                ToFilterFc
 >                                msig
 >                                (rNoteOnVel, rNoteOnKeyNumber)
->                                toFilterFcSummary
 >         y ← filterLowPassBW              ⤙ (x, fc)
 >         outA                             ⤙ resonate x fc y
 >       where
@@ -915,28 +933,36 @@ Utility types ==================================================================
 >   , mModEnv            :: Maybe Envelope
 >   , mModLfo            :: Maybe LFO
 >   , mVibLfo            :: Maybe LFO
->   , toPitchSummary     :: ([Double], [Modulator])
->   , toFilterFcSummary  :: ([Double], [Modulator])
->   , toVolumeSummary    :: ([Double], [Modulator])} deriving (Eq, Show)
+>   , toPitchSummary     :: [Double]
+>   , toFilterFcSummary  :: [Double]
+>   , toVolumeSummary    :: [Double]
+>   , modGraph           :: Map.Map ModDestType [Modulator]} deriving (Eq, Show)
+>
+> defModulation          :: Modulation
+> defModulation                            = Modulation
+>                                             Nothing Nothing Nothing Nothing
+>                                             [] [] [] Map.empty
 >
 > data Modulator =
 >   Modulator {
->     mrModSrc         :: ModSrc
+>     mrModId          :: Word
+>   , mrModSrc         :: ModSrc
 >   , mrModDest        :: ModDestType
 >   , mrModAmount      :: Double
 >   , mrAmountSrc      :: ModSrc} deriving (Eq, Show)
 >    
 > defModulator           :: Modulator
-> defModulator                             = Modulator defModSrc NoDestination 0 defModSrc
+> defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
 >
 > data ModDestType =
 >     NoDestination
 >   | ToPitch
 >   | ToFilterFc
->   | ToVolume deriving (Eq, Show)
+>   | ToVolume
+>   | ToLink Word deriving (Eq, Ord, Show)
 >
 > data ModSrcType =
->   NoSource | NoteOnVelocity | NoteOnKeyNumber deriving (Eq, Show)
+>   NoSource | NoteOnVelocity | NoteOnKeyNumber | LinkedModulators deriving (Eq, Show)
 >
 > data ModSrc =
 >   ModSrc {
@@ -990,8 +1016,6 @@ Flags for customization ========================================================
 >   , qqUseAttenuation       :: Bool
 >   , qqUseEnvelopes         :: Bool
 >   , qqUseModulators        :: Bool
->   , qqMinAttackTime        :: Double
->   , qqMinReleaseTime       :: Double
 >   , qqUseLoopSwitching     :: Bool
 >   , qqUseLowPass           :: Bool
 >   , qqUseLFO               :: Bool
@@ -1028,8 +1052,6 @@ Flags for customization ========================================================
 > useAttenuation                           = qqUseAttenuation             defS
 > useEnvelopes                             = qqUseEnvelopes               defS
 > useModulators                            = qqUseModulators              defS
-> minAttackTime                            = qqMinAttackTime              defS
-> minReleaseTime                           = qqMinReleaseTime             defS
 > useLoopSwitching                         = qqUseLoopSwitching           defS
 > useLowPass                               = qqUseLowPass                 defS
 > useLFO                                   = qqUseLFO                     defS
@@ -1110,8 +1132,6 @@ Turn Knobs Here ================================================================
 >   , qqUseAttenuation                     = False
 >   , qqUseEnvelopes                       = True
 >   , qqUseModulators                      = True
->   , qqMinAttackTime                      = 0 -- 1/64
->   , qqMinReleaseTime                     = 0 -- 1/16
 >   , qqUseLoopSwitching                   = True
 >   , qqUseLowPass                         = True
 >   , qqUseLFO                             = True
