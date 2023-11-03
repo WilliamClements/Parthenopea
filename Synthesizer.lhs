@@ -258,7 +258,7 @@ Modulation =====================================================================
 >                                              ToPitch        → toPitchSummary
 >                                              ToFilterFc     → toFilterFcSummary
 >                                              ToVolume       → toVolumeSummary
->                                              _              → error $ "category error in calculateModFactor " ++ show md
+>                                              _              → error $ "Error in calculateModFactor " ++ show md
 >    targetList                            = profess
 >                                              (length targetListIn >= 3)
 >                                              "bad targetList"
@@ -266,8 +266,14 @@ Modulation =====================================================================
 >    x1                                    = srModEnvPos * head targetList
 >    x2                                    = srModLfoPos * (targetList !! 1)
 >    x3                                    = srVibLfoPos * (targetList !! 2)
->    x4                                    = sum $ maybe [] (map evaluateModulator) (Map.lookup md modGraph)
->    fact                                  = fromCents (x1 + x2 + x3 + x4)
+>    x4                                    = product $ maybe [] (map evaluateModulator) (Map.lookup md modGraph)
+>    fact                                  = fromCents (x1 + x2 + x3) * x4
+>
+>    msg                                   = unwords ["calculateModFactor: "
+>                                                     , show x1, " + "
+>                                                     , show x2, " + "
+>                                                     , show x3, " + "
+>                                                     , show x4, " = ", show (x1+x2+x3+x4), " => ", show fact]
 >
 >    evaluateModulator   :: Modulator → Double
 >    evaluateModulator m@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
@@ -276,13 +282,13 @@ Modulation =====================================================================
 >        srcValue            :: ModSrc → Double
 >        srcValue msrc@ModSrc{msMinToMax, msBiPolar, msType}
 >          | useModulators                 = case msType of
+>                                              NoSource             → 1
 >                                              NoteOnVelocity       → quantifyNoteOn v
 >                                              NoteOnKeyNumber      → quantifyNoteOn p
->                                              LinkedModulators      → sum $ maybe
->                                                                             []
->                                                                             (map evaluateModulator)
->                                                                             (Map.lookup (ToLink mrModId) modGraph)
->                                              _                    → 0
+>                                              LinkedModulators     → product $ maybe
+>                                                                                 []
+>                                                                                 (map evaluateModulator)
+>                                                                                 (Map.lookup (ToLink mrModId) modGraph)
 >          | otherwise                     = 0
 >          where
 >            quantifyNoteOn
@@ -294,12 +300,6 @@ Modulation =====================================================================
 >                                                              else val
 >                val''                         = if msBiPolar  then val' * 2 - 1
 >                                                              else val'
->
->    msg                                   = unwords ["calculateModFactor: "
->                                                     , show x1, " + "
->                                                     , show x2, " + "
->                                                     , show x3, " + "
->                                                     , show x4, " = ", show (x1+x2+x3+x4), " => ", show fact]
 >
 > addResonance           :: ∀ p . Clock p ⇒ Reconciled → Signal p (Double, ModSignals) Double
 > addResonance recon@Reconciled{rNoteOnVel, rNoteOnKeyNumber, rModulation}

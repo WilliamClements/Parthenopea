@@ -625,8 +625,8 @@ Roger ==========================================================================
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig Cs Dorian
->    $     addVolume  60 (instrument AltoSax             (line [cAltoI,  cAltoIIA, cAltoIIB]))
->      :=: addVolume  90 (instrument AcousticGuitarNylon (line [cTenorI, cTenorII]))
+>    $     transpose 18 (addVolume  64 (instrument Piccolo             (line [cAltoI,  cAltoIIA, cAltoIIB])))
+>      :=: transpose 6  (addVolume  64 (instrument AcousticGuitarNylon (line [cTenorI, cTenorII])))
 >   where
 >
 >   ct_fs, ct_cs, ct_cs', ct__B, ct__B'          :: Dur → Music Pitch

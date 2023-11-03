@@ -21,6 +21,8 @@ December 12, 2022
 > import Control.SF.SF
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
+> import Data.Graph (Graph)
+> import qualified Data.Graph              as Graph
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List
 > import qualified Data.Map as Map
@@ -945,6 +947,33 @@ Sampling =======================================================================
 >     proc (x, _) → do
 >       y ← delay 0                        ⤙ x  
 >       outA                               ⤙ y
+>
+> type Node = Int
+>
+> makeGraph              :: [(Node, [Node])] → Graph
+> makeGraph list                           = 
+>   let
+>     highestL                             = if null list
+>                                              then 0
+>                                              else maximum (map fst list)
+>     highestR                             = foldl' (\x y → max x (maximum y)) 0 (map snd list)
+>     highest                              = max highestL highestR
+>     orphans                              = filter (\x → isNothing (lookup x list)) [0..highest]
+>     extra                                = map (,[]) orphans
+>   in array (0, highest) (list ++ extra)
+>
+> -- | Calculates all the nodes that are part of cycles in a graph.
+> cyclicNodes :: Graph → [Node]
+> cyclicNodes graph =
+>   map fst . filter isCyclicAssoc . assocs $ graph
+>   where
+>    isCyclicAssoc = uncurry $ reachableFromAny graph
+>
+> -- | In the specified graph, can the specified node be reached, starting out
+> -- from any of the specified vertices?
+> reachableFromAny :: Graph → Node → [Node] → Bool
+> reachableFromAny graph node =
+>   elem node . concatMap (Graph.reachable graph)
 
 Conversion functions and general helpers ==============================================================================
 
@@ -1169,11 +1198,9 @@ Emission capability ============================================================
 > emitImportLine imp                       = emitTaggedLine "import " imp ""
 >
 > writeFileBySections    :: FilePath → [[Emission]] → IO ()
-> writeFileBySections fp sections = do
->   mapM_ appendSection sections
->   where
->     appendSection      :: [Emission] → IO ()
->     appendSection section                = appendFile fp (reapEmissions section)
+> writeFileBySections fp eSections = do
+>   let zSections        = map reapEmissions eSections
+>   appendFile fp (concat zSections)
 
 Configurable parameters ===============================================================================================
 

@@ -24,6 +24,7 @@ Chart ==========================================================================
 > import Data.Default.Class
 > import Data.Int
 > import Data.List
+> import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Word
 > import Euterpea
@@ -271,9 +272,9 @@ Chart ==========================================================================
 >
 > {-
 > union (x:xs) (y:ys) = case (compare x y) of 
->            LT -> x : union  xs  (y:ys)
->            EQ -> x : union  xs     ys 
->            GT -> y : union (x:xs)  ys
+>            LT → x : union  xs  (y:ys)
+>            EQ → x : union  xs     ys 
+>            GT → y : union (x:xs)  ys
 > union  xs     []    = xs
 > union  []     ys    = ys
 > -}
@@ -285,3 +286,43 @@ Chart ==========================================================================
 >
 > mmm1 n = (-n, "foody")
 > mmm2 n = (n+1, "goofy")
+>
+> dumb = foldr (\x y → (x + last y) : y) [-1]
+> stupid, dumb :: [Int] → [Int]
+> stupid = foldl' junk [0]
+> junk xs y = [last xs + y]
+
+> bug = [1,2,3,4,5]
+> lFolder :: [Int] → Int → [Int]
+> rFolder :: Int → [Int] → [Int]
+>
+> llll = foldl' lFolder [1] bug
+> rrrr = foldr  rFolder [1] bug
+>
+> lFolder xs y = xs ++ [head xs + y]
+> rFolder y xs = xs ++ [y]
+>
+> seed = singleton 1
+> fuk :: [Int] → Int → [Int]
+> fuk tries ynew = tries ++ singleton ( last tries * (ynew - 1) )
+> 
+> lik ynew tries = tries ++ singleton ( last tries * (ynew - 1) )
+>
+> boo = foldl' fuk [3] [10,20,30,40,50]
+> bobby = foldl' fuk [3] [10, 20..100]
+> gibby = foldr lik [3] [10, 20..100]
+>
+>  --        generate       :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
+>  --        generate tries n 
+>  --          | traceNow msg False           = undefined
+>  --          | otherwise                    = tries ++ singleton (length xmods' == length xmods, (n, xmods'))
+>
+> dataset                :: [(Node, [Node])]
+> dataset                                  = [(0, [3,4]), (1, [4,5]), (2, [0]), (3, [0]), (4, []), (5, [])]
+>
+> executive              :: IO ()
+> executive                                = do
+>   let graph = makeGraph dataset
+>   print graph
+>   print (cyclicNodes graph)
+>   return ()
