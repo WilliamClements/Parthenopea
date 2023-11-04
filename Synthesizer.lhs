@@ -266,8 +266,8 @@ Modulation =====================================================================
 >    x1                                    = srModEnvPos * head targetList
 >    x2                                    = srModLfoPos * (targetList !! 1)
 >    x3                                    = srVibLfoPos * (targetList !! 2)
->    x4                                    = product $ maybe [] (map evaluateModulator) (Map.lookup md modGraph)
->    fact                                  = fromCents (x1 + x2 + x3) * x4
+>    x4                                    = sum $ maybe [] (map evaluateModulator) (Map.lookup md modGraph)
+>    fact                                  = fromCents (x1 + x2 + x3 * x4)
 >
 >    msg                                   = unwords ["calculateModFactor: "
 >                                                     , show x1, " + "

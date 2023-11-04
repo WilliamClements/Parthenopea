@@ -334,7 +334,8 @@ executive ======================================================================
 >     tsLoaded           ← getCurrentTime
 >     putStrLn ("___load files: " ++ show (diffUTCTime tsLoaded tsStarted))
 >
->     (tsReconciled, sfrost)             ← finishRoster (tsLoaded, preRoster)
+>     (tsReconciled, sfrost)
+>                        ← finishRoster (tsLoaded, preRoster)
 >
 >     -- readying instrument maps to be accessed from song renderer
 >     imap               ← prepareInstruments sfrost
@@ -374,8 +375,10 @@ executive ======================================================================
 >         putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsLoaded))
 >
 >         -- actually conduct the tournament
->         (tsDecided, ws)
+>         (tsReported, ws)
 >                        ← decideWinners tsZoned zFiles zoneCache preSampleCache preInstCache pergmsI' pergmsP'
+>         tsDecided       ← getCurrentTime
+>         putStrLn ("___decide winners: " ++ show (diffUTCTime tsReported tsDecided))
 >
 >         -- print song/orchestration info to user (can be stored by redirecting standard out)
 >         mapM_ putStrLn $ pWarnings ws
@@ -389,7 +392,7 @@ executive ======================================================================
 >                                , zPlayCache = Map.union playCacheI playCacheP}
 >
 >         tsReconciled       ← getCurrentTime
->         putStrLn ("___create play cache: " ++ show (diffUTCTime tsReconciled tsDecided))
+>         putStrLn ("___create play cache: " ++ show (diffUTCTime tsReconciled tsReported))
 >         
 >         return (tsReconciled, sfrost)
 >
