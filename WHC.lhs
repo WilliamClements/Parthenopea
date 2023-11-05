@@ -312,11 +312,6 @@ Chart ==========================================================================
 > bobby = foldl' fuk [3] [10, 20..100]
 > gibby = foldr lik [3] [10, 20..100]
 >
->  --        generate       :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
->  --        generate tries n 
->  --          | traceNow msg False           = undefined
->  --          | otherwise                    = tries ++ singleton (length xmods' == length xmods, (n, xmods'))
->
 > dataset                :: [(Node, [Node])]
 > dataset                                  = [(0, [3,4]), (1, [4,5]), (2, [0]), (3, [0]), (4, []), (5, [])]
 >

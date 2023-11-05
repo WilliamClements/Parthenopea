@@ -435,7 +435,6 @@ executive ======================================================================
 >
 >   CM.unless skipReporting (writeTournamentReport sffiles wI' wP')
 >   tsDecided            ← getCurrentTime
-
 >   return (tsDecided, WinningRecord (Map.map head wI') (Map.map head wP') (sI ++ sP))
 >
 >   where
@@ -483,12 +482,10 @@ executive ======================================================================
 >                                          = do
 >   return $ concatMap formFS zFiles
 >   where
->     formFS                 :: SFFile → [PreSampleKey]
->     formFS sffile = map (PreSampleKey (zWordF sffile)) [st..en - 1]
+>     formFS             :: SFFile → [PreSampleKey]
+>     formFS sffile@SFFile{zArrays}        = map (PreSampleKey (zWordF sffile)) [st..en]
 >       where
->         hdrs                             = ssShdrs $ zArrays sffile
->         st             :: Word           = (fst . bounds) hdrs
->         en             :: Word           = (snd . bounds) hdrs
+>         (st, en)       :: (Word, Word)   = bounds $ ssShdrs zArrays
 >   
 > formPreSampleCache     :: Array Word SFFile → [PreSampleKey] → IO PreSampleCache
 > formPreSampleCache sffiles presks
@@ -870,7 +867,7 @@ extract data from SoundFont per instrument =====================================
 >                                            >>= addAmount (F.amount raw)
 >         mm'                              = unpackSrc (F.amtSrcOper raw)
 >                                            >>= addAmtSrc mm
-
+                                            
 prepare the specified instruments and percussion ======================================================================
 
 > formZoneCache          :: Array Word SFFile → PreSampleCache → PreInstCache → [PerGMKey] → IO ZoneCache
@@ -1192,56 +1189,61 @@ zone selection for rendering ===================================================
 reconcile zone and sample header ======================================================================================
 
 > reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → (AbsPitch, Volume) → (Reconciled, Reconciled)
-> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) (p, v)
+> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) pv
 >   | traceNever msg False                 = undefined
 >   | otherwise                            = (recL, recR')
 >   where
->     recL = reconcile (zoneL, shdrL) (p, v)
->     recR = reconcile (zoneR, shdrR) (p, v)
+>     recL = reconcile (zoneL, shdrL) pv
+>     recR = reconcile (zoneR, shdrR) pv
 >     recR' = recR{
 >               rRootKey                   = rRootKey recL
 >             , rPitchCorrection           = rPitchCorrection recL}
 >     msg = unwords ["reconcileLR recL=", show recL, "\n  zoneL=", show zoneL, "\n  shdrL=", show shdrL]
 >
 > reconcile              :: (SFZone, F.Shdr) → (AbsPitch, Volume) → Reconciled 
-> reconcile (zone, shdr) (p, v)            =
+> reconcile (zone@SFZone{zRootKey, zKey, zVel
+>                      , zInitAtten
+>                      , zStartOffs, zEndOffs, zStartCoarseOffs, zEndCoarseOffs
+>                      , zLoopStartOffs, zLoopStartCoarseOffs, zLoopEndOffs, zLoopEndCoarseOffs
+>                      , zDelayVolEnv, zAttackVolEnv, zHoldVolEnv
+>                      , zDecayVolEnv, zSustainVolEnv, zReleaseVolEnv
+>                      , zCoarseTune, zFineTune, zChorus, zReverb, zPan, zSampleMode}, shdr) pv
+>                                          =
 >   Reconciled {
->     rSampleMode      = fromMaybe             A.NoLoop
->                                                (zSampleMode    zone)
->   , rSampleRate      = fromIntegral          (F.sampleRate
->                                                shdr)
->   , rStart           = addIntToWord          (F.start shdr)
->                                                (sumOfMaybeInts [zStartOffs     zone, zStartCoarseOffs     zone])
->   , rEnd             = addIntToWord          (F.end shdr)
->                                                (sumOfMaybeInts [zEndOffs       zone, zEndCoarseOffs       zone])
->   , rLoopStart       = addIntToWord          (F.startLoop shdr)
->                                                (sumOfMaybeInts [zLoopStartOffs zone, zLoopStartCoarseOffs zone])
->   , rLoopEnd         = addIntToWord          (F.endLoop shdr)
->                                                (sumOfMaybeInts [zLoopEndOffs   zone, zLoopEndCoarseOffs   zone])
->   , rRootKey         = fromIntegral (fromMaybe
->                                              (F.originalPitch shdr)   (zRootKey              zone))
->   , rForceKey        = fmap                  fromIntegral             (zKey                  zone)
->   , rForceVel        = fmap                  fromIntegral             (zVel                  zone)
->   , rNoteOnVel       = v
->   , rNoteOnKeyNumber = p
->   , rAttenuation     = resAttenuation                                 (zInitAtten            zone)
->   , rVolEnv          = deriveEnvelope                                 (zDelayVolEnv          zone)
->                                                                       (zAttackVolEnv         zone)
->                                                                       (zHoldVolEnv           zone)
->                                                                       (zDecayVolEnv          zone)
->                                                                       (zSustainVolEnv        zone)
->                                                                       (zReleaseVolEnv        zone)
->                                                                       Nothing
+>     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
+>   , rSampleRate      = fromIntegral                                  (F.sampleRate shdr)
+>   , rStart           = addIntToWord          (F.start shdr)          (sumOfMaybeInts
+>                                                                        [zStartOffs, zStartCoarseOffs])
+>   , rEnd             = addIntToWord          (F.end shdr)            (sumOfMaybeInts
+>                                                                        [zEndOffs, zEndCoarseOffs])
+>   , rLoopStart       = addIntToWord          (F.startLoop shdr)      (sumOfMaybeInts
+>                                                                        [zLoopStartOffs, zLoopStartCoarseOffs])
+>   , rLoopEnd         = addIntToWord          (F.endLoop shdr)        (sumOfMaybeInts
+>                                                                        [zLoopEndOffs, zLoopEndCoarseOffs])
+>   , rRootKey         = fromIntegral $ fromMaybe
+>                                              (F.originalPitch shdr)  zRootKey
+>   , rForceKey        = fmap                  fromIntegral            zKey
+>   , rForceVel        = fmap                  fromIntegral            zVel
+>   , rNoteOnVel       = snd pv
+>   , rNoteOnKeyNumber = fst pv
+>   , rAttenuation     = resAttenuation                                zInitAtten
+>   , rVolEnv          = deriveEnvelope                                zDelayVolEnv
+>                                                                      zAttackVolEnv
+>                                                                      zHoldVolEnv
+>                                                                      zDecayVolEnv
+>                                                                      zSustainVolEnv
+>                                                                      zReleaseVolEnv
+>                                                                      Nothing
 >   , rPitchCorrection = if usePitchCorrection
 >                          then Just $ resPitchCorrection               (F.pitchCorrection     shdr)
->                                                                       (zCoarseTune           zone)
->                                                                       (zFineTune             zone)
+>                                                                       zCoarseTune
+>                                                                       zFineTune
 >                          else Nothing
 >
 >   , rModulation      =                                                resModulation          zone
->   , rEffects         = deriveEffects                                  (zChorus               zone)
->                                                                       (zReverb               zone)
->                                                                       (zPan                  zone)}
+>   , rEffects         = deriveEffects                                  zChorus
+>                                                                       zReverb
+>                                                                       zPan}
 >
 >   where
 >     resPitchCorrection :: Int → Maybe Int → Maybe Int → Double
@@ -1249,18 +1251,18 @@ reconcile zone and sample header ===============================================
 >
 >     resAttenuation     :: Maybe Int → Double
 >     resAttenuation matten                = if useAttenuation
->                                              then fromCentibels matten
->                                              else 1.0
+>                                              then maybe 0 fromIntegral zInitAtten
+>                                              else 0.0
 >
->     resModulation     :: SFZone → Modulation
->     resModulation z@SFZone{
->                           zModLfoToPitch, zVibLfoToPitch, zModEnvToPitch
->                         , zInitFc, zInitQ
->                         , zModLfoToFc, zModEnvToFc, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
->                         , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv
->                         , zModulators}   = m8n{modGraph = compileMods ms}
->       where
->         m8n            :: Modulation     = defModulation{
+> resModulation         :: SFZone → Modulation
+> resModulation z@SFZone{
+>                       zModLfoToPitch, zVibLfoToPitch, zModEnvToPitch
+>                     , zInitFc, zInitQ
+>                     , zModLfoToFc, zModEnvToFc, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
+>                     , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv
+>                     , zModulators}   = m8n{modGraph = compileMods (ms ++ defaultMods)}
+>   where
+>     m8n                :: Modulation     = defModulation{
 >                                              mLowPass                = nLowPass
 >                                              , mModEnv               = nModEnv
 >                                              , mModLfo               = nModLfo
@@ -1269,13 +1271,13 @@ reconcile zone and sample header ===============================================
 >                                              , toFilterFcSummary     = summarize ToFilterFc     nModEnv nModLfo nVibLfo
 >                                              , toVolumeSummary       = summarize ToVolume       nModEnv nModLfo nVibLfo}
 >
->         initFc         :: Double         = fromAbsoluteCents $ fromMaybe 13500 zInitFc
->         initQ          :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ
+>     initFc             :: Double         = fromAbsoluteCents $ fromMaybe 13500 zInitFc
+>     initQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ
 >
->         nLowPass       :: Maybe LowPass  = if useLowPass && (isJust zInitFc || isJust zInitQ)
+>     nLowPass           :: Maybe LowPass  = if useLowPass && (isJust zInitFc || isJust zInitQ)
 >                                              then Just $ LowPass initFc initQ
 >                                              else Nothing
->         nModEnv        :: Maybe Envelope = deriveEnvelope
+>     nModEnv            :: Maybe Envelope = deriveEnvelope
 >                                              zDelayModEnv
 >                                              zAttackModEnv
 >                                              zHoldModEnv
@@ -1283,115 +1285,113 @@ reconcile zone and sample header ===============================================
 >                                              zSustainModEnv
 >                                              zReleaseModEnv
 >                                              (Just (zModEnvToPitch, zModEnvToFc))
->         nModLfo        :: Maybe LFO      = deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc Nothing
->         nVibLfo        :: Maybe LFO      = deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
+>     nModLfo            :: Maybe LFO      = deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc Nothing
+>     nVibLfo            :: Maybe LFO      = deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
 >
->         summarize      :: ModDestType → Maybe Envelope → Maybe LFO → Maybe LFO → [Double]
->         summarize toWhich menv mmodlfo mviblfo
+>     summarize          :: ModDestType → Maybe Envelope → Maybe LFO → Maybe LFO → [Double]
+>     summarize toWhich menv mmodlfo mviblfo
 >                                          =
->               [  chooseFromModTarget toWhich $ maybe defModTarget eModTarget nModEnv
->                , chooseFromModTarget toWhich $ maybe defModTarget lModTarget nModLfo
->                , chooseFromModTarget toWhich $ maybe defModTarget lModTarget nVibLfo]
+>       [  chooseFromModTarget toWhich $ maybe defModTarget eModTarget nModEnv
+>        , chooseFromModTarget toWhich $ maybe defModTarget lModTarget nModLfo
+>        , chooseFromModTarget toWhich $ maybe defModTarget lModTarget nVibLfo]
 >
->         (linked, other)                  = removeOrphans zModulators
->         ms                               = profess
+>     (linked, other)                      = removeOrphans zModulators
+>     ms                                   = profess
 >                                              (not $ hasCycles linked)
 >                                              "cycles in modulator graph"
 >                                              (linked ++ other)
 >         
->         hasModSource, hasModDest, isNode
+>     hasModSource, hasModDest, isNode
 >                        :: Modulator → Bool
->         hasModSource m8r@Modulator{mrModSrc}
->                                          = LinkedModulators == msType mrModSrc
->         hasModDest   m8r@Modulator{mrModDest}
+>     hasModSource m8r@Modulator{mrModSrc}
+>                                          = FromLinked == msType mrModSrc
+>     hasModDest   m8r@Modulator{mrModDest}
 >                                          = case mrModDest of
 >                                              ToLink _      → True
 >                                              _             → False
->         hasModSources  :: Map ModDestType [Modulator] → Modulator → Bool
->         hasModSources graph m            = isJust (Map.lookup (ToLink (mrModId m)) graph)
+>     hasModSources      :: Map ModDestType [Modulator] → Modulator → Bool
+>     hasModSources graph m                = isJust (Map.lookup (ToLink (mrModId m)) graph)
 >
->         isNode       m8r                 = hasModSource m8r || hasModDest m8r
+>     isNode m8r                           = hasModSource m8r || hasModDest m8r
 >
->         removeOrphans      :: [Modulator] → ([Modulator], [Modulator])
->         removeOrphans ms
->           | traceNow msg False           = undefined
->           | otherwise                    = (ms', other)
->           where
->             -- split into regular and linked
->             (linked, other)              = partition isNode ms
+>     removeOrphans          :: [Modulator] → ([Modulator], [Modulator])
+>     removeOrphans ms
+>       | traceNever msg False             = undefined
+>       | otherwise                        = (ms', other)
+>       where
+>         -- split off and "forget" (see above) non-intermodular modulators
+>         (linked, other)                  = partition isNode ms
 >
->             -- I guess I've always wanted to open-code an infinite loop (with apologies to Corduroy)
->             seed                         = (False, (0, linked))
->             generations                  = generate (singleton seed) 0
->             successes                    = dropWhile (not . fst) generations
->             (_, (_, ms'))                = head successes 
+>         -- I guess I've always wanted to open-code an infinite loop (with apologies to Corduroy)
+>         seed                             = (False, (0, linked))
+>         generations                      = generate (singleton seed) 0
+>         successes                        = dropWhile (not . fst) generations
+>         (_, (_, ms'))                    = head successes 
 >
->             msg                          = unwords ["remove orphans ", if not $ null linked
+>         msg                              = unwords ["remove orphans ", if not $ null linked
 >                                                                          then "wow!!" ++ show (length ms)
 >                                                                          else ""]
 >
->         generate       :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
->         generate tries mix 
->           | traceNow msg False           = undefined
->           | otherwise                    = newTry : generate tries (mix+1)
->           where
->             -- let's examine result of the previous generation
->             -- use it to produce next generation, dropping nodes that expect linked sources but have none
->             mods                         = profess
+>     generate           :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
+>     generate tries mix 
+>       | traceNever msg False             = undefined
+>       | otherwise                        = newTry : generate tries (mix+1)
+>       where
+>         -- let's examine result of the previous generation
+>         -- use it to produce next generation, dropping nodes that expect linked sources but have none
+>         mods                             = profess
 >                                              (mix <= 10)
 >                                              "maximum of 10 tries exceeded..."
 >                                              ((snd . snd) (head tries))
->             graph = compileMods mods
->             mods' = filter (\m → not (hasModSource m) || hasModSources graph m) mods
->             newTry = (length mods' == length mods, (mix, mods'))
+>         graph                            = compileMods mods
+>         mods'                            = filter (\m → not (hasModSource m) || hasModSources graph m) mods
+>         newTry                           = (length mods' == length mods, (mix, mods'))
 >
->             msg = unwords ["removeOrphans/generate ", show mix, " ", show (mods, mods')]
+>         msg                              = unwords ["removeOrphans/generate ", show mix, " ", show (mods, mods')]
 >
->         hasCycles  :: [Modulator] → Bool
->         hasCycles ms                     = not $ null $ cyclicNodes mgraph
->           where
->             mgraph     :: Graph          = makeGraph edgeList
+>     hasCycles          :: [Modulator] → Bool
+>     hasCycles ms                         = not $ null $ cyclicNodes mgraph
+>       where
+>         mgraph         :: Graph          = makeGraph edgeList
 >
->             edgeList   :: [(Node, [Node])]
+>         edgeList       :: [(Node, [Node])]
 >                                          = map
 >                                              (BF.bimap lookup (map (fromIntegral . mrModId)))
 >                                              (Map.toList (compileMods ms))
 >
->             lookup     :: ModDestType → Node
->             lookup mdt                   = case mdt of
+>         lookup         :: ModDestType → Node
+>         lookup mdt                       = case mdt of
 >                                              ToLink mId       → fromIntegral mId
 >                                              _                → error $ "only ToLink bears a ModDestType"
 >                                                                           ++ " to be turned into a Node"
 >
->         compileMods    :: [Modulator] → Map ModDestType [Modulator]
->         compileMods                      = foldl' nodeFolder Map.empty
->           where
->             nodeFolder accum m8r@Modulator{mrModDest}
+>     compileMods        :: [Modulator] → Map ModDestType [Modulator]
+>     compileMods                          = foldl' nodeFolder Map.empty
+>       where
+>         nodeFolder accum m8r@Modulator{mrModDest}
 >                                          =
->               let
->                 soFar  :: [Modulator]    = fromMaybe [] (Map.lookup mrModDest accum)
->               in
->                 Map.insert mrModDest (m8r : soFar) accum
+>           let
+>             soFar      :: [Modulator]    = fromMaybe [] (Map.lookup mrModDest accum)
+>           in
+>             Map.insert mrModDest (m8r : soFar) accum
 >
 > unpackSrc              :: Word → Maybe ModSrc
-> unpackSrc wIn                            = mmodSrc
+> unpackSrc wIn                            =     Just defModSrc
+>                                            >>= addIndex
+>                                            >>= addCCBit
+>                                            >>= addMin2Max
+>                                            >>= addBiPolar
 >   where
 >     index                                = wIn `mod` 128
 >     ccBit                                = (wIn `shift` (-6)) `mod` 2
 >     min2Max                              = (wIn `shift` (-7)) `mod` 2
 >     bipolar                              = (wIn `shift` (-8)) `mod` 2
 >
->     mmodSrc             :: Maybe ModSrc  = Just defModSrc
->                                               >>= addIndex index
->                                               >>= addCCBit
->                                               >>= addMin2Max
->                                               >>= addBiPolar
->
->     addIndex index from                  = case index of
->                                              0      → Just from{msType = NoSource}
->                                              2      → Just from{msType = NoteOnVelocity}
->                                              3      → Just from{msType = NoteOnKeyNumber}
->                                              127    → Just from{msType = LinkedModulators}
+>     addIndex from                        = case index of
+>                                              0      → Just from{msType = FromNoController}
+>                                              2      → Just from{msType = FromNoteOnVel}
+>                                              3      → Just from{msType = FromNoteOnKey}
+>                                              127    → Just from{msType = FromLinked}
 >                                              _ → Nothing
 >     addCCBit from                        = if ccBit /= 0   then Nothing
 >                                                            else Just from{msCCBit = False}
@@ -1407,7 +1407,8 @@ reconcile zone and sample header ===============================================
 > addDest wIn from
 >   | (wIn .&. 0x8000) /= 0                = Just from{mrModDest = ToLink $ wIn .&. 0x7fff}
 >   | otherwise                            = case wIn of
->                                              8 → Just from{mrModDest = ToFilterFc}
+>                                              8       → Just from{mrModDest = ToFilterFc}
+>                                              48      → Just from{mrModDest = ToInitAtten}
 >                                              _ → Nothing
 >
 > addAmount              :: Int → Modulator → Maybe Modulator
@@ -1415,8 +1416,23 @@ reconcile zone and sample header ===============================================
 >
 > addAmtSrc              :: Maybe Modulator → ModSrc → Maybe Modulator
 > addAmtSrc mmod modSrc@ModSrc{msType}     = mmod >>= (\x → case msType of
->                                                             LinkedModulators    → Nothing
+>                                                             FromLinked          → Nothing
 >                                                             _                   → Just x{mrAmountSrc = modSrc})
+> addAmtSrc'              :: ModSrc → Modulator → Maybe Modulator
+> addAmtSrc' modSrc@ModSrc{msType} m       = Just m >>= (\x → case msType of
+>                                                               FromLinked        → Nothing
+>                                                               _                 → Just x{mrAmountSrc = modSrc})
+>
+> defaultMods            :: [Modulator]
+> defaultMods                              = [makeDefaultMod 48 960, makeDefaultMod 8 (-2400), makeDefaultMod 8 (-2400)]
+>   where
+>     makeDefaultMod     :: Word → Int → Modulator
+>     makeDefaultMod igen amt                = professIsJust'
+>                                              $ Just defModSrc
+>                                                >>= addSrc defModulator
+>                                                >>= addDest igen
+>                                                >>= addAmount amt
+>                                                >>= addAmtSrc' defModSrc
 
 carry out, and "pre-cache" results, of play requests ====================================================================
 

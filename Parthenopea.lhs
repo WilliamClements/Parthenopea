@@ -991,6 +991,9 @@ Conversion functions and general helpers =======================================
 > professIsJust          :: Maybe a → String → a
 > professIsJust item msg                   = profess (isJust item) msg (fromJust item)
 >
+> professIsJust'         :: Maybe a → a
+> professIsJust' item                      = professIsJust item "expected Just"
+>
 > sumOfMaybeInts         :: [Maybe Int] → Int
 > sumOfMaybeInts                           = foldr ((+).fromMaybe 0) 0
 >       
@@ -1094,6 +1097,18 @@ Returns the frequency
 >                                          = listArray (0, 1199) (map calcTableValue [0..1199])
 >     calcTableValue     :: Int → Double
 >     calcTableValue i                     = 6.875 * pow 2.0 (fromIntegral i / 1200.0)
+>
+
+returns "interpretation" of MIDI NoteOn commands as floating point value
+
+> fromNoteOn             :: Int → Bool → Bool → Double
+> fromNoteOn n min2max bipolar             = val''
+>   where
+>     val                                  = fromIntegral n / 128
+>     val'                                 = if min2max  then val
+>                                                        else 1 - val
+>     val''                                = if bipolar  then val' * 2 - 1
+>                                                        else val'
 
 Returns amplitude based on sample point
 

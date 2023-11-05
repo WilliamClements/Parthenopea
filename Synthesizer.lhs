@@ -44,6 +44,8 @@ Signal function-based synth ====================================================
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = sig
 >   where
+>     pv                 :: (AbsPitch, Volume)
+>                                          = (pch, vol)
 >     ns                 :: Double         = fromIntegral (rEnd - rStart)
 >     secsSample         :: Double         = ns / sr
 >     secsScored         :: Double         = 2 * fromRational dur
@@ -61,12 +63,12 @@ Signal function-based synth ====================================================
 >
 >     sig                :: Signal p () (Double, Double)
 >                                          =       eutDriver      secsScored (reconL, reconR) secsToPlay delta looping
->                                              >>> eutPumpSamples secsScored (reconL, reconR) vol dur s16 ms8
+>                                              >>> eutPumpSamples secsScored (reconL, reconR) pv dur s16 ms8
 >                                              >>> eutModulate    secsScored (reconL, reconR)
 >                                              >>> eutEffects     secsScored (reconL, reconR)
 >                                              >>> eutAmplify     secsScored (reconL, reconR) secsToPlay
 >
->     msg                                  = unwords [ "eutSynthesize ", show (dur, pch, vol)
+>     msg                                  = unwords [ "eutSynthesize ", show (dur, pv)
 >                                                    , "ns, sr, ns/sr= ", show (ns, sr, ns/sr)
 >                                                    , "\nsample, scored, toplay = "
 >                                                    , show secsSample, " , ", show secsScored, " , ", show secsToPlay]
@@ -122,13 +124,13 @@ Signal function-based synth ====================================================
 > eutPumpSamples         :: ∀ p . Clock p ⇒
 >                           Double
 >                           → (Reconciled, Reconciled)
->                           → Volume
+>                           → (AbsPitch, Volume)
 >                           → Dur
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p (Double, (ModSignals, ModSignals)) ((Double, Double), (ModSignals, ModSignals))
-> eutPumpSamples _ (  reconL@Reconciled{rAttenuation = attenL, rStart = stL, rEnd = enL}
->                   , reconR@Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR}) vol dur s16 ms8
+> eutPumpSamples _ (  reconL@Reconciled{rAttenuation = attenL, rStart = stL, rEnd = enL, rModulation = mL}
+>                   , reconR@Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR, rModulation = mR}) pv dur s16 ms8
 >   | traceIf msg False = undefined
 >   | otherwise =
 >   proc (pos, msig) → do
@@ -138,8 +140,11 @@ Signal function-based synth ====================================================
 >     outA ⤙ (pump (ampL, ampR) (a1L, a1R), msig)
 >
 >   where
+>     cAttenL            :: Double         = fromCentibels' (attenL + evaluateMods ToInitAtten mL pv)
+>     cAttenR            :: Double         = fromCentibels' (attenR + evaluateMods ToInitAtten mR pv)
 >     (ampL, ampR)       :: (Double, Double)
->                                          = (fromIntegral vol / 100 / attenL, fromIntegral vol / 100 / attenR)
+>                                          = ( fromIntegral (snd pv) / 100 / cAttenL
+>                                            , fromIntegral (snd pv) / 100 / cAttenR)
 >     numS               :: Double         = fromIntegral (enL - stL)
 >
 >     pump               :: (Double, Double) → (Double, Double) → (Double, Double)
@@ -248,9 +253,26 @@ Modulation =====================================================================
 >     mL'@Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = mL
 >     mR'@Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = mR
 >
+> evaluateMods           :: ModDestType → Modulation → (AbsPitch, Volume) → Double
+> evaluateMods md m8n@Modulation{modGraph} pv
+>                                          = sum $ maybe [] (map evaluateMod) (Map.lookup md modGraph)
+>   where
+>     evaluateMod        :: Modulator → Double
+>     evaluateMod m8r@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
+>                                          = srcValue mrModSrc * mrModAmount * srcValue mrAmountSrc
+>       where
+>         srcValue        :: ModSrc → Double
+>         srcValue msrc@ModSrc{msType}
+>           | useModulators                = case msType of
+>                                              FromNoController     → 0
+>                                              FromNoteOnVel        → fromNoteOn (snd pv) False False
+>                                              FromNoteOnKey        → fromNoteOn (fst pv) False False
+>                                              FromLinked           → evaluateMods (ToLink mrModId) m8n pv
+>           | otherwise                    = 0
+>
 > calculateModFactor     :: String → Modulation → ModDestType → ModSignals → (AbsPitch, Volume) → Double
-> calculateModFactor tag m@Modulation{modGraph, toPitchSummary, toFilterFcSummary, toVolumeSummary}
->                    md msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} (p, v)
+> calculateModFactor tag m8n@Modulation{modGraph, toPitchSummary, toFilterFcSummary, toVolumeSummary}
+>                    md msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} pv
 >  | traceNever msg False                  = undefined
 >  | otherwise                             = fact
 >  where
@@ -258,7 +280,8 @@ Modulation =====================================================================
 >                                              ToPitch        → toPitchSummary
 >                                              ToFilterFc     → toFilterFcSummary
 >                                              ToVolume       → toVolumeSummary
->                                              _              → error $ "Error in calculateModFactor " ++ show md
+>                                              _              → error $ "Error in calculateModFactor "
+>                                                                       ++ show tag ++ " " ++ show md
 >    targetList                            = profess
 >                                              (length targetListIn >= 3)
 >                                              "bad targetList"
@@ -266,7 +289,7 @@ Modulation =====================================================================
 >    x1                                    = srModEnvPos * head targetList
 >    x2                                    = srModLfoPos * (targetList !! 1)
 >    x3                                    = srVibLfoPos * (targetList !! 2)
->    x4                                    = sum $ maybe [] (map evaluateModulator) (Map.lookup md modGraph)
+>    x4                                    = evaluateMods md m8n pv
 >    fact                                  = fromCents (x1 + x2 + x3 * x4)
 >
 >    msg                                   = unwords ["calculateModFactor: "
@@ -274,32 +297,6 @@ Modulation =====================================================================
 >                                                     , show x2, " + "
 >                                                     , show x3, " + "
 >                                                     , show x4, " = ", show (x1+x2+x3+x4), " => ", show fact]
->
->    evaluateModulator   :: Modulator → Double
->    evaluateModulator m@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
->                                          = srcValue mrModSrc * mrModAmount * srcValue mrAmountSrc
->      where
->        srcValue            :: ModSrc → Double
->        srcValue msrc@ModSrc{msMinToMax, msBiPolar, msType}
->          | useModulators                 = case msType of
->                                              NoSource             → 1
->                                              NoteOnVelocity       → quantifyNoteOn v
->                                              NoteOnKeyNumber      → quantifyNoteOn p
->                                              LinkedModulators     → product $ maybe
->                                                                                 []
->                                                                                 (map evaluateModulator)
->                                                                                 (Map.lookup (ToLink mrModId) modGraph)
->          | otherwise                     = 0
->          where
->            quantifyNoteOn
->                        :: Int → Double
->            quantifyNoteOn n              = val''
->              where
->                val                           = fromIntegral n / 128
->                val'                          = if msMinToMax then 1 - val
->                                                              else val
->                val''                         = if msBiPolar  then val' * 2 - 1
->                                                              else val'
 >
 > addResonance           :: ∀ p . Clock p ⇒ Reconciled → Signal p (Double, ModSignals) Double
 > addResonance recon@Reconciled{rNoteOnVel, rNoteOnKeyNumber, rModulation}
@@ -959,10 +956,14 @@ Utility types ==================================================================
 >   | ToPitch
 >   | ToFilterFc
 >   | ToVolume
+>   | ToInitAtten
 >   | ToLink Word deriving (Eq, Ord, Show)
 >
 > data ModSrcType =
->   NoSource | NoteOnVelocity | NoteOnKeyNumber | LinkedModulators deriving (Eq, Show)
+>     FromNoController
+>   | FromNoteOnVel
+>   | FromNoteOnKey
+>   | FromLinked deriving (Eq, Show)
 >
 > data ModSrc =
 >   ModSrc {
@@ -972,7 +973,7 @@ Utility types ==================================================================
 >     , msType           :: ModSrcType} deriving (Eq, Show)
 >
 > defModSrc              :: ModSrc
-> defModSrc                                = ModSrc False False False NoSource
+> defModSrc                                = ModSrc False False False FromNoController
 >
 > data Effects =
 >   Effects {
