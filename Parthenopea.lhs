@@ -1003,6 +1003,18 @@ Conversion functions and general helpers =======================================
 >     iw                 :: Int            = fromIntegral w
 >     sum                :: Int            = iw + i
 >
+> data Continuity =
+>     Linear
+>   | Concave
+>   | Convex
+>   | Switch deriving (Eq, Ord, Show)
+>
+> cont2bits cont = case cont of
+>                    Linear      → 0
+>                    Concave     → 1
+>                    Convex      → 2
+>                    Switch      → 3
+>
 > wrap :: (Ord n, Num n) ⇒ n → n → n
 > wrap val bound = if val > bound then wrap val (val-bound) else val
 >
@@ -1102,11 +1114,11 @@ Returns the frequency
 returns "interpretation" of MIDI NoteOn commands as floating point value
 
 > fromNoteOn             :: Int → Bool → Bool → Double
-> fromNoteOn n min2max bipolar             = val''
+> fromNoteOn n max2min bipolar             = val''
 >   where
 >     val                                  = fromIntegral n / 128
->     val'                                 = if min2max  then val
->                                                        else 1 - val
+>     val'                                 = if max2min  then 1 - val
+>                                                        else val
 >     val''                                = if bipolar  then val' * 2 - 1
 >                                                        else val'
 
@@ -1235,7 +1247,7 @@ Configurable parameters ========================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = False
+>   , qqSkipReporting                      = True
 >   , qqSkipGlissandi                      = False
 >   , qqDumpFftChunks                      = False
 >   , qqNumTakeFftChunks                   = 3}

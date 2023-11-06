@@ -968,7 +968,7 @@ Utility types ==================================================================
 > data ModSrc =
 >   ModSrc {
 >       msCCBit          :: Bool
->     , msMinToMax       :: Bool
+>     , msMax2Min        :: Bool
 >     , msBiPolar        :: Bool
 >     , msType           :: ModSrcType} deriving (Eq, Show)
 >

@@ -1379,12 +1379,12 @@ reconcile zone and sample header ===============================================
 > unpackSrc wIn                            =     Just defModSrc
 >                                            >>= addIndex
 >                                            >>= addCCBit
->                                            >>= addMin2Max
+>                                            >>= addMax2Min
 >                                            >>= addBiPolar
 >   where
 >     index                                = wIn `mod` 128
 >     ccBit                                = (wIn `shift` (-6)) `mod` 2
->     min2Max                              = (wIn `shift` (-7)) `mod` 2
+>     max2Min                              = (wIn `shift` (-7)) `mod` 2
 >     bipolar                              = (wIn `shift` (-8)) `mod` 2
 >
 >     addIndex from                        = case index of
@@ -1395,8 +1395,8 @@ reconcile zone and sample header ===============================================
 >                                              _ → Nothing
 >     addCCBit from                        = if ccBit /= 0   then Nothing
 >                                                            else Just from{msCCBit = False}
->     addMin2Max from                      = if min2Max /= 0 then Just from{msMinToMax = True}
->                                                            else Just from{msMinToMax = False}
+>     addMax2Min from                      = if max2Min /= 0 then Just from{msMax2Min = True}
+>                                                            else Just from{msMax2Min = False}
 >     addBiPolar from                      = if bipolar /= 0 then Just from{msBiPolar = True}
 >                                                            else Just from{msBiPolar = False}
 >
