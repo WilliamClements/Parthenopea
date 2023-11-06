@@ -1383,9 +1383,9 @@ reconcile zone and sample header ===============================================
 >                                            >>= addBiPolar
 >   where
 >     index                                = wIn `mod` 128
->     ccBit                                = (wIn `shift` (-6)) `mod` 2
->     max2Min                              = (wIn `shift` (-7)) `mod` 2
->     bipolar                              = (wIn `shift` (-8)) `mod` 2
+>     ccBit                                = (wIn `shift` (-7)) `mod` 2
+>     max2Min                              = (wIn `shift` (-8)) `mod` 2
+>     bipolar                              = (wIn `shift` (-9)) `mod` 2
 >
 >     addIndex from                        = case index of
 >                                              0      → Just from{msType = FromNoController}
