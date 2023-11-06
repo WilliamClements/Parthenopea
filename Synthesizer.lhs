@@ -967,13 +967,14 @@ Utility types ==================================================================
 >
 > data ModSrc =
 >   ModSrc {
->       msCCBit          :: Bool
+>       msContinuity     :: Continuity
+>     , msCCBit          :: Bool
 >     , msMax2Min        :: Bool
 >     , msBiPolar        :: Bool
 >     , msType           :: ModSrcType} deriving (Eq, Show)
 >
 > defModSrc              :: ModSrc
-> defModSrc                                = ModSrc False False False FromNoController
+> defModSrc                                = ModSrc Linear False False False FromNoController
 >
 > data Effects =
 >   Effects {

@@ -862,7 +862,7 @@ extract data from SoundFont per instrument =====================================
 >       where
 >         mm, mm'        :: Maybe Modulator
 >         mm                               = unpackSrc (F.srcOper raw)
->                                            >>= addSrc defModulator{mrModId = mId}
+>                                            >>= flip addSrc defModulator{mrModId = mId}
 >                                            >>= addDest (F.destOper raw)
 >                                            >>= addAmount (F.amount raw)
 >         mm'                              = unpackSrc (F.amtSrcOper raw)
@@ -1400,8 +1400,8 @@ reconcile zone and sample header ===============================================
 >     addBiPolar from                      = if bipolar /= 0 then Just from{msBiPolar = True}
 >                                                            else Just from{msBiPolar = False}
 >
-> addSrc                 :: Modulator → ModSrc → Maybe Modulator
-> addSrc from modSrc                       = Just from{mrModSrc = modSrc}
+> addSrc                 :: ModSrc → Modulator → Maybe Modulator
+> addSrc modSrc from                       = Just from{mrModSrc = modSrc}
 >
 > addDest                :: Word → Modulator → Maybe Modulator
 > addDest wIn from
@@ -1424,15 +1424,20 @@ reconcile zone and sample header ===============================================
 >                                                               _                 → Just x{mrAmountSrc = modSrc})
 >
 > defaultMods            :: [Modulator]
-> defaultMods                              = [makeDefaultMod 48 960, makeDefaultMod 8 (-2400), makeDefaultMod 8 (-2400)]
+>                                          -- [makeDefaultMod ms0 48 960, makeDefaultMod 8 (-2400), makeDefaultMod 8 (-2400)]
+> defaultMods                              = [ makeDefaultMod ms0 48 960     defModSrc
+>                                            , makeDefaultMod ms1  8 (-2400) ms2]
 >   where
->     makeDefaultMod     :: Word → Int → Modulator
->     makeDefaultMod igen amt                = professIsJust'
->                                              $ Just defModSrc
->                                                >>= addSrc defModulator
+>     ms0                :: ModSrc         = ModSrc   Concave   False  True False FromNoteOnVel
+>     ms1                :: ModSrc         = ModSrc   Linear    False  True False FromNoteOnVel
+>     ms2                :: ModSrc         = ModSrc   Switch    False  True False FromNoteOnVel 
+>     makeDefaultMod     :: ModSrc → Word → Int → ModSrc → Modulator
+>     makeDefaultMod ms igen amt amtSrc    = professIsJust'
+>                                              $ Just defModulator
+>                                                >>= addSrc ms0
 >                                                >>= addDest igen
 >                                                >>= addAmount amt
->                                                >>= addAmtSrc' defModSrc
+>                                                >>= addAmtSrc' amtSrc
 
 carry out, and "pre-cache" results, of play requests ====================================================================
 
