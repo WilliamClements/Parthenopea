@@ -255,7 +255,9 @@ Modulation =====================================================================
 >
 > evaluateMods           :: ModDestType → Modulation → (AbsPitch, Volume) → Double
 > evaluateMods md m8n@Modulation{modGraph} pv
->                                          = sum $ maybe [] (map evaluateMod) (Map.lookup md modGraph)
+>                                          = if useDefaultMods
+>                                              then sum $ maybe [] (map evaluateMod) (Map.lookup md modGraph)
+>                                              else 0
 >   where
 >     evaluateMod        :: Modulator → Double
 >     evaluateMod m8r@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
@@ -264,7 +266,7 @@ Modulation =====================================================================
 >         srcValue        :: ModSrc → Double
 >         srcValue msrc@ModSrc{msType}
 >           | useModulators                = case msType of
->                                              FromNoController     → 0
+>                                              FromNoController     → 1
 >                                              FromNoteOnVel        → fromNoteOn (snd pv) False False
 >                                              FromNoteOnKey        → fromNoteOn (fst pv) False False
 >                                              FromLinked           → evaluateMods (ToLink mrModId) m8n pv
@@ -1018,6 +1020,7 @@ Flags for customization ========================================================
 >   , qqUseAttenuation       :: Bool
 >   , qqUseEnvelopes         :: Bool
 >   , qqUseModulators        :: Bool
+>   , qqUseDefaultMods       :: Bool
 >   , qqUseLoopSwitching     :: Bool
 >   , qqUseLowPass           :: Bool
 >   , qqUseLFO               :: Bool
@@ -1054,6 +1057,7 @@ Flags for customization ========================================================
 > useAttenuation                           = qqUseAttenuation             defS
 > useEnvelopes                             = qqUseEnvelopes               defS
 > useModulators                            = qqUseModulators              defS
+> useDefaultMods                           = qqUseDefaultMods             defS
 > useLoopSwitching                         = qqUseLoopSwitching           defS
 > useLowPass                               = qqUseLowPass                 defS
 > useLFO                                   = qqUseLFO                     defS
@@ -1134,6 +1138,7 @@ Turn Knobs Here ================================================================
 >   , qqUseAttenuation                     = False
 >   , qqUseEnvelopes                       = True
 >   , qqUseModulators                      = True
+>   , qqUseDefaultMods                     = False
 >   , qqUseLoopSwitching                   = True
 >   , qqUseLowPass                         = True
 >   , qqUseLFO                             = True

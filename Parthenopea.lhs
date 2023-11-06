@@ -1247,7 +1247,7 @@ Configurable parameters ========================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = True
+>   , qqSkipReporting                      = False
 >   , qqSkipGlissandi                      = False
 >   , qqDumpFftChunks                      = False
 >   , qqNumTakeFftChunks                   = 3}
