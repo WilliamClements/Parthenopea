@@ -1260,7 +1260,7 @@ reconcile zone and sample header ===============================================
 >                     , zInitFc, zInitQ
 >                     , zModLfoToFc, zModEnvToFc, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
 >                     , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv
->                     , zModulators}   = m8n{modGraph = compileMods (ms ++ defaultMods)}
+>                     , zModulators}   = assignModGraph m8n (compileMods (ms ++ defaultMods))
 >   where
 >     m8n                :: Modulation     = defModulation{
 >                                              mLowPass                = nLowPass
@@ -1301,6 +1301,13 @@ reconcile zone and sample header ===============================================
 >                                              "cycles in modulator graph"
 >                                              (linked ++ other)
 >         
+>     assignModGraph     :: Modulation → Map.Map ModDestType [Modulator] → Modulation
+>     assignModGraph m8n mgraph
+>       | traceNow msg False               = undefined
+>       | otherwise                        = m8n{modGraph = mgraph}
+>       where
+>         msg = unwords ["assignModGraph ", show mgraph]
+>
 >     hasModSource, hasModDest, isNode
 >                        :: Modulator → Bool
 >     hasModSource m8r@Modulator{mrModSrc}
@@ -1412,7 +1419,9 @@ reconcile zone and sample header ===============================================
 >                                              _ → Nothing
 >
 > addAmount              :: Int → Modulator → Maybe Modulator
-> addAmount iIn from                       = Just (from{mrModAmount = fromIntegral iIn})
+> addAmount iIn from                       = if iIn == 0
+>                                              then Nothing
+>                                              else Just (from{mrModAmount = fromIntegral iIn})
 >
 > addAmtSrc              :: Maybe Modulator → ModSrc → Maybe Modulator
 > addAmtSrc mmod modSrc@ModSrc{msType}     = mmod >>= (\x → case msType of
@@ -1425,8 +1434,10 @@ reconcile zone and sample header ===============================================
 >
 > defaultMods            :: [Modulator]
 >                                          -- [makeDefaultMod ms0 48 960, makeDefaultMod 8 (-2400), makeDefaultMod 8 (-2400)]
-> defaultMods                              = [ makeDefaultMod ms0 48 960     defModSrc
->                                            , makeDefaultMod ms1  8 (-2400) ms2]
+> defaultMods                              = if useDefaultMods
+>                                              then [ makeDefaultMod ms0 48 960     defModSrc
+>                                                   , makeDefaultMod ms1  8 (-2400) ms2 ] 
+>                                              else []
 >   where
 >     ms0                :: ModSrc         = ModSrc   Concave   False  True False FromNoteOnVel
 >     ms1                :: ModSrc         = ModSrc   Linear    False  True False FromNoteOnVel

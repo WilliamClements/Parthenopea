@@ -255,22 +255,38 @@ Modulation =====================================================================
 >
 > evaluateMods           :: ModDestType → Modulation → (AbsPitch, Volume) → Double
 > evaluateMods md m8n@Modulation{modGraph} pv
->                                          = if useDefaultMods
->                                              then sum $ maybe [] (map evaluateMod) (Map.lookup md modGraph)
->                                              else 0
+>                                          = sum $ maybe [] (map evaluateMod) (Map.lookup md modGraph)
 >   where
 >     evaluateMod        :: Modulator → Double
 >     evaluateMod m8r@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
 >                                          = srcValue mrModSrc * mrModAmount * srcValue mrAmountSrc
 >       where
->         srcValue        :: ModSrc → Double
->         srcValue msrc@ModSrc{msType}
+>         rawValue        :: ModSrc → (Double, (Double, Double))
+>         rawValue msrc@ModSrc{msType}
 >           | useModulators                = case msType of
->                                              FromNoController     → 1
->                                              FromNoteOnVel        → fromNoteOn (snd pv) False False
->                                              FromNoteOnKey        → fromNoteOn (fst pv) False False
->                                              FromLinked           → evaluateMods (ToLink mrModId) m8n pv
->           | otherwise                    = 0
+>                                              FromNoController     → (1, (0,1))
+>                                              FromNoteOnVel        → (fromNoteOn (snd pv) False False, (0, 128))
+>                                              FromNoteOnKey        → (fromNoteOn (fst pv) False False, (0, 128))
+>                                              FromLinked           → (evaluateMods (ToLink mrModId) m8n pv, (0, 1)) -- WOX
+>           | otherwise                    = (1, (0,1))
+>
+>         srcValue       :: ModSrc → Double
+>         srcValue msrc@ModSrc{msContinuity, msMax2Min, msBiPolar} = val'' -- WOX
+>           where
+>             range = vMax - vMin
+>             (val, (vMin, vMax)) = rawValue msrc
+>             val' = val - vMin
+>             val''
+>               | Linear == msContinuity && not msMax2Min && not msBiPolar
+>                                          = val
+>               | Concave == msContinuity && msMax2Min && not msBiPolar
+>                                          = -20/96 * log (val' ^ 2 / range ^ 2)
+>               | Switch == msContinuity && msMax2Min && not msBiPolar
+>                                          = if val < (vMin + vMax) / 2
+>                                              then vMin
+>                                              else vMax
+>               | otherwise                = val
+>
 >
 > calculateModFactor     :: String → Modulation → ModDestType → ModSignals → (AbsPitch, Volume) → Double
 > calculateModFactor tag m8n@Modulation{modGraph, toPitchSummary, toFilterFcSummary, toVolumeSummary}
