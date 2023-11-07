@@ -25,7 +25,8 @@ December 12, 2022
 > import qualified Data.Graph              as Graph
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List
-> import qualified Data.Map as Map
+> import Data.Map (Map)
+> import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe )
 > import Data.Ord
 > import Data.Ratio ( approxRational )
@@ -421,8 +422,8 @@ examine song for instrument and percussion usage ===============================
 >            , oTranspose   :: AbsPitch
 >            , oPitch       :: Pitch}    deriving (Show, Eq, Ord)
 >
-> type InstDB = Map.Map InstrumentName Int32
-> type OorDB = Map.Map OorCase Int32
+> type InstDB = Map InstrumentName Int32
+> type OorDB =  Map OorCase        Int32
 >
 > initCase               :: OorCase
 > initCase = 
@@ -482,8 +483,8 @@ examine song for instrument and percussion usage ===============================
 >   
 > listP                  :: Music (Pitch, [NoteAttribute])
 >                           → OorCase
->                           → Map.Map PercussionSound Int32
->                           → Map.Map PercussionSound Int32
+>                           → Map PercussionSound Int32
+>                           → Map PercussionSound Int32
 > listP (Prim (Note _ (p, a))) ooc db1
 >       = case oInstrument ooc of
 >              Percussion    → Map.insert (toEnum (absPitch p - 35)) 0 db1

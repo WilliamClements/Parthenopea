@@ -25,94 +25,95 @@
 Modulator management ==================================================================================================
 
 > resModulators         :: Modulation → [Modulator] → Modulation
-> resModulators m8n@Modulation{modGraph} m8rs
->                                          = assignModGraph m8n (compileMods (defaultMods ++ ms))
+> resModulators m8n m8rs
+>   | traceNow msg False                   = undefined
+>   | otherwise                            = assignModGraph m8n (compileMods (defaultMods ++ m8rs'))
 >   where
->     (linked, other)                      = splitMods
->     ms                                   = profess
+>     msg                                  = unwords ["resModulators ", show (length m8rs)]
+>     (linked, other)                      = splitMods m8rs
+>     m8rs'                                = profess
 >                                              (not $ hasCycles linked)
 >                                              "cycles in modulator graph"
 >                                              (linked ++ other)
 >         
->     assignModGraph     :: Modulation → Map.Map ModDestType [Modulator] → Modulation
->     assignModGraph m8n mgraph
->       | traceIf msg False                = undefined
->       | otherwise                        = m8n{modGraph = mgraph}
->       where
->         msg = unwords ["assignModGraph ", show mgraph]
+> assignModGraph         :: Modulation → Map ModDestType [Modulator] → Modulation
+> assignModGraph m8n mgraph
+>   | traceNow msg False               = undefined
+>   | otherwise                        = m8n{modGraph = mgraph}
+>   where
+>     msg = unwords ["assignModGraph ", show mgraph]
 >
->     hasModSource, hasModDest, isNode
->                        :: Modulator → Bool
->     hasModSource m8r@Modulator{mrModSrc}
->                                          = FromLinked == msType mrModSrc
->     hasModDest   m8r@Modulator{mrModDest}
->                                          = case mrModDest of
->                                              ToLink _      → True
->                                              _             → False
->     hasModSources      :: Map ModDestType [Modulator] → Modulator → Bool
->     hasModSources graph m                = isJust (Map.lookup (ToLink (mrModId m)) graph)
+> hasCycles              :: [Modulator] → Bool
+> hasCycles ms
+>   | traceNow msg False                   = undefined
+>   | otherwise                            = not $ null $ cyclicNodes mgraph
+>   where
+>     msg                                  = unwords ["hasCycles edgeList ", show edgeList]
+>     mgraph             :: Graph          = makeGraph edgeList
 >
->     isNode m8r                           = hasModSource m8r || hasModDest m8r
->
->     splitMods          :: ([Modulator], [Modulator])
->     splitMods
->       | traceNever msg False             = undefined
->       | otherwise                        = (m8rs', other)
->       where
->         -- split off and "forget" (see above) non-intermodular modulators
->         (linked, other)                  = partition isNode m8rs
->
->         seed                             = (False, (0, linked))
->         generations                      = generate (singleton seed) 0
->         successes                        = dropWhile (not . fst) generations
->         (_, (_, m8rs'))                  = head successes 
->
->         msg                              = unwords ["remove orphans ", if not $ null linked
->                                                                          then "wow!!" ++ show (length ms)
->                                                                          else ""]
->
->     generate           :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
->     generate tries mix 
->       | traceNever msg False             = undefined
->       | otherwise                        = newTry : generate tries (mix+1)
->       where
->         -- let's examine result of the previous generation
->         -- use it to produce next generation, dropping nodes that expect linked sources but have none
->         m8rs                             = profess
->                                              (mix <= 10)
->                                              "maximum of 10 tries exceeded..."
->                                              ((snd . snd) (head tries))
->         graph                            = compileMods m8rs
->         m8rs'                            = filter (\m → not (hasModSource m) || hasModSources graph m) m8rs
->         newTry                           = (length m8rs' == length m8rs, (mix, m8rs'))
->
->         msg                              = unwords ["splitMods/generate ", show mix, " ", show (m8rs, m8rs')]
->
->     hasCycles          :: [Modulator] → Bool
->     hasCycles ms                         = not $ null $ cyclicNodes mgraph
->       where
->         mgraph         :: Graph          = makeGraph edgeList
->
->         edgeList       :: [(Node, [Node])]
+>     edgeList           :: [(Node, [Node])]
 >                                          = map
 >                                              (BF.bimap lookup (map (fromIntegral . mrModId)))
 >                                              (Map.toList (compileMods ms))
 >
->         lookup         :: ModDestType → Node
->         lookup mdt                       = case mdt of
+>     lookup             :: ModDestType → Node
+>     lookup mdt                           = case mdt of
 >                                              ToLink mId       → fromIntegral mId
 >                                              _                → error $ "only ToLink bears a ModDestType"
 >                                                                           ++ " to be turned into a Node"
 >
->     compileMods        :: [Modulator] → Map ModDestType [Modulator]
->     compileMods                          = foldl' nodeFolder Map.empty
->       where
->         nodeFolder accum m8r@Modulator{mrModDest}
->                                          =
->           let
->             soFar      :: [Modulator]    = fromMaybe [] (Map.lookup mrModDest accum)
->           in
->             Map.insert mrModDest (m8r : soFar) accum
+> generate               :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
+> generate triesIn mix  
+>   | traceNow msg False                   = undefined
+>   | otherwise                            = newTry : generate triesOut (mix+1)
+>   where
+>     -- let's examine result of the previous generation
+>     -- use it to produce next generation, dropping nodes that expect linked sources but have none
+>     m8rsIn                               = profess
+>                                              (mix <= 10)
+>                                              "maximum of 10 tries exceeded..."
+>                                              ((snd . snd) (head triesIn))
+>     graph                                = compileMods m8rsIn
+>     m8rsOut                              = filter (\m → not (hasModSource m) || hasModSources graph m) m8rsIn
+>     newTry                               = (length m8rsOut == length m8rsIn, (mix, m8rsOut))
+>     triesOut                             = newTry : triesIn
+>
+>     msg                                  = unwords ["generate ", show (length m8rsIn)]
+>
+> hasModSource, hasModDest
+>                        :: Modulator → Bool
+> hasModSource m8r@Modulator{mrModSrc}     = FromLinked == msType mrModSrc
+> hasModDest   m8r@Modulator{mrModDest}    = case mrModDest of
+>                                              ToLink _      → True
+>                                              _             → False
+>
+> hasModSources          :: Map ModDestType [Modulator] → Modulator → Bool
+> hasModSources graph m                    = isJust (Map.lookup (ToLink (mrModId m)) graph)
+>
+> splitMods              :: [Modulator] → ([Modulator], [Modulator])
+> splitMods m8rsIn
+>   | traceNow msg False                   = undefined
+>   | otherwise                            = (m8rsSplit, other)
+>   where
+>     -- split off and "forget" (see above) non-linking modulators
+>     (linked, other)                      = partition (\m → hasModSource m || hasModDest m) m8rsIn
+>
+>     seed                                 = (False, (0, linked))
+>     generations                          = generate (singleton seed) 0
+>     successes                            = dropWhile (not . fst) generations
+>     (_, (_, m8rsSplit))                  = head successes 
+>
+>     msg                                  = unwords ["splitMods ", show (length linked, length other)]
+>
+> compileMods        :: [Modulator] → Map ModDestType [Modulator]
+> compileMods                          = foldl' nodeFolder Map.empty
+>   where
+>     nodeFolder accum m8r@Modulator{mrModDest}
+>                                      =
+>       let
+>         soFar      :: [Modulator]    = fromMaybe [] (Map.lookup mrModDest accum)
+>       in
+>         Map.insert mrModDest (m8r : soFar) accum
 >
 > unpackSrc              :: Word → Maybe ModSrc
 > unpackSrc wIn                            =     Just defModSrc
@@ -167,8 +168,8 @@ Modulator management ===========================================================
 > defaultMods            :: [Modulator]
 >                                          -- [makeDefaultMod ms0 48 960, makeDefaultMod 8 (-2400), makeDefaultMod 8 (-2400)]
 > defaultMods                              = if useDefaultMods
->                                              then [ makeDefaultMod ms0 48 960     defModSrc ]
->                                           -- WOX  , makeDefaultMod ms1  8 (-2400) ms2 ]
+>                                              then [ makeDefaultMod ms0 48 960     defModSrc
+>                                                   , makeDefaultMod ms1  8 (-2400) ms2 ]
 >                                              else []
 >                                                              
 >   where
@@ -341,6 +342,25 @@ Testing ========================================================================
 > aEqual a b
 >   | a /= b                               = error "They had to be equal!"
 >   | otherwise                            = a
+>
+> modulationTestSetup   :: [Modulator]
+> modulationTestSetup                      = [m8r0, m8r1, m8r2, m8r3]
+>   where
+>     m8r0 = defModulator{mrModId = 0, mrModSrc = defModSrc{msType = FromLinked}, mrModDest = ToFilterFc}
+>     m8r1 = defModulator{mrModId = 1, mrModDest = ToInitAtten}
+>     m8r2 = defModulator{mrModId = 2, mrModSrc = defModSrc{msType = FromNoteOnKey}, mrModDest = ToFilterFc}
+>     m8r3 = defModulator{mrModId = 3, mrModDest = ToLink 2}
+>  
+> modulationTest001     :: IO ()
+> modulationTest001                       = do
+>   let m8rsIn                            = modulationTestSetup
+>   let m8r4 = defModulator{mrModId = 4, mrModSrc = defModSrc{msType = FromLinked}, mrModDest = ToLink 5}
+>   let m8r5 = defModulator{mrModId = 5, mrModSrc = defModSrc{msType = FromLinked}, mrModDest = ToLink 4} 
+>   let m8rsOut                           = m8rsIn ++ [m8r4, m8r5]
+>
+>   let m8n' = resModulators defModulation m8rsOut
+>   print m8n'
+>   return ()
 
 Type declarations =====================================================================================================
 
@@ -362,11 +382,13 @@ Type declarations ==============================================================
 >   , mtVolume           :: Double} deriving (Eq, Show)
 >
 > chooseFromModTarget    :: ModDestType → ModTarget → Double
-> chooseFromModTarget mdtype mt@ModTarget{mtPitch, mtFilterFc, mtVolume}
->                                          = case mdtype of
+> chooseFromModTarget md mt@ModTarget{mtPitch, mtFilterFc, mtVolume}
+>                                          = case md of
 >                                              ToPitch     → mtPitch
 >                                              ToFilterFc  → mtFilterFc
 >                                              ToVolume    → mtVolume
+>                                              _           → error ("ModTarget only deals with toPitch"
+>                                                               ++ ", toFilterFc, and toVolume")
 > defModTarget                             = ModTarget 0 0 0
 >
 > data LFO =
@@ -384,7 +406,7 @@ Type declarations ==============================================================
 >   , toPitchSummary     :: [Double]
 >   , toFilterFcSummary  :: [Double]
 >   , toVolumeSummary    :: [Double]
->   , modGraph           :: Map.Map ModDestType [Modulator]} deriving (Eq, Show)
+>   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
 > defModulation          :: Modulation
 > defModulation                            = Modulation
