@@ -14,12 +14,9 @@ SoundFont support ==============================================================
 > import Data.Array.Unboxed ( listArray, Array, (!), bounds )
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Bits
 > import Data.Foldable ( toList )
-> import Data.Graph (Graph)
-> import qualified Data.Graph              as Graph
 > import Data.Int ( Int8, Int16 )
-> import Data.List ( find, foldr, minimumBy, singleton, foldl', sortOn, partition )
+> import Data.List ( find, foldr, minimumBy, singleton, foldl', sortOn )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
@@ -31,6 +28,7 @@ SoundFont support ==============================================================
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, Mono, Stereo, Clock, Signal )
 > import Euterpea.Music
+> import Modulation
 > import Parthenopea
 > import Synthesizer
 > import qualified System.FilePattern.Directory
@@ -1260,7 +1258,7 @@ reconcile zone and sample header ===============================================
 >                     , zInitFc, zInitQ
 >                     , zModLfoToFc, zModEnvToFc, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
 >                     , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv
->                     , zModulators}   = assignModGraph m8n (compileMods (ms ++ defaultMods))
+>                     , zModulators}   = resModulators m8n zModulators
 >   where
 >     m8n                :: Modulation     = defModulation{
 >                                              mLowPass                = nLowPass
@@ -1294,161 +1292,6 @@ reconcile zone and sample header ===============================================
 >       [  chooseFromModTarget toWhich $ maybe defModTarget eModTarget nModEnv
 >        , chooseFromModTarget toWhich $ maybe defModTarget lModTarget nModLfo
 >        , chooseFromModTarget toWhich $ maybe defModTarget lModTarget nVibLfo]
->
->     (linked, other)                      = removeOrphans zModulators
->     ms                                   = profess
->                                              (not $ hasCycles linked)
->                                              "cycles in modulator graph"
->                                              (linked ++ other)
->         
->     assignModGraph     :: Modulation → Map.Map ModDestType [Modulator] → Modulation
->     assignModGraph m8n mgraph
->       | traceNow msg False               = undefined
->       | otherwise                        = m8n{modGraph = mgraph}
->       where
->         msg = unwords ["assignModGraph ", show mgraph]
->
->     hasModSource, hasModDest, isNode
->                        :: Modulator → Bool
->     hasModSource m8r@Modulator{mrModSrc}
->                                          = FromLinked == msType mrModSrc
->     hasModDest   m8r@Modulator{mrModDest}
->                                          = case mrModDest of
->                                              ToLink _      → True
->                                              _             → False
->     hasModSources      :: Map ModDestType [Modulator] → Modulator → Bool
->     hasModSources graph m                = isJust (Map.lookup (ToLink (mrModId m)) graph)
->
->     isNode m8r                           = hasModSource m8r || hasModDest m8r
->
->     removeOrphans          :: [Modulator] → ([Modulator], [Modulator])
->     removeOrphans ms
->       | traceNever msg False             = undefined
->       | otherwise                        = (ms', other)
->       where
->         -- split off and "forget" (see above) non-intermodular modulators
->         (linked, other)                  = partition isNode ms
->
->         -- I guess I've always wanted to open-code an infinite loop (with apologies to Corduroy)
->         seed                             = (False, (0, linked))
->         generations                      = generate (singleton seed) 0
->         successes                        = dropWhile (not . fst) generations
->         (_, (_, ms'))                    = head successes 
->
->         msg                              = unwords ["remove orphans ", if not $ null linked
->                                                                          then "wow!!" ++ show (length ms)
->                                                                          else ""]
->
->     generate           :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
->     generate tries mix 
->       | traceNever msg False             = undefined
->       | otherwise                        = newTry : generate tries (mix+1)
->       where
->         -- let's examine result of the previous generation
->         -- use it to produce next generation, dropping nodes that expect linked sources but have none
->         mods                             = profess
->                                              (mix <= 10)
->                                              "maximum of 10 tries exceeded..."
->                                              ((snd . snd) (head tries))
->         graph                            = compileMods mods
->         mods'                            = filter (\m → not (hasModSource m) || hasModSources graph m) mods
->         newTry                           = (length mods' == length mods, (mix, mods'))
->
->         msg                              = unwords ["removeOrphans/generate ", show mix, " ", show (mods, mods')]
->
->     hasCycles          :: [Modulator] → Bool
->     hasCycles ms                         = not $ null $ cyclicNodes mgraph
->       where
->         mgraph         :: Graph          = makeGraph edgeList
->
->         edgeList       :: [(Node, [Node])]
->                                          = map
->                                              (BF.bimap lookup (map (fromIntegral . mrModId)))
->                                              (Map.toList (compileMods ms))
->
->         lookup         :: ModDestType → Node
->         lookup mdt                       = case mdt of
->                                              ToLink mId       → fromIntegral mId
->                                              _                → error $ "only ToLink bears a ModDestType"
->                                                                           ++ " to be turned into a Node"
->
->     compileMods        :: [Modulator] → Map ModDestType [Modulator]
->     compileMods                          = foldl' nodeFolder Map.empty
->       where
->         nodeFolder accum m8r@Modulator{mrModDest}
->                                          =
->           let
->             soFar      :: [Modulator]    = fromMaybe [] (Map.lookup mrModDest accum)
->           in
->             Map.insert mrModDest (m8r : soFar) accum
->
-> unpackSrc              :: Word → Maybe ModSrc
-> unpackSrc wIn                            =     Just defModSrc
->                                            >>= addIndex
->                                            >>= addCCBit
->                                            >>= addMax2Min
->                                            >>= addBiPolar
->   where
->     index                                = wIn `mod` 128
->     ccBit                                = (wIn `shift` (-7)) `mod` 2
->     max2Min                              = (wIn `shift` (-8)) `mod` 2
->     bipolar                              = (wIn `shift` (-9)) `mod` 2
->
->     addIndex from                        = case index of
->                                              0      → Just from{msType = FromNoController}
->                                              2      → Just from{msType = FromNoteOnVel}
->                                              3      → Just from{msType = FromNoteOnKey}
->                                              127    → Just from{msType = FromLinked}
->                                              _ → Nothing
->     addCCBit from                        = if ccBit /= 0   then Nothing
->                                                            else Just from{msCCBit = False}
->     addMax2Min from                      = if max2Min /= 0 then Just from{msMax2Min = True}
->                                                            else Just from{msMax2Min = False}
->     addBiPolar from                      = if bipolar /= 0 then Just from{msBiPolar = True}
->                                                            else Just from{msBiPolar = False}
->
-> addSrc                 :: ModSrc → Modulator → Maybe Modulator
-> addSrc modSrc from                       = Just from{mrModSrc = modSrc}
->
-> addDest                :: Word → Modulator → Maybe Modulator
-> addDest wIn from
->   | (wIn .&. 0x8000) /= 0                = Just from{mrModDest = ToLink $ wIn .&. 0x7fff}
->   | otherwise                            = case wIn of
->                                              8       → Just from{mrModDest = ToFilterFc}
->                                              48      → Just from{mrModDest = ToInitAtten}
->                                              _ → Nothing
->
-> addAmount              :: Int → Modulator → Maybe Modulator
-> addAmount iIn from                       = if iIn == 0
->                                              then Nothing
->                                              else Just (from{mrModAmount = fromIntegral iIn})
->
-> addAmtSrc              :: Maybe Modulator → ModSrc → Maybe Modulator
-> addAmtSrc mmod modSrc@ModSrc{msType}     = mmod >>= (\x → case msType of
->                                                             FromLinked          → Nothing
->                                                             _                   → Just x{mrAmountSrc = modSrc})
-> addAmtSrc'              :: ModSrc → Modulator → Maybe Modulator
-> addAmtSrc' modSrc@ModSrc{msType} m       = Just m >>= (\x → case msType of
->                                                               FromLinked        → Nothing
->                                                               _                 → Just x{mrAmountSrc = modSrc})
->
-> defaultMods            :: [Modulator]
->                                          -- [makeDefaultMod ms0 48 960, makeDefaultMod 8 (-2400), makeDefaultMod 8 (-2400)]
-> defaultMods                              = if useDefaultMods
->                                              then [ makeDefaultMod ms0 48 960     defModSrc
->                                                   , makeDefaultMod ms1  8 (-2400) ms2 ] 
->                                              else []
->   where
->     ms0                :: ModSrc         = ModSrc   Concave   False  True False FromNoteOnVel
->     ms1                :: ModSrc         = ModSrc   Linear    False  True False FromNoteOnVel
->     ms2                :: ModSrc         = ModSrc   Switch    False  True False FromNoteOnVel 
->     makeDefaultMod     :: ModSrc → Word → Int → ModSrc → Modulator
->     makeDefaultMod ms igen amt amtSrc    = professIsJust'
->                                              $ Just defModulator
->                                                >>= addSrc ms0
->                                                >>= addDest igen
->                                                >>= addAmount amt
->                                                >>= addAmtSrc' amtSrc
 
 carry out, and "pre-cache" results, of play requests ====================================================================
 

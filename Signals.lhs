@@ -30,6 +30,7 @@
 > import HSoM.Examples.FFT ( fftA )
 > import HSoM.Examples.MUIExamples1 (getDeviceIDs)
 > import HSoM.Examples.MUIExamples2 (mergeS, removeNull)
+> import Modulation
 > import Numeric ( showHex )
 > import Parthenopea
 > import Synthesizer
