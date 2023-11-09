@@ -76,13 +76,15 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
+>    [ ("wj"             , aggrandize wj) 
 >    -- [ ("sunPyg"      , aggrandize sunPyg)]
 >    -- [ ("littleAbby"     , aggrandize littleAbby)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("roger"       , aggrandize roger)]
 >    -- [ ("copper'"     , aggrandize copper')]
 >    -- [ ("bake"        , {- cut 1.5 -} bakedJingle 98203)]
->    [ ("slot"        , aggrandize (slot 1))]
+>    ]
+
 
 a few playthings ... get it? ==========================================================================================
 

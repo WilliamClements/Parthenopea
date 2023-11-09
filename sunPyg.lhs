@@ -18,7 +18,8 @@ SunPyg =========================================================================
 >      $ addVolume 70
 >      $ keysig C Lydian
 >      $ instrument ElectricGuitarClean (line [a 4 wn])
->   
+>
+> sunPygTranspose = (-6)
 > sunPyg =
 >   removeZeros
 >   $ tempo 1
@@ -47,31 +48,31 @@ SunPyg =========================================================================
 >    vocalTacit = rest 190
 >    vocalActive = line [v190, v192, v194, v196, v198, v200, v202, v204, v206]
 >    vocalsOnly =
->      transpose (-3)
+>      transpose (sunPygTranspose) -- (-3)
 >      $ addVolume 110
 >      $ keysig C Lydian
 >      $ instrument ChoirAahs vocalActive
 >
 >    bassLine = line [rest wn, times 38 (line [c 2 wn, d 2 wn])
->                            , times  8 (line [a 1 wn, d 2 wn])
+>                            , times  8 (line [a 2 wn, d 2 wn])
 >                            , times 58 (line [c 2 wn, d 2 wn])]
 >   
 >    percMusic = addVolume 55 percLine
 >   
 >    leadMusic = 
->      transpose (-3)
+>      transpose (sunPygTranspose) -- (-3)
 >      $ addVolume 100
 >      $ keysig C Lydian
 >      $ instrument ElectricGuitarClean leadLine
 >   
 >    vocalMusic = 
->      transpose (-3)
+>      transpose (sunPygTranspose) -- (-3)
 >      $ addVolume 110
 >      $ keysig C Lydian
 >      $ instrument ChoirAahs vocalLine
 >   
 >    bassMusic =
->      transpose (-3)
+>      transpose (sunPygTranspose) -- (-3)
 >      $ addVolume 80
 >      $ keysig C Lydian
 >      $ instrument ElectricBassFingered bassLine
@@ -146,7 +147,7 @@ SunPyg =========================================================================
 >    g009 = line [tempo (3/2)
 >                       (line [d 6 dqn, chord [c 5 en, d 6 en]
 >                            , tempo (5/4) (line [e 6 sn, d 6 sn, e 6 sn, d 6 sn, b 5 sn])])
->               , b 5 sn, b 7 sn, b 5 sn, a 5 sn, b 5 qn]
+>               , b 5 sn, b 6 sn, b 5 sn, a 5 sn, b 5 qn]
 >    g010 = line [tempo (3/2) (line [b 5 en, b 5 sn]), a 5 en
 >               , tempo (3/2) (line [a 5 en, a 5 en, a 5 sn, b 5 sn]), c 6 en
 >               , chord [b 5 tn, e 5 tn], a 5 tn, rest sn, rest qn]
@@ -498,7 +499,7 @@ SunPyg =========================================================================
 >               , times 3 (line [chord [percCCsn, percLTsn], percBDsn])
 >               , tempo (3/2) (line [percm HighTom [sn, sn, sn]])]
 >   
->    g057 = line [d 6 dqn, c 8 en, rest en, tempo (3/2) (line [a 5 en, a 5 sn]), fs 5 sn
+>    g057 = line [d 6 dqn, c 6 en, rest en, tempo (3/2) (line [a 5 en, a 5 sn]), fs 5 sn
 >               , a 5 sn, tempo (3/2) (line [a 5 sn, g 5 sn, fs 5 sn])]
 >    g058 = line [tempo (3/2) (line [g 5 sn, fs 5 sn, e 5 sn]), fs 5 sn, e 5 den
 >               , tempo (3/2) (line [f 5 sn, e 5 sn, d 5 sn])
@@ -557,13 +558,13 @@ SunPyg =========================================================================
 >          tempo (3/2) (line [e 5 en, e 5 sn, a 5 sn, e 5 sn, e 5 sn, e 5 en, e 5 sn, e 5 sn
 >                   , b 4 sn, e 5 den, b 5 sn]), b 5 en
 >        , tempo (3/2) (line [a 5 en, tempo (3/4) (line [c 6 sn, b 5 sn, a 5 sn])])]
->    g066 = line [grace (-4) (d 6 qn), d 7 sn, c 7 en, e 5 tn, b 4 tn, e 5 sn, e 5 tn, e 5 tn
+>    g066 = line [grace (-4) (d 6 qn), d 6 sn, c 6 en, e 5 tn, b 4 tn, e 5 sn, e 5 tn, e 5 tn
 >               , chord [e 5 en, a 5 en], tempo (3/2) (line [g 5 en, g 5 sn]), g 5 sn, fs 5 sn]
 >    g067 = line [tempo (3/2) (line [fs 5 sn, grace (-2) (a 5 en)]), a 5 sn, a 5 sn
 >               , tempo (3/2) (line [a 5 sn, fs 5 sn, e 5 sn]), e 5 sn, fs 5 sn, g 5 en, fs 5 en
 >               , addDur sn [e 5, b 4, e 5, a 5]]
 >    g068 = line [tempo (3/2) (line [addDur sn [a 5, g 5, fs 5, e 5, e 5, fs 5], g 5 en, fs 5 qn])
->               , e 5 en, c 7 qn, a 6 en]
+>               , e 5 en, c 6 qn, a 6 en]
 >
 >    m069_072 = line [m069, m070, m071, m072]
 >    g069_072 = line [g069, g070, g071, g072]
@@ -651,7 +652,7 @@ SunPyg =========================================================================
 >                                  , times 3 (line [chord [perc SplashCymbal en, percLTen, percBDen], percLTen])])]
 >   
 >    g077 = tempo (3/2) (line [d 5 qn, e 5 en, d 5 en, c 5 qn, d 5 en, c 5 en, a 4 dqn, a 4 en])
->    g078 = line [grace (-1) (g 4 en), fs 4 (en + hn), descent AcousticGuitarSteel (D, 7) qn]
+>    g078 = line [grace (-1) (g 4 en), fs 4 (en + hn), descent AcousticGuitarSteel (D, 6) qn]
 >    g079 = line [rest en, fs 5 en, tempo (3/2) (line [addDur en [c 5, c 5, a 4, c 5, a 4, c 5, a 5, g 5, g 5]])]
 >    g080 = line [tempo (3/2) (line [addDur en [d 5, c 5, a 4, g 4, g 4, g 4, a 4, g 4, a 4, c 5], a 4 qn])]
 >   
@@ -770,7 +771,7 @@ SunPyg =========================================================================
 >         , chord [perc RideCymbal1 qn, perc LowTom qn], chord [perc RideCymbal1 qn, perc LowTom qn, perc BassDrum1 qn]
 >         , chord [perc RideCymbal1 qn, perc BassDrum1 qn], chord [perc RideCymbal1 qn, perc BassDrum1 qn]]
 >   
->    g097 = line [b 4 dqn, a 4 qn, e 6 en, rest sn, c 7 den]
+>    g097 = line [b 4 dqn, a 4 qn, e 6 en, rest sn, c 6 den]
 >    g098 = line [descent AcousticGuitarSteel (C, 6) en, d 4 sn, d 4 sn, g 4 sn, g 4 sn, g 4 en, g 4 en, a 4 en, a 4 en
 >               , t32 [b 4 en, c 5 sn]]
 >    g099 = line [tempo (5/4) (line [addDur en [b 4, a 4, b 4, d 5, a 4]]), a 4 sn, b 4 den
@@ -778,7 +779,7 @@ SunPyg =========================================================================
 >    g100 =
 >      line [
 >          tempo (5/4) (line [a 4 en, a 4 en, a 5 en, e 5 sn, fs 5 sn, e 5 sn, d 5 sn])
->        , d 5 qn, descent AcousticGuitarSteel (D, 7) qn]
+>        , d 5 qn, descent AcousticGuitarSteel (D, 6) qn]
 >   
 >    m101_104 = line [m101, m102, m103, m104]
 >    g101_104 = line [g101, g102, g103, g104]
@@ -851,7 +852,7 @@ SunPyg =========================================================================
 >    m112 = line [chord [percm CrashCymbal1 [sn, sn, en, sn, den], percm BassDrum1 [sn, sn, en, sn, den]]
 >               , t32 [times 3 (chord [percCCen, percBDen])], chord [perc CrashCymbal1 qn, perc BassDrum1 qn]]
 >   
->    g109 = line [t32 [e 5 en, e 5 sn, e 5 sn, g 5 sn, e 5 sn], c 4 den, b 7 sn, b 4 en
+>    g109 = line [t32 [e 5 en, e 5 sn, e 5 sn, g 5 sn, e 5 sn], c 4 den, b 6 sn, b 4 en
 >               , t32 [c 5 sn, b 4 sn, a 4 sn], a 4 en, a 4 en]
 >    g110 = line [d 4 en, a 4 sn, a 4 sn, c 5 sn, e 5 sn, t32 [c 6 en, a 5 sn, a 5 qn, a 5 en]
 >               , c 6 sn, e 6 sn, t32 [c 6 en, a 5 sn]]
@@ -977,7 +978,7 @@ SunPyg =========================================================================
 >               , t32 [g 5 en, fs 5 en, g 5 sn, fs 5 sn, e 5 sn, fs 5 sn, e 5 sn]]
 >    g126 = line [fs 5 sn, e 5 sn, d 5 tn, e 5 tn, d 5 tn, e 5 tn, d 5 tn, b 4 dsn
 >               , t32 [a 4 sn, b 4 sn, a 4 sn, b 5 en, d 6 sn], c 6 en, b 5 en, b 5 sn, f 5 sn]
->    g127 = line [b 5 sn, g 5 sn, fs 5 dqn, b 7 en, e 6 en, tempo (5/4) (line [e 6 den, b 5 en])]
+>    g127 = line [b 5 sn, g 5 sn, fs 5 dqn, b 6 en, e 6 en, tempo (5/4) (line [e 6 den, b 5 en])]
 >    g128 = line [e 6 en, t32 [e 6 sn, d 6 sn, b 5 sn], chord [g 4 sn, d 6 sn], d 6 sn
 >               , t32 [d 6 sn, c 6 sn, b 6 sn]
 >               , tempo (5/4) (line [e 6 sn, e 6 en, d 6 sn, b 5 sn, d 6 en, d 6 sn, c 6 sn, b 5 sn])]
@@ -1090,7 +1091,7 @@ SunPyg =========================================================================
 >        , chord [perc CrashCymbal1 qn, perc BassDrum1 qn], chord [percCCen, percBDen]
 >        , chord [perc CrashCymbal1 qn, perc LowTom qn], chord [percCCen, percBDen]]
 >   
->    g141 = line [rest en, b 7 en, g 6 qn, f 6 en, a 5 tn, g 5 tn, f 5 en, g 5 sn, f 5 sn, b 4 sn]
+>    g141 = line [rest en, b 6 en, g 6 qn, f 6 en, a 5 tn, g 5 tn, f 5 en, g 5 sn, f 5 sn, b 4 sn]
 >    g142 =
 >      line [
 >          tempo (5/4) (
@@ -1150,7 +1151,7 @@ SunPyg =========================================================================
 >               , t32 [d 5 sn, grace (-3) (f 5 sn), d 5 sn, c 5 sn, e 5 sn, c 5 sn]
 >               , c 4 sn, d 4 sn, d 4 tn, c 4 tn, a 4 tn, g 4 tn]
 >    g151 = line [a 4 sn, g 4 en, f 4 sn, t32 [f 4 sn, d 4 sn, c 4 sn], d 4 en, d 4 en
->               , descent AcousticGuitarSteel (D, 7) en, t32 [rest en, grace (-2) (d 4 en), df 4 en]]
+>               , descent AcousticGuitarSteel (D, 6) en, t32 [rest en, grace (-2) (d 4 en), df 4 en]]
 >    g152 = line [c 4 qn, t32 [d 4 qn, d 4 en], e 4 qn, g 4 qn]
 >   
 >    m153_156 = line [m153, m154, m155, m156]
@@ -1442,7 +1443,7 @@ SunPyg =========================================================================
 >               , chord [grace 2 (a 4 en), grace 2 (c 5 en), grace 2 (e 5 en)]]
 >    g183 = line [chord [a 4 hn, c 5 hn, e 5 hn], chord [a 4 en, d 5 en, fs 5 en], rest en
 >               , chord [a 4 en, d 5 en, fs 5 en], chord [g 4 en, c 5 en, e 5 en]]
->    g184 = line [chord [a 4 qn, d 5 qn, g 5 qn], t32 [b 7 en, rest qn]
+>    g184 = line [chord [a 4 qn, d 5 qn, g 5 qn], t32 [b 6 en, rest qn]
 >               , chord [grace (-1) (a 4 qn), grace (-1) (d 5 qn), grace (-1) (g 5 qn), grace (-1) (b 5 qn)]
 >               , chord [grace (-1) (a 4 en), grace (-1) (d 5 en), grace (-1) (g 5 en), grace (-1) (b 5 en)]
 >               , chord [a 4 en, d 5 en, a 5 en]]
@@ -1503,8 +1504,8 @@ SunPyg =========================================================================
 >    v190 = line [rest dwn, t32 [a 4 qn, b 4 qn, d 5 qn]]
 >    v192 = line [a 4 dqn, b 4 sn, a 4 sn, g 4 (hn + dhn), e 4 qn]
 >   
->    g189 = line [t32 [descent AcousticGuitarSteel (A, 7) qn, chord [d 6 en, g 6 en]], chord [g 4 en, c 5 en, e 5 en]
->               , chord [grace (-2) (a 7 qn), grace (-2) (d 5 qn), grace (-2) (fs 5 qn)]
+>    g189 = line [t32 [descent AcousticGuitarSteel (A, 6) qn, chord [d 6 en, g 6 en]], chord [g 4 en, c 5 en, e 5 en]
+>               , chord [grace (-2) (a 6 qn), grace (-2) (d 5 qn), grace (-2) (fs 5 qn)]
 >               , chord [a 3 en, a 4 en, d 5 en]
 >               , t32 [chord [a 3 qn, a 4 qn, d 5 qn, fs 5 qn], chord [a 3 en, a 4 en, d 5 en, fs 5 en]]]
 >    g190 = line [times 4 (chord [g 4 sn, c 5 sn, e 5 sn]), chord [a 4 sn, d 5 sn], g 4 sn, a 3 en
@@ -1612,7 +1613,7 @@ SunPyg =========================================================================
 >                      , descent AcousticGuitarSteel (A, 5) dqn
 >                      , descent AcousticGuitarSteel (D, 6) dqn]
 >               , chord [d 5 en, fs 5 en, a 5 en], chord [d 5 dqn, fs 5 dqn, a 5 dqn], a 3 en]
->    g203 = line [t32 [e 7 en, chord [g 4 en, c 5 en], fs 4 en], fs 4 sn, g 4 sn, fs 4 sn, g 4 sn
+>    g203 = line [t32 [e 6 en, chord [g 4 en, c 5 en], fs 4 en], fs 4 sn, g 4 sn, fs 4 sn, g 4 sn
 >               , e 4 qn, d 4 qn]
 >    g204 =
 >      t32 [fs 5 qn, g 5 qn, a 5 qn, fs 5 qn, g 5 qn, a 5 qn]

@@ -184,7 +184,7 @@ Bill ===========================================================================
 >    $ keysig Ef Mixolydian
 >    $ instrument Violin
 >         (addVolume 45 (rest dwn :+:  g 4 hn :+: times nRepeats treble))
->      :=: instrument BrightAcousticPiano
+>      :=: instrument RhodesPiano
 >         (addVolume 95 (rest dwn :+: bf 3 hn :+: times nRepeats alto))
 >      :=: instrument Cello
 >         (addVolume 45 (rest dwn :+: ef 3 hn :+: times nRepeats bass))
@@ -289,7 +289,7 @@ Silver =========================================================================
 >     $ transpose 17
 >     $ keysig A Mixolydian
 >     $ addVolume 100
->     $ instrument Celesta
+>     $ instrument TubularBells
 >     $ line allSilver
 >
 >     where
@@ -702,7 +702,7 @@ Way Pos' T' Purple =============================================================
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig C Major
->    $ addVolume 80 (instrument BrightAcousticPiano
+>    $ addVolume 80 (instrument RhodesPiano
 >      ((if includeOpen       then pOpenT  else rest 0)
 >         :+: (if includeCont then pContT  else rest 0)
 >         :+: (if includePool then pPoolT  else rest 0)
@@ -873,7 +873,7 @@ Pan ============================================================================
 >       :=: instrument AcousticGuitarSteel
 >       ((if includeOpen then xOpenG        else rest 0)
 >          :+: (if includeClos then xClosG  else rest 0))
->       :=: instrument Contrabass
+>       :=: instrument AcousticBass
 >       ((if includeOpen then xOpenB        else rest 0)
 >          :+: (if includeClos then xClosB  else rest 0))
 >       where

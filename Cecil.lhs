@@ -29,7 +29,7 @@ Cecil's Asleep =================================================================
 >        :+: (if includeII   then rTenrII    else rest 0)
 >        :+: (if includeIII  then rTenrIII   else rest 0)
 >        :+: (if includeIV   then rTenrIV    else rest 0))
->      :=: instrument Contrabass
+>      :=: instrument AcousticBass
 >      ((if      includeI    then rBassI     else rest 0)
 >        :+: (if includeII   then rBassII    else rest 0)
 >        :+: (if includeIII  then rBassIII   else rest 0)
@@ -224,7 +224,7 @@ Abby Cissa =====================================================================
 >    $ transpose 0
 >    $ keysig C Major
 >    $ addVolume 100
->    $ instrument BrightAcousticPiano
+>    $ instrument RhodesPiano
 >      aLink
 >
 >    where
@@ -299,7 +299,7 @@ There Goes W.J. ================================================================
 >    $ addVolume 100
 >    $ instrument AltoSax
 >       (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
->      :=: instrument ChurchOrgan
+>      :=: instrument HammondOrgan
 >       (line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
 >      :=: instrument ElectricBassFingered
 >       (line [wjBassI,  wjBassII,  wjBassIII,  wjBassIV])
@@ -372,7 +372,7 @@ Shelby Parsley =================================================================
 >     :=: instrument ElectricBassPicked
 >       (line [spBassI,  spBassII,  spBassIII]))
 >        :+:
->     instrument BrightAcousticPiano
+>     instrument RhodesPiano
 >       (line [ chord [ triad B (CustomMode "Sus4") (B, 3) wn
 >   --                            Does     It       Have    Trays?
 >                       , line [ e 4 en, ds 4 en, cs 4 qn, b 3 dqn]]]

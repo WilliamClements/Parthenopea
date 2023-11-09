@@ -298,7 +298,7 @@ also
 >       AcousticGuitarNylon       → Just (( E, 2), ( B, 5))
 >       AcousticGuitarSteel       → Just (( E, 2), ( B, 5))
 >       ElectricGuitarJazz        → Just (( E, 2), ( B, 5))
->       ElectricGuitarClean       → Just (( E, 2), ( B, 5))
+>       ElectricGuitarClean       → Just (( E, 2), ( B, 6))
 >       ElectricGuitarMuted       → Just (( E, 2), ( B, 5))
 >       OverdrivenGuitar          → Just (( E, 2), ( B, 5))
 >       DistortionGuitar          → Just (( E, 2), ( B, 5))
@@ -323,6 +323,7 @@ also
 >       Harpsichord               → Just (( F, 1), ( F, 6))
 >       -- Harmonium
 >       ChurchOrgan               → Just (( C, 2), ( C, 7))
+>       ReedOrgan                 → Just (( C, 2), ( C, 7))
 >
 >       Violin                    → Just (( G, 3), ( A, 7))
 >       Viola                     → Just (( C, 3), ( E, 6))
@@ -335,7 +336,7 @@ also
 >
 >       Banjo                     → Just (( C, 3), ( E, 5))
 >
->       ChoirAahs                 → Just (( E, 3), ( C, 6))
+>       ChoirAahs                 → Just (( C, 3), ( C, 6))
 >
 >       _                         → Nothing
 >
@@ -1260,6 +1261,6 @@ Configurable parameters ========================================================
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
 >   , qqSkipReporting                      = False
->   , qqSkipGlissandi                      = False
+>   , qqSkipGlissandi                      = True
 >   , qqDumpFftChunks                      = False
 >   , qqNumTakeFftChunks                   = 3}

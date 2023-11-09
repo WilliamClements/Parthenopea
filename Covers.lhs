@@ -1045,7 +1045,7 @@ DH =============================================================================
 > dhOrgnI = ReedOrgan
 > dhSynhI = FrenchHorn
 >
-> dhTranspose = 0
+> dhTranspose = 1
 >
 > dhMeasuresIntro        :: Int            = 12
 > dhMeasuresB1           :: Int            = 22

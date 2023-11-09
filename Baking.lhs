@@ -314,8 +314,8 @@ The progress of the algorithm is expressed in above pair.
 >
 >       choices = [  Piccolo,         Oboe,      AltoSax,             Trumpet
 >                  , Trombone,        Marimba,   Vibraphone,          ElectricGuitarJazz
->                  , OrchestralHarp,  SlapBass1, BrightAcousticPiano, Harpsichord
->                  , ChurchOrgan,     Violin,    Contrabass]
+>                  , OrchestralHarp,  SlapBass1, RhodesPiano,         Harpsichord
+>                  , HammondOrgan,    Violin,    Contrabass]
 >       blacklist = [MuteCuica, OpenCuica, LongWhistle, ShortWhistle]
 >
 > computeEnd             :: Double → Double → Double
