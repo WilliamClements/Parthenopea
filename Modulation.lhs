@@ -74,23 +74,25 @@ Modulator management ===========================================================
 >                                              (mix <= 10)
 >                                              "maximum of 10 tries exceeded..."
 >                                              ((snd . snd) (head triesIn))
->     m8rsOut                              = filter shouldStay m8rsIn
->     shouldStay m8r                       = not (hasModSource m8r) || maybe False (not . null) (lookupModSources graph m8r)
 >
->     graph                                = compileMods m8rsIn
+>     lookup             :: Modulator → Maybe [Modulator]
+>     lookup m8r                           = Map.lookup (ToLink (mrModId m8r)) (compileMods m8rsIn)
+>
+>     m8rsOut                              = filter shouldStay m8rsIn
+>
+>     shouldStay         :: Modulator → Bool
+>     shouldStay m8r                       = not (requiresLinks m8r) || maybe False (not . null) (lookup m8r)
+>
 >     newTry                               = (length m8rsOut == length m8rsIn, (mix, m8rsOut))
 >
 >     msg                                  = unwords ["elimDanglingModSources ", show (length m8rsIn)]
 >
-> hasModSource, hasModDest
+> requiresLinks, suppliesLink
 >                        :: Modulator → Bool
-> hasModSource m8r@Modulator{mrModSrc}     = FromLinked == msSource mrModSrc
-> hasModDest   m8r@Modulator{mrModDest}    = case mrModDest of
+> requiresLinks m8r@Modulator{mrModSrc}    = FromLinked == msSource mrModSrc
+> suppliesLink m8r@Modulator{mrModDest}    = case mrModDest of
 >                                              ToLink _      → True
 >                                              _             → False
->
-> lookupModSources       :: Map ModDestType [Modulator] → Modulator → Maybe [Modulator]
-> lookupModSources graph m8r              = Map.lookup (ToLink (mrModId m8r)) graph
 >
 > splitMods              :: [Modulator] → ([Modulator], [Modulator])
 > splitMods m8rsIn
@@ -98,7 +100,7 @@ Modulator management ===========================================================
 >   | otherwise                            = (m8rsSplit, other)
 >   where
 >     -- split off non-linking modulators
->     (linked, other)                      = partition (\m → hasModSource m || hasModDest m) m8rsIn
+>     (linked, other)                      = partition (\m → requiresLinks m || suppliesLink m) m8rsIn
 >
 >     seed                                 = (False, (0, linked))
 >     generations                          = elimDanglingModSources (singleton seed) 0
@@ -107,18 +109,18 @@ Modulator management ===========================================================
 >
 >     msg                                  = unwords ["splitMods ", show (length linked, length other)]
 >
-> compileMods        :: [Modulator] → Map ModDestType [Modulator]
-> compileMods                          = foldl' nodeFolder Map.empty
+> compileMods            :: [Modulator] → Map ModDestType [Modulator]
+> compileMods                              = foldl' nodeFolder Map.empty
 >   where
 >     nodeFolder accum m8r@Modulator{mrModDest}
->                                      =
+>                                          =
 >       let
->         soFar      :: [Modulator]    = fromMaybe [] (Map.lookup mrModDest accum)
+>         soFar          :: [Modulator]    = fromMaybe [] (Map.lookup mrModDest accum)
 >       in
 >         Map.insert mrModDest (m8r : soFar) accum
 >
-> unpackSrc              :: Word → Maybe ModSrc
-> unpackSrc wIn                            = mmapping
+> unpackModSrc           :: Word → Maybe ModSrc
+> unpackModSrc wIn                         = mmapping
 >                                              >>= addMapping 
 >                                              >>= addSource
 >   where
@@ -177,7 +179,9 @@ Modulator management ===========================================================
 >                                                               _                → Just x{mrAmountSrc = modSrc})
 >
 > defaultMods            :: [Modulator]
->                                          -- [makeDefaultMod ms0 48 960, makeDefaultMod 8 (-2400), makeDefaultMod 8 (-2400)]
+>                                          -- [makeDefaultMod ms0 48 960
+>                                          -- , makeDefaultMod 8 (-2400)
+>                                          -- , makeDefaultMod 8 (-2400)]
 > defaultMods                              = if useDefaultMods
 >                                              then [ makeDefaultMod ms0 48 960     defModSrc
 >                                                   , makeDefaultMod ms1  8 (-2400) ms2 ]
@@ -205,11 +209,12 @@ Modulator management ===========================================================
 >   where
 >     rawValue            :: ModSrc → (Double, (Double, Double))
 >     rawValue msrc@ModSrc{msMapping, msSource}
->       | useModulators                    = case msSource of
->                                              FromNoController     → (1, (0,1))
->                                              FromNoteOnVel        → (fromNoteOn vel msMapping, (0, 127))
->                                              FromNoteOnKey        → (fromNoteOn key msMapping, (0, 127))
->                                              FromLinked           → (evaluateMods (ToLink mrModId) graph (key, vel), (0, 1))
+>       | useModulators                    =
+>           case msSource of
+>             FromNoController     → (1, (0,1))
+>             FromNoteOnVel        → (fromNoteOn vel msMapping, (0, 127))
+>             FromNoteOnKey        → (fromNoteOn key msMapping, (0, 127))
+>             FromLinked           → (evaluateMods (ToLink mrModId) graph (key, vel), (0, 1))
 >       | otherwise                        = (1, (0,1))
 >
 >     srcValue           :: ModSrc → Double
@@ -376,8 +381,8 @@ Testing ========================================================================
 >
 > modulationTest002      :: IO ()
 > modulationTest002                       = do
->   let m8r2                              = modulationTestSetup !! 2
->   let graph                             = compileMods [m8r2]
+>   let m8rIn                             = modulationTestSetup !! 2
+>   let graph                             = compileMods [m8rIn]
 >
 >   let eval                              = evaluateMods ToFilterFc graph 
 >   let results                           = [eval (x, 64) | x ← [0..127]]
@@ -502,11 +507,6 @@ Type declarations ==============================================================
 >   , eSustainLevel      :: Double
 >   , eReleaseT          :: Double
 >   , eModTarget         :: ModTarget} deriving (Eq, Show)
->
-> data Segments =
->   Segments {
->     sAmps              :: [Double]
->   , sDeltaTs           :: [Double]} deriving Show
 >
 > data ModulationSettings =
 >   ModulationSettings {

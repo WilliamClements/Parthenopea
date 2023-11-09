@@ -1131,20 +1131,19 @@ returns "interpretation" of MIDI NoteOn commands as floating point value
 >                                                        , polar  ← [False, True]
 >                                                              , dir    ← [False, True]]                                          
 
+Returns sample point as (normalized) Double
 
-Returns amplitude based on sample point
-
-> compute24              :: Int16 → Word8 → Double
-> compute24 i16 w8                         = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 8388608.0
+> sample24              :: Int16 → Word8 → Double
+> sample24 i16 w8                          = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 8388608.0
 >   where
 >     f8to32             :: Word8 → Int32  = fromIntegral
 >     f16to32            :: Int16 → Int32  = fromIntegral
 >      
-> compute16              :: Int16 → Double
-> compute16 i16                            = fromIntegral i16 / 32768.0
+> sample16              :: Int16 → Double
+> sample16 i16                             = fromIntegral i16 / 32768.0
 >
 > lookupSamplePoint      :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Int → Double
-> lookupSamplePoint s16 ms8 ix             = compute24 (s16 ! ix) (fromIntegral (maybe 0 (! ix) ms8))
+> lookupSamplePoint s16 ms8 ix             = sample24 (s16 ! ix) (fromIntegral (maybe 0 (! ix) ms8))
 
 Emission capability ===================================================================================================
 

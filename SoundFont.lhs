@@ -859,11 +859,11 @@ extract data from SoundFont per instrument =====================================
 >     makeModulator                        = mm'
 >       where
 >         mm, mm'        :: Maybe Modulator
->         mm                               = unpackSrc (F.srcOper raw)
+>         mm                               = unpackModSrc (F.srcOper raw)
 >                                            >>= flip addSrc defModulator{mrModId = mId}
 >                                            >>= addDest (F.destOper raw)
 >                                            >>= addAmount (F.amount raw)
->         mm'                              = unpackSrc (F.amtSrcOper raw)
+>         mm'                              = unpackModSrc (F.amtSrcOper raw)
 >                                            >>= addAmtSrc mm
                                             
 prepare the specified instruments and percussion ======================================================================
@@ -1260,14 +1260,15 @@ reconcile zone and sample header ===============================================
 >                     , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv
 >                     , zModulators}   = resModulators m8n zModulators
 >   where
->     m8n                :: Modulation     = defModulation{
->                                              mLowPass                = nLowPass
->                                              , mModEnv               = nModEnv
->                                              , mModLfo               = nModLfo
->                                              , mVibLfo               = nVibLfo
->                                              , toPitchSummary        = summarize ToPitch        nModEnv nModLfo nVibLfo
->                                              , toFilterFcSummary     = summarize ToFilterFc     nModEnv nModLfo nVibLfo
->                                              , toVolumeSummary       = summarize ToVolume       nModEnv nModLfo nVibLfo}
+>     m8n                :: Modulation     =
+>       defModulation{
+>         mLowPass                         = nLowPass
+>       , mModEnv                          = nModEnv
+>       , mModLfo                          = nModLfo
+>       , mVibLfo                          = nVibLfo
+>       , toPitchSummary                   = summarize ToPitch        nModEnv nModLfo nVibLfo
+>       , toFilterFcSummary                = summarize ToFilterFc     nModEnv nModLfo nVibLfo      
+>       , toVolumeSummary                  = summarize ToVolume       nModEnv nModLfo nVibLfo}
 >
 >     initFc             :: Double         = fromAbsoluteCents $ fromMaybe 13500 zInitFc
 >     initQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ

@@ -9,21 +9,20 @@
 > import qualified Codec.SoundFont         as F
 > import Control.Arrow
 > import Control.Arrow.ArrowP
+> import Control.Arrow.Operations ( ArrowCircuit(delay) )
 > import Data.Array.Unboxed ( array, Array, (!), IArray(bounds), listArray )
 > import qualified Data.Audio              as A
 > import Data.Complex ( Complex(..), magnitude )
 > import Data.Int ( Int8, Int16 )
 > import Data.List ( maximumBy )
-> import qualified Data.Map                as Map
-> import Data.Ord ( comparing )
 > import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
+> import Data.Ord ( comparing )
 > import Data.Word ( Word64 )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import FRP.UISF.AuxFunctions ( constA, DeltaT )
-> import Control.Arrow.Operations ( ArrowCircuit(delay) )
 > import Modulation
 > import Numeric.FFT ( fft )
 > import Parthenopea
@@ -336,6 +335,11 @@ FFT ============================================================================
 
 Envelopes =============================================================================================================
 
+> data Segments =
+>   Segments {
+>     sAmps              :: [Double]
+>   , sDeltaTs           :: [Double]} deriving Show
+>
 > deriveEnvelope         :: Maybe Int
 >                           → Maybe Int
 >                           → Maybe Int
@@ -351,9 +355,10 @@ Envelopes ======================================================================
 >                                              else Nothing
 >   where
 >     inp                                  = [mDelay, mAttack, mHold, mDecay, mSustain, mRelease]
->     env                                  = Envelope (fromTimecents mDelay) (fromTimecents mAttack)      (fromTimecents mHold)
->                                                     (fromTimecents mDecay) (fromTithe mSustain)         (fromTimecents mRelease)
->                                                     (makeModTarget mTarget)
+>     env                                  =
+>       Envelope (fromTimecents mDelay) (fromTimecents mAttack)      (fromTimecents mHold)
+>                (fromTimecents mDecay) (fromTithe mSustain)         (fromTimecents mRelease)
+>                (makeModTarget mTarget)
 >
 >     doUse            :: Maybe (Maybe Int, Maybe Int) → Bool
 >     doUse mTarget                        = case mTarget of
