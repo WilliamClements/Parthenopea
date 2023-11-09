@@ -152,7 +152,7 @@ Signal function-based synth ====================================================
 >                           → Signal p (Double, (ModSignals, ModSignals)) ((Double, Double), (ModSignals, ModSignals))
 > eutPumpSamples _ (  reconL@Reconciled{rAttenuation = attenL, rStart = stL, rEnd = enL, rModulation = m8nL}
 >                   , reconR@Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR, rModulation = m8nR}) pv dur s16 ms8
->   | traceIf msg False = undefined
+>   | traceIf msg False                    = undefined
 >   | otherwise =
 >   proc (pos, msig) → do
 >     let saddrL         :: Int            = fromIntegral stL + truncate (numS * pos)
@@ -160,9 +160,10 @@ Signal function-based synth ====================================================
 >     let (a1L, a1R)                       = (lookupSamplePoint s16 ms8 saddrL, lookupSamplePoint s16 ms8 saddrR)
 >     outA ⤙ (pump (ampL, ampR) (a1L, a1R), msig)
 >
->   where
->     cAttenL            :: Double         = fromCentibels' (attenL + evaluateMods ToInitAtten m8nL pv)
->     cAttenR            :: Double         = fromCentibels' (attenR + evaluateMods ToInitAtten m8nR pv)
+>   where 
+>     (graphL, graphR)                     = (modGraph m8nL, modGraph m8nR)
+>     cAttenL            :: Double         = fromCentibels' (attenL + evaluateMods ToInitAtten graphL pv)
+>     cAttenR            :: Double         = fromCentibels' (attenR + evaluateMods ToInitAtten graphR pv)
 >     (ampL, ampR)       :: (Double, Double)
 >                                          = ( fromIntegral (snd pv) / 100 / cAttenL
 >                                            , fromIntegral (snd pv) / 100 / cAttenR)
@@ -176,7 +177,7 @@ Signal function-based synth ====================================================
 >         msg'                             = unwords ["pump ", show (a1L, a1R)
 >                                                     , "<=>", show (a1L * ampL, a1R * ampR)]
 >      
->     msg = unwords ["eutPumpSamples numS = ", show numS]
+>     msg = unwords ["eutPumpSamples numS = ", show numS, "attenL = ", show attenL, "evaluateMods = ", show (evaluateMods ToInitAtten graphL pv), " -- ", show (ampL, ampR)]
 >
 > eutAmplify             :: ∀ p . Clock p ⇒
 >                           Double
@@ -215,10 +216,13 @@ Modulation =====================================================================
 >                           → Double
 >                           → (Reconciled, Reconciled)
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
-> eutModulate m8n _ (rL, rR)               =
+> eutModulate m8n _ ( rL@Reconciled{rNoteOnVel = nowVelL, rNoteOnKeyNumber = nowKeyL}
+>                   , rR@Reconciled{rNoteOnVel = nowVelR, rNoteOnKeyNumber = nowKeyR})               =
 >   proc ((a1L, a1R), (modSigL, modSigR)) → do
->     a2L   ← addResonance rL m8n          ⤙ (a1L, modSigL)
->     a2R   ← addResonance rR m8n          ⤙ (a1R, modSigR)
+>     a2L   ← addResonance nowVelL nowKeyL m8n
+>                                          ⤙ (a1L, modSigL)
+>     a2R   ← addResonance nowVelR nowKeyR m8n
+>                                          ⤙ (a1R, modSigR)
 >
 >     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
 >
@@ -428,7 +432,7 @@ Create a straight-line envelope generator with following phases:
 >     deltaTs            :: [Double]       = [  fDelayT, fAttackT, fHoldT,  fDecayT, fSustainT, fReleaseT,   fPostT]
 >
 >     minDeltaT          :: Double         = fromTimecents Nothing
->     secsToUse          :: Double         = profess (secsToPlay > 10 * minDeltaT)
+>     secsToUse          :: Double         = profess (secsToPlay > 5 * minDeltaT)
 >                                                    "time too short for envelope"
 >                                                    secsToPlay
 >
@@ -729,6 +733,31 @@ Charting =======================================================================
 
 Utility types =========================================================================================================
 
+> data Reconciled =
+>   Reconciled {
+>     rSampleMode        :: A.SampleMode
+>   , rSampleRate        :: Double
+>   , rStart             :: Word
+>   , rEnd               :: Word
+>   , rLoopStart         :: Word
+>   , rLoopEnd           :: Word
+>   , rRootKey           :: AbsPitch
+>   , rForceKey          :: Maybe AbsPitch
+>   , rForceVel          :: Maybe Volume
+>   , rNoteOnVel         :: Volume
+>   , rNoteOnKeyNumber   :: AbsPitch
+>   , rAttenuation       :: Double
+>   , rVolEnv            :: Maybe Envelope
+>   , rPitchCorrection   :: Maybe Double
+>   , rModulation        :: Modulation
+>   , rEffects           :: Effects} deriving (Eq, Show)
+>
+> data Effects =
+>   Effects {
+>     efChorus           :: Maybe Double
+>   , efReverb           :: Maybe Double
+>   , efPan              :: Maybe Double} deriving (Eq, Show)
+>
 > data SampleType =
 >   SampleTypeMono
 >   | SampleTypeRight
@@ -859,7 +888,7 @@ Turn Knobs Here ================================================================
 >   , qqWeighStereo                        = 3
 >   , qqWeigh24Bit                         = 0
 >   , qqWeighSplits                        = 1
->   , qqWeighConformance                   = 3
+>   , qqWeighConformance                   = 2
 >   , qqWeighFuzziness                     = 1
 >
 >   , qqFFThresholdPossible                = 0

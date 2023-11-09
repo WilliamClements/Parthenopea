@@ -17,22 +17,20 @@ Rosters support ================================================================
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
 > import Fanfare
+> import Modulation ( modulationTest003 )
 > import Parthenopea ( aggrandize, playDM, addDur, durS, pSnippet02 )
 > -- import RosterDef
 > import SoundFont
 > import SunPyg
 > import System.Environment ( getArgs )  
-
 > main                   :: IO ()
 > main = do
 >   args ← getArgs
 >   let playAll          = (length args == 1) && ("all" == head args)
 >   _ ← if playAll
 >         then doEverything combineAll
->         else doEverything sj -- cjingles -- pitchSamples 80
->
+>         else doEverything sj -- modulationTest003-- cjingles -- pitchSamples 80
 >   return ()
->
 
 organize exposed music ================================================================================================
 
@@ -78,13 +76,13 @@ organize exposed music =========================================================
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    -- [ ("sunPyg"         , aggrandize sunPyg)]
->    -- [ ("littleAbby"  , aggrandize littleAbby)]
->    [ ("cut4roger"      , cut 4 $ aggrandize roger)]
->    -- [ ("roger"          , aggrandize roger)]
+>    -- [ ("sunPyg"      , aggrandize sunPyg)]
+>    -- [ ("littleAbby"     , aggrandize littleAbby)]
+>    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
+>    -- [ ("roger"       , aggrandize roger)]
 >    -- [ ("copper'"     , aggrandize copper')]
->    -- [ ("bake"        , cut 1.5 $ bakedJingle 23434)]
->    -- [ ("slot"        , aggrandize (slot 1))]
+>    -- [ ("bake"        , {- cut 1.5 -} bakedJingle 98203)]
+>    [ ("slot"        , aggrandize (slot 1))]
 
 a few playthings ... get it? ==========================================================================================
 

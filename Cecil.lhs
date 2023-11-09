@@ -213,8 +213,9 @@ Abby Cissa =====================================================================
 >    $ transpose 0
 >    $ keysig C Major
 >    $ addVolume 100
->    $ instrument BrightAcousticPiano
->      (c 4 den)
+>    $ perc MuteCuica dwn
+>    -- $ instrument BrightAcousticPiano
+>    -- (c 4 den)
 >
 > abby :: Music (Pitch, Volume)
 > abby =

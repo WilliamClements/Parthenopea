@@ -1008,13 +1008,7 @@ Conversion functions and general helpers =======================================
 >     Linear
 >   | Concave
 >   | Convex
->   | Switch deriving (Eq, Ord, Show)
->
-> cont2bits cont = case cont of
->                    Linear      → 0
->                    Concave     → 1
->                    Convex      → 2
->                    Switch      → 3
+>   | Switch deriving (Eq, Ord, Show, Enum)
 >
 > wrap :: (Ord n, Num n) ⇒ n → n → n
 > wrap val bound = if val > bound then wrap val (val-bound) else val
@@ -1114,14 +1108,28 @@ Returns the frequency
 
 returns "interpretation" of MIDI NoteOn commands as floating point value
 
-> fromNoteOn             :: Int → Bool → Bool → Double
-> fromNoteOn n max2min bipolar             = val''
+> fromNoteOn             :: Int → Mapping → Double
+> fromNoteOn n ping@Mapping{msContinuity, msBiPolar, msMax2Min}
+>                                          = val''
 >   where
 >     val                                  = fromIntegral n / 128
->     val'                                 = if max2min  then 1 - val
->                                                        else val
->     val''                                = if bipolar  then val' * 2 - 1
->                                                        else val'
+>     val'                                 = if msMax2Min  then 1 - val
+>                                                          else val
+>     val''                                = if msBiPolar  then val' * 2 - 1
+>                                                          else val'
+> data Mapping =
+>   Mapping {
+>     msContinuity     :: Continuity
+>   , msBiPolar        :: Bool  
+>   , msMax2Min        :: Bool
+>   , msCCBit          :: Bool} deriving (Eq, Ord, Show)
+>
+> defMapping                               = Mapping Linear False False False
+> allMappings                              = [Mapping cont polar dir False
+>                                                   | cont   ← [Linear, Concave, Convex, Switch]
+>                                                        , polar  ← [False, True]
+>                                                              , dir    ← [False, True]]                                          
+
 
 Returns amplitude based on sample point
 
@@ -1229,6 +1237,9 @@ Emission capability ============================================================
 > writeFileBySections fp eSections = do
 >   let zSections        = map reapEmissions eSections
 >   appendFile fp (concat zSections)
+>
+> type Velocity                            = Volume
+> type KeyNumber                           = AbsPitch
 
 Configurable parameters ===============================================================================================
 

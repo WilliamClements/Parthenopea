@@ -2,6 +2,7 @@
 > {-# HLINT ignore "Use head" #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE UnicodeSyntax #-}
+> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 Baking
@@ -180,14 +181,15 @@ The progress of the algorithm is expressed in above pair.
 >
 >         theRest, thePercFill, theInstFill
 >                        :: Music (Pitch, Volume)
->         theRest                        = rest $ approx restDur
->         thePercFill                    = addVolume (fractionOf vol 1.25)
->                                          $ roll (approx fillDur)
->                                          $ perc sound 
->                                          $ approx (0.5/fillTempo)
->         theInstFill                    = addVolume (fractionOf vol 0.60)
->                                          $ instrument inst
->                                          $ makeInstFill fillBeats range dXp
+>         theRest                          = rest $ approx restDur
+>         thePercFill                      = addVolume (fractionOf vol 1.25)
+>                                            $ if skipGlissandi
+>                                                then rest ratDur
+>                                                else roll ratDur $ perc sound $ approx (0.5/fillTempo)
+>         theInstFill                      = addVolume (fractionOf vol 0.60)
+>                                            $ instrument inst
+>                                            $ makeInstFill fillBeats range dXp
+>         ratDur         :: Rational       = approx fillDur
 >
 > makeInstFill           :: Int → (Pitch, Pitch) → Double → Music Pitch
 > makeInstFill nBeats (lo, hi) dXp         = note dur p

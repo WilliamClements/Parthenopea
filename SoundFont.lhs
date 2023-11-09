@@ -1196,7 +1196,7 @@ reconcile zone and sample header ===============================================
 >     recR' = recR{
 >               rRootKey                   = rRootKey recL
 >             , rPitchCorrection           = rPitchCorrection recL}
->     msg = unwords ["reconcileLR recL=", show recL, "\n  zoneL=", show zoneL, "\n  shdrL=", show shdrL]
+>     msg = unwords ["reconcileLR zoneL=", show zoneL, "\n  shdrL=", show shdrL]
 >
 > reconcile              :: (SFZone, F.Shdr) → (AbsPitch, Volume) → Reconciled 
 > reconcile (zone@SFZone{zRootKey, zKey, zVel
