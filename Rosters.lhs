@@ -17,7 +17,6 @@ Rosters support ================================================================
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
 > import Fanfare
-> import Modulation ( modulationTest003 )
 > import Parthenopea ( aggrandize, playDM, addDur, durS, pSnippet02 )
 > -- import RosterDef
 > import SoundFont
@@ -75,15 +74,14 @@ organize exposed music =========================================================
 >    , ("basicLick"      , aggrandize basicLick)
 >    , ("sunPyg"         , aggrandize sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
-> sj =
->    [ ("wj"             , aggrandize wj) 
+> sj = ajingles
+>    -- [ ("getCITM"     , aggrandize getCITM)]
 >    -- [ ("sunPyg"      , aggrandize sunPyg)]
->    -- [ ("littleAbby"     , aggrandize littleAbby)]
+>    -- [ ("littleAbby"  , aggrandize littleAbby)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("roger"       , aggrandize roger)]
 >    -- [ ("copper'"     , aggrandize copper')]
 >    -- [ ("bake"        , {- cut 1.5 -} bakedJingle 98203)]
->    ]
 
 
 a few playthings ... get it? ==========================================================================================

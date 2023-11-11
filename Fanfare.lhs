@@ -619,14 +619,16 @@ Percussion-----
 
 Roger =================================================================================================================
 
+> rogerTranspose = 0
+>
 > roger :: Music (Pitch, Volume)
 > roger =
 >    removeZeros
 >    $ tempo 1
->    $ transpose 0
+>    $ transpose rogerTranspose
 >    $ keysig Cs Dorian
->    $     transpose 18 (addVolume  64 (instrument Piccolo             (line [cAltoI,  cAltoIIA, cAltoIIB])))
->      :=: transpose 6  (addVolume  64 (instrument AcousticGuitarNylon (line [cTenorI, cTenorII])))
+>    $     transpose 12 (addVolume  64 (instrument Flute               (line [cAltoI,  cAltoIIA, cAltoIIB])))
+>      :=: transpose 0  (addVolume  64 (instrument AcousticGuitarNylon (line [cTenorI, cTenorII])))
 >   where
 >
 >   ct_fs, ct_cs, ct_cs', ct__B, ct__B'          :: Dur → Music Pitch
@@ -697,12 +699,14 @@ Roger ==========================================================================
 
 Way Pos' T' Purple ====================================================================================================
 
+> wayposTranspose = 0
+>
 > waypostpurple =
 >    removeZeros
 >    $ tempo 1
->    $ transpose 0
+>    $ transpose wayposTranspose
 >    $ keysig C Major
->    $ addVolume 80 (instrument RhodesPiano
+>    $ addVolume 80 (instrument AcousticGrandPiano
 >      ((if includeOpen       then pOpenT  else rest 0)
 >         :+: (if includeCont then pContT  else rest 0)
 >         :+: (if includePool then pPoolT  else rest 0)
@@ -712,11 +716,11 @@ Way Pos' T' Purple =============================================================
 >         :+: (if includeCont then pContG  else rest 0)
 >         :+: (if includePool then pPoolG  else rest 0)
 >         :+: (if includeClos then pClosG  else rest 0)))
->      :=: addVolume 70 (instrument Bassoon
+>      :=: transpose 12 (addVolume 50 (instrument Bassoon
 >      ((if includeOpen       then pOpenB  else rest 0)
 >         :+: (if includeCont then pContB  else rest 0)
 >         :+: (if includePool then pPoolB  else rest 0)
->         :+: (if includeClos then pClosB  else rest 0)))
+>         :+: (if includeClos then pClosB  else rest 0))))
 >      :=: addVolume 70 (instrument Percussion
 >      ((if includeOpen       then pOpenP  else rest 0)
 >         :+: (if includeCont then pContP  else rest 0)
@@ -1058,3 +1062,13 @@ Dit ============================================================================
 >       , e 3 sn, ds 3 den, e 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn
 >       , fs 3 qn, fs 4 dqn, fs 4 en, t32 [e 4 en, ds 4 en, cs 4 en], cs 4 den, cs 4 sn
 >       , b 3 den, cs 4 sn, ds 4 qn] 
+>
+> dadadada =
+>   removeZeros
+>   $ tempo 1
+>   $ transpose 0
+>   $ keysig Af Mixolydian
+>   $ instrument Oboe
+>   $ addVolume 60 (times 4 body)
+>   where
+>     body = line [af 4 en, bf 4 en, c 5 en, bf 4 en, c 5 en, bf 4 en]

@@ -1106,18 +1106,6 @@ Returns the frequency
 >     calcTableValue     :: Int → Double
 >     calcTableValue i                     = 6.875 * pow 2.0 (fromIntegral i / 1200.0)
 >
-
-returns "interpretation" of MIDI NoteOn commands as floating point value
-
-> fromNoteOn             :: Int → Mapping → Double
-> fromNoteOn n ping@Mapping{msContinuity, msBiPolar, msMax2Min}
->                                          = val''
->   where
->     val                                  = fromIntegral n / 128
->     val'                                 = if msMax2Min  then 1 - val
->                                                          else val
->     val''                                = if msBiPolar  then val' * 2 - 1
->                                                          else val'
 > data Mapping =
 >   Mapping {
 >     msContinuity     :: Continuity
@@ -1133,13 +1121,13 @@ returns "interpretation" of MIDI NoteOn commands as floating point value
 
 Returns sample point as (normalized) Double
 
-> sample24              :: Int16 → Word8 → Double
+> sample24               :: Int16 → Word8 → Double
 > sample24 i16 w8                          = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 8388608.0
 >   where
 >     f8to32             :: Word8 → Int32  = fromIntegral
 >     f16to32            :: Int16 → Int32  = fromIntegral
 >      
-> sample16              :: Int16 → Double
+> sample16               :: Int16 → Double
 > sample16 i16                             = fromIntegral i16 / 32768.0
 >
 > lookupSamplePoint      :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Int → Double

@@ -2,10 +2,12 @@
 > {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
 > module Modulation where
 >
+> import Data.Array
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Bits
@@ -22,7 +24,7 @@
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA, DeltaT )
 > import Parthenopea
-
+  
 Modulator management ==================================================================================================
 
 > resModulators         :: Modulation → [Modulator] → Modulation
@@ -205,37 +207,21 @@ Modulator management ===========================================================
 > 
 > evaluateMod            :: Map ModDestType [Modulator] → Velocity → KeyNumber → Modulator → Double
 > evaluateMod graph vel key m8r@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
->                                          = srcValue mrModSrc * mrModAmount * srcValue mrAmountSrc
+>                                          = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
 >   where
->     rawValue            :: ModSrc → (Double, (Double, Double))
->     rawValue msrc@ModSrc{msMapping, msSource}
+>     getValue            :: ModSrc → Double
+>     getValue msrc@ModSrc{msMapping, msSource}
 >       | useModulators                    =
 >           case msSource of
->             FromNoController     → (1, (0,1))
->             FromNoteOnVel        → (fromNoteOn vel msMapping, (0, 127))
->             FromNoteOnKey        → (fromNoteOn key msMapping, (0, 127))
->             FromLinked           → (evaluateMods (ToLink mrModId) graph (key, vel), (0, 1))
->       | otherwise                        = (1, (0,1))
+>             FromNoController     → 1
+>             FromNoteOnVel        → fromNoteOn vel msMapping
+>             FromNoteOnKey        → fromNoteOn key msMapping
+>             FromLinked           → evaluateMods (ToLink mrModId) graph (key, vel)
+>       | otherwise                        = 0
 >
->     srcValue           :: ModSrc → Double
->     srcValue msrc@ModSrc{msMapping = ping@Mapping{msContinuity, msMax2Min, msBiPolar}}
->                                          = result
->       where
->         (val, (vMin, vMax))              = rawValue msrc
->
->         result
->           | Linear == msContinuity && not msMax2Min && not msBiPolar
->                                          = val
->           | Concave == msContinuity && msMax2Min && not msBiPolar
->                                          = -20/96 * log (ranged ^ 2 / range ^ 2)
->           | Switch == msContinuity && msMax2Min && not msBiPolar
->                                          = if val < (vMin + vMax) / 2
->                                              then vMin -- WOX does it need to be flipped at any point?
->                                              else vMax
->           | otherwise                    = val
->
->         ranged = val - vMin
->         range = vMax - vMin
+> fromNoteOn             :: Int → Mapping → Double
+> fromNoteOn n ping@Mapping{msContinuity, msBiPolar, msMax2Min}
+>                                          = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
 > calculateModFactor     :: String → Modulation → ModDestType → ModSignals → (AbsPitch, Volume) → Double
 > calculateModFactor tag m8n@Modulation{modGraph, toPitchSummary, toFilterFcSummary, toVolumeSummary}
@@ -396,7 +382,7 @@ Testing ========================================================================
 >       m8rIn                             = modulationTestSetup !! 2
 >
 >       tryIt            :: Mapping → IO ()
->       tryIt ming
+>       tryIt ping
 >         | traceNow msg False          = undefined
 >         | otherwise                   = do
 >         traceIO ""
@@ -405,14 +391,127 @@ Testing ========================================================================
 >         return ()
 >
 >         where
->           ms                             = ModSrc ming FromNoteOnKey
->           m8rOut                         = m8rIn{mrModSrc = ms}
->           results                        = [eval m8rOut (x, 64) | x ← [0..127]]
+>           results                        = [controlDenormal ping (conv x) (0, 1) | x ← [0..127]]
 >
->           msg                            = unwords ["mapping = ", show ming]
+>           conv         :: Int → Double
+>           conv midi                      = fromIntegral midi / fromIntegral qMidiSize
 >
->       eval              :: Modulator → (Velocity, KeyNumber) → Double
->       eval m8r (vel, key)                = evaluateMods ToFilterFc (compileMods [m8r]) (vel, key)
+>           msg                            = unwords ["mapping = ", show ping]
+>
+> modulationTest004      :: Mapping → [Double]
+> modulationTest004 ping
+>   | traceNow msg False                   = undefined
+>   | otherwise                            = results
+>   where
+>     results                              = [controlDenormal ping (conv x) (0, 1) | x ← [0..127]]
+>
+>     conv         :: Int → Double
+>     conv midi                            = fromIntegral midi / fromIntegral qMidiSize
+>
+>     msg = unwords ["modulationTest004 ", show ping]
+
+Controller Curves =====================================================================================================
+
+> qTableSize             :: Int            = 1024
+> qMidiSize              :: Int            = 128
+> qStepSize                                = qTableSize `div` qMidiSize
+>
+> quarterCircleTable     :: Array Int Double
+>                                          = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
+>   where
+>     calc               :: Int → Double
+>     calc i                               = 1 - sqrt (1 - x*x)
+>       where 
+>         x              :: Double         = fromIntegral i / fromIntegral qTableSize
+
+The use of these functions requires that their input is normalized between 0 and 1
+(And the output is normalized, too)
+
+> funLinear              :: Double → Double
+> funLinear d                              = d
+>
+> funConcave             :: Double → Double
+> funConcave d
+>   | d >= 1                               = 1
+>   | otherwise                            = quarterCircleTable ! truncate (d * fromIntegral qTableSize)
+>
+> funConvex              :: Double → Double
+> funConvex d
+>   | (1 - d) >= 1                        = 1
+>   | otherwise                           = 1 - (quarterCircleTable ! truncate ((1 - d) * fromIntegral qTableSize))
+>
+> funSwitch              :: Double → Double
+> funSwitch d                             = if d < 0.5
+>                                             then 0
+>                                             else 1
+>
+> controlDenormal        :: Mapping → Double → (Double, Double) → Double
+> controlDenormal ping@Mapping{msBiPolar} dIn (lo, hi)
+>                                          = vOut
+>   where
+>     scale                                = profess (lo < hi)
+>                                            "inverted range in controlDenormal"
+>                                            (hi - lo)
+>     vOut                                 = if msBiPolar
+>                                              then controlBiPolar ping dNorm
+>                                              else controlUniPolar ping dNorm
+>     dNorm =   (dIn - lo) / scale
+>
+> controlUniPolar        :: Mapping → Double → Double
+> controlUniPolar ping@Mapping{msContinuity, msMax2Min} d
+>                                          = fun xStart
+>   where
+>     fun                                  = case msContinuity of
+>                                              Linear     → funLinear
+>                                              Concave    → funConcave
+>                                              Convex     → funConvex
+>                                              Switch     → funSwitch
+>
+>     xStart             :: Double         = if msMax2Min
+>                                              then 1 - d
+>                                              else d
+>
+> controlBiPolar         :: Mapping → Double → Double
+> controlBiPolar ping@Mapping{msContinuity, msMax2Min} dIn
+>                                          = dOut
+>   where
+>     -- bipolar concave/convex:
+>     --   if positive, swap the left half to the opposite
+>     --   if negative, swap the right one
+>
+>     isCurve            :: Bool           = msContinuity == Concave || msContinuity == Convex
+>
+>     swapCont           :: Continuity → Continuity
+>     swapCont cIn                         = case cIn of
+>                                              Concave → Convex
+>                                              Convex  → Concave
+>
+>     (left, right)      :: (Continuity, Continuity)
+>                                          = if isCurve
+>                                              then if msMax2Min
+>                                                     then (msContinuity, swapCont msContinuity)
+>                                                     else (swapCont msContinuity, msContinuity)
+>                                              else (msContinuity, msContinuity)
+>
+>     pingL                                = ping{msBiPolar = False, msContinuity = left}
+>     pingR                                = ping{msBiPolar = False, msContinuity = right}
+>
+>     (addL, addR)                         = if msMax2Min
+>                                              then (0, -1)
+>                                              else (-1, 0)
+>
+>     dOut
+>       | msContinuity == Switch           = (controlUniPolar ping dIn * 2) - 1
+>       | dIn < 0.5                        = controlDenormal pingL dIn (0.0, 0.5) + addL
+>       | otherwise                        = controlDenormal pingR dIn (0.5, 1.0) + addR
+>
+> table2vals             :: [Double] → [(Double, Double, Double, Double)]
+> table2vals                               = zipWith (curry convFun) [0 .. ]
+>   where
+>     convFun            :: (Int, Double) → (Double, Double, Double, Double)
+>     convFun (i, y)                       = (fromIntegral i / 128, y, 0, 0)
+>
+> vals' = table2vals (modulationTest004 (allMappings !! 15))
 
 Type declarations =====================================================================================================
 
