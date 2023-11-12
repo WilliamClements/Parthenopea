@@ -27,12 +27,12 @@
   
 Modulator management ==================================================================================================
 
-> resModulators         :: Modulation → [Modulator] → Modulation
-> resModulators m8n m8rs
+> resolveMods            :: Modulation → [Modulator] → Modulation
+> resolveMods m8n m8rs
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = assignModGraph m8n (compileMods (defaultMods ++ m8rs'))
 >   where
->     msg                                  = unwords ["resModulators ", show (length m8rs)]
+>     msg                                  = unwords ["resolveMods ", show (length m8rs)]
 >     (linked, other)                      = splitMods m8rs
 >     m8rs'                                = profess
 >                                              (not $ hasCycles linked)
@@ -49,11 +49,8 @@ Modulator management ===========================================================
 > hasCycles              :: [Modulator] → Bool
 > hasCycles ms
 >   | traceIf msg False                    = undefined
->   | otherwise                            = not $ null $ cyclicNodes mgraph
+>   | otherwise                            = not $ null $ cyclicNodes $ makeGraph edgeList
 >   where
->     msg                                  = unwords ["hasCycles edgeList ", show edgeList]
->     mgraph             :: Graph          = makeGraph edgeList
->
 >     edgeList           :: [(Node, [Node])]
 >                                          = map
 >                                              (BF.bimap lookup (map (fromIntegral . mrModId)))
@@ -65,10 +62,12 @@ Modulator management ===========================================================
 >                                              _                → error $ "only ToLink bears a ModDestType"
 >                                                                           ++ " to be turned into a Node"
 >
-> elimDanglingModSources :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
-> elimDanglingModSources triesIn mix  
+>     msg                                  = unwords ["hasCycles edgeList ", show edgeList]
+>
+> eliminateDanglingMods  :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
+> eliminateDanglingMods triesIn mix  
 >   | traceIf msg False                    = undefined
->   | otherwise                            = newTry : elimDanglingModSources (newTry : triesIn) (mix+1)
+>   | otherwise                            = newTry : eliminateDanglingMods (newTry : triesIn) (mix+1)
 >   where
 >     -- let's examine result of the previous generation
 >     -- use it to produce next generation, dropping nodes that expect linked sources but have none
@@ -87,7 +86,7 @@ Modulator management ===========================================================
 >
 >     newTry                               = (length m8rsOut == length m8rsIn, (mix, m8rsOut))
 >
->     msg                                  = unwords ["elimDanglingModSources ", show (length m8rsIn)]
+>     msg                                  = unwords ["eliminateDanglingMods ", show (length m8rsIn)]
 >
 > requiresLinks, suppliesLink
 >                        :: Modulator → Bool
@@ -105,7 +104,7 @@ Modulator management ===========================================================
 >     (linked, other)                      = partition (\m → requiresLinks m || suppliesLink m) m8rsIn
 >
 >     seed                                 = (False, (0, linked))
->     generations                          = elimDanglingModSources (singleton seed) 0
+>     generations                          = eliminateDanglingMods (singleton seed) 0
 >     successes                            = dropWhile (not . fst) generations
 >     (_, (_, m8rsSplit))                  = head successes 
 >
@@ -180,19 +179,15 @@ Modulator management ===========================================================
 >                                                               FromLinked       → Nothing
 >                                                               _                → Just x{mrAmountSrc = modSrc})
 >
-> defaultMods            :: [Modulator]
->                                          -- [makeDefaultMod ms0 48 960
->                                          -- , makeDefaultMod 8 (-2400)
->                                          -- , makeDefaultMod 8 (-2400)]
-> defaultMods                              = if useDefaultMods
+> defaultMods            :: [Modulator]    = if useDefaultMods
 >                                              then [ makeDefaultMod ms0 48 960     defModSrc
 >                                                   , makeDefaultMod ms1  8 (-2400) ms2 ]
 >                                              else []
 >                                                              
 >   where
->     ms0                :: ModSrc         = ModSrc   (Mapping Concave   False  True False) FromNoteOnVel
->     ms1                :: ModSrc         = ModSrc   (Mapping Linear    False  True False) FromNoteOnVel
->     ms2                :: ModSrc         = ModSrc   (Mapping Switch    False  True False) FromNoteOnVel
+>     ms0                                  = ModSrc   (Mapping Concave   False  True False) FromNoteOnVel
+>     ms1                                  = ModSrc   (Mapping Linear    False  True False) FromNoteOnVel
+>     ms2                                  = ModSrc   (Mapping Switch    False  True False) FromNoteOnVel
 >
 >     makeDefaultMod     :: ModSrc → Word → Int → ModSrc → Modulator
 >     makeDefaultMod ms igen amt amtSrc    = professIsJust'
@@ -202,8 +197,8 @@ Modulator management ===========================================================
 >                                                >>= addAmount amt
 >                                                >>= addAmtSrc' amtSrc
 >
-> evaluateMods           :: ModDestType → Map ModDestType [Modulator] → (AbsPitch, Volume) → Double
-> evaluateMods md graph (p, v)             = sum $ maybe [] (map (evaluateMod graph v p)) (Map.lookup md graph)
+> evaluateMods           :: ModDestType → Map ModDestType [Modulator] → Velocity → KeyNumber → Double
+> evaluateMods md graph v k                = sum $ maybe [] (map (evaluateMod graph v k)) (Map.lookup md graph)
 > 
 > evaluateMod            :: Map ModDestType [Modulator] → Velocity → KeyNumber → Modulator → Double
 > evaluateMod graph vel key m8r@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
@@ -216,16 +211,16 @@ Modulator management ===========================================================
 >             FromNoController     → 1
 >             FromNoteOnVel        → fromNoteOn vel msMapping
 >             FromNoteOnKey        → fromNoteOn key msMapping
->             FromLinked           → evaluateMods (ToLink mrModId) graph (key, vel)
+>             FromLinked           → evaluateMods (ToLink mrModId) graph vel key
 >       | otherwise                        = 0
 >
 > fromNoteOn             :: Int → Mapping → Double
 > fromNoteOn n ping@Mapping{msContinuity, msBiPolar, msMax2Min}
 >                                          = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
-> calculateModFactor     :: String → Modulation → ModDestType → ModSignals → (AbsPitch, Volume) → Double
+> calculateModFactor     :: String → Modulation → ModDestType → ModSignals → Velocity → KeyNumber → Double
 > calculateModFactor tag m8n@Modulation{modGraph, toPitchSummary, toFilterFcSummary, toVolumeSummary}
->                    md msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} pv
+>                    md msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} vel key
 >  | traceNever msg False                  = undefined
 >  | otherwise                             = fact
 >  where
@@ -242,7 +237,7 @@ Modulator management ===========================================================
 >    x1                                    = srModEnvPos * head targetList
 >    x2                                    = srModLfoPos * (targetList !! 1)
 >    x3                                    = srVibLfoPos * (targetList !! 2)
->    x4                                    = evaluateMods md modGraph pv
+>    x4                                    = evaluateMods md modGraph vel key
 >    fact                                  = fromCents (x1 + x2 + x3 + x4)
 >
 >    msg                                   = unwords ["calculateModFactor: "
@@ -266,7 +261,8 @@ Modulator management ===========================================================
 >                                m8n
 >                                ToFilterFc
 >                                msig
->                                (noteOnVel, noteOnKey)
+>                                noteOnVel
+>                                noteOnKey
 >         y ← filterLowPassBW              ⤙ (x, fc)
 >         outA                             ⤙ resonate x fc y
 >       where
@@ -361,7 +357,7 @@ Testing ========================================================================
 >   let m8r5 = defModulator{mrModId = 5, mrModSrc = defModSrc{msSource = FromLinked}, mrModDest = ToLink 4} 
 >   let m8rsOut                           = m8rsIn ++ [m8r4, m8r5]
 >
->   let m8n' = resModulators defModulation m8rsOut
+>   let m8n' = resolveMods defModulation m8rsOut
 >   print m8n'
 >   return ()
 >
@@ -371,7 +367,7 @@ Testing ========================================================================
 >   let graph                             = compileMods [m8rIn]
 >
 >   let eval                              = evaluateMods ToFilterFc graph 
->   let results                           = [eval (x, 64) | x ← [0..127]]
+>   let results                           = [eval x 64 | x ← [0..127]]
 >   print results
 >   return ()
 >
@@ -430,20 +426,17 @@ The use of these functions requires that their input is normalized between 0 and
 > funLinear              :: Double → Double
 > funLinear d                              = d
 >
-> funConcave             :: Double → Double
 > funConcave d
 >   | d >= 1                               = 1
 >   | otherwise                            = quarterCircleTable ! truncate (d * fromIntegral qTableSize)
 >
-> funConvex              :: Double → Double
 > funConvex d
->   | (1 - d) >= 1                        = 1
->   | otherwise                           = 1 - (quarterCircleTable ! truncate ((1 - d) * fromIntegral qTableSize))
+>   | (1 - d) >= 1                         = 1
+>   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - d) * fromIntegral qTableSize))
 >
-> funSwitch              :: Double → Double
-> funSwitch d                             = if d < 0.5
->                                             then 0
->                                             else 1
+> funSwitch d                              = if d < 0.5
+>                                              then 0
+>                                              else 1
 >
 > controlDenormal        :: Mapping → Double → (Double, Double) → Double
 > controlDenormal ping@Mapping{msBiPolar} dIn (lo, hi)
@@ -458,7 +451,7 @@ The use of these functions requires that their input is normalized between 0 and
 >     dNorm =   (dIn - lo) / scale
 >
 > controlUniPolar        :: Mapping → Double → Double
-> controlUniPolar ping@Mapping{msContinuity, msMax2Min} d
+> controlUniPolar ping@Mapping{msContinuity, msMax2Min} dIn
 >                                          = fun xStart
 >   where
 >     fun                                  = case msContinuity of
@@ -468,8 +461,8 @@ The use of these functions requires that their input is normalized between 0 and
 >                                              Switch     → funSwitch
 >
 >     xStart             :: Double         = if msMax2Min
->                                              then 1 - d
->                                              else d
+>                                              then 1 - dIn
+>                                              else dIn
 >
 > controlBiPolar         :: Mapping → Double → Double
 > controlBiPolar ping@Mapping{msContinuity, msMax2Min} dIn
@@ -622,8 +615,7 @@ Type declarations ==============================================================
 > defM                   :: ModulationSettings
 > defM =
 >   ModulationSettings {
->     qqUseModulators                      = False
+>     qqUseModulators                      = True
 >   , qqUseDefaultMods                     = False
 >   , qqUseLowPass                         = True
 >   , qqUseLFO                             = True}
->

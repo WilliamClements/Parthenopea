@@ -101,7 +101,8 @@ Signal function-based synth ====================================================
 >                                                       m
 >                                                       ToPitch
 >                                                       modSigL
->                                                       (rNoteOnVel, rNoteOnKeyNumber)
+>                                                       rNoteOnVel
+>                                                       rNoteOnKeyNumber
 >       rec
 >         let phase                        = calcPhase next
 >         next           ← delay 0         ⤙ frac (phase + delta)                           
@@ -159,13 +160,15 @@ Signal function-based synth ====================================================
 >     let (a1L, a1R)                       = (lookupSamplePoint s16 ms8 saddrL, lookupSamplePoint s16 ms8 saddrR)
 >     outA ⤙ (pump (ampL, ampR) (a1L, a1R), msig)
 >
->   where 
+>   where
+>     vel                                  = snd pv
+>     key                                  = fst pv
 >     (graphL, graphR)                     = (modGraph m8nL, modGraph m8nR)
->     cAttenL            :: Double         = fromCentibels' (attenL + evaluateMods ToInitAtten graphL pv)
->     cAttenR            :: Double         = fromCentibels' (attenR + evaluateMods ToInitAtten graphR pv)
+>     cAttenL            :: Double         = fromCentibels' (attenL + evaluateMods ToInitAtten graphL vel key)
+>     cAttenR            :: Double         = fromCentibels' (attenR + evaluateMods ToInitAtten graphR vel key)
 >     (ampL, ampR)       :: (Double, Double)
->                                          = ( fromIntegral (snd pv) / 100 / cAttenL
->                                            , fromIntegral (snd pv) / 100 / cAttenR)
+>                                          = ( fromIntegral vel / 100 / cAttenL
+>                                            , fromIntegral vel / 100 / cAttenR)
 >     numS               :: Double         = fromIntegral (enL - stL)
 >
 >     pump               :: (Double, Double) → (Double, Double) → (Double, Double)
@@ -176,7 +179,10 @@ Signal function-based synth ====================================================
 >         msg'                             = unwords ["pump ", show (a1L, a1R)
 >                                                     , "<=>", show (a1L * ampL, a1R * ampR)]
 >      
->     msg = unwords ["eutPumpSamples numS = ", show numS, "attenL = ", show attenL, "evaluateMods = ", show (evaluateMods ToInitAtten graphL pv), " -- ", show (ampL, ampR)]
+>     msg = unwords ["eutPumpSamples numS = ", show numS
+>                  , "attenL = "             , show attenL
+>                  , "evaluateMods = "       , show (evaluateMods ToInitAtten graphL vel key)
+>                  , " -- "                  , show (ampL, ampR)]
 >
 > eutAmplify             :: ∀ p . Clock p ⇒
 >                           Double
@@ -246,7 +252,11 @@ FFT ============================================================================
 >   return ()
 >
 > findOutliersString     :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → String
-> findOutliersString secs sig              = "findOutliers " ++ show secs ++ "..." ++ show (abs x) ++ " ... " ++ show y ++ " / " ++ show h ++ " = " ++ show z
+> findOutliersString secs sig              = "findOutliers " ++ show secs
+>                                         ++ "..."           ++ show (abs x)
+>                                         ++ " ... "         ++ show y
+>                                         ++ " / "           ++ show h
+>                                         ++ " = "           ++ show z
 >   where
 >     ss                                   = toSamples (secs + 0.5) sig
 >     pers               :: Double         = secs / fromIntegral (length ss)
@@ -498,24 +508,24 @@ Effects ========================================================================
 >
 >     (rbL, rbR) ← eutReverb rL ⤙ (aL, aR)
 >
->     let mixL = (cFactorL * chL
->                 + rFactorL * rbL
+>     let mixL = (  cFactorL       * chL
+>                 + rFactorL       * rbL
 >                 + (1 - cFactorL) * aL
 >                 + (1 - rFactorL) * aL) / 2
->     let mixR = (cFactorR * chR
->                 + rFactorR * rbR
+>     let mixR = (  cFactorR       * chR
+>                 + rFactorR       * rbR
 >                 + (1 - cFactorR) * aR
 >                 + (1 - rFactorR) * aR) / 2
 >
 >     let (pL, pR) = doPan (pFactorL, pFactorR) (mixL, mixR)
 >
 >     pL' ←        if not useDCBlock
->                  then delay 0       ⤙ pL
->                  else dcBlock 0.995 ⤙ pL
+>                    then delay 0          ⤙ pL
+>                    else dcBlock 0.995    ⤙ pL
 >     pR' ←        if not useDCBlock
->                  then delay 0       ⤙ pR
->                  else dcBlock 0.995 ⤙ pR
->     outA ⤙ (pL', pR')
+>                    then delay 0          ⤙ pR
+>                    else dcBlock 0.995    ⤙ pR
+>     outA                                 ⤙ (pL', pR')
 >
 >   where
 >     ecL@Effects{efChorus = cL, efReverb = rL, efPan = pL} = effL
@@ -528,7 +538,10 @@ Effects ========================================================================
 >     pFactorL = fromMaybe 0 pL
 >     pFactorR = fromMaybe 0 pR
 >
->     msg = unwords ["eutEffects=", show effL, "=LR=", show effR, "rFactor*=", show rFactorL, " ", show rFactorR]
+>     msg = unwords ["eutEffects=",        show effL
+>                  , "=LR=",               show effR
+>                  , "rFactor*=",          show rFactorL
+>                  , " ",                  show rFactorR]
 > 
 > eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Maybe Double → Signal p Double Double
 > eutChorus rate gain depth               = maybe (delay 0) makeSF
@@ -537,12 +550,12 @@ Effects ========================================================================
 >
 >     makeSF             :: Double → Signal p Double Double
 >     makeSF rate = proc sin → do
->       lfo ← osc (tableSines 4096 [1]) 0 ⤙ rate
->       z1 ← delayLine1 0.030 ⤙ (sin, 0.010 + depth * lfo)
->       z2 ← delayLine1 0.030 ⤙ (sin, 0.020 + depth * lfo)
->       z3 ← delayLine1 0.030 ⤙ (sin, 0.030 + depth * lfo)
+>       lfo ← osc (tableSines 4096 [1]) 0  ⤙ rate
+>       z1 ← delayLine1 0.030              ⤙ (sin, 0.010 + depth * lfo)
+>       z2 ← delayLine1 0.030              ⤙ (sin, 0.020 + depth * lfo)
+>       z3 ← delayLine1 0.030              ⤙ (sin, 0.030 + depth * lfo)
 >       rec
->         r ← delayLine 0.0001 ⤙ (sin + z1 + z2 + z3)/4 + r * gain
+>         r ← delayLine 0.0001             ⤙ (sin + z1 + z2 + z3)/4 + r * gain
 >       outA ⤙ r
 >
 > eutReverb              :: ∀ p . Clock p ⇒ Maybe Double → Signal p (Double, Double) (Double, Double)

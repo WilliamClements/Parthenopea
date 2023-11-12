@@ -1258,7 +1258,7 @@ reconcile zone and sample header ===============================================
 >                     , zInitFc, zInitQ
 >                     , zModLfoToFc, zModEnvToFc, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
 >                     , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv
->                     , zModulators}   = resModulators m8n zModulators
+>                     , zModulators}       = resolveMods m8n zModulators
 >   where
 >     m8n                :: Modulation     =
 >       defModulation{

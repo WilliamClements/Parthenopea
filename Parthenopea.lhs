@@ -1065,7 +1065,7 @@ Returns the amplitude ratio
 > fromCentibels mcentibels                 = fromCentibels' $ fromIntegral (fromMaybe 0 mcentibels)
 
 > fromCentibels'         :: Double → Double
-> fromCentibels' centibels                 = 10**(centibels/100)
+> fromCentibels' centibels                 = 10**(centibels/1000)
 
 Returns the elapsed time in seconds
 
@@ -1248,6 +1248,6 @@ Configurable parameters ========================================================
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
 >   , qqSkipReporting                      = False
->   , qqSkipGlissandi                      = True
+>   , qqSkipGlissandi                      = False
 >   , qqDumpFftChunks                      = False
 >   , qqNumTakeFftChunks                   = 3}
