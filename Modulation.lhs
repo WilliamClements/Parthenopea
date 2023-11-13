@@ -184,9 +184,10 @@ Modulator management ===========================================================
 >                                                   , makeDefaultMod ms1  8 (-2400) ms2 ]
 >                                              else []
 >                                                              
->   where
+>   where                                                 --    cont    bipolar  neg  CC
 >     ms0                                  = ModSrc   (Mapping Concave   False  True False) FromNoteOnVel
 >     ms1                                  = ModSrc   (Mapping Linear    False  True False) FromNoteOnVel
+>  -- some feel that ms2 as an amount source here should be ignored; i.e. containing copy of defModSrc
 >     ms2                                  = ModSrc   (Mapping Switch    False  True False) FromNoteOnVel
 >
 >     makeDefaultMod     :: ModSrc → Word → Int → ModSrc → Modulator

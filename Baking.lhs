@@ -204,7 +204,7 @@ The progress of the algorithm is expressed in above pair.
 >     dHi                                  = fromIntegral (absPitch hi)
 >     p                                    = pitch $ round $ dLo + (dXp * (dHi - dLo))
 >
-> checkMeasureOk :: Baking → Bool
+> checkMeasureOk         :: Baking → Bool
 > checkMeasureOk (bm, ms)
 >   | traceAlways msg False                = undefined
 >   | otherwise                            = True
@@ -236,13 +236,14 @@ The progress of the algorithm is expressed in above pair.
 >              d1        :: Double
 >              d1                          = fromRational (dur m)
 >
-> checkUrnOk :: Bake → Bool
+> checkUrnOk             :: Bake → Bool
 > checkUrnOk urn
 >    | traceIf msg False = undefined
 >    | otherwise = True
 >    where
 >       msg = unwords [ "checkUrnOk: urn = ", show urn ]
-> checkZListOk :: [(Int,  Int)] → Bool
+>
+> checkZListOk           :: [(Int,  Int)] → Bool
 > checkZListOk zlist
 >    | traceAlways msg False = undefined
 >    | otherwise = True

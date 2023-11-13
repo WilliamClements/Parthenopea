@@ -542,8 +542,14 @@ apply fuzzyfind to mining instruments + percussion =============================
 >
 > type Fuzz = Double
 >
-> instrumentFFKeys :: InstrumentName → Maybe [String]
-> instrumentFFKeys inst =
+> instrumentAntiFFKeys   :: InstrumentName → Maybe [String]
+> instrumentAntiFFKeys inst       =
+>    case inst of
+>       AcousticGrandPiano        → Just $ singleton "upright"
+>       _                         → Nothing
+>
+> instrumentFFKeys       :: InstrumentName → Maybe [String]
+> instrumentFFKeys inst           =
 >    case inst of
 >       AcousticGrandPiano        → Just            ["piano", "grand"]
 >       BrightAcousticPiano       → Just            ["piano", "bright", "brite"]
@@ -990,10 +996,10 @@ Conversion functions and general helpers =======================================
 >                                              then error ("Failed assertion -- " ++ msg)
 >                                              else something
 >
-> professIsJust          :: Maybe a → String → a
+> professIsJust          :: ∀ a. Maybe a → String → a
 > professIsJust item msg                   = profess (isJust item) msg (fromJust item)
 >
-> professIsJust'         :: Maybe a → a
+> professIsJust'         :: ∀ a. Maybe a → a
 > professIsJust' item                      = professIsJust item "expected Just"
 >
 > sumOfMaybeInts         :: [Maybe Int] → Int
@@ -1050,7 +1056,7 @@ Takes care of characters that need quoting like '"'
 >     quote c = case c of
 >                 '\"'   → "\\\""
 >                 _      → [c]
-
+>
 > unquoteCodeString      :: String → String
 > unquoteCodeString                        = concatMap unquote
 >   where
@@ -1059,18 +1065,23 @@ Takes care of characters that need quoting like '"'
 >                 '\\'   → ""
 >                 _      → [c]
 
+Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
+
+> reportName             :: FilePath
+> reportName                               = "TournamentReport'.lhs"
+
 Returns the amplitude ratio
 
 > fromCentibels          :: Maybe Int → Double
 > fromCentibels mcentibels                 = fromCentibels' $ fromIntegral (fromMaybe 0 mcentibels)
 
 > fromCentibels'         :: Double → Double
-> fromCentibels' centibels                 = 10**(centibels/1000)
+> fromCentibels' centibels                 = pow 10 (centibels/1000)
 
 Returns the elapsed time in seconds
 
 > fromTimecents          :: Maybe Int → Double
-> fromTimecents mtimecents                 = 2**(fromIntegral (fromMaybe (-12000) mtimecents)/1200)
+> fromTimecents mtimecents                 = pow 2 (fromIntegral (fromMaybe (-12000) mtimecents)/1200)
 
 Returns the attenuation (based on input 10ths of a percent)
 
@@ -1082,7 +1093,7 @@ Returns the attenuation (based on input 10ths of a percent)
 Returns the frequency ratio
 
 > fromCents              :: Double → Double
-> fromCents cents                          = 2**(cents/12/100)
+> fromCents cents                          = pow 2 (cents/12/100)
 >
 > fromCents'             :: Maybe Int → Maybe Int → Maybe Double
 > fromCents' mcoarse mfine

@@ -258,8 +258,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data PlayKey =
 >   PlayKey {
 >     xItem              :: PerGMKey
->   , xPitch             :: AbsPitch
->   , xVolume            :: Volume} deriving (Eq, Ord, Show)
+>   , xVel               :: Velocity
+>   , xKey               :: KeyNumber} deriving (Eq, Ord, Show)
 >
 > type PlayValue                           = (Reconciled, Maybe Reconciled)
 
@@ -401,6 +401,7 @@ executive ======================================================================
 > writeTournamentReport sffiles pContI pContP
 >                                          = do
 >   tsStarted            ← getCurrentTime
+>
 >   -- output all selections to the report file
 >   let legend :: [Emission] =
 >           emitComment [Unblocked "legend = [hints, stereo, 24-bit, many zones, conformant, fuzzy]"]
@@ -408,14 +409,21 @@ executive ======================================================================
 >   let esH            = emitFileListC sffiles
 >   let esI            = concatMap dumpContestants (Map.toList pContI)
 >   let esP            = concatMap dumpContestants (Map.toList pContP)
->   let esQ            = [Unblocked "\n\n", emitShowL defS 1000, Unblocked "\n\n", emitShowL defT 1000]
+>   let esQ            = [ Unblocked "\n\n"
+>                        , emitShowL defS 1000
+>                        , Unblocked "\n\n"
+>                        , emitShowL defT 1000
+>                        , Unblocked "\n\n"
+>                        , emitShowL defM 1000]
 >   let esTail         = singleton $ Unblocked "\n\nThe End\n\n"
 >   let eol            = singleton EndOfLine
 >
->   writeFileBySections "TournamentReport'.lhs" [esH, legend, esI, eol, esH, legend, esP, esQ, esTail]
-
+>   writeFileBySections reportName [esH, legend, esI, eol, esH, legend, esP, esQ, esTail]
+>
 >   tsFinished            ← getCurrentTime
+>
 >   putStrLn ("___report tournament results: " ++ show (diffUTCTime tsFinished tsStarted))
+>   traceIO ("wrote " ++ reportName)
 >
 > decideWinners          :: UTCTime
 >                           → Array Word SFFile
@@ -447,7 +455,10 @@ executive ======================================================================
 >         -- what Instrument is closest fit, name-wise, for this artifact
 >         mk             :: Maybe (InstrumentName, (String, Double))
 >                                          = bestQualifying (matchingAs isBmas) stands
->         kind                             = (fst . fromJust) mk
+>         kind                             = profess
+>                                              (isJust mk)
+>                                              "bestQualified returned Nothing"
+>                                              ((fst . fromJust) mk)
 >         aresult                          = xaEnterTournament sffiles zoneCache isBmas pergm kind [] wip
 >     
 >     wpFolder           :: (Map PercussionSound [PerGMScored], [String])
@@ -1059,11 +1070,11 @@ define signal functions and instrument maps to support rendering ===============
 >                                              dur pch'' vol'' params
 >                                              (ssData arrays) (ssM24 arrays)
 >   where
->     pch'                                 = clip (0, 127) pch
->     vol'                                 = clip (0, 127) vol
+>     vel                                  = clip (0, 127) vol
+>     key                                  = clip (0, 127) pch
 >
->     pch''              :: AbsPitch       = maybe pch' (clip (0, 127)) rForceKey
->     vol''              :: Volume         = maybe vol' (clip (0, 127)) rForceVel
+>     pch''              :: AbsPitch       = maybe key (clip (0, 127)) rForceKey
+>     vol''              :: Volume         = maybe vel (clip (0, 127)) rForceVel
 >
 >     arrays                               = zArrays (zFiles ! pWordF)
 >     nameI                                = F.instName $ ssInsts arrays ! pWordI
@@ -1071,7 +1082,7 @@ define signal functions and instrument maps to support rendering ===============
 >                                                                    ,  show pergm , " / ", show (pch, vol)]
 >
 >     accessReconciled   :: Maybe (Reconciled, Maybe Reconciled)
->     accessReconciled = Map.lookup (PlayKey pergm pch' vol') zPlayCache
+>     accessReconciled = Map.lookup (PlayKey pergm vel key) zPlayCache
 >
 >     (reconX, mreconX)  :: (Reconciled, Maybe Reconciled)
 >                                          = fromMaybe (error $ "Note missing from play cache: "
@@ -1085,10 +1096,10 @@ zone selection for rendering ===================================================
 
 > setZone                :: ZoneCache
 >                           → PerGMKey
->                           → AbsPitch
->                           → Volume
+>                           → Velocity
+>                           → KeyNumber
 >                           → ((SFZone, F.Shdr), (SFZone, F.Shdr))
-> setZone zoneCache pergm pch vol
+> setZone zoneCache pergm vel key
 >                                          = ((snd zoneL, sampleL) ,(snd zoneR, sampleR))
 >   where
 >     perI@PerInstrument{pZonePairs}       = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
@@ -1096,15 +1107,15 @@ zone selection for rendering ===================================================
 >                                          = tail pZonePairs
 >
 >     (wF, wI)                             = (pWordF pergm, pWordI pergm)
->     (zoneL, zoneR)                       = selectZonePair zs (selectBestZone zs pch vol)
+>     (zoneL, zoneR)                       = selectZonePair zs (selectBestZone zs vel key)
 >     (sampleL, sampleR)                   = ((pSample . fst) zoneL, (pSample . fst) zoneR)
 >
-> selectBestZone         :: [(ZoneHeader, SFZone)] → AbsPitch → Volume → (ZoneHeader, SFZone)
-> selectBestZone zs pch vol
+> selectBestZone         :: [(ZoneHeader, SFZone)] → Velocity → KeyNumber → (ZoneHeader, SFZone)
+> selectBestZone zs vel key
 >                                          = snd whichZ
 >   where
 >     scores             :: [(Int, (ZoneHeader, SFZone))]
->                                          = mapMaybe (scoreOneZone pch vol) zs
+>                                          = mapMaybe (scoreOneZone vel key) zs
 >     whichZ                               = profess
 >                                              (not $ null scores)
 >                                              "scores should not be null (selectBestZone)"
@@ -1186,28 +1197,30 @@ zone selection for rendering ===================================================
 
 reconcile zone and sample header ======================================================================================
 
-> reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → (AbsPitch, Volume) → (Reconciled, Reconciled)
-> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) pv
+> reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → Velocity → KeyNumber → (Reconciled, Reconciled)
+> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) vel key
 >   | traceNever msg False                 = undefined
 >   | otherwise                            = (recL, recR')
 >   where
->     recL = reconcile (zoneL, shdrL) pv
->     recR = reconcile (zoneR, shdrR) pv
+>     recL = reconcile (zoneL, shdrL) vel key
+>     recR = reconcile (zoneR, shdrR) vel key
 >     recR' = recR{
 >               rRootKey                   = rRootKey recL
 >             , rPitchCorrection           = rPitchCorrection recL}
 >     msg = unwords ["reconcileLR zoneL=", show zoneL, "\n  shdrL=", show shdrL]
 >
-> reconcile              :: (SFZone, F.Shdr) → (AbsPitch, Volume) → Reconciled 
+> reconcile              :: (SFZone, F.Shdr) → Velocity → KeyNumber → Reconciled 
 > reconcile (zone@SFZone{zRootKey, zKey, zVel
 >                      , zInitAtten
 >                      , zStartOffs, zEndOffs, zStartCoarseOffs, zEndCoarseOffs
 >                      , zLoopStartOffs, zLoopStartCoarseOffs, zLoopEndOffs, zLoopEndCoarseOffs
 >                      , zDelayVolEnv, zAttackVolEnv, zHoldVolEnv
 >                      , zDecayVolEnv, zSustainVolEnv, zReleaseVolEnv
->                      , zCoarseTune, zFineTune, zChorus, zReverb, zPan, zSampleMode}, shdr) pv
->                                          =
->   Reconciled {
+>                      , zCoarseTune, zFineTune, zChorus, zReverb, zPan, zSampleMode}, shdr) vel key
+>                                          = recon
+>   where
+>     m8n                                  = resModulation zone
+>     recon = Reconciled {
 >     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
 >   , rSampleRate      = fromIntegral                                  (F.sampleRate shdr)
 >   , rStart           = addIntToWord          (F.start shdr)          (sumOfMaybeInts
@@ -1222,8 +1235,8 @@ reconcile zone and sample header ===============================================
 >                                              (F.originalPitch shdr)  zRootKey
 >   , rForceKey        = fmap                  fromIntegral            zKey
 >   , rForceVel        = fmap                  fromIntegral            zVel
->   , rNoteOnVel       = snd pv
->   , rNoteOnKeyNumber = fst pv
+>   , rNoteOnVel       = vel
+>   , rNoteOnKey       = key
 >   , rAttenuation     = resAttenuation                                zInitAtten
 >   , rVolEnv          = deriveEnvelope                                zDelayVolEnv
 >                                                                      zAttackVolEnv
@@ -1238,12 +1251,11 @@ reconcile zone and sample header ===============================================
 >                                                                       zFineTune
 >                          else Nothing
 >
->   , rModulation      =                                                resModulation          zone
+>   , rModulation      =                                                m8n
 >   , rEffects         = deriveEffects                                  zChorus
 >                                                                       zReverb
 >                                                                       zPan}
 >
->   where
 >     resPitchCorrection :: Int → Maybe Int → Maybe Int → Double
 >     resPitchCorrection alt mps mpc       = fromMaybe ((fromCents . fromIntegral) alt) (fromCents' mps mpc)
 >
@@ -1314,20 +1326,20 @@ carry out, and "pre-cache" results, of play requests ===========================
 >     precalcNotes kind p_@PerGMScored{pPerGMKey}
 >                                          = foldl' (pvFolder pPerGMKey{mpWordZ = Nothing})
 >                                                   Map.empty
->                                                   [(p,v) | p ← [0..127], v ← [0..127]]
+>                                                   [(v,k) | v ← [0..127], k ← [0..127]]
 >
 >     pvFolder           :: PerGMKey
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
->                           → (AbsPitch, Volume)
+>                           → (Velocity, KeyNumber)
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
->     pvFolder pergm ps (pch, vol)         = Map.insert (PlayKey pergm pch vol) playValue ps
+>     pvFolder pergm ps (vel, key)         = Map.insert (PlayKey pergm vel key) playValue ps
 >       where
 >         ((zoneL, shdrL), (zoneR, shdrR))
 >                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
->                                          = setZone zoneCache pergm pch vol
+>                                          = setZone zoneCache pergm vel key
 >         (reconL, reconR)
 >                        :: (Reconciled, Reconciled)
->                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) (pch, vol)
+>                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) vel key
 >         playValue                        = (reconL, if reconR == reconL
 >                                                       then Nothing
 >                                                       else Just reconR)

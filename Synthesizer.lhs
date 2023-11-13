@@ -81,7 +81,7 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → Bool
 >                           → Signal p () (Double, (ModSignals, ModSignals))
-> eutDriver secsScored (reconL@Reconciled{rModulation, rNoteOnVel, rNoteOnKeyNumber}, reconR) secsToPlay idelta looping
+> eutDriver secsScored (reconL@Reconciled{rModulation, rNoteOnVel, rNoteOnKey}, reconR) secsToPlay idelta looping
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = if looping
 >                                              then procDriver calcLooping
@@ -102,7 +102,7 @@ Signal function-based synth ====================================================
 >                                                       ToPitch
 >                                                       modSigL
 >                                                       rNoteOnVel
->                                                       rNoteOnKeyNumber
+>                                                       rNoteOnKey
 >       rec
 >         let phase                        = calcPhase next
 >         next           ← delay 0         ⤙ frac (phase + delta)                           
@@ -221,8 +221,8 @@ Modulation =====================================================================
 >                           → Double
 >                           → (Reconciled, Reconciled)
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
-> eutModulate m8n _ ( rL@Reconciled{rNoteOnVel = nowVelL, rNoteOnKeyNumber = nowKeyL}
->                   , rR@Reconciled{rNoteOnVel = nowVelR, rNoteOnKeyNumber = nowKeyR})               =
+> eutModulate m8n _ ( rL@Reconciled{rNoteOnVel = nowVelL, rNoteOnKey = nowKeyL}
+>                   , rR@Reconciled{rNoteOnVel = nowVelR, rNoteOnKey = nowKeyR})               =
 >   proc ((a1L, a1R), (modSigL, modSigR)) → do
 >     a2L   ← addResonance nowVelL nowKeyL m8n
 >                                          ⤙ (a1L, modSigL)
@@ -763,7 +763,7 @@ Utility types ==================================================================
 >   , rForceKey          :: Maybe AbsPitch
 >   , rForceVel          :: Maybe Volume
 >   , rNoteOnVel         :: Volume
->   , rNoteOnKeyNumber   :: AbsPitch
+>   , rNoteOnKey         :: AbsPitch
 >   , rAttenuation       :: Double
 >   , rVolEnv            :: Maybe Envelope
 >   , rPitchCorrection   :: Maybe Double
@@ -903,7 +903,7 @@ Turn Knobs Here ================================================================
 >   , qqDesireReFuzzy                      = DPreferOn
 >
 >   , qqWeighHints                         = 5
->   , qqWeighStereo                        = 3
+>   , qqWeighStereo                        = 2
 >   , qqWeigh24Bit                         = 0
 >   , qqWeighSplits                        = 1
 >   , qqWeighConformance                   = 2
@@ -919,7 +919,7 @@ Turn Knobs Here ================================================================
 > defS =
 >   SynthSettings {
 >     qqUsePitchCorrection                 = True
->   , qqUseAttenuation                     = False
+>   , qqUseAttenuation                     = True
 >   , qqUseEnvelopes                       = True
 >   , qqUseLoopSwitching                   = True
 >   , qqUseEffectReverb                    = True

@@ -350,7 +350,7 @@ TC =============================================================================
 >   $ keysig A Major
 >   $ chord [ addVolume  90 $ instrument ElectricGuitarClean         tcV
 >           , addVolume  20 $ instrument FrenchHorn                  tcG
->           , addVolume  30 $ transpose (-12) $ instrument Tuba      tcC
+>           , addVolume  70 $ transpose (-12) $ instrument Tuba      tcC
 >           , addVolume  80                                          tcP]
 >   where
 >   gUnit :: Music Pitch
@@ -1080,13 +1080,13 @@ DH =============================================================================
 >   
 >     bassMusic = 
 >      transpose dhTranspose
->      $ addVolume 20
+>      $ addVolume 60
 >      $ keysig B Mixolydian
 >      $ instrument dhBassI bassLine
 >   
 >     organMusic =
 >      transpose dhTranspose
->      $ addVolume 20
+>      $ addVolume 50
 >      $ keysig B Mixolydian
 >      $ instrument dhOrgnI organLine
 >
