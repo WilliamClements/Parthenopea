@@ -248,7 +248,7 @@ Modulator management ===========================================================
 >                                                     , show x4, " = ", show (x1+x2+x3+x4), " => ", show fact]
 >
 > addResonance           :: ∀ p . Clock p ⇒ Velocity → KeyNumber → Modulation → Signal p (Double, ModSignals) Double
-> addResonance noteOnVel noteOnKey m8n@Modulation{mLowPass, toFilterFcSummary}
+> addResonance vel key m8n@Modulation{mLowPass, toFilterFcSummary}
 >                                          = maybe delay' makeSF mLowPass
 >   where
 >     
@@ -262,8 +262,8 @@ Modulator management ===========================================================
 >                                m8n
 >                                ToFilterFc
 >                                msig
->                                noteOnVel
->                                noteOnKey
+>                                vel
+>                                key
 >         y ← filterLowPassBW              ⤙ (x, fc)
 >         outA                             ⤙ resonate x fc y
 >       where
@@ -509,6 +509,11 @@ The use of these functions requires that their input is normalized between 0 and
 
 Type declarations =====================================================================================================
 
+> data NoteOn =
+>   NoteOn {
+>     noteOnVel          :: Velocity
+>   , noteOnKey          :: KeyNumber} deriving Show
+>
 > data LowPass =
 >   LowPass {
 >     lowPassFc          :: Double

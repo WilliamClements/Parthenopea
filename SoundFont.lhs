@@ -1326,20 +1326,21 @@ carry out, and "pre-cache" results, of play requests ===========================
 >     precalcNotes kind p_@PerGMScored{pPerGMKey}
 >                                          = foldl' (pvFolder pPerGMKey{mpWordZ = Nothing})
 >                                                   Map.empty
->                                                   [(v,k) | v ← [0..127], k ← [0..127]]
+>                                                   [NoteOn v k | v ← [0..127], k ← [0..127]]
 >
 >     pvFolder           :: PerGMKey
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
->                           → (Velocity, KeyNumber)
+>                           → NoteOn
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
->     pvFolder pergm ps (vel, key)         = Map.insert (PlayKey pergm vel key) playValue ps
+>     pvFolder pergm ps noon@NoteOn{noteOnVel, noteOnKey}
+>                                          = Map.insert (PlayKey pergm noteOnVel noteOnKey) playValue ps
 >       where
 >         ((zoneL, shdrL), (zoneR, shdrR))
 >                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
->                                          = setZone zoneCache pergm vel key
+>                                          = setZone zoneCache pergm noteOnVel noteOnKey
 >         (reconL, reconR)
 >                        :: (Reconciled, Reconciled)
->                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) vel key
+>                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) noteOnVel noteOnKey
 >         playValue                        = (reconL, if reconR == reconL
 >                                                       then Nothing
 >                                                       else Just reconR)
