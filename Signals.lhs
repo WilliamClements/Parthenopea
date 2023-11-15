@@ -26,10 +26,12 @@
 > import FRP.UISF.AuxFunctions (DeltaT)
 > import FRP.UISF.Graphics
 > import FRP.UISF.UITypes (LayoutType, nullLayout, nullTP)
-> import HSoM.MUI ( defaultMUIParams, midiIn, midiOut, runMUI, runMUI', selectOutput)
+> import HSoM.Examples.Additive ( sineTable, sfTest1 )
 > import HSoM.Examples.FFT ( fftA )
 > import HSoM.Examples.MUIExamples1 (getDeviceIDs)
 > import HSoM.Examples.MUIExamples2 (mergeS, removeNull)
+> import HSoM.Examples.PhysicalModeling ( sineTable441 )
+> import HSoM.MUI ( defaultMUIParams, midiIn, midiOut, runMUI, runMUI', selectOutput)
 > import Modulation
 > import Numeric ( showHex )
 > import Parthenopea

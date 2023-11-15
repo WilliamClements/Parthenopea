@@ -894,7 +894,7 @@ Sampling =======================================================================
 >
 > toSamples              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [Double]
 > toSamples dur sf
->   | traceNow msg False                   = undefined
+>   | traceIf msg False                    = undefined
 >   | otherwise                            = take numSamples $ concatMap collapse $ unfold $ strip sf
 >   where
 >     sr                                   = rate     (undefined :: p)
@@ -908,12 +908,6 @@ Sampling =======================================================================
 >
 > maxSample              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → Double
 > maxSample dur sf                         = maximum (map abs (toSamples dur sf))
->
-> sineTable :: Table
-> sineTable = tableSinesN 4096 [1]
->
-> sineTable441 :: Table
-> sineTable441 = tableSinesN 100 [1]
 >
 > class AudioSample a ⇒ WaveAudioSample a where
 >   retrieve             :: UArray Int Int32 → Int → a

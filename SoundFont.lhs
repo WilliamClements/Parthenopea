@@ -1140,11 +1140,11 @@ zone selection for rendering ===================================================
 >     withSlink          :: Word → (ZoneHeader, SFZone) → Bool
 >     withSlink toMatch (zh, zone)         = fromJust (zSampleIndex zone) == toMatch
 >
-> scoreOneZone           :: AbsPitch
->                           → Volume
+> scoreOneZone           :: Velocity
+>                           → KeyNumber
 >                           → (ZoneHeader, SFZone)
 >                           → Maybe (Int, (ZoneHeader, SFZone))
-> scoreOneZone pch vol (zh, zone)                  =
+> scoreOneZone vel key (zh, zone)                  =
 >     if qualify
 >     then Just (score, (zh, zone))
 >     else Nothing
@@ -1154,8 +1154,8 @@ zone selection for rendering ===================================================
 >
 >     score = score1 + score2
 >
->     score1 = scorePitchDistance pch (zKeyRange zone)
->     score2 = scoreVelocityDistance vol (zVelRange zone)
+>     score1 = scorePitchDistance key (zKeyRange zone)
+>     score2 = scoreVelocityDistance vel (zVelRange zone)
 >
 > instrumentSplitCount   :: InstrumentName → [(ZoneHeader, SFZone)] → Double
 > instrumentSplitCount kind zs             = fromIntegral (length zs)
@@ -1285,7 +1285,7 @@ reconcile zone and sample header ===============================================
 >     initFc             :: Double         = fromAbsoluteCents $ fromMaybe 13500 zInitFc
 >     initQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ
 >
->     nLowPass           :: Maybe LowPass  = if useLowPass && (isJust zInitFc || isJust zInitQ)
+>     nLowPass           :: Maybe LowPass  = if useLowPass && (isJust zInitFc || initQ > 0)
 >                                              then Just $ LowPass initFc initQ
 >                                              else Nothing
 >     nModEnv            :: Maybe Envelope = deriveEnvelope

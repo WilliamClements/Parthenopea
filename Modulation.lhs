@@ -18,11 +18,14 @@
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
 > import Debug.Trace ( traceIO )
+> import Euterpea ( (<<<), (>>>) )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
-> import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )
-> import Euterpea.Music ( Volume, AbsPitch, Dur )
+> import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
+> import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..), AudSF )
+> import Euterpea.Music ( Volume, AbsPitch, Dur, absPitch, PitchClass(..) )
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA, DeltaT )
+> import HSoM.Examples.Additive ( sineTable, sfTest1 )
 > import Parthenopea
   
 Modulator management ==================================================================================================
@@ -264,7 +267,7 @@ Modulator management ===========================================================
 >                                msig
 >                                vel
 >                                key
->         y ← filterLowPassBW              ⤙ (x, fc)
+>         y ← filterSVF lowPassFc lowPassQ ⤙ (x, fc)
 >         outA                             ⤙ resonate x fc y
 >       where
 >         msg = unwords ["addResonance/makeSF ", show lowPassFc ]
@@ -335,6 +338,35 @@ Modulator management ===========================================================
 >     outA ⤙ sout
 >
 
+see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
+
+> filterSVF              :: forall p . Clock p => Double → Double → Signal p (Double,Double) Double
+> filterSVF initFc initQ
+>   | traceNow msg False                   = undefined
+>   | otherwise                            =
+>   let
+>     sr                                   = rate (undefined :: p)
+>   in
+>     if useFilterSVF
+>     then proc (sig, fc) -> do
+>       let f1                             = 2 * sin (pi * fc / sr)
+>       rec
+>         let yL'                          = f1 * yB + yL
+>         let yH'                          = sig - yL' - initQ * yB
+>         let yB'                          = f1 * yH' + yB
+>
+>         yL ← delay 0                     ⤙ yL'
+>         yB ← delay 0.5                   ⤙ yB'
+>         yH ← delay 1                     ⤙ yH'
+>       outA                               ⤙ yL'
+>     else proc (sig, fc) -> do
+>       filterLowPassBW                    ⤙ (sig, fc)
+>   where
+>     msg                                  = unwords ["filterSVF " ++ show useFilterSVF
+>                                                           ++ " " ++ show initFc
+>                                                           ++ " " ++ show initQ
+>                                                           ++ " " ++ show (fromCentibels' initQ)]
+
 Testing ===============================================================================================================
 
 > aEqual a b
@@ -391,7 +423,7 @@ Testing ========================================================================
 >           results                        = [controlDenormal ping (conv x) (0, 1) | x ← [0..127]]
 >
 >           conv         :: Int → Double
->           conv midi                      = fromIntegral midi / fromIntegral qMidiSize
+>           conv midi                      = fromIntegral midi / fromIntegral qMidiSize128
 >
 >           msg                            = unwords ["mapping = ", show ping]
 >
@@ -403,15 +435,82 @@ Testing ========================================================================
 >     results                              = [controlDenormal ping (conv x) (0, 1) | x ← [0..127]]
 >
 >     conv         :: Int → Double
->     conv midi                            = fromIntegral midi / fromIntegral qMidiSize
+>     conv midi                            = fromIntegral midi / fromIntegral qMidiSize128
 >
 >     msg = unwords ["modulationTest004 ", show ping]
+>
+> -- range = 0.75 (max resonance) ..    1.25 (no resonance)
+> --         960 cB    -170-    ..      0 cB
+> tLowSVF = outFile "lowSVF.wav" 10 $
+>            sfTest1 (filterSVF (fromCents 13500) 0.80) 10 (absPitch (C,5)) 64 []
+>
+> data IterData =
+>   IterData {
+>     theFc              :: Double
+>   , theFq              :: Double
+>   , theFt              :: Double
+>   , theVel             :: Double} deriving Show
+>
+> modulationTest005      :: IO ()
+> modulationTest005
+>   | traceNow msg False                   = undefined
+>   | otherwise                            = do
+>     putStrLn ("mt5 " ++ show avgGain)
+>     return ()
+>   where
+>     minFc, maxFc       :: Int
+>     minFc                                = 1500
+>     maxFc                                = 13500
+>
+>     minFq, maxFq       :: Double
+>     minFq                                = 0.80
+>     maxFq                                = 1.25
+>
+>     minFt, maxFt       :: Double
+>     minFt                                = apToHz $ absPitch $ (A,0)
+>     maxFt                                = apToHz $ absPitch $ (C,7)
+>
+>     -- pick midpoints for now
+>     myFc                                 = fromAbsoluteCents ((minFc + maxFc) `div` 2)
+>     myFq                                 = (minFq + maxFq) / 2
+>     myFt                                 = (minFt + maxFt) / 2
+>     myV                                  = 1
+>
+>     doTheseQ           :: [Double]       = [fromIntegral x / 100 | x ← [80,90..125]]
+>     theyHaveQ          :: Double         = fromIntegral $ length doTheseQ
+>
+>     doTheseFt          :: [Double]       = [(apToHz . absPitch) (C, x) | x ← [0..9]]
+>     theyHaveFt         :: Double         = fromIntegral $ length doTheseFt
+>     avgGain                              = sum (map iter doTheseFt) / theyHaveFt
+>
+>     iter               :: Double → Double
+>     iter newFt
+>       | traceNow msg' False              = undefined
+>       | otherwise                        = rms
+>       where
+>         iterData                         = IterData newFt myFq newFt myV
+>         dbls                             = toSamples 0.5 (driver iterData)
+>         n              :: Double         = fromIntegral $ length dbls
+>         rms                              = sum (map abs dbls) / n
+>         msg'                             = unwords ["modulationTest005/iter ", show rms, "\n", show iterData]
+>
+>     driver             :: IterData → AudSF () Double
+>     driver itd@IterData{theFc, theFq, theFt, theVel}                              =
+>       proc () → do
+>         a1 ← osc sineTable 0 <<< constA theFt ⤙ () 
+>         a2 ← sf ⤙ (a1, theFc)
+>         outA ⤙ a2*theVel
+>       where
+>         sf = filterSVF theFc theFq
+>
+>     -- do the test from (A, 0) to (C, 9)
+>     msg = unwords ["modulationTest005 ", show $ avgGain * 1000]
 
 Controller Curves =====================================================================================================
 
 > qTableSize             :: Int            = 1024
-> qMidiSize              :: Int            = 128
-> qStepSize                                = qTableSize `div` qMidiSize
+> qMidiSize128           :: Int            = 128
+> qStepSize                                = qTableSize `div` qMidiSize128
 >
 > quarterCircleTable     :: Array Int Double
 >                                          = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
@@ -610,11 +709,13 @@ Type declarations ==============================================================
 >   ModulationSettings {
 >     qqUseModulators        :: Bool
 >   , qqUseDefaultMods       :: Bool
+>   , qqUseFilterSVF         :: Bool
 >   , qqUseLowPass           :: Bool
 >   , qqUseLFO               :: Bool} deriving Show
 >
 > useModulators                            = qqUseModulators              defM
 > useDefaultMods                           = qqUseDefaultMods             defM
+> useFilterSVF                             = qqUseFilterSVF               defM
 > useLowPass                               = qqUseLowPass                 defM
 > useLFO                                   = qqUseLFO                     defM
 >
@@ -623,5 +724,6 @@ Type declarations ==============================================================
 >   ModulationSettings {
 >     qqUseModulators                      = True
 >   , qqUseDefaultMods                     = False
+>   , qqUseFilterSVF                       = False
 >   , qqUseLowPass                         = True
 >   , qqUseLFO                             = True}
