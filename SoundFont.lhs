@@ -1222,7 +1222,7 @@ reconcile zone and sample header ===============================================
 >     m8n                                  = resModulation zone
 >     recon = Reconciled {
 >     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
->   , rSampleRate      = fromIntegral                                  (F.sampleRate shdr)
+>   , rSampleRate      = fromIntegral          (F.sampleRate shdr)
 >   , rStart           = addIntToWord          (F.start shdr)          (sumOfMaybeInts
 >                                                                        [zStartOffs, zStartCoarseOffs])
 >   , rEnd             = addIntToWord          (F.end shdr)            (sumOfMaybeInts
@@ -1235,8 +1235,7 @@ reconcile zone and sample header ===============================================
 >                                              (F.originalPitch shdr)  zRootKey
 >   , rForceKey        = fmap                  fromIntegral            zKey
 >   , rForceVel        = fmap                  fromIntegral            zVel
->   , rNoteOnVel       = vel
->   , rNoteOnKey       = key
+>   , rNoteOn          = NoteOn                vel                     key
 >   , rAttenuation     = resAttenuation                                zInitAtten
 >   , rVolEnv          = deriveEnvelope                                zDelayVolEnv
 >                                                                      zAttackVolEnv

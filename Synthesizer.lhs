@@ -40,13 +40,12 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL@Reconciled{rSampleMode, rStart, rEnd, rRootKey, rModulation}, reconR)
+> eutSynthesize (reconL@Reconciled{rSampleMode, rStart, rEnd, rRootKey}, reconR)
 >               sr dur pch vol params s16 ms8
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = sig
 >   where
->     pv                 :: (AbsPitch, Volume)
->                                          = (pch, vol)
+>     noon@NoteOn{noteOnVel, noteOnKey}    = NoteOn vol pch
 >     ns                 :: Double         = fromIntegral (rEnd - rStart)
 >     secsSample         :: Double         = ns / sr
 >     secsScored         :: Double         = 2 * fromRational dur
@@ -57,19 +56,19 @@ Signal function-based synth ====================================================
 >                                              then secsScored
 >                                              else min secsSample secsScored
 >
->     freqRatio          :: Double         = apToHz (fromIntegral rRootKey) / apToHz pch
+>     freqRatio          :: Double         = apToHz (fromIntegral rRootKey) / apToHz noteOnKey
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 (rPitchCorrection reconL)
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
 >
 >     sig                :: Signal p () (Double, Double)
 >                                          =       eutDriver      secsScored (reconL, reconR) secsToPlay delta looping
->                                              >>> eutPumpSamples secsScored (reconL, reconR) pv dur s16 ms8
->                                              >>> eutModulate    rModulation secsScored (reconL, reconR)
+>                                              >>> eutPumpSamples secsScored (reconL, reconR) noon dur s16 ms8
+>                                              >>> eutModulate    secsScored (reconL, reconR)
 >                                              >>> eutEffects     secsScored (reconL, reconR)
 >                                              >>> eutAmplify     secsScored (reconL, reconR) secsToPlay
 >
->     msg                                  = unwords [ "eutSynthesize ", show (dur, pv)
+>     msg                                  = unwords [ "eutSynthesize ", show (dur, noon)
 >                                                    , "ns, sr, ns/sr= ", show (ns, sr, ns/sr)
 >                                                    , "\nsample, scored, toplay = "
 >                                                    , show secsSample, " , ", show secsScored, " , ", show secsToPlay]
@@ -81,7 +80,7 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → Bool
 >                           → Signal p () (Double, (ModSignals, ModSignals))
-> eutDriver secsScored (reconL@Reconciled{rModulation, rNoteOnVel, rNoteOnKey}, reconR) secsToPlay idelta looping
+> eutDriver secsScored (reconL@Reconciled{rModulation, rNoteOn}, reconR) secsToPlay idelta looping
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = if looping
 >                                              then procDriver calcLooping
@@ -101,8 +100,7 @@ Signal function-based synth ====================================================
 >                                                       m
 >                                                       ToPitch
 >                                                       modSigL
->                                                       rNoteOnVel
->                                                       rNoteOnKey
+>                                                       rNoteOn
 >       rec
 >         let phase                        = calcPhase next
 >         next           ← delay 0         ⤙ frac (phase + delta)                           
@@ -145,30 +143,31 @@ Signal function-based synth ====================================================
 > eutPumpSamples         :: ∀ p . Clock p ⇒
 >                           Double
 >                           → (Reconciled, Reconciled)
->                           → (AbsPitch, Volume)
+>                           → NoteOn
 >                           → Dur
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p (Double, (ModSignals, ModSignals)) ((Double, Double), (ModSignals, ModSignals))
 > eutPumpSamples _ (  reconL@Reconciled{rAttenuation = attenL, rStart = stL, rEnd = enL, rModulation = m8nL}
->                   , reconR@Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR, rModulation = m8nR}) pv dur s16 ms8
+>                   , reconR@Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR, rModulation = m8nR})
+>                  noon@NoteOn{noteOnVel, noteOnKey} dur s16 ms8
 >   | traceIf msg False                    = undefined
 >   | otherwise =
 >   proc (pos, msig) → do
->     let saddrL         :: Int            = fromIntegral stL + truncate (numS * pos)
->     let saddrR         :: Int            = fromIntegral stR + truncate (numS * pos)
->     let (a1L, a1R)                       = (lookupSamplePoint s16 ms8 saddrL, lookupSamplePoint s16 ms8 saddrR)
->     outA ⤙ (pump (ampL, ampR) (a1L, a1R), msig)
+>     let pos'           :: Double         = numS * pos
+>     let ix             :: Int            = truncate pos'
+>     let offset         :: Double         = pos' - fromIntegral ix
 >
+>     let (a1L, a1R)                       = (  samplePointInterp s16 ms8 offset (fromIntegral stL + ix) 
+>                                             , samplePointInterp s16 ms8 offset (fromIntegral stR + ix))
+>     outA ⤙ (pump (ampL, ampR) (a1L, a1R), msig)
 >   where
->     vel                                  = snd pv
->     key                                  = fst pv
 >     (graphL, graphR)                     = (modGraph m8nL, modGraph m8nR)
->     cAttenL            :: Double         = fromCentibels' (attenL + evaluateMods ToInitAtten graphL vel key)
->     cAttenR            :: Double         = fromCentibels' (attenR + evaluateMods ToInitAtten graphR vel key)
+>     cAttenL            :: Double         = fromCentibels' (attenL + evaluateMods ToInitAtten graphL noon)
+>     cAttenR            :: Double         = fromCentibels' (attenR + evaluateMods ToInitAtten graphR noon)
 >     (ampL, ampR)       :: (Double, Double)
->                                          = ( fromIntegral vel / 100 / cAttenL
->                                            , fromIntegral vel / 100 / cAttenR)
+>                                          = ( fromIntegral noteOnVel / 100 / cAttenL
+>                                            , fromIntegral noteOnVel / 100 / cAttenR)
 >     numS               :: Double         = fromIntegral (enL - stL)
 >
 >     pump               :: (Double, Double) → (Double, Double) → (Double, Double)
@@ -181,7 +180,7 @@ Signal function-based synth ====================================================
 >      
 >     msg = unwords ["eutPumpSamples numS = ", show numS
 >                  , "attenL = "             , show attenL
->                  , "evaluateMods = "       , show (evaluateMods ToInitAtten graphL vel key)
+>                  , "evaluateMods = "       , show (evaluateMods ToInitAtten graphL noon)
 >                  , " -- "                  , show (ampL, ampR)]
 >
 > eutAmplify             :: ∀ p . Clock p ⇒
@@ -217,17 +216,15 @@ Signal function-based synth ====================================================
 Modulation ============================================================================================================
 
 > eutModulate            :: ∀ p . Clock p ⇒
->                           Modulation
->                           → Double
+>                           Double
 >                           → (Reconciled, Reconciled)
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
-> eutModulate m8n _ ( rL@Reconciled{rNoteOnVel = nowVelL, rNoteOnKey = nowKeyL}
->                   , rR@Reconciled{rNoteOnVel = nowVelR, rNoteOnKey = nowKeyR})               =
+> eutModulate secsScored ( rL@Reconciled{rNoteOn, rModulation = m8nL}, rR@Reconciled{rModulation = m8nR} )
+>                                          =
 >   proc ((a1L, a1R), (modSigL, modSigR)) → do
->     a2L   ← addResonance nowVelL nowKeyL m8n
->                                          ⤙ (a1L, modSigL)
->     a2R   ← addResonance nowVelR nowKeyR m8n
->                                          ⤙ (a1R, modSigR)
+>
+>     a2L   ← addResonance rNoteOn m8nL    ⤙ (a1L, modSigL)
+>     a2R   ← addResonance rNoteOn m8nR    ⤙ (a1R, modSigR)
 >
 >     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
 >
@@ -283,7 +280,7 @@ FFT ============================================================================
 >     nsD                :: Double         = fromIntegral nsI
 >
 >     (st', en')         :: (Int, Int)     = (fromIntegral st, fromIntegral st + nsI)
->     raw                :: [Double]       = map (lookupSamplePoint s16 ms8) [st'..en'- 1]
+>     raw                :: [Double]       = map (samplePoint s16 ms8) [st'..en'- 1]
 >
 >     maxval             :: Double         = maximum (map abs raw)
 >     vNormed            :: Array Int Double
@@ -762,8 +759,7 @@ Utility types ==================================================================
 >   , rRootKey           :: AbsPitch
 >   , rForceKey          :: Maybe AbsPitch
 >   , rForceVel          :: Maybe Volume
->   , rNoteOnVel         :: Volume
->   , rNoteOnKey         :: AbsPitch
+>   , rNoteOn            :: NoteOn
 >   , rAttenuation       :: Double
 >   , rVolEnv            :: Maybe Envelope
 >   , rPitchCorrection   :: Maybe Double

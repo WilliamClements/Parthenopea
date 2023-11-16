@@ -201,11 +201,11 @@ Modulator management ===========================================================
 >                                                >>= addAmount amt
 >                                                >>= addAmtSrc' amtSrc
 >
-> evaluateMods           :: ModDestType → Map ModDestType [Modulator] → Velocity → KeyNumber → Double
-> evaluateMods md graph v k                = sum $ maybe [] (map (evaluateMod graph v k)) (Map.lookup md graph)
+> evaluateMods           :: ModDestType → Map ModDestType [Modulator] → NoteOn → Double
+> evaluateMods md graph noon               = sum $ maybe [] (map (evaluateMod graph noon)) (Map.lookup md graph)
 > 
-> evaluateMod            :: Map ModDestType [Modulator] → Velocity → KeyNumber → Modulator → Double
-> evaluateMod graph vel key m8r@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
+> evaluateMod            :: Map ModDestType [Modulator] → NoteOn → Modulator → Double
+> evaluateMod graph noon@NoteOn{noteOnVel, noteOnKey} m8r@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
 >                                          = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
 >   where
 >     getValue            :: ModSrc → Double
@@ -213,18 +213,18 @@ Modulator management ===========================================================
 >       | useModulators                    =
 >           case msSource of
 >             FromNoController     → 1
->             FromNoteOnVel        → fromNoteOn vel msMapping
->             FromNoteOnKey        → fromNoteOn key msMapping
->             FromLinked           → evaluateMods (ToLink mrModId) graph vel key
+>             FromNoteOnVel        → fromNoteOn noteOnVel msMapping
+>             FromNoteOnKey        → fromNoteOn noteOnKey msMapping
+>             FromLinked           → evaluateMods (ToLink mrModId) graph noon
 >       | otherwise                        = 0
 >
 > fromNoteOn             :: Int → Mapping → Double
 > fromNoteOn n ping@Mapping{msContinuity, msBiPolar, msMax2Min}
 >                                          = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
-> calculateModFactor     :: String → Modulation → ModDestType → ModSignals → Velocity → KeyNumber → Double
+> calculateModFactor     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
 > calculateModFactor tag m8n@Modulation{modGraph, toPitchSummary, toFilterFcSummary, toVolumeSummary}
->                    md msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} vel key
+>                    md msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} noon
 >  | traceNever msg False                  = undefined
 >  | otherwise                             = fact
 >  where
@@ -241,7 +241,7 @@ Modulator management ===========================================================
 >    x1                                    = srModEnvPos * head targetList
 >    x2                                    = srModLfoPos * (targetList !! 1)
 >    x3                                    = srVibLfoPos * (targetList !! 2)
->    x4                                    = evaluateMods md modGraph vel key
+>    x4                                    = evaluateMods md modGraph noon
 >    fact                                  = fromCents (x1 + x2 + x3 + x4)
 >
 >    msg                                   = unwords ["calculateModFactor: "
@@ -250,8 +250,8 @@ Modulator management ===========================================================
 >                                                     , show x3, " + "
 >                                                     , show x4, " = ", show (x1+x2+x3+x4), " => ", show fact]
 >
-> addResonance           :: ∀ p . Clock p ⇒ Velocity → KeyNumber → Modulation → Signal p (Double, ModSignals) Double
-> addResonance vel key m8n@Modulation{mLowPass, toFilterFcSummary}
+> addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
+> addResonance noon m8n@Modulation{mLowPass, toFilterFcSummary}
 >                                          = maybe delay' makeSF mLowPass
 >   where
 >     
@@ -265,8 +265,7 @@ Modulator management ===========================================================
 >                                m8n
 >                                ToFilterFc
 >                                msig
->                                vel
->                                key
+>                                noon
 >         y ← filterSVF lowPassFc lowPassQ ⤙ (x, fc)
 >         outA                             ⤙ resonate x fc y
 >       where
@@ -342,7 +341,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 
 > filterSVF              :: forall p . Clock p => Double → Double → Signal p (Double,Double) Double
 > filterSVF initFc initQ
->   | traceNow msg False                   = undefined
+>   | traceIf msg False                   = undefined
 >   | otherwise                            =
 >   let
 >     sr                                   = rate (undefined :: p)
@@ -400,7 +399,7 @@ Testing ========================================================================
 >   let graph                             = compileMods [m8rIn]
 >
 >   let eval                              = evaluateMods ToFilterFc graph 
->   let results                           = [eval x 64 | x ← [0..127]]
+>   let results                           = [eval (NoteOn x 64) | x ← [0..127]]
 >   print results
 >   return ()
 >
@@ -611,7 +610,7 @@ Type declarations ==============================================================
 > data NoteOn =
 >   NoteOn {
 >     noteOnVel          :: Velocity
->   , noteOnKey          :: KeyNumber} deriving Show
+>   , noteOnKey          :: KeyNumber} deriving (Eq, Show)
 >
 > data LowPass =
 >   LowPass {

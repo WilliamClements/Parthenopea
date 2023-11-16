@@ -546,6 +546,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 > instrumentAntiFFKeys inst       =
 >    case inst of
 >       AcousticGrandPiano        → Just $ singleton "upright"
+>       Trumpet                   → Just $ singleton "mute"
 >       _                         → Nothing
 >
 > instrumentFFKeys       :: InstrumentName → Maybe [String]
@@ -1135,8 +1136,15 @@ Returns sample point as (normalized) Double
 > sample16               :: Int16 → Double
 > sample16 i16                             = fromIntegral i16 / 32768.0
 >
-> lookupSamplePoint      :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Int → Double
-> lookupSamplePoint s16 ms8 ix             = sample24 (s16 ! ix) (fromIntegral (maybe 0 (! ix) ms8))
+> samplePoint            :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Int → Double
+> samplePoint s16 ms8 ix                   = sample24 (s16 ! ix) (fromIntegral (maybe 0 (! ix) ms8))
+>
+> samplePointInterp      :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Double → Int → Double
+> samplePointInterp s16 ms8 offset ix      = s0 + offset * (s1 - s0)
+>   where
+>     (s0, s1)           :: (Double, Double)
+>                                          = (  samplePoint s16 ms8 ix
+>                                             , samplePoint s16 ms8 (ix + 1))
 
 Emission capability ===================================================================================================
 

@@ -289,7 +289,7 @@ Silver =========================================================================
 >     $ transpose 17
 >     $ keysig A Mixolydian
 >     $ addVolume 100
->     $ instrument TubularBells
+>     $ instrument MusicBox
 >     $ line allSilver
 >
 >     where
@@ -434,7 +434,7 @@ Country In The Morning =========================================================
 >   $ line [d 4 (2*wn)]
 >   
 > littleACountry =
->   addVolume 15
+>   addVolume 64
 >   $ instrument AltoSax
 >   $ line [fs 4 wn]
 >   
