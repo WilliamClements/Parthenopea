@@ -218,18 +218,6 @@ Chart ==========================================================================
 >   in
 >     idents
 >
-> class Hankable a where
->   getFFKeys            :: a → Maybe [String]
->   getList              :: [a]
->
-> instance Hankable InstrumentName where
->   getFFKeys = instrumentFFKeys
->   getList = map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
->
-> instance Hankable PercussionSound where
->   getFFKeys = percussionFFKeys
->   getList = map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
-> 
 > primes :: (Integral a) ⇒ [a]
 > primes = 2 : 3 : ([5,7..] `minus`
 >                      foldr (\(x:xs) → (x:) . union xs) []

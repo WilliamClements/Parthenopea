@@ -62,7 +62,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data PreSample =
 >   PreSample {
 >     sName              :: String
->   , psBmas             :: BothMatchingAs
+>   , sMatches           :: FFMatches
 >   , dLow               :: Double
 >   , dTarget            :: Double
 >   , dHigh              :: Double} deriving Show
@@ -70,7 +70,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data PreInstrument =
 >   PreInstrument {
 >     iName              :: String
->   , isBmas             :: BothMatchingAs} deriving Show
+>   , iMatches           :: FFMatches} deriving Show
 >
 > data PerGMKey =
 >   PerGMKey {
@@ -450,16 +450,16 @@ executive ======================================================================
 >     wiFolder wip pergm                   = if null mk then wip else aresult
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
->         preI@PreInstrument{isBmas}       = getPreInstrumentFromCache preInstCache pergm{mpWordZ = Nothing}
+>         preI@PreInstrument{iMatches}     = getPreInstrumentFromCache preInstCache pergm{mpWordZ = Nothing}
 >         perI@PerInstrument{pZonePairs}   = getPerInstrumentFromCache zoneCache    pergm{mpWordZ = Nothing}
 >         -- what Instrument is closest fit, name-wise, for this artifact
 >         mk             :: Maybe (InstrumentName, (String, Double))
->                                          = bestQualifying (matchingAs isBmas) stands
+>                                          = bestQualifying (getProMatches iMatches) stands
 >         kind                             = profess
 >                                              (isJust mk)
 >                                              "bestQualified returned Nothing"
 >                                              ((fst . fromJust) mk)
->         aresult                          = xaEnterTournament sffiles zoneCache isBmas pergm kind [] wip
+>         aresult                          = xaEnterTournament sffiles zoneCache iMatches pergm kind [] wip
 >     
 >     wpFolder           :: (Map PercussionSound [PerGMScored], [String])
 >                           → PerGMKey
@@ -472,10 +472,10 @@ executive ======================================================================
 >
 >         -- access potentially massive amount of processed information regarding instrument
 >         perI@PerInstrument{pZonePairs}   = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
->         preS@PreSample{psBmas}           = getPreSampleFromCache preSampleCache pergm
+>         preS@PreSample{sMatches}         = getPreSampleFromCache preSampleCache pergm
 >         mkind          :: Maybe PercussionSound
 >                                          = mpWordZ pergm >>= lookupZone pZonePairs >>= getAP >>= pitchToPerc
->         aresult                          = xaEnterTournament sffiles zoneCache psBmas pergm (fromJust mkind) [] wip
+>         aresult                          = xaEnterTournament sffiles zoneCache sMatches pergm (fromJust mkind) [] wip
 >
 >         lookupZone     :: [(ZoneHeader, SFZone)] → Word → Maybe SFZone
 >         lookupZone zs wZ                 = lookup wZ (map (BF.first pwZone) zs)
@@ -526,15 +526,14 @@ executive ======================================================================
 > computePreSample       :: SoundFontArrays  → F.Shdr → PreSampleKey → PreSample
 > computePreSample arrays shdr k
 >   | traceNever msg False                 = undefined
->   | otherwise                            = PreSample inp bmas dLow dTarget dHigh
+>   | otherwise                            = PreSample inp ffs dLow dTarget dHigh
 >   where
 >     ap                                   = fromIntegral $ F.originalPitch shdr
 >     apLow                                = fromIntegral $ min 127 (ap - 6)
 >     apHigh                               = fromIntegral $ max 0   (ap + 4)
 >
 >     inp                                  = F.sampleName shdr
->     bmas                                 = BothMatchingAs (computeMatchingAs inp)
->                                                           (computeMatchingAs inp)
+>     ffs                                  = computeFFMatches inp
 >     dLow                                 = sumUpFft $ eutAnalyzeSample (ssData arrays) (ssM24 arrays) shdr apLow
 >     dTarget                              = sumUpFft $ eutAnalyzeSample (ssData arrays) (ssM24 arrays) shdr ap
 >     dHigh                                = sumUpFft $ eutAnalyzeSample (ssData arrays) (ssM24 arrays) shdr apHigh
@@ -544,15 +543,14 @@ executive ======================================================================
 > computePreInstrument       :: SFFile → PerGMKey → PreInstrument
 > computePreInstrument sffile@SFFile{zArrays} pergm@PerGMKey{pWordI}
 >   | traceIf msg False                    = undefined
->   | otherwise                            = PreInstrument inp bmas
+>   | otherwise                            = PreInstrument inp ffs
 >   where
 >     iinst                                = ssInsts zArrays ! pWordI
 >
 >     inp                                  = F.instName iinst    
->     bmas                                 = BothMatchingAs (computeMatchingAs inp)
->                                                           (computeMatchingAs inp)
+>     ffs                                  = computeFFMatches inp
 > 
->     msg = unwords ["computePreInstrument ", show inp, " ", show pergm, " ", show bmas]
+>     msg = unwords ["computePreInstrument ", show inp, " ", show pergm, " ", show ffs]
 >
 > isNonPitchedByFft        :: PreSample → Maybe Bool
 > isNonPitchedByFft pres@PreSample{dLow, dTarget, dHigh}
@@ -573,11 +571,15 @@ executive ======================================================================
 >                                          = do
 >   return $ concatMap formFI zFiles
 >
+> -- file to instrument
 > formFI                 :: SFFile → [PerGMKey]
-> formFI sffile@SFFile{zArrays, zWordF}    = pergmsI
+> formFI sffile@SFFile{zArrays, zWordF}    = mapMaybe qualifyInst rangeI
 >   where
 >     boundsI                              = bounds (ssInsts zArrays)
->     pergmsI                              = mapMaybe qualifyInst [fst boundsI..snd boundsI-1]
+>     rangeI                               = profess
+>                                              (uncurry (<=) boundsI)
+>                                              "bad file: invalid bounds"
+>                                              [fst boundsI..snd boundsI-1]
 >
 >     qualifyInst        :: Word → Maybe PerGMKey
 >     qualifyInst wordI
@@ -589,6 +591,7 @@ executive ======================================================================
 >         ibagi                            = F.instBagNdx iinst
 >         jbagi                            = F.instBagNdx jinst
 >
+> -- instrument to zone (percussion identity)
 > formMasterPercussionList        :: Array Word SFFile → ZoneCache → PreSampleCache → [PerGMKey] → IO [PerGMKey]
 > formMasterPercussionList sffiles zoneCache preSampleCache pergmsI 
 >                                          = do
@@ -602,13 +605,14 @@ executive ======================================================================
 >       in
 >         pergmsP ++ instrumentPercList pergmI perI 
 >
-> instrumentPercList     :: PerGMKey → PerInstrument → [PerGMKey]
-> instrumentPercList pergmI perI           = pergmPs
->   where
->     words                                = map (pwZone . fst) (tail (pZonePairs perI))
->     pergmPs                              = map addmwP words
->     addmwP             :: Word → PerGMKey
->     addmwP wP                            = pergmI {mpWordZ = Just wP}
+>     instrumentPercList :: PerGMKey → PerInstrument → [PerGMKey]
+>     instrumentPercList pergmI perI       = pergmPs
+>       where
+>         words                            = map (pwZone . fst) (tail (pZonePairs perI))
+>         pergmPs                          = map addmwP words
+>
+>         addmwP         :: Word → PerGMKey
+>         addmwP wP                        = pergmI {mpWordZ = Just wP}
 >
 > openSoundFontFile      :: Word → FilePath → IO SFFile
 > openSoundFontFile wFile filename = do
@@ -684,18 +688,18 @@ tournament among GM instruments and percussion from SoundFont files ============
 > xaEnterTournament      :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
 >                           Array Word SFFile
 >                           → ZoneCache
->                           → BothMatchingAs
+>                           → FFMatches
 >                           → PerGMKey
 >                           → a
 >                           → [SSHint]
 >                           → (Map a [PerGMScored], [String])
 >                           → (Map a [PerGMScored], [String])
-> xaEnterTournament sffiles zoneCache bmas pergm kind hints (wix, ss)
+> xaEnterTournament sffiles zoneCache ffs pergm kind hints (wix, ss)
 >                                          = (Map.insert kind now wix, ss)
 >   where
 >     soFar              :: [PerGMScored]  = fromMaybe [] (Map.lookup kind wix)
 >     now                :: [PerGMScored]  = pergm' : soFar
->     akResult                             = getEvalAgainstKind kind (matchingAs bmas) 
+>     akResult                             = evalAgainstKind kind ffs
 >
 >     grade                                = computeGrade sffiles zoneCache pergm kind hints akResult
 >
@@ -889,7 +893,7 @@ prepare the specified instruments and percussion ===============================
 >       where
 >         arrays@SoundFontArrays{ssInsts, ssIBags, ssIGens, ssIMods, ssShdrs}
 >                                          = zArrays (sffiles ! pWordF)
->         preI@PreInstrument{iName, isBmas}
+>         preI@PreInstrument{iName, iMatches}
 >                                          = getPreInstrumentFromCache preInstCache pergm
 >
 >         iinst                            = ssInsts ! pWordI
@@ -971,8 +975,8 @@ prepare the specified instruments and percussion ===============================
 >
 >         bqForce        :: Double → (Maybe InstCat, Maybe InstCat)
 >         bqForce thresh =
->           (            (\x → Just InstCatInst) =<< bestQualifying (instAs isBmas) thresh
->           ,            (\x → Just InstCatPerc) =<< bestQualifying (percAs isBmas) thresh)
+>           (            (\x → Just InstCatInst) =<< bestQualifying (instAs iMatches) thresh
+>           ,            (\x → Just InstCatPerc) =<< bestQualifying (percAs iMatches) thresh)
 >
 >
 >         hasRom         :: (ZoneHeader, SFZone) → Bool
@@ -985,10 +989,10 @@ prepare the specified instruments and percussion ===============================
 >           | traceNever msg' False        = undefined
 >           | otherwise                    = pinned || nonPitchedByFuzz || nonPitchedByFft
 >           where
->             preS@PreSample{sName, psBmas}
+>             preS@PreSample{sName, sMatches}
 >                                          = getPreSampleFromCache preSampleCache pergm{mpWordZ = Just pwZone}
 >             pinned                       = maybe False pinnedKR (zKeyRange zone)
->             nonPitchedByFuzz             = any (isPossible' . flip getEvalAgainstKind (matchingAs psBmas))
+>             nonPitchedByFuzz             = any (isPossible' . flip evalAgainstKind sMatches)
 >                                                nonPitchedInstruments
 >             nonPitchedByFft              = sampleAnalyisEnabled && pbIsNonPitched zh
 >

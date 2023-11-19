@@ -526,31 +526,37 @@ examine song for instrument and percussion usage ===============================
 apply fuzzyfind to mining instruments + percussion ====================================================================
 
 > class GMPlayable a where
->   getFFKeys            :: a → Maybe [String]
+>   getProFFKeys         :: a → Maybe [String]
+>   getConFFKeys         :: a → Maybe [String]
 >   getList              :: [a]
->   matchingAs           :: BothMatchingAs → [(a, (String, Fuzz))]
+>   getProMatches        :: FFMatches → [(a, (String, Fuzz))]
+>   getConMatches        :: FFMatches → [(a, (String, Fuzz))]
 >
 > instance GMPlayable InstrumentName where
->   getFFKeys                              = instrumentFFKeys
+>   getProFFKeys                           = instrumentProFFKeys
+>   getConFFKeys                           = instrumentConFFKeys
 >   getList                                = map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
->   matchingAs                             = instAs
+>   getProMatches                          = instAs
+>   getConMatches                          = instBs
 >
 > instance GMPlayable PercussionSound where
->   getFFKeys                              = percussionFFKeys
+>   getProFFKeys                           = percussionProFFKeys
+>   getConFFKeys                           = percussionConFFKeys
 >   getList                                = map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
->   matchingAs                             = percAs
+>   getProMatches                          = percAs
+>   getConMatches                          = percBs
 >
 > type Fuzz = Double
 >
-> instrumentAntiFFKeys   :: InstrumentName → Maybe [String]
-> instrumentAntiFFKeys inst       =
+> instrumentConFFKeys    :: InstrumentName → Maybe [String]
+> instrumentConFFKeys inst                 =
 >    case inst of
 >       AcousticGrandPiano        → Just $ singleton "upright"
 >       Trumpet                   → Just $ singleton "mute"
 >       _                         → Nothing
 >
-> instrumentFFKeys       :: InstrumentName → Maybe [String]
-> instrumentFFKeys inst           =
+> instrumentProFFKeys    :: InstrumentName → Maybe [String]
+> instrumentProFFKeys inst                 =
 >    case inst of
 >       AcousticGrandPiano        → Just            ["piano", "grand"]
 >       BrightAcousticPiano       → Just            ["piano", "bright", "brite"]
@@ -682,8 +688,11 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Gunshot                   → Just $ singleton "gunshot"
 >       _                         → Nothing
 >
-> percussionFFKeys :: PercussionSound → Maybe [String]
-> percussionFFKeys perc =
+> percussionConFFKeys    :: PercussionSound → Maybe [String]
+> percussionConFFKeys perc                 = Nothing
+>
+> percussionProFFKeys    :: PercussionSound → Maybe [String]
+> percussionProFFKeys perc =
 >    case perc of
 >       AcousticBassDrum          → Just            ["drum", "acou", "bass"]
 >       BassDrum1                 → Just            ["kick", "drum"]
@@ -739,22 +748,22 @@ apply fuzzyfind to mining instruments + percussion =============================
 
 handle "matching as" cache misses =====================================================================================
 
-> computeMatchingAs      :: ∀ a. (GMPlayable a) ⇒ String → [(a, (String, Fuzz))]
-> computeMatchingAs inp                    = sortOn (Down . snd) asScored
+> computeMatchingAs      :: ∀ a. (GMPlayable a) ⇒ String → Bool → [(a, (String, Fuzz))]
+> computeMatchingAs inp pro                = sortOn (Down . snd) asScored
 >   where
 >     -- weed out candidates with no fuzzy keys
 >     asLooks            :: [(a, [String])]
 >                                          = mapMaybe eval1 getList
 >
 >     eval1              :: a → Maybe (a, [String])
->     eval1 kind                           = Just . (kind,) =<< getFFKeys kind
+>     eval1 kind                           = Just . (kind,) =<< (if pro then getProFFKeys else getConFFKeys) kind
 >
 >     -- weed out candidates with no fuzzy key matches
 >     asScored           :: [(a, (String, Fuzz))]
->                                          = mapMaybe (computeEvalAgainstKeys inp) asLooks
+>                                          = mapMaybe (evalAgainstKeys inp) asLooks
 >
-> computeEvalAgainstKeys :: ∀ a. (GMPlayable a) ⇒ String → (a, [String]) → Maybe (a, (String, Double))
-> computeEvalAgainstKeys inp (kind, keys)  = if tot <= 0 then Nothing else Just (kind, (inp, tot))
+> evalAgainstKeys        :: ∀ a. (GMPlayable a) ⇒ String → (a, [String]) → Maybe (a, (String, Double))
+> evalAgainstKeys inp (kind, keys)         = if tot <= 0 then Nothing else Just (kind, (inp, tot))
 >   where
 >     lFactor        :: Double             = sqrt $ fromIntegral $ length keys
 >     weights        :: [Double]           = [1.6 / lFactor
@@ -770,19 +779,30 @@ handle "matching as" cache misses ==============================================
 
 use "matching as" cache ===============================================================================================
 
-> getEvalAgainstKind     :: ∀ a. (GMPlayable a, Eq a) ⇒ a → [(a, (String, Fuzz))] → Fuzz
-> getEvalAgainstKind kind mas              = maybe 0 snd (lookup kind mas)
+> evalAgainstKind        :: ∀ a. (GMPlayable a, Eq a) ⇒ a → FFMatches → Fuzz
+> evalAgainstKind kind ffs                 = maybe 0 snd (lookup kind (getProMatches ffs))
+>                                            - maybe 0 snd (lookup kind (getConMatches ffs))
 >   
 > bestQualifying         :: ∀ a. (GMPlayable a) ⇒ [(a, (String, Fuzz))] → Double → Maybe (a, (String, Fuzz))
-> bestQualifying mas thresh
->   | null mas                             = Nothing
->   | (snd . snd . head) mas < thresh      = Nothing
->   | otherwise                            = Just (head mas)
+> bestQualifying as thresh
+>   | null as                              = Nothing
+>   | (snd . snd . head) as < thresh       = Nothing
+>   | otherwise                            = Just (head as)
 >
-> data BothMatchingAs =
->   BothMatchingAs {
+> data FFMatches =
+>   FFMatches {
 >     instAs             :: [(InstrumentName, (String, Fuzz))]
->   , percAs             :: [(PercussionSound, (String, Fuzz))]} deriving Show
+>   , percAs             :: [(PercussionSound, (String, Fuzz))]
+>   , instBs             :: [(InstrumentName, (String, Fuzz))]
+>   , percBs             :: [(PercussionSound, (String, Fuzz))]} deriving Show
+>
+> computeFFMatches       :: String → FFMatches
+> computeFFMatches inp                     = FFMatches ias pas ibs pbs
+>   where
+>     ias = computeMatchingAs inp True
+>     pas = computeMatchingAs inp True
+>     ibs = computeMatchingAs inp False
+>     pbs = computeMatchingAs inp False
 
 tournament among instruments in various soundfont files ===============================================================
 
