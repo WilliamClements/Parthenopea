@@ -254,11 +254,28 @@ Modulator management ===========================================================
 > addResonance noon m8n@Modulation{mLowPass, toFilterFcSummary}
 >                                          = maybe delay' makeSF mLowPass
 >   where
->     
+>     lp@LowPass{lowPassFc, lowPassQ}      = fromJust mLowPass
+>
 >     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
->     makeSF lp@LowPass{lowPassFc, lowPassQ}
->       | traceIf msg False                = undefined
->       | otherwise                        =
+>     makeSF lp
+>                                          = if useFilterSVF
+>                                              then procSVF
+>                                              else procButter
+>       
+>     procButter         :: Signal p (Double, ModSignals) Double
+>     procButter                           = 
+>       proc (x, msig) → do
+>         let fc = lowPassFc * calculateModFactor
+>                                "addResonance"
+>                                m8n
+>                                ToFilterFc
+>                                msig
+>                                noon
+>         y ← filterLowPassBW              ⤙ (x, fc)
+>         outA                             ⤙ y
+>
+>     procSVF            :: Signal p (Double, ModSignals) Double
+>     procSVF                              =
 >       proc (x, msig) → do
 >         let fc = lowPassFc * calculateModFactor
 >                                "addResonance"
@@ -267,9 +284,7 @@ Modulator management ===========================================================
 >                                msig
 >                                noon
 >         y ← filterSVF lowPassFc lowPassQ ⤙ (x, fc)
->         outA                             ⤙ resonate x fc y
->       where
->         msg = unwords ["addResonance/makeSF ", show lowPassFc ]
+>         outA                             ⤙ y
 >
 >     delay'             :: Signal p (Double, ModSignals) Double
 >                                          =
@@ -294,16 +309,17 @@ Modulator management ===========================================================
 >             (maybe 0 fromIntegral toVolume)
 >
 > deriveLFO              :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
-> deriveLFO del freq toPitch toFilterFc toVolume
+> deriveLFO del mfreq toPitch toFilterFc toVolume
 >   | traceNever msg False                 = undefined
 >   | otherwise                            = if useLFO && anyJust
 >                                              then Just $ LFO (fromTimecents del)
->                                                              (maybe 8.176 fromAbsoluteCents freq)
+>                                                              freq
 >                                                              (deriveModTarget toPitch toFilterFc toVolume)
 >                                              else Nothing
 >   where
->     anyJust        :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
->     msg                              = unwords ["deriveLFO ", show toPitch,    " "
+>     freq               :: Double         = fromAbsoluteCents $ maybe 0 (clip (-16000, 4500)) mfreq
+>     anyJust            :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
+>     msg                                  = unwords ["deriveLFO ", show toPitch,    " "
 >                                                             , show toFilterFc, " "
 >                                                             , show toVolume]
 >
@@ -346,8 +362,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >   let
 >     sr                                   = rate (undefined :: p)
 >   in
->     if useFilterSVF
->     then proc (sig, fc) -> do
+>     proc (sig, fc) -> do
 >       let f1                             = 2 * sin (pi * fc / sr)
 >       rec
 >         let yL'                          = f1 * yB + yL
@@ -358,8 +373,6 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >         yB ← delay 0.5                   ⤙ yB'
 >         yH ← delay 1                     ⤙ yH'
 >       outA                               ⤙ yL'
->     else proc (sig, fc) -> do
->       filterLowPassBW                    ⤙ (sig, fc)
 >   where
 >     msg                                  = unwords ["filterSVF " ++ show useFilterSVF
 >                                                           ++ " " ++ show initFc
@@ -368,9 +381,95 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 
 Testing ===============================================================================================================
 
+> aEqual                 :: (Eq a, Show a) ⇒ a → a → Bool
 > aEqual a b
->   | a /= b                               = error "They had to be equal!"
->   | otherwise                            = a
+>   | a /= b                               = error (show a ++ "and" ++ show b ++ " had to be equal!")
+>   | otherwise                            = True
+>
+> vanillaModulatorWillNotBeEliminated
+>                        :: IO Bool
+> vanillaModulatorWillNotBeEliminated      = do
+>   let m8r                                = defModulator{
+>                                             mrModId = 0
+>                                           , mrModSrc = defModSrc{msSource = FromNoteOnVel}
+>                                           , mrModDest = ToFilterFc}
+>   let m8n@Modulation{modGraph}           = resolveMods defModulation [m8r]
+>   let succeeded                          = aEqual 1 (Map.size modGraph)
+>   return succeeded
+>
+> unlinkedModulatorWillBeEliminated
+>                        :: IO Bool
+> unlinkedModulatorWillBeEliminated        = do
+>   let m8r                                = defModulator{
+>                                             mrModId = 0
+>                                           , mrModSrc = defModSrc{msSource = FromLinked}
+>                                           , mrModDest = ToFilterFc}
+>   let m8n@Modulation{modGraph}           = resolveMods defModulation [m8r]
+>   let succeeded                          = aEqual 0 (Map.size modGraph)
+>   return succeeded
+>
+> linkedModulatorWillNotBeEliminated
+>                        :: IO Bool
+> linkedModulatorWillNotBeEliminated       = do
+>   let m8r0                               = defModulator{
+>                                             mrModId = 0
+>                                           , mrModSrc = defModSrc{msSource = FromLinked}
+>                                           , mrModDest = ToFilterFc}
+>   let m8r1                               = defModulator{
+>                                             mrModId = 1
+>                                           , mrModSrc = defModSrc{msSource = FromNoteOnVel}
+>                                           , mrModDest = ToLink 0}
+>   let m8n                                = resolveMods defModulation [m8r0, m8r1]
+>   let succeeded                          = aEqual 2 (Map.size $ modGraph m8n)
+>   return succeeded
+>
+> mutuallyCyclicModulatorsWillBeRejected
+>                       :: IO Bool
+> mutuallyCyclicModulatorsWillBeRejected   = do
+>   let m8r0                               = defModulator{
+>                                             mrModId = 0
+>                                           , mrModSrc = defModSrc{msSource = FromLinked}
+>                                           , mrModDest = ToLink 1}
+>   let m8r1                               = defModulator{
+>                                             mrModId = 1
+>                                           , mrModSrc = defModSrc{msSource = FromLinked}
+>                                           , mrModDest = ToLink 0}
+>   let m8n                                = resolveMods defModulation [m8r0, m8r1]
+>   let succeeded                          = aEqual 2 (Map.size $ modGraph m8n)
+>   return succeeded
+>
+> repeatedNoteOnsGiveSameResult
+>                        :: IO Bool
+> repeatedNoteOnsGiveSameResult                       = do
+>   let m8r                               = defModulator{mrModId = 0, mrModSrc = defModSrc{msSource = FromNoteOnKey}
+>                                                       , mrModAmount = 0.5
+>                                                       , mrModDest = ToFilterFc}
+>   let graph                             = compileMods [m8r]
+>
+>   let eval                              = evaluateMods ToFilterFc graph 
+>   let results                           = [eval (NoteOn x 64) | x ← [0..127]]
+>   let answer                            = aEqual True $ all (==0.25) results
+>   return answer
+>
+> differentNoteOnsGiveDifferentResults
+>                        :: IO Bool
+> differentNoteOnsGiveDifferentResults    = do
+>   let m8r                               = defModulator{mrModId = 0, mrModSrc = defModSrc{msSource = FromNoteOnKey}
+>                                                       , mrModAmount = 0.5
+>                                                       , mrModDest = ToFilterFc}
+>   let graph                             = compileMods [m8r]
+>
+>   let eval                              = evaluateMods ToFilterFc graph 
+>   let results                           = [eval (NoteOn 64 x) | x ← [0..127]]
+>   let answer                            = fst $ foldl' (\(b,x1) x2 → (b && (x1 < x2),x2)) (True, -1) results
+>   return answer
+>
+> modulatorTests        :: [IO Bool]       = [vanillaModulatorWillNotBeEliminated
+>                                             , unlinkedModulatorWillBeEliminated
+>                                             , linkedModulatorWillNotBeEliminated
+>                                             , mutuallyCyclicModulatorsWillBeRejected
+>                                             , repeatedNoteOnsGiveSameResult
+>                                             , differentNoteOnsGiveDifferentResults]
 >
 > modulationTestSetup   :: [Modulator]
 > modulationTestSetup                      = [m8r0, m8r1, m8r2, m8r3]
@@ -382,27 +481,6 @@ Testing ========================================================================
 >                                    , mrModDest = ToFilterFc}
 >     m8r3 = defModulator{mrModId = 3, mrModDest = ToLink 2}
 >  
-> modulationTest001     :: IO ()
-> modulationTest001                       = do
->   let m8rsIn                            = modulationTestSetup
->   let m8r4 = defModulator{mrModId = 4, mrModSrc = defModSrc{msSource = FromLinked}, mrModDest = ToLink 5}
->   let m8r5 = defModulator{mrModId = 5, mrModSrc = defModSrc{msSource = FromLinked}, mrModDest = ToLink 4} 
->   let m8rsOut                           = m8rsIn ++ [m8r4, m8r5]
->
->   let m8n' = resolveMods defModulation m8rsOut
->   print m8n'
->   return ()
->
-> modulationTest002      :: IO ()
-> modulationTest002                       = do
->   let m8rIn                             = modulationTestSetup !! 2
->   let graph                             = compileMods [m8rIn]
->
->   let eval                              = evaluateMods ToFilterFc graph 
->   let results                           = [eval (NoteOn x 64) | x ← [0..127]]
->   print results
->   return ()
->
 > modulationTest003      :: IO ()
 > modulationTest003                       = do
 >   mapM_ tryIt allMappings
@@ -691,7 +769,6 @@ Type declarations ==============================================================
 >     msMapping          :: Mapping
 >     , msSource         :: ModSrcSource} deriving (Eq, Show)
 >
-> defModSrc              :: ModSrc
 > defModSrc                                = ModSrc defMapping FromNoController
 >
 > data Envelope =
@@ -724,5 +801,5 @@ Type declarations ==============================================================
 >     qqUseModulators                      = True
 >   , qqUseDefaultMods                     = False
 >   , qqUseFilterSVF                       = False
->   , qqUseLowPass                         = True
+>   , qqUseLowPass                         = False
 >   , qqUseLFO                             = True}

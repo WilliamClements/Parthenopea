@@ -41,11 +41,12 @@ Signal function-based synth ====================================================
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
 > eutSynthesize (reconL@Reconciled{rSampleMode, rStart, rEnd, rRootKey}, reconR)
->               sr dur pch vol params s16 ms8
+>               sr dur pch' vol' params s16 ms8
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = sig
 >   where
->     noon@NoteOn{noteOnVel, noteOnKey}    = NoteOn vol pch
+>     noon@NoteOn{noteOnVel, noteOnKey}    = NoteOn vol' pch'
+>
 >     ns                 :: Double         = fromIntegral (rEnd - rStart)
 >     secsSample         :: Double         = ns / sr
 >     secsScored         :: Double         = 2 * fromRational dur

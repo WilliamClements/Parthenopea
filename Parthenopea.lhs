@@ -551,7 +551,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 > instrumentConFFKeys    :: InstrumentName → Maybe [String]
 > instrumentConFFKeys inst                 =
 >    case inst of
->       AcousticGrandPiano        → Just $ singleton "upright"
+>       AcousticGrandPiano        → Just            ["upright", "bright", "mellow", "elec"]
 >       Trumpet                   → Just $ singleton "mute"
 >       _                         → Nothing
 >
@@ -1121,16 +1121,7 @@ Returns the frequency ratio
 Returns the frequency
 
 > fromAbsoluteCents      :: Int → Double
-> fromAbsoluteCents cents                  = 2^fac * absoluteCentTable ! rem
->   where
->     icents             :: Int            = clip (1500, 13500) cents + 300
->     fac                                  = icents `div` 1200
->     rem                                  = icents `mod` 1200
->
->     absoluteCentTable  :: Array Int Double
->                                          = listArray (0, 1199) (map calcTableValue [0..1199])
->     calcTableValue     :: Int → Double
->     calcTableValue i                     = 6.875 * pow 2.0 (fromIntegral i / 1200.0)
+> fromAbsoluteCents acents                 = 8.176 * fromCents (fromIntegral acents)
 >
 > data Mapping =
 >   Mapping {
@@ -1280,7 +1271,7 @@ Configurable parameters ========================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = False
+>   , qqSkipReporting                      = True
 >   , qqSkipGlissandi                      = False
 >   , qqDumpFftChunks                      = False
 >   , qqNumTakeFftChunks                   = 3}

@@ -214,8 +214,8 @@ Abby Cissa =====================================================================
 >    $ keysig C Major
 >    $ addVolume 100
 >    -- $ perc MuteCuica dwn
->    $ instrument AltoSax
->      (c 5 wn)
+>    $ instrument Trumpet
+>      (line [f 5 en,  g 5 en, f 5 en, e 5 en,  c 5 qn])
 >
 > abby :: Music (Pitch, Volume)
 > abby =

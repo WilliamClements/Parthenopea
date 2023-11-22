@@ -13,7 +13,7 @@ extra-source-files:
 
 Library
   hs-source-dirs: .
-  ghc-options: -O2 -funbox-strict-fields -fexcess-precision
+  ghc-options: -funbox-strict-fields -fexcess-precision
   extensions: CPP
   exposed-modules:
         Aleatory,
@@ -28,7 +28,6 @@ Library
         Parthenopea,
         Percussion,
         Players,
-        -- RosterDef,
         Rosters,
         Signals,
         SoundFont,

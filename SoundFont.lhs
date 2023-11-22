@@ -1285,7 +1285,7 @@ reconcile zone and sample header ===============================================
 >       , toFilterFcSummary                = summarize ToFilterFc     nModEnv nModLfo nVibLfo      
 >       , toVolumeSummary                  = summarize ToVolume       nModEnv nModLfo nVibLfo}
 >
->     initFc             :: Double         = fromAbsoluteCents $ fromMaybe 13500 zInitFc
+>     initFc             :: Double         = fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
 >     initQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ
 >
 >     nLowPass           :: Maybe LowPass  = if useLowPass && (isJust zInitFc || initQ > 0)
