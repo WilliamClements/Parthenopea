@@ -251,40 +251,38 @@ Modulator management ===========================================================
 >                                                     , show x4, " = ", show (x1+x2+x3+x4), " => ", show fact]
 >
 > addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
-> addResonance noon m8n@Modulation{mLowPass, toFilterFcSummary}
+> addResonance noon m8n@Modulation{mLowPass}
 >                                          = maybe delay' makeSF mLowPass
 >   where
 >     lp@LowPass{lowPassFc, lowPassQ}      = fromJust mLowPass
 >
 >     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
->     makeSF lp
->                                          = if useFilterSVF
+>     makeSF _                             = if useFilterSVF
 >                                              then procSVF
 >                                              else procButter
->       
+>
+>     modulateFc         :: ModSignals → Double
+>     modulateFc msig                      = lowPassFc * calculateModFactor
+>                                                          "addResonance"
+>                                                          m8n
+>                                                          ToFilterFc
+>                                                          msig
+>                                                          noon
+>
 >     procButter         :: Signal p (Double, ModSignals) Double
 >     procButter                           = 
 >       proc (x, msig) → do
->         let fc = lowPassFc * calculateModFactor
->                                "addResonance"
->                                m8n
->                                ToFilterFc
->                                msig
->                                noon
+>         let fc = modulateFc msig
 >         y ← filterLowPassBW              ⤙ (x, fc)
->         outA                             ⤙ y
+>         let y' = resonate x fc y
+>         outA                             ⤙ y'
 >
 >     procSVF            :: Signal p (Double, ModSignals) Double
 >     procSVF                              =
 >       proc (x, msig) → do
->         let fc = lowPassFc * calculateModFactor
->                                "addResonance"
->                                m8n
->                                ToFilterFc
->                                msig
->                                noon
->         y ← filterSVF lowPassFc lowPassQ ⤙ (x, fc)
->         outA                             ⤙ y
+>         let fc = modulateFc msig
+>         y ← filterSVF lowPassQ           ⤙ (x, fc)
+>         outA                             ⤙ resonate x fc y
 >
 >     delay'             :: Signal p (Double, ModSignals) Double
 >                                          =
@@ -295,11 +293,12 @@ Modulator management ===========================================================
 >     resonate           :: Double → Double → Double → Double
 >     resonate x fc y
 >       | traceNever msg' False            = undefined
->       | otherwise                        = y
+>       | otherwise                        = y'
 >       where
->         msg'                             = unwords ["resonate\nsin  = ", show x
->                                                           , "\nfc   = ", show fc
->                                                           , "\nsout = ", show y]
+>         y'                               = checkForNan y "resonate y"
+>         msg'                             = unwords ["resonate\nsin  = ", show (checkForNan  x "resonate x")
+>                                                           , "\nfc   = ", show (checkForNan fc "resonate fc")
+>                                                           , "\nsout = ", show y']
 >
 > deriveModTarget        :: Maybe Int → Maybe Int → Maybe Int → ModTarget
 > deriveModTarget toPitch toFilterFc toVolume
@@ -355,8 +354,8 @@ Modulator management ===========================================================
 
 see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
 
-> filterSVF              :: forall p . Clock p => Double → Double → Signal p (Double,Double) Double
-> filterSVF initFc initQ
+> filterSVF              :: forall p . Clock p => Double → Signal p (Double,Double) Double
+> filterSVF initQ
 >   | traceIf msg False                   = undefined
 >   | otherwise                            =
 >   let
@@ -375,7 +374,6 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       outA                               ⤙ yL'
 >   where
 >     msg                                  = unwords ["filterSVF " ++ show useFilterSVF
->                                                           ++ " " ++ show initFc
 >                                                           ++ " " ++ show initQ
 >                                                           ++ " " ++ show (fromCentibels' initQ)]
 
@@ -519,7 +517,7 @@ Testing ========================================================================
 > -- range = 0.75 (max resonance) ..    1.25 (no resonance)
 > --         960 cB    -170-    ..      0 cB
 > tLowSVF = outFile "lowSVF.wav" 10 $
->            sfTest1 (filterSVF (fromCents 13500) 0.80) 10 (absPitch (C,5)) 64 []
+>            sfTest1 (filterSVF {- (fromCents 13500) -} 0.80) 10 (absPitch (C,5)) 64 []
 >
 > data IterData =
 >   IterData {
@@ -578,7 +576,7 @@ Testing ========================================================================
 >         a2 ← sf ⤙ (a1, theFc)
 >         outA ⤙ a2*theVel
 >       where
->         sf = filterSVF theFc theFq
+>         sf = filterSVF theFq
 >
 >     -- do the test from (A, 0) to (C, 9)
 >     msg = unwords ["modulationTest005 ", show $ avgGain * 1000]

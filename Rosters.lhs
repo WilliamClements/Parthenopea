@@ -77,8 +77,8 @@ organize exposed music =========================================================
 > sj =
 >    -- [ ("getCITM"     , aggrandize getCITM)]
 >    -- [ ("sunPyg"      , aggrandize sunPyg)]
->    [ ("ssailor"     , aggrandize ssailor)]
->    -- [ ("littleAbby"  , aggrandize littleAbby)]
+>    [ ("littleAbby"  , aggrandize littleAbby)]
+>    -- [ ("ssailor"     , aggrandize ssailor)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("roger"       , aggrandize roger)]
 >    -- [ ("copper"        , aggrandize $ copper 2)]
