@@ -32,20 +32,23 @@ Modulator management ===========================================================
 
 > resolveMods            :: Modulation → [Modulator] → Modulation
 > resolveMods m8n m8rs
->   | traceIf msg False                    = undefined
+>   | traceNow msg False                   = undefined
 >   | otherwise                            = assignModGraph m8n (compileMods (defaultMods ++ m8rs'))
 >   where
 >     msg                                  = unwords ["resolveMods ", show (length m8rs)]
->     (linked, other)                      = splitMods m8rs
+>     sifted                               = siftMods m8rs
 >     m8rs'                                = profess
->                                              (not $ hasCycles linked)
+>                                              (not $ hasCycles sifted)
 >                                              "cycles in modulator graph"
->                                              (linked ++ other)
+>                                              sifted
+>         
+> countMods            :: Modulation → Int
+> countMods m8n@Modulation{modGraph}       = length $ concat (Map.elems modGraph)
 >         
 > assignModGraph         :: Modulation → Map ModDestType [Modulator] → Modulation
 > assignModGraph m8n mgraph
->   | traceIf msg False                = undefined
->   | otherwise                        = m8n{modGraph = mgraph}
+>   | traceIf msg False                    = undefined
+>   | otherwise                            = m8n{modGraph = mgraph}
 >   where
 >     msg = unwords ["assignModGraph ", show mgraph]
 >
@@ -54,42 +57,65 @@ Modulator management ===========================================================
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = not $ null $ cyclicNodes $ makeGraph edgeList
 >   where
+>     nodeList                             = filter outGoing (Map.assocs (compileMods ms))
 >     edgeList           :: [(Node, [Node])]
 >                                          = map
->                                              (BF.bimap lookup (map (fromIntegral . mrModId)))
->                                              (Map.toList (compileMods ms))
+>                                              (BF.bimap nodeFrom (map (fromIntegral . mrModId)))
+>                                              nodeList
 >
->     lookup             :: ModDestType → Node
->     lookup mdt                           = case mdt of
+>     nodeFrom           :: ModDestType → Node
+>     nodeFrom mdt                         = case mdt of
 >                                              ToLink mId       → fromIntegral mId
 >                                              _                → error $ "only ToLink bears a ModDestType"
 >                                                                           ++ " to be turned into a Node"
 >
+>     outGoing           :: (ModDestType, [Modulator]) → Bool
+>     outGoing (mdt, _)                    = case mdt of
+>                                              ToLink mId       → True
+>                                              _                → False
+>
 >     msg                                  = unwords ["hasCycles edgeList ", show edgeList]
 >
 > eliminateDanglingMods  :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
-> eliminateDanglingMods triesIn mix  
->   | traceIf msg False                    = undefined
->   | otherwise                            = newTry : eliminateDanglingMods (newTry : triesIn) (mix+1)
+> eliminateDanglingMods triesIn mix        = newTry : eliminateDanglingMods (newTry : triesIn) (mix+1)
 >   where
 >     -- let's examine result of the previous generation
->     -- use it to produce next generation, dropping nodes that expect linked sources but have none
+>     -- use it to produce next generation, dropping nodes that:
+>     -- 1. expect linked sources but have none
+>     --     or
+>     -- 2. are superseded 
 >     m8rsIn                               = profess
 >                                              (mix <= 10)
 >                                              "maximum of 10 tries exceeded..."
 >                                              ((snd . snd) (head triesIn))
+>     compiled           :: Map ModDestType [Modulator]
+>                                          = compileMods m8rsIn
+>     superc             :: Map ModKey Word
+>                                          = foldl' supercfr Map.empty m8rsIn
 >
->     lookup             :: Modulator → Maybe [Modulator]
->     lookup m8r                           = Map.lookup (ToLink (mrModId m8r)) (compileMods m8rsIn)
+>     supercfr           :: Map ModKey Word → Modulator → Map ModKey Word
+>     supercfr accum m8r                   = Map.insert newK newW accum
+>       where
+>         (newK, newW)                     = getModKeyPair m8r
+>
+>     checkLink          :: Modulator → Maybe [Modulator]
+>     checkLink m8r                        = Map.lookup (ToLink (mrModId m8r)) compiled
 >
 >     m8rsOut                              = filter shouldStay m8rsIn
 >
 >     shouldStay         :: Modulator → Bool
->     shouldStay m8r                       = not (requiresLinks m8r) || maybe False (not . null) (lookup m8r)
+>     shouldStay m8r@Modulator{mrModId}
+>       | traceNow msg False               = undefined
+>       | otherwise                        = linkageOk && not superceded
+>       where
+>         linkageOk                        = not (requiresLinks m8r) || maybe False (not . null) (checkLink m8r)
+>         modKey                           = getModKey m8r
+>         winner         :: Word           = fromJust (Map.lookup modKey superc)
+>         superceded                       = mrModId /= winner
+>         msg                              = unwords ["eliminateDanglingMods/shouldStay ", show superc]
+>
 >
 >     newTry                               = (length m8rsOut == length m8rsIn, (mix, m8rsOut))
->
->     msg                                  = unwords ["eliminateDanglingMods ", show (length m8rsIn)]
 >
 > requiresLinks, suppliesLink
 >                        :: Modulator → Bool
@@ -98,20 +124,17 @@ Modulator management ===========================================================
 >                                              ToLink _      → True
 >                                              _             → False
 >
-> splitMods              :: [Modulator] → ([Modulator], [Modulator])
-> splitMods m8rsIn
+> siftMods               :: [Modulator] → [Modulator]
+> siftMods m8rsIn
 >   | traceIf msg False                    = undefined
->   | otherwise                            = (m8rsSplit, other)
+>   | otherwise                            = m8rsOut
 >   where
->     -- split off non-linking modulators
->     (linked, other)                      = partition (\m → requiresLinks m || suppliesLink m) m8rsIn
->
->     seed                                 = (False, (0, linked))
+>     seed                                 = (False, (0, m8rsIn))
 >     generations                          = eliminateDanglingMods (singleton seed) 0
 >     successes                            = dropWhile (not . fst) generations
->     (_, (_, m8rsSplit))                  = head successes 
+>     (_, (_, m8rsOut))                    = head successes 
 >
->     msg                                  = unwords ["splitMods ", show (length linked, length other)]
+>     msg                                  = unwords ["siftMods ", show (length m8rsIn, length m8rsOut)]
 >
 > compileMods            :: [Modulator] → Map ModDestType [Modulator]
 > compileMods                              = foldl' nodeFolder Map.empty
@@ -356,7 +379,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 
 > filterSVF              :: forall p . Clock p => Double → Signal p (Double,Double) Double
 > filterSVF initQ
->   | traceIf msg False                   = undefined
+>   | traceIf msg False                    = undefined
 >   | otherwise                            =
 >   let
 >     sr                                   = rate (undefined :: p)
@@ -379,9 +402,21 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 
 Testing ===============================================================================================================
 
+A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper
+
+struct sfInstModList
+{
+  SFModulator sfModSrcOper;
+  SFGenerator sfModDestOper;
+  SHORT modAmount;
+  SFModulator sfModAmtSrcOper;
+  SFTransform sfModTransOper;
+};
+
+>
 > aEqual                 :: (Eq a, Show a) ⇒ a → a → Bool
 > aEqual a b
->   | a /= b                               = error (show a ++ "and" ++ show b ++ " had to be equal!")
+>   | a /= b                               = error (show a ++ " and " ++ show b ++ " had to be equal!?")
 >   | otherwise                            = True
 >
 > vanillaModulatorWillNotBeEliminated
@@ -391,8 +426,8 @@ Testing ========================================================================
 >                                             mrModId = 0
 >                                           , mrModSrc = defModSrc{msSource = FromNoteOnVel}
 >                                           , mrModDest = ToFilterFc}
->   let m8n@Modulation{modGraph}           = resolveMods defModulation [m8r]
->   let succeeded                          = aEqual 1 (Map.size modGraph)
+>   let m8n                                = resolveMods defModulation [m8r]
+>   let succeeded                          = aEqual 1 (countMods m8n)
 >   return succeeded
 >
 > unlinkedModulatorWillBeEliminated
@@ -403,7 +438,7 @@ Testing ========================================================================
 >                                           , mrModSrc = defModSrc{msSource = FromLinked}
 >                                           , mrModDest = ToFilterFc}
 >   let m8n@Modulation{modGraph}           = resolveMods defModulation [m8r]
->   let succeeded                          = aEqual 0 (Map.size modGraph)
+>   let succeeded                          = aEqual 0 (countMods m8n)
 >   return succeeded
 >
 > linkedModulatorWillNotBeEliminated
@@ -418,7 +453,7 @@ Testing ========================================================================
 >                                           , mrModSrc = defModSrc{msSource = FromNoteOnVel}
 >                                           , mrModDest = ToLink 0}
 >   let m8n                                = resolveMods defModulation [m8r0, m8r1]
->   let succeeded                          = aEqual 2 (Map.size $ modGraph m8n)
+>   let succeeded                          = aEqual 2 (countMods m8n)
 >   return succeeded
 >
 > mutuallyCyclicModulatorsWillBeRejected
@@ -433,7 +468,7 @@ Testing ========================================================================
 >                                           , mrModSrc = defModSrc{msSource = FromLinked}
 >                                           , mrModDest = ToLink 0}
 >   let m8n                                = resolveMods defModulation [m8r0, m8r1]
->   let succeeded                          = aEqual 2 (Map.size $ modGraph m8n)
+>   let succeeded                          = aEqual 2 (countMods m8n)
 >   return succeeded
 >
 > repeatedNoteOnsGiveSameResult
@@ -462,12 +497,49 @@ Testing ========================================================================
 >   let answer                            = fst $ foldl' (\(b,x1) x2 → (b && (x1 < x2),x2)) (True, -1) results
 >   return answer
 >
+> supercededModulatorWillBeEliminated
+>                        :: IO Bool
+> supercededModulatorWillBeEliminated     = do
+>   let m8r0                               = defModulator{
+>                                             mrModId = 0
+>                                           , mrModSrc = defModSrc{msSource = FromNoteOnKey}
+>                                           , mrModAmount = 0.75                                           
+>                                           , mrModDest = ToFilterFc}
+>   let m8r1                               = defModulator{
+>                                             mrModId = 1
+>                                           , mrModSrc = defModSrc{msSource = FromNoteOnKey}
+>                                           , mrModAmount = 0.25
+>                                           , mrModDest = ToFilterFc}
+>   let m8n                                = resolveMods defModulation [m8r0, m8r1]
+>   let succeeded                          = aEqual 1 (countMods m8n)
+>   print $ modGraph m8n
+>   return succeeded
+>
+> unsupercededModulatorWillNotBeEliminated
+>                        :: IO Bool
+> unsupercededModulatorWillNotBeEliminated = do
+>   let m8r0                               = defModulator{
+>                                             mrModId = 0
+>                                           , mrModSrc = defModSrc{msSource = FromNoteOnKey}
+>                                           , mrModAmount = 0.75                                           
+>                                           , mrModDest = ToFilterFc}
+>   let m8r1                               = defModulator{
+>                                             mrModId = 1
+>                                           , mrModSrc = defModSrc{msSource = FromNoteOnVel}
+>                                           , mrModAmount = 0.75
+>                                           , mrModDest = ToFilterFc}
+>   let m8n                                = resolveMods defModulation [m8r0, m8r1]
+>   let succeeded                          = aEqual 2 (countMods m8n)
+>   return succeeded
+>
 > modulatorTests        :: [IO Bool]       = [vanillaModulatorWillNotBeEliminated
 >                                             , unlinkedModulatorWillBeEliminated
 >                                             , linkedModulatorWillNotBeEliminated
 >                                             , mutuallyCyclicModulatorsWillBeRejected
 >                                             , repeatedNoteOnsGiveSameResult
->                                             , differentNoteOnsGiveDifferentResults]
+>                                             , differentNoteOnsGiveDifferentResults
+>                                             , supercededModulatorWillBeEliminated
+>                                             , unsupercededModulatorWillNotBeEliminated]
 >
 > modulationTestSetup   :: [Modulator]
 > modulationTestSetup                      = [m8r0, m8r1, m8r2, m8r3]
@@ -739,14 +811,27 @@ Type declarations ==============================================================
 >
 > data Modulator =
 >   Modulator {
->     mrModId          :: Word
->   , mrModSrc         :: ModSrc
->   , mrModDest        :: ModDestType
->   , mrModAmount      :: Double
->   , mrAmountSrc      :: ModSrc} deriving (Eq, Show)
+>     mrModId            :: Word
+>   , mrModSrc           :: ModSrc
+>   , mrModDest          :: ModDestType
+>   , mrModAmount        :: Double
+>   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
 >    
 > defModulator           :: Modulator
 > defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
+>
+> data ModKey =
+>   ModKey {
+>     krSrc              :: ModSrc
+>   , krDest             :: ModDestType
+>   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
+>
+> getModKeyPair          :: Modulator → (ModKey, Word)
+> getModKeyPair m8r@Modulator{mrModId}     = (getModKey m8r, mrModId)
+>
+> getModKey              :: Modulator -> ModKey
+> getModKey m8r@Modulator{mrModSrc, mrModDest, mrAmountSrc}
+>                                          = ModKey mrModSrc mrModDest mrAmountSrc
 >
 > data ModDestType =
 >     NoDestination
@@ -760,12 +845,12 @@ Type declarations ==============================================================
 >     FromNoController
 >   | FromNoteOnVel
 >   | FromNoteOnKey
->   | FromLinked deriving (Eq, Show)
+>   | FromLinked deriving (Eq, Ord, Show)
 >
 > data ModSrc =
 >   ModSrc {
 >     msMapping          :: Mapping
->     , msSource         :: ModSrcSource} deriving (Eq, Show)
+>     , msSource         :: ModSrcSource} deriving (Eq, Ord, Show)
 >
 > defModSrc                                = ModSrc defMapping FromNoController
 >
