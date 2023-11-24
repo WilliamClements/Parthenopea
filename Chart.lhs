@@ -12,7 +12,7 @@ Chart ==========================================================================
 > import Graphics.Rendering.Chart
 > import Graphics.Rendering.Chart.Backend
 > import Graphics.Rendering.Chart.Backend.Diagrams
-> import Modulation
+> import ModulationTest
 >
 > cars = plot_errbars_values .~ [symErrPoint x y dx dy | (x,y,dx,dy) ← vals']
 >           $ plot_errbars_title .~"test"
