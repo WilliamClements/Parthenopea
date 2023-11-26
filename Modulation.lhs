@@ -22,7 +22,7 @@
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
-> import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..), AudSF )
+> import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )
 > import Euterpea.Music ( Volume, AbsPitch, Dur, absPitch, PitchClass(..) )
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA, DeltaT )
 > import HSoM.Examples.Additive ( sineTable, sfTest1 )
@@ -30,20 +30,17 @@
   
 Modulator management ==================================================================================================
 
-> resolveMods            :: Modulation → [Modulator] → Modulation
-> resolveMods m8n m8rs
->   | traceNow msg False                   = undefined
->   | otherwise                            = assignModGraph m8n (compileMods (defaultMods ++ m8rs'))
+> resolveMods            :: Modulation → [Modulator] → [Modulator] → Modulation
+> resolveMods m8n m8rs dm8rs
+>   | traceIf msg False                    = undefined
+>   | otherwise                            = assignModGraph m8n (compileMods m8rs')
 >   where
->     msg                                  = unwords ["resolveMods ", show (length m8rs)]
->     sifted                               = siftMods m8rs
+>     msg                                  = unwords ["resolveMods ", show (length m8rs), show (length dm8rs)]
+>     sifted                               = siftMods (dm8rs ++ m8rs)
 >     m8rs'                                = profess
 >                                              (not $ hasCycles sifted)
 >                                              "cycles in modulator graph"
 >                                              sifted
->         
-> countMods            :: Modulation → Int
-> countMods m8n@Modulation{modGraph}       = length $ concat (Map.elems modGraph)
 >         
 > assignModGraph         :: Modulation → Map ModDestType [Modulator] → Modulation
 > assignModGraph m8n mgraph
@@ -105,7 +102,7 @@ Modulator management ===========================================================
 >
 >     shouldStay         :: Modulator → Bool
 >     shouldStay m8r@Modulator{mrModId}
->       | traceNow msg False               = undefined
+>       | traceIf msg False                = undefined
 >       | otherwise                        = linkageOk && not superceded
 >       where
 >         linkageOk                        = not (requiresLinks m8r) || maybe False (not . null) (checkLink m8r)
@@ -206,8 +203,8 @@ Modulator management ===========================================================
 >                                                               _                → Just x{mrAmountSrc = modSrc})
 >
 > defaultMods            :: [Modulator]    = if useDefaultMods
->                                              then [ makeDefaultMod ms0 48 960     defModSrc
->                                                   , makeDefaultMod ms1  8 (-2400) ms2 ]
+>                                              then [ makeDefaultMod 0 ms0 48 960     defModSrc
+>                                                   , makeDefaultMod 1 ms1  8 (-2400) ms2 ]
 >                                              else []
 >                                                              
 >   where                                                 --    cont    bipolar  neg  CC
@@ -216,9 +213,9 @@ Modulator management ===========================================================
 >  -- some feel that ms2 as an amount source here should be ignored; i.e. containing copy of defModSrc
 >     ms2                                  = ModSrc   (Mapping Switch    False  True False) FromNoteOnVel
 >
->     makeDefaultMod     :: ModSrc → Word → Int → ModSrc → Modulator
->     makeDefaultMod ms igen amt amtSrc    = professIsJust'
->                                              $ Just defModulator
+>     makeDefaultMod     :: Word → ModSrc → Word → Int → ModSrc → Modulator
+>     makeDefaultMod mId ms igen amt amtSrc    = professIsJust'
+>                                              $ Just defModulator{mrModId = mId}
 >                                                >>= addSrc ms
 >                                                >>= addDest igen
 >                                                >>= addAmount amt
@@ -399,73 +396,6 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >     msg                                  = unwords ["filterSVF " ++ show useFilterSVF
 >                                                           ++ " " ++ show initQ
 >                                                           ++ " " ++ show (fromCentibels' initQ)]
->
-> -- range = 0.75 (max resonance) ..    1.25 (no resonance)
-> --         960 cB    -170-    ..      0 cB
-> tLowSVF = outFile "lowSVF.wav" 10 $
->            sfTest1 (filterSVF {- (fromCents 13500) -} 0.80) 10 (absPitch (C,5)) 64 []
->
-> data IterData =
->   IterData {
->     theFc              :: Double
->   , theFq              :: Double
->   , theFt              :: Double
->   , theVel             :: Double} deriving Show
->
-> modulationTest005      :: IO ()
-> modulationTest005
->   | traceNow msg False                   = undefined
->   | otherwise                            = do
->     putStrLn ("mt5 " ++ show avgGain)
->     return ()
->   where
->     minFc, maxFc       :: Int
->     minFc                                = 1500
->     maxFc                                = 13500
->
->     minFq, maxFq       :: Double
->     minFq                                = 0.80
->     maxFq                                = 1.25
->
->     minFt, maxFt       :: Double
->     minFt                                = apToHz $ absPitch $ (A,0)
->     maxFt                                = apToHz $ absPitch $ (C,7)
->
->     -- pick midpoints for now
->     myFc                                 = fromAbsoluteCents ((minFc + maxFc) `div` 2)
->     myFq                                 = (minFq + maxFq) / 2
->     myFt                                 = (minFt + maxFt) / 2
->     myV                                  = 1
->
->     doTheseQ           :: [Double]       = [fromIntegral x / 100 | x ← [80,90..125]]
->     theyHaveQ          :: Double         = fromIntegral $ length doTheseQ
->
->     doTheseFt          :: [Double]       = [(apToHz . absPitch) (C, x) | x ← [0..9]]
->     theyHaveFt         :: Double         = fromIntegral $ length doTheseFt
->     avgGain                              = sum (map iter doTheseFt) / theyHaveFt
->
->     iter               :: Double → Double
->     iter newFt
->       | traceNow msg' False              = undefined
->       | otherwise                        = rms
->       where
->         iterData                         = IterData newFt myFq newFt myV
->         dbls                             = toSamples 0.5 (driver iterData)
->         n              :: Double         = fromIntegral $ length dbls
->         rms                              = sum (map abs dbls) / n
->         msg'                             = unwords ["modulationTest005/iter ", show rms, "\n", show iterData]
->
->     driver             :: IterData → AudSF () Double
->     driver itd@IterData{theFc, theFq, theFt, theVel}                              =
->       proc () → do
->         a1 ← osc sineTable 0 <<< constA theFt ⤙ () 
->         a2 ← sf ⤙ (a1, theFc)
->         outA ⤙ a2*theVel
->       where
->         sf = filterSVF theFq
->
->     -- do the test from (A, 0) to (C, 9)
->     msg = unwords ["modulationTest005 ", show $ avgGain * 1000]
 
 Controller Curves =====================================================================================================
 
@@ -688,7 +618,7 @@ Type declarations ==============================================================
 > defM =
 >   ModulationSettings {
 >     qqUseModulators                      = True
->   , qqUseDefaultMods                     = False
->   , qqUseFilterSVF                       = False
+>   , qqUseDefaultMods                     = True
+>   , qqUseFilterSVF                       = True
 >   , qqUseLowPass                         = False
 >   , qqUseLFO                             = True}

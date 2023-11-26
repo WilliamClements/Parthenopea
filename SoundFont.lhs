@@ -929,7 +929,7 @@ prepare the specified instruments and percussion ===============================
 >                                          = profess
 >                                              (xmodi <= ymodi)
 >                                              "SoundFont file corrupt (buildZone mods)"
->                                              (zip [0..] (map (ssIMods !) (safeRange xmodi ymodi)))
+>                                              (zip [10000..] (map (ssIMods !) (safeRange xmodi ymodi)))
 >
 >             meval      :: Maybe Bool     = zSampleIndex
 >                                            >>= \w → Just (PreSampleKey pWordF w)
@@ -1273,7 +1273,7 @@ reconcile zone and sample header ===============================================
 >                     , zInitFc, zInitQ
 >                     , zModLfoToFc, zModEnvToFc, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
 >                     , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv
->                     , zModulators}       = resolveMods m8n zModulators
+>                     , zModulators}       = resolveMods m8n zModulators defaultMods
 >   where
 >     m8n                :: Modulation     =
 >       defModulation{
