@@ -787,10 +787,6 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         , violates zScaleTuning
 >         , violates zExclusiveClass
 >         , violates zInitQ
->         , violates zKeyToModEnvHold
->         , violates zKeyToModEnvDecay
->         , violates zKeyToVolEnvHold
->         , violates zKeyToVolEnvDecay
 >          -- temporarily ignoring zModulators et al
 >       ]
 >
@@ -1200,29 +1196,30 @@ zone selection for rendering ===================================================
 
 reconcile zone and sample header ======================================================================================
 
-> reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → Velocity → KeyNumber → (Reconciled, Reconciled)
-> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) vel key
+> reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → NoteOn → (Reconciled, Reconciled)
+> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) noon
 >   | traceNever msg False                 = undefined
 >   | otherwise                            = (recL, recR')
 >   where
->     recL = reconcile (zoneL, shdrL) vel key
->     recR = reconcile (zoneR, shdrR) vel key
+>     recL = reconcile (zoneL, shdrL) noon
+>     recR = reconcile (zoneR, shdrR) noon
 >     recR' = recR{
 >               rRootKey                   = rRootKey recL
 >             , rPitchCorrection           = rPitchCorrection recL}
 >     msg = unwords ["reconcileLR zoneL=", show zoneL, "\n  shdrL=", show shdrL]
 >
-> reconcile              :: (SFZone, F.Shdr) → Velocity → KeyNumber → Reconciled 
+> reconcile              :: (SFZone, F.Shdr) → NoteOn → Reconciled 
 > reconcile (zone@SFZone{zRootKey, zKey, zVel
 >                      , zInitAtten
 >                      , zStartOffs, zEndOffs, zStartCoarseOffs, zEndCoarseOffs
 >                      , zLoopStartOffs, zLoopStartCoarseOffs, zLoopEndOffs, zLoopEndCoarseOffs
 >                      , zDelayVolEnv, zAttackVolEnv, zHoldVolEnv
 >                      , zDecayVolEnv, zSustainVolEnv, zReleaseVolEnv
->                      , zCoarseTune, zFineTune, zChorus, zReverb, zPan, zSampleMode}, shdr) vel key
+>                      , zCoarseTune, zFineTune, zChorus, zReverb, zPan, zSampleMode
+>                      , zKeyToVolEnvHold, zKeyToVolEnvDecay}, shdr) noon@NoteOn{noteOnVel, noteOnKey}
 >                                          = recon
 >   where
->     m8n                                  = resModulation zone
+>     m8n                                  = resModulation zone noon
 >     recon = Reconciled {
 >     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
 >   , rSampleRate      = fromIntegral          (F.sampleRate shdr)
@@ -1238,12 +1235,13 @@ reconcile zone and sample header ===============================================
 >                                              (F.originalPitch shdr)  zRootKey
 >   , rForceKey        = fmap                  fromIntegral            zKey
 >   , rForceVel        = fmap                  fromIntegral            zVel
->   , rNoteOn          = NoteOn                vel                     key
+>   , rNoteOn          = noon
 >   , rAttenuation     = resAttenuation                                zInitAtten
 >   , rVolEnv          = deriveEnvelope                                zDelayVolEnv
 >                                                                      zAttackVolEnv
->                                                                      zHoldVolEnv
->                                                                      zDecayVolEnv
+>                                                                      noon
+>                                                                      (zHoldVolEnv,  zKeyToVolEnvHold)
+>                                                                      (zDecayVolEnv, zKeyToVolEnvDecay)
 >                                                                      zSustainVolEnv
 >                                                                      zReleaseVolEnv
 >                                                                      Nothing
@@ -1266,13 +1264,15 @@ reconcile zone and sample header ===============================================
 >                                              then maybe 0 fromIntegral zInitAtten
 >                                              else 0.0
 >
-> resModulation         :: SFZone → Modulation
+> resModulation         :: SFZone → NoteOn → Modulation
 > resModulation z@SFZone{
 >                       zModLfoToPitch, zVibLfoToPitch, zModEnvToPitch
 >                     , zInitFc, zInitQ
 >                     , zModLfoToFc, zModEnvToFc, zModLfoToVol, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
 >                     , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv
->                     , zModulators}       = resolveMods m8n zModulators defaultMods
+>                     , zKeyToModEnvHold, zKeyToModEnvDecay
+>                     , zModulators} noon
+>                                          = resolveMods m8n zModulators defaultMods
 >   where
 >     m8n                :: Modulation     =
 >       defModulation{
@@ -1293,8 +1293,9 @@ reconcile zone and sample header ===============================================
 >     nModEnv            :: Maybe Envelope = deriveEnvelope
 >                                              zDelayModEnv
 >                                              zAttackModEnv
->                                              zHoldModEnv
->                                              zDecayModEnv
+>                                              noon
+>                                              (zHoldModEnv, zKeyToModEnvHold) 
+>                                              (zDecayModEnv, zKeyToModEnvDecay)
 >                                              zSustainModEnv
 >                                              zReleaseModEnv
 >                                              (Just (zModEnvToPitch, zModEnvToFc))
@@ -1308,7 +1309,7 @@ reconcile zone and sample header ===============================================
 >        , chooseFromModTarget toWhich $ maybe defModTarget lModTarget nModLfo
 >        , chooseFromModTarget toWhich $ maybe defModTarget lModTarget nVibLfo]
 
-carry out, and "pre-cache" results, of play requests ====================================================================
+carry out, and "pre-cache" results of, play requests ====================================================================
 
 > createPlayCache        :: ∀ a. (Ord a) ⇒
 >                           Array Word SFFile
@@ -1342,7 +1343,7 @@ carry out, and "pre-cache" results, of play requests ===========================
 >                                          = setZone zoneCache pergm noteOnVel noteOnKey
 >         (reconL, reconR)
 >                        :: (Reconciled, Reconciled)
->                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) noteOnVel noteOnKey
+>                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) noon
 >         playValue                        = (reconL, if reconR == reconL
 >                                                       then Nothing
 >                                                       else Just reconR)

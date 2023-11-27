@@ -1098,6 +1098,12 @@ Returns the elapsed time in seconds
 > fromTimecents          :: Maybe Int → Double
 > fromTimecents mtimecents                 = pow 2 (fromIntegral (fromMaybe (-12000) mtimecents)/1200)
 
+> fromTimecents'         :: Maybe Int → Maybe Int → KeyNumber → Double
+> fromTimecents' mtimecents mfact key      = pow 2 (base + inc)
+>   where
+>     base               :: Double         = fromIntegral (fromMaybe (-12000) mtimecents) / 1200
+>     inc                :: Double         = fromIntegral (fromMaybe 0 mfact) * fromIntegral (60 - key) / 128 / 1200
+
 Returns the attenuation (based on input 10ths of a percent)
 
 > fromTithe              :: Maybe Int → Double

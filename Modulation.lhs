@@ -619,6 +619,6 @@ Type declarations ==============================================================
 >   ModulationSettings {
 >     qqUseModulators                      = True
 >   , qqUseDefaultMods                     = True
->   , qqUseFilterSVF                       = True
->   , qqUseLowPass                         = True
+>   , qqUseFilterSVF                       = False
+>   , qqUseLowPass                         = False
 >   , qqUseLFO                             = True}

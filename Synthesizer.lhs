@@ -360,22 +360,27 @@ Envelopes ======================================================================
 >
 > deriveEnvelope         :: Maybe Int
 >                           → Maybe Int
->                           → Maybe Int
->                           → Maybe Int
+>                           → NoteOn
+>                           → (Maybe Int, Maybe Int)
+>                           → (Maybe Int, Maybe Int)
 >                           → Maybe Int
 >                           → Maybe Int
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe Envelope
-> deriveEnvelope mDelay mAttack mHold mDecay mSustain mRelease mTarget
+> deriveEnvelope mDelay mAttack noon@NoteOn{noteOnKey} (mHold, mHoldByKey) (mDecay, mDecayByKey)
+>                mSustain mRelease mTarget
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTarget
 >                                              then Just env
 >                                              else Nothing
 >   where
->     inp                                  = [mDelay, mAttack, mHold, mDecay, mSustain, mRelease]
+>     minDeltaT          :: Double         = fromTimecents Nothing
+>     dHold              :: Double         = max minDeltaT (fromTimecents' mHold  mHoldByKey  noteOnKey)
+>     dDecay             :: Double         = max minDeltaT (fromTimecents' mDecay mDecayByKey noteOnKey)
+>
 >     env                                  =
->       Envelope (fromTimecents mDelay) (fromTimecents mAttack)      (fromTimecents mHold)
->                (fromTimecents mDecay) (fromTithe mSustain)         (fromTimecents mRelease)
+>       Envelope (fromTimecents mDelay) (fromTimecents mAttack)      dHold
+>                dDecay                 (fromTithe mSustain)         (fromTimecents mRelease)
 >                (makeModTarget mTarget)
 >
 >     doUse            :: Maybe (Maybe Int, Maybe Int) → Bool
