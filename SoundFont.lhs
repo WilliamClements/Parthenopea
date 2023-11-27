@@ -787,7 +787,6 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         , violates zScaleTuning
 >         , violates zExclusiveClass
 >         , violates zInitQ
->         , violates zModLfoToVol
 >         , violates zKeyToModEnvHold
 >         , violates zKeyToModEnvDecay
 >         , violates zKeyToVolEnvHold
@@ -1271,7 +1270,7 @@ reconcile zone and sample header ===============================================
 > resModulation z@SFZone{
 >                       zModLfoToPitch, zVibLfoToPitch, zModEnvToPitch
 >                     , zInitFc, zInitQ
->                     , zModLfoToFc, zModEnvToFc, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
+>                     , zModLfoToFc, zModEnvToFc, zModLfoToVol, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
 >                     , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv
 >                     , zModulators}       = resolveMods m8n zModulators defaultMods
 >   where
@@ -1299,7 +1298,7 @@ reconcile zone and sample header ===============================================
 >                                              zSustainModEnv
 >                                              zReleaseModEnv
 >                                              (Just (zModEnvToPitch, zModEnvToFc))
->     nModLfo            :: Maybe LFO      = deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc Nothing
+>     nModLfo            :: Maybe LFO      = deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc zModLfoToVol
 >     nVibLfo            :: Maybe LFO      = deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
 >
 >     summarize          :: ModDestType → Maybe Envelope → Maybe LFO → Maybe LFO → [Double]

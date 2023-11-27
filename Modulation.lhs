@@ -301,7 +301,7 @@ Modulator management ===========================================================
 >     procSVF                              =
 >       proc (x, msig) → do
 >         let fc = modulateFc msig
->         y ← filterSVF lowPassQ           ⤙ (x, fc)
+>         y ← filterSVF 0 {- lowPassQ  -}  ⤙ (x, fc)
 >         outA                             ⤙ resonate x fc y
 >
 >     delay'             :: Signal p (Double, ModSignals) Double
@@ -376,7 +376,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 
 > filterSVF              :: forall p . Clock p => Double → Signal p (Double,Double) Double
 > filterSVF initQ
->   | traceIf msg False                    = undefined
+>   | traceNow msg False                   = undefined
 >   | otherwise                            =
 >   let
 >     sr                                   = rate (undefined :: p)
@@ -389,8 +389,8 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >         let yB'                          = f1 * yH' + yB
 >
 >         yL ← delay 0                     ⤙ yL'
->         yB ← delay 0.5                   ⤙ yB'
->         yH ← delay 1                     ⤙ yH'
+>         yB ← delay 0                     ⤙ yB'
+>         yH ← delay 0                     ⤙ yH'
 >       outA                               ⤙ yL'
 >   where
 >     msg                                  = unwords ["filterSVF " ++ show useFilterSVF
@@ -620,5 +620,5 @@ Type declarations ==============================================================
 >     qqUseModulators                      = True
 >   , qqUseDefaultMods                     = True
 >   , qqUseFilterSVF                       = True
->   , qqUseLowPass                         = False
+>   , qqUseLowPass                         = True
 >   , qqUseLFO                             = True}
