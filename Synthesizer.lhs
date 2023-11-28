@@ -397,13 +397,9 @@ Envelopes ======================================================================
 >                                              then unwords ["deriveEnvelope ", if isJust mTarget
 >                                                                                 then "modEnv "
 >                                                                                 else "volEnv "
->                                                                        , "mDelay=  ", show mDelay
->                                                                        , "mAttack= ", show mAttack
->                                                                        , "mHold=   ", show mHold
->                                                                        , "mDecay=  ", show mDecay
->                                                                        , "mSustain=", show mSustain
->                                                                        , "mRelease=", show mRelease
->                                                                        , "mTarget= ", show mTarget]
+>                                                                        , "\nhold=   ", show mHold,     " ",   show mHoldByKey,  " ", show dHold, " ( not ",   show (fromTimecents mHold), " )"
+>                                                                        , "\ndecay=  ", show mDecay,    " ",   show mDecayByKey, " ", show dDecay, " ( not ", show (fromTimecents mDecay), " )"
+>                                                                        , "\nmRelease=", show mRelease, " ( ", show (fromTimecents mRelease), " )"]
 >                                              else unwords ["deriveEnvelope (none)"]
 >
 > doEnvelope             :: ∀ p . Clock p ⇒ Maybe Envelope → Double → Double → Signal p () Double

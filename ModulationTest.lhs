@@ -266,7 +266,7 @@ struct sfInstModList
 > table2vals                               = zipWith (curry convFun) [0 .. ]
 >   where
 >     convFun            :: (Int, Double) → (Double, Double, Double, Double)
->     convFun (i, y)                       = (fromIntegral i / 128, y, 0, 0)
+>     convFun (i, y)                       = (fromIntegral i, y, 0, 0)
 >
 > vals' = table2vals (modulationTest004 (allMappings !! 15))
 >         

@@ -206,11 +206,11 @@ Modulator management ===========================================================
 >                                              then [ makeDefaultMod 0 ms0 48 960     defModSrc
 >                                                   , makeDefaultMod 1 ms1  8 (-2400) ms2 ]
 >                                              else []
->                                                              
+>  -- all three of these are negative unipolar, continuity varying                                                            
 >   where                                                 --    cont    bipolar  neg  CC
 >     ms0                                  = ModSrc   (Mapping Concave   False  True False) FromNoteOnVel
 >     ms1                                  = ModSrc   (Mapping Linear    False  True False) FromNoteOnVel
->  -- some feel that ms2 as an amount source here should be ignored; i.e. containing copy of defModSrc
+>  -- some implementations do not include the amount source below in the second default modulator
 >     ms2                                  = ModSrc   (Mapping Switch    False  True False) FromNoteOnVel
 >
 >     makeDefaultMod     :: Word → ModSrc → Word → Int → ModSrc → Modulator
@@ -239,14 +239,13 @@ Modulator management ===========================================================
 >       | otherwise                        = 0
 >
 > fromNoteOn             :: Int → Mapping → Double
-> fromNoteOn n ping@Mapping{msContinuity, msBiPolar, msMax2Min}
->                                          = controlDenormal ping (fromIntegral n / 128) (0, 1)
+> fromNoteOn n ping                        = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
 > calculateModFactor     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
 > calculateModFactor tag m8n@Modulation{modGraph, toPitchSummary, toFilterFcSummary, toVolumeSummary}
 >                    md msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} noon
 >  | traceNever msg False                  = undefined
->  | otherwise                             = fact
+>  | otherwise                             = fromCents (modEnv + modLfo + vibLfo + mods)
 >  where
 >    targetListIn        :: [Double]       = case md of
 >                                              ToPitch        → toPitchSummary
@@ -258,17 +257,16 @@ Modulator management ===========================================================
 >                                              (length targetListIn >= 3)
 >                                              "bad targetList"
 >                                              targetListIn
->    x1                                    = srModEnvPos * head targetList
->    x2                                    = srModLfoPos * (targetList !! 1)
->    x3                                    = srVibLfoPos * (targetList !! 2)
->    x4                                    = evaluateMods md modGraph noon
->    fact                                  = fromCents (x1 + x2 + x3 + x4)
+>    modEnv                  :: Double     = srModEnvPos * head targetList
+>    modLfo                                = srModLfoPos * (targetList !! 1)
+>    vibLfo                                = srVibLfoPos  * (targetList !! 2)
+>    mods                                  = evaluateMods md modGraph noon
 >
 >    msg                                   = unwords ["calculateModFactor: "
->                                                     , show x1, " + "
->                                                     , show x2, " + "
->                                                     , show x3, " + "
->                                                     , show x4, " = ", show (x1+x2+x3+x4), " => ", show fact]
+>                                                     , show modEnv, " + "
+>                                                     , show modLfo, " + "
+>                                                     , show vibLfo, " + "
+>                                                     , show mods,   " = ", show (modEnv+modLfo+vibLfo+mods), " => ", show (fromCents (modEnv+modLfo+vibLfo+mods))]
 >
 > addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
 > addResonance noon m8n@Modulation{mLowPass}
