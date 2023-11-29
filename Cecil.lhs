@@ -215,8 +215,9 @@ Abby Cissa =====================================================================
 >    $ addVolume 100
 >    -- $ perc MuteCuica dwn
 >    $ instrument Trumpet
+>        (line [f 5 en,  g 5 en])
 >      -- (c 5 wn)
->      (line [f 5 en,  g 5 en, f 5 en, e 5 en,  c 5 qn])
+>      -- (line [f 5 en,  g 5 en, f 5 en, e 5 en,  c 5 qn])
 >
 > abby :: Music (Pitch, Volume)
 > abby =

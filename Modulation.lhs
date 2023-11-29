@@ -275,9 +275,11 @@ Modulator management ===========================================================
 >     lp@LowPass{lowPassFc, lowPassQ}      = fromJust mLowPass
 >
 >     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
->     makeSF _                             = if useFilterSVF
->                                              then procSVF
->                                              else procButter
+>     makeSF _                             = case useResonanceType of
+>                                              ResonanceNone         → error "usually don't need to protect against ResonanceNone"
+>                                              ResonanceLowpass      → procButter
+>                                              ResonanceBandpass     → procBandpass
+>                                              ResonanceSVF          → procSVF
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      = lowPassFc * calculateModFactor
@@ -290,8 +292,17 @@ Modulator management ===========================================================
 >     procButter         :: Signal p (Double, ModSignals) Double
 >     procButter                           = 
 >       proc (x, msig) → do
->         let fc = modulateFc msig
+>         let fc = min 20000 (modulateFc msig)
 >         y ← filterLowPassBW              ⤙ (x, fc)
+>         let y' = resonate x fc y
+>         outA                             ⤙ y'
+>
+>     procBandpass       :: Signal p (Double, ModSignals) Double
+>     procBandpass                           = 
+>       proc (x, msig) → do
+>         let fc = modulateFc msig
+>         let bw = 5
+>         y ← filterBandPass 2             ⤙ (x, fc, bw)
 >         let y' = resonate x fc y
 >         outA                             ⤙ y'
 >
@@ -337,8 +348,8 @@ Modulator management ===========================================================
 >     freq               :: Double         = fromAbsoluteCents $ maybe 0 (clip (-16000, 4500)) mfreq
 >     anyJust            :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
 >     msg                                  = unwords ["deriveLFO ", show toPitch,    " "
->                                                             , show toFilterFc, " "
->                                                             , show toVolume]
+>                                                                 , show toFilterFc, " "
+>                                                                 , show toVolume]
 >
 > doLFO                  :: ∀ p . Clock p ⇒ Maybe LFO → Signal p () Double
 > doLFO                                    = maybe (constA 0) makeSF
@@ -358,9 +369,9 @@ Modulator management ===========================================================
 >                                                           ,  0.14,  0, -0.125]
 >
 > triangleWave           :: ∀ p . Clock p ⇒ Double → Signal p () Double
-> triangleWave freq                           = 
+> triangleWave freq                        = 
 >   proc _ → do
->     osc triangleWaveTable 0 ⤙ freq
+>     osc triangleWaveTable 0              ⤙ freq
 >
 > modVib                 :: ∀ p . Clock p ⇒ Double → Double → Signal p Double Double
 > modVib rate depth =
@@ -368,18 +379,17 @@ Modulator management ===========================================================
 >     vib   ← osc sineTable 0  ⤙ rate
 >     sout  ← delayLine1 0.2   ⤙ (sin,0.1+depth*vib)
 >     outA ⤙ sout
->
 
 see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
 
-> filterSVF              :: forall p . Clock p => Double → Signal p (Double,Double) Double
+> filterSVF              :: ∀ p . Clock p ⇒ Double → Signal p (Double,Double) Double
 > filterSVF initQ
 >   | traceNow msg False                   = undefined
 >   | otherwise                            =
 >   let
 >     sr                                   = rate (undefined :: p)
 >   in
->     proc (sig, fc) -> do
+>     proc (sig, fc) → do
 >       let f1                             = 2 * sin (pi * fc / sr)
 >       rec
 >         let yL'                          = f1 * yB + yL
@@ -391,9 +401,8 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >         yH ← delay 0                     ⤙ yH'
 >       outA                               ⤙ yL'
 >   where
->     msg                                  = unwords ["filterSVF " ++ show useFilterSVF
->                                                           ++ " " ++ show initQ
->                                                           ++ " " ++ show (fromCentibels' initQ)]
+>     msg                                  = unwords ["filterSVF initQ = " ++ show initQ
+>                                                  ++ " " ++ show (fromCentibels' initQ)]
 
 Controller Curves =====================================================================================================
 
@@ -492,7 +501,7 @@ Type declarations ==============================================================
 > data NoteOn =
 >   NoteOn {
 >     noteOnVel          :: Velocity
->   , noteOnKey          :: KeyNumber} deriving (Eq, Show)
+>   , noteOnKey          :: KeyNumber} deriving (Eq, Ord, Show)
 >
 > data LowPass =
 >   LowPass {
@@ -520,6 +529,12 @@ Type declarations ==============================================================
 >                                              _           → error ("ModTarget only deals with toPitch"
 >                                                               ++ ", toFilterFc, and toVolume")
 > defModTarget                             = ModTarget 0 0 0
+>
+> data ResonanceType =
+>   ResonanceNone 
+>   | ResonanceLowpass
+>   | ResonanceBandpass
+>   | ResonanceSVF deriving (Eq, Show)
 >
 > data LFO =
 >   LFO {
@@ -600,16 +615,14 @@ Type declarations ==============================================================
 >
 > data ModulationSettings =
 >   ModulationSettings {
->     qqUseModulators        :: Bool
->   , qqUseDefaultMods       :: Bool
->   , qqUseFilterSVF         :: Bool
->   , qqUseLowPass           :: Bool
->   , qqUseLFO               :: Bool} deriving Show
+>     qqUseModulators    :: Bool
+>   , qqUseDefaultMods   :: Bool
+>   , qqUseResonanceType :: ResonanceType
+>   , qqUseLFO           :: Bool} deriving Show
 >
 > useModulators                            = qqUseModulators              defM
 > useDefaultMods                           = qqUseDefaultMods             defM
-> useFilterSVF                             = qqUseFilterSVF               defM
-> useLowPass                               = qqUseLowPass                 defM
+> useResonanceType                         = qqUseResonanceType           defM
 > useLFO                                   = qqUseLFO                     defM
 >
 > defM                   :: ModulationSettings
@@ -617,6 +630,5 @@ Type declarations ==============================================================
 >   ModulationSettings {
 >     qqUseModulators                      = True
 >   , qqUseDefaultMods                     = True
->   , qqUseFilterSVF                       = False
->   , qqUseLowPass                         = False
+>   , qqUseResonanceType                   = ResonanceLowpass -- ResonanceBandpass -- ResonanceNone
 >   , qqUseLFO                             = True}

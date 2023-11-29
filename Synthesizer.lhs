@@ -125,7 +125,8 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → (Reconciled, Reconciled)
 >                           → Signal p () (ModSignals, ModSignals)
-> eutIgniteModSignals secsScored secsToPlay (reconL@Reconciled{rModulation = mL}, reconR@Reconciled{rModulation = mR})
+> eutIgniteModSignals secsScored secsToPlay
+>                     (reconL@Reconciled{rModulation = m8nL}, reconR@Reconciled{rModulation = m8nR})
 >                                          =
 >   proc _ → do
 >     aL1 ← doEnvelope  mModEnvL secsScored secsToPlay ⤙ ()
@@ -136,8 +137,8 @@ Signal function-based synth ====================================================
 >     aR3 ← doLFO       mVibLfoR                       ⤙ ()
 >     outA ⤙ (ModSignals aL1 aL2 aL3, ModSignals aR1 aR2 aR3)
 >   where
->     mL'@Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = mL
->     mR'@Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = mR
+>     m8nL'@Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = m8nL
+>     m8nR'@Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = m8nR
 >
 > eutPumpSamples         :: ∀ p . Clock p ⇒
 >                           Double

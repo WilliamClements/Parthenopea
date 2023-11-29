@@ -258,8 +258,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data PlayKey =
 >   PlayKey {
 >     xItem              :: PerGMKey
->   , xVel               :: Velocity
->   , xKey               :: KeyNumber} deriving (Eq, Ord, Show)
+>   , xNoteOn            :: NoteOn} deriving (Eq, Ord, Show)
 >
 > type PlayValue                           = (Reconciled, Maybe Reconciled)
 
@@ -1069,11 +1068,12 @@ define signal functions and instrument maps to support rendering ===============
 >                                              dur pch'' vol'' params
 >                                              (ssData arrays) (ssM24 arrays)
 >   where
->     vel                                  = clip (0, 127) vol
->     key                                  = clip (0, 127) pch
+>     noon@NoteOn{noteOnVel, noteOnKey}    = NoteOn
+>                                              (clip (0, 127) vol)
+>                                              (clip (0, 127) pch)
 >
->     pch''              :: AbsPitch       = maybe key (clip (0, 127)) rForceKey
->     vol''              :: Volume         = maybe vel (clip (0, 127)) rForceVel
+>     pch''              :: AbsPitch       = maybe noteOnKey (clip (0, 127)) rForceKey
+>     vol''              :: Volume         = maybe noteOnVel (clip (0, 127)) rForceVel
 >
 >     arrays                               = zArrays (zFiles ! pWordF)
 >     nameI                                = F.instName $ ssInsts arrays ! pWordI
@@ -1081,7 +1081,7 @@ define signal functions and instrument maps to support rendering ===============
 >                                                                    ,  show pergm , " / ", show (pch, vol)]
 >
 >     accessReconciled   :: Maybe (Reconciled, Maybe Reconciled)
->     accessReconciled = Map.lookup (PlayKey pergm vel key) zPlayCache
+>     accessReconciled = Map.lookup (PlayKey pergm noon) zPlayCache
 >
 >     (reconX, mreconX)  :: (Reconciled, Maybe Reconciled)
 >                                          = fromMaybe (error $ "Note missing from play cache: "
@@ -1095,26 +1095,24 @@ zone selection for rendering ===================================================
 
 > setZone                :: ZoneCache
 >                           → PerGMKey
->                           → Velocity
->                           → KeyNumber
+>                           → NoteOn
 >                           → ((SFZone, F.Shdr), (SFZone, F.Shdr))
-> setZone zoneCache pergm vel key
+> setZone zoneCache pergm noon
 >                                          = ((snd zoneL, sampleL) ,(snd zoneR, sampleR))
 >   where
 >     perI@PerInstrument{pZonePairs}       = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
 >     zs                 :: [(ZoneHeader, SFZone)]
 >                                          = tail pZonePairs
 >
->     (wF, wI)                             = (pWordF pergm, pWordI pergm)
->     (zoneL, zoneR)                       = selectZonePair zs (selectBestZone zs vel key)
+>     (zoneL, zoneR)                       = selectZonePair zs (selectBestZone zs noon)
 >     (sampleL, sampleR)                   = ((pSample . fst) zoneL, (pSample . fst) zoneR)
 >
-> selectBestZone         :: [(ZoneHeader, SFZone)] → Velocity → KeyNumber → (ZoneHeader, SFZone)
-> selectBestZone zs vel key
+> selectBestZone         :: [(ZoneHeader, SFZone)] → NoteOn → (ZoneHeader, SFZone)
+> selectBestZone zs noon
 >                                          = snd whichZ
 >   where
 >     scores             :: [(Int, (ZoneHeader, SFZone))]
->                                          = mapMaybe (scoreOneZone vel key) zs
+>                                          = mapMaybe (scoreOneZone noon) zs
 >     whichZ                               = profess
 >                                              (not $ null scores)
 >                                              "scores should not be null (selectBestZone)"
@@ -1139,11 +1137,11 @@ zone selection for rendering ===================================================
 >     withSlink          :: Word → (ZoneHeader, SFZone) → Bool
 >     withSlink toMatch (zh, zone)         = fromJust (zSampleIndex zone) == toMatch
 >
-> scoreOneZone           :: Velocity
->                           → KeyNumber
+> scoreOneZone           :: NoteOn
 >                           → (ZoneHeader, SFZone)
 >                           → Maybe (Int, (ZoneHeader, SFZone))
-> scoreOneZone vel key (zh, zone)                  =
+> scoreOneZone noon@NoteOn{noteOnVel, noteOnKey} (zh, zone@SFZone{zKeyRange, zVelRange})
+>                                          =
 >     if qualify
 >     then Just (score, (zh, zone))
 >     else Nothing
@@ -1153,8 +1151,8 @@ zone selection for rendering ===================================================
 >
 >     score = score1 + score2
 >
->     score1 = scorePitchDistance key (zKeyRange zone)
->     score2 = scoreVelocityDistance vel (zVelRange zone)
+>     score1 = scorePitchDistance    noteOnKey zKeyRange
+>     score2 = scoreVelocityDistance noteOnVel zVelRange
 >
 > instrumentSplitCount   :: InstrumentName → [(ZoneHeader, SFZone)] → Double
 > instrumentSplitCount kind zs             = fromIntegral (length zs)
@@ -1287,7 +1285,7 @@ reconcile zone and sample header ===============================================
 >     initFc             :: Double         = fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
 >     initQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ
 >
->     nLowPass           :: Maybe LowPass  = if useLowPass && (isJust zInitFc || initQ > 0)
+>     nLowPass           :: Maybe LowPass  = if useResonanceType /= ResonanceNone && (isJust zInitFc || initQ > 0)
 >                                              then Just $ LowPass initFc initQ
 >                                              else Nothing
 >     nModEnv            :: Maybe Envelope = deriveEnvelope
@@ -1335,12 +1333,11 @@ carry out, and "pre-cache" results of, play requests ===========================
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
 >                           → NoteOn
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
->     pvFolder pergm ps noon@NoteOn{noteOnVel, noteOnKey}
->                                          = Map.insert (PlayKey pergm noteOnVel noteOnKey) playValue ps
+>     pvFolder pergm ps noon               = Map.insert (PlayKey pergm noon) playValue ps
 >       where
 >         ((zoneL, shdrL), (zoneR, shdrR))
 >                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
->                                          = setZone zoneCache pergm noteOnVel noteOnKey
+>                                          = setZone zoneCache pergm noon
 >         (reconL, reconR)
 >                        :: (Reconciled, Reconciled)
 >                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) noon
