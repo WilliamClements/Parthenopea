@@ -820,7 +820,7 @@ Pendington Arnt  ===============================================================
 > pendingtonArnt nRepeats =
 >    removeZeros
 >    $ tempo 1
->    $ transpose 0
+>    $ transpose 7
 >    $ keysig C Lydian
 >    $ times nRepeats
 >    $ addVolume 100

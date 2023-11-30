@@ -29,12 +29,10 @@ Library
         Percussion,
         Players,
         Rosters,
-        Signals,
         SoundFont,
         SunPyg,
         Synthesizer,
-        Syntoolkit,
-        WHC
+        Syntoolkit
   other-modules:
   build-depends:
         array                      >= 0.5.0.0            && <= 0.6,

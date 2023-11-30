@@ -198,7 +198,7 @@ which makes for a cleaner sound on some synthesizers:
 >   | otherwise                            = music
 >   where
 >     music = 
->       dim (3/2)
+>       dim 1
 >       $ slur 2
 >       $ line
 >         notes 
