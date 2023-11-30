@@ -212,10 +212,10 @@ Abby Cissa =====================================================================
 >    $ tempo 1
 >    $ transpose 0
 >    $ keysig C Major
->    $ addVolume 100
->    -- $ perc MuteCuica dwn
+>    $ addVolume 80
 >    $ instrument Trumpet
->        (line [f 5 en,  g 5 en])
+>      (line [e 5 en,  f 5 en,  g 5 qn, c 6 qn, bf 5 en, a 5 en, g 5 hn])
+>      -- (line [f 5 en,  g 5 en])
 >      -- (c 5 wn)
 >      -- (line [f 5 en,  g 5 en, f 5 en, e 5 en,  c 5 qn])
 >

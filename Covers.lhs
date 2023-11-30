@@ -16,7 +16,7 @@ January 13, 2023
   
 Saucy Sailor ==========================================================================================================
 
-> ssLeadI = Trumpet
+> ssLeadI = Flute
 > ssPickedI = AcousticGuitarNylon
 > ssBassI = ElectricBassPicked
 >

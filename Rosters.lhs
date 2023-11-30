@@ -77,11 +77,11 @@ organize exposed music =========================================================
 > sj =
 >    -- [ ("getCITM"     , aggrandize getCITM)]
 >    -- [ ("sunPyg"      , aggrandize sunPyg)]
->    [ ("littleAbby"     , aggrandize littleAbby)]
->    -- [ ("ssailor"     , aggrandize ssailor)]
->    -- [ ("cut4roger"      , cut 4 $ aggrandize roger)]
+>    [ ("littleAbby"  , aggrandize littleAbby)]
+>    -- [ ("ssailor"        , aggrandize ssailor)]
+>    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("roger"       , aggrandize roger)]
->    -- [ ("silver"         , aggrandize $ silver)]
+>    -- [ ("silver"      , aggrandize $ silver)]
 >    -- [ ("bake"        , cut 4.5 $ bakedJingle 9113)]
 
 a few playthings ... get it? ==========================================================================================

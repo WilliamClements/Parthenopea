@@ -387,7 +387,8 @@ Envelopes ======================================================================
 >     doUse            :: Maybe (Maybe Int, Maybe Int) → Bool
 >     doUse mTarget                        = case mTarget of
 >                                              Nothing           → True
->                                              Just target       → (isJust . fst) target || (isJust . snd) target
+>                                              Just (xToPitch, xToFilterFc)
+>                                                                → isJust xToPitch || isJust xToFilterFc
 >
 >     makeModTarget    :: Maybe (Maybe Int, Maybe Int) → ModTarget
 >     makeModTarget mTarget                = case mTarget of

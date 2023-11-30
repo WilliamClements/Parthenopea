@@ -282,17 +282,18 @@ Modulator management ===========================================================
 >                                              ResonanceSVF          → procSVF
 >
 >     modulateFc         :: ModSignals → Double
->     modulateFc msig                      = lowPassFc * calculateModFactor
->                                                          "addResonance"
->                                                          m8n
->                                                          ToFilterFc
->                                                          msig
->                                                          noon
+>     modulateFc msig                      =
+>       clip (20, 20000) (lowPassFc * calculateModFactor
+>                                       "addResonance"
+>                                       m8n
+>                                       ToFilterFc
+>                                       msig
+>                                       noon)
 >
 >     procButter         :: Signal p (Double, ModSignals) Double
 >     procButter                           = 
 >       proc (x, msig) → do
->         let fc = min 20000 (modulateFc msig)
+>         let fc = modulateFc msig
 >         y ← filterLowPassBW              ⤙ (x, fc)
 >         let y' = resonate x fc y
 >         outA                             ⤙ y'
@@ -301,17 +302,18 @@ Modulator management ===========================================================
 >     procBandpass                           = 
 >       proc (x, msig) → do
 >         let fc = modulateFc msig
->         let bw = 5
+>         let bw = 80
 >         y ← filterBandPass 2             ⤙ (x, fc, bw)
 >         let y' = resonate x fc y
->         outA                             ⤙ y'
+>         outA                             ⤙ x + y'
 >
 >     procSVF            :: Signal p (Double, ModSignals) Double
 >     procSVF                              =
 >       proc (x, msig) → do
 >         let fc = modulateFc msig
 >         y ← filterSVF 0 {- lowPassQ  -}  ⤙ (x, fc)
->         outA                             ⤙ resonate x fc y
+>         let y' = resonate x fc y
+>         outA                             ⤙ y'
 >
 >     delay'             :: Signal p (Double, ModSignals) Double
 >                                          =

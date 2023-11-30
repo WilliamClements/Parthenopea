@@ -774,7 +774,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 > itemViolates z f                         = isJust (f z)
 >
 > zoneConforms           :: (ZoneHeader, SFZone) → Bool
-> zoneConforms (_, zone@SFZone{zSampleMode, zModulators})
+> zoneConforms (_, zone@SFZone{zInitQ, zSampleMode})
 >                                          = not $ or unsupported
 >   where
 >     violates                             = itemViolates zone
@@ -785,8 +785,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >           A.PressLoop == fromMaybe A.NoLoop zSampleMode
 >         , violates zScaleTuning
 >         , violates zExclusiveClass
->         , violates zInitQ
->          -- temporarily ignoring zModulators et al
+>         , 0.000001 < maybe 0 fromIntegral zInitQ
 >       ]
 >
 > is24BitInst _                     = True -- WOX isJust $ ssM24 arrays       
@@ -879,7 +878,8 @@ prepare the specified instruments and percussion ===============================
 
 > formZoneCache          :: Array Word SFFile → PreSampleCache → PreInstCache → [PerGMKey] → IO ZoneCache
 > formZoneCache sffiles preSampleCache preInstCache pergms
->                                          = return $ foldr (\p → Map.insert p (computePerInst p)) Map.empty pergms
+>                                          =
+>   return $ foldr (\p → Map.insert p (computePerInst p)) Map.empty pergms
 >   where
 >     computePerInst     :: PerGMKey → PerInstrument
 >     computePerInst pergm@PerGMKey{pWordF, pWordI} 
@@ -1062,30 +1062,36 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Volume
 >                           → [Double]
 >                           → Signal p () (Double, Double)
-> instrumentSF sfrost@SFRoster{zFiles, zPlayCache} pergm@PerGMKey{pWordF, pWordI} dur pch vol params
->   | traceIf msg False                    = undefined
+> instrumentSF sfrost@SFRoster{zFiles, zPlayCache} pergm@PerGMKey{pWordF, pWordI} dur pchIn volIn params
+>   | traceAlways msg False                = undefined
 >   | otherwise                            = eutSynthesize (reconL, reconR) rSampleRate
->                                              dur pch'' vol'' params
+>                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
 >   where
 >     noon@NoteOn{noteOnVel, noteOnKey}    = NoteOn
->                                              (clip (0, 127) vol)
->                                              (clip (0, 127) pch)
+>                                              (clip (0, 127) volIn)
+>                                              (clip (0, 127) pchIn)
 >
->     pch''              :: AbsPitch       = maybe noteOnKey (clip (0, 127)) rForceKey
->     vol''              :: Volume         = maybe noteOnVel (clip (0, 127)) rForceVel
+>     pchOut              :: AbsPitch       = maybe noteOnKey (clip (0, 127)) rForceKey
+>     volOut              :: Volume         = maybe noteOnVel (clip (0, 127)) rForceVel
 >
 >     arrays                               = zArrays (zFiles ! pWordF)
 >     nameI                                = F.instName $ ssInsts arrays ! pWordI
->     msg                                  = unwords ["instrumentSF ",  show nameI , " = "
->                                                                    ,  show pergm , " / ", show (pch, vol)]
+>     msg                                  =
+>       unwords [
+>         "instrumentSF ",  show nameI 
+>       , " = "          ,  show pergm 
+>       , " , in "       ,  show (pchIn, volIn)
+>       , if pchOut /= pchIn || volOut /= volIn
+>           then " , out " ++ show (pchOut, volOut) ++  "_____"
+>           else "_____"]
 >
 >     accessReconciled   :: Maybe (Reconciled, Maybe Reconciled)
->     accessReconciled = Map.lookup (PlayKey pergm noon) zPlayCache
+>     accessReconciled                     = Map.lookup (PlayKey pergm noon) zPlayCache
 >
 >     (reconX, mreconX)  :: (Reconciled, Maybe Reconciled)
 >                                          = fromMaybe (error $ "Note missing from play cache: "
->                                                               ++ show (pch, vol))
+>                                                               ++ show noon )
 >                                                       accessReconciled
 >     (reconL@Reconciled{rSampleRate, rForceKey, rForceVel}, reconR)
 >                        :: (Reconciled, Reconciled)
