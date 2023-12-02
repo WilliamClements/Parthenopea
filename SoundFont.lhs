@@ -148,7 +148,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , zWinningRecord     :: WinningRecord
 >   , zPlayCache         :: Map PlayKey (Reconciled, Maybe Reconciled)}
 >
-> seedSFRoster vFile                       = SFRoster vFile Map.empty Map.empty Map.empty seedWinningRecord Map.empty
+> seedRoster vFile                         = SFRoster vFile Map.empty Map.empty Map.empty seedWinningRecord Map.empty
 >
 > data SFFile =
 >   SFFile {
@@ -326,11 +326,12 @@ executive ======================================================================
 >     sffilesp           ← CM.zipWithM openSoundFontFile [0..] fps
 >
 >     let boundsF::(Word, Word) = (0, fromIntegral (length sffilesp - 1))
->     let preRoster = seedSFRoster (listArray boundsF sffilesp)
+>     let preRoster = seedRoster (listArray boundsF sffilesp)
 >
 >     tsLoaded           ← getCurrentTime
 >     putStrLn ("___load files: " ++ show (diffUTCTime tsLoaded tsStarted))
 >
+>     -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
 >     (tsReconciled, sfrost)
 >                        ← finishRoster (tsLoaded, preRoster)
 >
@@ -351,7 +352,7 @@ executive ======================================================================
 >       flavor           :: InstCat → ZoneCache → PerGMKey → Bool
 >       flavor icat zc pergmI              = icat == pInstCat (getPerInstrumentFromCache zc pergmI)
 >
->     -- track the complete populations of: samples, instruments, percussion
+>       -- track the complete populations of: samples, instruments, percussion
 >       finishRoster     :: (UTCTime, SFRoster) → IO (UTCTime, SFRoster)
 >       finishRoster (tsLoaded, preRoster@SFRoster{zFiles})
 >                                          = do
@@ -374,7 +375,7 @@ executive ======================================================================
 >         -- actually conduct the tournament
 >         (tsReported, ws)
 >                        ← decideWinners tsZoned zFiles zoneCache preSampleCache preInstCache pergmsI' pergmsP'
->         tsDecided       ← getCurrentTime
+>         tsDecided      ← getCurrentTime
 >         putStrLn ("___decide winners: " ++ show (diffUTCTime tsReported tsDecided))
 >
 >         -- print song/orchestration info to user (can be stored by redirecting standard out)
@@ -388,7 +389,7 @@ executive ======================================================================
 >                                , zWinningRecord = ws
 >                                , zPlayCache = Map.union playCacheI playCacheP}
 >
->         tsReconciled       ← getCurrentTime
+>         tsReconciled   ← getCurrentTime
 >         putStrLn ("___create play cache: " ++ show (diffUTCTime tsReconciled tsReported))
 >         
 >         return (tsReconciled, sfrost)
@@ -1086,13 +1087,10 @@ define signal functions and instrument maps to support rendering ===============
 >           then " , out " ++ show (pchOut, volOut) ++  "_____"
 >           else "_____"]
 >
->     accessReconciled   :: Maybe (Reconciled, Maybe Reconciled)
->     accessReconciled                     = Map.lookup (PlayKey pergm noon) zPlayCache
->
 >     (reconX, mreconX)  :: (Reconciled, Maybe Reconciled)
->                                          = fromMaybe (error $ "Note missing from play cache: "
->                                                               ++ show noon )
->                                                       accessReconciled
+>                                          = fromMaybe
+>                                              (error $ "Note missing from play cache: " ++ show noon )
+>                                              (Map.lookup (PlayKey pergm noon) zPlayCache)
 >     (reconL@Reconciled{rSampleRate, rForceKey, rForceVel}, reconR)
 >                        :: (Reconciled, Reconciled)
 >                                          = (reconX, fromMaybe reconX mreconX)
@@ -1103,8 +1101,7 @@ zone selection for rendering ===================================================
 >                           → PerGMKey
 >                           → NoteOn
 >                           → ((SFZone, F.Shdr), (SFZone, F.Shdr))
-> setZone zoneCache pergm noon
->                                          = ((snd zoneL, sampleL) ,(snd zoneR, sampleR))
+> setZone zoneCache pergm noon             = ((snd zoneL, sampleL) ,(snd zoneR, sampleR))
 >   where
 >     perI@PerInstrument{pZonePairs}       = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
 >     zs                 :: [(ZoneHeader, SFZone)]
@@ -1366,8 +1363,9 @@ emit standard output text detailing what choices we made for rendering GM items 
 >       where
 >         mpergm                           = Map.lookup kind pWinningI
 >         result
->           | isJust mpergm                = (True, showPerGM sfrost (fromJust mpergm)
->                                                   ++ [Unblocked " -> ", gmId kind, EndOfLine])
+>           | isJust mpergm                = (True, [gmId kind, Unblocked " -> "] 
+>                                                    ++ showPerGM sfrost (fromJust mpergm)
+>                                                    ++ [EndOfLine])
 >           | kind == Percussion           = (True, [gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
 >           | otherwise                    = (False, [gmId kind, Unblocked " not found", EndOfLine])
 >
@@ -1377,8 +1375,9 @@ emit standard output text detailing what choices we made for rendering GM items 
 >       where
 >         mpergm                           = Map.lookup kind pWinningP
 >         result
->           | isJust mpergm                = (True, showPerGM sfrost (fromJust mpergm)
->                                                   ++ [Unblocked " -> ", gmId kind, EndOfLine])
+>           | isJust mpergm                = (True, [gmId kind, Unblocked " -> "]
+>                                                    ++ showPerGM sfrost (fromJust mpergm)
+>                                                    ++ [EndOfLine])
 >           | otherwise                    = (False, [gmId kind, Unblocked " not found", EndOfLine])
 >
 > showPerGM              :: SFRoster → PerGMScored → [Emission]

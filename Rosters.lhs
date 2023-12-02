@@ -72,13 +72,13 @@ organize exposed music =========================================================
 > zjingles =
 >    [ ("deathlessHorsie", aggrandize deathlessHorsie)
 >    , ("basicLick"      , aggrandize basicLick)
->    , ("sunPyg"         , aggrandize sunPyg)
+>    , ("sunPyg"         ,            sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
 >    -- [ ("getCITM"     , aggrandize getCITM)]
->    [ ("sunPyg"      , aggrandize sunPyg)]
->    -- [ ("littleAbby"  , aggrandize littleAbby)]
->    -- [ ("ssailor"        , aggrandize ssailor)]
+>    -- [ ("sunPyg"         ,            sunPyg)]
+>    [ ("littleAbby"  , aggrandize littleAbby)]
+>    -- [ ("ssailor"     , aggrandize ssailor)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("roger"       , aggrandize roger)]
 >    -- [ ("silver"      , aggrandize $ silver)]

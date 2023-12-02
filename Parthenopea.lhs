@@ -144,7 +144,7 @@ which makes for a cleaner sound on some synthesizers:
 >             else e1 : eventMerge (e2:es)
 >     eventMerge e = e
 
-  "triad"
+"triad" ===============================================================================================================
 
 > triad        :: PitchClass → Mode → Pitch → Dur → Music Pitch
 > triad key mode base dur = chord [n1, n2, n3] where
@@ -190,7 +190,7 @@ which makes for a cleaner sound on some synthesizers:
 >         | apDelta == (os!!2) = ((os!!3) - (os!!2)) : [(os!!4) - (os!!2)]
 >         | otherwise          = error "Malformed Triad"
 
-  "ascent/descent"
+"ascent/descent" ======================================================================================================
 
 > glissando'              :: [AbsPitch] → Dur → Music Pitch
 > glissando' gliss dur
@@ -231,6 +231,9 @@ which makes for a cleaner sound on some synthesizers:
 > ascent iname p dur =  chord [rest dur, glissando False (absPitch p)
 >                                                        (absPitch (snd (fromJust (instrumentRange iname)))) dur]
 >
+
+ranges ================================================================================================================
+
 >   -- calibrate (0,1) to (lo,up) e.g. (24,92)
 > denorm                 :: Double → (Double, Double) → Double
 > denorm r (lo, up)                        = lo + r * (up-lo)

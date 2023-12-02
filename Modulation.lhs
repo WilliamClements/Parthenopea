@@ -31,24 +31,14 @@
 Modulator management ==================================================================================================
 
 > resolveMods            :: Modulation → [Modulator] → [Modulator] → Modulation
-> resolveMods m8n m8rs dm8rs
->   | traceIf msg False                    = undefined
->   | otherwise                            = assignModGraph m8n (compileMods m8rs')
+> resolveMods m8n m8rs dm8rs               = m8n{modGraph = compileMods checked}
 >   where
->     msg                                  = unwords ["resolveMods ", show (length m8rs), show (length dm8rs)]
 >     sifted                               = siftMods (dm8rs ++ m8rs)
->     m8rs'                                = profess
+>     checked                              = profess
 >                                              (not $ hasCycles sifted)
 >                                              "cycles in modulator graph"
 >                                              sifted
 >         
-> assignModGraph         :: Modulation → Map ModDestType [Modulator] → Modulation
-> assignModGraph m8n mgraph
->   | traceIf msg False                    = undefined
->   | otherwise                            = m8n{modGraph = mgraph}
->   where
->     msg = unwords ["assignModGraph ", show mgraph]
->
 > hasCycles              :: [Modulator] → Bool
 > hasCycles ms
 >   | traceIf msg False                    = undefined
@@ -85,6 +75,9 @@ Modulator management ===========================================================
 >                                              (mix <= 10)
 >                                              "maximum of 10 tries exceeded..."
 >                                              ((snd . snd) (head triesIn))
+>     m8rsOut                              = filter shouldStay m8rsIn
+>     newTry                               = (length m8rsOut == length m8rsIn, (mix, m8rsOut))
+>
 >     compiled           :: Map ModDestType [Modulator]
 >                                          = compileMods m8rsIn
 >     superc             :: Map ModKey Word
@@ -98,21 +91,13 @@ Modulator management ===========================================================
 >     checkLink          :: Modulator → Maybe [Modulator]
 >     checkLink m8r                        = Map.lookup (ToLink (mrModId m8r)) compiled
 >
->     m8rsOut                              = filter shouldStay m8rsIn
->
 >     shouldStay         :: Modulator → Bool
->     shouldStay m8r@Modulator{mrModId}
->       | traceIf msg False                = undefined
->       | otherwise                        = linkageOk && not superceded
+>     shouldStay m8r@Modulator{mrModId}    = linkageOk && not superceded
 >       where
 >         linkageOk                        = not (requiresLinks m8r) || maybe False (not . null) (checkLink m8r)
 >         modKey                           = getModKey m8r
 >         winner         :: Word           = fromJust (Map.lookup modKey superc)
 >         superceded                       = mrModId /= winner
->         msg                              = unwords ["eliminateDanglingMods/shouldStay ", show superc]
->
->
->     newTry                               = (length m8rsOut == length m8rsIn, (mix, m8rsOut))
 >
 > requiresLinks, suppliesLink
 >                        :: Modulator → Bool
@@ -121,17 +106,12 @@ Modulator management ===========================================================
 >                                              ToLink _      → True
 >                                              _             → False
 >
-> siftMods               :: [Modulator] → [Modulator]
-> siftMods m8rsIn
->   | traceIf msg False                    = undefined
->   | otherwise                            = m8rsOut
+> siftMods m8rsIn                          = sifted
 >   where
 >     seed                                 = (False, (0, m8rsIn))
 >     generations                          = eliminateDanglingMods (singleton seed) 0
 >     successes                            = dropWhile (not . fst) generations
->     (_, (_, m8rsOut))                    = head successes 
->
->     msg                                  = unwords ["siftMods ", show (length m8rsIn, length m8rsOut)]
+>     (_, (_, sifted))                     = head successes 
 >
 > compileMods            :: [Modulator] → Map ModDestType [Modulator]
 > compileMods                              = foldl' nodeFolder Map.empty
@@ -139,7 +119,7 @@ Modulator management ===========================================================
 >     nodeFolder accum m8r@Modulator{mrModDest}
 >                                          =
 >       let
->         soFar          :: [Modulator]    = fromMaybe [] (Map.lookup mrModDest accum)
+>         soFar                            = fromMaybe [] (Map.lookup mrModDest accum)
 >       in
 >         Map.insert mrModDest (m8r : soFar) accum
 >
@@ -194,9 +174,9 @@ Modulator management ===========================================================
 >                                              else Just (from{mrModAmount = fromIntegral iIn})
 >
 > addAmtSrc              :: Maybe Modulator → ModSrc → Maybe Modulator
-> addAmtSrc mmod modSrc@ModSrc{msSource}   = mmod >>=   (\x → case msSource of
+> addAmtSrc mm8n amtSrc@ModSrc{msSource}   = mm8n >>=   (\x → case msSource of
 >                                                               FromLinked       → Nothing
->                                                               _                → Just x{mrAmountSrc = modSrc})
+>                                                               _                → Just x{mrAmountSrc = amtSrc})
 > addAmtSrc'              :: ModSrc → Modulator → Maybe Modulator
 > addAmtSrc' modSrc@ModSrc{msSource} m     = Just m >>= (\x → case msSource of
 >                                                               FromLinked       → Nothing
@@ -233,19 +213,19 @@ Modulator management ===========================================================
 >       | useModulators                    =
 >           case msSource of
 >             FromNoController     → 1
->             FromNoteOnVel        → fromNoteOn noteOnVel msMapping
->             FromNoteOnKey        → fromNoteOn noteOnKey msMapping
+>             FromNoteOnVel        → evaluateNoteOn noteOnVel msMapping
+>             FromNoteOnKey        → evaluateNoteOn noteOnKey msMapping
 >             FromLinked           → evaluateMods (ToLink mrModId) graph noon
 >       | otherwise                        = 0
 >
-> fromNoteOn             :: Int → Mapping → Double
-> fromNoteOn n ping                        = controlDenormal ping (fromIntegral n / 128) (0, 1)
+> evaluateNoteOn         :: Int → Mapping → Double
+> evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
 > calculateModFactor     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
 > calculateModFactor tag m8n@Modulation{modGraph, toPitchSummary, toFilterFcSummary, toVolumeSummary}
 >                    md msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} noon
 >  | traceNever msg False                  = undefined
->  | otherwise                             = fromCents (modEnv + modLfo + vibLfo + mods)
+>  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    targetListIn        :: [Double]       = case md of
 >                                              ToPitch        → toPitchSummary
@@ -257,16 +237,20 @@ Modulator management ===========================================================
 >                                              (length targetListIn >= 3)
 >                                              "bad targetList"
 >                                              targetListIn
->    modEnv                  :: Double     = srModEnvPos * head targetList
->    modLfo                                = srModLfoPos * (targetList !! 1)
->    vibLfo                                = srVibLfoPos  * (targetList !! 2)
->    mods                                  = evaluateMods md modGraph noon
+>
+>    xmodEnv                 :: Double     = srModEnvPos * head targetList
+>    xmodLfo                               = srModLfoPos * (targetList !! 1)
+>    xvibLfo                               = srVibLfoPos  * (targetList !! 2)
+>    xmods                                 = evaluateMods md modGraph noon
 >
 >    msg                                   = unwords ["calculateModFactor: "
->                                                     , show modEnv, " + "
->                                                     , show modLfo, " + "
->                                                     , show vibLfo, " + "
->                                                     , show mods,   " = ", show (modEnv+modLfo+vibLfo+mods), " => ", show (fromCents (modEnv+modLfo+vibLfo+mods))]
+>                                                     , show tag,    " + "
+>                                                     , show xmodEnv, " + "
+>                                                     , show xmodLfo, " + "
+>                                                     , show xvibLfo, " + "
+>                                                     , show xmods,   " = "
+>                                                     , show (xmodEnv+xmodLfo+xvibLfo+xmods), " => "
+>                                                     , show (fromCents (xmodEnv+xmodLfo+xvibLfo+xmods))]
 >
 > addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
 > addResonance noon m8n@Modulation{mLowPass}
@@ -284,7 +268,7 @@ Modulator management ===========================================================
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
 >       clip (20, 20000) (lowPassFc * calculateModFactor
->                                       "addResonance"
+>                                       "modulateFc"
 >                                       m8n
 >                                       ToFilterFc
 >                                       msig
@@ -302,10 +286,11 @@ Modulator management ===========================================================
 >     procBandpass                           = 
 >       proc (x, msig) → do
 >         let fc = modulateFc msig
->         let bw = 80
->         y ← filterBandPass 2             ⤙ (x, fc, bw)
->         let y' = resonate x fc y
->         outA                             ⤙ x + y'
+>         let bw = lowPassQ / 10
+>         y1 ← filterLowPassBW              ⤙ (x, fc)
+>         y2 ← filterBandPass 2             ⤙ (x, fc, bw)
+>         let y' = resonate x fc (y1 + y2)
+>         outA                             ⤙ y'
 >
 >     procSVF            :: Signal p (Double, ModSignals) Double
 >     procSVF                              =
@@ -485,10 +470,8 @@ The use of these functions requires that their input is normalized between 0 and
 >                                                     then (msContinuity, swapCont msContinuity)
 >                                                     else (swapCont msContinuity, msContinuity)
 >                                              else (msContinuity, msContinuity)
->
 >     pingL                                = ping{msBiPolar = False, msContinuity = left}
 >     pingR                                = ping{msBiPolar = False, msContinuity = right}
->
 >     (addL, addR)                         = if msMax2Min
 >                                              then (0, -1)
 >                                              else (-1, 0)

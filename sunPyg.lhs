@@ -8,7 +8,7 @@ March 20, 2023
 
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
-> import Parthenopea ( t32, addDur, ascent, descent, grace )
+> import Parthenopea ( t32, addDur, ascent, descent, grace, aggrandize )
 > import Percussion
   
 SunPyg ================================================================================================================
@@ -20,9 +20,12 @@ SunPyg =========================================================================
 >      $ instrument ElectricGuitarClean (line [a 4 wn])
 >
 > sunPygTranspose = (-6)
+> sunPygTempo = 1
+>
 > sunPyg =
 >   removeZeros
->   $ tempo 1
+>   $ aggrandize
+>   $ tempo sunPygTempo
 >   $ chord [percMusic, leadMusic, vocalMusic, bassMusic]
 >
 >   where
@@ -48,7 +51,7 @@ SunPyg =========================================================================
 >    vocalTacit = rest 190
 >    vocalActive = line [v190, v192, v194, v196, v198, v200, v202, v204, v206]
 >    vocalsOnly =
->      transpose (sunPygTranspose) -- (-3)
+>      transpose sunPygTranspose
 >      $ addVolume 110
 >      $ keysig C Lydian
 >      $ instrument ChoirAahs vocalActive
@@ -57,22 +60,22 @@ SunPyg =========================================================================
 >                            , times  8 (line [a 2 wn, d 2 wn])
 >                            , times 58 (line [c 2 wn, d 2 wn])]
 >   
->    percMusic = addVolume 55 percLine
+>    percMusic = addVolume 75 percLine
 >   
 >    leadMusic = 
->      transpose (sunPygTranspose) -- (-3)
+>      transpose sunPygTranspose
 >      $ addVolume 100
 >      $ keysig C Lydian
 >      $ instrument ElectricGuitarClean leadLine
 >   
 >    vocalMusic = 
->      transpose (sunPygTranspose) -- (-3)
+>      transpose sunPygTranspose
 >      $ addVolume 110
 >      $ keysig C Lydian
 >      $ instrument ChoirAahs vocalLine
 >   
 >    bassMusic =
->      transpose (sunPygTranspose) -- (-3)
+>      transpose sunPygTranspose
 >      $ addVolume 80
 >      $ keysig C Lydian
 >      $ instrument ElectricBassFingered bassLine

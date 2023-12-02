@@ -95,7 +95,7 @@ Signal function-based synth ====================================================
 >       (modSigL, modSigR) ← eutIgniteModSignals secsScored secsToPlay (reconL, reconR)
 >                                          ⤙ ()
 >       let delta                          = idelta * calculateModFactor
->                                                       "eutDriver"
+>                                                       "procDriver"
 >                                                       m8n
 >                                                       ToPitch
 >                                                       modSigL
@@ -210,7 +210,7 @@ Signal function-based synth ====================================================
 >   where
 >     modulateVol        :: Modulation → ModSignals → Double
 >     modulateVol m8n msig                 = calculateModFactor
->                                              "eutAmplify"
+>                                              "modulateVol"
 >                                              m8n
 >                                              ToVolume
 >                                              msig
