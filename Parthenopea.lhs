@@ -296,6 +296,7 @@ also
 >       Marimba                   → Just (( C, 2), ( C, 7))
 >       Glockenspiel              → Just (( G, 5), ( C, 8))
 >       Vibraphone                → Just (( F, 3), ( F, 6))
+>       MusicBox                  → Just (( C, 4), ( E, 7)) -- made up out of thin air
 >       Percussion                → Just wideOpen
 >       -- Chimes
 >       AcousticGuitarNylon       → Just (( E, 2), ( B, 5))
@@ -313,7 +314,7 @@ also
 >       -- FretlessBass
 >       SlapBass1                 → Just (( E, 1), ( C, 8))
 >       SlapBass2                 → Just (( E, 1), ( C, 8))
->       -- SynthBass1
+>       SynthBass1                → Just (( E, 1), ( C, 8))
 >       -- SynthBass2
 >
 >       AcousticGrandPiano        → Just (( A, 0), ( C, 8))
@@ -327,6 +328,7 @@ also
 >       -- Harmonium
 >       ChurchOrgan               → Just (( C, 2), ( C, 7))
 >       ReedOrgan                 → Just (( C, 2), ( C, 7))
+>       HammondOrgan              → Just (( C, 2), ( C, 7))
 >
 >       Violin                    → Just (( G, 3), ( A, 7))
 >       Viola                     → Just (( C, 3), ( E, 6))
@@ -338,6 +340,7 @@ also
 >                                          (Violin:Viola:[Cello])
 >
 >       Banjo                     → Just (( C, 3), ( E, 5))
+>       Harmonica                 → Just (( G, 3), ( F, 7))
 >
 >       ChoirAahs                 → Just (( C, 3), ( C, 6))
 >
@@ -381,10 +384,10 @@ also
 >     ilast                                = length insts
 >     iselect                              = floor $ denorm norm (fromIntegral ifirst, fromIntegral ilast)
 >
-> wideOpen :: (Pitch, Pitch)
-> wideOpen = (pitch 0, pitch 127)
+> wideOpen               :: (Pitch, Pitch) = (pitch 0, pitch 127)
 >
-> type PercussionPair = [PercussionSound]
+> type PercussionPair                      = [PercussionSound]
+>
 > getPairs               :: [PercussionPair]
 > getPairs                                 = [ [AcousticBassDrum, BassDrum1], [LowMidTom, HiMidTom]]
 
@@ -1004,9 +1007,10 @@ Sampling =======================================================================
 Conversion functions and general helpers ==============================================================================
 
 > checkForNan            :: Double → String → Double
-> checkForNan y msg                        = profess
->                                              (not $ isNaN y || isInfinite y || abs y > 200000)
->                                              (msg ++ " bad Double = " ++ show y)
+> checkForNan y msg                        =
+>   profess
+>     (not $ isNaN y || isInfinite y || isDenormalized y || abs y > 200000)
+>     (msg ++ " bad Double = " ++ show y)
 >                                              y
 >
 > profess                :: Bool → String → a → a

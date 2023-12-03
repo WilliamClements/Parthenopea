@@ -342,10 +342,13 @@ Snake ==========================================================================
 >   $ addVolume 100
 >   $ line [a 3 (2*wn)]
 >
+> snakeTranspose                           = 5
+> snakeTempo                               = 2
+>
 > snake =
 >    removeZeros
->    $ tempo 2
->    $ transpose 1
+>    $ tempo snakeTempo
+>    $ transpose snakeTranspose
 >    $ keysig D Mixolydian
 >    $     addVolume  65 (instrument AltoSax treblePart)
 >      :=: addVolume  80 (instrument Clarinet altoPart)
@@ -497,14 +500,21 @@ Country In The Morning =========================================================
 
 Whelp Narp ============================================================================================================
 
+> wnTranspose                              = 4
+> wnTempo                                  = 2
+>
+> wnLead                                   = Oboe
+> wnStrings                                = OrchestralHarp
+> wnBass                                   = ElectricBassPicked
+>
 > whelpNarp =
 >    removeZeros
->    $ tempo 2
+>    $ tempo wnTempo
 >    $ keysig C Mixolydian
->    $     addVolume 80 (instrument Flute                     (transpose 4       (wnAltoI :+: wnAltoII)))
->      :=: addVolume 75 (instrument OrchestralHarp            (transpose 4      (wnTenorI :+: wnTenorII)))
->      :=: addVolume 70 (instrument ElectricBassPicked        (transpose 4   (wnBaritoneI :+: wnBaritoneII)))
->      :=: addVolume 90                                                          (wnPercI :+: wnPercII)
+>    $     addVolume 80 (instrument wnLead                    (transpose wnTranspose       (wnAltoI :+: wnAltoII)))
+>      :=: addVolume 75 (instrument wnStrings                 (transpose wnTranspose      (wnTenorI :+: wnTenorII)))
+>      :=: addVolume 70 (instrument wnBass                    (transpose wnTranspose   (wnBaritoneI :+: wnBaritoneII)))
+>      :=: addVolume 90                                                                    (wnPercI :+: wnPercII)
 >   where
 >
 > -- It is in 3/4 for 7 measures; the eighth measure is shortened to 2/4;
@@ -619,13 +629,14 @@ Percussion-----
 
 Roger =================================================================================================================
 
-> rogerTranspose = 0
+> rogerTranspose                           = 0
+> rogerTempo                               = 1
 >
 > roger :: Music (Pitch, Volume)
 > roger =
 >    removeZeros
->    $ tempo 1
->    $ transpose rogerTranspose
+>    $ tempo                               rogerTempo
+>    $ transpose                           rogerTranspose
 >    $ keysig Cs Dorian
 >    $     transpose 12 (addVolume  64 (instrument Flute               (line [cAltoI,  cAltoIIA, cAltoIIB])))
 >      :=: transpose 0  (addVolume  64 (instrument AcousticGuitarNylon (line [cTenorI, cTenorII])))
@@ -699,12 +710,13 @@ Roger ==========================================================================
 
 Way Pos' T' Purple ====================================================================================================
 
-> wayposTranspose = 0
+> wayposTranspose                          = 0
+> wayposTempo                              = 1
 >
 > waypostpurple =
 >    removeZeros
->    $ tempo 1
->    $ transpose wayposTranspose
+>    $ tempo                               wayposTempo
+>    $ transpose                           wayposTranspose
 >    $ keysig C Major
 >    $ addVolume 80 (instrument AcousticGrandPiano
 >      ((if includeOpen       then pOpenT  else rest 0)

@@ -74,10 +74,10 @@ organize exposed music =========================================================
 >    , ("basicLick"      , aggrandize basicLick)
 >    , ("sunPyg"         ,            sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
-> sj =
+> sj = ejingles
 >    -- [ ("getCITM"     , aggrandize getCITM)]
->    -- [ ("sunPyg"         ,            sunPyg)]
->    [ ("littleAbby"  , aggrandize littleAbby)]
+>    -- [ ("sunPyg"      ,            sunPyg)]
+>    -- [ ("littleAbby"     , aggrandize littleAbby)]
 >    -- [ ("ssailor"     , aggrandize ssailor)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("roger"       , aggrandize roger)]

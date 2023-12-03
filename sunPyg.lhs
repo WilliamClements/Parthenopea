@@ -19,8 +19,8 @@ SunPyg =========================================================================
 >      $ keysig C Lydian
 >      $ instrument ElectricGuitarClean (line [a 4 wn])
 >
-> sunPygTranspose = (-6)
-> sunPygTempo = 1
+> sunPygTranspose                          = -6
+> sunPygTempo                              = 1
 >
 > sunPyg =
 >   removeZeros

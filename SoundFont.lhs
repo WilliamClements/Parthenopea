@@ -1081,10 +1081,9 @@ define signal functions and instrument maps to support rendering ===============
 >     msg                                  =
 >       unwords [
 >         "instrumentSF ",  show nameI 
->       , " = "          ,  show pergm 
->       , " , in "       ,  show (pchIn, volIn)
+>       , " , (pch, vol) = "       ,  show (pchIn, volIn)
 >       , if pchOut /= pchIn || volOut /= volIn
->           then " , out " ++ show (pchOut, volOut) ++  "_____"
+>           then " , output " ++ show (pchOut, volOut) ++  "_____"
 >           else "_____"]
 >
 >     (reconX, mreconX)  :: (Reconciled, Maybe Reconciled)

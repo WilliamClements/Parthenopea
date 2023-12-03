@@ -39,12 +39,10 @@ Modulator management ===========================================================
 >                                              "cycles in modulator graph"
 >                                              sifted
 >         
-> hasCycles              :: [Modulator] → Bool
-> hasCycles ms
->   | traceIf msg False                    = undefined
->   | otherwise                            = not $ null $ cyclicNodes $ makeGraph edgeList
+> hasCycles m8rs                           = not $ null $ cyclicNodes $ makeGraph edgeList
 >   where
->     nodeList                             = filter outGoing (Map.assocs (compileMods ms))
+>     nodeList           :: [(ModDestType, [Modulator])]
+>                                          = filter outGoing (Map.assocs (compileMods m8rs))
 >     edgeList           :: [(Node, [Node])]
 >                                          = map
 >                                              (BF.bimap nodeFrom (map (fromIntegral . mrModId)))
@@ -61,8 +59,6 @@ Modulator management ===========================================================
 >                                              ToLink mId       → True
 >                                              _                → False
 >
->     msg                                  = unwords ["hasCycles edgeList ", show edgeList]
->
 > eliminateDanglingMods  :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
 > eliminateDanglingMods triesIn mix        = newTry : eliminateDanglingMods (newTry : triesIn) (mix+1)
 >   where
@@ -78,8 +74,7 @@ Modulator management ===========================================================
 >     m8rsOut                              = filter shouldStay m8rsIn
 >     newTry                               = (length m8rsOut == length m8rsIn, (mix, m8rsOut))
 >
->     compiled           :: Map ModDestType [Modulator]
->                                          = compileMods m8rsIn
+>     compiled                             = compileMods m8rsIn
 >     superc             :: Map ModKey Word
 >                                          = foldl' supercfr Map.empty m8rsIn
 >
@@ -89,9 +84,8 @@ Modulator management ===========================================================
 >         (newK, newW)                     = getModKeyPair m8r
 >
 >     checkLink          :: Modulator → Maybe [Modulator]
->     checkLink m8r                        = Map.lookup (ToLink (mrModId m8r)) compiled
+>     checkLink m8r@Modulator{mrModId}     = Map.lookup (ToLink mrModId) compiled
 >
->     shouldStay         :: Modulator → Bool
 >     shouldStay m8r@Modulator{mrModId}    = linkageOk && not superceded
 >       where
 >         linkageOk                        = not (requiresLinks m8r) || maybe False (not . null) (checkLink m8r)
@@ -219,6 +213,7 @@ Modulator management ===========================================================
 >       | otherwise                        = 0
 >
 > evaluateNoteOn         :: Int → Mapping → Double
+>                                            -- TODO: express these "control" utilities as Signal Functions
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
 > calculateModFactor     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
@@ -349,8 +344,7 @@ Modulator management ===========================================================
 >         z ← delayLine lfoDelay           ⤙ y
 >         outA                             ⤙ z  
 >
-> triangleWaveTable      :: Table
-> triangleWaveTable                        = tableSinesN 16384 
+> triangleWaveTable      :: Table          = tableSinesN 16384 
 >                                                          [      1,  0, -0.5,  0,  0.3,   0
 >                                                           , -0.25,  0,  0.2,  0, -0.167, 0
 >                                                           ,  0.14,  0, -0.125]
@@ -361,11 +355,11 @@ Modulator management ===========================================================
 >     osc triangleWaveTable 0              ⤙ freq
 >
 > modVib                 :: ∀ p . Clock p ⇒ Double → Double → Signal p Double Double
-> modVib rate depth =
+> modVib rate depth                        =
 >   proc sin → do
->     vib   ← osc sineTable 0  ⤙ rate
->     sout  ← delayLine1 0.2   ⤙ (sin,0.1+depth*vib)
->     outA ⤙ sout
+>     vib   ← osc sineTable 0              ⤙ rate
+>     sout  ← delayLine1 0.2               ⤙ (sin,0.1+depth*vib)
+>     outA                                 ⤙ sout
 
 see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
 
@@ -398,6 +392,7 @@ Controller Curves ==============================================================
 > qStepSize                                = qTableSize `div` qMidiSize128
 >
 > quarterCircleTable     :: Array Int Double
+>                                            -- TODO: use Table
 >                                          = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
 >   where
 >     calc               :: Int → Double
@@ -425,14 +420,13 @@ The use of these functions requires that their input is normalized between 0 and
 >
 > controlDenormal        :: Mapping → Double → (Double, Double) → Double
 > controlDenormal ping@Mapping{msBiPolar} dIn (lo, hi)
->                                          = vOut
+>                                          = if msBiPolar
+>                                              then controlBiPolar ping dNorm
+>                                              else controlUniPolar ping dNorm
 >   where
 >     scale                                = profess (lo < hi)
 >                                            "inverted range in controlDenormal"
 >                                            (hi - lo)
->     vOut                                 = if msBiPolar
->                                              then controlBiPolar ping dNorm
->                                              else controlUniPolar ping dNorm
 >     dNorm =   (dIn - lo) / scale
 >
 > controlUniPolar        :: Mapping → Double → Double

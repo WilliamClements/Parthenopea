@@ -16,16 +16,17 @@ January 13, 2023
   
 Saucy Sailor ==========================================================================================================
 
-> ssLeadI = Flute
-> ssPickedI = AcousticGuitarNylon
-> ssBassI = ElectricBassPicked
+> ssLeadI                                  = Flute
+> ssPickedI                                = AcousticGuitarNylon
+> ssBassI                                  = ElectricBassPicked
 >
-> ssTranspose = 0
+> ssTempo                                  = 1
+> ssTranspose                              = 0
 >
 > ssailor =
 >     removeZeros
->     $ tempo 1
->     $ transpose ssTranspose
+>     $ tempo                              ssTempo
+>     $ transpose                          ssTranspose
 >     $ keysig C Mixolydian
 >     $ instrument ssLeadI
 >       ((if includeOpen then xOpenT        else rest 0)
@@ -341,16 +342,20 @@ TC =============================================================================
 >   where
 >     tcgBasic = addDur qn [f 5, a 5, b 5, a 5]
 >
+> basicLickTranspose                       = -6
+> tubaTranspose                            = -12
+> basicLickTempo                           = 1
 >
 > basicLick :: Music (Pitch, Volume)
 > basicLick =
 >   removeZeros
->   $ tempo 1
->   $ transpose (-12)
+>   $ tempo                                basicLickTempo
+>   $ transpose                            basicLickTranspose
 >   $ keysig A Major
 >   $ chord [ addVolume  90 $ instrument ElectricGuitarClean         tcV
->           , addVolume  20 $ instrument FrenchHorn                  tcG
->           , addVolume  70 $ transpose (-12) $ instrument Tuba      tcC
+>           , addVolume  30 $ instrument FrenchHorn                  tcG
+>           , addVolume  30 $ transpose tubaTranspose
+>                           $ instrument Tuba                        tcC
 >           , addVolume  80                                          tcP]
 >   where
 >   gUnit :: Music Pitch
@@ -1039,13 +1044,14 @@ TC =============================================================================
 
 DH ====================================================================================================================
 
-> dhVibeI = Vibraphone
-> dhLeadI = Violin
-> dhBassI = ElectricBassPicked
-> dhOrgnI = ReedOrgan
-> dhSynhI = FrenchHorn
+> dhVibeI                                  = Vibraphone
+> dhLeadI                                  = Violin
+> dhBassI                                  = ElectricBassPicked
+> dhOrgnI                                  = ReedOrgan
+> dhSynhI                                  = FrenchHorn
 >
-> dhTranspose = 1
+> dhTranspose                              = 3
+> dhTempo                                  = 1
 >
 > dhMeasuresIntro        :: Int            = 12
 > dhMeasuresB1           :: Int            = 22
@@ -1059,7 +1065,7 @@ DH =============================================================================
 >
 > deathlessHorsie =
 >   removeZeros
->   $ tempo 1
+>   $ tempo dhTempo
 >   $ chord [vibeMusic, percMusic, leadMusic, bassMusic, synthMusic, organMusic]
 >
 >   where
