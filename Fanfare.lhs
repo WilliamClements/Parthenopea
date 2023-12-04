@@ -261,7 +261,7 @@ Gold ===========================================================================
 >    $ tempo 2
 >    $ transpose (-5)
 >    $ keysig C Mixolydian
->    $ addVolume 30
+>    $ addVolume 70
 >    $ instrument Harpsichord
 >    $ times 2
 >      (line [c 4 hn,  c 5 dhn]

@@ -289,19 +289,35 @@ struct sfInstModList
 > -- vary: 1 or 2 for first arg to filterBandPass
 > -- vary: 0 to 10 for initQ
 >
-> testScale = 2
-> testQ = 5000
+> testScale = 1
 > testWeight = 0.5
->          
-> myBandpass             :: ∀ p . Clock p ⇒ Signal p (Double, Double) Double
-> myBandpass                               = 
->   proc (x, fc) → do
->     let bw = testQ / 10
->     y1 ← filterLowPassBW                 ⤙ (x, fc)
->     y2 ← filterBandPass testScale        ⤙ (x, fc, bw)
->     outA                                 ⤙ y1*testWeight + y2*(1-testWeight)
 >
-> tMyBandpass = outFileNorm "tMyBandpass.wav" 10 $ sfTest1 myBandpass 10 (absPitch (C,6)) 64 []
+> testQ000 = 0
+> testQ240 = 240
+> testQ480 = 480
+> testQ960 = 960
+>
+> testQ = testQ960
+>          
+> lowpassWeight                         = 0.50
+> bandpassWeight                        = 0.75
+>
+> procBandpass           :: ∀ p . Clock p ⇒ Double → Signal p (Double, Double) Double
+> procBandpass testQ                            = 
+>   proc (x, fc) → do
+>     y1 ← filterLowPassBW              ⤙ (x, fc)
+>     y2 ← filterBandPass testScale     ⤙ (x, fc, bpQ)
+>     let y'                            = y1*lpW + y2*bpW
+>     outA                              ⤙ y'
+>   where
+>     bpQ = testQ / 3
+>     lpW = lowpassWeight
+>     bpW = bandpassWeight
+>
+> tProcBandpass000 = outFile "tProcBandpass000.wav" 10 $ sfTest1 (procBandpass testQ000) 10 (absPitch (C,6)) 64 []
+> tProcBandpass240 = outFile "tProcBandpass240.wav" 10 $ sfTest1 (procBandpass testQ240) 10 (absPitch (C,6)) 64 []
+> tProcBandpass480 = outFile "tProcBandpass480.wav" 10 $ sfTest1 (procBandpass testQ480) 10 (absPitch (C,6)) 64 []
+> tProcBandpass960 = outFile "tProcBandpass960.wav" 10 $ sfTest1 (procBandpass testQ960) 10 (absPitch (C,6)) 64 []
 >
 
 nice simple range for initQ    0..960

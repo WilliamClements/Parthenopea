@@ -254,11 +254,15 @@ Modulator management ===========================================================
 >     lp@LowPass{lowPassFc, lowPassQ}      = fromJust mLowPass
 >
 >     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
->     makeSF _                             = case useResonanceType of
+>     makeSF _                             
+>       | traceNow msg False               = undefined
+>       | otherwise                        = case useResonanceType of
 >                                              ResonanceNone         → error "usually don't need to protect against ResonanceNone"
 >                                              ResonanceLowpass      → procButter
 >                                              ResonanceBandpass     → procBandpass
 >                                              ResonanceSVF          → procSVF
+>       where
+>         msg = unwords ["addResonance fc, q = ", show lowPassFc, show " ", show lowPassQ]
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
@@ -277,19 +281,21 @@ Modulator management ===========================================================
 >         let y' = resonate x fc y
 >         outA                             ⤙ y'
 >
->     lowpassWeight                         = 0.5
+>     lowpassWeight                         = 0.50
+>     bandpassWeight                        = 0.75
 >
 >     procBandpass       :: Signal p (Double, ModSignals) Double
 >     procBandpass                           = 
 >       proc (x, msig) → do
 >         let fc = modulateFc msig
 >         y1 ← filterLowPassBW              ⤙ (x, fc)
->         y2 ← filterBandPass 2             ⤙ (x, fc, lpQ)
->         let y' = resonate x fc (y1*lpW + y2*(1-lpW))
+>         y2 ← filterBandPass 2             ⤙ (x, fc, bpQ)
+>         let y' = resonate x fc (y1*lpW + y2*bpW)
 >         outA                              ⤙ y'
 >       where
->         lpQ = lowPassQ
+>         bpQ = lowPassQ / 3
 >         lpW = lowpassWeight
+>         bpW = bandpassWeight
 >
 >     procSVF            :: Signal p (Double, ModSignals) Double
 >     procSVF                              =
@@ -315,10 +321,10 @@ Modulator management ===========================================================
 >                                                           , "\nfc   = ", show (checkForNan fc "resonate fc")
 >                                                           , "\nsout = ", show y']
 >
-> deriveModTarget        :: Maybe Int → Maybe Int → Maybe Int → ModTarget
-> deriveModTarget toPitch toFilterFc toVolume
+> deriveModTriple        :: Maybe Int → Maybe Int → Maybe Int → ModTriple
+> deriveModTriple toPitch toFilterFc toVolume
 >                                          =
->   ModTarget (maybe 0 fromIntegral toPitch)
+>   ModTriple (maybe 0 fromIntegral toPitch)
 >             (maybe 0 fromIntegral toFilterFc)
 >             (maybe 0 fromIntegral toVolume)
 >
@@ -328,7 +334,7 @@ Modulator management ===========================================================
 >   | otherwise                            = if useLFO && anyJust
 >                                              then Just $ LFO (fromTimecents del)
 >                                                              freq
->                                                              (deriveModTarget toPitch toFilterFc toVolume)
+>                                                              (deriveModTriple toPitch toFilterFc toVolume)
 >                                              else Nothing
 >   where
 >     freq               :: Double         = fromAbsoluteCents $ maybe 0 (clip (-16000, 4500)) mfreq
@@ -497,21 +503,21 @@ Type declarations ==============================================================
 >   , srModLfoPos        :: Double
 >   , srVibLfoPos        :: Double} deriving (Show)
 >
-> data ModTarget =
->   ModTarget {
+> data ModTriple =
+>   ModTriple {
 >     mtPitch            :: Double
 >   , mtFilterFc         :: Double
 >   , mtVolume           :: Double} deriving (Eq, Show)
 >
-> chooseFromModTarget    :: ModDestType → ModTarget → Double
-> chooseFromModTarget md mt@ModTarget{mtPitch, mtFilterFc, mtVolume}
+> chooseFromModTriple    :: ModDestType → ModTriple → Double
+> chooseFromModTriple md mt@ModTriple{mtPitch, mtFilterFc, mtVolume}
 >                                          = case md of
 >                                              ToPitch     → mtPitch
 >                                              ToFilterFc  → mtFilterFc
 >                                              ToVolume    → mtVolume
->                                              _           → error ("ModTarget only deals with toPitch"
+>                                              _           → error ("ModTriple only deals with toPitch"
 >                                                               ++ ", toFilterFc, and toVolume")
-> defModTarget                             = ModTarget 0 0 0
+> defModTriple                             = ModTriple 0 0 0
 >
 > data ResonanceType =
 >   ResonanceNone 
@@ -523,7 +529,7 @@ Type declarations ==============================================================
 >   LFO {
 >     lfoDelay           :: Double
 >   , lfoFrequency       :: Double
->   , lModTarget         :: ModTarget} deriving (Eq, Show)
+>   , lModTriple         :: ModTriple} deriving (Eq, Show)
 >
 > data Modulation =
 >   Modulation {
@@ -594,7 +600,7 @@ Type declarations ==============================================================
 >   , eDecayT            :: Double
 >   , eSustainLevel      :: Double
 >   , eReleaseT          :: Double
->   , eModTarget         :: ModTarget} deriving (Eq, Show)
+>   , eModTriple         :: ModTriple} deriving (Eq, Show)
 >
 > data ModulationSettings =
 >   ModulationSettings {
@@ -613,5 +619,5 @@ Type declarations ==============================================================
 >   ModulationSettings {
 >     qqUseModulators                      = True
 >   , qqUseDefaultMods                     = True
->   , qqUseResonanceType                   = ResonanceLowpass -- ResonanceBandpass -- ResonanceNone
+>   , qqUseResonanceType                   = ResonanceBandpass -- ResonanceLowpass -- ResonanceNone
 >   , qqUseLFO                             = True}

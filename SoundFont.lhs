@@ -1305,9 +1305,9 @@ reconcile zone and sample header ===============================================
 >     summarize          :: ModDestType → Maybe Envelope → Maybe LFO → Maybe LFO → [Double]
 >     summarize toWhich menv mmodlfo mviblfo
 >                                          =
->       [  chooseFromModTarget toWhich $ maybe defModTarget eModTarget nModEnv
->        , chooseFromModTarget toWhich $ maybe defModTarget lModTarget nModLfo
->        , chooseFromModTarget toWhich $ maybe defModTarget lModTarget nVibLfo]
+>       [  chooseFromModTriple toWhich $ maybe defModTriple eModTriple nModEnv
+>        , chooseFromModTriple toWhich $ maybe defModTriple lModTriple nModLfo
+>        , chooseFromModTriple toWhich $ maybe defModTriple lModTriple nVibLfo]
 
 carry out, and "pre-cache" results of, play requests ====================================================================
 

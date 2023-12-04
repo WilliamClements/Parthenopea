@@ -369,9 +369,9 @@ Envelopes ======================================================================
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe Envelope
 > deriveEnvelope mDelay mAttack noon@NoteOn{noteOnKey} (mHold, mHoldByKey) (mDecay, mDecayByKey)
->                mSustain mRelease mTarget
+>                mSustain mRelease mTriple
 >   | traceIf msg False                    = undefined
->   | otherwise                            = if useEnvelopes && doUse mTarget
+>   | otherwise                            = if useEnvelopes && doUse mTriple
 >                                              then Just env
 >                                              else Nothing
 >   where
@@ -382,21 +382,21 @@ Envelopes ======================================================================
 >     env                                  =
 >       Envelope (fromTimecents mDelay) (fromTimecents mAttack)      dHold
 >                dDecay                 (fromTithe mSustain)         (fromTimecents mRelease)
->                (makeModTarget mTarget)
+>                (makeModTriple mTriple)
 >
 >     doUse            :: Maybe (Maybe Int, Maybe Int) → Bool
->     doUse mTarget                        = case mTarget of
+>     doUse mTriple                        = case mTriple of
 >                                              Nothing           → True
 >                                              Just (xToPitch, xToFilterFc)
 >                                                                → isJust xToPitch || isJust xToFilterFc
 >
->     makeModTarget    :: Maybe (Maybe Int, Maybe Int) → ModTarget
->     makeModTarget mTarget                = case mTarget of
->                                              Nothing           → defModTarget
->                                              Just target       → uncurry deriveModTarget target Nothing
+>     makeModTriple    :: Maybe (Maybe Int, Maybe Int) → ModTriple
+>     makeModTriple mTriple                = case mTriple of
+>                                              Nothing           → defModTriple
+>                                              Just target       → uncurry deriveModTriple target Nothing
 >
 >     msg                                  = if useEnvelopes
->                                              then unwords ["deriveEnvelope ", if isJust mTarget
+>                                              then unwords ["deriveEnvelope ", if isJust mTriple
 >                                                                                 then "modEnv "
 >                                                                                 else "volEnv "
 >                                                                        , "\nhold=   ", show mHold,     " ",   show mHoldByKey,  " ", show dHold, " ( not ",   show (fromTimecents mHold), " )"
