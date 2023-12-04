@@ -511,11 +511,13 @@ Whelp Narp =====================================================================
 >    removeZeros
 >    $ tempo wnTempo
 >    $ keysig C Mixolydian
->    $     addVolume 80 (instrument wnLead                    (transpose wnTranspose       (wnAltoI :+: wnAltoII)))
->      :=: addVolume 75 (instrument wnStrings                 (transpose wnTranspose      (wnTenorI :+: wnTenorII)))
->      :=: addVolume 70 (instrument wnBass                    (transpose wnTranspose   (wnBaritoneI :+: wnBaritoneII)))
->      :=: addVolume 90                                                                    (wnPercI :+: wnPercII)
+>    $     addVolume 80 (instrument wnLead                    (transpose xpo       (wnAltoI :+: wnAltoII)))
+>      :=: addVolume 75 (instrument wnStrings                 (transpose xpo      (wnTenorI :+: wnTenorII)))
+>      :=: addVolume 70 (instrument wnBass                    (transpose xpo   (wnBaritoneI :+: wnBaritoneII)))
+>      :=: addVolume 90                                                            (wnPercI :+: wnPercII)
 >   where
+>
+>   xpo = wnTranspose
 >
 > -- It is in 3/4 for 7 measures; the eighth measure is shortened to 2/4;
 > -- then it is in 4/4 except for one 5/4 measure at the end of each repeat.
@@ -636,11 +638,13 @@ Roger ==========================================================================
 > roger =
 >    removeZeros
 >    $ tempo                               rogerTempo
->    $ transpose                           rogerTranspose
+>    $ transpose                           xpo
 >    $ keysig Cs Dorian
 >    $     transpose 12 (addVolume  64 (instrument Flute               (line [cAltoI,  cAltoIIA, cAltoIIB])))
 >      :=: transpose 0  (addVolume  64 (instrument AcousticGuitarNylon (line [cTenorI, cTenorII])))
 >   where
+>
+>   xpo                                    = rogerTranspose
 >
 >   ct_fs, ct_cs, ct_cs', ct__B, ct__B'          :: Dur → Music Pitch
 >   ct__A, ct__E                                 :: Dur → Music Pitch
@@ -716,7 +720,7 @@ Way Pos' T' Purple =============================================================
 > waypostpurple =
 >    removeZeros
 >    $ tempo                               wayposTempo
->    $ transpose                           wayposTranspose
+>    $ transpose                           xpo
 >    $ keysig C Major
 >    $ addVolume 80 (instrument AcousticGrandPiano
 >      ((if includeOpen       then pOpenT  else rest 0)
@@ -739,6 +743,8 @@ Way Pos' T' Purple =============================================================
 >         :+: (if includePool then pPoolP  else rest 0)
 >         :+: (if includeClos then pClosP  else rest 0)))
 >   where
+>
+>   xpo                                    = wayposTranspose
 >
 >   includeOpen = True
 >   includeCont = True
@@ -1065,8 +1071,8 @@ Dit ============================================================================
 >   $ tempo 1
 >   $ transpose (-6)
 >   $ keysig Af Mixolydian
->   $ instrument SynthBass1
->   $ addVolume 60 (times 2 ditbody)
+>   $ instrument SynthBass2
+>   $ addVolume 80 (times 2 ditbody)
 >
 > ditbody =
 >   line [rest dhn, ds 4 qn, fs 4 den, e 4 sn, ds 4 qn, e 4 den, cs 4 sn, a 3 qn, ds 3 den, ds 3 sn

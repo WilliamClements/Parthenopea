@@ -206,9 +206,9 @@ which makes for a cleaner sound on some synthesizers:
 >     reach              :: Rational       = fromIntegral $ length gliss
 >     msg                                  = unwords ["glissando' " ++ show music]
 >
-> glissando              :: Bool → AbsPitch → AbsPitch → Dur → Music Pitch
-> glissando _ _ _ 0                        = rest 0
-> glissando desc xLo xHi dur
+> glissando              :: Bool → (AbsPitch, AbsPitch) → Dur → Music Pitch
+> glissando _ _ 0                        = rest 0
+> glissando desc (xLo, xHi) dur
 >   | traceIf msg False                    = undefined
 >   | xHi < xLo + 6                        = error "glissando: not enough range"
 >   | dur < 1 / 8                          = error "glissando: not enough duration"
@@ -223,14 +223,19 @@ which makes for a cleaner sound on some synthesizers:
 >                                              else [xLo..xHi]
 >     msg                                  = unwords ["glissando " ++ show nList]
 >
-> descent                :: InstrumentName → Pitch → Dur → Music Pitch
-> descent iname p dur = chord [rest dur, glissando True  (absPitch (fst (fromJust (instrumentRange iname))))
->                                                        (absPitch p) dur]
+> descent                :: AbsPitch → InstrumentName → Pitch → Dur → Music Pitch
+> descent xpo iname p dur                  =
+>   chord [  rest dur
+>          , glissando True (absPitch bottom, absPitch p) dur]
+>   where
+>     bottom = trans (-xpo) $ fst (fromJust (instrumentRange iname))
 >
-> ascent                 :: InstrumentName → Pitch → Dur → Music Pitch
-> ascent iname p dur =  chord [rest dur, glissando False (absPitch p)
->                                                        (absPitch (snd (fromJust (instrumentRange iname)))) dur]
->
+> ascent                 :: AbsPitch → InstrumentName → Pitch → Dur → Music Pitch
+> ascent xpo iname p dur                   =
+>   chord [  rest dur
+>          , glissando False (absPitch p, absPitch top) dur]
+>   where
+>     top = trans (-xpo) $ snd (fromJust (instrumentRange iname))
 
 ranges ================================================================================================================
 
@@ -315,7 +320,7 @@ also
 >       SlapBass1                 → Just (( E, 1), ( C, 8))
 >       SlapBass2                 → Just (( E, 1), ( C, 8))
 >       SynthBass1                → Just (( E, 1), ( C, 8))
->       -- SynthBass2
+>       SynthBass2                → Just (( E, 1), ( C, 8))
 >
 >       AcousticGrandPiano        → Just (( A, 0), ( C, 8))
 >       BrightAcousticPiano       → Just (( A, 0), ( C, 8))

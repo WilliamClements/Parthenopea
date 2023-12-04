@@ -1081,7 +1081,7 @@ define signal functions and instrument maps to support rendering ===============
 >     msg                                  =
 >       unwords [
 >         "instrumentSF ",  show nameI 
->       , " , (pch, vol) = "       ,  show (pchIn, volIn)
+>       , " , pv = "     ,  show (pchIn, volIn)
 >       , if pchOut /= pchIn || volOut /= volIn
 >           then " , output " ++ show (pchOut, volOut) ++  "_____"
 >           else "_____"]

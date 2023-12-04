@@ -277,15 +277,19 @@ Modulator management ===========================================================
 >         let y' = resonate x fc y
 >         outA                             ⤙ y'
 >
+>     lowpassWeight                         = 0.5
+>
 >     procBandpass       :: Signal p (Double, ModSignals) Double
 >     procBandpass                           = 
 >       proc (x, msig) → do
 >         let fc = modulateFc msig
->         let bw = lowPassQ / 10
 >         y1 ← filterLowPassBW              ⤙ (x, fc)
->         y2 ← filterBandPass 2             ⤙ (x, fc, bw)
->         let y' = resonate x fc (y1 + y2)
->         outA                             ⤙ y'
+>         y2 ← filterBandPass 2             ⤙ (x, fc, lpQ)
+>         let y' = resonate x fc (y1*lpW + y2*(1-lpW))
+>         outA                              ⤙ y'
+>       where
+>         lpQ = lowPassQ
+>         lpW = lowpassWeight
 >
 >     procSVF            :: Signal p (Double, ModSignals) Double
 >     procSVF                              =

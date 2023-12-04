@@ -11,9 +11,9 @@
 > import Debug.Trace ( traceIO )
 > import Euterpea ( (<<<), (>>>) )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
-> import Euterpea.IO.Audio.BasicSigFuns ( osc )
+> import Euterpea.IO.Audio.BasicSigFuns ( osc, filterLowPassBW, filterBandPass )
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
-> import Euterpea.IO.Audio.Types ( AudSF )
+> import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock )
 > import Euterpea.Music ( Volume, AbsPitch, Dur, absPitch, PitchClass(..) )
 > import FRP.UISF.AuxFunctions ( constA )
 > import HSoM.Examples.Additive ( sineTable, sfTest1 )
@@ -277,7 +277,7 @@ struct sfInstModList
 > --         960 cB    -170-    ..      0 cB
 >
 > tLowSVF = outFile "lowSVF.wav" 10 $
->            sfTest1 (filterSVF {- (fromCents 13500) -} 0.80) 10 (absPitch (C,5)) 64 []
+>            sfTest1 (filterSVF {- (fromCents 13500) -} 0.80) 10 (absPitch (C,6)) 64 []
 >
 > data IterData =
 >   IterData {
@@ -285,4 +285,27 @@ struct sfInstModList
 >   , theFq              :: Double
 >   , theFt              :: Double
 >   , theVel             :: Double} deriving Show
+>
+> -- vary: 1 or 2 for first arg to filterBandPass
+> -- vary: 0 to 10 for initQ
+>
+> testScale = 2
+> testQ = 5000
+> testWeight = 0.5
+>          
+> myBandpass             :: ∀ p . Clock p ⇒ Signal p (Double, Double) Double
+> myBandpass                               = 
+>   proc (x, fc) → do
+>     let bw = testQ / 10
+>     y1 ← filterLowPassBW                 ⤙ (x, fc)
+>     y2 ← filterBandPass testScale        ⤙ (x, fc, bw)
+>     outA                                 ⤙ y1*testWeight + y2*(1-testWeight)
+>
+> tMyBandpass = outFileNorm "tMyBandpass.wav" 10 $ sfTest1 myBandpass 10 (absPitch (C,6)) 64 []
+>
 
+nice simple range for initQ    0..960
+
+setting bw to testQ / 10  ... at 5000 (i.e., 500) things looked nominal so let us "equate" 
+
+> qRange = (0, 960)
