@@ -786,7 +786,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >           A.PressLoop == fromMaybe A.NoLoop zSampleMode
 >         , violates zScaleTuning
 >         , violates zExclusiveClass
->         , 0.000001 < maybe 0 fromIntegral zInitQ
+>         -- , 0.000001 < maybe 0 fromIntegral zInitQ
 >       ]
 >
 > is24BitInst _                     = True -- WOX isJust $ ssM24 arrays       

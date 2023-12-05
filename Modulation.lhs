@@ -262,7 +262,7 @@ Modulator management ===========================================================
 >                                              ResonanceBandpass     → procBandpass
 >                                              ResonanceSVF          → procSVF
 >       where
->         msg = unwords ["addResonance fc, q = ", show lowPassFc, show " ", show lowPassQ]
+>         msg = unwords ["addResonance fc, q = ", show lowPassFc, " ", show lowPassQ]
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =

@@ -337,7 +337,7 @@ TC =============================================================================
 > tubaTranspose                            = -12
 > tcTempo                                  = 1
 >
-> tcLead                                   = ElectricGuitarClean
+> tcLead                                   = OverdrivenGuitar
 >
 > basicLick :: Music (Pitch, Volume)
 > basicLick =
@@ -393,8 +393,8 @@ TC =============================================================================
 >   {-  4   -} , tempo (5/4) tcVnt58
 >   {-  1   -} , grace (-2) (b 5 den), a 5 sn
 >   {-  1   -} , tempo (3/2)   (line [a 5 en, g 5 qn])
->   {-  1   -} , g 5   (qn + 1/12)
->   {-  2   -} , tempo (3/2)   (line [g 5 en, a 5 en, g 5 en, g 5 qn])
+>   {-  0.5 -} , g 5  (qn + 1/12)
+>   {-  2   -} , tempo (3/2)   (line [a 5 en, g 5 en, g 5 qn, a 5 en])
 >   {-  1   -} , tempo (3/2)   (line [tempo (3/4) (line [b 5 sn, a 5 tn]), g 5 qn])
 >   {-  0.5 -} , g 5 sn, a 5 sn
 >   {-  0.5 -} , a 5 tn, g 5 tn, a 5 tn, g 5 tn]
@@ -451,7 +451,7 @@ TC =============================================================================
 >   tcV02E = -- measure 14
 >     line [
 >   {-  2   -}   tempo (3/2)   (line [a 5 en, e 6 qn, e 6 sn, d 6 en, e 6 en, g 6 sn])
->   {-  4   -} , fs 6 en, e 6 en, rest dhn
+>   {-  4   -} , f 6 en, e 6 en, rest dhn
 >   {-  1   -} , tempo (3/2)   (line [rest en, b 5 sn, cs 6 den])
 >   {-  1   -} , cs 6 en, e 6 sn, cs 6 sn]
 >
