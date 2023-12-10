@@ -503,7 +503,7 @@ Whelp Narp =====================================================================
 > wnTranspose                              = 4
 > wnTempo                                  = 2
 >
-> wnLead                                   = Oboe
+> wnLead                                   = Vibraphone
 > wnStrings                                = OrchestralHarp
 > wnBass                                   = ElectricBassPicked
 >
@@ -835,20 +835,26 @@ Way Pos' T' Purple =============================================================
 
 Pendington Arnt  ======================================================================================================
 
+> pArntTranspose                          = 0
+> pArntTempo                              = 1
+> pArntLead                               = TenorSax
+> pArntStrum                              = AcousticGuitarNylon
+> pArntBass                               = Cello
+>
 > pendingtonArnt nRepeats =
 >    removeZeros
->    $ tempo 1
->    $ transpose 7
+>    $ tempo pArntTempo
+>    $ transpose pArntTranspose
 >    $ keysig C Lydian
 >    $ times nRepeats
 >    $ addVolume 100
->    $ instrument TenorSax
+>    $ instrument pArntLead
 >      ((if includeOpen then zOpenT        else rest 0)
 >         :+: (if includeClos then zClosT  else rest 0))
->      :=: instrument AcousticGuitarNylon
+>      :=: instrument pArntStrum
 >      ((if includeOpen then zOpenG        else rest 0)
 >         :+: (if includeClos then zClosG  else rest 0))
->      :=: instrument Cello
+>      :=: instrument pArntBass
 >      ((if includeOpen then zOpenB        else rest 0)
 >         :+: (if includeClos then zClosB  else rest 0))
 >      where
@@ -874,9 +880,9 @@ Pendington Arnt  ===============================================================
 > zOpenG = line [zOpenG1, zOpenG2]
 > zClosG = zOpenG
 >
-> zOpenB1 = line [c 2 hn, a 1 hn, d 2 dqn, g 2 dqn, c 2 dqn, bf 1 dqn]
-> zOpenB2 = line [a 1 dqn,
->                 Modify (Phrase [Dyn $ Diminuendo 0.9]) (g 1 dwn),
+> zOpenB1 = line [c 3 hn, a 2 hn, d 3 dqn, g 3 dqn, c 3 dqn, bf 2 dqn]
+> zOpenB2 = line [a 2 dqn,
+>                 Modify (Phrase [Dyn $ Diminuendo 0.9]) (g 2 dwn),
 >                 rest qn, rest dqn]
 > zOpenB = line [zOpenB1, zOpenB2]
 > zClosB = zOpenB

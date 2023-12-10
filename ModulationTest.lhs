@@ -6,7 +6,7 @@
 > module ModulationTest where
 >
 > import Data.List ( foldl' )
-> import Data.Map (Map)
+> import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Debug.Trace ( traceIO )
 > import Euterpea ( (<<<), (>>>) )

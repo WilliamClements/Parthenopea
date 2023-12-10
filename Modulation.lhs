@@ -83,12 +83,10 @@ Modulator management ===========================================================
 >       where
 >         (newK, newW)                     = getModKeyPair m8r
 >
->     checkLink          :: Modulator → Maybe [Modulator]
->     checkLink m8r@Modulator{mrModId}     = Map.lookup (ToLink mrModId) compiled
->
 >     shouldStay m8r@Modulator{mrModId}    = linkageOk && not superceded
 >       where
->         linkageOk                        = not (requiresLinks m8r) || maybe False (not . null) (checkLink m8r)
+>         linkageOk                        =
+>           not (requiresLinks m8r) || maybe False (not . null) (Map.lookup (ToLink mrModId) compiled)
 >         modKey                           = getModKey m8r
 >         winner         :: Word           = fromJust (Map.lookup modKey superc)
 >         superceded                       = mrModId /= winner
@@ -222,20 +220,20 @@ Modulator management ===========================================================
 >  | traceNever msg False                  = undefined
 >  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
->    targetListIn        :: [Double]       = case md of
+>    tripleIn            :: [Double]       = case md of
 >                                              ToPitch        → toPitchSummary
 >                                              ToFilterFc     → toFilterFcSummary
 >                                              ToVolume       → toVolumeSummary
 >                                              _              → error $ "Error in calculateModFactor "
 >                                                                       ++ show tag ++ " " ++ show md
->    targetList                            = profess
->                                              (length targetListIn >= 3)
->                                              "bad targetList"
->                                              targetListIn
+>    triple                                = profess
+>                                              (length tripleIn >= 3)
+>                                              "bad triple"
+>                                              tripleIn
 >
->    xmodEnv                 :: Double     = srModEnvPos * head targetList
->    xmodLfo                               = srModLfoPos * (targetList !! 1)
->    xvibLfo                               = srVibLfoPos  * (targetList !! 2)
+>    xmodEnv             :: Double         = srModEnvPos * head triple
+>    xmodLfo                               = srModLfoPos * (triple !! 1)
+>    xvibLfo                               = srVibLfoPos  * (triple !! 2)
 >    xmods                                 = evaluateMods md modGraph noon
 >
 >    msg                                   = unwords ["calculateModFactor: "
@@ -255,14 +253,14 @@ Modulator management ===========================================================
 >
 >     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
 >     makeSF _                             
->       | traceNow msg False               = undefined
+>       | traceNever msg False             = undefined
 >       | otherwise                        = case useResonanceType of
 >                                              ResonanceNone         → error "usually don't need to protect against ResonanceNone"
 >                                              ResonanceLowpass      → procButter
 >                                              ResonanceBandpass     → procBandpass
 >                                              ResonanceSVF          → procSVF
 >       where
->         msg = unwords ["addResonance fc, q = ", show lowPassFc, " ", show lowPassQ]
+>         msg = unwords ["addResonance/makeSF fc, q = ", show lowPassFc, " ", show lowPassQ]
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
@@ -352,7 +350,15 @@ Modulator management ===========================================================
 >       proc _ → do
 >         y ← triangleWave lfoFrequency    ⤙ ()
 >         z ← delayLine lfoDelay           ⤙ y
->         outA                             ⤙ z  
+>         outA                             ⤙ oscillate z
+>
+>     oscillate          :: Double → Double
+>     oscillate sin
+>       | traceNever msg False             = undefined
+>       | otherwise                        = sout
+>       where
+>         sout = sin
+>         msg = unwords ["oscillate ", show sin]
 >
 > triangleWaveTable      :: Table          = tableSinesN 16384 
 >                                                          [      1,  0, -0.5,  0,  0.3,   0

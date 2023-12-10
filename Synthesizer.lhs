@@ -48,7 +48,7 @@ Signal function-based synth ====================================================
 >     noon@NoteOn{noteOnVel, noteOnKey}    = NoteOn vol' pch'
 >
 >     secsSample         :: Double         = fromIntegral (rEnd - rStart) / sr
->     secsScored         :: Double         = 2 * fromRational dur
+>     secsScored         :: Double         = 1 * fromRational dur
 >     looping            :: Bool           = secsScored > secsSample
 >                                            && (rSampleMode /= A.NoLoop)
 >                                            && useLoopSwitching
@@ -221,7 +221,7 @@ Signal function-based synth ====================================================
 >       | traceNever msg' False            = undefined
 >       | otherwise                        = (a3L, a3R)
 >       where
->         msg'                             = unwords ["amplify env = ",  show aenvL]
+>         msg'                             = unwords ["amplify = ",  show (a1L, aenvL, a3L)]
 >
 
 Modulation ============================================================================================================
@@ -463,11 +463,7 @@ Create a straight-line envelope generator with following phases:
 >                                                    secsToPlay
 >
 >     -- pin down onset of Release phase
->     rpCand1            :: Double         = max (secsToUse - eReleaseT)
->                                                (8 * minDeltaT)
->     rpCand2                              = min (eDelayT + eAttackT + eHoldT + eDecayT + minDeltaT)
->                                                (secsToUse - (8 * minDeltaT))
->     rp                                   = (rpCand1 + rpCand2) / 2
+>     rp                                   = secsToUse - min 0.1 (10 * minDeltaT)
 >
 >     fSusLevel          :: Double         = clip (0, 1) eSustainLevel
 >
@@ -485,8 +481,8 @@ Create a straight-line envelope generator with following phases:
 >     fPostT                               = (2*minDeltaT) + secsScored - secsToUse
 >
 >     msg                                  = unwords ["computeSegments secs = ", show (secsScored, secsToUse)
->                                                   , " time = ",                show (sum deltaTs)
->                                                   , " rp =",                   show (rpCand1, rpCand2, rp)]
+>                                                   , " total time = ",          show (sum deltaTs)
+>                                                   , " rp =",                   show rp]
 
 Effects ===============================================================================================================
 
