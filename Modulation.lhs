@@ -39,6 +39,7 @@ Modulator management ===========================================================
 >                                              "cycles in modulator graph"
 >                                              sifted
 >         
+> hasCycles :: [Modulator] -> Bool
 > hasCycles m8rs                           = not $ null $ cyclicNodes $ makeGraph edgeList
 >   where
 >     nodeList           :: [(ModDestType, [Modulator])]
@@ -59,52 +60,59 @@ Modulator management ===========================================================
 >                                              ToLink mId       → True
 >                                              _                → False
 >
-> eliminateDanglingMods  :: [(Bool, (Int, [Modulator]))] → Int → [(Bool, (Int, [Modulator]))]
-> eliminateDanglingMods triesIn mix        = newTry : eliminateDanglingMods (newTry : triesIn) (mix+1)
+> data Sifting                             =
+>   Sifting {
+>       counter          :: Int
+>     , current          :: [Modulator]
+>     , previous         :: [Modulator]} deriving Show 
+>
+> eliminateDanglingMods  :: [Sifting] → [Sifting]
+> eliminateDanglingMods siftings           = newSifting : eliminateDanglingMods (newSifting : siftings)
 >   where
 >     -- let's examine result of the previous generation
 >     -- use it to produce next generation, dropping nodes that:
 >     -- 1. expect linked sources but have none
 >     --     or
 >     -- 2. are superseded 
->     m8rsIn                               = profess
->                                              (mix <= 10)
+>     sifting@Sifting{counter, current}    = head siftings
+>     newSifting                           = Sifting (counter + 1) newTry current
+>
+>     newTry                               = profess
+>                                              (counter <= 10)
 >                                              "maximum of 10 tries exceeded..."
->                                              ((snd . snd) (head triesIn))
->     m8rsOut                              = filter shouldStay m8rsIn
->     newTry                               = (length m8rsOut == length m8rsIn, (mix, m8rsOut))
+>                                              filter shouldStay current
+>
+>     shouldStay m8r@Modulator{mrModId, mrModSrc}
+>                                          = linkageOk && not superceded
+>       where
+>         linkageOk                        =
+>           FromLinked /= source || maybe False (not . null) (Map.lookup link compiled)
+>         superceded                       =
+>           mrModId /= professIsJust' (Map.lookup key superc)
+>         link                             = ToLink mrModId
+>         key                              = getModKey m8r
+>         source                           = msSource mrModSrc
 >
 >     compiled           :: Map ModDestType [Modulator]
->                                          = compileMods m8rsIn
+>                                          = compileMods current
 >     superc             :: Map ModKey Word
->                                          = foldl' supercfr Map.empty m8rsIn
+>                                          = foldl' supercfr Map.empty current
 >
 >     supercfr           :: Map ModKey Word → Modulator → Map ModKey Word
 >     supercfr accum m8r                   = Map.insert newK newW accum
 >       where
 >         (newK, newW)                     = getModKeyPair m8r
 >
->     shouldStay m8r@Modulator{mrModId}    = linkageOk && not superceded
->       where
->         linkageOk                        =
->           not (requiresLinks m8r) || maybe False (not . null) (Map.lookup (ToLink mrModId) compiled)
->         modKey                           = getModKey m8r
->         winner         :: Word           = fromJust (Map.lookup modKey superc)
->         superceded                       = mrModId /= winner
->
-> requiresLinks, suppliesLink
->                        :: Modulator → Bool
-> requiresLinks m8r@Modulator{mrModSrc}    = FromLinked == msSource mrModSrc
-> suppliesLink m8r@Modulator{mrModDest}    = case mrModDest of
->                                              ToLink _      → True
->                                              _             → False
->
-> siftMods m8rsIn                          = sifted
+> siftMods :: [Modulator] -> [Modulator]
+> siftMods m8rs                            = current $ head successes
 >   where
->     seed                                 = (False, (0, m8rsIn))
->     generations                          = eliminateDanglingMods (singleton seed) 0
->     successes                            = dropWhile (not . fst) generations
->     (_, (_, sifted))                     = head successes 
+>     seed                                 = Sifting 0 m8rs []
+>     generations                          = eliminateDanglingMods $ singleton seed
+>     successes                            = dropWhile unfinished generations
+>
+>     unfinished         :: Sifting → Bool
+>     unfinished sifting@Sifting{current, previous}
+>                                          = current /= previous                    
 >
 > compileMods            :: [Modulator] → Map ModDestType [Modulator]
 > compileMods                              = foldl' nodeFolder Map.empty
