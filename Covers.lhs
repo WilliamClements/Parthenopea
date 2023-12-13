@@ -343,6 +343,8 @@ TC =============================================================================
 > tcTempo                                  = 1
 >
 > tcLead                                   = OverdrivenGuitar
+> tcRepeat                                 = FrenchHorn
+> tcBass                                   = Tuba
 >
 > basicLick :: Music (Pitch, Volume)
 > basicLick =
@@ -350,24 +352,29 @@ TC =============================================================================
 >   $ tempo                                tcTempo
 >   $ transpose                            tcTranspose
 >   $ keysig A Major
->   $ chord [ addVolume  90 $ instrument tcLead         tcV
->           , addVolume  30 $ instrument FrenchHorn                  tcG
+>   $ chord [ addVolume  90 $ instrument tcLead                    tcV
+>           , addVolume  30 $ instrument tcRepeat                  tcG
 >           , addVolume  30 $ transpose tubaTranspose
->                           $ instrument Tuba                        tcC
->           , addVolume  80                                          tcP]
+>                           $ instrument tcBass                    tcC
+>           , addVolume  80                                        tcP]
 >   where
 >
 >   xpo                                    = tcTranspose
->   licks                                  = 38
+>
+>   licks1                                 = 20
+>   licks2                                 = 18
+>   licks3                                 = licks1 + licks2 - 3
 >
 >   gUnit :: Music Pitch
 >   gUnit = addDur qn [f 5, a 5, b 5, a 5, f 5, a 5, b 5, a 5
 >                    , e 5, a 5, b 5, a 5, e 5, a 5, b 5, a 5]
->   tcG = line [times (licks - 1) gUnit, dim 1 gUnit]
+>   gUnit' = addDur qn [f 6, a 6, b 6, a 6, f 6, a 6, b 6, a 6
+>                     , e 6, a 6, b 6, a 6, e 6, a 6, b 6, a 6]
+>   tcG = line [times licks1 gUnit, times (licks2 - 1) (chord [gUnit, gUnit']), dim 1 gUnit]
 >
 >   cUnit :: Music Pitch
 >   cUnit = addDur (2 * wn) [d 4, a 3]
->   tcC = line [rest (16 * qn), times (licks - 3) cUnit, dim 1 (times 2 cUnit)]
+>   tcC = line [rest (16 * qn), times licks3 cUnit, dim 1 (times 2 cUnit)]
 >
 >   tcV = line [rest (28 * qn), tcV01, tcV02, tcV03, tcV04, tcV05, tcV06, tcV07, tcV08
 >                             , tcV09]

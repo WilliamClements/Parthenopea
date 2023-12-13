@@ -16,6 +16,7 @@ December 12, 2022
 
 > module Parthenopea where
 >
+> import Codec.Midi(exportFile, importFile)
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq (NFData)
 > import Control.SF.SF
@@ -39,6 +40,7 @@ December 12, 2022
 > import Euterpea.IO.Audio.Render
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.ExportMidiFile
+> import Euterpea.IO.MIDI.FromMidi2
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.IO.MIDI.MidiIO (unsafeOutputID, unsafeInputID, OutputDeviceID, InputDeviceID)
 > import Euterpea.IO.MIDI.Play
@@ -63,6 +65,21 @@ Utilities ======================================================================
 > traceNever str expr = expr
 > traceNot   :: String → a → a
 > traceNot str expr = expr
+>
+> impM                   :: FilePath → IO ()
+> impM fp                                  = do
+>   mu <- importMidi fp
+>   play mu
+>   -- listInstruments $ aggrandize mu
+>   return ()
+>
+> importMidi             :: FilePath → IO (Music (Pitch, Volume))
+> importMidi fp = do
+>   x <- importFile fp
+>   let y = case x of
+>             Left z -> error z
+>             Right m2 -> fromMidi2 m2
+>   return y
 >
 > hasDuplicates :: (Ord a) ⇒ [a] → Bool
 > hasDuplicates list = length list /= length set

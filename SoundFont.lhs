@@ -373,10 +373,9 @@ executive ======================================================================
 >         putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsLoaded))
 >
 >         -- actually conduct the tournament
->         (tsReported, ws)
->                        ← decideWinners tsZoned zFiles zoneCache preSampleCache preInstCache pergmsI' pergmsP'
+>         ws             ← decideWinners zFiles zoneCache preSampleCache preInstCache pergmsI' pergmsP'
 >         tsDecided      ← getCurrentTime
->         putStrLn ("___decide winners: " ++ show (diffUTCTime tsReported tsDecided))
+>         putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsZoned))
 >
 >         -- print song/orchestration info to user (can be stored by redirecting standard out)
 >         mapM_ putStrLn $ pWarnings ws
@@ -390,7 +389,7 @@ executive ======================================================================
 >                                , zPlayCache = Map.union playCacheI playCacheP}
 >
 >         tsReconciled   ← getCurrentTime
->         putStrLn ("___create play cache: " ++ show (diffUTCTime tsReconciled tsReported))
+>         putStrLn ("___create play cache: " ++ show (diffUTCTime tsReconciled tsDecided))
 >         
 >         return (tsReconciled, sfrost)
 >
@@ -425,23 +424,21 @@ executive ======================================================================
 >   putStrLn ("___report tournament results: " ++ show (diffUTCTime tsFinished tsStarted))
 >   traceIO ("wrote " ++ reportName)
 >
-> decideWinners          :: UTCTime
->                           → Array Word SFFile
+> decideWinners          :: Array Word SFFile
 >                           → ZoneCache
 >                           → PreSampleCache
 >                           → PreInstCache
 >                           → [PerGMKey]
 >                           → [PerGMKey]
->                           → IO (UTCTime, WinningRecord)
-> decideWinners tsZoned sffiles zoneCache preSampleCache preInstCache pergmsI pergmsP = do
+>                           → IO WinningRecord
+> decideWinners sffiles zoneCache preSampleCache preInstCache pergmsI pergmsP = do
 >   let (wI, sI) = foldl' wiFolder (Map.empty, []) pergmsI         
 >   let (wP, sP) = foldl' wpFolder (Map.empty, []) pergmsP
 >   let wI' = finalize wI
 >   let wP' = finalize wP
 >
 >   CM.unless skipReporting (writeTournamentReport sffiles wI' wP')
->   tsDecided            ← getCurrentTime
->   return (tsDecided, WinningRecord (Map.map head wI') (Map.map head wP') (sI ++ sP))
+>   return $ WinningRecord (Map.map head wI') (Map.map head wP') (sI ++ sP)
 >
 >   where
 >     wiFolder           :: (Map InstrumentName [PerGMScored], [String])
@@ -457,7 +454,7 @@ executive ======================================================================
 >                                          = bestQualifying (getProMatches iMatches) stands
 >         kind                             = profess
 >                                              (isJust mk)
->                                              "bestQualified returned Nothing"
+>                                              "bestQualifying returned Nothing"
 >                                              ((fst . fromJust) mk)
 >         aresult                          = xaEnterTournament sffiles zoneCache iMatches pergm kind [] wip
 >     
@@ -786,7 +783,6 @@ tournament among GM instruments and percussion from SoundFont files ============
 >           A.PressLoop == fromMaybe A.NoLoop zSampleMode
 >         , violates zScaleTuning
 >         , violates zExclusiveClass
->         -- , 0.000001 < maybe 0 fromIntegral zInitQ
 >       ]
 >
 > is24BitInst _                     = True -- WOX isJust $ ssM24 arrays       
@@ -1287,7 +1283,7 @@ reconcile zone and sample header ===============================================
 >     initFc             :: Double         = fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
 >     initQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ
 >
->     nLowPass           :: Maybe LowPass  = if useResonanceType /= ResonanceNone && (isJust zInitFc || initQ > 0)
+>     nLowPass           :: Maybe LowPass  = if useResonanceType /= ResonanceNone
 >                                              then Just $ LowPass initFc initQ
 >                                              else Nothing
 >     nModEnv            :: Maybe Envelope = deriveEnvelope
@@ -1305,9 +1301,9 @@ reconcile zone and sample header ===============================================
 >     summarize          :: ModDestType → Maybe Envelope → Maybe LFO → Maybe LFO → [Double]
 >     summarize toWhich menv mmodlfo mviblfo
 >                                          =
->       [  chooseFromModTriple toWhich $ maybe defModTriple eModTriple nModEnv
->        , chooseFromModTriple toWhich $ maybe defModTriple lModTriple nModLfo
->        , chooseFromModTriple toWhich $ maybe defModTriple lModTriple nVibLfo]
+>       [  chooseFromModTriple toWhich $ maybe defModTriple   eModTriple nModEnv
+>        , chooseFromModTriple toWhich $ maybe defModTriple lfoModTriple nModLfo
+>        , chooseFromModTriple toWhich $ maybe defModTriple lfoModTriple nVibLfo]
 
 carry out, and "pre-cache" results of, play requests ====================================================================
 

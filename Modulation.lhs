@@ -74,7 +74,8 @@ Modulator management ===========================================================
 >     m8rsOut                              = filter shouldStay m8rsIn
 >     newTry                               = (length m8rsOut == length m8rsIn, (mix, m8rsOut))
 >
->     compiled                             = compileMods m8rsIn
+>     compiled           :: Map ModDestType [Modulator]
+>                                          = compileMods m8rsIn
 >     superc             :: Map ModKey Word
 >                                          = foldl' supercfr Map.empty m8rsIn
 >
@@ -166,7 +167,7 @@ Modulator management ===========================================================
 >                                              else Just (from{mrModAmount = fromIntegral iIn})
 >
 > addAmtSrc              :: Maybe Modulator → ModSrc → Maybe Modulator
-> addAmtSrc mm8n amtSrc@ModSrc{msSource}   = mm8n >>=   (\x → case msSource of
+> addAmtSrc mm8r amtSrc@ModSrc{msSource}   = mm8r >>=   (\x → case msSource of
 >                                                               FromLinked       → Nothing
 >                                                               _                → Just x{mrAmountSrc = amtSrc})
 > addAmtSrc'              :: ModSrc → Modulator → Maybe Modulator
@@ -328,14 +329,14 @@ Modulator management ===========================================================
 >
 > deriveLFO              :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
 > deriveLFO del mfreq toPitch toFilterFc toVolume
->   | traceNever msg False                 = undefined
->   | otherwise                            = if useLFO && anyJust
->                                              then Just $ LFO (fromTimecents del)
->                                                              freq
->                                                              (deriveModTriple toPitch toFilterFc toVolume)
->                                              else Nothing
+>   | traceNever msg False                   = undefined
+>   | otherwise                            =
+>       if useLFO && anyJust
+>       then Just $ LFO (fromTimecents del)
+>                       (fromAbsoluteCents $ maybe 0 (clip (-16000, 4500)) mfreq)
+>                       (deriveModTriple toPitch toFilterFc toVolume)
+>       else Nothing
 >   where
->     freq               :: Double         = fromAbsoluteCents $ maybe 0 (clip (-16000, 4500)) mfreq
 >     anyJust            :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
 >     msg                                  = unwords ["deriveLFO ", show toPitch,    " "
 >                                                                 , show toFilterFc, " "
@@ -360,15 +361,11 @@ Modulator management ===========================================================
 >         sout = sin
 >         msg = unwords ["oscillate ", show sin]
 >
-> triangleWaveTable      :: Table          = tableSinesN 16384 
->                                                          [      1,  0, -0.5,  0,  0.3,   0
->                                                           , -0.25,  0,  0.2,  0, -0.167, 0
->                                                           ,  0.14,  0, -0.125]
->
 > triangleWave           :: ∀ p . Clock p ⇒ Double → Signal p () Double
 > triangleWave freq                        = 
 >   proc _ → do
 >     osc triangleWaveTable 0              ⤙ freq
+>     -- WOX osc sawtoothTable 0              ⤙ freq
 >
 > modVib                 :: ∀ p . Clock p ⇒ Double → Double → Signal p Double Double
 > modVib rate depth                        =
@@ -376,6 +373,52 @@ Modulator management ===========================================================
 >     vib   ← osc sineTable 0              ⤙ rate
 >     sout  ← delayLine1 0.2               ⤙ (sin,0.1+depth*vib)
 >     outA                                 ⤙ sout
+>
+>
+> triangleWaveTable      :: Table          = tableSinesN 16384 
+>                                                          [      1,  0, -0.5,  0,  0.3,   0
+>                                                           , -0.25,  0,  0.2,  0, -0.167, 0
+>                                                           ,  0.14,  0, -0.125]
+
+Miscellaneous =========================================================================================================
+
+> sawtoothTable = tableSinesN 16384 
+>                   [1, 0.5, 0.3, 0.25, 0.2, 0.167, 0.14, 0.125, 0.111]
+> sawtooth               :: ∀ p . Clock p ⇒  Double → Signal p () Double
+> sawtooth freq                           = 
+>   proc _ → do
+>     osc sawtoothTable 0 ⤙ freq
+>
+
+
+twave partial (-1)^i * n^-2 * sin (2*pi f0 n t)
+
+4 * 
+
+i = harmonic label 0..N-1
+k = harmonic mode number = (2 * i) + 1
+f0 = fundamental frequency, say 3 Hz
+
+when i is zero, k is 1, 2*pi*f0*k is 18.8
+when i is one,  k is 3, 2*pi*f0*k is 56.5
+when i is two,  k is 5, 2*pi*f0*k is 94.2
+
+> listem                 :: IO Double
+> listem = return $ sum (map getTerm [0..500])
+>
+> getTerm                :: Int → Double
+> getTerm i                                = sign    *     (1 / (kF*kF)) * sin (2*pi * f0 * jF )
+>   where
+>     j, k               :: Int
+>     j = i
+>     k = 2 * i + 1
+>
+>     jF, kF             :: Double
+>     jF = fromIntegral j
+>     kF = fromIntegral k
+>
+>     sign = (-1) ^ i
+>     f0 = 5
 
 see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
 
@@ -535,7 +578,7 @@ Type declarations ==============================================================
 >   LFO {
 >     lfoDelay           :: Double
 >   , lfoFrequency       :: Double
->   , lModTriple         :: ModTriple} deriving (Eq, Show)
+>   , lfoModTriple       :: ModTriple} deriving (Eq, Show)
 >
 > data Modulation =
 >   Modulation {
