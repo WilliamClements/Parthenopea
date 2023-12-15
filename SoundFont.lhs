@@ -781,6 +781,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     unsupported                          =
 >       [
 >           A.PressLoop == fromMaybe A.NoLoop zSampleMode
+>         , 0 < fromMaybe 0 zInitQ
 >         , violates zScaleTuning
 >         , violates zExclusiveClass
 >       ]
@@ -1423,8 +1424,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 > dumpContestant pergm@PerGMScored{pArtifactGrade, pAgainstKindResult, pPerGMKey, szI, mszP}
 >                                          = es
 >   where
->     es = emitLine [
->                     Blanks 8, emitShowL (pWordF pPerGMKey) 4, emitShowR szI 22
+>     es = emitLine [ Blanks 8, emitShowL (pWordF pPerGMKey) 4, emitShowR szI 22
 >                   , Blanks 8, emitShowR (fromMaybe "" mszP) 22
 >                   , Blanks 8, emitShowL (pScore pArtifactGrade) 8
 >                   , emitShowL (pEmpiricals pArtifactGrade) 16

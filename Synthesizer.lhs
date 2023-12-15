@@ -548,8 +548,8 @@ Effects ========================================================================
 >
 >     msg = unwords ["eutEffects=",        show effL
 >                  , "=LR=",               show effR
->                  , "rFactor*=",          show rFactorL
->                  , " ",                  show rFactorR]
+>                  , "pFactor*=",          show pFactorL
+>                  , " ",                  show pFactorR]
 > 
 > eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Maybe Double → Signal p Double Double
 > eutChorus rate gain depth               = maybe (delay 0) makeSF
@@ -715,10 +715,12 @@ Effects ========================================================================
 >   | traceNever msg False                 = undefined
 >   | otherwise                            = ((ampLL + ampRL)/2, (ampLR + ampRR)/2)
 >   where
->     ampLL = sinL * cos ((azimuthL + 0.5) * pi / 2)
->     ampLR = sinL - ampLL
->     ampRL = sinR * cos ((azimuthR + 0.5) * pi / 2)
->     ampRR = sinR - ampRL
+>     xL = cos ((azimuthL + 0.5) * pi / 2)
+>     xR = cos ((azimuthR + 0.5) * pi / 2)
+>     ampLL = sinL * xL
+>     ampLR = sinL * (1 - xL)
+>     ampRL = sinR * xR
+>     ampRR = sinR * (1 - xR)
 >
 >     msg = unwords ["doPan ", show ampLL, " ", show ampRL, " ", show ampRL, " ", show ampRR]
 >

@@ -213,7 +213,7 @@ Abby Cissa =====================================================================
 >    $ transpose 0
 >    $ keysig C Major
 >    $ addVolume 80
->    $ instrument TenorSax
+>    $ instrument Violin
 >      (line [b 4 dwn])
 >      -- (line [e 5 en,  f 5 en,  g 5 qn, c 6 qn, bf 5 en, a 5 en, g 5 hn])
 >      -- (line [f 5 en,  g 5 en])

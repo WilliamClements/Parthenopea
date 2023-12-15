@@ -1066,9 +1066,9 @@ Pit ============================================================================
 >   $ tempo 1
 >   $ transpose 0
 >   $ keysig B Lydian
->   $     instrument EnglishHorn        (addVolume 60 pitA)
->     :=: instrument SynthBass1         (addVolume 50 pitB)
->     :=: instrument ElectricGuitarJazz (addVolume 70 pitC)
+>   $     instrument EnglishHorn           (addVolume 60 pitA)
+>     :=: instrument SynthBass1            (addVolume 50 pitB)
+>     :=: instrument AcousticGuitarSteel   (addVolume 70 pitC)
 
 Dit ===================================================================================================================
 
@@ -1077,7 +1077,7 @@ Dit ============================================================================
 >   $ tempo 1
 >   $ transpose (-6)
 >   $ keysig Af Mixolydian
->   $ instrument SynthBass2
+>   $ instrument SynthBass1
 >   $ addVolume 80 (times 2 ditbody)
 >
 > ditbody =
