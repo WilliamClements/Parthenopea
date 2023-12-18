@@ -1040,17 +1040,15 @@ define signal functions and instrument maps to support rendering ===============
 >
 >     assignPercussion   :: ∀ p . Clock p ⇒ [(PercussionSound, (Word, Word))] → Instr (Stereo p)
 >     assignPercussion pmap dur pch vol params
->                                          =
->       proc _ → do
->         (zL, zR)                         ← instrumentSF sfrost (PerGMKey wF wI Nothing) dur pch vol params ⤙ ()
->         outA                             ⤙ (zL, zR)
+>                                          = assignInstrument pergm dur pch vol params
 >       where
->         kind           :: PercussionSound
->                                          = toEnum (pch - 35)
+>         pergm                            = PerGMKey wF wI Nothing
 >         (wF, wI) = case lookup kind pmap of
 >                    Nothing   → error (   "Percussion does not have "
 >                                          ++ show kind ++ " in the supplied pmap.")
 >                    Just x    → x
+>         kind           :: PercussionSound
+>                                          = toEnum (pch - 35)
 >
 > instrumentSF           :: ∀ p . Clock p ⇒
 >                           SFRoster
@@ -1160,20 +1158,20 @@ zone selection for rendering ===================================================
 > percussionSplitCount kind zs             = max 1 (fromIntegral $ length $ mapMaybe (match . snd) zs)
 >   where
 >     match              :: SFZone → Maybe PercussionSound
->     match zone
+>     match zone@SFZone{zKeyRange}
 >       | isNothing mkind                  = Nothing
 >       | kind == fromJust mkind           = Just kind
 >       | otherwise                        = Nothing
 >       where
->         mkind                            = qualifyKeyRange =<< zKeyRange zone
+>         mkind                            = qualifyKeyRange =<< zKeyRange
 >
 > scorePitchDistance     :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
 > scorePitchDistance cand mrange           =
 >   case mrange of
 >     Nothing                   → 1000
 >     Just (rangeMin, rangeMax) → let
->                                   dist1 = abs $ cand - rangeMin
->                                   dist2 = abs $ cand - rangeMax
+>                                   dist1  = abs $ cand - rangeMin
+>                                   dist2  = abs $ cand - rangeMax
 >                                 in
 >                                   if cand >= rangeMin && cand <= rangeMax
 >                                   then 100 * max dist1 dist2
@@ -1213,23 +1211,25 @@ reconcile zone and sample header ===============================================
 >                      , zDelayVolEnv, zAttackVolEnv, zHoldVolEnv
 >                      , zDecayVolEnv, zSustainVolEnv, zReleaseVolEnv
 >                      , zCoarseTune, zFineTune, zChorus, zReverb, zPan, zSampleMode
->                      , zKeyToVolEnvHold, zKeyToVolEnvDecay}, shdr) noon@NoteOn{noteOnVel, noteOnKey}
+>                      , zKeyToVolEnvHold, zKeyToVolEnvDecay}
+>          , shdr@F.Shdr{F.originalPitch, F.sampleRate, F.start, F.end, F.startLoop, F.endLoop})
+>          noon@NoteOn{noteOnVel, noteOnKey}
 >                                          = recon
 >   where
 >     m8n                                  = resModulation zone noon
 >     recon = Reconciled {
 >     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
->   , rSampleRate      = fromIntegral          (F.sampleRate shdr)
->   , rStart           = addIntToWord          (F.start shdr)          (sumOfMaybeInts
+>   , rSampleRate      = fromIntegral          sampleRate
+>   , rStart           = addIntToWord          start                  (sumOfMaybeInts
 >                                                                        [zStartOffs, zStartCoarseOffs])
->   , rEnd             = addIntToWord          (F.end shdr)            (sumOfMaybeInts
+>   , rEnd             = addIntToWord          end                    (sumOfMaybeInts
 >                                                                        [zEndOffs, zEndCoarseOffs])
->   , rLoopStart       = addIntToWord          (F.startLoop shdr)      (sumOfMaybeInts
+>   , rLoopStart       = addIntToWord          startLoop              (sumOfMaybeInts
 >                                                                        [zLoopStartOffs, zLoopStartCoarseOffs])
->   , rLoopEnd         = addIntToWord          (F.endLoop shdr)        (sumOfMaybeInts
+>   , rLoopEnd         = addIntToWord          endLoop                (sumOfMaybeInts
 >                                                                        [zLoopEndOffs, zLoopEndCoarseOffs])
 >   , rRootKey         = fromIntegral $ fromMaybe
->                                              (F.originalPitch shdr)  zRootKey
+>                                              originalPitch           zRootKey
 >   , rForceKey        = fmap                  fromIntegral            zKey
 >   , rForceVel        = fmap                  fromIntegral            zVel
 >   , rNoteOn          = noon
@@ -1314,25 +1314,25 @@ carry out, and "pre-cache" results of, play requests ===========================
 >                           → Map a PerGMScored
 >                           → IO (Map PlayKey (Reconciled, Maybe Reconciled))
 > createPlayCache sffiles zoneCache ws
->                                          = return $ Map.foldrWithKey cpFolder Map.empty ws
+>                                          = return $ Map.foldrWithKey precalcFolder Map.empty ws
 >   where
->     cpFolder           :: a
+>     precalcFolder      :: a
 >                           → PerGMScored
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
->     cpFolder kind pergm ps               = Map.union ps (precalcNotes kind pergm)
+>     precalcFolder kind pergm ps          = Map.union ps (precalcNotes kind pergm)
 >
 >     precalcNotes       :: a → PerGMScored → Map PlayKey (Reconciled, Maybe Reconciled)
 >     precalcNotes kind p_@PerGMScored{pPerGMKey}
->                                          = foldl' (pvFolder pPerGMKey{mpWordZ = Nothing})
+>                                          = foldl' (playFolder pPerGMKey{mpWordZ = Nothing})
 >                                                   Map.empty
 >                                                   [NoteOn v k | v ← [0..127], k ← [0..127]]
 >
->     pvFolder           :: PerGMKey
+>     playFolder         :: PerGMKey
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
 >                           → NoteOn
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
->     pvFolder pergm ps noon               = Map.insert (PlayKey pergm noon) playValue ps
+>     playFolder pergm ps noon             = Map.insert (PlayKey pergm noon) playValue ps
 >       where
 >         ((zoneL, shdrL), (zoneR, shdrR))
 >                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
