@@ -342,9 +342,9 @@ TC =============================================================================
 > tubaTranspose                            = -12
 > tcTempo                                  = 1
 >
-> tcLead                                   = OverdrivenGuitar
-> tcRepeat                                 = FrenchHorn
-> tcBass                                   = Tuba
+> tcLead                                   = Violin
+> tcRepeat                                 = Accordion
+> tcBass                                   = FretlessBass
 >
 > basicLick :: Music (Pitch, Volume)
 > basicLick =
@@ -757,7 +757,7 @@ TC =============================================================================
 >          ]
 >   tcVnt15 =
 >     line [
->   {-  1   -}   tempo (3/2)   (line [ ds 6 en, ds 6 sn])
+>   {-  1   -}   tempo (3/2)   (line [ d 6 en, d 6 sn])
 >   {-  1   -} , cs 6 sn, b 5 sn, b 5 sn, cs 6 sn
 >   {-  1   -} ,  b 5 sn, a 5 sn, b 5 en, rest sn, b 5 sn]
 >
@@ -780,9 +780,8 @@ TC =============================================================================
 >   tcV06E = -- measure 45
 >     line [
 >   {-  2   -}   tempo (3/2)   (line [cs 5 en, b 4 en, a 4 en]), b 4 sn, b 4 sn, rest en
->   {-  3   -} , tempo (5/3)   (line [rest en, b 4 en, a 4 en, g 4 en, f 4 en, f 4 en
->                                   ,  g 4 en, a 4 en])
->   {-  2   -} , b 4 ((3/20)+hn+1/12)
+>   {-  3   -} , tempo (5/3)   (line [rest en, b 4 en, a 4 en, g 4 en, f 4 en, f 4 en,  g 4 en, a 4 en])
+>   {-  2   -} , b 4 ((3/20)+hn+1/6)
 >   {-  1   -} , tempo (3/2)   (line [b 4 en])]
 >
 >   tcV06F = -- measure 46
@@ -849,21 +848,22 @@ TC =============================================================================
 >
 >   tcV07E = -- measure 52
 >     line [
->   {-  2   -}   tempo (3/2)   (line [a 6 en, b 6 en, a 6 en, b 6 den, a 6 sn, b 6 en])
->   {-  1   -} , tempo (3/2)   (line [a 6 en, g 6 en, g 6 en])
->   {-  0.5 -} , tempo (3/2)   (line [a 6 sn, g 6 sn, e 6 sn])
->   {-  0.5 -} , g 6 sn, grace (-3) (g 6 sn)
+>   {-  3.5 -}
+>     tempo (3/2)
+>       (line [a 6 en, b 6 en, a 6 en, b 6 den, a 6 sn, b 6 en, a 6 en, g 6 en, g 6 en, a 6 sn, g 6 sn, e 6 sn])
+>   {-  0.5 -}
+>     , g 6 sn, grace (-3) (g 6 sn)
 >   {-  1   -} , tempo (5/4)   (line [e 6 en, gs 6 sn, e 6 sn, g 6 sn])
->   {-  1   -} , tempo (3/2)   (line [e 6 en
->                                 , tempo (3/2) (line [g 6 en, grace (-2) (e 6 sn)
->                                                   , ds 6 en, a 6 sn])])
+>   {-  1   -}
+>     , tempo (3/2)
+>       (line [e 6 en, tempo (3/2) (line [g 6 en, grace (-2) (e 6 sn), ds 6 en, a 6 sn])])
 >   {-  1   -} , grace (-3) (f 6 sn), d 6 sn, f 6 sn, d 6 sn
 >   {-  1   -} , tempo (5/4)   (line [d 6 den, a 5 sn, g 5 sn])]
 >
 >   tcV07F = -- measure 53
 >     line [
 >   {-  1   -}   tempo (5/4)   (line [a 5 en, a 5 sn, g 5 sn, e 5 sn])    
->   {-  0.5 -} , tempo (3/2)   (line [ds 5 en, e 5 sn])
+>   {-  0.5 -} , tempo (3/2)   (line [chord [ds 5 en, a 5 en], e 5 sn])
 >   {-  2.5 -} , ds 5 dqn, tempo (3/2) (line [ds 5 en, e 5 en, f 5 en])
 >   {-  4   -} , tempo (3/2) (addDur en [g 5, g 5, a 5, a 5, cs 6, cs 6
 >                                      , ds 6, ds 6, e 6, e 6,  f 6,  f 6])]

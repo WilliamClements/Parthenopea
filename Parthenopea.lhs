@@ -1047,7 +1047,7 @@ Conversion functions and general helpers =======================================
 > professIsJust' item                      = professIsJust item "expected Just"
 >
 > sumOfMaybeInts         :: [Maybe Int] → Int
-> sumOfMaybeInts                           = foldr ((+).fromMaybe 0) 0
+> sumOfMaybeInts                           = foldr ((+) . fromMaybe 0) 0
 >       
 > addIntToWord           :: Word → Int → Word
 > addIntToWord w i                         = fromIntegral sum

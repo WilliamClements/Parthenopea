@@ -54,7 +54,7 @@ Fanfare ========================================================================
 >         $ uFan :+: uAns
 >       bBass =
 >         addVolume 70
->         $ instrument Trombone
+>         $ instrument ElectricBassPicked
 >         $ bFan :+: bAns
 >
 >       tFan =  {- 32 -} line [tFan1, tFan2, tFan3, tFan4, tFan5]
@@ -841,6 +841,7 @@ Pendington Arnt  ===============================================================
 > pArntStrum                              = AcousticGuitarNylon
 > pArntBass                               = Cello
 >
+> pendingtonArnt :: Int -> Music (Pitch, Volume)
 > pendingtonArnt nRepeats =
 >    removeZeros
 >    $ tempo pArntTempo
@@ -1087,12 +1088,18 @@ Dit ============================================================================
 >       , fs 3 qn, fs 4 dqn, fs 4 en, t32 [e 4 en, ds 4 en, cs 4 en], cs 4 den, cs 4 sn
 >       , b 3 den, cs 4 sn, ds 4 qn] 
 >
+> da4Transpose                          = 0
+> da4Tempo                              = 1
+> da4Lead                               = AltoSax
+> da4Strum                              = AcousticGuitarNylon
+> da4Bass                               = Cello
+
 > dadadada =
 >   removeZeros
->   $ tempo 1
->   $ transpose 0
+>   $ tempo da4Tempo
+>   $ transpose da4Transpose
 >   $ keysig Af Mixolydian
->   $ instrument Oboe
+>   $ instrument da4Lead
 >   $ addVolume 60 (times 4 body)
 >   where
 >     body = line [af 4 en, bf 4 en, c 5 en, bf 4 en, c 5 en, bf 4 en]

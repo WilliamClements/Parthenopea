@@ -126,18 +126,18 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   toKind               :: a → Kind
 >
 > instance SFScorable InstrumentName where
->   splitCount                              = instrumentSplitCount
->   fuzzFactor _                            = 7/8
->   toKind                                  = Left
+>   splitCount                             = instrumentSplitCount
+>   fuzzFactor _                           = 7/8
+>   toKind                                 = Left
 >
 > instance SFScorable PercussionSound where
->   splitCount                              = percussionSplitCount
->   fuzzFactor _                            = 3/4
->   toKind                                  = Right
+>   splitCount                             = percussionSplitCount
+>   fuzzFactor _                           = 3/4
+>   toKind                                 = Right
 >
-> type PreSampleCache                       = Map PreSampleKey PreSample
-> type PreInstCache                         = Map PerGMKey     PreInstrument
-> type ZoneCache                            = Map PerGMKey     PerInstrument
+> type PreSampleCache                      = Map PreSampleKey PreSample
+> type PreInstCache                        = Map PerGMKey     PreInstrument
+> type ZoneCache                           = Map PerGMKey     PerInstrument
 >
 > data SFRoster =
 >   SFRoster {
@@ -1182,8 +1182,8 @@ zone selection for rendering ===================================================
 >   case mrange of
 >     Nothing                   → 100
 >     Just (rangeMin, rangeMax) → let
->                                   dist1 = abs $ cand - rangeMin
->                                   dist2 = abs $ cand - rangeMax
+>                                   dist1  = abs $ cand - rangeMin
+>                                   dist2  = abs $ cand - rangeMax
 >                                 in
 >                                   if cand >= rangeMin && cand <= rangeMax
 >                                   then 10 * max dist1 dist2

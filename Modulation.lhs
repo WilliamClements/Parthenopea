@@ -13,7 +13,7 @@
 > import Data.Bits
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
-> import Data.List ( singleton, foldl', partition )
+> import Data.List ( singleton, foldl', partition, iterate' )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
@@ -66,17 +66,15 @@ Modulator management ===========================================================
 >     , current          :: [Modulator]
 >     , previous         :: [Modulator]} deriving Show 
 >
-> eliminateDanglingMods  :: [Sifting] → [Sifting]
-> eliminateDanglingMods siftings           = newSifting : eliminateDanglingMods (newSifting : siftings)
+> eliminateDanglingMods  :: Sifting → Sifting
+> eliminateDanglingMods sifting@Sifting{counter, current}
+>                                          = Sifting (counter + 1) newTry current
 >   where
 >     -- let's examine result of the previous generation
 >     -- use it to produce next generation, dropping nodes that:
 >     -- 1. expect linked sources but have none
 >     --     or
 >     -- 2. are superseded 
->     sifting@Sifting{counter, current}    = head siftings
->     newSifting                           = Sifting (counter + 1) newTry current
->
 >     newTry                               = profess
 >                                              (counter <= 10)
 >                                              "maximum of 10 tries exceeded..."
@@ -104,11 +102,10 @@ Modulator management ===========================================================
 >         (newK, newW)                     = getModKeyPair m8r
 >
 > siftMods :: [Modulator] -> [Modulator]
-> siftMods m8rs                            = current $ head successes
+> siftMods m8rs                            = current $ head $ dropWhile unfinished generations
 >   where
 >     seed                                 = Sifting 0 m8rs []
->     generations                          = eliminateDanglingMods $ singleton seed
->     successes                            = dropWhile unfinished generations
+>     generations                          = iterate' eliminateDanglingMods seed
 >
 >     unfinished         :: Sifting → Bool
 >     unfinished sifting@Sifting{current, previous}
