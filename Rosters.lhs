@@ -76,8 +76,8 @@ organize exposed music =========================================================
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
 >    -- [ ("getCITM"     , aggrandize getCITM)]
->    [ ("basicLick"      , aggrandize basicLick)]
->    -- [ ("littleAbby"  , aggrandize littleAbby)]
+>    -- [ ("basicLick"      , aggrandize basicLick)]
+>    [ ("littleAbby"  , aggrandize littleAbby)]
 >    -- [ ("ssailor"     , aggrandize ssailor)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("bob"         , aggrandize (bob 2))]

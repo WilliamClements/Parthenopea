@@ -69,7 +69,7 @@ Signal function-based synth ====================================================
 >                                              >>> eutAmplify     secsScored (reconL, reconR) noon secsToPlay
 >
 >     msg                                  = unwords [ "eutSynthesize ", show (dur, noon)
->                                                    , "\nsample, scored, toplay = "
+>                                                    , "\n... sample, scored, toplay = "
 >                                                    , show secsSample, " , ", show secsScored, " , ", show secsToPlay]
 >
 > eutDriver              :: ∀ p . Clock p ⇒
@@ -822,8 +822,7 @@ Flags for customization ========================================================
 >   ScoringSettings {
 >     qqDesireReStereo       :: Desires
 >   , qqDesireRe24Bit        :: Desires
->   , qqDesireReSplitCharacteristic
->                            :: Desires
+>   , qqDesireReSplits       :: Desires
 >   , qqDesireReConformance  :: Desires
 >   , qqDesireReFuzzy        :: Desires
 >
@@ -884,8 +883,7 @@ Flags for customization ========================================================
 >
 > qqDesires              :: [Desires]      = [qqDesireReStereo      defT
 >                                           , qqDesireRe24Bit       defT
->                                           , qqDesireReSplitCharacteristic
->                                                                   defT
+>                                           , qqDesireReSplits      defT
 >                                           , qqDesireReConformance defT
 >                                           , qqDesireReFuzzy       defT]
 > qqDesires'             :: [Int]          = map scoreDesire        qqDesires
@@ -897,7 +895,7 @@ Turn Knobs Here ================================================================
 >   ScoringSettings {
 >     qqDesireReStereo                     = DPreferOn
 >   , qqDesireRe24Bit                      = DPreferOn
->   , qqDesireReSplitCharacteristic        = DPreferOn
+>   , qqDesireReSplits                     = DPreferOn
 >   , qqDesireReConformance                = DPreferOn
 >   , qqDesireReFuzzy                      = DPreferOn
 >

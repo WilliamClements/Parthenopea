@@ -199,9 +199,9 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , zSustainVolEnv     :: Maybe Int 
 >   , zReleaseVolEnv     :: Maybe Int
 >
->   , zChorus            :: Maybe Int -- designated M
->   , zReverb            :: Maybe Int -- designated VH
->   , zPan               :: Maybe Int -- designated VH
+>   , zChorus            :: Maybe Int
+>   , zReverb            :: Maybe Int
+>   , zPan               :: Maybe Int
 >
 >   , zRootKey           :: Maybe Word
 >
@@ -209,20 +209,20 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , zVibLfoToPitch     :: Maybe Int
 >   , zModEnvToPitch     :: Maybe Int
 >   , zInitFc            :: Maybe Int
->   , zInitQ             :: Maybe Int -- designated L
+>   , zInitQ             :: Maybe Int
 >   , zModLfoToFc        :: Maybe Int
->   , zModEnvToFc        :: Maybe Int -- done
+>   , zModEnvToFc        :: Maybe Int
 >   , zModLfoToVol       :: Maybe Int
 >   , zDelayModLfo       :: Maybe Int
->   , zFreqModLfo        :: Maybe Int -- designated M
+>   , zFreqModLfo        :: Maybe Int
 >   , zDelayVibLfo       :: Maybe Int
->   , zFreqVibLfo        :: Maybe Int -- designated M
+>   , zFreqVibLfo        :: Maybe Int
 >   , zDelayModEnv       :: Maybe Int
->   , zAttackModEnv      :: Maybe Int -- designated M
+>   , zAttackModEnv      :: Maybe Int
 >   , zHoldModEnv        :: Maybe Int
 >   , zDecayModEnv       :: Maybe Int
->   , zSustainModEnv     :: Maybe Int -- designated M
->   , zReleaseModEnv     :: Maybe Int -- designated L
+>   , zSustainModEnv     :: Maybe Int
+>   , zReleaseModEnv     :: Maybe Int
 >   , zKeyToModEnvHold   :: Maybe Int
 >   , zKeyToModEnvDecay  :: Maybe Int
 >   , zKeyToVolEnvHold   :: Maybe Int
@@ -461,7 +461,7 @@ executive ======================================================================
 >     wpFolder           :: (Map PercussionSound [PerGMScored], [String])
 >                           → PerGMKey
 >                           → (Map PercussionSound [PerGMScored], [String])
->     wpFolder wip pergm
+>     wpFolder wip pergm@PerGMKey{mpWordZ}
 >       | traceNever msg' False            = undefined
 >       | otherwise                        = if isNothing mkind then wip else aresult
 >       where
@@ -471,7 +471,7 @@ executive ======================================================================
 >         perI@PerInstrument{pZonePairs}   = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
 >         preS@PreSample{sMatches}         = getPreSampleFromCache preSampleCache pergm
 >         mkind          :: Maybe PercussionSound
->                                          = mpWordZ pergm >>= lookupZone pZonePairs >>= getAP >>= pitchToPerc
+>                                          = mpWordZ >>= lookupZone pZonePairs >>= getAP >>= pitchToPerc
 >         aresult                          = xaEnterTournament sffiles zoneCache sMatches pergm (fromJust mkind) [] wip
 >
 >         lookupZone     :: [(ZoneHeader, SFZone)] → Word → Maybe SFZone
@@ -553,15 +553,14 @@ executive ======================================================================
 > isNonPitchedByFft pres@PreSample{dLow, dTarget, dHigh}
 >   | traceIf msg False                    = undefined
 >   | 0.0 == dLow + dTarget + dHigh        = Nothing
->   | otherwise                            = Just bCrit
+>   | otherwise                            = Just (bCrit1 || bCrit2 || bCrit3)
 >   where
 >     bCrit1                               = dTarget < 3.0
 >     bCrit2                               = (dTarget - dLow) / dTarget < 0.1
 >     bCrit3                               = (dHigh - dTarget) / dTarget < 0.1
->     bCrit                                = bCrit1 || bCrit2 || bCrit3
 >     msg                                  = unwords ["isNonPitchedByFft ",   show (dLow, dTarget, dHigh)
 >                                                                    , " ",   show (bCrit1, bCrit2, bCrit3)
->                                                                    , " = ", show bCrit]
+>                                                                    , " = ", show (bCrit1 || bCrit2 || bCrit3)]
 >
 > formMasterInstList     :: SFRoster → IO [PerGMKey]
 > formMasterInstList sfrost@SFRoster{zFiles}
@@ -614,9 +613,9 @@ executive ======================================================================
 > openSoundFontFile      :: Word → FilePath → IO SFFile
 > openSoundFontFile wFile filename = do
 >   putStr (show wFile ++ " " ++ filename)
->   ts1 ← getCurrentTime
->   maybeAudio ← F.importFile filename
->   case maybeAudio of
+>   ts1                                    ← getCurrentTime
+>   result                                 ← F.importFile filename
+>   case result of
 >     Left s               → error $ "SoundFont decoding error: " ++ s ++ show filename
 >     Right soundFont      → do
 >       let pdata = F.pdta soundFont
@@ -691,7 +690,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → [SSHint]
 >                           → (Map a [PerGMScored], [String])
 >                           → (Map a [PerGMScored], [String])
-> xaEnterTournament sffiles zoneCache ffs pergm kind hints (wix, ss)
+> xaEnterTournament sffiles zoneCache ffs pergm@PerGMKey{pWordF, pWordI, mpWordZ} kind hints (wix, ss)
 >                                          = (Map.insert kind now wix, ss)
 >   where
 >     soFar              :: [PerGMScored]  = fromMaybe [] (Map.lookup kind wix)
@@ -701,9 +700,9 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     grade                                = computeGrade sffiles zoneCache pergm kind hints akResult
 >
 >     arrays             :: SoundFontArrays
->                                          = zArrays (sffiles ! pWordF pergm)
->     nameI                                = F.instName $ ssInsts arrays ! pWordI pergm
->     mnameZ             :: Maybe String   = (\w → Just (F.sampleName (ssShdrs arrays ! w))) =<< mpWordZ pergm
+>                                          = zArrays (sffiles ! pWordF)
+>     nameI                                = F.instName $ ssInsts arrays ! pWordI
+>     mnameZ             :: Maybe String   = (\w → Just (F.sampleName (ssShdrs arrays ! w))) =<< mpWordZ
 >     pergm'             :: PerGMScored    = PerGMScored grade (toKind kind) akResult pergm nameI mnameZ 
 >
 > computeGrade           :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
@@ -898,15 +897,15 @@ prepare the specified instruments and percussion ===============================
 >                                              "SoundFont file corrupt (computePerInst)"
 >                                              (singleton ibagi, safeRange (ibagi+1) jbagi)
 >
->         gList                            = map (buildZone defInstrumentZone)   gIx
->         oList                            = map (buildZone ((snd.head) gList))  oIx
+>         gList                            = map (buildZone defInstrumentZone)     gIx
+>         oList                            = map (buildZone ((snd . head) gList))  oIx
 >
 >         buildZone      :: SFZone → Word → (ZoneHeader, SFZone)
 >         buildZone fromZone bagIndex
->           | traceIf msg False            = undefined
+>           | traceIf msgBZ False          = undefined
 >           | otherwise                    = (zh, zone)
 >           where
->             msg                          = unwords ["buildZone ", show mods]
+>             msgBZ                        = unwords ["buildZone ", show gens, " ", show meval]
 >
 >             xgeni                        = F.genNdx $ ssIBags!bagIndex
 >             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
@@ -1196,11 +1195,12 @@ reconcile zone and sample header ===============================================
 >   | traceNever msg False                 = undefined
 >   | otherwise                            = (recL, recR')
 >   where
->     recL = reconcile (zoneL, shdrL) noon
+>     recL@Reconciled{rRootKey, rPitchCorrection}
+>                                          = reconcile (zoneL, shdrL) noon
 >     recR = reconcile (zoneR, shdrR) noon
 >     recR' = recR{
->               rRootKey                   = rRootKey recL
->             , rPitchCorrection           = rPitchCorrection recL}
+>               rRootKey                   = rRootKey
+>             , rPitchCorrection           = rPitchCorrection}
 >     msg = unwords ["reconcileLR zoneL=", show zoneL, "\n  shdrL=", show shdrL]
 >
 > reconcile              :: (SFZone, F.Shdr) → NoteOn → Reconciled 
