@@ -602,9 +602,10 @@ executive ======================================================================
 >         pergmsP ++ instrumentPercList pergmI perI 
 >
 >     instrumentPercList :: PerGMKey → PerInstrument → [PerGMKey]
->     instrumentPercList pergmI perI       = pergmPs
+>     instrumentPercList pergmI perI@PerInstrument{pZonePairs}
+>                                          = pergmPs
 >       where
->         words                            = map (pwZone . fst) (tail (pZonePairs perI))
+>         words                            = map (pwZone . fst) (tail pZonePairs)
 >         pergmPs                          = map addmwP words
 >
 >         addmwP         :: Word → PerGMKey
