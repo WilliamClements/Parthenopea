@@ -334,7 +334,7 @@ Modulator management ===========================================================
 >
 > deriveLFO              :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
 > deriveLFO del mfreq toPitch toFilterFc toVolume
->   | traceNever msg False                   = undefined
+>   | traceNever msg False                 = undefined
 >   | otherwise                            =
 >       if useLFO && anyJust
 >       then Just $ LFO (fromTimecents del)
@@ -489,8 +489,8 @@ The use of these functions requires that their input is normalized between 0 and
 >                                              else controlUniPolar ping dNorm
 >   where
 >     scale                                = profess (lo < hi)
->                                            "inverted range in controlDenormal"
->                                            (hi - lo)
+>                                              "inverted range in controlDenormal"
+>                                              (hi - lo)
 >     dNorm =   (dIn - lo) / scale
 >
 > controlUniPolar        :: Mapping → Double → Double

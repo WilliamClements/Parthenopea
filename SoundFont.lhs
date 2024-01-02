@@ -906,7 +906,7 @@ prepare the specified instruments and percussion ===============================
 >           | traceIf msgBZ False          = undefined
 >           | otherwise                    = (zh, zone)
 >           where
->             msgBZ                        = unwords ["buildZone ", show gens, " ", show meval]
+>             msgBZ                        = unwords ["buildZone ", show gens]
 >
 >             xgeni                        = F.genNdx $ ssIBags!bagIndex
 >             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
@@ -977,7 +977,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         computeCanBePerc
 >                        :: (ZoneHeader, SFZone) → Bool
->         computeCanBePerc (zh@ZoneHeader{pwZone}, zone)
+>         computeCanBePerc (zh@ZoneHeader{pwZone, pbIsNonPitched}, zone)
 >           | traceNever msg' False        = undefined
 >           | otherwise                    = pinned || nonPitchedByFuzz || nonPitchedByFft
 >           where
@@ -986,7 +986,7 @@ prepare the specified instruments and percussion ===============================
 >             pinned                       = maybe False pinnedKR (zKeyRange zone)
 >             nonPitchedByFuzz             = any (isPossible' . flip evalAgainstKind sMatches)
 >                                                nonPitchedInstruments
->             nonPitchedByFft              = sampleAnalyisEnabled && pbIsNonPitched zh
+>             nonPitchedByFft              = sampleAnalyisEnabled && pbIsNonPitched
 >
 >             msg'                         = unwords ["computeCanBePerc "       ++ show sName
 >                                                  ++ " "                       ++ show pinned

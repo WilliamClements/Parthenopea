@@ -57,7 +57,7 @@ struct sfInstModList
 >                                             mrModId = 0
 >                                           , mrModSrc = defModSrc{msSource = FromLinked}
 >                                           , mrModDest = ToFilterFc}
->   let m8n@Modulation{modGraph}           = resolveMods defModulation [m8r] []
+>   let m8n                                = resolveMods defModulation [m8r] []
 >   let succeeded                          = aEqual 0 (countMods m8n)
 >   return succeeded
 >

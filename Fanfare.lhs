@@ -1,3 +1,4 @@
+> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Fanfare
@@ -37,24 +38,35 @@ November 11, 2022
 
 Fanfare ===============================================================================================================
 
-> theFanfare   = removeZeros
->              $ tempo (5/2)
->              $ transpose 5
+> ffLeadI                                  = Trumpet
+> ffLeadII                                 = Flute
+> ffPickedI                                = ElectricBassPicked
+>
+> ffTempo                :: Rational       = 5 / 2
+> ffTranspose            :: AbsPitch       = 5
+>
+> ffTempoCap             :: Rational       = 4
+> ffTransposeCap         :: AbsPitch       = 0
+>
+> theFanfare isCap 
+>              = removeZeros
+>              $ tempo     (if isCap then ffTempoCap     else ffTempo)
+>              $ transpose (if isCap then ffTransposeCap else ffTranspose)
 >              $ keysig C Mixolydian
 >              $ (tTreble1 :=: bBass) :+: (tTreble1 :=: tTreble2 :=: bBass)
 >    where
 >
 >       tTreble1 =
 >         addVolume 75
->         $ instrument Trumpet
+>         $ instrument ffLeadI
 >         $ tFan :+: tAns
 >       tTreble2 =
 >         addVolume 75
->         $ instrument Trumpet
+>         $ instrument ffLeadII
 >         $ uFan :+: uAns
 >       bBass =
 >         addVolume 70
->         $ instrument ElectricBassPicked
+>         $ instrument ffPickedI
 >         $ bFan :+: bAns
 >
 >       tFan =  {- 32 -} line [tFan1, tFan2, tFan3, tFan4, tFan5]
@@ -177,17 +189,24 @@ Bob ============================================================================
 
 Bill ==================================================================================================================
 
+> billTreble                               = Violin
+> billAlto                                 = RhodesPiano
+> billBass                                 = Cello
+>
+> billTempo                                = 2
+> billTranspose                            = 0
+>
 > bill nRepeats =
 >    removeZeros
 >    $ tempo 2
 >    $ transpose 0
 >    $ keysig Ef Mixolydian
->    $ instrument Violin
->         (addVolume 45 (rest dwn :+:  g 4 hn :+: times nRepeats treble))
->      :=: instrument RhodesPiano
->         (addVolume 95 (rest dwn :+: bf 3 hn :+: times nRepeats alto))
->      :=: instrument Cello
->         (addVolume 45 (rest dwn :+: ef 3 hn :+: times nRepeats bass))
+>    $ instrument billTreble
+>         (addVolume 60 (rest dwn :+:  g 4 hn :+: times nRepeats treble))
+>      :=: instrument billAlto
+>         (addVolume 100 (rest dwn :+: bf 3 hn :+: times nRepeats alto))
+>      :=: instrument billBass
+>         (addVolume 60 (rest dwn :+: ef 3 hn :+: times nRepeats bass))
 >
 >    where
 > 
@@ -342,7 +361,9 @@ Snake ==========================================================================
 >   $ addVolume 100
 >   $ line [a 3 (2*wn)]
 >
-> snakeTranspose                           = 5
+> snakeLead                                = AltoSax
+> snakeSecond                              = TenorSax
+> snakeTranspose                           = 0
 > snakeTempo                               = 2
 >
 > snake =
@@ -350,8 +371,8 @@ Snake ==========================================================================
 >    $ tempo snakeTempo
 >    $ transpose snakeTranspose
 >    $ keysig D Mixolydian
->    $     addVolume  65 (instrument AltoSax treblePart)
->      :=: addVolume  80 (instrument Clarinet altoPart)
+>    $     addVolume  100 (instrument snakeLead treblePart)
+>      :=: addVolume  100 (instrument snakeSecond altoPart)
 >    where
 >
 >    treblePart = line [treb00, treb01, treb02, treb03, treb04]

@@ -40,7 +40,7 @@ organize exposed music =========================================================
 >  , zjingles            :: [(String, Music (Pitch, [NoteAttribute]))]
 >
 > ajingles =
->    [ ("theFanfare"     , aggrandize theFanfare)
+>    [ ("theFanfare"     , aggrandize (theFanfare False))
 >    , ("slot"           , aggrandize (slot 4))
 >    , ("alice"          , aggrandize alice)
 >    , ("bob"            , aggrandize (bob 4))
@@ -77,7 +77,7 @@ organize exposed music =========================================================
 > sj =
 >    -- [ ("getCITM"     , aggrandize getCITM)]
 >    -- [ ("basicLick"      , aggrandize basicLick)]
->    [ ("littleAbby"  , aggrandize littleAbby)]
+>    [ ("bill"           , aggrandize $ bill 1)]
 >    -- [ ("ssailor"     , aggrandize ssailor)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("bob"         , aggrandize (bob 2))]

@@ -1254,7 +1254,6 @@ DH =============================================================================
 >                       , t32 [cs 5 en, cs 5 en, cs 5 sn, b 4 sn]
 >                       , t32 [ds 5 en, cs 5 sn], tempo (5/4) (line [cs 5 sn, ds 5 tn, cs 5 tn, b 4 tn])]
 >     l014        = line [t32 [cs 5 en, cs 5 sn], b 4 dqn, rest den, b 5 sn
->                                                    -- these two were doubled WOX
 >                       , t32 [a 5 en, a 5 en, t32 [grace 1 (gs 5 en), gs 5 sn]], fs 5 en
 >                       , t32 [gs 5 tn, fs 5 tn, e 5 tn], e 5 sn]
 >     l015        = line [e 5 sn, grace (-2) (fs 5 en), fs 5 (sn + dqn), rest en, ds 6 sn, ds 6 tn, b 5 tn
