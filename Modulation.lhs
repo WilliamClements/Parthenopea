@@ -491,7 +491,7 @@ The use of these functions requires that their input is normalized between 0 and
 >     scale                                = profess (lo < hi)
 >                                              "inverted range in controlDenormal"
 >                                              (hi - lo)
->     dNorm =   (dIn - lo) / scale
+>     dNorm                                = (dIn - lo) / scale
 >
 > controlUniPolar        :: Mapping → Double → Double
 > controlUniPolar ping@Mapping{msContinuity, msMax2Min} dIn
@@ -642,7 +642,7 @@ Type declarations ==============================================================
 > data ModSrc =
 >   ModSrc {
 >     msMapping          :: Mapping
->     , msSource         :: ModSrcSource} deriving (Eq, Ord, Show)
+>   , msSource           :: ModSrcSource} deriving (Eq, Ord, Show)
 >
 > defModSrc                                = ModSrc defMapping FromNoController
 >

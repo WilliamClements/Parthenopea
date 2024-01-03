@@ -189,6 +189,21 @@ Bob ============================================================================
 
 Bill ==================================================================================================================
 
+> littleBill                               =
+>    removeZeros
+>
+>    $ tempo     billTempo
+>    $ transpose billTranspose
+>    $ keysig Ef Mixolydian
+>
+>    $ instrument billAlto (addVolume 100 alto00)
+>
+> alto00 = rest hn
+>          :+: f 4 hn :+: rest dwn
+>          :+: c 4 wn :+: rest wn
+>          :+: ef 3 hn :+: rest dwn
+>          :+: gf 3 wn :+: rest wn
+>
 > billTreble                               = Violin
 > billAlto                                 = RhodesPiano
 > billBass                                 = Cello
@@ -198,9 +213,11 @@ Bill ===========================================================================
 >
 > bill nRepeats =
 >    removeZeros
->    $ tempo 2
->    $ transpose 0
+>
+>    $ tempo     billTempo
+>    $ transpose billTranspose
 >    $ keysig Ef Mixolydian
+>
 >    $ instrument billTreble
 >         (addVolume 60 (rest dwn :+:  g 4 hn :+: times nRepeats treble))
 >      :=: instrument billAlto
@@ -220,12 +237,6 @@ Bill ===========================================================================
 >          :+: tempo 2 (line [b 3 qn, df 4 qn, ef 4 qn, f 4 qn])
 >          :+: gf 4 qn :+: line [rest en, f 4 en, ef 4 hn]
 >          :+: df 4 wn :+: rest wn
->    alto00 =
->          rest hn
->          :+: f 4 hn :+: rest dwn
->          :+: c 4 wn :+: rest wn
->          :+: ef 3 hn :+: rest dwn
->          :+: gf 3 wn :+: rest wn
 >    bass00 =
 >          rest hn
 >          :+: df 3 hn :+: rest dwn

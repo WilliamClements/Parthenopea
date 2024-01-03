@@ -370,7 +370,7 @@ Envelopes ======================================================================
 >                           → Maybe Envelope
 > deriveEnvelope mDelay mAttack noon@NoteOn{noteOnKey} (mHold, mHoldByKey) (mDecay, mDecayByKey)
 >                mSustain mRelease mTriple
->   | traceIf msg False                    = undefined
+>   | traceNever msg False                 = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTriple
 >                                              then Just env
 >                                              else Nothing

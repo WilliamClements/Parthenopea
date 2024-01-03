@@ -478,7 +478,7 @@ executive ======================================================================
 >         lookupZone zs wZ                 = lookup wZ (map (BF.first pwZone) zs)
 >
 >         getAP          :: SFZone → Maybe AbsPitch
->         getAP zone                       = (Just . fst) =<< zKeyRange zone
+>         getAP zone@SFZone{zKeyRange}     = (Just . fst) =<< zKeyRange
 >     
 >     finalize           :: Map a [PerGMScored] → Map a [PerGMScored]
 >     finalize                             = Map.map (sortOn (Down . pScore . pArtifactGrade))
@@ -509,7 +509,7 @@ executive ======================================================================
 >                                          = return $ foldl' imFolder Map.empty pergms
 >   where
 >     imFolder           :: PreInstCache → PerGMKey → PreInstCache
->     imFolder im pergm                    = Map.insert pergm (computePreInstrument (sffiles ! pWordF pergm) pergm) im
+>     imFolder im pergm@PerGMKey{pWordF}   = Map.insert pergm (computePreInstrument (sffiles ! pWordF) pergm) im
 >
 > getPreSampleFromCache sc pergm           = fromMaybe (error $ "PreSample missing from cache: " ++ show pergm)
 >                                                      (Map.lookup (toPreSampleKey pergm) sc)
@@ -603,13 +603,9 @@ executive ======================================================================
 >
 >     instrumentPercList :: PerGMKey → PerInstrument → [PerGMKey]
 >     instrumentPercList pergmI perI@PerInstrument{pZonePairs}
->                                          = pergmPs
+>                                          = map (\w → pergmI {mpWordZ = Just w}) words
 >       where
 >         words                            = map (pwZone . fst) (tail pZonePairs)
->         pergmPs                          = map addmwP words
->
->         addmwP         :: Word → PerGMKey
->         addmwP wP                        = pergmI {mpWordZ = Just wP}
 >
 > openSoundFontFile      :: Word → FilePath → IO SFFile
 > openSoundFontFile wFile filename = do
@@ -903,10 +899,10 @@ prepare the specified instruments and percussion ===============================
 >
 >         buildZone      :: SFZone → Word → (ZoneHeader, SFZone)
 >         buildZone fromZone bagIndex
->           | traceIf msgBZ False          = undefined
+>           | traceIf traceBZ False        = undefined
 >           | otherwise                    = (zh, zone)
 >           where
->             msgBZ                        = unwords ["buildZone ", show gens]
+>             traceBZ                      = unwords ["buildZone", show bagIndex, show gens]
 >
 >             xgeni                        = F.genNdx $ ssIBags!bagIndex
 >             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
@@ -1095,9 +1091,15 @@ zone selection for rendering ===================================================
 >                           → PerGMKey
 >                           → NoteOn
 >                           → ((SFZone, F.Shdr), (SFZone, F.Shdr))
-> setZone zoneCache pergm noon             = ((snd zoneL, sampleL) ,(snd zoneR, sampleR))
+> setZone zoneCache pergm@PerGMKey{pWordI} noon
+>   | traceIf traceSZ False                = undefined
+>   | otherwise                            = ((snd zoneL, sampleL) ,(snd zoneR, sampleR))
 >   where
->     perI@PerInstrument{pZonePairs}       = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
+>     traceSZ                              = unwords ["setZone", show pWordI, show (F.instName pInst)
+>                                                   , ":", show ((pwZone . fst) zoneL), show ((pwZone . fst) zoneR)]
+>
+>     perI@PerInstrument{pZonePairs, pInst}
+>                                          = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
 >     zs                 :: [(ZoneHeader, SFZone)]
 >                                          = tail pZonePairs
 >
@@ -1106,8 +1108,11 @@ zone selection for rendering ===================================================
 >
 > selectBestZone         :: [(ZoneHeader, SFZone)] → NoteOn → (ZoneHeader, SFZone)
 > selectBestZone zs noon
->                                          = snd whichZ
+>   | traceIf traceSBZ False               = undefined
+>   | otherwise                            = snd whichZ
 >   where
+>     traceSBZ                             = unwords ["selectBestZone=", show $ pwZone $ (fst . snd) whichZ]
+>
 >     scores             :: [(Int, (ZoneHeader, SFZone))]
 >                                          = mapMaybe (scoreOneZone noon) zs
 >     whichZ                               = profess
@@ -1118,32 +1123,31 @@ zone selection for rendering ===================================================
 > selectZonePair         :: [(ZoneHeader, SFZone)]
 >                           → (ZoneHeader, SFZone)
 >                           → ((ZoneHeader, SFZone), (ZoneHeader, SFZone))
-> selectZonePair zs zone                   = if toSampleType stype == SampleTypeLeft
->                                              then (zone, ozone)
->                                              else (ozone, zone)
->   where
->     (zh@ZoneHeader{pSample}, z)          = zone
->     stype                                = F.sampleType pSample
->     slink                                = F.sampleLink pSample
->     mlinked                              = find (withSlink slink) zs
->     -- TODO: should base it strictly on Stereo sample type?
->     ozone                                = case mlinked of
->                                              Nothing → zone
->                                              Just _  → fromJust $ find (withSlink slink) zs
+> selectZonePair zs zone
+>    | stype == SampleTypeLeft             = (zone, ozone)
+>    | stype == SampleTypeRight            = (ozone, zone)
+>    | otherwise                           = (zone, zone)
+>    where
+>      shdr@F.Shdr{F.sampleType, F.sampleLink}
+>                                          = (pSample . fst) zone
+>      stype                               = toSampleType sampleType
+>      ozone                               = fromMaybe zone $ find (withSlink sampleLink) zs
 >
->     withSlink          :: Word → (ZoneHeader, SFZone) → Bool
->     withSlink toMatch (zh, zone)         = fromJust (zSampleIndex zone) == toMatch
+>      withSlink          :: Word → (ZoneHeader, SFZone) → Bool
+>      withSlink toMatch czone             = fromJust ((zSampleIndex . snd) czone) == toMatch
 >
 > scoreOneZone           :: NoteOn
 >                           → (ZoneHeader, SFZone)
 >                           → Maybe (Int, (ZoneHeader, SFZone))
-> scoreOneZone noon@NoteOn{noteOnVel, noteOnKey} (zh, zone@SFZone{zKeyRange, zVelRange})
->                                          =
+> scoreOneZone noon@NoteOn{noteOnVel, noteOnKey} (zh@ZoneHeader{pwZone}, zone@SFZone{zKeyRange, zVelRange})
+>   | traceIf traceSOZ False               = undefined
+>   | otherwise                            =
 >     if qualify
 >     then Just (score, (zh, zone))
 >     else Nothing
 >   where
->     qualify            :: Bool
+>     traceSOZ                             = unwords ["scoreOneZone", show score, "for", show pwZone]
+>
 >     qualify                              = DAllOn /= qqDesireReStereo defT || isStereoZone (zh, zone)
 >
 >     score = score1 + score2
@@ -1193,16 +1197,17 @@ reconcile zone and sample header ===============================================
 
 > reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → NoteOn → (Reconciled, Reconciled)
 > reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) noon
->   | traceNever msg False                 = undefined
+>   | traceNever traceRLR False            = undefined
 >   | otherwise                            = (recL, recR')
 >   where
+>     traceRLR = unwords ["reconcileLR zoneL=", show zoneL, "\n  shdrL=", show shdrL]
+>
 >     recL@Reconciled{rRootKey, rPitchCorrection}
 >                                          = reconcile (zoneL, shdrL) noon
 >     recR = reconcile (zoneR, shdrR) noon
 >     recR' = recR{
 >               rRootKey                   = rRootKey
 >             , rPitchCorrection           = rPitchCorrection}
->     msg = unwords ["reconcileLR zoneL=", show zoneL, "\n  shdrL=", show shdrL]
 >
 > reconcile              :: (SFZone, F.Shdr) → NoteOn → Reconciled 
 > reconcile (zone@SFZone{zRootKey, zKey, zVel
@@ -1414,7 +1419,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >     ap = p1 - 35    
 >
 > dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ (a, [PerGMScored]) → [Emission]
-> dumpContestants (kind, contestants) = prolog ++ es ++ epilog
+> dumpContestants (kind, contestants)      = prolog ++ es ++ epilog
 >   where
 >     prolog, es, epilog :: [Emission]
 >     prolog = []
