@@ -25,6 +25,8 @@ December 12, 2022
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
 > import Data.Int ( Int8, Int16, Int32 )
+> import Data.IntSet (IntSet)
+> import qualified Data.IntSet             as IntSet
 > import Data.List
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
@@ -1108,6 +1110,11 @@ Takes care of characters that need quoting like '"'
 >     unquote c = case c of
 >                 '\\'   → ""
 >                 _      → [c]
+
+forms an IntSet based on an arbitrary list and corresponding input function to Int
+
+> formIntSet             :: [a] → (a → Int) → IntSet
+> formIntSet as fun                        = IntSet.fromList $ map fun as
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 

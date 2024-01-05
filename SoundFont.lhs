@@ -16,6 +16,8 @@ SoundFont support ==============================================================
 > import qualified Data.Bifunctor          as BF
 > import Data.Foldable ( toList )
 > import Data.Int ( Int8, Int16 )
+> import Data.IntSet (IntSet)
+> import qualified Data.IntSet             as IntSet
 > import Data.List ( find, foldr, minimumBy, singleton, foldl', sortOn )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
@@ -932,7 +934,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         categorizeInst :: [(ZoneHeader, SFZone)] → InstCat
 >         categorizeInst zs
->           | traceIf msg False            = undefined
+>           | traceIf traceCI False        = undefined
 >           | otherwise                    = fromMaybe InstCatPerc latched
 >           where
 >             confirmed                    = bqForce isConfirmed
@@ -943,8 +945,32 @@ prepare the specified instruments and percussion ===============================
 >             badrom     :: Maybe InstCat  = if any hasRom zs
 >                                              then Just InstCatDisq
 >                                              else Nothing
+>             badLinks   :: Maybe InstCat  = if linksOk
+>                                              then Nothing
+>                                              else Just InstCatDisq
+>             linksOk    :: Bool
+>               | traceIf traceLO False    = undefined
+>               | otherwise                = IntSet.isSubsetOf sOut sIn
+>               where
+>                 traceLO                  = unwords["traceLO", show sIn, show sOut]
+>
+>             sIn        :: IntSet         = formIntSet zs getSampleIndexIn
+>             sOut       :: IntSet         = formIntSet zs getSampleLinkOut
+>                                          
+>             getSampleIndexIn, getSampleLinkOut
+>                        :: (ZoneHeader, SFZone) → Int
+>             getSampleIndexIn (zh, z@SFZone{zSampleIndex})
+>                                          = if isStereoZone (zh, z)
+>                                              then fromIntegral $ fromJust zSampleIndex
+>                                              else -1
+>             getSampleLinkOut (zh@ZoneHeader{pSample}, z)      
+>                                          = if isStereoZone (zh, z)
+>                                              then fromIntegral $ F.sampleLink $ pSample
+>                                              else -1
+>
 >             alts       :: [Maybe InstCat]
 >                                          = [ badrom
+>                                            , badLinks
 >                                            , fst confirmed
 >                                            , snd confirmed
 >                                            , if 0.8 < howPercish then Just InstCatPerc else Nothing
@@ -958,7 +984,7 @@ prepare the specified instruments and percussion ===============================
 >             byZone     :: [Bool]         = map computeCanBePerc zs
 >             howPercish :: Double         = fromIntegral (length (filter id byZone)) / fromIntegral (length byZone)
 >             latched    :: Maybe InstCat  = foldr CM.mplus Nothing alts
->             msg                          = unwords ["categorizeInst ", show iName, " ", show pergm
+>             traceCI                      = unwords ["categorizeInst ", show iName, " ", show pergm
 >                                                    , "---\n", show latched, " = ", show alts]
 >
 >         bqForce        :: Double → (Maybe InstCat, Maybe InstCat)
@@ -1095,8 +1121,7 @@ zone selection for rendering ===================================================
 >   | traceIf traceSZ False                = undefined
 >   | otherwise                            = ((snd zoneL, sampleL) ,(snd zoneR, sampleR))
 >   where
->     traceSZ                              = unwords ["setZone", show pWordI, show (F.instName pInst)
->                                                   , ":", show ((pwZone . fst) zoneL), show ((pwZone . fst) zoneR)]
+>     traceSZ                              = unwords ["setZone", show pWordI, show (F.instName pInst)]
 >
 >     perI@PerInstrument{pZonePairs, pInst}
 >                                          = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
@@ -1111,7 +1136,7 @@ zone selection for rendering ===================================================
 >   | traceIf traceSBZ False               = undefined
 >   | otherwise                            = snd whichZ
 >   where
->     traceSBZ                             = unwords ["selectBestZone=", show $ pwZone $ (fst . snd) whichZ]
+>     traceSBZ                             = unwords ["selectBestZone=", show $ length zs, show noon]
 >
 >     scores             :: [(Int, (ZoneHeader, SFZone))]
 >                                          = mapMaybe (scoreOneZone noon) zs
@@ -1142,18 +1167,14 @@ zone selection for rendering ===================================================
 > scoreOneZone noon@NoteOn{noteOnVel, noteOnKey} (zh@ZoneHeader{pwZone}, zone@SFZone{zKeyRange, zVelRange})
 >   | traceIf traceSOZ False               = undefined
 >   | otherwise                            =
->     if qualify
->     then Just (score, (zh, zone))
->     else Nothing
+>     if DAllOn /= qqDesireReStereo defT || isStereoZone (zh, zone)
+>       then Just (scoreByPitch + scoreByVelocity, (zh, zone))
+>       else Nothing
 >   where
->     traceSOZ                             = unwords ["scoreOneZone", show score, "for", show pwZone]
+>     traceSOZ                             = unwords ["scoreOneZone", show scoreByPitch, "+", show scoreByVelocity, "for", show pwZone]
 >
->     qualify                              = DAllOn /= qqDesireReStereo defT || isStereoZone (zh, zone)
->
->     score = score1 + score2
->
->     score1 = scorePitchDistance    noteOnKey zKeyRange
->     score2 = scoreVelocityDistance noteOnVel zVelRange
+>     scoreByPitch                         = scorePitchDistance    noteOnKey zKeyRange
+>     scoreByVelocity                      = scoreVelocityDistance noteOnVel zVelRange
 >
 > instrumentSplitCount   :: InstrumentName → [(ZoneHeader, SFZone)] → Double
 > instrumentSplitCount kind zs             = fromIntegral (length zs)
