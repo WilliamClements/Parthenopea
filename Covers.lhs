@@ -271,19 +271,23 @@ Slot ===========================================================================
 >
 > slotTempo                                = 2
 > slotTranspose                            = 0
+> slotVelocity                             = 100
+>
 > slotLead                                 = Flute
 > slotStrum                                = AcousticGuitarNylon
 > slotBass                                 = SlapBass2
+>
 > slot :: Int → Music (Pitch, Volume)
 > slot n =
 >    removeZeros
->    $ tempo 2
->    $ transpose 0
+>    $ tempo slotTempo
 >    $ keysig G Dorian
->    $ chord [ addVolume  90 $ instrument slotLead     (vSlotV n)
->            , addVolume  80 $ instrument slotStrum    (vSlotG n)
->            , addVolume  90 $ instrument slotBass     (vSlotC n)
->            , addVolume 100                           (vSlotP n)]
+>    $ chord [ addVolume slotVelocity        $ transpose xpo $ instrument slotLead     (vSlotV n)
+>            , addVolume slotVelocity        $ transpose xpo $ instrument slotStrum    (vSlotG n)
+>            , addVolume (slotVelocity + 10) $ transpose xpo $ instrument slotBass     (vSlotC n)
+>            , addVolume slotVelocity                                                  (vSlotP n)]
+>    where
+>      xpo                                 = slotTranspose
 >      
 > vSlotV :: Int → Music Pitch
 > vSlotV n

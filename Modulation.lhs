@@ -289,13 +289,13 @@ Modulator management ===========================================================
 >     bandpassWeight                        = 0.75
 >
 >     procBandpass       :: Signal p (Double, ModSignals) Double
->     procBandpass                           = 
+>     procBandpass                         = 
 >       proc (x, msig) → do
 >         let fc = modulateFc msig
->         y1 ← filterLowPassBW              ⤙ (x, fc)
->         y2 ← filterBandPass 2             ⤙ (x, fc, bpQ)
+>         y1 ← filterLowPassBW             ⤙ (x, fc)
+>         y2 ← filterBandPass 2            ⤙ (x, fc, bpQ)
 >         let y' = resonate x fc (y1*lpW + y2*bpW)
->         outA                              ⤙ y'
+>         outA                             ⤙ y'
 >       where
 >         bpQ = lowPassQ / 3
 >         lpW = lowpassWeight
@@ -317,13 +317,15 @@ Modulator management ===========================================================
 >
 >     resonate           :: Double → Double → Double → Double
 >     resonate x fc y
->       | traceNever msg' False            = undefined
+>       | traceNever trace_R False         = undefined
 >       | otherwise                        = y'
 >       where
 >         y'                               = checkForNan y "resonate y"
->         msg'                             = unwords ["resonate\nsin  = ", show (checkForNan  x "resonate x")
->                                                           , "\nfc   = ", show (checkForNan fc "resonate fc")
->                                                           , "\nsout = ", show y']
+>         trace_R                          =
+>           unwords [
+>               "resonate\nsin  = ", show (checkForNan  x "resonate x")
+>             , "\nfc   = ", show (checkForNan fc "resonate fc")
+>             , "\nsout = ", show y']
 >
 > deriveModTriple        :: Maybe Int → Maybe Int → Maybe Int → ModTriple
 > deriveModTriple toPitch toFilterFc toVolume
@@ -360,11 +362,11 @@ Modulator management ===========================================================
 >
 >     oscillate          :: Double → Double
 >     oscillate sin
->       | traceNever msg False             = undefined
+>       | traceNever trace_O False             = undefined
 >       | otherwise                        = sout
 >       where
->         sout = sin
->         msg = unwords ["oscillate ", show sin]
+>         sout                             = sin
+>         trace_O                          = unwords ["oscillate", show sin]
 >
 > triangleWave           :: ∀ p . Clock p ⇒ Double → Signal p () Double
 > triangleWave freq                        = 

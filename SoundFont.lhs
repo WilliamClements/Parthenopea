@@ -961,11 +961,11 @@ prepare the specified instruments and percussion ===============================
 >                        :: (ZoneHeader, SFZone) → Int
 >             getSampleIndexIn (zh, z@SFZone{zSampleIndex})
 >                                          = if isStereoZone (zh, z)
->                                              then fromIntegral $ fromJust zSampleIndex
+>                                              then fromIntegral $ professIsJust zSampleIndex "no sample index?!"
 >                                              else -1
 >             getSampleLinkOut (zh@ZoneHeader{pSample}, z)      
 >                                          = if isStereoZone (zh, z)
->                                              then fromIntegral $ F.sampleLink $ pSample
+>                                              then fromIntegral $ F.sampleLink pSample
 >                                              else -1
 >
 >             alts       :: [Maybe InstCat]
@@ -1159,7 +1159,10 @@ zone selection for rendering ===================================================
 >      ozone                               = fromMaybe zone $ find (withSlink sampleLink) zs
 >
 >      withSlink          :: Word → (ZoneHeader, SFZone) → Bool
->      withSlink toMatch czone             = fromJust ((zSampleIndex . snd) czone) == toMatch
+>      withSlink toMatch czone             =
+>        professIsJust
+>          ((zSampleIndex . snd) czone)
+>          "sampleIndex undefined" == toMatch
 >
 > scoreOneZone           :: NoteOn
 >                           → (ZoneHeader, SFZone)
@@ -1243,7 +1246,7 @@ reconcile zone and sample header ===============================================
 >          noon@NoteOn{noteOnVel, noteOnKey}
 >                                          = recon
 >   where
->     m8n                                  = resModulation zone noon
+>     m8n                                  = reconModulation zone noon
 >     recon = Reconciled {
 >     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
 >   , rSampleRate      = fromIntegral          sampleRate
@@ -1260,7 +1263,7 @@ reconcile zone and sample header ===============================================
 >   , rForceKey        = fmap                  fromIntegral            zKey
 >   , rForceVel        = fmap                  fromIntegral            zVel
 >   , rNoteOn          = noon
->   , rAttenuation     = resAttenuation                                zInitAtten
+>   , rAttenuation     = reconAttenuation                              zInitAtten
 >   , rVolEnv          = deriveEnvelope                                zDelayVolEnv
 >                                                                      zAttackVolEnv
 >                                                                      noon
@@ -1270,9 +1273,9 @@ reconcile zone and sample header ===============================================
 >                                                                      zReleaseVolEnv
 >                                                                      Nothing
 >   , rPitchCorrection = if usePitchCorrection
->                          then Just $ resPitchCorrection               (F.pitchCorrection     shdr)
->                                                                       zCoarseTune
->                                                                       zFineTune
+>                          then Just $ reconPitchCorrection            (F.pitchCorrection     shdr)
+>                                                                      zCoarseTune
+>                                                                      zFineTune
 >                          else Nothing
 >
 >   , rModulation      =                                                m8n
@@ -1280,16 +1283,17 @@ reconcile zone and sample header ===============================================
 >                                                                       zReverb
 >                                                                       zPan}
 >
->     resPitchCorrection :: Int → Maybe Int → Maybe Int → Double
->     resPitchCorrection alt mps mpc       = fromMaybe ((fromCents . fromIntegral) alt) (fromCents' mps mpc)
+>     reconPitchCorrection
+>                        :: Int → Maybe Int → Maybe Int → Double
+>     reconPitchCorrection alt mps mpc     = fromMaybe ((fromCents . fromIntegral) alt) (fromCents' mps mpc)
 >
->     resAttenuation     :: Maybe Int → Double
->     resAttenuation matten                = if useAttenuation
+>     reconAttenuation   :: Maybe Int → Double
+>     reconAttenuation matten              = if useAttenuation
 >                                              then maybe 0 fromIntegral zInitAtten
 >                                              else 0.0
 >
-> resModulation         :: SFZone → NoteOn → Modulation
-> resModulation z@SFZone{
+> reconModulation        :: SFZone → NoteOn → Modulation
+> reconModulation z@SFZone{
 >                       zModLfoToPitch, zVibLfoToPitch, zModEnvToPitch
 >                     , zInitFc, zInitQ
 >                     , zModLfoToFc, zModEnvToFc, zModLfoToVol, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo

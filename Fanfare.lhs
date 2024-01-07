@@ -666,14 +666,18 @@ Roger ==========================================================================
 > rogerTranspose                           = 0
 > rogerTempo                               = 1
 >
+> rogerAlto                                = Flute
+> rogerTenor                               = AcousticGuitarNylon
 > roger :: Music (Pitch, Volume)
 > roger =
 >    removeZeros
 >    $ tempo                               rogerTempo
 >    $ transpose                           xpo
 >    $ keysig Cs Dorian
->    $     transpose 12 (addVolume  64 (instrument Flute               (line [cAltoI,  cAltoIIA, cAltoIIB])))
->      :=: transpose 0  (addVolume  64 (instrument AcousticGuitarNylon (line [cTenorI, cTenorII])))
+>    $     transpose
+>            (xpo + 12) (addVolume  64 (instrument rogerAlto     (line [cAltoI,  cAltoIIA, cAltoIIB])))
+>      :=: transpose
+>            xpo        (addVolume  64 (instrument rogerTenor    (line [cTenorI, cTenorII])))
 >   where
 >
 >   xpo                                    = rogerTranspose

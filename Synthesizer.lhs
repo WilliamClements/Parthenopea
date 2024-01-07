@@ -42,7 +42,7 @@ Signal function-based synth ====================================================
 >                           → Signal p () (Double, Double)
 > eutSynthesize (reconL@Reconciled{rSampleMode, rStart, rEnd, rRootKey}, reconR)
 >               sr dur pch' vol' params s16 ms8
->   | traceIf msg False                    = undefined
+>   | traceIf trace_eS False               = undefined
 >   | otherwise                            = sig
 >   where
 >     noon@NoteOn{noteOnVel, noteOnKey}    = NoteOn vol' pch'
@@ -68,9 +68,12 @@ Signal function-based synth ====================================================
 >                                              >>> eutEffects     secsScored (reconL, reconR)
 >                                              >>> eutAmplify     secsScored (reconL, reconR) noon secsToPlay
 >
->     msg                                  = unwords [ "eutSynthesize ", show (dur, noon)
->                                                    , "\n... sample, scored, toplay = "
->                                                    , show secsSample, " , ", show secsScored, " , ", show secsToPlay]
+>     trace_eS                             =
+>       unwords [
+>           "eutSynthesize ",                  show (dur, noon)
+>         , "\n... sample, scored, toplay = ", show secsSample
+>         , " , ",                             show secsScored
+>         , " , ",                             show secsToPlay]
 >
 > eutDriver              :: ∀ p . Clock p ⇒
 >                           Double
@@ -80,7 +83,7 @@ Signal function-based synth ====================================================
 >                           → Bool
 >                           → Signal p () (Double, (ModSignals, ModSignals))
 > eutDriver secsScored (reconL@Reconciled{rModulation, rNoteOn}, reconR) secsToPlay idelta looping
->   | traceIf msg False                    = undefined
+>   | traceIf trace_eD False               = undefined
 >   | otherwise                            = if looping
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
@@ -92,7 +95,8 @@ Signal function-based synth ====================================================
 >
 >     m8n@Modulation{toPitchSummary}       = rModulation
 >     procDriver calcPhase                 = proc () → do
->       (modSigL, modSigR) ← eutIgniteModSignals secsScored secsToPlay (reconL, reconR)
+>       (modSigL, modSigR)
+>                        ← eutIgniteModSignals secsScored secsToPlay (reconL, reconR)
 >                                          ⤙ ()
 >       let delta                          = idelta * calculateModFactor
 >                                                       "procDriver"
@@ -108,7 +112,7 @@ Signal function-based synth ====================================================
 >     (lst, len)         :: (Double, Double)
 >                                          = normalizeLooping reconL
 >
->     msg                                  = unwords ["eutDriver idelta=", show idelta, " looping=", show looping]
+>     trace_eD                             = unwords ["eutDriver idelta=", show idelta, " looping=", show looping]
 >
 > normalizeLooping       :: Reconciled → (Double, Double)
 > normalizeLooping r@Reconciled{rStart, rEnd, rLoopStart, rLoopEnd}
@@ -137,8 +141,10 @@ Signal function-based synth ====================================================
 >     aR3 ← doLFO       mVibLfoR                       ⤙ ()
 >     outA ⤙ (ModSignals aL1 aL2 aL3, ModSignals aR1 aR2 aR3)
 >   where
->     m8nL'@Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = m8nL
->     m8nR'@Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = m8nR
+>     m8nL'@Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL}
+>                                          = m8nL
+>     m8nR'@Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR}
+>                                          = m8nR
 >
 > eutPumpSamples         :: ∀ p . Clock p ⇒
 >                           Double
@@ -151,7 +157,7 @@ Signal function-based synth ====================================================
 > eutPumpSamples _ (  reconL@Reconciled{rAttenuation = attenL, rStart = stL, rEnd = enL, rModulation = m8nL}
 >                   , reconR@Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR, rModulation = m8nR})
 >                  noon@NoteOn{noteOnVel, noteOnKey} dur s16 ms8
->   | traceIf msg False                    = undefined
+>   | traceIf trace_ePS False              = undefined
 >   | otherwise =
 >   proc (pos, msig) → do
 >     let pos'           :: Double         = numS * pos
@@ -172,16 +178,20 @@ Signal function-based synth ====================================================
 >
 >     pump               :: (Double, Double) → (Double, Double) → (Double, Double)
 >     pump (ampL, ampR) (a1L, a1R)
->       | traceNever msg' False            = undefined
+>       | traceNever trace_P False         = undefined
 >       | otherwise                        = (a1L * ampL, a1R * ampR)
 >       where
->         msg'                             = unwords ["pump ", show (a1L, a1R)
->                                                     , "<=>", show (a1L * ampL, a1R * ampR)]
+>         trace_P                          =
+>           unwords [
+>               "pump ", show (a1L, a1R)
+>             , "<=>", show (a1L * ampL, a1R * ampR)]
 >      
->     msg = unwords ["eutPumpSamples numS = ", show numS
->                  , "attenL = "             , show attenL
->                  , "evaluateMods = "       , show (evaluateMods ToInitAtten graphL noon)
->                  , " -- "                  , show (ampL, ampR)]
+>     trace_ePS                            =
+>       unwords [
+>           "eutPumpSamples numS = ", show numS
+>         , "attenL = "             , show attenL
+>         , "evaluateMods = "       , show (evaluateMods ToInitAtten graphL noon)
+>         , " -- "                  , show (ampL, ampR)]
 >
 > eutAmplify             :: ∀ p . Clock p ⇒
 >                           Double
@@ -218,10 +228,10 @@ Signal function-based synth ====================================================
 >
 >     amplify            :: (Double, Double) → (Double, Double) → (Double, Double) → (Double, Double)
 >     amplify (a1L, a1R) (aenvL, aenvR) (a3L, a3R)
->       | traceNever msg' False            = undefined
+>       | traceNever trace_A False         = undefined
 >       | otherwise                        = (a3L, a3R)
 >       where
->         msg'                             = unwords ["amplify = ",  show (a1L, aenvL, a3L)]
+>         trace_A                          = unwords ["amplify",  show (a1L, aenvL, a3L)]
 >
 
 Modulation ============================================================================================================
@@ -243,15 +253,17 @@ Modulation =====================================================================
 >     outA                                 ⤙ ((a3L', a3R'), (modSigL, modSigR))
 >
 >   where
->     modulate           :: (Double, Double) →  (Double, Double) → (Double, Double)
+>     modulate           :: (Double, Double) → (Double, Double) → (Double, Double)
 >     modulate (a1L, a1R) (a2L, a2R)
->       | traceNever msg' False            = undefined
+>       | traceNever trace_M False         = undefined
 >       | otherwise                        = (a2L, a2R)
 >       where
 >         (a3L, a3R)                       = (checkForNan a2L "mod a2L", checkForNan a2R "mod a2R" )
 >
->         msg'                             = unwords ["modulate\n sin = ", show (a1L,       a1R)
->                                                   , "\nsout = ",         show (a3L,       a3R)]
+>         trace_M                          =
+>           unwords [
+>               "modulate\n sin = ", show (a1L,       a1R)
+>             , "\nsout = ",         show (a3L,       a3R)]
 
 FFT ===================================================================================================================
 
@@ -411,20 +423,20 @@ Envelopes ======================================================================
 >   where
 >     makeSF             :: Envelope → Signal p () Double
 >     makeSF env
->       | traceIf msg False                = undefined
+>       | traceIf trace_MSF False          = undefined
 >       | otherwise                        = dumpSF secsScored secsToPlay sf
 >       where
 >         sf = envLineSeg sAmps sDeltaTs
 >         segs@Segments{sAmps, sDeltaTs}   = computeSegments secsScored secsToPlay env
->         msg = unwords ["doEnvelope/makeSF ", show (secsScored, secsToPlay), " ",  show (sAmps, sDeltaTs)]
+>         trace_MSF = unwords ["doEnvelope/makeSF ", show (secsScored, secsToPlay), " ",  show (sAmps, sDeltaTs)]
 >
 >     dumpSF             :: Double → Double → Signal p () Double → Signal p () Double
 >     dumpSF secsScored secsToUse sigIn
->       | traceNever msg' False            = undefined
+>       | traceNever trace_DSF False       = undefined
 >       | otherwise                        = sigIn
 >       where
 >         str1 = findOutliersString secsScored sigIn
->         msg' = unwords ["dumpSF ", str1]
+>         trace_DSF = unwords ["dumpSF ", str1]
 
 Implement the SoundFont envelope model with specified:
   1. delay time                      0 → 0
@@ -592,7 +604,7 @@ Effects ========================================================================
 >
 > makeFreeVerb           :: Double → Double → Double → STK.FreeVerb
 > makeFreeVerb roomSize damp width
->   | traceIf msg False = undefined
+>   | traceIf trace_MFV False = undefined
 >   | otherwise =
 >   let
 >     wet = fvScaleWet * fvWetDryMix
@@ -624,12 +636,11 @@ Effects ========================================================================
 >                  initAllpassDelay
 >                  initAllpassDelay
 >   where
->     msg = unwords [   "makeFreeVerb roomSize="
->                     , show roomSize
->                     , " damp="
->                     , show damp
->                     , " width="
->                     , show width]
+>     trace_MFV =
+>       unwords [
+>           "makeFreeVerb roomSize",       show roomSize
+>         , "damp",                        show damp
+>         , "width",                       show width]
 >   
 > eatFreeVerb            :: ∀ p . Clock p ⇒ STK.FreeVerb → Signal p (Double, Double) (Double, Double)
 > eatFreeVerb STK.FreeVerb
