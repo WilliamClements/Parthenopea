@@ -19,9 +19,9 @@ SunPyg =========================================================================
 >      $ keysig C Lydian
 >      $ instrument ElectricGuitarClean (line [a 4 wn])
 >
-> sunPygTranspose                          = -6
+> sunPygTranspose                          = 0 -- -6
 > sunPygTempo                              = 1
-> sunPygLead                               = ElectricGuitarClean
+> sunPygLead                               = Violin
 > sunPygChoir                              = ChoirAahs
 >
 > sunPyg =
@@ -263,7 +263,7 @@ SunPyg =========================================================================
 >               , tempo (3/2) (line [fs 4 en, fs 4 sn]), e 4 sn
 >               , tempo (3/2) (line [d 4 tn, d 4 tn, d 4 tn])
 >               , tempo (3/2) (line [d 4 sn, b 3 sn, c 4 sn, b 3 sn, a 3 sn, a 3 sn])]
->    g026 = line [descent xpo sunPygLead (E, 3) dhn, tempo (5/4) (line [rest en, fs 4 en, fs 4 sn])]
+>    g026 = line [descent xpo sunPygLead (E, 3 {- ! WOX ! -} ) dhn, tempo (5/4) (line [rest en, fs 4 en, fs 4 sn])]
 >    g027 = line [tempo (3/2) (line [chord [d 4 sn, g 4 sn, c 5 sn], fs 4 en]), fs 4 sn
 >               , g 4 sn, tempo (3/2) (line [g 4 sn, fs 4 sn, d 4 sn, fs 4 en, fs 4 sn])
 >               , tempo (3/4) (line [tempo (3/2) (line [e 4 en, fs 4 sn]), e 4 sn, fs 4 sn
@@ -298,7 +298,7 @@ SunPyg =========================================================================
 >               , tempo (3/2) (line [grace (-1) (c 4 en), c 4 sn, c 4 en, c 4 en, c 4 en])
 >               , tempo (3/2) (line [grace (-2) (d 4 en), b 3 sn, b 3 sn, b 3 en])]
 >    g031 = line [c 4 sn, grace 1 (b 3 (den + en)), rest qn, b 3 en, b 3 en, g 4 en]
->    g032 = line [g 4 en, fs 4 en, descent xpo sunPygLead (Fs, 4) hn, rest qn]
+>    g032 = line [g 4 en, fs 4 en, descent xpo sunPygLead (Fs, 4 {- WOX -} ) hn, rest qn]
 >   
 >    m033_036 = line [m033, m034, m035, m036]
 >    g033_036 = line [g033, g034, g035, g036]
@@ -331,7 +331,7 @@ SunPyg =========================================================================
 >    g035 = line [fs 4 en, e 4 en, e 4 en, grace (-2) (a 4 sn), fs 4 sn
 >               , tempo (3/2) (line [fs 4 en, fs 4 sn, fs 4 sn, g 4 sn, fs 4 sn])
 >               , tempo (5/4) (line [e 4 en, fs 4 sn, e 4 sn, d 4 sn])]
->    g036 = line [e 4 en, ascent xpo sunPygLead (D, 4) dqn, rest dqn, tempo (3/2) (line [e 5 en, e 5 sn])]
+>    g036 = line [e 4 en, ascent xpo sunPygLead (D, 4) {- WOX -} dqn, rest dqn, tempo (3/2) (line [e 5 en, e 5 sn])]
 >   
 >    m037_040 = line [m037, m038, m039, m040]
 >    g037_040 = line [g037, g038, g039, g040]
@@ -929,7 +929,7 @@ SunPyg =========================================================================
 >               , f 5 sn, f 5 sn, e 5 sn, g 5 sn, f 5 sn, e 5 sn, chord [g 4 en, g 5 en]]
 >    g118 = line [fs 5 en, fs 5 sn, fs 5 sn, e 5 en, grace (-2) (a 5 en)
 >               , fs 5 sn, fs 5 sn, e 5 sn, grace (-2) (fs 5 sn), g 4 tn, g 5 tn, e 5 den]
->    g119 = line [e 5 sn, e 5 sn, d 5 sn, ascent xpo sunPygLead (D, 5) (sn + dhn)]
+>    g119 = line [e 5 sn, e 5 sn, d 5 sn, ascent xpo sunPygLead (D, 5) {- WOX -}  (sn + dhn)]
 >    g120 = line [fs 5 en, fs 5 sn, g 5 sn, a 5 en, a 5 en
 >               , t32 [addDur sn [a 5, fs 5, g 5, fs 5, g 5, fs 5]], e 5 sn, b 5 sn
 >               , t32 [grace (-2) (fs 5 sn), e 5 sn, d 5 sn]]
@@ -1103,7 +1103,7 @@ SunPyg =========================================================================
 >      line [
 >          tempo (5/4) (
 >            line [addDur sn [c 5, a 4, f 5, c 5,d 5], rest sn, d 5 sn, c 5 sn, a 4 sn, g 4 sn])
->        , addDur tn [es 4, fs 4, es 4, fs 4, es 4, e 4, d 4, c 4], ascent xpo sunPygLead (D, 4) qn]
+>        , addDur tn [es 4, fs 4, es 4, fs 4, es 4, e 4, d 4, c 4], ascent xpo sunPygLead (D, 4) {- WOX -}  qn]
 >           
 >    g143 =
 >      line [

@@ -443,9 +443,6 @@ executive ======================================================================
 >   return $ WinningRecord (Map.map head wI') (Map.map head wP') (sI ++ sP)
 >
 >   where
->     wiFolder           :: (Map InstrumentName [PerGMScored], [String])
->                           → PerGMKey
->                           → (Map InstrumentName [PerGMScored], [String])
 >     wiFolder wip pergm                   = if null mk then wip else aresult
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
@@ -454,27 +451,18 @@ executive ======================================================================
 >         -- what Instrument is closest fit, name-wise, for this artifact
 >         mk             :: Maybe (InstrumentName, (String, Double))
 >                                          = bestQualifying (getProMatches iMatches) stands
->         kind                             = profess
->                                              (isJust mk)
->                                              "bestQualifying returned Nothing"
->                                              ((fst . fromJust) mk)
+>         kind                             = fst (professIsJust' mk)
 >         aresult                          = xaEnterTournament sffiles zoneCache iMatches pergm kind [] wip
 >     
->     wpFolder           :: (Map PercussionSound [PerGMScored], [String])
->                           → PerGMKey
->                           → (Map PercussionSound [PerGMScored], [String])
 >     wpFolder wip pergm@PerGMKey{mpWordZ}
->       | traceNever msg' False            = undefined
->       | otherwise                        = if isNothing mkind then wip else aresult
+>                                          = if isNothing mkind then wip else aresult
 >       where
->         msg'                             = unwords ["wpFolder ", show pergm]
->
 >         -- access potentially massive amount of processed information regarding instrument
 >         perI@PerInstrument{pZonePairs}   = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
 >         preS@PreSample{sMatches}         = getPreSampleFromCache preSampleCache pergm
 >         mkind          :: Maybe PercussionSound
 >                                          = mpWordZ >>= lookupZone pZonePairs >>= getAP >>= pitchToPerc
->         aresult                          = xaEnterTournament sffiles zoneCache sMatches pergm (fromJust mkind) [] wip
+>         aresult                          = xaEnterTournament sffiles zoneCache sMatches pergm (professIsJust' mkind) [] wip
 >
 >         lookupZone     :: [(ZoneHeader, SFZone)] → Word → Maybe SFZone
 >         lookupZone zs wZ                 = lookup wZ (map (BF.first pwZone) zs)
@@ -491,20 +479,25 @@ executive ======================================================================
 >   return $ concatMap formFS zFiles
 >   where
 >     formFS             :: SFFile → [PreSampleKey]
->     formFS sffile@SFFile{zArrays}        = map (PreSampleKey (zWordF sffile)) [st..en]
->       where
+>     formFS sffile@SFFile{zArrays}        =
+>       let
 >         (st, en)       :: (Word, Word)   = bounds $ ssShdrs zArrays
->   
+>       in
+>         map (PreSampleKey (zWordF sffile)) [st..en]
+>
 > formPreSampleCache     :: Array Word SFFile → [PreSampleKey] → IO PreSampleCache
 > formPreSampleCache sffiles presks
->                                          = return $ foldl' smFolder Map.empty presks
+>                                          = do
+>   return $ foldl' smFolder Map.empty presks
 >   where
->     smFolder           :: PreSampleCache → PreSampleKey → PreSampleCache
 >     smFolder sm k@PreSampleKey{sWordF, sWordS}
->                                          = Map.insert k (computePreSample zArrays shdr k) sm
->       where
+>                                          =
+>       let 
 >         sffile@SFFile{zArrays}           = sffiles ! sWordF
->         shdr                             = ssShdrs zArrays ! sWordS
+>         zA'@SoundFontArrays{ssShdrs}     = zArrays
+>         shdr                             = ssShdrs ! sWordS
+>       in
+>         Map.insert k (computePreSample zArrays shdr k) sm
 >
 > formPreInstCache       :: Array Word SFFile → [PerGMKey] → IO PreInstCache
 > formPreInstCache sffiles pergms

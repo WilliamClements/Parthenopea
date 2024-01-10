@@ -75,7 +75,9 @@ organize exposed music =========================================================
 >    , ("sunPyg"         ,            sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
 > sj =
->    [ ("slot"           , aggrandize (slot 1))]
+>    [ ("opera"          , aggrandize opera)]
+>
+>    -- [ ("slot"        , aggrandize (slot 1))]
 >    -- [ ("basicLick"   , aggrandize basicLick)]
 >    -- [ ("baked"       , bakedJingle 54349)]
 >    -- [ ("ssailor"     , aggrandize ssailor)]

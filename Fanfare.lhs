@@ -1045,36 +1045,38 @@ Kit ============================================================================
 >   $ tempo 2
 >   $ chord [addVolume 64 npart, instrument FrenchHorn $ addVolume 60 tpart]
 >
-> p1 = perc LowTom
-> p2 = perc AcousticSnare
-> p3 = perc CrashCymbal2
+>   where
 >
-> c1qn = chord [c 4 qn, e 4 qn, fs 4 qn, g 4 qn]
-> c1en = chord [c 4 en, e 4 en, fs 4 en, g 4 en]
-> c2qn = chord [b 3 qn, ds 4 qn, f 4 qn, g 4 qn]
-> c2en = chord [b 3 en, ds 4 en, f 4 en, g 4 en]
-> c3qn = chord [ds 4 qn, f 4 qn, a 4 qn, c 5 qn]
-> c3en = chord [ds 4 en, f 4 en, a 4 en, c 5 en]
-> c4qn = chord [e 4 qn, fs 4 qn, as 4 qn, c 5 qn]
-> c4en = chord [e 4 en, fs 4 en, as 4 en, c 5 en]
-> c5qn = chord [b 4 qn, ds 5 qn]
-> c5en = chord [b 4 en, ds 5 en]
-> c6qn = chord [a 4 qn, cs 5 qn]
-> c6en = chord [a 4 en, cs 5 en]
-> c7qn = chord [g 4 qn, b 4 qn]
-> c7en = chord [g 4 en, b 4 en]
-
-> npart = line [npart01, npart02]
-> npart01 = times 4 nline01
-> npart02 = percCCqn
-> nline01 = line [p1 qn, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p2 en, p2 en, p2 qn, p2 qn]
-> tpart =   line [tpart01, tpart02]
-> tpart01 = line [tline01, tline01, tline02, tline02]
-> tpart02 = line [tline03, tline04]
-> tline03 = line [c5en, c6qn, c6en]
-> tline04 = line [c6en, c6qn, c7en]
-> tline01 = line [c1qn, times 6 c1en, times 2 c2en, times 2 c2qn]
-> tline02 = line [c3qn, times 6 c3en, times 2 c4en, times 2 c4qn]
+>   p1 = perc LowTom
+>   p2 = perc AcousticSnare
+>   p3 = perc CrashCymbal2
+>
+>   c1qn = chord [c 4 qn, e 4 qn, fs 4 qn, g 4 qn]
+>   c1en = chord [c 4 en, e 4 en, fs 4 en, g 4 en]
+>   c2qn = chord [b 3 qn, ds 4 qn, f 4 qn, g 4 qn]
+>   c2en = chord [b 3 en, ds 4 en, f 4 en, g 4 en]
+>   c3qn = chord [ds 4 qn, f 4 qn, a 4 qn, c 5 qn]
+>   c3en = chord [ds 4 en, f 4 en, a 4 en, c 5 en]
+>   c4qn = chord [e 4 qn, fs 4 qn, as 4 qn, c 5 qn]
+>   c4en = chord [e 4 en, fs 4 en, as 4 en, c 5 en]
+>   c5qn = chord [b 4 qn, ds 5 qn]
+>   c5en = chord [b 4 en, ds 5 en]
+>   c6qn = chord [a 4 qn, cs 5 qn]
+>   c6en = chord [a 4 en, cs 5 en]
+>   c7qn = chord [g 4 qn, b 4 qn]
+>   c7en = chord [g 4 en, b 4 en]
+>
+>   npart = line [npart01, npart02]
+>   npart01 = times 4 nline01
+>   npart02 = percCCqn
+>   nline01 = line [p1 qn, p1 en, p1 en, p1 en, p1 en, p1 en, p1 en, p2 en, p2 en, p2 qn, p2 qn]
+>   tpart =   line [tpart01, tpart02]
+>   tpart01 = line [tline01, tline01, tline02, tline02]
+>   tpart02 = line [tline03, tline04]
+>   tline03 = line [c5en, c6qn, c6en]
+>   tline04 = line [c6en, c6qn, c7en]
+>   tline01 = line [c1qn, times 6 c1en, times 2 c2en, times 2 c2qn]
+>   tline02 = line [c3qn, times 6 c3en, times 2 c4en, times 2 c4qn]
 
 Pit ===================================================================================================================
 
@@ -1123,19 +1125,24 @@ Dit ============================================================================
 >       , e 3 sn, ds 3 den, e 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn
 >       , fs 3 qn, fs 4 dqn, fs 4 en, t32 [e 4 en, ds 4 en, cs 4 en], cs 4 den, cs 4 sn
 >       , b 3 den, cs 4 sn, ds 4 qn] 
->
+
+Dadadada ==============================================================================================================
+
 > da4Transpose                          = 0
 > da4Tempo                              = 1
 > da4Lead                               = AltoSax
 > da4Strum                              = AcousticGuitarNylon
 > da4Bass                               = Cello
-
+>
 > dadadada =
 >   removeZeros
 >   $ tempo da4Tempo
->   $ transpose da4Transpose
+>   $ transpose xpo
 >   $ keysig Af Mixolydian
 >   $ instrument da4Lead
 >   $ addVolume 60 (times 4 body)
+>
 >   where
->     body = line [af 4 en, bf 4 en, c 5 en, bf 4 en, c 5 en, bf 4 en]
+>
+>   xpo = da4Transpose
+>   body = line [af 4 en, bf 4 en, c 5 en, bf 4 en, c 5 en, bf 4 en]

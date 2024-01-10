@@ -12,24 +12,32 @@ December 18, 2022
 
 Cecil's Asleep ========================================================================================================
 
+> cecilTranspose                           = 0
+> cecilTempo                               = 1
+> cecilVelocity                            = 100
+>
+> cecilAlto                                = Violin
+> cecilTenor                               = TenorSax
+> cecilBass                                = AcousticBass
+>
 > cecil :: Music (Pitch, Volume)
 > cecil =
 >    removeZeros
->    $ tempo 1
->    $ transpose 0
+>    $ tempo cecilTempo
+>    $ transpose xpo
 >    $ keysig G Dorian
->    $ addVolume 100
->    $ instrument Violin
+>    $ addVolume cecilVelocity
+>    $ instrument cecilAlto
 >      ((if      includeI    then rAltoI     else rest 0)
 >        :+: (if includeII   then rAltoII    else rest 0)
 >        :+: (if includeIII  then rAltoIII   else rest 0)
 >        :+: (if includeIV   then rAltoIV    else rest 0))
->      :=: instrument TenorSax
+>      :=: instrument cecilTenor
 >      ((if      includeI    then rTenrI     else rest 0)
 >        :+: (if includeII   then rTenrII    else rest 0)
 >        :+: (if includeIII  then rTenrIII   else rest 0)
 >        :+: (if includeIV   then rTenrIV    else rest 0))
->      :=: instrument AcousticBass
+>      :=: instrument cecilBass
 >      ((if      includeI    then rBassI     else rest 0)
 >        :+: (if includeII   then rBassII    else rest 0)
 >        :+: (if includeIII  then rBassIII   else rest 0)
@@ -37,10 +45,12 @@ Cecil's Asleep =================================================================
 >
 >    where
 >
->       includeI     = True
->       includeII    = True
->       includeIII   = True
->       includeIV    = True
+>       xpo              = cecilTranspose
+>
+>       includeI         = True
+>       includeII        = True
+>       includeIII       = True
+>       includeIV        = True
 >
 > -- Section I "Cecil's Asleep"
 >
@@ -172,7 +182,8 @@ Cecil's Asleep =================================================================
 >
 > -- Section IV "He's a Frog!"
 >
-> rAltoIV   = line [rAltoIVA, rAltoIVB, rAltoIVC, rAltoIVD, rAltoIVE, rAltoIVF]
+> rAltoIV   = line [rAltoIVA, rAltoIVB, rAltoIVC
+>                 , Modify (Phrase [Dyn $ Diminuendo 1.25]) (line [rAltoIVD, rAltoIVE, rAltoIVF])]
 >   
 > --                 Frog      Hes     a      Frog     in       the
 > rAltoIVA  = line [g 5 qn,  g 5 den, a 5 sn, g 5 qn, e 5 den, f 5 sn]
@@ -187,8 +198,8 @@ Cecil's Asleep =================================================================
 > --                Frog he's a Frog He's a
 > rAltoIVF  = line [d 5 hn,  c 5 hn, bf 4 hn]
 >
-> rTenrIV   = transpose (-12) (line [rTenrIVA, rTenrIVB, rTenrIVC, rTenrIVD
->                 , rTenrIVE, rTenrIVF])
+> rTenrIV   = transpose (-12) (line [rTenrIVA, rTenrIVB, rTenrIVC
+>                                  , Modify (Phrase [Dyn $ Diminuendo 1.25]) (line [rTenrIVD, rTenrIVE, rTenrIVF])])
 >
 > rTenrIVA  = line [r2triad4 qn,  r2triad4 den, r2triad5 sn, r2triad4 qn
 >                 , r2triad4 den, r2triad4 sn]
@@ -206,28 +217,20 @@ Cecil's Asleep =================================================================
 
 Abby Cissa ============================================================================================================
 
-> littleAbby :: Music (Pitch, Volume)
-> littleAbby =
->    removeZeros
->    $ tempo 1
->    $ transpose 0
->    $ keysig C Major
->    $ addVolume 80
->    $ instrument Violin
->      (line [b 4 dwn])
->      -- (line [e 5 en,  f 5 en,  g 5 qn, c 6 qn, bf 5 en, a 5 en, g 5 hn])
->      -- (line [f 5 en,  g 5 en])
->      -- (c 5 wn)
->      -- (line [f 5 en,  g 5 en, f 5 en, e 5 en,  c 5 qn])
+> abbyTranspose                            = 0
+> abbyTempo                                = 1
+> abbyVelocity                             = 100
+>
+> abbyGrand                                = AcousticGrandPiano
 >
 > abby :: Music (Pitch, Volume)
 > abby =
 >    removeZeros
->    $ tempo 1
->    $ transpose 0
+>    $ tempo abbyTempo
+>    $ transpose abbyTranspose
 >    $ keysig C Major
->    $ addVolume 100
->    $ instrument RhodesPiano
+>    $ addVolume abbyVelocity
+>    $ instrument abbyGrand
 >      aLink
 >
 >    where
@@ -293,18 +296,26 @@ Abby Cissa =====================================================================
 
 There Goes W.J. =======================================================================================================
 
+> wjTranspose                              = 0
+> wjTempo                                  = 1
+> wjVelocity                               = 100
+>
+> wjAlto                                   = AltoSax
+> wjTenor                                  = HammondOrgan
+> wjBass                                   = ElectricBassFingered
+>
 > wj :: Music (Pitch, Volume)
 > wj =
 >    removeZeros
->    $ tempo 1
->    $ transpose 0
+>    $ tempo wjTempo
+>    $ transpose wjTranspose
 >    $ keysig G Dorian
->    $ addVolume 100
->    $ instrument AltoSax
+>    $ addVolume wjVelocity
+>    $ instrument wjAlto
 >       (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
->      :=: instrument HammondOrgan
+>      :=: instrument wjTenor
 >       (line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
->      :=: instrument ElectricBassFingered
+>      :=: instrument wjBass
 >       (line [wjBassI,  wjBassII,  wjBassIII,  wjBassIV])
 >
 >    where
@@ -336,10 +347,10 @@ There Goes W.J. ================================================================
 >
 >    wjBassIII  = line [  c 3 wn, f 4 wn]
 >
->    --                   He's     om-       ni-      po-    tent
->    wjAltoIV   = line [ g 5 hn, g 5 qn, bf 5 dqn, g 5 en, g 5 wn]  
->    wjTenorIV  = line [ g 4 hn, g 4 qn, bf 4 dqn, g 4 en, g 4 wn]
->    wjBassIV   = line [ g 3 hn, g 3 qn, bf 3 dqn, g 3 en, g 3 wn]
+>    --                                                             He's     om-       ni-      po-    tent
+>    wjAltoIV   = Modify (Phrase [Dyn $ Diminuendo 1.25]) (line [ g 5 hn, g 5 qn, bf 5 dqn, g 5 en, g 5 wn])
+>    wjTenorIV  = Modify (Phrase [Dyn $ Diminuendo 1.25]) (line [ g 4 hn, g 4 qn, bf 4 dqn, g 4 en, g 4 wn])
+>    wjBassIV   = Modify (Phrase [Dyn $ Diminuendo 1.25]) (line [ g 3 hn, g 3 qn, bf 3 dqn, g 3 en, g 3 wn])
 >
 >    minrI  = triad G Minor               (D, 4) wn
 >    suspI  = triad C (CustomMode "Sus4") (F, 4) hn
@@ -350,33 +361,40 @@ There Goes W.J. ================================================================
 
 Shelby Parsley ========================================================================================================
 
-> spEflat'      = triad Ef Major               (Bf, 3)
+> spTranspose                              = 0
+> spTempo                                  = 1
+> spVelocity                               = 100
 >
-> littleshelby           :: Music (Pitch, Volume)
-> littleshelby =
->   removeZeros
->   $ tempo 1
->   $ transpose 0
->   $ keysig Ef Mixolydian
->   (instrument Vibraphone             (addVolume 100 (line [rest qn, spEflat' qn]))
->   :=: instrument ElectricBassPicked  (addVolume 100 (line [ ef 2 wn ])))
+> spVibes                                  = (Vibraphone        , -20)
+> spBass                                   = (ElectricBassPicked, 10)
+> dihtRhodes                               = (RhodesPiano       , 10)
+> 
+> spEflat'      = triad Ef Major               (Bf, 3)
 >
 > shelby :: Music (Pitch, Volume)
 > shelby =
 >   removeZeros
->   $ tempo 1
->   $ transpose 0
+>   $ tempo spTempo
+>   $ transpose spTranspose
 >   $ keysig Ef Mixolydian
->   $ addVolume 80
->   $ if skip_SP then rest 0
->                 else
->     (instrument Vibraphone
->       (line [spAltoI,  spAltoII,  spAltoIII])
->     :=: instrument ElectricBassPicked
->       (line [spBassI,  spBassII,  spBassIII]))
->        :+:
->     instrument RhodesPiano
->       (line [ chord [ triad B (CustomMode "Sus4") (B, 3) wn
+>   $ (if skip_SP
+>       then rest 0
+>       else spv :=: spb)
+>     :+: (dihtr :=: dihtb)
+>
+>   where
+>   spv, spb             :: Music (Pitch, Volume)
+>   spv                                    = 
+>       addVolume (spVelocity + snd spVibes)     (instrument (fst spVibes)     (line [spAltoI,  spAltoII,  spAltoIII]))
+>   spb                                    =
+>       addVolume (spVelocity + snd spBass)      (instrument (fst spBass)      (line [spBassI,  spBassII,  spBassIII]))
+>   dihtr                                  =
+>       addVolume (spVelocity + snd dihtRhodes)  (instrument (fst dihtRhodes)  (line [dihtRhodesI]))
+>   dihtb                                  =
+>       addVolume (spVelocity + snd spBass)      (instrument (fst spBass)      (line [dihtBassI]))
+>
+>   dihtRhodesI = 
+>        line [ chord [ triad B (CustomMode "Sus4") (B, 3) wn
 >   --                            Does     It       Have    Trays?
 >                       , line [ e 4 en, ds 4 en, cs 4 qn, b 3 dqn]]]
 >    :+: line [ chord [ triad D Major               (A, 3) wn
@@ -402,13 +420,12 @@ Shelby Parsley =================================================================
 >             ,  spTriE qn, spTriE qn
 >             , spTriEf qn, spTriEf qn, spTriB wn, rest wn]
 >    :+: line [spTrie en, spTrie en, spTrie qn, spTriB' hn
->             ,  spTrig en, spTrig en, spTrig qn, spTriD  hn])
->    :=: (instrument ElectricBassPicked
->           (times 2 (line [b 2 wn, d 3 wn, c 3 wn, a 2 wn]))
->             :+: line [f 3 hn, e 3 hn, ef 3 hn, b 2 dwn])
+>             ,  spTrig en, spTrig en, spTrig qn, spTriD  hn]
 >
->   where
->
+>   dihtBassI =
+>       times 2 (line [b 2 wn, d 3 wn, c 3 wn, a 2 wn])
+>            :+: line [f 3 hn, e 3 hn, ef 3 hn, b 2 dwn]
+
 >   skip_SP      = False
 >
 >   spAltoI      = line [spAltoIA, spAltoIB]
@@ -518,22 +535,27 @@ Section III - shame on you!
 
 We Hate Her ===========================================================================================================
 
-> weHateHer :: Music (Pitch, Volume)
-> weHateHer =
->    removeZeros
->    $ tempo 1
->    $ transpose 0
->    $ keysig G Dorian
->    $ addVolume 100
->    $ instrument Harmonica whhMel
+> whhTranspose                             = 0
+> whhTempo                                 = 1
+> whhVelocity                              = 100
+> whhHarpBoy                               = Harmonica
 >
-> littleWeHateHer =
->    addVolume 100
->    $ instrument AltoSax (bf 4 (2 * wn) {- :+: rest wn :+: bf 4 en :+: rest wn :+: bf 4 qn -})
+> weHateHer              :: Music (Pitch, Volume)
+> weHateHer                                =
+>    removeZeros
+>    $ tempo whhTempo
+>    $ transpose whhTranspose
+>    $ keysig G Dorian
+>    $ addVolume whhVelocity
+>    $ instrument whhHarpBoy whhMel
 >
 > whhMel :: Music Pitch
 >    --                      We
 > whhMel = line  [rest dqn, g 4 en
+>    --             Hate     Her     We      Hate      Her     We  
+>               ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
+>    --             real-     ly      real-    ly      Hate     Her     We
+>               ,   a 4 en, f 4 en, a 4 en,  c 5 en, bf 4 en, g 4 qn, g 4 en
 >    --             Hate     Her     We      Hate      Her     We  
 >               ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
 >    --             real-     ly      real-    ly      Hate     Her     She
@@ -546,3 +568,10 @@ We Hate Her ====================================================================
 >               ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
 >    --              did-    n't     do      our       best
 >               ,   d 4 en, d 4 en, e 4 en, fs 4 en,  g 4 wn]               
+>
+> opera                  :: Music (Pitch, Volume)
+> opera                                = cecil        :+: rest wn
+>                                     :+: weHateHer   :+: rest wn
+>                                     :+: wj          :+: rest wn
+>                                     :+: shelby      :+: rest wn
+>                                     :+: abby

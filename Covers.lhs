@@ -275,7 +275,7 @@ Slot ===========================================================================
 >
 > slotLead                                 = Flute
 > slotStrum                                = AcousticGuitarNylon
-> slotBass                                 = SlapBass2
+> slotBass                                 = SynthBass1
 >
 > slot :: Int → Music (Pitch, Volume)
 > slot n =
@@ -2193,5 +2193,35 @@ DH =============================================================================
 >                                  , l097_100, l101_104, l105_109]
 
 DH ====================================================================================================================
+
+PG ====================================================================================================================
+
+> pgTranspose                              = 0
+> pgTempo                                  = 1
+> pgVelocity                               = 100
+>
+> pgBass                                   = ElectricBassFingered
+>
+> packardGoose =
+>   removeZeros
+>   $ tempo pgTempo
+>   $ chord [percMusic, leadMusic, bassMusic]
+>
+>   where
+>
+>     xpo                                  = pgTranspose
+>
+>     percMusic = rest 0
+>     leadMusic = rest 0
+>     bassMusic =
+>       transpose xpo
+>       $ addVolume pgVelocity
+>       $ keysig B Mixolydian
+>       $ instrument pgBass (times 2 (line [pgBassI, pgBassII]))
+>
+>     pgBassI =
+>       line [fs 2 en, fs 2 en, fs 2 en, rest (dqn + dhn), fs 2 en, fs 2 en, rest hn, fs 2 en, rest qn, e 3 dqn]
+>     pgBassII =
+>       line [ e 2 en,  e 2 en,  e 2 en, rest (dqn + dhn),  e 2 en,  e 2 en, rest hn,  e 2 en, rest qn, b 2 dqn]
 
 The End

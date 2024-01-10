@@ -229,13 +229,10 @@ which makes for a cleaner sound on some synthesizers:
 > glissando _ _ 0                        = rest 0
 > glissando desc (xLo, xHi) dur
 >   | traceIf msg False                    = undefined
->   | xHi < xLo + 6                        = error "glissando: not enough range"
->   | dur < 1 / 8                          = error "glissando: not enough duration"
->   | otherwise                            = if skipGlissandi
->                                              then
->                                                rest dur
->                                              else
->                                                glissando' (take 28 nList) dur
+>   | skipGlissandi                        = rest dur
+>   | xHi < xLo + 6                        = error (unwords ["glissando: not enough range", show $ pitch xLo, show $ pitch xHi])
+>   | dur < 1 / 8                          = error (unwords ["glissando: not enough duration", show dur])
+>   | otherwise                            = glissando' (take 28 nList) dur
 >   where
 >     nList                                = if desc
 >                                              then reverse [xLo..xHi]
