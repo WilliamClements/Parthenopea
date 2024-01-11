@@ -16,7 +16,7 @@ December 12, 2022
 
 > module Parthenopea where
 >
-> import Codec.Midi(exportFile, importFile)
+> import Codec.Midi(exportFile, importFile, Midi)
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq (NFData)
 > import Control.SF.SF
@@ -78,10 +78,14 @@ Utilities ======================================================================
 > importMidi             :: FilePath → IO (Music (Pitch, Volume))
 > importMidi fp = do
 >   x <- importFile fp
->   let y = case x of
+>   case x of
 >             Left z -> error z
->             Right m2 -> fromMidi2 m2
->   return y
+>             Right m2 -> analyzeMidi m2
+>
+> analyzeMidi            :: Midi -> IO (Music (Pitch, Volume))
+> analyzeMidi midi                         = do
+>   print midi
+>   return $ rest 0
 >
 > hasDuplicates :: (Ord a) ⇒ [a] → Bool
 > hasDuplicates list = length list /= length set
@@ -230,7 +234,7 @@ which makes for a cleaner sound on some synthesizers:
 > glissando desc (xLo, xHi) dur
 >   | traceIf msg False                    = undefined
 >   | skipGlissandi                        = rest dur
->   | xHi < xLo + 6                        = error (unwords ["glissando: not enough range", show $ pitch xLo, show $ pitch xHi])
+>   | xHi < xLo + 6                        = error (unwords ["glissando: not enough range", show (pitch xLo, pitch xHi) ])
 >   | dur < 1 / 8                          = error (unwords ["glissando: not enough duration", show dur])
 >   | otherwise                            = glissando' (take 28 nList) dur
 >   where
@@ -240,18 +244,24 @@ which makes for a cleaner sound on some synthesizers:
 >     msg                                  = unwords ["glissando " ++ show nList]
 >
 > descent                :: AbsPitch → InstrumentName → Pitch → Dur → Music Pitch
-> descent xpo iname p dur                  =
+> descent xpo iname p dur
+>   | traceNow trace_D False               = undefined
+>   | otherwise                            =
 >   chord [  rest dur
 >          , glissando True (absPitch bottom, absPitch p) dur]
 >   where
 >     bottom = trans (-xpo) $ fst (fromJust (instrumentRange iname))
+>     trace_D = unwords ["descent ", show p]
 >
 > ascent                 :: AbsPitch → InstrumentName → Pitch → Dur → Music Pitch
-> ascent xpo iname p dur                   =
+> ascent xpo iname p dur
+>   | traceNow trace_A False               = undefined
+>   | otherwise                            =
 >   chord [  rest dur
 >          , glissando False (absPitch p, absPitch top) dur]
 >   where
 >     top = trans (-xpo) $ snd (fromJust (instrumentRange iname))
+>     trace_A = unwords ["ascent ", show p]
 
 ranges ================================================================================================================
 
@@ -446,9 +456,10 @@ instrument range checking ======================================================
 examine song for instrument and percussion usage ======================================================================
 
 > data OorCase =
->   OorCase {  oInstrument  :: InstrumentName
->            , oTranspose   :: AbsPitch
->            , oPitch       :: Pitch}    deriving (Show, Eq, Ord)
+>   OorCase {
+>       oInstrument  :: InstrumentName
+>     , oTranspose   :: AbsPitch
+>     , oPitch       :: Pitch}    deriving (Show, Eq, Ord)
 >
 > type InstDB = Map InstrumentName Int32
 > type OorDB =  Map OorCase        Int32
