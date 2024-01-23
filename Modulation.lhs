@@ -13,7 +13,7 @@
 > import Data.Bits
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
-> import Data.List ( singleton, foldl', partition, iterate' )
+> import Data.List ( foldl', iterate' )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
@@ -217,29 +217,25 @@ Modulator management ===========================================================
 >       | otherwise                        = 0
 >
 > evaluateNoteOn         :: Int → Mapping → Double
->                                            -- TODO: express these "control" utilities as Signal Functions
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
 > calculateModFactor     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
-> calculateModFactor tag m8n@Modulation{modGraph, toPitchSummary, toFilterFcSummary, toVolumeSummary}
->                    md msig@ModSignals{srModEnvPos, srModLfoPos, srVibLfoPos} noon
+> calculateModFactor tag m8n@Modulation{modGraph, toPitchCo, toFilterFcCo, toVolumeCo}
+>                    md msig@ModSignals{xModEnvPos, xModLfoPos, xVibLfoPos} noon
 >  | traceNever msg False                  = undefined
 >  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
->    tripleIn            :: [Double]       = case md of
->                                              ToPitch        → toPitchSummary
->                                              ToFilterFc     → toFilterFcSummary
->                                              ToVolume       → toVolumeSummary
+>    triple@ModCoefficients{xModEnvCo, xModLfoCo, xVibLfoCo}
+>                                          = case md of
+>                                              ToPitch        → toPitchCo
+>                                              ToFilterFc     → toFilterFcCo
+>                                              ToVolume       → toVolumeCo
 >                                              _              → error $ "Error in calculateModFactor "
 >                                                                       ++ show tag ++ " " ++ show md
->    triple                                = profess
->                                              (length tripleIn >= 3)
->                                              "bad triple"
->                                              tripleIn
 >
->    xmodEnv             :: Double         = srModEnvPos * head triple
->    xmodLfo                               = srModLfoPos * (triple !! 1)
->    xvibLfo                               = srVibLfoPos  * (triple !! 2)
+>    xmodEnv             :: Double         = xModEnvPos * xModEnvCo
+>    xmodLfo                               = xModLfoPos * xModLfoCo
+>    xvibLfo                               = xVibLfoPos * xVibLfoCo
 >    xmods                                 = evaluateMods md modGraph noon
 >
 >    msg                                   = unwords ["calculateModFactor: "
@@ -555,24 +551,32 @@ Type declarations ==============================================================
 >
 > data ModSignals =
 >   ModSignals {
->     srModEnvPos        :: Double
->   , srModLfoPos        :: Double
->   , srVibLfoPos        :: Double} deriving (Show)
+>     xModEnvPos         :: Double
+>   , xModLfoPos         :: Double
+>   , xVibLfoPos         :: Double} deriving (Show)
+>
+> data ModCoefficients =
+>   ModCoefficients {
+>     xModEnvCo          :: Double
+>   , xModLfoCo          :: Double
+>   , xVibLfoCo          :: Double} deriving (Eq, Show)
+>
+> defModCoefficients                       = ModCoefficients 0 0 0
 >
 > data ModTriple =
 >   ModTriple {
->     mtPitch            :: Double
->   , mtFilterFc         :: Double
->   , mtVolume           :: Double} deriving (Eq, Show)
+>     coPitch            :: Double
+>   , coFilterFc         :: Double
+>   , coVolume           :: Double} deriving (Eq, Show)
 >
-> chooseFromModTriple    :: ModDestType → ModTriple → Double
-> chooseFromModTriple md mt@ModTriple{mtPitch, mtFilterFc, mtVolume}
+> coAccess               :: ModDestType → ModTriple → Double
+> coAccess md mt@ModTriple{coPitch, coFilterFc, coVolume}
 >                                          = case md of
->                                              ToPitch     → mtPitch
->                                              ToFilterFc  → mtFilterFc
->                                              ToVolume    → mtVolume
->                                              _           → error ("ModTriple only deals with toPitch"
->                                                               ++ ", toFilterFc, and toVolume")
+>                                              ToPitch     → coPitch
+>                                              ToFilterFc  → coFilterFc
+>                                              ToVolume    → coVolume
+>                                              _           → error ("ModTriple only deals with ToPitch"
+>                                                               ++ ", ToFilterFc, and ToVolume")
 > defModTriple                             = ModTriple 0 0 0
 >
 > data ResonanceType =
@@ -593,15 +597,16 @@ Type declarations ==============================================================
 >   , mModEnv            :: Maybe Envelope
 >   , mModLfo            :: Maybe LFO
 >   , mVibLfo            :: Maybe LFO
->   , toPitchSummary     :: [Double]
->   , toFilterFcSummary  :: [Double]
->   , toVolumeSummary    :: [Double]
+>   , toPitchCo          :: ModCoefficients
+>   , toFilterFcCo       :: ModCoefficients
+>   , toVolumeCo         :: ModCoefficients
 >   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
 > defModulation          :: Modulation
 > defModulation                            = Modulation
->                                             Nothing Nothing Nothing Nothing
->                                             [] [] [] Map.empty
+>                                              Nothing Nothing Nothing Nothing
+>                                              defModCoefficients defModCoefficients defModCoefficients
+>                                              Map.empty
 >
 > data Modulator =
 >   Modulator {

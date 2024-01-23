@@ -283,8 +283,8 @@ sample pitching scaffold =======================================================
 >     putStrLn ("___pitch files: " ++ show (diffUTCTime ts3 ts2))
 >
 > pitchFile           :: SFFile → IO ()
-> pitchFile sffile = do
->     let hdrs                             = ssShdrs $ zArrays sffile
+> pitchFile sffile@SFFile{zArrays}         = do
+>     let hdrs                             = ssShdrs zArrays
 >     
 >     let st          :: Word              = (fst . bounds) hdrs
 >     let en          :: Word              = (snd . bounds) hdrs
@@ -1126,7 +1126,7 @@ zone selection for rendering ===================================================
 >
 > selectBestZone         :: [(ZoneHeader, SFZone)] → NoteOn → (ZoneHeader, SFZone)
 > selectBestZone zs noon
->   | traceIf traceSBZ False               = undefined
+>   | traceNow traceSBZ False              = undefined
 >   | otherwise                            = snd whichZ
 >   where
 >     traceSBZ                             = unwords ["selectBestZone=", show $ length zs, show noon]
@@ -1221,10 +1221,10 @@ reconcile zone and sample header ===============================================
 >
 >     recL@Reconciled{rRootKey, rPitchCorrection}
 >                                          = reconcile (zoneL, shdrL) noon
->     recR = reconcile (zoneR, shdrR) noon
->     recR' = recR{
->               rRootKey                   = rRootKey
->             , rPitchCorrection           = rPitchCorrection}
+>     recR                                 = reconcile (zoneR, shdrR) noon
+>     recR'                                = recR{
+>                                                rRootKey                   = rRootKey
+>                                              , rPitchCorrection           = rPitchCorrection}
 >
 > reconcile              :: (SFZone, F.Shdr) → NoteOn → Reconciled 
 > reconcile (zone@SFZone{zRootKey, zKey, zVel
@@ -1301,9 +1301,9 @@ reconcile zone and sample header ===============================================
 >       , mModEnv                          = nModEnv
 >       , mModLfo                          = nModLfo
 >       , mVibLfo                          = nVibLfo
->       , toPitchSummary                   = summarize ToPitch        nModEnv nModLfo nVibLfo
->       , toFilterFcSummary                = summarize ToFilterFc     nModEnv nModLfo nVibLfo      
->       , toVolumeSummary                  = summarize ToVolume       nModEnv nModLfo nVibLfo}
+>       , toPitchCo                        = summarize ToPitch
+>       , toFilterFcCo                     = summarize ToFilterFc
+>       , toVolumeCo                       = summarize ToVolume}
 >
 >     initFc             :: Double         = fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
 >     initQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ
@@ -1323,12 +1323,12 @@ reconcile zone and sample header ===============================================
 >     nModLfo            :: Maybe LFO      = deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc zModLfoToVol
 >     nVibLfo            :: Maybe LFO      = deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
 >
->     summarize          :: ModDestType → Maybe Envelope → Maybe LFO → Maybe LFO → [Double]
->     summarize toWhich menv mmodlfo mviblfo
->                                          =
->       [  chooseFromModTriple toWhich $ maybe defModTriple   eModTriple nModEnv
->        , chooseFromModTriple toWhich $ maybe defModTriple lfoModTriple nModLfo
->        , chooseFromModTriple toWhich $ maybe defModTriple lfoModTriple nVibLfo]
+>     summarize          :: ModDestType → ModCoefficients
+>     summarize toWhich                    =
+>       ModCoefficients
+>         (coAccess toWhich $ maybe defModTriple   eModTriple nModEnv)
+>         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
+>         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
 
 carry out, and "pre-cache" results of, play requests ====================================================================
 

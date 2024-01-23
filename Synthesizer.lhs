@@ -82,7 +82,7 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → Bool
 >                           → Signal p () (Double, (ModSignals, ModSignals))
-> eutDriver secsScored (reconL@Reconciled{rModulation, rNoteOn}, reconR) secsToPlay idelta looping
+> eutDriver secsScored (reconL@Reconciled{rModulation = m8n, rNoteOn}, reconR) secsToPlay idelta looping
 >   | traceIf trace_eD False               = undefined
 >   | otherwise                            = if looping
 >                                              then procDriver calcLooping
@@ -93,7 +93,6 @@ Signal function-based synth ====================================================
 >     calcLooping next                     = if next > len    then lst           else next
 >     calcNotLooping next                  = if next > 1      then frac next     else next
 >
->     m8n@Modulation{toPitchSummary}       = rModulation
 >     procDriver calcPhase                 = proc () → do
 >       (modSigL, modSigR)
 >                        ← eutIgniteModSignals secsScored secsToPlay (reconL, reconR)
@@ -396,13 +395,13 @@ Envelopes ======================================================================
 >                dDecay                 (fromTithe mSustain)         (fromTimecents mRelease)
 >                (makeModTriple mTriple)
 >
->     doUse            :: Maybe (Maybe Int, Maybe Int) → Bool
+>     doUse              :: Maybe (Maybe Int, Maybe Int) → Bool
 >     doUse mTriple                        = case mTriple of
 >                                              Nothing           → True
 >                                              Just (xToPitch, xToFilterFc)
 >                                                                → isJust xToPitch || isJust xToFilterFc
 >
->     makeModTriple    :: Maybe (Maybe Int, Maybe Int) → ModTriple
+>     makeModTriple      :: Maybe (Maybe Int, Maybe Int) → ModTriple
 >     makeModTriple mTriple                = case mTriple of
 >                                              Nothing           → defModTriple
 >                                              Just target       → uncurry deriveModTriple target Nothing
@@ -794,17 +793,17 @@ Utility types ==================================================================
 >   | SampleTypeOggVorbis
 >   | SampleTypeRom deriving (Eq, Show)
 >
-> toSampleType           :: Word → SampleType
+> toSampleType               :: Word → SampleType
 > toSampleType n =
 >   case n of
->     0x1                → SampleTypeMono
->     0x2                → SampleTypeRight
->     0x4                → SampleTypeLeft
->     0x8                → SampleTypeLinked
->     0x10               → SampleTypeOggVorbis
->     0x8000             → SampleTypeRom
+>     0x1                    → SampleTypeMono
+>     0x2                    → SampleTypeRight
+>     0x4                    → SampleTypeLeft
+>     0x8                    → SampleTypeLinked
+>     0x10                   → SampleTypeOggVorbis
+>     0x8000                 → SampleTypeRom
 >
-> fromSampleType      :: SampleType → Word
+> fromSampleType             :: SampleType → Word
 > fromSampleType stype =
 >   case stype of
 >     SampleTypeMono         → 0x1

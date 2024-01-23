@@ -452,6 +452,8 @@ instrument range checking ======================================================
 >        maxP = absPitch $ snd range
 >    in minP <= aP && maxP >= aP
 >
+> bandPart               :: (InstrumentName, Velocity) → Music Pitch → Music (Pitch, Volume)
+> bandPart (inst, vel) m                   = mMap (\p -> (p,vel)) (instrument inst m)
 
 examine song for instrument and percussion usage ======================================================================
 

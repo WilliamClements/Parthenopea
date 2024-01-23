@@ -10,7 +10,7 @@ November 11, 2022
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
-> import Parthenopea (triad, addDur, defSnippet, pSnippet01, playDM, capture, aggrandize, t32)
+> import Parthenopea ( triad, addDur, defSnippet, pSnippet01, playDM, capture, aggrandize, t32, bandPart )
 > import Percussion
   
   "triads"
@@ -38,9 +38,9 @@ November 11, 2022
 
 Fanfare ===============================================================================================================
 
-> ffLeadI                                  = Trumpet
-> ffLeadII                                 = Flute
-> ffPickedI                                = ElectricBassPicked
+> ffLeadI                                  = (Trumpet,             80)
+> ffLeadII                                 = (Flute,               80)
+> ffPickedI                                = (ElectricBassPicked, 110)
 >
 > ffTempo                :: Rational       = 5 / 2
 > ffTranspose            :: AbsPitch       = 5
@@ -56,18 +56,9 @@ Fanfare ========================================================================
 >              $ (tTreble1 :=: bBass) :+: (tTreble1 :=: tTreble2 :=: bBass)
 >    where
 >
->       tTreble1 =
->         addVolume 75
->         $ instrument ffLeadI
->         $ tFan :+: tAns
->       tTreble2 =
->         addVolume 75
->         $ instrument ffLeadII
->         $ uFan :+: uAns
->       bBass =
->         addVolume 70
->         $ instrument ffPickedI
->         $ bFan :+: bAns
+>       tTreble1 = bandPart ffLeadI   $ tFan :+: tAns
+>       tTreble2 = bandPart ffLeadII  $ uFan :+: uAns
+>       bBass    = bandPart ffPickedI $ bFan :+: bAns
 >
 >       tFan =  {- 32 -} line [tFan1, tFan2, tFan3, tFan4, tFan5]
 >       uFan =  {- 32 -} line [uFan1, uFan2, uFan3]
@@ -536,17 +527,20 @@ Whelp Narp =====================================================================
 > wnTempo                                  = 2
 >
 > wnLead                                   = Vibraphone
+> wnLeadV                                  = 80
 > wnStrings                                = OrchestralHarp
+> wnStringsV                               = 75
 > wnBass                                   = ElectricBassPicked
+> wnBassV                                  = 70
 >
 > whelpNarp =
 >    removeZeros
 >    $ tempo wnTempo
 >    $ keysig C Mixolydian
->    $     addVolume 80 (instrument wnLead                    (transpose xpo       (wnAltoI :+: wnAltoII)))
->      :=: addVolume 75 (instrument wnStrings                 (transpose xpo      (wnTenorI :+: wnTenorII)))
->      :=: addVolume 70 (instrument wnBass                    (transpose xpo   (wnBaritoneI :+: wnBaritoneII)))
->      :=: addVolume 90                                                            (wnPercI :+: wnPercII)
+>    $     addVolume wnLeadV    (instrument wnLead                    (transpose xpo       (wnAltoI :+: wnAltoII)))
+>      :=: addVolume wnStringsV (instrument wnStrings                 (transpose xpo      (wnTenorI :+: wnTenorII)))
+>      :=: addVolume wnBassV    (instrument wnBass                    (transpose xpo   (wnBaritoneI :+: wnBaritoneII)))
+>      :=: addVolume 90                                                                    (wnPercI :+: wnPercII)
 >   where
 >
 >   xpo = wnTranspose
@@ -667,7 +661,10 @@ Roger ==========================================================================
 > rogerTempo                               = 1
 >
 > rogerAlto                                = Flute
+> rogerAltoV                               = 64
 > rogerTenor                               = AcousticGuitarNylon
+> rogerTenorV                              = 64
+>
 > roger :: Music (Pitch, Volume)
 > roger =
 >    removeZeros
@@ -675,9 +672,9 @@ Roger ==========================================================================
 >    $ transpose                           xpo
 >    $ keysig Cs Dorian
 >    $     transpose
->            (xpo + 12) (addVolume  64 (instrument rogerAlto     (line [cAltoI,  cAltoIIA, cAltoIIB])))
+>            (xpo + 12) (addVolume  rogerAltoV  (instrument rogerAlto     (line [cAltoI,  cAltoIIA, cAltoIIB])))
 >      :=: transpose
->            xpo        (addVolume  64 (instrument rogerTenor    (line [cTenorI, cTenorII])))
+>            xpo        (addVolume  rogerTenorV (instrument rogerTenor    (line [cTenorI, cTenorII])))
 >   where
 >
 >   xpo                                    = rogerTranspose
@@ -753,31 +750,19 @@ Way Pos' T' Purple =============================================================
 > wayposTranspose                          = 0
 > wayposTempo                              = 1
 >
+> wayposLead                               = (HonkyTonkPiano, 80)
+> wayposStrum                              = (OrchestralHarp, 70)
+> wayposBass                               = (Bassoon,        50)
+> wayposPerc                               = (Percussion,     70)
+>
 > waypostpurple =
 >    removeZeros
 >    $ tempo                               wayposTempo
->    $ transpose                           xpo
->    $ keysig C Major
->    $ addVolume 80 (instrument AcousticGrandPiano
->      ((if includeOpen       then pOpenT  else rest 0)
->         :+: (if includeCont then pContT  else rest 0)
->         :+: (if includePool then pPoolT  else rest 0)
->         :+: (if includeClos then pClosT  else rest 0)))
->      :=: addVolume 70 (instrument OrchestralHarp
->      ((if includeOpen       then pOpenG  else rest 0)
->         :+: (if includeCont then pContG  else rest 0)
->         :+: (if includePool then pPoolG  else rest 0)
->         :+: (if includeClos then pClosG  else rest 0)))
->      :=: transpose 12 (addVolume 50 (instrument Bassoon
->      ((if includeOpen       then pOpenB  else rest 0)
->         :+: (if includeCont then pContB  else rest 0)
->         :+: (if includePool then pPoolB  else rest 0)
->         :+: (if includeClos then pClosB  else rest 0))))
->      :=: addVolume 70 (instrument Percussion
->      ((if includeOpen       then pOpenP  else rest 0)
->         :+: (if includeCont then pContP  else rest 0)
->         :+: (if includePool then pPoolP  else rest 0)
->         :+: (if includeClos then pClosP  else rest 0)))
+>    $ transpose xpo $ keysig C Major
+>          (bandPart wayposLead  leadPart
+>       :=: bandPart wayposStrum strumPart
+>       :=: transpose 12 (bandPart wayposBass bassPart))
+>       :=: bandPart wayposPerc  percPart
 >   where
 >
 >   xpo                                    = wayposTranspose
@@ -786,6 +771,30 @@ Way Pos' T' Purple =============================================================
 >   includeCont = True
 >   includePool = True
 >   includeClos = True
+>
+>   leadPart                               =
+>             (if includeOpen then pOpenT  else rest 0)
+>         :+: (if includeCont then pContT  else rest 0)
+>         :+: (if includePool then pPoolT  else rest 0)
+>         :+: (if includeClos then pClosT  else rest 0)
+>
+>   strumPart                              =
+>             (if includeOpen then pOpenG  else rest 0)
+>         :+: (if includeCont then pContG  else rest 0)
+>         :+: (if includePool then pPoolG  else rest 0)
+>         :+: (if includeClos then pClosG  else rest 0)
+>
+>   bassPart                               =
+>             (if includeOpen then pOpenB  else rest 0)
+>         :+: (if includeCont then pContB  else rest 0)
+>         :+: (if includePool then pPoolB  else rest 0)
+>         :+: (if includeClos then pClosB  else rest 0)
+>
+>   percPart                               =
+>             (if includeOpen then pOpenP  else rest 0)
+>         :+: (if includeCont then pContP  else rest 0)
+>         :+: (if includePool then pPoolP  else rest 0)
+>         :+: (if includeClos then pClosP  else rest 0)
 
   "open"
 

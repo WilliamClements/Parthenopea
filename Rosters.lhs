@@ -18,10 +18,10 @@ Rosters support ================================================================
 > import Euterpea.Music
 > import Fanfare
 > import Parthenopea ( aggrandize, playDM, addDur, durS, pSnippet02 )
-> -- import RosterDef
 > import SoundFont
 > import SunPyg
-> import System.Environment ( getArgs )  
+> import System.Environment ( getArgs )
+>
 > main                   :: IO ()
 > main = do
 >   args ← getArgs
@@ -74,13 +74,12 @@ organize exposed music =========================================================
 >    , ("basicLick"      , aggrandize basicLick)
 >    , ("sunPyg"         ,            sunPyg)
 >    , ("yahozna"        , aggrandize yahozna)]
-> sj =
->    [ ("sunPyg"         ,            sunPyg)]
->
+> sj = ajingles
+>    -- [ ("sunPyg"      , sunPyg)]
 >    -- [ ("slot"        , aggrandize (slot 1))]
 >    -- [ ("basicLick"   , aggrandize basicLick)]
 >    -- [ ("baked"       , bakedJingle 54349)]
->    -- [ ("ssailor"     , aggrandize ssailor)]
+>    -- [ ("ssailor"        , aggrandize ssailor)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("bob"         , aggrandize (bob 2))]
 >    -- [ ("silver"      , aggrandize $ silver)]
