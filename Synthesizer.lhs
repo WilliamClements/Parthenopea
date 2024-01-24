@@ -40,7 +40,7 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL@Reconciled{rSampleMode, rStart, rEnd, rRootKey}, reconR)
+> eutSynthesize (reconL@Reconciled{rSampleMode, rStart, rEnd, rRootKey, rPitchCorrection}, reconR)
 >               sr dur pch' vol' params s16 ms8
 >   | traceIf trace_eS False               = undefined
 >   | otherwise                            = sig
@@ -58,7 +58,7 @@ Signal function-based synth ====================================================
 >
 >     freqRatio          :: Double         = apToHz (fromIntegral rRootKey) / apToHz noteOnKey
 >     rateRatio          :: Double         = rate (undefined::p) / sr
->     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 (rPitchCorrection reconL)
+>     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 rPitchCorrection
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
 >
 >     sig                :: Signal p () (Double, Double)
@@ -128,8 +128,7 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → (Reconciled, Reconciled)
 >                           → Signal p () (ModSignals, ModSignals)
-> eutIgniteModSignals secsScored secsToPlay
->                     (reconL@Reconciled{rModulation = m8nL}, reconR@Reconciled{rModulation = m8nR})
+> eutIgniteModSignals secsScored secsToPlay (Reconciled{rModulation = m8nL}, Reconciled{rModulation = m8nR})
 >                                          =
 >   proc _ → do
 >     aL1 ← doEnvelope  mModEnvL secsScored secsToPlay ⤙ ()
@@ -140,9 +139,9 @@ Signal function-based synth ====================================================
 >     aR3 ← doLFO       mVibLfoR                       ⤙ ()
 >     outA ⤙ (ModSignals aL1 aL2 aL3, ModSignals aR1 aR2 aR3)
 >   where
->     m8nL'@Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL}
+>     Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL}
 >                                          = m8nL
->     m8nR'@Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR}
+>     Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR}
 >                                          = m8nR
 >
 > eutPumpSamples         :: ∀ p . Clock p ⇒
@@ -153,8 +152,8 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p (Double, (ModSignals, ModSignals)) ((Double, Double), (ModSignals, ModSignals))
-> eutPumpSamples _ (  reconL@Reconciled{rAttenuation = attenL, rStart = stL, rEnd = enL, rModulation = m8nL}
->                   , reconR@Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR, rModulation = m8nR})
+> eutPumpSamples _ (  Reconciled{rAttenuation = attenL, rStart = stL, rEnd = enL, rModulation = m8nL}
+>                   , Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR, rModulation = m8nR})
 >                  noon@NoteOn{noteOnVel, noteOnKey} dur s16 ms8
 >   | traceIf trace_ePS False              = undefined
 >   | otherwise =
@@ -188,8 +187,6 @@ Signal function-based synth ====================================================
 >     trace_ePS                            =
 >       unwords [
 >           "eutPumpSamples numS = ", show numS
->         , "attenL = "             , show attenL
->         , "evaluateMods = "       , show (evaluateMods ToInitAtten graphL noon)
 >         , " -- "                  , show (ampL, ampR)]
 >
 > eutAmplify             :: ∀ p . Clock p ⇒
@@ -199,7 +196,7 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
 > eutAmplify   secsScored
->              (rL@Reconciled{rVolEnv = envL, rModulation = m8nL},  rR@Reconciled{rVolEnv = envR, rModulation = m8nR})
+>              (Reconciled{rVolEnv = envL, rModulation = m8nL}, Reconciled{rVolEnv = envR, rModulation = m8nR})
 >              noon
 >              secsToPlay                  =
 >   proc ((a1L, a1R), (modSigL, modSigR)) → do
@@ -240,7 +237,7 @@ Modulation =====================================================================
 >                           → (Reconciled, Reconciled)
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals))
 >                                      ((Double, Double), (ModSignals, ModSignals))
-> eutModulate secsScored ( rL@Reconciled{rNoteOn, rModulation = m8nL}, rR@Reconciled{rModulation = m8nR} )
+> eutModulate secsScored ( Reconciled{rNoteOn, rModulation = m8nL}, Reconciled{rModulation = m8nR} )
 >                                          =
 >   proc ((a1L, a1R), (modSigL, modSigR)) → do
 >
@@ -379,7 +376,7 @@ Envelopes ======================================================================
 >                           → Maybe Int
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe Envelope
-> deriveEnvelope mDelay mAttack noon@NoteOn{noteOnKey} (mHold, mHoldByKey) (mDecay, mDecayByKey)
+> deriveEnvelope mDelay mAttack NoteOn{noteOnKey} (mHold, mHoldByKey) (mDecay, mDecayByKey)
 >                mSustain mRelease mTriple
 >   | traceNever msg False                 = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTriple
@@ -426,7 +423,7 @@ Envelopes ======================================================================
 >       | otherwise                        = dumpSF secsScored secsToPlay sf
 >       where
 >         sf = envLineSeg sAmps sDeltaTs
->         segs@Segments{sAmps, sDeltaTs}   = computeSegments secsScored secsToPlay env
+>         Segments{sAmps, sDeltaTs}        = computeSegments secsScored secsToPlay env
 >         trace_MSF = unwords ["doEnvelope/makeSF ", show (secsScored, secsToPlay), " ",  show (sAmps, sDeltaTs)]
 >
 >     dumpSF             :: Double → Double → Signal p () Double → Signal p () Double
@@ -461,7 +458,7 @@ Create a straight-line envelope generator with following phases:
    release  
 
 > computeSegments        :: Double → Double → Envelope → Segments
-> computeSegments secsScored secsToPlay rEnv@Envelope{eDelayT, eAttackT, eHoldT, eDecayT, eSustainLevel, eReleaseT}
+> computeSegments secsScored secsToPlay Envelope{eDelayT, eAttackT, eHoldT, eDecayT, eSustainLevel, eReleaseT}
 >   | traceNever msg False                 = undefined
 >   | otherwise                            = Segments amps deltaTs
 >   where
@@ -518,7 +515,7 @@ Effects ========================================================================
 >                           → (Reconciled, Reconciled)
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals))
 >                                      ((Double, Double), (ModSignals, ModSignals))
-> eutEffects _ (reconL@Reconciled{rEffects = effL}, reconR@Reconciled{rEffects = effR})
+> eutEffects _ (Reconciled{rEffects = effL}, Reconciled{rEffects = effR})
 >   | traceNever msg False = undefined
 >   | otherwise =
 >   proc ((aL, aR), (modSigL, modSigR)) → do

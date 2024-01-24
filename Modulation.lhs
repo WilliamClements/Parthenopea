@@ -220,12 +220,12 @@ Modulator management ===========================================================
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
 > calculateModFactor     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
-> calculateModFactor tag m8n@Modulation{modGraph, toPitchCo, toFilterFcCo, toVolumeCo}
->                    md msig@ModSignals{xModEnvPos, xModLfoPos, xVibLfoPos} noon
+> calculateModFactor tag Modulation{modGraph, toPitchCo, toFilterFcCo, toVolumeCo}
+>                    md ModSignals{xModEnvPos, xModLfoPos, xVibLfoPos} noon
 >  | traceNever msg False                  = undefined
 >  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
->    triple@ModCoefficients{xModEnvCo, xModLfoCo, xVibLfoCo}
+>    ModCoefficients{xModEnvCo, xModLfoCo, xVibLfoCo}
 >                                          = case md of
 >                                              ToPitch        → toPitchCo
 >                                              ToFilterFc     → toFilterFcCo
@@ -251,7 +251,7 @@ Modulator management ===========================================================
 > addResonance noon m8n@Modulation{mLowPass}
 >                                          = maybe delay' makeSF mLowPass
 >   where
->     lp@LowPass{lowPassFc, lowPassQ}      = fromJust mLowPass
+>     LowPass{lowPassFc, lowPassQ}         = fromJust mLowPass
 >
 >     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
 >     makeSF _                             
@@ -326,9 +326,10 @@ Modulator management ===========================================================
 > deriveModTriple        :: Maybe Int → Maybe Int → Maybe Int → ModTriple
 > deriveModTriple toPitch toFilterFc toVolume
 >                                          =
->   ModTriple (maybe 0 fromIntegral toPitch)
->             (maybe 0 fromIntegral toFilterFc)
->             (maybe 0 fromIntegral toVolume)
+>   ModTriple
+>     (maybe 0 fromIntegral toPitch)
+>     (maybe 0 fromIntegral toFilterFc)
+>     (maybe 0 fromIntegral toVolume)
 >
 > deriveLFO              :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
 > deriveLFO del mfreq toPitch toFilterFc toVolume
@@ -458,9 +459,10 @@ Controller Curves ==============================================================
 >                                          = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
 >   where
 >     calc               :: Int → Double
->     calc i                               = 1 - sqrt (1 - x*x)
->       where 
+>     calc i                               =
+>       let 
 >         x              :: Double         = fromIntegral i / fromIntegral qTableSize
+>       in 1 - sqrt (1 - x*x)
 
 The use of these functions requires that their input is normalized between 0 and 1
 (And the output is normalized, too)

@@ -198,12 +198,12 @@ Bill ===========================================================================
 >          :+: ef 3 hn :+: rest dwn
 >          :+: gf 3 wn :+: rest wn
 >
-> billTreble                               = (Violin,       80)
-> billAlto                                 = (RhodesPiano, 110)
-> billBass                                 = (Cello,        80)
->
 > billTempo                                = 2
 > billTranspose                            = 0
+>
+> billTreble                               = (Violin,       80)
+> billAlto                                 = (RhodesPiano, 110)
+> billBass                                 = (Cello,        60)
 >
 > bill nRepeats =
 >    removeZeros
@@ -219,6 +219,7 @@ Bill ===========================================================================
 >    where
 > 
 >    xpo                                   = billTranspose
+>
 >    treble00 =
 >        tempo (3/2) (line [ef 4 qn, f 4 qn, g 4 qn])
 >          :+: af 4 hn
