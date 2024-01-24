@@ -8,15 +8,18 @@ March 20, 2023
 
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
-> import Parthenopea ( t32, addDur, ascent, descent, grace, aggrandize )
+> import Parthenopea ( t32, addDur, ascent, descent, grace, aggrandize, bandPart )
 > import Percussion
   
 SunPyg ================================================================================================================
 
-> sunPygTranspose                          = 3
 > sunPygTempo                              = 1
-> sunPygLead                               = Violin
-> sunPygChoir                              = ChoirAahs
+> sunPygTranspose                          = 3
+>
+> sunPygLead                               = (Violin,               110)
+> sunPygChoir                              = (ChoirAahs,            110)
+> sunPygBass                               = (ElectricBassFingered,  80)
+> sunPygPerc                               = (Percussion,            75)
 >
 > sunPyg =
 >   removeZeros
@@ -27,6 +30,7 @@ SunPyg =========================================================================
 >   where
 >
 >    xpo                                   = sunPygTranspose
+>    xld                                   = fst sunPygLead
 >   
 >    percLine = line [m000_004, m005_008, m009_012, m013_016, m017_020, m021_024, m025_028
 >                   , m029_032, m033_036, m037_040, m041_044, m045_048, m049_052, m053_056
@@ -50,33 +54,29 @@ SunPyg =========================================================================
 >    vocalActive = line [v190, v192, v194, v196, v198, v200, v202, v204, v206]
 >    vocalsOnly =
 >      transpose xpo
->      $ addVolume 110
 >      $ keysig C Lydian
->      $ instrument sunPygChoir vocalActive
+>      $ bandPart sunPygChoir vocalActive
 >
 >    bassLine = line [rest wn, times 38 (line [c 2 wn, d 2 wn])
 >                            , times  8 (line [a 2 wn, d 2 wn])
 >                            , times 58 (line [c 2 wn, d 2 wn])]
 >   
->    percMusic = addVolume 75 percLine
+>    percMusic = bandPart sunPygPerc percLine
 >   
 >    leadMusic = 
 >      transpose xpo
->      $ addVolume 100
 >      $ keysig C Lydian
->      $ instrument sunPygLead leadLine
+>      $ bandPart sunPygLead leadLine
 >   
 >    vocalMusic = 
 >      transpose xpo
->      $ addVolume 110
 >      $ keysig C Lydian
->      $ instrument sunPygChoir vocalLine
+>      $ bandPart sunPygChoir vocalLine
 >   
 >    bassMusic =
 >      transpose xpo
->      $ addVolume 80
 >      $ keysig C Lydian
->      $ instrument ElectricBassFingered bassLine
+>      $ bandPart sunPygBass bassLine
 >   
 >    m000 = line [rest dhn, tempo (5/4) (line [percHTsn, percHTen, percLTsn, percLTsn])]
 >    m001 = line [percBDen, percOHHen, percCHHen, chord [percCHHen, percBDen]
@@ -127,7 +127,7 @@ SunPyg =========================================================================
 >    g007 = line [tempo (3/2) (line [g 5 en, e 5 en, e 5 en, e 5 sn, fs 5 sn, g 5 sn])
 >               , g 5 en, tempo (3/2) (line [g 5 sn, fs 5 sn, e 5 sn]), fs 5 en
 >               , tempo (3/2) (line [fs 5 sn, e 5 sn, d 5 sn]), e 5 sn, d 5 sn]
->    g008 = line [d 5 hn, descent xpo sunPygLead (D, 5) dqn, grace (-1) (d 6 en)]
+>    g008 = line [d 5 hn, descent xpo xld (D, 5) dqn, grace (-1) (d 6 en)]
 >   
 >    m009_012 = line [m009, m010, m011, m012]
 >    g009_012 = line [g009, g010, g011, g012]
@@ -257,7 +257,7 @@ SunPyg =========================================================================
 >               , tempo (3/2) (line [fs 4 en, fs 4 sn]), e 4 sn
 >               , tempo (3/2) (line [d 4 tn, d 4 tn, d 4 tn])
 >               , tempo (3/2) (line [d 4 sn, b 3 sn, c 4 sn, b 3 sn, a 3 sn, a 3 sn])]
->    g026 = line [ascent xpo sunPygLead (E, 3) dhn, tempo (5/4) (line [rest en, fs 4 en, fs 4 sn])]
+>    g026 = line [ascent xpo xld (E, 3) dhn, tempo (5/4) (line [rest en, fs 4 en, fs 4 sn])]
 >    g027 = line [tempo (3/2) (line [chord [d 4 sn, g 4 sn, c 5 sn], fs 4 en]), fs 4 sn
 >               , g 4 sn, tempo (3/2) (line [g 4 sn, fs 4 sn, d 4 sn, fs 4 en, fs 4 sn])
 >               , tempo (3/4) (line [tempo (3/2) (line [e 4 en, fs 4 sn]), e 4 sn, fs 4 sn
@@ -292,7 +292,7 @@ SunPyg =========================================================================
 >               , tempo (3/2) (line [grace (-1) (c 4 en), c 4 sn, c 4 en, c 4 en, c 4 en])
 >               , tempo (3/2) (line [grace (-2) (d 4 en), b 3 sn, b 3 sn, b 3 en])]
 >    g031 = line [c 4 sn, grace 1 (b 3 (den + en)), rest qn, b 3 en, b 3 en, g 4 en]
->    g032 = line [g 4 en, fs 4 en, descent xpo sunPygLead (Fs, 4) hn, rest qn]
+>    g032 = line [g 4 en, fs 4 en, descent xpo xld (Fs, 4) hn, rest qn]
 >   
 >    m033_036 = line [m033, m034, m035, m036]
 >    g033_036 = line [g033, g034, g035, g036]
@@ -325,7 +325,7 @@ SunPyg =========================================================================
 >    g035 = line [fs 4 en, e 4 en, e 4 en, grace (-2) (a 4 sn), fs 4 sn
 >               , tempo (3/2) (line [fs 4 en, fs 4 sn, fs 4 sn, g 4 sn, fs 4 sn])
 >               , tempo (5/4) (line [e 4 en, fs 4 sn, e 4 sn, d 4 sn])]
->    g036 = line [e 4 en, ascent xpo sunPygLead (D, 4) dqn, rest dqn, tempo (3/2) (line [e 5 en, e 5 sn])]
+>    g036 = line [e 4 en, ascent xpo xld (D, 4) dqn, rest dqn, tempo (3/2) (line [e 5 en, e 5 sn])]
 >   
 >    m037_040 = line [m037, m038, m039, m040]
 >    g037_040 = line [g037, g038, g039, g040]
@@ -593,7 +593,7 @@ SunPyg =========================================================================
 >    g069 = line [a 6 tn, fs 6 tn, e 6 sn, e 6 tn, fs 6 tn, g 6 en, fs 6 en, e 6 sn
 >               , tempo (3/2) (line [e 6 en, e 6 en, e 6 en])
 >               , grace (-1) (e 6 sn), a 3 sn, e 6 sn, fs 6 sn]
->    g070 = line [e 6 en, e 6 en, tempo (3/2) (line [e 6 sn, fs 6 sn, e 6 sn]), descent xpo sunPygLead (D, 6) dqn
+>    g070 = line [e 6 en, e 6 en, tempo (3/2) (line [e 6 sn, fs 6 sn, e 6 sn]), descent xpo xld (D, 6) dqn
 >               , tempo (7/4) (line [a 5 sn, g 5 sn, fs 5 sn, e 5 en, e 5 sn, fs 5 sn])]
 >    g071 = line [g 5 sn, fs 5 en, fs 5 sn, g 5 sn, fs 5 sn, grace (-3) (a 5 den), g 5 en, g 5 sn
 >               , b 5 en, tempo (3/2) (line [chord [b 4 sn, b 5 sn], a 5 sn, g 5 sn])]
@@ -653,7 +653,7 @@ SunPyg =========================================================================
 >                                  , times 3 (line [chord [perc SplashCymbal en, percLTen, percBDen], percLTen])])]
 >   
 >    g077 = tempo (3/2) (line [d 5 qn, e 5 en, d 5 en, c 5 qn, d 5 en, c 5 en, a 4 dqn, a 4 en])
->    g078 = line [grace (-1) (g 4 en), fs 4 (en + hn), descent xpo sunPygLead (D, 6) qn]
+>    g078 = line [grace (-1) (g 4 en), fs 4 (en + hn), descent xpo xld (D, 6) qn]
 >    g079 = line [rest en, fs 5 en, tempo (3/2) (line [addDur en [c 5, c 5, a 4, c 5, a 4, c 5, a 5, g 5, g 5]])]
 >    g080 = line [tempo (3/2) (line [addDur en [d 5, c 5, a 4, g 4, g 4, g 4, a 4, g 4, a 4, c 5], a 4 qn])]
 >   
@@ -773,14 +773,14 @@ SunPyg =========================================================================
 >         , chord [perc RideCymbal1 qn, perc BassDrum1 qn], chord [perc RideCymbal1 qn, perc BassDrum1 qn]]
 >   
 >    g097 = line [b 4 dqn, a 4 qn, e 6 en, rest sn, c 6 den]
->    g098 = line [descent xpo sunPygLead (C, 6) en, d 4 sn, d 4 sn, g 4 sn, g 4 sn, g 4 en, g 4 en, a 4 en, a 4 en
+>    g098 = line [descent xpo xld (C, 6) en, d 4 sn, d 4 sn, g 4 sn, g 4 sn, g 4 en, g 4 en, a 4 en, a 4 en
 >               , t32 [b 4 en, c 5 sn]]
 >    g099 = line [tempo (5/4) (line [addDur en [b 4, a 4, b 4, d 5, a 4]]), a 4 sn, b 4 den
 >               , grace (-1) (c 5 en), b 4 en]
 >    g100 =
 >      line [
 >          tempo (5/4) (line [a 4 en, a 4 en, a 5 en, e 5 sn, fs 5 sn, e 5 sn, d 5 sn])
->        , d 5 qn, descent xpo sunPygLead (D, 6) qn]
+>        , d 5 qn, descent xpo xld (D, 6) qn]
 >   
 >    m101_104 = line [m101, m102, m103, m104]
 >    g101_104 = line [g101, g102, g103, g104]
@@ -923,7 +923,7 @@ SunPyg =========================================================================
 >               , f 5 sn, f 5 sn, e 5 sn, g 5 sn, f 5 sn, e 5 sn, chord [g 4 en, g 5 en]]
 >    g118 = line [fs 5 en, fs 5 sn, fs 5 sn, e 5 en, grace (-2) (a 5 en)
 >               , fs 5 sn, fs 5 sn, e 5 sn, grace (-2) (fs 5 sn), g 4 tn, g 5 tn, e 5 den]
->    g119 = line [e 5 sn, e 5 sn, d 5 sn, ascent xpo sunPygLead (D, 5) (sn + dhn)]
+>    g119 = line [e 5 sn, e 5 sn, d 5 sn, ascent xpo xld (D, 5) (sn + dhn)]
 >    g120 = line [fs 5 en, fs 5 sn, g 5 sn, a 5 en, a 5 en
 >               , t32 [addDur sn [a 5, fs 5, g 5, fs 5, g 5, fs 5]], e 5 sn, b 5 sn
 >               , t32 [grace (-2) (fs 5 sn), e 5 sn, d 5 sn]]
@@ -953,7 +953,7 @@ SunPyg =========================================================================
 >               , e 4 en]
 >    g122 = line [rest en, e 4 en, e 4 sn, d 4 sn, e 4 qn, chord [e 4 sn, g 4 sn], chord [d 4 sn, g 4 sn]
 >               , chord [e 4 sn, a 4 sn], chord [d 4 sn, g 4 sn], chord [e 4 en, a 4 en]]
->    g123 = line [fs 4 en, chord [fs 3 qn, fs 4 qn], a 6 en, descent xpo sunPygLead (A, 6) qn, rest en, e 4 en]
+>    g123 = line [fs 4 en, chord [fs 3 qn, fs 4 qn], a 6 en, descent xpo xld (A, 6) qn, rest en, e 4 en]
 >    g124 = line [chord [a 3 qn, fs 4 qn, b 4 qn, fs 5 qn], t32 [fs 5 qn, fs 5 en]
 >               , fs 5 sn, g 5 sn, a 5 qn, t32 [a 5 sn, g 5 sn, fs 5 sn]]
 >   
@@ -1064,7 +1064,7 @@ SunPyg =========================================================================
 >               , d 5 sn, t32 [c 5 en, d 5 en, f 5 en, f 5 en, d 5 en, c 5 sn, a 4 sn]]
 >    g139 = line [t32 [c 5 sn, chord [a 4 en, d 5 en]], chord [a 4 sn, d 5 sn], c 6 sn
 >               , t32 [fs 5 en, d 5 sn], d 5 (en + den), e 6 sn
->               , grace (-1) (g 6 en), descent xpo sunPygLead (G, 6) en]
+>               , grace (-1) (g 6 en), descent xpo xld (G, 6) en]
 >    g140 = line [t32 [c 6 sn, d 6 sn, c 6 sn], a 5 sn, f 5 sn
 >               , t32 [grace 5 (g 5 en), chord [f 5 sn, d 6 sn]], d 5 sn, c 5 sn, f 5 den
 >               , chord [a 5 (sn + qn), c 6 (sn + qn)]]
@@ -1097,7 +1097,7 @@ SunPyg =========================================================================
 >      line [
 >          tempo (5/4) (
 >            line [addDur sn [c 5, a 4, f 5, c 5,d 5], rest sn, d 5 sn, c 5 sn, a 4 sn, g 4 sn])
->        , addDur tn [es 4, fs 4, es 4, fs 4, es 4, e 4, d 4, c 4], ascent xpo sunPygLead (D, 4) qn]
+>        , addDur tn [es 4, fs 4, es 4, fs 4, es 4, e 4, d 4, c 4], ascent xpo xld (D, 4) qn]
 >           
 >    g143 =
 >      line [
@@ -1152,7 +1152,7 @@ SunPyg =========================================================================
 >               , t32 [d 5 sn, grace (-3) (f 5 sn), d 5 sn, c 5 sn, e 5 sn, c 5 sn]
 >               , c 4 sn, d 4 sn, d 4 tn, c 4 tn, a 4 tn, g 4 tn]
 >    g151 = line [a 4 sn, g 4 en, f 4 sn, t32 [f 4 sn, d 4 sn, c 4 sn], d 4 en, d 4 en
->               , descent xpo sunPygLead (D, 6) en, t32 [rest en, grace (-2) (d 4 en), df 4 en]]
+>               , descent xpo xld (D, 6) en, t32 [rest en, grace (-2) (d 4 en), df 4 en]]
 >    g152 = line [c 4 qn, t32 [d 4 qn, d 4 en], e 4 qn, g 4 qn]
 >   
 >    m153_156 = line [m153, m154, m155, m156]
@@ -1212,7 +1212,7 @@ SunPyg =========================================================================
 >         , chord [line [percCCen, percCCen], perc BassDrum1 qn], percBDsn, percBDsn
 >         , percLTen, perc LowTom qn]
 >   
->    g157 = line [descent xpo sunPygLead (D, 6) qn, t32 [rest qn, e 5 en, g 5 en, a 5 en, rest en]
+>    g157 = line [descent xpo xld (D, 6) qn, t32 [rest qn, e 5 en, g 5 en, a 5 en, rest en]
 >               , grace (-1) (f 6 qn)]
 >    g158 = line [fs 6 en, rest en, grace (-2) (e 6 dqn), rest en, d 6 qn]
 >    g159 = line [fs 6 en, a 6 en, rest hn, grace (-1) (f 6 qn)]
@@ -1466,9 +1466,9 @@ SunPyg =========================================================================
 >   
 >    g185 = line [rest en, chord [grace (-7) (a 5 en), grace (-7) (c 6 en), grace (-7) (b 6 en)]
 >               , chord [a 5 en, c 6 en, fs 6 en], chord [a 5 qn, c 6 qn, fs 6 qn]
->               , chord [descent xpo sunPygLead (A, 5) en
->                      , descent xpo sunPygLead (C, 6) en
->                      , descent xpo sunPygLead (Fs, 6) en]
+>               , chord [descent xpo xld (A, 5) en
+>                      , descent xpo xld (C, 6) en
+>                      , descent xpo xld (Fs, 6) en]
 >               , t32 [rest qn, chord [a 3 en, a 4 en]]]
 >    g186 = line [t32 [chord [a 3 en, g 4 en], c 5 en, chord [a 4 en, d 5 en, fs 5 en]]
 >               , chord [a 4 en, d 5 en, fs 5 en], chord [g 4 en, c 5 en, e 5 en]
@@ -1505,7 +1505,7 @@ SunPyg =========================================================================
 >    v190 = line [rest dwn, t32 [a 4 qn, b 4 qn, d 5 qn]]
 >    v192 = line [a 4 dqn, b 4 sn, a 4 sn, g 4 (hn + dhn), e 4 qn]
 >   
->    g189 = line [t32 [descent xpo sunPygLead (A, 6) qn, chord [d 6 en, g 6 en]], chord [g 4 en, c 5 en, e 5 en]
+>    g189 = line [t32 [descent xpo xld (A, 6) qn, chord [d 6 en, g 6 en]], chord [g 4 en, c 5 en, e 5 en]
 >               , chord [grace (-2) (a 6 qn), grace (-2) (d 5 qn), grace (-2) (fs 5 qn)]
 >               , chord [a 3 en, a 4 en, d 5 en]
 >               , t32 [chord [a 3 qn, a 4 qn, d 5 qn, fs 5 qn], chord [a 3 en, a 4 en, d 5 en, fs 5 en]]]
@@ -1546,9 +1546,9 @@ SunPyg =========================================================================
 >               , g 4 hn, fs 4 en, g 4 en]
 >   
 >    g193 = line [e 5 (hn + en), d 5 en, d 5 qn]
->    g194 = line [chord [descent xpo sunPygLead (Fs, 5) dqn
->                      , descent xpo sunPygLead (A, 5) dqn
->                      , descent xpo sunPygLead (D, 6) dqn]
+>    g194 = line [chord [descent xpo xld (Fs, 5) dqn
+>                      , descent xpo xld (A, 5) dqn
+>                      , descent xpo xld (D, 6) dqn]
 >               , chord [fs 5 en, a 5 en, d 6 en], chord [fs 5 hn, a 5 hn, d 6 hn]]
 >    g195 = line [t32 [e 5 sn, g 4 sn, e 5 sn], c 5 en, fs 4 sn, g 4 sn, fs 4 en, e 4 qn, rest qn]
 >    g196 =
@@ -1605,14 +1605,14 @@ SunPyg =========================================================================
 >        , chord [perc CrashCymbal1 qn, perc LowTom qn]
 >        , times 2 (chord [perc RideCymbal1 qn, perc BassDrum1 qn])]
 >   
->    v202 = line [descent xpo sunPygChoir (Fs, 5) dqn, d 5 en, d 5 (wn + qn), rest qn]
+>    v202 = line [descent xpo (fst sunPygChoir) (Fs, 5) dqn, d 5 en, d 5 (wn + qn), rest qn]
 >    v204 = line [t32 [a 4 qn, b 4 qn, d 5 qn, a 4 qn, b 4 qn, d 5 qn], a 4 en, b 4 sn, a 4 sn
 >               , g 4 hn, fs 4 en, g 4 en]
 >   
 >    g201 = line [fs 5 en, g 5 sn, fs 5 sn, e 5 hn, d 5 qn]
->    g202 = line [chord [descent xpo sunPygLead (Fs, 5) dqn
->                      , descent xpo sunPygLead (A, 5) dqn
->                      , descent xpo sunPygLead (D, 6) dqn]
+>    g202 = line [chord [descent xpo xld (Fs, 5) dqn
+>                      , descent xpo xld (A, 5) dqn
+>                      , descent xpo xld (D, 6) dqn]
 >               , chord [d 5 en, fs 5 en, a 5 en], chord [d 5 dqn, fs 5 dqn, a 5 dqn], a 3 en]
 >    g203 = line [t32 [e 6 en, chord [g 4 en, c 5 en], fs 4 en], fs 4 sn, g 4 sn, fs 4 sn, g 4 sn
 >               , e 4 qn, d 4 qn]

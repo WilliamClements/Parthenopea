@@ -8,17 +8,16 @@ December 18, 2022
 
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
-> import Parthenopea ( triad )
+> import Parthenopea ( triad, bandPart )
 
 Cecil's Asleep ========================================================================================================
 
-> cecilTranspose                           = 0
 > cecilTempo                               = 1
-> cecilVelocity                            = 100
+> cecilTranspose                           = 0
 >
-> cecilAlto                                = Violin
-> cecilTenor                               = TenorSax
-> cecilBass                                = AcousticBass
+> cecilAlto                                = (Violin,       100)
+> cecilTenor                               = (TenorSax,     100)
+> cecilBass                                = (AcousticBass, 100)
 >
 > cecil :: Music (Pitch, Volume)
 > cecil =
@@ -26,18 +25,17 @@ Cecil's Asleep =================================================================
 >    $ tempo cecilTempo
 >    $ transpose xpo
 >    $ keysig G Dorian
->    $ addVolume cecilVelocity
->    $ instrument cecilAlto
+>    $ bandPart cecilAlto
 >      ((if      includeI    then rAltoI     else rest 0)
 >        :+: (if includeII   then rAltoII    else rest 0)
 >        :+: (if includeIII  then rAltoIII   else rest 0)
 >        :+: (if includeIV   then rAltoIV    else rest 0))
->      :=: instrument cecilTenor
+>      :=: bandPart cecilTenor
 >      ((if      includeI    then rTenrI     else rest 0)
 >        :+: (if includeII   then rTenrII    else rest 0)
 >        :+: (if includeIII  then rTenrIII   else rest 0)
 >        :+: (if includeIV   then rTenrIV    else rest 0))
->      :=: instrument cecilBass
+>      :=: bandPart cecilBass
 >      ((if      includeI    then rBassI     else rest 0)
 >        :+: (if includeII   then rBassII    else rest 0)
 >        :+: (if includeIII  then rBassIII   else rest 0)
@@ -217,23 +215,22 @@ Cecil's Asleep =================================================================
 
 Abby Cissa ============================================================================================================
 
-> abbyTranspose                            = 0
 > abbyTempo                                = 1
-> abbyVelocity                             = 100
+> abbyTranspose                            = 0
 >
-> abbyGrand                                = AcousticGrandPiano
+> abbyGrand                                = (AcousticGrandPiano, 100)
 >
 > abby :: Music (Pitch, Volume)
 > abby =
 >    removeZeros
 >    $ tempo abbyTempo
->    $ transpose abbyTranspose
+>    $ transpose xpo
 >    $ keysig C Major
->    $ addVolume abbyVelocity
->    $ instrument abbyGrand
->      aLink
+>    $ bandPart abbyGrand aLink
 >
 >    where
+>
+>    xpo                                   = abbyTranspose
 >
 >    aLink, aLinkI, aLinkII, aLinkIII :: Music Pitch
 >    aLink  = line [aLinkI, aLinkII, aLinkI
@@ -296,29 +293,26 @@ Abby Cissa =====================================================================
 
 There Goes W.J. =======================================================================================================
 
-> wjTranspose                              = 0
 > wjTempo                                  = 1
-> wjVelocity                               = 100
+> wjTranspose                              = 0
 >
-> wjAlto                                   = AltoSax
-> wjTenor                                  = HammondOrgan
-> wjBass                                   = ElectricBassFingered
+> wjAlto                                   = (AltoSax,              100)
+> wjTenor                                  = (HammondOrgan,         100)
+> wjBass                                   = (ElectricBassFingered, 100)
 >
 > wj :: Music (Pitch, Volume)
 > wj =
 >    removeZeros
 >    $ tempo wjTempo
->    $ transpose wjTranspose
+>    $ transpose xpo
 >    $ keysig G Dorian
->    $ addVolume wjVelocity
->    $ instrument wjAlto
->       (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
->      :=: instrument wjTenor
->       (line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
->      :=: instrument wjBass
->       (line [wjBassI,  wjBassII,  wjBassIII,  wjBassIV])
+>    $     bandPart wjAlto  (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
+>      :=: bandPart wjTenor (line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
+>      :=: bandPart wjBass  (line [wjBassI,  wjBassII,  wjBassIII,  wjBassIV])
 >
 >    where
+>
+>    xpo                                   = wjTranspose
 >
 >    --                    There     goes    dou-      ble       you     jay
 >    wjAltoI     = line  [ bf 4 qn, g 4 qn, bf 4 en, bf 4 en, bf 4 qn, c 5 wn]
@@ -363,11 +357,10 @@ Shelby Parsley =================================================================
 
 > spTranspose                              = 0
 > spTempo                                  = 1
-> spVelocity                               = 100
 >
-> spVibes                                  = (Vibraphone        , -20)
-> spBass                                   = (ElectricBassPicked, 10)
-> dihtRhodes                               = (RhodesPiano       , 10)
+> spVibes                                  = (Vibraphone        ,  80)
+> spBass                                   = (ElectricBassPicked, 110)
+> dihtRhodes                               = (RhodesPiano       , 110)
 > 
 > spEflat'      = triad Ef Major               (Bf, 3)
 >
@@ -383,15 +376,14 @@ Shelby Parsley =================================================================
 >     :+: (dihtr :=: dihtb)
 >
 >   where
+>
+>   xpo                                    = spTranspose
+>
 >   spv, spb             :: Music (Pitch, Volume)
->   spv                                    = 
->       addVolume (spVelocity + snd spVibes)     (instrument (fst spVibes)     (line [spAltoI,  spAltoII,  spAltoIII]))
->   spb                                    =
->       addVolume (spVelocity + snd spBass)      (instrument (fst spBass)      (line [spBassI,  spBassII,  spBassIII]))
->   dihtr                                  =
->       addVolume (spVelocity + snd dihtRhodes)  (instrument (fst dihtRhodes)  (line [dihtRhodesI]))
->   dihtb                                  =
->       addVolume (spVelocity + snd spBass)      (instrument (fst spBass)      (line [dihtBassI]))
+>   spv                                    = bandPart spVibes     (line [spAltoI,  spAltoII,  spAltoIII])
+>   spb                                    = bandPart spBass      (line [spBassI,  spBassII,  spBassIII])
+>   dihtr                                  = bandPart dihtRhodes  (line [dihtRhodesI])
+>   dihtb                                  = bandPart spBass      (line [dihtBassI])
 >
 >   dihtRhodesI = 
 >        line [ chord [ triad B (CustomMode "Sus4") (B, 3) wn
@@ -535,10 +527,10 @@ Section III - shame on you!
 
 We Hate Her ===========================================================================================================
 
-> whhTranspose                             = 0
 > whhTempo                                 = 1
-> whhVelocity                              = 100
-> whhHarpBoy                               = Harmonica
+> whhTranspose                             = 0
+>
+> whhHarpBoy                               = (Harmonica, 100)
 >
 > weHateHer              :: Music (Pitch, Volume)
 > weHateHer                                =
@@ -546,8 +538,11 @@ We Hate Her ====================================================================
 >    $ tempo whhTempo
 >    $ transpose whhTranspose
 >    $ keysig G Dorian
->    $ addVolume whhVelocity
->    $ instrument whhHarpBoy whhMel
+>    $ bandPart whhHarpBoy whhMel
+>
+>    where
+>
+>    xpo                                   = whhTranspose
 >
 > whhMel :: Music Pitch
 >    --                      We

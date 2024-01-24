@@ -10,51 +10,55 @@ January 13, 2023
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic hiding (grace)
-> import Parthenopea ( addDur, ascent, descent, dim, grace, triad, slur, t32 )
+> import Parthenopea ( addDur, ascent, descent, dim, grace, triad, slur, t32, bandPart )
 > import Percussion
 > import Codec.Midi (Message(PitchWheel))
   
 Saucy Sailor ==========================================================================================================
 
-> ssLeadI                                  = Flute
-> ssPickedI                                = AcousticGuitarNylon
-> ssBassI                                  = ElectricBassPicked
->
 > ssTempo                                  = 1
 > ssTranspose                              = 0
+>
+> ssLead1                                  = (Flute,                90)
+> ssLead2                                  = (Flute,               115)
+> ssPicked                                 = (AcousticGuitarNylon, 100)
+> ssBass                                   = (ElectricBassPicked,  100)
 >
 > ssailor =
 >     removeZeros
 >     $ tempo                              ssTempo
->     $ transpose                          ssTranspose
+>     $ transpose                          xpo
 >     $ keysig C Mixolydian
->     $ instrument ssLeadI
->       ((if includeOpen then xOpenT        else rest 0)
+>     $ ((if includeOpen then xOpenT        else rest 0)
 >          :+: (if includeSong then xSongT  else rest 0)
 >          :+: (if includeClos then xClosT  else rest 0))
->       :=: instrument ssPickedI
+>       :=:
 >       ((if includeOpen then xOpenG        else rest 0)
 >          :+: (if includeSong then xSongG  else rest 0)
 >          :+: (if includeClos then xClosG  else rest 0))
->       :=: instrument ssBassI
+>       :=: 
 >       ((if includeOpen then xOpenB        else rest 0)
 >          :+: (if includeSong then xSongB  else rest 0)
 >          :+: (if includeClos then xClosB  else rest 0))
 >       where
+>         xpo                              = ssTranspose
+> -- instrument ssLeadI
+> -- instrument ssPickedI   
+> -- instrument ssBassI  
 >         includeOpen = False
 >         includeSong = True
 >         includeClos = False
 >
 >         xOpenT = rest 0
->         xSongT = line [rest hn, addVolume 90 xSongTA, addVolume 115 xSongTB]
+>         xSongT = line [rest hn, bandPart ssLead1 xSongTA, bandPart ssLead2 xSongTB]
 >         xClosT = rest 0
 >
 >         xOpenG = rest 0
->         xSongG = line [rest dhn, addVolume 35 (times 7 xSongGrep)]
+>         xSongG = line [rest dhn, bandPart ssPicked (times 7 xSongGrep)]
 >         xClosG = rest 0
 >
 >         xOpenB = rest 0
->         xSongB = addVolume 60
+>         xSongB = bandPart ssBass 
 >                  $ line [rest dhn
 >                       , times 6 (line [xSongB1, xSongB2])
 >                       , xSongB1
@@ -216,15 +220,21 @@ Saucy Sailor ===================================================================
 
 Yahozna ===============================================================================================================
 
+> yaTempo                                  = 4
+> yaTranspose                              = 0
+>
+> yaGuitar                                 = (ElectricGuitarJazz,  75)
+> yaBass                                   = (ElectricBassPicked,  75)
+> yaChoir                                  = (AltoSax,            110)
+>
 > yahozna =
 >    removeZeros
 >    $ tempo 4
 >    $ transpose 0
 >    $ keysig C Mixolydian
->    $ addVolume 75 (line [rest dwn, rest dwn])
->      :+: (addVolume 75 yahoznaGuitar
->           :=: (addVolume 75 yahoznaBassIntro :+: addVolume 75 yahoznaBass)
->           :=: addVolume 110 choirPart)
+>    $          bandPart yaGuitar ((line [rest dwn, rest dwn]) :+: yahoznaGuitar)
+>           :=: bandPart yaBass (yahoznaBassIntro :+: yahoznaBass)
+>           :=: bandPart yaChoir choirPart
 
 > guitarLick 
 >   =    line [ c 3 hn,  c 3 qn,  c 3 qn,  c 3 wn]
@@ -271,21 +281,21 @@ Slot ===========================================================================
 >
 > slotTempo                                = 2
 > slotTranspose                            = 0
-> slotVelocity                             = 100
 >
-> slotLead                                 = Flute
-> slotStrum                                = AcousticGuitarNylon
-> slotBass                                 = SynthBass1
+> slotLead                                 = (Flute,               100)
+> slotStrum                                = (AcousticGuitarNylon, 100)
+> slotBass                                 = (SynthBass1,          110)
+> slotPerc                                 = (Percussion,          100)
 >
 > slot :: Int → Music (Pitch, Volume)
 > slot n =
 >    removeZeros
 >    $ tempo slotTempo
 >    $ keysig G Dorian
->    $ chord [ addVolume slotVelocity        $ transpose xpo $ instrument slotLead     (vSlotV n)
->            , addVolume slotVelocity        $ transpose xpo $ instrument slotStrum    (vSlotG n)
->            , addVolume (slotVelocity + 10) $ transpose xpo $ instrument slotBass     (vSlotC n)
->            , addVolume slotVelocity                                                  (vSlotP n)]
+>    $ chord [ bandPart slotLead           $ transpose xpo (vSlotV n)
+>            , bandPart slotStrum          $ transpose xpo (vSlotG n)
+>            , bandPart slotBass           $ transpose xpo (vSlotC n)
+>            , bandPart slotPerc                           (vSlotP n)]
 >    where
 >      xpo                                 = slotTranspose
 >      
@@ -346,24 +356,26 @@ TC =============================================================================
 > tubaTranspose                            = -12
 > tcTempo                                  = 1
 >
-> tcLead                                   = Violin
-> tcRepeat                                 = Accordion
-> tcBass                                   = FretlessBass
+> tcLead                                   = (Violin,       100)
+> tcRepeat                                 = (Accordion,     80)
+> tcBass                                   = (FretlessBass,  80)
+> tcPerc                                   = (Percussion,   100)
 >
 > basicLick :: Music (Pitch, Volume)
 > basicLick =
 >   removeZeros
 >   $ tempo                                tcTempo
->   $ transpose                            tcTranspose
+>   $ transpose                            xpo
 >   $ keysig A Major
->   $ chord [ addVolume  90 $ instrument tcLead                    tcV
->           , addVolume  30 $ instrument tcRepeat                  tcG
->           , addVolume  30 $ transpose tubaTranspose
->                           $ instrument tcBass                    tcC
->           , addVolume  80                                        tcP]
+>   $ chord [ bandPart tcLead              tcV
+>           , bandPart tcRepeat            tcG
+>           , bandPart tcBass $ transpose tubaTranspose
+>                                          tcC
+>           , bandPart tcPerc              tcP]
 >   where
 >
 >   xpo                                    = tcTranspose
+>   xld                                    = fst tcLead
 >
 >   licks1                                 = 20
 >   licks2                                 = 18
@@ -405,7 +417,7 @@ TC =============================================================================
 >   tcV01C = -- measures 6, 7
 >     line [
 >   {-  1   -}   tempo (3/2)   (line [ cs 6 qn])
->   {-  4   -} , cs 6  (1/12 + qn), descent xpo tcLead (Cs, 6) (qn*3)
+>   {-  4   -} , cs 6  (1/12 + qn), descent xpo xld (Cs, 6) (qn*3)
 >   {-  4   -} , tempo (5/4) tcVnt58
 >   {-  1   -} , grace (-2) (b 5 den), a 5 sn
 >   {-  1   -} , tempo (3/2)   (line [a 5 en, g 5 qn])
@@ -418,7 +430,7 @@ TC =============================================================================
 >   tcV01D = -- measure 8
 >     line [
 >   {-  1   -}   tempo (3/2)   (line [f 5 sn, e 5 sn, e 5 qn])
->   {-  7   -} , e 5 wn, ascent xpo tcLead (F,5) dhn]
+>   {-  7   -} , e 5 wn, ascent xpo xld (F,5) dhn]
 >
 >   tcV02 = line [tcV02A, tcV02B, tcV02C, tcV02D, tcV02E, tcV02F, tcV02G]
 >
@@ -491,7 +503,7 @@ TC =============================================================================
 >   {-  1   -}   d 5 en, e 5 en, cs 5 en
 >   {-  1   -} , tempo (3/2)   (line [cs 5 en, b 4 sn])
 >   {-  4   -} , cs 5 wn
->   {-  2   -} , cs 5 qn, descent xpo tcLead (Cs,6) qn]
+>   {-  2   -} , cs 5 qn, descent xpo xld (Cs,6) qn]
 >
 >   tcV03 = line [tcV03A, tcV03B, tcV03C, tcV03D, tcV03E, tcV03F, tcV03G, tcV03H]
 >
@@ -522,7 +534,7 @@ TC =============================================================================
 >   {-  2   -}   tempo (3/2)   tcVnt01
 >   {-  2   -} , tempo (7/4)   tcVnt02
 >   {-  2   -} , tempo (7/4)   tcVnt03
->   {-  2   -} , ascent xpo tcLead (E,5) hn
+>   {-  2   -} , ascent xpo xld (E,5) hn
 >        ]
 >   tcV03C = -- measure 19
 >     line [
@@ -645,7 +657,7 @@ TC =============================================================================
 >
 >   tcV04F = -- measure 32
 >     line [
->   {-  4   -}    cs 5 en, cs 5 sn, d 5 sn, descent xpo tcLead (E,5) dhn
+>   {-  4   -}    cs 5 en, cs 5 sn, d 5 sn, descent xpo xld (E,5) dhn
 >   {-  4   -}  , rest hn,  a 6 sn, a 6 sn, e 6 en, a 6 qn]
 >
 >   tcV04G = rest 0
@@ -664,7 +676,7 @@ TC =============================================================================
 >
 >   tcV05B = -- measure 34
 >     line [
->   {-  6   -}   e 6 sn, descent xpo tcLead (E,6) (en + ddqn), rest dqn, rest hn
+>   {-  6   -}   e 6 sn, descent xpo xld (E,6) (en + ddqn), rest dqn, rest hn
 >   {-  2   -} , f 6 sn, d 6 sn, cs 6 en, cs 6 sn, d 6 sn, e 6 en]
 >
 >   tcVnt10 =
@@ -928,7 +940,7 @@ TC =============================================================================
 >
 >   tcV08D = -- measure 59
 >     line [
->   {-  4   -}   tempo (5/4) (addDur en [d 5, e 5, f 5, e 5, d 5]), descent xpo tcLead (E,5) hn
+>   {-  4   -}   tempo (5/4) (addDur en [d 5, e 5, f 5, e 5, d 5]), descent xpo xld (E,5) hn
 >   {-  2   -} , tempo (3/2)   (line [d 4 qn, cs 4 en, d 4 en, d 4 en, e 4 en])
 >   {-  2   -} , tempo (3/2)   (line [e 4 en,  f 4 en, e 4 en, d 4 qn, d 4 en])]
 >
@@ -955,7 +967,7 @@ TC =============================================================================
 >   tcV08G = -- measure 62
 >     line [
 >   {-  0.7 -}   tempo (3/2)   (line [a 5 en, b 5 en])
->   {-  5.3 -} , cs 6 ((1/12) + hn), descent xpo tcLead (Cs, 6) qn, rest hn
+>   {-  5.3 -} , cs 6 ((1/12) + hn), descent xpo xld (Cs, 6) qn, rest hn
 >   {-  2.0 -} , tempo (3/2)   (line [cs 6 qn, cs 6 qn, cs 6 qn])]
 >
 >   tcV08H = -- measure 63
@@ -1057,14 +1069,15 @@ TC =============================================================================
 
 DH ====================================================================================================================
 
-> dhVibeI                                  = Vibraphone
-> dhLeadI                                  = Violin
-> dhBassI                                  = ElectricBassPicked
-> dhOrgnI                                  = ReedOrgan
-> dhSynhI                                  = FrenchHorn
->
-> dhTranspose                              = 3
 > dhTempo                                  = 1
+> dhTranspose                              = 3
+>
+> dhVibe                                   = (Vibraphone,         100)
+> dhLead                                   = (Violin,             100)
+> dhBass                                   = (ElectricBassPicked, 100)
+> dhOrgn                                   = (ReedOrgan,          100)
+> dhSynh                                   = (FrenchHorn,         100)
+> dhPerc                                   = (Percussion,         100)
 >
 > dhMeasuresIntro        :: Int            = 12
 > dhMeasuresB1           :: Int            = 22
@@ -1084,38 +1097,34 @@ DH =============================================================================
 >   where
 >
 >     xpo                                  = dhTranspose
+>     xld                                  = fst dhLead
 >
 >     vibeMusic =
 >      transpose xpo
->      $ addVolume 40
 >      $ keysig B Mixolydian
->      $ instrument dhVibeI vibeLine
+>      $ bandPart dhVibe vibeLine
 >
->     percMusic = addVolume 75 percLine
+>     percMusic = bandPart dhPerc percLine
 >
 >     leadMusic = 
 >      transpose xpo
->      $ addVolume 100
 >      $ keysig B Mixolydian
->      $ instrument dhLeadI leadLine
+>      $ bandPart dhLead leadLine
 >   
 >     bassMusic = 
 >      transpose xpo
->      $ addVolume 60
 >      $ keysig B Mixolydian
->      $ instrument dhBassI bassLine
+>      $ bandPart dhBass bassLine
 >   
 >     organMusic =
 >      transpose xpo
->      $ addVolume 50
 >      $ keysig B Mixolydian
->      $ instrument dhOrgnI organLine
+>      $ bandPart dhOrgn organLine
 >
 >     synthMusic =
 >      transpose xpo
->      $ addVolume 55
 >      $ keysig B Mixolydian
->      $ instrument dhSynhI synthLine
+>      $ bandPart dhSynh synthLine
 >
 >     vibeLine    = times (dhMeasuresAll `div` 2) (addDur qn [ds 5, e 5, ds 5, cs 5, gs 4, fs 4, b 4, cs 5, e 5, cs 5])
 >
@@ -1228,7 +1237,7 @@ DH =============================================================================
 >                       , fs 4 sn, ds 4 sn, grace (-2) (gs 4 en), fs 4 dqn]
 > -- 7/4
 >     l011        = line [t32 [grace (-2) (ds 5 qn), fs 5 en], fs 5 hn, fs 5 sn, gs 5 sn, fs 5 sn, gs 5 sn
->                       , t32 [gs 5 qn, fs 5 en], descent xpo dhLeadI (Fs, 5) hn]
+>                       , t32 [gs 5 qn, fs 5 en], descent xpo xld (Fs, 5) hn]
 > -- 2/4
 >     l012        = line [rest qn, t32 [ds 5 en, cs 5 en, cs 5 en]]
 >
@@ -1350,8 +1359,8 @@ DH =============================================================================
 >                              , tempo (5/4) (line [rest sn, percm BassDrum1 [sn], percm AcousticSnare [sn]
 >                                                 , percm BassDrum1 [sn], percm AcousticSnare [sn]])]]
 >
->     l025        = line [ds 5 hn, chord [line [grace (-1) (e 6 qn), descent xpo dhLeadI (E, 6) qn]
->                                ,        line [grace (-2) (b 5 qn), descent xpo dhLeadI (B, 5) qn]]
+>     l025        = line [ds 5 hn, chord [line [grace (-1) (e 6 qn), descent xpo xld (E, 6) qn]
+>                                ,        line [grace (-2) (b 5 qn), descent xpo xld (B, 5) qn]]
 >                       , chord [addDur sn [ds 5, e 5, e 5, gs 5]
 >                       ,        addDur sn [fs 4, a 4, a 4, cs 5]]]
 > -- 6/4
@@ -1534,7 +1543,7 @@ DH =============================================================================
 >           , t32 [e 5 en, a 5 en, a 5 en, grace (-2) (b 5 en), grace 3 (gs 5 en), fs 5 en], fs 5 dqn, rest en]
 >     l047        =
 >       t32 [trill 1 tn (ds 5 dqn), ds 5 en, rest en, a 3 en, e 5 en, ds 5 en, ds 5 en, e 5 en, ds 5 en, e 5 en
->          , grace (-2) (fs 5 en), descent xpo dhLeadI (Fs, 5) qn]
+>          , grace (-2) (fs 5 en), descent xpo xld (Fs, 5) qn]
 >     l048        =
 >       line [rest en, grace (-4) (ds 6 en), b 5 sn, a 5 sn, a 3 sn, gs 5 sn, chord [e 5 sn, a 5 sn], fs 5 sn
 >           , b 5 sn, gs 5 sn, a 5 sn, b 5 sn, ds 6 sn, cs 6 sn, cs 5 tn, fs 4 tn, rest sn, e 6 sn, e 6 sn]
@@ -1630,7 +1639,7 @@ DH =============================================================================
 >     l056        =
 >       line [fs 5 den, fs 5 sn, fs 5 sn, fs 5 tn, e 5 tn, chord [line [b 4 sn, b 4 sn], line [ds 5 sn, ds 5 sn]]
 >           , ds 5 sn, e 5 sn, ds 5 en, tempo (5/4) (line [ds 5 sn, ds 5 tn, e 5 tn, ds 5 tn]), ds 5 sn, b 4 sn
->           , cs 5 qn, descent xpo dhLeadI (Cs, 5) qn]
+>           , cs 5 qn, descent xpo xld (Cs, 5) qn]
 >
 >     p057_060    = line [p057, p058, p059, p060]
 >     l057_060    = line [l057, l058, l059, l060]
@@ -1671,7 +1680,7 @@ DH =============================================================================
 >           , cs 5 sn, ds 5 tn, cs 5 tn, bs 4 sn, bs 4 sn]
 >     l059        =
 >       line [cs 5 sn, e 5 sn, t32 [b 4 tn, a 4 tn, gs 4 tn], fs 5 sn, t32 [gs 5 en, fs 5 sn], gs 5 en, fs 5 en
->           , descent xpo dhLeadI (Fs, 5) qn, grace (-5) (b 5 dqn)]
+>           , descent xpo xld (Fs, 5) qn, grace (-5) (b 5 dqn)]
 >     l060        =
 >       t32 [b  5 en, b 5 en, b 5 en, b 5 sn, fss 5 sn, gs 5 en, gs 5 en, gs 5 en, t32 [b 5 sn, a 5 sn, gs 5 sn]
 >          , gs 5 en, gs 5 en, gs 5 en, b 5 sn, a 5 sn, gs 5 en, gs 5 en, b 5 en]
@@ -1782,7 +1791,7 @@ DH =============================================================================
 >           , trill 1 tn (fs 5 dqn), t32 [fs 5 en, gs 5 en, gs 5 en], gs 5 tn, fs 5 tn, rest sn, grace (-5) (b 5 en)]
 >     l068        =
 >       line [t32 [b 5 en, addDur sn [b 5, gs 5, fs 5, cs 5]]
->           , chord [line [grace (-4) (gs 5 qn), rest qn], line [cs 6 qn, ascent xpo dhLeadI (Cs, 6) qn]]
+>           , chord [line [grace (-4) (gs 5 qn), rest qn], line [cs 6 qn, ascent xpo xld (Cs, 6) qn]]
 >           , rest qn, grace (-2) (ds 6 qn)]
 >
 >     p069_072    = line [p069, p070, p071, p072]
@@ -2073,9 +2082,9 @@ DH =============================================================================
 >       line [rest en, chord [line [ a 4 en, t32 [gs 4  qn,  b 4 en, cs 5 en, cs 5 en, fs 4 en], fs 4 qn]
 >                           , line [ds 5 en, t32 [cs 5 dqn, rest qn,  b 4 en], b 4 qn]]]
 >     l099        =
->       line [rest en, chord [line [fs 4 en, fs 4 qn, descent xpo dhLeadI (Fs, 4) qn]
->                           , line [ b 4 en,  b 4 qn, descent xpo dhLeadI ( B, 4) qn]
->                           , line [rest en, ds 5 qn, descent xpo dhLeadI (Ds, 5) qn]]
+>       line [rest en, chord [line [fs 4 en, fs 4 qn, descent xpo xld (Fs, 4) qn]
+>                           , line [ b 4 en,  b 4 qn, descent xpo xld ( B, 4) qn]
+>                           , line [rest en, ds 5 qn, descent xpo xld (Ds, 5) qn]]
 >           , rest en, t32 [fs 4 en, gs 4 sn], b 4 en, b 4 sn, gs 4 sn]
 > -- 6/4
 >     l100        =
@@ -2196,11 +2205,10 @@ DH =============================================================================
 
 PG ====================================================================================================================
 
-> pgTranspose                              = 0
 > pgTempo                                  = 1
-> pgVelocity                               = 100
+> pgTranspose                              = 0
 >
-> pgBass                                   = ElectricBassFingered
+> pgBass                                   = (ElectricBassFingered, 100)
 >
 > packardGoose =
 >   removeZeros
@@ -2215,9 +2223,8 @@ PG =============================================================================
 >     leadMusic = rest 0
 >     bassMusic =
 >       transpose xpo
->       $ addVolume pgVelocity
 >       $ keysig B Mixolydian
->       $ instrument pgBass (times 2 (line [pgBassI, pgBassII]))
+>       $ bandPart pgBass (times 2 (line [pgBassI, pgBassII]))
 >
 >     pgBassI =
 >       line [fs 2 en, fs 2 en, fs 2 en, rest (dqn + dhn), fs 2 en, fs 2 en, rest hn, fs 2 en, rest qn, e 3 dqn]
