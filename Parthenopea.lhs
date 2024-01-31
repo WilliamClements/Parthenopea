@@ -245,24 +245,24 @@ which makes for a cleaner sound on some synthesizers:
 >                                              else [xLo..xHi]
 >     msg                                  = unwords ["glissando " ++ show nList]
 >
-> descent                :: AbsPitch → InstrumentName → Pitch → Dur → Music Pitch
-> descent xpo iname p dur
+> descent                :: BandPart → Pitch → Dur → Music Pitch
+> descent BandPart{ .. } p dur
 >   | traceNow trace_D False               = undefined
 >   | otherwise                            =
 >   chord [  rest dur
 >          , glissando True (absPitch bottom, absPitch p) dur]
 >   where
->     bottom = trans (-xpo) $ fst (fromJust (instrumentRange iname))
+>     bottom = trans (-bpTranspose) $ fst (fromJust (instrumentRange bpInstrument))
 >     trace_D = unwords ["descent ", show p]
 >
-> ascent                 :: AbsPitch → InstrumentName → Pitch → Dur → Music Pitch
-> ascent xpo iname p dur
+> ascent                 :: BandPart → Pitch → Dur → Music Pitch
+> ascent BandPart{ .. } p dur
 >   | traceNow trace_A False               = undefined
 >   | otherwise                            =
 >   chord [  rest dur
 >          , glissando False (absPitch p, absPitch top) dur]
 >   where
->     top = trans (-xpo) $ snd (fromJust (instrumentRange iname))
+>     top = trans (-bpTranspose) $ snd (fromJust (instrumentRange bpInstrument))
 >     trace_A = unwords ["ascent ", show p]
 
 ranges ================================================================================================================
@@ -462,9 +462,10 @@ instrument range checking ======================================================
 >
 > makePitched            :: InstrumentName → AbsPitch → AbsPitch → Velocity → BandPart
 > makePitched iname apGlobal apLocal       = BandPart iname (apGlobal + apLocal)
->
 > makeNonPitched         :: Velocity → BandPart
 > makeNonPitched                           = BandPart Percussion 0
+> replace                :: BandPart → BandPart
+> replace bp                               = bp
 >
 > bandPart               :: (InstrumentName, Velocity) → Music Pitch → Music (Pitch, Volume)
 > bandPart (inst, vel) m                   = mMap (, vel) (instrument inst m)
