@@ -14,11 +14,12 @@ SoundFont support ==============================================================
 > import Data.Array.Unboxed ( listArray, Array, (!), bounds )
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
+> import Data.Either
 > import Data.Foldable ( toList )
 > import Data.Int ( Int8, Int16 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
-> import Data.List ( find, foldr, minimumBy, singleton, foldl', sortOn )
+> import Data.List ( find, foldr, minimumBy, singleton, foldl', sortOn, partition )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
@@ -85,9 +86,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     pScore             :: Int
 >   , pEmpiricals        :: [Int]} deriving (Show)
 >
-> type Kind                                = Either InstrumentName PercussionSound
-> type AgainstKindResult                   = Double
-> 
 > data PerGMScored =
 >   PerGMScored {
 >     pArtifactGrade     :: ArtifactGrade
@@ -642,24 +640,25 @@ executive ======================================================================
 > renderSong sfrost imap name song =
 >   do
 >     traceIO ("renderSong " ++ name)
->     ts1 ← getCurrentTime
->     let is = Map.keys $ fst $ listI song initCase (Map.empty, Map.empty)
->     let ps = Map.keys $ listP song initCase Map.empty
->     let (esI, esP) = printChoices sfrost is ps
->     let es = emitCounts is ps name ++ concatMap snd esI ++ concatMap snd esP
+>     ts1                                  ← getCurrentTime
+>     Shredding{shRanges}                  ← shredMusic song
+>     let ks                               = Map.keys shRanges
+>     let (is, ps)                         = (lefts ks, rights ks)
+>     let (esI, esP)                       = printChoices sfrost is ps
+>     let es                               = emitCounts is ps name ++ concatMap snd esI ++ concatMap snd esP
 >     putStr (reapEmissions es)
 >     -- render song only if all OK
 >     if all fst esI && all fst esP
 >       then do
->         let path = name ++ ".wav"
+>         let path                         = name ++ ".wav"
 >         putStr path
->         let (d,s) = renderSF song imap
+>         let (d,s)                        = renderSF song imap
 >         if scanningOutput
 >           then findOutliers d s
 >           else if normalizingOutput
 >                  then outFileNorm path d s
 >                  else outFile     path d s
->         ts2 ← getCurrentTime
+>         ts2                              ← getCurrentTime
 >         putStrLn (" (dur=" ++ show d ++ ") written in " ++ show (diffUTCTime ts2 ts1))
 >       else
 >         putStrLn "skipping..."
@@ -1112,7 +1111,12 @@ zone selection for rendering ===================================================
 >   | traceIf traceSZ False                = undefined
 >   | otherwise                            = ((snd zoneL, sampleL) ,(snd zoneR, sampleR))
 >   where
->     traceSZ                              = unwords ["setZone", show pWordI, show (F.instName pInst)]
+>     traceSZ                              = unwords ["setZone"
+>                                              , show (F.instName pInst)
+>                                              , show (F.sampleName ((pSample . fst) zoneL))
+>                                              , show ((zKeyRange . snd) zoneL)
+>                                              , show (F.sampleName ((pSample . fst) zoneR))
+>                                              , show ((zKeyRange . snd) zoneR)]
 >
 >     PerInstrument{pZonePairs, pInst}     = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
 >     zs                 :: [(ZoneHeader, SFZone)]
@@ -1123,7 +1127,7 @@ zone selection for rendering ===================================================
 >
 > selectBestZone         :: [(ZoneHeader, SFZone)] → NoteOn → (ZoneHeader, SFZone)
 > selectBestZone zs noon
->   | traceNow traceSBZ False              = undefined
+>   | traceIf traceSBZ False               = undefined
 >   | otherwise                            = snd whichZ
 >   where
 >     traceSBZ                             = unwords ["selectBestZone=", show $ length zs, show noon]

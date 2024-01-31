@@ -2,7 +2,6 @@
 > {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
-> {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
 > module Modulation where
@@ -369,7 +368,6 @@ Modulator management ===========================================================
 > triangleWave freq                        = 
 >   proc _ → do
 >     osc triangleWaveTable 0              ⤙ freq
->     -- WOX osc sawtoothTable 0              ⤙ freq
 >
 > modVib                 :: ∀ p . Clock p ⇒ Double → Double → Signal p Double Double
 > modVib rate depth                        =

@@ -40,7 +40,7 @@ Fanfare ========================================================================
 
 > ffLeadI                                  = (Trumpet,             80)
 > ffLeadII                                 = (Flute,               80)
-> ffPickedI                                = (ElectricBassPicked, 110)
+> ffPickedI                                = (Trombone,           110)
 >
 > ffTempo                :: Rational       = 5 / 2
 > ffTranspose            :: AbsPitch       = 5
@@ -143,7 +143,7 @@ Alice ==========================================================================
 Bob ===================================================================================================================
 
 > bobTempo                                 = 2
-> bobTranspose                             = 10
+> bobTranspose                             = 0
 >
 > bobTreble                                = (Violin, 100)
 > bobAlto                                  = (Oboe,    80)
@@ -154,9 +154,9 @@ Bob ============================================================================
 >       $ tempo bobTempo
 >       $ transpose xpo
 >       $ keysig D Mixolydian
->       $     (bandPart bobTreble (times nRepeats treblebob))
->         :=: (bandPart bobAlto   (times nRepeats altobob))
->         :=: (bandPart bobBass   (times nRepeats bassbob))
+>       $     bandPart bobTreble (times nRepeats treblebob)
+>         :=: bandPart bobAlto   (times nRepeats altobob)
+>         :=: bandPart bobBass   (times nRepeats bassbob)
 >
 >    where
 >
@@ -259,7 +259,7 @@ Copper =========================================================================
 > copperTempo                              = 2
 > copperTranspose                          = (-4)
 >
-> copperLead                               = (Banjo, 100)
+> copperLead                               = (Banjo, 80)
 >
 > copper :: Int → Music (Pitch, Volume)
 > copper n =
@@ -302,7 +302,7 @@ Silver =========================================================================
 > silverTempo                              = 2
 > silverTranspose                          = (-5)
 >
-> silverLead                               = (Harpsichord, 100)
+> silverLead                               = (MusicBox, 100)
 >     
 > silver =
 >     removeZeros

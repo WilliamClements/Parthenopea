@@ -153,7 +153,7 @@ Lake ===========================================================================
 >           $ mkStdGen seed
 >
 > sex2Random :: [Music Pitch] → [Double] → Lake
-> sex2Random mels = mkLake mels
+> sex2Random = mkLake
 >
 > random2Music :: Music Pitch → Lake → Music (Pitch, Volume)
 > random2Music melInput lake@Lake 

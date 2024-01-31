@@ -222,8 +222,8 @@ struct sfInstModList
 >     maxFq                                = 1.25
 >
 >     minFt, maxFt       :: Double
->     minFt                                = apToHz $ absPitch $ (A,0)
->     maxFt                                = apToHz $ absPitch $ (C,7)
+>     minFt                                = apToHz $ absPitch (A,0)
+>     maxFt                                = apToHz $ absPitch (C,7)
 >
 >     -- pick midpoints for now
 >     myFc                                 = fromAbsoluteCents ((minFc + maxFc) `div` 2)

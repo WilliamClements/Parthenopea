@@ -10,9 +10,8 @@ January 13, 2023
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic hiding (grace)
-> import Parthenopea ( addDur, ascent, descent, dim, grace, triad, slur, t32, bandPart )
+> import Parthenopea
 > import Percussion
-> import Codec.Midi (Message(PitchWheel))
   
 Saucy Sailor ==========================================================================================================
 
@@ -232,7 +231,7 @@ Yahozna ========================================================================
 >    $ tempo 4
 >    $ transpose 0
 >    $ keysig C Mixolydian
->    $          bandPart yaGuitar ((line [rest dwn, rest dwn]) :+: yahoznaGuitar)
+>    $          bandPart yaGuitar (line [rest dwn, rest dwn] :+: yahoznaGuitar)
 >           :=: bandPart yaBass (yahoznaBassIntro :+: yahoznaBass)
 >           :=: bandPart yaChoir choirPart
 
@@ -352,44 +351,43 @@ Slot ===========================================================================
 
 TC ====================================================================================================================
 
-> tcTranspose                              = -6
-> tubaTranspose                            = -12
+> tcTranspose                              = 3
+> leadTranspose                            = 0
+> repeatTranspose                          = 0
+> bassTranspose                            = 0
 > tcTempo                                  = 1
 >
-> tcLead                                   = (Violin,       100)
-> tcRepeat                                 = (Accordion,     80)
-> tcBass                                   = (FretlessBass,  80)
-> tcPerc                                   = (Percussion,   100)
+> tcLead                                   = makePitched Violin        tcTranspose leadTranspose  100
+> tcRepeat                                 = makePitched FrenchHorn    tcTranspose repeatTranspose 60
+> tcBass                                   = makePitched FretlessBass  tcTranspose bassTranspose   75
+> tcPerc                                   = makeNonPitched                                       100
 >
 > basicLick :: Music (Pitch, Volume)
 > basicLick =
 >   removeZeros
 >   $ tempo                                tcTempo
->   $ transpose                            xpo
 >   $ keysig A Major
->   $ chord [ bandPart tcLead              tcV
->           , bandPart tcRepeat            tcG
->           , bandPart tcBass $ transpose tubaTranspose
->                                          tcC
->           , bandPart tcPerc              tcP]
+>   $ chord [ bandPart' tcLead    tcV
+>           , bandPart' tcRepeat  tcG
+>           , bandPart' tcBass    tcC
+>           , bandPart' tcPerc    tcP]
 >   where
 >
 >   xpo                                    = tcTranspose
->   xld                                    = fst tcLead
+>   xld                                    = bpInstrument tcLead
 >
 >   licks1                                 = 20
 >   licks2                                 = 18
 >   licks3                                 = licks1 + licks2 - 3
 >
 >   gUnit :: Music Pitch
->   gUnit = addDur qn [f 5, a 5, b 5, a 5, f 5, a 5, b 5, a 5
->                    , e 5, a 5, b 5, a 5, e 5, a 5, b 5, a 5]
->   gUnit' = addDur qn [f 6, a 6, b 6, a 6, f 6, a 6, b 6, a 6
->                     , e 6, a 6, b 6, a 6, e 6, a 6, b 6, a 6]
+>   gUnit = addDur qn [f 3, a 3, b 3, a 3, f 3, a 3, b 3, a 3
+>                    , e 3, a 3, b 3, a 3, e 3, a 3, b 3, a 3]
+>   gUnit' = transpose 12 gUnit
 >   tcG = line [times licks1 gUnit, times (licks2 - 1) (chord [gUnit, gUnit']), dim 1 gUnit]
 >
 >   cUnit :: Music Pitch
->   cUnit = addDur (2 * wn) [d 4, a 3]
+>   cUnit = addDur (2 * wn) [d 3, a 2]
 >   tcC = line [rest (16 * qn), times licks3 cUnit, dim 1 (times 2 cUnit)]
 >
 >   tcV = line [rest (28 * qn), tcV01, tcV02, tcV03, tcV04, tcV05, tcV06, tcV07, tcV08

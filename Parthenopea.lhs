@@ -5,6 +5,7 @@
 > {-# LANGUAGE FlexibleInstances #-}
 > {-# LANGUAGE InstanceSigs #-}
 > {-# LANGUAGE NamedFieldPuns #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -22,12 +23,13 @@ December 12, 2022
 > import Control.SF.SF
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
+> import qualified Data.Bifunctor          as BF
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
-> import Data.List
+> import Data.List ( singleton, foldl', sortOn )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe )
@@ -342,7 +344,7 @@ also
 >       ElectricBassFingered      → Just (( E, 1), ( C, 8))
 >       ElectricBassPicked        → Just (( E, 1), ( C, 8))
 >       Sitar                     → Just (( C, 2), ( E, 5))
->       -- FretlessBass
+>       FretlessBass              → Just (( E, 1), ( G, 4))
 >       SlapBass1                 → Just (( E, 1), ( C, 8))
 >       SlapBass2                 → Just (( E, 1), ( C, 8))
 >       SynthBass1                → Just (( E, 1), ( C, 8))
@@ -452,107 +454,121 @@ instrument range checking ======================================================
 >        maxP = absPitch $ snd range
 >    in minP <= aP && maxP >= aP
 >
+> data BandPart =
+>   BandPart {
+>     bpInstrument       :: InstrumentName
+>   , bpTranspose        :: AbsPitch
+>   , bpVelocity         :: Velocity}
+>
+> makePitched            :: InstrumentName → AbsPitch → AbsPitch → Velocity → BandPart
+> makePitched iname apGlobal apLocal       = BandPart iname (apGlobal + apLocal)
+>
+> makeNonPitched         :: Velocity → BandPart
+> makeNonPitched                           = BandPart Percussion 0
+>
 > bandPart               :: (InstrumentName, Velocity) → Music Pitch → Music (Pitch, Volume)
-> bandPart (inst, vel) m                   = mMap (\p -> (p,vel)) (instrument inst m)
+> bandPart (inst, vel) m                   = mMap (, vel) (instrument inst m)
+> bandPart'              :: BandPart → Music Pitch → Music (Pitch, Volume)
+> bandPart' BandPart{ .. } m               = mMap (, bpVelocity) (instrument bpInstrument (transpose bpTranspose m))
 
 examine song for instrument and percussion usage ======================================================================
 
-> data OorCase =
->   OorCase {
->       oInstrument  :: InstrumentName
->     , oTranspose   :: AbsPitch
->     , oPitch       :: Pitch}    deriving (Show, Eq, Ord)
+> type Kind                                = Either InstrumentName PercussionSound
+> type AgainstKindResult                   = Double
+> 
+> data Shred =
+>   Shred {
+>       shLowNote        :: MEvent
+>     , shHighNote       :: MEvent
+>     , shCount          :: Int} deriving (Show, Eq, Ord)
 >
-> type InstDB = Map InstrumentName Int32
-> type OorDB =  Map OorCase        Int32
+> data Shredding =
+>   Shredding {
+>       shRanges           :: Map Kind Shred
+>     , shMsgs             :: [String]} deriving (Show, Eq, Ord)
+> defShredding                             = Shredding Map.empty []
 >
-> initCase               :: OorCase
-> initCase = 
->   OorCase {  oInstrument = AcousticGrandPiano
->            , oTranspose = 0
->            , oPitch = (C, 4)}
+> getKind                :: MEvent → Kind
+> getKind MEvent{eInst, ePitch}            =
+>   case eInst of
+>     Percussion                           → Right $ toEnum (ePitch - 35)
+>     _                                    → Left eInst
 >
-> listInstruments        :: Music (Pitch, [NoteAttribute]) → IO ()
-> listInstruments m = do
->   let (db1, db2) = listI m initCase (Map.empty, Map.empty)
->   putStrLn ("\n\n instruments used in that music: " ++ show (Map.keys db1))
->   if null db2
->     then putStrLn "\n\n no out of range cases"
->     else do
->            putStrLn "\n\n out of range cases:"
->            print (Map.keys db2)
+> shredMusic              :: ToMusic1 a ⇒ Music a → IO Shredding
+> shredMusic m                             = do
+>   return $ foldl' shredder defShredding $ fst (musicToMEvents defaultContext (toMusic1 m))
+>
+> shredder               :: Shredding → MEvent → Shredding
+> shredder Shredding{ .. } mev
+>                                          =
+>   let
+>     kind               :: Kind           = getKind mev
+>     mshred             :: Maybe Shred    = Map.lookup kind shRanges
+>   in
+>     case mshred of
+>       Nothing                            → Shredding
+>                                              (Map.insert kind (Shred mev mev 1) shRanges)
+>                                              shMsgs
+>       Just shred                         → Shredding
+>                                              (Map.insert kind (upd shred)       shRanges)
+>                                              shMsgs
+>   where
+>     upd Shred{ .. }                      = Shred
+>                                              (if ePitch mev < ePitch shLowNote
+>                                                 then mev
+>                                                 else shLowNote)
+>                                              (if ePitch mev > ePitch shHighNote
+>                                                 then mev
+>                                                 else shHighNote)
+>                                              (shCount + 1)
+>
+> shredJingles           :: [(String, Music (Pitch, [NoteAttribute]))] → IO ()
+> shredJingles                             = mapM_ (uncurry shredJingle)
+>
+> shredJingle            :: String → Music (Pitch, [NoteAttribute]) → IO ()
+> shredJingle name m                       = do
+>   putStrLn name
+>   putStrLn ""
+>   printShreds =<< shredMusic m
+>
+> printShreds            :: Shredding → IO ()
+> printShreds Shredding{shRanges}            = mapM_ (uncurry printShred) (Map.assocs shRanges)
 >   
-> listI                  :: Music (Pitch, [NoteAttribute])
->                           → OorCase
->                           → (InstDB, OorDB)
->                           → (InstDB, OorDB)
-> listI (Prim (Note _ (p, a))) ooc (db1, db2)
->       = case instrumentRange (oInstrument ooc) of
->              Nothing    → reportBad
->              Just range → if withinRange range (oTranspose ooc) p
->                           then reportGood
->                           else reportBad
->       where
->         reportBad  = (Map.insert (oInstrument ooc) 0 db1, Map.insert ooc{oPitch = p} 0 db2)
->         reportGood = (Map.insert (oInstrument ooc) 0 db1, db2)
+> printShred             :: Kind → Shred → IO ()
+> printShred kind shred@Shred{shLowNote, shHighNote, shCount}
+>                                          = do
+>   putStrLn showGivenRange
+>   putStrLn showLowHighNotes
 >
-> listI (Prim (Rest _)) ooc (db1, db2) = (db1, db2)
->
-> listI (m1 :+: m2) ooc (db1, db2) = (Map.union m1db1 m2db1, Map.union m1db2 m2db2)
 >   where
->     (m1db1, m1db2) = listI m1 ooc (db1, db2)
->     (m2db1, m2db2) = listI m2 ooc (db1, db2)
->     
-> listI (m1 :=: m2) ooc (db1, db2) = (Map.union m1db1 m2db1, Map.union m1db2 m2db2)
->   where
->     (m1db1, m1db2) = listI m1 ooc (db1, db2)
->     (m2db1, m2db2) = listI m2 ooc (db1, db2)
 >
-> listI (Modify (Instrument iname) m) ooc (db1, db2)
->   = listI m ooc{oInstrument=iname} (db1, db2)
+>   mrange               :: Maybe (Pitch, Pitch)
+>                                          =
+>     case kind of
+>       Left iname                         → instrumentRange iname
+>       _                                  → Nothing
+>   range                                  = BF.bimap absPitch absPitch (fromJust mrange)
 >
-> listI (Modify (Transpose newT) m) ooc (db1, db2)
->   = listI m ooc{oTranspose=oTranspose ooc + newT} (db1, db2)
->
-> listI (Modify _ m) ooc (db1, db2)
->   = listI m ooc (db1, db2)
->
-> listPercussion        :: Music (Pitch, [NoteAttribute]) → IO ()
-> listPercussion m = do
->   let db1 = listP m initCase Map.empty
->   putStrLn ("\n\n percussion used in that music: " ++ show (Map.keys db1))
->   
-> listP                  :: Music (Pitch, [NoteAttribute])
->                           → OorCase
->                           → Map PercussionSound Int32
->                           → Map PercussionSound Int32
-> listP (Prim (Note _ (p, a))) ooc db1
->       = case oInstrument ooc of
->              Percussion    → Map.insert (toEnum (absPitch p - 35)) 0 db1
->              _ → db1
->
-> listP (Prim (Rest _)) ooc db1 = db1
->
-> listP (m1 :+: m2) ooc db1 = db1'
->   where
->     m1db1 = listP m1 ooc db1
->     m2db1 = listP m2 ooc db1
->     db1' = Map.union m1db1 m2db1
->     
-> listP (m1 :=: m2) ooc db1 = db1'
->   where
->     m1db1 = listP m1 ooc db1
->     m2db1 = listP m2 ooc db1
->     db1' = Map.union m1db1 m2db1
->
-> listP (Modify (Instrument iname) m) ooc db1
->   = listP m ooc{oInstrument=iname} db1
->
-> listP (Modify (Transpose newT) m) ooc db1
->   = listP m ooc{oTranspose=oTranspose ooc + newT} db1
->
-> listP (Modify _ m) ooc db1
->   = listP m ooc db1
+>   showGivenRange                         = showKind ++ "(" ++ show shCount ++ ")" ++ " = " ++ showAvail
+>     where
+>       showAvail                          = maybe "" (\r → show (fst r) ++ " .. " ++ show (snd r)) mrange
+>   showKind                               =
+>     case kind of
+>       Left iname                         → show iname
+>       Right psound                       → show psound
+>   showLowHighNotes                       =
+>     case kind of
+>       Left _                             → showShred shLowNote ++ "\n" ++ showShred shHighNote ++ "\n" 
+>       _                                  → showShred shLowNote ++ "\n" 
+>   showShred MEvent{eTime, ePitch}        =
+>     case kind of
+>       Left _                             → show (fromRational eTime)
+>                                            ++ show (pitch ePitch)
+>                                            ++ showOutOfRangeIndicator ePitch
+>       _                                  → show (fromRational eTime)
+>   showOutOfRangeIndicator p              = if isNothing mrange || inRange range p
+>                                              then "."
+>                                              else "!"
 >
 > pitchToPerc            :: AbsPitch → Maybe PercussionSound
 > pitchToPerc ap                           =
