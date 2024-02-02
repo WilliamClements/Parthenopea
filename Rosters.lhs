@@ -13,11 +13,13 @@ Rosters support ================================================================
 > import Cecil
 > import Control.Monad ( foldM )
 > import Covers
+> import Data.Map (Map)
+> import qualified Data.Map                as Map
 > import Debug.Trace ( traceIO, traceM )
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
 > import Fanfare
-> import Parthenopea ( aggrandize, playDM, addDur, durS, pSnippet02 )
+> import Parthenopea
 > import SoundFont
 > import SunPyg
 > import System.Environment ( getArgs )
@@ -36,44 +38,44 @@ organize exposed music =========================================================
 > combineAll = ajingles ++ bjingles ++ cjingles ++ djingles ++ ejingles ++ zjingles
 >
 > ajingles, bjingles
->  , cjingles, djingles
->  , zjingles            :: [(String, Music (Pitch, [NoteAttribute]))]
+>  , cjingles, djingles, ejingles
+>  , zjingles            :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
 >
 > ajingles =
->    [ ("theFanfare"     , aggrandize (theFanfare False))
->    , ("slot"           , aggrandize (slot 4))
->    , ("alice"          , aggrandize alice)
->    , ("bob"            , aggrandize (bob 4))
->    , ("copper"         , aggrandize (copper 2))
->    , ("gold"           , aggrandize gold)
->    , ("silver"         , aggrandize silver)]
+>    [ ("theFanfare"     , shimSong $ aggrandize (theFanfare False))
+>    , ("slot"           , slot 4)
+>    , ("alice"          , shimSong $ aggrandize alice)
+>    , ("bob"            , bob 4)
+>    , ("copper"         , shimSong $ aggrandize (copper 2))
+>    , ("gold"           , shimSong $ aggrandize gold)
+>    , ("silver"         , shimSong $ aggrandize silver)]
 > bjingles =
->    [ ("getCITM"        , aggrandize getCITM)
->    , ("bake"           , bakedJingle 9345)
->    , ("bill"           , aggrandize (bill 4))
->    , ("roger"          , aggrandize roger)]
+>    [ ("getCITM"        , getCITM)
+>    , ("bake"           , shimSong $ bakedJingle 9345)
+>    , ("bill"           , bill 4)
+>    , ("roger"          , shimSong $ aggrandize roger)]
 > cjingles =
->    [ ("cecil"          , aggrandize cecil)
->    , ("abby"           , aggrandize abby)
->    , ("wj"             , aggrandize wj)
->    , ("shelby"         , aggrandize shelby)
->    , ("weHateHer"      , aggrandize weHateHer)]
+>    [ ("cecil"          , shimSong $ aggrandize cecil)
+>    , ("abby"           , shimSong $ aggrandize abby)
+>    , ("wj"             , shimSong $ aggrandize wj)
+>    , ("shelby"         , shimSong $ aggrandize shelby)
+>    , ("weHateHer"      , shimSong $ aggrandize weHateHer)]
 > djingles =
->    [ ("waypostpurple"  , aggrandize waypostpurple)
->    , ("whelpNarp"      , aggrandize whelpNarp)
->    , ("snake"          , aggrandize snake)
->    , ("pendingtonArnt" , aggrandize (pendingtonArnt 2))
->    , ("ssailor"        , aggrandize ssailor)]
+>    [ ("waypostpurple"  , shimSong $ aggrandize waypostpurple)
+>    , ("whelpNarp"      , shimSong $ aggrandize whelpNarp)
+>    , ("snake"          , shimSong $ aggrandize snake)
+>    , ("pendingtonArnt" , shimSong $ aggrandize (pendingtonArnt 2))
+>    , ("ssailor"        , ssailor)]
 > ejingles =
->    [ ("kit"            , aggrandize kit)
->    , ("pit"            , aggrandize pit)
->    , ("dit"            , aggrandize dit)
->    , ("rattan"         , aggrandize rattan)]
+>    [ ("kit"            , kit)
+>    , ("pit"            , pit)
+>    , ("dit"            , dit)
+>    , ("rattan"         , shimSong $ aggrandize rattan)]
 > zjingles =
->    [ ("deathlessHorsie", aggrandize deathlessHorsie)
->    , ("basicLick"      , aggrandize basicLick)
->    , ("sunPyg"         ,            sunPyg)
->    , ("yahozna"        , aggrandize yahozna)]
+>    [ ("deathlessHorsie", deathlessHorsie)
+>    , ("basicLick"      , basicLick)
+>    , ("sunPyg"         , sunPyg)
+>    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
 > sj =
 >    -- [ ("sunPyg"      , sunPyg)]
@@ -83,7 +85,7 @@ organize exposed music =========================================================
 >    -- [ ("ssailor"     , aggrandize ssailor)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("bob"         , aggrandize (bob 2))]
->    [ ("silver"         , aggrandize $ silver)]
+>    [ ("silver"         , shimSong $ aggrandize silver)]
 >    -- [ ("cutbake"     , cut 4.5 $ bakedJingle 9123)]
 
 a few playthings ... get it? ==========================================================================================

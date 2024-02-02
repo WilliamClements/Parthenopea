@@ -7,6 +7,8 @@ January 13, 2023
 
 > module Covers where
 
+> import Data.Map (Map)
+> import qualified Data.Map                as Map
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic hiding (grace)
@@ -23,8 +25,9 @@ Saucy Sailor ===================================================================
 > ssPicked_                                = makePitched AcousticGuitarNylon  ssTranspose          0        100
 > ssBass_                                  = makePitched ElectricBassPicked   ssTranspose          0        100
 >
-> ssailor =
+> ssailor dynMap =
 >     removeZeros
+>     $ aggrandize
 >     $ tempo                              ssTempo
 >     $ keysig C Mixolydian
 >     $ ((if includeOpen then xOpenT        else rest 0)
@@ -44,10 +47,10 @@ Saucy Sailor ===================================================================
 >         includeSong = True
 >         includeClos = False
 >
->         ssLead1                          = replace ssLead1_
->         ssLead2                          = replace ssLead2_
->         ssPicked                         = replace ssPicked_
->         ssBass                           = replace ssBass_
+>         ssLead1                          = replace ssLead1_    dynMap
+>         ssLead2                          = replace ssLead2_    dynMap
+>         ssPicked                         = replace ssPicked_   dynMap
+>         ssBass                           = replace ssBass_     dynMap
 >
 >         xOpenT = rest 0
 >         xSongT = line [rest hn, bandPart' ssLead1 xSongTA, bandPart' ssLead2 xSongTB]
@@ -282,22 +285,26 @@ Slot ===========================================================================
 > slotTempo                                = 2
 > slotTranspose                            = 0
 >
-> slotLead                                 = (Flute,               100)
-> slotStrum                                = (AcousticGuitarNylon, 100)
-> slotBass                                 = (SynthBass1,          110)
-> slotPerc                                 = (Percussion,          100)
+> slotLead_                                = makePitched Flute               slotTranspose 0                100
+> slotStrum_                               = makePitched AcousticGuitarNylon slotTranspose 0                100
+> slotBass_                                = makePitched SynthBass1          slotTranspose 0                110
+> slotPerc_                                = makeNonPitched                                                 100
 >
-> slot :: Int → Music (Pitch, Volume)
-> slot n =
+> slot :: Int → Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
+> slot n dynMap =
 >    removeZeros
+>    $ aggrandize 
 >    $ tempo slotTempo
 >    $ keysig G Dorian
->    $ chord [ bandPart slotLead           $ transpose xpo (vSlotV n)
->            , bandPart slotStrum          $ transpose xpo (vSlotG n)
->            , bandPart slotBass           $ transpose xpo (vSlotC n)
->            , bandPart slotPerc                           (vSlotP n)]
+>    $ chord [ bandPart' slotLead          (vSlotV n)
+>            , bandPart' slotStrum         (vSlotG n)
+>            , bandPart' slotBass          (vSlotC n)
+>            , bandPart' slotPerc          (vSlotP n)]
 >    where
->      xpo                                 = slotTranspose
+>      slotLead                            = replace slotLead_ dynMap
+>      slotStrum                           = replace slotStrum_ dynMap
+>      slotBass                            = replace slotBass_ dynMap
+>      slotPerc                            = replace slotPerc_ dynMap
 >      
 > vSlotV :: Int → Music Pitch
 > vSlotV n
@@ -363,9 +370,10 @@ TC =============================================================================
 > tcBass_                                  = makePitched FretlessBass  tcTranspose bassTranspose   75
 > tcPerc_                                  = makeNonPitched                                       100
 >
-> basicLick :: Music (Pitch, Volume)
-> basicLick =
+> basicLick :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
+> basicLick dynMap =
 >   removeZeros
+>   $ aggrandize
 >   $ tempo                                tcTempo
 >   $ keysig A Major
 >   $ chord [ bandPart' tcLead    tcV
@@ -374,10 +382,10 @@ TC =============================================================================
 >           , bandPart' tcPerc    tcP]
 >   where
 >
->   tcLead                                 = replace tcLead_
->   tcRepeat                               = replace tcRepeat_
->   tcBass                                 = replace tcBass_
->   tcPerc                                 = replace tcPerc_
+>   tcLead                                 = replace tcLead_ dynMap
+>   tcRepeat                               = replace tcRepeat_ dynMap
+>   tcBass                                 = replace tcBass_ dynMap
+>   tcPerc                                 = replace tcPerc_ dynMap
 >
 >   licks1                                 = 20
 >   licks2                                 = 18
@@ -1090,19 +1098,20 @@ DH =============================================================================
 > 
 > dhMeasuresAll          :: Int            = dhMeasuresIntro + dhMeasuresB1 + dhMeasuresA + dhMeasuresCs + dhMeasuresB2 + dhMeasuresOutro
 >
-> deathlessHorsie =
+> deathlessHorsie dynMap =
 >   removeZeros
+>   $ aggrandize
 >   $ tempo dhTempo
 >   $ chord [vibeMusic, percMusic, leadMusic, bassMusic, synthMusic, organMusic]
 >
 >   where
 >
->     dhVibe                               = replace dhVibe_
->     dhLead                               = replace dhLead_
->     dhBass                               = replace dhBass_
->     dhOrgn                               = replace dhOrgn_
->     dhSynh                               = replace dhSynh_
->     dhPerc                               = replace dhPerc_
+>     dhVibe                               = replace dhVibe_ dynMap
+>     dhLead                               = replace dhLead_ dynMap
+>     dhBass                               = replace dhBass_ dynMap
+>     dhOrgn                               = replace dhOrgn_ dynMap
+>     dhSynh                               = replace dhSynh_ dynMap
+>     dhPerc                               = replace dhPerc_ dynMap
 >
 >     vibeMusic =
 >      keysig B Mixolydian

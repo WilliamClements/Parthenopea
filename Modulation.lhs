@@ -85,7 +85,7 @@ Modulator management ===========================================================
 >         linkageOk                        =
 >           FromLinked /= source || maybe False (not . null) (Map.lookup link compiled)
 >         superceded                       =
->           mrModId /= professIsJust' (Map.lookup key superc)
+>           mrModId /= professIsJust (Map.lookup key superc) "newTry"
 >         link                             = ToLink mrModId
 >         key                              = getModKey m8r
 >         source                           = msSource mrModSrc
@@ -191,12 +191,14 @@ Modulator management ===========================================================
 >     ms2                                  = ModSrc   (Mapping Switch    False  True False) FromNoteOnVel
 >
 >     makeDefaultMod     :: Word → ModSrc → Word → Int → ModSrc → Modulator
->     makeDefaultMod mId ms igen amt amtSrc    = professIsJust'
->                                              $ Just defModulator{mrModId = mId}
->                                                >>= addSrc ms
->                                                >>= addDest igen
->                                                >>= addAmount amt
->                                                >>= addAmtSrc' amtSrc
+>     makeDefaultMod mId ms igen amt amtSrc
+>                                          = professIsJust
+>                                              (Just defModulator{mrModId = mId}
+>                                              >>= addSrc ms
+>                                              >>= addDest igen
+>                                              >>= addAmount amt
+>                                              >>= addAmtSrc' amtSrc)
+>                                            "makeDefaultMod"
 >
 > evaluateMods           :: ModDestType → Map ModDestType [Modulator] → NoteOn → Double
 > evaluateMods md graph noon               = sum $ maybe [] (map (evaluateMod graph noon)) (Map.lookup md graph)

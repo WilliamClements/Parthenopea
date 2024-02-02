@@ -330,7 +330,7 @@ also
 >       Glockenspiel              → Just (( G, 5), ( C, 8))
 >       Vibraphone                → Just (( F, 3), ( F, 6))
 >       MusicBox                  → Just (( C, 4), ( E, 7)) -- made up out of thin air
->       Percussion                → Just wideOpen
+>       Percussion                → Nothing -- WOX Just wideOpen
 >       -- Chimes
 >       AcousticGuitarNylon       → Just (( E, 2), ( B, 5))
 >       AcousticGuitarSteel       → Just (( E, 2), ( B, 5))
@@ -397,6 +397,13 @@ also
 >     Woodblock                              → True
 >     _                                      → False
 >
+> findBetterInstrument   :: InstrumentName → InstrumentName
+> findBetterInstrument kind                =
+>   let
+>     mrange                               = instrumentRange kind
+>   in
+>     maybe kind (matchRange kind) mrange
+> matchRange kind (pLo, pHi)               = kind
 > nonPitchedInstruments  :: [InstrumentName]
 > nonPitchedInstruments                    = filter nonPitchedInstrument getList
 >
@@ -464,8 +471,16 @@ instrument range checking ======================================================
 > makePitched iname apGlobal apLocal       = BandPart iname (apGlobal + apLocal)
 > makeNonPitched         :: Velocity → BandPart
 > makeNonPitched                           = BandPart Percussion 0
-> replace                :: BandPart → BandPart
-> replace bp                               = bp
+> replace                :: BandPart → Map InstrumentName InstrumentName → BandPart
+> replace bp@BandPart{ .. } dynMap         =
+>   let
+>     minst                                = Map.lookup bpInstrument dynMap
+>   in
+>     bp{bpInstrument = if isJust minst && bpInstrument /= Percussion
+>                         then fromJust minst
+>                         else bpInstrument}
+> makeDynMap             :: Shredding → Map InstrumentName InstrumentName
+> makeDynMap Shredding{ .. }               = Map.empty
 >
 > bandPart               :: (InstrumentName, Velocity) → Music Pitch → Music (Pitch, Volume)
 > bandPart (inst, vel) m                   = mMap (, vel) (instrument inst m)
@@ -495,9 +510,15 @@ examine song for instrument and percussion usage ===============================
 >     Percussion                           → Right $ toEnum (ePitch - 35)
 >     _                                    → Left eInst
 >
+> shimSong                :: Music (Pitch, [NoteAttribute])
+>                            → (Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))
+> shimSong m a                             = m
+>
 > shredMusic              :: ToMusic1 a ⇒ Music a → IO Shredding
 > shredMusic m                             = do
->   return $ foldl' shredder defShredding $ fst (musicToMEvents defaultContext (toMusic1 m))
+>   return
+>     $ foldl' shredder defShredding
+>     $ fst (musicToMEvents defaultContext (toMusic1 m))
 >
 > shredder               :: Shredding → MEvent → Shredding
 > shredder Shredding{ .. } mev
@@ -533,7 +554,7 @@ examine song for instrument and percussion usage ===============================
 >   printShreds =<< shredMusic m
 >
 > printShreds            :: Shredding → IO ()
-> printShreds Shredding{shRanges}            = mapM_ (uncurry printShred) (Map.assocs shRanges)
+> printShreds Shredding{shRanges}          = mapM_ (uncurry printShred) (Map.assocs shRanges)
 >   
 > printShred             :: Kind → Shred → IO ()
 > printShred kind shred@Shred{shLowNote, shHighNote, shCount}

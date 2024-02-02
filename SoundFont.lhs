@@ -1,6 +1,7 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE NamedFieldPuns #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -314,7 +315,7 @@ sample pitching scaffold =======================================================
 
 executive =============================================================================================================
 
-> doEverything           :: [(String, Music (Pitch, [NoteAttribute]))] → IO ()
+> doEverything           :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))] → IO ()
 > doEverything songs = do
 >
 >     putStrLn "everything..."
@@ -444,12 +445,12 @@ executive ======================================================================
 >     wiFolder wip pergm                   = if null mk then wip else aresult
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
->         preI@PreInstrument{iMatches}     = getPreInstrumentFromCache preInstCache pergm{mpWordZ = Nothing}
->         perI@PerInstrument{pZonePairs}   = getPerInstrumentFromCache zoneCache    pergm{mpWordZ = Nothing}
+>         PreInstrument{iMatches}          = getPreInstrumentFromCache preInstCache pergm{mpWordZ = Nothing}
+>         PerInstrument{pZonePairs}        = getPerInstrumentFromCache zoneCache    pergm{mpWordZ = Nothing}
 >         -- what Instrument is closest fit, name-wise, for this artifact
 >         mk             :: Maybe (InstrumentName, (String, Double))
 >                                          = bestQualifying (getProMatches iMatches) stands
->         kind                             = fst (professIsJust' mk)
+>         kind                             = fst (professIsJust mk "bestQualifying returned Nothing")
 >         aresult                          = xaEnterTournament sffiles zoneCache iMatches pergm kind [] wip
 >     
 >     wpFolder wip pergm@PerGMKey{mpWordZ}
@@ -460,7 +461,7 @@ executive ======================================================================
 >         preS@PreSample{sMatches}         = getPreSampleFromCache preSampleCache pergm
 >         mkind          :: Maybe PercussionSound
 >                                          = mpWordZ >>= lookupZone pZonePairs >>= getAP >>= pitchToPerc
->         aresult                          = xaEnterTournament sffiles zoneCache sMatches pergm (professIsJust' mkind) [] wip
+>         aresult                          = xaEnterTournament sffiles zoneCache sMatches pergm (professIsJust mkind "pitchToPerc returned Nothing") [] wip
 >
 >         lookupZone     :: [(ZoneHeader, SFZone)] → Word → Maybe SFZone
 >         lookupZone zs wZ                 = lookup wZ (map (BF.first pwZone) zs)
@@ -635,13 +636,14 @@ executive ======================================================================
 >                           SFRoster
 >                           → InstrMap (Stereo p)
 >                           → FilePath
->                           → Music (Pitch, [NoteAttribute])
+>                           → (Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))
 >                           → IO ()
 > renderSong sfrost imap name song =
 >   do
 >     traceIO ("renderSong " ++ name)
 >     ts1                                  ← getCurrentTime
->     Shredding{shRanges}                  ← shredMusic song
+>     ding@Shredding{ .. }                 ← shredMusic (song Map.empty)
+>     let dynMap                           = makeDynMap ding
 >     let ks                               = Map.keys shRanges
 >     let (is, ps)                         = (lefts ks, rights ks)
 >     let (esI, esP)                       = printChoices sfrost is ps
@@ -652,7 +654,7 @@ executive ======================================================================
 >       then do
 >         let path                         = name ++ ".wav"
 >         putStr path
->         let (d,s)                        = renderSF song imap
+>         let (d,s)                        = renderSF (song dynMap) imap
 >         if scanningOutput
 >           then findOutliers d s
 >           else if normalizingOutput
@@ -1071,7 +1073,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF SFRoster{zFiles, zPlayCache} pergm@PerGMKey{pWordF, pWordI} dur pchIn volIn params
->   | traceAlways msg False                = undefined
+>   | traceAlways trace_ISF False          = undefined
 >   | otherwise                            = eutSynthesize (reconL, reconR) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
@@ -1085,7 +1087,7 @@ define signal functions and instrument maps to support rendering ===============
 >
 >     arrays                               = zArrays (zFiles ! pWordF)
 >     nameI                                = F.instName $ ssInsts arrays ! pWordI
->     msg                                  =
+>     trace_ISF                            =
 >       unwords [
 >         "instrumentSF ",  show nameI 
 >       , " , pv = "     ,  show (pchIn, volIn)
@@ -1227,14 +1229,7 @@ reconcile zone and sample header ===============================================
 >                                              , rPitchCorrection           = rPitchCorrection}
 >
 > reconcile              :: (SFZone, F.Shdr) → NoteOn → Reconciled 
-> reconcile (zone@SFZone{zRootKey, zKey, zVel
->                      , zInitAtten
->                      , zStartOffs, zEndOffs, zStartCoarseOffs, zEndCoarseOffs
->                      , zLoopStartOffs, zLoopStartCoarseOffs, zLoopEndOffs, zLoopEndCoarseOffs
->                      , zDelayVolEnv, zAttackVolEnv, zHoldVolEnv
->                      , zDecayVolEnv, zSustainVolEnv, zReleaseVolEnv
->                      , zCoarseTune, zFineTune, zChorus, zReverb, zPan, zSampleMode
->                      , zKeyToVolEnvHold, zKeyToVolEnvDecay}
+> reconcile (zone@SFZone{ .. }
 >          , shdr@F.Shdr{F.originalPitch, F.sampleRate, F.start, F.end, F.startLoop, F.endLoop})
 >          noon@NoteOn{noteOnVel, noteOnKey}
 >                                          = recon

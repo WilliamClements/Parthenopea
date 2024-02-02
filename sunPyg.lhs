@@ -21,7 +21,7 @@ SunPyg =========================================================================
 > sunPygBass_                              = makePitched ElectricBassFingered sunPygTranspose      0         80
 > sunPygPerc_                              = makeNonPitched                                                  75
 >
-> sunPyg =
+> sunPyg dynMap =
 >   removeZeros
 >   $ aggrandize
 >   $ tempo sunPygTempo
@@ -29,10 +29,10 @@ SunPyg =========================================================================
 >
 >   where
 >
->    sunPygLead                            = replace sunPygLead_
->    sunPygChoir                           = replace sunPygChoir_
->    sunPygBass                            = replace sunPygBass_
->    sunPygPerc                            = replace sunPygPerc_
+>    sunPygLead                            = replace sunPygLead_ dynMap
+>    sunPygChoir                           = replace sunPygChoir_ dynMap
+>    sunPygBass                            = replace sunPygBass_ dynMap
+>    sunPygPerc                            = replace sunPygPerc_ dynMap
 >   
 >    percLine = line [m000_004, m005_008, m009_012, m013_016, m017_020, m021_024, m025_028
 >                   , m029_032, m033_036, m037_040, m041_044, m045_048, m049_052, m053_056
