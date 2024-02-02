@@ -151,7 +151,7 @@ Bob ============================================================================
 > bobAlto_                                 = makePitched Oboe          bobTranspose 0  80
 > bobBass_                                 = makePitched Cello         bobTranspose 0  75
 >
-> bob :: Int → Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
+> bob :: Int → DynMap → Music (Pitch, [NoteAttribute])
 > bob nRepeats dynMap = removeZeros
 >       $ aggrandize
 >       $ tempo bobTempo
@@ -747,23 +747,26 @@ Way Pos' T' Purple =============================================================
 > wayposTempo                              = 1
 > wayposTranspose                          = 0
 >
-> wayposLead                               = (HonkyTonkPiano, 100)
-> wayposStrum                              = (OrchestralHarp, 100)
-> wayposBass                               = (Bassoon,         50)
-> wayposPerc                               = (Percussion,     100)
+> wayposLead_                              = makePitched    HonkyTonkPiano wayposTranspose 0 100
+> wayposStrum_                             = makePitched    OrchestralHarp wayposTranspose 0 100
+> wayposBass_                              = makePitched    Bassoon        wayposTranspose 0  50
+> wayposPerc_                              = makeNonPitched                                  100
 >
-> waypostpurple =
+> waypostpurple dynMap =
 >    removeZeros
+>    $ aggrandize
 >    $ tempo                               wayposTempo
->    $ transpose                           xpo
 >    $ keysig C Major
->          (bandPart wayposLead  leadPart
->       :=: bandPart wayposStrum strumPart
->       :=: transpose 12 (bandPart wayposBass bassPart))
->       :=: bandPart wayposPerc  percPart
+>          (bandPart' wayposLead  leadPart
+>       :=: bandPart' wayposStrum strumPart
+>       :=: transpose 12 (bandPart' wayposBass bassPart))
+>       :=: bandPart' wayposPerc  percPart
 >   where
 >
->   xpo                                    = wayposTranspose
+>   wayposLead                             = replace wayposLead_ dynMap
+>   wayposStrum                            = replace wayposStrum_ dynMap
+>   wayposBass                             = replace wayposBass_ dynMap
+>   wayposPerc                             = replace wayposPerc_ dynMap
 >
 >   includeOpen = True
 >   includeCont = True
@@ -881,32 +884,35 @@ Pendington Arnt  ===============================================================
 > pArntTempo                              = 1
 > pArntTranspose                          = 0
 >
-> pArntLead                               = (TenorSax,            100)
-> pArntStrum                              = (AcousticGuitarNylon, 100)
-> pArntBass                               = (Cello,               100)
+> pArntLead_                              = makePitched TenorSax               pArntTranspose 0 100
+> pArntStrum_                             = makePitched AcousticGuitarNylon    pArntTranspose 0 100
+> pArntBass_                              = makePitched Cello                  pArntTranspose 0 100
 >
-> pendingtonArnt :: Int -> Music (Pitch, Volume)
-> pendingtonArnt nRepeats =
+> pendingtonArnt :: Int → DynMap → Music (Pitch, [NoteAttribute])
+> pendingtonArnt nRepeats dynMap =
 >    removeZeros
+>    $ aggrandize
 >    $ tempo pArntTempo
->    $ transpose xpo
 >    $ keysig C Lydian
 >    $ times nRepeats
->    $ bandPart pArntLead
+>    $ bandPart' pArntLead
 >      ((if includeOpen then zOpenT        else rest 0)
 >         :+: (if includeClos then zClosT  else rest 0))
->      :=: bandPart pArntStrum
+>      :=: bandPart' pArntStrum
 >      ((if includeOpen then zOpenG        else rest 0)
 >         :+: (if includeClos then zClosG  else rest 0))
->      :=: bandPart pArntBass
+>      :=: bandPart' pArntBass
 >      ((if includeOpen then zOpenB        else rest 0)
 >         :+: (if includeClos then zClosB  else rest 0))
+>
 >      where
 >
->         xpo                              = pArntTranspose
+>      pArntLead                          = replace pArntLead_ dynMap
+>      pArntStrum                         = replace pArntStrum_ dynMap
+>      pArntBass                          = replace pArntBass_ dynMap
 >
->         includeOpen = True
->         includeClos = False -- intentional, TODO: cleanup
+>      includeOpen                        = True
+>      includeClos                        = False -- intentional, TODO: cleanup
 >
 > zOpenT1 = addDur en [c 3, e 3, fs 3, g 3,
 >                      a 3, b 3,  c 4, e 4]
@@ -1044,7 +1050,7 @@ Kit ============================================================================
 > kitLead_                                 = makePitched FrenchHorn kitTranspose 0 100
 > kitPerc_                                 = makeNonPitched                        100
 >
-> kit                    :: Map InstrumentName InstrumentName → Music (Pitch,[NoteAttribute])
+> kit                    :: DynMap → Music (Pitch,[NoteAttribute])
 > kit dynMap =
 >   removeZeros
 >   $ aggrandize

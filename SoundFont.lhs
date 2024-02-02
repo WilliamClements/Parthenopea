@@ -315,7 +315,7 @@ sample pitching scaffold =======================================================
 
 executive =============================================================================================================
 
-> doEverything           :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))] → IO ()
+> doEverything           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
 > doEverything songs = do
 >
 >     putStrLn "everything..."
@@ -636,7 +636,7 @@ executive ======================================================================
 >                           SFRoster
 >                           → InstrMap (Stereo p)
 >                           → FilePath
->                           → (Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))
+>                           → (DynMap → Music (Pitch, [NoteAttribute]))
 >                           → IO ()
 > renderSong sfrost imap name song =
 >   do
@@ -644,6 +644,7 @@ executive ======================================================================
 >     ts1                                  ← getCurrentTime
 >     ding@Shredding{ .. }                 ← shredMusic (song Map.empty)
 >     let dynMap                           = makeDynMap ding
+>     traceIO ("dynMap " ++ show dynMap)
 >     let ks                               = Map.keys shRanges
 >     let (is, ps)                         = (lefts ks, rights ks)
 >     let (esI, esP)                       = printChoices sfrost is ps

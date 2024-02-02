@@ -24,12 +24,13 @@ December 12, 2022
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
+> import Data.Either
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
-> import Data.List ( singleton, foldl', sortOn )
+> import Data.List ( singleton, foldl', sortOn, minimumBy )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe )
@@ -397,13 +398,33 @@ also
 >     Woodblock                              → True
 >     _                                      → False
 >
-> findBetterInstrument   :: InstrumentName → InstrumentName
-> findBetterInstrument kind                =
->   let
->     mrange                               = instrumentRange kind
->   in
->     maybe kind (matchRange kind) mrange
-> matchRange kind (pLo, pHi)               = kind
+> findBetterInstrument   :: InstrumentName → (AbsPitch, AbsPitch) → InstrumentName
+> findBetterInstrument than (playedLo, playedHi)
+>   | traceNever trace_FBI False           = undefined
+>   | otherwise                            =
+>     if null rangedInsts
+>       then than
+>       else snd $ minimumBy (comparing fst) rangedInsts
+>   where
+>     rangedInsts        :: [(Int, InstrumentName)]
+>     rangedInsts                          = mapMaybe judgeScore getList
+>
+>     judgeScore         :: InstrumentName → Maybe (Int, InstrumentName)
+>     judgeScore cand                      = instrumentRange cand >>= uncurry (fitsIn cand)
+>     
+>     fitsIn             :: InstrumentName → Pitch → Pitch → Maybe (Int, InstrumentName)
+>     fitsIn cand rangeLo rangeHi
+>       | traceNever trace_FI False        = undefined
+>       | otherwise                        =
+>         if inRange range playedLo && inRange range playedHi 
+>           then Just (snd range - fst range, cand)
+>           else Nothing
+>       where
+>         range                            = (absPitch rangeLo, absPitch rangeHi)
+>         trace_FI                         = unwords ["fitsIn", show range, show playedLo, show playedHi]
+>
+>     trace_FBI                           = unwords ["findBetterInstrument", show than, show rangedInsts]
+>
 > nonPitchedInstruments  :: [InstrumentName]
 > nonPitchedInstruments                    = filter nonPitchedInstrument getList
 >
@@ -467,20 +488,42 @@ instrument range checking ======================================================
 >   , bpTranspose        :: AbsPitch
 >   , bpVelocity         :: Velocity}
 >
+> type DynMap                              = Map InstrumentName InstrumentName
+>
 > makePitched            :: InstrumentName → AbsPitch → AbsPitch → Velocity → BandPart
 > makePitched iname apGlobal apLocal       = BandPart iname (apGlobal + apLocal)
+>
 > makeNonPitched         :: Velocity → BandPart
 > makeNonPitched                           = BandPart Percussion 0
-> replace                :: BandPart → Map InstrumentName InstrumentName → BandPart
-> replace bp@BandPart{ .. } dynMap         =
->   let
+>
+> replace                :: BandPart → DynMap → BandPart
+> replace bp@BandPart{ .. } dynMap
+>   | traceNever trace_R False             = undefined
+>   | otherwise                            = bp{bpInstrument = ninst}
+>   where
 >     minst                                = Map.lookup bpInstrument dynMap
->   in
->     bp{bpInstrument = if isJust minst && bpInstrument /= Percussion
->                         then fromJust minst
->                         else bpInstrument}
-> makeDynMap             :: Shredding → Map InstrumentName InstrumentName
-> makeDynMap Shredding{ .. }               = Map.empty
+>     ninst                                =
+>       if isJust minst && bpInstrument /= Percussion
+>         then fromJust minst
+>         else bpInstrument
+>     trace_R                              = unwords ["replace", show dynMap, show minst, show ninst]
+>
+> makeDynMap             :: Shredding → DynMap
+> makeDynMap Shredding{ .. }               =
+>   if replacePerCent > 50
+>     then foldl' maker Map.empty (Map.assocs shRanges)
+>     else Map.empty
+>   where
+>     maker              :: DynMap → (Kind, Shred) → DynMap
+>     maker i2i (kind, Shred{ .. })        =
+>       let
+>         inameL, inameR :: InstrumentName
+>         inameL                           = fromLeft (error "makeDynMap problem: no instrument") kind
+>         inameR                           = findBetterInstrument inameL (ePitch shLowNote, ePitch shHighNote)
+>       in
+>         if isLeft kind && inameL /= inameR
+>           then Map.insert inameL inameR i2i
+>           else i2i
 >
 > bandPart               :: (InstrumentName, Velocity) → Music Pitch → Music (Pitch, Volume)
 > bandPart (inst, vel) m                   = mMap (, vel) (instrument inst m)
@@ -511,7 +554,7 @@ examine song for instrument and percussion usage ===============================
 >     _                                    → Left eInst
 >
 > shimSong                :: Music (Pitch, [NoteAttribute])
->                            → (Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))
+>                            → (DynMap → Music (Pitch, [NoteAttribute]))
 > shimSong m a                             = m
 >
 > shredMusic              :: ToMusic1 a ⇒ Music a → IO Shredding
@@ -544,14 +587,14 @@ examine song for instrument and percussion usage ===============================
 >                                                 else shHighNote)
 >                                              (shCount + 1)
 >
-> shredJingles           :: [(String, Music (Pitch, [NoteAttribute]))] → IO ()
+> shredJingles           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
 > shredJingles                             = mapM_ (uncurry shredJingle)
 >
-> shredJingle            :: String → Music (Pitch, [NoteAttribute]) → IO ()
+> shredJingle            :: String → (DynMap → Music (Pitch, [NoteAttribute])) → IO ()
 > shredJingle name m                       = do
 >   putStrLn name
 >   putStrLn ""
->   printShreds =<< shredMusic m
+>   printShreds =<< shredMusic (m Map.empty)
 >
 > printShreds            :: Shredding → IO ()
 > printShreds Shredding{shRanges}          = mapM_ (uncurry printShred) (Map.assocs shRanges)
@@ -1348,12 +1391,14 @@ Configurable parameters ========================================================
 > diagnosticsEnabled                       = qqDiagnosticsEnabled         defC 
 > skipReporting                            = qqSkipReporting              defC 
 > skipGlissandi                            = qqSkipGlissandi              defC
+> replacePerCent                           = qqReplacePerCent             defC
 >
 > data ControlSettings =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 :: Bool
 >   , qqSkipReporting                      :: Bool
 >   , qqSkipGlissandi                      :: Bool
+>   , qqReplacePerCent                     :: Double
 >   , qqDumpFftChunks                      :: Bool
 >   , qqNumTakeFftChunks                   :: Int} deriving (Eq, Show)
 >
@@ -1363,5 +1408,6 @@ Configurable parameters ========================================================
 >     qqDiagnosticsEnabled                 = False
 >   , qqSkipReporting                      = False
 >   , qqSkipGlissandi                      = False
+>   , qqReplacePerCent                     = 75
 >   , qqDumpFftChunks                      = False
 >   , qqNumTakeFftChunks                   = 3}

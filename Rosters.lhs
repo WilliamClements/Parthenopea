@@ -39,7 +39,7 @@ organize exposed music =========================================================
 >
 > ajingles, bjingles
 >  , cjingles, djingles, ejingles
->  , zjingles            :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
+>  , zjingles            :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
 >
 > ajingles =
 >    [ ("theFanfare"     , shimSong $ aggrandize (theFanfare False))
@@ -61,10 +61,10 @@ organize exposed music =========================================================
 >    , ("shelby"         , shimSong $ aggrandize shelby)
 >    , ("weHateHer"      , shimSong $ aggrandize weHateHer)]
 > djingles =
->    [ ("waypostpurple"  , shimSong $ aggrandize waypostpurple)
+>    [ ("waypostpurple"  , waypostpurple)
 >    , ("whelpNarp"      , shimSong $ aggrandize whelpNarp)
 >    , ("snake"          , shimSong $ aggrandize snake)
->    , ("pendingtonArnt" , shimSong $ aggrandize (pendingtonArnt 2))
+>    , ("pendingtonArnt" , pendingtonArnt 2)
 >    , ("ssailor"        , ssailor)]
 > ejingles =
 >    [ ("kit"            , kit)
@@ -78,6 +78,8 @@ organize exposed music =========================================================
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
 > sj =
+>    [("pendingtonArnt" , pendingtonArnt 2)]
+>
 >    -- [ ("sunPyg"      , sunPyg)]
 >    -- [ ("slot"        , aggrandize (slot 1))]
 >    -- [ ("basicLick"   , aggrandize basicLick)]
@@ -85,7 +87,7 @@ organize exposed music =========================================================
 >    -- [ ("ssailor"     , aggrandize ssailor)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("bob"         , aggrandize (bob 2))]
->    [ ("silver"         , shimSong $ aggrandize silver)]
+>    -- [ ("silver"         , shimSong $ aggrandize silver)]
 >    -- [ ("cutbake"     , cut 4.5 $ bakedJingle 9123)]
 
 a few playthings ... get it? ==========================================================================================

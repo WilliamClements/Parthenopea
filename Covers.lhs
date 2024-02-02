@@ -290,7 +290,7 @@ Slot ===========================================================================
 > slotBass_                                = makePitched SynthBass1          slotTranspose 0                110
 > slotPerc_                                = makeNonPitched                                                 100
 >
-> slot :: Int → Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
+> slot :: Int → DynMap → Music (Pitch, [NoteAttribute])
 > slot n dynMap =
 >    removeZeros
 >    $ aggrandize 
@@ -370,7 +370,7 @@ TC =============================================================================
 > tcBass_                                  = makePitched FretlessBass  tcTranspose bassTranspose   75
 > tcPerc_                                  = makeNonPitched                                       100
 >
-> basicLick :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
+> basicLick :: DynMap → Music (Pitch, [NoteAttribute])
 > basicLick dynMap =
 >   removeZeros
 >   $ aggrandize
