@@ -40,27 +40,35 @@ November 11, 2022
 
 Fanfare ===============================================================================================================
 
-> ffLeadI                                  = (Trumpet,             80)
-> ffLeadII                                 = (Flute,               80)
-> ffPickedI                                = (Trombone,           110)
->
 > ffTempo                :: Rational       = 5 / 2
 > ffTranspose            :: AbsPitch       = 5
 >
 > ffTempoCap             :: Rational       = 4
 > ffTransposeCap         :: AbsPitch       = 0
 >
-> theFanfare isCap 
+> theFanfare isCap dynMap
 >              = removeZeros
->              $ tempo     (if isCap then ffTempoCap     else ffTempo)
->              $ transpose (if isCap then ffTransposeCap else ffTranspose)
+>              $ aggrandize
+>              $ tempo fgTempo
 >              $ keysig C Mixolydian
 >              $ (tTreble1 :=: bBass) :+: (tTreble1 :=: tTreble2 :=: bBass)
 >    where
 >
->       tTreble1 = bandPart ffLeadI   $ tFan :+: tAns
->       tTreble2 = bandPart ffLeadII  $ uFan :+: uAns
->       bBass    = bandPart ffPickedI $ bFan :+: bAns
+>       fgTempo                            = if isCap then ffTempoCap     else ffTempo
+>       xpo                                = if isCap then ffTransposeCap else ffTranspose
+>
+>       ffLeadI_                           = makePitched Trumpet      xpo 0            80
+>       ffLeadII_                          = makePitched Flute        xpo 0            80
+>       ffPickedI_                         = makePitched Trombone     xpo 0           110
+>
+>
+>       ffLeadI                            = replace ffLeadI_    dynMap
+>       ffLeadII                           = replace ffLeadII_   dynMap
+>       ffPickedI                          = replace ffPickedI_  dynMap
+>
+>       tTreble1 = bandPart' ffLeadI   $ tFan :+: tAns
+>       tTreble2 = bandPart' ffLeadII  $ uFan :+: uAns
+>       bBass    = bandPart' ffPickedI $ bFan :+: bAns
 >
 >       tFan =  {- 32 -} line [tFan1, tFan2, tFan3, tFan4, tFan5]
 >       uFan =  {- 32 -} line [uFan1, uFan2, uFan3]
@@ -529,22 +537,26 @@ Whelp Narp =====================================================================
 > wnTempo                                  = 2
 > wnTranspose                              = 4
 >
-> wnLead                                   = (Vibraphone, 100)
-> wnStrings                                = (OrchestralHarp, 100)
-> wnBass                                   = (ElectricBassPicked, 100)
-> wnPerc                                   = (Percussion, 100)
+> wnLead_                                  = makePitched    Vibraphone           wnTranspose 0 100
+> wnStrings_                               = makePitched    OrchestralHarp       wnTranspose 0 100
+> wnBass_                                  = makePitched    ElectricBassPicked   wnTranspose 0 100
+> wnPerc_                                  = makeNonPitched                                    100
 >
-> whelpNarp =
+> whelpNarp dynMap =
 >    removeZeros
+>    $ aggrandize
 >    $ tempo wnTempo
 >    $ keysig C Mixolydian
->    $     bandPart wnLead                    (transpose xpo       (wnAltoI :+: wnAltoII))
->      :=: bandPart wnStrings                 (transpose xpo      (wnTenorI :+: wnTenorII))
->      :=: bandPart wnBass                    (transpose xpo   (wnBaritoneI :+: wnBaritoneII))
->      :=: bandPart wnPerc                                         (wnPercI :+: wnPercII)
+>    $     bandPart' wnLead                    (wnAltoI :+: wnAltoII)
+>      :=: bandPart' wnStrings                (wnTenorI :+: wnTenorII)
+>      :=: bandPart' wnBass                (wnBaritoneI :+: wnBaritoneII)
+>      :=: bandPart' wnPerc                    (wnPercI :+: wnPercII)
 >   where
 >
->   xpo = wnTranspose
+>   wnLead                                 = replace wnLead_      dynMap
+>   wnStrings                              = replace wnStrings_   dynMap
+>   wnBass                                 = replace wnBass_      dynMap
+>   wnPerc                                 = replace wnPerc_      dynMap
 >
 > -- It is in 3/4 for 7 measures; the eighth measure is shortened to 2/4;
 > -- then it is in 4/4 except for one 5/4 measure at the end of each repeat.
@@ -661,20 +673,21 @@ Roger ==========================================================================
 > rogerTempo                               = 1
 > rogerTranspose                           = 0
 >
-> rogerAlto                                = (Flute,               100)
-> rogerTenor                               = (AcousticGuitarNylon, 100)
+> rogerAlto_                               = makePitched Flute               rogerTranspose 12 100
+> rogerTenor_                              = makePitched AcousticGuitarNylon rogerTranspose  0 100
 >
-> roger :: Music (Pitch, Volume)
-> roger =
+> roger :: DynMap → Music (Pitch, [NoteAttribute])
+> roger dynMap                             =
 >    removeZeros
+>    $ aggrandize
 >    $ tempo                               rogerTempo
->    $ transpose                           xpo
 >    $ keysig Cs Dorian
->    $     transpose   (xpo + 12) (bandPart rogerAlto  (line [cAltoI,  cAltoIIA, cAltoIIB]))
->      :=: transpose   xpo        (bandPart rogerTenor (line [cTenorI, cTenorII]))
+>    $     bandPart' rogerAlto  (line [cAltoI,  cAltoIIA, cAltoIIB])
+>      :=: bandPart' rogerTenor (line [cTenorI, cTenorII])
 >   where
 >
->   xpo                                    = rogerTranspose
+>   rogerAlto                              = replace rogerAlto_  dynMap
+>   rogerTenor                             = replace rogerTenor_ dynMap
 >
 >   ct_fs, ct_cs, ct_cs', ct__B, ct__B'          :: Dur → Music Pitch
 >   ct__A, ct__E                                 :: Dur → Music Pitch

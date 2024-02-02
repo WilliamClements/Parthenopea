@@ -42,7 +42,7 @@ organize exposed music =========================================================
 >  , zjingles            :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
 >
 > ajingles =
->    [ ("theFanfare"     , shimSong $ aggrandize (theFanfare False))
+>    [ ("theFanfare"     , theFanfare False)
 >    , ("slot"           , slot 4)
 >    , ("alice"          , shimSong $ aggrandize alice)
 >    , ("bob"            , bob 4)
@@ -53,7 +53,7 @@ organize exposed music =========================================================
 >    [ ("getCITM"        , getCITM)
 >    , ("bake"           , shimSong $ bakedJingle 9345)
 >    , ("bill"           , bill 4)
->    , ("roger"          , shimSong $ aggrandize roger)]
+>    , ("roger"          , roger)]
 > cjingles =
 >    [ ("cecil"          , shimSong $ aggrandize cecil)
 >    , ("abby"           , shimSong $ aggrandize abby)
@@ -62,7 +62,7 @@ organize exposed music =========================================================
 >    , ("weHateHer"      , shimSong $ aggrandize weHateHer)]
 > djingles =
 >    [ ("waypostpurple"  , waypostpurple)
->    , ("whelpNarp"      , shimSong $ aggrandize whelpNarp)
+>    , ("whelpNarp"      , whelpNarp)
 >    , ("snake"          , shimSong $ aggrandize snake)
 >    , ("pendingtonArnt" , pendingtonArnt 2)
 >    , ("ssailor"        , ssailor)]
