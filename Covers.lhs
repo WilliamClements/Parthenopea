@@ -25,6 +25,20 @@ Saucy Sailor ===================================================================
 > ssPicked_                                = makePitched AcousticGuitarNylon  ssTranspose          0        100
 > ssBass_                                  = makePitched ElectricBassPicked   ssTranspose          0        100
 >
+> littleSailor =
+>     removeZeros
+>     $ instrument Trumpet
+>     $ addVolume 90
+>     $ line [
+>    --  3        Come      me       ow -     -n      one
+>           line [f 5 en,  g 5 en,  f 5 en, e 5 en,  c 5 qn],
+>    --  3         Come      me      fai -    -ai-    -ai-   -air-    one
+>           line [f 5 en,  g 5 en,  f 5 sn, g 5 sn, f 5 sn, e 5 sn, c 5 qn],
+>    --  3         Co-      -ome      now    un- 
+>           line [e 5 en,  f 5 en,  g 5 qn, c 6 qn],
+>    --  3         to-      -o       me
+>           line [bf 5 en, a 5 en, g 5 hn]]
+>
 > ssailor dynMap =
 >     removeZeros
 >     $ aggrandize
@@ -2217,27 +2231,83 @@ PG =============================================================================
 > pgTempo                                  = 1
 > pgTranspose                              = 0
 >
-> pgBass                                   = (ElectricBassFingered, 100)
+> pgLead_                                  = makePitched Violin               pgTranspose 0 100
+> pgBass_                                  = makePitched ElectricBassFingered pgTranspose 0 100
+> pgPerc_                                  = makeNonPitched                                 100
 >
-> packardGoose =
+> perc009_012 =
+>   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>              , line [percSDqn, rest hn]
+>              , line [percCHHqn, percCHHen, percCHHsn, percCHHsn, percCHHen, percCHHsn, percCHHsn]]
+>       , line [percCHHen, percCHHsn, percCHHsn
+>             , percCHHen, percCHHsn, percCHHsn
+>             , percCHHen, percCHHsn, percCHHsn]
+>       , chord [ line [percCHHen, percCHHsn, percCHHsn
+>                     , percCHHen, percCHHsn, percCHHsn
+>                     , percCHHen, percCHHsn, percCHHsn]
+>                , line [percBDen, percBDen, rest hn]]
+>       , chord [ line [percBDqn, rest en, percBDen, rest qn]
+>               , line [percCHHsn, percCHHsn, percCHHsn, percCHHsn
+>                     , percCHHen, percCHHsn, percCHHsn
+>                     , percCHHen, percCHHsn, percCHHsn]]]
+> perc013_016 =
+>   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>              , line [percCHHsn, percCHHsn, percCHHsn, percCHHsn
+>                     , percCHHen, percCHHen
+>                     , percCHHen, percCHHsn, percCHHsn]]
+>       , line [percCHHen, percCHHsn, percCHHsn, percCHHen, percCHHsn, percCHHsn
+>             , percCHHsn, percCHHsn, percCHHsn, percCHHsn]
+>       , chord [line [percBDen, percBDen, rest hn]
+>              , line [percCHHen, percCHHsn, percCHHsn
+>                    , percCHHen, percCHHsn, percCHHsn
+>                    , percCHHen, percCHHsn, percCHHsn]]
+>       , chord [line [percBDqn, rest en, percBDen, rest qn]
+>              , line [percCHHen, percCHHen
+>                     , percCHHen, percCHHsn, percCHHsn
+>                     , percCHHen, percCHHsn, percCHHsn]]]
+>
+> perc017_020 =
+>   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>              , line [percCHHen, percCHHen, percCHHen, percCHHsn, percCHHsn, percCHHen, percCHHsn, percCHHsn]]
+>       , line [percCHHsn, percCHHsn, percCHHsn, percCHHsn
+>             , percOHHen, times 6 percOHHsn]
+>       , chord [line [percBDen, percBDen, rest hn]
+>              , line [times 8 percOHHsn, percCHHen, percCHHen]]
+>       , chord [line [percBDqn, rest en, percBDen, rest qn]
+>              , line [percCHHqn, rest qn, times 4 percCHHsn]]]
+>
+> perc021_024 =
+>   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>              , line [times 3 percBDen, times 6 percBDsn]]
+>       , line [times 12 percCHHsn]
+>       , chord [line [percBDen, percBDen, rest hn]
+>              , line [times 12 percOHHsn]]
+>       , chord [line [percBDqn, rest en, percBDen, rest qn]
+>              , line [times 12 percOHHsn]]]
+>
+> packardGoose dynMap =
 >   removeZeros
+>   $ aggrandize
 >   $ tempo pgTempo
->   $ chord [percMusic, leadMusic, bassMusic]
+>   $ chord [leadMusic, bassMusic, percMusic]
 >
 >   where
 >
->     xpo                                  = pgTranspose
+>     pgLead                               = replace pgLead_ dynMap
+>     pgBass                               = replace pgBass_ dynMap
+>     pgPerc                               = replace pgPerc_ dynMap
 >
->     percMusic = rest 0
->     leadMusic = rest 0
->     bassMusic =
->       transpose xpo
->       $ keysig B Mixolydian
->       $ bandPart pgBass (times 2 (line [pgBassI, pgBassII]))
+>     leadMusic = bandPart' pgLead (line [rest (24 * dhn), lead025_028])
+>     bassMusic = bandPart' pgBass (times 4 (line [pgBassI, pgBassII]))
+>     percMusic = bandPart' pgPerc percLine
 >
+>     lead025_028 =
+>       line [fs 4 en, times 10 (fs 4 sn)]
 >     pgBassI =
 >       line [fs 2 en, fs 2 en, fs 2 en, rest (dqn + dhn), fs 2 en, fs 2 en, rest hn, fs 2 en, rest qn, e 3 dqn]
 >     pgBassII =
 >       line [ e 2 en,  e 2 en,  e 2 en, rest (dqn + dhn),  e 2 en,  e 2 en, rest hn,  e 2 en, rest qn, b 2 dqn]
+>
+>     percLine = line [rest (8 * dhn), perc009_012, perc013_016, perc017_020, perc021_024]
 
 The End

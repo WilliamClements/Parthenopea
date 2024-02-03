@@ -63,7 +63,7 @@ organize exposed music =========================================================
 > djingles =
 >    [ ("waypostpurple"  , waypostpurple)
 >    , ("whelpNarp"      , whelpNarp)
->    , ("snake"          , shimSong $ aggrandize snake)
+>    , ("snake"          , snake)
 >    , ("pendingtonArnt" , pendingtonArnt 2)
 >    , ("ssailor"        , ssailor)]
 > ejingles =
@@ -75,10 +75,11 @@ organize exposed music =========================================================
 >    [ ("deathlessHorsie", deathlessHorsie)
 >    , ("basicLick"      , basicLick)
 >    , ("sunPyg"         , sunPyg)
+>    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
 > sj =
->    [("pendingtonArnt" , pendingtonArnt 2)]
+>    -- [("pendingtonArnt" , pendingtonArnt 2)]
 >
 >    -- [ ("sunPyg"      , sunPyg)]
 >    -- [ ("slot"        , aggrandize (slot 1))]
@@ -87,7 +88,7 @@ organize exposed music =========================================================
 >    -- [ ("ssailor"     , aggrandize ssailor)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("bob"         , aggrandize (bob 2))]
->    -- [ ("silver"         , shimSong $ aggrandize silver)]
+>    [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 >    -- [ ("cutbake"     , cut 4.5 $ bakedJingle 9123)]
 
 a few playthings ... get it? ==========================================================================================

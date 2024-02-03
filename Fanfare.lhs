@@ -376,20 +376,21 @@ Snake ==========================================================================
 > snakeTempo                               = 2
 > snakeTranspose                           = 0
 >
-> snakeLead                                = (AltoSax,  100)
-> snakeSecond                              = (TenorSax, 100)
+> snakeLead_                               = makePitched    AltoSax    snakeTranspose  0  100
+> snakeSecond_                             = makePitched    TenorSax   snakeTranspose  0  100
 >
-> snake =
+> snake dynMap =
 >    removeZeros
+>    $ aggrandize
 >    $ tempo snakeTempo
->    $ transpose snakeTranspose
 >    $ keysig D Mixolydian
->    $     bandPart snakeLead treblePart
->      :=: bandPart snakeSecond altoPart
+>    $     bandPart' snakeLead treblePart
+>      :=: bandPart' snakeSecond altoPart
 >
 >    where
 >
->    xpo                                   = snakeTranspose
+>    snakeLead                             = replace snakeLead_ dynMap
+>    snakeSecond                           = replace snakeSecond_ dynMap
 >
 >    treblePart = line [treb00, treb01, treb02, treb03, treb04]
 >    altoPart   = line [alto00, alto01, alto02, alto03, alto04]

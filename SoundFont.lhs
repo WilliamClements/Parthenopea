@@ -646,7 +646,7 @@ executive ======================================================================
 >     let dynMap                           = makeDynMap ding
 >     traceIO ("dynMap " ++ show dynMap)
 >     let ks                               = Map.keys shRanges
->     let (is, ps)                         = (lefts ks, rights ks)
+>     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
 >     let (esI, esP)                       = printChoices sfrost is ps
 >     let es                               = emitCounts is ps name ++ concatMap snd esI ++ concatMap snd esP
 >     putStr (reapEmissions es)
@@ -1333,8 +1333,7 @@ carry out, and "pre-cache" results of, play requests ===========================
 >                           → ZoneCache
 >                           → Map a PerGMScored
 >                           → IO (Map PlayKey (Reconciled, Maybe Reconciled))
-> createPlayCache sffiles zoneCache ws
->                                          = return $ Map.foldrWithKey precalcFolder Map.empty ws
+> createPlayCache sffiles zoneCache ws     = return $ Map.foldrWithKey precalcFolder Map.empty ws
 >   where
 >     precalcFolder      :: a
 >                           → PerGMScored
