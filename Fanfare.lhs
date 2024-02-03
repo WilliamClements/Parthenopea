@@ -126,18 +126,19 @@ Alice ==========================================================================
 
 > aliceTempo                               = 2
 > aliceTranspose                           = 10
-> aliceLead                                = (Vibraphone, 100)
+> aliceLead_                               = makePitched Vibraphone aliceTranspose 0 100
 >
-> alice = removeZeros
+> alice dynMap =
+>         removeZeros
+>         $ aggrandize
 >         $ tempo                          aliceTempo
->         $ transpose                      xpo
 >         $ keysig G Dorian
->         $ bandPart aliceLead
+>         $ bandPart' aliceLead
 >         $ line [rest hn, line00, line01, line00, line01]
 >
 >    where
 >       
->       xpo    = aliceTranspose
+>       aliceLead                          = replace aliceLead_ dynMap
 >
 >       frag00 = line [g 3 qn, rest en, a 3 en, bf 3 wn]
 >       frag01 = tempo (5/2) $ line [a 3 qn, bf 3 qn, a 3 qn,  g 3 hn]
@@ -274,9 +275,10 @@ Copper =========================================================================
 >
 > copperLead_                              = makePitched Banjo copperTranspose 0 100
 >
-> copper :: Int → Music (Pitch, Volume)
-> copper n =
+> copper :: Int → DynMap → Music (Pitch, [NoteAttribute])
+> copper n dynMap =
 >    removeZeros
+>    $ aggrandize
 >    $ tempo 2
 >    $ keysig C Dorian
 >    $ bandPart' copperLead
@@ -287,21 +289,21 @@ Copper =========================================================================
 >
 >    where
 >
->      copperLead                          = copperLead_
+>      copperLead                          = replace copperLead_ dynMap
 
 Gold ==================================================================================================================
 
 > goldTempo                                = 2
 > goldTranspose                            = -5
 >
-> goldLead                                 = (Harpsichord, 100)
+> goldLead_                                = makePitched Harpsichord goldTranspose 0 100
 >
-> gold =
+> gold dynMap =
 >    removeZeros
+>    $ aggrandize
 >    $ tempo 2
->    $ transpose (-5)
 >    $ keysig C Mixolydian
->    $ bandPart goldLead
+>    $ bandPart' goldLead
 >    $ times 2
 >      (line [c 4 hn,  c 5 dhn]
 >       :+: addDur qn [ c 5, bf 4,  a 4,  g 4,
@@ -311,24 +313,28 @@ Gold ===========================================================================
 >                       c 5, bf 4,  a 4,  g 4,
 >                       g 4,  f 4,  e 4,  d 4,
 >                       d 4, bf 3, bf 3])
->    :+: c 4 hn
+>       :+: c 4 hn
+>   where
+>     goldLead                             = replace goldLead_ dynMap
 
 Silver ================================================================================================================
 
 > silverTempo                              = 2
 > silverTranspose                          = -5
 >
-> silverLead                               = (MusicBox, 100)
+> silverLead_                              = makePitched MusicBox silverTranspose 0 100
 >     
-> silver =
+> silver dynMap =
 >     removeZeros
+>     $ aggrandize
 >     $ tempo 2
->     $ transpose 17
 >     $ keysig A Mixolydian
->     $ bandPart silverLead
+>     $ bandPart' silverLead
 >     $ line allSilver
 >
 >     where
+>
+>     silverLead                           = replace silverLead_ dynMap
 >
 >     silver00 = 
 >        addDur hn
@@ -1007,25 +1013,26 @@ Rattan =========================================================================
 > ratTempo                                 = 1
 > ratTranspose                             = 0
 >
-> ratLead                                  = (Flute, 100)
-> ratBass                                  = (SynthBass1, 100)
-> ratPerc                                  = (Percussion, 100)
+> ratLead_                                 = makePitched Flute           ratTranspose 0 100
+> ratBass_                                 = makePitched SynthBass1      ratTranspose 0 100
+> ratPerc_                                 = makeNonPitched                             100
 > 
-> rattan =
+> rattan dynMap =
 >     removeZeros
+>     $ aggrandize
 >     $ tempo ratTempo
->     $ transpose ratTranspose
 >     $ keysig E Locrian
 >     $ chord [vpart, spart, ppart]
 >
-> vpart =
->     bandPart ratLead (times 2 vline)
+>   where
 >
-> spart = 
->     bandPart ratBass (times 2 sline)
+>   ratLead                                = replace ratLead_ dynMap
+>   ratBass                                = replace ratBass_ dynMap
+>   ratPerc                                = replace ratPerc_ dynMap
 >
-> ppart =
->     bandPart ratPerc (times 2 pline)
+>   vpart                                  = bandPart' ratLead (times 2 vline)
+>   spart                                  = bandPart' ratBass (times 2 sline)
+>   ppart                                  = bandPart' ratPerc (times 2 pline)
 >
 > vline = line [vl_l01a, vl_101b, vl_l01a, vl_101b', vl_l01a, vl_101b, vl_l01a, vl_101b''
 >             , vl_201a, vl_201a, vl_201a, vl_201a,  vl_201b, vl_201b, vl_201b, vl_201b

@@ -44,11 +44,11 @@ organize exposed music =========================================================
 > ajingles =
 >    [ ("theFanfare"     , theFanfare False)
 >    , ("slot"           , slot 4)
->    , ("alice"          , shimSong $ aggrandize alice)
+>    , ("alice"          , alice)
 >    , ("bob"            , bob 4)
->    , ("copper"         , shimSong $ aggrandize (copper 2))
->    , ("gold"           , shimSong $ aggrandize gold)
->    , ("silver"         , shimSong $ aggrandize silver)]
+>    , ("copper"         , copper 2)
+>    , ("gold"           , gold)
+>    , ("silver"         , silver)]
 > bjingles =
 >    [ ("getCITM"        , getCITM)
 >    , ("bake"           , shimSong $ bakedJingle 9345)
@@ -70,7 +70,7 @@ organize exposed music =========================================================
 >    [ ("kit"            , kit)
 >    , ("pit"            , pit)
 >    , ("dit"            , dit)
->    , ("rattan"         , shimSong $ aggrandize rattan)]
+>    , ("rattan"         , rattan)]
 > zjingles =
 >    [ ("deathlessHorsie", deathlessHorsie)
 >    , ("basicLick"      , basicLick)
