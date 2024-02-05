@@ -389,6 +389,7 @@ also
 >     BreathNoise                            → True
 >     Gunshot                                → True
 >     Helicopter                             → True
+>     Percussion                             → True
 >     ReverseCymbal                          → True
 >     Seashore                               → True
 >     SynthDrum                              → True
@@ -410,7 +411,8 @@ also
 >     rangedInsts                          = mapMaybe judgeScore getList
 >
 >     judgeScore         :: InstrumentName → Maybe (Int, InstrumentName)
->     judgeScore cand                      = instrumentRange cand >>= uncurry (fitsIn cand)
+>     judgeScore cand                      = (\c → if nonPitchedInstrument c then Nothing else Just c) cand
+>                                            >>= instrumentRange >>= uncurry (fitsIn cand)
 >     
 >     fitsIn             :: InstrumentName → Pitch → Pitch → Maybe (Int, InstrumentName)
 >     fitsIn cand rangeLo rangeHi
@@ -503,7 +505,7 @@ instrument range checking ======================================================
 >   where
 >     minst                                = Map.lookup bpInstrument dynMap
 >     ninst                                =
->       if isJust minst && bpInstrument /= Percussion
+>       if not (nonPitchedInstrument bpInstrument) && isJust minst
 >         then fromJust minst
 >         else bpInstrument
 >     trace_R                              = unwords ["replace", show dynMap, show minst, show ninst]

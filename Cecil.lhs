@@ -8,34 +8,34 @@ December 18, 2022
 
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
-> import Parthenopea ( triad, bandPart )
+> import Parthenopea
 
 Cecil's Asleep ========================================================================================================
 
 > cecilTempo                               = 1
 > cecilTranspose                           = 0
 >
-> cecilAlto                                = (Violin,       100)
-> cecilTenor                               = (TenorSax,     100)
-> cecilBass                                = (AcousticBass, 100)
+> cecilAlto_                               = makePitched Violin        cecilTranspose 0        100
+> cecilTenor_                              = makePitched TenorSax      cecilTranspose 0        100
+> cecilBass_                               = makePitched AcousticBass  cecilTranspose 0        100
 >
-> cecil :: Music (Pitch, Volume)
-> cecil =
+> cecil                  :: DynMap → Music (Pitch, [NoteAttribute])
+> cecil dynMap                             =
 >    removeZeros
+>    $ aggrandize
 >    $ tempo cecilTempo
->    $ transpose xpo
 >    $ keysig G Dorian
->    $ bandPart cecilAlto
+>    $ bandPart' cecilAlto
 >      ((if      includeI    then rAltoI     else rest 0)
 >        :+: (if includeII   then rAltoII    else rest 0)
 >        :+: (if includeIII  then rAltoIII   else rest 0)
 >        :+: (if includeIV   then rAltoIV    else rest 0))
->      :=: bandPart cecilTenor
+>      :=: bandPart' cecilTenor
 >      ((if      includeI    then rTenrI     else rest 0)
 >        :+: (if includeII   then rTenrII    else rest 0)
 >        :+: (if includeIII  then rTenrIII   else rest 0)
 >        :+: (if includeIV   then rTenrIV    else rest 0))
->      :=: bandPart cecilBass
+>      :=: bandPart' cecilBass
 >      ((if      includeI    then rBassI     else rest 0)
 >        :+: (if includeII   then rBassII    else rest 0)
 >        :+: (if includeIII  then rBassIII   else rest 0)
@@ -43,7 +43,9 @@ Cecil's Asleep =================================================================
 >
 >    where
 >
->       xpo              = cecilTranspose
+>       cecilAlto                          = replace cecilAlto_ dynMap
+>       cecilTenor                         = replace cecilTenor_ dynMap
+>       cecilBass                          = replace cecilBass_ dynMap
 >
 >       includeI         = True
 >       includeII        = True
@@ -218,19 +220,19 @@ Abby Cissa =====================================================================
 > abbyTempo                                = 1
 > abbyTranspose                            = 0
 >
-> abbyGrand                                = (AcousticGrandPiano, 100)
+> abbyGrand_                               = makePitched AcousticGrandPiano abbyTranspose 0 100
 >
-> abby :: Music (Pitch, Volume)
-> abby =
+> abby                   :: DynMap → Music (Pitch, [NoteAttribute])
+> abby dynMap                              =
 >    removeZeros
+>    $ aggrandize
 >    $ tempo abbyTempo
->    $ transpose xpo
 >    $ keysig C Major
->    $ bandPart abbyGrand aLink
+>    $ bandPart' abbyGrand aLink
 >
 >    where
 >
->    xpo                                   = abbyTranspose
+>    abbyGrand                             = replace abbyGrand_ dynMap
 >
 >    aLink, aLinkI, aLinkII, aLinkIII :: Music Pitch
 >    aLink  = line [aLinkI, aLinkII, aLinkI
@@ -296,23 +298,25 @@ There Goes W.J. ================================================================
 > wjTempo                                  = 1
 > wjTranspose                              = 0
 >
-> wjAlto                                   = (AltoSax,              100)
-> wjTenor                                  = (HammondOrgan,         100)
-> wjBass                                   = (ElectricBassFingered, 100)
+> wjAlto_                                  = makePitched AltoSax               wjTranspose 0           100
+> wjTenor_                                 = makePitched HammondOrgan          wjTranspose 0           100
+> wjBass_                                  = makePitched ElectricBassFingered  wjTranspose 0           100
 >
-> wj :: Music (Pitch, Volume)
-> wj =
+> wj                     :: DynMap → Music (Pitch, [NoteAttribute])
+> wj dynMap                                =
 >    removeZeros
+>    $ aggrandize
 >    $ tempo wjTempo
->    $ transpose xpo
 >    $ keysig G Dorian
->    $     bandPart wjAlto  (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
->      :=: bandPart wjTenor (line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
->      :=: bandPart wjBass  (line [wjBassI,  wjBassII,  wjBassIII,  wjBassIV])
+>    $     bandPart' wjAlto  (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
+>      :=: bandPart' wjTenor (line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
+>      :=: bandPart' wjBass  (line [wjBassI,  wjBassII,  wjBassIII,  wjBassIV])
 >
 >    where
 >
->    xpo                                   = wjTranspose
+>    wjAlto                                = replace wjAlto_ dynMap
+>    wjTenor                               = replace wjTenor_ dynMap
+>    wjBass                                = replace wjBass_ dynMap
 >
 >    --                    There     goes    dou-      ble       you     jay
 >    wjAltoI     = line  [ bf 4 qn, g 4 qn, bf 4 en, bf 4 en, bf 4 qn, c 5 wn]
@@ -358,17 +362,17 @@ Shelby Parsley =================================================================
 > spTranspose                              = 0
 > spTempo                                  = 1
 >
-> spVibes                                  = (Vibraphone        ,  80)
-> spBass                                   = (ElectricBassPicked, 110)
-> dihtRhodes                               = (RhodesPiano       , 110)
+> spVibes_                                 = makePitched Vibraphone          spTranspose 0  80
+> spBass_                                  = makePitched ElectricBassPicked  spTranspose 0 110
+> dihtRhodes_                              = makePitched RhodesPiano         spTranspose 0 110
 > 
-> spEflat'      = triad Ef Major               (Bf, 3)
+> spEflat'                                 = triad Ef Major           (Bf, 3)
 >
-> shelby :: Music (Pitch, Volume)
-> shelby =
+> shelby                 :: DynMap → Music (Pitch, [NoteAttribute])
+> shelby dynMap                            =
 >   removeZeros
+>   $ aggrandize
 >   $ tempo spTempo
->   $ transpose spTranspose
 >   $ keysig Ef Mixolydian
 >   $ (if skip_SP
 >       then rest 0
@@ -377,13 +381,15 @@ Shelby Parsley =================================================================
 >
 >   where
 >
->   xpo                                    = spTranspose
+>   spVibes                                = replace spVibes_ dynMap
+>   spBass                                 = replace spBass_ dynMap
+>   dihtRhodes                             = replace dihtRhodes_ dynMap
 >
 >   spv, spb             :: Music (Pitch, Volume)
->   spv                                    = bandPart spVibes     (line [spAltoI,  spAltoII,  spAltoIII])
->   spb                                    = bandPart spBass      (line [spBassI,  spBassII,  spBassIII])
->   dihtr                                  = bandPart dihtRhodes  (line [dihtRhodesI])
->   dihtb                                  = bandPart spBass      (line [dihtBassI])
+>   spv                                    = bandPart' spVibes     (line [spAltoI,  spAltoII,  spAltoIII])
+>   spb                                    = bandPart' spBass      (line [spBassI,  spBassII,  spBassIII])
+>   dihtr                                  = bandPart' dihtRhodes  (line [dihtRhodesI])
+>   dihtb                                  = bandPart' spBass      (line [dihtBassI])
 >
 >   dihtRhodesI = 
 >        line [ chord [ triad B (CustomMode "Sus4") (B, 3) wn
@@ -530,19 +536,20 @@ We Hate Her ====================================================================
 > whhTempo                                 = 1
 > whhTranspose                             = 0
 >
-> whhHarpBoy                               = (Harmonica, 100)
+> whhHarpBoy_                              = makePitched Harmonica whhTranspose 0 100
 >
-> weHateHer              :: Music (Pitch, Volume)
-> weHateHer                                =
+> weHateHer              :: DynMap → Music (Pitch, [NoteAttribute])
+> weHateHer dynMap                         =
 >    removeZeros
+>    $ aggrandize
 >    $ tempo whhTempo
 >    $ transpose whhTranspose
 >    $ keysig G Dorian
->    $ bandPart whhHarpBoy whhMel
+>    $ bandPart' whhHarpBoy whhMel
 >
 >    where
 >
->    xpo                                   = whhTranspose
+>    whhHarpBoy                            = replace whhHarpBoy_ dynMap
 >
 > whhMel :: Music Pitch
 >    --                      We
@@ -563,10 +570,3 @@ We Hate Her ====================================================================
 >               ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
 >    --              did-    n't     do      our       best
 >               ,   d 4 en, d 4 en, e 4 en, fs 4 en,  g 4 wn]               
->
-> opera                  :: Music (Pitch, Volume)
-> opera                                = cecil        :+: rest wn
->                                     :+: weHateHer   :+: rest wn
->                                     :+: wj          :+: rest wn
->                                     :+: shelby      :+: rest wn
->                                     :+: abby

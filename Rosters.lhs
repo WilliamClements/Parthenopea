@@ -55,11 +55,11 @@ organize exposed music =========================================================
 >    , ("bill"           , bill 4)
 >    , ("roger"          , roger)]
 > cjingles =
->    [ ("cecil"          , shimSong $ aggrandize cecil)
->    , ("abby"           , shimSong $ aggrandize abby)
->    , ("wj"             , shimSong $ aggrandize wj)
->    , ("shelby"         , shimSong $ aggrandize shelby)
->    , ("weHateHer"      , shimSong $ aggrandize weHateHer)]
+>    [ ("cecil"          , cecil)
+>    , ("abby"           , abby)
+>    , ("wj"             , wj)
+>    , ("shelby"         , shelby)
+>    , ("weHateHer"      , weHateHer)]
 > djingles =
 >    [ ("waypostpurple"  , waypostpurple)
 >    , ("whelpNarp"      , whelpNarp)
@@ -85,10 +85,10 @@ organize exposed music =========================================================
 >    -- [ ("slot"        , aggrandize (slot 1))]
 >    -- [ ("basicLick"   , aggrandize basicLick)]
 >    -- [ ("baked"       , bakedJingle 54349)]
->    -- [ ("ssailor"     , aggrandize ssailor)]
+>    [ ("packardGoose"   , packardGoose)]
 >    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
 >    -- [ ("bob"         , aggrandize (bob 2))]
->    [ ("littleSailor", shimSong $ aggrandize littleSailor)]
+>    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 >    -- [ ("cutbake"     , cut 4.5 $ bakedJingle 9123)]
 
 a few playthings ... get it? ==========================================================================================
