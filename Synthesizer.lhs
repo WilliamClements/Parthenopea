@@ -1,6 +1,7 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE NamedFieldPuns #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
@@ -65,7 +66,7 @@ Signal function-based synth ====================================================
 >                                          =       eutDriver      secsScored (reconL, reconR) secsToPlay delta looping
 >                                              >>> eutPumpSamples secsScored (reconL, reconR) noon dur s16 ms8
 >                                              >>> eutModulate    secsScored (reconL, reconR)
->                                              >>> eutEffects     secsScored (reconL, reconR)
+>                                              >>> eutEffects                (reconL, reconR)
 >                                              >>> eutAmplify     secsScored (reconL, reconR) noon secsToPlay
 >
 >     trace_eS                             =
@@ -288,18 +289,17 @@ FFT ============================================================================
 >                           → F.Shdr
 >                           → AbsPitch
 >                           → [[Double]]
-> eutAnalyzeSample s16 ms8 shdr ap
+> eutAnalyzeSample s16 ms8 F.Shdr{ .. } ap
 >   | traceAlways msgT False               = undefined
 >   | otherwise                            = vFft
 >   where
->     (st, en)           :: (Word, Word)   = (F.start shdr,     F.end shdr)
->     sr                 :: Double         = fromIntegral $ F.sampleRate shdr
+>     sr                 :: Double         = fromIntegral $ sampleRate
 >     rootf              :: Double         = apToHz ap
->     pc                 :: Double         = fromCents $ fromIntegral $ F.pitchCorrection shdr
->     nsI                :: Int            = fromIntegral $ min (F.sampleRate shdr) (en - st + 1)
+>     pc                 :: Double         = fromCents $ fromIntegral $ pitchCorrection
+>     nsI                :: Int            = fromIntegral $ min sampleRate (end - start + 1)
 >     nsD                :: Double         = fromIntegral nsI
 >
->     (st', en')         :: (Int, Int)     = (fromIntegral st, fromIntegral st + nsI)
+>     (st', en')         :: (Int, Int)     = (fromIntegral start, fromIntegral start + nsI)
 >     raw                :: [Double]       = map (samplePoint s16 ms8) [st'..en'- 1]
 >
 >     maxval             :: Double         = maximum (map abs raw)
@@ -497,34 +497,36 @@ Create a straight-line envelope generator with following phases:
 Effects ===============================================================================================================
 
 > deriveEffects          :: Maybe Int → Maybe Int → Maybe Int → Effects
-> deriveEffects mChorus mReverb mPan       = Effects mdChorus mdReverb mdPan
+> deriveEffects mChorus mReverb mPan       = Effects dChorus dReverb dPan
 >   where
->     mdChorus           :: Maybe Double   = if useChorus
->                                              then fmap (conv (0, 1000)) mChorus
->                                              else Nothing
->     mdReverb           :: Maybe Double   = if useReverb
->                                              then fmap (conv (0, 1000)) mReverb
->                                              else Nothing
->     mdPan              :: Maybe Double   = if usePan
->                                              then fmap (conv (-500, 500)) mPan
->                                              else Nothing
+>     dChorus            :: Double   =
+>       if useChorus
+>         then maybe 0 (conv (0, 1000)) mChorus
+>         else 0
+>     dReverb            :: Double   =
+>       if useReverb
+>         then maybe 0 (conv (0, 1000)) mReverb
+>         else 0
+>     dPan               :: Double   =
+>       if usePan
+>         then maybe 0 (conv (-500, 500)) mPan
+>         else 0
 >
 >     conv               :: (Int, Int) → Int → Double
 >     conv range nEffect = fromIntegral (clip range nEffect) / 1000
 >
 > eutEffects             :: ∀ p . Clock p ⇒
->                           Double
->                           → (Reconciled, Reconciled)
+>                           (Reconciled, Reconciled)
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals))
 >                                      ((Double, Double), (ModSignals, ModSignals))
-> eutEffects _ (Reconciled{rEffects = effL}, Reconciled{rEffects = effR})
+> eutEffects (Reconciled{rEffects = effL}, Reconciled{rEffects = effR})
 >   | traceNever trace_eE False = undefined
 >   | otherwise =
 >   proc ((aL, aR), (modSigL, modSigR)) → do
->     chL ← eutChorus 15.0 0.005 0.1 cL ⤙ aL
->     chR ← eutChorus 15.0 0.005 0.1 cR ⤙ aR
+>     chL ← eutChorus 15.0 0.005 0.1 cFactorL ⤙ aL
+>     chR ← eutChorus 15.0 0.005 0.1 cFactorR ⤙ aR
 >
->     (rbL, rbR) ← eutReverb rL ⤙ (aL, aR)
+>     (rbL, rbR) ← eutReverb ⤙ (aL, aR)
 >
 >     let mixL = (  cFactorL       * chL
 >                 + rFactorL       * rbL
@@ -546,15 +548,8 @@ Effects ========================================================================
 >     outA                                 ⤙ ((pL', pR'), (modSigL, modSigR))
 >
 >   where
->     ecL@Effects{efChorus = cL, efReverb = rL, efPan = pL} = effL
->     ecR@Effects{efChorus = cR, efReverb = rR, efPan = pR} = effR
->
->     cFactorL = fromMaybe 0 cL
->     cFactorR = fromMaybe 0 cR
->     rFactorL = fromMaybe 0 rL
->     rFactorR = fromMaybe 0 rR
->     pFactorL = fromMaybe 0 pL
->     pFactorR = fromMaybe 0 pR
+>     Effects{efChorus = cFactorL, efReverb = rFactorL, efPan = pFactorL} = effL
+>     Effects{efChorus = cFactorR, efReverb = rFactorR, efPan = pFactorR} = effR
 >
 >     trace_eE =
 >       unwords ["eutEffects=",        show effL
@@ -562,13 +557,16 @@ Effects ========================================================================
 >              , "pFactor*=",          show pFactorL
 >              , " ",                  show pFactorR]
 > 
-> eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Maybe Double → Signal p Double Double
-> eutChorus rate gain depth               = maybe (delay 0) makeSF
+> eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Double → Signal p Double Double
+> eutChorus rate gain depth cFactor              =
+>   if cFactor > 0
+>     then makeSF
+>     else delay 0                                            
 >   where
 >     gain                                 = 0.1
 >
->     makeSF             :: Double → Signal p Double Double
->     makeSF rate = proc sin → do
+>     makeSF             :: Signal p Double Double
+>     makeSF = proc sin → do
 >       lfo ← osc (tableSines 4096 [1]) 0  ⤙ rate
 >       z1 ← delayLine1 0.030              ⤙ (sin, 0.010 + depth * lfo)
 >       z2 ← delayLine1 0.030              ⤙ (sin, 0.020 + depth * lfo)
@@ -577,15 +575,17 @@ Effects ========================================================================
 >         r ← delayLine 0.0001             ⤙ (sin + z1 + z2 + z3)/4 + r * gain
 >       outA ⤙ r
 >
-> eutReverb              :: ∀ p . Clock p ⇒ Maybe Double → Signal p (Double, Double) (Double, Double)
-> eutReverb                                = maybe (delay (0, 0)) makeSF
+> eutReverb              :: ∀ p . Clock p ⇒ Signal p (Double, Double) (Double, Double)
+> eutReverb                                = if useReverb
+>                                              then makeSF
+>                                              else delay (0,0)
 >   where
 >     roomSize                             = 0.75
 >     damp                                 = 0.25
 >     width                                = 1.0
 >
->     makeSF             :: Double → Signal p (Double, Double) (Double, Double)
->     makeSF _                             = eatFreeVerb $ makeFreeVerb roomSize damp width
+>     makeSF             :: Signal p (Double, Double) (Double, Double)
+>     makeSF                               = eatFreeVerb $ makeFreeVerb roomSize damp width
 >   
 > fvWetDryMix     = 0.2
 > fvCoefficient   = 0.5
@@ -781,9 +781,9 @@ Utility types ==================================================================
 >
 > data Effects =
 >   Effects {
->     efChorus           :: Maybe Double
->   , efReverb           :: Maybe Double
->   , efPan              :: Maybe Double} deriving (Eq, Show)
+>     efChorus           :: Double
+>   , efReverb           :: Double
+>   , efPan              :: Double} deriving (Eq, Show)
 >
 > data SampleType =
 >   SampleTypeMono

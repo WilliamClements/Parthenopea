@@ -1212,17 +1212,15 @@ reconcile zone and sample header ===============================================
 >   where
 >     traceRLR = unwords ["reconcileLR zoneL=", show zoneL, "\n  shdrL=", show shdrL]
 >
->     recL@Reconciled{rRootKey, rPitchCorrection}
->                                          = reconcile (zoneL, shdrL) noon
->     recR                                 = reconcile (zoneR, shdrR) noon
+>     recL@Reconciled{rRootKey = rkL, rPitchCorrection = pcL}
+>                                          = reconcile zoneL shdrL noon
+>     recR                                 = reconcile zoneR shdrR noon
 >     recR'                                = recR{
->                                                rRootKey                   = rRootKey
->                                              , rPitchCorrection           = rPitchCorrection}
+>                                                rRootKey                   = rkL
+>                                              , rPitchCorrection           = pcL}
 >
-> reconcile              :: (SFZone, F.Shdr) → NoteOn → Reconciled 
-> reconcile (zone@SFZone{ .. }
->          , shdr@F.Shdr{F.originalPitch, F.sampleRate, F.start, F.end, F.startLoop, F.endLoop})
->          noon@NoteOn{noteOnVel, noteOnKey}
+> reconcile              :: SFZone → F.Shdr → NoteOn → Reconciled 
+> reconcile zone@SFZone{ .. } F.Shdr{ .. } noon@NoteOn{ .. }
 >                                          = recon
 >   where
 >     m8n                                  = reconModulation zone noon
@@ -1252,7 +1250,7 @@ reconcile zone and sample header ===============================================
 >                                                                      zReleaseVolEnv
 >                                                                      Nothing
 >   , rPitchCorrection = if usePitchCorrection
->                          then Just $ reconPitchCorrection            (F.pitchCorrection     shdr)
+>                          then Just $ reconPitchCorrection            pitchCorrection
 >                                                                      zCoarseTune
 >                                                                      zFineTune
 >                          else Nothing
