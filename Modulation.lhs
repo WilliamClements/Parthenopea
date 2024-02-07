@@ -1,6 +1,7 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE NamedFieldPuns #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
@@ -162,6 +163,7 @@ Modulator management ===========================================================
 >   | (wIn .&. 0x8000) /= 0                = Just from{mrModDest = ToLink $ wIn .&. 0x7fff}
 >   | otherwise                            = case wIn of
 >                                              8       → Just from{mrModDest = ToFilterFc}
+>                                              16      → Just from{mrModDest = ToReverb}
 >                                              48      → Just from{mrModDest = ToInitAtten}
 >                                              _ → Nothing
 >
@@ -221,8 +223,7 @@ Modulator management ===========================================================
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
 > calculateModFactor     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
-> calculateModFactor tag Modulation{modGraph, toPitchCo, toFilterFcCo, toVolumeCo}
->                    md ModSignals{xModEnvPos, xModLfoPos, xVibLfoPos} noon
+> calculateModFactor tag Modulation{ .. } md ModSignals{ .. } noon
 >  | traceNever msg False                  = undefined
 >  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
@@ -640,6 +641,7 @@ Type declarations ==============================================================
 >   | ToFilterFc
 >   | ToVolume
 >   | ToInitAtten
+>   | ToReverb
 >   | ToLink Word deriving (Eq, Ord, Show)
 >
 > data ModSrcSource =

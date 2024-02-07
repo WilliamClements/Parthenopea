@@ -378,7 +378,7 @@ Envelopes ======================================================================
 >                           → Maybe Envelope
 > deriveEnvelope mDelay mAttack NoteOn{noteOnKey} (mHold, mHoldByKey) (mDecay, mDecayByKey)
 >                mSustain mRelease mTriple
->   | traceNever msg False                 = undefined
+>   | traceNever trace_DE False            = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTriple
 >                                              then Just env
 >                                              else Nothing
@@ -403,14 +403,16 @@ Envelopes ======================================================================
 >                                              Nothing           → defModTriple
 >                                              Just target       → uncurry deriveModTriple target Nothing
 >
->     msg                                  = if useEnvelopes
->                                              then unwords ["deriveEnvelope ", if isJust mTriple
->                                                                                 then "modEnv "
->                                                                                 else "volEnv "
->                                                                        , "\nhold=   ", show mHold,     " ",   show mHoldByKey,  " ", show dHold, " ( not ",   show (fromTimecents mHold), " )"
->                                                                        , "\ndecay=  ", show mDecay,    " ",   show mDecayByKey, " ", show dDecay, " ( not ", show (fromTimecents mDecay), " )"
->                                                                        , "\nmRelease=", show mRelease, " ( ", show (fromTimecents mRelease), " )"]
->                                              else unwords ["deriveEnvelope (none)"]
+>     trace_DE                             =
+>       if useEnvelopes
+>         then unwords ["deriveEnvelope"
+>                       ,  if isJust mTriple then "modEnv " else "volEnv "
+>                       , "\nhold=   ", show mHold,     " ",   show mHoldByKey,  " ", show dHold
+>                            , " ( not ",   show (fromTimecents mHold), " )"
+>                       , "\ndecay=  ", show mDecay,    " ",   show mDecayByKey, " ", show dDecay
+>                            , " ( not ", show (fromTimecents mDecay), " )"
+>                       , "\nmRelease=", show mRelease, " ( ", show (fromTimecents mRelease), " )"]
+>         else unwords ["deriveEnvelope (none)"]
 >
 > doEnvelope             :: ∀ p . Clock p ⇒ Maybe Envelope → Double → Double → Signal p () Double
 > doEnvelope menv secsScored secsToPlay    = case menv of
@@ -516,7 +518,7 @@ Effects ========================================================================
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals))
 >                                      ((Double, Double), (ModSignals, ModSignals))
 > eutEffects _ (Reconciled{rEffects = effL}, Reconciled{rEffects = effR})
->   | traceNever msg False = undefined
+>   | traceNever trace_eE False = undefined
 >   | otherwise =
 >   proc ((aL, aR), (modSigL, modSigR)) → do
 >     chL ← eutChorus 15.0 0.005 0.1 cL ⤙ aL
@@ -554,10 +556,11 @@ Effects ========================================================================
 >     pFactorL = fromMaybe 0 pL
 >     pFactorR = fromMaybe 0 pR
 >
->     msg = unwords ["eutEffects=",        show effL
->                  , "=LR=",               show effR
->                  , "pFactor*=",          show pFactorL
->                  , " ",                  show pFactorR]
+>     trace_eE =
+>       unwords ["eutEffects=",        show effL
+>              , "=LR=",               show effR
+>              , "pFactor*=",          show pFactorL
+>              , " ",                  show pFactorR]
 > 
 > eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Maybe Double → Signal p Double Double
 > eutChorus rate gain depth               = maybe (delay 0) makeSF

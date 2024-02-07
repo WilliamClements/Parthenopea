@@ -717,7 +717,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     empiricals         :: [Int]          = [   scoreBool $ isStereoInst zs
 >                                              , scoreBool $ is24BitInst zs
 >                                              , round $ computeSplitCharacteristic kind zs
->                                              , scoreBool $ instConforms zs
+>                                              , scoreBool $ all zoneConforms zs
 >                                              , round fuzz]
 >     howgood                              = againstKindResult - stands
 >     fuzz               :: Double
@@ -752,31 +752,21 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 > isStereoInst zs                          = isJust $ find isStereoZone zs
 >       
-> isStereoZone           :: (ZoneHeader, SFZone) → Bool
-> isStereoZone (ZoneHeader{pSample}, zone)
+> isStereoZone (ZoneHeader{ .. }, SFZone{ .. })
 >                                          = stype == SampleTypeRight || stype == SampleTypeLeft
 >   where
 >     stype = toSampleType $ F.sampleType pSample 
 >         
-> instConforms           :: [(ZoneHeader, SFZone)] → Bool
-> instConforms                             = all zoneConforms
->
-> itemViolates           :: SFZone → (SFZone → Maybe a) → Bool
-> itemViolates z f                         = isJust (f z)
->
-> zoneConforms           :: (ZoneHeader, SFZone) → Bool
-> zoneConforms (_, zone@SFZone{zInitQ, zSampleMode})
+> zoneConforms (ZoneHeader{ .. }, SFZone{ .. })
 >                                          = not $ or unsupported
 >   where
->     violates                             = itemViolates zone
->
 >     unsupported        :: [Bool]
 >     unsupported                          =
 >       [
 >           A.PressLoop == fromMaybe A.NoLoop zSampleMode
 >         , 0 < fromMaybe 0 zInitQ
->         , violates zScaleTuning
->         , violates zExclusiveClass
+>         , 0 /= fromMaybe 0 zScaleTuning
+>         , 0 /= fromMaybe 0 zExclusiveClass
 >       ]
 >
 > is24BitInst _                     = True -- WOX isJust $ ssM24 arrays       

@@ -1410,6 +1410,6 @@ Configurable parameters ========================================================
 >     qqDiagnosticsEnabled                 = False
 >   , qqSkipReporting                      = False
 >   , qqSkipGlissandi                      = False
->   , qqReplacePerCent                     = 75
+>   , qqReplacePerCent                     = 0
 >   , qqDumpFftChunks                      = False
 >   , qqNumTakeFftChunks                   = 3}

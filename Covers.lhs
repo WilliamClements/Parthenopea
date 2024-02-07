@@ -2397,6 +2397,53 @@ PG =============================================================================
 >              , line [percSDqn, rest hn]
 >              , line [percCHHqn, rest en, percCHHen, percOHHqn]]]
 >
+> perc073_076 =
+>   line [tempo (7/6) (line [percBDen, percSDen, percSDen, percBDen, percBDen, percBDen, percSDen
+>                           , percSDen, percBDen, percBDen, percBDen, percSDen, percSDen, rest en])
+>       , chord [line [percBDen, percBDen, rest hn]
+>              , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
+>       , chord [line [percBDqn, percSDen, percBDen, rest en, percSDen]
+>              , line [percCHHqn, rest en, perc ClosedHiHat dqn]]]
+>
+> perc077_080 =
+>   line [chord [line [rest qn, t32 [percHTen, percHTen, percLTen, times 3 percBDen]]
+>              , line [percCHHqn, percCCqn, rest qn]]
+>       , line [perc LowTom den, percOHHsn, times 2 percLTsn, rest dqn]
+>       , chord [line [percBDen, percBDen, rest dqn, percBDen]
+>              , line [percCCen, percCCen, rest qn, percOHHqn]]
+>       , chord [line [percBDqn, percSDen, percBDen, rest qn]
+>              , line [percOHHqn, rest en, percOHHen, percOHHqn]]]
+>
+> perc081_082 =
+>   chord [line [chord [percBDen, percLTen], t32 [percLTsn, percLTsn, percBDsn], percSDen, percHTsn, percHTsn
+>              , tempo (5/6) (line [percHTen, percHTen, percBDen, percLTen, percLTen]), percLTqn]
+>        , line [perc PedalHiHat qn, rest sn, perc CrashCymbal1 den
+>              , tempo (5/6) (line [percCCqn, rest dqn]), percHTqn]]
+>
+> perc083_084 =
+>   chord [line [percBDen, percBDen, rest dqn, percBDen, chord [percBDqn, percSDqn], percSDen, percBDen, rest qn]
+>        , line [percCCen, percCCen, rest qn, perc PedalHiHat qn, percOHHqn, percOHHen, percOHHen, percOHHqn]]
+>
+> perc085_088 =
+>   line [chord [line [percBDen, percBDen, percBDen, tempo (4/3) (times 4 percHTen)]
+>              , line [percOHHqn, rest en, percCCen, rest qn]]
+>       , tempo (2/3) (chord [line [times 4 percHTsn, percHTsn, perc HighTom den]
+>                           , line [percOHHqn, rest sn, perc OpenHiHat den]])
+>       , chord [line [percBDen, percBDen, rest hn]
+>              , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
+>       , chord [line [chord [percBDqn, percSDqn], percSDqn, rest qn]
+>              , line [percOHHqn, rest en, percCHHen, rest qn]]]
+>
+> perc089_092 =
+>   line [chord [line [percBDen, percBDen, t32 [rest qn, percBDen], times 3 percSDsn, percBDsn]
+>              , line [percCHHqn, percOHHqn, rest qn]]
+>       , chord [line [times 4 percLTsn, t32 [percLTen, percBDqn], percBDqn]
+>              , line [rest hn, percCHHqn]]
+>       , chord [line [percBDen, percBDen, rest dqn, percBDen]
+>              , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
+>       , chord [line [percSDqn, percSDen, percBDen, rest qn]
+>              , line [percCHHqn, rest en, percCHHen, percCHHqn]]]
+>
 > packardGoose dynMap =
 >   removeZeros
 >   $ aggrandize
@@ -2415,7 +2462,8 @@ PG =============================================================================
 >
 >     leadLine = line [rest (24 * dhn), lead025_028, lead029_032, lead033_036, lead037_040, lead041_044
 >                                     , lead045_048, lead049_052, lead053_056, lead057_060, lead061_064
->                                     , lead065_068, lead069_072]
+>                                     , lead065_068, lead069_072, lead073_076, lead077_080, lead081_084
+>                                     , lead085_088, lead089_092]
 >     lead025_028 =
 >       line [line [fs 4 en, times 10 (fs 4 sn)]
 >           , line [fs 4 en, times 4 (fs 4 sn), fs 4 en, ascent pgLead (F,4) qn]
@@ -2474,8 +2522,48 @@ PG =============================================================================
 >                  , line [tempo (5/4) (line [grace (-2) (ds 5 en), times 4 (ds 5 en)])]]
 >           , chord [line [grace (-2) (ds 5 dqn), grace (-2) (ds 5 dqn)]
 >                  , line [fs 5 dqn, fs 5 dqn]]]
->     lead069_072 = rest 0
->
+>     lead069_072 =
+>       line [t32 [chord [line [times 2 (grace (-2) (ds 5 qn)), cs 5 qn]
+>                       , line [fs 5 qn, fs 5 qn, fs 5 qn]
+>                       , line [rest hn, b 5 qn]]]
+>           , chord [ b 5 (qn + dhn + en)
+>                  , fs 5 (qn + dhn + en)
+>                  , cs 5 (qn + dhn + en)]
+>           , chord [grace (-2) (ds 5 en)
+>                  , fs 5 (en + hn)]
+>           , chord [line [fs 5 hn, fs 5 qn]
+>                  , line [grace (-2) (ds 5 en), cs 5 en, b 4 qn, grace (-2) (ds 5 en)]]]
+>     lead073_076 =
+>       line [t32 [chord [line [fs 5 en, rest qn, fs 5 qn, fs 5 qn, fs 5 qn]
+>                       , line [grace (-2) (ds 5 en), cs 5 en, b 4 en, grace (-2) (ds 5 qn), cs 5 qn, grace 2 (cs 5 en)]
+>                       , line [rest (dqn + en), b 5 en, cs 5 en]]]
+>           , chord [cs 6 dhn, fs 5 dhn, cs 5 dhn]
+>           , chord [line [b 4 en, fs 4 en, rest en, fs 5 dqn]
+>                  , line [rest dqn, grace (-2) (ds 5 dqn)]]
+>           , chord [line [fs 5 dqn, fs 5 dqn]
+>                  , line [times 2 (grace (-2) (ds 5 dqn))]]]
+>     lead077_080 =
+>       line [chord [line [fs 5 en, fs 5 hn, rest en]
+>                  , line [ds 5 en, grace 2 (cs 5 hn), b 4 en]]
+>           , tempo (7/6) (line [b 4 en, as 4 sn, g 4 sn, b 4 en, as 4 sn, g 4 sn, b 4 en, as 4 sn, g 4 sn, b 4 en])
+>           , t32 [as 4 en, g 4 en, b 4 en, as 4 en, g 4 en, b 4 qn, as 4 en, g 4 sn, g 4 sn]
+>           , line [t32 [grace (-1) (b 4 qn), as 4 en], grace (-2) (cs 5 en), b 4 sn, as 4 sn, b 4 en, rest en]]
+>     lead081_084 =
+>       line [line [b 4 en, t32 [b 4 sn, as 4 sn, g 4 sn], b 4 en, as 4 sn, g 4 sn
+>                 , t32 [addDur sn [b 4, as 4, g 4, b 4, as 4, g 4]]]
+>           , tempo (5/6) (line [b 4 en, fs 4 en, grace (-1) (g 4 en), fs 4 en, fs 4 en])
+>           , addDur en [e 4, e 4, e 4, fs 4, g 4, gs 4]
+>           , line [a 4 en, grace (-1) (as 4 en), b 4 en, cs 5 en, cs 5 en, d 5 en]]
+>     lead085_088 =
+>       line [line [fs 5 en, g 5 en, a 5 en, t32 [g 5 sn, a 5 sn, g 5 sn], fs 5 en, grace (-1) (g 5 en)]
+>           , line [fs 5 en, e 5 en, fs 5 hn]
+>           , line [fs 5 dqn, a 5 qn, g 5 en]
+>           , line [a 5 en, t32 [a 5 sn, as 5 sn, a 5 sn], g 5 en, addDur sn [g 5, fs 5, fs 5, g 5, fs 5, e 5]]]
+>     lead089_092 =
+>       line [line [t32 [grace (-1) (a 5 qn), a 5 en], grace (-1) (as 5 en), a 5 dqn]
+>           , line [as 5 hn, g 4 en, grace (-1) (as 5 en)]
+>           , line [as 5 en, a 5 en, a 5 en, as 5 sn, a 5 (sn + qn)]
+>           , line [trill 1 tn (cs 5 qn), t32 [addDur sn [b 5, cs 6, b 5]], a 5 sn, b 5 sn, t32 [grace 2 (a 5 qn), a 5 en]]]
 >     pgBassI =
 >       line [fs 2 en, fs 2 en, fs 2 en, rest (dqn + dhn), fs 2 en, fs 2 en, rest hn, fs 2 en, rest qn, e 3 dqn]
 >     pgBassII =
@@ -2483,6 +2571,7 @@ PG =============================================================================
 >
 >     percLine = line [rest (8 * dhn), perc009_012, perc013_016, perc017_020, perc021_024, perc025_028
 >                       , perc029_032, perc033_036, perc037_040, perc041_044, perc045_048, perc049_052
->                       , perc053_056, perc057_060, perc061_064, perc065_068, perc069_070, perc071_072]
+>                       , perc053_056, perc057_060, perc061_064, perc065_068, perc069_070, perc071_072
+>                       , perc073_076, perc077_080, perc081_082, perc083_084, perc085_088, perc089_092]
 
 The End
