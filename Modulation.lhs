@@ -167,10 +167,10 @@ Modulator management ===========================================================
 >                                              48      → Just from{mrModDest = ToInitAtten}
 >                                              _ → Nothing
 >
-> addAmount              :: Int → Modulator → Maybe Modulator
-> addAmount iIn from                       = if iIn == 0
+> addAmount              :: Double → Modulator → Maybe Modulator
+> addAmount dIn from                       = if dIn == 0
 >                                              then Nothing
->                                              else Just (from{mrModAmount = fromIntegral iIn})
+>                                              else Just (from{mrModAmount = dIn})
 >
 > addAmtSrc              :: Maybe Modulator → ModSrc → Maybe Modulator
 > addAmtSrc mm8r amtSrc@ModSrc{msSource}   = mm8r >>=   (\x → case msSource of
@@ -183,7 +183,7 @@ Modulator management ===========================================================
 >
 > defaultMods            :: [Modulator]    = if useDefaultMods
 >                                              then [ makeDefaultMod 0 ms0 48 960     defModSrc
->                                                   , makeDefaultMod 1 ms1  8 (-2400) ms2 ]
+>                                                   , makeDefaultMod 1 ms1  8 (-2400) ms2 ] ++ specialDefaultMods
 >                                              else []
 >  -- all three of these are negative unipolar, continuity varying                                                            
 >   where                                                 --    cont    bipolar  neg  CC
@@ -192,7 +192,7 @@ Modulator management ===========================================================
 >  -- some implementations do not include the amount source below in the second default modulator
 >     ms2                                  = ModSrc   (Mapping Switch    False  True False) FromNoteOnVel
 >
->     makeDefaultMod     :: Word → ModSrc → Word → Int → ModSrc → Modulator
+>     makeDefaultMod     :: Word → ModSrc → Word → Double → ModSrc → Modulator
 >     makeDefaultMod mId ms igen amt amtSrc
 >                                          = professIsJust
 >                                              (Just defModulator{mrModId = mId}
@@ -202,13 +202,23 @@ Modulator management ===========================================================
 >                                              >>= addAmtSrc' amtSrc)
 >                                            "makeDefaultMod"
 >
+>     ms3                                  = ModSrc   (Mapping Linear False False False) FromNoController
+>
+>     specialDefaultMods :: [Modulator]
+>     specialDefaultMods                   =
+>       if reverbAllPercent > 0
+>         then [makeDefaultMod 2 ms3 16 (reverbAllPercent*10) defModSrc]
+>         else []
+>
 > evaluateMods           :: ModDestType → Map ModDestType [Modulator] → NoteOn → Double
 > evaluateMods md graph noon               = sum $ maybe [] (map (evaluateMod graph noon)) (Map.lookup md graph)
 > 
 > evaluateMod            :: Map ModDestType [Modulator] → NoteOn → Modulator → Double
 > evaluateMod graph noon@NoteOn{noteOnVel, noteOnKey} m8r@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
->                                          = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
+>   | traceNever trace_EM False            = undefined
+>   | otherwise                            = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
 >   where
+>     trace_EM                             = unwords["evaluateMod", show (getValue mrModSrc), show mrModAmount, show (getValue mrAmountSrc)]
 >     getValue            :: ModSrc → Double
 >     getValue msrc@ModSrc{msMapping, msSource}
 >       | useModulators                    =
@@ -670,11 +680,13 @@ Type declarations ==============================================================
 > data ModulationSettings =
 >   ModulationSettings {
 >     qqUseModulators    :: Bool
+>   , qqReverbAllPerCent :: Double
 >   , qqUseDefaultMods   :: Bool
 >   , qqUseResonanceType :: ResonanceType
 >   , qqUseLFO           :: Bool} deriving Show
 >
 > useModulators                            = qqUseModulators              defM
+> reverbAllPercent                         = qqReverbAllPerCent           defM
 > useDefaultMods                           = qqUseDefaultMods             defM
 > useResonanceType                         = qqUseResonanceType           defM
 > useLFO                                   = qqUseLFO                     defM
@@ -683,6 +695,7 @@ Type declarations ==============================================================
 > defM =
 >   ModulationSettings {
 >     qqUseModulators                      = True
+>   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
 >   , qqUseResonanceType                   = ResonanceBandpass -- ResonanceLowpass -- ResonanceNone
 >   , qqUseLFO                             = True}

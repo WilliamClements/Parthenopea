@@ -185,10 +185,7 @@ Signal function-based synth ====================================================
 >               "pump ", show (a1L, a1R)
 >             , "<=>", show (a1L * ampL, a1R * ampR)]
 >      
->     trace_ePS                            =
->       unwords [
->           "eutPumpSamples numS = ", show numS
->         , " -- "                  , show (ampL, ampR)]
+>     trace_ePS                            = unwords ["eutPumpSamples", show numS, show (ampL, ampR), show graphL]
 >
 > eutAmplify             :: ∀ p . Clock p ⇒
 >                           Double
@@ -293,9 +290,9 @@ FFT ============================================================================
 >   | traceAlways msgT False               = undefined
 >   | otherwise                            = vFft
 >   where
->     sr                 :: Double         = fromIntegral $ sampleRate
+>     sr                 :: Double         = fromIntegral sampleRate
 >     rootf              :: Double         = apToHz ap
->     pc                 :: Double         = fromCents $ fromIntegral $ pitchCorrection
+>     pc                 :: Double         = fromCents $ fromIntegral pitchCorrection
 >     nsI                :: Int            = fromIntegral $ min sampleRate (end - start + 1)
 >     nsD                :: Double         = fromIntegral nsI
 >
@@ -496,8 +493,10 @@ Create a straight-line envelope generator with following phases:
 
 Effects ===============================================================================================================
 
-> deriveEffects          :: Maybe Int → Maybe Int → Maybe Int → Effects
-> deriveEffects mChorus mReverb mPan       = Effects dChorus dReverb dPan
+> deriveEffects          :: Modulation → NoteOn → Maybe Int → Maybe Int → Maybe Int → Effects
+> deriveEffects Modulation{ .. } noon mChorus mReverb mPan
+>   | traceIf trace_DE False         = undefined
+>   | otherwise                      = Effects dChorus dReverb dPan
 >   where
 >     dChorus            :: Double   =
 >       if useChorus
@@ -505,7 +504,7 @@ Effects ========================================================================
 >         else 0
 >     dReverb            :: Double   =
 >       if useReverb
->         then maybe 0 (conv (0, 1000)) mReverb
+>         then maybe 0 (conv (0, 1000)) mReverb + evaluateMods ToReverb modGraph noon / 1000
 >         else 0
 >     dPan               :: Double   =
 >       if usePan
@@ -514,6 +513,8 @@ Effects ========================================================================
 >
 >     conv               :: (Int, Int) → Int → Double
 >     conv range nEffect = fromIntegral (clip range nEffect) / 1000
+>
+>     trace_DE                             = unwords ["deriveEffects", show mReverb, show (evaluateMods ToReverb modGraph noon)]
 >
 > eutEffects             :: ∀ p . Clock p ⇒
 >                           (Reconciled, Reconciled)
@@ -554,11 +555,11 @@ Effects ========================================================================
 >     trace_eE =
 >       unwords ["eutEffects=",        show effL
 >              , "=LR=",               show effR
->              , "pFactor*=",          show pFactorL
->              , " ",                  show pFactorR]
+>              , "rFactor*=",          show rFactorL
+>              ,                       show rFactorR]
 > 
 > eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Double → Signal p Double Double
-> eutChorus rate gain depth cFactor              =
+> eutChorus rate gain depth cFactor        =
 >   if cFactor > 0
 >     then makeSF
 >     else delay 0                                            

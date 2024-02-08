@@ -851,7 +851,7 @@ extract data from SoundFont per instrument =====================================
 >         mm                               = unpackModSrc (F.srcOper raw)
 >                                            >>= flip addSrc defModulator{mrModId = mId}
 >                                            >>= addDest (F.destOper raw)
->                                            >>= addAmount (F.amount raw)
+>                                            >>= addAmount (fromIntegral (F.amount raw))
 >         mm'                              = unpackModSrc (F.amtSrcOper raw)
 >                                            >>= addAmtSrc mm
                                             
@@ -1256,7 +1256,9 @@ reconcile zone and sample header ===============================================
 >                          else Nothing
 >
 >   , rModulation      =                                                m8n
->   , rEffects         = deriveEffects                                  zChorus
+>   , rEffects         = deriveEffects                                  m8n
+>                                                                       noon
+>                                                                       zChorus
 >                                                                       zReverb
 >                                                                       zPan}
 >
@@ -1270,13 +1272,7 @@ reconcile zone and sample header ===============================================
 >                                              else 0.0
 >
 > reconModulation        :: SFZone → NoteOn → Modulation
-> reconModulation SFZone{
->                       zModLfoToPitch, zVibLfoToPitch, zModEnvToPitch
->                     , zInitFc, zInitQ
->                     , zModLfoToFc, zModEnvToFc, zModLfoToVol, zFreqModLfo, zFreqVibLfo, zDelayModLfo, zDelayVibLfo
->                     , zDelayModEnv, zAttackModEnv, zHoldModEnv, zDecayModEnv, zSustainModEnv, zReleaseModEnv
->                     , zKeyToModEnvHold, zKeyToModEnvDecay
->                     , zModulators} noon
+> reconModulation SFZone{ .. } noon
 >                                          = resolveMods m8n zModulators defaultMods
 >   where
 >     m8n                :: Modulation     =
