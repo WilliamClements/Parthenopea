@@ -2524,6 +2524,26 @@ PG =============================================================================
 >       , chord [line [rest en, percBDen, rest den, percBDsn, percBDqn]
 >              , line [percCHHen, percCCen, percCHHen, percCCen, percCHHqn]]]
 >
+> perc133_137 =
+>   line [chord [line [percBDen, percBDen, percBDqn, percBDen, percBDen
+>                    , rest en, percBDen, perc BassDrum1 den, percSDqn]
+>              , line [percOHHen, percCCen, percOHHqn, percRCen, percRCqn, percRCen, percRCqn, percRCen, percRCen]]
+>       , chord [line [percBDen, percBDen, perc BassDrum1 den, percBDsn, percSDqn, percBDen, percBDen, rest en
+>                    , percBDen, percSDen, percBDen, percBDen, percBDen, t32 [percBDqn, percBDen], percSDen, percBDen]
+>              , line [percm RideCymbal1 [en, en + den, sn, qn, en, qn, en, en, qn, qn, en, en, en]]]]
+>
+> perc138_142 =
+>   chord [line [rest en, percBDen, percBDen, percBDsn, percBDsn, percSDen, percBDen
+>              , percBDqn, percBDen, percBDsn, percBDsn, percSDen, percBDen
+>              , rest en, percBDen, percBDqn, percBDen, percBDen
+>              , percBDen, percBDen, times 3 percBDqn, percSDqn, rest en, percSDsn, percSDsn]
+>        , line [percm RideCymbal1 [en, qn, en, en, qn, en, qn, en, qn, en, qn], percCCen, perc CrashCymbal1 dqn
+>             , times 3 percCCqn, percm PedalHiHat [qn, qn]]]
+>
+> perc143_144 =
+>   chord [line [percSDqn, percBDqn, percBDqn, percBDqn, percBDen, percBDen, percBDqn]
+>        , line [percCHHqn, percCHHqn, percm PedalHiHat [qn, qn, qn, qn]]]
+>  
 > packardGoose dynMap =
 >   removeZeros
 >   $ aggrandize
@@ -2537,15 +2557,9 @@ PG =============================================================================
 >     pgPerc                               = replace pgPerc_ dynMap
 >
 >     leadMusic = bandPart' pgLead leadLine
->     bassMusic = bandPart' pgBass (times 16 (line [pgBassI, pgBassII]))
+>     bassMusic = bandPart' pgBass bassLine
 >     percMusic = bandPart' pgPerc percLine
 >
->     leadLine = line [rest (24 * dhn), lead025_028, lead029_032, lead033_036, lead037_040, lead041_044
->                                     , lead045_048, lead049_052, lead053_056, lead057_060, lead061_064
->                                     , lead065_068, lead069_072, lead073_076, lead077_080, lead081_084
->                                     , lead085_088, lead089_092, lead093_096, lead097_100, lead101_104
->                                     , lead105_108, lead109_112, lead113_116, lead117_120, lead121_124
->                                     , lead125_128, lead129_132]
 >     lead025_028 =
 >       line [line [fs 4 en, times 10 (fs 4 sn)]
 >           , line [fs 4 en, times 4 (fs 4 sn), fs 4 en, ascent pgLead (F,4) qn]
@@ -2686,17 +2700,45 @@ PG =============================================================================
 >                                , chord [line [e 5 qn, cs 5 qn, cs 5 dqn]
 >                                       , line [fs 5 qn, fs 5 en, e 5 en, fs 5 en, e 5 en]]]
 >          , chord [b 4 en, cs 4 en], as 4 en]
+>     lead133_136 =
+>       line [tempo (2/3) (line [e 5 qn, chord [cs 5 qn, fs 5 qn], grace (-2) (gs 5 en), gs 5 sn, gs 5 sn, gs 5 en
+>                             , grace (-3) (gss 5 en), gs 5 sn, gs 5 sn, gs 5 en, grace (-2) (gs 5 en)
+>                             , times 2 (chord [cs 6 sn, gs 5 sn])])
+>           , addDur en [gs 5, fs 5, gs 5, gs 5, gs 5, fs 5]]
+>     lead137_138 =
+>       line [grace (-2) (as 5 en), b 5 sn, as 5 sn, gs 5 en, as 5 en, as 5 (qn + sn), cs 6 en
+>           , grace (-3) (css 6 (sn + qn)), b 5 sn, as 5 sn, gs 5 en]
+>     lead139_143 =
+>       line [addDur sn [as 5, gs 5, fs 5, cs 5, cs 5, ds 5], cs 6 en, t32 [grace (-3) (e 6 qn), ds 6 qn, cs 6 qn]
+>           , tempo (7/6) (line [addDur qn [fs 6, e 6, ds 6, cs 6, fs 6, e 6, ds 6]])
+>           , t32 [grace (-1) (e 6 sn), e 5 sn, cs 6 sn, b 5 sn, cs 6 en], b 5 dqn, cs 6 en, grace (-2) (cs 6 dqn)
+>           , rest en]
+>     lead144_149 =
+>       line [line [tempo (5/6) (line [fs 5 en, e 5 en, fs 5 en, fs 5 en, grace (-2) (gs 5 en)])]
+>           , line [gss 5 dqn, fs 5 tn, e 5 tn, cs 5 tn, rest tn, cs 5 hn
+>                 , t32 [cs 5 qn, grace (-2) (cs 5 en)], cs 5 qn]
+>           , line [e 5 (dhn + dhn + qn), b 4 qn, t32 [as 4 qn, fs 4 en]]]
 >
->     pgBassI =
->       line [fs 2 en, fs 2 en, fs 2 en, rest (dqn + dhn), fs 2 en, fs 2 en, rest hn, fs 2 en, rest qn, e 3 dqn]
->     pgBassII =
->       line [ e 2 en,  e 2 en,  e 2 en, rest (dqn + dhn),  e 2 en,  e 2 en, rest hn,  e 2 en, rest qn, b 2 dqn]
+>     leadLine = line [rest (24 * dhn), lead025_028, lead029_032, lead033_036, lead037_040, lead041_044
+>                       , lead045_048, lead049_052, lead053_056, lead057_060, lead061_064, lead065_068
+>                       , lead069_072, lead073_076, lead077_080, lead081_084, lead085_088, lead089_092
+>                       , lead093_096, lead097_100, lead101_104, lead105_108, lead109_112, lead113_116
+>                       , lead117_120, lead121_124, lead125_128, lead129_132, lead133_136, lead137_138
+>                       , lead139_143, lead144_149]
+>
+>     bassLine = times 24 (line [pgBassI, pgBassII])
+>       where
+>         pgBassI =
+>           line [fs 2 en, fs 2 en, fs 2 en, rest (dqn + dhn), fs 2 en, fs 2 en, rest hn, fs 2 en, rest qn, e 3 dqn]
+>         pgBassII =
+>           line [ e 2 en,  e 2 en,  e 2 en, rest (dqn + dhn),  e 2 en,  e 2 en, rest hn,  e 2 en, rest qn, b 2 dqn]
 >
 >     percLine = line [rest (8 * dhn), perc009_012, perc013_016, perc017_020, perc021_024, perc025_028
 >                       , perc029_032, perc033_036, perc037_040, perc041_044, perc045_048, perc049_052
 >                       , perc053_056, perc057_060, perc061_064, perc065_068, perc069_070, perc071_072
 >                       , perc073_076, perc077_080, perc081_082, perc083_084, perc085_088, perc089_092
 >                       , perc093_096, perc097_100, perc101_104, perc105_108, perc109_112, perc113_116
->                       , perc117_120, perc121_124, perc125_128, perc129_132]
+>                       , perc117_120, perc121_124, perc125_128, perc129_132, perc133_137, perc138_142
+>                       , perc143_144]
 
 The End
