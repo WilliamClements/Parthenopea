@@ -219,32 +219,28 @@ which makes for a cleaner sound on some synthesizers:
 "ascent/descent" ======================================================================================================
 
 > glissando'              :: [AbsPitch] → Dur → Music Pitch
-> glissando' gliss dur
->   | traceIf msg False                    = undefined
->   | otherwise                            = music
+> glissando' gliss dur                     = dim 1 $ slur 2 $ line notes
 >   where
->     music = 
->       dim 1
->       $ slur 2
->       $ line
->         notes 
->     notes              :: [Music Pitch]  = [note (dur * 9 / (reach * 10)) (pitch x) | x ← gliss]
 >     reach              :: Rational       = fromIntegral $ length gliss
->     msg                                  = unwords ["glissando' " ++ show music]
+>     notes              :: [Music Pitch]  = [note (dur * 9 / (reach * 10)) (pitch x) | x ← gliss]
 >
 > glissando              :: Bool → (AbsPitch, AbsPitch) → Dur → Music Pitch
-> glissando _ _ 0                        = rest 0
+> glissando _ _ 0                          = rest 0
 > glissando desc (xLo, xHi) dur
->   | traceIf msg False                    = undefined
+>   | traceIf trace_G False                = undefined
 >   | skipGlissandi                        = rest dur
->   | xHi < xLo + 6                        = error (unwords ["glissando: not enough range", show (pitch xLo, pitch xHi) ])
->   | dur < 1 / 8                          = error (unwords ["glissando: not enough duration", show dur])
->   | otherwise                            = glissando' (take 28 nList) dur
+>   | xHi < xLo + 6                        = error (unwords ["glissando:"
+>                                                          , show (pitch xLo, pitch xHi)
+>                                                          , "is not enough range"])
+>   | dur < 1 / 8                          = error (unwords ["glissando:"
+>                                                          , show dur
+>                                                          , "is not enough duration"])
+>   | otherwise                            = glissando' (take 28 pitches) dur
 >   where
->     nList                                = if desc
+>     pitches                              = if desc
 >                                              then reverse [xLo..xHi]
 >                                              else [xLo..xHi]
->     msg                                  = unwords ["glissando " ++ show nList]
+>     trace_G                              = unwords ["glissando", show pitches]
 >
 > descent                :: BandPart → Pitch → Dur → Music Pitch
 > descent BandPart{ .. } p dur

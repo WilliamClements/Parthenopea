@@ -495,26 +495,27 @@ Effects ========================================================================
 
 > deriveEffects          :: Modulation → NoteOn → Maybe Int → Maybe Int → Maybe Int → Effects
 > deriveEffects Modulation{ .. } noon mChorus mReverb mPan
->   | traceIf trace_DE False         = undefined
->   | otherwise                      = Effects dChorus dReverb dPan
+>   | traceIf trace_DE False               = undefined
+>   | otherwise                            = Effects
+>                                              ((dChorus + evaluateMods ToChorus modGraph noon) / 1000)
+>                                              ((dReverb + evaluateMods ToReverb modGraph noon) / 1000)
+>                                              (dPan / 1000)
 >   where
->     dChorus            :: Double   =
+>     dChorus            :: Double         =
 >       if useChorus
->         then maybe 0 (conv (0, 1000)) mChorus
+>         then maybe 0 (fromIntegral . clip (0, 1000)) mChorus
 >         else 0
->     dReverb            :: Double   =
+>     dReverb            :: Double         =
 >       if useReverb
->         then maybe 0 (conv (0, 1000)) mReverb + evaluateMods ToReverb modGraph noon / 1000
+>         then maybe 0 (fromIntegral . clip (0, 1000)) mReverb
 >         else 0
->     dPan               :: Double   =
+>     dPan               :: Double         =
 >       if usePan
->         then maybe 0 (conv (-500, 500)) mPan
+>         then maybe 0 (fromIntegral . clip (-500, 500)) mPan
 >         else 0
 >
->     conv               :: (Int, Int) → Int → Double
->     conv range nEffect = fromIntegral (clip range nEffect) / 1000
->
->     trace_DE                             = unwords ["deriveEffects", show mReverb, show (evaluateMods ToReverb modGraph noon)]
+>     trace_DE                             =
+>       unwords ["deriveEffects", show (mChorus, mReverb, mPan)]
 >
 > eutEffects             :: ∀ p . Clock p ⇒
 >                           (Reconciled, Reconciled)

@@ -77,7 +77,7 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj =
+> sj = bjingles
 >    -- [("pendingtonArnt" , pendingtonArnt 2)]
 >
 >    -- [ ("sunPyg"      , sunPyg)]
@@ -85,9 +85,9 @@ organize exposed music =========================================================
 >    -- [ ("basicLick"   , aggrandize basicLick)]
 >    -- [ ("baked"       , bakedJingle 54349)]
 >    -- [ ("packardGoose", packardGoose)]
->    -- [ ("cut4roger"   , cut 4 $ aggrandize roger)]
+>    -- [ ("roger"       , roger)]
 >    -- [ ("bob"         , aggrandize (bob 2))]
->    [ ("littleSailor"   , shimSong $ aggrandize littleSailor)]
+>    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 >    -- [ ("cutbake"     , cut 4.5 $ bakedJingle 9123)]
 
 a few playthings ... get it? ==========================================================================================

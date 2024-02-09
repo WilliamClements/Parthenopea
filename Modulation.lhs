@@ -163,6 +163,7 @@ Modulator management ===========================================================
 >   | (wIn .&. 0x8000) /= 0                = Just from{mrModDest = ToLink $ wIn .&. 0x7fff}
 >   | otherwise                            = case wIn of
 >                                              8       → Just from{mrModDest = ToFilterFc}
+>                                              15      → Just from{mrModDest = ToChorus}
 >                                              16      → Just from{mrModDest = ToReverb}
 >                                              48      → Just from{mrModDest = ToInitAtten}
 >                                              _ → Nothing
@@ -205,10 +206,16 @@ Modulator management ===========================================================
 >     ms3                                  = ModSrc   (Mapping Linear False False False) FromNoController
 >
 >     specialDefaultMods :: [Modulator]
->     specialDefaultMods                   =
->       if reverbAllPercent > 0
->         then [makeDefaultMod 2 ms3 16 (reverbAllPercent*10) defModSrc]
->         else []
+>     specialDefaultMods                   = modChorus ++ modReverb
+>       where
+>         modChorus                        =
+>           if chorusAllPercent > 0
+>             then [makeDefaultMod 10 ms3 15 (chorusAllPercent*10) defModSrc]
+>             else []
+>         modReverb                        =
+>           if reverbAllPercent > 0
+>             then [makeDefaultMod 11 ms3 16 (reverbAllPercent*10) defModSrc]
+>             else []
 >
 > evaluateMods           :: ModDestType → Map ModDestType [Modulator] → NoteOn → Double
 > evaluateMods md graph noon               = sum $ maybe [] (map (evaluateMod graph noon)) (Map.lookup md graph)
@@ -218,7 +225,7 @@ Modulator management ===========================================================
 >   | traceNever trace_EM False            = undefined
 >   | otherwise                            = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
 >   where
->     trace_EM                             = unwords["evaluateMod", show (getValue mrModSrc), show mrModAmount, show (getValue mrAmountSrc)]
+>
 >     getValue            :: ModSrc → Double
 >     getValue msrc@ModSrc{msMapping, msSource}
 >       | useModulators                    =
@@ -229,12 +236,18 @@ Modulator management ===========================================================
 >             FromLinked           → evaluateMods (ToLink mrModId) graph noon
 >       | otherwise                        = 0
 >
+>     trace_EM                             =
+>       unwords["evaluateMod"
+>             , show (getValue mrModSrc)
+>             , show mrModAmount
+>             , show (getValue mrAmountSrc)]
+>
 > evaluateNoteOn         :: Int → Mapping → Double
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
 > calculateModFactor     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
 > calculateModFactor tag Modulation{ .. } md ModSignals{ .. } noon
->  | traceNever msg False                  = undefined
+>  | traceNever trace_CMF False            = undefined
 >  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    ModCoefficients{xModEnvCo, xModLfoCo, xVibLfoCo}
@@ -250,7 +263,7 @@ Modulator management ===========================================================
 >    xvibLfo                               = xVibLfoPos * xVibLfoCo
 >    xmods                                 = evaluateMods md modGraph noon
 >
->    msg                                   = unwords ["calculateModFactor: "
+>    trace_CMF                             = unwords ["calculateModFactor: "
 >                                                     , show tag,    " + "
 >                                                     , show xmodEnv, " + "
 >                                                     , show xmodLfo, " + "
@@ -268,11 +281,12 @@ Modulator management ===========================================================
 >     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
 >     makeSF _                             
 >       | traceNever msg False             = undefined
->       | otherwise                        = case useResonanceType of
->                                              ResonanceNone         → error "usually don't need to protect against ResonanceNone"
->                                              ResonanceLowpass      → procButter
->                                              ResonanceBandpass     → procBandpass
->                                              ResonanceSVF          → procSVF
+>       | otherwise                        =
+>           case useResonanceType of
+>             ResonanceNone                → error "usually don't need to protect against ResonanceNone"
+>             ResonanceLowpass             → procButter
+>             ResonanceBandpass            → procBandpass
+>             ResonanceSVF                 → procSVF
 >       where
 >         msg = unwords ["addResonance/makeSF fc, q = ", show lowPassFc, " ", show lowPassQ]
 >
@@ -651,6 +665,7 @@ Type declarations ==============================================================
 >   | ToFilterFc
 >   | ToVolume
 >   | ToInitAtten
+>   | ToChorus
 >   | ToReverb
 >   | ToLink Word deriving (Eq, Ord, Show)
 >
@@ -680,12 +695,14 @@ Type declarations ==============================================================
 > data ModulationSettings =
 >   ModulationSettings {
 >     qqUseModulators    :: Bool
+>   , qqChorusAllPerCent :: Double
 >   , qqReverbAllPerCent :: Double
 >   , qqUseDefaultMods   :: Bool
 >   , qqUseResonanceType :: ResonanceType
 >   , qqUseLFO           :: Bool} deriving Show
 >
 > useModulators                            = qqUseModulators              defM
+> chorusAllPercent                         = qqChorusAllPerCent           defM
 > reverbAllPercent                         = qqReverbAllPerCent           defM
 > useDefaultMods                           = qqUseDefaultMods             defM
 > useResonanceType                         = qqUseResonanceType           defM
@@ -695,6 +712,7 @@ Type declarations ==============================================================
 > defM =
 >   ModulationSettings {
 >     qqUseModulators                      = True
+>   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
 >   , qqUseResonanceType                   = ResonanceBandpass -- ResonanceLowpass -- ResonanceNone
