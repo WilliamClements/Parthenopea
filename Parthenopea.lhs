@@ -1361,19 +1361,14 @@ Emission capability ============================================================
 > safeReplicate          :: Int → Int → Char → String
 > safeReplicate sz maxSz                   = profess
 >                                              (sz <= maxSz)
->                                              ("safeReplicate " ++ show sz ++ " " ++ show maxSz) 
+>                                              (unwords ["safeReplicate", show (sz, maxSz)])
 >                                              (replicate (maxSz - sz))
 >
 > emitTaggedLine         :: String → String → String → [Emission]
 > emitTaggedLine prolog item epilog        = emitLine [Unblocked prolog, Unblocked item, Unblocked epilog]
 >
-> emitPragmaLine         ::  String → [Emission]
 > emitPragmaLine lang                      = emitTaggedLine "{-# LANGUAGE " lang " #-}"
->
-> emitModuleLine         ::  String → [Emission]
 > emitModuleLine mod                       = emitTaggedLine "module " mod " where"
->
-> emitImportLine         ::  String → [Emission]
 > emitImportLine imp                       = emitTaggedLine "import " imp ""
 >
 > writeFileBySections    :: FilePath → [[Emission]] → IO ()

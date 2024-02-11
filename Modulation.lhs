@@ -717,3 +717,5 @@ Type declarations ==============================================================
 >   , qqUseDefaultMods                     = True
 >   , qqUseResonanceType                   = ResonanceBandpass -- ResonanceLowpass -- ResonanceNone
 >   , qqUseLFO                             = True}
+
+The End

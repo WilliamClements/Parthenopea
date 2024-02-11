@@ -77,14 +77,14 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj = bjingles
+> sj = -- bjingles
 >    -- [("pendingtonArnt" , pendingtonArnt 2)]
 >
 >    -- [ ("sunPyg"      , sunPyg)]
 >    -- [ ("slot"        , aggrandize (slot 1))]
 >    -- [ ("basicLick"   , aggrandize basicLick)]
 >    -- [ ("baked"       , bakedJingle 54349)]
->    -- [ ("packardGoose", packardGoose)]
+>    [ ("packardGoose", packardGoose)]
 >    -- [ ("roger"       , roger)]
 >    -- [ ("bob"         , aggrandize (bob 2))]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
@@ -129,3 +129,5 @@ a few playthings ... get it? ===================================================
 >   $ instrument Glockenspiel
 >     (line [gUnitAtVolume  40, rest hn, gUnitAtVolume  60, rest hn, gUnitAtVolume 80, rest hn
 >          , gUnitAtVolume 100, rest hn, gUnitAtVolume 120])
+
+The End

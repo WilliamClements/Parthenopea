@@ -2235,6 +2235,225 @@ PG =============================================================================
 > pgBass_                                  = makePitched ElectricBassFingered pgTranspose 0 100
 > pgPerc_                                  = makeNonPitched                                 100
 >
+> packardGoose dynMap =
+>   removeZeros
+>   $ aggrandize
+>   $ tempo pgTempo
+>   $ chord [leadMusic, bassMusic, percMusic]
+>
+>   where
+>
+>     pgLead                               = replace pgLead_ dynMap
+>     pgBass                               = replace pgBass_ dynMap
+>     pgPerc                               = replace pgPerc_ dynMap
+>
+>     leadMusic = bandPart' pgLead leadLine
+>     bassMusic = bandPart' pgBass bassLine
+>     percMusic = bandPart' pgPerc percLine
+>
+>     lead025_028 =
+>       line [line [fs 4 en, times 10 (fs 4 sn)]
+>           , line [fs 4 en, times 4 (fs 4 sn), fs 4 en, ascent pgLead (F,4) qn]
+>           , line [rest wn, rest en, as 5 en, tempo (5/4) (line [gs 5 sn, as 5 sn, gs 5 sn, fs 5 en])]]
+>     lead029_032 =
+>       line [line [t32 [fs 5 sn, gs 5 sn, fs 5 sn], e 5 en, t32 [e 5 qn, as 5 sn, b 4 sn], gs 5 qn]
+>           , line [t32 [as 5 qn, gs 5 qn, fs 5 qn], fs 5 sn, gs 5 sn, fs 5 sn, e 5 sn]
+>           , line [fs 5 dwn]]
+>     lead033_036 =
+>       line [line [fs 5 qn, as 5 qn, d 5 qn]
+>           , tempo (5/6) (line [gs 5 sn, fs 5 sn, e 5 en, grace (-2) (as 5 en), gs 5 en, grace (-2) (gs 5 en)])
+>           , tempo (4/3) (line [gs 5 sn, fs 5 en, fs 5 sn, fs 5 sn, e 5 den, fs 5 qn, e 5 qn])
+>           , line [fs 4 en, cs 4 sn, gs 5 sn, fs 5 sn, e 5 dsn, as 5 sn, fs 5 sn, e 5 dsn, b 5 en]]
+>     lead037_040 =
+>       line [t32 [addDur en [b 5, as 5, as 5, as 5, gs 5, gs 5, gs 5, fs 5, fs 5]]
+>           , line [addDur tn [fs 5, gs 5, fs 5, e 5], ds 5 en, grace (-2) (ds 5 qn), cs 5 qn]
+>           , tempo (5/6) (addDur en [cs 5, ds 5, e 5, ds 5, ds 5])
+>           , line [e 5 sn, ds 5 en, ds 5 sn, e 5 sn, ds 5 sn, b 4 en, b 4 sn, cs 5 sn, ds 5 en]] 
+>     lead041_044 =
+>       line [line [addDur en [ds 5, cs 5, cs 5, cs 5, cs 5, ds 5]]
+>           , line [e 5 dhn]
+>           , line [cs 5 en, ds 5 en, a 4 en, t32 [fs 4 sn, e 4 sn, cs 4 sn], e 4 qn]
+>           , line [addDur sn [e 4, fs 4, e 4, cs 4], grace 2 (b 3 hn)]]
+>     lead045_048 =
+>       line [line [b 3 den, fs 3 sn, b 3 en, as 3 en, addDur sn [b 3, as 3, b 3, as 3]]
+>           , line [fs 3 dhn]
+>           , tempo (5/6) (line [fs 3 en, t32 [fs 4 qn, fs 4 en, fs 4 qn, fs 4 en]])
+>           , tempo (5/6) (line [t32 [fs 4 qn, fs 4 en, fs 4 qn, fs 4 sn, e 4 sn], cs 4 en])]
+>     lead049_052 =
+>       line [line [e 4 en, fs 4 qn, tempo (4/3) (t32 [fs 4 qn, e 4 en, fs 4 qn, e 4 en])]
+>           , line [times 6 (fs 4 en)]
+>           , line [fs 4 sn, e 4 (den + en), tempo (5/3) (addDur en [e 4, fs 4, e 4, fs 4, e 4])]
+>           , tempo (7/6) (times 7 (fs 4 en))]
+>     lead053_056 =
+>       line [line [fs 4 en, t32 [fs 4 sn, e 4 sn, cs 4 sn, e 4 qn, e 4 en, fs 4 qn, e 4 en]]
+>           , line [fs 4 qn, e 4 sn, fs 4 den, fs 4 en, fs 4 en]
+>           , line [fs 4 en, b 4 en, as 4 den, fs 4 sn, as 4 sn, fs 4 sn, e 4 en]
+>           , line [e 4 en, grace 5 (b 3 (en + hn))]]
+>     lead057_060 =
+>       line [line [gs 3 en, fs 3 en, t32 [gs 3 qn, gs 3 en], gs 3 qn]
+>           , line [as 3 qn, gs 3 en, gs 3 sn, gs 3 sn, grace (-2) (as 3 qn)]
+>           , line [as 3 hn, grace (-1) (b 3 en), as 3 en]
+>           , line [grace (-1) (b 3 en), as 3 qn, b 3 en, as 3 en, e 3 en]]
+>     lead061_064 =
+>       line [line [ e 3 qn, fs 3 en, fs 3 dqn]
+>           , line [fs 3 hn, times 4 (chord [fs 5 qn, grace (-2) (ds 5 qn)])]
+>           , line [chord [b 5 qn, fs 5 qn, grace (-2) (ds 5 qn)]
+>                 , chord [b 5 qn, fs 5 qn, grace 2 (cs 4 qn)]
+>                 , chord [b 5 qn, fs 5 qn, cs 5 qn]]]
+>     lead065_068 =
+>       line [line [chord [b 5 qn, fs 5 qn, cs 5 qn]
+>                 , chord [chord [b 5 hn, fs 5 hn]
+>                        , line [grace (-2) (ds 5 en), cs 5 en, t32 [ds 5 en, cs 5 en, b 4 en]]]]
+>           , chord [fs 5 dhn, cs 5 dhn]
+>           , chord [line [tempo (5/4) (times 5 (fs 5 en)), fs 5 qn]
+>                  , line [tempo (5/4) (line [grace (-2) (ds 5 en), times 4 (ds 5 en)])]]
+>           , chord [line [grace (-2) (ds 5 dqn), grace (-2) (ds 5 dqn)]
+>                  , line [fs 5 dqn, fs 5 dqn]]]
+>     lead069_072 =
+>       line [t32 [chord [line [times 2 (grace (-2) (ds 5 qn)), cs 5 qn]
+>                       , line [fs 5 qn, fs 5 qn, fs 5 qn]
+>                       , line [rest hn, b 5 qn]]]
+>           , chord [ b 5 (qn + dhn + en)
+>                  , fs 5 (qn + dhn + en)
+>                  , cs 5 (qn + dhn + en)]
+>           , chord [grace (-2) (ds 5 en)
+>                  , fs 5 (en + hn)]
+>           , chord [line [fs 5 hn, fs 5 qn]
+>                  , line [grace (-2) (ds 5 en), cs 5 en, b 4 qn, grace (-2) (ds 5 en)]]]
+>     lead073_076 =
+>       line [t32 [chord [line [fs 5 en, rest qn, fs 5 qn, fs 5 qn, fs 5 qn]
+>                       , line [grace (-2) (ds 5 en), cs 5 en, b 4 en
+>                             , grace (-2) (ds 5 qn), cs 5 qn, grace 2 (cs 5 en)]
+>                       , line [rest (dqn + en), b 5 en, cs 5 en]]]
+>           , chord [cs 6 dhn, fs 5 dhn, cs 5 dhn]
+>           , chord [line [b 4 en, fs 4 en, rest en, fs 5 dqn]
+>                  , line [rest dqn, grace (-2) (ds 5 dqn)]]
+>           , chord [line [fs 5 dqn, fs 5 dqn]
+>                  , line [times 2 (grace (-2) (ds 5 dqn))]]]
+>     lead077_080 =
+>       line [chord [line [fs 5 en, fs 5 hn, rest en]
+>                  , line [ds 5 en, grace 2 (cs 5 hn), b 4 en]]
+>           , tempo (7/6) (line [b 4 en, as 4 sn, g 4 sn, b 4 en, as 4 sn, g 4 sn, b 4 en, as 4 sn, g 4 sn, b 4 en])
+>           , t32 [as 4 en, g 4 en, b 4 en, as 4 en, g 4 en, b 4 qn, as 4 en, g 4 sn, g 4 sn]
+>           , line [t32 [grace (-1) (b 4 qn), as 4 en], grace (-2) (cs 5 en), b 4 sn, as 4 sn, b 4 en, rest en]]
+>     lead081_084 =
+>       line [line [b 4 en, t32 [b 4 sn, as 4 sn, g 4 sn], b 4 en, as 4 sn, g 4 sn
+>                 , t32 [addDur sn [b 4, as 4, g 4, b 4, as 4, g 4]]]
+>           , tempo (5/6) (line [b 4 en, fs 4 en, grace (-1) (g 4 en), fs 4 en, fs 4 en])
+>           , addDur en [e 4, e 4, e 4, fs 4, g 4, gs 4]
+>           , line [a 4 en, grace (-1) (as 4 en), b 4 en, cs 5 en, cs 5 en, d 5 en]]
+>     lead085_088 =
+>       line [line [fs 5 en, g 5 en, a 5 en, t32 [g 5 sn, a 5 sn, g 5 sn], fs 5 en, grace (-1) (g 5 en)]
+>           , line [fs 5 en, e 5 en, fs 5 hn]
+>           , line [fs 5 dqn, a 5 qn, g 5 en]
+>           , line [a 5 en, t32 [a 5 sn, as 5 sn, a 5 sn], g 5 en, addDur sn [g 5, fs 5, fs 5, g 5, fs 5, e 5]]]
+>     lead089_092 =
+>       line [line [t32 [grace (-1) (a 5 qn), a 5 en], grace (-1) (as 5 en), a 5 dqn]
+>           , line [as 5 hn, g 4 en, grace (-1) (as 5 en)]
+>           , line [as 5 en, a 5 en, a 5 en, as 5 sn, a 5 (sn + qn)]
+>           , line [trill 1 tn (cs 5 qn), t32 [addDur sn [b 5, cs 6, b 5]]
+>                 , a 5 sn, b 5 sn, t32 [grace 2 (a 5 qn), a 5 en]]]
+>     lead093_096 =
+>       line [line [grace (-2) (g 5 dqn), b 3 dqn]
+>           , line [g 5 sn, a 5 sn, g 5 en, g 5 en, fs 5 dqn]
+>           , line [fs 5 (qn + den), chord [cs 4 sn, cs 5 sn], addDur sn [e 5, e 5, e 5, cs 5]]
+>           , line [times 6 (e 5 sn), times 6 (chord [e 5 sn, cs 5 sn])]]
+>     lead097_100 =
+>       line [line [times 8 (chord [e 5 sn, cs 5 sn]), times 2 (chord [e 5 sn, ds 5 sn])
+>                 , times 2 (chord [e 5 sn, cs 5 sn])]
+>           , line [times 2 (chord [e 5 den, ds 5 den]), times 6 (chord [e 5 sn, cs 5 sn])]
+>           , line [times 24 (chord [e 5 sn, cs 5 sn])]]
+>     lead101_104 =
+>       line [line [times 2 (chord [e 5 sn, cs 5 sn]), fs 3 sn, g 3 sn, a 3 en, chord [a 4 sn, fs 4 sn]
+>                 , addDur sn [b 4, cs 5, a 4, gs 4, fs 4]]
+>           , line [e 5 en, e 4 en, b 3 hn, cs 4 hn, b 3 qn, grace (-2) (fs 3 dhn)]]
+>     lead105_108 =
+>       line [fs 3 (dhn + dhn + qn), b 6 qn, rest en, cs 6 en, b 5 dqn, as 5 en, t32 [rest qn, a 5 en]]
+>     lead109_112 =
+>       line [line [addDur en [gs 5, gs 5, gs 5, gs 5, as 5, as 5, gs 5, as 5, cs 6, as 5], as 5 qn]
+>           , line [rest den, cs 6 sn, b 5 qn, as 5 qn, rest en, as 5 en
+>                 , grace 2 (gs 5 en), gs 5 en, gs 5 en, as 5 en]]
+>     lead113_116 =
+>       line [line [t32 [gs 5 qn, gs 5 qn, gs 5 en, fs 5 en], fs 5 en, fs 5 en]
+>           , line [gs 5 en, fs 5 en, tempo (5/4) (line [fs 5 en, fs 5 en, t32 [fs 5 en, gs 5 en, fs 5 en], e 5 en])]
+>           , t32 [e 5 qn, e 5 en, ds 5 en, b 4 qn, ds 5 en, fs 5 en, ds 5 en]
+>           , line [t32 [ds 5 qn, grace 2 (cs 5 en)], addDur en [cs 5, cs 5, ds 5, fs 5]]]
+>     lead117_120 =
+>       line [line [chord [fs 5 (dhn + hn), grace 2 (cs 5 (dhn + hn))], chord [ds 5 den, as 4 den], fs 4 sn]
+>           , line [addDur sn [b 4, fs 4, b 4, fs 4, b 4, cs 5, ds 5], grace (-2) (ds 5 sn), cs 5 qn]
+>           , line [cs 5 dqn, gs 5 qn, fs 5 en]]
+>     lead121_124 =
+>       line [gs 5 en, fs 5 en, gs 5 en, fs 5 en, grace (-2) (as 5 (qn + dhn + en))
+>           , t32 [b 5 sn, as 5 sn, gs 5 sn], b 6 qn, b 4 qn, cs 6 qn, rest dqn, fs 5 en]
+>     lead125_128 =
+>       line [gs 5 dhn, cs 5 qn, times 2 (grace (-2) (gs 6 qn))
+>           , t32 [gs 5 qn, fss 5 en], gss 5 dhn, fs 5 en, fs 5 en, e 5 qn]
+>     lead129_132 =
+>       line [grace (-2) (gs 5 qn), grace (-2) (gs 5 en), fs 5 en, grace (-2) (as 5 qn), as 5 hn, b 5 en
+>           , as 5 (en + sn), t32 [grace 2 (gs 5 qn), fs 5 en
+>                                , chord [line [e 5 qn, cs 5 qn, cs 5 dqn]
+>                                       , line [fs 5 qn, fs 5 en, e 5 en, fs 5 en, e 5 en]]]
+>          , chord [b 4 en, cs 4 en], as 4 en]
+>     lead133_136 =
+>       line [tempo (2/3) (line [e 5 qn, chord [cs 5 qn, fs 5 qn], grace (-2) (gs 5 en), gs 5 sn, gs 5 sn, gs 5 en
+>                             , grace (-3) (gss 5 en), gs 5 sn, gs 5 sn, gs 5 en, grace (-2) (gs 5 en)
+>                             , times 2 (chord [cs 6 sn, gs 5 sn])])
+>           , addDur en [gs 5, fs 5, gs 5, gs 5, gs 5, fs 5]]
+>     lead137_138 =
+>       line [grace (-2) (as 5 en), b 5 sn, as 5 sn, gs 5 en, as 5 en, as 5 (qn + sn), cs 6 en
+>           , grace (-3) (css 6 (sn + qn)), b 5 sn, as 5 sn, gs 5 en]
+>     lead139_143 =
+>       line [addDur sn [as 5, gs 5, fs 5, cs 5, cs 5, ds 5], cs 6 en, t32 [grace (-3) (e 6 qn), ds 6 qn, cs 6 qn]
+>           , tempo (7/6) (line [addDur qn [fs 6, e 6, ds 6, cs 6, fs 6, e 6, ds 6]])
+>           , t32 [grace (-1) (e 6 sn), e 5 sn, cs 6 sn, b 5 sn, cs 6 en], b 5 dqn, cs 6 en, grace (-2) (cs 6 dqn)
+>           , rest en]
+>     lead144_149 =
+>       line [line [tempo (5/6) (line [fs 5 en, e 5 en, fs 5 en, fs 5 en, grace (-2) (gs 5 en)])]
+>           , line [gss 5 dqn, fs 5 tn, e 5 tn, cs 5 tn, rest tn, cs 5 hn
+>                 , t32 [cs 5 qn, grace (-2) (cs 5 en)], cs 5 qn]
+>           , line [e 5 (dhn + dhn + qn), b 4 qn, t32 [as 4 qn, fs 4 en]]]
+>     lead150_153 =
+>       line [line [e 4 hn, fs 4 qn]
+>           , chord [line [grace (-2) (cs 5 sn), times 15 (cs 5 sn), grace (-2) (ds 5 en), times 10 (ds 5 sn)
+>                        , times 8 (cs 5 sn)]
+>                  , line [times 16 (e 5 sn), grace (-2) (fs 5 en), times 10 (fs 5 sn), times 8 (e 5 sn)]]]
+>     lead154_155 =
+>       chord [line [e 5 en, ds 5 en, e 5 en, ds 5 qn
+>                  , tempo (8/7) (line [grace (-1) (e 5 en), ds 5 en, cs 5 en, b 4 en
+>                                     , grace (-1) (e 5 en), ds 5 en, cs 5 en, ds 5 en])]
+>            , line [cs 5 en, b 4 en, c 5 en, rest qn]
+>                  , tempo (8/7) (line [grace (-2) (cs 5 en), b 4 en, as 4 en, rest en
+>                                     , grace (-2) (cs 5 en), b 4 en, as 4 en, b 4 en])]
+>     lead156_162 =
+>       chord [line [t32 [e 5 en, e 5 en, e 5 en], e 5 sn, e 5 sn, e 5 sn, e 5 (sn + qn)
+>                  , grace (-1) (e 5 hn), ds 5 (qn + dqn), e 5 en, ds 5 (qn + dqn), ds 5 en, fs 5 en, fs 5 (en + hn)
+>                  , e 5 en, g 4 (en + dqn), fs 3 (en + qn + qn), t32 [fs 3 qn, e 6 en, ds 6 qn, cs 6 en]]
+>            , line [t32 [grace (-2) (cs 5 en), rest qn], rest sn, b 4 sn, as 4 sn, b 4 (sn + qn)
+>                  , grace (-2) (cs 5 hn), b 4 (qn + dqn), cs 5 en, b 4 (qn + dqn), ds 5 en, rest dhn
+>                  , cs 5 en, d 4 (en + dqn), rest (dqn + dhn)]]
+>
+>     leadLine = line [rest (24 * dhn), lead025_028, lead029_032, lead033_036, lead037_040, lead041_044
+>                       , lead045_048, lead049_052, lead053_056, lead057_060, lead061_064, lead065_068
+>                       , lead069_072, lead073_076, lead077_080, lead081_084, lead085_088, lead089_092
+>                       , lead093_096, lead097_100, lead101_104, lead105_108, lead109_112, lead113_116
+>                       , lead117_120, lead121_124, lead125_128, lead129_132, lead133_136, lead137_138
+>                       , lead139_143, lead144_149, lead150_153, lead154_155, lead156_162]
+>
+>     bassLine = times 24 (line [pgBassI, pgBassII])
+>       where
+>         pgBassI =
+>           line [fs 2 en, fs 2 en, fs 2 en, rest (dqn + dhn), fs 2 en, fs 2 en, rest hn, fs 2 en, rest qn, e 3 dqn]
+>         pgBassII =
+>           line [ e 2 en,  e 2 en,  e 2 en, rest (dqn + dhn),  e 2 en,  e 2 en, rest hn,  e 2 en, rest qn, b 2 dqn]
+>
+>     percLine = line [rest (8 * dhn), perc009_012, perc013_016, perc017_020, perc021_024, perc025_028
+>                       , perc029_032, perc033_036, perc037_040, perc041_044, perc045_048, perc049_052
+>                       , perc053_056, perc057_060, perc061_064, perc065_068, perc069_070, perc071_072
+>                       , perc073_076, perc077_080, perc081_082, perc083_084, perc085_088, perc089_092
+>                       , perc093_096, perc097_100, perc101_104, perc105_108, perc109_112, perc113_116
+>                       , perc117_120, perc121_124, perc125_128, perc129_132, perc133_137, perc138_142
+>                       , perc143_144, perc145_148, perc149_153, perc154_156, perc157_160]
+>
 > perc009_012 =
 >   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
 >              , line [percSDqn, rest hn]
@@ -2543,202 +2762,37 @@ PG =============================================================================
 > perc143_144 =
 >   chord [line [percSDqn, percBDqn, percBDqn, percBDqn, percBDen, percBDen, percBDqn]
 >        , line [percCHHqn, percCHHqn, percm PedalHiHat [qn, qn, qn, qn]]]
->  
-> packardGoose dynMap =
->   removeZeros
->   $ aggrandize
->   $ tempo pgTempo
->   $ chord [leadMusic, bassMusic, percMusic]
 >
->   where
+> perc145_148 =
+>   chord [line [percBDqn, rest en, percBDen, percBDqn
+>              , tempo (2/3) (line [percBDsn, percSDsn, percBDen, percBDsn, percSDsn, percBDen])
+>              , percBDqn, perc BassDrum1 den, percBDsn, percBDen, percSDen, percBDqn, percBDen, percBDen, rest qn]
+>        , line [percm CrashCymbal1 [dqn, dqn]
+>              , tempo (2/3) (line [rest sn, percCCsn, percCCen, rest sn, percCCsn, percCCen])
+>              , percOHHqn, perc OpenHiHat hn, percCCqn, rest en, percCCen, percCCqn]]
 >
->     pgLead                               = replace pgLead_ dynMap
->     pgBass                               = replace pgBass_ dynMap
->     pgPerc                               = replace pgPerc_ dynMap
+> perc149_153 =
+>   line [chord [line [percBDsn, rest en, percBDsn, rest en, percBDsn, rest den, percBDsn, rest sn]
+>              , line [times 12 percLTsn]
+>              , line [percm CrashCymbal1 [den, den, qn, en]]]
+>       , chord [line [rest en, percBDsn, rest den, percBDsn, rest sn, percBDsn, rest den]
+>              , line [times 5 percLTsn, percHTsn, times 2 percLTsn]]
+>       , tempo (2/3) (t32 [percBDsn, percHTsn, chord [percLTsn, percCCsn], percHTsn, perc HighFloorTom en
+>                        , percBDsn, percHTsn, chord [percLTsn, percCHHsn], percHTsn, percBDen
+>                        , percBDsn, chord [percHTsn, percCCsn], percLTsn, percHTsn, percBDen
+>                        , percBDsn, chord [percHTsn, percCCsn], percLTsn, percHTsn, percBDen])]
 >
->     leadMusic = bandPart' pgLead leadLine
->     bassMusic = bandPart' pgBass bassLine
->     percMusic = bandPart' pgPerc percLine
+> perc154_156 =
+>   line [tempo (5/6) (chord [line [times 5 (line [percBDsn, rest den])]
+>                           , line [times 5 (line [percCCsn, rest den])]])
+>       , t32 [chord [line [times 5 percLTen, percHTen, percLTen, percLTen, percBDen]
+>                   , line [perc ClosedHiHat dqn, rest dqn, perc CrashCymbal1 dqn]]]]
 >
->     lead025_028 =
->       line [line [fs 4 en, times 10 (fs 4 sn)]
->           , line [fs 4 en, times 4 (fs 4 sn), fs 4 en, ascent pgLead (F,4) qn]
->           , line [rest wn, rest en, as 5 en, tempo (5/4) (line [gs 5 sn, as 5 sn, gs 5 sn, fs 5 en])]]
->     lead029_032 =
->       line [line [t32 [fs 5 sn, gs 5 sn, fs 5 sn], e 5 en, t32 [e 5 qn, as 5 sn, b 4 sn], gs 5 qn]
->           , line [t32 [as 5 qn, gs 5 qn, fs 5 qn], fs 5 sn, gs 5 sn, fs 5 sn, e 5 sn]
->           , line [fs 5 dwn]]
->     lead033_036 =
->       line [line [fs 5 qn, as 5 qn, d 5 qn]
->           , tempo (5/6) (line [gs 5 sn, fs 5 sn, e 5 en, grace (-2) (as 5 en), gs 5 en, grace (-2) (gs 5 en)])
->           , tempo (4/3) (line [gs 5 sn, fs 5 en, fs 5 sn, fs 5 sn, e 5 den, fs 5 qn, e 5 qn])
->           , line [fs 4 en, cs 4 sn, gs 5 sn, fs 5 sn, e 5 dsn, as 5 sn, fs 5 sn, e 5 dsn, b 5 en]]
->     lead037_040 =
->       line [t32 [addDur en [b 5, as 5, as 5, as 5, gs 5, gs 5, gs 5, fs 5, fs 5]]
->           , line [addDur tn [fs 5, gs 5, fs 5, e 5], ds 5 en, grace (-2) (ds 5 qn), cs 5 qn]
->           , tempo (5/6) (addDur en [cs 5, ds 5, e 5, ds 5, ds 5])
->           , line [e 5 sn, ds 5 en, ds 5 sn, e 5 sn, ds 5 sn, b 4 en, b 4 sn, cs 5 sn, ds 5 en]] 
->     lead041_044 =
->       line [line [addDur en [ds 5, cs 5, cs 5, cs 5, cs 5, ds 5]]
->           , line [e 5 dhn]
->           , line [cs 5 en, ds 5 en, a 4 en, t32 [fs 4 sn, e 4 sn, cs 4 sn], e 4 qn]
->           , line [addDur sn [e 4, fs 4, e 4, cs 4], grace 2 (b 3 hn)]]
->     lead045_048 =
->       line [line [b 3 den, fs 3 sn, b 3 en, as 3 en, addDur sn [b 3, as 3, b 3, as 3]]
->           , line [fs 3 dhn]
->           , tempo (5/6) (line [fs 3 en, t32 [fs 4 qn, fs 4 en, fs 4 qn, fs 4 en]])
->           , tempo (5/6) (line [t32 [fs 4 qn, fs 4 en, fs 4 qn, fs 4 sn, e 4 sn], cs 4 en])]
->     lead049_052 =
->       line [line [e 4 en, fs 4 qn, tempo (4/3) (t32 [fs 4 qn, e 4 en, fs 4 qn, e 4 en])]
->           , line [times 6 (fs 4 en)]
->           , line [fs 4 sn, e 4 (den + en), tempo (5/3) (addDur en [e 4, fs 4, e 4, fs 4, e 4])]
->           , tempo (7/6) (times 7 (fs 4 en))]
->     lead053_056 =
->       line [line [fs 4 en, t32 [fs 4 sn, e 4 sn, cs 4 sn, e 4 qn, e 4 en, fs 4 qn, e 4 en]]
->           , line [fs 4 qn, e 4 sn, fs 4 den, fs 4 en, fs 4 en]
->           , line [fs 4 en, b 4 en, as 4 den, fs 4 sn, as 4 sn, fs 4 sn, e 4 en]
->           , line [e 4 en, grace 5 (b 3 (en + hn))]]
->     lead057_060 =
->       line [line [gs 3 en, fs 3 en, t32 [gs 3 qn, gs 3 en], gs 3 qn]
->           , line [as 3 qn, gs 3 en, gs 3 sn, gs 3 sn, grace (-2) (as 3 qn)]
->           , line [as 3 hn, grace (-1) (b 3 en), as 3 en]
->           , line [grace (-1) (b 3 en), as 3 qn, b 3 en, as 3 en, e 3 en]]
->     lead061_064 =
->       line [line [ e 3 qn, fs 3 en, fs 3 dqn]
->           , line [fs 3 hn, times 4 (chord [fs 5 qn, grace (-2) (ds 5 qn)])]
->           , line [chord [b 5 qn, fs 5 qn, grace (-2) (ds 5 qn)]
->                 , chord [b 5 qn, fs 5 qn, grace 2 (cs 4 qn)]
->                 , chord [b 5 qn, fs 5 qn, cs 5 qn]]]
->     lead065_068 =
->       line [line [chord [b 5 qn, fs 5 qn, cs 5 qn]
->                 , chord [chord [b 5 hn, fs 5 hn]
->                        , line [grace (-2) (ds 5 en), cs 5 en, t32 [ds 5 en, cs 5 en, b 4 en]]]]
->           , chord [fs 5 dhn, cs 5 dhn]
->           , chord [line [tempo (5/4) (times 5 (fs 5 en)), fs 5 qn]
->                  , line [tempo (5/4) (line [grace (-2) (ds 5 en), times 4 (ds 5 en)])]]
->           , chord [line [grace (-2) (ds 5 dqn), grace (-2) (ds 5 dqn)]
->                  , line [fs 5 dqn, fs 5 dqn]]]
->     lead069_072 =
->       line [t32 [chord [line [times 2 (grace (-2) (ds 5 qn)), cs 5 qn]
->                       , line [fs 5 qn, fs 5 qn, fs 5 qn]
->                       , line [rest hn, b 5 qn]]]
->           , chord [ b 5 (qn + dhn + en)
->                  , fs 5 (qn + dhn + en)
->                  , cs 5 (qn + dhn + en)]
->           , chord [grace (-2) (ds 5 en)
->                  , fs 5 (en + hn)]
->           , chord [line [fs 5 hn, fs 5 qn]
->                  , line [grace (-2) (ds 5 en), cs 5 en, b 4 qn, grace (-2) (ds 5 en)]]]
->     lead073_076 =
->       line [t32 [chord [line [fs 5 en, rest qn, fs 5 qn, fs 5 qn, fs 5 qn]
->                       , line [grace (-2) (ds 5 en), cs 5 en, b 4 en, grace (-2) (ds 5 qn), cs 5 qn, grace 2 (cs 5 en)]
->                       , line [rest (dqn + en), b 5 en, cs 5 en]]]
->           , chord [cs 6 dhn, fs 5 dhn, cs 5 dhn]
->           , chord [line [b 4 en, fs 4 en, rest en, fs 5 dqn]
->                  , line [rest dqn, grace (-2) (ds 5 dqn)]]
->           , chord [line [fs 5 dqn, fs 5 dqn]
->                  , line [times 2 (grace (-2) (ds 5 dqn))]]]
->     lead077_080 =
->       line [chord [line [fs 5 en, fs 5 hn, rest en]
->                  , line [ds 5 en, grace 2 (cs 5 hn), b 4 en]]
->           , tempo (7/6) (line [b 4 en, as 4 sn, g 4 sn, b 4 en, as 4 sn, g 4 sn, b 4 en, as 4 sn, g 4 sn, b 4 en])
->           , t32 [as 4 en, g 4 en, b 4 en, as 4 en, g 4 en, b 4 qn, as 4 en, g 4 sn, g 4 sn]
->           , line [t32 [grace (-1) (b 4 qn), as 4 en], grace (-2) (cs 5 en), b 4 sn, as 4 sn, b 4 en, rest en]]
->     lead081_084 =
->       line [line [b 4 en, t32 [b 4 sn, as 4 sn, g 4 sn], b 4 en, as 4 sn, g 4 sn
->                 , t32 [addDur sn [b 4, as 4, g 4, b 4, as 4, g 4]]]
->           , tempo (5/6) (line [b 4 en, fs 4 en, grace (-1) (g 4 en), fs 4 en, fs 4 en])
->           , addDur en [e 4, e 4, e 4, fs 4, g 4, gs 4]
->           , line [a 4 en, grace (-1) (as 4 en), b 4 en, cs 5 en, cs 5 en, d 5 en]]
->     lead085_088 =
->       line [line [fs 5 en, g 5 en, a 5 en, t32 [g 5 sn, a 5 sn, g 5 sn], fs 5 en, grace (-1) (g 5 en)]
->           , line [fs 5 en, e 5 en, fs 5 hn]
->           , line [fs 5 dqn, a 5 qn, g 5 en]
->           , line [a 5 en, t32 [a 5 sn, as 5 sn, a 5 sn], g 5 en, addDur sn [g 5, fs 5, fs 5, g 5, fs 5, e 5]]]
->     lead089_092 =
->       line [line [t32 [grace (-1) (a 5 qn), a 5 en], grace (-1) (as 5 en), a 5 dqn]
->           , line [as 5 hn, g 4 en, grace (-1) (as 5 en)]
->           , line [as 5 en, a 5 en, a 5 en, as 5 sn, a 5 (sn + qn)]
->           , line [trill 1 tn (cs 5 qn), t32 [addDur sn [b 5, cs 6, b 5]], a 5 sn, b 5 sn, t32 [grace 2 (a 5 qn), a 5 en]]]
->     lead093_096 =
->       line [line [grace (-2) (g 5 dqn), b 3 dqn]
->           , line [g 5 sn, a 5 sn, g 5 en, g 5 en, fs 5 dqn]
->           , line [fs 5 (qn + den), chord [cs 4 sn, cs 5 sn], addDur sn [e 5, e 5, e 5, cs 5]]
->           , line [times 6 (e 5 sn), times 6 (chord [e 5 sn, cs 5 sn])]]
->     lead097_100 =
->       line [line [times 8 (chord [e 5 sn, cs 5 sn]), times 2 (chord [e 5 sn, ds 5 sn])
->                 , times 2 (chord [e 5 sn, cs 5 sn])]
->           , line [times 2 (chord [e 5 den, ds 5 den]), times 6 (chord [e 5 sn, cs 5 sn])]
->           , line [times 24 (chord [e 5 sn, cs 5 sn])]]
->     lead101_104 =
->       line [line [times 2 (chord [e 5 sn, cs 5 sn]), fs 3 sn, g 3 sn, a 3 en, chord [a 4 sn, fs 4 sn]
->                 , addDur sn [b 4, cs 5, a 4, gs 4, fs 4]]
->           , line [e 5 en, e 4 en, b 3 hn, cs 4 hn, b 3 qn, grace (-2) (fs 3 dhn)]]
->     lead105_108 =
->       line [fs 3 (dhn + dhn + qn), b 6 qn, rest en, cs 6 en, b 5 dqn, as 5 en, t32 [rest qn, a 5 en]]
->     lead109_112 =
->       line [line [addDur en [gs 5, gs 5, gs 5, gs 5, as 5, as 5, gs 5, as 5, cs 6, as 5], as 5 qn]
->           , line [rest den, cs 6 sn, b 5 qn, as 5 qn, rest en, as 5 en, grace 2 (gs 5 en), gs 5 en, gs 5 en, as 5 en]]
->     lead113_116 =
->       line [line [t32 [gs 5 qn, gs 5 qn, gs 5 en, fs 5 en], fs 5 en, fs 5 en]
->           , line [gs 5 en, fs 5 en, tempo (5/4) (line [fs 5 en, fs 5 en, t32 [fs 5 en, gs 5 en, fs 5 en], e 5 en])]
->           , t32 [e 5 qn, e 5 en, ds 5 en, b 4 qn, ds 5 en, fs 5 en, ds 5 en]
->           , line [t32 [ds 5 qn, grace 2 (cs 5 en)], addDur en [cs 5, cs 5, ds 5, fs 5]]]
->     lead117_120 =
->       line [line [chord [fs 5 (dhn + hn), grace 2 (cs 5 (dhn + hn))], chord [ds 5 den, as 4 den], fs 4 sn]
->           , line [addDur sn [b 4, fs 4, b 4, fs 4, b 4, cs 5, ds 5], grace (-2) (ds 5 sn), cs 5 qn]
->           , line [cs 5 dqn, gs 5 qn, fs 5 en]]
->     lead121_124 =
->       line [gs 5 en, fs 5 en, gs 5 en, fs 5 en, grace (-2) (as 5 (qn + dhn + en))
->           , t32 [b 5 sn, as 5 sn, gs 5 sn], b 6 qn, b 4 qn, cs 6 qn, rest dqn, fs 5 en]
->     lead125_128 =
->       line [gs 5 dhn, cs 5 qn, times 2 (grace (-2) (gs 6 qn))
->           , t32 [gs 5 qn, fss 5 en], gss 5 dhn, fs 5 en, fs 5 en, e 5 qn]
->     lead129_132 =
->       line [grace (-2) (gs 5 qn), grace (-2) (gs 5 en), fs 5 en, grace (-2) (as 5 qn), as 5 hn, b 5 en
->           , as 5 (en + sn), t32 [grace 2 (gs 5 qn), fs 5 en
->                                , chord [line [e 5 qn, cs 5 qn, cs 5 dqn]
->                                       , line [fs 5 qn, fs 5 en, e 5 en, fs 5 en, e 5 en]]]
->          , chord [b 4 en, cs 4 en], as 4 en]
->     lead133_136 =
->       line [tempo (2/3) (line [e 5 qn, chord [cs 5 qn, fs 5 qn], grace (-2) (gs 5 en), gs 5 sn, gs 5 sn, gs 5 en
->                             , grace (-3) (gss 5 en), gs 5 sn, gs 5 sn, gs 5 en, grace (-2) (gs 5 en)
->                             , times 2 (chord [cs 6 sn, gs 5 sn])])
->           , addDur en [gs 5, fs 5, gs 5, gs 5, gs 5, fs 5]]
->     lead137_138 =
->       line [grace (-2) (as 5 en), b 5 sn, as 5 sn, gs 5 en, as 5 en, as 5 (qn + sn), cs 6 en
->           , grace (-3) (css 6 (sn + qn)), b 5 sn, as 5 sn, gs 5 en]
->     lead139_143 =
->       line [addDur sn [as 5, gs 5, fs 5, cs 5, cs 5, ds 5], cs 6 en, t32 [grace (-3) (e 6 qn), ds 6 qn, cs 6 qn]
->           , tempo (7/6) (line [addDur qn [fs 6, e 6, ds 6, cs 6, fs 6, e 6, ds 6]])
->           , t32 [grace (-1) (e 6 sn), e 5 sn, cs 6 sn, b 5 sn, cs 6 en], b 5 dqn, cs 6 en, grace (-2) (cs 6 dqn)
->           , rest en]
->     lead144_149 =
->       line [line [tempo (5/6) (line [fs 5 en, e 5 en, fs 5 en, fs 5 en, grace (-2) (gs 5 en)])]
->           , line [gss 5 dqn, fs 5 tn, e 5 tn, cs 5 tn, rest tn, cs 5 hn
->                 , t32 [cs 5 qn, grace (-2) (cs 5 en)], cs 5 qn]
->           , line [e 5 (dhn + dhn + qn), b 4 qn, t32 [as 4 qn, fs 4 en]]]
->
->     leadLine = line [rest (24 * dhn), lead025_028, lead029_032, lead033_036, lead037_040, lead041_044
->                       , lead045_048, lead049_052, lead053_056, lead057_060, lead061_064, lead065_068
->                       , lead069_072, lead073_076, lead077_080, lead081_084, lead085_088, lead089_092
->                       , lead093_096, lead097_100, lead101_104, lead105_108, lead109_112, lead113_116
->                       , lead117_120, lead121_124, lead125_128, lead129_132, lead133_136, lead137_138
->                       , lead139_143, lead144_149]
->
->     bassLine = times 24 (line [pgBassI, pgBassII])
->       where
->         pgBassI =
->           line [fs 2 en, fs 2 en, fs 2 en, rest (dqn + dhn), fs 2 en, fs 2 en, rest hn, fs 2 en, rest qn, e 3 dqn]
->         pgBassII =
->           line [ e 2 en,  e 2 en,  e 2 en, rest (dqn + dhn),  e 2 en,  e 2 en, rest hn,  e 2 en, rest qn, b 2 dqn]
->
->     percLine = line [rest (8 * dhn), perc009_012, perc013_016, perc017_020, perc021_024, perc025_028
->                       , perc029_032, perc033_036, perc037_040, perc041_044, perc045_048, perc049_052
->                       , perc053_056, perc057_060, perc061_064, perc065_068, perc069_070, perc071_072
->                       , perc073_076, perc077_080, perc081_082, perc083_084, perc085_088, perc089_092
->                       , perc093_096, perc097_100, perc101_104, perc105_108, perc109_112, perc113_116
->                       , perc117_120, perc121_124, perc125_128, perc129_132, perc133_137, perc138_142
->                       , perc143_144]
+> perc157_160 =
+>   line [chord [line [t32 [percLTen, percBDen, percLTen, percLTen, percLTen, percHTen, percSDen, percLTen, percBDen]
+>                    , percBDen, percBDen, percHTen, percBDen, t32 [rest en, percBDen, percBDen]]
+>              , line [percCHHqn, rest qn, percCCqn, percCCqn, rest qn, percCCqn]]
+>       , chord [t32 [times 9 percBDqn]
+>              , t32 [times 9 percCCqn]]]
 
 The End

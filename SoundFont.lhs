@@ -442,7 +442,7 @@ executive ======================================================================
 >   return $ WinningRecord (Map.map head wI') (Map.map head wP') (sI ++ sP)
 >
 >   where
->     wiFolder wip pergm                   = if null mk then wip else aresult
+>     wiFolder wIn pergm                   = if null mk then wIn else wOut
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
 >         PreInstrument{iMatches}          = getPreInstrumentFromCache preInstCache pergm{mpWordZ = Nothing}
@@ -451,20 +451,23 @@ executive ======================================================================
 >         mk             :: Maybe (InstrumentName, (String, Double))
 >                                          = bestQualifying (getProMatches iMatches) stands
 >         kind                             = fst (professIsJust mk "bestQualifying returned Nothing")
->         aresult                          = xaEnterTournament sffiles zoneCache iMatches pergm kind [] wip
+>
+>         wOut                             = xaEnterTournament sffiles zoneCache iMatches pergm kind [] wIn
 >     
->     wpFolder wip pergm@PerGMKey{mpWordZ}
->                                          = if isNothing mkind then wip else aresult
+>     wpFolder wIn pergm@PerGMKey{mpWordZ}
+>                                          = if isNothing mkind then wIn else wOut
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
 >         perI@PerInstrument{pZonePairs}   = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
 >         preS@PreSample{sMatches}         = getPreSampleFromCache preSampleCache pergm
 >         mkind          :: Maybe PercussionSound
->                                          = mpWordZ >>= lookupZone pZonePairs >>= getAP >>= pitchToPerc
->         aresult                          = xaEnterTournament sffiles zoneCache sMatches pergm (professIsJust mkind "pitchToPerc returned Nothing") [] wip
+>                                          = mpWordZ >>= lookupZone >>= getAP >>= pitchToPerc
+>         wOut                             =
+>           xaEnterTournament sffiles zoneCache sMatches pergm
+>                             (professIsJust mkind "pitchToPerc returned Nothing") [] wIn
 >
->         lookupZone     :: [(ZoneHeader, SFZone)] → Word → Maybe SFZone
->         lookupZone zs wZ                 = lookup wZ (map (BF.first pwZone) zs)
+>         lookupZone     :: Word → Maybe SFZone
+>         lookupZone wZ                    = lookup wZ (map (BF.first pwZone) pZonePairs)
 >
 >         getAP          :: SFZone → Maybe AbsPitch
 >         getAP zone@SFZone{zKeyRange}     = (Just . fst) =<< zKeyRange
@@ -533,7 +536,7 @@ executive ======================================================================
 >
 > computePreInstrument       :: SFFile → PerGMKey → PreInstrument
 > computePreInstrument SFFile{zArrays} PerGMKey{pWordI}
->   | traceIf msg False                    = undefined
+>   | traceIf trace_CPI False              = undefined
 >   | otherwise                            = PreInstrument inp ffs
 >   where
 >     iinst                                = ssInsts zArrays ! pWordI
@@ -541,20 +544,22 @@ executive ======================================================================
 >     inp                                  = F.instName iinst    
 >     ffs                                  = computeFFMatches inp
 > 
->     msg = unwords ["computePreInstrument ", show inp, " ", show ffs]
+>     trace_CPI                            = unwords ["computePreInstrument", show inp]
 >
 > isNonPitchedByFft        :: PreSample → Maybe Bool
 > isNonPitchedByFft PreSample{dLow, dTarget, dHigh}
->   | traceIf msg False                    = undefined
+>   | traceIf trace_INPBF False            = undefined
 >   | 0.0 == dLow + dTarget + dHigh        = Nothing
 >   | otherwise                            = Just (bCrit1 || bCrit2 || bCrit3)
 >   where
 >     bCrit1                               = dTarget < 3.0
 >     bCrit2                               = (dTarget - dLow) / dTarget < 0.1
 >     bCrit3                               = (dHigh - dTarget) / dTarget < 0.1
->     msg                                  = unwords ["isNonPitchedByFft ",   show (dLow, dTarget, dHigh)
->                                                                    , " ",   show (bCrit1, bCrit2, bCrit3)
->                                                                    , " = ", show (bCrit1 || bCrit2 || bCrit3)]
+>     trace_INPBF                          = unwords ["isNonPitchedByFft"
+>                                                 ,   show (dLow, dTarget, dHigh)
+>                                                 ,   show (bCrit1, bCrit2, bCrit3)
+>                                                 , "="
+>                                                 , show (bCrit1 || bCrit2 || bCrit3)]
 >
 > formMasterInstList     :: SFRoster → IO [PerGMKey]
 > formMasterInstList SFRoster{zFiles}
@@ -563,9 +568,10 @@ executive ======================================================================
 >
 > -- file to instrument
 > formFI                 :: SFFile → [PerGMKey]
-> formFI SFFile{zArrays, zWordF}    = mapMaybe qualifyInst rangeI
+> formFI SFFile{zArrays, zWordF}           = mapMaybe qualifyInst rangeI
 >   where
->     boundsI                              = bounds (ssInsts zArrays)
+>     SoundFontArrays{ .. }                = zArrays
+>     boundsI                              = bounds ssInsts
 >     rangeI                               = profess
 >                                              (uncurry (<=) boundsI)
 >                                              "bad file: invalid bounds"
@@ -576,8 +582,8 @@ executive ======================================================================
 >       | (jbagi - ibagi) >= 2             = Just $ PerGMKey zWordF wordI Nothing
 >       | otherwise                        = Nothing
 >       where
->         iinst                            = ssInsts zArrays ! wordI
->         jinst                            = ssInsts zArrays ! (wordI+1)
+>         iinst                            = ssInsts ! wordI
+>         jinst                            = ssInsts ! (wordI+1)
 >         ibagi                            = F.instBagNdx iinst
 >         jbagi                            = F.instBagNdx jinst
 >
@@ -889,7 +895,7 @@ prepare the specified instruments and percussion ===============================
 >           | traceIf traceBZ False        = undefined
 >           | otherwise                    = (zh, zone)
 >           where
->             traceBZ                      = unwords ["buildZone", show bagIndex, show gens]
+>             traceBZ                      = unwords ["buildZone", show gens]
 >
 >             xgeni                        = F.genNdx $ ssIBags!bagIndex
 >             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
@@ -1477,3 +1483,5 @@ Scoring stuff ==================================================================
 >                           
 > qqHints                :: Map HintId HintBody
 > qqHints                                  = Map.fromList myHints
+
+The End

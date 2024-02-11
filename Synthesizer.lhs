@@ -84,7 +84,7 @@ Signal function-based synth ====================================================
 >                           → Bool
 >                           → Signal p () (Double, (ModSignals, ModSignals))
 > eutDriver secsScored (reconL@Reconciled{rModulation = m8n, rNoteOn}, reconR) secsToPlay idelta looping
->   | traceIf trace_eD False               = undefined
+>   | traceNever trace_eD False            = undefined
 >   | otherwise                            = if looping
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
@@ -115,7 +115,7 @@ Signal function-based synth ====================================================
 >     trace_eD                             = unwords ["eutDriver idelta=", show idelta, " looping=", show looping]
 >
 > normalizeLooping       :: Reconciled → (Double, Double)
-> normalizeLooping r@Reconciled{rStart, rEnd, rLoopStart, rLoopEnd}
+> normalizeLooping Reconciled{ .. }
 >                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)
 >   where
 >     (fullst, fullen)   :: (Double, Double)
@@ -185,7 +185,7 @@ Signal function-based synth ====================================================
 >               "pump ", show (a1L, a1R)
 >             , "<=>", show (a1L * ampL, a1R * ampR)]
 >      
->     trace_ePS                            = unwords ["eutPumpSamples", show numS, show (ampL, ampR), show graphL]
+>     trace_ePS                            = unwords ["eutPumpSamples", show (ampL, ampR)]
 >
 > eutAmplify             :: ∀ p . Clock p ⇒
 >                           Double
@@ -418,7 +418,7 @@ Envelopes ======================================================================
 >   where
 >     makeSF             :: Envelope → Signal p () Double
 >     makeSF env
->       | traceIf trace_MSF False          = undefined
+>       | traceNever trace_MSF False       = undefined
 >       | otherwise                        = dumpSF secsScored secsToPlay sf
 >       where
 >         sf = envLineSeg sAmps sDeltaTs
@@ -724,7 +724,7 @@ Effects ========================================================================
 > 
 > doPan                  :: (Double, Double) → (Double, Double) → (Double, Double)
 > doPan (azimuthL, azimuthR) (sinL, sinR)
->   | traceNever msg False                 = undefined
+>   | traceNever trace_DP False            = undefined
 >   | otherwise                            = ((ampLL + ampRL)/2, (ampLR + ampRR)/2)
 >   where
 >     xL = cos ((azimuthL + 0.5) * pi / 2)
@@ -734,7 +734,7 @@ Effects ========================================================================
 >     ampRL = sinR * xR
 >     ampRR = sinR * (1 - xR)
 >
->     msg = unwords ["doPan ", show ampLL, " ", show ampRL, " ", show ampRL, " ", show ampRR]
+>     trace_DP = unwords ["doPan", show (ampLL, ampLR, ampRL, ampRR)]
 >
 > dcBlock                :: ∀ p . Clock p ⇒ Double → Signal p Double Double
 > dcBlock a = proc xn → do
@@ -937,3 +937,5 @@ Turn Knobs Here ================================================================
 >   , qqUseEffectDCBlock                   = True
 >   , qqNormalizingOutput                  = True
 >   , qqScanningOutput                     = False}
+
+The End
