@@ -2431,13 +2431,29 @@ PG =============================================================================
 >            , line [t32 [grace (-2) (cs 5 en), rest qn], rest sn, b 4 sn, as 4 sn, b 4 (sn + qn)
 >                  , grace (-2) (cs 5 hn), b 4 (qn + dqn), cs 5 en, b 4 (qn + dqn), ds 5 en, rest dhn
 >                  , cs 5 en, d 4 (en + dqn), rest (dqn + dhn)]]
+>     lead163_164 =
+>       line [cs 6 hn, rest en, fs 6 en, tempo (2/3) (line [t32 [fs 6 qn, e 6 en], e 6 en, rest en])]
+>     lead165_168 =
+>       line [gs 6 qn, gs 6 en, fs 6 en, grace (-2) (as 6 qn), grace (-2) (as 6 en), as 6 en
+>           , tempo (9/8) (line [times 4 (line [as 6 en, gs 6 en]), as 6 en]), gs 6 en, fs 6 en
+>           , grace (-3) (ass 6 qn), chord [fs 6 hn, b 6 hn]]
+>     lead169_172 =
+>       line [line [ds 7 qn, fs 5 en, grace (-2) (as 5 en), t32 [rest en, ass 5 en, ass 5 en]]
+>           , line [as 5 en, a 5 en, as 5 wn, chord [grace (-2) (as 5 qn), grace (-2) (as 5 qn)]]
+>           , tempo (2/3) (line [t32 [e 5 en, fs 5 qn], fs 5 en, e 5 en])]
+>     lead173_178 =
+>       line [line [fs 5 (dhn + en), as 4 sn, gs 4 sn, fs 6 qn, rest qn]
+>           , line [rest qn, fs 3 en, gs 3 en, t32 [times 5 (gs 3 en), gss 3 en, gss 3 en, a 3 en, a 3 en]
+>                 , as 3 en, grace (-1) (b 3 den), grace(-2) (b 3 den)
+>                 , grace (-1) (b 3 qn), grace (-3) (cs 4 dhn), fs 3 qn]]
 >
 >     leadLine = line [rest (24 * dhn), lead025_028, lead029_032, lead033_036, lead037_040, lead041_044
 >                       , lead045_048, lead049_052, lead053_056, lead057_060, lead061_064, lead065_068
 >                       , lead069_072, lead073_076, lead077_080, lead081_084, lead085_088, lead089_092
 >                       , lead093_096, lead097_100, lead101_104, lead105_108, lead109_112, lead113_116
 >                       , lead117_120, lead121_124, lead125_128, lead129_132, lead133_136, lead137_138
->                       , lead139_143, lead144_149, lead150_153, lead154_155, lead156_162]
+>                       , lead139_143, lead144_149, lead150_153, lead154_155, lead156_162, lead163_164
+>                       , lead165_168, lead169_172, lead173_178]
 >
 >     bassLine = times 24 (line [pgBassI, pgBassII])
 >       where
@@ -2452,7 +2468,8 @@ PG =============================================================================
 >                       , perc073_076, perc077_080, perc081_082, perc083_084, perc085_088, perc089_092
 >                       , perc093_096, perc097_100, perc101_104, perc105_108, perc109_112, perc113_116
 >                       , perc117_120, perc121_124, perc125_128, perc129_132, perc133_137, perc138_142
->                       , perc143_144, perc145_148, perc149_153, perc154_156, perc157_160]
+>                       , perc143_144, perc145_148, perc149_153, perc154_156, perc157_160, perc161_164
+>                       , perc165_168, perc169_172, perc173_178]
 >
 > perc009_012 =
 >   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
@@ -2794,5 +2811,29 @@ PG =============================================================================
 >              , line [percCHHqn, rest qn, percCCqn, percCCqn, rest qn, percCCqn]]
 >       , chord [t32 [times 9 percBDqn]
 >              , t32 [times 9 percCCqn]]]
+>
+> perc161_164 =
+>   chord [line [percBDen, percBDen, percBDqn, rest dhn, percSDqn, percBDen, percBDen, rest hn
+>              , percBDqn, rest qn, percBDen, rest en]
+>        , line [percLTen, percLTen, percLTqn, rest (10*qn)]
+>        , line [percCCen, percCCen, percCCqn, percOHHqn, times 9 percCHHqn]]
+>
+> perc165_168 =
+>   chord [line [percBDen, percBDen, percBDqn, t32 [rest qn, percSDqn, percSDqn], percSDqn, rest qn
+>              , percBDen, percBDen, rest hn, percBDqn, percSDen, percBDen, rest qn]
+>        , line [percCHHqn, percCHHqn, t32 [percOHHqn, times 2 (chord [percOHHqn, percCCqn])]
+>              , chord [percOHHqn, percCCqn], times 4 percOHHqn, times 3 percCHHqn]]
+>
+> perc169_172 =
+>   chord [line [rest qn, roll sn (perc AcousticSnare wn), rest qn, percBDen, percBDen, rest hn, percBDqn, rest hn]
+>        , line [percm PedalHiHat [qn, qn, qn, qn, qn, qn], percCCen, percCCen, percm PedalHiHat [qn, qn]
+>              , percOHHqn, percOHHqn, percCCqn]]
+>
+> perc173_178 =
+>   line [line [percCHHqn, rest (hn + dhn)]
+>       , chord [line [percBDen, percBDen, rest hn, percBDqn, rest en, percBDen, rest qn
+>                    , percBDen, percBDen, percBDqn, rest qn, rest en, percBDen, rest hn]
+>              , line [percCHHen, percCHHen, rest hn, percOHHqn, rest en, percCHHen, rest en, percCHHen, percCHHen
+>                    , percCHHqn, percCHHqn]]]
 
 The End

@@ -255,9 +255,7 @@ Modulation =====================================================================
 >         (a3L, a3R)                       = (checkForNan a2L "mod a2L", checkForNan a2R "mod a2R" )
 >
 >         trace_M                          =
->           unwords [
->               "modulate\n sin = ", show (a1L,       a1R)
->             , "\nsout = ",         show (a3L,       a3R)]
+>           unwords ["modulate", show ((a1L, a1R), (a3L, a3R))]
 
 FFT ===================================================================================================================
 
@@ -568,14 +566,14 @@ Effects ========================================================================
 >     gain                                 = 0.1
 >
 >     makeSF             :: Signal p Double Double
->     makeSF = proc sin → do
+>     makeSF = proc sIn → do
 >       lfo ← osc (tableSines 4096 [1]) 0  ⤙ rate
->       z1 ← delayLine1 0.030              ⤙ (sin, 0.010 + depth * lfo)
->       z2 ← delayLine1 0.030              ⤙ (sin, 0.020 + depth * lfo)
->       z3 ← delayLine1 0.030              ⤙ (sin, 0.030 + depth * lfo)
+>       z1 ← delayLine1 0.030              ⤙ (sIn, 0.010 + depth * lfo)
+>       z2 ← delayLine1 0.030              ⤙ (sIn, 0.020 + depth * lfo)
+>       z3 ← delayLine1 0.030              ⤙ (sIn, 0.030 + depth * lfo)
 >       rec
->         r ← delayLine 0.0001             ⤙ (sin + z1 + z2 + z3)/4 + r * gain
->       outA ⤙ r
+>         sOut ← delayLine 0.0001          ⤙ (sIn + z1 + z2 + z3)/4 + sOut * gain
+>       outA ⤙ sOut
 >
 > eutReverb              :: ∀ p . Clock p ⇒ Signal p (Double, Double) (Double, Double)
 > eutReverb                                = if useReverb
@@ -699,28 +697,30 @@ Effects ========================================================================
 >
 > comb                   :: ∀ p . Clock p ⇒ Word64 → STK.FilterData → Signal p Double Double
 > comb maxDel filter
->   | traceNever msg False = undefined
->   | otherwise =
->   let
->     sr = rate (undefined :: p)
->   in proc sin → do
+>   | traceNever trace_C False             = undefined
+>   | otherwise                            =
+>   proc sIn → do
 >     rec
->       r ← delayLine (fromIntegral maxDel/sr) ⤙ sin + r * STK.jGain filter
->     outA ⤙ r
+>       sOut ← delayLine secs ⤙ sIn + sOut * STK.jGain filter
+>     outA ⤙ sOut
 >   where
->     msg = unwords ["comb delay (samples)=", show maxDel, " filter=", show filter]
+>     sr                                   = rate (undefined :: p)
+>     secs               :: Double         = fromIntegral maxDel/sr
+>
+>     trace_C                              = unwords ["comb delay (samples)=", show maxDel, "filter=", show filter]
 > 
 > allpass                :: ∀ p . Clock p ⇒ Word64 → Signal p Double Double
 > allpass maxDel
->   | traceNever msg False = undefined
->   | otherwise =
->   let
->     sr = rate (undefined :: p)
->   in proc sin → do
->     r ← delayLine (fromIntegral maxDel/sr) ⤙ sin
->     outA ⤙ r
+>   | traceNever trace_AP False            = undefined
+>   | otherwise                            =
+>   proc sIn → do
+>     sOut ← delayLine secs ⤙ sIn
+>     outA ⤙ sOut
 >   where
->     msg = unwords ["allpass delay (samples)=", show maxDel]
+>     sr                                   = rate (undefined :: p)
+>     secs               :: Double         = fromIntegral maxDel/sr
+>
+>     trace_AP                             = unwords ["allpass delay (samples)=", show maxDel]
 > 
 > doPan                  :: (Double, Double) → (Double, Double) → (Double, Double)
 > doPan (azimuthL, azimuthR) (sinL, sinR)
