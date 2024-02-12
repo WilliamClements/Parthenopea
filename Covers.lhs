@@ -2475,6 +2475,34 @@ PG =============================================================================
 >       line [line [e 3 en, fs 3 en, ascent pgLead (Fs, 3) hn]
 >           , line [rest en, grace 2 (gs 3 hn), as 3 en]
 >           , line [grace (-3) (b 3 dqn), grace (-4) (bs 3 dqn)]]
+>     lead205_207 =
+>       line [grace (-3) (cs 4 (dhn + hn)), b 3 qn, rest dqn, cs 4 en, cs 4 sn, cs 4 sn, cs 4 en]
+>     lead208_212 =
+>       line [line [css 4 sn, css 4 sn, css 4 sn, d 4 sn, d 4 sn, ds 4 sn, dss 4 sn, e 4 sn
+>                 , tempo (5/4) (line [addDur sn [e 4, e 4, es 4, f 4, f 4]])]
+>           , line [addDur sn [fs 4, fs 4, fs 4, ds 4], tempo (5/4) (line [addDur sn [ds 4, ds 4, e 4, ds 4, fs 3]])
+>                 , fs 3 qn]
+>           , line [fs 3 en, fs 3 en, t32 [fs 3 qn, e 3 hn]]
+>           , line [t32 [grace (-2) (as 3 qn), gs 3 en], grace (-2) (a 3 hn)]
+>           , line [rest qn, tempo (5/4) (addDur en [cs 4, cs 4, cs 4, cs 4, gss 3])]]
+>     lead213_216 =
+>       line [t32 [cs 4 en, cs 4 en, gs 3 en, cs 4 en, cs 4 en, gs 3 qn, gs 3 qn]
+>           , line [rest qn, fs 3 dqn, fs 3 sn, fs 3 sn]
+>           , t32 [addDur en [gs 3, gs 3, gs 3, gs 3, gss 3, gss 3, gss 3, gss 3, fs 3]]
+>           , line [fs 3 en, fs 3 en, e 4 en, e 4 sn, e 4 sn
+>                 , tempo (5/4) (line [addDur sn [e 4, e 4, es 4, f 4, fs 4]])]]
+>     lead217_220 =
+>       line [line [fs 4 sn, g 4 sn, gs 4 sn, a 4 sn, as 4 sn, cs 5 sn, as 4 sn, cs 5 sn, g 4 sn, e 4 sn, e 4 en]
+>           , line [rest qn, cs 4 sn, css 4 sn, d 4 sn, ds 4 sn, tempo (5/4) (line [addDur sn [e 4, e 4, es 4, f 4, f 4]])]
+>           , line [fs 4 sn, fss 4 sn, g 4 sn, g 4 sn, f 4 sn, e 4 (den + en), rest en]
+>           , line [t32 [e 5 qn, fs 6 en, e 5 sn, gs 4 en], fs 5 en, b 5 sn, e 5 en, es 5 sn]]
+>     lead221_224 =
+>       line [t32 [gs 5 qn, cs 6 en, grace 2 (gs 5 en), e 5 en, cs 6 en, b 4 en, cs 4 en, b 4 en]
+>           , t32 [b 3 en, cs 4 en, a 3 en, cs 4 en, gs 3 en, cs 5 en, fs 3 en, b 3 en, e 5 en]
+>           , line [e 5 sn, e 4 en, e 5 en, ds 4 sn, e 4 en, rest en, fs 4 sn, fss 3 sn]
+>           , line [fs 3 dhn]]
+>     lead225_228 =
+>       line [e 3 dwn, rest dwn]    
 >
 >     leadLine = line [rest (24 * dhn), lead025_028, lead029_032, lead033_036, lead037_040, lead041_044
 >                       , lead045_048, lead049_052, lead053_056, lead057_060, lead061_064, lead065_068
@@ -2483,7 +2511,8 @@ PG =============================================================================
 >                       , lead117_120, lead121_124, lead125_128, lead129_132, lead133_136, lead137_138
 >                       , lead139_143, lead144_149, lead150_153, lead154_155, lead156_162, lead163_164
 >                       , lead165_168, lead169_172, lead173_178, lead179_184, lead185_188, lead189_192
->                       , lead193_196, lead197_201, lead202_204]
+>                       , lead193_196, lead197_201, lead202_204, lead205_207, lead208_212, lead213_216
+>                       , lead217_220, lead221_224, lead225_228]
 >
 >     bassLine = times 28 (line [pgBassI, pgBassII])
 >       where
@@ -2500,7 +2529,8 @@ PG =============================================================================
 >                       , perc117_120, perc121_124, perc125_128, perc129_132, perc133_137, perc138_142
 >                       , perc143_144, perc145_148, perc149_153, perc154_156, perc157_160, perc161_164
 >                       , perc165_168, perc169_172, perc173_178, perc179_184, perc185_188, perc189_192
->                       , perc193_196, perc197_201, perc202_204]
+>                       , perc193_196, perc197_201, perc202_204, perc205_207, perc208_212, perc213_216
+>                       , perc217_220, perc221_224, perc225_228]
 >
 > perc009_012 =
 >   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
@@ -2912,5 +2942,60 @@ PG =============================================================================
 >       , line [percSDqn, percSDen, percBDen, rest en, percBDen]
 >       , chord [line [rest dqn, percSDsn, percSDsn, percSDen, percBDen]
 >              , line [rest en, percCHHsn, percCHHsn, percCHHqn, rest qn]]]
+>
+> perc205_207 =
+>   line [chord [line [times 2 (line [rest sn, chord[percBDsn, percSDsn]]), percBDqn, rest qn]
+>              , line [percm ClosedHiHat [en, en, qn], rest qn]]
+>       , chord [line [percBDen, percBDen, rest hn]
+>              , line [percCCen, percCCen, perc CrashCymbal1 hn]]
+>       , chord [percBDqn, percCHHqn]
+>       , rest hn]
+>
+> perc208_212 =
+>   line [percBDen, percBDen
+>       , tempo (5/4) (line [times 2 (chord [line [rest en, percBDen, rest en, percBDen, rest en]
+>                                          , line [percCHHqn, percCHHqn, percCHHen]])
+>                           , chord [line [rest en, perc BassDrum1 den]
+>                                  , line [perc ClosedHiHat (den + en)]]])
+>       , chord [line [percBDen, percBDen, rest hn, chord [percBDqn, percSDqn], rest en, percBDen, rest qn]
+>              , line [percCCen, percCCen, rest qn, percCHHen, percCHHen, percCHHqn, times 4 percCHHen]]
+>       , chord [line [percBDen, percBDen, perc AcousticSnare hn]
+>              , line [percCHHqn, rest hn]]]
+>
+> perc213_216 =
+>   line [line [perc AcousticSnare dhn]
+>       , chord [line [percBDen, percBDen, rest hn]
+>                    , line [percCCen, percCCen, perc ClosedHiHat hn]]
+>       , chord [line [percBDqn, rest en, percBDen, rest qn]
+>              , line [percSDqn, rest en, percSDen, rest qn]
+>              , line [percOHHqn, rest en, perc OpenHiHat dqn]]
+>       , chord [line [percBDen, percBDen, percBDqn, t32 [times 3 percSDen]]
+>              , line [times 3 (perc PedalHiHat qn)]]]
+>
+> perc217_220 =
+>   line [chord [t32 [times 7 percSDen, percSDqn]
+>              , line [times 3 percCHHqn]]
+>       , chord [line [percBDen, percBDen, rest hn]
+>              , line [percCCen, percCCen, times 2 (perc PedalHiHat qn)]]
+>       , chord [line [percBDqn, rest en, percBDen, rest qn]
+>              , line [times 3 (perc PedalHiHat qn)]]
+>       , chord [line [percBDen, percBDen, percBDqn, rest qn]
+>              , line [times 3 (perc PedalHiHat qn)]]]
+>
+> perc221_224 =
+>   line [chord [line [t32 [percSDqn, percSDen], percm AcousticSnare [dqn, en]]
+>              , line [times 3 percCHHqn]]
+>       , chord [line [percBDen, percBDen, rest hn]
+>              , line [percCCen, percCCen, percCHHqn, percCHHqn]]
+>       , chord [line [percBDqn, rest en, percBDen, rest qn]
+>              , line [perc PedalHiHat qn, percCHHqn, percCHHqn]]
+>       , chord [line [rest (hn + en), percBDen]
+>              , line [times 3 (perc PedalHiHat qn)]]]
+>
+> perc225_228 =
+>   line [chord [line [percm HighFloorTom [en, sn, sn, en, en, qn]]
+>              , line [percm PedalHiHat [qn, qn, qn]]]
+>       , chord [line [percBDen, percBDen, rest hn, percBDqn, rest (hn + dhn)]
+>              , line [times 6 (perc PedalHiHat qn), rest dhn]]]
 
 The End
