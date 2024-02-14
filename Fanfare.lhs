@@ -66,9 +66,9 @@ Fanfare ========================================================================
 >       ffLeadII                           = replace ffLeadII_   dynMap
 >       ffPickedI                          = replace ffPickedI_  dynMap
 >
->       tTreble1 = bandPart' ffLeadI   $ tFan :+: tAns
->       tTreble2 = bandPart' ffLeadII  $ uFan :+: uAns
->       bBass    = bandPart' ffPickedI $ bFan :+: bAns
+>       tTreble1 = bandPart ffLeadI   $ tFan :+: tAns
+>       tTreble2 = bandPart ffLeadII  $ uFan :+: uAns
+>       bBass    = bandPart ffPickedI $ bFan :+: bAns
 >
 >       tFan =  {- 32 -} line [tFan1, tFan2, tFan3, tFan4, tFan5]
 >       uFan =  {- 32 -} line [uFan1, uFan2, uFan3]
@@ -133,7 +133,7 @@ Alice ==========================================================================
 >         $ aggrandize
 >         $ tempo                          aliceTempo
 >         $ keysig G Dorian
->         $ bandPart' aliceLead
+>         $ bandPart aliceLead
 >         $ line [rest hn, line00, line01, line00, line01]
 >
 >    where
@@ -165,9 +165,9 @@ Bob ============================================================================
 >       $ aggrandize
 >       $ tempo bobTempo
 >       $ keysig D Mixolydian
->       $     bandPart' bobTreble (times nRepeats treblebob)
->         :=: bandPart' bobAlto   (times nRepeats altobob)
->         :=: bandPart' bobBass   (times nRepeats bassbob)
+>       $     bandPart bobTreble (times nRepeats treblebob)
+>         :=: bandPart bobAlto   (times nRepeats altobob)
+>         :=: bandPart bobBass   (times nRepeats bassbob)
 >
 >    where
 >
@@ -224,9 +224,9 @@ Bill ===========================================================================
 >    $ tempo     billTempo
 >    $ keysig Ef Mixolydian
 >
->    $     bandPart' billTreble (rest dwn :+: g 4 hn :+: times nRepeats treble)
->      :=: bandPart' billAlto   (rest dwn :+: bf 3 hn :+: times nRepeats alto)
->      :=: bandPart' billBass   (rest dwn :+: ef 3 hn :+: times nRepeats bass)
+>    $     bandPart billTreble (rest dwn :+: g 4 hn :+: times nRepeats treble)
+>      :=: bandPart billAlto   (rest dwn :+: bf 3 hn :+: times nRepeats alto)
+>      :=: bandPart billBass   (rest dwn :+: ef 3 hn :+: times nRepeats bass)
 >
 >    where
 > 
@@ -281,7 +281,7 @@ Copper =========================================================================
 >    $ aggrandize
 >    $ tempo 2
 >    $ keysig C Dorian
->    $ bandPart' copperLead
+>    $ bandPart copperLead
 >    $ times n
 >    $ line [c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn, c 5 qn, rest qn]
 >      :+: tempo (5/4) (line [c 5 qn, g 4 qn, a 4 qn, bf 4 qn, rest qn])
@@ -303,7 +303,7 @@ Gold ===========================================================================
 >    $ aggrandize
 >    $ tempo 2
 >    $ keysig C Mixolydian
->    $ bandPart' goldLead
+>    $ bandPart goldLead
 >    $ times 2
 >      (line [c 4 hn,  c 5 dhn]
 >       :+: addDur qn [ c 5, bf 4,  a 4,  g 4,
@@ -329,7 +329,7 @@ Silver =========================================================================
 >     $ aggrandize
 >     $ tempo 2
 >     $ keysig A Mixolydian
->     $ bandPart' silverLead
+>     $ bandPart silverLead
 >     $ line allSilver
 >
 >     where
@@ -390,8 +390,8 @@ Snake ==========================================================================
 >    $ aggrandize
 >    $ tempo snakeTempo
 >    $ keysig D Mixolydian
->    $     bandPart' snakeLead treblePart
->      :=: bandPart' snakeSecond altoPart
+>    $     bandPart snakeLead treblePart
+>      :=: bandPart snakeSecond altoPart
 >
 >    where
 >
@@ -488,13 +488,13 @@ Country In The Morning =========================================================
 >    $ tempo citmTempo
 >    $ keysig G Major
 >    $ chord [     
->         bandPart' citmLead
+>         bandPart citmLead
 >           (line [a1 :+: rest qn, b1, a1 :+: a 4 qn, c1])
 >      ,
->         bandPart' citmStrum
+>         bandPart citmStrum
 >           (line [a2, b2, a2, c2])
 >      ,
->         bandPart' citmBass
+>         bandPart citmBass
 >           (line [ a3 :+: line [a 2 qn, b 2 qn, cs 3 qn], b3
 >                 , a3 :+: line [d 2 qn, e 2 qn, fs 2 qn], c3])]
 >
@@ -554,10 +554,10 @@ Whelp Narp =====================================================================
 >    $ aggrandize
 >    $ tempo wnTempo
 >    $ keysig C Mixolydian
->    $     bandPart' wnLead                    (wnAltoI :+: wnAltoII)
->      :=: bandPart' wnStrings                (wnTenorI :+: wnTenorII)
->      :=: bandPart' wnBass                (wnBaritoneI :+: wnBaritoneII)
->      :=: bandPart' wnPerc                    (wnPercI :+: wnPercII)
+>    $     bandPart wnLead                    (wnAltoI :+: wnAltoII)
+>      :=: bandPart wnStrings                (wnTenorI :+: wnTenorII)
+>      :=: bandPart wnBass                (wnBaritoneI :+: wnBaritoneII)
+>      :=: bandPart wnPerc                    (wnPercI :+: wnPercII)
 >   where
 >
 >   wnLead                                 = replace wnLead_      dynMap
@@ -689,8 +689,8 @@ Roger ==========================================================================
 >    $ aggrandize
 >    $ tempo                               rogerTempo
 >    $ keysig Cs Dorian
->    $     bandPart' rogerAlto  (line [cAltoI,  cAltoIIA, cAltoIIB])
->      :=: bandPart' rogerTenor (line [cTenorI, cTenorII])
+>    $     bandPart rogerAlto  (line [cAltoI,  cAltoIIA, cAltoIIB])
+>      :=: bandPart rogerTenor (line [cTenorI, cTenorII])
 >   where
 >
 >   rogerAlto                              = replace rogerAlto_  dynMap
@@ -777,10 +777,10 @@ Way Pos' T' Purple =============================================================
 >    $ aggrandize
 >    $ tempo                               wayposTempo
 >    $ keysig C Major
->          (bandPart' wayposLead  leadPart
->       :=: bandPart' wayposStrum strumPart
->       :=: transpose 12 (bandPart' wayposBass bassPart))
->       :=: bandPart' wayposPerc  percPart
+>          (bandPart wayposLead  leadPart
+>       :=: bandPart wayposStrum strumPart
+>       :=: transpose 12 (bandPart wayposBass bassPart))
+>       :=: bandPart wayposPerc  percPart
 >   where
 >
 >   wayposLead                             = replace wayposLead_ dynMap
@@ -915,13 +915,13 @@ Pendington Arnt  ===============================================================
 >    $ tempo pArntTempo
 >    $ keysig C Lydian
 >    $ times nRepeats
->    $ bandPart' pArntLead
+>    $ bandPart pArntLead
 >      ((if includeOpen then zOpenT        else rest 0)
 >         :+: (if includeClos then zClosT  else rest 0))
->      :=: bandPart' pArntStrum
+>      :=: bandPart pArntStrum
 >      ((if includeOpen then zOpenG        else rest 0)
 >         :+: (if includeClos then zClosG  else rest 0))
->      :=: bandPart' pArntBass
+>      :=: bandPart pArntBass
 >      ((if includeOpen then zOpenB        else rest 0)
 >         :+: (if includeClos then zClosB  else rest 0))
 >
@@ -973,13 +973,13 @@ Pan ============================================================================
 >     removeZeros
 >     $ tempo panTempo
 >     $ keysig Af Mixolydian
->     $ bandPart' panLead
+>     $ bandPart panLead
 >       ((if includeOpen then xOpenT        else rest 0)
 >          :+: (if includeClos then xClosT  else rest 0))
->       :=: bandPart' panStrum
+>       :=: bandPart panStrum
 >       ((if includeOpen then xOpenG        else rest 0)
 >          :+: (if includeClos then xClosG  else rest 0))
->       :=: bandPart' panBass
+>       :=: bandPart panBass
 >       ((if includeOpen then xOpenB        else rest 0)
 >          :+: (if includeClos then xClosB  else rest 0))
 >       where
@@ -1030,9 +1030,9 @@ Rattan =========================================================================
 >   ratBass                                = replace ratBass_ dynMap
 >   ratPerc                                = replace ratPerc_ dynMap
 >
->   vpart                                  = bandPart' ratLead (times 2 vline)
->   spart                                  = bandPart' ratBass (times 2 sline)
->   ppart                                  = bandPart' ratPerc (times 2 pline)
+>   vpart                                  = bandPart ratLead (times 2 vline)
+>   spart                                  = bandPart ratBass (times 2 sline)
+>   ppart                                  = bandPart ratPerc (times 2 pline)
 >
 > vline = line [vl_l01a, vl_101b, vl_l01a, vl_101b', vl_l01a, vl_101b, vl_l01a, vl_101b''
 >             , vl_201a, vl_201a, vl_201a, vl_201a,  vl_201b, vl_201b, vl_201b, vl_201b
@@ -1076,7 +1076,7 @@ Kit ============================================================================
 >   removeZeros
 >   $ aggrandize
 >   $ tempo kitTempo
->   $ chord [bandPart' kitPerc npart, bandPart' kitLead tpart]
+>   $ chord [bandPart kitPerc npart, bandPart kitLead tpart]
 >
 >   where
 >
@@ -1148,9 +1148,9 @@ Pit ============================================================================
 >   $ aggrandize
 >   $ tempo pitTempo
 >   $ keysig B Lydian
->   $     bandPart' pitLead pitA
->     :=: bandPart' pitBass pitB
->     :=: bandPart' pitStrum pitC
+>   $     bandPart pitLead pitA
+>     :=: bandPart pitBass pitB
+>     :=: bandPart pitStrum pitC
 >
 >   where
 >
@@ -1170,7 +1170,7 @@ Dit ============================================================================
 >   $ aggrandize
 >   $ tempo ditTempo
 >   $ keysig Af Mixolydian
->   $ bandPart' ditBass (times 2 ditbody)
+>   $ bandPart ditBass (times 2 ditbody)
 >
 >   where
 >
@@ -1194,7 +1194,7 @@ Dadadada =======================================================================
 >   removeZeros
 >   $ tempo da4Tempo
 >   $ keysig Af Mixolydian
->   $ bandPart' da4Lead_ (times 4 body)
+>   $ bandPart da4Lead_ (times 4 body)
 >
 >   where
 >

@@ -62,13 +62,12 @@ Modulator management ===========================================================
 >
 > data Sifting                             =
 >   Sifting {
->       counter          :: Int
->     , current          :: [Modulator]
->     , previous         :: [Modulator]} deriving Show 
+>       ssCounter        :: Int
+>     , ssCurrent        :: [Modulator]
+>     , ssPrevious       :: [Modulator]} deriving Show 
 >
 > eliminateDanglingMods  :: Sifting → Sifting
-> eliminateDanglingMods sifting@Sifting{counter, current}
->                                          = Sifting (counter + 1) newTry current
+> eliminateDanglingMods Sifting{ .. }      = Sifting (ssCounter + 1) newTry ssCurrent
 >   where
 >     -- let's examine result of the previous generation
 >     -- use it to produce next generation, dropping nodes that:
@@ -76,46 +75,37 @@ Modulator management ===========================================================
 >     --     or
 >     -- 2. are superseded 
 >     newTry                               = profess
->                                              (counter <= 10)
+>                                              (ssCounter <= 10)
 >                                              "maximum of 10 tries exceeded..."
->                                              filter shouldStay current
+>                                              filter shouldStay ssCurrent
 >
->     shouldStay m8r@Modulator{mrModId, mrModSrc}
->                                          = linkageOk && not superceded
+>     shouldStay m8r@Modulator{ .. }       = linkageOk && not superceded
 >       where
 >         linkageOk                        =
->           FromLinked /= source || maybe False (not . null) (Map.lookup link compiled)
+>           FromLinked /= source || maybe False (not . null) (Map.lookup (ToLink mrModId) (compileMods ssCurrent))
 >         superceded                       =
->           mrModId /= professIsJust (Map.lookup key superc) "newTry"
->         link                             = ToLink mrModId
->         key                              = getModKey m8r
+>           maybe False noMatch (Map.lookup (fst (supercedeKey m8r)) (foldl' supercfr Map.empty ssCurrent))
+>         noMatch current                  = mrModId /= current
 >         source                           = msSource mrModSrc
 >
->     compiled           :: Map ModDestType [Modulator]
->                                          = compileMods current
->     superc             :: Map ModKey Word
->                                          = foldl' supercfr Map.empty current
->
->     supercfr           :: Map ModKey Word → Modulator → Map ModKey Word
 >     supercfr accum m8r                   = Map.insert newK newW accum
 >       where
->         (newK, newW)                     = getModKeyPair m8r
+>         (newK, newW)                     = supercedeKey m8r
 >
 > siftMods :: [Modulator] -> [Modulator]
-> siftMods m8rs                            = current $ head $ dropWhile unfinished generations
+> siftMods m8rs                            = ssCurrent 
 >   where
 >     seed                                 = Sifting 0 m8rs []
 >     generations                          = iterate' eliminateDanglingMods seed
+>     Sifting{ .. }                        = head $ dropWhile unfinished generations
 >
 >     unfinished         :: Sifting → Bool
->     unfinished sifting@Sifting{current, previous}
->                                          = current /= previous                    
+>     unfinished Sifting{ .. }             = ssCurrent /= ssPrevious
 >
 > compileMods            :: [Modulator] → Map ModDestType [Modulator]
 > compileMods                              = foldl' nodeFolder Map.empty
 >   where
->     nodeFolder accum m8r@Modulator{mrModDest}
->                                          =
+>     nodeFolder accum m8r@Modulator{ .. } =
 >       let
 >         soFar                            = fromMaybe [] (Map.lookup mrModDest accum)
 >       in
@@ -398,11 +388,19 @@ Modulator management ===========================================================
 >
 > modVib                 :: ∀ p . Clock p ⇒ Double → Double → Signal p Double Double
 > modVib rate depth                        =
->   proc sin → do
+>   proc sIn → do
 >     vib   ← osc sineTable 0              ⤙ rate
->     sout  ← delayLine1 0.2               ⤙ (sin,0.1+depth*vib)
->     outA                                 ⤙ sout
+>     sOut  ← delayLine1 0.2               ⤙ (sIn,0.1+depth*vib)
+>     outA                                 ⤙ sOut
 >
+> echo                   :: ∀ p . Clock p ⇒ Signal p  Double Double
+> echo                                     =
+>   proc sIn → do
+>     rec
+>       fb   ← delayLine 0.04            ⤙ sIn + 0.7*fb   -- 0.7*fb
+>       fb'  ← delayLine 0.06            ⤙ sIn + 0.7*fb'  -- 0.7*fb
+>       fb'' ← delayLine 0.1             ⤙ sIn + 0.7*fb'' -- 0.7*fb
+>     outA ⤙ (fb + fb' + fb'')                           -- fb/3
 >
 > triangleWaveTable      :: Table          = tableSinesN 16384 
 >                                                          [      1,  0, -0.5,  0,  0.3,   0
@@ -629,7 +627,6 @@ Type declarations ==============================================================
 >   , toVolumeCo         :: ModCoefficients
 >   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
-> defModulation          :: Modulation
 > defModulation                            = Modulation
 >                                              Nothing Nothing Nothing Nothing
 >                                              defModCoefficients defModCoefficients defModCoefficients
@@ -643,7 +640,6 @@ Type declarations ==============================================================
 >   , mrModAmount        :: Double
 >   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
 >    
-> defModulator           :: Modulator
 > defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
 >
 > data ModKey =
@@ -652,12 +648,8 @@ Type declarations ==============================================================
 >   , krDest             :: ModDestType
 >   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
 >
-> getModKeyPair          :: Modulator → (ModKey, Word)
-> getModKeyPair m8r@Modulator{mrModId}     = (getModKey m8r, mrModId)
->
-> getModKey              :: Modulator -> ModKey
-> getModKey m8r@Modulator{mrModSrc, mrModDest, mrAmountSrc}
->                                          = ModKey mrModSrc mrModDest mrAmountSrc
+> supercedeKey          :: Modulator → (ModKey, Word)
+> supercedeKey Modulator{ .. }             = (ModKey mrModSrc mrModDest mrAmountSrc, mrModId)
 >
 > data ModDestType =
 >     NoDestination

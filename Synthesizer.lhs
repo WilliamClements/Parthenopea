@@ -523,8 +523,8 @@ Effects ========================================================================
 >   | traceNever trace_eE False = undefined
 >   | otherwise =
 >   proc ((aL, aR), (modSigL, modSigR)) → do
->     chL ← eutChorus 15.0 0.005 0.1 cFactorL ⤙ aL
->     chR ← eutChorus 15.0 0.005 0.1 cFactorR ⤙ aR
+>     chL ← eutChorus 15.0 0.005 cFactorL ⤙ aL
+>     chR ← eutChorus 15.0 0.005 cFactorR ⤙ aR
 >
 >     (rbL, rbR) ← eutReverb ⤙ (aL, aR)
 >
@@ -553,27 +553,51 @@ Effects ========================================================================
 >
 >     trace_eE =
 >       unwords ["eutEffects=",        show effL
->              , "=LR=",               show effR
->              , "rFactor*=",          show rFactorL
->              ,                       show rFactorR]
+>              , "=LR=",               show effR]
 > 
-> eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Double → Signal p Double Double
-> eutChorus rate gain depth cFactor        =
+> eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Signal p Double Double
+> eutChorus rate_ depth_ cFactor           =
 >   if cFactor > 0
 >     then makeSF
 >     else delay 0                                            
 >   where
->     gain                                 = 0.1
+>     rate                                 = professInRange
+>                                              (0.1, 100)
+>                                              rate_
+>                                              "chorus rate"
+>     depth                                = professInRange
+>                                              (0.0001, 1.1)
+>                                              depth_
+>                                              "chorus depth"
 >
 >     makeSF             :: Signal p Double Double
->     makeSF = proc sIn → do
->       lfo ← osc (tableSines 4096 [1]) 0  ⤙ rate
->       z1 ← delayLine1 0.030              ⤙ (sIn, 0.010 + depth * lfo)
->       z2 ← delayLine1 0.030              ⤙ (sIn, 0.020 + depth * lfo)
->       z3 ← delayLine1 0.030              ⤙ (sIn, 0.030 + depth * lfo)
->       rec
->         sOut ← delayLine 0.0001          ⤙ (sIn + z1 + z2 + z3)/4 + sOut * gain
->       outA ⤙ sOut
+>     makeSF                               = proc sIn → do
+>       z1 ← safeDelayLine1 0.023 0.017    ⤙ sIn
+>       z2 ← safeDelayLine1 0.025 0.019    ⤙ sIn
+>       z3 ← safeDelayLine1 0.029 0.023    ⤙ sIn
+>       sOut ← delayLine 0.0001            ⤙ (sIn + coeff1 * z1 + coeff2 * z2 + coeff3 * z3)/2
+>       outA                               ⤙ chorus sIn z1 z2 z3 sOut
+>
+>     coeff1 = 1/3
+>     coeff2 = 1/3
+>     coeff3 = 1/3
+>
+>     safeDelayLine1     :: Double → Double → Signal p Double Double
+>     safeDelayLine1 maxDel del            =
+>       profess
+>         (maxDel >= del + depth)
+>         "maxDel provided to delayLine1 lacks capacity"
+>         (proc sIn → do
+>          lfo ← osc (tableSines 4096 [1]) 0  ⤙ rate
+>          sOut ← delayLine1 maxDel           ⤙ (sIn, del + depth * lfo)
+>          outA                               ⤙ sOut)
+>
+>     chorus             :: Double → Double → Double → Double → Double → Double
+>     chorus tIn y1 y2 y3 tOut
+>       | traceNever trace_C False         = undefined
+>       | otherwise                        = tOut
+>       where
+>         trace_C                          = unwords ["chorus", show (tIn, y1, y2, y3, tOut)]
 >
 > eutReverb              :: ∀ p . Clock p ⇒ Signal p (Double, Double) (Double, Double)
 > eutReverb                                = if useReverb

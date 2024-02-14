@@ -56,25 +56,25 @@ SunPyg =========================================================================
 >    vocalActive = line [v190, v192, v194, v196, v198, v200, v202, v204, v206]
 >    vocalsOnly =
 >      keysig C Lydian
->      $ bandPart' sunPygChoir vocalActive
+>      $ bandPart sunPygChoir vocalActive
 >
 >    bassLine = line [rest wn, times 38 (line [c 2 wn, d 2 wn])
 >                            , times  8 (line [a 2 wn, d 2 wn])
 >                            , times 58 (line [c 2 wn, d 2 wn])]
 >   
->    percMusic = bandPart' sunPygPerc percLine
+>    percMusic = bandPart sunPygPerc percLine
 >   
 >    leadMusic = 
 >      keysig C Lydian
->      $ bandPart' sunPygLead leadLine
+>      $ bandPart sunPygLead leadLine
 >   
 >    vocalMusic = 
 >      keysig C Lydian
->      $ bandPart' sunPygChoir vocalLine
+>      $ bandPart sunPygChoir vocalLine
 >   
 >    bassMusic =
 >      keysig C Lydian
->      $ bandPart' sunPygBass bassLine
+>      $ bandPart sunPygBass bassLine
 >   
 >    m000 = line [rest dhn, tempo (5/4) (line [percHTsn, percHTen, percLTsn, percLTsn])]
 >    m001 = line [percBDen, percOHHen, percCHHen, chord [percCHHen, percBDen]

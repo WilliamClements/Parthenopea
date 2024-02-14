@@ -15,9 +15,9 @@ Cecil's Asleep =================================================================
 > cecilTempo                               = 1
 > cecilTranspose                           = 0
 >
-> cecilAlto_                               = makePitched Violin        cecilTranspose 0        100
-> cecilTenor_                              = makePitched TenorSax      cecilTranspose 0        100
-> cecilBass_                               = makePitched AcousticBass  cecilTranspose 0        100
+> cecilAlto_                               = makePitched Violin        cecilTranspose      0        100
+> cecilTenor_                              = makePitched TenorSax      cecilTranspose      0        100
+> cecilBass_                               = makePitched AcousticBass  cecilTranspose      0        100
 >
 > cecil                  :: DynMap → Music (Pitch, [NoteAttribute])
 > cecil dynMap                             =
@@ -25,17 +25,17 @@ Cecil's Asleep =================================================================
 >    $ aggrandize
 >    $ tempo cecilTempo
 >    $ keysig G Dorian
->    $ bandPart' cecilAlto
+>    $ bandPart cecilAlto
 >      ((if      includeI    then rAltoI     else rest 0)
 >        :+: (if includeII   then rAltoII    else rest 0)
 >        :+: (if includeIII  then rAltoIII   else rest 0)
 >        :+: (if includeIV   then rAltoIV    else rest 0))
->      :=: bandPart' cecilTenor
+>      :=: bandPart cecilTenor
 >      ((if      includeI    then rTenrI     else rest 0)
 >        :+: (if includeII   then rTenrII    else rest 0)
 >        :+: (if includeIII  then rTenrIII   else rest 0)
 >        :+: (if includeIV   then rTenrIV    else rest 0))
->      :=: bandPart' cecilBass
+>      :=: bandPart cecilBass
 >      ((if      includeI    then rBassI     else rest 0)
 >        :+: (if includeII   then rBassII    else rest 0)
 >        :+: (if includeIII  then rBassIII   else rest 0)
@@ -72,8 +72,8 @@ Cecil's Asleep =================================================================
 > cutOutAllOfTheNoise =
 >   line [g 4 en, f 4 qn, d 4 qn, c 4 en, bf 3 qn, g 3 hn]
 >   
-> whatIsGoingOn
->         = line [bf 4 qn, c 5 qn, d 5 qn, d 4 qn, g 4 hn, rest hn]
+> whatIsGoingOn =
+>   line [bf 4 qn, c 5 qn, d 5 qn, d 4 qn, g 4 hn, rest hn]
 >
 > rTenrIA = transpose (-12) rAltoIA
 > rTenrIB = transpose (-12) rAltoIB
@@ -228,7 +228,7 @@ Abby Cissa =====================================================================
 >    $ aggrandize
 >    $ tempo abbyTempo
 >    $ keysig C Major
->    $ bandPart' abbyGrand aLink
+>    $ bandPart abbyGrand aLink
 >
 >    where
 >
@@ -308,9 +308,9 @@ There Goes W.J. ================================================================
 >    $ aggrandize
 >    $ tempo wjTempo
 >    $ keysig G Dorian
->    $     bandPart' wjAlto  (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
->      :=: bandPart' wjTenor (line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
->      :=: bandPart' wjBass  (line [wjBassI,  wjBassII,  wjBassIII,  wjBassIV])
+>    $     bandPart wjAlto  (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
+>      :=: bandPart wjTenor (line [wjTenorI, wjTenorII, wjTenorIII, wjTenorIV])
+>      :=: bandPart wjBass  (line [wjBassI,  wjBassII,  wjBassIII,  wjBassIV])
 >
 >    where
 >
@@ -386,10 +386,10 @@ Shelby Parsley =================================================================
 >   dihtRhodes                             = replace dihtRhodes_ dynMap
 >
 >   spv, spb             :: Music (Pitch, Volume)
->   spv                                    = bandPart' spVibes     (line [spAltoI,  spAltoII,  spAltoIII])
->   spb                                    = bandPart' spBass      (line [spBassI,  spBassII,  spBassIII])
->   dihtr                                  = bandPart' dihtRhodes  (line [dihtRhodesI])
->   dihtb                                  = bandPart' spBass      (line [dihtBassI])
+>   spv                                    = bandPart spVibes     (line [spAltoI,  spAltoII,  spAltoIII])
+>   spb                                    = bandPart spBass      (line [spBassI,  spBassII,  spBassIII])
+>   dihtr                                  = bandPart dihtRhodes  (line [dihtRhodesI])
+>   dihtb                                  = bandPart spBass      (line [dihtBassI])
 >
 >   dihtRhodesI = 
 >        line [ chord [ triad B (CustomMode "Sus4") (B, 3) wn
@@ -545,7 +545,7 @@ We Hate Her ====================================================================
 >    $ tempo whhTempo
 >    $ transpose whhTranspose
 >    $ keysig G Dorian
->    $ bandPart' whhHarpBoy whhMel
+>    $ bandPart whhHarpBoy whhMel
 >
 >    where
 >

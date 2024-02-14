@@ -363,26 +363,26 @@ executive ======================================================================
 >         preSampleCache ← formPreSampleCache zFiles presks
 >         preInstCache   ← formPreInstCache   zFiles pergmsI
 >
->         zoneCache      ← formZoneCache      zFiles preSampleCache preInstCache pergmsI
+>         zc             ← formZoneCache      zFiles preSampleCache preInstCache pergmsI
 >
 >         -- filter master lists down to appropriate candidates
->         let pergmsI'   = filter (flavor InstCatInst zoneCache) pergmsI
->         let filteredIP = filter (flavor InstCatPerc zoneCache) pergmsI
->         pergmsP'       ← formMasterPercussionList zFiles zoneCache preSampleCache filteredIP
+>         let pergmsI'   = filter (flavor InstCatInst zc) pergmsI
+>         let filteredIP = filter (flavor InstCatPerc zc) pergmsI
+>         pergmsP'       ← formMasterPercussionList zFiles zc preSampleCache filteredIP
 >
 >         tsZoned        ← getCurrentTime
 >         putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsLoaded))
 >
 >         -- actually conduct the tournament
->         ws             ← decideWinners zFiles zoneCache preSampleCache preInstCache pergmsI' pergmsP'
+>         ws             ← decideWinners zFiles zc preSampleCache preInstCache pergmsI' pergmsP'
 >         tsDecided      ← getCurrentTime
 >         putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsZoned))
 >
 >         -- print song/orchestration info to user (can be stored by redirecting standard out)
 >         mapM_ putStrLn $ pWarnings ws
 >
->         playCacheI     ← createPlayCache zFiles zoneCache (pWinningI ws)
->         playCacheP     ← createPlayCache zFiles zoneCache (pWinningP ws)
+>         playCacheI     ← createPlayCache zc (pWinningI ws)
+>         playCacheP     ← createPlayCache zc (pWinningP ws)
 >
 >         let sfrost = preRoster{zPreSampleCache = preSampleCache
 >                                , zPreInstCache = preInstCache
@@ -432,11 +432,12 @@ executive ======================================================================
 >                           → [PerGMKey]
 >                           → [PerGMKey]
 >                           → IO WinningRecord
-> decideWinners sffiles zoneCache preSampleCache preInstCache pergmsI pergmsP = do
->   let (wI, sI) = foldl' wiFolder (Map.empty, []) pergmsI         
->   let (wP, sP) = foldl' wpFolder (Map.empty, []) pergmsP
->   let wI' = finalize wI
->   let wP' = finalize wP
+> decideWinners sffiles zc preSampleCache preInstCache pergmsI pergmsP
+>                                          = do
+>   let (wI, sI)                           = foldl' wiFolder (Map.empty, []) pergmsI         
+>   let (wP, sP)                           = foldl' wpFolder (Map.empty, []) pergmsP
+>   let wI'                                = finalize wI
+>   let wP'                                = finalize wP
 >
 >   CM.unless skipReporting (writeTournamentReport sffiles wI' wP')
 >   return $ WinningRecord (Map.map head wI') (Map.map head wP') (sI ++ sP)
@@ -446,24 +447,24 @@ executive ======================================================================
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
 >         PreInstrument{iMatches}          = getPreInstrumentFromCache preInstCache pergm{mpWordZ = Nothing}
->         PerInstrument{pZonePairs}        = getPerInstrumentFromCache zoneCache    pergm{mpWordZ = Nothing}
+>         PerInstrument{pZonePairs}        = getPerInstrumentFromCache zc           pergm{mpWordZ = Nothing}
 >         -- what Instrument is closest fit, name-wise, for this artifact
 >         mk             :: Maybe (InstrumentName, (String, Double))
 >                                          = bestQualifying (getProMatches iMatches) stands
 >         kind                             = fst (professIsJust mk "bestQualifying returned Nothing")
 >
->         wOut                             = xaEnterTournament sffiles zoneCache iMatches pergm kind [] wIn
+>         wOut                             = xaEnterTournament sffiles zc iMatches pergm kind [] wIn
 >     
 >     wpFolder wIn pergm@PerGMKey{mpWordZ}
 >                                          = if isNothing mkind then wIn else wOut
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
->         perI@PerInstrument{pZonePairs}   = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
+>         perI@PerInstrument{pZonePairs}   = getPerInstrumentFromCache zc pergm{mpWordZ = Nothing}
 >         preS@PreSample{sMatches}         = getPreSampleFromCache preSampleCache pergm
 >         mkind          :: Maybe PercussionSound
 >                                          = mpWordZ >>= lookupZone >>= getAP >>= pitchToPerc
 >         wOut                             =
->           xaEnterTournament sffiles zoneCache sMatches pergm
+>           xaEnterTournament sffiles zc sMatches pergm
 >                             (professIsJust mkind "pitchToPerc returned Nothing") [] wIn
 >
 >         lookupZone     :: Word → Maybe SFZone
@@ -589,7 +590,7 @@ executive ======================================================================
 >
 > -- instrument to zone (percussion identity)
 > formMasterPercussionList        :: Array Word SFFile → ZoneCache → PreSampleCache → [PerGMKey] → IO [PerGMKey]
-> formMasterPercussionList sffiles zoneCache preSampleCache pergmsI 
+> formMasterPercussionList sffiles zc preSampleCache pergmsI 
 >                                          = do
 >   let pergmsP = foldl' ffFolder [] pergmsI
 >   return pergmsP
@@ -597,7 +598,7 @@ executive ======================================================================
 >     ffFolder           :: [PerGMKey] → PerGMKey → [PerGMKey]
 >     ffFolder pergmsP pergmI              =
 >       let
->         perI = getPerInstrumentFromCache zoneCache pergmI{mpWordZ = Nothing}
+>         perI = getPerInstrumentFromCache zc pergmI{mpWordZ = Nothing}
 >       in
 >         pergmsP ++ instrumentPercList pergmI perI 
 >
@@ -690,14 +691,14 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → [SSHint]
 >                           → (Map a [PerGMScored], [String])
 >                           → (Map a [PerGMScored], [String])
-> xaEnterTournament sffiles zoneCache ffs pergm@PerGMKey{pWordF, pWordI, mpWordZ} kind hints (wix, ss)
+> xaEnterTournament sffiles zc ffs pergm@PerGMKey{pWordF, pWordI, mpWordZ} kind hints (wix, ss)
 >                                          = (Map.insert kind now wix, ss)
 >   where
 >     soFar              :: [PerGMScored]  = fromMaybe [] (Map.lookup kind wix)
 >     now                :: [PerGMScored]  = pergm' : soFar
 >     akResult                             = evalAgainstKind kind ffs
 >
->     grade                                = computeGrade sffiles zoneCache pergm kind hints akResult
+>     grade                                = computeGrade sffiles zc pergm kind hints akResult
 >
 >     arrays             :: SoundFontArrays
 >                                          = zArrays (sffiles ! pWordF)
@@ -713,12 +714,12 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → [SSHint]
 >                           → AgainstKindResult
 >                           → ArtifactGrade
-> computeGrade sfFiles zoneCache pergm kind hints againstKindResult
+> computeGrade sfFiles zc pergm kind hints againstKindResult
 >   | traceIf msg False                    = undefined
 >   | otherwise                            = ArtifactGrade (sum weightedScores) baseScores
 >   where
 >     PerInstrument{pZonePairs, pInstCat}
->                                          = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
+>                                          = getPerInstrumentFromCache zc pergm{mpWordZ = Nothing}
 >     zs                                   = tail pZonePairs
 >     empiricals         :: [Int]          = [   scoreBool $ isStereoInst zs
 >                                              , scoreBool $ is24BitInst zs
@@ -1106,7 +1107,7 @@ zone selection for rendering ===================================================
 >                           → PerGMKey
 >                           → NoteOn
 >                           → ((SFZone, F.Shdr), (SFZone, F.Shdr))
-> setZone zoneCache pergm@PerGMKey{pWordI} noon
+> setZone zc pergm@PerGMKey{pWordI} noon
 >   | traceIf traceSZ False                = undefined
 >   | otherwise                            = ((snd zoneL, sampleL) ,(snd zoneR, sampleR))
 >   where
@@ -1117,7 +1118,7 @@ zone selection for rendering ===================================================
 >                                              , show (F.sampleName ((pSample . fst) zoneR))
 >                                              , show ((zKeyRange . snd) zoneR)]
 >
->     PerInstrument{pZonePairs, pInst}     = getPerInstrumentFromCache zoneCache pergm{mpWordZ = Nothing}
+>     PerInstrument{pZonePairs, pInst}     = getPerInstrumentFromCache zc pergm{mpWordZ = Nothing}
 >     zs                 :: [(ZoneHeader, SFZone)]
 >                                          = tail pZonePairs
 >
@@ -1319,11 +1320,10 @@ reconcile zone and sample header ===============================================
 carry out, and "pre-cache" results of, play requests ====================================================================
 
 > createPlayCache        :: ∀ a. (Ord a) ⇒
->                           Array Word SFFile
->                           → ZoneCache
+>                           ZoneCache
 >                           → Map a PerGMScored
 >                           → IO (Map PlayKey (Reconciled, Maybe Reconciled))
-> createPlayCache sffiles zoneCache ws     = return $ Map.foldrWithKey precalcFolder Map.empty ws
+> createPlayCache zc ws                    = return $ Map.foldrWithKey precalcFolder Map.empty ws
 >   where
 >     precalcFolder      :: a
 >                           → PerGMScored
@@ -1345,7 +1345,7 @@ carry out, and "pre-cache" results of, play requests ===========================
 >       where
 >         ((zoneL, shdrL), (zoneR, shdrR))
 >                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
->                                          = setZone zoneCache pergm noon
+>                                          = setZone zc pergm noon
 >         (reconL, reconR)
 >                        :: (Reconciled, Reconciled)
 >                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) noon

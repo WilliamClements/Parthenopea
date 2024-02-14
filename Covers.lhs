@@ -27,8 +27,9 @@ Saucy Sailor ===================================================================
 >
 > littleSailor =
 >     removeZeros
->     $ instrument Trumpet
->     $ addVolume 90
+>     $ instrument Trombone
+>     $ addVolume 100
+>     $ transpose (-24)
 >     $ line [
 >    --  3        Come      me       ow -     -n      one
 >           line [f 5 en,  g 5 en,  f 5 en, e 5 en,  c 5 qn],
@@ -67,15 +68,15 @@ Saucy Sailor ===================================================================
 >         ssBass                           = replace ssBass_     dynMap
 >
 >         xOpenT = rest 0
->         xSongT = line [rest hn, bandPart' ssLead1 xSongTA, bandPart' ssLead2 xSongTB]
+>         xSongT = line [rest hn, bandPart ssLead1 xSongTA, bandPart ssLead2 xSongTB]
 >         xClosT = rest 0
 >
 >         xOpenG = rest 0
->         xSongG = line [rest dhn, bandPart' ssPicked (times 7 xSongGrep)]
+>         xSongG = line [rest dhn, bandPart ssPicked (times 7 xSongGrep)]
 >         xClosG = rest 0
 >
 >         xOpenB = rest 0
->         xSongB = bandPart' ssBass 
+>         xSongB = bandPart ssBass 
 >                  $ line [rest dhn
 >                       , times 6 (line [xSongB1, xSongB2])
 >                       , xSongB1
@@ -249,9 +250,9 @@ Yahozna ========================================================================
 >    $ tempo 4
 >    $ transpose 0
 >    $ keysig C Mixolydian
->    $          bandPart yaGuitar (line [rest dwn, rest dwn] :+: yahoznaGuitar)
->           :=: bandPart yaBass (yahoznaBassIntro :+: yahoznaBass)
->           :=: bandPart yaChoir choirPart
+>    $          bandPart_ yaGuitar (line [rest dwn, rest dwn] :+: yahoznaGuitar)
+>           :=: bandPart_ yaBass (yahoznaBassIntro :+: yahoznaBass)
+>           :=: bandPart_ yaChoir choirPart
 
 > guitarLick 
 >   =    line [ c 3 hn,  c 3 qn,  c 3 qn,  c 3 wn]
@@ -310,10 +311,10 @@ Slot ===========================================================================
 >    $ aggrandize 
 >    $ tempo slotTempo
 >    $ keysig G Dorian
->    $ chord [ bandPart' slotLead          (vSlotV n)
->            , bandPart' slotStrum         (vSlotG n)
->            , bandPart' slotBass          (vSlotC n)
->            , bandPart' slotPerc          (vSlotP n)]
+>    $ chord [ bandPart slotLead          (vSlotV n)
+>            , bandPart slotStrum         (vSlotG n)
+>            , bandPart slotBass          (vSlotC n)
+>            , bandPart slotPerc          (vSlotP n)]
 >    where
 >      slotLead                            = replace slotLead_ dynMap
 >      slotStrum                           = replace slotStrum_ dynMap
@@ -390,10 +391,10 @@ TC =============================================================================
 >   $ aggrandize
 >   $ tempo                                tcTempo
 >   $ keysig A Major
->   $ chord [ bandPart' tcLead    tcV
->           , bandPart' tcRepeat  tcG
->           , bandPart' tcBass    tcC
->           , bandPart' tcPerc    tcP]
+>   $ chord [ bandPart tcLead    tcV
+>           , bandPart tcRepeat  tcG
+>           , bandPart tcBass    tcC
+>           , bandPart tcPerc    tcP]
 >   where
 >
 >   tcLead                                 = replace tcLead_ dynMap
@@ -1129,25 +1130,25 @@ DH =============================================================================
 >
 >     vibeMusic =
 >      keysig B Mixolydian
->      $ bandPart' dhVibe vibeLine
+>      $ bandPart dhVibe vibeLine
 >
->     percMusic = bandPart' dhPerc percLine
+>     percMusic = bandPart dhPerc percLine
 >
 >     leadMusic = 
 >      keysig B Mixolydian
->      $ bandPart' dhLead leadLine
+>      $ bandPart dhLead leadLine
 >   
 >     bassMusic = 
 >      keysig B Mixolydian
->      $ bandPart' dhBass bassLine
+>      $ bandPart dhBass bassLine
 >   
 >     organMusic =
 >      keysig B Mixolydian
->      $ bandPart' dhOrgn organLine
+>      $ bandPart dhOrgn organLine
 >
 >     synthMusic =
 >      keysig B Mixolydian
->      $ bandPart' dhSynh synthLine
+>      $ bandPart dhSynh synthLine
 >
 >     vibeLine    = times (dhMeasuresAll `div` 2) (addDur qn [ds 5, e 5, ds 5, cs 5, gs 4, fs 4, b 4, cs 5, e 5, cs 5])
 >
@@ -2231,8 +2232,8 @@ PG =============================================================================
 > pgTempo                                  = 1
 > pgTranspose                              = 0
 >
-> pgLead_                                  = makePitched Violin               pgTranspose     0     100
-> pgBass_                                  = makePitched ElectricBassFingered pgTranspose     0     100
+> pgLead_                                  = makePitched ElectricGuitarClean               pgTranspose     0     100
+> pgBass_                                  = makePitched SynthBass1 pgTranspose     0     100
 > pgPerc_                                  = makeNonPitched                                         100
 >
 > packardGoose dynMap                      =
@@ -2247,9 +2248,9 @@ PG =============================================================================
 >     pgBass                               = replace pgBass_ dynMap
 >     pgPerc                               = replace pgPerc_ dynMap
 >
->     leadMusic = bandPart' pgLead leadLine
->     bassMusic = bandPart' pgBass bassLine
->     percMusic = bandPart' pgPerc percLine
+>     leadMusic = bandPart pgLead leadLine
+>     bassMusic = bandPart pgBass bassLine
+>     percMusic = bandPart pgPerc percLine
 >
 >     lead025_028 =
 >       line [line [fs 4 en, times 10 (fs 4 sn)]

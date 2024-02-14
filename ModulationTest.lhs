@@ -263,10 +263,10 @@ struct sfInstModList
 >     msg = unwords ["modulationTest005 ", show $ avgGain * 1000]
 >
 > table2vals             :: Double → [Double] → [(Double, Double, Double, Double)]
-> table2vals scalix                        = zipWith (curry convFun) [0..]
+> table2vals scalix                        = zipWith convFun [0..]
 >   where
->     convFun            :: (Int, Double) → (Double, Double, Double, Double)
->     convFun (i, y)                       = (fromIntegral i / scalix, y, 0, 0)
+>     convFun            :: Int → Double → (Double, Double, Double, Double)
+>     convFun i y                          = (fromIntegral i / scalix, y, 0, 0)
 >
 > vals' = table2vals 20 prevals
 >         

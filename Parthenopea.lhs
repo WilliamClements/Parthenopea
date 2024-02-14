@@ -523,10 +523,10 @@ instrument range checking ======================================================
 >           then Map.insert inameL inameR i2i
 >           else i2i
 >
-> bandPart               :: (InstrumentName, Velocity) → Music Pitch → Music (Pitch, Volume)
-> bandPart (inst, vel) m                   = mMap (, vel) (instrument inst m)
-> bandPart'              :: BandPart → Music Pitch → Music (Pitch, Volume)
-> bandPart' BandPart{ .. } m               = mMap (, bpVelocity) (instrument bpInstrument (transpose bpTranspose m))
+> bandPart_              :: (InstrumentName, Velocity) → Music Pitch → Music (Pitch, Volume)
+> bandPart_ (inst, vel) m                  = mMap (, vel) (instrument inst m)
+> bandPart               :: BandPart → Music Pitch → Music (Pitch, Volume)
+> bandPart BandPart{ .. } m                = mMap (, bpVelocity) (instrument bpInstrument (transpose bpTranspose m))
 
 examine song for instrument and percussion usage ======================================================================
 
@@ -1130,6 +1130,12 @@ Conversion functions and general helpers =======================================
 > profess assertion msg something          = if not assertion
 >                                              then error ("Failed assertion -- " ++ msg)
 >                                              else something
+>
+> professInRange         :: (Eq a, Ord a, Show a) ⇒ (a, a) → a → String → a
+> professInRange range val desc            = profess
+>                                              (val == clip range val)
+>                                              (unwords ["Bad", desc, "range", show range, show val])
+>                                              val
 >
 > professIsJust          :: ∀ a. Maybe a → String → a
 > professIsJust item msg                   = profess (isJust item) msg (fromJust item)
