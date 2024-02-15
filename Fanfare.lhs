@@ -1201,3 +1201,48 @@ Dadadada =======================================================================
 >   da4Lead                                = replace da4Lead_
 >
 >   body = line [af 4 en, bf 4 en, c 5 en, bf 4 en, c 5 en, bf 4 en]
+
+Deydumpdum ============================================================================================================
+
+> d3Tempo                                  = (3/2)
+> d3Transpose                              = 0
+>
+> d3Lead_                                  = makePitched Clarinet             d3Transpose          0        100
+> d3Bass_                                  = makePitched ElectricBassPicked   d3Transpose          0        100
+>
+> deyDumpDum dynMap =
+>   removeZeros
+>   $ aggrandize
+>   $ tempo d3Tempo
+>   $ keysig Af Mixolydian
+>   $     bandPart d3Lead (line [         times 1 leadI])
+>     :=: bandPart d3Bass (line [rest wn, times 2 bassI])
+>
+>   where
+>
+>   d3Lead                                = replace d3Lead_ dynMap
+>   d3Bass                                = replace d3Bass_ dynMap
+>
+>   leadI = line [rest (hn + den), e 4 sn, a 3 en, rest en
+>              , cs 4 (wn + den), e 4 sn, a 3 en, rest en
+>              , c 4 en, rest en, b 3 en, rest en
+>              , a 3 (wn + hn + den), e 4 sn, cs 4 en, rest en
+>              , d 4 (wn + den), fs 4 sn, a 4 en, rest en, fs 4 en, rest en, f 4 en, rest en
+>              , e 4 wn
+>              , a 3 (hn + den), a 3 sn, c 4 en, rest en
+>              , b 3 (wn + den), c 4 sn, c 4 en, rest en, c 4 en, rest en, b 3 en, rest en
+>              , a 3 dhn, e 4 qn
+>              , a 4 (hn + den), e 5 sn, a 4 en, rest en
+>              , c 5 (wn + den), e 5 sn, a 4 en, rest en
+>              , c 5 en, rest en, b 4 en, rest en, c 5 hn, b 4 hn
+>              , a 4 (hn + den), b 4 sn, a 4 en, rest en
+>              , g 4 hn, b 4 qn, d 5 qn, g 5 qn, b 5 qn
+>              , c 5 en, rest en, b 4 en, rest en, c 5 hn, b 4 hn]
+>
+>   bassAtA = line [times 2 (line [a 2 hn, e 2 hn])]
+>   bassAtD = line [times 2 (line [d 3 hn, a 2 hn])]
+>   bassAtE = line [times 2 (line [e 2 hn, b 2 hn])]
+>   bassAtG = line [times 2 (line [g 2 hn, d 2 hn])]
+>
+>   bassI =  line [bassAtA, bassAtA, bassAtD, bassAtA, bassAtE, bassAtA]
+>   bassII = line [bassAtA, bassAtD, bassAtG, bassAtA, bassAtE, bassAtA]

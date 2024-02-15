@@ -47,7 +47,8 @@ organize exposed music =========================================================
 >    , ("bob"            , bob 4)
 >    , ("copper"         , copper 2)
 >    , ("gold"           , gold)
->    , ("silver"         , silver)]
+>    , ("silver"         , silver)
+>    , ("deyDumpDum"     , deyDumpDum)]
 > bjingles =
 >    [ ("getCITM"        , getCITM)
 >    , ("bake"           , shimSong $ bakedJingle 9345)

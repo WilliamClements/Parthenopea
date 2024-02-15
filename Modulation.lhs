@@ -240,13 +240,13 @@ Modulator management ===========================================================
 >  | traceNever trace_CMF False            = undefined
 >  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
->    ModCoefficients{xModEnvCo, xModLfoCo, xVibLfoCo}
->                                          = case md of
->                                              ToPitch        → toPitchCo
->                                              ToFilterFc     → toFilterFcCo
->                                              ToVolume       → toVolumeCo
->                                              _              → error $ "Error in calculateModFactor "
->                                                                       ++ show tag ++ " " ++ show md
+>    ModCoefficients{ .. }                 =
+>      case md of
+>        ToPitch         → toPitchCo
+>        ToFilterFc      → toFilterFcCo
+>        ToVolume        → toVolumeCo
+>        _               → error $ unwords ["Error in calculateModFactor (missing coefficient?)"
+>                                          , show tag, show md]
 >
 >    xmodEnv             :: Double         = xModEnvPos * xModEnvCo
 >    xmodLfo                               = xModLfoPos * xModLfoCo
@@ -366,8 +366,7 @@ Modulator management ===========================================================
 > doLFO                                    = maybe (constA 0) makeSF
 >   where
 >     makeSF             :: LFO → Signal p () Double
->     makeSF lfo@LFO{lfoDelay, lfoFrequency}
->                                          = 
+>     makeSF LFO{ .. }                     = 
 >       proc _ → do
 >         y ← triangleWave lfoFrequency    ⤙ ()
 >         z ← delayLine lfoDelay           ⤙ y

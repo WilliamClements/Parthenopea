@@ -139,7 +139,7 @@ Utilities ======================================================================
 > allPitches =
 >    foldr ((:+:) . notize) (rest 0) rawPitches
 >    where
->       notize aP = note qn $ pitch aP
+>       notize aP = note qn (pitch aP)
 >
 > -- note chordFromArray has the same function body as chord itself
 > chordFromArray :: Array Int (Music (Pitch, [NoteAttribute]))
@@ -172,27 +172,30 @@ which makes for a cleaner sound on some synthesizers:
 
 "triad" ===============================================================================================================
 
-> triad        :: PitchClass → Mode → Pitch → Dur → Music Pitch
-> triad key mode base dur = chord [n1, n2, n3] where
->   rkP = absPitch (key, snd base - 1)
->   bP  = absPitch base
->   ocd = (bP - rkP) `div` 12
->   kP  = rkP + (12*ocd)
->   apD = bP - kP           -- guaranteed to be nonnegative
->   is  = formExact apD mode
->   n1, n2, n3 :: Music Pitch
->   n1 = note dur $ pitch bP
->   n2 = note dur $ pitch (bP + head        is)
->   n3 = note dur $ pitch (bP + (head.tail) is)
+> triad                  :: PitchClass → Mode → Pitch → Dur → Music Pitch
+> triad key mode base dur                  = chord [n1, n2, n3]
+>   where
+>   rkP                                    = absPitch (key, snd base - 1)
+>   bP                                     = absPitch base
+>   ocd                                    = (bP - rkP) `div` 12
+>   kP                                     = rkP + (12*ocd)
+>   apD                                    = bP - kP           -- guaranteed to be nonnegative
+>   is                   :: [AbsPitch]     = formExact apD mode
+>   n1, n2, n3           :: Music Pitch
+>   n1                                     = note dur $ pitch bP
+>   n2                                     = note dur $ pitch (bP + head        is)
+>   n3                                     = note dur $ pitch (bP + (head.tail) is)
+>
 >   formExact :: AbsPitch → Mode → [AbsPitch]
->   formExact apDelta mode = offsets2intervals apDelta $ mode2offsets mode
+>   formExact apDelta mode                 = offsets2intervals apDelta $ mode2offsets mode
 >     where
->       major = [0, 4, 7, 12, 16]
->       minor = [0, 3, 7, 12, 15]
->       dim =   [0, 3, 6, 12, 15]
->       sus4 =  [0, 5, 7, 12, 17]
->       sus2 =  [0, 2, 7, 12, 14]
->       aug =   [0, 4, 8, 12, 16]
+>       major                              = [0, 4, 7, 12, 16]
+>       minor                              = [0, 3, 7, 12, 15]
+>       dim                                = [0, 3, 6, 12, 15]
+>       sus4                               = [0, 5, 7, 12, 17]
+>       sus2                               = [0, 2, 7, 12, 14]
+>       aug                                = [0, 4, 8, 12, 16]
+>
 >       mode2offsets :: Mode → [AbsPitch]
 >       mode2offsets mode
 >         | Major             == mode = major
@@ -209,6 +212,7 @@ which makes for a cleaner sound on some synthesizers:
 >         | CustomMode "Dim"  == mode = dim
 >         | CustomMode "Aug"  == mode = aug
 >         | otherwise          = error "Requested Mode not supported"
+>
 >       offsets2intervals :: AbsPitch → [AbsPitch] → [AbsPitch]
 >       offsets2intervals apDelta os
 >         | apDelta == (os!!0) = ((os!!1) - (os!!0)) : [(os!!2) - (os!!0)]
@@ -259,8 +263,8 @@ which makes for a cleaner sound on some synthesizers:
 >   chord [  rest dur
 >          , glissando False (absPitch p, absPitch top) dur]
 >   where
->     top = trans (-bpTranspose) $ snd (fromJust (instrumentRange bpInstrument))
->     trace_A = unwords ["ascent ", show p]
+>     top                                  = trans (-bpTranspose) $ snd (fromJust (instrumentRange bpInstrument))
+>     trace_A                              = unwords ["ascent", show p]
 
 ranges ================================================================================================================
 
