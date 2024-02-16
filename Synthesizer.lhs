@@ -98,7 +98,7 @@ Signal function-based synth ====================================================
 >       (modSigL, modSigR)
 >                        ← eutIgniteModSignals secsScored secsToPlay (reconL, reconR)
 >                                          ⤙ ()
->       let delta                          = idelta * calculateModFactor
+>       let delta                          = idelta * evaluateModSignals
 >                                                       "procDriver"
 >                                                       m8n
 >                                                       ToPitch
@@ -213,7 +213,7 @@ Signal function-based synth ====================================================
 >
 >   where
 >     modulateVol        :: Modulation → ModSignals → Double
->     modulateVol m8n msig                 = calculateModFactor
+>     modulateVol m8n msig                 = evaluateModSignals
 >                                              "modulateVol"
 >                                              m8n
 >                                              ToVolume
@@ -420,8 +420,8 @@ Envelopes ======================================================================
 >       | otherwise                        = dumpSF secsScored secsToPlay sf
 >       where
 >         sf = envLineSeg sAmps sDeltaTs
->         Segments{sAmps, sDeltaTs}        = computeSegments secsScored secsToPlay env
->         trace_MSF = unwords ["doEnvelope/makeSF ", show (secsScored, secsToPlay), " ",  show (sAmps, sDeltaTs)]
+>         Segments{ .. }                   = computeSegments secsScored secsToPlay env
+>         trace_MSF = unwords ["doEnvelope/makeSF", show (secsScored, secsToPlay), show (sAmps, sDeltaTs)]
 >
 >     dumpSF             :: Double → Double → Signal p () Double → Signal p () Double
 >     dumpSF secsScored secsToUse sigIn
@@ -455,8 +455,8 @@ Create a straight-line envelope generator with following phases:
    release  
 
 > computeSegments        :: Double → Double → Envelope → Segments
-> computeSegments secsScored secsToPlay Envelope{eDelayT, eAttackT, eHoldT, eDecayT, eSustainLevel, eReleaseT}
->   | traceNever msg False                 = undefined
+> computeSegments secsScored secsToPlay Envelope{ .. }
+>   | traceNever trace_CS False            = undefined
 >   | otherwise                            = Segments amps deltaTs
 >   where
 >     amps               :: [Double]       = [0,       0,       1,       1,     fSusLevel, fSusLevel,      0,      0]
@@ -485,9 +485,9 @@ Create a straight-line envelope generator with following phases:
 >       max minDeltaT (secsToUse - (fReleaseT + fDelayT + fAttackT + fHoldT + fDecayT + minDeltaT))
 >     fPostT                               = (2*minDeltaT) + secsScored - secsToUse
 >
->     msg                                  = unwords ["computeSegments secs = ", show (secsScored, secsToUse)
->                                                   , " total time = ",          show (sum deltaTs)
->                                                   , " rp =",                   show rp]
+>     trace_CS                             = unwords ["computeSegments secs"    , show (secsScored, secsToUse)
+>                                                   , "total time"              , show (sum deltaTs)
+>                                                   , "rp"                      , show rp]
 
 Effects ===============================================================================================================
 
@@ -495,8 +495,8 @@ Effects ========================================================================
 > deriveEffects Modulation{ .. } noon mChorus mReverb mPan
 >   | traceIf trace_DE False               = undefined
 >   | otherwise                            = Effects
->                                              ((dChorus + evaluateMods ToChorus modGraph noon) / 1000)
->                                              ((dReverb + evaluateMods ToReverb modGraph noon) / 1000)
+>                                              ((dChorus + modChorus) / 1000)
+>                                              ((dReverb + modReverb) / 1000)
 >                                              (dPan / 1000)
 >   where
 >     dChorus            :: Double         =
@@ -511,9 +511,11 @@ Effects ========================================================================
 >       if usePan
 >         then maybe 0 (fromIntegral . clip (-500, 500)) mPan
 >         else 0
+>     modChorus          :: Double         = evaluateMods ToChorus modGraph noon
+>     modReverb          :: Double         = evaluateMods ToReverb modGraph noon
 >
 >     trace_DE                             =
->       unwords ["deriveEffects", show (mChorus, mReverb, mPan)]
+>       unwords ["deriveEffects", show (mChorus, mReverb, mPan), show (dChorus, dReverb, dPan)]
 >
 > eutEffects             :: ∀ p . Clock p ⇒
 >                           (Reconciled, Reconciled)
@@ -552,8 +554,7 @@ Effects ========================================================================
 >     Effects{efChorus = cFactorR, efReverb = rFactorR, efPan = pFactorR} = effR
 >
 >     trace_eE =
->       unwords ["eutEffects=",        show effL
->              , "=LR=",               show effR]
+>       unwords ["eutEffects", show ((cFactorL, cFactorR), (rFactorL, rFactorR))]
 > 
 > eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Signal p Double Double
 > eutChorus rate_ depth_ cFactor           =
@@ -575,7 +576,7 @@ Effects ========================================================================
 >       z1 ← safeDelayLine1 0.023 0.017    ⤙ sIn
 >       z2 ← safeDelayLine1 0.025 0.019    ⤙ sIn
 >       z3 ← safeDelayLine1 0.029 0.023    ⤙ sIn
->       sOut ← delayLine 0.0001            ⤙ (sIn + coeff1 * z1 + coeff2 * z2 + coeff3 * z3)/2
+>       let sOut                           = (sIn + coeff1 * z1 + coeff2 * z2 + coeff3 * z3)/2
 >       outA                               ⤙ chorus sIn z1 z2 z3 sOut
 >
 >     coeff1 = 1/3
@@ -586,11 +587,11 @@ Effects ========================================================================
 >     safeDelayLine1 maxDel del            =
 >       profess
 >         (maxDel >= del + depth)
->         "maxDel provided to delayLine1 lacks capacity"
+>         (unwords ["safeDelayLine1: maxDel", show maxDel, "provided to delayLine1 lacks capacity for", show (del + depth)])
 >         (proc sIn → do
->          lfo ← osc (tableSines 4096 [1]) 0  ⤙ rate
->          sOut ← delayLine1 maxDel           ⤙ (sIn, del + depth * lfo)
->          outA                               ⤙ sOut)
+>          lfo ← osc (tableSines 4096 [1]) 0     ⤙ rate
+>          sOut ← delayLine1 maxDel              ⤙ (sIn, del + depth * lfo)
+>          outA                                  ⤙ sOut)
 >
 >     chorus             :: Double → Double → Double → Double → Double → Double
 >     chorus tIn y1 y2 y3 tOut

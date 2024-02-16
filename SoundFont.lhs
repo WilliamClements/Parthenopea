@@ -845,8 +845,9 @@ extract data from SoundFont per instrument =====================================
 >   F.KeyToVolEnvDecay i           → iz {zKeyToVolEnvDecay =         Just i}
 >   _                              → iz
 >
-> addMod                 :: SFZone → (Word, F.Mod) → SFZone
-> addMod iz@SFZone{zModulators} (mId, raw) = maybe iz addModulator makeModulator
+> addMod                 :: (Word, F.Mod) → SFZone → SFZone
+> addMod (mId, F.Mod{ .. }) iz@SFZone{zModulators} 
+>                                          = maybe iz addModulator makeModulator
 >   where
 >     addModulator       :: Modulator → SFZone
 >     addModulator mod                     = iz{zModulators = mod : zModulators}
@@ -855,11 +856,11 @@ extract data from SoundFont per instrument =====================================
 >     makeModulator                        = mm'
 >       where
 >         mm, mm'        :: Maybe Modulator
->         mm                               = unpackModSrc (F.srcOper raw)
+>         mm                               = unpackModSrc srcOper
 >                                            >>= flip addSrc defModulator{mrModId = mId}
->                                            >>= addDest (F.destOper raw)
->                                            >>= addAmount (fromIntegral (F.amount raw))
->         mm'                              = unpackModSrc (F.amtSrcOper raw)
+>                                            >>= addDest destOper
+>                                            >>= addAmount (fromIntegral amount)
+>         mm'                              = unpackModSrc amtSrcOper
 >                                            >>= addAmtSrc mm
                                             
 prepare the specified instruments and percussion ======================================================================
@@ -870,13 +871,10 @@ prepare the specified instruments and percussion ===============================
 >   return $ foldr (\p → Map.insert p (computePerInst p)) Map.empty pergms
 >   where
 >     computePerInst     :: PerGMKey → PerInstrument
->     computePerInst pergm@PerGMKey{pWordF, pWordI} 
->                                          = PerInstrument iinst (categorizeInst oList) (gList ++ oList)
+>     computePerInst pergm@PerGMKey{ .. }  = PerInstrument iinst (categorizeInst oList) (gList ++ oList)
 >       where
->         SoundFontArrays{ssInsts, ssIBags, ssIGens, ssIMods, ssShdrs}
->                                          = zArrays (sffiles ! pWordF)
->         preI@PreInstrument{iName, iMatches}
->                                          = getPreInstrumentFromCache preInstCache pergm
+>         SoundFontArrays{ .. }            = zArrays (sffiles ! pWordF)
+>         PreInstrument{ .. }              = getPreInstrumentFromCache preInstCache pergm
 >
 >         iinst                            = ssInsts ! pWordI
 >         jinst                            = ssInsts ! (pWordI+1)
@@ -886,7 +884,7 @@ prepare the specified instruments and percussion ===============================
 >         (gIx, oIx)                       = profess
 >                                              (ibagi <= jbagi)
 >                                              "SoundFont file corrupt (computePerInst)"
->                                              (singleton ibagi, safeRange (ibagi+1) jbagi)
+>                                              (singleton ibagi, makeRange (ibagi+1) jbagi)
 >
 >         gList                            = map (buildZone defInstrumentZone)     gIx
 >         oList                            = map (buildZone ((snd . head) gList))  oIx
@@ -906,23 +904,24 @@ prepare the specified instruments and percussion ===============================
 >             gens       :: [F.Generator]  = profess
 >                                              (xgeni <= ygeni)
 >                                              "SoundFont file corrupt (buildZone gens)"
->                                              (map (ssIGens !) (safeRange xgeni ygeni))
+>                                              (map (ssIGens !) (makeRange xgeni ygeni))
 >             mods       :: [(Word, F.Mod)]
 >                                          = profess
 >                                              (xmodi <= ymodi)
 >                                              "SoundFont file corrupt (buildZone mods)"
->                                              (zip [10000..] (map (ssIMods !) (safeRange xmodi ymodi)))
+>                                              (zip [10000..] (map (ssIMods !) (makeRange xmodi ymodi)))
 >
 >             meval      :: Maybe Bool     = zSampleIndex
 >                                            >>= \w → Just (PreSampleKey pWordF w)
 >                                            >>= flip Map.lookup preSampleCache
 >                                            >>= isNonPitchedByFft
 >
->             zone'                        = foldl' addGen     fromZone    gens
->             zone@SFZone{zSampleIndex}    = foldl' addMod     zone'       mods
+>             zone@SFZone{ .. }            = filterGensAndMods
 >
 >             wZ                           = fromMaybe 0 zSampleIndex
 >             zh                           = ZoneHeader wZ (ssShdrs ! wZ) (fromMaybe True meval)
+>
+>             filterGensAndMods            = foldr addMod (foldl' addGen fromZone gens) mods
 >
 >         categorizeInst :: [(ZoneHeader, SFZone)] → InstCat
 >         categorizeInst zs
@@ -934,28 +933,22 @@ prepare the specified instruments and percussion ===============================
 >             possible                     = bqForce isPossible
 >             unknown                      = (Nothing, Nothing) == possible
 >
->             badrom     :: Maybe InstCat  = if any hasRom zs
+>             badrom     :: Maybe InstCat  = if any (uncurry hasRom) zs
 >                                              then Just InstCatDisq
 >                                              else Nothing
->             badLinks   :: Maybe InstCat  = if linksOk
+>             badLinks   :: Maybe InstCat  = if IntSet.isSubsetOf sOut sIn
 >                                              then Nothing
 >                                              else Just InstCatDisq
->             linksOk    :: Bool
->               | traceIf traceLO False    = undefined
->               | otherwise                = IntSet.isSubsetOf sOut sIn
->               where
->                 traceLO                  = unwords["traceLO", show sIn, show sOut]
->
->             sIn        :: IntSet         = formIntSet zs getSampleIndexIn
->             sOut       :: IntSet         = formIntSet zs getSampleLinkOut
+>             sIn        :: IntSet         = formIntSet zs (uncurry getSampleIndexIn)
+>             sOut       :: IntSet         = formIntSet zs (uncurry getSampleLinkOut)
 >                                          
 >             getSampleIndexIn, getSampleLinkOut
->                        :: (ZoneHeader, SFZone) → Int
->             getSampleIndexIn (zh, z@SFZone{zSampleIndex})
+>                        :: ZoneHeader → SFZone → Int
+>             getSampleIndexIn zh z@SFZone{ .. }
 >                                          = if isStereoZone (zh, z)
 >                                              then fromIntegral $ professIsJust zSampleIndex "no sample index?!"
 >                                              else -1
->             getSampleLinkOut (zh@ZoneHeader{pSample}, z)      
+>             getSampleLinkOut zh@ZoneHeader{ .. } z
 >                                          = if isStereoZone (zh, z)
 >                                              then fromIntegral $ F.sampleLink pSample
 >                                              else -1
@@ -973,7 +966,7 @@ prepare the specified instruments and percussion ===============================
 >                                            , fst possible
 >                                            , snd possible]
 >
->             byZone     :: [Bool]         = map computeCanBePerc zs
+>             byZone     :: [Bool]         = map (uncurry computeCanBePerc) zs
 >             howPercish :: Double         = fromIntegral (length (filter id byZone)) / fromIntegral (length byZone)
 >             latched    :: Maybe InstCat  = foldr CM.mplus Nothing alts
 >             traceCI                      = unwords ["categorizeInst ", show iName, " ", show pergm
@@ -984,19 +977,14 @@ prepare the specified instruments and percussion ===============================
 >           (            (\x → Just InstCatInst) =<< bestQualifying (instAs iMatches) thresh
 >           ,            (\x → Just InstCatPerc) =<< bestQualifying (percAs iMatches) thresh)
 >
+>         hasRom ZoneHeader{ .. } _        = F.sampleType pSample >= 0x8000
 >
->         hasRom         :: (ZoneHeader, SFZone) → Bool
->         hasRom (ZoneHeader{pSample}, _)
->                                          = F.sampleType pSample >= 0x8000
->
->         computeCanBePerc
->                        :: (ZoneHeader, SFZone) → Bool
->         computeCanBePerc (ZoneHeader{pwZone, pbIsNonPitched}, zone)
+>         computeCanBePerc ZoneHeader{ .. } SFZone { .. }
 >           | traceNever msg' False        = undefined
 >           | otherwise                    = pinned || nonPitchedByFuzz || nonPitchedByFft
 >           where
->             PreSample{sName, sMatches}   = getPreSampleFromCache preSampleCache pergm{mpWordZ = Just pwZone}
->             pinned                       = maybe False pinnedKR (zKeyRange zone)
+>             PreSample{ .. }              = getPreSampleFromCache preSampleCache pergm{mpWordZ = Just pwZone}
+>             pinned                       = maybe False pinnedKR zKeyRange
 >             nonPitchedByFuzz             = any (isPossible' . flip evalAgainstKind sMatches)
 >                                                nonPitchedInstruments
 >             nonPitchedByFft              = sampleAnalyisEnabled && pbIsNonPitched

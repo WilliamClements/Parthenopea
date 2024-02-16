@@ -112,7 +112,9 @@ Modulator management ===========================================================
 >         Map.insert mrModDest (m8r : soFar) accum
 >
 > unpackModSrc           :: Word → Maybe ModSrc
-> unpackModSrc wIn                         = mmapping
+> unpackModSrc wIn
+>   | traceNever trace_UMS False           = undefined
+>   | otherwise                            = mmapping
 >                                              >>= addMapping 
 >                                              >>= addSource
 >   where
@@ -144,6 +146,8 @@ Modulator management ===========================================================
 >                    3      → Just from{msSource = FromNoteOnKey}
 >                    127    → Just from{msSource = FromLinked}
 >                    _      → Nothing
+>
+>     trace_UMS                            = unwords [show cont, show bipolar, show max2Min, show ccBit, show src]
 >
 > addSrc                 :: ModSrc → Modulator → Maybe Modulator
 > addSrc modSrc from                       = Just from{mrModSrc = modSrc}
@@ -208,35 +212,34 @@ Modulator management ===========================================================
 >             else []
 >
 > evaluateMods           :: ModDestType → Map ModDestType [Modulator] → NoteOn → Double
-> evaluateMods md graph noon               = sum $ maybe [] (map (evaluateMod graph noon)) (Map.lookup md graph)
-> 
-> evaluateMod            :: Map ModDestType [Modulator] → NoteOn → Modulator → Double
-> evaluateMod graph noon@NoteOn{noteOnVel, noteOnKey} m8r@Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
->   | traceNever trace_EM False            = undefined
->   | otherwise                            = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
+> evaluateMods md graph noon@NoteOn{ .. }  = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
 >   where
+>     evaluateMod        :: Modulator → Double
+>     evaluateMod Modulator{ .. }
+>       | traceNever trace_EM False        = undefined
+>       | otherwise                        = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
+>       where
+>         getValue ModSrc{ .. }
+>           | useModulators                =
+>               case msSource of
+>                 FromNoController         → 1
+>                 FromNoteOnVel            → evaluateNoteOn noteOnVel msMapping
+>                 FromNoteOnKey            → evaluateNoteOn noteOnKey msMapping
+>                 FromLinked               → evaluateMods (ToLink mrModId) graph noon
+>           | otherwise                    = 0
 >
->     getValue            :: ModSrc → Double
->     getValue msrc@ModSrc{msMapping, msSource}
->       | useModulators                    =
->           case msSource of
->             FromNoController     → 1
->             FromNoteOnVel        → evaluateNoteOn noteOnVel msMapping
->             FromNoteOnKey        → evaluateNoteOn noteOnKey msMapping
->             FromLinked           → evaluateMods (ToLink mrModId) graph noon
->       | otherwise                        = 0
->
->     trace_EM                             =
->       unwords["evaluateMod"
->             , show (getValue mrModSrc)
->             , show mrModAmount
->             , show (getValue mrAmountSrc)]
+>         trace_EM                         =
+>           unwords["evaluateMod"
+>                 , show md
+>                 , show (getValue mrModSrc)
+>                 , show mrModAmount
+>                 , show (getValue mrAmountSrc)]
 >
 > evaluateNoteOn         :: Int → Mapping → Double
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
-> calculateModFactor     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
-> calculateModFactor tag Modulation{ .. } md ModSignals{ .. } noon
+> evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
+> evaluateModSignals tag Modulation{ .. } md ModSignals{ .. } noon
 >  | traceNever trace_CMF False            = undefined
 >  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
@@ -245,7 +248,8 @@ Modulator management ===========================================================
 >        ToPitch         → toPitchCo
 >        ToFilterFc      → toFilterFcCo
 >        ToVolume        → toVolumeCo
->        _               → error $ unwords ["Error in calculateModFactor (missing coefficient?)"
+>        _               → error $ unwords ["Error in caller of evaluateModSignals"
+>                                           ++ "(only ToPitch, ToFilterFc, and ToVolume supported)"
 >                                          , show tag, show md]
 >
 >    xmodEnv             :: Double         = xModEnvPos * xModEnvCo
@@ -253,7 +257,7 @@ Modulator management ===========================================================
 >    xvibLfo                               = xVibLfoPos * xVibLfoCo
 >    xmods                                 = evaluateMods md modGraph noon
 >
->    trace_CMF                             = unwords ["calculateModFactor: "
+>    trace_CMF                             = unwords ["evaluateModSignals: "
 >                                                     , show tag,    " + "
 >                                                     , show xmodEnv, " + "
 >                                                     , show xmodLfo, " + "
@@ -282,7 +286,7 @@ Modulator management ===========================================================
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
->       clip (20, 20000) (lowPassFc * calculateModFactor
+>       clip (20, 20000) (lowPassFc * evaluateModSignals
 >                                       "modulateFc"
 >                                       m8n
 >                                       ToFilterFc

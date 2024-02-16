@@ -115,9 +115,7 @@ Aleatory Music =================================================================
 >        in toRational j / 8
 >
 > aleatoryMusic =
->    line $ [ note theDur thePitch
->           | (theDur, thePitch) ← zip durations pitches
->           ]
+>    line $ [ note d p | (d, p) ← zip durations pitches]
 
 Lake ==================================================================================================================
 

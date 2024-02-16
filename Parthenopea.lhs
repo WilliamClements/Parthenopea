@@ -978,38 +978,40 @@ tournament among instruments in various soundfont files ========================
 >       $ chordFromArray m
 >     msg = unwords [ "bins=", show $ elems score]
 >
-> collectMEvents :: ToMusic1 a ⇒ Music a → Performance
-> collectMEvents m = fst (musicToMEvents defaultContext (toMusic1 m))
+> collectMEvents         :: ToMusic1 a ⇒ Music a → Performance
+> collectMEvents m                         = fst (musicToMEvents defaultContext (toMusic1 m))
 >
-> defaultContext :: MContext
-> defaultContext = MContext
->           {mcTime = 0
->            , mcInst = AcousticGrandPiano
->            , mcDur = metro 120 qn
->            , mcVol = 100}
+> defaultContext         :: MContext
+> defaultContext                           =
+>   MContext
+>     {  mcTime = 0
+>      , mcInst = AcousticGrandPiano
+>      , mcDur = metro 120 qn
+>      , mcVol = 100}
 >
-> extractTimes :: Performance → [Double]
-> extractTimes = map (fromRational . eTime)
+> extractTimes           :: Performance → [Double]
+> extractTimes                             = map (fromRational . eTime)
 >
-> percussionLimit :: Double
-> percussionLimit = fromIntegral $ fromEnum OpenTriangle
+> percussionLimit        :: Double
+> percussionLimit                          = fromIntegral $ fromEnum OpenTriangle
 
 snippets to be used with "lake" =======================================================================================
 
-> pSnippet01, pSnippet02, defSnippet :: Music Pitch
-> pSnippet01 = tempo (3/2) (line [ e 4 qn, e 4 en, e 4 qn, e 4 en])
+> pSnippet01, pSnippet02, defSnippet
+>                        :: Music Pitch
+> pSnippet01                               = tempo (3/2) (line [ e 4 qn, e 4 en, e 4 qn, e 4 en])
 >
-> pSnippet02 = line [c 4 en, e 4 qn, bf 3 en, d 4 qn, f 4 en]
+> pSnippet02                               = line [c 4 en, e 4 qn, bf 3 en, d 4 qn, f 4 en]
 >
-> defSnippet = pSnippet01
+> defSnippet                               = pSnippet01
 >
-> stdMels      :: Music Pitch → [Music Pitch]
-> stdMels melInput = [mel0, mel1, mel2, mel3]
+> stdMels                :: Music Pitch → [Music Pitch]
+> stdMels melInput                         = [mel0, mel1, mel2, mel3]
 >   where 
->     mel0 = melInput
->     mel1 = retro melInput
->     mel2 = invert melInput
->     mel3 = (invert.retro) melInput
+>     mel0                                 = melInput
+>     mel1                                 = retro melInput
+>     mel2                                 = invert melInput
+>     mel3                                 = (invert.retro) melInput
 
 music converter =======================================================================================================
 
@@ -1162,35 +1164,27 @@ Conversion functions and general helpers =======================================
 >   | Convex
 >   | Switch deriving (Eq, Ord, Show, Enum)
 >
-> wrap :: (Ord n, Num n) ⇒ n → n → n
-> wrap val bound = if val > bound then wrap val (val-bound) else val
+> wrap                   :: (Ord n, Num n) ⇒ n → n → n
+> wrap val bound                           = if val > bound then wrap val (val-bound) else val
 >
-> safeAt                 :: Show a ⇒ Array Word a → Word → a
-> safeAt v i                               = profess
->                                              (i >= imin && i <= imax)
->                                              ("safeAt " ++ show i)
->                                              (v ! i)
->   where
->     (imin, imax)                         = bounds v
->
-> clip :: Ord n ⇒ (n, n) → n → n
+> clip                   :: Ord n ⇒ (n, n) → n → n
 > clip (lower, upper) val
->     | val <= lower = lower
->     | val >= upper = upper
->     | otherwise    = val
+>     | val <= lower                       = lower
+>     | val >= upper                       = upper
+>     | otherwise                          = val
 >
-> safeRange :: Integral n ⇒ n → n → [n]
-> safeRange x y = if x > y || y == 0 then [] else [x..(y-1)]
+> makeRange              :: Integral n ⇒ n → n → [n]
+> makeRange x y                            = if x > y || y <= 0 then [] else [x..(y-1)]
 
 Raises 'a' to the power 'b' using logarithms.
 
-> pow :: Floating a ⇒ a → a → a
-> pow a b = exp (log a * b)
+> pow                    :: Floating a ⇒ a → a → a
+> pow a b                                  = exp (log a * b)
 
 Returns the fractional part of 'x'.
 
-> frac :: RealFrac r ⇒ r → r
-> frac = snd . properFraction
+> frac                   :: RealFrac r ⇒ r → r
+> frac                                     = snd . properFraction
 
 Takes care of characters that need quoting like '"'
 
@@ -1212,7 +1206,7 @@ Takes care of characters that need quoting like '"'
 
 forms an IntSet based on an arbitrary list and corresponding input function to Int
 
-> formIntSet             :: [a] → (a → Int) → IntSet
+> formIntSet             :: ∀ a . [a] → (a → Int) → IntSet
 > formIntSet as fun                        = IntSet.fromList $ map fun as
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
