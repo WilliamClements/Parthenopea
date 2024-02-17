@@ -576,7 +576,7 @@ Effects ========================================================================
 >       z1 ← safeDelayLine1 0.023 0.017    ⤙ sIn
 >       z2 ← safeDelayLine1 0.025 0.019    ⤙ sIn
 >       z3 ← safeDelayLine1 0.029 0.023    ⤙ sIn
->       let sOut                           = (sIn + coeff1 * z1 + coeff2 * z2 + coeff3 * z3)/2
+>       let sOut                           = coeff1 * z1 + coeff2 * z2 + coeff3 * z3
 >       outA                               ⤙ chorus sIn z1 z2 z3 sOut
 >
 >     coeff1 = 1/3
@@ -589,7 +589,7 @@ Effects ========================================================================
 >         (maxDel >= del + depth)
 >         (unwords ["safeDelayLine1: maxDel", show maxDel, "provided to delayLine1 lacks capacity for", show (del + depth)])
 >         (proc sIn → do
->          lfo ← osc (tableSines 4096 [1]) 0     ⤙ rate
+>          lfo ← osc (tableSinesN 4096 [1]) 0    ⤙ rate
 >          sOut ← delayLine1 maxDel              ⤙ (sIn, del + depth * lfo)
 >          outA                                  ⤙ sOut)
 >

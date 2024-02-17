@@ -435,17 +435,13 @@ also
 >   where
 >     qual                                 = mapMaybe (\i → instrumentRange i >>= Just . (i,)) is
 >
-> denormInstrument :: Double
->                     → Array Int (InstrumentName, (Pitch, Pitch))
->                     → (InstrumentName, (Pitch, Pitch))
-> denormInstrument norm insts              = profess
+> denormIntVect          :: Double → Array Int b → b
+> denormIntVect norm vect                  = profess
 >                                              (norm >= 0 && norm <= 1)
->                                              "denormInstrument"
->                                              (insts ! iselect)
+>                                              (unwords ["denormIntVect:", "bad input norm"])
+>                                              (vect ! iselect)
 >   where
->     ifirst                               = 1
->     ilast                                = length insts
->     iselect                              = floor $ denorm norm (fromIntegral ifirst, fromIntegral ilast)
+>     iselect                              = floor $ denorm norm (1, fromIntegral $ length vect)
 >
 > wideOpen               :: (Pitch, Pitch) = (pitch 0, pitch 127)
 >
@@ -460,9 +456,9 @@ instrument range checking ======================================================
 > union2Ranges r1 r2 = unionRanges (r1:[r2])
 >
 > unionRanges  :: [(Pitch, Pitch)] → (Pitch, Pitch)
+> unionRanges [] = error "empty range list"
 > unionRanges (r:rs) = ( minimum (map fst (r:rs))
 >                      , maximum (map snd (r:rs)) )
-> unionRanges _ = error "empty range list"
 >
 > intersect2Ranges :: (Pitch, Pitch) → (Pitch, Pitch) → Maybe (Pitch, Pitch)
 > intersect2Ranges r1 r2 = intersectRanges (r1:[r2])
@@ -566,8 +562,7 @@ examine song for instrument and percussion usage ===============================
 >     $ fst (musicToMEvents defaultContext (toMusic1 m))
 >
 > shredder               :: Shredding → MEvent → Shredding
-> shredder Shredding{ .. } mev
->                                          =
+> shredder Shredding{ .. } mev             =
 >   let
 >     kind               :: Kind           = getKind mev
 >     mshred             :: Maybe Shred    = Map.lookup kind shRanges
@@ -602,8 +597,7 @@ examine song for instrument and percussion usage ===============================
 > printShreds Shredding{shRanges}          = mapM_ (uncurry printShred) (Map.assocs shRanges)
 >   
 > printShred             :: Kind → Shred → IO ()
-> printShred kind shred@Shred{shLowNote, shHighNote, shCount}
->                                          = do
+> printShred kind Shred{ .. }              = do
 >   putStrLn showGivenRange
 >   putStrLn showLowHighNotes
 >

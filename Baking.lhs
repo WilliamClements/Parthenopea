@@ -160,8 +160,7 @@ The progress of the algorithm is expressed in above pair.
 >         fillDur                          = 1.0
 >         fillTempo                        = bTempo
 >
->     generateSection
->                        :: PercussionSound
+>     generateSection    :: PercussionSound
 >                           → Volume
 >                           → SectionSpec
 >                           → InstrumentName
@@ -295,7 +294,7 @@ The progress of the algorithm is expressed in above pair.
 > sex2Bake rs
 >   | length rs >= 6                       = Bake {
 >                                              bIx       = 0
->                                            , bWch      = denormInstrument (rs!!0) vChoiceI
+>                                            , bWch      = denormIntVect (rs!!0) vChoiceI
 >                                            , bOnset    = denorm (rs!!1) (0,songLength)
 >                                            , bXpose    = denorm (rs!!2) (0.2,0.8)
 >                                            , bSnd      = (vChoiceP !)
@@ -304,7 +303,7 @@ The progress of the algorithm is expressed in above pair.
 >                                            , bVol      = round
 >                                                          $ denorm (rs!!4) (60,100)
 >                                            , bTempo    = denorm (rs!!5) (2,5)}
->   | otherwise                            = error "insufficiently sized list for sex2Bake" 
+>   | otherwise                            = error (unwords ["sex2Bake:", "insufficiently sized randoms list"])
 >     where
 >       vChoiceI         :: Array Int (InstrumentName, (Pitch, Pitch))
 >       vChoiceI                           = selectRanged choices
