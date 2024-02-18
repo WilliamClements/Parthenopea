@@ -439,9 +439,10 @@ also
 > denormIntVect norm vect                  = profess
 >                                              (norm >= 0 && norm <= 1)
 >                                              (unwords ["denormIntVect:", "bad input norm"])
->                                              (vect ! iselect)
+>                                              (vect ! (lo + floor (denorm norm frange)))
 >   where
->     iselect                              = floor $ denorm norm (1, fromIntegral $ length vect)
+>     (lo, hi)                             = bounds vect
+>     frange                               = (0, fromIntegral (hi - lo + 1) - 0.000001)
 >
 > wideOpen               :: (Pitch, Pitch) = (pitch 0, pitch 127)
 >

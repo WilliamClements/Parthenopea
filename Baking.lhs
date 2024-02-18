@@ -297,9 +297,7 @@ The progress of the algorithm is expressed in above pair.
 >                                            , bWch      = denormIntVect (rs!!0) vChoiceI
 >                                            , bOnset    = denorm (rs!!1) (0,songLength)
 >                                            , bXpose    = denorm (rs!!2) (0.2,0.8)
->                                            , bSnd      = (vChoiceP !)
->                                                          $ truncate
->                                                          $ denorm (rs!!3) (0.0, fromIntegral (length vChoiceP) - 1)
+>                                            , bSnd      = denormIntVect (rs!!3) vChoiceP
 >                                            , bVol      = round
 >                                                          $ denorm (rs!!4) (60,100)
 >                                            , bTempo    = denorm (rs!!5) (2,5)}
