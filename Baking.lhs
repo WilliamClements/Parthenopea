@@ -2,6 +2,7 @@
 > {-# HLINT ignore "Use head" #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE UnicodeSyntax #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
@@ -32,7 +33,7 @@ The progress of the algorithm is expressed in above pair.
 > -- music "channel" array (with size numChannels)
 > consumeBakes           :: [Bake] → Array Int (Music (Pitch, [NoteAttribute]))
 > consumeBakes bakes                       = profess
->                                              (checkJobOk (bm, ms))
+>                                              (checkJobOk bm)
 >                                              "consumeBakes checkJobOk"
 >                                              (aggrandize <$> ms)
 >   where
@@ -40,11 +41,11 @@ The progress of the algorithm is expressed in above pair.
 >
 > measureBakes           :: [Bake] → Array Int Int
 > measureBakes bakes                       = profess
->                                              (checkJobOk (bm, ms) && checkMeasureOk (bm, ms))
+>                                              (checkJobOk bm && checkMeasureOk bm)
 >                                              "measureBakes checkJobOk"
 >                                              (sHistogram bm)
 >   where
->     (bm, ms)                             = buildChannels bakes
+>     (bm, _)                              = buildChannels bakes
 >
 > sampleBakes            :: [Bake] → Array Int Int
 > sampleBakes bakes                        = scoreOnsets bakingBins (map bOnset bakes)
@@ -203,55 +204,44 @@ The progress of the algorithm is expressed in above pair.
 >     dHi                                  = fromIntegral (absPitch hi)
 >     p                                    = pitch $ round $ dLo + (dXp * (dHi - dLo))
 >
-> checkMeasureOk         :: Baking → Bool
-> checkMeasureOk (bm, ms)
->   | traceAlways msg False                = undefined
+> checkMeasureOk         :: BakingMetrics → Bool
+> checkMeasureOk BakingMetrics{ .. }
+>   | traceAlways trace_CMO False          = undefined
 >   | otherwise                            = True
 >   where
->     msg = unwords ["\n checkMeasureOk bins =", show (sHistogram bm)]
+>     trace_CMO                            = unwords ["\ncheckMeasureOk", show sHistogram]
 >
-> checkJobOk             :: Baking → Bool
-> checkJobOk (bm@BakingMetrics{sBaked, sSkipped, sAccumBaked, sAccumSkipped}, ms)
->    | traceIf msg False                   = undefined
+> checkJobOk             :: BakingMetrics → Bool
+> checkJobOk BakingMetrics{ .. }
+>    | traceIf trace_CBO False             = undefined
 >    | otherwise                           = True
 >    where
->      msg = unwords
->             [ "checkJobOk: bm =",        show bm
->               , "\n avg skipped start=", show $ safeAverage sAccumSkipped sSkipped
->               , "avg baked start=",      show $ safeAverage sAccumBaked sBaked 
->               , "durs=",                 foldShowDur ms]
+>      trace_CBO                           = unwords
+>             [ "checkJobOk",              show $ safeAverage sAccumSkipped sSkipped
+>             , "avg baked start",         show $ safeAverage sAccumBaked sBaked]
 >
 >      safeAverage      :: Double → Int → Double
 >      safeAverage d n
 >         | n==0                           = 0.0
 >         | otherwise                      = d / fromIntegral n
 >
->      foldShowDur       :: Array Int (Music (Pitch, Volume)) → String
->      foldShowDur                         = foldr foldFun ""
->        where
->          foldFun       :: Music (Pitch, Volume) → String → String
->          foldFun m s                     = " " ++ show d1 ++ s
->            where
->              d1        :: Double
->              d1                          = fromRational (dur m)
->
 > checkUrnOk             :: Bake → Bool
 > checkUrnOk urn
->    | traceIf msg False = undefined
->    | otherwise = True
+>    | traceIf trace_CUO False             = undefined
+>    | otherwise                           = True
 >    where
->       msg = unwords [ "checkUrnOk: urn = ", show urn ]
+>       trace_CUO                          = unwords ["checkUrnOk", show urn]
 >
 > checkZListOk           :: [(Int,  Int)] → Bool
 > checkZListOk zlist
->    | traceAlways msg False = undefined
->    | otherwise = True
+>    | traceAlways trace_CZLO False        = undefined
+>    | otherwise                           = True
 >    where
->       msg = unwords [ "checkZListOK: zlist = ", show zlist ]
+>       trace_CZLO                         = unwords ["checkZListOK", show zlist]
 >
 > acceptMetrics          :: BakingMetrics → Double → Double → SectionSpec → Double → BakingMetrics
 > acceptMetrics bm@BakingMetrics{sBaked, sRestDur, sFillDur, sAccumBaked, sHistogram} durSoFar newDur ss os
->    | traceNever msg False                = undefined
+>    | traceNever trace_AM False           = undefined
 >    | otherwise                           = bm { sBaked      = baked'
 >                                               , sRestDur    = restDur'
 >                                               , sFillDur    = fillDur'
@@ -269,9 +259,9 @@ The progress of the algorithm is expressed in above pair.
 >                                              then error "Bad ZList"
 >                                              else sHistogram // zlist
 >
->      msg                                 = unwords [  "acceptMetrics ", show durSoFar, " ← durSoFar, os → ", show os
->                                                     , "\n ss = ", show ss
->                                                     , "\n newDur=", show newDur]
+>      trace_AM                            =                   
+>        unwords ["acceptMetrics", show durSoFar, " ← durSoFar, os → ", show os
+>               , "\nss", show ss, "\nnewDur", show newDur]
 >
 >      quantize          :: Array Int Int → Double → Double → [(Int,  Int)]
 >      quantize hst os du                  = [(x, (hst!x) + 1) | x ← [fk..gk]]
@@ -294,14 +284,14 @@ The progress of the algorithm is expressed in above pair.
 > sex2Bake rs
 >   | length rs >= 6                       = Bake {
 >                                              bIx       = 0
->                                            , bWch      = denormIntVect (rs!!0) vChoiceI
+>                                            , bWch      = denormVector (rs!!0) vChoiceI
 >                                            , bOnset    = denorm (rs!!1) (0,songLength)
 >                                            , bXpose    = denorm (rs!!2) (0.2,0.8)
->                                            , bSnd      = denormIntVect (rs!!3) vChoiceP
+>                                            , bSnd      = denormVector (rs!!3) vChoiceP
 >                                            , bVol      = round
 >                                                          $ denorm (rs!!4) (60,100)
 >                                            , bTempo    = denorm (rs!!5) (2,5)}
->   | otherwise                            = error (unwords ["sex2Bake:", "insufficiently sized randoms list"])
+>   | otherwise                            = error $ unwords ["sex2Bake:", "insufficiently sized randoms list", show $ length rs]
 >     where
 >       vChoiceI         :: Array Int (InstrumentName, (Pitch, Pitch))
 >       vChoiceI                           = selectRanged choices

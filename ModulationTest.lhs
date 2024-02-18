@@ -179,7 +179,7 @@ struct sfInstModList
 >
 >       tryIt            :: Mapping → IO ()
 >       tryIt ping
->         | traceNow msg False          = undefined
+>         | traceNow trace_TI False     = undefined
 >         | otherwise                   = do
 >         traceIO ""
 >         traceIO (show results)
@@ -192,11 +192,11 @@ struct sfInstModList
 >           conv         :: Int → Double
 >           conv midi                      = fromIntegral midi / fromIntegral qMidiSize128
 >
->           msg                            = unwords ["mapping = ", show ping]
+>           trace_TI                       = unwords ["mapping", show ping]
 >
 > modulationTest004      :: Mapping → [Double]
 > modulationTest004 ping
->   | traceNow msg False                   = undefined
+>   | traceNow trace_MT4 False             = undefined
 >   | otherwise                            = results
 >   where
 >     results                              = [controlDenormal ping (conv x) (0, 1) | x ← [0..127]]
@@ -204,11 +204,11 @@ struct sfInstModList
 >     conv         :: Int → Double
 >     conv midi                            = fromIntegral midi / fromIntegral qMidiSize128
 >
->     msg = unwords ["modulationTest004 ", show ping]
+>     trace_MT4                            = unwords ["modulationTest004", show ping]
 >
 > modulationTest005      :: IO ()
 > modulationTest005
->   | traceNow msg False                   = undefined
+>   | traceNow trace_MT5 False             = undefined
 >   | otherwise                            = do
 >     putStrLn ("mt5 " ++ show avgGain)
 >     return ()
@@ -240,14 +240,15 @@ struct sfInstModList
 >
 >     iter               :: Double → Double
 >     iter newFt
->       | traceNow msg' False              = undefined
+>       | traceNow trace_I False           = undefined
 >       | otherwise                        = rms
 >       where
 >         iterData                         = IterData newFt myFq newFt myV
 >         dbls                             = toSamples 0.5 (driver iterData)
 >         n              :: Double         = fromIntegral $ length dbls
 >         rms                              = sum (map abs dbls) / n
->         msg'                             = unwords ["modulationTest005/iter ", show rms, "\n", show iterData]
+>
+>         trace_I                          = unwords ["modulationTest005/iter", show rms, "\n", show iterData]
 >
 >     driver             :: IterData → AudSF () Double
 >     driver itd@IterData{theFc, theFq, theFt, theVel}
@@ -260,7 +261,7 @@ struct sfInstModList
 >         sf = filterSVF theFq
 >
 >     -- do the test from (A, 0) to (C, 9)
->     msg = unwords ["modulationTest005 ", show $ avgGain * 1000]
+>     trace_MT5                            = unwords ["modulationTest005 ", show $ avgGain * 1000]
 >
 > table2vals             :: Double → [Double] → [(Double, Double, Double, Double)]
 > table2vals scalix                        = zipWith convFun [0..]

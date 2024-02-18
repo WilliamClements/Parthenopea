@@ -536,20 +536,19 @@ We Hate Her ====================================================================
 > whhTempo                                 = 1
 > whhTranspose                             = 0
 >
-> whhHarpBoy_                              = makePitched Harmonica whhTranspose 0 100
+> whhLead_                                 = makePitched AltoSax       whhTranspose        0        100
 >
 > weHateHer              :: DynMap → Music (Pitch, [NoteAttribute])
 > weHateHer dynMap                         =
 >    removeZeros
 >    $ aggrandize
 >    $ tempo whhTempo
->    $ transpose whhTranspose
 >    $ keysig G Dorian
->    $ bandPart whhHarpBoy whhMel
+>    $ bandPart whhLead whhMel
 >
 >    where
 >
->    whhHarpBoy                            = replace whhHarpBoy_ dynMap
+>    whhLead                               = replace whhLead_ dynMap
 >
 > whhMel :: Music Pitch
 >    --                      We

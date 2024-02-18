@@ -71,10 +71,8 @@ Signal function-based synth ====================================================
 >
 >     trace_eS                             =
 >       unwords [
->           "eutSynthesize ",                  show (dur, noon)
->         , "\n... sample, scored, toplay = ", show secsSample
->         , " , ",                             show secsScored
->         , " , ",                             show secsToPlay]
+>           "eutSynthesize",                show (dur, noon)
+>         , "\n... sample, scored, toplay", show (secsSample, secsScored, secsToPlay)]
 >
 > eutDriver              :: ∀ p . Clock p ⇒
 >                           Double
@@ -83,36 +81,51 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → Bool
 >                           → Signal p () (Double, (ModSignals, ModSignals))
-> eutDriver secsScored (reconL@Reconciled{rModulation = m8n, rNoteOn}, reconR) secsToPlay idelta looping
+> eutDriver secsScored (reconL@Reconciled{rModulation = m8nL, rNoteOn}, reconR@Reconciled{rModulation = m8nR})
+>           secsToPlay idelta looping
 >   | traceNever trace_eD False            = undefined
 >   | otherwise                            = if looping
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
 >   where
+>     Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL}
+>                                          = m8nL
+>     Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR}
+>                                          = m8nR
+>
 >     calcLooping, calcNotLooping
 >                        :: Double → Double
 >     calcLooping next                     = if next > len    then lst           else next
 >     calcNotLooping next                  = if next > 1      then frac next     else next
 >
 >     procDriver calcPhase                 = proc () → do
->       (modSigL, modSigR)
->                        ← eutIgniteModSignals secsScored secsToPlay (reconL, reconR)
->                                          ⤙ ()
+>       modSig           ← eutModSignals   ⤙ ()
 >       let delta                          = idelta * evaluateModSignals
 >                                                       "procDriver"
->                                                       m8n
+>                                                       m8nL
 >                                                       ToPitch
->                                                       modSigL
+>                                                       (fst modSig)
 >                                                       rNoteOn
 >       rec
 >         let phase                        = calcPhase next
 >         next           ← delay 0         ⤙ frac (phase + delta)                           
->       outA                               ⤙ (phase, (modSigL, modSigR))
+>       outA                               ⤙ (phase, modSig)
 >
 >     (lst, len)         :: (Double, Double)
 >                                          = normalizeLooping reconL
 >
->     trace_eD                             = unwords ["eutDriver idelta=", show idelta, " looping=", show looping]
+>     eutModSignals      :: ∀ p. Clock p ⇒ Signal p () (ModSignals, ModSignals)
+>     eutModSignals                        =
+>       proc _ → do
+>         aL1 ← doEnvelope  mModEnvL secsScored secsToPlay ⤙ ()
+>         aL2 ← doLFO       mModLfoL                       ⤙ ()
+>         aL3 ← doLFO       mVibLfoL                       ⤙ ()
+>         aR1 ← doEnvelope  mModEnvR secsScored secsToPlay ⤙ ()
+>         aR2 ← doLFO       mModLfoR                       ⤙ ()
+>         aR3 ← doLFO       mVibLfoR                       ⤙ ()
+>         outA                                             ⤙ (ModSignals aL1 aL2 aL3, ModSignals aR1 aR2 aR3)
+>
+>     trace_eD                             = unwords ["eutDriver idelta", show idelta, "looping", show looping]
 >
 > normalizeLooping       :: Reconciled → (Double, Double)
 > normalizeLooping Reconciled{ .. }
@@ -123,27 +136,6 @@ Signal function-based synth ====================================================
 >     (loopst, loopen)   :: (Double, Double)
 >                                          = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
 >     denom              :: Double         = fullen - fullst
->
-> eutIgniteModSignals    :: ∀ p. Clock p ⇒
->                           Double
->                           → Double
->                           → (Reconciled, Reconciled)
->                           → Signal p () (ModSignals, ModSignals)
-> eutIgniteModSignals secsScored secsToPlay (Reconciled{rModulation = m8nL}, Reconciled{rModulation = m8nR})
->                                          =
->   proc _ → do
->     aL1 ← doEnvelope  mModEnvL secsScored secsToPlay ⤙ ()
->     aL2 ← doLFO       mModLfoL                       ⤙ ()
->     aL3 ← doLFO       mVibLfoL                       ⤙ ()
->     aR1 ← doEnvelope  mModEnvR secsScored secsToPlay ⤙ ()
->     aR2 ← doLFO       mModLfoR                       ⤙ ()
->     aR3 ← doLFO       mVibLfoR                       ⤙ ()
->     outA ⤙ (ModSignals aL1 aL2 aL3, ModSignals aR1 aR2 aR3)
->   where
->     Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL}
->                                          = m8nL
->     Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR}
->                                          = m8nR
 >
 > eutPumpSamples         :: ∀ p . Clock p ⇒
 >                           Double
@@ -156,8 +148,8 @@ Signal function-based synth ====================================================
 > eutPumpSamples _ (  Reconciled{rAttenuation = attenL, rStart = stL, rEnd = enL, rModulation = m8nL}
 >                   , Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR, rModulation = m8nR})
 >                  noon@NoteOn{noteOnVel, noteOnKey} dur s16 ms8
->   | traceIf trace_ePS False              = undefined
->   | otherwise =
+>   | traceNever trace_ePS False           = undefined
+>   | otherwise                            =
 >   proc (pos, msig) → do
 >     let pos'           :: Double         = numS * pos
 >     let ix             :: Int            = truncate pos'
@@ -170,8 +162,7 @@ Signal function-based synth ====================================================
 >     (graphL, graphR)                     = (modGraph m8nL, modGraph m8nR)
 >     cAttenL            :: Double         = fromCentibels' (attenL + evaluateMods ToInitAtten graphL noon)
 >     cAttenR            :: Double         = fromCentibels' (attenR + evaluateMods ToInitAtten graphR noon)
->     (ampL, ampR)       :: (Double, Double)
->                                          = ( fromIntegral noteOnVel / 100 / cAttenL
+>     (ampL, ampR)                         = ( fromIntegral noteOnVel / 100 / cAttenL
 >                                            , fromIntegral noteOnVel / 100 / cAttenR)
 >     numS               :: Double         = fromIntegral (enL - stL)
 >
@@ -181,9 +172,7 @@ Signal function-based synth ====================================================
 >       | otherwise                        = (a1L * ampL, a1R * ampR)
 >       where
 >         trace_P                          =
->           unwords [
->               "pump ", show (a1L, a1R)
->             , "<=>", show (a1L * ampL, a1R * ampR)]
+>           unwords ["pump", show (a1L, a1R), "<=>", show (a1L * ampL, a1R * ampR)]
 >      
 >     trace_ePS                            = unwords ["eutPumpSamples", show (ampL, ampR)]
 >
@@ -254,8 +243,7 @@ Modulation =====================================================================
 >       where
 >         (a3L, a3R)                       = (checkForNan a2L "mod a2L", checkForNan a2R "mod a2R" )
 >
->         trace_M                          =
->           unwords ["modulate", show ((a1L, a1R), (a3L, a3R))]
+>         trace_M                          = unwords ["modulate", show ((a1L, a1R), (a3L, a3R))]
 
 FFT ===================================================================================================================
 
@@ -285,7 +273,7 @@ FFT ============================================================================
 >                           → AbsPitch
 >                           → [[Double]]
 > eutAnalyzeSample s16 ms8 F.Shdr{ .. } ap
->   | traceAlways msgT False               = undefined
+>   | traceAlways trace_eAS False          = undefined
 >   | otherwise                            = vFft
 >   where
 >     sr                 :: Double         = fromIntegral sampleRate
@@ -326,8 +314,6 @@ FFT ============================================================================
 >                                              then dFirst
 >                                              else vSource ! (ix0 + 1)
 >
->         msg                              = unwords ["interpVal ", show (ixAt, dixAt, ix0)]
->
 >     nSize                                = (snd . bounds) vResampled + 1
 >     nChunks                              = if tFactor < 0.1 || tFactor > 100.0 || nSize < 100
 >                                              then 0
@@ -349,11 +335,13 @@ FFT ============================================================================
 >
 >     vFft               :: [[Double]]     = fmap (map magnitude . take (fp `div` 2) . fft) chunked
 >
->     msgT       = unwords ["eutAnalyzeSample "
->                        , "fpOrig =", show fpOrig, " , tFactor =", show tFactor
->                        , "bounds vNormed =", show (bounds vNormed)
->                        , "length vResampled =", show (length vResampled)
->                        , " nsI, nsI' =", show nsI, " ", show nsI', "\n"]
+>     trace_eAS                            =
+>       unwords ["eutAnalyzeSample"
+>              , "fpOrig"                  , show fpOrig
+>              , "tFactor"                 , show tFactor
+>              , "bounds vNormed"          , show (bounds vNormed)
+>              , "length vResampled"       , show (length vResampled)
+>              , "nsI, nsI'"               , show (nsI, nsI')]
 
 Envelopes =============================================================================================================
 
@@ -401,12 +389,12 @@ Envelopes ======================================================================
 >     trace_DE                             =
 >       if useEnvelopes
 >         then unwords ["deriveEnvelope"
->                       ,  if isJust mTriple then "modEnv " else "volEnv "
->                       , "\nhold=   ", show mHold,     " ",   show mHoldByKey,  " ", show dHold
->                            , " ( not ",   show (fromTimecents mHold), " )"
->                       , "\ndecay=  ", show mDecay,    " ",   show mDecayByKey, " ", show dDecay
->                            , " ( not ", show (fromTimecents mDecay), " )"
->                       , "\nmRelease=", show mRelease, " ( ", show (fromTimecents mRelease), " )"]
+>                       ,  if isJust mTriple then "modEnv" else "volEnv"
+>                       , "\nhold=", show mHold, show mHoldByKey, show dHold
+>                       , "(not",   show (fromTimecents mHold), ")"
+>                       , "\ndecay=", show mDecay, show mDecayByKey, show dDecay
+>                       , " (not", show (fromTimecents mDecay), ")"
+>                       , "\nmRelease=", show mRelease, "(", show (fromTimecents mRelease), ")"]
 >         else unwords ["deriveEnvelope (none)"]
 >
 > doEnvelope             :: ∀ p . Clock p ⇒ Maybe Envelope → Double → Double → Signal p () Double
@@ -419,17 +407,18 @@ Envelopes ======================================================================
 >       | traceNever trace_MSF False       = undefined
 >       | otherwise                        = dumpSF secsScored secsToPlay sf
 >       where
->         sf = envLineSeg sAmps sDeltaTs
+>         sf                               = envLineSeg sAmps sDeltaTs
 >         Segments{ .. }                   = computeSegments secsScored secsToPlay env
->         trace_MSF = unwords ["doEnvelope/makeSF", show (secsScored, secsToPlay), show (sAmps, sDeltaTs)]
+>
+>         trace_MSF                        =
+>           unwords ["doEnvelope/makeSF", show (secsScored, secsToPlay), show (sAmps, sDeltaTs)]
 >
 >     dumpSF             :: Double → Double → Signal p () Double → Signal p () Double
 >     dumpSF secsScored secsToUse sigIn
 >       | traceNever trace_DSF False       = undefined
 >       | otherwise                        = sigIn
 >       where
->         str1 = findOutliersString secsScored sigIn
->         trace_DSF = unwords ["dumpSF ", str1]
+>         trace_DSF                        = unwords ["dumpSF", findOutliersString secsScored sigIn]
 
 Implement the SoundFont envelope model with specified:
   1. delay time                      0 → 0
@@ -553,8 +542,7 @@ Effects ========================================================================
 >     Effects{efChorus = cFactorL, efReverb = rFactorL, efPan = pFactorL} = effL
 >     Effects{efChorus = cFactorR, efReverb = rFactorR, efPan = pFactorR} = effR
 >
->     trace_eE =
->       unwords ["eutEffects", show ((cFactorL, cFactorR), (rFactorL, rFactorR))]
+>     trace_eE = unwords ["eutEffects", show ((cFactorL, cFactorR), (rFactorL, rFactorR))]
 > 
 > eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Signal p Double Double
 > eutChorus rate_ depth_ cFactor           =
@@ -583,7 +571,7 @@ Effects ========================================================================
 >     coeff2 = 1/3
 >     coeff3 = 1/3
 >
->     safeDelayLine1     :: Double → Double → Signal p Double Double
+>     safeDelayLine1     :: ∀ p . Clock p ⇒ Double → Double → Signal p Double Double
 >     safeDelayLine1 maxDel del            =
 >       profess
 >         (maxDel >= del + depth)

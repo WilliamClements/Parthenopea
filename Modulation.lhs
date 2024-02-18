@@ -92,7 +92,7 @@ Modulator management ===========================================================
 >       where
 >         (newK, newW)                     = supercedeKey m8r
 >
-> siftMods :: [Modulator] -> [Modulator]
+> siftMods               :: [Modulator] -> [Modulator]
 > siftMods m8rs                            = ssCurrent 
 >   where
 >     seed                                 = Sifting 0 m8rs []
@@ -168,11 +168,11 @@ Modulator management ===========================================================
 >                                              else Just (from{mrModAmount = dIn})
 >
 > addAmtSrc              :: Maybe Modulator → ModSrc → Maybe Modulator
-> addAmtSrc mm8r amtSrc@ModSrc{msSource}   = mm8r >>=   (\x → case msSource of
+> addAmtSrc mm8r amtSrc@ModSrc{msSource}   = mm8r >>=     (\x → case msSource of
 >                                                               FromLinked       → Nothing
 >                                                               _                → Just x{mrAmountSrc = amtSrc})
 > addAmtSrc'              :: ModSrc → Modulator → Maybe Modulator
-> addAmtSrc' modSrc@ModSrc{msSource} m     = Just m >>= (\x → case msSource of
+> addAmtSrc' modSrc@ModSrc{msSource} m8r   = Just m8r >>= (\x → case msSource of
 >                                                               FromLinked       → Nothing
 >                                                               _                → Just x{mrAmountSrc = modSrc})
 >
@@ -249,8 +249,8 @@ Modulator management ===========================================================
 >        ToFilterFc      → toFilterFcCo
 >        ToVolume        → toVolumeCo
 >        _               → error $ unwords ["Error in caller of evaluateModSignals"
->                                           ++ "(only ToPitch, ToFilterFc, and ToVolume supported)"
->                                          , show tag, show md]
+>                                         , "(only ToPitch, ToFilterFc, and ToVolume supported)"
+>                                         , show tag, show md]
 >
 >    xmodEnv             :: Double         = xModEnvPos * xModEnvCo
 >    xmodLfo                               = xModLfoPos * xModLfoCo
@@ -267,22 +267,21 @@ Modulator management ===========================================================
 >                                                     , show (fromCents (xmodEnv+xmodLfo+xvibLfo+xmods))]
 >
 > addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
-> addResonance noon m8n@Modulation{mLowPass}
->                                          = maybe delay' makeSF mLowPass
+> addResonance noon m8n@Modulation{ .. }   = maybe delay' makeSF mLowPass
 >   where
->     LowPass{lowPassFc, lowPassQ}         = fromJust mLowPass
+>     LowPass{ .. }                        = fromJust mLowPass
 >
 >     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
 >     makeSF _                             
->       | traceNever msg False             = undefined
+>       | traceNever trace_MSF False       = undefined
 >       | otherwise                        =
 >           case useResonanceType of
->             ResonanceNone                → error "usually don't need to protect against ResonanceNone"
+>             ResonanceNone                → error $ unwords ["addResonance/makeSF", "should not reach sf if ResonanceNone"]
 >             ResonanceLowpass             → procButter
 >             ResonanceBandpass            → procBandpass
 >             ResonanceSVF                 → procSVF
 >       where
->         msg = unwords ["addResonance/makeSF fc, q = ", show lowPassFc, " ", show lowPassQ]
+>         trace_MSF                        = unwords ["addResonance/makeSF (fc, q)", show (lowPassFc, show lowPassQ)]
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
@@ -339,9 +338,9 @@ Modulator management ===========================================================
 >         y'                               = checkForNan y "resonate y"
 >         trace_R                          =
 >           unwords [
->               "resonate\nsin  = ", show (checkForNan  x "resonate x")
->             , "\nfc   = ", show (checkForNan fc "resonate fc")
->             , "\nsout = ", show y']
+>               "resonate\nsIn"    , show (checkForNan  x "resonate x")
+>             , "\nfc"             , show (checkForNan fc "resonate fc")
+>             , "\nsOut"           , show y']
 >
 > deriveModTriple        :: Maybe Int → Maybe Int → Maybe Int → ModTriple
 > deriveModTriple toPitch toFilterFc toVolume
@@ -353,7 +352,7 @@ Modulator management ===========================================================
 >
 > deriveLFO              :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
 > deriveLFO del mfreq toPitch toFilterFc toVolume
->   | traceNever msg False                 = undefined
+>   | traceNever trace_DLFO False          = undefined
 >   | otherwise                            =
 >       if useLFO && anyJust
 >       then Just $ LFO (fromTimecents del)
@@ -362,9 +361,7 @@ Modulator management ===========================================================
 >       else Nothing
 >   where
 >     anyJust            :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
->     msg                                  = unwords ["deriveLFO ", show toPitch,    " "
->                                                                 , show toFilterFc, " "
->                                                                 , show toVolume]
+>     trace_DLFO                           = unwords ["deriveLFO", show (toPitch, toFilterFc, toVolume)]
 >
 > doLFO                  :: ∀ p . Clock p ⇒ Maybe LFO → Signal p () Double
 > doLFO                                    = maybe (constA 0) makeSF
@@ -377,12 +374,12 @@ Modulator management ===========================================================
 >         outA                             ⤙ oscillate z
 >
 >     oscillate          :: Double → Double
->     oscillate sin
->       | traceNever trace_O False             = undefined
->       | otherwise                        = sout
+>     oscillate sIn
+>       | traceNever trace_O False         = undefined
+>       | otherwise                        = sOut
 >       where
->         sout                             = sin
->         trace_O                          = unwords ["oscillate", show sin]
+>         sOut                             = sIn
+>         trace_O                          = unwords ["oscillate", show sIn]
 >
 > triangleWave           :: ∀ p . Clock p ⇒ Double → Signal p () Double
 > triangleWave freq                        = 
@@ -454,7 +451,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 
 > filterSVF              :: ∀ p . Clock p ⇒ Double → Signal p (Double,Double) Double
 > filterSVF initQ
->   | traceNow msg False                   = undefined
+>   | traceNow trace_FSVF False            = undefined
 >   | otherwise                            =
 >   let
 >     sr                                   = rate (undefined :: p)
@@ -471,8 +468,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >         yH ← delay 0                     ⤙ yH'
 >       outA                               ⤙ yL'
 >   where
->     msg                                  = unwords ["filterSVF initQ = " ++ show initQ
->                                                  ++ " " ++ show (fromCentibels' initQ)]
+>     trace_FSVF                           = unwords ["filterSVF initQ = ", show initQ, show (fromCentibels' initQ)]
 
 Controller Curves =====================================================================================================
 

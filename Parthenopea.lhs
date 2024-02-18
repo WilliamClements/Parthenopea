@@ -249,21 +249,19 @@ which makes for a cleaner sound on some synthesizers:
 > descent                :: BandPart → Pitch → Dur → Music Pitch
 > descent BandPart{ .. } p dur
 >   | traceNow trace_D False               = undefined
->   | otherwise                            =
->   chord [  rest dur
->          , glissando True (absPitch bottom, absPitch p) dur]
+>   | otherwise                            = chord [rest dur, glissando True (absPitch bottom, absPitch p) dur]
 >   where
->     bottom = trans (-bpTranspose) $ fst (fromJust (instrumentRange bpInstrument))
->     trace_D = unwords ["descent ", show p]
+>     bottom                               = trans (-bpTranspose) $ fst (fromJust (instrumentRange bpInstrument))
+>
+>     trace_D                              = unwords ["descent ", show p]
 >
 > ascent                 :: BandPart → Pitch → Dur → Music Pitch
 > ascent BandPart{ .. } p dur
 >   | traceNow trace_A False               = undefined
->   | otherwise                            =
->   chord [  rest dur
->          , glissando False (absPitch p, absPitch top) dur]
+>   | otherwise                            = chord [rest dur, glissando False (absPitch p, absPitch top) dur]
 >   where
 >     top                                  = trans (-bpTranspose) $ snd (fromJust (instrumentRange bpInstrument))
+>
 >     trace_A                              = unwords ["ascent", show p]
 
 ranges ================================================================================================================
@@ -425,7 +423,7 @@ also
 >         range                            = (absPitch rangeLo, absPitch rangeHi)
 >         trace_FI                         = unwords ["fitsIn", show range, show playedLo, show playedHi]
 >
->     trace_FBI                           = unwords ["findBetterInstrument", show than, show rangedInsts]
+>     trace_FBI                            = unwords ["findBetterInstrument", show than, show rangedInsts]
 >
 > nonPitchedInstruments  :: [InstrumentName]
 > nonPitchedInstruments                    = filter nonPitchedInstrument getList
@@ -435,10 +433,10 @@ also
 >   where
 >     qual                                 = mapMaybe (\i → instrumentRange i >>= Just . (i,)) is
 >
-> denormIntVect          :: Double → Array Int b → b
-> denormIntVect norm vect                  = profess
+> denormVector           :: Double → Array Int b → b
+> denormVector norm vect                   = profess
 >                                              (norm >= 0 && norm <= 1)
->                                              (unwords ["denormIntVect:", "bad input norm"])
+>                                              (unwords ["denormVector:", "bad input norm"])
 >                                              (vect ! (lo + floor (denorm norm frange)))
 >   where
 >     (lo, hi)                             = bounds vect
@@ -505,6 +503,7 @@ instrument range checking ======================================================
 >       if not (nonPitchedInstrument bpInstrument) && isJust minst
 >         then fromJust minst
 >         else bpInstrument
+>
 >     trace_R                              = unwords ["replace", show dynMap, show minst, show ninst]
 >
 > makeDynMap             :: Shredding → DynMap
@@ -926,33 +925,34 @@ tournament among instruments in various soundfont files ========================
 
 > scoreOnsets  :: Int → [Double] → Array Int Int
 > scoreOnsets nBins ts
->   | traceAlways msg False = undefined
->   | otherwise = hist (0, nBins - 1) is
+>   | traceAlways trace_SO False           = undefined
+>   | otherwise                            = hist (0, nBins - 1) is
 >   where
 >      safemax, safemin :: [Double] → Double
 >      safemax ts
->        | null ts = 0
->        | otherwise = maximum ts
+>        | null ts                         = 0
+>        | otherwise                       = maximum ts
 >      safemin ts
->        | null ts = 0
->        | otherwise = minimum ts
+>        | null ts                         = 0
+>        | otherwise                       = minimum ts
 >   
->      hi, lo, fact :: Double
->      hi = safemax ts + 0.0000001
->      lo = safemin ts - 0.0000001
->      fact = fromIntegral nBins / (hi - lo)
+>      hi, lo, fact      :: Double
+>      hi                                  = safemax ts + 0.0000001
+>      lo                                  = safemin ts - 0.0000001
+>      fact                                = fromIntegral nBins / (hi - lo)
 >
->      is :: [Int]
->      is = map (\d → floor $ (d - lo) * fact) ts
+>      is                :: [Int]
+>      is                                  = map (\d → floor $ (d - lo) * fact) ts
 >
->      msg = unwords [ "scoreOnsets lo, hi, fact="
->                    , show (safemin ts)
->                    , ":", show (safemax ts)
->                    , ":", show fact
->                    , " ts="
->                    , show (length ts)
->                    , " is="
->                    , show (length is)]
+>      trace_SO =
+>        unwords [ "scoreOnsets lo, hi, fact="
+>                , show (safemin ts)
+>                , ":", show (safemax ts)
+>                , ":", show fact
+>                , "ts="
+>                , show (length ts)
+>                , "is="
+>                , show (length is)]
 >
 > hist         :: (Ix a, Integral b) ⇒ (a,a) → [a] → Array a b
 > hist bnds is = accumArray (+) 0 bnds [(i, 1) | i ← is, inRange bnds i]
@@ -960,18 +960,19 @@ tournament among instruments in various soundfont files ========================
 > defBins      :: Int
 > defBins = 32
 >
-> scoreMusic   :: Int → Array Int (Music (Pitch, [NoteAttribute])) → Array Int Int
+> scoreMusic             :: Int → Array Int (Music (Pitch, [NoteAttribute])) → Array Int Int
 > scoreMusic nBins m
->   | traceIf msg False = undefined
->   | otherwise = score
+>   | traceIf trace_SM False               = undefined
+>   | otherwise                            = score
 >   where
->     score :: Array Int Int
->     score = 
+>     score              :: Array Int Int
+>     score                                = 
 >       scoreOnsets nBins
 >       $ extractTimes
 >       $ collectMEvents
 >       $ chordFromArray m
->     msg = unwords [ "bins=", show $ elems score]
+>
+>     trace_SM                             = unwords [ "bins", show $ elems score]
 >
 > collectMEvents         :: ToMusic1 a ⇒ Music a → Performance
 > collectMEvents m                         = fst (musicToMEvents defaultContext (toMusic1 m))
@@ -1035,17 +1036,18 @@ Sampling =======================================================================
 >
 > toSamples              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [Double]
 > toSamples dur sf
->   | traceIf msg False                    = undefined
+>   | traceIf trace_TS False               = undefined
 >   | otherwise                            = take numSamples $ concatMap collapse $ unfold $ strip sf
 >   where
 >     sr                                   = rate     (undefined :: p)
 >     numChannels                          = numChans (undefined :: a)
 >     numSamples                           = truncate (dur * sr) * numChannels
 >
->     msg = unwords ["toSamples   dur= " ++ show dur
->                             ++ " sr= " ++ show sr
->                             ++ " ch= " ++ show numChannels
->                             ++ " ns= " ++ show numSamples]
+>     trace_TS                             =
+>       unwords ["toSamples", "dur",   show dur
+>                           , "sr",    show sr
+>                           , "ch",    show numChannels
+>                           , "ns",    show numSamples]
 >
 > maxSample              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → Double
 > maxSample dur sf                         = maximum (map abs (toSamples dur sf))
@@ -1135,7 +1137,7 @@ Conversion functions and general helpers =======================================
 > professInRange         :: (Eq a, Ord a, Show a) ⇒ (a, a) → a → String → a
 > professInRange range val desc            = profess
 >                                              (val == clip range val)
->                                              (unwords ["Bad", desc, "range", show range, show val])
+>                                              (unwords ["out of", desc, "range", show range, show val])
 >                                              val
 >
 > professIsJust          :: ∀ a. Maybe a → String → a
