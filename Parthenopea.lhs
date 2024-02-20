@@ -73,19 +73,19 @@ Utilities ======================================================================
 >
 > impM                   :: FilePath → IO ()
 > impM fp                                  = do
->   mu <- importMidi fp
+>   mu ← importMidi fp
 >   play mu
 >   -- listInstruments $ aggrandize mu
 >   return ()
 >
 > importMidi             :: FilePath → IO (Music (Pitch, Volume))
 > importMidi fp = do
->   x <- importFile fp
+>   x ← importFile fp
 >   case x of
->             Left z -> error z
->             Right m2 -> analyzeMidi m2
+>     Left z             → error z
+>     Right m2           → analyzeMidi m2
 >
-> analyzeMidi            :: Midi -> IO (Music (Pitch, Volume))
+> analyzeMidi            :: Midi → IO (Music (Pitch, Volume))
 > analyzeMidi midi                         = do
 >   print midi
 >   return $ rest 0

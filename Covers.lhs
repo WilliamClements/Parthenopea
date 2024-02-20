@@ -381,8 +381,8 @@ TC =============================================================================
 > tcTempo                                  = 1
 >
 > tcLead_                                  = makePitched Violin        tcTranspose leadTranspose  100
-> tcRepeat_                                = makePitched FrenchHorn    tcTranspose repeatTranspose 60
-> tcBass_                                  = makePitched FretlessBass  tcTranspose bassTranspose   75
+> tcRepeat_                                = makePitched FrenchHorn    tcTranspose repeatTranspose 50
+> tcBass_                                  = makePitched FretlessBass  tcTranspose bassTranspose   85
 > tcPerc_                                  = makeNonPitched                                       100
 >
 > basicLick :: DynMap → Music (Pitch, [NoteAttribute])
@@ -397,10 +397,10 @@ TC =============================================================================
 >           , bandPart tcPerc    tcP]
 >   where
 >
->   tcLead                                 = replace tcLead_ dynMap
->   tcRepeat                               = replace tcRepeat_ dynMap
->   tcBass                                 = replace tcBass_ dynMap
->   tcPerc                                 = replace tcPerc_ dynMap
+>   tcLead                                 = replace tcLead_         dynMap
+>   tcRepeat                               = replace tcRepeat_       dynMap
+>   tcBass                                 = replace tcBass_         dynMap
+>   tcPerc                                 = replace tcPerc_         dynMap
 >
 >   licks1                                 = 20
 >   licks2                                 = 18

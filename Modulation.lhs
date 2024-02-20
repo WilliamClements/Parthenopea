@@ -13,7 +13,7 @@
 > import Data.Bits
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
-> import Data.List ( foldl', iterate' )
+> import Data.List ( foldl', iterate', find )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
@@ -39,26 +39,27 @@ Modulator management ===========================================================
 >                                              "cycles in modulator graph"
 >                                              sifted
 >         
-> hasCycles :: [Modulator] -> Bool
+> hasCycles              :: [Modulator] → Bool
 > hasCycles m8rs                           = not $ null $ cyclicNodes $ makeGraph edgeList
 >   where
 >     nodeList           :: [(ModDestType, [Modulator])]
->                                          = filter outGoing (Map.assocs (compileMods m8rs))
+>                                          = filter (isJust . outGoing . fst) (Map.assocs (compileMods m8rs))
 >     edgeList           :: [(Node, [Node])]
 >                                          = map
 >                                              (BF.bimap nodeFrom (map (fromIntegral . mrModId)))
 >                                              nodeList
 >
 >     nodeFrom           :: ModDestType → Node
->     nodeFrom mdt                         = case mdt of
->                                              ToLink mId       → fromIntegral mId
->                                              _                → error $ "only ToLink bears a ModDestType"
->                                                                           ++ " to be turned into a Node"
+>     nodeFrom mdt                         = maybe
+>                                              (error $ unwords ["only ToLink forms a ModDestType"
+>                                                              , "to be turned into a Node"])
+>                                              fromIntegral
+>                                              (outGoing mdt)
 >
->     outGoing           :: (ModDestType, [Modulator]) → Bool
->     outGoing (mdt, _)                    = case mdt of
->                                              ToLink mId       → True
->                                              _                → False
+> outGoing               :: ModDestType → Maybe Word
+> outGoing mdt                             = case mdt of
+>                                              ToLink mId       → Just mId
+>                                              _                → Nothing
 >
 > data Sifting                             =
 >   Sifting {
@@ -79,20 +80,27 @@ Modulator management ===========================================================
 >                                              "maximum of 10 tries exceeded..."
 >                                              filter shouldStay ssCurrent
 >
->     shouldStay m8r@Modulator{ .. }       = linkageOk && not superceded
+>     shouldStay m8r                         = linkageInOk && linkageOutOk && not superceded
 >       where
->         linkageOk                        =
->           FromLinked /= source || maybe False (not . null) (Map.lookup (ToLink mrModId) (compileMods ssCurrent))
+>         linkageInOk                      =
+>           FromLinked /= m8rSource || maybe False (not . null) (Map.lookup (ToLink m8rId) (compileMods ssCurrent))
+>         linkageOutOk                     =
+>           maybe True present (outGoing m8rDest)
 >         superceded                       =
 >           maybe False noMatch (Map.lookup (fst (supercedeKey m8r)) (foldl' supercfr Map.empty ssCurrent))
->         noMatch current                  = mrModId /= current
->         source                           = msSource mrModSrc
+>         
+>         m8rId                            = mrModId m8r
+>         m8rSource                        = msSource (mrModSrc m8r)
+>         m8rDest                          = mrModDest m8r
+>
+>         noMatch current                  = m8rId /= current
+>         present modId                    = (isJust . find (\x → mrModId x == modId)) ssCurrent
 >
 >     supercfr accum m8r                   = Map.insert newK newW accum
 >       where
 >         (newK, newW)                     = supercedeKey m8r
 >
-> siftMods               :: [Modulator] -> [Modulator]
+> siftMods               :: [Modulator] → [Modulator]
 > siftMods m8rs                            = ssCurrent 
 >   where
 >     seed                                 = Sifting 0 m8rs []
@@ -276,12 +284,14 @@ Modulator management ===========================================================
 >       | traceNever trace_MSF False       = undefined
 >       | otherwise                        =
 >           case useResonanceType of
->             ResonanceNone                → error $ unwords ["addResonance/makeSF", "should not reach sf if ResonanceNone"]
+>             ResonanceNone                → error $ unwords ["addResonance/makeSF"
+>                                                           , "should not reach sf if ResonanceNone"]
 >             ResonanceLowpass             → procButter
 >             ResonanceBandpass            → procBandpass
 >             ResonanceSVF                 → procSVF
 >       where
->         trace_MSF                        = unwords ["addResonance/makeSF (fc, q)", show (lowPassFc, show lowPassQ)]
+>         trace_MSF                        = unwords ["addResonance/makeSF (fc, q)"
+>                                                   , show (lowPassFc, show lowPassQ)]
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
@@ -355,10 +365,10 @@ Modulator management ===========================================================
 >   | traceNever trace_DLFO False          = undefined
 >   | otherwise                            =
 >       if useLFO && anyJust
->       then Just $ LFO (fromTimecents del)
->                       (fromAbsoluteCents $ maybe 0 (clip (-16000, 4500)) mfreq)
->                       (deriveModTriple toPitch toFilterFc toVolume)
->       else Nothing
+>         then Just $ LFO (fromTimecents del)
+>                         (fromAbsoluteCents $ maybe 0 (clip (-16000, 4500)) mfreq)
+>                         (deriveModTriple toPitch toFilterFc toVolume)
+>         else Nothing
 >   where
 >     anyJust            :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
 >     trace_DLFO                           = unwords ["deriveLFO", show (toPitch, toFilterFc, toVolume)]
@@ -415,12 +425,8 @@ Miscellaneous ==================================================================
 > sawtooth freq                           = 
 >   proc _ → do
 >     osc sawtoothTable 0 ⤙ freq
->
-
 
 twave partial (-1)^i * n^-2 * sin (2*pi f0 n t)
-
-4 * 
 
 i = harmonic label 0..N-1
 k = harmonic mode number = (2 * i) + 1
@@ -473,6 +479,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 Controller Curves =====================================================================================================
 
 > qTableSize             :: Int            = 1024
+> tableSize              :: Double         = fromIntegral qTableSize
 > qMidiSize128           :: Int            = 128
 > qStepSize                                = qTableSize `div` qMidiSize128
 >
@@ -481,10 +488,9 @@ Controller Curves ==============================================================
 >                                          = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
 >   where
 >     calc               :: Int → Double
->     calc i                               =
->       let 
->         x              :: Double         = fromIntegral i / fromIntegral qTableSize
->       in 1 - sqrt (1 - x*x)
+>     calc i                               = 1 - sqrt (1 - x*x)
+>       where 
+>         x              :: Double         = fromIntegral i / tableSize
 
 The use of these functions requires that their input is normalized between 0 and 1
 (And the output is normalized, too)
@@ -494,11 +500,11 @@ The use of these functions requires that their input is normalized between 0 and
 >
 > funConcave d
 >   | d >= 1                               = 1
->   | otherwise                            = quarterCircleTable ! truncate (d * fromIntegral qTableSize)
+>   | otherwise                            = quarterCircleTable ! truncate (d * tableSize)
 >
 > funConvex d
 >   | (1 - d) >= 1                         = 1
->   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - d) * fromIntegral qTableSize))
+>   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - d) * tableSize))
 >
 > funSwitch d                              = if d < 0.5
 >                                              then 0
@@ -516,8 +522,7 @@ The use of these functions requires that their input is normalized between 0 and
 >     dNorm                                = (dIn - lo) / scale
 >
 > controlUniPolar        :: Mapping → Double → Double
-> controlUniPolar ping@Mapping{msContinuity, msMax2Min} dIn
->                                          = fun xStart
+> controlUniPolar Mapping{ .. } dIn        = fun xStart
 >   where
 >     fun                                  = case msContinuity of
 >                                              Linear     → funLinear
@@ -530,8 +535,7 @@ The use of these functions requires that their input is normalized between 0 and
 >                                              else dIn
 >
 > controlBiPolar         :: Mapping → Double → Double
-> controlBiPolar ping@Mapping{msContinuity, msMax2Min} dIn
->                                          = dOut
+> controlBiPolar ping@Mapping{ .. } dIn    = dOut
 >   where
 >     -- bipolar concave/convex:
 >     --   if positive, swap the left half to the opposite
