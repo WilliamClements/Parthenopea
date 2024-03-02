@@ -88,10 +88,8 @@ Signal function-based synth ====================================================
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
 >   where
->     Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL}
->                                          = m8nL
->     Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR}
->                                          = m8nR
+>     Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = m8nL
+>     Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = m8nR
 >
 >     calcLooping, calcNotLooping
 >                        :: Double → Double
@@ -227,7 +225,6 @@ Modulation =====================================================================
 > eutModulate secsScored ( Reconciled{rNoteOn, rModulation = m8nL}, Reconciled{rModulation = m8nR} )
 >                                          =
 >   proc ((a1L, a1R), (modSigL, modSigR)) → do
->
 >     a2L   ← addResonance rNoteOn m8nL    ⤙ (a1L, modSigL)
 >     a2R   ← addResonance rNoteOn m8nR    ⤙ (a1R, modSigR)
 >
@@ -407,8 +404,8 @@ Envelopes ======================================================================
 >       | traceNever trace_MSF False       = undefined
 >       | otherwise                        = dumpSF secsScored secsToPlay sf
 >       where
->         sf                               = envLineSeg sAmps sDeltaTs
 >         Segments{ .. }                   = computeSegments secsScored secsToPlay env
+>         sf                               = envLineSeg sAmps sDeltaTs
 >
 >         trace_MSF                        =
 >           unwords ["doEnvelope/makeSF", show (secsScored, secsToPlay), show (sAmps, sDeltaTs)]
@@ -484,24 +481,22 @@ Effects ========================================================================
 > deriveEffects Modulation{ .. } noon mChorus mReverb mPan
 >   | traceIf trace_DE False               = undefined
 >   | otherwise                            = Effects
->                                              ((dChorus + modChorus) / 1000)
->                                              ((dReverb + modReverb) / 1000)
+>                                              (dChorus / 1000)
+>                                              (dReverb / 1000)
 >                                              (dPan / 1000)
 >   where
 >     dChorus            :: Double         =
 >       if useChorus
->         then maybe 0 (fromIntegral . clip (0, 1000)) mChorus
+>         then maybe 0 (fromIntegral . clip (0, 1000)) mChorus + evaluateMods ToChorus modGraph noon
 >         else 0
 >     dReverb            :: Double         =
 >       if useReverb
->         then maybe 0 (fromIntegral . clip (0, 1000)) mReverb
+>         then maybe 0 (fromIntegral . clip (0, 1000)) mReverb + evaluateMods ToReverb modGraph noon
 >         else 0
 >     dPan               :: Double         =
 >       if usePan
 >         then maybe 0 (fromIntegral . clip (-500, 500)) mPan
 >         else 0
->     modChorus          :: Double         = evaluateMods ToChorus modGraph noon
->     modReverb          :: Double         = evaluateMods ToReverb modGraph noon
 >
 >     trace_DE                             =
 >       unwords ["deriveEffects", show (mChorus, mReverb, mPan), show (dChorus, dReverb, dPan)]
@@ -514,10 +509,10 @@ Effects ========================================================================
 >   | traceNever trace_eE False = undefined
 >   | otherwise =
 >   proc ((aL, aR), (modSigL, modSigR)) → do
->     chL ← eutChorus 15.0 0.005 cFactorL ⤙ aL
->     chR ← eutChorus 15.0 0.005 cFactorR ⤙ aR
+>     chL ← eutChorus chorusRate chorusDepth cFactorL ⤙ aL
+>     chR ← eutChorus chorusRate chorusDepth cFactorR ⤙ aR
 >
->     (rbL, rbR) ← eutReverb ⤙ (aL, aR)
+>     (rbL, rbR) ← eutReverb rFactorL rFactorR ⤙ (aL, aR)
 >
 >     let mixL = (  cFactorL       * chL
 >                 + rFactorL       * rbL
@@ -588,10 +583,11 @@ Effects ========================================================================
 >       where
 >         trace_C                          = unwords ["chorus", show (tIn, y1, y2, y3, tOut)]
 >
-> eutReverb              :: ∀ p . Clock p ⇒ Signal p (Double, Double) (Double, Double)
-> eutReverb                                = if useReverb
->                                              then makeSF
->                                              else delay (0,0)
+> eutReverb              :: ∀ p . Clock p ⇒ Double → Double → Signal p (Double, Double) (Double, Double)
+> eutReverb rFactorL rFactorR              =
+>   if rFactorL > 0 || rFactorR > 0
+>     then makeSF
+>     else delay (0, 0)
 >   where
 >     roomSize                             = 0.75
 >     damp                                 = 0.25

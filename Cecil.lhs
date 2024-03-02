@@ -536,7 +536,7 @@ We Hate Her ====================================================================
 > whhTempo                                 = 1
 > whhTranspose                             = 0
 >
-> whhLead_                                 = makePitched AltoSax       whhTranspose        0        100
+> whhLead_                                 = makePitched Harmonica     whhTranspose        0        100
 >
 > weHateHer              :: DynMap → Music (Pitch, [NoteAttribute])
 > weHateHer dynMap                         =

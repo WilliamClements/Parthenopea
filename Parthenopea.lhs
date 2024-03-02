@@ -1095,6 +1095,11 @@ Sampling =======================================================================
 >
 > type Node = Int
 >
+> aEqual                 :: (Eq a, Show a) ⇒ a → a → Bool
+> aEqual a b
+>   | a /= b                               = error (show a ++ " and " ++ show b ++ " had to be equal!?")
+>   | otherwise                            = True
+>
 > makeGraph              :: [(Node, [Node])] → Graph
 > makeGraph list                           = 
 >   let
@@ -1147,7 +1152,7 @@ Conversion functions and general helpers =======================================
 > professIsJust' item                      = professIsJust item "expected Just"
 >
 > sumOfMaybeInts         :: [Maybe Int] → Int
-> sumOfMaybeInts                           = foldr ((+) . fromMaybe 0) 0
+> sumOfMaybeInts                           = sum . map (fromMaybe 0)
 >       
 > addIntToWord           :: Word → Int → Word
 > addIntToWord w i                         = fromIntegral sum
@@ -1165,10 +1170,7 @@ Conversion functions and general helpers =======================================
 > wrap val bound                           = if val > bound then wrap val (val-bound) else val
 >
 > clip                   :: Ord n ⇒ (n, n) → n → n
-> clip (lower, upper) val
->     | val <= lower                       = lower
->     | val >= upper                       = upper
->     | otherwise                          = val
+> clip (lower, upper) val                  = min upper (max lower val)
 >
 > makeRange              :: Integral n ⇒ n → n → [n]
 > makeRange x y                            = if x > y || y <= 0 then [] else [x..(y-1)]
@@ -1208,8 +1210,7 @@ forms an IntSet based on an arbitrary list and corresponding input function to I
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
-> reportName             :: FilePath
-> reportName                               = "TournamentReport'.lhs"
+> reportName             :: FilePath       = "TournamentReport'.lhs"
 
 Returns the amplitude ratio
 
@@ -1255,6 +1256,19 @@ Returns the frequency
 > fromAbsoluteCents      :: Int → Double
 > fromAbsoluteCents acents                 = 8.176 * fromCents (fromIntegral acents)
 >
+
+Test runner
+
+> runTests               :: [IO Bool] → IO ()
+> runTests tests                           = do
+>   results                                ← sequence tests
+>   print $ unwords ["results =",     show results]
+>   let nSuccesses = foldl' (\n t → n + if t then 1 else 0) 0 results
+>   print $ unwords ["  ", show nSuccesses, "/", show $ length results]
+>
+
+Mapping is used in SoundFont modulator
+
 > data Mapping =
 >   Mapping {
 >     msContinuity     :: Continuity
@@ -1396,6 +1410,9 @@ Configurable parameters ========================================================
 >   , qqDumpFftChunks                      :: Bool
 >   , qqNumTakeFftChunks                   :: Int} deriving (Eq, Show)
 >
+
+Edit the following ====================================================================================================
+
 > defC                   :: ControlSettings
 > defC =
 >   ControlSettings {

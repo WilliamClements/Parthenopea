@@ -1096,10 +1096,10 @@ DH =============================================================================
 > dhTempo                                  = 1
 > dhTranspose                              = 3
 >
-> dhVibe_                                  = makePitched Vibraphone            dhTranspose      0        100
+> dhVibe_                                  = makePitched Vibraphone            dhTranspose      0         75
 > dhLead_                                  = makePitched Violin                dhTranspose      0        100
-> dhBass_                                  = makePitched ElectricBassPicked    dhTranspose      0        100
-> dhOrgn_                                  = makePitched ReedOrgan             dhTranspose      0        100
+> dhBass_                                  = makePitched ElectricBassPicked    dhTranspose      0         75
+> dhOrgn_                                  = makePitched ReedOrgan             dhTranspose      0         90
 > dhSynh_                                  = makePitched FrenchHorn            dhTranspose      0        100
 > dhPerc_                                  = makeNonPitched                                              100
 >

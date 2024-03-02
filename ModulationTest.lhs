@@ -1,3 +1,5 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE BangPatterns #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
@@ -18,7 +20,7 @@
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns ( osc, filterLowPassBW, filterBandPass )
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
-> import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock )
+> import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock, AudRate )
 > import Euterpea.Music ( Volume, AbsPitch, Dur, absPitch, PitchClass(..) )
 > import FRP.UISF.AuxFunctions ( constA )
 > import HSoM.Examples.Additive ( sineTable, sfTest1 )
@@ -38,11 +40,6 @@ struct sfInstModList
   SFTransform sfModTransOper;
 };
 
-> aEqual                 :: (Eq a, Show a) ⇒ a → a → Bool
-> aEqual a b
->   | a /= b                               = error (show a ++ " and " ++ show b ++ " had to be equal!?")
->   | otherwise                            = True
->
 > countSurvivingMods     :: [Modulator] → IO Int
 > countSurvivingMods m8rs                  = do
 >   let !count                             =
@@ -72,10 +69,7 @@ struct sfInstModList
 >                                         ,   supercededModulatorWillBeEliminated
 >                                         ,   unsupercededModulatorWillNotBeEliminated]
 >
-> runModulationTests                       = do
->   results                                ← sequence modulationTests
->   print $ unwords ["results =",     show results]
->   print $ unwords ["and results =", show $ and results]
+> runModulationTests                       = runTests modulationTests
 >
 > vanillaModulatorWillNotBeEliminated      = do
 >   let m8r                                = defModulator{
@@ -203,9 +197,6 @@ struct sfInstModList
 > -- range = 0.75 (max resonance) ..    1.25 (no resonance)
 > --         960 cB    -170-    ..      0 cB
 >
-> tLowSVF = outFile "lowSVF.wav" 10 $
->            sfTest1 (filterSVF {- (fromCents 13500) -} 0.80) 10 (absPitch (C,6)) 64 []
->
 > data IterData =
 >   IterData {
 >     theFc              :: Double
@@ -216,43 +207,31 @@ struct sfInstModList
 > -- vary: 1 or 2 for first arg to filterBandPass
 > -- vary: 0 to 10 for initQ
 >
-> testScale = 1
-> testWeight = 0.5
+> allFilterTypes         :: [ResonanceType]
+> allFilterTypes                           = map toEnum [fromEnum ResonanceLowpass .. fromEnum ResonanceSVF]
 >
-> testQ000 = 0
-> testQ240 = 240
-> testQ480 = 480
-> testQ960 = 960
->
-> testQ = testQ960
->          
-> lowpassWeight                         = 0.50
-> bandpassWeight                        = 0.75
->
-> procBandpass           :: ∀ p . Clock p ⇒ Double → Signal p (Double, Double) Double
-> procBandpass testQ                            = 
->   proc (x, fc) → do
->     y1 ← filterLowPassBW              ⤙ (x, fc)
->     y2 ← filterBandPass testScale     ⤙ (x, fc, bpQ)
->     let y'                            = y1*lpW + y2*bpW
->     outA                              ⤙ y'
+> benchFilters            :: IO ()
+> benchFilters                              = do
+>   mapM_ benchFilter allFilterTypes
 >   where
->     bpQ = testQ / 3
->     lpW = lowpassWeight
->     bpW = bandpassWeight
+>     qRange                               = (0, 960)
+>     qChunk                               = 240
+>     allQms             :: [Double]       = map (\i → fromIntegral i * qChunk) [0..]
+>     allQ                                 = takeWhile (\q → q <= snd qRange) allQms
+>     initFc                               = 20
 >
-> tProcBandpass000 = outFile "tProcBandpass000.wav" 10 $ sfTest1 (procBandpass testQ000) 10 (absPitch (C,6)) 64 []
-> tProcBandpass240 = outFile "tProcBandpass240.wav" 10 $ sfTest1 (procBandpass testQ240) 10 (absPitch (C,6)) 64 []
-> tProcBandpass480 = outFile "tProcBandpass480.wav" 10 $ sfTest1 (procBandpass testQ480) 10 (absPitch (C,6)) 64 []
-> tProcBandpass960 = outFile "tProcBandpass960.wav" 10 $ sfTest1 (procBandpass testQ960) 10 (absPitch (C,6)) 64 []
->
+>     benchFilter rType                    = do
+>       mapM_ doBench allQ
+>       where
+>         doBench initQ                    = do
+>           let path                       = "test_" ++ show rType ++ show initQ ++ ".wav"
+>           let m8n                        = defModulation{mLowPass = LowPass rType initFc initQ}
+>           outFile path 10 $ sfTest1 (procFilter m8n) 10 (absPitch (C,6)) 64 []
 
 nice simple range for initQ    0..960
 
 setting bw to testQ / 10  ... at 5000 (i.e., 500) things looked nominal so let us "equate" 
 
-> qRange = (0, 960)
->
 > prevals = []
 
 The End

@@ -35,12 +35,12 @@ Modulator management ===========================================================
 >   where
 >     sifted                               = siftMods (dm8rs ++ m8rs)
 >     checked                              = profess
->                                              (not $ hasCycles sifted)
+>                                              (freeOfCycles sifted)
 >                                              "cycles in modulator graph"
 >                                              sifted
 >         
-> hasCycles              :: [Modulator] → Bool
-> hasCycles m8rs                           = not $ null $ cyclicNodes $ makeGraph edgeList
+> freeOfCycles           :: [Modulator] → Bool
+> freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
 >   where
 >     nodeList           :: [(ModDestType, [Modulator])]
 >                                          = filter (isJust . outGoing . fst) (Map.assocs (compileMods m8rs))
@@ -275,64 +275,23 @@ Modulator management ===========================================================
 >                                                     , show (fromCents (xmodEnv+xmodLfo+xvibLfo+xmods))]
 >
 > addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
-> addResonance noon m8n@Modulation{ .. }   = maybe delay' makeSF mLowPass
+> addResonance noon m8n@Modulation{ .. }   = if useResonanceType /= ResonanceNone
+>                                              then makeSF
+>                                              else delay'
 >   where
->     LowPass{ .. }                        = fromJust mLowPass
+>     LowPass{ .. }                        = mLowPass
 >
->     makeSF             :: LowPass → Signal p (Double, ModSignals) Double
->     makeSF _                             
+>     makeSF             :: Signal p (Double, ModSignals) Double
+>     makeSF
 >       | traceNever trace_MSF False       = undefined
 >       | otherwise                        =
->           case useResonanceType of
->             ResonanceNone                → error $ unwords ["addResonance/makeSF"
->                                                           , "should not reach sf if ResonanceNone"]
->             ResonanceLowpass             → procButter
->             ResonanceBandpass            → procBandpass
->             ResonanceSVF                 → procSVF
->       where
->         trace_MSF                        = unwords ["addResonance/makeSF (fc, q)"
->                                                   , show (lowPassFc, show lowPassQ)]
->
->     modulateFc         :: ModSignals → Double
->     modulateFc msig                      =
->       clip (20, 20000) (lowPassFc * evaluateModSignals
->                                       "modulateFc"
->                                       m8n
->                                       ToFilterFc
->                                       msig
->                                       noon)
->
->     procButter         :: Signal p (Double, ModSignals) Double
->     procButter                           = 
->       proc (x, msig) → do
->         let fc = modulateFc msig
->         y ← filterLowPassBW              ⤙ (x, fc)
->         let y' = resonate x fc y
->         outA                             ⤙ y'
->
->     lowpassWeight                         = 0.50
->     bandpassWeight                        = 0.75
->
->     procBandpass       :: Signal p (Double, ModSignals) Double
->     procBandpass                         = 
->       proc (x, msig) → do
->         let fc = modulateFc msig
->         y1 ← filterLowPassBW             ⤙ (x, fc)
->         y2 ← filterBandPass 2            ⤙ (x, fc, bpQ)
->         let y' = resonate x fc (y1*lpW + y2*bpW)
->         outA                             ⤙ y'
->       where
->         bpQ = lowPassQ / 3
->         lpW = lowpassWeight
->         bpW = bandpassWeight
->
->     procSVF            :: Signal p (Double, ModSignals) Double
->     procSVF                              =
->       proc (x, msig) → do
->         let fc = modulateFc msig
->         y ← filterSVF 0 {- lowPassQ  -}  ⤙ (x, fc)
->         let y' = resonate x fc y
->         outA                             ⤙ y'
+>         proc (sIn, msig)                 → do
+>           let fc                         = modulateFc msig
+>           pickled      ← procFilter m8n  ⤙ (sIn, fc)
+>           let sOut                       = resonate sIn fc pickled
+>           outA                           ⤙ sOut
+>     trace_MSF                            = unwords ["addResonance/makeSF (fc, q)"
+>                                                    , show (lowPassFc, lowPassQ)]
 >
 >     delay'             :: Signal p (Double, ModSignals) Double
 >                                          =
@@ -340,10 +299,21 @@ Modulator management ===========================================================
 >         y ← delay 0                      ⤙ x  
 >         outA                             ⤙ y
 >
+>
+>     modulateFc         :: ModSignals → Double
+>     modulateFc msig                      =
+>       clip (20, 20000)
+>            (lowPassFc * evaluateModSignals
+>                           "modulateFc"
+>                           m8n
+>                           ToFilterFc
+>                           msig
+>                           noon)
+>
 >     resonate           :: Double → Double → Double → Double
 >     resonate x fc y
 >       | traceNever trace_R False         = undefined
->       | otherwise                        = y'
+>       | otherwise                        = y
 >       where
 >         y'                               = checkForNan y "resonate y"
 >         trace_R                          =
@@ -351,6 +321,41 @@ Modulator management ===========================================================
 >               "resonate\nsIn"    , show (checkForNan  x "resonate x")
 >             , "\nfc"             , show (checkForNan fc "resonate fc")
 >             , "\nsOut"           , show y']
+>
+> procFilter             :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
+> procFilter m8n@Modulation{ .. }               =
+>   case lowPassType mLowPass of
+>     ResonanceNone                        → error $ unwords ["procFilter"
+>                                                           , "should not reach makeSF if ResonanceNone"]
+>     ResonanceLowpass                     → procLowpass m8n
+>     ResonanceBandpass                    → procBandpass m8n
+>     ResonanceSVF                         → procSVF m8n
+>
+> procLowpass            :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
+> procLowpass Modulation{ .. }             =
+>   proc (x, fc) → do
+>     y ← filterLowPassBW                  ⤙ (x, fc)
+>     outA                                 ⤙ y
+>
+> procBandpass           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
+> procBandpass Modulation{ .. }            =
+>   proc (x, fc) → do
+>     y1 ← filterLowPassBW                 ⤙ (x, fc)
+>     y2 ← filterBandPass 2                ⤙ (x, fc, lowPassQ / 3)
+>     let y'                               = traceBandpass y1 y2
+>     outA                                 ⤙ y'
+>   where
+>     LowPass{ .. }                        = mLowPass
+>     lowpassWeight                        = 0.50
+>     bandpassWeight                       = 0.75
+>
+>     traceBandpass      :: Double → Double → Double
+>     traceBandpass y1 y2
+>       | traceNever trace_BP False        = undefined
+>       | otherwise                        = y'
+>       where
+>         y'                               = y1*lowpassWeight + y2*bandpassWeight
+>         trace_BP                         = unwords ["traceBandPass", show y1, show y2]
 >
 > deriveModTriple        :: Maybe Int → Maybe Int → Maybe Int → ModTriple
 > deriveModTriple toPitch toFilterFc toVolume
@@ -455,26 +460,26 @@ when i is two,  k is 5, 2*pi*f0*k is 94.2
 
 see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
 
-> filterSVF              :: ∀ p . Clock p ⇒ Double → Signal p (Double,Double) Double
-> filterSVF initQ
->   | traceNow trace_FSVF False            = undefined
+> procSVF                :: ∀ p . Clock p ⇒ Modulation → Signal p (Double,Double) Double
+> procSVF Modulation {..}
+>   | traceNow trace_PSVF False            = undefined
 >   | otherwise                            =
->   let
->     sr                                   = rate (undefined :: p)
->   in
 >     proc (sig, fc) → do
 >       let f1                             = 2 * sin (pi * fc / sr)
 >       rec
 >         let yL'                          = f1 * yB + yL
->         let yH'                          = sig - yL' - initQ * yB
+>         let yH'                          = sig - yL' - qSVF * yB
 >         let yB'                          = f1 * yH' + yB
 >
 >         yL ← delay 0                     ⤙ yL'
 >         yB ← delay 0                     ⤙ yB'
->         yH ← delay 0                     ⤙ yH'
 >       outA                               ⤙ yL'
 >   where
->     trace_FSVF                           = unwords ["filterSVF initQ = ", show initQ, show (fromCentibels' initQ)]
+>     sr                                   = rate (undefined :: p)
+>     LowPass{ .. }                        = mLowPass
+>     qSVF                                 = max 0.1 (2/fromCentibels' lowPassQ)
+>
+>     trace_PSVF                           = unwords ["procSVF initQ = ", show lowPassQ, show qSVF]
 
 Controller Curves =====================================================================================================
 
@@ -488,9 +493,11 @@ Controller Curves ==============================================================
 >                                          = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
 >   where
 >     calc               :: Int → Double
->     calc i                               = 1 - sqrt (1 - x*x)
->       where 
+>     calc i                               =
+>       let
 >         x              :: Double         = fromIntegral i / tableSize
+>       in
+>         1 - sqrt (1 - x*x)
 
 The use of these functions requires that their input is normalized between 0 and 1
 (And the output is normalized, too)
@@ -516,9 +523,7 @@ The use of these functions requires that their input is normalized between 0 and
 >                                              then controlBiPolar ping dNorm
 >                                              else controlUniPolar ping dNorm
 >   where
->     scale                                = profess (lo < hi)
->                                              "inverted range in controlDenormal"
->                                              (hi - lo)
+>     scale                                = profess (lo < hi) "inverted range in controlDenormal" (hi - lo)
 >     dNorm                                = (dIn - lo) / scale
 >
 > controlUniPolar        :: Mapping → Double → Double
@@ -529,7 +534,6 @@ The use of these functions requires that their input is normalized between 0 and
 >                                              Concave    → funConcave
 >                                              Convex     → funConvex
 >                                              Switch     → funSwitch
->
 >     xStart             :: Double         = if msMax2Min
 >                                              then 1 - dIn
 >                                              else dIn
@@ -541,15 +545,12 @@ The use of these functions requires that their input is normalized between 0 and
 >     --   if positive, swap the left half to the opposite
 >     --   if negative, swap the right one
 >
->     isCurve            :: Bool           = msContinuity == Concave || msContinuity == Convex
->
 >     swapCont           :: Continuity → Continuity
 >     swapCont cIn                         = case cIn of
 >                                              Concave → Convex
 >                                              Convex  → Concave
->
 >     (left, right)      :: (Continuity, Continuity)
->                                          = if isCurve
+>                                          = if msContinuity == Concave || msContinuity == Convex
 >                                              then if msMax2Min
 >                                                     then (msContinuity, swapCont msContinuity)
 >                                                     else (swapCont msContinuity, msContinuity)
@@ -559,7 +560,6 @@ The use of these functions requires that their input is normalized between 0 and
 >     (addL, addR)                         = if msMax2Min
 >                                              then (0, -1)
 >                                              else (-1, 0)
->
 >     dOut
 >       | msContinuity == Switch           = (controlUniPolar ping dIn * 2) - 1
 >       | dIn < 0.5                        = controlDenormal pingL dIn (0.0, 0.5) + addL
@@ -574,7 +574,8 @@ Type declarations ==============================================================
 >
 > data LowPass =
 >   LowPass {
->     lowPassFc          :: Double
+>     lowPassType        :: ResonanceType
+>   , lowPassFc          :: Double
 >   , lowPassQ           :: Double} deriving (Eq, Show)
 >
 > data ModSignals =
@@ -598,20 +599,20 @@ Type declarations ==============================================================
 >   , coVolume           :: Double} deriving (Eq, Show)
 >
 > coAccess               :: ModDestType → ModTriple → Double
-> coAccess md mt@ModTriple{coPitch, coFilterFc, coVolume}
->                                          = case md of
->                                              ToPitch     → coPitch
->                                              ToFilterFc  → coFilterFc
->                                              ToVolume    → coVolume
->                                              _           → error ("ModTriple only deals with ToPitch"
->                                                               ++ ", ToFilterFc, and ToVolume")
+> coAccess md ModTriple{ .. }              =
+>   case md of
+>     ToPitch            → coPitch
+>     ToFilterFc         → coFilterFc
+>     ToVolume           → coVolume
+>     _                  → error ("ModTriple only deals with ToPitch"
+>                            ++ ", ToFilterFc, and ToVolume")
 > defModTriple                             = ModTriple 0 0 0
 >
 > data ResonanceType =
 >   ResonanceNone 
 >   | ResonanceLowpass
 >   | ResonanceBandpass
->   | ResonanceSVF deriving (Eq, Show)
+>   | ResonanceSVF deriving (Eq, Show, Enum)
 >
 > data LFO =
 >   LFO {
@@ -621,7 +622,7 @@ Type declarations ==============================================================
 >
 > data Modulation =
 >   Modulation {
->     mLowPass           :: Maybe LowPass
+>     mLowPass           :: LowPass
 >   , mModEnv            :: Maybe Envelope
 >   , mModLfo            :: Maybe LFO
 >   , mVibLfo            :: Maybe LFO
@@ -631,7 +632,7 @@ Type declarations ==============================================================
 >   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
 > defModulation                            = Modulation
->                                              Nothing Nothing Nothing Nothing
+>                                              (LowPass useResonanceType 0 0) Nothing Nothing Nothing
 >                                              defModCoefficients defModCoefficients defModCoefficients
 >                                              Map.empty
 >
@@ -694,7 +695,9 @@ Type declarations ==============================================================
 >   , qqReverbAllPerCent :: Double
 >   , qqUseDefaultMods   :: Bool
 >   , qqUseResonanceType :: ResonanceType
->   , qqUseLFO           :: Bool} deriving Show
+>   , qqUseLFO           :: Bool
+>   , qqChorusRate       :: Double
+>   , qqChorusDepth      :: Double} deriving Show
 >
 > useModulators                            = qqUseModulators              defM
 > chorusAllPercent                         = qqChorusAllPerCent           defM
@@ -702,6 +705,8 @@ Type declarations ==============================================================
 > useDefaultMods                           = qqUseDefaultMods             defM
 > useResonanceType                         = qqUseResonanceType           defM
 > useLFO                                   = qqUseLFO                     defM
+> chorusRate                               = qqChorusRate                 defM
+> chorusDepth                              = qqChorusDepth                defM
 >
 > defM                   :: ModulationSettings
 > defM =
@@ -711,6 +716,9 @@ Type declarations ==============================================================
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
 >   , qqUseResonanceType                   = ResonanceBandpass -- ResonanceLowpass -- ResonanceNone
->   , qqUseLFO                             = True}
+>   , qqUseLFO                             = True
+>   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
+>   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)
+>   }
 
 The End
