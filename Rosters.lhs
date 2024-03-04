@@ -78,16 +78,16 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj =
+> sj = 
 >    -- [("peewee" , shimSong $ aggrandize littlePendingtonArnt)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("sunPyg"      , sunPyg)]
->    [ ("weHateHer"   , weHateHer)]
+>    -- [ ("weHateHer"   , weHateHer)]
 >    -- [ ("basicLick"   , aggrandize basicLick)]
 >    -- [ ("baked"       , bakedJingle 54349)]
 >    -- [ ("packardGoose", packardGoose)]
 >    -- [ ("roger"       , roger)]
->    -- [ ("bob"         , aggrandize (bob 2))]
+>    [ ( "deathlessHorsie"         , deathlessHorsie)]
 >    -- [ ("littleSailor"   , shimSong $ aggrandize littleSailor)]
 >    -- [ ("cutbake"     , cut 4.5 $ bakedJingle 9123)]
 

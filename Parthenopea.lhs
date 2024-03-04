@@ -585,7 +585,9 @@ examine song for instrument and percussion usage ===============================
 >                                              (shCount + 1)
 >
 > shredJingles           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
-> shredJingles                             = mapM_ (uncurry shredJingle)
+> shredJingles js                          = do
+>   putStrLn "showing incidence count, static range, plus onset time of low and high.\nNote: ! denotes out of bounds\n"
+>   mapM_ (uncurry shredJingle) js
 >
 > shredJingle            :: String → (DynMap → Music (Pitch, [NoteAttribute])) → IO ()
 > shredJingle name m                       = do
@@ -594,7 +596,8 @@ examine song for instrument and percussion usage ===============================
 >   printShreds =<< shredMusic (m Map.empty)
 >
 > printShreds            :: Shredding → IO ()
-> printShreds Shredding{shRanges}          = mapM_ (uncurry printShred) (Map.assocs shRanges)
+> printShreds Shredding{shRanges}          = 
+>   mapM_ (uncurry printShred) (Map.assocs shRanges)
 >   
 > printShred             :: Kind → Shred → IO ()
 > printShred kind Shred{ .. }              = do
@@ -621,7 +624,7 @@ examine song for instrument and percussion usage ===============================
 >     case kind of
 >       Left _                             → showShred shLowNote ++ "\n" ++ showShred shHighNote ++ "\n" 
 >       _                                  → showShred shLowNote ++ "\n" 
->   showShred MEvent{eTime, ePitch}        =
+>   showShred MEvent{ .. }                 =
 >     case kind of
 >       Left _                             → show (fromRational eTime)
 >                                            ++ show (pitch ePitch)
@@ -1314,23 +1317,25 @@ Emission capability ============================================================
 >   | EndOfLine deriving Show
 >
 > makeString             :: Emission → String
-> makeString e                             = case e of
->                                            ToFieldL str sz         → fillFieldL str sz
->                                            ToFieldR str sz         → fillFieldR str sz
->                                            Unblocked str           → str
->                                            Blanks sz               → replicate sz ' '
->                                            Empty                   → ""
->                                            EndOfLine               → "\n"
+> makeString e                             =
+>   case e of
+>     ToFieldL str sz    → fillFieldL str sz
+>     ToFieldR str sz    → fillFieldR str sz
+>     Unblocked str      → str
+>     Blanks sz          → replicate sz ' '
+>     Empty              → ""
+>     EndOfLine          → "\n"
 >
 > emitLine               :: [Emission] → [Emission]
-> emitLine es                              = [literate] ++ es ++ [EndOfLine]
+> emitLine es                              = singleton literate ++ es ++ singleton EndOfLine
 >
 > literate               :: Emission       = ToFieldL ">" 2
 >
 > commaOrNot             :: Int → Emission
-> commaOrNot nth                           = if nth == 0
->                                              then ToFieldL ""  2
->                                              else ToFieldL "," 2
+> commaOrNot nth                           =
+>   if nth == 0
+>     then ToFieldL ""  2
+>     else ToFieldL "," 2
 >
 > parens                 :: [Emission] → [Emission]
 > parens es                                = [Unblocked "("] ++ es ++ [Unblocked ")"]
@@ -1346,16 +1351,16 @@ Emission capability ============================================================
 > emitNextComment        :: [Emission] → [Emission]
 > emitNextComment es                       = es ++ [EndOfLine, EndOfLine]
 >
-> emitShowL              :: ∀ a. (Show a) ⇒ a → Int → Emission
+> emitShowL              :: (Show a) ⇒ a → Int → Emission
 > emitShowL a                              = ToFieldL (show a)
 >
-> emitShowR              :: ∀ a. (Show a) ⇒ a → Int → Emission
+> emitShowR              :: (Show a) ⇒ a → Int → Emission
 > emitShowR a                              = ToFieldR (show a)
 >
-> emitDefault            :: ∀ a. (Show a) ⇒ a → Emission
+> emitDefault            :: (Show a) ⇒ a → Emission
 > emitDefault a                            = Unblocked (show a)
 >
-> gmId                   :: ∀ a. (Show a) ⇒ a → Emission
+> gmId                   :: (Show a) ⇒ a → Emission
 > gmId i                                   = emitShowL i 22
 >
 > gmName                 :: String → Emission
@@ -1387,8 +1392,8 @@ Emission capability ============================================================
 > emitImportLine imp                       = emitTaggedLine "import " imp ""
 >
 > writeFileBySections    :: FilePath → [[Emission]] → IO ()
-> writeFileBySections fp eSections = do
->   let zSections        = map reapEmissions eSections
+> writeFileBySections fp eSections         = do
+>   let zSections                          = map reapEmissions eSections
 >   appendFile fp (concat zSections)
 >
 > type Velocity                            = Volume

@@ -300,7 +300,7 @@ Slot ===========================================================================
 > slotTempo                                = 2
 > slotTranspose                            = 0
 >
-> slotLead_                                = makePitched Flute               slotTranspose 0                100
+> slotLead_                                = makePitched Clarinet            slotTranspose 0                100
 > slotStrum_                               = makePitched AcousticGuitarNylon slotTranspose 0                100
 > slotBass_                                = makePitched SynthBass1          slotTranspose 0                110
 > slotPerc_                                = makeNonPitched                                                 100
@@ -2439,7 +2439,7 @@ PG =============================================================================
 >           , tempo (9/8) (line [times 4 (line [as 6 en, gs 6 en]), as 6 en]), gs 6 en, fs 6 en
 >           , grace (-3) (ass 6 qn), chord [fs 6 hn, b 6 hn]]
 >     lead169_172 =
->       line [line [ds 7 qn, fs 5 en, grace (-2) (as 5 en), t32 [rest en, ass 5 en, ass 5 en]]
+>       line [line [ds 6 qn, fs 5 en, grace (-2) (as 5 en), t32 [rest en, ass 5 en, ass 5 en]]
 >           , line [as 5 en, a 5 en, as 5 wn, chord [grace (-2) (as 5 qn), grace (-2) (as 5 qn)]]
 >           , tempo (2/3) (line [t32 [e 5 en, fs 5 qn], fs 5 en, e 5 en])]
 >     lead173_178 =
