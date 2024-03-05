@@ -551,8 +551,7 @@ examine song for instrument and percussion usage ===============================
 >     Percussion                           → Right $ toEnum (ePitch - 35)
 >     _                                    → Left eInst
 >
-> shimSong                :: Music (Pitch, [NoteAttribute])
->                            → (DynMap → Music (Pitch, [NoteAttribute]))
+> shimSong                :: Music (Pitch, [NoteAttribute]) → DynMap → Music (Pitch, [NoteAttribute])
 > shimSong m a                             = m
 >
 > shredMusic              :: ToMusic1 a ⇒ Music a → IO Shredding
@@ -586,7 +585,7 @@ examine song for instrument and percussion usage ===============================
 >
 > shredJingles           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
 > shredJingles js                          = do
->   putStrLn "showing incidence count, static range, plus onset time of low and high.\nNote: ! denotes out of bounds\n"
+>   putStrLn "showing incidence, static range, onset time of low and high.\nNote: ! denotes out of bounds\n"
 >   mapM_ (uncurry shredJingle) js
 >
 > shredJingle            :: String → (DynMap → Music (Pitch, [NoteAttribute])) → IO ()
@@ -1163,12 +1162,6 @@ Conversion functions and general helpers =======================================
 >     iw                 :: Int            = fromIntegral w
 >     sum                :: Int            = iw + i
 >
-> data Continuity =
->     Linear
->   | Concave
->   | Convex
->   | Switch deriving (Eq, Ord, Show, Enum)
->
 > wrap                   :: (Ord n, Num n) ⇒ n → n → n
 > wrap val bound                           = if val > bound then wrap val (val-bound) else val
 >
@@ -1278,6 +1271,12 @@ Mapping is used in SoundFont modulator
 >   , msBiPolar        :: Bool  
 >   , msMax2Min        :: Bool
 >   , msCCBit          :: Bool} deriving (Eq, Ord, Show)
+>
+> data Continuity =
+>     Linear
+>   | Concave
+>   | Convex
+>   | Switch deriving (Eq, Ord, Show, Enum)
 >
 > defMapping                               = Mapping Linear False False False
 > allMappings                              = [Mapping cont polar dir False

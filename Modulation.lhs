@@ -45,21 +45,20 @@ Modulator management ===========================================================
 >     nodeList           :: [(ModDestType, [Modulator])]
 >                                          = filter (isJust . outGoing . fst) (Map.assocs (compileMods m8rs))
 >     edgeList           :: [(Node, [Node])]
->                                          = map
->                                              (BF.bimap nodeFrom (map (fromIntegral . mrModId)))
->                                              nodeList
+>                                          = map (BF.bimap nodeFrom (map (fromIntegral . mrModId))) nodeList
 >
 >     nodeFrom           :: ModDestType → Node
->     nodeFrom mdt                         = maybe
->                                              (error $ unwords ["only ToLink forms a ModDestType"
->                                                              , "to be turned into a Node"])
->                                              fromIntegral
->                                              (outGoing mdt)
+>     nodeFrom mdt                         =
+>       maybe
+>         (error $ unwords ["only ToLink forms a ModDestType to be turned into a Node"])
+>         fromIntegral
+>         (outGoing mdt)
 >
 > outGoing               :: ModDestType → Maybe Word
-> outGoing mdt                             = case mdt of
->                                              ToLink mId       → Just mId
->                                              _                → Nothing
+> outGoing mdt                             =
+>   case mdt of
+>     ToLink mId         → Just mId
+>     _                  → Nothing
 >
 > data Sifting                             =
 >   Sifting {
@@ -73,47 +72,46 @@ Modulator management ===========================================================
 >     -- let's examine result of the previous generation
 >     -- use it to produce next generation, dropping nodes that:
 >     -- 1. expect linked sources but have none
+>     -- 2. consist of an outbound link (by Id) to non-existent mod
 >     --     or
->     -- 2. are superseded 
+>     -- 3. are superseded 
 >     newTry                               = profess
 >                                              (ssCounter <= 10)
 >                                              "maximum of 10 tries exceeded..."
 >                                              filter shouldStay ssCurrent
 >
->     shouldStay m8r                         = linkageInOk && linkageOutOk && not superceded
+>     byModDestType                        = compileMods ssCurrent
+>     superceders                          = foldl' supercfr Map.empty ssCurrent
+>     supercfr accum m8r                   =
+>       let
+>         (newK, newW)                     = superceder m8r
+>       in
+>         Map.insert newK newW accum
+>
+>     shouldStay m8r                       = linkageInOk && linkageOutOk && not superceded
 >       where
 >         linkageInOk                      =
->           FromLinked /= m8rSource || maybe False (not . null) (Map.lookup (ToLink m8rId) (compileMods ssCurrent))
+>           FromLinked /= m8rSource || maybe False (not . null) (Map.lookup (ToLink m8rId) byModDestType)
 >         linkageOutOk                     =
->           maybe True present (outGoing m8rDest)
+>           maybe True (\w -> (isJust . find (\m → mrModId m == w)) ssCurrent) (outGoing m8rDest)
 >         superceded                       =
->           maybe False noMatch (Map.lookup (fst (supercedeKey m8r)) (foldl' supercfr Map.empty ssCurrent))
+>           maybe False (m8rId /=) (Map.lookup (fst (superceder m8r)) superceders)
 >         
 >         m8rId                            = mrModId m8r
 >         m8rSource                        = msSource (mrModSrc m8r)
 >         m8rDest                          = mrModDest m8r
 >
->         noMatch current                  = m8rId /= current
->         present modId                    = (isJust . find (\x → mrModId x == modId)) ssCurrent
->
->     supercfr accum m8r                   = Map.insert newK newW accum
->       where
->         (newK, newW)                     = supercedeKey m8r
->
 > siftMods               :: [Modulator] → [Modulator]
 > siftMods m8rs                            = ssCurrent 
 >   where
->     seed                                 = Sifting 0 m8rs []
->     generations                          = iterate' eliminateDanglingMods seed
+>     generations                          = iterate' eliminateDanglingMods (Sifting 0 m8rs [])
 >     Sifting{ .. }                        = head $ dropWhile unfinished generations
->
->     unfinished         :: Sifting → Bool
 >     unfinished Sifting{ .. }             = ssCurrent /= ssPrevious
 >
 > compileMods            :: [Modulator] → Map ModDestType [Modulator]
-> compileMods                              = foldl' nodeFolder Map.empty
+> compileMods                              = foldl' mfolder Map.empty
 >   where
->     nodeFolder accum m8r@Modulator{ .. } =
+>     mfolder accum m8r@Modulator{ .. }    =
 >       let
 >         soFar                            = fromMaybe [] (Map.lookup mrModDest accum)
 >       in
@@ -652,8 +650,8 @@ Type declarations ==============================================================
 >   , krDest             :: ModDestType
 >   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
 >
-> supercedeKey          :: Modulator → (ModKey, Word)
-> supercedeKey Modulator{ .. }             = (ModKey mrModSrc mrModDest mrAmountSrc, mrModId)
+> superceder            :: Modulator → (ModKey, Word)
+> superceder Modulator{ .. }               = (ModKey mrModSrc mrModDest mrAmountSrc, mrModId)
 >
 > data ModDestType =
 >     NoDestination

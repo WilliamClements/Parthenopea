@@ -1204,10 +1204,10 @@ Dadadada =======================================================================
 
 Deydumpdum ============================================================================================================
 
-> d3Tempo                                  = 3/2
+> d3Tempo                                  = 2
 > d3Transpose                              = 0
 >
-> d3Lead_                                  = makePitched Clarinet             d3Transpose          0        100
+> d3Lead_                                  = makePitched Violin               d3Transpose          0        100
 > d3Bass_                                  = makePitched ElectricBassPicked   d3Transpose          0         90
 >
 > deyDumpDum dynMap =
@@ -1240,11 +1240,14 @@ Deydumpdum =====================================================================
 >              , a 5 qn, f 5 qn, c 5 qn, b 4 den, c 5 sn, b 4 wn, a 4 wn]
 >
 >   bassAtA n            = line [times n (line [a 2 hn, e 2 hn])]
->   bassAtA'             = line [a 2 hn, e 2 hn, a 2 hn, rest hn]
+>   bassAtA'             = line [a 2 hn, e 2 hn, a 1 hn, rest hn]
+>   bassAtA'' n          = line [times n (line [a 2 hn, gs 2 hn])]
 >   bassAtD n            = line [times n (line [d 3 hn, a 2 hn])]
+>   bassAtD' n           = line [times n (line [d 2 hn, a 2 hn])]
+>   bassAtD'' n          = line [times n (line [d 2 hn, fs 2 hn])]
 >   bassAtE n            = line [times n (line [e 2 hn, b 2 hn])]
 >   bassAtF n            = line [times n (line [f 2 hn, c 2 hn])]
 >   bassAtG n            = line [times n (line [g 2 hn, d 2 hn])]
 >
->   bassI                = line [bassAtA 4, bassAtD 2, bassAtA 2, bassAtE 2, bassAtA']
->   bassII               = line [bassAtA 2, bassAtD 2, bassAtG 2, bassAtA 2, bassAtF 1, bassAtE 1, bassAtA']
+>   bassI                = line [bassAtA 4, bassAtD 1, bassAtD'' 1, bassAtA 1, bassAtA'' 1, bassAtE 2, bassAtA']
+>   bassII               = line [bassAtA 2, bassAtD 1, bassAtD'' 1, bassAtG 2, bassAtA 2, bassAtF 1, bassAtE 1, bassAtA']
