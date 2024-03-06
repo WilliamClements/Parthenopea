@@ -542,7 +542,7 @@ examine song for instrument and percussion usage ===============================
 > data Shredding =
 >   Shredding {
 >       shRanges           :: Map Kind Shred
->     , shMsgs             :: [String]} deriving (Show, Eq, Ord)
+>     , shMsgs             :: [(InstrumentName, [String])]} deriving (Show, Eq, Ord)
 > defShredding                             = Shredding Map.empty []
 >
 > getKind                :: MEvent → Kind
@@ -556,9 +556,30 @@ examine song for instrument and percussion usage ===============================
 >
 > shredMusic              :: ToMusic1 a ⇒ Music a → IO Shredding
 > shredMusic m                             = do
->   return
->     $ foldl' shredder defShredding
->     $ fst (musicToMEvents defaultContext (toMusic1 m))
+>   let ding1 = foldl' shredder defShredding $ fst (musicToMEvents defaultContext (toMusic1 m))
+>   let ding2 = critiqueMusic ding1
+>   return ding2
+>
+> critiqueMusic          :: Shredding → Shredding
+> critiqueMusic Shredding{ .. }            = Shredding shRanges (concatMap critiqueShred (Map.assocs shRanges))
+>
+> critiqueShred          :: (Kind, Shred) → [(InstrumentName, [String])]
+> critiqueShred (kind, Shred{ .. })        =
+>   let
+>     (instr, range)                       =
+>       case kind of
+>         Left iName                       → (iName, fromMaybe wideOpen (instrumentRange iName))
+>         _                                → (Percussion, wideOpen)
+>   in critiqueNote instr range shLowNote ++ critiqueNote instr range shHighNote
+> 
+> critiqueNote           :: InstrumentName → (Pitch, Pitch) → MEvent → [(InstrumentName, [String])]
+> critiqueNote name range MEvent{ .. }       =
+>   let
+>     p                                      = pitch ePitch
+>   in
+>     if p == clipPitch range p
+>       then []
+>       else singleton (name, singleton $ unwords ["...", show p, "out of range", show range])
 >
 > shredder               :: Shredding → MEvent → Shredding
 > shredder Shredding{ .. } mev             =
@@ -1167,6 +1188,13 @@ Conversion functions and general helpers =======================================
 >
 > clip                   :: Ord n ⇒ (n, n) → n → n
 > clip (lower, upper) val                  = min upper (max lower val)
+>
+> clipPitch              :: (Pitch, Pitch) → Pitch → Pitch
+> clipPitch (lower, upper) val             = pitch $ clip (lower', upper') val'
+>   where
+>     upper'                               = absPitch upper
+>     lower'                               = absPitch lower
+>     val'                                 = absPitch val
 >
 > makeRange              :: Integral n ⇒ n → n → [n]
 > makeRange x y                            = if x > y || y <= 0 then [] else [x..(y-1)]

@@ -1204,7 +1204,7 @@ Dadadada =======================================================================
 
 Deydumpdum ============================================================================================================
 
-> d3Tempo                                  = 2
+> d3Tempo                                  = 1
 > d3Transpose                              = 0
 >
 > d3Lead_                                  = makePitched Violin               d3Transpose          0        100
@@ -1228,8 +1228,8 @@ Deydumpdum =====================================================================
 >              , a 3 (wn + hn + den), e 4 sn, cs 4 en, rest en
 >              , d 4 (wn + den), fs 4 sn, a 4 en, rest en, fs 4 en, rest en, f 4 en, rest en
 >              , e 4 wn
->              , a 3 (hn + den), a 3 sn, c 4 en, rest en
->              , b 3 (wn + den), c 4 sn, c 4 en, rest en, c 4 en, rest en, b 3 en, rest en
+>              , a 3 (hn + den), a 3 sn, c 4 en
+>              , b 3 (en + wn + qn), c 4 qn, c 4 en, rest en, b 3 en, rest en
 >              , a 3 dhn, e 4 qn
 >              , a 4 (hn + den), e 5 sn, a 4 en, rest en
 >              , c 5 (wn + den), e 5 sn, a 4 en, rest en
@@ -1241,13 +1241,17 @@ Deydumpdum =====================================================================
 >
 >   bassAtA n            = line [times n (line [a 2 hn, e 2 hn])]
 >   bassAtA'             = line [a 2 hn, e 2 hn, a 1 hn, rest hn]
->   bassAtA'' n          = line [times n (line [a 2 hn, gs 2 hn])]
->   bassAtD n            = line [times n (line [d 3 hn, a 2 hn])]
->   bassAtD' n           = line [times n (line [d 2 hn, a 2 hn])]
+>   bassAtA'' n          = line [times n (line [a 1 hn, cs 2 hn])]
+>   bassAtA'''           = line [a 1 hn, cs 2 hn]
+>   bassAtD n            = line [times n (line [d 2 hn, a 2 hn])]
 >   bassAtD'' n          = line [times n (line [d 2 hn, fs 2 hn])]
 >   bassAtE n            = line [times n (line [e 2 hn, b 2 hn])]
 >   bassAtF n            = line [times n (line [f 2 hn, c 2 hn])]
->   bassAtG n            = line [times n (line [g 2 hn, d 2 hn])]
+>   bassAtG              = line [g 2 hn, d 2 hn, g 1 hn, d 2 hn]
 >
->   bassI                = line [bassAtA 4, bassAtD 1, bassAtD'' 1, bassAtA 1, bassAtA'' 1, bassAtE 2, bassAtA']
->   bassII               = line [bassAtA 2, bassAtD 1, bassAtD'' 1, bassAtG 2, bassAtA 2, bassAtF 1, bassAtE 1, bassAtA']
+>   bassI                = line [bassAtA 3, bassAtA'''
+>                              , bassAtD 1, bassAtD'' 1, bassAtA 1, bassAtA'' 1
+>                              , bassAtE 2, bassAtA']
+>   bassII               = line [bassAtA 2, bassAtD 1, bassAtD'' 1
+>                              , bassAtG, a 1 hn, e 2 hn, bassAtA 1
+>                              , bassAtF 1, bassAtE 1, bassAtA']

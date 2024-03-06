@@ -374,12 +374,10 @@ executive ======================================================================
 >         -- filter master lists down to appropriate candidates
 >         let pergmsI'   = filter (flavor InstCatInst zc) pergmsI
 >         let filteredIP = filter (flavor InstCatPerc zc) pergmsI
->         pergmsP'       ← formMasterPercussionList zc preSampleCache filteredIP
+>         (pergmsP', skMap) ← formMasterPercussionList zc preSampleCache filteredIP
 >
 >         tsZoned        ← getCurrentTime
 >         putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsLoaded))
->
->         skMap          ← formSampleKeyMap zFiles pergmsP'
 >
 >         -- actually conduct the tournament
 >         ((wI, sI), (wP, sP))
@@ -548,36 +546,6 @@ executive ======================================================================
 > getPreInstrumentFromCache ic pergm       = fromMaybe (error $ "PreInstrument missing from cache: " ++ show pergm)
 >                                                      (Map.lookup pergm ic)
 >
-> formSampleKeyMap       :: Array Word SFFile → [PerGMKey] → IO (Map PerGMKey PreSampleKey)
-> formSampleKeyMap sffiles pergms          = return $ foldl' sffolder Map.empty sffiles
->   where
->     sffolder           :: Map PerGMKey PreSampleKey → SFFile → Map PerGMKey PreSampleKey
->     sffolder accum SFFile{ .. }          =
->       let
->         myPergms                         = fst $ partition (\p → pgWordF p == zWordF) pergms
->         SoundFontArrays { .. }           = zArrays
->
->         skfolder       :: Map PerGMKey PreSampleKey → PerGMKey → Map PerGMKey PreSampleKey
->         skfolder accum pergm@PerGMKey{ .. }
->                                          = Map.insert pergm sk accum
->           where
->             bagIndex                     = professIsJust pgmBagI "formSampleKeyMap"
->             xgeni                        = F.genNdx $ ssIBags!bagIndex
->             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
->             gens       :: [F.Generator]  = profess
->                                              (xgeni <= ygeni)
->                                              "SoundFont file corrupt (formSampleKeyMap gens)"
->                                              (map (ssIGens !) (makeRange xgeni ygeni))
->             filtered   :: [Word]          = mapMaybe (\case F.SampleIndex sIx  →  Just sIx
->                                                             _                  →  Nothing) gens
->             sIx        :: Word            = profess
->                                               ((not . null) filtered)
->                                               "Expected a sample index to be present in the zone"
->                                               (head filtered)
->             sk                           = PreSampleKey pgWordF sIx
->       in
->          Map.union accum (foldl' skfolder Map.empty myPergms)
->
 > computePreSample       :: SFFile → F.Shdr → PreSampleKey → PreSample
 > computePreSample SFFile{ .. } shdr k
 >   | traceNever trace_CPS False           = undefined
@@ -647,25 +615,35 @@ executive ======================================================================
 >         ibagi                            = F.instBagNdx iinst
 >         jbagi                            = F.instBagNdx jinst
 >
-> -- instrument to zone (percussion identity)
-> formMasterPercussionList        :: ZoneCache → PreSampleCache → [PerGMKey] → IO [PerGMKey]
+> formMasterPercussionList        :: ZoneCache
+>                                    → PreSampleCache
+>                                    → [PerGMKey]
+>                                    → IO ([PerGMKey], Map PerGMKey PreSampleKey)
 > formMasterPercussionList zc preSampleCache pergmsI 
->                                          = do
->   let pergmsP = foldl' ffFolder [] pergmsI
->   return pergmsP
+>                                          = return $ foldl' pfolder ([], Map.empty) pergmsI
 >   where
->     ffFolder           :: [PerGMKey] → PerGMKey → [PerGMKey]
->     ffFolder pergmsP pergmI              =
+>     pfolder            :: ([PerGMKey], Map PerGMKey PreSampleKey)
+>                           → PerGMKey
+>                           → ([PerGMKey], Map PerGMKey PreSampleKey)
+>     pfolder (pergmsP, skMap) pergmI      =
 >       let
->         perI = getPerInstrumentFromCache zc pergmI{pgmBagI = Nothing}
+>         perI                             = getPerInstrumentFromCache zc pergmI{pgmBagI = Nothing}
+>         (pergmsP', skMap')               = instrumentPercList pergmI perI
 >       in
->         pergmsP ++ instrumentPercList pergmI perI 
+>         (pergmsP ++ pergmsP', Map.union skMap skMap')
 >
->     instrumentPercList :: PerGMKey → PerInstrument → [PerGMKey]
->     instrumentPercList pergmI PerInstrument{pZonePairs}
->                                          = map (\w → pergmI {pgmBagI = Just w}) words
->       where
->         words                            = map (zhBagI . fst) (tail pZonePairs)
+>     instrumentPercList :: PerGMKey → PerInstrument → ([PerGMKey], Map PerGMKey PreSampleKey)
+>     instrumentPercList pergmI PerInstrument{ .. }
+>                                          =
+>       let
+>         pWords         :: [(Word, Word)]
+>         pWords                           =
+>           map (BF.bimap zhBagI (flip professIsJust "zSampleIndex" . zSampleIndex)) (tail pZonePairs)
+>         pKeys          :: [(PerGMKey, PreSampleKey)]
+>         pKeys                           =
+>           map (BF.bimap (\w → pergmI {pgmBagI = Just w}) (PreSampleKey (pgWordF pergmI))) pWords
+>       in
+>         (map fst pKeys, Map.fromList pKeys)
 >
 > openSoundFontFile      :: Word → FilePath → IO SFFile
 > openSoundFontFile wFile filename = do
@@ -713,7 +691,7 @@ executive ======================================================================
 >     CM.unless (null (Map.assocs dynMap)) (traceIO ("dynMap " ++ show dynMap))
 >     let ks                               = Map.keys shRanges
 >     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
->     let (esI, esP)                       = printChoices sfrost is ps
+>     let (esI, esP)                       = printChoices sfrost is shMsgs ps
 >     let es                               = emitCounts is ps name ++ concatMap snd esI ++ concatMap snd esP
 >     putStr (reapEmissions es)
 >     -- render song only if all OK
@@ -1387,9 +1365,10 @@ emit standard output text detailing what choices we made for rendering GM items 
 
 > printChoices           :: SFRoster
 >                           → [InstrumentName]
+>                           → [(InstrumentName, [String])]
 >                           → [PercussionSound]
 >                           → ([(Bool, [Emission])], [(Bool, [Emission])])
-> printChoices SFRoster{ .. } is ps        = (map (showI zWinningRecord) is, map (showP zWinningRecord) ps)
+> printChoices SFRoster{ .. } is msgs ps = (map (showI zWinningRecord) is, map (showP zWinningRecord) ps)
 >   where
 >     showI              :: WinningRecord → InstrumentName → (Bool, [Emission])
 >     showI WinningRecord{ .. } kind       = result
@@ -1398,7 +1377,8 @@ emit standard output text detailing what choices we made for rendering GM items 
 >         result
 >           | isJust mpergm                = (True, [gmId kind, Unblocked " -> "] 
 >                                                    ++ showPerGM (fromJust mpergm)
->                                                    ++ [EndOfLine])
+>                                                    ++ [EndOfLine]
+>                                                    ++ emitMsgs kind msgs)
 >           | kind == Percussion           = (True, [gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
 >           | otherwise                    = (False, [gmId kind, Unblocked " not found", EndOfLine])
 >
@@ -1420,6 +1400,11 @@ emit standard output text detailing what choices we made for rendering GM items 
 >         emitI wordI                      = [Unblocked szI]
 >         showmZ                           = maybe [] showZ mszP
 >         showZ name                       = [Unblocked name]
+>
+> emitMsgs               :: InstrumentName → [(InstrumentName, [String])] → [Emission]
+> emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs
+>   where
+>     imsgs              :: [String]       = fromMaybe [] (lookup kind msgs)
 >
 > qualifyZone            :: (Word, SFZone) → Maybe (PercussionSound, Word)
 > qualifyZone (wordP, zone)                = fmap (, wordP) (qualifyKeyRange =<< zKeyRange zone)
