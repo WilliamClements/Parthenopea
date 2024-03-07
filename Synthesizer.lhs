@@ -1,5 +1,4 @@
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
@@ -42,11 +41,11 @@ Signal function-based synth ====================================================
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
 > eutSynthesize (reconL@Reconciled{rSampleMode, rStart, rEnd, rRootKey, rPitchCorrection}, reconR)
->               sr dur pch' vol' params s16 ms8
+>               sr dur pch vol params s16 ms8
 >   | traceIf trace_eS False               = undefined
 >   | otherwise                            = sig
 >   where
->     noon@NoteOn{noteOnVel, noteOnKey}    = NoteOn vol' pch'
+>     noon@NoteOn{noteOnVel, noteOnKey}    = NoteOn vol pch
 >
 >     secsSample         :: Double         = fromIntegral (rEnd - rStart) / sr
 >     secsScored         :: Double         = 1 * fromRational dur

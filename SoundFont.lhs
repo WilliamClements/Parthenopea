@@ -1422,9 +1422,10 @@ emit standard output text detailing what choices we made for rendering GM items 
 > dumpContestants (kind, contestants)      = prolog ++ es ++ epilog
 >   where
 >     prolog, es, epilog :: [Emission]
->     prolog = []
->     es = emitLine [emitShowL kind 50] ++ concatMap dumpContestant contestants ++ emitLine []
->     epilog = []
+>
+>     prolog = emitLine [emitShowL kind 50]
+>     es =  concatMap dumpContestant contestants
+>     epilog = emitLine []
 >
 > dumpContestant         :: PerGMScored → [Emission]
 > dumpContestant PerGMScored{ .. }         = es

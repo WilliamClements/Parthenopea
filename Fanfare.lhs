@@ -1204,54 +1204,53 @@ Dadadada =======================================================================
 
 Deydumpdum ============================================================================================================
 
-> d3Tempo                                  = 1
+> d3TempoCapture                           = 1
+> d3TempoPlay                              = 3/2
 > d3Transpose                              = 0
 >
 > d3Lead_                                  = makePitched Violin               d3Transpose          0        100
-> d3Bass_                                  = makePitched ElectricBassPicked   d3Transpose          0         90
+> d3LeadQ_                                 = makePitched Violin               d3Transpose          0         75
+> d3Bass_                                  = makePitched SynthBass2           d3Transpose          0         90
+> d3BassQ_                                 = makePitched SynthBass2           d3Transpose          0         60
 >
 > deyDumpDum dynMap =
 >   removeZeros
 >   $ aggrandize
->   $ tempo d3Tempo
+>   $ tempo d3TempoPlay
 >   $ keysig Af Mixolydian
->   $     bandPart d3Lead (line [         times 1 leadI])
->     :=: bandPart d3Bass (line [rest wn, bassI, bassII])
+>   $     line [         bandPart d3Lead leadI, bandPart d3LeadQ leadII]
+>     :=: line [rest wn, bandPart d3Bass bassI, bandPart d3BassQ bassII]
 >
 >   where
 >
 >   d3Lead                                = replace d3Lead_ dynMap
 >   d3Bass                                = replace d3Bass_ dynMap
+>   d3LeadQ                               = replace d3LeadQ_ dynMap
+>   d3BassQ                               = replace d3BassQ_ dynMap
 >
->   leadI = line [rest (hn + den), e 4 sn, a 3 en, rest en
->              , cs 4 (wn + den), e 4 sn, a 3 en, rest en, c 4 en, rest en, b 3 en, rest en
->              , a 3 (wn + hn + den), e 4 sn, cs 4 en, rest en
->              , d 4 (wn + den), fs 4 sn, a 4 en, rest en, fs 4 en, rest en, f 4 en, rest en
+>   leadI  = line [rest (hn + den), e 4 sn, a 3 en, rest en
+>              , cs 4 wn, rest den, e 4 sn, a 3 en, rest en, c 4 en, rest en, b 3 en, rest en
+>              , a 3 (wn + hn), rest den, e 4 sn, cs 4 en, rest en
+>              , d 4 wn, rest den, fs 4 sn, a 4 en, rest en, fs 4 en, rest en, f 4 en, rest en
 >              , e 4 wn
->              , a 3 (hn + den), a 3 sn, c 4 en
->              , b 3 (en + wn + qn), c 4 qn, c 4 en, rest en, b 3 en, rest en
->              , a 3 dhn, e 4 qn
->              , a 4 (hn + den), e 5 sn, a 4 en, rest en
->              , c 5 (wn + den), e 5 sn, a 4 en, rest en
->              , c 5 en, rest en, b 4 en, rest en, c 5 hn, b 4 hn
->              , a 4 (hn + den), b 4 sn, a 4 en, rest en
+>              , a 3 hn, rest den, a 3 sn, c 4 en
+>              , b 3 (en + wn), rest qn, c 4 qn, c 4 en, rest en, b 3 en, rest en
+>              , a 3 dhn, e 4 qn]
+>   leadII = line [a 4 hn, rest den, e 5 sn, a 4 en, rest en
+>              , c 5 wn, rest den, e 5 sn, a 4 en, rest en
+>              , c 5 en, rest en, b 4 qn, c 5 hn, b 4 hn
+>              , a 4 hn, rest den, b 4 sn, a 4 qn
 >              , g 4 hn, b 4 qn, d 5 qn, g 5 hn, b 5 hn
 >              , c 6 hn, b 5 hn, a 5 qn, t32 [rest qn, g 5 en, a 5 qn, b 5 en], a 5 qn
 >              , a 5 qn, f 5 qn, c 5 qn, b 4 den, c 5 sn, b 4 wn, a 4 wn]
 >
->   bassAtA n            = line [times n (line [a 2 hn, e 2 hn])]
->   bassAtA'             = line [a 2 hn, e 2 hn, a 1 hn, rest hn]
->   bassAtA'' n          = line [times n (line [a 1 hn, cs 2 hn])]
->   bassAtA'''           = line [a 1 hn, cs 2 hn]
->   bassAtD n            = line [times n (line [d 2 hn, a 2 hn])]
->   bassAtD'' n          = line [times n (line [d 2 hn, fs 2 hn])]
->   bassAtE n            = line [times n (line [e 2 hn, b 2 hn])]
->   bassAtF n            = line [times n (line [f 2 hn, c 2 hn])]
->   bassAtG              = line [g 2 hn, d 2 hn, g 1 hn, d 2 hn]
+>   bassI                = line [bIa,  bIb,  bIc]
+>   bassII               = line [bIIa, bIIb, bIIc]
 >
->   bassI                = line [bassAtA 3, bassAtA'''
->                              , bassAtD 1, bassAtD'' 1, bassAtA 1, bassAtA'' 1
->                              , bassAtE 2, bassAtA']
->   bassII               = line [bassAtA 2, bassAtD 1, bassAtD'' 1
->                              , bassAtG, a 1 hn, e 2 hn, bassAtA 1
->                              , bassAtF 1, bassAtE 1, bassAtA']
+>   bIa                  = line [a 2 hn, e 2 hn, a 2 hn,  e 2 hn, a 2 hn, e 2 hn, a 1 hn, cs 2 hn]
+>   bIb                  = line [d 2 hn, a 2 hn, d 2 hn, fs 2 hn, a 2 hn, e 2 hn, a 1 hn, cs 2 hn]
+>   bIc                  = line [e 2 hn, b 2 hn, e 2 hn,  b 2 hn, a 2 hn, e 2 hn, a 1 hn, rest hn]
+>
+>   bIIa                 = line [a 2 hn, e 2 hn, a 2 hn,  e 2 hn, d 2 hn, a 2 hn, d 2 hn, fs 2 hn]
+>   bIIb                 = line [g 2 hn, d 2 hn, b 1 hn,  g 1 hn, a 1 hn, e 2 hn, a 2 hn,  e 2 hn]
+>   bIIc                 = line [f 2 hn, c 2 hn, e 2 hn,  b 2 hn, a 2 hn, e 2 hn, a 1 hn, rest hn]
