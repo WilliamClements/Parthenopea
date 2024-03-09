@@ -51,3 +51,5 @@ Chart ==========================================================================
 >
 > select                 :: Handle → String → Int → IO ()
 > select hdlOut z n                        = CM.unless (n `mod` 25 /= 0) (hPutStrLn hdlOut z)
+
+The End

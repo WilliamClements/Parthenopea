@@ -1,9 +1,6 @@
-> {-# HLINT ignore "Eta reduce" #-}
-> {-# HLINT ignore "Use head" #-}
-> {-# LANGUAGE NamedFieldPuns #-}
-> {-# LANGUAGE UnicodeSyntax #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE UnicodeSyntax #-}
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 Baking
@@ -43,9 +40,9 @@ The progress of the algorithm is expressed in above pair.
 > measureBakes bakes                       = profess
 >                                              (checkJobOk bm && checkMeasureOk bm)
 >                                              "measureBakes checkJobOk"
->                                              (sHistogram bm)
+>                                              sHistogram
 >   where
->     (bm, _)                              = buildChannels bakes
+>     (bm@BakingMetrics{ .. }, _)          = buildChannels bakes
 >
 > sampleBakes            :: [Bake] → Array Int Int
 > sampleBakes bakes                        = scoreOnsets bakingBins (map bOnset bakes)
@@ -98,7 +95,7 @@ The progress of the algorithm is expressed in above pair.
 >                        -- target  urns     inns      old      new
 >                        :: Bake → [Bake] → [Bake] → Baking → Baking
 >
->     retireInn _ urns inns baking         = build urns inns baking
+>     retireInn _                          = build
 >
 >     tryUrn urn urns inns baking
 >       | skipThreshold >= length inns     = acceptUrn urn urns inns baking
@@ -118,7 +115,7 @@ The progress of the algorithm is expressed in above pair.
 >     skipSection urn (bm, ms)             = (skipMetrics bm (bOnset urn), ms)
 >
 >     acceptSection      :: Bake → Baking → Baking
->     acceptSection urn@Bake{bIx, bWch, bOnset, bXpose, bSnd, bVol} (bm, ms)
+>     acceptSection urn@Bake{ .. } (bm, ms)
 >                                          = (bm', ms')
 >       where
 >         chan                             = bIx `mod` numChannels
@@ -147,7 +144,7 @@ The progress of the algorithm is expressed in above pair.
 >     appendSection ms chan newm           = ms // [(chan, ms!chan :+: newm)]
 >
 >     calibrateSection   :: Double → Bake → SectionSpec
->     calibrateSection durSoFar urn@Bake{bOnset, bTempo}
+>     calibrateSection durSoFar urn@Bake{ .. }
 >                                          = ((restDur, restTempo), (fillDur, fillTempo))
 >       where
 >         restDur, restTempo, fillDur, fillTempo
@@ -213,84 +210,84 @@ The progress of the algorithm is expressed in above pair.
 >
 > checkJobOk             :: BakingMetrics → Bool
 > checkJobOk BakingMetrics{ .. }
->    | traceIf trace_CBO False             = undefined
->    | otherwise                           = True
->    where
->      trace_CBO                           = unwords
->             [ "checkJobOk",              show $ safeAverage sAccumSkipped sSkipped
->             , "avg baked start",         show $ safeAverage sAccumBaked sBaked]
+>   | traceIf trace_CBO False              = undefined
+>   | otherwise                            = True
+>   where
+>     trace_CBO                            =
+>       unwords
+>         [ "checkJobOk",                  show $ safeAverage sAccumSkipped sSkipped
+>         , "avg baked start",             show $ safeAverage sAccumBaked sBaked]
 >
->      safeAverage      :: Double → Int → Double
->      safeAverage d n
->         | n==0                           = 0.0
->         | otherwise                      = d / fromIntegral n
+>     safeAverage        :: Double → Int → Double
+>     safeAverage d n
+>       | n == 0                           = 0.0
+>       | otherwise                        = d / fromIntegral n
 >
 > checkUrnOk             :: Bake → Bool
 > checkUrnOk urn
->    | traceIf trace_CUO False             = undefined
->    | otherwise                           = True
->    where
->       trace_CUO                          = unwords ["checkUrnOk", show urn]
+>   | traceIf trace_CUO False              = undefined
+>   | otherwise                            = True
+>   where
+>     trace_CUO                            = unwords ["checkUrnOk", show urn]
 >
 > checkZListOk           :: [(Int,  Int)] → Bool
 > checkZListOk zlist
->    | traceAlways trace_CZLO False        = undefined
->    | otherwise                           = True
->    where
->       trace_CZLO                         = unwords ["checkZListOK", show zlist]
+>   | traceAlways trace_CZLO False         = undefined
+>   | otherwise                            = True
+>   where
+>     trace_CZLO                           = unwords ["checkZListOK", show zlist]
 >
 > acceptMetrics          :: BakingMetrics → Double → Double → SectionSpec → Double → BakingMetrics
-> acceptMetrics bm@BakingMetrics{sBaked, sRestDur, sFillDur, sAccumBaked, sHistogram} durSoFar newDur ss os
->    | traceNever trace_AM False           = undefined
->    | otherwise                           = bm { sBaked      = baked'
+> acceptMetrics bm@BakingMetrics{ .. } durSoFar newDur ss os
+>   | traceNever trace_AM False            = undefined
+>   | otherwise                            = bm { sBaked      = baked'
 >                                               , sRestDur    = restDur'
 >                                               , sFillDur    = fillDur'
 >                                               , sAccumBaked = accum'
 >                                               , sHistogram  = hst'}
->    where
->      restDur, fillDur  :: Double
->      ((restDur, _), (fillDur, _))        = ss
->      baked'                              = sBaked           + 1
->      restDur'                            = sRestDur         + restDur
->      fillDur'                            = sFillDur         + fillDur
->      accum'                              = sAccumBaked      + os
->      zlist                               = quantize sHistogram os fillDur
->      hst'                                = if not (checkZListOk zlist)
+>   where
+>     restDur, fillDur   :: Double
+>     ((restDur, _), (fillDur, _))         = ss
+>     baked'                              = sBaked           + 1
+>     restDur'                            = sRestDur         + restDur
+>     fillDur'                            = sFillDur         + fillDur
+>     accum'                              = sAccumBaked      + os
+>     zlist                               = quantize sHistogram os fillDur
+>     hst'                                = if not (checkZListOk zlist)
 >                                              then error "Bad ZList"
 >                                              else sHistogram // zlist
 >
->      trace_AM                            =                   
->        unwords ["acceptMetrics", show durSoFar, " ← durSoFar, os → ", show os
->               , "\nss", show ss, "\nnewDur", show newDur]
+>     trace_AM                            =                   
+>       unwords ["acceptMetrics", show durSoFar, "← durSoFar, os →", show os
+>              , "\nss", show ss, "\nnewDur", show newDur]
 >
->      quantize          :: Array Int Int → Double → Double → [(Int,  Int)]
->      quantize hst os du                  = [(x, (hst!x) + 1) | x ← [fk..gk]]
->        where
->          fk, gk        :: Int
->          fk                              = histSelect os
->          gk                              = histSelect $ computeEnd os du - 0.000001
+>     quantize           :: Array Int Int → Double → Double → [(Int,  Int)]
+>     quantize hst os du                   = [(x, (hst!x) + 1) | x ← [fk..gk]]
+>       where
+>         fk, gk         :: Int
+>         fk                               = histSelect os
+>         gk                               = histSelect $ computeEnd os du - 0.000001
 >
->      histSelect        :: Double → Int
->      histSelect os                       = floor $ os * fromIntegral bakingBins / songLength
+>     histSelect         :: Double → Int
+>     histSelect os                        = floor $ os * fromIntegral bakingBins / songLength
 >
 > skipMetrics            :: BakingMetrics → Double → BakingMetrics
-> skipMetrics bm accum                     = bm { sSkipped      = skipped'
+> skipMetrics bm@BakingMetrics{ .. } accum = bm { sSkipped      = skipped'
 >                                               , sAccumSkipped = accum'}
 >   where
->     skipped'                             = sSkipped bm      + 1
->     accum'                               = sAccumSkipped bm + accum
+>     skipped'                             = sSkipped      + 1
+>     accum'                               = sAccumSkipped + accum
 >
 > sex2Bake               :: [Double] → Bake
 > sex2Bake rs
 >   | length rs >= 6                       = Bake {
 >                                              bIx       = 0
->                                            , bWch      = denormVector (rs!!0) vChoiceI
->                                            , bOnset    = denorm (rs!!1) (0,songLength)
->                                            , bXpose    = denorm (rs!!2) (0.2,0.8)
->                                            , bSnd      = denormVector (rs!!3) vChoiceP
->                                            , bVol      = round
->                                                          $ denorm (rs!!4) (60,100)
->                                            , bTempo    = denorm (rs!!5) (2,5)}
+>                                            , bWch      = denormVector     (head rs)     vChoiceI
+>                                            , bOnset    = denorm           (rs!!1)       (0, songLength)
+>                                            , bXpose    = denorm           (rs!!2)       (0.2, 0.8)
+>                                            , bSnd      = denormVector     (rs!!3)       vChoiceP
+>                                            , bVol      = round $ denorm   (rs!!4)       (60, 100)
+>                                            , bTempo    = denorm           (rs!!5)       (2, 5)}
 >   | otherwise                            = error $ unwords ["sex2Bake:", "insufficiently sized randoms list", show $ length rs]
 >     where
 >       vChoiceI         :: Array Int (InstrumentName, (Pitch, Pitch))
@@ -311,7 +308,7 @@ The progress of the algorithm is expressed in above pair.
   
 Definitions ===========================================================================================================
 
-> data Bake =
+> data Bake                                =
 >   Bake {
 >       bIx              :: Int
 >     , bWch             :: (InstrumentName, (Pitch, Pitch))
@@ -324,7 +321,7 @@ Definitions ====================================================================
 > type TimeSpec                            = (Double, Double)
 > type SectionSpec                         = (TimeSpec, TimeSpec)
 >
-> data BakingMetrics =
+> data BakingMetrics                       =
 >   BakingMetrics {
 >       sSkipped         :: Int
 >     , sBaked           :: Int
@@ -349,3 +346,5 @@ Definitions ====================================================================
 > numChannels                              = 7
 > skipThreshold                            = 16
 > bakingBins                               = 64
+
+The End

@@ -451,18 +451,12 @@ also
 
 instrument range checking =============================================================================================
 
-> union2Ranges :: (Pitch, Pitch) → (Pitch, Pitch) → (Pitch, Pitch)
+> union2Ranges :: (Ord a, Ord b) => (a, b) -> (a, b) -> (a, b)
 > union2Ranges r1 r2 = unionRanges (r1:[r2])
->
-> unionRanges  :: [(Pitch, Pitch)] → (Pitch, Pitch)
 > unionRanges [] = error "empty range list"
 > unionRanges (r:rs) = ( minimum (map fst (r:rs))
 >                      , maximum (map snd (r:rs)) )
->
-> intersect2Ranges :: (Pitch, Pitch) → (Pitch, Pitch) → Maybe (Pitch, Pitch)
 > intersect2Ranges r1 r2 = intersectRanges (r1:[r2])
->
-> intersectRanges :: [(Pitch, Pitch)] → Maybe (Pitch, Pitch)
 > intersectRanges (r:rs) =
 >   case uncurry compare inverted of
 >     LT → Just inverted
@@ -471,13 +465,6 @@ instrument range checking ======================================================
 >     inverted = ( maximum (map fst (r:rs))
 >                , minimum (map snd (r:rs)) )
 > intersectRanges _ = error "empty range list"
->
-> withinRange  :: (Pitch, Pitch) → AbsPitch → Pitch → Bool
-> withinRange range t p =
->    let aP = absPitch p + t
->        minP = absPitch $ fst range
->        maxP = absPitch $ snd range
->    in minP <= aP && maxP >= aP
 >
 > data BandPart =
 >   BandPart {
@@ -1454,3 +1441,5 @@ Edit the following =============================================================
 >   , qqReplacePerCent                     = 0
 >   , qqDumpFftChunks                      = False
 >   , qqNumTakeFftChunks                   = 3}
+
+The End

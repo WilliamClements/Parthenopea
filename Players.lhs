@@ -76,3 +76,5 @@ playerOne ======================================================================
 >         in (map setDur pf, dur) 
 >     Art _                → pfd
 >     Orn _                → pfd
+
+The End

@@ -1,6 +1,4 @@
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE ExistentialQuantification #-}
-> {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
@@ -61,8 +59,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 
 > data PreSampleKey =
 >   PreSampleKey {
->     sWordF             :: Word
->   , sWordS             :: Word} deriving (Eq, Ord, Show)
+>     pskwFile           :: Word
+>   , pskwSample         :: Word} deriving (Eq, Ord, Show)
 >
 > data PreSample =
 >   PreSample {
@@ -79,9 +77,9 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > data PerGMKey =
 >   PerGMKey {
->     pgWordF            :: Word
->   , pgWordI            :: Word
->   , pgmBagI            :: Maybe Word} deriving (Eq, Ord, Show)
+>     pgkwFile           :: Word
+>   , pgkwInst           :: Word
+>   , pgkwBag            :: Maybe Word} deriving (Eq, Ord, Show)
 >
 > data PreBundle =
 >   PreBundle {
@@ -113,7 +111,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > data ZoneHeader =
 >   ZoneHeader {
->     zhBagI             :: Word
+>     zhwBag             :: Word
 >   , zhShdr             :: F.Shdr
 >   , zhNonPitched       :: Bool} deriving Show
 >
@@ -458,10 +456,10 @@ executive ======================================================================
 > decideWinners sffiles zc preSampleCache preInstCache skMap pergmsI pergmsP
 >                                          = do
 >   let (wI, sI)                           = foldl' wiFolder (Map.empty, []) pergmsI         
->   let wI'                                = finalize wI
+>   let wI'                                = Map.map (sortOn (Down . pScore . pArtifactGrade)) wI
 >
 >   let (wP, sP)                           = foldl' wpFolder (Map.empty, []) pergmsP
->   let wP'                                = finalize wP
+>   let wP'                                = Map.map (sortOn (Down . pScore . pArtifactGrade)) wP
 >
 >   return ((wI', sI), (wP', sP))
 >
@@ -485,19 +483,16 @@ executive ======================================================================
 >         PreSample{ .. }                  = professIsJust pbmPreS "wpFolder"
 >
 >         mkind          :: Maybe PercussionSound
->                                          = pgmBagI >>= lookupZone >>= getAP >>= pitchToPerc
+>                                          = pgkwBag >>= lookupZone >>= getAP >>= pitchToPerc
 >         kind                             = professIsJust mkind "pitchToPerc returned Nothing"
 >         wOut                             = xaEnterTournament bundle sMatches pergm kind [] wIn
 >
 >         lookupZone     :: Word → Maybe SFZone
->         lookupZone bagI                  = lookup bagI (map (BF.first zhBagI) pZonePairs)
+>         lookupZone bagI                  = lookup bagI (map (BF.first zhwBag) pZonePairs)
 >
 >         getAP          :: SFZone → Maybe AbsPitch
 >         getAP zone@SFZone{ .. }          = (Just . fst) =<< zKeyRange
 >     
->     finalize           :: Map a [PerGMScored] → Map a [PerGMScored]
->     finalize                             = Map.map (sortOn (Down . pScore . pArtifactGrade))
->
 > preLookup              :: Array Word SFFile
 >                           → ZoneCache
 >                           → PreInstCache
@@ -508,8 +503,8 @@ executive ======================================================================
 > preLookup sffiles zc preInstrumentCache preSampleCache skMap pergm@PerGMKey{ .. }
 >                                          =
 >   PreBundle
->     (getPreInstrumentFromCache preInstrumentCache pergm{pgmBagI = Nothing})
->     (getPerInstrumentFromCache zc                 pergm{pgmBagI = Nothing})
+>     (getPreInstrumentFromCache preInstrumentCache pergm{pgkwBag = Nothing})
+>     (getPerInstrumentFromCache zc                 pergm{pgkwBag = Nothing})
 >     (Map.lookup pergm skMap >>= Just . getPreSampleFromCache preSampleCache)
 >   
 > formMasterSampleList   :: Array Word SFFile → IO [PreSampleKey]
@@ -528,15 +523,15 @@ executive ======================================================================
 >   where
 >     smFolder accum presk@PreSampleKey{ .. } =
 >       let 
->         sf@SFFile{.. }                   = sffiles ! sWordF
+>         sf@SFFile{.. }                   = sffiles ! pskwFile
 >         SoundFontArrays{ .. }            = zArrays
 >       in
->         Map.insert presk (computePreSample sf (ssShdrs ! sWordS) presk) accum
+>         Map.insert presk (computePreSample sf (ssShdrs ! pskwSample) presk) accum
 >
 > formPreInstCache       :: Array Word SFFile → [PerGMKey] → IO PreInstCache
 > formPreInstCache sffiles pergms          = return $ foldl' imFolder Map.empty pergms
 >   where
->     imFolder im pergm@PerGMKey{ .. }     = Map.insert pergm (computePreInstrument (sffiles ! pgWordF) pergm) im
+>     imFolder im pergm@PerGMKey{ .. }     = Map.insert pergm (computePreInstrument (sffiles ! pgkwFile) pergm) im
 >
 > getPreSampleFromCache :: Map PreSampleKey PreSample → PreSampleKey → PreSample
 > getPreSampleFromCache preSampleCache presk
@@ -570,7 +565,7 @@ executive ======================================================================
 >   | otherwise                            = PreInstrument instName (computeFFMatches instName)
 >   where
 >     SoundFontArrays{ .. }                = zArrays
->     F.Inst{ .. }                         = ssInsts ! pgWordI
+>     F.Inst{ .. }                         = ssInsts ! pgkwInst
 > 
 >     trace_CPI                            = unwords ["computePreInstrument", show instName]
 >
@@ -627,7 +622,7 @@ executive ======================================================================
 >                           → ([PerGMKey], Map PerGMKey PreSampleKey)
 >     pfolder (pergmsP, skMap) pergmI      =
 >       let
->         perI                             = getPerInstrumentFromCache zc pergmI{pgmBagI = Nothing}
+>         perI                             = getPerInstrumentFromCache zc pergmI{pgkwBag = Nothing}
 >         (pergmsP', skMap')               = instrumentPercList pergmI perI
 >       in
 >         (pergmsP ++ pergmsP', Map.union skMap skMap')
@@ -638,10 +633,10 @@ executive ======================================================================
 >       let
 >         pWords         :: [(Word, Word)]
 >         pWords                           =
->           map (BF.bimap zhBagI (flip professIsJust "zSampleIndex" . zSampleIndex)) (tail pZonePairs)
+>           map (BF.bimap zhwBag (flip professIsJust "zSampleIndex" . zSampleIndex)) (tail pZonePairs)
 >         pKeys          :: [(PerGMKey, PreSampleKey)]
 >         pKeys                           =
->           map (BF.bimap (\w → pergmI {pgmBagI = Just w}) (PreSampleKey (pgWordF pergmI))) pWords
+>           map (BF.bimap (\w → pergmI {pgkwBag = Just w}) (PreSampleKey (pgkwFile pergmI))) pWords
 >       in
 >         (map fst pKeys, Map.fromList pKeys)
 >
@@ -741,7 +736,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >     grade                                = computeGrade pb pergm kind hints akResult
 >
->     mnameZ             :: Maybe String   = pgmBagI >>= \w → Just (sName (fromJust pbmPreS))
+>     mnameZ             :: Maybe String   = pgkwBag >>= \w → Just (sName (fromJust pbmPreS))
 >     pergm'             :: PerGMScored    = PerGMScored grade (toKind kind) akResult pergm iName mnameZ 
 >
 > computeGrade           :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
@@ -910,9 +905,9 @@ prepare the specified instruments and percussion ===============================
 >         PreBundle{ .. }                  = preLookup sffiles Map.empty preInstCache preSampleCache skMap pergm
 >         PreInstrument{ .. }              = pbPreI
 >
->         SoundFontArrays{ .. }            = zArrays (sffiles ! pgWordF)
->         iinst                            = ssInsts ! pgWordI
->         jinst                            = ssInsts ! (pgWordI+1)
+>         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
+>         iinst                            = ssInsts ! pgkwInst
+>         jinst                            = ssInsts ! (pgkwInst+1)
 >         ibagi                            = F.instBagNdx iinst
 >         jbagi                            = F.instBagNdx jinst
 >
@@ -945,7 +940,7 @@ prepare the specified instruments and percussion ===============================
 >                                              (zip [10000..] (map (ssIMods !) (makeRange xmodi ymodi)))
 >
 >             meval      :: Maybe Bool     = zSampleIndex
->                                            >>= \w → Just (PreSampleKey pgWordF w)
+>                                            >>= \w → Just (PreSampleKey pgkwFile w)
 >                                            >>= flip Map.lookup preSampleCache
 >                                            >>= isNonPitchedByFft
 >
@@ -1019,7 +1014,7 @@ prepare the specified instruments and percussion ===============================
 >           | otherwise                    = pinned || nonPitchedByFuzz || nonPitchedByFft
 >           where
 >             PreBundle{ .. }              =
->               preLookup sffiles Map.empty preInstCache preSampleCache skMap pergm{pgmBagI = Just zhBagI}
+>               preLookup sffiles Map.empty preInstCache preSampleCache skMap pergm{pgkwBag = Just zhwBag}
 >             pinned                       = maybe False pinnedKR zKeyRange
 >             nonPitchedByFuzz             = maybe False isSample pbmPreS
 >
@@ -1064,7 +1059,7 @@ define signal functions and instrument maps to support rendering ===============
 >                                          = (kind, assignInstrument pPerGMKey)                    : accum
 >
 >     pmapFolder kind PerGMScored{ .. } accum
->                                          = (kind, (pgWordF pPerGMKey, pgWordI pPerGMKey))        : accum
+>                                          = (kind, (pgkwFile pPerGMKey, pgkwInst pPerGMKey))        : accum
 >
 >     assignInstrument   :: ∀ p . Clock p ⇒ PerGMKey → Instr (Stereo p)
 >     assignInstrument pergm dur pch vol params
@@ -1106,8 +1101,8 @@ define signal functions and instrument maps to support rendering ===============
 >     pchOut              :: AbsPitch      = maybe noteOnKey (clip (0, 127)) rForceKey
 >     volOut              :: Volume        = maybe noteOnVel (clip (0, 127)) rForceVel
 >
->     arrays                               = zArrays (zFiles ! pgWordF)
->     nameI                                = F.instName $ ssInsts arrays ! pgWordI
+>     arrays                               = zArrays (zFiles ! pgkwFile)
+>     nameI                                = F.instName $ ssInsts arrays ! pgkwInst
 >     trace_ISF                            = unwords ["instrumentSF",  nameI, show (pchIn, volIn)]
 >
 >     (reconX, mreconX)                    = fromMaybe
@@ -1176,7 +1171,7 @@ zone selection for rendering ===================================================
 >
 >     trace_SOZ                             = unwords ["scoreOneZone", show scoreByPitch
 >                                                    , "+",            show scoreByVelocity
->                                                    , "for",          show zhBagI]
+>                                                    , "for",          show zhwBag]
 >
 > instrumentSplitScore   :: InstrumentName → [(ZoneHeader, SFZone)] → Double
 > instrumentSplitScore kind zs             = fromIntegral (length zs)
@@ -1340,7 +1335,7 @@ carry out, and "pre-cache" results of, play requests ===========================
 >     precalcFolder kind pergm ps          = Map.union ps (precalcNotes kind pergm)
 >
 >     precalcNotes       :: a → PerGMScored → Map PlayKey (Reconciled, Maybe Reconciled)
->     precalcNotes kind PerGMScored{ .. }  = foldl' (playFolder pPerGMKey{pgmBagI = Nothing})
+>     precalcNotes kind PerGMScored{ .. }  = foldl' (playFolder pPerGMKey{pgkwBag = Nothing})
 >                                                   Map.empty
 >                                                   [NoteOn v k | v ← [0..127], k ← [0..127]]
 >
@@ -1393,10 +1388,10 @@ emit standard output text detailing what choices we made for rendering GM items 
 >           | otherwise                    = (False, [gmId kind, Unblocked " not found", EndOfLine])
 >
 >     showPerGM          :: PerGMScored → [Emission]
->     showPerGM PerGMScored{ .. }          = [emitShowL pgWordF 4] ++ emitI pgWordI ++ showmZ
+>     showPerGM PerGMScored{ .. }          = [emitShowL pgkwFile 4] ++ emitI pgkwInst ++ showmZ
 >       where
 >         PerGMKey{ .. }                   = pPerGMKey
->         SoundFontArrays{ .. }            = zArrays (zFiles ! pgWordF)
+>         SoundFontArrays{ .. }            = zArrays (zFiles ! pgkwFile)
 >         emitI wordI                      = [Unblocked szI]
 >         showmZ                           = maybe [] showZ mszP
 >         showZ name                       = [Unblocked name]
@@ -1430,7 +1425,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 > dumpContestant         :: PerGMScored → [Emission]
 > dumpContestant PerGMScored{ .. }         = es
 >   where
->     es = emitLine [ Blanks 8, emitShowL (pgWordF pPerGMKey) 4, emitShowR szI 22
+>     es = emitLine [ Blanks 8, emitShowL (pgkwFile pPerGMKey) 4, emitShowR szI 22
 >                   , Blanks 8, emitShowR (fromMaybe "" mszP) 22
 >                   , Blanks 8, emitShowL (pScore pArtifactGrade) 8
 >                   , emitShowL (pEmpiricals pArtifactGrade) 16

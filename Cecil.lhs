@@ -568,4 +568,6 @@ We Hate Her ====================================================================
 >    --             chea-     ted    We      chea-      ted    We
 >               ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
 >    --              did-    n't     do      our       best
->               ,   d 4 en, d 4 en, e 4 en, fs 4 en,  g 4 wn]               
+>               ,   d 4 en, d 4 en, e 4 en, fs 4 en,  g 4 wn]
+
+The End

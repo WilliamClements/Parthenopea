@@ -191,19 +191,13 @@ struct sfInstModList
 >   where
 >     convFun            :: Int → Double → (Double, Double, Double, Double)
 >     convFun i y                          = (fromIntegral i / scalix, y, 0, 0)
->
+
+Feed chart ============================================================================================================
+
 > vals' = table2vals 20 prevals
 >         
 > -- range = 0.75 (max resonance) ..    1.25 (no resonance)
 > --         960 cB    -170-    ..      0 cB
->
-> data IterData =
->   IterData {
->     theFc              :: Double
->   , theFq              :: Double
->   , theFt              :: Double
->   , theVel             :: Double} deriving Show
->
 > -- vary: 1 or 2 for first arg to filterBandPass
 > -- vary: 0 to 10 for initQ
 >

@@ -78,3 +78,5 @@ Oceans =========================================================================
 >
 > nRandom2Perc           :: Double → Music Pitch
 > nRandom2Perc r                           = perc (toEnum $ round $ normalized2ranged r (0, 46)) qn
+
+The End

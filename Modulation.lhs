@@ -1,5 +1,4 @@
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE ExistentialQuantification #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
@@ -565,24 +564,24 @@ The use of these functions requires that their input is normalized between 0 and
 
 Type declarations =====================================================================================================
 
-> data NoteOn =
+> data NoteOn                              =
 >   NoteOn {
 >     noteOnVel          :: Velocity
 >   , noteOnKey          :: KeyNumber} deriving (Eq, Ord, Show)
 >
-> data LowPass =
+> data LowPass                             =
 >   LowPass {
 >     lowPassType        :: ResonanceType
 >   , lowPassFc          :: Double
 >   , lowPassQ           :: Double} deriving (Eq, Show)
 >
-> data ModSignals =
+> data ModSignals                          =
 >   ModSignals {
 >     xModEnvPos         :: Double
 >   , xModLfoPos         :: Double
 >   , xVibLfoPos         :: Double} deriving (Show)
 >
-> data ModCoefficients =
+> data ModCoefficients                     =
 >   ModCoefficients {
 >     xModEnvCo          :: Double
 >   , xModLfoCo          :: Double
@@ -590,7 +589,7 @@ Type declarations ==============================================================
 >
 > defModCoefficients                       = ModCoefficients 0 0 0
 >
-> data ModTriple =
+> data ModTriple                           =
 >   ModTriple {
 >     coPitch            :: Double
 >   , coFilterFc         :: Double
@@ -606,19 +605,19 @@ Type declarations ==============================================================
 >                            ++ ", ToFilterFc, and ToVolume")
 > defModTriple                             = ModTriple 0 0 0
 >
-> data ResonanceType =
+> data ResonanceType                       =
 >   ResonanceNone 
 >   | ResonanceLowpass
 >   | ResonanceBandpass
 >   | ResonanceSVF deriving (Eq, Show, Enum)
 >
-> data LFO =
+> data LFO                                 =
 >   LFO {
 >     lfoDelay           :: Double
 >   , lfoFrequency       :: Double
 >   , lfoModTriple       :: ModTriple} deriving (Eq, Show)
 >
-> data Modulation =
+> data Modulation                          =
 >   Modulation {
 >     mLowPass           :: LowPass
 >   , mModEnv            :: Maybe Envelope
@@ -634,7 +633,7 @@ Type declarations ==============================================================
 >                                              defModCoefficients defModCoefficients defModCoefficients
 >                                              Map.empty
 >
-> data Modulator =
+> data Modulator                           =
 >   Modulator {
 >     mrModId            :: Word
 >   , mrModSrc           :: ModSrc
@@ -644,7 +643,7 @@ Type declarations ==============================================================
 >    
 > defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
 >
-> data ModKey =
+> data ModKey                              =
 >   ModKey {
 >     krSrc              :: ModSrc
 >   , krDest             :: ModDestType
@@ -653,7 +652,7 @@ Type declarations ==============================================================
 > superceder            :: Modulator → (ModKey, Word)
 > superceder Modulator{ .. }               = (ModKey mrModSrc mrModDest mrAmountSrc, mrModId)
 >
-> data ModDestType =
+> data ModDestType                         =
 >     NoDestination
 >   | ToPitch
 >   | ToFilterFc
@@ -663,20 +662,20 @@ Type declarations ==============================================================
 >   | ToReverb
 >   | ToLink Word deriving (Eq, Ord, Show)
 >
-> data ModSrcSource =
+> data ModSrcSource                        =
 >     FromNoController
 >   | FromNoteOnVel
 >   | FromNoteOnKey
 >   | FromLinked deriving (Eq, Ord, Show)
 >
-> data ModSrc =
+> data ModSrc                              =
 >   ModSrc {
 >     msMapping          :: Mapping
 >   , msSource           :: ModSrcSource} deriving (Eq, Ord, Show)
 >
 > defModSrc                                = ModSrc defMapping FromNoController
 >
-> data Envelope =
+> data Envelope                            =
 >   Envelope {
 >     eDelayT            :: Double
 >   , eAttackT           :: Double
