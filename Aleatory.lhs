@@ -44,9 +44,6 @@ Last modified: 27-September-2022
 >    let (x, g') = random g
 >    in x : randInts g'
 
-> infiniteList = [9..]
-> finiteList = [3,4,77]
-
 > sGen :: StdGen
 > sGen = mkStdGen 259
 

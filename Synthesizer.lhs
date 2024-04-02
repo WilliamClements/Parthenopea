@@ -40,12 +40,12 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL@Reconciled{rSampleMode, rStart, rEnd, rRootKey, rPitchCorrection}, reconR)
+> eutSynthesize (reconL@Reconciled{ .. }, reconR)
 >               sr dur pch vol params s16 ms8
 >   | traceIf trace_eS False               = undefined
 >   | otherwise                            = sig
 >   where
->     noon@NoteOn{noteOnVel, noteOnKey}    = NoteOn vol pch
+>     noon@NoteOn{ .. }                    = NoteOn vol pch
 >
 >     secsSample         :: Double         = fromIntegral (rEnd - rStart) / sr
 >     secsScored         :: Double         = 1 * fromRational dur
@@ -56,7 +56,7 @@ Signal function-based synth ====================================================
 >                                              then secsScored
 >                                              else min secsSample secsScored
 >
->     freqRatio          :: Double         = apToHz (fromIntegral rRootKey) / apToHz noteOnKey
+>     freqRatio          :: Double         = apToHz rRootKey / apToHz noteOnKey
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 rPitchCorrection
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)

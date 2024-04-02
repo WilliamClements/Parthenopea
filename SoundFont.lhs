@@ -150,11 +150,13 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     zFiles             :: Array Word SFFile
 >   , zPreSampleCache    :: PreSampleCache
 >   , zPreInstCache      :: PreInstCache
+>   , zSkMap             :: Map PerGMKey PreSampleKey
 >   , zZoneCache         :: ZoneCache
 >   , zWinningRecord     :: WinningRecord
 >   , zPlayCache         :: Map PlayKey (Reconciled, Maybe Reconciled)}
 >
-> seedRoster vFile                         = SFRoster vFile Map.empty Map.empty Map.empty seedWinningRecord Map.empty
+> seedRoster vFile                         =
+>   SFRoster vFile Map.empty Map.empty Map.empty Map.empty seedWinningRecord Map.empty
 >
 > data SFFile =
 >   SFFile {
@@ -374,6 +376,13 @@ executive ======================================================================
 >         let filteredIP = filter (flavor InstCatPerc zc) pergmsI
 >         (pergmsP', skMap) ← formMasterPercussionList zc preSampleCache filteredIP
 >
+>         CM.when diagnosticsEnabled
+>           (do
+>             print "pergmsI'"
+>             print pergmsI'
+>             print "pergmsP'"
+>             print pergmsP')
+>
 >         tsZoned        ← getCurrentTime
 >         putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsLoaded))
 >
@@ -395,10 +404,12 @@ executive ======================================================================
 >         playCacheI     ← createPlayCache zFiles zc preSampleCache preInstCache skMap pWinningI
 >         playCacheP     ← createPlayCache zFiles zc preSampleCache preInstCache skMap pWinningP
 >
->         let sfrost = preRoster{zPreSampleCache = preSampleCache
->                                , zPreInstCache = preInstCache
->                                , zWinningRecord = ws
->                                , zPlayCache = Map.union playCacheI playCacheP}
+>         let sfrost = preRoster{zPreSampleCache     = preSampleCache
+>                                , zPreInstCache     = preInstCache
+>                                , zSkMap            = skMap
+>                                , zZoneCache        = zc
+>                                , zWinningRecord    = ws
+>                                , zPlayCache        = Map.union playCacheI playCacheP}
 >
 >         tsReconciled   ← getCurrentTime
 >         putStrLn ("___create play cache: " ++ show (diffUTCTime tsReconciled tsDecided'))
@@ -464,7 +475,12 @@ executive ======================================================================
 >   return ((wI', sI), (wP', sP))
 >
 >   where
->     wiFolder wIn pergm                   = if isNothing mk then wIn else wOut
+>     wiFolder           :: (Map InstrumentName [PerGMScored], [String])
+>                           → PerGMKey
+>                           → (Map InstrumentName [PerGMScored], [String])
+>     wiFolder wIn pergm
+>       | traceIf trace_WI False           = undefined
+>       | otherwise                        = if isNothing mk then wIn else wOut
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
 >         bundle@PreBundle{ .. }           = preLookup sffiles zc preInstCache preSampleCache skMap pergm
@@ -474,8 +490,12 @@ executive ======================================================================
 >                                          = bestQualifying (getProMatches iMatches) stands
 >         kind                             = fst (professIsJust mk "bestQualifying returned Nothing")
 >         wOut                             = xaEnterTournament bundle iMatches pergm kind [] wIn
+>
+>         trace_WI                         = unwords ["wiFolder", show pergm]
 >     
->     wpFolder wIn pergm@PerGMKey{ .. }    = if isNothing mkind then wIn else wOut    
+>     wpFolder wIn pergm@PerGMKey{ .. }
+>       | traceIf trace_WP False           = undefined
+>       | otherwise                        = if isNothing mkind then wIn else wOut
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
 >         bundle@PreBundle{ .. }           = preLookup sffiles zc preInstCache preSampleCache skMap pergm
@@ -492,6 +512,8 @@ executive ======================================================================
 >
 >         getAP          :: SFZone → Maybe AbsPitch
 >         getAP zone@SFZone{ .. }          = (Just . fst) =<< zKeyRange
+>
+>         trace_WP                         = unwords ["wpFolder", show pergm]
 >     
 > preLookup              :: Array Word SFFile
 >                           → ZoneCache
@@ -894,7 +916,7 @@ extract data from SoundFont per instrument =====================================
                                             
 prepare the specified instruments and percussion ======================================================================
 
-> formZoneCache          :: Array Word SFFile → PreSampleCache → PreInstCache → Map PerGMKey PreSampleKey  → [PerGMKey] → IO ZoneCache
+> formZoneCache          :: Array Word SFFile → PreSampleCache → PreInstCache → Map PerGMKey PreSampleKey → [PerGMKey] → IO ZoneCache
 > formZoneCache sffiles preSampleCache preInstCache skMap pergms
 >                                          =
 >   return $ foldr (\p → Map.insert p (computePerInst p)) Map.empty pergms
@@ -1088,7 +1110,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Volume
 >                           → [Double]
 >                           → Signal p () (Double, Double)
-> instrumentSF SFRoster{ .. } pergm@PerGMKey{ .. } dur pchIn volIn params
+> instrumentSF rost@SFRoster{ .. } pergm@PerGMKey{ .. } dur pchIn volIn params
 >   | traceAlways trace_ISF False          = undefined
 >   | otherwise                            = eutSynthesize (reconL, reconR) rSampleRate
 >                                              dur pchOut volOut params
@@ -1105,10 +1127,32 @@ define signal functions and instrument maps to support rendering ===============
 >     nameI                                = F.instName $ ssInsts arrays ! pgkwInst
 >     trace_ISF                            = unwords ["instrumentSF",  nameI, show (pchIn, volIn)]
 >
->     (reconX, mreconX)                    = fromMaybe
->                                              (error $ unwords ["Note missing from play cache:", show noon])
->                                              (Map.lookup (PlayKey pergm noon) zPlayCache)
+>     pb                 :: PreBundle      = preLookup zFiles zZoneCache zPreInstCache zPreSampleCache zSkMap pergm
+>
+>     (reconX, mreconX)                    =
+>       if usingPlayCache
+>         then fromMaybe
+>                (error $ unwords ["Note missing from play cache:", show noon])
+>                (Map.lookup (PlayKey pergm noon) zPlayCache)
+>         else computePlayValue pb pergm{pgkwBag = Nothing} noon
 >     (reconL@Reconciled{ .. }, reconR)    = (reconX, fromMaybe reconX mreconX)
+>
+> computePlayValue       :: PreBundle → PerGMKey → NoteOn → PlayValue
+> computePlayValue pb@PreBundle{ .. } pergm@PerGMKey{ .. } noon@NoteOn{ .. }
+>   | traceIf trace_CPV False           = undefined
+>   | otherwise                             =
+>   let
+>     ((zoneL, shdrL), (zoneR, shdrR))
+>                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
+>                                          = setZone pb pergm noon
+>     (reconL, reconR)   :: (Reconciled, Reconciled)
+>                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) noon
+>   in
+>     (reconL, if reconR == reconL
+>                then Nothing
+>                else Just reconR)
+>   where
+>     trace_CPV                            = unwords ["computePlayValue", show pergm]
 
 zone selection for rendering ==========================================================================================
 
@@ -1136,7 +1180,7 @@ zone selection for rendering ===================================================
 >                                              (unwords ["scores should not be null (selectBestZone)"])
 >                                              (minimumBy (comparing fst) scores)
 >
->     trace_SBZ                            = unwords ["selectBestZone=", show (length zs, noon)]
+>     trace_SBZ                            = unwords ["selectBestZone", show (length zs)]
 >
 > selectZonePair         :: [(ZoneHeader, SFZone)]
 >                           → (ZoneHeader, SFZone)
@@ -1315,7 +1359,7 @@ reconcile zone and sample header ===============================================
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
 
-carry out, and "pre-cache" results of, play requests ====================================================================
+"calculate and pre-cache" comprehensive play situations/results =======================================================
 
 > createPlayCache        :: ∀ a. (Ord a) ⇒
 >                           Array Word SFFile
@@ -1326,7 +1370,11 @@ carry out, and "pre-cache" results of, play requests ===========================
 >                           → Map a PerGMScored
 >                           → IO (Map PlayKey (Reconciled, Maybe Reconciled))
 > createPlayCache sffiles zc preSampleCache preInstCache skMap ws
->                                          = return $ Map.foldrWithKey precalcFolder Map.empty ws
+>                                          =
+>   return
+>     $ if usingPlayCache
+>       then Map.foldrWithKey precalcFolder Map.empty ws
+>       else Map.empty
 >   where
 >     precalcFolder      :: a
 >                           → PerGMScored
@@ -1343,18 +1391,9 @@ carry out, and "pre-cache" results of, play requests ===========================
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
 >                           → NoteOn
 >                           → Map PlayKey (Reconciled, Maybe Reconciled)
->     playFolder pergm ps noon             = Map.insert (PlayKey pergm noon) playValue ps
+>     playFolder pergm ps noon             = Map.insert (PlayKey pergm noon) (computePlayValue pb pergm{pgkwBag = Nothing} noon) ps
 >       where
->         pb@PreBundle{ .. }               = preLookup sffiles zc preInstCache preSampleCache skMap pergm
->         ((zoneL, shdrL), (zoneR, shdrR))
->                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
->                                          = setZone pb pergm noon
->         (reconL, reconR)
->                        :: (Reconciled, Reconciled)
->                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) noon
->         playValue                        = (reconL, if reconR == reconL
->                                                       then Nothing
->                                                       else Just reconR)
+>         pb                               = preLookup sffiles zc preInstCache preSampleCache skMap pergm
 
 emit standard output text detailing what choices we made for rendering GM items =======================================
 

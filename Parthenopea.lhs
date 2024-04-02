@@ -1,5 +1,3 @@
-> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
-> {-# HLINT ignore "Use head" #-}
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE EmptyDataDecls #-}
 > {-# LANGUAGE FlexibleInstances #-}
@@ -1266,17 +1264,15 @@ Returns the frequency
 
 > fromAbsoluteCents      :: Int → Double
 > fromAbsoluteCents acents                 = 8.176 * fromCents (fromIntegral acents)
->
 
 Test runner
 
 > runTests               :: [IO Bool] → IO ()
 > runTests tests                           = do
 >   results                                ← sequence tests
->   print $ unwords ["results =",     show results]
+>   print $ unwords ["results =", show results]
 >   let nSuccesses = foldl' (\n t → n + if t then 1 else 0) 0 results
 >   print $ unwords ["  ", show nSuccesses, "/", show $ length results]
->
 
 Mapping is used in SoundFont modulator
 
@@ -1419,6 +1415,7 @@ Configurable parameters ========================================================
 > skipReporting                            = qqSkipReporting              defC 
 > skipGlissandi                            = qqSkipGlissandi              defC
 > replacePerCent                           = qqReplacePerCent             defC
+> usingPlayCache                           = qqUsingPlayCache             defC
 >
 > data ControlSettings =
 >   ControlSettings {
@@ -1426,9 +1423,9 @@ Configurable parameters ========================================================
 >   , qqSkipReporting                      :: Bool
 >   , qqSkipGlissandi                      :: Bool
 >   , qqReplacePerCent                     :: Double
+>   , qqUsingPlayCache                     :: Bool
 >   , qqDumpFftChunks                      :: Bool
 >   , qqNumTakeFftChunks                   :: Int} deriving (Eq, Show)
->
 
 Edit the following ====================================================================================================
 
@@ -1439,6 +1436,7 @@ Edit the following =============================================================
 >   , qqSkipReporting                      = False
 >   , qqSkipGlissandi                      = False
 >   , qqReplacePerCent                     = 0
+>   , qqUsingPlayCache                     = False
 >   , qqDumpFftChunks                      = False
 >   , qqNumTakeFftChunks                   = 3}
 
