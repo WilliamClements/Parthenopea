@@ -1,4 +1,5 @@
 > {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
@@ -32,12 +33,18 @@ Modulator management ===========================================================
 > resolveMods            :: Modulation → [Modulator] → [Modulator] → Modulation
 > resolveMods m8n m8rs dm8rs               = m8n{modGraph = compileMods checked}
 >   where
->     sifted                               = siftMods (dm8rs ++ m8rs)
+>     sifted                               = renumberMods $ siftMods $ groomMods (dm8rs ++ m8rs)
 >     checked                              = profess
 >                                              (freeOfCycles sifted)
 >                                              "cycles in modulator graph"
 >                                              sifted
 >         
+> groomMods              :: [Modulator] → [Modulator]
+> groomMods m8rs                           = Map.elems uniqued
+>   where
+>     uniqued                              = foldl' ufolder Map.empty m8rs
+>     ufolder accum m8r@Modulator{ .. }    = Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r accum
+>
 > freeOfCycles           :: [Modulator] → Bool
 > freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
 >   where
@@ -80,21 +87,13 @@ Modulator management ===========================================================
 >                                              filter shouldStay ssCurrent
 >
 >     byModDestType                        = compileMods ssCurrent
->     superceders                          = foldl' supercfr Map.empty ssCurrent
->     supercfr accum m8r                   =
->       let
->         (newK, newW)                     = superceder m8r
->       in
->         Map.insert newK newW accum
 >
->     shouldStay m8r                       = linkageInOk && linkageOutOk && not superceded
+>     shouldStay m8r                       = linkageInOk && linkageOutOk
 >       where
 >         linkageInOk                      =
 >           FromLinked /= m8rSource || maybe False (not . null) (Map.lookup (ToLink m8rId) byModDestType)
 >         linkageOutOk                     =
 >           maybe True (\w -> (isJust . find (\m → mrModId m == w)) ssCurrent) (outGoing m8rDest)
->         superceded                       =
->           maybe False (m8rId /=) (Map.lookup (fst (superceder m8r)) superceders)
 >         
 >         m8rId                            = mrModId m8r
 >         m8rSource                        = msSource (mrModSrc m8r)
@@ -115,6 +114,20 @@ Modulator management ===========================================================
 >         soFar                            = fromMaybe [] (Map.lookup mrModDest accum)
 >       in
 >         Map.insert mrModDest (m8r : soFar) accum
+>
+> renumberMods           :: [Modulator] → [Modulator]
+> renumberMods m8rs                        = map renumber m8rs
+>   where
+>     subs               :: [(Word, Word)]
+>     subs                                 = zipWith (\i m → (mrModId m, i)) [0..] m8rs
+>     renumber           :: Modulator → Modulator
+>     renumber m8r@Modulator{ .. }         =
+>       let
+>         upd mid                          = fromJust $ lookup mid subs
+>       in
+>         m8r{  mrModId                    = upd mrModId
+>             , mrModDest                  = (\case (ToLink m)         → (ToLink $ upd m);
+>                                                   o                  → o) mrModDest}
 >
 > unpackModSrc           :: Word → Maybe ModSrc
 > unpackModSrc wIn
@@ -648,9 +661,6 @@ Type declarations ==============================================================
 >     krSrc              :: ModSrc
 >   , krDest             :: ModDestType
 >   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
->
-> superceder            :: Modulator → (ModKey, Word)
-> superceder Modulator{ .. }               = (ModKey mrModSrc mrModDest mrAmountSrc, mrModId)
 >
 > data ModDestType                         =
 >     NoDestination

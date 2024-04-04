@@ -12,7 +12,7 @@ Last modified: 27-September-2022
 > import Control.Concurrent ( ThreadId, threadDelay, forkIO )
 > import Control.Concurrent.STM.TChan ( newTChan, readTChan, writeTChan, TChan )
 > import Control.Monad ( replicateM )
-> import Data.List ( unfoldr, elemIndex, sortBy, insertBy )
+> import Data.List ( unfoldr, elemIndex, insertBy )
 > import Euterpea.Music
 > import Euterpea.IO.MIDI ( play )
 > import GHC.Conc ( ThreadId, threadDelay, forkIO, atomically )

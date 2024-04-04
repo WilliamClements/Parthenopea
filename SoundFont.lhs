@@ -939,7 +939,8 @@ prepare the specified instruments and percussion ===============================
 >                                              (singleton ibagi, makeRange (ibagi+1) jbagi)
 >
 >         gList                            = map (buildZone defZone)               gIx
->         oList                            = map (buildZone ((snd . head) gList))  oIx
+>         gZone                            = (snd . head)                          gList
+>         oList                            = map (buildZone gZone)                 oIx
 >
 >         buildZone      :: SFZone → Word → (ZoneHeader, SFZone)
 >         buildZone fromZone bagIndex
@@ -1081,7 +1082,7 @@ define signal functions and instrument maps to support rendering ===============
 >                                          = (kind, assignInstrument pPerGMKey)                    : accum
 >
 >     pmapFolder kind PerGMScored{ .. } accum
->                                          = (kind, (pgkwFile pPerGMKey, pgkwInst pPerGMKey))        : accum
+>                                          = (kind, (pgkwFile pPerGMKey, pgkwInst pPerGMKey))      : accum
 >
 >     assignInstrument   :: ∀ p . Clock p ⇒ PerGMKey → Instr (Stereo p)
 >     assignInstrument pergm dur pch vol params
@@ -1095,10 +1096,10 @@ define signal functions and instrument maps to support rendering ===============
 >                                          = assignInstrument pergm dur pch vol params
 >       where
 >         pergm                            = PerGMKey wF wI Nothing
->         (wF, wI) = case lookup kind pmap of
->                    Nothing   → error (   "Percussion does not have "
->                                          ++ show kind ++ " in the supplied pmap.")
->                    Just x    → x
+>         (wF, wI)                         =
+>           case lookup kind pmap of
+>             Nothing    → error ("Percussion does not have " ++ show kind ++ " in the supplied pmap.")
+>             Just x     → x
 >         kind           :: PercussionSound
 >                                          = toEnum (pch - 35)
 >
@@ -1111,7 +1112,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF rost@SFRoster{ .. } pergm@PerGMKey{ .. } dur pchIn volIn params
->   | traceAlways trace_ISF False          = undefined
+>   | traceIf trace_ISF False              = undefined
 >   | otherwise                            = eutSynthesize (reconL, reconR) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
@@ -1190,7 +1191,7 @@ zone selection for rendering ===================================================
 >    | stype == SampleTypeRight            = (ozone, zone)
 >    | otherwise                           = (zone, zone)
 >    where
->      F.Shdr{F.sampleType, F.sampleLink}  = (zhShdr . fst) zone
+>      F.Shdr{ .. }                        = (zhShdr . fst) zone
 >      stype                               = toSampleType sampleType
 >      ozone                               = fromMaybe zone $ find (withSlink sampleLink) zs
 >

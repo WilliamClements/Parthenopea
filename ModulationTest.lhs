@@ -67,7 +67,8 @@ struct sfInstModList
 >                                         ,   positiveEvaluationsIncrease
 >                                         ,   negativeEvaluationsDecrease
 >                                         ,   supercededModulatorWillBeEliminated
->                                         ,   unsupercededModulatorWillNotBeEliminated]
+>                                         ,   unsupercededModulatorWillNotBeEliminated
+>                                         ,   canonicalOrderingWorks]
 >
 > runModulationTests                       = runTests modulationTests
 >
@@ -185,6 +186,31 @@ struct sfInstModList
 >                                           , mrModDest = ToFilterFc}
 >   count                                  ← countSurvivingMods [m8r0, m8r1]
 >   return $ aEqual count 2
+>
+> canonicalOrderingWorks                   = do
+>   let m8r00                              = defModulator{
+>                                             mrModId = 101
+>                                           , mrModSrc = defModSrc{msSource = FromNoteOnKey}
+>                                           , mrModAmount = 0.75                                           
+>                                           , mrModDest = ToFilterFc}
+>   let m8r01                              = defModulator{
+>                                             mrModId = 102
+>                                           , mrModSrc = defModSrc{msSource = FromNoteOnVel}
+>                                           , mrModAmount = 0.75
+>                                           , mrModDest = ToFilterFc}
+>   let m8r10                              = defModulator{
+>                                             mrModId = 103
+>                                           , mrModSrc = defModSrc{msSource = FromNoteOnVel}
+>                                           , mrModAmount = 0.75                                           
+>                                           , mrModDest = ToFilterFc}
+>   let m8r11                              = defModulator{
+>                                             mrModId = 104
+>                                           , mrModSrc = defModSrc{msSource = FromNoteOnKey}
+>                                           , mrModAmount = 0.75
+>                                           , mrModDest = ToFilterFc}
+>   let m8n0                               = resolveMods defModulation [m8r00, m8r01] []
+>   let m8n1                               = resolveMods defModulation [m8r10, m8r11] []
+>   return $ aEqual m8n0 m8n1
 >
 > table2vals             :: Double → [Double] → [(Double, Double, Double, Double)]
 > table2vals scalix                        = zipWith convFun [0..]
