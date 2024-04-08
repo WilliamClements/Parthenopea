@@ -213,10 +213,16 @@ which makes for a cleaner sound on some synthesizers:
 >
 >       offsets2intervals :: AbsPitch → [AbsPitch] → [AbsPitch]
 >       offsets2intervals apDelta os
->         | apDelta == (os!!0) = ((os!!1) - (os!!0)) : [(os!!2) - (os!!0)]
->         | apDelta == (os!!1) = ((os!!2) - (os!!1)) : [(os!!3) - (os!!1)]
->         | apDelta == (os!!2) = ((os!!3) - (os!!2)) : [(os!!4) - (os!!2)]
+>         | apDelta == a                   = (b - a) : [c - a]
+>         | apDelta == b                   = (c - b) : [d - b]
+>         | apDelta == c                   = (d - c) : [e - c]
 >         | otherwise          = error "Malformed Triad"
+>         where
+>           a                              = head os
+>           b                              = os!!1
+>           c                              = os!!2
+>           d                              = os!!3
+>           e                              = os!!4
 
 "ascent/descent" ======================================================================================================
 
@@ -379,21 +385,21 @@ also
 > nonPitchedInstrument   :: InstrumentName → Bool
 > nonPitchedInstrument kind                =
 >   case kind of
->     Agogo                                  → True
->     Applause                               → True
->     BirdTweet                              → True
->     BreathNoise                            → True
->     Gunshot                                → True
->     Helicopter                             → True
->     Percussion                             → True
->     ReverseCymbal                          → True
->     Seashore                               → True
->     SynthDrum                              → True
->     TaikoDrum                              → True
->     TelephoneRing                          → True
->     Timpani                                → True
->     Woodblock                              → True
->     _                                      → False
+>     Agogo                                → True
+>     Applause                             → True
+>     BirdTweet                            → True
+>     BreathNoise                          → True
+>     Gunshot                              → True
+>     Helicopter                           → True
+>     Percussion                           → True
+>     ReverseCymbal                        → True
+>     Seashore                             → True
+>     SynthDrum                            → True
+>     TaikoDrum                            → True
+>     TelephoneRing                        → True
+>     Timpani                              → True
+>     Woodblock                            → True
+>     _                                    → False
 >
 > findBetterInstrument   :: InstrumentName → (AbsPitch, AbsPitch) → InstrumentName
 > findBetterInstrument than (playedLo, playedHi)
