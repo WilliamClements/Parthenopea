@@ -17,7 +17,7 @@
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
-> import Debug.Trace ( traceIO )
+> import Debug.Trace ( traceIO, trace )
 > import Euterpea ( (<<<), (>>>) )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
@@ -285,7 +285,7 @@ Modulator management ===========================================================
 >                                                     , show (fromCents (xmodEnv+xmodLfo+xvibLfo+xmods))]
 >
 > addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
-> addResonance noon m8n@Modulation{ .. }   = if useResonanceType /= ResonanceNone
+> addResonance noon m8n@Modulation{ .. }   = if lowPassType /= ResonanceNone
 >                                              then makeSF
 >                                              else delay'
 >   where
@@ -333,27 +333,33 @@ Modulator management ===========================================================
 >             , "\nsOut"           , show y']
 >
 > procFilter             :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
-> procFilter m8n@Modulation{ .. }               =
->   case lowPassType mLowPass of
+> procFilter m8n@Modulation{ .. }          =
+>   let
+>     tracer str x =
+>       if diagnosticsEnabled
+>         then trace (unwords [str, show x]) x
+>         else x
+>   in case lowPassType mLowPass of
 >     ResonanceNone                        → error $ unwords ["procFilter"
 >                                                           , "should not reach makeSF if ResonanceNone"]
->     ResonanceLowpass                     → procLowpass m8n
->     ResonanceBandpass                    → procBandpass m8n
->     ResonanceSVF                         → procSVF m8n
+>     ResonanceLowpass                     → procLowpass m8n tracer
+>     ResonanceBandpass                    → procBandpass m8n tracer
+>     ResonanceSVF                         → procSVF m8n tracer
+>     ResonanceLambda2nd                   → procIIRBiquad m8n tracer
 >
-> procLowpass            :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
-> procLowpass Modulation{ .. }             =
+> procLowpass            :: ∀ p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
+> procLowpass _ tracer                           =
 >   proc (x, fc) → do
 >     y ← filterLowPassBW                  ⤙ (x, fc)
->     outA                                 ⤙ y
+>     outA                                 ⤙ tracer "lp" y
 >
-> procBandpass           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
-> procBandpass Modulation{ .. }            =
+> procBandpass           :: ∀ p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
+> procBandpass Modulation{ .. } tracer     =
 >   proc (x, fc) → do
 >     y1 ← filterLowPassBW                 ⤙ (x, fc)
 >     y2 ← filterBandPass 2                ⤙ (x, fc, lowPassQ / 3)
 >     let y'                               = traceBandpass y1 y2
->     outA                                 ⤙ y'
+>     outA                                 ⤙ tracer "bp" y'
 >   where
 >     LowPass{ .. }                        = mLowPass
 >     lowpassWeight                        = 0.50
@@ -470,26 +476,88 @@ when i is two,  k is 5, 2*pi*f0*k is 94.2
 
 see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
 
-> procSVF                :: ∀ p . Clock p ⇒ Modulation → Signal p (Double,Double) Double
-> procSVF Modulation {..}
->   | traceNow trace_PSVF False            = undefined
+> procSVF                :: ∀ p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double,Double) Double
+> procSVF Modulation{..} tracer
+>   | traceIf trace_PSVF False             = undefined
 >   | otherwise                            =
 >     proc (sig, fc) → do
->       let f1                             = 2 * sin (pi * fc / sr)
+>       let f1                             = 2 * sin (theta fc)
 >       rec
 >         let yL'                          = f1 * yB + yL
->         let yH'                          = sig - yL' - qSVF * yB
+>         let qSVF                         = tracer "qSVF" $ chi fc
+>         let yH'                          = (sig + sig_) / 2 - yL' - qSVF * yB
 >         let yB'                          = f1 * yH' + yB
 >
->         yL ← delay 0                     ⤙ yL'
->         yB ← delay 0                     ⤙ yB'
+>         sig_ ← delay 0                   ⤙ sig
+>         yL ← delay 0                     ⤙ {- tracer "yL'" -} yL'
+>         yB ← delay 0                     ⤙ {- tracer "yB'" -} yB'
 >       outA                               ⤙ yL'
 >   where
->     sr                                   = rate (undefined :: p)
+>     theta x                              = pi * x / rate (undefined :: p)
+>     omega x                              = pow 2.7182818284590452353602874713527 ((x - 15000) / 10000)
+>     chi x                                = 2 / (1 + fromCentibels' lowPassQ + omega x)
 >     LowPass{ .. }                        = mLowPass
->     qSVF                                 = max 0.1 (2/fromCentibels' lowPassQ)
 >
->     trace_PSVF                           = unwords ["procSVF initQ = ", show lowPassQ, show qSVF]
+>     trace_PSVF                           = unwords ["procSVF initQ = ", show lowPassQ]
+>
+> procIIRBiquad          :: ∀ p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
+> procIIRBiquad Modulation{ .. } tracer
+>   | traceNot trace_PL False              = undefined
+>   | otherwise                            =
+>   let
+>     LowPass { .. }                       = mLowPass
+>     IIRParams { .. }                     = lowpassIIR
+>     feedback'                            = tailCList feedback
+>   in proc (xnew, fc) → do
+>     rec
+>       y_3              ← delay 0         ⤙ y_2
+>       y_2              ← delay 0         ⤙ y_1
+>       y_1              ← delay 0         ⤙ currentValue
+>
+>       x_2              ← delay 0         ⤙ x_1
+>       x_1              ← delay 0         ⤙ xnew
+>
+>       let source                         = fromCList [xnew, x_1, x_2]
+>       let dest                           = fromCList [y_1, y_2, y_3]
+>
+>       let currentValue                   = stepEval source dest feedforward feedback'
+>     outA                                 ⤙ tracer "lp" currentValue
+>   where
+>     trace_PL                             = unwords ["reached procIIRBiquad", show mLowPass]
+>
+> procLambda3rd          :: ∀ p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
+> procLambda3rd Modulation{ .. } tracer
+>   | traceNot trace_PL False              = undefined
+>   | otherwise                            =
+>   let
+>     LowPass { .. }                       = mLowPass
+>     IIRParams { .. }                     = lowpassIIR
+>     feedback'                            = tailCList feedback
+>   in proc (xnew, fc) → do
+>     rec
+>       y_4              ← delay 0         ⤙ y_3
+>       y_3              ← delay 0         ⤙ y_2
+>       y_2              ← delay 0         ⤙ y_1
+>       y_1              ← delay 0         ⤙ currentValue
+>
+>       x_3              ← delay 0         ⤙ x_2
+>       x_2              ← delay 0         ⤙ x_1
+>       x_1              ← delay 0         ⤙ xnew
+>
+>       let source                         = fromCList [xnew, x_1, x_2, x_3]
+>       let dest                           = fromCList [y_1, y_2, y_3, y_4]
+>
+>       let currentValue                   = stepEval source dest feedforward feedback'
+>     outA                                 ⤙ tracer "lp" currentValue
+>   where
+>     trace_PL                             = unwords ["reached procLambda3rd", show mLowPass]
+>
+> dumpLambda             :: String → Array Int Double → Bool
+> dumpLambda tag lambda
+>   | traceNow trace_DL False       = undefined
+>   | otherwise                     = True
+>   where
+>     trace_DL                      = unwords ["dumpLambda", tag, show lambda]
 
 Controller Curves =====================================================================================================
 
@@ -586,7 +654,8 @@ Type declarations ==============================================================
 >   LowPass {
 >     lowPassType        :: ResonanceType
 >   , lowPassFc          :: Double
->   , lowPassQ           :: Double} deriving (Eq, Show)
+>   , lowPassQ           :: Double
+>   , lowpassIIR         :: IIRParams} deriving (Eq, Show)
 >
 > data ModSignals                          =
 >   ModSignals {
@@ -622,7 +691,8 @@ Type declarations ==============================================================
 >   ResonanceNone 
 >   | ResonanceLowpass
 >   | ResonanceBandpass
->   | ResonanceSVF deriving (Eq, Show, Enum)
+>   | ResonanceSVF
+>   | ResonanceLambda2nd deriving (Eq, Show, Enum)
 >
 > data LFO                                 =
 >   LFO {
@@ -642,7 +712,7 @@ Type declarations ==============================================================
 >   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
 > defModulation                            = Modulation
->                                              (LowPass useResonanceType 0 0) Nothing Nothing Nothing
+>                                              (LowPass ResonanceNone 0 0 defIIRParams) Nothing Nothing Nothing
 >                                              defModCoefficients defModCoefficients defModCoefficients
 >                                              Map.empty
 >
@@ -701,7 +771,8 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent :: Double
 >   , qqReverbAllPerCent :: Double
 >   , qqUseDefaultMods   :: Bool
->   , qqUseResonanceType :: ResonanceType
+>   , qqLoFreqResonance  :: ResonanceType
+>   , qqHiFreqResonance  :: ResonanceType
 >   , qqUseLFO           :: Bool
 >   , qqChorusRate       :: Double
 >   , qqChorusDepth      :: Double} deriving Show
@@ -710,7 +781,8 @@ Type declarations ==============================================================
 > chorusAllPercent                         = qqChorusAllPerCent           defM
 > reverbAllPercent                         = qqReverbAllPerCent           defM
 > useDefaultMods                           = qqUseDefaultMods             defM
-> useResonanceType                         = qqUseResonanceType           defM
+> loFreqResonance                          = qqLoFreqResonance            defM
+> hiFreqResonance                          = qqHiFreqResonance            defM
 > useLFO                                   = qqUseLFO                     defM
 > chorusRate                               = qqChorusRate                 defM
 > chorusDepth                              = qqChorusDepth                defM
@@ -722,7 +794,8 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
->   , qqUseResonanceType                   = ResonanceBandpass -- ResonanceLowpass -- ResonanceNone
+>   , qqLoFreqResonance                    = ResonanceSVF      -- ResonanceBandpass -- ResonanceLowpass -- ResonanceNone
+>   , qqHiFreqResonance                    = ResonanceBandpass -- ResonanceLowpass -- ResonanceNone
 >   , qqUseLFO                             = True
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
 >   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)

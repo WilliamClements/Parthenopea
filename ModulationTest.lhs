@@ -2,13 +2,17 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE BangPatterns #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
 > module ModulationTest where
 >
+> import Chart
 > import Control.Exception
 > import Control.Monad
+> import Data.Colour
+> import Data.Colour.Names
 > import Data.Either
 > import Data.List ( foldl', sort, nub, sortOn )
 > import Data.Map ( Map )
@@ -230,23 +234,116 @@ Feed chart =====================================================================
 > allFilterTypes         :: [ResonanceType]
 > allFilterTypes                           = map toEnum [fromEnum ResonanceLowpass .. fromEnum ResonanceSVF]
 >
-> benchFilters            :: IO ()
-> benchFilters                              = do
->   mapM_ benchFilter allFilterTypes
->   where
->     qRange                               = (0, 960)
->     qChunk                               = 240
->     allQms             :: [Double]       = map (\i → fromIntegral i * qChunk) [0..]
->     allQ                                 = takeWhile (\q → q <= snd qRange) allQms
->     initFc                               = 20
+> nKews                  :: Int            = 3
+> kews                   :: [Int]          = breakUp (0, 960) 0 nKews
+> nCutoffs               :: Int            = 3
+> cutoffs                :: [Int]          = breakUp (100, 200) 2.7182818284590452353602874713527 nCutoffs
+> nFreaks                :: Int            = 92
+> freaks                 :: [Int]          = breakUp (20, 20000) 2.7182818284590452353602874713527 nFreaks
 >
->     benchFilter rType                    = do
->       mapM_ doBench allQ
+> colors                 :: [AlphaColour Double]
+>                                          =
+>   cycle
+>     [  opaque blue
+>     ,  opaque orange
+>     ,  opaque green
+>     ,  opaque red
+>     ,  opaque purple]
+>
+> bench                  :: IO ()
+> bench                                    =
+>   benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
+>
+> measureResponse        :: BenchSpec → [(Double, Double)]
+> measureResponse BenchSpec{ .. }
+>   | traceNow trace_MR False              = undefined
+>   | otherwise                            = points
+>   where
+>     sirate            :: Double          = 44100
+>     sidur             :: Double          = 0.15
+>     siperiod                             = 1/sirate
+>     sinsamples                           = round (sidur / siperiod)
+>
+>     si                                   = SamplingInfo siperiod sirate sinsamples
+>     iir                :: IIRParams      = calcIIRParams si bench_fc bench_q 
+>     lp                                   = LowPass bench_rt bench_fc bench_q iir
+>     points                               = map doFk bench_fks
+>     m8n                                  = defModulation{mLowPass = lp}
+>
+>     doFk               :: Double → (Double, Double)
+>     doFk fk                              = (fk, maxSample sidur sf)
 >       where
->         doBench initQ                    = do
->           let path                       = "test_" ++ show rType ++ show initQ ++ ".wav"
->           let m8n                        = defModulation{mLowPass = LowPass rType initFc initQ}
->           outFile path 10 $ sfTest1 (procFilter m8n) 10 (absPitch (C,6)) 64 []
+>         sf                               = createFilterTest bench_fc fk (procFilter m8n)
+>
+>     trace_MR                             = unwords ["measureResponse", show si]
+> 
+> benchFilters           :: (BenchSpec → [(Double, Double)]) → [ResonanceType] → [Int] → [Int] → [Int] → IO ()
+> benchFilters fun rts fcs qs fks       = doFilters fun bRanges
+>   where
+>     bRanges                              = 
+>       BenchRanges
+>         rts
+>         (map fromIntegral fcs) 
+>         (map fromIntegral qs)
+>         (map fromIntegral fks)
+>
+> doFilters              :: (BenchSpec → [(Double, Double)]) → BenchRanges → IO ()
+> doFilters fun BenchRanges{ .. }          = mapM_ doRt ranges_rts
+>   where
+>     doRt               :: ResonanceType → IO ()
+>     doRt currentRt                       =
+>       if varyFc
+>         then mapM_ doQ ranges_qs
+>         else mapM_ doFc ranges_fcs
+>       where
+>         doFc           :: Double → IO ()
+>         doFc currentFc                   = do
+>           putStrLn $ unwords ["doFc", show currentFc]
+>           doQs ranges_qs
+>           where
+>             doQs       :: [Double] → IO ()
+>             doQs qs                      = do
+>               putStrLn $ unwords ["doQs", show qs]
+>               let sects                  = zipWith Section colors (map calc qs)
+>               chartPoints (concat [show currentRt, "_fc", show currentFc]) sects
+>               where
+>                 calc   :: Double → [(Double, Double)]
+>                 calc currentQ            = fun bs
+>                   where
+>                     bs                   = BenchSpec currentRt 0.15 currentFc currentQ ranges_fks
+>
+>         doQ           :: Double → IO ()
+>         doQ currentQ                     = do
+>           putStrLn $ unwords ["doQ", show currentQ]
+>           doFcs ranges_fcs
+>           where
+>             doFcs     :: [Double] → IO ()
+>             doFcs fcs                    = do
+>               putStrLn $ unwords ["doFcs", show fcs]
+>               let sects                  = zipWith Section colors (map calc fcs)
+>               chartPoints (concat [show currentRt, "_q", show currentQ]) sects
+>               where
+>                 calc   :: Double → [(Double, Double)]
+>                 calc currentFc           = fun bs
+>                   where
+>                     bs                   = BenchSpec currentRt 0.15 currentFc currentQ ranges_fks
+>
+> data BenchRanges                         =
+>   BenchRanges {
+>       ranges_rts       :: [ResonanceType]
+>     , ranges_fcs       :: [Double]
+>     , ranges_qs        :: [Double]
+>     , ranges_fks       :: [Double]} deriving Show
+>
+> data BenchSpec                           =
+>   BenchSpec {
+>       bench_rt         :: ResonanceType
+>     , bench_dur        :: Double
+>     , bench_fc         :: Double
+>     , bench_q          :: Double
+>     , bench_fks        :: [Double]} deriving Show
+>
+> varyFc                                   = False
 
 nice simple range for initQ    0..960
 

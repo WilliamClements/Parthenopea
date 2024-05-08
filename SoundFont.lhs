@@ -479,7 +479,7 @@ executive ======================================================================
 >                           → PerGMKey
 >                           → (Map InstrumentName [PerGMScored], [String])
 >     wiFolder wIn pergm
->       | traceIf trace_WI False           = undefined
+>       | traceNot trace_WI False          = undefined
 >       | otherwise                        = if isNothing mk then wIn else wOut
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
@@ -494,7 +494,7 @@ executive ======================================================================
 >         trace_WI                         = unwords ["wiFolder", show pergm]
 >     
 >     wpFolder wIn pergm@PerGMKey{ .. }
->       | traceIf trace_WP False           = undefined
+>       | traceNot trace_WP False          = undefined
 >       | otherwise                        = if isNothing mkind then wIn else wOut
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
@@ -1276,14 +1276,21 @@ reconcile zone and sample header ===============================================
 > reconcile zone@SFZone{ .. } F.Shdr{ .. } noon@NoteOn{ .. }
 >                                          = recon
 >   where
->     m8n                                  = reconModulation zone noon
+>     xSampleRate      = fromIntegral          sampleRate
+>     xStart           = addIntToWord          start                  (sumOfMaybeInts
+>                                                                        [zStartOffs, zStartCoarseOffs])
+>     xEnd             = addIntToWord          end                    (sumOfMaybeInts
+>                                                                        [zEndOffs, zEndCoarseOffs])
+>     sinsamples        :: Int             = fromIntegral $ xEnd - xStart
+>     siperiod                             = 1 / 44100 -- WOX xSampleRate
+>     si                                   = SamplingInfo siperiod 44100 sinsamples
+>
+>     m8n                                  = reconModulation zone si noon
 >     recon = Reconciled {
 >     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
->   , rSampleRate      = fromIntegral          sampleRate
->   , rStart           = addIntToWord          start                  (sumOfMaybeInts
->                                                                        [zStartOffs, zStartCoarseOffs])
->   , rEnd             = addIntToWord          end                    (sumOfMaybeInts
->                                                                        [zEndOffs, zEndCoarseOffs])
+>   , rSampleRate      = xSampleRate
+>   , rStart           = xStart
+>   , rEnd             = xEnd
 >   , rLoopStart       = addIntToWord          startLoop              (sumOfMaybeInts
 >                                                                        [zLoopStartOffs, zLoopStartCoarseOffs])
 >   , rLoopEnd         = addIntToWord          endLoop                (sumOfMaybeInts
@@ -1324,13 +1331,14 @@ reconcile zone and sample header ===============================================
 >                                              then maybe 0 fromIntegral zInitAtten
 >                                              else 0.0
 >
-> reconModulation        :: SFZone → NoteOn → Modulation
-> reconModulation SFZone{ .. } noon
+> reconModulation        :: SFZone → SamplingInfo → NoteOn → Modulation
+> reconModulation SFZone{ .. } si@SamplingInfo{ .. } noon
 >                                          = resolveMods m8n zModulators defaultMods
 >   where
+>     si'                                  = tracer "si" si
 >     m8n                :: Modulation     =
 >       defModulation{
->         mLowPass                         = LowPass useResonanceType initFc initQ
+>         mLowPass                         = constructLowPass
 >       , mModEnv                          = nModEnv
 >       , mModLfo                          = nModLfo
 >       , mVibLfo                          = nVibLfo
@@ -1338,8 +1346,18 @@ reconcile zone and sample header ===============================================
 >       , toFilterFcCo                     = summarize ToFilterFc
 >       , toVolumeCo                       = summarize ToVolume}
 >
->     initFc             :: Double         = fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
->     initQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ
+>     constructLowPass   :: LowPass
+>     constructLowPass                     =
+>       let
+>         iir            :: IIRParams      = calcIIRParams si' initFc initQ
+>       in
+>         LowPass theResonanceType initFc initQ iir
+>         
+>     initFc             :: Double         = tracer "initFc" $ fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
+>     initQ              :: Double         = tracer "initQ" $ maybe 0 (fromIntegral . clip (0, 960)) zInitQ
+>     theResonanceType   :: ResonanceType  = if initFc < 10000
+>                                              then loFreqResonance
+>                                              else hiFreqResonance
 >
 >     nModEnv            :: Maybe Envelope = deriveEnvelope
 >                                              zDelayModEnv

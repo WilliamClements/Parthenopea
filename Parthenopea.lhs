@@ -22,6 +22,7 @@ December 12, 2022
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
+> import Data.Complex
 > import Data.Either
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
@@ -38,7 +39,7 @@ December 12, 2022
 > import Data.Word
 > import Debug.Trace ( trace )
 > import Euterpea.IO.Audio.Basics ( outA )
-> import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg, Table, tableSinesN )
+> import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg, Table, tableSinesN, osc )
 > import Euterpea.IO.Audio.IO
 > import Euterpea.IO.Audio.Render
 > import Euterpea.IO.Audio.Types
@@ -50,6 +51,7 @@ December 12, 2022
 > import Euterpea.IO.MIDI.ToMidi2 (writeMidi2)
 > import Euterpea.Music
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay) )
+> import HSoM.Examples.Additive ( sineTable, sfTest1 )
 > import HSoM.Performance ( metro, Context (cDur) )
 > import System.Random ( Random(randomR), StdGen )
 > import qualified Text.FuzzyFind          as FF
@@ -1048,9 +1050,16 @@ Sampling =======================================================================
 
 > type SampleAnalysis    = Double
 >
+> createFilterTest       :: Double → Double → AudSF (Double,Double) Double → AudSF () Double
+> createFilterTest fc freq filtersf        =
+>   proc () → do
+>     a1 ← osc sineTable 0 ⤙ freq
+>     a2 ← filtersf ⤙ (a1, fc)
+>     outA ⤙ a2 * 100 / 128
+>
 > toSamples              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [Double]
 > toSamples dur sf
->   | traceIf trace_TS False               = undefined
+>   | traceNot trace_TS False              = undefined
 >   | otherwise                            = take numSamples $ concatMap collapse $ unfold $ strip sf
 >   where
 >     sr                                   = rate     (undefined :: p)
@@ -1322,9 +1331,124 @@ Returns sample point as (normalized) Double
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
 
+IIR ===================================================================================================================
+
+> stepEval               :: Array Int Double → Array Int Double → Array Int Double → Array Int Double → Double
+> stepEval src dst forwd back              =
+>   let
+>     currentCo          :: Double         = defaultCList 1 back 0
+>
+>     sourceValues                         = fromCList $ zipWith (*) (elems src) (elems forwd)
+>     recursiveValues                      = fromCList $ zipWith (*) (elems dst) (elems back)
+>   in
+>     (sum sourceValues - sum recursiveValues) / currentCo
+>       
+> data IIRParams                           =
+>   IIRParams { 
+>      feedforward       :: Array Int Double
+>    , feedback          :: Array Int Double} deriving (Show, Eq)
+>
+> defIIRParams                             =
+>   IIRParams (listArray (0,0) []) (listArray (0,0) [])
+>
+> data SamplingInfo                        =
+>   SamplingInfo {
+>     period             :: !Double
+>   , sampleRate         :: Double
+>   , nsamples           :: Int}  deriving (Show, Eq)
+>
+> imap                   :: (Int → e → a) → Array Int e → Array Int a
+> imap fun vecte                           = fromCList $ map (uncurry fun) $ assocs vecte
+>
+> fromCList              :: [a] → Array Int a
+> fromCList ash                            =
+>   let
+>     bnd                :: Int            = length ash - 1
+>     bsh                :: (Int, Int)     = (0, fromIntegral bnd)
+>   in
+>     listArray bsh ash
+>
+> tailCList              :: Array Int a → Array Int a
+> tailCList v                              = fromCList $ tail $ elems v
+>
+> defaultCList           :: forall ix a. (Ix ix) ⇒ ix → Array ix a → ix → a
+> defaultCList defIx clist input           = clist ! resolved
+>   where
+>     resolved = if inRange (bounds clist) input
+>                  then input
+>                  else defIx
+>
+> calcAQ :: Double → Double → Double
+> calcAQ _ 0 = 0
+> calcAQ w0 q = sin w0 / (2 * q)
+>
+> calcW0 :: Double → Double → Double
+> calcW0 wrate wfreq = 2 * pi * wfreq / wrate
+>
+> calcIIRParams :: SamplingInfo → Double → Double → IIRParams
+> calcIIRParams SamplingInfo{ .. } cutoff kew
+>     | traceNow trace_LPF False           = undefined
+>     | otherwise                          =
+>   IIRParams (fromCList [b0, 1 - cos w0, b0]) (fromCList [1 + a0, -2 * cos w0, 1 - a0])
+>   where
+>     b0 = (1 - cos w0) / 2
+>     w0 = calcW0 sampleRate (cutoff / (sampleRate * period))
+>     a0 = calcAQ w0 kew
+>
+>     trace_LPF                            = unwords ["calcIIRParams", show b0, show w0, show a0, "and", show $ cos w0, show $ cutoff / (sampleRate * period)]   
+>     -- trace_LPF                            = unwords ["calcIIRParams", show cutoff, show kew, show sampleRate, "and", show b0, show w0, show a0, "and", show (w0 / (2 * pi)), show $ cos w0]   
+>
+> breakUp :: (Double, Double) → Double → Int → [Int]
+> breakUp (xmin, xmax) base nDivs =
+>   let
+>     (ymin, ymax) =
+>       if base == 0
+>         then (xmin, xmax)
+>         else (logBase base xmin, logBase base xmax)
+>     delta = (ymax - ymin) / fromIntegral nDivs
+>     oper =
+>       if base == 0
+>         then id
+>         else pow base
+>   in
+>     map (round . oper . (+ ymin) . (* delta) . fromIntegral) ([0..nDivs] :: [Int])
+>    
+> eeee :: Double
+> eeee = 2.7182818284590452353602874713527
+>
+> eeee' :: Complex Double
+> eeee' = eeee :+ 0
+>
+> jjjj :: Complex Double
+> jjjj = 0 :+ 1
+>
+> aitch1a :: Double → Double → Double → Double → Double
+> aitch1a b0 b1 a1 x = (b0 + b1/x) / (1 + a1/x)
+>
+> aitch1b :: Double → Double → Double → Double → Double
+> aitch1b b0 z1 p1 x = b0 * ((1 - z1/x) / (1 - p1/x))
+>    
+> aitch2a :: Double → Double → Double → Double → Double → Double → Double
+> aitch2a b0 b1 b2 a1 a2 x = (b0 + b1/x + b2/(x*x)) / (1 + a1/x + a2/(x*x))
+>
+> aitch2b :: Double → Double → Double → Double → Double → Double → Double
+> aitch2b b0 z1 z2 p1 p2 x = b0 * ((1 - z1/x) * (1 - z2/(x*x) )) / ((1 - p1/x) * (1 - p2/(x*x)))
+>
+
+r is the resonance radius, w0 is the angle of the poles and b0 is the gain factor
+
+> gush1 :: Double → Double → Double → Double → Double
+> gush1 b0 r w0 x = b0 / ((1 - (r * epos/x)) * (1 - (r * eneg/x)))
+>   where
+>     epos = realPart $ eeee' ** (0 :+ w0)
+>     eneg = realPart $ eeee' ** (0 :+ (-w0))
+>
+> gush2 :: Double → Double → Double → Double
+> gush2 r w0 x = 1 - ((2 * r * cos w0) / x) + r * r / (x * x)
+
 Emission capability ===================================================================================================
 
-> data Emission =
+> data Emission                            = 
 >   ToFieldL String Int
 >   | ToFieldR String Int
 >   | Unblocked String
@@ -1414,6 +1538,11 @@ Emission capability ============================================================
 >
 > type Velocity                            = Volume
 > type KeyNumber                           = AbsPitch
+>
+> tracer str x =
+>   if diagnosticsEnabled
+>     then trace (unwords [str, show x]) x
+>     else x
 
 Configurable parameters ===============================================================================================
 

@@ -27,10 +27,11 @@ Saucy Sailor ===================================================================
 >
 > littleSailor =
 >     removeZeros
->     $ instrument Trombone
+>     $ instrument Clarinet
 >     $ addVolume 100
->     $ transpose (-24)
->     $ line [
+>     $ transpose (-12)
+>     $ line [f 5 en]
+> {- [
 >    --  3        Come      me       ow -     -n      one
 >           line [f 5 en,  g 5 en,  f 5 en, e 5 en,  c 5 qn],
 >    --  3         Come      me      fai -    -ai-    -ai-   -air-    one
@@ -39,6 +40,7 @@ Saucy Sailor ===================================================================
 >           line [e 5 en,  f 5 en,  g 5 qn, c 6 qn],
 >    --  3         to-      -o       me
 >           line [bf 5 en, a 5 en, g 5 hn]]
+> -}
 >
 > ssailor dynMap =
 >     removeZeros
@@ -292,10 +294,9 @@ Slot ===========================================================================
 > testslot =
 >    removeZeros
 >    $ tempo 2
->    $ transpose 0
+>    $ transpose (-24)
 >    $ keysig G Dorian
->    $ addVolume 110 $ instrument Violin (line [ f 4 en,  g 4 en,  a 4 en,  b 4 en,  c 5 en,  d 5 en
->         ,  c 5 qn ] )
+>    $ addVolume 110 $ instrument SynthBass1 (line [ f 4 en ] )
 >
 > slotTempo                                = 2
 > slotTranspose                            = 0

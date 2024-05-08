@@ -1,5 +1,5 @@
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE UnicodeSyntax #-}
->
 
 Chart =================================================================================================================
 
@@ -13,42 +13,41 @@ Chart ==========================================================================
 > import Debug.Trace ( traceIO )
 > import Graphics.Rendering.Chart
 > import Graphics.Rendering.Chart.Backend.Diagrams
-> import ModulationTest
 > import System.IO
 >
-> cars = plot_errbars_values .~ [symErrPoint x y dx dy | (x,y,dx,dy) ← vals']
->           $ plot_errbars_title .~ "test"
->           $ def
+> data Section                             =
+>   Section {
+>       section_color    :: AlphaColour Double
+>     , section_points   :: [(Double, Double)]} deriving Show
 >
-> noints = plot_points_style .~ filledCircles 2 (opaque blue)
->           $ plot_points_values .~ [(x,y) |  (x,y,dx,dy) ← vals']
->           $ plot_points_title .~ "test data"
->           $ def
+> chartPoints            :: String → [Section] → IO ()
+> chartPoints tag sects                    =
+>   do
+>     let cars = plot_errbars_values .~ [symErrPoint x y dx dy | (x,y,dx,dy) ← vals']
+>                    $ plot_errbars_title .~ "test"
+>                    $ def
+>     let plotVector = map (toPlot . stylize) sects
+>     let layout' = layout_title .~ "SFEnvelope" $ layout_plots .~ toPlot cars : plotVector $ def
+>     let chart' = toRenderable layout'
+>     let path = concat ["chaP", tag, ".svg"]
+>     putStrLn $ unwords ["rendering", path]
+>     _ ← renderableToFile def path chart'
+>     putStrLn $ unwords ["rendered", path]
+>     return ()
+>   where
+>     vals' = map padThem (concatMap section_points sects)
 >
-> layout = layout_title .~ "SFEnvelope"
->           $ layout_plots .~ [toPlot cars, toPlot noints]
->           $ def
+>     padThem            :: (Double, Double) → (Double, Double, Double, Double)
+>     padThem (x, y) = (x, y, 0, 0)
 >
-> chart :: Renderable ()
-> chart = toRenderable layout 
->
-> zmain :: IO ()
-> zmain = do
->   print $ map (\x → show x ++ " ") vals'
->   renderableToFile def "r00tour.svg" chart
->   putStrLn ("numDots=" ++ show (length vals'))
->   return ()
->
-> ymain :: IO ()
-> ymain = do
->   hdlIn  ← openFile "points'.txt" ReadMode
->   hdlOut ← openFile "points.lhs" AppendMode
->
->   linesIn ← mapM (\x → hGetLine hdlIn) [0..173752]
->   traceIO (show $ length linesIn)
->   CM.zipWithM_ (select hdlOut) linesIn [0..]
->
-> select                 :: Handle → String → Int → IO ()
-> select hdlOut z n                        = CM.unless (n `mod` 25 /= 0) (hPutStrLn hdlOut z)
+>     stylize            :: Section → Plot Double Double
+>     stylize Section{ .. }                = 
+>       let
+>         noints = plot_points_style .~ filledCircles 2 section_color
+>                    $ plot_points_values .~ section_points
+>                    $ plot_points_title .~ "test data"
+>                    $ def
+>       in
+>         toPlot noints
 
 The End
