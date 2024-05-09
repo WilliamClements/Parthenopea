@@ -345,7 +345,6 @@ Modulator management ===========================================================
 >     ResonanceLowpass                     → procLowpass m8n tracer
 >     ResonanceBandpass                    → procBandpass m8n tracer
 >     ResonanceSVF                         → procSVF m8n tracer
->     ResonanceLambda2nd                   → procIIRBiquad m8n tracer
 >
 > procLowpass            :: ∀ p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
 > procLowpass _ tracer                           =
@@ -499,65 +498,6 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >     LowPass{ .. }                        = mLowPass
 >
 >     trace_PSVF                           = unwords ["procSVF initQ = ", show lowPassQ]
->
-> procIIRBiquad          :: ∀ p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
-> procIIRBiquad Modulation{ .. } tracer
->   | traceNot trace_PL False              = undefined
->   | otherwise                            =
->   let
->     LowPass { .. }                       = mLowPass
->     IIRParams { .. }                     = lowpassIIR
->     feedback'                            = tailCList feedback
->   in proc (xnew, fc) → do
->     rec
->       y_3              ← delay 0         ⤙ y_2
->       y_2              ← delay 0         ⤙ y_1
->       y_1              ← delay 0         ⤙ currentValue
->
->       x_2              ← delay 0         ⤙ x_1
->       x_1              ← delay 0         ⤙ xnew
->
->       let source                         = fromCList [xnew, x_1, x_2]
->       let dest                           = fromCList [y_1, y_2, y_3]
->
->       let currentValue                   = stepEval source dest feedforward feedback'
->     outA                                 ⤙ tracer "lp" currentValue
->   where
->     trace_PL                             = unwords ["reached procIIRBiquad", show mLowPass]
->
-> procLambda3rd          :: ∀ p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
-> procLambda3rd Modulation{ .. } tracer
->   | traceNot trace_PL False              = undefined
->   | otherwise                            =
->   let
->     LowPass { .. }                       = mLowPass
->     IIRParams { .. }                     = lowpassIIR
->     feedback'                            = tailCList feedback
->   in proc (xnew, fc) → do
->     rec
->       y_4              ← delay 0         ⤙ y_3
->       y_3              ← delay 0         ⤙ y_2
->       y_2              ← delay 0         ⤙ y_1
->       y_1              ← delay 0         ⤙ currentValue
->
->       x_3              ← delay 0         ⤙ x_2
->       x_2              ← delay 0         ⤙ x_1
->       x_1              ← delay 0         ⤙ xnew
->
->       let source                         = fromCList [xnew, x_1, x_2, x_3]
->       let dest                           = fromCList [y_1, y_2, y_3, y_4]
->
->       let currentValue                   = stepEval source dest feedforward feedback'
->     outA                                 ⤙ tracer "lp" currentValue
->   where
->     trace_PL                             = unwords ["reached procLambda3rd", show mLowPass]
->
-> dumpLambda             :: String → Array Int Double → Bool
-> dumpLambda tag lambda
->   | traceNow trace_DL False       = undefined
->   | otherwise                     = True
->   where
->     trace_DL                      = unwords ["dumpLambda", tag, show lambda]
 
 Controller Curves =====================================================================================================
 
@@ -654,8 +594,7 @@ Type declarations ==============================================================
 >   LowPass {
 >     lowPassType        :: ResonanceType
 >   , lowPassFc          :: Double
->   , lowPassQ           :: Double
->   , lowpassIIR         :: IIRParams} deriving (Eq, Show)
+>   , lowPassQ           :: Double} deriving (Eq, Show)
 >
 > data ModSignals                          =
 >   ModSignals {
@@ -691,8 +630,7 @@ Type declarations ==============================================================
 >   ResonanceNone 
 >   | ResonanceLowpass
 >   | ResonanceBandpass
->   | ResonanceSVF
->   | ResonanceLambda2nd deriving (Eq, Show, Enum)
+>   | ResonanceSVF deriving (Eq, Show, Enum)
 >
 > data LFO                                 =
 >   LFO {
@@ -712,7 +650,7 @@ Type declarations ==============================================================
 >   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
 > defModulation                            = Modulation
->                                              (LowPass ResonanceNone 0 0 defIIRParams) Nothing Nothing Nothing
+>                                              (LowPass ResonanceNone 0 0) Nothing Nothing Nothing
 >                                              defModCoefficients defModCoefficients defModCoefficients
 >                                              Map.empty
 >
@@ -794,8 +732,8 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
->   , qqLoFreqResonance                    = ResonanceSVF      -- ResonanceBandpass -- ResonanceLowpass -- ResonanceNone
->   , qqHiFreqResonance                    = ResonanceBandpass -- ResonanceLowpass -- ResonanceNone
+>   , qqLoFreqResonance                    = ResonanceSVF
+>   , qqHiFreqResonance                    = ResonanceBandpass
 >   , qqUseLFO                             = True
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
 >   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)

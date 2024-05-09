@@ -237,8 +237,8 @@ Feed chart =====================================================================
 > nKews                  :: Int            = 3
 > kews                   :: [Int]          = breakUp (0, 960) 0 nKews
 > nCutoffs               :: Int            = 3
-> cutoffs                :: [Int]          = breakUp (100, 200) 2.7182818284590452353602874713527 nCutoffs
-> nFreaks                :: Int            = 92
+> cutoffs                :: [Int]          = breakUp (10100, 19990) 2.7182818284590452353602874713527 nCutoffs
+> nFreaks                :: Int            = 48
 > freaks                 :: [Int]          = breakUp (20, 20000) 2.7182818284590452353602874713527 nFreaks
 >
 > colors                 :: [AlphaColour Double]
@@ -252,30 +252,23 @@ Feed chart =====================================================================
 >
 > bench                  :: IO ()
 > bench                                    =
->   benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
+>   benchFilters measureResponse [ResonanceBandpass] cutoffs kews freaks
 >
 > measureResponse        :: BenchSpec → [(Double, Double)]
 > measureResponse BenchSpec{ .. }
 >   | traceNow trace_MR False              = undefined
 >   | otherwise                            = points
 >   where
->     sirate            :: Double          = 44100
->     sidur             :: Double          = 0.15
->     siperiod                             = 1/sirate
->     sinsamples                           = round (sidur / siperiod)
->
->     si                                   = SamplingInfo siperiod sirate sinsamples
->     iir                :: IIRParams      = calcIIRParams si bench_fc bench_q 
->     lp                                   = LowPass bench_rt bench_fc bench_q iir
+>     lp                                   = LowPass bench_rt bench_fc bench_q
 >     points                               = map doFk bench_fks
 >     m8n                                  = defModulation{mLowPass = lp}
 >
 >     doFk               :: Double → (Double, Double)
->     doFk fk                              = (fk, maxSample sidur sf)
+>     doFk fk                              = (fk, maxSample 0.15 sf)
 >       where
 >         sf                               = createFilterTest bench_fc fk (procFilter m8n)
 >
->     trace_MR                             = unwords ["measureResponse", show si]
+>     trace_MR                             = unwords ["measureResponse", show lp]
 > 
 > benchFilters           :: (BenchSpec → [(Double, Double)]) → [ResonanceType] → [Int] → [Int] → [Int] → IO ()
 > benchFilters fun rts fcs qs fks       = doFilters fun bRanges

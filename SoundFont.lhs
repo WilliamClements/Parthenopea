@@ -1281,11 +1281,7 @@ reconcile zone and sample header ===============================================
 >                                                                        [zStartOffs, zStartCoarseOffs])
 >     xEnd             = addIntToWord          end                    (sumOfMaybeInts
 >                                                                        [zEndOffs, zEndCoarseOffs])
->     sinsamples        :: Int             = fromIntegral $ xEnd - xStart
->     siperiod                             = 1 / 44100 -- WOX xSampleRate
->     si                                   = SamplingInfo siperiod 44100 sinsamples
->
->     m8n                                  = reconModulation zone si noon
+>     m8n                                  = reconModulation zone noon
 >     recon = Reconciled {
 >     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
 >   , rSampleRate      = xSampleRate
@@ -1331,11 +1327,10 @@ reconcile zone and sample header ===============================================
 >                                              then maybe 0 fromIntegral zInitAtten
 >                                              else 0.0
 >
-> reconModulation        :: SFZone → SamplingInfo → NoteOn → Modulation
-> reconModulation SFZone{ .. } si@SamplingInfo{ .. } noon
+> reconModulation        :: SFZone → NoteOn → Modulation
+> reconModulation SFZone{ .. } noon
 >                                          = resolveMods m8n zModulators defaultMods
 >   where
->     si'                                  = tracer "si" si
 >     m8n                :: Modulation     =
 >       defModulation{
 >         mLowPass                         = constructLowPass
@@ -1347,15 +1342,11 @@ reconcile zone and sample header ===============================================
 >       , toVolumeCo                       = summarize ToVolume}
 >
 >     constructLowPass   :: LowPass
->     constructLowPass                     =
->       let
->         iir            :: IIRParams      = calcIIRParams si' initFc initQ
->       in
->         LowPass theResonanceType initFc initQ iir
+>     constructLowPass                     = LowPass resonanceType initFc initQ
 >         
 >     initFc             :: Double         = tracer "initFc" $ fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
 >     initQ              :: Double         = tracer "initQ" $ maybe 0 (fromIntegral . clip (0, 960)) zInitQ
->     theResonanceType   :: ResonanceType  = if initFc < 10000
+>     resonanceType      :: ResonanceType  = if initFc < 10000
 >                                              then loFreqResonance
 >                                              else hiFreqResonance
 >
