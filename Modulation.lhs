@@ -11,6 +11,7 @@
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Bits
+> import Data.Complex
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
 > import Data.List ( foldl', iterate', find )
@@ -284,14 +285,20 @@ Modulator management ===========================================================
 >                                                     , show (xmodEnv+xmodLfo+xvibLfo+xmods), " => "
 >                                                     , show (fromCents (xmodEnv+xmodLfo+xvibLfo+xmods))]
 >
-> addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
+> delay'                 :: ∀ p . Clock p ⇒ Signal p (Double, ModSignals) Double
+> delay'                                   =
+>     proc (x, _) → do
+>       y ← delay 0                        ⤙ x  
+>       outA                               ⤙ y
+>
+> addResonance           :: Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
 > addResonance noon m8n@Modulation{ .. }   = if lowPassType /= ResonanceNone
 >                                              then makeSF
 >                                              else delay'
 >   where
 >     LowPass{ .. }                        = mLowPass
 >
->     makeSF             :: Signal p (Double, ModSignals) Double
+>     makeSF             :: Clock p ⇒ Signal p (Double, ModSignals) Double
 >     makeSF
 >       | traceNever trace_MSF False       = undefined
 >       | otherwise                        =
@@ -302,13 +309,6 @@ Modulator management ===========================================================
 >           outA                           ⤙ sOut
 >     trace_MSF                            = unwords ["addResonance/makeSF (fc, q)"
 >                                                    , show (lowPassFc, lowPassQ)]
->
->     delay'             :: Signal p (Double, ModSignals) Double
->                                          =
->       proc (x, _) → do
->         y ← delay 0                      ⤙ x  
->         outA                             ⤙ y
->
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
@@ -332,7 +332,7 @@ Modulator management ===========================================================
 >             , "\nfc"             , show (checkForNan fc "resonate fc")
 >             , "\nsOut"           , show y']
 >
-> procFilter             :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
+> procFilter             :: Clock p ⇒ Modulation → Signal p (Double, Double) Double
 > procFilter m8n@Modulation{ .. }          =
 >   let
 >     tracer str x =
@@ -345,14 +345,16 @@ Modulator management ===========================================================
 >     ResonanceLowpass                     → procLowpass m8n tracer
 >     ResonanceBandpass                    → procBandpass m8n tracer
 >     ResonanceSVF                         → procSVF m8n tracer
+>     ResonanceOnePole                     → procOnePole m8n tracer
+>     ResonanceTwoPoles                    → procTwoPoles m8n tracer
 >
-> procLowpass            :: ∀ p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
+> procLowpass            :: Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
 > procLowpass _ tracer                           =
 >   proc (x, fc) → do
 >     y ← filterLowPassBW                  ⤙ (x, fc)
 >     outA                                 ⤙ tracer "lp" y
 >
-> procBandpass           :: ∀ p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
+> procBandpass           :: Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
 > procBandpass Modulation{ .. } tracer     =
 >   proc (x, fc) → do
 >     y1 ← filterLowPassBW                 ⤙ (x, fc)
@@ -371,6 +373,60 @@ Modulator management ===========================================================
 >       where
 >         y'                               = y1*lowpassWeight + y2*bandpassWeight
 >         trace_BP                         = unwords ["traceBandPass", show y1, show y2]
+>
+> procOnePole            :: forall p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
+> procOnePole Modulation{ .. } tracer      =
+>   let
+>     LowPass { .. }                       = mLowPass
+>     sr                                   = rate (undefined :: p)
+>   in proc (x, fc) → do
+>     let w0                               = 2 * pi * fc / sr
+>     -- WOX let a                                = pow 2.7182818284590452353602874713527 (w0 / sr)
+>     let a                                =
+>           realPart $ (2.7182818284590452353602874713527 :+ 0) ** (0 :+ (-w0))
+>     let c                                = 1 - a
+>     rec
+>       y'     ← delay 0                   ⤙ y
+>       x'     ← delay 0                   ⤙ x
+>       let y                              = c * x + (1 - c) * y'
+>     outA                                 ⤙ y
+>
+> procTwoPoles           :: ∀ p . Clock p ⇒ Modulation → (String → Double → Double) → Signal p (Double, Double) Double
+> procTwoPoles Modulation{ .. } tracer
+>   | traceNow trace_P2P False                  = undefined
+>   | otherwise                                 =
+>   proc (x, fc) → do
+>     -- r = radius
+>     -- w = angle (omega)
+>     -- p = pole
+>     -- z = zero
+>     let rp             :: Double          = 1 -- WOX
+>     let wp             :: Double          = 0.5 -- WOX
+>     let rz             :: Double          = 0.25 -- WOX
+>     let wz             :: Double          = 0.125 -- WOX
+>     let w0                                = pi / 4
+>     let b0                                = 1
+>     let b1                                = -2 * rz * cos wz
+>     let b2                                = rz * rz
+>     let a1                                = -2 * rp * cos wp
+>     let a2             :: Double          = rp * rp
+>
+>     -- r =~ 1 - (bw/2)
+>     -- cos wr = ( (1 + r*r) / 2*r ) * cos w0
+>     -- a is equal to the pole which is real
+>     rec
+>       y'     ← delay 0                  ⤙ y
+>       y''    ← delay 0                  ⤙ y' 
+>       x'     ← delay 0                  ⤙ x
+>       x''    ← delay 0                  ⤙ x'
+>       let y                              = b0 * x + b1 * x' + b2 * x'' - a1 * y' - a2 * y''
+>     outA                                 ⤙ y
+>   where
+>     LowPass { .. }                       = mLowPass
+>     r                                    = lowPassQ / 960
+>     theta x                              = pi * x / rate (undefined :: p)
+>
+>     trace_P2P                            = unwords ["procTwoPoles", show lowPassFc]
 >
 > deriveModTriple        :: Maybe Int → Maybe Int → Maybe Int → ModTriple
 > deriveModTriple toPitch toFilterFc toVolume
@@ -630,7 +686,9 @@ Type declarations ==============================================================
 >   ResonanceNone 
 >   | ResonanceLowpass
 >   | ResonanceBandpass
->   | ResonanceSVF deriving (Eq, Show, Enum)
+>   | ResonanceSVF
+>   | ResonanceOnePole
+>   | ResonanceTwoPoles deriving (Eq, Show, Enum)
 >
 > data LFO                                 =
 >   LFO {

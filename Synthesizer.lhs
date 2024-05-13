@@ -154,7 +154,7 @@ Signal function-based synth ====================================================
 >
 >     let (a1L, a1R)                       = (  samplePointInterp s16 ms8 offset (fromIntegral stL + ix) 
 >                                             , samplePointInterp s16 ms8 offset (fromIntegral stR + ix))
->     outA ⤙ (pump (ampL, ampR) (a1L, a1R), msig)
+>     outA ⤙ (pump (a1L, a1R), msig)
 >   where
 >     (graphL, graphR)                     = (modGraph m8nL, modGraph m8nR)
 >     cAttenL            :: Double         = fromCentibels' (attenL + evaluateMods ToInitAtten graphL noon)
@@ -163,13 +163,13 @@ Signal function-based synth ====================================================
 >                                            , fromIntegral noteOnVel / 100 / cAttenR)
 >     numS               :: Double         = fromIntegral (enL - stL)
 >
->     pump               :: (Double, Double) → (Double, Double) → (Double, Double)
->     pump (ampL, ampR) (a1L, a1R)
+>     pump               :: (Double, Double) → (Double, Double)
+>     pump (xL, xR)
 >       | traceNever trace_P False         = undefined
->       | otherwise                        = (a1L * ampL, a1R * ampR)
+>       | otherwise                        = (xL * ampL, xR * ampR)
 >       where
 >         trace_P                          =
->           unwords ["pump", show (a1L, a1R), "<=>", show (a1L * ampL, a1R * ampR)]
+>           unwords ["pump", show (xL, xR), "<=>", show (xL * ampL, xR * ampR)]
 >      
 >     trace_ePS                            = unwords ["eutPumpSamples", show (ampL, ampR)]
 >

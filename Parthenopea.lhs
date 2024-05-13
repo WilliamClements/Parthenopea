@@ -1110,12 +1110,6 @@ Sampling =======================================================================
 >     showChunk          :: [[Double]] → Int → String
 >     showChunk vFft ix                    = show ix ++ ">" ++ show (vFft !! ix) ++ "\n"
 >
-> delay'                 :: ∀ p . Clock p ⇒ Signal p (Double, Double) Double
-> delay'                                   =
->     proc (x, _) → do
->       y ← delay 0                        ⤙ x  
->       outA                               ⤙ y
->
 > type Node = Int
 >
 > aEqual                 :: (Eq a, Show a) ⇒ a → a → Bool
@@ -1238,8 +1232,8 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
 Returns the amplitude ratio
 
-> fromCentibels          :: Maybe Int → Double
-> fromCentibels mcentibels                 = fromCentibels' $ fromIntegral (fromMaybe 0 mcentibels)
+> fromMaybeCentibels     :: Maybe Int → Double
+> fromMaybeCentibels mcentibels            = fromCentibels' $ fromIntegral (fromMaybe 0 mcentibels)
 
 > fromCentibels'         :: Double → Double
 > fromCentibels' centibels                 = pow 10 (centibels/1000)
@@ -1285,9 +1279,9 @@ Test runner
 > runTests               :: [IO Bool] → IO ()
 > runTests tests                           = do
 >   results                                ← sequence tests
->   print $ unwords ["results =", show results]
+>   putStrLn $ unwords ["results =", show results]
 >   let nSuccesses = foldl' (\n t → n + if t then 1 else 0) 0 results
->   print $ unwords ["  ", show nSuccesses, "/", show $ length results]
+>   putStrLn $ unwords ["  ", show nSuccesses, "/", show $ length results]
 
 Mapping is used in SoundFont modulator
 
