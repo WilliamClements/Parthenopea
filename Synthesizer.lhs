@@ -288,7 +288,7 @@ FFT ============================================================================
 >     fp                 :: Int            = 256
 >     qf                 :: Int            = 100
 >
->     fpOrig             :: Double         = sr / rootf -- WOX ? / pc
+>     fpOrig             :: Double         = sr / rootf -- should / pc ?
 >     tFactor            :: Double         = fromIntegral fp / fpOrig
 >     nsD'               :: Double         = nsD * tFactor
 >     nsI'               :: Int            = truncate nsD'

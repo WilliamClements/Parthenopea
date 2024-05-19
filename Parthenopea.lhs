@@ -335,7 +335,7 @@ also
 >       Glockenspiel              → Just (( G, 5), ( C, 8))
 >       Vibraphone                → Just (( F, 3), ( F, 6))
 >       MusicBox                  → Just (( C, 4), ( E, 7)) -- made up out of thin air
->       Percussion                → Nothing -- WOX Just wideOpen
+>       Percussion                → Nothing -- was Just wideOpen
 >       -- Chimes
 >       AcousticGuitarNylon       → Just (( E, 2), ( B, 5))
 >       AcousticGuitarSteel       → Just (( E, 2), ( B, 5))
@@ -1051,11 +1051,15 @@ Sampling =======================================================================
 > type SampleAnalysis    = Double
 >
 > createFilterTest       :: Double → Double → AudSF (Double,Double) Double → AudSF () Double
-> createFilterTest fc freq filtersf        =
+> createFilterTest fc freq filtersf
+>   | traceNot trace_CFT False             = undefined
+>   | otherwise                            =
 >   proc () → do
 >     a1 ← osc sineTable 0 ⤙ freq
 >     a2 ← filtersf ⤙ (a1, fc)
 >     outA ⤙ a2 * 100 / 128
+>   where
+>     trace_CFT                            = unwords ["createFilterTest", show fc, show freq]
 >
 > toSamples              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [Double]
 > toSamples dur sf
@@ -1360,7 +1364,6 @@ Returns sample point as (normalized) Double
 >
 > aitch2b :: Double → Double → Double → Double → Double → Double → Double
 > aitch2b b0 z1 z2 p1 p2 x = b0 * ((1 - z1/x) * (1 - z2/(x*x) )) / ((1 - p1/x) * (1 - p2/(x*x)))
->
 
 r is the resonance radius, w0 is the angle of the poles and b0 is the gain factor
 
@@ -1372,6 +1375,59 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >
 > gush2 :: Double → Double → Double → Double
 > gush2 r w0 x = 1 - ((2 * r * cos w0) / x) + r * r / (x * x)
+>
+> data CoeffsM2N2                          =
+>   CoeffsM2N2 {
+>     m2n2_b0            :: Double
+>   , m2n2_b1            :: Double
+>   , m2n2_b2            :: Double
+>   , m2n2_a1            :: Double
+>   , m2n2_a2            :: Double} deriving (Eq, Show)
+>
+> extractCoefficients    :: Complex Double → (Double, Double)
+> extractCoefficients porz                 = (k1, k2)
+>   where
+>     mag                                  = magnitude porz
+>     ph                                   = phase porz
+>
+>     k1                                   = -2 * mag * cos ph
+>     k2                                   = mag * mag
+>
+> indeedReplaceRadius                      = False
+>
+> pickZerosAndPoles      :: Double → Double → ([Complex Double], [Complex Double])
+> pickZerosAndPoles initFc normQ           = (zeros, poles)
+>   where
+>     zeros, poles       :: [Complex Double]
+>     zeros                                = [z, z]
+>     poles                                = [p, conjugate p]
+>     -- two identical zeros
+>     z                                    = cis pi
+>     -- two poles that are complex conjugates
+>     p                                    =
+>       mkPolar
+>         (if indeedReplaceRadius
+>            then 1 - normQ * sin (pi * initFc)
+>            else normQ)
+>         (2 * pi * initFc)
+>     
+> buildSystemM2N2        :: ([Complex Double], [Complex Double]) → CoeffsM2N2
+> buildSystemM2N2 (zeros, poles)
+>   | traceNow trace_BSM2N2 False          = undefined
+>   | otherwise                            =
+>   let
+>     (z0, p0)                             =
+>       profess
+>         (length zeros == 2 && length poles == 2)
+>         "only 2x2 systems are supportedi in ResonanceTwoPoles"
+>         (head zeros, head poles)
+>     (b1, b2)                         = extractCoefficients z0
+>     (a1, a2)                         = extractCoefficients p0
+>     b0                               = (1 + a1 + a2) / 4
+>   in
+>     CoeffsM2N2 b0 b1 b2 a1 a2
+>   where
+>     trace_BSM2N2                         = unwords ["buildSystemM2N2\n", show zeros, "\n", show poles]
 
 Emission capability ===================================================================================================
 
@@ -1466,6 +1522,7 @@ Emission capability ============================================================
 > type Velocity                            = Volume
 > type KeyNumber                           = AbsPitch
 >
+> tracer :: Show a => String -> a -> a
 > tracer str x =
 >   if diagnosticsEnabled
 >     then trace (unwords [str, show x]) x
@@ -1495,7 +1552,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = False
+>   , qqSkipReporting                      = True
 >   , qqSkipGlissandi                      = False
 >   , qqReplacePerCent                     = 0
 >   , qqUsingPlayCache                     = False

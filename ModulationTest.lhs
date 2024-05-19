@@ -232,14 +232,14 @@ Feed chart =====================================================================
 > -- vary: 0 to 10 for initQ
 >
 > allFilterTypes         :: [ResonanceType]
-> allFilterTypes                           = map toEnum [fromEnum ResonanceLowpass .. fromEnum ResonanceSVF]
+> allFilterTypes                           = [minBound..maxBound]
 >
 > nKews                  :: Int            = 3
 > kews                   :: [Int]          = breakUp (0, 960) 0 nKews
-> nCutoffs               :: Int            = 5
-> cutoffs                :: [Int]          = breakUp (25, 9000) 2.7182818284590452353602874713527 nCutoffs
-> nFreaks                :: Int            = 48
-> freaks                 :: [Int]          = breakUp (20, 20000) 2.7182818284590452353602874713527 nFreaks
+> nCutoffs               :: Int            = 10
+> cutoffs                :: [Int]          = breakUp (20, 20000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
+> nFreaks                :: Int            = 16
+> freaks                 :: [Int]          = breakUp (20, 20000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
 >
 > colors                 :: [AlphaColour Double]
 >                                          =
@@ -252,7 +252,7 @@ Feed chart =====================================================================
 >
 > bench                  :: IO ()
 > bench                                    =
->   benchFilters measureResponse [ResonanceOnePole] cutoffs kews freaks
+>   benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
 >
 > measureResponse        :: BenchSpec → [(Double, Double)]
 > measureResponse BenchSpec{ .. }

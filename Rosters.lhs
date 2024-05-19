@@ -18,6 +18,7 @@ Rosters support ================================================================
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
 > import Fanfare
+> import ModulationTest
 > import Parthenopea
 > import SoundFont
 > import SunPyg
@@ -27,9 +28,13 @@ Rosters support ================================================================
 > main = do
 >   args ← getArgs
 >   let playAll          = (length args == 1) && ("all" == head args)
+>   let doBench          = (length args == 1) && ("bench" == head args)
+>
 >   _ ← if playAll
 >         then doEverything combineAll
->         else doEverything sj -- modulationTest003-- cjingles -- pitchSamples 80
+>         else if doBench
+>           then bench
+>           else doEverything sj -- modulationTest003-- cjingles -- pitchSamples 80
 >   return ()
 
 organize exposed music ================================================================================================
@@ -80,10 +85,10 @@ organize exposed music =========================================================
 >
 > sj = 
 >    -- [("peewee" , shimSong $ aggrandize littlePendingtonArnt)]
->    [ ("deyDumpDum"  , deyDumpDum)]
+>    -- [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("sunPyg"      , sunPyg)]
->    -- [ ("slot2"          , slot 2)]
->    -- [ ("basicLick"   , aggrandize basicLick)]
+>    -- [ ("slot2"       , slot 2)]
+>    [ ("basicLick"      , basicLick) ]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]
 >    -- [ ("packardGoose", packardGoose)]
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]

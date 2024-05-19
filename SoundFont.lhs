@@ -827,7 +827,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         , 0 /= fromMaybe 0 zExclusiveClass
 >       ]
 >
-> is24BitInst _                     = True -- WOX isJust $ ssM24 arrays       
+> is24BitInst _                     = True -- was isJust $ ssM24 arrays       
  
 extract data from SoundFont per instrument ============================================================================
 
@@ -1342,10 +1342,10 @@ reconcile zone and sample header ===============================================
 >       , toVolumeCo                       = summarize ToVolume}
 >
 >     constructLowPass   :: LowPass
->     constructLowPass                     = LowPass resonanceType initFc initQ
+>     constructLowPass                     = LowPass resonanceType initFc normQ
 >         
 >     initFc             :: Double         = tracer "initFc" $ fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
->     initQ              :: Double         = tracer "initQ" $ maybe 0 (fromIntegral . clip (0, 960)) zInitQ
+>     normQ              :: Double         = tracer "normQ" $ maybe 0 (fromIntegral . clip (0, 960)) zInitQ / 960
 >     resonanceType      :: ResonanceType  = if initFc < 10000
 >                                              then loFreqResonance
 >                                              else hiFreqResonance
