@@ -259,7 +259,7 @@ Modulator management ===========================================================
 >
 > evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
 > evaluateModSignals tag Modulation{ .. } md ModSignals{ .. } noon
->  | traceNever trace_CMF False            = undefined
+>  | traceNever trace_EMS False            = undefined
 >  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    ModCoefficients{ .. }                 =
@@ -276,7 +276,7 @@ Modulator management ===========================================================
 >    xvibLfo                               = xVibLfoPos * xVibLfoCo
 >    xmods                                 = evaluateMods md modGraph noon
 >
->    trace_CMF                             = unwords ["evaluateModSignals: "
+>    trace_EMS                             = unwords ["evaluateModSignals: "
 >                                                     , show tag,    " + "
 >                                                     , show xmodEnv, " + "
 >                                                     , show xmodLfo, " + "
@@ -476,55 +476,36 @@ Miscellaneous ==================================================================
 >   proc _ → do
 >     osc sawtoothTable 0 ⤙ freq
 
-twave partial (-1)^i * n^-2 * sin (2*pi f0 n t)
-
-i = harmonic label 0..N-1
-k = harmonic mode number = (2 * i) + 1
-f0 = fundamental frequency, say 3 Hz
-
-when i is zero, k is 1, 2*pi*f0*k is 18.8
-when i is one,  k is 3, 2*pi*f0*k is 56.5
-when i is two,  k is 5, 2*pi*f0*k is 94.2
-
-> listem                 :: IO Double
-> listem = return $ sum (map getTerm [0..500])
->
-> getTerm                :: Int → Double
-> getTerm i                                = sign    *     (1 / (kF*kF)) * sin (2*pi * f0 * jF )
->   where
->     j, k               :: Int
->     j = i
->     k = 2 * i + 1
->
->     jF, kF             :: Double
->     jF = fromIntegral j
->     kF = fromIntegral k
->
->     sign = (-1) ^ i
->     f0 = 5
-
 see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
 
+> indeedAverageInput                       = True
+> extraDampFactor                          = 2
+>
 > procSVF                :: ∀ p . Clock p ⇒ Modulation → Signal p (Double,Double) Double
 > procSVF Modulation{..}                   =
->     proc (x, fc) → do
->       let f1                             = 2 * sin (theta fc)
->       let qSVF                           = chi fc
->       rec
->         let yL                           = f1 * yB' + yL'
->         let yH                           = (x + x') / 2 - yL - qSVF * yB'
->         let yB                           = f1 * yH + yB'
+>   proc (x, fc) → do
+>     let f1                               = 2 * sin (theta fc)
+>     rec
+>       let yL                             = f1 * yB' + yL'
+>       let xuse                           = maybeAverageInput x x'
+>       let yH                             = xuse - yL - damp * yB'
+>       let yB                             = f1 * yH + yB'
 >
->         x' ← delay 0                     ⤙ x
->         yL' ← delay 0                    ⤙ yL
->         yB' ← delay 0                    ⤙ yB
->       outA                               ⤙ yL
+>       x' ← delay 0                       ⤙ x
+>       yL' ← delay 0                      ⤙ yL
+>       yB' ← delay 0                      ⤙ yB
+>     outA                                 ⤙ yL
 >   where
 >     LowPass{ .. }                        = mLowPass
 >
+>     damp                                 = extraDampFactor / fromCentibels' lowPassQ
 >     theta c                              = pi * c / rate (undefined :: p)
->     omega c                              = pow 2.7182818284590452353602874713527 ((c - 15000) / 10000)
->     chi c                                = 2 / (1 + fromCentibels' lowPassQ + omega c)
+>
+>     maybeAverageInput c c'               =
+>       if indeedAverageInput
+>         then (c + c') / 2
+>         else c
+
 
 Controller Curves =====================================================================================================
 

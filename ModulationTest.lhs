@@ -234,11 +234,11 @@ Feed chart =====================================================================
 > allFilterTypes         :: [ResonanceType]
 > allFilterTypes                           = [minBound..maxBound]
 >
-> nKews                  :: Int            = 3
+> nKews                  :: Int            = 4
 > kews                   :: [Int]          = breakUp (0, 960) 0 nKews
 > nCutoffs               :: Int            = 10
 > cutoffs                :: [Int]          = breakUp (20, 20000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
-> nFreaks                :: Int            = 16
+> nFreaks                :: Int            = 32
 > freaks                 :: [Int]          = breakUp (20, 20000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
 >
 > colors                 :: [AlphaColour Double]
@@ -255,25 +255,19 @@ Feed chart =====================================================================
 >   benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
 >
 > measureResponse        :: BenchSpec → [(Double, Double)]
-> measureResponse BenchSpec{ .. }
->   | traceNow trace_MR False              = undefined
->   | otherwise                            = points
+> measureResponse BenchSpec{ .. }          = map doFk bench_fks
 >   where
->     lp                                   = LowPass bench_rt bench_fc bench_q
->     points                               = map doFk bench_fks
->     m8n                                  = defModulation{mLowPass = lp}
+>     m8n                                  = defModulation{mLowPass = LowPass bench_rt bench_fc bench_q}
 >
 >     doFk               :: Double → (Double, Double)
 >     doFk fk                              = (fk, maxSample 0.15 sf)
 >       where
 >         sf                               = createFilterTest bench_fc fk (procFilter m8n)
->
->     trace_MR                             = unwords ["measureResponse", show lp]
 > 
 > benchFilters           :: (BenchSpec → [(Double, Double)]) → [ResonanceType] → [Int] → [Int] → [Int] → IO ()
-> benchFilters fun rts fcs qs fks       = doFilters fun bRanges
+> benchFilters fun rts fcs qs fks          = doFilters fun bRanges
 >   where
->     bRanges                              = 
+>     bRanges                            = 
 >       BenchRanges
 >         rts
 >         (map fromIntegral fcs) 
