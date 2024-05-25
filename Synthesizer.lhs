@@ -30,6 +30,8 @@
   
 Signal function-based synth ===========================================================================================
 
+> noisynasty                               = False
+>
 > eutSynthesize          :: ∀ p . Clock p ⇒
 >                           (Reconciled, Reconciled)
 >                           → Double
@@ -43,7 +45,10 @@ Signal function-based synth ====================================================
 > eutSynthesize (reconL@Reconciled{ .. }, reconR)
 >               sr dur pch vol params s16 ms8
 >   | traceIf trace_eS False               = undefined
->   | otherwise                            = sig
+>   | otherwise                            =
+>       if noisynasty
+>         then dupMono (convolveSFs (fromRational dur) (mixMono sig) (noiseWhite 259))
+>         else sig
 >   where
 >     noon@NoteOn{ .. }                    = NoteOn vol pch
 >

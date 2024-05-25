@@ -19,7 +19,6 @@
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
 > import Debug.Trace ( traceIO, trace )
-> import Euterpea ( (<<<), (>>>) )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
@@ -339,7 +338,8 @@ Modulator management ===========================================================
 >                                                           , "should not reach makeSF if ResonanceNone"]
 >     ResonanceLowpass                     → procLowpass m8n
 >     ResonanceBandpass                    → procBandpass m8n
->     ResonanceSVF                         → procSVF m8n
+>     ResonanceSVF1                        → procSVF1 m8n
+>     ResonanceSVF2                        → procSVF2 m8n
 >     ResonanceOnePole                     → procOnePole m8n
 >     ResonanceTwoPoles                    → procTwoPoles m8n
 >
@@ -369,6 +369,62 @@ Modulator management ===========================================================
 >         y'                               = y1*lowpassWeight + y2*bandpassWeight
 >         trace_BP                         = unwords ["traceBandPass", show y1, show y2]
 >
+
+see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
+
+> indeedAverageInput                       = True
+> extraDampFactor                          = 2
+>
+> procSVF1               :: ∀ p . Clock p ⇒ Modulation → Signal p (Double,Double) Double
+> procSVF1 Modulation{..}                  =
+>   proc (x, fc) → do
+>     let f1                               = 2 * sin (theta fc)
+>     rec
+>       let yL                             = f1 * yB + yL'
+>       let xuse                           = maybeAverageInput x x'
+>       let yH                             = xuse - yL' - damp * yB'
+>       let yB                             = f1 * yH + yB'
+>
+>       x' ← delay 0                       ⤙ x
+>       yL' ← delay 0                      ⤙ yL
+>       yB' ← delay 0                      ⤙ yB
+>     outA                                 ⤙ yL
+>   where
+>     LowPass{ .. }                        = mLowPass
+>
+>     damp                                 = extraDampFactor / fromCentibels' lowPassQ
+>     theta c                              = pi * c / rate (undefined :: p)
+>
+>     maybeAverageInput c c'               =
+>       if indeedAverageInput
+>         then (c + c') / 2
+>         else c
+>
+> procSVF2               :: ∀ p . Clock p ⇒ Modulation → Signal p (Double,Double) Double
+> procSVF2 Modulation{..}                  =
+>   proc (x, fc) → do
+>     let f1                               = 2 * sin (theta fc)
+>     rec
+>       let yL                             = f1 * yB' + yL'
+>       let xuse                           = maybeAverageInput x x'
+>       let yH                             = xuse - yL - damp * yB'
+>       let yB                             = f1 * yH + yB'
+>
+>       x' ← delay 0                       ⤙ x
+>       yL' ← delay 0                      ⤙ yL
+>       yB' ← delay 0                      ⤙ yB
+>     outA                                 ⤙ yL
+>   where
+>     LowPass{ .. }                        = mLowPass
+>
+>     damp                                 = extraDampFactor / fromCentibels' lowPassQ
+>     theta c                              = pi * c / rate (undefined :: p)
+>
+>     maybeAverageInput c c'               =
+>       if indeedAverageInput
+>         then (c + c') / 2
+>         else c
+>
 > procOnePole            :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
 > procOnePole Modulation{ .. }             =
 >   proc (x, fc) → do
@@ -386,7 +442,7 @@ Modulator management ===========================================================
 >
 > procTwoPoles           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
 > procTwoPoles Modulation{ .. }
->   | traceNow trace_P2P False             = undefined
+>   | traceNot trace_P2P False             = undefined
 >   | otherwise                            =
 >   proc (x, fc) → do
 >     rec
@@ -441,6 +497,9 @@ Modulator management ===========================================================
 >         sOut                             = sIn
 >         trace_O                          = unwords ["oscillate", show sIn]
 >
+
+Miscellaneous =========================================================================================================
+
 > triangleWave           :: ∀ p . Clock p ⇒ Double → Signal p () Double
 > triangleWave freq                        = 
 >   proc _ → do
@@ -462,50 +521,10 @@ Modulator management ===========================================================
 >       fb'' ← delayLine 0.1             ⤙ sIn + 0.7*fb'' -- 0.7*fb
 >     outA ⤙ (fb + fb' + fb'')                           -- fb/3
 >
-> triangleWaveTable      :: Table          = tableSinesN 16384 
->                                                          [      1,  0, -0.5,  0,  0.3,   0
->                                                           , -0.25,  0,  0.2,  0, -0.167, 0
->                                                           ,  0.14,  0, -0.125]
-
-Miscellaneous =========================================================================================================
-
-> sawtoothTable = tableSinesN 16384 
->                   [1, 0.5, 0.3, 0.25, 0.2, 0.167, 0.14, 0.125, 0.111]
 > sawtooth               :: ∀ p . Clock p ⇒  Double → Signal p () Double
 > sawtooth freq                           = 
 >   proc _ → do
 >     osc sawtoothTable 0 ⤙ freq
-
-see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
-
-> indeedAverageInput                       = True
-> extraDampFactor                          = 2
->
-> procSVF                :: ∀ p . Clock p ⇒ Modulation → Signal p (Double,Double) Double
-> procSVF Modulation{..}                   =
->   proc (x, fc) → do
->     let f1                               = 2 * sin (theta fc)
->     rec
->       let yL                             = f1 * yB' + yL'
->       let xuse                           = maybeAverageInput x x'
->       let yH                             = xuse - yL - damp * yB'
->       let yB                             = f1 * yH + yB'
->
->       x' ← delay 0                       ⤙ x
->       yL' ← delay 0                      ⤙ yL
->       yB' ← delay 0                      ⤙ yB
->     outA                                 ⤙ yL
->   where
->     LowPass{ .. }                        = mLowPass
->
->     damp                                 = extraDampFactor / fromCentibels' lowPassQ
->     theta c                              = pi * c / rate (undefined :: p)
->
->     maybeAverageInput c c'               =
->       if indeedAverageInput
->         then (c + c') / 2
->         else c
-
 
 Controller Curves =====================================================================================================
 
@@ -638,7 +657,8 @@ Type declarations ==============================================================
 >   ResonanceNone 
 >   | ResonanceLowpass
 >   | ResonanceBandpass
->   | ResonanceSVF
+>   | ResonanceSVF1
+>   | ResonanceSVF2
 >   | ResonanceOnePole
 >   | ResonanceTwoPoles deriving (Eq, Bounded, Enum, Show)
 >
@@ -742,7 +762,7 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
->   , qqLoFreqResonance                    = ResonanceSVF
+>   , qqLoFreqResonance                    = ResonanceSVF1
 >   , qqHiFreqResonance                    = ResonanceBandpass
 >   , qqUseLFO                             = True
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz

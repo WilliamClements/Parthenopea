@@ -1050,16 +1050,29 @@ Sampling =======================================================================
 
 > type SampleAnalysis    = Double
 >
-> createFilterTest       :: Double → Double → AudSF (Double,Double) Double → AudSF () Double
-> createFilterTest fc freq filtersf
+> testTable              :: Table
+> testTable                                = sineTable -- sawtoothTable -- triangleWaveTable
+>
+> createFilterTest       :: ∀ p . Clock p ⇒ Table → Double → Double → Signal p (Double,Double) Double → Signal p () Double
+> createFilterTest waveTable fc freq filtersf
 >   | traceNot trace_CFT False             = undefined
 >   | otherwise                            =
 >   proc () → do
->     a1 ← osc sineTable 0 ⤙ freq
+>     a1 ← osc waveTable 0 ⤙ freq
 >     a2 ← filtersf ⤙ (a1, fc)
 >     outA ⤙ a2 * 100 / 128
 >   where
 >     trace_CFT                            = unwords ["createFilterTest", show fc, show freq]
+>
+> sawtoothTable      :: Table              = tableSinesN 16384 
+>                                                          [      1, 0.5  , 0.3
+>                                                            , 0.25, 0.2  , 0.167
+>                                                            , 0.14, 0.125, 0.111]
+>
+> triangleWaveTable      :: Table          = tableSinesN 16384 
+>                                                          [      1,  0, -0.5,  0,  0.3,   0
+>                                                           , -0.25,  0,  0.2,  0, -0.167, 0
+>                                                           ,  0.14,  0, -0.125]
 >
 > toSamples              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [Double]
 > toSamples dur sf
@@ -1076,8 +1089,38 @@ Sampling =======================================================================
 >                           , "ch",    show numChannels
 >                           , "ns",    show numSamples]
 >
-> maxSample              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → Double
+> maxSample              :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Double → Signal p () a → Double
 > maxSample dur sf                         = maximum (map abs (toSamples dur sf))
+>
+> convolveArrays         :: (Ix a, Integral a, Num b, AudioSample b) => Array a b -> Array a b -> Array a b
+> convolveArrays x1 x2                     = x3
+>   where
+>     m1 = snd $ bounds x1
+>     m2 = snd $ bounds x2
+>     m3 = m1 + m2
+>     x3 =
+>       listArray (0,m3)
+>         [ sum [ x1!k * x2!(n-k) | k <- [max 0 (n-m2)..min n m1] ] | n <- [0..m3] ]
+>
+> convolveSFs            :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Double → Signal p () a → Signal p () a → Signal p () Double
+> convolveSFs secs sig1 sig2               = makeSignal $ convolveArrays x1 x2
+>   where
+>     l1                                   = toSamples secs sig1
+>     l2                                   = toSamples secs sig2
+>
+>     x1                                   = listArray (0, length l1 - 1) l1
+>     x2                                   = listArray (0, length l2 - 1) l2
+>
+> makeSignal             :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Array Int a → Signal p () a
+> makeSignal vec                           =
+>   let
+>     nn = length vec
+>   in
+>     proc ()                              → do
+>       rec
+>         ii' ← delay 0                    ⤙ ii
+>         let ii                           = ii' + 1
+>       outA                               ⤙ vec ! (ii' `mod` nn)
 >
 > class AudioSample a ⇒ WaveAudioSample a where
 >   retrieve             :: UArray Int Int32 → Int → a
@@ -1344,6 +1387,18 @@ Returns sample point as (normalized) Double
 >   in
 >     map (round . oper . (+ ymin) . (* delta) . fromIntegral) ([0..nDivs] :: [Int])
 >    
+> mixMono                :: Signal p () (Double, Double) → Signal p () Double
+> mixMono sIn                              = 
+>   proc () → do
+>     (xL, xR) ← sIn                       ⤙ ()
+>     outA                                 ⤙ xL + xR
+>
+> dupMono                :: Signal p () Double → Signal p () (Double, Double)
+> dupMono sIn                              = 
+>   proc () → do
+>     x ← sIn                              ⤙ ()
+>     outA                                 ⤙ (x, x)
+>
 > eeee :: Double
 > eeee = 2.7182818284590452353602874713527
 >
@@ -1413,7 +1468,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >     
 > buildSystemM2N2        :: ([Complex Double], [Complex Double]) → CoeffsM2N2
 > buildSystemM2N2 (zeros, poles)
->   | traceNow trace_BSM2N2 False          = undefined
+>   | traceNot trace_BSM2N2 False          = undefined
 >   | otherwise                            =
 >   let
 >     (z0, p0)                             =
@@ -1552,7 +1607,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = True
+>   , qqSkipReporting                      = False
 >   , qqSkipGlissandi                      = False
 >   , qqReplacePerCent                     = 0
 >   , qqUsingPlayCache                     = False

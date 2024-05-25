@@ -20,14 +20,13 @@
 > import Data.Maybe
 > import Data.Ord
 > import Debug.Trace ( traceIO )
-> import Euterpea ( (<<<), (>>>) )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns ( osc, filterLowPassBW, filterBandPass )
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock, AudRate )
 > import Euterpea.Music ( Volume, AbsPitch, Dur, absPitch, PitchClass(..) )
 > import FRP.UISF.AuxFunctions ( constA )
-> import HSoM.Examples.Additive ( sineTable, sfTest1 )
+> import HSoM.Examples.Additive ( sineTable )
 > import Modulation
 > import Parthenopea
   
@@ -224,8 +223,6 @@ struct sfInstModList
 
 Feed chart ============================================================================================================
 
-> vals' = table2vals 20 prevals
->         
 > -- range = 0.75 (max resonance) ..    1.25 (no resonance)
 > --         960 cB    -170-    ..      0 cB
 > -- vary: 1 or 2 for first arg to filterBandPass
@@ -234,12 +231,14 @@ Feed chart =====================================================================
 > allFilterTypes         :: [ResonanceType]
 > allFilterTypes                           = [minBound..maxBound]
 >
-> nKews                  :: Int            = 4
+> nKews                  :: Int            = 2
 > kews                   :: [Int]          = breakUp (0, 960) 0 nKews
-> nCutoffs               :: Int            = 10
+> nCutoffs               :: Int            = 11
 > cutoffs                :: [Int]          = breakUp (20, 20000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
-> nFreaks                :: Int            = 32
-> freaks                 :: [Int]          = breakUp (20, 20000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
+> nFreaks                :: Int            = 23
+> freaks                 :: [Int]          = breakUp (20, 9000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
+>
+> filterTestDur          :: Double         = 0.25
 >
 > colors                 :: [AlphaColour Double]
 >                                          =
@@ -252,7 +251,11 @@ Feed chart =====================================================================
 >
 > bench                  :: IO ()
 > bench                                    =
->   benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
+>   benchFilters measureResponse [ResonanceSVF1] cutoffs kews freaks
+>
+> porch                  :: IO ()
+> porch                                    =
+>   benchFilters measureResponse [ResonanceTwoPoles] cutoffs kews freaks
 >
 > measureResponse        :: BenchSpec → [(Double, Double)]
 > measureResponse BenchSpec{ .. }          = map doFk bench_fks
@@ -260,9 +263,10 @@ Feed chart =====================================================================
 >     m8n                                  = defModulation{mLowPass = LowPass bench_rt bench_fc bench_q}
 >
 >     doFk               :: Double → (Double, Double)
->     doFk fk                              = (fk, maxSample 0.15 sf)
+>     doFk fk                              = (fk, maxSample filterTestDur sf)
 >       where
->         sf                               = createFilterTest bench_fc fk (procFilter m8n)
+>         sf             :: AudSF () Double
+>         sf                               = createFilterTest sineTable bench_fc fk (procFilter m8n)
 > 
 > benchFilters           :: (BenchSpec → [(Double, Double)]) → [ResonanceType] → [Int] → [Int] → [Int] → IO ()
 > benchFilters fun rts fcs qs fks          = doFilters fun bRanges
@@ -297,7 +301,7 @@ Feed chart =====================================================================
 >                 calc   :: Double → [(Double, Double)]
 >                 calc currentQ            = fun bs
 >                   where
->                     bs                   = BenchSpec currentRt 0.15 currentFc currentQ ranges_fks
+>                     bs                   = BenchSpec currentRt filterTestDur currentFc currentQ ranges_fks
 >
 >         doQ           :: Double → IO ()
 >         doQ currentQ                     = do
@@ -313,7 +317,7 @@ Feed chart =====================================================================
 >                 calc   :: Double → [(Double, Double)]
 >                 calc currentFc           = fun bs
 >                   where
->                     bs                   = BenchSpec currentRt 0.15 currentFc currentQ ranges_fks
+>                     bs                   = BenchSpec currentRt filterTestDur currentFc currentQ ranges_fks
 >
 > data BenchRanges                         =
 >   BenchRanges {
@@ -330,7 +334,7 @@ Feed chart =====================================================================
 >     , bench_q          :: Double
 >     , bench_fks        :: [Double]} deriving Show
 >
-> varyFc                                   = False
+> varyFc                                   = True
 
 nice simple range for initQ    0..960
 

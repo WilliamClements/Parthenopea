@@ -86,12 +86,12 @@ organize exposed music =========================================================
 > sj = 
 >    -- [("peewee" , shimSong $ aggrandize littlePendingtonArnt)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]
->    -- [ ("sunPyg"      , sunPyg)]
+>    [ ("snake"          , snake)]
 >    -- [ ("slot2"       , slot 2)]
->    [ ("basicLick"      , basicLick) ]
+>    -- [ ("basicLick"   , basicLick) ]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]
 >    -- [ ("packardGoose", packardGoose)]
->    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
+>    -- [ ("dadadada"    , shimSong $ aggrandize dadadada)]
 >    -- [ ( "deathlessHorsie"         , deathlessHorsie)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 
