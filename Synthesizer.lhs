@@ -45,10 +45,7 @@ Signal function-based synth ====================================================
 > eutSynthesize (reconL@Reconciled{ .. }, reconR)
 >               sr dur pch vol params s16 ms8
 >   | traceIf trace_eS False               = undefined
->   | otherwise                            =
->       if noisynasty
->         then dupMono (convolveSFs (fromRational dur) (mixMono sig) (noiseWhite 259))
->         else sig
+>   | otherwise                            = sig'
 >   where
 >     noon@NoteOn{ .. }                    = NoteOn vol pch
 >
@@ -66,17 +63,38 @@ Signal function-based synth ====================================================
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 rPitchCorrection
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
 >
->     sig                :: Signal p () (Double, Double)
->                                          =       eutDriver      secsScored (reconL, reconR) secsToPlay delta looping
+>     sig                :: Signal p () ((Double, Double), (ModSignals, ModSignals))
+>     sig                                  =       eutDriver      secsScored (reconL, reconR) secsToPlay delta looping
 >                                              >>> eutPumpSamples secsScored (reconL, reconR) noon dur s16 ms8
 >                                              >>> eutModulate    secsScored (reconL, reconR)
 >                                              >>> eutEffects                (reconL, reconR)
->                                              >>> eutAmplify     secsScored (reconL, reconR) noon secsToPlay
+>     sig'               :: Signal p () (Double, Double)
+>     sig'                                 =
+>       if noisynasty
+>         then applyConvolution secsToPlay sig
+>         else sig >>> eutAmplify    secsScored (reconL, reconR) noon secsToPlay
 >
 >     trace_eS                             =
 >       unwords [
 >           "eutSynthesize",                show (dur, noon)
 >         , "\n... sample, scored, toplay", show (secsSample, secsScored, secsToPlay)]
+>
+> stripModSignals        :: Signal p ((Double, Double), (ModSignals, ModSignals)) Double
+> stripModSignals                          =
+>   proc ((a1L, a1R), (modSigL, modSigR)) → do
+>   outA                               ⤙ a1L + a1R
+>
+> applyConvolution       :: ∀ p . Clock p ⇒
+>                           Double
+>                           → Signal p () ((Double, Double), (ModSignals, ModSignals))
+>                           → Signal p () (Double, Double)
+> applyConvolution secsToPlay sInA         = sOut
+>   where
+>     sInA'                                = sInA >>> stripModSignals
+>     sImpulse                             = makeSignal (computeIFFT 100 2000 0 44100)
+>     
+>     result                               = convolveSFs secsToPlay sInA' sImpulse
+>     sOut                                 = dupMono result
 >
 > eutDriver              :: ∀ p . Clock p ⇒
 >                           Double
@@ -570,7 +588,7 @@ Effects ========================================================================
 >     coeff2 = 1/3
 >     coeff3 = 1/3
 >
->     safeDelayLine1     :: ∀ p . Clock p ⇒ Double → Double → Signal p Double Double
+>     safeDelayLine1     :: Double → Double → Signal p Double Double
 >     safeDelayLine1 maxDel del            =
 >       profess
 >         (maxDel >= del + depth)

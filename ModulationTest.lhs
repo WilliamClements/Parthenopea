@@ -234,8 +234,8 @@ Feed chart =====================================================================
 > nKews                  :: Int            = 2
 > kews                   :: [Int]          = breakUp (0, 960) 0 nKews
 > nCutoffs               :: Int            = 11
-> cutoffs                :: [Int]          = breakUp (20, 20000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
-> nFreaks                :: Int            = 23
+> cutoffs                :: [Int]          = breakUp (20, 10000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
+> nFreaks                :: Int            = 39
 > freaks                 :: [Int]          = breakUp (20, 9000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
 >
 > filterTestDur          :: Double         = 0.25
@@ -256,6 +256,16 @@ Feed chart =====================================================================
 > porch                  :: IO ()
 > porch                                    =
 >   benchFilters measureResponse [ResonanceTwoPoles] cutoffs kews freaks
+>
+> testFrFr               :: Int → IO ()
+> testFrFr npoints                         = do
+>   let frFr                               = createFrFun 0.45 0.15 0.75
+>   let points                             = [fromIntegral x / fromIntegral npoints | x <- [0..(npoints-1)]]
+>   let points'                            = map frFr points
+>   let grouts                             = zip points points'
+>   chartPoints "goose" [Section (opaque blue) grouts]
+>   print grouts
+>   return ()
 >
 > measureResponse        :: BenchSpec → [(Double, Double)]
 > measureResponse BenchSpec{ .. }          = map doFk bench_fks
@@ -334,7 +344,7 @@ Feed chart =====================================================================
 >     , bench_q          :: Double
 >     , bench_fks        :: [Double]} deriving Show
 >
-> varyFc                                   = True
+> varyFc                                   = False
 
 nice simple range for initQ    0..960
 

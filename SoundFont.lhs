@@ -466,10 +466,11 @@ executive ======================================================================
 >                               , (Map PercussionSound [PerGMScored], [String]))
 > decideWinners sffiles zc preSampleCache preInstCache skMap pergmsI pergmsP
 >                                          = do
->   let (wI, sI)                           = foldl' wiFolder (Map.empty, []) pergmsI         
+>   let seed                               = (Map.empty, [])
+>   let (wI, sI)                           = foldl' wiFolder seed pergmsI         
 >   let wI'                                = Map.map (sortOn (Down . pScore . pArtifactGrade)) wI
 >
->   let (wP, sP)                           = foldl' wpFolder (Map.empty, []) pergmsP
+>   let (wP, sP)                           = foldl' wpFolder seed pergmsP
 >   let wP'                                = Map.map (sortOn (Down . pScore . pArtifactGrade)) wP
 >
 >   return ((wI', sI), (wP', sP))

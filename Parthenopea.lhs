@@ -35,7 +35,7 @@ December 12, 2022
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe )
 > import Data.Ord
 > import Data.Ratio ( approxRational )
-> import qualified Data.Set as Set
+> import qualified Data.Set                as Set
 > import Data.Word
 > import Debug.Trace ( trace )
 > import Euterpea.IO.Audio.Basics ( outA )
@@ -53,6 +53,7 @@ December 12, 2022
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay) )
 > import HSoM.Examples.Additive ( sineTable, sfTest1 )
 > import HSoM.Performance ( metro, Context (cDur) )
+> import Numeric.FFT ( ifft )
 > import System.Random ( Random(randomR), StdGen )
 > import qualified Text.FuzzyFind          as FF
   
@@ -1121,6 +1122,92 @@ Sampling =======================================================================
 >         ii' ← delay 0                    ⤙ ii
 >         let ii                           = ii' + 1
 >       outA                               ⤙ vec ! (ii' `mod` nn)
+>
+> createFrFun            :: Double → Double → Double → (Double → Double)
+> createFrFun center radius ynorm
+>   | traceNow trace_CFF False             = undefined
+>   | otherwise                            =
+>       profess
+>         (   abs radius >= 0
+>          && abs center >= abs radius
+>          && 1.0        >= abs center)
+>         "bad normalization"
+>         fr
+>
+>   where
+>     trace_CFF                            = unwords ["createFrFun", show (center, radius), show (xA, xB, xC)]
+>
+>     rolloff                              = 1 / 4 -- WOX
+>
+>     xA                                   = center - radius
+>     xB                                   = center
+>     xC                                   = center + radius
+>
+>     fr                 :: Double → Double
+>     fr x
+>       | x < xA                           = tracer "x_1" $ phase1y x
+>       | x < xB                           = tracer "x_2" $ phase2y ((x - xA) / (xB - xA))
+>       | x < xC                           = tracer "x_3" $ phase3y ((x - xB) / (xC - xB))
+>       | otherwise                        = tracer "x_4" $ phase4y ((x - xC) / (1 - xC))
+>
+>     phase1y c                            = 1
+>     phase2y c                            = 1 + controlConvex c
+>     phase3y c                            = 1 + controlConvex (1 - c)
+>     phase4y c                            = max 0 $ 1  - rolloff * c
+>
+> computeIFFT      :: Int → Double → Double → Double → Array Int Double
+> computeIFFT len frFc frQ sr
+>   | traceNow trace_CIFFT False           = undefined
+>   | otherwise                            = listArray (0, len' - 1) (map realPart points)
+>   where
+>     trace_CIFFT                          = unwords ["computeIFFT", show delta, show $ length points]
+>
+>     nyquist      :: Double               = sr / 2
+>
+>     nFc                                  = frFc
+>     nQ                                   = frQ / 960
+>     ynorm                                =
+>       profess
+>         (nQ <= 1 &&  nQ >= 0)
+>         "computeIFFT: bad normalization"
+>         (1 / (1 + nQ))
+>
+>     delta        :: Double               = 1 / fromIntegral len
+>     points       :: [Complex Double]     = ifft $ map frfun' [0..len-1]
+>     len'                                 = length points
+>
+>     frfun                                = createFrFun nFc nQ ynorm
+>     frfun'       :: Int → Complex Double = (:+ 0) . frfun . (* delta) . fromIntegral
+
+The use of these functions requires that their input is normalized between 0 and 1
+(And you can count on the output being normalized!)
+
+> controlLinear          :: Double → Double
+> controlLinear d                          = d
+>
+> quarterCircleTable     :: Array Int Double
+>                                            -- TODO: use Table
+>                                          = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
+>   where
+>     calc               :: Int → Double
+>     calc i                               = 1 - sqrt (1 - c*c)
+>       where
+>         c              :: Double         = fromIntegral i / tableSize
+>
+> qTableSize             :: Int            = 1024
+> tableSize              :: Double         = fromIntegral qTableSize
+>
+> controlConcave d
+>   | d >= 1                               = 1
+>   | otherwise                            = quarterCircleTable ! truncate (d * tableSize)
+>
+> controlConvex d
+>   | (1 - d) >= 1                         = 1
+>   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - d) * tableSize))
+>
+> controlSwitch d                          = if d < 0.5
+>                                              then 0
+>                                              else 1
 >
 > class AudioSample a ⇒ WaveAudioSample a where
 >   retrieve             :: UArray Int Int32 → Int → a

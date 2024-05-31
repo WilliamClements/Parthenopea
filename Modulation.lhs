@@ -297,7 +297,6 @@ Modulator management ===========================================================
 >   where
 >     LowPass{ .. }                        = mLowPass
 >
->     makeSF             :: Clock p ⇒ Signal p (Double, ModSignals) Double
 >     makeSF
 >       | traceNever trace_MSF False       = undefined
 >       | otherwise                        =
@@ -528,39 +527,8 @@ Miscellaneous ==================================================================
 
 Controller Curves =====================================================================================================
 
-> qTableSize             :: Int            = 1024
-> tableSize              :: Double         = fromIntegral qTableSize
 > qMidiSize128           :: Int            = 128
 > qStepSize                                = qTableSize `div` qMidiSize128
->
-> quarterCircleTable     :: Array Int Double
->                                            -- TODO: use Table
->                                          = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
->   where
->     calc               :: Int → Double
->     calc i                               =
->       let
->         x              :: Double         = fromIntegral i / tableSize
->       in
->         1 - sqrt (1 - x*x)
-
-The use of these functions requires that their input is normalized between 0 and 1
-(And the output is normalized, too)
-
-> funLinear              :: Double → Double
-> funLinear d                              = d
->
-> funConcave d
->   | d >= 1                               = 1
->   | otherwise                            = quarterCircleTable ! truncate (d * tableSize)
->
-> funConvex d
->   | (1 - d) >= 1                         = 1
->   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - d) * tableSize))
->
-> funSwitch d                              = if d < 0.5
->                                              then 0
->                                              else 1
 >
 > controlDenormal        :: Mapping → Double → (Double, Double) → Double
 > controlDenormal ping@Mapping{msBiPolar} dIn (lo, hi)
@@ -572,13 +540,13 @@ The use of these functions requires that their input is normalized between 0 and
 >     dNorm                                = (dIn - lo) / scale
 >
 > controlUniPolar        :: Mapping → Double → Double
-> controlUniPolar Mapping{ .. } dIn        = fun xStart
+> controlUniPolar Mapping{ .. } dIn        = control xStart
 >   where
->     fun                                  = case msContinuity of
->                                              Linear     → funLinear
->                                              Concave    → funConcave
->                                              Convex     → funConvex
->                                              Switch     → funSwitch
+>     control                              = case msContinuity of
+>                                              Linear     → controlLinear
+>                                              Concave    → controlConcave
+>                                              Convex     → controlConvex
+>                                              Switch     → controlSwitch
 >     xStart             :: Double         = if msMax2Min
 >                                              then 1 - dIn
 >                                              else dIn
@@ -762,8 +730,8 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
->   , qqLoFreqResonance                    = ResonanceSVF1
->   , qqHiFreqResonance                    = ResonanceBandpass
+>   , qqLoFreqResonance                    = ResonanceNone
+>   , qqHiFreqResonance                    = ResonanceNone
 >   , qqUseLFO                             = True
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
 >   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)

@@ -84,15 +84,15 @@ organize exposed music =========================================================
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
 > sj = 
->    -- [("peewee" , shimSong $ aggrandize littlePendingtonArnt)]
+>    -- [ ("peewee"      , shimSong $ aggrandize littlePendingtonArnt)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]
->    [ ("snake"          , snake)]
->    -- [ ("slot2"       , slot 2)]
+>    -- [ ("snake"       , snake)]
+>    [ ("slot2"          , slot 2)]
 >    -- [ ("basicLick"   , basicLick) ]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]
 >    -- [ ("packardGoose", packardGoose)]
 >    -- [ ("dadadada"    , shimSong $ aggrandize dadadada)]
->    -- [ ( "deathlessHorsie"         , deathlessHorsie)]
+>    -- [ ("dh"          , deathlessHorsie)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 
 a few playthings ... get it? ==========================================================================================
