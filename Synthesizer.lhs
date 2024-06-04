@@ -1,5 +1,6 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE NamedFieldPuns #-}
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -30,8 +31,6 @@
   
 Signal function-based synth ===========================================================================================
 
-> noisynasty                               = False
->
 > eutSynthesize          :: ∀ p . Clock p ⇒
 >                           (Reconciled, Reconciled)
 >                           → Double
@@ -42,25 +41,25 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL@Reconciled{ .. }, reconR)
+> eutSynthesize (reconL, reconR)
 >               sr dur pch vol params s16 ms8
->   | traceIf trace_eS False               = undefined
+>   | traceNow trace_eS False              = undefined
 >   | otherwise                            = sig'
 >   where
 >     noon@NoteOn{ .. }                    = NoteOn vol pch
 >
->     secsSample         :: Double         = fromIntegral (rEnd - rStart) / sr
+>     secsSample         :: Double         = fromIntegral (reconL.rEnd - reconL.rStart) / sr
 >     secsScored         :: Double         = 1 * fromRational dur
 >     looping            :: Bool           = secsScored > secsSample
->                                            && (rSampleMode /= A.NoLoop)
+>                                            && (reconL.rSampleMode /= A.NoLoop)
 >                                            && useLoopSwitching
 >     secsToPlay         :: Double         = if looping
 >                                              then secsScored
 >                                              else min secsSample secsScored
 >
->     freqRatio          :: Double         = apToHz rRootKey / apToHz noteOnKey
+>     freqRatio          :: Double         = apToHz reconL.rRootKey / apToHz noteOnKey
 >     rateRatio          :: Double         = rate (undefined::p) / sr
->     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 rPitchCorrection
+>     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
 >
 >     sig                :: Signal p () ((Double, Double), (ModSignals, ModSignals))
@@ -70,14 +69,14 @@ Signal function-based synth ====================================================
 >                                              >>> eutEffects                (reconL, reconR)
 >     sig'               :: Signal p () (Double, Double)
 >     sig'                                 =
->       if noisynasty
->         then applyConvolution secsToPlay sig
->         else sig >>> eutAmplify    secsScored (reconL, reconR) noon secsToPlay
+>       if useConvolution
+>         then applyConvolution (reconL, reconR) secsToPlay sig
+>         else sig >>> eutAmplify secsScored (reconL, reconR) noon secsToPlay
 >
 >     trace_eS                             =
 >       unwords [
 >           "eutSynthesize",                show (dur, noon)
->         , "\n... sample, scored, toplay", show (secsSample, secsScored, secsToPlay)]
+>         , "\n... sample, scored, toplay, looping", show (secsSample, secsScored, secsToPlay, looping)]
 >
 > stripModSignals        :: Signal p ((Double, Double), (ModSignals, ModSignals)) Double
 > stripModSignals                          =
@@ -85,16 +84,23 @@ Signal function-based synth ====================================================
 >   outA                               ⤙ a1L + a1R
 >
 > applyConvolution       :: ∀ p . Clock p ⇒
->                           Double
+>                           (Reconciled, Reconciled)
+>                           → Double
 >                           → Signal p () ((Double, Double), (ModSignals, ModSignals))
 >                           → Signal p () (Double, Double)
-> applyConvolution secsToPlay sInA         = sOut
+> applyConvolution (reconL, reconR) secsToPlay sInA
+>   | traceIf trace_AC False               = undefined
+>   | otherwise                            = dupMono result
 >   where
+>     trace_AC                             = unwords ["applyConvolution", show secsToPlay]
+>
+>
 >     sInA'                                = sInA >>> stripModSignals
->     sImpulse                             = makeSignal (computeIFFT 100 2000 0 44100)
+>     nn                                   = length $ toSamples secsToPlay sInA'
+>     LowPass{ .. }                        = reconL.rModulation.mLowPass
+>     sResponse                            = makeSignal (computeIFFT nn lowPassFc lowPassQ (rate (undefined :: p)))
 >     
->     result                               = convolveSFs secsToPlay sInA' sImpulse
->     sOut                                 = dupMono result
+>     result                               = convolveSFs secsToPlay sInA' sResponse
 >
 > eutDriver              :: ∀ p . Clock p ⇒
 >                           Double
@@ -151,10 +157,8 @@ Signal function-based synth ====================================================
 > normalizeLooping Reconciled{ .. }
 >                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)
 >   where
->     (fullst, fullen)   :: (Double, Double)
->                                          = (fromIntegral rStart, fromIntegral rEnd)
->     (loopst, loopen)   :: (Double, Double)
->                                          = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
+>     (fullst, fullen)                     = (fromIntegral rStart, fromIntegral rEnd)
+>     (loopst, loopen)                     = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
 >     denom              :: Double         = fullen - fullst
 >
 > eutPumpSamples         :: ∀ p . Clock p ⇒

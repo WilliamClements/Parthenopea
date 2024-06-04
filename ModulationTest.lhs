@@ -259,8 +259,8 @@ Feed chart =====================================================================
 >
 > testFrFr               :: Int → IO ()
 > testFrFr npoints                         = do
->   let frFr                               = createFrFun 0.45 0.15 0.75
->   let points                             = [fromIntegral x / fromIntegral npoints | x <- [0..(npoints-1)]]
+>   let frFr                               = createFrFun 500 15 259
+>   let points                             = [20000 * fromIntegral x / fromIntegral npoints | x <- [0..(npoints-1)]]
 >   let points'                            = map frFr points
 >   let grouts                             = zip points points'
 >   chartPoints "goose" [Section (opaque blue) grouts]

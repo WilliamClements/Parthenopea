@@ -919,7 +919,7 @@ prepare the specified instruments and percussion ===============================
 
 > formZoneCache          :: Array Word SFFile → PreSampleCache → PreInstCache → Map PerGMKey PreSampleKey → [PerGMKey] → IO ZoneCache
 > formZoneCache sffiles preSampleCache preInstCache skMap pergms
->                                          =
+>                                          = 
 >   return $ foldr (\p → Map.insert p (computePerInst p)) Map.empty pergms
 >   where
 >     computePerInst     :: PerGMKey → PerInstrument
@@ -945,7 +945,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         buildZone      :: SFZone → Word → (ZoneHeader, SFZone)
 >         buildZone fromZone bagIndex
->           | traceIf trace_BZ False        = undefined
+>           | traceNot trace_BZ False        = undefined
 >           | otherwise                    = (zh, zone)
 >           where
 >             xgeni                        = F.genNdx $ ssIBags!bagIndex
@@ -972,9 +972,9 @@ prepare the specified instruments and percussion ===============================
 >             si                           = fromMaybe 0 zSampleIndex
 >             zh                           = ZoneHeader bagIndex (ssShdrs ! si) (fromMaybe True meval)
 >
->             trace_BZ                     = unwords ["buildZone", show gens
->                                                   , "kept"     , show (length mods)
->                                                   , "of"       , show (length zModulators), "mods"]
+>             trace_BZ                     =
+>               unwords ["buildZone", show pgkwFile, iName
+>                                   , show (zKeyRange, zInitFc, zInitQ)]
 >
 >         categorizeInst :: [(ZoneHeader, SFZone)] → InstCat
 >         categorizeInst zs
@@ -1112,8 +1112,8 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Volume
 >                           → [Double]
 >                           → Signal p () (Double, Double)
-> instrumentSF rost@SFRoster{ .. } pergm@PerGMKey{ .. } dur pchIn volIn params
->   | traceIf trace_ISF False              = undefined
+> instrumentSF SFRoster{ .. } pergm@PerGMKey{ .. } dur pchIn volIn params
+>   | traceNow trace_ISF False             = undefined
 >   | otherwise                            = eutSynthesize (reconL, reconR) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
@@ -1345,11 +1345,11 @@ reconcile zone and sample header ===============================================
 >     constructLowPass   :: LowPass
 >     constructLowPass                     = LowPass resonanceType initFc normQ
 >         
->     initFc             :: Double         = tracer "initFc" $ fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
->     normQ              :: Double         = tracer "normQ" $ maybe 0 (fromIntegral . clip (0, 960)) zInitQ / 960
+>     initFc             :: Double         = fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
+>     normQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ / 960
 >     resonanceType      :: ResonanceType  = if initFc < 10000
->                                              then loFreqResonance
->                                              else hiFreqResonance
+>                                              then loCutoff
+>                                              else hiCutoff
 >
 >     nModEnv            :: Maybe Envelope = deriveEnvelope
 >                                              zDelayModEnv

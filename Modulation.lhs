@@ -7,6 +7,7 @@
 >
 > module Modulation where
 >
+> import Control.Arrow
 > import Data.Array
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
@@ -291,21 +292,37 @@ Modulator management ===========================================================
 >       outA                               ⤙ y
 >
 > addResonance           :: Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
-> addResonance noon m8n@Modulation{ .. }   = if lowPassType /= ResonanceNone
->                                              then makeSF
->                                              else delay'
+> addResonance noon m8n@Modulation{ .. }   =
+>   if lowPassType /= ResonanceNone
+>     then
+>       case cascadeCount of
+>         0              → final
+>         1              → stage >>> final
+>         2              → stage >>> stage >>> final
+>         3              → stage >>> stage >>> stage >>> final
+>         4              → stage >>> stage >>> stage >>> stage >>> final
+>         _              → error $ unwords [show cascadeCount, "cascades too many, not supported"]
+>     else
+>       delay'
 >   where
 >     LowPass{ .. }                        = mLowPass
 >
->     makeSF
->       | traceNever trace_MSF False       = undefined
+>     stage                                =
+>         proc (sIn, msig)                 → do
+>           let fc                         = modulateFc msig
+>           pickled      ← procFilter m8n  ⤙ (sIn, fc)
+>           let sOut                       = resonate sIn fc pickled
+>           outA                           ⤙ (sOut, msig)
+>
+>     final
+>       | traceNow trace_MSF False         = undefined
 >       | otherwise                        =
 >         proc (sIn, msig)                 → do
 >           let fc                         = modulateFc msig
 >           pickled      ← procFilter m8n  ⤙ (sIn, fc)
 >           let sOut                       = resonate sIn fc pickled
 >           outA                           ⤙ sOut
->     trace_MSF                            = unwords ["addResonance/makeSF (fc, q)"
+>     trace_MSF                            = unwords ["addResonance (fc, q)"
 >                                                    , show (lowPassFc, lowPassQ)]
 >
 >     modulateFc         :: ModSignals → Double
@@ -346,7 +363,7 @@ Modulator management ===========================================================
 > procLowpass _                            =
 >   proc (x, fc) → do
 >     y ← filterLowPassBW                  ⤙ (x, fc)
->     outA                                 ⤙ tracer "lp" y
+>     outA                                 ⤙ notracer "lp" y
 >
 > procBandpass           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
 > procBandpass Modulation{ .. }            =
@@ -354,7 +371,7 @@ Modulator management ===========================================================
 >     y1 ← filterLowPassBW                 ⤙ (x, fc)
 >     y2 ← filterBandPass 2                ⤙ (x, fc, lowPassQ / 3)
 >     let y'                               = traceBandpass y1 y2
->     outA                                 ⤙ tracer "bp" y'
+>     outA                                 ⤙ notracer "bp" y'
 >   where
 >     LowPass{ .. }                        = mLowPass
 >     lowpassWeight                        = 0.50
@@ -707,21 +724,25 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent :: Double
 >   , qqReverbAllPerCent :: Double
 >   , qqUseDefaultMods   :: Bool
->   , qqLoFreqResonance  :: ResonanceType
->   , qqHiFreqResonance  :: ResonanceType
+>   , qqLoCutoff         :: ResonanceType
+>   , qqHiCutoff         :: ResonanceType
 >   , qqUseLFO           :: Bool
 >   , qqChorusRate       :: Double
->   , qqChorusDepth      :: Double} deriving Show
+>   , qqChorusDepth      :: Double
+>   , qqCascadeCount     :: Int
+>   , qqUseConvolution   :: Bool} deriving Show
 >
 > useModulators                            = qqUseModulators              defM
 > chorusAllPercent                         = qqChorusAllPerCent           defM
 > reverbAllPercent                         = qqReverbAllPerCent           defM
 > useDefaultMods                           = qqUseDefaultMods             defM
-> loFreqResonance                          = qqLoFreqResonance            defM
-> hiFreqResonance                          = qqHiFreqResonance            defM
+> loCutoff                                 = qqLoCutoff                   defM
+> hiCutoff                                 = qqHiCutoff                   defM
 > useLFO                                   = qqUseLFO                     defM
 > chorusRate                               = qqChorusRate                 defM
 > chorusDepth                              = qqChorusDepth                defM
+> cascadeCount                             = qqCascadeCount               defM
+> useConvolution                           = qqUseConvolution             defM
 >
 > defM                   :: ModulationSettings
 > defM =
@@ -730,11 +751,13 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
->   , qqLoFreqResonance                    = ResonanceNone
->   , qqHiFreqResonance                    = ResonanceNone
+>   , qqLoCutoff                           = ResonanceSVF2
+>   , qqHiCutoff                           = ResonanceBandpass
 >   , qqUseLFO                             = True
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
 >   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)
+>   , qqCascadeCount                       = 0
+>   , qqUseConvolution                     = False
 >   }
 
 The End

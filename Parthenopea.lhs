@@ -458,7 +458,7 @@ also
 
 instrument range checking =============================================================================================
 
-> union2Ranges :: (Ord a, Ord b) => (a, b) -> (a, b) -> (a, b)
+> union2Ranges :: (Ord a, Ord b) ⇒ (a, b) → (a, b) → (a, b)
 > union2Ranges r1 r2 = unionRanges (r1:[r2])
 > unionRanges [] = error "empty range list"
 > unionRanges (r:rs) = ( minimum (map fst (r:rs))
@@ -1093,7 +1093,7 @@ Sampling =======================================================================
 > maxSample              :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Double → Signal p () a → Double
 > maxSample dur sf                         = maximum (map abs (toSamples dur sf))
 >
-> convolveArrays         :: (Ix a, Integral a, Num b, AudioSample b) => Array a b -> Array a b -> Array a b
+> convolveArrays         :: (Ix a, Integral a, Num b, AudioSample b) ⇒ Array a b → Array a b → Array a b
 > convolveArrays x1 x2                     = x3
 >   where
 >     m1 = snd $ bounds x1
@@ -1115,7 +1115,11 @@ Sampling =======================================================================
 > makeSignal             :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Array Int a → Signal p () a
 > makeSignal vec                           =
 >   let
->     nn = length vec
+>     nn                                   =
+>       profess
+>         (not $ null vec)
+>         "degenerate vec"
+>         (length vec)
 >   in
 >     proc ()                              → do
 >       rec
@@ -1124,62 +1128,61 @@ Sampling =======================================================================
 >       outA                               ⤙ vec ! (ii' `mod` nn)
 >
 > createFrFun            :: Double → Double → Double → (Double → Double)
-> createFrFun center radius ynorm
->   | traceNow trace_CFF False             = undefined
->   | otherwise                            =
->       profess
->         (   abs radius >= 0
->          && abs center >= abs radius
->          && 1.0        >= abs center)
->         "bad normalization"
->         fr
->
+> createFrFun center radius _              =
+>   profess (      radius >= 0
+>               && center >= radius)
+>           (unwords ["createFrFun: bad center, radius", show center, show radius])
+>           mapx
 >   where
->     trace_CFF                            = unwords ["createFrFun", show (center, radius), show (xA, xB, xC)]
->
->     rolloff                              = 1 / 4 -- WOX
->
 >     xA                                   = center - radius
 >     xB                                   = center
 >     xC                                   = center + radius
 >
->     fr                 :: Double → Double
->     fr x
+>     mapx               :: Double → Double
+>     mapx x
+>       | x < 0                            = error "mapx"
 >       | x < xA                           = tracer "x_1" $ phase1y x
 >       | x < xB                           = tracer "x_2" $ phase2y ((x - xA) / (xB - xA))
 >       | x < xC                           = tracer "x_3" $ phase3y ((x - xB) / (xC - xB))
->       | otherwise                        = tracer "x_4" $ phase4y ((x - xC) / (1 - xC))
+>       | otherwise                        = tracer "x_4" $ phase4y (x - xC)
 >
->     phase1y c                            = 1
+>     phase1y _                            = 1
 >     phase2y c                            = 1 + controlConvex c
 >     phase3y c                            = 1 + controlConvex (1 - c)
->     phase4y c                            = max 0 $ 1  - rolloff * c
+>     phase4y d                            = max 0 $ 1  - (rolloff * d) / (center * radius)
+>
+>     rolloff                              = 1 / 4 -- WOX
 >
 > computeIFFT      :: Int → Double → Double → Double → Array Int Double
 > computeIFFT len frFc frQ sr
 >   | traceNow trace_CIFFT False           = undefined
->   | otherwise                            = listArray (0, len' - 1) (map realPart points)
+>   | otherwise                            = listArray (0, lenOut - 1) (map realPart psOut)
 >   where
->     trace_CIFFT                          = unwords ["computeIFFT", show delta, show $ length points]
+>     trace_CIFFT                          = unwords ["computeIFFT", show (len, frFc, frQ, sr), show nQ]
 >
->     nyquist      :: Double               = sr / 2
->
+>     nyquist, nFc, nQ   :: Double
+>     nyquist                              = sr / 2
 >     nFc                                  = frFc
 >     nQ                                   = frQ / 960
->     ynorm                                =
+>
+>     frfun                                = createFrFun nFc (50 * nQ) 0
+>
+>     delta, ynorm       :: Double
+>     delta                                = nyquist / fromIntegral len
+>     ynorm                                = 1 / (1 + nQ)
+>
+>     psIn, psOut        :: [Complex Double]
+>     psIn                                 = map ((:+ 0) . (* ynorm) . frfun . (* delta) . fromIntegral) [0..len-1]
+>     psOut                                = ifft $ tracer "psIn" psIn
+>     lenOut                               =
 >       profess
->         (nQ <= 1 &&  nQ >= 0)
->         "computeIFFT: bad normalization"
->         (1 / (1 + nQ))
->
->     delta        :: Double               = 1 / fromIntegral len
->     points       :: [Complex Double]     = ifft $ map frfun' [0..len-1]
->     len'                                 = length points
->
->     frfun                                = createFrFun nFc nQ ynorm
->     frfun'       :: Int → Complex Double = (:+ 0) . frfun . (* delta) . fromIntegral
+>         (not $ null psOut)
+>         (unwords ["degen ifft result"])
+>         (length psOut)
 
-The use of these functions requires that their input is normalized between 0 and 1
+Control Functions
+
+The use of following functions requires that their input is normalized between 0 and 1
 (And you can count on the output being normalized!)
 
 > controlLinear          :: Double → Double
@@ -1664,11 +1667,17 @@ Emission capability ============================================================
 > type Velocity                            = Volume
 > type KeyNumber                           = AbsPitch
 >
-> tracer :: Show a => String -> a -> a
-> tracer str x =
+
+Tracing ===============================================================================================================
+
+> tracer                 :: Show a ⇒ String → a → a
+> tracer str x                             =
 >   if diagnosticsEnabled
 >     then trace (unwords [str, show x]) x
 >     else x
+>
+> notracer               :: Show a ⇒ String → a → a
+> notracer _ x                             = x
 
 Configurable parameters ===============================================================================================
 
