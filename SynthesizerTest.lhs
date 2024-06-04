@@ -16,8 +16,8 @@
   
 Testing ===============================================================================================================
 
-> defReconciled                            =
->   Reconciled
+> defRecon                                 =
+>   Recon
 >     A.ContLoop 44100 0 0 0 0
 >     60 Nothing Nothing
 >     (NoteOn 100 60)
@@ -28,7 +28,7 @@ Testing ========================================================================
 >
 > driveDriver            :: ∀ p. Clock p ⇒ Signal p () Double
 > driveDriver                              = proc _ → do
->   (x, (_, _))                            ← eutDriver 1 (defReconciled, defReconciled) 1 0.1 True  ⤙ ()
+>   (x, (_, _))                            ← eutDriver 1 (defRecon, defRecon) 1 0.1 True  ⤙ ()
 >   outA                                                                                            ⤙ x
 > 
 > checkSignal            :: ∀ p. Clock p ⇒ Double → Signal p () Double → IO Bool

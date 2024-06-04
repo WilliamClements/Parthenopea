@@ -153,7 +153,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , zSkMap             :: Map PerGMKey PreSampleKey
 >   , zZoneCache         :: ZoneCache
 >   , zWinningRecord     :: WinningRecord
->   , zPlayCache         :: Map PlayKey (Reconciled, Maybe Reconciled)}
+>   , zPlayCache         :: Map PlayKey (Recon, Maybe Recon)}
 >
 > seedRoster vFile                         =
 >   SFRoster vFile Map.empty Map.empty Map.empty Map.empty seedWinningRecord Map.empty
@@ -268,7 +268,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     xItem              :: PerGMKey
 >   , xNoteOn            :: NoteOn} deriving (Eq, Ord, Show)
 >
-> type PlayValue                           = (Reconciled, Maybe Reconciled)
+> type PlayValue                           = (Recon, Maybe Recon)
 
 sample pitching scaffold ==============================================================================================
 
@@ -338,7 +338,7 @@ executive ======================================================================
 >     putStrLn ("___load files: " ++ show (diffUTCTime tsLoaded tsStarted))
 >
 >     -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->     (tsReconciled, sfrost)
+>     (tsRecond, sfrost)
 >                        ← finishRoster (tsLoaded, preRoster)
 >
 >     -- readying instrument maps to be accessed from song renderer
@@ -346,7 +346,7 @@ executive ======================================================================
 >     imap               ← prepareInstruments sfrost
 >
 >     tsPrepared         ← getCurrentTime
->     putStrLn ("___prepare instruments: " ++ show (diffUTCTime tsPrepared tsReconciled))
+>     putStrLn ("___prepare instruments: " ++ show (diffUTCTime tsPrepared tsRecond))
 >
 >     -- here's the heart of the coconut
 >     mapM_ (uncurry (renderSong sfrost imap)) songs
@@ -411,10 +411,10 @@ executive ======================================================================
 >                                , zWinningRecord    = ws
 >                                , zPlayCache        = Map.union playCacheI playCacheP}
 >
->         tsReconciled   ← getCurrentTime
->         putStrLn ("___create play cache: " ++ show (diffUTCTime tsReconciled tsDecided'))
+>         tsRecond   ← getCurrentTime
+>         putStrLn ("___create play cache: " ++ show (diffUTCTime tsRecond tsDecided'))
 >         
->         return (tsReconciled, sfrost)
+>         return (tsRecond, sfrost)
 >
 > writeTournamentReport  :: Array Word SFFile
 >                           → Map InstrumentName [PerGMScored]
@@ -1137,7 +1137,7 @@ define signal functions and instrument maps to support rendering ===============
 >                (error $ unwords ["Note missing from play cache:", show noon])
 >                (Map.lookup (PlayKey pergm noon) zPlayCache)
 >         else computePlayValue pb pergm{pgkwBag = Nothing} noon
->     (reconL@Reconciled{ .. }, reconR)    = (reconX, fromMaybe reconX mreconX)
+>     (reconL@Recon{ .. }, reconR)        = (reconX, fromMaybe reconX mreconX)
 >
 > computePlayValue       :: PreBundle → PerGMKey → NoteOn → PlayValue
 > computePlayValue pb@PreBundle{ .. } pergm@PerGMKey{ .. } noon@NoteOn{ .. }
@@ -1147,8 +1147,8 @@ define signal functions and instrument maps to support rendering ===============
 >     ((zoneL, shdrL), (zoneR, shdrR))
 >                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
 >                                          = setZone pb pergm noon
->     (reconL, reconR)   :: (Reconciled, Reconciled)
->                                          = reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) noon
+>     (reconL, reconR)   :: (Recon, Recon)
+>                                          = reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon
 >   in
 >     (reconL, if reconR == reconL
 >                then Nothing
@@ -1259,22 +1259,22 @@ zone selection for rendering ===================================================
 
 reconcile zone and sample header ======================================================================================
 
-> reconcileLR            :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → NoteOn → (Reconciled, Reconciled)
-> reconcileLR ((zoneL, shdrL), (zoneR, shdrR)) noon
+> reconLR                :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → NoteOn → (Recon, Recon)
+> reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon
 >   | traceNever trace_RLR False           = undefined
 >   | otherwise                            = (recL, recR')
 >   where
->     recL@Reconciled{rRootKey = rkL, rPitchCorrection = pcL}
->                                          = reconcile zoneL shdrL noon
->     recR                                 = reconcile zoneR shdrR noon
+>     recL@Recon{rRootKey = rkL, rPitchCorrection = pcL}
+>                                          = recon zoneL shdrL noon
+>     recR                                 = recon zoneR shdrR noon
 >     recR'                                = recR{
 >                                                rRootKey                   = rkL
 >                                              , rPitchCorrection           = pcL}
 >
->     trace_RLR                            = unwords ["reconcileLR:\n", show zoneL, "\n", show shdrL]
+>     trace_RLR                            = unwords ["reconLR:\n", show zoneL, "\n", show shdrL]
 >
-> reconcile              :: SFZone → F.Shdr → NoteOn → Reconciled 
-> reconcile zone@SFZone{ .. } F.Shdr{ .. } noon@NoteOn{ .. }
+> recon                  :: SFZone → F.Shdr → NoteOn → Recon 
+> recon     zone@SFZone{ .. } F.Shdr{ .. } noon@NoteOn{ .. }
 >                                          = recon
 >   where
 >     xSampleRate      = fromIntegral          sampleRate
@@ -1283,7 +1283,7 @@ reconcile zone and sample header ===============================================
 >     xEnd             = addIntToWord          end                    (sumOfMaybeInts
 >                                                                        [zEndOffs, zEndCoarseOffs])
 >     m8n                                  = reconModulation zone noon
->     recon = Reconciled {
+>     recon = Recon {
 >     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
 >   , rSampleRate      = xSampleRate
 >   , rStart           = xStart
@@ -1379,7 +1379,7 @@ reconcile zone and sample header ===============================================
 >                           → PreInstCache
 >                           → Map PerGMKey PreSampleKey
 >                           → Map a PerGMScored
->                           → IO (Map PlayKey (Reconciled, Maybe Reconciled))
+>                           → IO (Map PlayKey (Recon, Maybe Recon))
 > createPlayCache sffiles zc preSampleCache preInstCache skMap ws
 >                                          =
 >   return
@@ -1389,19 +1389,19 @@ reconcile zone and sample header ===============================================
 >   where
 >     precalcFolder      :: a
 >                           → PerGMScored
->                           → Map PlayKey (Reconciled, Maybe Reconciled)
->                           → Map PlayKey (Reconciled, Maybe Reconciled)
+>                           → Map PlayKey (Recon, Maybe Recon)
+>                           → Map PlayKey (Recon, Maybe Recon)
 >     precalcFolder kind pergm ps          = Map.union ps (precalcNotes kind pergm)
 >
->     precalcNotes       :: a → PerGMScored → Map PlayKey (Reconciled, Maybe Reconciled)
+>     precalcNotes       :: a → PerGMScored → Map PlayKey (Recon, Maybe Recon)
 >     precalcNotes kind PerGMScored{ .. }  = foldl' (playFolder pPerGMKey{pgkwBag = Nothing})
 >                                                   Map.empty
 >                                                   [NoteOn v k | v ← [0..127], k ← [0..127]]
 >
 >     playFolder         :: PerGMKey
->                           → Map PlayKey (Reconciled, Maybe Reconciled)
+>                           → Map PlayKey (Recon, Maybe Recon)
 >                           → NoteOn
->                           → Map PlayKey (Reconciled, Maybe Reconciled)
+>                           → Map PlayKey (Recon, Maybe Recon)
 >     playFolder pergm ps noon             = Map.insert (PlayKey pergm noon) (computePlayValue pb pergm{pgkwBag = Nothing} noon) ps
 >       where
 >         pb                               = preLookup sffiles zc preInstCache preSampleCache skMap pergm

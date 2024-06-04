@@ -32,7 +32,7 @@
 Signal function-based synth ===========================================================================================
 
 > eutSynthesize          :: ∀ p . Clock p ⇒
->                           (Reconciled, Reconciled)
+>                           (Recon, Recon)
 >                           → Double
 >                           → Dur
 >                           → AbsPitch
@@ -84,7 +84,7 @@ Signal function-based synth ====================================================
 >   outA                               ⤙ a1L + a1R
 >
 > applyConvolution       :: ∀ p . Clock p ⇒
->                           (Reconciled, Reconciled)
+>                           (Recon, Recon)
 >                           → Double
 >                           → Signal p () ((Double, Double), (ModSignals, ModSignals))
 >                           → Signal p () (Double, Double)
@@ -104,12 +104,12 @@ Signal function-based synth ====================================================
 >
 > eutDriver              :: ∀ p . Clock p ⇒
 >                           Double
->                           → (Reconciled, Reconciled)
+>                           → (Recon, Recon)
 >                           → Double
 >                           → Double
 >                           → Bool
 >                           → Signal p () (Double, (ModSignals, ModSignals))
-> eutDriver secsScored (reconL@Reconciled{rModulation = m8nL, rNoteOn}, reconR@Reconciled{rModulation = m8nR})
+> eutDriver secsScored (reconL@Recon{rModulation = m8nL, rNoteOn}, reconR@Recon{rModulation = m8nR})
 >           secsToPlay idelta looping
 >   | traceNever trace_eD False            = undefined
 >   | otherwise                            = if looping
@@ -153,9 +153,8 @@ Signal function-based synth ====================================================
 >
 >     trace_eD                             = unwords ["eutDriver idelta", show idelta, "looping", show looping]
 >
-> normalizeLooping       :: Reconciled → (Double, Double)
-> normalizeLooping Reconciled{ .. }
->                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)
+> normalizeLooping       :: Recon → (Double, Double)
+> normalizeLooping Recon{ .. }             = ((loopst - fullst) / denom, (loopen - fullst) / denom)
 >   where
 >     (fullst, fullen)                     = (fromIntegral rStart, fromIntegral rEnd)
 >     (loopst, loopen)                     = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
@@ -163,14 +162,14 @@ Signal function-based synth ====================================================
 >
 > eutPumpSamples         :: ∀ p . Clock p ⇒
 >                           Double
->                           → (Reconciled, Reconciled)
+>                           → (Recon, Recon)
 >                           → NoteOn
 >                           → Dur
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p (Double, (ModSignals, ModSignals)) ((Double, Double), (ModSignals, ModSignals))
-> eutPumpSamples _ (  Reconciled{rAttenuation = attenL, rStart = stL, rEnd = enL, rModulation = m8nL}
->                   , Reconciled{rAttenuation = attenR, rStart = stR, rEnd = enR, rModulation = m8nR})
+> eutPumpSamples _ (  Recon{rAttenuation = attenL, rStart = stL, rEnd = enL, rModulation = m8nL}
+>                   , Recon{rAttenuation = attenR, rStart = stR, rEnd = enR, rModulation = m8nR})
 >                  noon@NoteOn{noteOnVel, noteOnKey} dur s16 ms8
 >   | traceNever trace_ePS False           = undefined
 >   | otherwise                            =
@@ -202,12 +201,12 @@ Signal function-based synth ====================================================
 >
 > eutAmplify             :: ∀ p . Clock p ⇒
 >                           Double
->                           → (Reconciled, Reconciled)
+>                           → (Recon, Recon)
 >                           → NoteOn
 >                           → Double
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
 > eutAmplify   secsScored
->              (Reconciled{rVolEnv = envL, rModulation = m8nL}, Reconciled{rVolEnv = envR, rModulation = m8nR})
+>              (Recon{rVolEnv = envL, rModulation = m8nL}, Recon{rVolEnv = envR, rModulation = m8nR})
 >              noon
 >              secsToPlay                  =
 >   proc ((a1L, a1R), (modSigL, modSigR)) → do
@@ -245,10 +244,10 @@ Modulation =====================================================================
 
 > eutModulate            :: ∀ p . Clock p ⇒
 >                           Double
->                           → (Reconciled, Reconciled)
+>                           → (Recon, Recon)
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals))
 >                                      ((Double, Double), (ModSignals, ModSignals))
-> eutModulate secsScored ( Reconciled{rNoteOn, rModulation = m8nL}, Reconciled{rModulation = m8nR} )
+> eutModulate secsScored ( Recon{rNoteOn, rModulation = m8nL}, Recon{rModulation = m8nR} )
 >                                          =
 >   proc ((a1L, a1R), (modSigL, modSigR)) → do
 >     a2L   ← addResonance rNoteOn m8nL    ⤙ (a1L, modSigL)
@@ -528,10 +527,10 @@ Effects ========================================================================
 >       unwords ["deriveEffects", show (mChorus, mReverb, mPan), show (dChorus, dReverb, dPan)]
 >
 > eutEffects             :: ∀ p . Clock p ⇒
->                           (Reconciled, Reconciled)
+>                           (Recon, Recon)
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals))
 >                                      ((Double, Double), (ModSignals, ModSignals))
-> eutEffects (Reconciled{rEffects = effL}, Reconciled{rEffects = effR})
+> eutEffects (Recon{rEffects = effL}, Recon{rEffects = effR})
 >   | traceNever trace_eE False = undefined
 >   | otherwise =
 >   proc ((aL, aR), (modSigL, modSigR)) → do
@@ -798,8 +797,8 @@ Charting =======================================================================
 
 Utility types =========================================================================================================
 
-> data Reconciled =
->   Reconciled {
+> data Recon =
+>   Recon {
 >     rSampleMode        :: A.SampleMode
 >   , rSampleRate        :: Double
 >   , rStart             :: Word
