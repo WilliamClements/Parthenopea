@@ -298,6 +298,32 @@ Modulator management ===========================================================
 >     ResonanceConvo                       → Nothing
 >     _                                    → Just cascadeConfig
 >
+> eutModulate            :: ∀ p . Clock p ⇒
+>                           Double
+>                           → (Modulation, Modulation)
+>                           → NoteOn
+>                           → Signal p ((Double, Double), (ModSignals, ModSignals))
+>                                      ((Double, Double), (ModSignals, ModSignals))
+> eutModulate secsScored (m8nL, m8nR) noon
+>                                          =
+>   proc ((a1L, a1R), (modSigL, modSigR)) → do
+>     a2L   ← addResonance noon m8nL    ⤙ (a1L, modSigL)
+>     a2R   ← addResonance noon m8nR    ⤙ (a1R, modSigR)
+>
+>     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
+>
+>     outA                                 ⤙ ((a3L', a3R'), (modSigL, modSigR))
+>
+>   where
+>     modulate           :: (Double, Double) → (Double, Double) → (Double, Double)
+>     modulate (a1L, a1R) (a2L, a2R)
+>       | traceNever trace_M False         = undefined
+>       | otherwise                        = (a2L, a2R)
+>       where
+>         (a3L, a3R)                       = (checkForNan a2L "mod a2L", checkForNan a2R "mod a2R" )
+>
+>         trace_M                          = unwords ["modulate", show ((a1L, a1R), (a3L, a3R))]
+>
 > addResonance           :: Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
 > addResonance noon m8n@Modulation{ .. }   =
 >   case cascadeCount lowpassType of

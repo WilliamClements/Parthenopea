@@ -65,7 +65,7 @@ Signal function-based synth ====================================================
 >     sig                :: Signal p () ((Double, Double), (ModSignals, ModSignals))
 >     sig                                  =       eutDriver      secsScored (reconL, reconR) secsToPlay delta looping
 >                                              >>> eutPumpSamples secsScored (reconL, reconR) noon dur s16 ms8
->                                              >>> eutModulate    secsScored (reconL, reconR)
+>                                              >>> eutModulate    secsScored (reconL.rModulation, reconR.rModulation) noon
 >                                              >>> eutEffects                (reconL, reconR)
 >     sig'               :: Signal p () (Double, Double)
 >     sig'                                 =
@@ -242,33 +242,6 @@ Signal function-based synth ====================================================
 >       where
 >         trace_A                          = unwords ["amplify",  show (a1L, aenvL, a3L)]
 >
-
-Modulation ============================================================================================================
-
-> eutModulate            :: ∀ p . Clock p ⇒
->                           Double
->                           → (Recon, Recon)
->                           → Signal p ((Double, Double), (ModSignals, ModSignals))
->                                      ((Double, Double), (ModSignals, ModSignals))
-> eutModulate secsScored ( Recon{rNoteOn, rModulation = m8nL}, Recon{rModulation = m8nR} )
->                                          =
->   proc ((a1L, a1R), (modSigL, modSigR)) → do
->     a2L   ← addResonance rNoteOn m8nL    ⤙ (a1L, modSigL)
->     a2R   ← addResonance rNoteOn m8nR    ⤙ (a1R, modSigR)
->
->     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
->
->     outA                                 ⤙ ((a3L', a3R'), (modSigL, modSigR))
->
->   where
->     modulate           :: (Double, Double) → (Double, Double) → (Double, Double)
->     modulate (a1L, a1R) (a2L, a2R)
->       | traceNever trace_M False         = undefined
->       | otherwise                        = (a2L, a2R)
->       where
->         (a3L, a3R)                       = (checkForNan a2L "mod a2L", checkForNan a2R "mod a2R" )
->
->         trace_M                          = unwords ["modulate", show ((a1L, a1R), (a3L, a3R))]
 
 FFT ===================================================================================================================
 
