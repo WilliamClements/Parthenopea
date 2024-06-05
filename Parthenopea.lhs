@@ -131,7 +131,7 @@ Utilities ======================================================================
 > durS r = 2 * fromRational r
 > 
 > ratEps       :: Double
-> ratEps = 0.0001
+> ratEps = 0.000_1
 >
 > approx       :: Double → Dur
 > approx dur = approxRational dur ratEps
@@ -158,7 +158,7 @@ more than 16 instruments to be used in the source music.
 >                 , devID=case mi of
 >                         Nothing → Nothing
 >                         Just i → Just $ unsafeOutputID i
->                 , perfAlg= map (\e → e{eDur = max 0 (eDur e - 0.000001)}) . perform}
+>                 , perfAlg= map (\e → e{eDur = max 0 (eDur e - 0.000_001)}) . perform}
 
 This alternate playback function will merge overlapping notes, 
 which makes for a cleaner sound on some synthesizers:
@@ -448,7 +448,7 @@ also
 >                                              (vect ! (lo + floor (denorm norm frange)))
 >   where
 >     (lo, hi)                             = bounds vect
->     frange                               = (0, fromIntegral (hi - lo + 1) - 0.000001)
+>     frange                               = (0, fromIntegral (hi - lo + 1) - 0.000_001)
 >
 > wideOpen               :: (Pitch, Pitch) = (pitch 0, pitch 127)
 >
@@ -955,8 +955,8 @@ tournament among instruments in various soundfont files ========================
 >        | otherwise                       = minimum ts
 >   
 >      hi, lo, fact      :: Double
->      hi                                  = safemax ts + 0.0000001
->      lo                                  = safemin ts - 0.0000001
+>      hi                                  = safemax ts + 0.000_000_1
+>      lo                                  = safemin ts - 0.000_000_1
 >      fact                                = fromIntegral nBins / (hi - lo)
 >
 >      is                :: [Int]
@@ -1117,12 +1117,12 @@ Sampling =======================================================================
 >   where
 >     trace_CFT                            = unwords ["createFilterTest", show fc, show freq]
 >
-> sawtoothTable      :: Table              = tableSinesN 16384 
+> sawtoothTable      :: Table              = tableSinesN 16_384 
 >                                                          [      1, 0.5  , 0.3
 >                                                            , 0.25, 0.2  , 0.167
 >                                                            , 0.14, 0.125, 0.111]
 >
-> triangleWaveTable      :: Table          = tableSinesN 16384 
+> triangleWaveTable      :: Table          = tableSinesN 16_384 
 >                                                          [      1,  0, -0.5,  0,  0.3,   0
 >                                                           , -0.25,  0,  0.2,  0, -0.167, 0
 >                                                           ,  0.14,  0, -0.125]
@@ -1276,15 +1276,20 @@ The use of following functions requires that their input is normalized between 0
 >                                              else 1
 >
 > class AudioSample a ⇒ WaveAudioSample a where
->   retrieve             :: UArray Int Int32 → Int → a
+>   makeStereo           :: a → (Double, Double)
+>   makeMono             :: a → Double
 >
 > instance WaveAudioSample Double where
->   retrieve             :: UArray Int Int32 → Int → Double
->   retrieve sData idx                     = fromIntegral (sData ! idx)
+>   makeStereo           :: Double → (Double, Double)
+>   makeStereo d                           = (d, d)
+>   makeMono             :: Double → Double
+>   makeMono d                             = d
 >
 > instance WaveAudioSample (Double,Double) where
->   retrieve             :: UArray Int Int32 → Int → (Double, Double)
->   retrieve sData idx                     = (fromIntegral (sData ! idx), fromIntegral (sData ! (idx + 1)))
+>   makeStereo           :: (Double, Double) → (Double, Double)
+>   makeStereo (dL, dR)                    = (dL, dR)
+>   makeMono             :: (Double, Double) → Double
+>   makeMono (dL, dR)                      = dL + dR
 >
 > data SlwRate
 > instance Clock SlwRate where
@@ -1347,7 +1352,7 @@ Conversion functions and general helpers =======================================
 > checkForNan            :: Double → String → Double
 > checkForNan y msg                        =
 >   profess
->     (not $ isNaN y || isInfinite y || isDenormalized y || abs y > 200000)
+>     (not $ isNaN y || isInfinite y || isDenormalized y || abs y > 200_000)
 >     (msg ++ " bad Double = " ++ show y)
 >                                              y
 >
@@ -1441,13 +1446,13 @@ Returns the amplitude ratio
 Returns the elapsed time in seconds
 
 > fromTimecents          :: Maybe Int → Double
-> fromTimecents mtimecents                 = pow 2 (fromIntegral (fromMaybe (-12000) mtimecents)/1200)
+> fromTimecents mtimecents                 = pow 2 (fromIntegral (fromMaybe (-12_000) mtimecents)/1_200)
 
 > fromTimecents'         :: Maybe Int → Maybe Int → KeyNumber → Double
 > fromTimecents' mtimecents mfact key      = pow 2 (base + inc)
 >   where
->     base               :: Double         = fromIntegral (fromMaybe (-12000) mtimecents) / 1200
->     inc                :: Double         = fromIntegral (fromMaybe 0 mfact) * fromIntegral (60 - key) / 128 / 1200
+>     base               :: Double         = fromIntegral (fromMaybe (-12_000) mtimecents) / 1_200
+>     inc                :: Double         = fromIntegral (fromMaybe 0 mfact) * fromIntegral (60 - key) / 128 / 1_200
 
 Returns the attenuation (based on input 10ths of a percent)
 
@@ -1507,13 +1512,13 @@ Mapping is used in SoundFont modulator
 Returns sample point as (normalized) Double
 
 > sample24               :: Int16 → Word8 → Double
-> sample24 i16 w8                          = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 8388608.0
+> sample24 i16 w8                          = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 8_388_608.0
 >   where
 >     f8to32             :: Word8 → Int32  = fromIntegral
 >     f16to32            :: Int16 → Int32  = fromIntegral
 >      
 > sample16               :: Int16 → Double
-> sample16 i16                             = fromIntegral i16 / 32768.0
+> sample16 i16                             = fromIntegral i16 / 32_768.0
 >
 > samplePoint            :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Int → Double
 > samplePoint s16 ms8 ix                   = sample24 (s16 ! ix) (fromIntegral (maybe 0 (! ix) ms8))
@@ -1546,14 +1551,14 @@ Returns sample point as (normalized) Double
 >     (xL, xR) ← sIn                       ⤙ ()
 >     outA                                 ⤙ xL + xR
 >
-> dupMono                :: Signal p () Double → Signal p () (Double, Double)
+> dupMono                :: ∀ a p . (WaveAudioSample a, Clock p) ⇒ Signal p () a → Signal p () (Double, Double)
 > dupMono sIn                              = 
 >   proc () → do
 >     x ← sIn                              ⤙ ()
->     outA                                 ⤙ (x, x)
+>     outA                                 ⤙ makeStereo x
 >
 > eeee :: Double
-> eeee = 2.7182818284590452353602874713527
+> eeee = 2.718_281_828_459_045_235_360_287_471_352_7
 >
 > eeee' :: Complex Double
 > eeee' = eeee :+ 0

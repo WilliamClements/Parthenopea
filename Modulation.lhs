@@ -364,6 +364,8 @@ Modulator management ===========================================================
 >     ResonanceSVF2                        → procSVF2 m8n
 >     ResonanceOnePole                     → procOnePole m8n
 >     ResonanceTwoPoles                    → procTwoPoles m8n
+>     ResonanceConvo                       → error $ unwords ["procFilter"
+>                                                           , "should not reach makeSF if ResonanceConvo"]
 >
 > procLowpass            :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
 > procLowpass _                            =

@@ -78,30 +78,32 @@ Signal function-based synth ====================================================
 >           "eutSynthesize",                show (dur, noon)
 >         , "\n... sample, scored, toplay, looping", show (secsSample, secsScored, secsToPlay, looping)]
 >
-> stripModSignals        :: Signal p ((Double, Double), (ModSignals, ModSignals)) Double
+> stripModSignals        :: ∀ a p . (WaveAudioSample a, Clock p) ⇒ Signal p (a, (ModSignals, ModSignals)) Double
 > stripModSignals                          =
->   proc ((a1L, a1R), (modSigL, modSigR)) → do
->   outA                               ⤙ a1L + a1R
+>   proc (x, (modSigL, modSigR)) → do
+>   outA                               ⤙ makeMono x
 >
-> applyConvolution       :: ∀ p . Clock p ⇒
+> applyConvolution       :: ∀ a p . (WaveAudioSample a, Clock p) ⇒
 >                           (Recon, Recon)
 >                           → Double
->                           → Signal p () ((Double, Double), (ModSignals, ModSignals))
+>                           → Signal p () (a, (ModSignals, ModSignals))
 >                           → Signal p () (Double, Double)
 > applyConvolution (reconL, reconR) secsToPlay sInA
->   | traceIf trace_AC False               = undefined
+>   | traceNow trace_AC False              = undefined
 >   | otherwise                            = dupMono result
 >   where
->     trace_AC                             = unwords ["applyConvolution", show secsToPlay]
+>     sr                                   = rate     (undefined :: p)
+>     numChannels                          = 2 -- WOX
+>     numSamples                           = truncate (secsToPlay * sr) * numChannels
 >
 >     sInA'                                = sInA >>> stripModSignals
->     nn                                   = length $ toSamples secsToPlay sInA'
 >     Lowpass{ .. }                        = reconL.rModulation.mLowpass
->     mResponse                            = computeIFFT nn lowpassFc lowpassQ (rate (undefined :: p))
 >     result                               =
->       case mResponse of
+>       case computeIFFT numSamples lowpassFc lowpassQ sr of
 >         Nothing                          → sInA'
 >         Just ps                          → convolveSFs secsToPlay sInA' (makeSignal ps)
+>
+>     trace_AC                             = unwords ["applyConvolution", show secsToPlay, show numSamples]
 >
 > eutDriver              :: ∀ p . Clock p ⇒
 >                           Double

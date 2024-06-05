@@ -251,7 +251,7 @@ Feed chart =====================================================================
 >
 > bench                  :: IO ()
 > bench                                    =
->   benchFilters measureResponse [ResonanceSVF1] cutoffs kews freaks
+>   benchFilters measureResponse [ResonanceConvo] cutoffs kews freaks
 >
 > porch                  :: IO ()
 > porch                                    =
@@ -281,7 +281,7 @@ Feed chart =====================================================================
 > benchFilters           :: (BenchSpec → [(Double, Double)]) → [ResonanceType] → [Int] → [Int] → [Int] → IO ()
 > benchFilters fun rts fcs qs fks          = doFilters fun bRanges
 >   where
->     bRanges                            = 
+>     bRanges                              = 
 >       BenchRanges
 >         rts
 >         (map fromIntegral fcs) 

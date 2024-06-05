@@ -322,7 +322,7 @@ Silver =========================================================================
 > silverTempo                              = 2
 > silverTranspose                          = 7
 >
-> silverLead_                              = makePitched MusicBox silverTranspose 0 100
+> silverLead_                              = makePitched Trumpet silverTranspose 0 100
 >     
 > silver dynMap =
 >     removeZeros
