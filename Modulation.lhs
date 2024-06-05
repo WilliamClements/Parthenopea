@@ -291,21 +291,27 @@ Modulator management ===========================================================
 >       y ← delay 0                        ⤙ x  
 >       outA                               ⤙ y
 >
+> cascadeCount           :: ResonanceType → Maybe Int
+> cascadeCount resonType                   =
+>   case resonType of
+>     ResonanceNone                        → Nothing
+>     ResonanceConvo                       → Nothing
+>     _                                    → Just cascadeConfig
+>
 > addResonance           :: Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
 > addResonance noon m8n@Modulation{ .. }   =
->   if lowPassType /= ResonanceNone
->     then
->       case cascadeCount of
+>   case cascadeCount lowpassType of
+>     Nothing            → delay'
+>     Just count         →
+>       case count of
 >         0              → final
 >         1              → stage >>> final
 >         2              → stage >>> stage >>> final
 >         3              → stage >>> stage >>> stage >>> final
 >         4              → stage >>> stage >>> stage >>> stage >>> final
->         _              → error $ unwords [show cascadeCount, "cascades too many, not supported"]
->     else
->       delay'
+>         _              → error $ unwords [show count, "cascades are too many, not supported"]
 >   where
->     LowPass{ .. }                        = mLowPass
+>     Lowpass{ .. }                        = mLowpass
 >
 >     stage                                =
 >         proc (sIn, msig)                 → do
@@ -323,12 +329,12 @@ Modulator management ===========================================================
 >           let sOut                       = resonate sIn fc pickled
 >           outA                           ⤙ sOut
 >     trace_MSF                            = unwords ["addResonance (fc, q)"
->                                                    , show (lowPassFc, lowPassQ)]
+>                                                    , show (lowpassFc, lowpassQ)]
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
 >       clip (20, 20000)
->            (lowPassFc * evaluateModSignals
+>            (lowpassFc * evaluateModSignals
 >                           "modulateFc"
 >                           m8n
 >                           ToFilterFc
@@ -337,7 +343,7 @@ Modulator management ===========================================================
 >
 >     resonate           :: Double → Double → Double → Double
 >     resonate x fc y
->       | traceNever trace_R False         = undefined
+>       | traceNot trace_R False           = undefined
 >       | otherwise                        = y
 >       where
 >         y'                               = checkForNan y "resonate y"
@@ -349,7 +355,7 @@ Modulator management ===========================================================
 >
 > procFilter             :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
 > procFilter m8n@Modulation{ .. }          =
->   case lowPassType mLowPass of
+>   case lowpassType mLowpass of
 >     ResonanceNone                        → error $ unwords ["procFilter"
 >                                                           , "should not reach makeSF if ResonanceNone"]
 >     ResonanceLowpass                     → procLowpass m8n
@@ -369,11 +375,11 @@ Modulator management ===========================================================
 > procBandpass Modulation{ .. }            =
 >   proc (x, fc) → do
 >     y1 ← filterLowPassBW                 ⤙ (x, fc)
->     y2 ← filterBandPass 2                ⤙ (x, fc, lowPassQ / 3)
+>     y2 ← filterBandPass 2                ⤙ (x, fc, lowpassQ / 3)
 >     let y'                               = traceBandpass y1 y2
 >     outA                                 ⤙ notracer "bp" y'
 >   where
->     LowPass{ .. }                        = mLowPass
+>     Lowpass{ .. }                        = mLowpass
 >     lowpassWeight                        = 0.50
 >     bandpassWeight                       = 0.75
 >
@@ -389,7 +395,7 @@ Modulator management ===========================================================
 see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
 
 > indeedAverageInput                       = True
-> extraDampFactor                          = 2
+> extraDampFactor                          = 1
 >
 > procSVF1               :: ∀ p . Clock p ⇒ Modulation → Signal p (Double,Double) Double
 > procSVF1 Modulation{..}                  =
@@ -406,9 +412,9 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       yB' ← delay 0                      ⤙ yB
 >     outA                                 ⤙ yL
 >   where
->     LowPass{ .. }                        = mLowPass
+>     Lowpass{ .. }                        = mLowpass
 >
->     damp                                 = extraDampFactor / fromCentibels' lowPassQ
+>     damp                                 = extraDampFactor / fromCentibels' lowpassQ
 >     theta c                              = pi * c / rate (undefined :: p)
 >
 >     maybeAverageInput c c'               =
@@ -431,9 +437,9 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       yB' ← delay 0                      ⤙ yB
 >     outA                                 ⤙ yL
 >   where
->     LowPass{ .. }                        = mLowPass
+>     Lowpass{ .. }                        = mLowpass
 >
->     damp                                 = extraDampFactor / fromCentibels' lowPassQ
+>     damp                                 = extraDampFactor / fromCentibels' lowpassQ
 >     theta c                              = pi * c / rate (undefined :: p)
 >
 >     maybeAverageInput c c'               =
@@ -453,7 +459,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       let y                              = c * x + (1 - c) * y'
 >     outA                                 ⤙ y
 >   where
->     LowPass { .. }                       = mLowPass
+>     Lowpass { .. }                       = mLowpass
 >     sr                                   = rate (undefined :: p)
 >
 > procTwoPoles           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
@@ -469,8 +475,8 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       x''    ← delay 0                   ⤙ x'
 >     outA                                 ⤙ y
 >   where
->     LowPass { .. }                       = mLowPass
->     cs@CoeffsM2N2{ .. }                  = buildSystemM2N2 $ pickZerosAndPoles (2 * pi * lowPassFc) (lowPassQ / 960)
+>     Lowpass { .. }                       = mLowpass
+>     cs@CoeffsM2N2{ .. }                  = buildSystemM2N2 $ pickZerosAndPoles (2 * pi * lowpassFc) (lowpassQ / 960)
 >
 >     trace_P2P                            = unwords ["procTwoPoles", show cs]
 >
@@ -602,11 +608,11 @@ Type declarations ==============================================================
 >     noteOnVel          :: Velocity
 >   , noteOnKey          :: KeyNumber} deriving (Eq, Ord, Show)
 >
-> data LowPass                             =
->   LowPass {
->     lowPassType        :: ResonanceType
->   , lowPassFc          :: Double
->   , lowPassQ           :: Double} deriving (Eq, Show)
+> data Lowpass                             =
+>   Lowpass {
+>     lowpassType        :: ResonanceType
+>   , lowpassFc          :: Double
+>   , lowpassQ           :: Double} deriving (Eq, Show)
 >
 > data ModSignals                          =
 >   ModSignals {
@@ -639,7 +645,8 @@ Type declarations ==============================================================
 > defModTriple                             = ModTriple 0 0 0
 >
 > data ResonanceType                       =
->   ResonanceNone 
+>   ResonanceNone
+>   | ResonanceConvo 
 >   | ResonanceLowpass
 >   | ResonanceBandpass
 >   | ResonanceSVF1
@@ -655,7 +662,7 @@ Type declarations ==============================================================
 >
 > data Modulation                          =
 >   Modulation {
->     mLowPass           :: LowPass
+>     mLowpass           :: Lowpass
 >   , mModEnv            :: Maybe Envelope
 >   , mModLfo            :: Maybe LFO
 >   , mVibLfo            :: Maybe LFO
@@ -665,7 +672,7 @@ Type declarations ==============================================================
 >   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
 > defModulation                            = Modulation
->                                              (LowPass ResonanceNone 0 0) Nothing Nothing Nothing
+>                                              (Lowpass ResonanceNone 0 0) Nothing Nothing Nothing
 >                                              defModCoefficients defModCoefficients defModCoefficients
 >                                              Map.empty
 >
@@ -724,25 +731,23 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent :: Double
 >   , qqReverbAllPerCent :: Double
 >   , qqUseDefaultMods   :: Bool
->   , qqLoCutoff         :: ResonanceType
->   , qqHiCutoff         :: ResonanceType
+>   , qqLoCutoffReson    :: ResonanceType
+>   , qqHiCutoffReson    :: ResonanceType
 >   , qqUseLFO           :: Bool
 >   , qqChorusRate       :: Double
 >   , qqChorusDepth      :: Double
->   , qqCascadeCount     :: Int
->   , qqUseConvolution   :: Bool} deriving Show
+>   , qqCascadeConfig    :: Int} deriving Show
 >
 > useModulators                            = qqUseModulators              defM
 > chorusAllPercent                         = qqChorusAllPerCent           defM
 > reverbAllPercent                         = qqReverbAllPerCent           defM
 > useDefaultMods                           = qqUseDefaultMods             defM
-> loCutoff                                 = qqLoCutoff                   defM
-> hiCutoff                                 = qqHiCutoff                   defM
+> loCutoffReson                            = qqLoCutoffReson              defM
+> hiCutoffReson                            = qqHiCutoffReson              defM
 > useLFO                                   = qqUseLFO                     defM
 > chorusRate                               = qqChorusRate                 defM
 > chorusDepth                              = qqChorusDepth                defM
-> cascadeCount                             = qqCascadeCount               defM
-> useConvolution                           = qqUseConvolution             defM
+> cascadeConfig                            = qqCascadeConfig              defM
 >
 > defM                   :: ModulationSettings
 > defM =
@@ -751,13 +756,12 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
->   , qqLoCutoff                           = ResonanceSVF2
->   , qqHiCutoff                           = ResonanceBandpass
+>   , qqLoCutoffReson                      = ResonanceSVF2
+>   , qqHiCutoffReson                      = ResonanceBandpass
 >   , qqUseLFO                             = True
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
 >   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)
->   , qqCascadeCount                       = 0
->   , qqUseConvolution                     = False
+>   , qqCascadeConfig                      = 0
 >   }
 
 The End

@@ -773,6 +773,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >   | traceIf trace_CG False               = undefined
 >   | otherwise                            = ArtifactGrade (sum weightedScores) baseScores
 >   where
+>     PreInstrument{ .. }                  = pbPreI
 >     PerInstrument{ .. }                  = pbPerI
 >     zs                                   = tail pZonePairs
 >     empiricals         :: [Int]          = [   scoreBool $ isStereoInst zs
@@ -794,7 +795,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     weightedScores     :: [Int]          = zipWith (*) baseScores ssWeights
 >
 >     trace_CG                             =
->       unwords [   "computeGrade " , show pInstCat
+>       unwords [   "computeGrade " , show iName, show pInstCat
 >                 , " and "         , show baseScores
 >                 , " X "           , show ssWeights
 >                 , " = "           , show weightedScores]
@@ -1334,7 +1335,7 @@ reconcile zone and sample header ===============================================
 >   where
 >     m8n                :: Modulation     =
 >       defModulation{
->         mLowPass                         = constructLowPass
+>         mLowpass                         = constructLowPass
 >       , mModEnv                          = nModEnv
 >       , mModLfo                          = nModLfo
 >       , mVibLfo                          = nVibLfo
@@ -1342,14 +1343,14 @@ reconcile zone and sample header ===============================================
 >       , toFilterFcCo                     = summarize ToFilterFc
 >       , toVolumeCo                       = summarize ToVolume}
 >
->     constructLowPass   :: LowPass
->     constructLowPass                     = LowPass resonanceType initFc normQ
+>     constructLowPass   :: Lowpass
+>     constructLowPass                     = Lowpass resonanceType initFc normQ
 >         
 >     initFc             :: Double         = fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
 >     normQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ / 960
 >     resonanceType      :: ResonanceType  = if initFc < 10000
->                                              then loCutoff
->                                              else hiCutoff
+>                                              then loCutoffReson
+>                                              else hiCutoffReson
 >
 >     nModEnv            :: Maybe Envelope = deriveEnvelope
 >                                              zDelayModEnv

@@ -260,7 +260,7 @@ Feed chart =====================================================================
 > testFrFr               :: Int → IO ()
 > testFrFr npoints                         = do
 >   let frFr                               = createFrFun 500 15 259
->   let points                             = [20000 * fromIntegral x / fromIntegral npoints | x <- [0..(npoints-1)]]
+>   let points                             = [20000 * fromIntegral x / fromIntegral npoints | x ← [0..(npoints-1)]]
 >   let points'                            = map frFr points
 >   let grouts                             = zip points points'
 >   chartPoints "goose" [Section (opaque blue) grouts]
@@ -270,7 +270,7 @@ Feed chart =====================================================================
 > measureResponse        :: BenchSpec → [(Double, Double)]
 > measureResponse BenchSpec{ .. }          = map doFk bench_fks
 >   where
->     m8n                                  = defModulation{mLowPass = LowPass bench_rt bench_fc bench_q}
+>     m8n                                  = defModulation{mLowpass = Lowpass bench_rt bench_fc bench_q}
 >
 >     doFk               :: Double → (Double, Double)
 >     doFk fk                              = (fk, maxSample filterTestDur sf)

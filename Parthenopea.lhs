@@ -3,6 +3,7 @@
 > {-# LANGUAGE FlexibleInstances #-}
 > {-# LANGUAGE InstanceSigs #-}
 > {-# LANGUAGE NamedFieldPuns #-}
+> {-# LANGUAGE NumericUnderscores  #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TupleSections #-}
@@ -1047,6 +1048,57 @@ music converter ================================================================
 >     j (Dyn dyn)                          = [show dyn]
 >     j _                                  = []
 
+-----------------------------------------------------------------------------
+
+> -- | /O(n lg n)/. A radix-2 DIT
+> --  (decimation-in-time) version of the
+> --  Cooley-Tukey FFT algorithm.
+> --  The length of the input list /must/
+> --  be a power of two, or only the prefix
+> --  of the list of length equal to the largest
+> --  power of two less than the length of the list
+> --  will be transformed.
+>
+> myFft :: [Complex Double] -> [Complex Double]
+> myFft []    = []
+> myFft [x,y] = myDft [x,y]
+> myFft xs    = go len ys zs [0..len*2-1]
+>   where (ys,zs) = (myFft***myFft)
+>            . deinterleave $ xs
+>         len = length ys
+>         go len xs ys ks = zipWith (flip ($)) (ys ++ ys)
+>                             (zipWith (flip ($)) (xs ++ xs)
+>                               (fmap (f len) ks ++ fmap (g len) ks))
+>         f len k x y = x + y * exp (negate(2*pi*i*fi k)/fi(len*2))
+>         g len k x y = x - y * exp (negate(2*pi*i*fi k)/fi(len*2))
+>         (***) f g (x,y) = (f x, g y)
+>         deinterleave :: [a] -> ([a],[a])
+>         deinterleave = unzip . pairs
+>         pairs :: [a] -> [(a,a)]
+>         pairs []       = []
+>         pairs (x:y:zs) = (x,y) : pairs zs
+>         pairs _        = []
+>         fi = fromIntegral
+>         i = 0 :+ 1
+>
+> myIfft :: [Complex Double] -> [Complex Double]
+> myIfft xs = let n = (fromIntegral . length) xs in fmap (/n) (myFft xs)
+>
+> -- | /O(n^2)/. The Discrete Fourier Transform.
+>
+> myDft :: [Complex Double] -> [Complex Double]
+> myDft xs = let len = length xs
+>            in map ( \ x_ -> go len x_ xs) [0 .. len - 1]
+>   where i = 0 :+ 1
+>         fi = fromIntegral
+>         go len k xs = foldl' (+) 0 . flip fmap [0..len-1]
+>           $ \n -> (xs!!n) * exp (negate(2*pi*i*fi n*fi k)/fi len)
+>
+> myIdft :: [Complex Double] -> [Complex Double]
+> myIdft xs = let n = (fromIntegral . length) xs in fmap (/n) (myDft xs)
+
+-----------------------------------------------------------------------------
+
 Sampling ==============================================================================================================
 
 > type SampleAnalysis    = Double
@@ -1093,15 +1145,24 @@ Sampling =======================================================================
 > maxSample              :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Double → Signal p () a → Double
 > maxSample dur sf                         = maximum (map abs (toSamples dur sf))
 >
-> convolveArrays         :: (Ix a, Integral a, Num b, AudioSample b) ⇒ Array a b → Array a b → Array a b
-> convolveArrays x1 x2                     = x3
+> convolveArrays         :: (Ix a, Integral a, Ord b, Num b, AudioSample b) ⇒ Array a b → Array a b → Array a b
+> convolveArrays x1 x2                     =
+>   profess
+>     (inbounds x1 && inbounds x2)
+>     (unwords ["convolveArrays: very large numbers in", if x1ok then "second operand" else "first operand"])
+>     x3
 >   where
 >     m1 = snd $ bounds x1
 >     m2 = snd $ bounds x2
 >     m3 = m1 + m2
 >     x3 =
 >       listArray (0,m3)
->         [ sum [ x1!k * x2!(n-k) | k <- [max 0 (n-m2)..min n m1] ] | n <- [0..m3] ]
+>         [ sum [ x1!k * x2!(n-k) | k ← [max 0 (n-m2)..min n m1] ] | n ← [0..m3] ]
+>
+>     x1ok                                 = inbounds x1
+>     x2ok                                 = inbounds x2
+>
+>     inbounds                             = all ((< 1_000_000) . abs)
 >
 > convolveSFs            :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Double → Signal p () a → Signal p () a → Signal p () Double
 > convolveSFs secs sig1 sig2               = makeSignal $ convolveArrays x1 x2
@@ -1113,20 +1174,23 @@ Sampling =======================================================================
 >     x2                                   = listArray (0, length l2 - 1) l2
 >
 > makeSignal             :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Array Int a → Signal p () a
-> makeSignal vec                           =
->   let
->     nn                                   =
->       profess
->         (not $ null vec)
->         "degenerate vec"
->         (length vec)
->   in
+> makeSignal vec
+>   | traceNow trace_MS False              = undefined
+>   | otherwise                            =
 >     proc ()                              → do
 >       rec
 >         ii' ← delay 0                    ⤙ ii
 >         let ii                           = ii' + 1
 >       outA                               ⤙ vec ! (ii' `mod` nn)
+>   where
+>     trace_MS                             = unwords ["makeSignal", show nn]
 >
+>     nn                                   =
+>       profess
+>         (not $ null vec)
+>         "degenerate vec"
+>         (length vec)
+
 > createFrFun            :: Double → Double → Double → (Double → Double)
 > createFrFun center radius _              =
 >   profess (      radius >= 0
@@ -1141,10 +1205,10 @@ Sampling =======================================================================
 >     mapx               :: Double → Double
 >     mapx x
 >       | x < 0                            = error "mapx"
->       | x < xA                           = tracer "x_1" $ phase1y x
->       | x < xB                           = tracer "x_2" $ phase2y ((x - xA) / (xB - xA))
->       | x < xC                           = tracer "x_3" $ phase3y ((x - xB) / (xC - xB))
->       | otherwise                        = tracer "x_4" $ phase4y (x - xC)
+>       | x < xA                           = notracer "x_1" $ phase1y x
+>       | x < xB                           = notracer "x_2" $ phase2y ((x - xA) / (xB - xA))
+>       | x < xC                           = notracer "x_3" $ phase3y ((x - xB) / (xC - xB))
+>       | otherwise                        = notracer "x_4" $ phase4y (x - xC)
 >
 >     phase1y _                            = 1
 >     phase2y c                            = 1 + controlConvex c
@@ -1153,10 +1217,13 @@ Sampling =======================================================================
 >
 >     rolloff                              = 1 / 4 -- WOX
 >
-> computeIFFT      :: Int → Double → Double → Double → Array Int Double
+> computeIFFT      :: Int → Double → Double → Double → Maybe (Array Int Double)
 > computeIFFT len frFc frQ sr
 >   | traceNow trace_CIFFT False           = undefined
->   | otherwise                            = listArray (0, lenOut - 1) (map realPart psOut)
+>   | otherwise                            =
+>     if null psOut
+>       then Nothing
+>       else Just $ listArray (0, lenOut - 1) (map realPart psOut)
 >   where
 >     trace_CIFFT                          = unwords ["computeIFFT", show (len, frFc, frQ, sr), show nQ]
 >
@@ -1173,12 +1240,8 @@ Sampling =======================================================================
 >
 >     psIn, psOut        :: [Complex Double]
 >     psIn                                 = map ((:+ 0) . (* ynorm) . frfun . (* delta) . fromIntegral) [0..len-1]
->     psOut                                = ifft $ tracer "psIn" psIn
->     lenOut                               =
->       profess
->         (not $ null psOut)
->         (unwords ["degen ifft result"])
->         (length psOut)
+>     psOut                                = myIfft psIn
+>     lenOut                               = length psOut
 
 Control Functions
 

@@ -69,7 +69,7 @@ Signal function-based synth ====================================================
 >                                              >>> eutEffects                (reconL, reconR)
 >     sig'               :: Signal p () (Double, Double)
 >     sig'                                 =
->       if useConvolution
+>       if ResonanceConvo == reconL.rModulation.mLowpass.lowpassType
 >         then applyConvolution (reconL, reconR) secsToPlay sig
 >         else sig >>> eutAmplify secsScored (reconL, reconR) noon secsToPlay
 >
@@ -94,13 +94,14 @@ Signal function-based synth ====================================================
 >   where
 >     trace_AC                             = unwords ["applyConvolution", show secsToPlay]
 >
->
 >     sInA'                                = sInA >>> stripModSignals
 >     nn                                   = length $ toSamples secsToPlay sInA'
->     LowPass{ .. }                        = reconL.rModulation.mLowPass
->     sResponse                            = makeSignal (computeIFFT nn lowPassFc lowPassQ (rate (undefined :: p)))
->     
->     result                               = convolveSFs secsToPlay sInA' sResponse
+>     Lowpass{ .. }                        = reconL.rModulation.mLowpass
+>     mResponse                            = computeIFFT nn lowpassFc lowpassQ (rate (undefined :: p))
+>     result                               =
+>       case mResponse of
+>         Nothing                          → sInA'
+>         Just ps                          → convolveSFs secsToPlay sInA' (makeSignal ps)
 >
 > eutDriver              :: ∀ p . Clock p ⇒
 >                           Double
@@ -969,7 +970,7 @@ Turn Knobs Here ================================================================
 >   , qqUseEffectChorus                    = True
 >   , qqUseEffectPan                       = True
 >   , qqUseEffectDCBlock                   = True
->   , qqNormalizingOutput                  = True
+>   , qqNormalizingOutput                  = False
 >   , qqScanningOutput                     = False}
 
 The End
