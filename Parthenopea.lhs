@@ -1170,6 +1170,12 @@ Sampling =======================================================================
 >     x1                                   = listArray (0, length l1 - 1) l1
 >     x2                                   = listArray (0, length l2 - 1) l2
 >
+> makeDeltaFunction      :: ∀ a p. (Clock p) ⇒ Int → Signal p () Double
+> makeDeltaFunction nSamples               = makeSignal vec
+>   where
+>     list                                 = 1 : replicate (nSamples - 1) 0
+>     vec                                  = listArray (0, nSamples - 1) list
+>
 > makeSignal             :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Array Int a → Signal p () a
 > makeSignal vec
 >   | traceNow trace_MS False              = undefined
@@ -1188,8 +1194,8 @@ Sampling =======================================================================
 >         "degenerate vec"
 >         (length vec)
 
-> createFrFun            :: Double → Double → Double → (Double → Double)
-> createFrFun center radius _              =
+> createFrFun            :: Double → Double → (Double → Double)
+> createFrFun center radius                =
 >   profess (      radius >= 0
 >               && center >= radius)
 >           (unwords ["createFrFun: bad center, radius", show center, show radius])
@@ -1214,7 +1220,42 @@ Sampling =======================================================================
 >
 >     rolloff                              = 1 / 4 -- WOX
 >
-> computeIFFT      :: Int → Double → Double → Double → Maybe (Array Int Double)
+> computeAllIR           :: Int → Map (Int, Int) (Maybe (Array Int Double))
+> computeAllIR len                         =
+>   foldr effer Map.empty allDomain
+>   where
+>     allDomain                            = [(i, j) | i ← [0..960], j ← [0..20_000]]
+>
+>     effer              :: (Int, Int)
+>                           → Map (Int, Int) (Maybe (Array Int Double))
+>                           → Map (Int, Int) (Maybe (Array Int Double))
+>     effer entry                          = Map.insert entry (computeEachIR entry)
+>
+>     computeEachIR      :: (Int, Int) → Maybe (Array Int Double)
+>     computeEachIR (initFc, initQ)
+>       | traceNow trace_CEIR False             = undefined
+>       | otherwise                             =
+>       if null esOut
+>         then Nothing
+>         else Just $ listArray (0, len - 1) (map realPart esOut)
+>       where
+>         trace_CEIR                       = unwords ["computeEachIR called!!", show (initFc, initQ)]
+>
+>         delta, ynorm   :: Double
+>         delta                            = 20_000 / fromIntegral len
+>         ynorm                            = 1 / (1 + dInitQ)
+>
+>         esIn, esOut    :: [Complex Double]
+>         esIn                             = map ((:+ 0) . (* ynorm) . frfr . (* delta) . fromIntegral) ([0..len-1]::[Int])
+>         esOut                            = ifft esIn
+>
+>         frfr           :: (Double → Double)
+>                                          = createFrFun dInitFc dInitQ
+>         dInitFc                          = fromIntegral initFc
+>         dInitQ                           = fromIntegral initQ / 960
+>
+> {-
+> computeIFFT            :: Int → Double → Double → Double → Maybe (Array Int Double)
 > computeIFFT len frFc frQ sr
 >   | traceNow trace_CIFFT False           = undefined
 >   | otherwise                            =
@@ -1239,6 +1280,7 @@ Sampling =======================================================================
 >     psIn                                 = map ((:+ 0) . (* ynorm) . frfun . (* delta) . fromIntegral) [0..len-1]
 >     psOut                                = myIfft psIn
 >     lenOut                               = length psOut
+> -}
 
 Control Functions
 
@@ -1272,6 +1314,12 @@ The use of following functions requires that their input is normalized between 0
 >                                              then 0
 >                                              else 1
 >
+> instance AudioSample ((Double, Double), (ModSignals, ModSignals)) where
+>    zero = ((0,0),(defModSignals, defModSignals))
+>    mix ((a,b),(msL,msR)) ((c,d),(_,_)) = ((a+c,b+d), (msL, msR))
+>    collapse ((a,b),(_,_)) = [a,b]
+>    numChans _ = 2
+>
 > class AudioSample a ⇒ WaveAudioSample a where
 >   makeStereo           :: a → (Double, Double)
 >   makeMono             :: a → Double
@@ -1287,6 +1335,20 @@ The use of following functions requires that their input is normalized between 0
 >   makeStereo (dL, dR)                    = (dL, dR)
 >   makeMono             :: (Double, Double) → Double
 >   makeMono (dL, dR)                      = (dL + dR) / 2
+>
+> instance WaveAudioSample ((Double, Double), (ModSignals, ModSignals)) where
+>   makeStereo           :: ((Double, Double), (ModSignals, ModSignals)) → (Double, Double)
+>   makeStereo ((dL, dR), (_, _))      = (dL, dR)
+>   makeMono             :: ((Double, Double), (ModSignals, ModSignals)) → Double
+>   makeMono ((dL, dR), (_, _))        = (dL + dR) / 2
+>
+> data ModSignals                          =
+>   ModSignals {
+>     xModEnvPos         :: Double
+>   , xModLfoPos         :: Double
+>   , xVibLfoPos         :: Double} deriving (Show)
+>
+> defModSignals                            = ModSignals 0 0 0
 >
 > data SlwRate
 > instance Clock SlwRate where

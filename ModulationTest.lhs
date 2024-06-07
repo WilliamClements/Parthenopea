@@ -2,6 +2,7 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE BangPatterns #-}
+> {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -234,9 +235,9 @@ Feed chart =====================================================================
 > nKews                  :: Int            = 2
 > kews                   :: [Int]          = breakUp (0, 960) 0 nKews
 > nCutoffs               :: Int            = 11
-> cutoffs                :: [Int]          = breakUp (20, 10000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
+> cutoffs                :: [Int]          = breakUp (20, 10_000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
 > nFreaks                :: Int            = 39
-> freaks                 :: [Int]          = breakUp (20, 9000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
+> freaks                 :: [Int]          = breakUp (20, 9_000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
 >
 > filterTestDur          :: Double         = 0.25
 >
@@ -259,8 +260,8 @@ Feed chart =====================================================================
 >
 > testFrFr               :: Int → IO ()
 > testFrFr npoints                         = do
->   let frFr                               = createFrFun 500 15 259
->   let points                             = [20000 * fromIntegral x / fromIntegral npoints | x ← [0..(npoints-1)]]
+>   let frFr                               = createFrFun 500 15
+>   let points                             = [20_000 * fromIntegral x / fromIntegral npoints | x ← [0..(npoints-1)]]
 >   let points'                            = map frFr points
 >   let grouts                             = zip points points'
 >   chartPoints "goose" [Section (opaque blue) grouts]
@@ -270,7 +271,7 @@ Feed chart =====================================================================
 > measureResponse        :: BenchSpec → [(Double, Double)]
 > measureResponse BenchSpec{ .. }          = map doFk bench_fks
 >   where
->     m8n                                  = defModulation{mLowpass = Lowpass bench_rt bench_fc bench_q}
+>     m8n                                  = defModulation{mLowpass = Lowpass bench_rt (13_500, 0) bench_fc bench_q}
 >
 >     doFk               :: Double → (Double, Double)
 >     doFk fk                              = (fk, maxSample filterTestDur sf)

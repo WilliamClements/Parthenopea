@@ -1275,7 +1275,7 @@ reconcile zone and sample header ===============================================
 >     trace_RLR                            = unwords ["reconLR:\n", show zoneL, "\n", show shdrL]
 >
 > recon                  :: SFZone → F.Shdr → NoteOn → Recon 
-> recon     zone@SFZone{ .. } F.Shdr{ .. } noon@NoteOn{ .. }
+> recon zone@SFZone{ .. } F.Shdr{ .. } noon@NoteOn{ .. }
 >                                          = recon
 >   where
 >     xSampleRate      = fromIntegral          sampleRate
@@ -1334,7 +1334,7 @@ reconcile zone and sample header ===============================================
 >   where
 >     m8n                :: Modulation     =
 >       defModulation{
->         mLowpass                         = Lowpass resonanceType initFc normQ
+>         mLowpass                         = Lowpass resonanceType entry initFc normQ
 >       , mModEnv                          = nModEnv
 >       , mModLfo                          = nModLfo
 >       , mVibLfo                          = nVibLfo
@@ -1342,8 +1342,9 @@ reconcile zone and sample header ===============================================
 >       , toFilterFcCo                     = summarize ToFilterFc
 >       , toVolumeCo                       = summarize ToVolume}
 >
->     initFc             :: Double         = fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
->     normQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ / 960
+>     entry              :: (Int, Int)     = (maybe 13500 (clip (1500, 13500)) zInitFc, maybe 0 (clip (0, 960)) zInitQ)
+>     initFc             :: Double         = fromAbsoluteCents (fst entry)
+>     normQ              :: Double         = fromIntegral      (snd entry) / 960
 >     resonanceType      :: ResonanceType  = if initFc < 10000
 >                                              then loCutoffReson
 >                                              else hiCutoffReson

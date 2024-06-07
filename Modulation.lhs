@@ -1,6 +1,8 @@
 > {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE BangPatterns #-}
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NamedFieldPuns #-}
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -302,19 +304,32 @@ Modulator management ===========================================================
 >                           Double
 >                           → (Modulation, Modulation)
 >                           → NoteOn
->                           → Signal p ((Double, Double), (ModSignals, ModSignals))
->                                      ((Double, Double), (ModSignals, ModSignals))
-> eutModulate secsScored (m8nL, m8nR) noon
->                                          =
->   proc ((a1L, a1R), (modSigL, modSigR))  → do
->     a2L   ← addResonance noon m8nL       ⤙ (a1L, modSigL)
->     a2R   ← addResonance noon m8nR       ⤙ (a1R, modSigR)
->
->     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
->
->     outA                                 ⤙ ((a3L', a3R'), (modSigL, modSigR))
->
+>                           → Signal p () ((Double, Double), (ModSignals, ModSignals))
+>                           → Signal p () ((Double, Double), (ModSignals, ModSignals))
+> eutModulate secs (m8nL, m8nR) noon sig   =
+>   if ResonanceConvo == m8nL.mLowpass.lowpassType
+>     then sig >>> convo
+>     else sig >>> nonConvo
 >   where
+> {-
+>     (lowpL, lowpR)                       = (m8nL.mLowpass, m8nR.mLowpass)
+> -}
+>
+>     sigConvo           :: Signal p () (Double, Double)
+>     sigConvo                             = applyConvolution (m8nL.mLowpass, m8nR.mLowpass) secs sig
+>
+>     convo                                = proc ((a1L, a1R), (modSigL, modSigR))  → do
+>       (a2L, a2R)       ← sigConvo        ⤙ ()
+>       outA                               ⤙ ((a2L, a2R), (modSigL, modSigR))
+>
+>     nonConvo                             = proc ((a1L, a1R), (modSigL, modSigR))  → do
+>       a2L   ← addResonance noon m8nL     ⤙ (a1L, modSigL)
+>       a2R   ← addResonance noon m8nR     ⤙ (a1R, modSigR)
+>
+>       let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
+>
+>       outA                                 ⤙ ((a3L', a3R'), (modSigL, modSigR))
+>
 >     modulate           :: (Double, Double) → (Double, Double) → (Double, Double)
 >     modulate (a1L, a1R) (a2L, a2R)
 >       | traceNever trace_M False         = undefined
@@ -323,6 +338,40 @@ Modulator management ===========================================================
 >         (a3L, a3R)                       = (checkForNan a2L "mod a2L", checkForNan a2R "mod a2R" )
 >
 >         trace_M                          = unwords ["modulate", show ((a1L, a1R), (a3L, a3R))]
+>
+> filterCache            :: Map (Int, Int) (Maybe (Array Int Double))
+> filterCache                              = computeAllIR 512
+>
+> applyConvolution       :: ∀ a p . (WaveAudioSample a, Clock p) ⇒
+>                           (Lowpass, Lowpass)
+>                           → Double
+>                           → Signal p () (a, (ModSignals, ModSignals))
+>                           → Signal p () (Double, Double)
+> applyConvolution (lowpL, lowpR) secsToPlay sInA
+>   | traceNow trace_AC False              = undefined
+>   | otherwise                            = dupMono result
+>   where
+> {- WOX
+>     Lowpass{ .. }                        = lowpL
+> -}
+>
+>     sInA'                                = sInA >>> stripModSignals
+>     mitem                                = Map.lookup (lowpassEntry lowpL) filterCache
+>     item                                 =
+>       professIsJust
+>         mitem
+>         (unwords ["illegal cache miss"])
+>     result =
+>       case item of
+>         Nothing                          → sInA'
+>         Just vec                         → convolveSFs secsToPlay sInA' (makeSignal vec)
+>
+>     trace_AC                             = unwords ["applyConvolution", show secsToPlay, show item]
+>
+> stripModSignals        :: ∀ a p . (WaveAudioSample a, Clock p) ⇒ Signal p (a, (ModSignals, ModSignals)) Double
+> stripModSignals                          =
+>   proc (x, (_, _)) → do
+>   outA                                   ⤙ makeMono x
 >
 > addResonance           :: Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
 > addResonance noon m8n@Modulation{ .. }   =
@@ -639,14 +688,9 @@ Type declarations ==============================================================
 > data Lowpass                             =
 >   Lowpass {
 >     lowpassType        :: ResonanceType
+>   , lowpassEntry       :: (Int, Int)
 >   , lowpassFc          :: Double
 >   , lowpassQ           :: Double} deriving (Eq, Show)
->
-> data ModSignals                          =
->   ModSignals {
->     xModEnvPos         :: Double
->   , xModLfoPos         :: Double
->   , xVibLfoPos         :: Double} deriving (Show)
 >
 > data ModCoefficients                     =
 >   ModCoefficients {
@@ -700,7 +744,7 @@ Type declarations ==============================================================
 >   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
 > defModulation                            = Modulation
->                                              (Lowpass ResonanceNone 0 0) Nothing Nothing Nothing
+>                                              (Lowpass ResonanceNone (13500, 0) 0 0) Nothing Nothing Nothing
 >                                              defModCoefficients defModCoefficients defModCoefficients
 >                                              Map.empty
 >

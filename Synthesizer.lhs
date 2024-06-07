@@ -44,9 +44,11 @@ Signal function-based synth ====================================================
 > eutSynthesize (reconL, reconR)
 >               sr dur pch vol params s16 ms8
 >   | traceNot trace_eS False              = undefined
->   | otherwise                            = sig'
+>   | otherwise                            = sig
 >   where
 >     noon@NoteOn{ .. }                    = NoteOn vol pch
+>     (m8nL, m8nR)                         = (reconL.rModulation, reconR.rModulation)
+>     (lowpL, lowpR)                       = (m8nL.mLowpass, m8nR.mLowpass)
 >
 >     secsSample         :: Double         = fromIntegral (reconL.rEnd - reconL.rStart) / sr
 >     secsScored         :: Double         = 1 * fromRational dur
@@ -65,47 +67,15 @@ Signal function-based synth ====================================================
 >     pumped             :: Signal p () ((Double, Double), (ModSignals, ModSignals))
 >     pumped                               =       eutDriver      secsScored (reconL, reconR) secsToPlay delta looping
 >                                              >>> eutPumpSamples secsScored (reconL, reconR) noon dur s16 ms8
->     modul8ed           :: Signal p () ((Double, Double), (ModSignals, ModSignals))
->     modul8ed                             =       pumped
->                                              >>> eutModulate    secsScored (reconL.rModulation, reconR.rModulation) noon
+>     sig                :: Signal p () (Double, Double)
+>     sig                                  =       eutModulate    secsScored (reconL.rModulation, reconR.rModulation) noon pumped
 >                                              >>> eutEffects                (reconL, reconR)
->     sig'               :: Signal p () (Double, Double)
->     sig'                                 =
->       if ResonanceConvo == reconL.rModulation.mLowpass.lowpassType
->         then applyConvolution (reconL, reconR) secsToPlay modul8ed
->         else modul8ed >>> eutAmplify secsScored (reconL, reconR) noon secsToPlay
+>                                              >>> eutAmplify     secsScored (reconL, reconR) noon secsToPlay 
 >
 >     trace_eS                             =
 >       unwords [
 >           "eutSynthesize",                show (dur, noon)
 >         , "\n... sample, scored, toplay, looping", show (secsSample, secsScored, secsToPlay, looping)]
->
-> stripModSignals        :: ∀ a p . (WaveAudioSample a, Clock p) ⇒ Signal p (a, (ModSignals, ModSignals)) Double
-> stripModSignals                          =
->   proc (x, (_, _)) → do
->   outA                               ⤙ makeMono x
->
-> applyConvolution       :: ∀ a p . (WaveAudioSample a, Clock p) ⇒
->                           (Recon, Recon)
->                           → Double
->                           → Signal p () (a, (ModSignals, ModSignals))
->                           → Signal p () (Double, Double)
-> applyConvolution (reconL, reconR) secsToPlay sInA
->   | traceNow trace_AC False              = undefined
->   | otherwise                            = dupMono result
->   where
->     sr                                   = rate     (undefined :: p)
->     numChannels                          = 2 -- WOX
->     numSamples                           = truncate (secsToPlay * sr) * numChannels
->
->     sInA'                                = sInA >>> stripModSignals
->     Lowpass{ .. }                        = reconL.rModulation.mLowpass
->     result                               =
->       case computeIFFT numSamples lowpassFc lowpassQ sr of
->         Nothing                          → sInA'
->         Just ps                          → convolveSFs secsToPlay sInA' (makeSignal ps)
->
->     trace_AC                             = unwords ["applyConvolution", show secsToPlay, show numSamples]
 >
 > eutDriver              :: ∀ p . Clock p ⇒
 >                           Double
