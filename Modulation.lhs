@@ -306,9 +306,9 @@ Modulator management ===========================================================
 >                                      ((Double, Double), (ModSignals, ModSignals))
 > eutModulate secsScored (m8nL, m8nR) noon
 >                                          =
->   proc ((a1L, a1R), (modSigL, modSigR)) → do
->     a2L   ← addResonance noon m8nL    ⤙ (a1L, modSigL)
->     a2R   ← addResonance noon m8nR    ⤙ (a1R, modSigR)
+>   proc ((a1L, a1R), (modSigL, modSigR))  → do
+>     a2L   ← addResonance noon m8nL       ⤙ (a1L, modSigL)
+>     a2R   ← addResonance noon m8nR       ⤙ (a1R, modSigR)
 >
 >     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
 >
@@ -347,15 +347,15 @@ Modulator management ===========================================================
 >           outA                           ⤙ (sOut, msig)
 >
 >     final
->       | traceNow trace_MSF False         = undefined
+>       | traceNot trace_MSF False         = undefined
 >       | otherwise                        =
 >         proc (sIn, msig)                 → do
 >           let fc                         = modulateFc msig
 >           pickled      ← procFilter m8n  ⤙ (sIn, fc)
 >           let sOut                       = resonate sIn fc pickled
 >           outA                           ⤙ sOut
->     trace_MSF                            = unwords ["addResonance (fc, q)"
->                                                    , show (lowpassFc, lowpassQ)]
+>     trace_MSF                            =
+>       unwords ["addResonance (fc, q)", show (lowpassFc, lowpassQ)]
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
@@ -784,7 +784,7 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
->   , qqLoCutoffReson                      = ResonanceSVF2
+>   , qqLoCutoffReson                      = ResonanceBandpass
 >   , qqHiCutoffReson                      = ResonanceBandpass
 >   , qqUseLFO                             = True
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz

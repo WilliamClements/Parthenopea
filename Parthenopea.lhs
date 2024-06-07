@@ -1103,9 +1103,6 @@ Sampling =======================================================================
 
 > type SampleAnalysis    = Double
 >
-> testTable              :: Table
-> testTable                                = sineTable -- sawtoothTable -- triangleWaveTable
->
 > createFilterTest       :: ∀ p . Clock p ⇒ Table → Double → Double → Signal p (Double,Double) Double → Signal p () Double
 > createFilterTest waveTable fc freq filtersf
 >   | traceNot trace_CFT False             = undefined
@@ -1289,7 +1286,7 @@ The use of following functions requires that their input is normalized between 0
 >   makeStereo           :: (Double, Double) → (Double, Double)
 >   makeStereo (dL, dR)                    = (dL, dR)
 >   makeMono             :: (Double, Double) → Double
->   makeMono (dL, dR)                      = dL + dR
+>   makeMono (dL, dR)                      = (dL + dR) / 2
 >
 > data SlwRate
 > instance Clock SlwRate where
@@ -1484,9 +1481,15 @@ Test runner
 > runTests               :: [IO Bool] → IO ()
 > runTests tests                           = do
 >   results                                ← sequence tests
+>   let nSuccesses                         = foldl' (\n t → n + if t then 1 else 0) 0 results
 >   putStrLn $ unwords ["results =", show results]
->   let nSuccesses = foldl' (\n t → n + if t then 1 else 0) 0 results
 >   putStrLn $ unwords ["  ", show nSuccesses, "/", show $ length results]
+>
+> runTestsQuietly        :: [IO Bool] → IO Bool
+> runTestsQuietly tests                    = do
+>   results                                ← sequence tests
+>   let nSuccesses                         = foldl' (\n t → n + if t then 1 else 0) 0 results
+>   return (nSuccesses == length results)
 
 Mapping is used in SoundFont modulator
 

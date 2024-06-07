@@ -22,6 +22,7 @@ Rosters support ================================================================
 > import Parthenopea
 > import SoundFont
 > import SunPyg
+> import SynthesizerTest
 > import System.Environment ( getArgs )
 >
 > main                   :: IO ()
@@ -31,7 +32,16 @@ Rosters support ================================================================
 >   let doBench          = (length args == 1) && ("bench" == head args)
 >
 >   _ ← if playAll
->         then doEverything combineAll
+>         then do
+>           resultA                        ← runTestsQuietly modulationTests     
+>           resultB                        ← runTestsQuietly synthesizerTests
+>           let all                        =
+>                 profess
+>                   (resultA && resultB)
+>                   (unwords ["one or more unit tests failed"])
+>                   True
+>           putStrLn "Unit tests completed successfully"
+>           doEverything combineAll
 >         else if doBench
 >           then bench
 >           else doEverything sj -- modulationTest003-- cjingles -- pitchSamples 80

@@ -1330,12 +1330,11 @@ reconcile zone and sample header ===============================================
 >                                              else 0.0
 >
 > reconModulation        :: SFZone → NoteOn → Modulation
-> reconModulation SFZone{ .. } noon
->                                          = resolveMods m8n zModulators defaultMods
+> reconModulation SFZone{ .. } noon        = resolveMods m8n zModulators defaultMods
 >   where
 >     m8n                :: Modulation     =
 >       defModulation{
->         mLowpass                         = constructLowPass
+>         mLowpass                         = Lowpass resonanceType initFc normQ
 >       , mModEnv                          = nModEnv
 >       , mModLfo                          = nModLfo
 >       , mVibLfo                          = nVibLfo
@@ -1343,9 +1342,6 @@ reconcile zone and sample header ===============================================
 >       , toFilterFcCo                     = summarize ToFilterFc
 >       , toVolumeCo                       = summarize ToVolume}
 >
->     constructLowPass   :: Lowpass
->     constructLowPass                     = Lowpass resonanceType initFc normQ
->         
 >     initFc             :: Double         = fromAbsoluteCents $ maybe 13500 (clip (1500, 13500)) zInitFc
 >     normQ              :: Double         = maybe 0 (fromIntegral . clip (0, 960)) zInitQ / 960
 >     resonanceType      :: ResonanceType  = if initFc < 10000
