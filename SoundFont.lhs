@@ -1,5 +1,6 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE NamedFieldPuns #-}
+> {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TupleSections #-}
@@ -298,16 +299,16 @@ sample pitching scaffold =======================================================
 >     mapM_ (pitchOne sffile) [st..en - 1]
 >   
 > pitchOne           :: SFFile → Word → IO ()
-> pitchOne sffile ix
+> pitchOne SFFile{ .. } ix
 >   | traceIf trace_PO False               = undefined
 >   | otherwise = do
->     let arrays                           = zArrays sffile
->     let shdr                             = ssShdrs arrays ! ix
+>     let SoundFontArrays{ .. }            = zArrays
+>     let shdr@F.Shdr{ .. }                = ssShdrs ! ix
 >
->     print $ F.sampleName shdr
+>     print sampleName
 >
 >     let vFft                             =
->           eutAnalyzeSample (ssData arrays) (ssM24 arrays) shdr (fromIntegral $ F.originalPitch shdr)
+>           eutAnalyzeSample ssData ssM24 shdr (fromIntegral originalPitch)
 >     if null vFft
 >       then putStrLn " ...\n"
 >       else
@@ -770,7 +771,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → AgainstKindResult
 >                           → ArtifactGrade
 > computeGrade PreBundle{ .. } pergm kind hints againstKindResult
->   | traceIf trace_CG False               = undefined
+>   | traceNot trace_CG False              = undefined
 >   | otherwise                            = ArtifactGrade (sum weightedScores) baseScores
 >   where
 >     PreInstrument{ .. }                  = pbPreI
@@ -783,7 +784,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                              , round fuzz]
 >     howgood                              = againstKindResult - stands
 >     fuzz               :: Double
->       | howgood > 0.000001               = max 0 (logBase 2 howgood) * fuzzFactor kind
+>       | howgood > 0.000_001              = max 0 (logBase 2 howgood) * fuzzFactor kind
 >       | otherwise                        = 0
 >     ss                 :: [Int]          = zipWith (*) qqDesires' empiricals
 >     baseScores         :: [Int]          = [  foldHints hints
@@ -946,7 +947,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         buildZone      :: SFZone → Word → (ZoneHeader, SFZone)
 >         buildZone fromZone bagIndex
->           | traceNot trace_BZ False        = undefined
+>           | traceIf trace_BZ False      = undefined
 >           | otherwise                    = (zh, zone)
 >           where
 >             xgeni                        = F.genNdx $ ssIBags!bagIndex
@@ -962,7 +963,7 @@ prepare the specified instruments and percussion ===============================
 >                                          = profess
 >                                              (xmodi <= ymodi)
 >                                              "SoundFont file corrupt (buildZone mods)"
->                                              (zip [10000..] (map (ssIMods !) (makeRange xmodi ymodi)))
+>                                              (zip [10_000..] (map (ssIMods !) (makeRange xmodi ymodi)))
 >
 >             meval      :: Maybe Bool     = zSampleIndex
 >                                            >>= \w → Just (PreSampleKey pgkwFile w)
@@ -1114,7 +1115,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF SFRoster{ .. } pergm@PerGMKey{ .. } dur pchIn volIn params
->   | traceNow trace_ISF False             = undefined
+>   | traceIf trace_ISF False             = undefined
 >   | otherwise                            = eutSynthesize (reconL, reconR) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
@@ -1207,7 +1208,7 @@ zone selection for rendering ===================================================
 >                           → (ZoneHeader, SFZone)
 >                           → Maybe (Int, (ZoneHeader, SFZone))
 > scoreOneZone NoteOn{ .. } (zh@ZoneHeader{ .. }, zone@SFZone{ .. })
->   | traceIf trace_SOZ False              = undefined
+>   | traceNot trace_SOZ False             = undefined
 >   | otherwise                            =
 >     if DAllOn /= qqDesireReStereo defT || isStereoZone (zh, zone)
 >       then Just (scoreByPitch + scoreByVelocity, (zh, zone))
@@ -1275,7 +1276,7 @@ reconcile zone and sample header ===============================================
 >     trace_RLR                            = unwords ["reconLR:\n", show zoneL, "\n", show shdrL]
 >
 > recon                  :: SFZone → F.Shdr → NoteOn → Recon 
-> recon zone@SFZone{ .. } F.Shdr{ .. } noon@NoteOn{ .. }
+> recon zone@SFZone{ .. } sHdr@F.Shdr{ .. } noon@NoteOn{ .. }
 >                                          = recon
 >   where
 >     xSampleRate      = fromIntegral          sampleRate
@@ -1283,7 +1284,7 @@ reconcile zone and sample header ===============================================
 >                                                                        [zStartOffs, zStartCoarseOffs])
 >     xEnd             = addIntToWord          end                    (sumOfMaybeInts
 >                                                                        [zEndOffs, zEndCoarseOffs])
->     m8n                                  = reconModulation zone noon
+>     m8n                                  = reconModulation zone sHdr noon
 >     recon = Recon {
 >     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
 >   , rSampleRate      = xSampleRate
@@ -1313,7 +1314,7 @@ reconcile zone and sample header ===============================================
 >                                                                      zFineTune
 >                          else Nothing
 >
->   , rModulation      =                                                m8n
+>   , rM8n             =                                                m8n
 >   , rEffects         = deriveEffects                                  m8n
 >                                                                       noon
 >                                                                       zChorus
@@ -1329,12 +1330,13 @@ reconcile zone and sample header ===============================================
 >                                              then maybe 0 fromIntegral zInitAtten
 >                                              else 0.0
 >
-> reconModulation        :: SFZone → NoteOn → Modulation
-> reconModulation SFZone{ .. } noon        = resolveMods m8n zModulators defaultMods
+> reconModulation        :: SFZone → F.Shdr → NoteOn → Modulation
+> reconModulation SFZone{ .. } F.Shdr{ .. } noon
+>                                          = resolveMods m8n zModulators defaultMods
 >   where
 >     m8n                :: Modulation     =
 >       defModulation{
->         mLowpass                         = Lowpass resonanceType entry initFc normQ
+>         mLowpass                         = Lowpass resonanceType curKernelSpec initFc normQ
 >       , mModEnv                          = nModEnv
 >       , mModLfo                          = nModLfo
 >       , mVibLfo                          = nVibLfo
@@ -1342,10 +1344,14 @@ reconcile zone and sample header ===============================================
 >       , toFilterFcCo                     = summarize ToFilterFc
 >       , toVolumeCo                       = summarize ToVolume}
 >
->     entry              :: (Int, Int)     = (maybe 13500 (clip (1500, 13500)) zInitFc, maybe 0 (clip (0, 960)) zInitQ)
->     initFc             :: Double         = fromAbsoluteCents (fst entry)
->     normQ              :: Double         = fromIntegral      (snd entry) / 960
->     resonanceType      :: ResonanceType  = if initFc < 10000
+>     curKernelSpec@KernelSpec{ .. }       =
+>       KernelSpec
+>         (maybe 13_500 (clip (1_500, 13_500)) zInitFc)
+>         (maybe 0      (clip (0,     960))    zInitQ)
+>         (fromIntegral sampleRate)
+>     initFc             :: Double         = fromAbsoluteCents ksFc
+>     normQ              :: Double         = fromIntegral ksQ / 960
+>     resonanceType      :: ResonanceType  = if initFc < 10_000
 >                                              then loCutoffReson
 >                                              else hiCutoffReson
 >

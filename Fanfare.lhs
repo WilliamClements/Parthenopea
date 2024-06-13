@@ -1218,7 +1218,7 @@ Deydumpdum =====================================================================
 >   $ aggrandize
 >   $ tempo d3TempoPlay
 >   $ keysig Af Mixolydian
->   $     line [         bandPart d3Lead leadI, bandPart d3LeadQ leadII]
+>   $     line [         bandPart d3Lead leadI, bandPart d3LeadQ leadIIa, bandPart d3Lead leadIIb]
 >     :=: line [rest wn, bandPart d3Bass bassI, bandPart d3BassQ bassII]
 >
 >   where
@@ -1236,13 +1236,13 @@ Deydumpdum =====================================================================
 >              , a 3 hn, rest den, a 3 sn, c 4 en
 >              , b 3 (en + wn), rest qn, c 4 qn, c 4 en, rest en, b 3 en, rest en
 >              , a 3 dhn, e 4 qn]
->   leadII = line [a 4 hn, rest den, e 5 sn, a 4 en, rest en
+>   leadIIa = line [a 4 hn, rest den, e 5 sn, a 4 en, rest en
 >              , c 5 wn, rest den, e 5 sn, a 4 en, rest en
 >              , c 5 en, rest en, b 4 qn, c 5 hn, b 4 hn
 >              , a 4 hn, rest den, b 4 sn, a 4 qn
->              , g 4 hn, b 4 qn, d 5 qn, g 5 hn, b 5 hn
->              , c 6 hn, b 5 hn, a 5 qn, t32 [rest qn, g 5 en, a 5 qn, b 5 en], a 5 qn
->              , a 5 qn, f 5 qn, c 5 qn, b 4 den, c 5 sn, b 4 wn, a 4 wn]
+>              , g 4 hn, b 4 qn, d 5 qn, g 5 hn, b 5 hn]
+>   leadIIb = line [c 6 hn, b 5 hn, a 5 qn, t32 [rest qn, g 5 en, a 5 qn, b 5 en], a 5 qn
+>                 , a 5 qn, f 5 qn, c 5 qn, b 4 den, c 5 sn, b 4 wn, a 4 wn]
 >
 >   bassI                = line [bIa,  bIb,  bIc]
 >   bassII               = line [bIIa, bIIb, bIIc]

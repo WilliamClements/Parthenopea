@@ -95,10 +95,10 @@ organize exposed music =========================================================
 >
 > sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
->    -- [ ("peewee"      , shimSong $ aggrandize littlePendingtonArnt)]
+>       [ ("pa1"         , pendingtonArnt 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]
->    [ ("silver"         , silver)]
->    -- [ ("slot2"       , slot 2)]
+>    -- [ ("theFanfare"  , theFanfare False)]
+>    -- [ ("slot1"       , slot 1)]
 >    -- [ ("basicLick"   , basicLick) ]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]
 >    -- [ ("packardGoose", packardGoose)]

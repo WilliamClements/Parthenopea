@@ -1,4 +1,5 @@
 > {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE DeriveGeneric #-}
 > {-# LANGUAGE EmptyDataDecls #-}
 > {-# LANGUAGE FlexibleInstances #-}
 > {-# LANGUAGE InstanceSigs #-}
@@ -7,6 +8,8 @@
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TupleSections #-}
+> {-# LANGUAGE TypeFamilies #-} 
+> {-# LANGUAGE TypeOperators #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
@@ -16,6 +19,7 @@ December 12, 2022
 
 > module Parthenopea where
 >
+> import Chart
 > import Codec.Midi(exportFile, importFile, Midi)
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq (NFData)
@@ -23,6 +27,8 @@ December 12, 2022
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
+> import Data.Colour
+> import Data.Colour.Names
 > import Data.Complex
 > import Data.Either
 > import Data.Graph (Graph)
@@ -34,6 +40,7 @@ December 12, 2022
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe )
+> import Data.MemoTrie
 > import Data.Ord
 > import Data.Ratio ( approxRational )
 > import qualified Data.Set                as Set
@@ -52,9 +59,9 @@ December 12, 2022
 > import Euterpea.IO.MIDI.ToMidi2 (writeMidi2)
 > import Euterpea.Music
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay) )
+> import GHC.Generics (Generic) 
 > import HSoM.Examples.Additive ( sineTable, sfTest1 )
 > import HSoM.Performance ( metro, Context (cDur) )
-> import Numeric.FFT ( ifft )
 > import System.Random ( Random(randomR), StdGen )
 > import qualified Text.FuzzyFind          as FF
   
@@ -72,6 +79,17 @@ Utilities ======================================================================
 > traceNever str expr = expr
 > traceNot   :: String → a → a
 > traceNot str expr = expr
+>
+> -- | Converting an AbsPitch to hertz (cycles per second):
+> hzToAp                 :: Double -> AbsPitch
+> hzToAp freak                             =
+>   round $ fromIntegral (absPitch (A,4)) + 12 * (logBase 2 freak - logBase 2 440)
+>
+> theE                   :: Double
+> theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
+>
+> freakRange             :: (Double, Double)
+>                                          = (20, 20_000)
 >
 > impM                   :: FilePath → IO ()
 > impM fp                                  = do
@@ -1050,69 +1068,23 @@ music converter ================================================================
 
 -----------------------------------------------------------------------------
 
-> -- | /O(n lg n)/. A radix-2 DIT
-> --  (decimation-in-time) version of the
-> --  Cooley-Tukey FFT algorithm.
-> --  The length of the input list /must/
-> --  be a power of two, or only the prefix
-> --  of the list of length equal to the largest
-> --  power of two less than the length of the list
-> --  will be transformed.
+> data KernelSpec                          =
+>   KernelSpec {
+>     ksFc               :: Int
+>   , ksQ                :: Int
+>   , ksr                :: Int} deriving (Eq, Generic, Ord, Show)
 >
-> myFft :: [Complex Double] -> [Complex Double]
-> myFft []    = []
-> myFft [x,y] = myDft [x,y]
-> myFft xs    = go len ys zs [0..len*2-1]
->   where (ys,zs) = (myFft***myFft)
->            . deinterleave $ xs
->         len = length ys
->         go len xs ys ks = zipWith (flip ($)) (ys ++ ys)
->                             (zipWith (flip ($)) (xs ++ xs)
->                               (fmap (f len) ks ++ fmap (g len) ks))
->         f len k x y = x + y * exp (negate(2*pi*i*fi k)/fi(len*2))
->         g len k x y = x - y * exp (negate(2*pi*i*fi k)/fi(len*2))
->         (***) f g (x,y) = (f x, g y)
->         deinterleave :: [a] -> ([a],[a])
->         deinterleave = unzip . pairs
->         pairs :: [a] -> [(a,a)]
->         pairs []       = []
->         pairs (x:y:zs) = (x,y) : pairs zs
->         pairs _        = []
->         fi = fromIntegral
->         i = 0 :+ 1
+> defKernelSpec                            = KernelSpec 13_500 0 44_100
 >
-> myIfft :: [Complex Double] -> [Complex Double]
-> myIfft xs = let n = (fromIntegral . length) xs in fmap (/n) (myFft xs)
->
-> -- | /O(n^2)/. The Discrete Fourier Transform.
->
-> myDft :: [Complex Double] -> [Complex Double]
-> myDft xs = let len = length xs
->            in map ( \ x_ -> go len x_ xs) [0 .. len - 1]
->   where i = 0 :+ 1
->         fi = fromIntegral
->         go len k xs = foldl' (+) 0 . flip fmap [0..len-1]
->           $ \n -> (xs!!n) * exp (negate(2*pi*i*fi n*fi k)/fi len)
->
-> myIdft :: [Complex Double] -> [Complex Double]
-> myIdft xs = let n = (fromIntegral . length) xs in fmap (/n) (myDft xs)
-
------------------------------------------------------------------------------
+> instance HasTrie KernelSpec where
+>   newtype (KernelSpec :->: b)            = KernelSpecTrie { unKernelSpecTrie :: Reg KernelSpec :->: b } 
+>   trie                                   = trieGeneric KernelSpecTrie 
+>   untrie                                 = untrieGeneric unKernelSpecTrie
+>   enumerate                              = enumerateGeneric unKernelSpecTrie
 
 Sampling ==============================================================================================================
 
 > type SampleAnalysis    = Double
->
-> createFilterTest       :: ∀ p . Clock p ⇒ Table → Double → Double → Signal p (Double,Double) Double → Signal p () Double
-> createFilterTest waveTable fc freq filtersf
->   | traceNot trace_CFT False             = undefined
->   | otherwise                            =
->   proc () → do
->     a1 ← osc waveTable 0 ⤙ freq
->     a2 ← filtersf ⤙ (a1, fc)
->     outA ⤙ a2 * 100 / 128
->   where
->     trace_CFT                            = unwords ["createFilterTest", show fc, show freq]
 >
 > sawtoothTable      :: Table              = tableSinesN 16_384 
 >                                                          [      1, 0.5  , 0.3
@@ -1145,8 +1117,8 @@ Sampling =======================================================================
 > convolveArrays         :: (Ix a, Integral a, Ord b, Num b, AudioSample b) ⇒ Array a b → Array a b → Array a b
 > convolveArrays x1 x2                     =
 >   profess
->     (inbounds x1 && inbounds x2)
->     (unwords ["convolveArrays: very large numbers in", if x1ok then "second operand" else "first operand"])
+>     (ok x1 && ok x2)
+>     (unwords ["convolveArrays: problem with", if ok x1 then "second operand" else "first operand"])
 >     x3
 >   where
 >     m1 = snd $ bounds x1
@@ -1156,14 +1128,15 @@ Sampling =======================================================================
 >       listArray (0,m3)
 >         [ sum [ x1!k * x2!(n-k) | k ← [max 0 (n-m2)..min n m1] ] | n ← [0..m3] ]
 >
->     x1ok                                 = inbounds x1
->     x2ok                                 = inbounds x2
->
->     inbounds                             = all ((< 1_000_000) . abs)
+>     ok vec                               = fst (bounds vec) == 0 && all ((< 1_000_000) . abs) vec
 >
 > convolveSFs            :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Double → Signal p () a → Signal p () a → Signal p () Double
-> convolveSFs secs sig1 sig2               = makeSignal $ convolveArrays x1 x2
+> convolveSFs secs sig1 sig2               = makeSignal outVec 1
 >   where
+>     outVec             :: Array Int Double
+>                                          = convolveArrays x1 x2
+>     amp                                  = maximum outVec
+>
 >     l1                                   = toSamples secs sig1
 >     l2                                   = toSamples secs sig2
 >
@@ -1171,13 +1144,31 @@ Sampling =======================================================================
 >     x2                                   = listArray (0, length l2 - 1) l2
 >
 > makeDeltaFunction      :: ∀ a p. (Clock p) ⇒ Int → Signal p () Double
-> makeDeltaFunction nSamples               = makeSignal vec
+> makeDeltaFunction nSamples               = makeSignal vec 1
 >   where
 >     list                                 = 1 : replicate (nSamples - 1) 0
 >     vec                                  = listArray (0, nSamples - 1) list
 >
-> makeSignal             :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Array Int a → Signal p () a
-> makeSignal vec
+> makeSignal             :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Array Int a → a → Signal p () a
+> makeSignal vec amp
+>   | traceIf trace_MS False              = undefined
+>   | otherwise                            =
+>     proc ()                              → do
+>       rec
+>         ii' ← delay 0                    ⤙ ii
+>         let ii                           = ii' + 1
+>       outA                               ⤙ amp * vec ! (ii' `mod` nn)
+>   where
+>     trace_MS                             = unwords ["makeSignal", show nn]
+>
+>     nn                                   =
+>       profess
+>         (not $ null vec)
+>         "degenerate vec"
+>         (length vec)
+>
+> makeNormSignal             :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Array Int a → Signal p () a
+> makeNormSignal vec
 >   | traceNow trace_MS False              = undefined
 >   | otherwise                            =
 >     proc ()                              → do
@@ -1193,94 +1184,6 @@ Sampling =======================================================================
 >         (not $ null vec)
 >         "degenerate vec"
 >         (length vec)
-
-> createFrFun            :: Double → Double → (Double → Double)
-> createFrFun center radius                =
->   profess (      radius >= 0
->               && center >= radius)
->           (unwords ["createFrFun: bad center, radius", show center, show radius])
->           mapx
->   where
->     xA                                   = center - radius
->     xB                                   = center
->     xC                                   = center + radius
->
->     mapx               :: Double → Double
->     mapx x
->       | x < 0                            = error "mapx"
->       | x < xA                           = notracer "x_1" $ phase1y x
->       | x < xB                           = notracer "x_2" $ phase2y ((x - xA) / (xB - xA))
->       | x < xC                           = notracer "x_3" $ phase3y ((x - xB) / (xC - xB))
->       | otherwise                        = notracer "x_4" $ phase4y (x - xC)
->
->     phase1y _                            = 1
->     phase2y c                            = 1 + controlConvex c
->     phase3y c                            = 1 + controlConvex (1 - c)
->     phase4y d                            = max 0 $ 1  - (rolloff * d) / (center * radius)
->
->     rolloff                              = 1 / 4 -- WOX
->
-> computeAllIR           :: Int → Map (Int, Int) (Maybe (Array Int Double))
-> computeAllIR len                         =
->   foldr effer Map.empty allDomain
->   where
->     allDomain                            = [(i, j) | i ← [0..960], j ← [0..20_000]]
->
->     effer              :: (Int, Int)
->                           → Map (Int, Int) (Maybe (Array Int Double))
->                           → Map (Int, Int) (Maybe (Array Int Double))
->     effer entry                          = Map.insert entry (computeEachIR entry)
->
->     computeEachIR      :: (Int, Int) → Maybe (Array Int Double)
->     computeEachIR (initFc, initQ)
->       | traceNow trace_CEIR False             = undefined
->       | otherwise                             =
->       if null esOut
->         then Nothing
->         else Just $ listArray (0, len - 1) (map realPart esOut)
->       where
->         trace_CEIR                       = unwords ["computeEachIR called!!", show (initFc, initQ)]
->
->         delta, ynorm   :: Double
->         delta                            = 20_000 / fromIntegral len
->         ynorm                            = 1 / (1 + dInitQ)
->
->         esIn, esOut    :: [Complex Double]
->         esIn                             = map ((:+ 0) . (* ynorm) . frfr . (* delta) . fromIntegral) ([0..len-1]::[Int])
->         esOut                            = ifft esIn
->
->         frfr           :: (Double → Double)
->                                          = createFrFun dInitFc dInitQ
->         dInitFc                          = fromIntegral initFc
->         dInitQ                           = fromIntegral initQ / 960
->
-> {-
-> computeIFFT            :: Int → Double → Double → Double → Maybe (Array Int Double)
-> computeIFFT len frFc frQ sr
->   | traceNow trace_CIFFT False           = undefined
->   | otherwise                            =
->     if null psOut
->       then Nothing
->       else Just $ listArray (0, lenOut - 1) (map realPart psOut)
->   where
->     trace_CIFFT                          = unwords ["computeIFFT", show (len, frFc, frQ, sr), show nQ]
->
->     nyquist, nFc, nQ   :: Double
->     nyquist                              = sr / 2
->     nFc                                  = frFc
->     nQ                                   = frQ / 960
->
->     frfun                                = createFrFun nFc (50 * nQ) 0
->
->     delta, ynorm       :: Double
->     delta                                = nyquist / fromIntegral len
->     ynorm                                = 1 / (1 + nQ)
->
->     psIn, psOut        :: [Complex Double]
->     psIn                                 = map ((:+ 0) . (* ynorm) . frfun . (* delta) . fromIntegral) [0..len-1]
->     psOut                                = myIfft psIn
->     lenOut                               = length psOut
-> -}
 
 Control Functions
 
@@ -1420,11 +1323,10 @@ Conversion functions and general helpers =======================================
 >                                              then error ("Failed assertion -- " ++ msg)
 >                                              else something
 >
-> professInRange         :: (Eq a, Ord a, Show a) ⇒ (a, a) → a → String → a
-> professInRange range val desc            = profess
+> professInRange         :: (Eq a, Ord a, Show a) ⇒ (a, a) → a → String → a → a
+> professInRange range val role            = profess
 >                                              (val == clip range val)
->                                              (unwords ["out of", desc, "range", show range, show val])
->                                              val
+>                                              (unwords ["out of", role, "range", show range, show val])
 >
 > professIsJust          :: ∀ a. Maybe a → String → a
 > professIsJust item msg                   = profess (isJust item) msg (fromJust item)
@@ -1497,10 +1399,13 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 Returns the amplitude ratio
 
 > fromMaybeCentibels     :: Maybe Int → Double
-> fromMaybeCentibels mcentibels            = fromCentibels' $ fromIntegral (fromMaybe 0 mcentibels)
+> fromMaybeCentibels mcentibels            = fromCentibels $ fromIntegral (fromMaybe 0 mcentibels)
 
-> fromCentibels'         :: Double → Double
-> fromCentibels' centibels                 = pow 10 (centibels/1000)
+> fromCentibels          :: Double → Double
+> fromCentibels centibels                  = pow 10 (centibels/1000)
+>
+> toCentibels            :: Double → Double
+> toCentibels ratio                        = logBase 10 ratio * 1000
 
 Returns the elapsed time in seconds
 
@@ -1537,6 +1442,9 @@ Returns the frequency
 
 > fromAbsoluteCents      :: Int → Double
 > fromAbsoluteCents acents                 = 8.176 * fromCents (fromIntegral acents)
+>
+> toAbsoluteCents        :: Double → Int
+> toAbsoluteCents freq                     = round $ 100 * 12 * logBase 2 (freq / 8.176)
 
 Test runner
 
@@ -1677,10 +1585,9 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > pickZerosAndPoles initFc normQ           = (zeros, poles)
 >   where
 >     zeros, poles       :: [Complex Double]
->     zeros                                = [z, z]
+>     zeros                                = [cis pi, cis pi]
 >     poles                                = [p, conjugate p]
 >     -- two identical zeros
->     z                                    = cis pi
 >     -- two poles that are complex conjugates
 >     p                                    =
 >       mkPolar

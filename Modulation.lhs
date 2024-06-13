@@ -1,7 +1,7 @@
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE BangPatterns #-}
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NamedFieldPuns #-}
+> {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
@@ -10,7 +10,7 @@
 > module Modulation where
 >
 > import Control.Arrow
-> import Data.Array
+> import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Bits
@@ -21,6 +21,7 @@
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
+> import Data.MemoTrie
 > import Debug.Trace ( traceIO, trace )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
@@ -29,6 +30,7 @@
 > import Euterpea.Music ( Volume, AbsPitch, Dur, absPitch, PitchClass(..) )
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA, DeltaT )
 > import HSoM.Examples.Additive ( sineTable, sfTest1 )
+> import Numeric.FFT ( ifft )
 > import Parthenopea
   
 Modulator management ==================================================================================================
@@ -269,8 +271,7 @@ Modulator management ===========================================================
 >        ToPitch         → toPitchCo
 >        ToFilterFc      → toFilterFcCo
 >        ToVolume        → toVolumeCo
->        _               → error $ unwords ["Error in caller of evaluateModSignals"
->                                         , "(only ToPitch, ToFilterFc, and ToVolume supported)"
+>        _               → error $ unwords ["evaluateModSignals: only ToPitch, ToFilterFc, and ToVolume supported"
 >                                         , show tag, show md]
 >
 >    xmodEnv             :: Double         = xModEnvPos * xModEnvCo
@@ -287,12 +288,6 @@ Modulator management ===========================================================
 >                                                     , show (xmodEnv+xmodLfo+xvibLfo+xmods), " => "
 >                                                     , show (fromCents (xmodEnv+xmodLfo+xvibLfo+xmods))]
 >
-> delay'                 :: ∀ p . Clock p ⇒ Signal p (Double, ModSignals) Double
-> delay'                                   =
->     proc (x, _) → do
->       y ← delay 0                        ⤙ x  
->       outA                               ⤙ y
->
 > cascadeCount           :: ResonanceType → Maybe Int
 > cascadeCount resonType                   =
 >   case resonType of
@@ -305,31 +300,19 @@ Modulator management ===========================================================
 >                           → (Modulation, Modulation)
 >                           → NoteOn
 >                           → Signal p () ((Double, Double), (ModSignals, ModSignals))
->                           → Signal p () ((Double, Double), (ModSignals, ModSignals))
-> eutModulate secs (m8nL, m8nR) noon sig   =
->   if ResonanceConvo == m8nL.mLowpass.lowpassType
->     then sig >>> convo
->     else sig >>> nonConvo
+>                           → Signal p () (Double, Double)
+> eutModulate secs (m8nL, m8nR) noon sIn   = 
+>   proc () → do
+>     ((a1L, a1R), (modSigL, modSigR))  ← sIn                     ⤙ ()
+>
+>     a2L   ← addResonance noon m8nL    ⤙ (a1L, modSigL)
+>     a2R   ← addResonance noon m8nR    ⤙ (a1R, modSigR)
+>
+>     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
+>
+>     outA                                 ⤙ (a3L', a3R')
+>
 >   where
-> {-
->     (lowpL, lowpR)                       = (m8nL.mLowpass, m8nR.mLowpass)
-> -}
->
->     sigConvo           :: Signal p () (Double, Double)
->     sigConvo                             = applyConvolution (m8nL.mLowpass, m8nR.mLowpass) secs sig
->
->     convo                                = proc ((a1L, a1R), (modSigL, modSigR))  → do
->       (a2L, a2R)       ← sigConvo        ⤙ ()
->       outA                               ⤙ ((a2L, a2R), (modSigL, modSigR))
->
->     nonConvo                             = proc ((a1L, a1R), (modSigL, modSigR))  → do
->       a2L   ← addResonance noon m8nL     ⤙ (a1L, modSigL)
->       a2R   ← addResonance noon m8nR     ⤙ (a1R, modSigR)
->
->       let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
->
->       outA                                 ⤙ ((a3L', a3R'), (modSigL, modSigR))
->
 >     modulate           :: (Double, Double) → (Double, Double) → (Double, Double)
 >     modulate (a1L, a1R) (a2L, a2R)
 >       | traceNever trace_M False         = undefined
@@ -339,44 +322,51 @@ Modulator management ===========================================================
 >
 >         trace_M                          = unwords ["modulate", show ((a1L, a1R), (a3L, a3R))]
 >
-> filterCache            :: Map (Int, Int) (Maybe (Array Int Double))
-> filterCache                              = computeAllIR 512
+> eutConvolve            :: ∀ p . Clock p ⇒
+>                           Double
+>                           → (Modulation, Modulation)
+>                           → NoteOn
+>                           → Signal p () Double
+>                           → Signal p () (Double, Double)
+> eutConvolve secs (m8nL, m8nR) noon sig   = sig'
+>   where
+>     sig'               :: Signal p () (Double, Double)
+>     sig'                                 = applyConvolution (m8nL.mLowpass, m8nR.mLowpass) secs sig
 >
-> applyConvolution       :: ∀ a p . (WaveAudioSample a, Clock p) ⇒
+> applyConvolution       :: ∀ a p . Clock p ⇒
 >                           (Lowpass, Lowpass)
 >                           → Double
->                           → Signal p () (a, (ModSignals, ModSignals))
+>                           → Signal p () Double
 >                           → Signal p () (Double, Double)
-> applyConvolution (lowpL, lowpR) secsToPlay sInA
+> applyConvolution (lowpL, lowpR) secsToPlay sIn
 >   | traceNow trace_AC False              = undefined
 >   | otherwise                            = dupMono result
 >   where
-> {- WOX
->     Lowpass{ .. }                        = lowpL
-> -}
->
->     sInA'                                = sInA >>> stripModSignals
->     mitem                                = Map.lookup (lowpassEntry lowpL) filterCache
->     item                                 =
->       professIsJust
->         mitem
->         (unwords ["illegal cache miss"])
+>     mIr                                  = memoizedComputeIR lowpL.lowpassKs
 >     result =
->       case item of
->         Nothing                          → sInA'
->         Just vec                         → convolveSFs secsToPlay sInA' (makeSignal vec)
+>       case mIr of
+>         Nothing                          → sIn
+>         Just vec                         → convolveSFs secsToPlay sIn (makeSignal vec 1)
 >
->     trace_AC                             = unwords ["applyConvolution", show secsToPlay, show item]
+>     trace_AC                             = unwords ["applyConvolution", show secsToPlay, show lowpL.lowpassKs]
 >
-> stripModSignals        :: ∀ a p . (WaveAudioSample a, Clock p) ⇒ Signal p (a, (ModSignals, ModSignals)) Double
+> stripModSignals        :: ∀ p . Clock p ⇒ Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
 > stripModSignals                          =
->   proc (x, (_, _)) → do
->   outA                                   ⤙ makeMono x
+>   proc ((a1L, a1R), _)                   → do
+>   outA                                   ⤙ (a1L, a1R)
+>
+> mixDown                :: ∀ p . Clock p ⇒ Signal p (Double, Double) Double
+> mixDown                                  =
+>   proc (a1L, a1R)                        → do
+>   outA                                   ⤙ a1L + a1R
 >
 > addResonance           :: Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
 > addResonance noon m8n@Modulation{ .. }   =
 >   case cascadeCount lowpassType of
->     Nothing            → delay'
+>     Nothing            →
+>       proc (x, modSig)                     → do
+>         y ← delay 0                        ⤙ x  
+>         outA                               ⤙ y
 >     Just count         →
 >       case count of
 >         0              → final
@@ -408,7 +398,7 @@ Modulator management ===========================================================
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
->       clip (20, 20000)
+>       clip freakRange
 >            (lowpassFc * evaluateModSignals
 >                           "modulateFc"
 >                           m8n
@@ -491,7 +481,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >   where
 >     Lowpass{ .. }                        = mLowpass
 >
->     damp                                 = extraDampFactor / fromCentibels' lowpassQ
+>     damp                                 = extraDampFactor / fromCentibels lowpassQ
 >     theta c                              = pi * c / rate (undefined :: p)
 >
 >     maybeAverageInput c c'               =
@@ -516,7 +506,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >   where
 >     Lowpass{ .. }                        = mLowpass
 >
->     damp                                 = extraDampFactor / fromCentibels' lowpassQ
+>     damp                                 = extraDampFactor / fromCentibels lowpassQ
 >     theta c                              = pi * c / rate (undefined :: p)
 >
 >     maybeAverageInput c c'               =
@@ -529,7 +519,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >   proc (x, fc) → do
 >     let w0                               = 2 * pi * fc / sr
 >     let a                                =
->           realPart $ (2.7182818284590452353602874713527 :+ 0) ** (0 :+ (-w0))
+>           realPart $ ( theE :+ 0) ** (0 :+ (-w0))
 >     let c                                = 1 - a
 >     rec
 >       y'     ← delay 0                   ⤙ y
@@ -571,7 +561,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >   | otherwise                            =
 >       if useLFO && anyJust
 >         then Just $ LFO (fromTimecents del)
->                         (fromAbsoluteCents $ maybe 0 (clip (-16000, 4500)) mfreq)
+>                         (fromAbsoluteCents $ maybe 0 (clip (-16_000, 4500)) mfreq)
 >                         (deriveModTriple toPitch toFilterFc toVolume)
 >         else Nothing
 >   where
@@ -677,6 +667,74 @@ Controller Curves ==============================================================
 >       | msContinuity == Switch           = (controlUniPolar ping dIn * 2) - 1
 >       | dIn < 0.5                        = controlDenormal pingL dIn (0.0, 0.5) + addL
 >       | otherwise                        = controlDenormal pingR dIn (0.5, 1.0) + addR
+>
+> createFrFun            :: Double → Double → Double → (Double → Double)
+> createFrFun cutoff bulge bwCent          =
+>   profess (bwWidth >= 0 && cutoff >= bwWidth)
+>           (unwords ["createFrFun: bad bwWidth (or) cutoff", show bwWidth, show cutoff])
+>           (\freq → mapx freq * ynorm)
+>   where
+>     bwWidth                              = professInRange
+>                                              (0, 100)
+>                                              bwCent
+>                                              "bwCent"
+>                                              (if bulge > 0
+>                                                then bwCent / 100
+>                                                else 0)
+>     ynorm                                = professInRange
+>                                              (0, 1)
+>                                              bwWidth
+>                                              "bwWidth"
+>                                              1 / (1 + bulge)
+>
+>     xA                                   = cutoff - bwWidth
+>     xB                                   = cutoff
+>     xC                                   = cutoff + bwWidth
+>
+>     mapx               :: Double → Double
+>     mapx x
+>       | x < 0                            = error "mapx"
+>       | x < xA                           = 1
+>       | x < xB                           = startUp    ((x - xA) / (xB - xA))
+>       | x < xC                           = finishDown ((x - xB) / (xC - xB))
+>       | otherwise                        = taperOff    (x - xC)
+>
+>     startUp c                            = 1 + controlConvex c
+>     finishDown c                         = 1 + controlConvex (1 - c)
+>     taperOff d                           = max 0 (1 - rolloff d)
+>
+>     rolloff            :: Double → Double
+>     rolloff c                            = c * c / 1_048_576 -- 262_144 -- WOX
+>
+> lenIR = 1_024
+> squeezeIR = 1
+>
+> computeIR          :: KernelSpec → Maybe (Array Int Double)
+> computeIR (KernelSpec iFc iQ iSr)
+>   | traceNow trace_CIR False              = undefined
+>   | otherwise                             =
+>   if null esOut
+>     then Nothing
+>     else Just $ listArray (0, lenIR - 1) (map (* amp) esOut)
+>   where
+>     trace_CIR                            = unwords ["computeIR", show (iFc, iQ, iSr), show delta, show amp]
+>
+>     delta              :: Double
+>     delta                                = fromIntegral iSr / squeezeIR * fromIntegral lenIR
+>
+>     esIn               :: [Complex Double]
+>     esOut              :: [Double]
+>     esIn                                 =
+>       map ((:+ 0) . fr . (* delta) . fromIntegral) ([0..lenIR-1]::[Int])
+>     esOut                                = map realPart (ifft esIn)
+>     amp                                  = 1 / maximum esOut
+>     
+>     fr                 :: (Double → Double)
+>                                          = createFrFun dInitFc dNormQ bulgeBandWidth
+>     dInitFc                              = fromIntegral iFc
+>     dNormQ                               = fromIntegral iQ / 960
+>
+> memoizedComputeIR = memo computeIR
 
 Type declarations =====================================================================================================
 
@@ -688,7 +746,7 @@ Type declarations ==============================================================
 > data Lowpass                             =
 >   Lowpass {
 >     lowpassType        :: ResonanceType
->   , lowpassEntry       :: (Int, Int)
+>   , lowpassKs          :: KernelSpec
 >   , lowpassFc          :: Double
 >   , lowpassQ           :: Double} deriving (Eq, Show)
 >
@@ -712,8 +770,8 @@ Type declarations ==============================================================
 >     ToPitch            → coPitch
 >     ToFilterFc         → coFilterFc
 >     ToVolume           → coVolume
->     _                  → error ("ModTriple only deals with ToPitch"
->                            ++ ", ToFilterFc, and ToVolume")
+>     _                  → error $ unwords["coAccess: ModTriple only deals with ToPitch, ToFilterFc, and ToVolume"]
+>                            
 > defModTriple                             = ModTriple 0 0 0
 >
 > data ResonanceType                       =
@@ -744,7 +802,7 @@ Type declarations ==============================================================
 >   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
 > defModulation                            = Modulation
->                                              (Lowpass ResonanceNone (13500, 0) 0 0) Nothing Nothing Nothing
+>                                              (Lowpass ResonanceNone defKernelSpec 0 0) Nothing Nothing Nothing
 >                                              defModCoefficients defModCoefficients defModCoefficients
 >                                              Map.empty
 >
@@ -808,7 +866,8 @@ Type declarations ==============================================================
 >   , qqUseLFO           :: Bool
 >   , qqChorusRate       :: Double
 >   , qqChorusDepth      :: Double
->   , qqCascadeConfig    :: Int} deriving Show
+>   , qqCascadeConfig    :: Int
+>   , qqBulgeBandwidth   :: Double} deriving Show
 >
 > useModulators                            = qqUseModulators              defM
 > chorusAllPercent                         = qqChorusAllPerCent           defM
@@ -820,6 +879,7 @@ Type declarations ==============================================================
 > chorusRate                               = qqChorusRate                 defM
 > chorusDepth                              = qqChorusDepth                defM
 > cascadeConfig                            = qqCascadeConfig              defM
+> bulgeBandWidth                           = qqBulgeBandwidth             defM
 >
 > defM                   :: ModulationSettings
 > defM =
@@ -828,12 +888,13 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
->   , qqLoCutoffReson                      = ResonanceBandpass
->   , qqHiCutoffReson                      = ResonanceBandpass
+>   , qqLoCutoffReson                      = ResonanceTwoPoles
+>   , qqHiCutoffReson                      = ResonanceTwoPoles
 >   , qqUseLFO                             = True
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
 >   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)
 >   , qqCascadeConfig                      = 0
+>   , qqBulgeBandwidth                     = 10
 >   }
 
 The End
