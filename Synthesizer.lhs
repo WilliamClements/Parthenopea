@@ -19,6 +19,7 @@
 > import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
 > import Data.Ord ( comparing )
 > import Data.Word ( Word64 )
+> import Discrete
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )

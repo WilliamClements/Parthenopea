@@ -27,6 +27,7 @@ SoundFont support ==============================================================
 > import Data.Ord ( Down(Down), comparing )
 > import Data.Time.Clock ( UTCTime, diffUTCTime, getCurrentTime )
 > import Debug.Trace ( traceIO )
+> import Discrete
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )

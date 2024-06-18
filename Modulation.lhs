@@ -23,6 +23,7 @@
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
 > import Data.MemoTrie
 > import Debug.Trace ( traceIO, trace )
+> import Discrete
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
@@ -30,7 +31,6 @@
 > import Euterpea.Music ( Volume, AbsPitch, Dur, absPitch, PitchClass(..) )
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA, DeltaT )
 > import HSoM.Examples.Additive ( sineTable, sfTest1 )
-> import Numeric.FFT ( ifft )
 > import Parthenopea
   
 Modulator management ==================================================================================================
@@ -320,45 +320,6 @@ Modulator management ===========================================================
 >
 >         trace_M                          = unwords ["modulate", show ((a1L, a1R), (a3L, a3R))]
 >
-> applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
-> applyConvolutionMono lowP secsToPlay sIn
->   | traceNot trace_AC False              = undefined
->   | otherwise                            = makeSignal result 1
->   where
->     oper1, oper2       :: DiscreteSig Int Double
->     oper1                                = toDiscreteSig "mono operand" secsToPlay sIn
->     oper2                                = 
->       maybe oper1 (fromRawVector "impulse response mono") (memoizedComputeIR lowP.lowpassKs)
->     result                               = convolveDiscreteSigs oper1 oper2
->
->     trace_AC                             = unwords ["applyConvolutionMono", show lowP]
->
-> applyConvolutionStereo :: ∀ a p . Clock p ⇒
->                           (Lowpass, Lowpass)
->                           → Double
->                           → Signal p () (Double, Double)
->                           → Signal p () (Double, Double)
-> applyConvolutionStereo (lowpL, lowpR) secsToPlay sIn
->   | traceNot trace_AC False              = undefined
->   | otherwise                            = makeSignal result 1
->   where
->     pairs                                = toSamples secsToPlay sIn
->     kN                                   = length pairs
->
->     oper1a                               = fromRawVector "stereo left" $ listArray (0, kN - 1) (map fst pairs)
->     oper1b                               = fromRawVector "stereo right" $ listArray (0, kN - 1) (map snd pairs)
->     oper2a                               = maybe (error "memoLeft")  (fromRawVector "impulse response left") (memoizedComputeIR lowpL.lowpassKs)
->     oper2b                               = maybe (error "memoRight") (fromRawVector "impulse response right") (memoizedComputeIR lowpR.lowpassKs)
->
->     resulta                              = convolveDiscreteSigs oper1a oper2a
->     resultb                              = convolveDiscreteSigs oper1b oper2b
->
->     pairs'                               = zip (elems $ dsigVec resulta) (elems $ dsigVec resultb)
->     kN'                                  = length pairs'
->
->     result                               = fromRawVector "convolved stereo" $ listArray (0, kN' - 1) pairs'
->
->     trace_AC                             = unwords ["applyConvolutionStereo", show lowpL]
 >
 > mixDown                :: ∀ p . Clock p ⇒ Signal p (Double, Double) Double
 > mixDown                                  =
@@ -673,78 +634,6 @@ Controller Curves ==============================================================
 >       | dIn < 0.5                        = controlDenormal pingL dIn (0.0, 0.5) + addL
 >       | otherwise                        = controlDenormal pingR dIn (0.5, 1.0) + addR
 >
-> createFrFun            :: Double → Double → Double → (Double → Double)
-> createFrFun cutoff bulge bwCent
->   | traceNow trace_CFF False             = undefined
->   | otherwise                            =
->       profess (bwWidth >= 0 && cutoff >= bwWidth)
->               (unwords ["createFrFun: bad bwWidth (or) cutoff", show bwWidth, show cutoff])
->               (\freq → mapx freq * tracer "ynorm" ynorm)
->   where
->     trace_CFF                            =
->       unwords ["createFrFun", show (cutoff, bulge, bwCent, bwWidth, ynorm)
->                             , " = (cutoff, bulge, bwCent, bwWidth, ynorm)"]
->
->     bwWidth                              = professInRange
->                                              (0, 100)
->                                              bwCent
->                                              "bwCent"
->                                              (if bulge > 0
->                                                then bwCent / 100
->                                                else 0)
->     ynorm                                = professInRange
->                                              (0, 1)
->                                              bwWidth
->                                              "bwWidth"
->                                              1 / (1 + bulge)
->
->     xA                                   = cutoff - bwWidth
->     xB                                   = cutoff
->     xC                                   = cutoff + bwWidth
->
->     mapx               :: Double → Double
->     mapx x
->       | x < 0                            = error "mapx"
->       | x < xA                           = 1
->       | x < xB                           = startUp    ((x - xA) / (xB - xA))
->       | x < xC                           = finishDown ((x - xB) / (xC - xB))
->       | otherwise                        = taperOff    (x - xC)
->
->     startUp c                            = 1 + controlConvex c
->     finishDown c                         = 1 + controlConvex (1 - c)
->     taperOff d                           = max 0 (1 - rolloff d)
->
->     rolloff            :: Double → Double
->     rolloff c                            = c * c / 1_048_576 -- WOX what should it be?
->
-> squeezeIR = 1 
->
-> computeIR          :: KernelSpec → Maybe (Array Int Double)
-> computeIR KernelSpec{ .. }
->   | traceNow trace_CIR False              = undefined
->   | otherwise                             =
->   if null esOut
->     then Nothing
->     else Just $ listArray (0, impulseSize - 1) (map (* amp) esOut)
->   where
->     trace_CIR                            = unwords ["computeIR", show (ksFc, ksQ, ksSr), show delta, show amp]
->
->     -- factor for choosing frequencies to be interested in
->     delta              :: Double         = fromIntegral ksSr / squeezeIR * fromIntegral impulseSize
->
->     esIn               :: [Complex Double]
->     esOut              :: [Double]
->     esIn                                 =
->       map ((:+ 0) . fr . (* delta) . fromIntegral) ([0..impulseSize - 1]::[Int])
->     esOut                                = map realPart (ifft esIn)
->     amp                                  = 1 / maximum esOut
->     
->     fr                 :: (Double → Double)
->                                          = createFrFun dInitFc dNormQ bulgeBandWidth
->     dInitFc                              = fromIntegral ksFc
->     dNormQ                               = fromIntegral ksQ / 960
->
-> memoizedComputeIR = memo computeIR
 
 Type declarations =====================================================================================================
 
@@ -752,13 +641,6 @@ Type declarations ==============================================================
 >   NoteOn {
 >     noteOnVel          :: Velocity
 >   , noteOnKey          :: KeyNumber} deriving (Eq, Ord, Show)
->
-> data Lowpass                             =
->   Lowpass {
->     lowpassType        :: ResonanceType
->   , lowpassKs          :: KernelSpec
->   , lowpassFc          :: Double
->   , lowpassQ           :: Double} deriving (Eq, Show)
 >
 > data ModCoefficients                     =
 >   ModCoefficients {
@@ -783,16 +665,6 @@ Type declarations ==============================================================
 >     _                  → error $ unwords["coAccess: ModTriple only deals with ToPitch, ToFilterFc, and ToVolume"]
 >                            
 > defModTriple                             = ModTriple 0 0 0
->
-> data ResonanceType                       =
->   ResonanceNone
->   | ResonanceConvo 
->   | ResonanceLowpass
->   | ResonanceBandpass
->   | ResonanceSVF1
->   | ResonanceSVF2
->   | ResonanceOnePole
->   | ResonanceTwoPoles deriving (Eq, Bounded, Enum, Show)
 >
 > data LFO                                 =
 >   LFO {
@@ -876,9 +748,7 @@ Type declarations ==============================================================
 >   , qqUseLFO           :: Bool
 >   , qqChorusRate       :: Double
 >   , qqChorusDepth      :: Double
->   , qqCascadeConfig    :: Int
->   , qqBulgeBandwidth   :: Double
->   , qqImpulseSize      :: Int} deriving Show
+>   , qqCascadeConfig    :: Int} deriving Show
 >
 > useModulators                            = qqUseModulators              defM
 > chorusAllPercent                         = qqChorusAllPerCent           defM
@@ -890,8 +760,6 @@ Type declarations ==============================================================
 > chorusRate                               = qqChorusRate                 defM
 > chorusDepth                              = qqChorusDepth                defM
 > cascadeConfig                            = qqCascadeConfig              defM
-> bulgeBandWidth                           = qqBulgeBandwidth             defM
-> impulseSize                              = qqImpulseSize                defM
 >
 > defM                   :: ModulationSettings
 > defM =
@@ -906,8 +774,6 @@ Type declarations ==============================================================
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
 >   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)
 >   , qqCascadeConfig                      = 0
->   , qqBulgeBandwidth                     = 10
->   , qqImpulseSize                        = 2_048
 >   }
 
 The End
