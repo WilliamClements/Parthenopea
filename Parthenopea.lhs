@@ -81,7 +81,6 @@ Utilities ======================================================================
 > traceNot   :: String → a → a
 > traceNot str expr = expr
 >
-> -- | Converting an AbsPitch to hertz (cycles per second):
 > hzToAp                 :: Double -> AbsPitch
 > hzToAp freak                             =
 >   round $ fromIntegral (absPitch (A,4)) + 12 * (logBase 2 freak - logBase 2 440)
@@ -1799,7 +1798,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = False
+>   , qqSkipReporting                      = True
 >   , qqSkipGlissandi                      = False
 >   , qqReplacePerCent                     = 0
 >   , qqUsingPlayCache                     = False

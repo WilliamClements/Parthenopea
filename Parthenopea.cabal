@@ -21,6 +21,7 @@ Library
         Cecil,
         Chart,
         Covers,
+        Discrete,
         Fanfare,
         Illiterate,
         Modulation,
