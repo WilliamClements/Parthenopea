@@ -303,13 +303,11 @@ Modulator management ===========================================================
 >                           → Signal p () (Double, Double)
 > eutModulate secs (m8nL, m8nR) noon sIn   = 
 >   proc () → do
->     ((a1L, a1R), (modSigL, modSigR))  ← sIn                     ⤙ ()
->
->     a2L   ← addResonance noon m8nL    ⤙ (a1L, modSigL)
->     a2R   ← addResonance noon m8nR    ⤙ (a1R, modSigR)
->
+>     ((a1L, a1R), (modSigL, modSigR))  ← sIn
+>                                          ⤙ ()
+>     a2L   ← addResonance noon m8nL       ⤙ (a1L, modSigL)
+>     a2R   ← addResonance noon m8nR       ⤙ (a1R, modSigR)
 >     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
->
 >     outA                                 ⤙ (a3L', a3R')
 >
 >   where
@@ -322,38 +320,45 @@ Modulator management ===========================================================
 >
 >         trace_M                          = unwords ["modulate", show ((a1L, a1R), (a3L, a3R))]
 >
-> eutConvolve            :: ∀ p . Clock p ⇒
->                           Double
->                           → (Modulation, Modulation)
->                           → NoteOn
->                           → Signal p () Double
->                           → Signal p () (Double, Double)
-> eutConvolve secs (m8nL, m8nR) noon sig   = sig'
+> applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
+> applyConvolutionMono lowP secsToPlay sIn
+>   | traceNot trace_AC False              = undefined
+>   | otherwise                            = makeSignal result 1
 >   where
->     sig'               :: Signal p () (Double, Double)
->     sig'                                 = applyConvolution (m8nL.mLowpass, m8nR.mLowpass) secs sig
+>     oper1, oper2       :: DiscreteSig Int Double
+>     oper1                                = toDiscreteSig "mono operand" secsToPlay sIn
+>     oper2                                = 
+>       maybe oper1 (fromRawVector "impulse response mono") (memoizedComputeIR lowP.lowpassKs)
+>     result                               = convolveDiscreteSigs oper1 oper2
 >
-> applyConvolution       :: ∀ a p . Clock p ⇒
+>     trace_AC                             = unwords ["applyConvolutionMono", show lowP]
+>
+> applyConvolutionStereo :: ∀ a p . Clock p ⇒
 >                           (Lowpass, Lowpass)
 >                           → Double
->                           → Signal p () Double
 >                           → Signal p () (Double, Double)
-> applyConvolution (lowpL, lowpR) secsToPlay sIn
->   | traceNow trace_AC False              = undefined
->   | otherwise                            = dupMono result
+>                           → Signal p () (Double, Double)
+> applyConvolutionStereo (lowpL, lowpR) secsToPlay sIn
+>   | traceNot trace_AC False              = undefined
+>   | otherwise                            = makeSignal result 1
 >   where
->     mIr                                  = memoizedComputeIR lowpL.lowpassKs
->     result =
->       case mIr of
->         Nothing                          → sIn
->         Just vec                         → convolveSFs secsToPlay sIn (makeSignal vec 1)
+>     pairs                                = toSamples secsToPlay sIn
+>     kN                                   = length pairs
 >
->     trace_AC                             = unwords ["applyConvolution", show secsToPlay, show lowpL.lowpassKs]
+>     oper1a                               = fromRawVector "stereo left" $ listArray (0, kN - 1) (map fst pairs)
+>     oper1b                               = fromRawVector "stereo right" $ listArray (0, kN - 1) (map snd pairs)
+>     oper2a                               = maybe (error "memoLeft")  (fromRawVector "impulse response left") (memoizedComputeIR lowpL.lowpassKs)
+>     oper2b                               = maybe (error "memoRight") (fromRawVector "impulse response right") (memoizedComputeIR lowpR.lowpassKs)
 >
-> stripModSignals        :: ∀ p . Clock p ⇒ Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
-> stripModSignals                          =
->   proc ((a1L, a1R), _)                   → do
->   outA                                   ⤙ (a1L, a1R)
+>     resulta                              = convolveDiscreteSigs oper1a oper2a
+>     resultb                              = convolveDiscreteSigs oper1b oper2b
+>
+>     pairs'                               = zip (elems $ dsigVec resulta) (elems $ dsigVec resultb)
+>     kN'                                  = length pairs'
+>
+>     result                               = fromRawVector "convolved stereo" $ listArray (0, kN' - 1) pairs'
+>
+>     trace_AC                             = unwords ["applyConvolutionStereo", show lowpL]
 >
 > mixDown                :: ∀ p . Clock p ⇒ Signal p (Double, Double) Double
 > mixDown                                  =
@@ -669,11 +674,17 @@ Controller Curves ==============================================================
 >       | otherwise                        = controlDenormal pingR dIn (0.5, 1.0) + addR
 >
 > createFrFun            :: Double → Double → Double → (Double → Double)
-> createFrFun cutoff bulge bwCent          =
->   profess (bwWidth >= 0 && cutoff >= bwWidth)
->           (unwords ["createFrFun: bad bwWidth (or) cutoff", show bwWidth, show cutoff])
->           (\freq → mapx freq * ynorm)
+> createFrFun cutoff bulge bwCent
+>   | traceNow trace_CFF False             = undefined
+>   | otherwise                            =
+>       profess (bwWidth >= 0 && cutoff >= bwWidth)
+>               (unwords ["createFrFun: bad bwWidth (or) cutoff", show bwWidth, show cutoff])
+>               (\freq → mapx freq * tracer "ynorm" ynorm)
 >   where
+>     trace_CFF                            =
+>       unwords ["createFrFun", show (cutoff, bulge, bwCent, bwWidth, ynorm)
+>                             , " = (cutoff, bulge, bwCent, bwWidth, ynorm)"]
+>
 >     bwWidth                              = professInRange
 >                                              (0, 100)
 >                                              bwCent
@@ -704,35 +715,34 @@ Controller Curves ==============================================================
 >     taperOff d                           = max 0 (1 - rolloff d)
 >
 >     rolloff            :: Double → Double
->     rolloff c                            = c * c / 1_048_576 -- 262_144 -- WOX
+>     rolloff c                            = c * c / 1_048_576 -- WOX what should it be?
 >
-> lenIR = 1_024
-> squeezeIR = 1
+> squeezeIR = 1 
 >
 > computeIR          :: KernelSpec → Maybe (Array Int Double)
-> computeIR (KernelSpec iFc iQ iSr)
+> computeIR KernelSpec{ .. }
 >   | traceNow trace_CIR False              = undefined
 >   | otherwise                             =
 >   if null esOut
 >     then Nothing
->     else Just $ listArray (0, lenIR - 1) (map (* amp) esOut)
+>     else Just $ listArray (0, impulseSize - 1) (map (* amp) esOut)
 >   where
->     trace_CIR                            = unwords ["computeIR", show (iFc, iQ, iSr), show delta, show amp]
+>     trace_CIR                            = unwords ["computeIR", show (ksFc, ksQ, ksSr), show delta, show amp]
 >
->     delta              :: Double
->     delta                                = fromIntegral iSr / squeezeIR * fromIntegral lenIR
+>     -- factor for choosing frequencies to be interested in
+>     delta              :: Double         = fromIntegral ksSr / squeezeIR * fromIntegral impulseSize
 >
 >     esIn               :: [Complex Double]
 >     esOut              :: [Double]
 >     esIn                                 =
->       map ((:+ 0) . fr . (* delta) . fromIntegral) ([0..lenIR-1]::[Int])
+>       map ((:+ 0) . fr . (* delta) . fromIntegral) ([0..impulseSize - 1]::[Int])
 >     esOut                                = map realPart (ifft esIn)
 >     amp                                  = 1 / maximum esOut
 >     
 >     fr                 :: (Double → Double)
 >                                          = createFrFun dInitFc dNormQ bulgeBandWidth
->     dInitFc                              = fromIntegral iFc
->     dNormQ                               = fromIntegral iQ / 960
+>     dInitFc                              = fromIntegral ksFc
+>     dNormQ                               = fromIntegral ksQ / 960
 >
 > memoizedComputeIR = memo computeIR
 
@@ -867,7 +877,8 @@ Type declarations ==============================================================
 >   , qqChorusRate       :: Double
 >   , qqChorusDepth      :: Double
 >   , qqCascadeConfig    :: Int
->   , qqBulgeBandwidth   :: Double} deriving Show
+>   , qqBulgeBandwidth   :: Double
+>   , qqImpulseSize      :: Int} deriving Show
 >
 > useModulators                            = qqUseModulators              defM
 > chorusAllPercent                         = qqChorusAllPerCent           defM
@@ -880,6 +891,7 @@ Type declarations ==============================================================
 > chorusDepth                              = qqChorusDepth                defM
 > cascadeConfig                            = qqCascadeConfig              defM
 > bulgeBandWidth                           = qqBulgeBandwidth             defM
+> impulseSize                              = qqImpulseSize                defM
 >
 > defM                   :: ModulationSettings
 > defM =
@@ -888,13 +900,14 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
->   , qqLoCutoffReson                      = ResonanceTwoPoles
->   , qqHiCutoffReson                      = ResonanceTwoPoles
+>   , qqLoCutoffReson                      = ResonanceSVF2
+>   , qqHiCutoffReson                      = ResonanceBandpass
 >   , qqUseLFO                             = True
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
 >   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)
 >   , qqCascadeConfig                      = 0
 >   , qqBulgeBandwidth                     = 10
+>   , qqImpulseSize                        = 2_048
 >   }
 
 The End

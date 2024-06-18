@@ -35,7 +35,8 @@
   
 Testing ===============================================================================================================
 
-A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper
+"A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
+--SoundFont spec
 
 struct sfInstModList
 {
@@ -226,20 +227,15 @@ struct sfInstModList
 
 Feed chart ============================================================================================================
 
-> -- range = 0.75 (max resonance) ..    1.25 (no resonance)
-> --         960 cB    -170-    ..      0 cB
-> -- vary: 1 or 2 for first arg to filterBandPass
-> -- vary: 0 to 10 for initQ
->
 > allFilterTypes         :: [ResonanceType]
 > allFilterTypes                           = [minBound..maxBound]
 >
-> nKews                  :: Int            = 2
-> kews                   :: [Int]          = breakUp (0, 960) 0 nKews
-> nCutoffs               :: Int            = 5
-> cutoffs                :: [Int]          = breakUp (20, 20_000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
-> nFreaks                :: Int            = 3
-> freaks                 :: [Int]          = breakUp (20, 20_000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
+> nKews                  :: Int            = 3
+> kews                   :: [Int]          = breakUp (0, 240) 0 nKews
+> nCutoffs               :: Int            = 7
+> cutoffs                :: [Int]          = breakUp (1000, 10_000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
+> nFreaks                :: Int            = 5
+> freaks                 :: [Int]          = breakUp (80, 8_000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
 >
 > filterTestDur          :: Double         = 0.25
 >
@@ -387,14 +383,14 @@ Feed chart =====================================================================
 >     
 > createConvoTest        :: ∀ p . Clock p ⇒ Table → Modulation → Double → Signal p () Double
 > createConvoTest waveTable Modulation{ .. } freq
->   | traceNot trace_CCT False             = undefined
->   | otherwise                            = convolveSFs filterTestDur waveSF (makeSignal (fromJust (memoizedComputeIR lowpassKs)) 1)
+>   | traceNow trace_CCT False             = undefined
+>   | otherwise                            = applyConvolutionMono mLowpass filterTestDur waveSF
 >   where
 >     trace_CCT                            = unwords ["createConvoTest", show lowpassKs]
 >
 >     Lowpass{ .. }                        = mLowpass
 >     KernelSpec{ .. }                     = lowpassKs
->     fc                                   = fromAbsoluteCents ksFc                     
+>
 >     waveSF                               =
 >       proc () → do
 >         a1 ← osc waveTable 0 ⤙ freq
@@ -432,7 +428,7 @@ Feed chart =====================================================================
 >     , bench_q          :: Double
 >     , bench_fks        :: [Double]} deriving Show
 >
-> varyFc                                   = True
+> varyFc                                   = False
 
 nice simple range for initQ    0..960
 

@@ -1,5 +1,4 @@
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE BangPatterns #-}
 > {-# LANGUAGE FlexibleInstances #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -33,8 +32,10 @@ Testing ========================================================================
 > 
 > checkSignal            :: ∀ p. Clock p ⇒ Double → Signal p () Double → IO Bool
 > checkSignal nSecs sf                     = do
->   let ss                                 = toSamples nSecs sf
+>   let ss                                 = toSampleDubs nSecs sf
 >   let sr                                 = rate (undefined :: p)
+>   print $ length ss
+>   print $ maximum $ map abs ss
 >   return $ aEqual (truncate (nSecs * sr)) (length ss)
 > 
 > testSlw, testAud       :: Double → IO Bool

@@ -64,6 +64,7 @@ December 12, 2022
 > import HSoM.Performance ( metro, Context (cDur) )
 > import System.Random ( Random(randomR), StdGen )
 > import qualified Text.FuzzyFind          as FF
+> import Numeric.FFT (fft)
   
 Utilities =============================================================================================================
 
@@ -1072,7 +1073,7 @@ music converter ================================================================
 >   KernelSpec {
 >     ksFc               :: Int
 >   , ksQ                :: Int
->   , ksr                :: Int} deriving (Eq, Generic, Ord, Show)
+>   , ksSr               :: Int} deriving (Eq, Generic, Ord, Show)
 >
 > defKernelSpec                            = KernelSpec 13_500 0 44_100
 >
@@ -1096,94 +1097,142 @@ Sampling =======================================================================
 >                                                           , -0.25,  0,  0.2,  0, -0.167, 0
 >                                                           ,  0.14,  0, -0.125]
 >
-> toSamples              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [Double]
-> toSamples dur sf
->   | traceNot trace_TS False              = undefined
->   | otherwise                            = take numSamples $ concatMap collapse $ unfold $ strip sf
+> toSamples              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [a]
+> toSamples secs sig                       = take numSamples $ unfold $ strip sig
 >   where
 >     sr                                   = rate     (undefined :: p)
 >     numChannels                          = numChans (undefined :: a)
->     numSamples                           = truncate (dur * sr) * numChannels
+>     numSamples                           = truncate (secs * sr)
 >
->     trace_TS                             =
->       unwords ["toSamples", "dur",   show dur
->                           , "sr",    show sr
->                           , "ch",    show numChannels
->                           , "ns",    show numSamples]
+> toSampleDubs           :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [Double]
+> toSampleDubs secs sig                    = take numDubs $ concatMap collapse $ unfold $ strip sig
+>   where
+>     sr                                   = rate     (undefined :: p)
+>     numChannels                          = numChans (undefined :: a)
+>     numDubs                              = truncate (secs * sr) * numChannels
 >
-> maxSample              :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Double → Signal p () a → Double
-> maxSample dur sf                         = maximum (map abs (toSamples dur sf))
+> toDiscreteSig          :: ∀ a i p. (WaveAudioSample a, Ix i, Integral i, Clock p) ⇒
+>                           String → Double → Signal p () a → DiscreteSig i a
+> toDiscreteSig tag dur sf                 = DiscreteSig tag stats vec
+>   where
+>     dlist              :: [a]            = toSamples dur sf
+>     bs                 :: (i, i)         = (0, fromIntegral (length dlist) - 1)
+>     vec                                  = listArray bs dlist
+>     stats                                = measureDiscreteSig vec
 >
-> convolveArrays         :: (Ix a, Integral a, Ord b, Num b, AudioSample b) ⇒ Array a b → Array a b → Array a b
-> convolveArrays x1 x2                     =
+> fromRawVector          :: ∀ a i. (WaveAudioSample a, Ix i, Integral i) ⇒
+>                           String → Array i a → DiscreteSig i a
+> fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
+>
+> normalize, noNormalize :: ∀ a i. (WaveAudioSample a, Ix i) ⇒
+>                           Array i a → Array i a
+> normalize vec                            = listArray (bounds vec) (map (ascale (1 / maxImpulse vec)) (elems vec))
+> noNormalize vec                          = vec
+> 
+> maxSample              :: ∀ p. (Clock p) ⇒ Double → Signal p () Double → Double
+> maxSample dur sf                         = maximum $ map abs (toSamples dur sf)
+>
+> maxImpulse             :: ∀ a i. (WaveAudioSample a, Ix i) ⇒ Array i a → Double
+> maxImpulse vec                           = maximum $ map abs (concatMap collapse (elems vec))
+>
+> multiplyDiscreteSigs   :: ∀ b i. (Ix i, Integral i, Show i, Ord b, Num b, WaveAudioSample b, Show b) ⇒
+>                           DiscreteSig i b → DiscreteSig i b → DiscreteSig i b
+> multiplyDiscreteSigs dsig1@DiscreteSig{dsigTag = tag1, dsigVec = vec1, dsigStats = stats1}
+>                      dsig2@DiscreteSig{dsigTag = tag2, dsigVec = vec2, dsigStats = stats2} =
 >   profess
->     (ok x1 && ok x2)
->     (unwords ["convolveArrays: problem with", if ok x1 then "second operand" else "first operand"])
->     x3
+>     (len1 == len2)
+>     (unwords ["lengths", show len1, "and", show len2, "illegally different for multiplyDiscreteSigs"])
+>     (fromRawVector
+>        (unwords ["product of", tag1, "and", tag2])
+>        (listArray (0, len1 - 1) (zipWith (*) (elems vec1) (elems vec2))))
 >   where
->     m1 = snd $ bounds x1
->     m2 = snd $ bounds x2
->     m3 = m1 + m2
->     x3 =
->       listArray (0,m3)
->         [ sum [ x1!k * x2!(n-k) | k ← [max 0 (n-m2)..min n m1] ] | n ← [0..m3] ]
->
->     ok vec                               = fst (bounds vec) == 0 && all ((< 1_000_000) . abs) vec
->
-> convolveSFs            :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Double → Signal p () a → Signal p () a → Signal p () Double
-> convolveSFs secs sig1 sig2               = makeSignal outVec 1
->   where
->     outVec             :: Array Int Double
->                                          = convolveArrays x1 x2
->     amp                                  = maximum outVec
->
->     l1                                   = toSamples secs sig1
->     l2                                   = toSamples secs sig2
->
->     x1                                   = listArray (0, length l1 - 1) l1
->     x2                                   = listArray (0, length l2 - 1) l2
->
-> makeDeltaFunction      :: ∀ a p. (Clock p) ⇒ Int → Signal p () Double
-> makeDeltaFunction nSamples               = makeSignal vec 1
->   where
->     list                                 = 1 : replicate (nSamples - 1) 0
->     vec                                  = listArray (0, nSamples - 1) list
->
-> makeSignal             :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Array Int a → a → Signal p () a
-> makeSignal vec amp
->   | traceIf trace_MS False              = undefined
+>     DiscreteStats{ dsigLength = len1 }   = stats1
+>     DiscreteStats{ dsigLength = len2 }   = stats2
+>    
+> convolveDiscreteSigs   :: ∀ b i. (Ix i, Integral i, Show i, Ord b, Num b, WaveAudioSample b, Show b) ⇒
+>                           DiscreteSig i b → DiscreteSig i b → DiscreteSig i b
+> convolveDiscreteSigs dsig1 dsig2
+>   | traceNow trace_CA False              = undefined
 >   | otherwise                            =
->     proc ()                              → do
->       rec
->         ii' ← delay 0                    ⤙ ii
->         let ii                           = ii' + 1
->       outA                               ⤙ amp * vec ! (ii' `mod` nn)
+>   profess
+>     (ok x1 && ok x2 && ok x3)
+>     (unwords ["convolveDiscreteSigs-- problem with 1,2, or 3:", show (ok x1, ok x2, ok x3)])
+>     dsig3
 >   where
->     trace_MS                             = unwords ["makeSignal", show nn]
+>     (x1, x2)                             = (dsigVec dsig1, dsigVec dsig2)
+>     (m1, m2)                             = (snd (bounds x1), snd (bounds x2))
+>     m3                                   = m1 + m2 + 1
+>     x3                 :: Array i b      =
+>       listArray (0,m3)
+>         [ sum [ x1 ! k * x2 ! (n-k) | k ← [max 0 (n-m2)..min n m1] ] | n ← [0..m3] ]
+>     dsig3              :: DiscreteSig i b
+>     dsig3                                = fromRawVector "convolved" x3
 >
->     nn                                   =
+>     ok vec                               =
+>       fst (bounds vec) == 0 && snd (bounds vec) > 0 && all ((< 1_000) . abs) vec
+>
+>     trace_CA                             =
+>       unwords ["convolveDiscreteSigs\n", show dsig1
+>              , "\n X \n", show dsig2
+>              , "\n = \n", show dsig3]
+> fftDiscreteSignal         :: ∀ b i. (Ix i, Integral i, Show i) ⇒
+>                              DiscreteSig i Double → DiscreteSig i Double
+> fftDiscreteSignal DiscreteSig{ .. }      =
+>   fromRawVector
+>     (unwords ["fft of", dsigTag])
+>     (listArray (0, dsigLength - 1) (map realPart (fft $ map (:+ 0) (elems dsigVec))))
+>   where
+>     DiscreteStats { .. }                 = dsigStats
+>
+> data DiscreteStats i a                   =
+>   DiscreteStats {
+>     dsigLength            :: i
+>     , statsDCOffset       :: a
+>     , statsSquare         :: a
+>     , statsMaxAmp         :: a} deriving Show
+>
+> data DiscreteSig i a                     =
+>   DiscreteSig {
+>     dsigTag               :: String
+>     , dsigStats           :: DiscreteStats i a
+>     , dsigVec             :: Array i a}
+> instance (Show i, Show a) ⇒ Show (DiscreteSig i a) where
+>   show                    :: DiscreteSig i a → String
+>   show DiscreteSig{ .. }                 = unwords [show dsigTag, show dsigStats]
+>
+> measureDiscreteSig     :: ∀ a i. (WaveAudioSample a, Ix i, Integral i) ⇒ Array i a → DiscreteStats i a
+> measureDiscreteSig vec                   = stats''
+>   where
+>     len                :: Double         =
 >       profess
 >         (not $ null vec)
->         "degenerate vec"
->         (length vec)
+>         (unwords ["discrete signal cannot be empty"])
+>         (fromIntegral $ snd (bounds vec) + 1)
+>     stats'@DiscreteStats{ .. }           = foldl' sfolder (DiscreteStats 0 azero azero azero) (elems vec)
+>     stats''                              = stats' {statsSquare = asqrt $ ascale (1/len) statsSquare}
 >
-> makeNormSignal             :: ∀ a p. (Num a, AudioSample a, Clock p) ⇒ Array Int a → Signal p () a
-> makeNormSignal vec
+>     sfolder            :: DiscreteStats i a → a → DiscreteStats i a
+>     sfolder stats@DiscreteStats{ .. } d  =
+>       stats {
+>              dsigLength                  = dsigLength + 1
+>              , statsDCOffset             = aadd statsDCOffset d
+>              , statsSquare               = aadd statsSquare (amul d d)
+>              , statsMaxAmp               = amax statsMaxAmp (aabs d)}
+>
+> makeSignal             :: ∀ a i p. (WaveAudioSample a, Show a, Ix i, Integral i, Show i, Clock p) ⇒
+>                           DiscreteSig i a → Double → Signal p () a
+> makeSignal dsig@DiscreteSig{ .. } amp
 >   | traceNow trace_MS False              = undefined
 >   | otherwise                            =
 >     proc ()                              → do
 >       rec
 >         ii' ← delay 0                    ⤙ ii
 >         let ii                           = ii' + 1
->       outA                               ⤙ vec ! (ii' `mod` nn)
+>       outA                               ⤙ ascale amp (dsigVec ! (ii' `mod` dsigLength))
 >   where
->     trace_MS                             = unwords ["makeSignal", show nn]
+>     trace_MS                             = unwords ["makeSignal", show dsig]
 >
->     nn                                   =
->       profess
->         (not $ null vec)
->         "degenerate vec"
->         (length vec)
+>     DiscreteStats{ .. }                  = dsigStats
 
 Control Functions
 
@@ -1224,26 +1273,45 @@ The use of following functions requires that their input is normalized between 0
 >    numChans _ = 2
 >
 > class AudioSample a ⇒ WaveAudioSample a where
->   makeStereo           :: a → (Double, Double)
->   makeMono             :: a → Double
+>   azero                :: a
+>   aabs                 :: a → a
+>   ascale               :: Double → a → a
+>   aadd                 :: a → a → a
+>   amul                 :: a → a → a
+>   amax                 :: a → a → a
+>   asqrt                :: a → a
 >
 > instance WaveAudioSample Double where
->   makeStereo           :: Double → (Double, Double)
->   makeStereo d                           = (d, d)
->   makeMono             :: Double → Double
->   makeMono d                             = d
+>   azero                :: Double
+>   azero                                  = 0
+>   aabs                 :: Double → Double
+>   aabs                                   = abs
+>   ascale               :: Double → Double → Double
+>   ascale                                 = amul
+>   aadd                 :: Double → Double → Double
+>   aadd d e                               = d + e
+>   amul                 :: Double → Double → Double
+>   amul d e                               = d * e
+>   amax                 :: Double → Double → Double
+>   amax                                   = max
+>   asqrt                :: Double → Double
+>   asqrt                                  = sqrt
 >
 > instance WaveAudioSample (Double,Double) where
->   makeStereo           :: (Double, Double) → (Double, Double)
->   makeStereo (dL, dR)                    = (dL, dR)
->   makeMono             :: (Double, Double) → Double
->   makeMono (dL, dR)                      = (dL + dR) / 2
->
-> instance WaveAudioSample ((Double, Double), (ModSignals, ModSignals)) where
->   makeStereo           :: ((Double, Double), (ModSignals, ModSignals)) → (Double, Double)
->   makeStereo ((dL, dR), (_, _))      = (dL, dR)
->   makeMono             :: ((Double, Double), (ModSignals, ModSignals)) → Double
->   makeMono ((dL, dR), (_, _))        = (dL + dR) / 2
+>   azero                :: (Double, Double)
+>   azero                                  = (0, 0)
+>   aabs                 :: (Double, Double) → (Double, Double)
+>   aabs (d, e)                            = (abs d, abs e)
+>   ascale               :: Double → (Double, Double) → (Double, Double)
+>   ascale d (e, f)                        = amul (d, d) (e, f)
+>   aadd                 :: (Double, Double) → (Double, Double) → (Double, Double)
+>   aadd (d, e) (f, g)                     = (d + f, e + g)
+>   amul                 :: (Double, Double) → (Double, Double) → (Double, Double)
+>   amul (d, e) (f, g)                     = (d * f, e * g)
+>   amax                 :: (Double, Double) → (Double, Double) → (Double, Double)
+>   amax (d, e) (f, g)                     = (max d f, max e g)
+>   asqrt                :: (Double, Double) → (Double, Double)
+>   asqrt (d, e)                           = (sqrt d, sqrt e)
 >
 > data ModSignals                          =
 >   ModSignals {
@@ -1518,18 +1586,6 @@ Returns sample point as (normalized) Double
 >   in
 >     map (round . oper . (+ ymin) . (* delta) . fromIntegral) ([0..nDivs] :: [Int])
 >    
-> mixMono                :: Signal p () (Double, Double) → Signal p () Double
-> mixMono sIn                              = 
->   proc () → do
->     (xL, xR) ← sIn                       ⤙ ()
->     outA                                 ⤙ xL + xR
->
-> dupMono                :: ∀ a p . (WaveAudioSample a, Clock p) ⇒ Signal p () a → Signal p () (Double, Double)
-> dupMono sIn                              = 
->   proc () → do
->     x ← sIn                              ⤙ ()
->     outA                                 ⤙ makeStereo x
->
 > eeee :: Double
 > eeee = 2.718_281_828_459_045_235_360_287_471_352_7
 >
@@ -1712,8 +1768,8 @@ Tracing ========================================================================
 
 > tracer                 :: Show a ⇒ String → a → a
 > tracer str x                             =
->   if diagnosticsEnabled
->     then trace (unwords [str, show x]) x
+>   if True
+>     then traceNow (unwords [str, show x]) x
 >     else x
 >
 > notracer               :: Show a ⇒ String → a → a

@@ -65,15 +65,15 @@ Signal function-based synth ====================================================
 >     pumped             :: Signal p () ((Double, Double), (ModSignals, ModSignals))
 >     pumped                               =       eutDriver      secsScored (reconL, reconR) secsToPlay delta looping
 >                                              >>> eutPumpSamples secsScored (reconL, reconR) noon dur s16 ms8
->     pumped'            :: Signal p () Double
->     pumped'                              = pumped >>> stripModSignals >>> mixDown
+>     pumped'            :: Signal p () (Double, Double)
+>     pumped'                              = pumped >>> stripModSignals
 >
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
 >
 >     modulated          :: Signal p () (Double, Double)
 >     modulated                            =
 >       if ResonanceConvo == m8nL.mLowpass.lowpassType
->         then eutConvolve secsScored (m8nL, m8nR) noon pumped'
+>         then applyConvolutionStereo (m8nL.mLowpass, m8nR.mLowpass) secsScored pumped'
 >         else eutModulate secsScored (m8nL, m8nR) noon pumped
 >
 >     sig                                  =       modulated
@@ -84,7 +84,21 @@ Signal function-based synth ====================================================
 >     trace_eS                             =
 >       unwords [
 >           "eutSynthesize",                show (dur, noon)
->         , "\n... sample, scored, toplay, looping", show (secsSample, secsScored, secsToPlay, looping)]
+>         , "\n...", show $ toDiscreteSig "dumpsig" secsToPlay pumped'] 
+>         -- , " -- \n... sample, scored, toplay, looping", show (secsSample, secsScored, secsToPlay, looping)]
+>
+> useDCBlockForStrip                       = False
+>
+> stripModSignals        :: ∀ p . Clock p ⇒ Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
+> stripModSignals                          =
+>     proc ((pL, pR), _) → do
+>     pL' ←        if not useDCBlockForStrip
+>                    then delay 0          ⤙ pL
+>                    else dcBlock 0.995    ⤙ pL
+>     pR' ←        if not useDCBlockForStrip
+>                    then delay 0          ⤙ pR
+>                    else dcBlock 0.995    ⤙ pR
+>     outA ⤙ (pL', pR')
 >
 > eutDriver              :: ∀ p . Clock p ⇒
 >                           Double
@@ -131,8 +145,7 @@ Signal function-based synth ====================================================
 >     denom              :: Double         = fullen - fullst
 >
 > eutModSignals          :: ∀ p. Clock p ⇒ Double → Double → (Modulation, Modulation) → Signal p () (ModSignals, ModSignals)
-> eutModSignals secsScored secsToPlay (m8nL , m8nR)
->                                                      =
+> eutModSignals secsScored secsToPlay (m8nL , m8nR)    =
 >   proc _ → do
 >     aL1 ← doEnvelope  mModEnvL secsScored secsToPlay ⤙ ()
 >     aL2 ← doLFO       mModLfoL                       ⤙ ()
@@ -236,7 +249,7 @@ FFT ============================================================================
 >                                         ++ " / "           ++ show h
 >                                         ++ " = "           ++ show z
 >   where
->     ss                                   = toSamples (secs + 0.5) sig
+>     ss                                   = toSampleDubs (secs + 0.5) sig
 >     pers               :: Double         = secs / fromIntegral (length ss)
 >     ts                                   = map ((*pers) . fromIntegral) [0..(length ss - 1)]
 >     timedPoints                          = zip ts ss 
