@@ -78,8 +78,8 @@ organize exposed music =========================================================
 > djingles =
 >    [ ("waypostpurple"  , waypostpurple)
 >    , ("whelpNarp"      , whelpNarp)
->    , ("snake"          , snake)
->    , ("pendingtonArnt" , pendingtonArnt 2)
+>    -- , ("snake"          , snake)
+>    -- , ("pendingtonArnt" , pendingtonArnt 2)
 >    , ("ssailor"        , ssailor)]
 > ejingles =
 >    [ ("kit"            , kit)
@@ -96,10 +96,10 @@ organize exposed music =========================================================
 > sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("pa1"         , pendingtonArnt 1)]
->    -- [ ("deyDumpDum"  , deyDumpDum)]
+>    -- [ ("deyDumpDum"     , deyDumpDum)]
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("slot1"       , slot 1)]
->    [ ("roger"          , roger) ]
+>    [ ("wj"          , wj) ]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]
 >    -- [ ("packardGoose", packardGoose)]
 >    -- [ ("dadadada"    , shimSong $ aggrandize dadadada)]

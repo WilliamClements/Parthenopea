@@ -1,4 +1,3 @@
-> {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE DeriveGeneric #-}
 > {-# LANGUAGE EmptyDataDecls #-}
 > {-# LANGUAGE FlexibleInstances #-}
@@ -1112,7 +1111,6 @@ Sampling =======================================================================
 >
 > maxSample              :: ∀ p. (Clock p) ⇒ Double → Signal p () Double → Double
 > maxSample dur sf                         = maximum $ map abs (toSamples dur sf)
->
 
 Control Functions
 

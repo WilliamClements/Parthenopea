@@ -345,7 +345,7 @@ Feed chart =====================================================================
 >                                              (round (960 * currentQ))
 >                                              44_100
 >
->                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks bench_fc bench_q}
+>                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks}
 >
 >         doQ           :: Double → IO ()
 >         doQ currentQ                     = do
@@ -372,12 +372,12 @@ Feed chart =====================================================================
 >                                              (toAbsoluteCents bench_fc)
 >                                              (round (960 * currentQ))
 >                                              44_100
->                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks bench_fc bench_q}
+>                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks}
 >
 > chartIr                :: IO ()
 > chartIr                                  = chartPoints "impulseResponse" [Section (opaque blue) grouts]
 >   where
->     vec                                  = fromJust $ memoizedComputeIR $ KernelSpec 500 0 44_100
+>     vec                                  = fromJust $ memoizedComputeIR (KernelSpec 500 0 44_100) impulseSize
 >     len                                  = snd $ bounds vec
 >     grouts             :: [(Double, Double)]
 >                                          = [(fromIntegral i, vec ! i) | i ← [0..len]]

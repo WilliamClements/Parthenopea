@@ -2,7 +2,6 @@
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE NumericUnderscores #-}
-> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -21,7 +20,6 @@
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
-> import Data.MemoTrie
 > import Debug.Trace ( traceIO, trace )
 > import Discrete
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
@@ -360,12 +358,12 @@ Modulator management ===========================================================
 >           let sOut                       = resonate sIn fc pickled
 >           outA                           ⤙ sOut
 >     trace_MSF                            =
->       unwords ["addResonance (fc, q)", show (lowpassFc, lowpassQ)]
+>       unwords ["addResonance (fc, q)", show (lowpassFc mLowpass, lowpassQ mLowpass)]
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
 >       clip freakRange
->            (lowpassFc * evaluateModSignals
+>            (lowpassFc mLowpass * evaluateModSignals
 >                           "modulateFc"
 >                           m8n
 >                           ToFilterFc
@@ -408,7 +406,7 @@ Modulator management ===========================================================
 > procBandpass Modulation{ .. }            =
 >   proc (x, fc) → do
 >     y1 ← filterLowPassBW                 ⤙ (x, fc)
->     y2 ← filterBandPass 2                ⤙ (x, fc, lowpassQ / 3)
+>     y2 ← filterBandPass 2                ⤙ (x, fc, lowpassQ mLowpass / 3)
 >     let y'                               = traceBandpass y1 y2
 >     outA                                 ⤙ notracer "bp" y'
 >   where
@@ -447,7 +445,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >   where
 >     Lowpass{ .. }                        = mLowpass
 >
->     damp                                 = extraDampFactor / fromCentibels lowpassQ
+>     damp                                 = extraDampFactor / fromCentibels (lowpassQ mLowpass)
 >     theta c                              = pi * c / rate (undefined :: p)
 >
 >     maybeAverageInput c c'               =
@@ -472,7 +470,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >   where
 >     Lowpass{ .. }                        = mLowpass
 >
->     damp                                 = extraDampFactor / fromCentibels lowpassQ
+>     damp                                 = extraDampFactor / fromCentibels (lowpassQ mLowpass)
 >     theta c                              = pi * c / rate (undefined :: p)
 >
 >     maybeAverageInput c c'               =
@@ -509,7 +507,8 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >     outA                                 ⤙ y
 >   where
 >     Lowpass { .. }                       = mLowpass
->     cs@CoeffsM2N2{ .. }                  = buildSystemM2N2 $ pickZerosAndPoles (2 * pi * lowpassFc) (lowpassQ / 960)
+>     cs@CoeffsM2N2{ .. }                  =
+>       buildSystemM2N2 $ pickZerosAndPoles (2 * pi * lowpassFc mLowpass) (lowpassQ mLowpass / 960)
 >
 >     trace_P2P                            = unwords ["procTwoPoles", show cs]
 >
@@ -684,7 +683,7 @@ Type declarations ==============================================================
 >   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
 > defModulation                            = Modulation
->                                              (Lowpass ResonanceNone defKernelSpec 0 0) Nothing Nothing Nothing
+>                                              (Lowpass ResonanceNone defKernelSpec) Nothing Nothing Nothing
 >                                              defModCoefficients defModCoefficients defModCoefficients
 >                                              Map.empty
 >
@@ -768,8 +767,8 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
->   , qqLoCutoffReson                      = ResonanceSVF2
->   , qqHiCutoffReson                      = ResonanceBandpass
+>   , qqLoCutoffReson                      = ResonanceConvo
+>   , qqHiCutoffReson                      = ResonanceConvo
 >   , qqUseLFO                             = True
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
 >   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)

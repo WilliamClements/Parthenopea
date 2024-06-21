@@ -67,10 +67,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data PreSample =
 >   PreSample {
 >     sName              :: String
->   , sMatches           :: FFMatches
->   , dLow               :: Double
->   , dTarget            :: Double
->   , dHigh              :: Double} deriving Show
+>   , sMatches           :: FFMatches} deriving Show
 >
 > data PreInstrument =
 >   PreInstrument {
@@ -115,7 +112,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   ZoneHeader {
 >     zhwBag             :: Word
 >   , zhShdr             :: F.Shdr
->   , zhNonPitched       :: Bool} deriving Show
+>   , zhNonPitched       :: Maybe Bool} deriving Show
 >
 > data PerInstrument =
 >   PerInstrument {
@@ -271,53 +268,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , xNoteOn            :: NoteOn} deriving (Eq, Ord, Show)
 >
 > type PlayValue                           = (Recon, Maybe Recon)
-
-sample pitching scaffold ==============================================================================================
-
-> pitchSamples           :: Int → IO ()
-> pitchSamples _ = do
->     putStrLn "pitch..."
->     ts1                ← getCurrentTime
->
->     fps                ← FP.getDirectoryFiles "." (singleton "*.sf2")
->     sffilesp           ← CM.zipWithM openSoundFontFile [0..] fps
->
->     ts2                ← getCurrentTime
->     putStrLn ("___load files: " ++ show (diffUTCTime ts2 ts1))
->
->     mapM_ pitchFile sffilesp
->
->     ts3                ← getCurrentTime
->     putStrLn ("___pitch files: " ++ show (diffUTCTime ts3 ts2))
->
-> pitchFile           :: SFFile → IO ()
-> pitchFile sffile@SFFile{zArrays}         = do
->     let hdrs                             = ssShdrs zArrays
->     
->     let st          :: Word              = (fst . bounds) hdrs
->     let en          :: Word              = (snd . bounds) hdrs
->
->     mapM_ (pitchOne sffile) [st..en - 1]
->   
-> pitchOne           :: SFFile → Word → IO ()
-> pitchOne SFFile{ .. } ix
->   | traceIf trace_PO False               = undefined
->   | otherwise = do
->     let SoundFontArrays{ .. }            = zArrays
->     let shdr@F.Shdr{ .. }                = ssShdrs ! ix
->
->     print sampleName
->
->     let vFft                             =
->           eutAnalyzeSample ssData ssM24 shdr (fromIntegral originalPitch)
->     if null vFft
->       then putStrLn " ...\n"
->       else
->         do
->           putStrLn (" vSum = "   ++ show (sumUpFft vFft) ++ "\n")
->   where
->     trace_PO                             = unwords ["pitchOne ", show ix]
->   
 
 executive =============================================================================================================
 
@@ -569,7 +519,7 @@ executive ======================================================================
 > computePreSample       :: SFFile → F.Shdr → PreSampleKey → PreSample
 > computePreSample SFFile{ .. } shdr k
 >   | traceNever trace_CPS False           = undefined
->   | otherwise                            = PreSample inp ffs dLow dTarget dHigh
+>   | otherwise                            = PreSample inp ffs
 >   where
 >     SoundFontArrays{ .. }                = zArrays
 >     ap                                   = fromIntegral $ F.originalPitch shdr
@@ -578,9 +528,6 @@ executive ======================================================================
 >
 >     inp                                  = F.sampleName shdr
 >     ffs                                  = computeFFMatches inp
->     dLow                                 = sumUpFft $ eutAnalyzeSample ssData ssM24 shdr apLow
->     dTarget                              = sumUpFft $ eutAnalyzeSample ssData ssM24 shdr ap
->     dHigh                                = sumUpFft $ eutAnalyzeSample ssData ssM24 shdr apHigh
 >
 >     trace_CPS                            = unwords ["computePreSample", show (inp, k)]
 >
@@ -593,23 +540,6 @@ executive ======================================================================
 >     F.Inst{ .. }                         = ssInsts ! pgkwInst
 > 
 >     trace_CPI                            = unwords ["computePreInstrument", show instName]
->
-> isNonPitchedByFft        :: PreSample → Maybe Bool
-> isNonPitchedByFft PreSample{ .. }
->   | traceIf trace_INPBF False            = undefined
->   | 0.0 == dLow + dTarget + dHigh        = Nothing
->   | otherwise                            = Just (bCrit1 || bCrit2 || bCrit3)
->   where
->     bCrit1                               = dTarget < 3.0
->     bCrit2                               = (dTarget - dLow) / dTarget < 0.1
->     bCrit3                               = (dHigh - dTarget) / dTarget < 0.1
->
->     trace_INPBF                          =
->       unwords ["isNonPitchedByFft"
->              , show (dLow, dTarget, dHigh)
->              , show (bCrit1, bCrit2, bCrit3)
->              , "="
->              , show (bCrit1 || bCrit2 || bCrit3)]
 >
 > formMasterInstList     :: Array Word SFFile → IO [PerGMKey]
 > formMasterInstList sffiles               = return $ concatMap formFI sffiles
@@ -966,14 +896,9 @@ prepare the specified instruments and percussion ===============================
 >                                              "SoundFont file corrupt (buildZone mods)"
 >                                              (zip [10_000..] (map (ssIMods !) (makeRange xmodi ymodi)))
 >
->             meval      :: Maybe Bool     = zSampleIndex
->                                            >>= \w → Just (PreSampleKey pgkwFile w)
->                                            >>= flip Map.lookup preSampleCache
->                                            >>= isNonPitchedByFft
->
 >             zone@SFZone{ .. }            = foldr addMod (foldl' addGen fromZone gens) mods
 >             si                           = fromMaybe 0 zSampleIndex
->             zh                           = ZoneHeader bagIndex (ssShdrs ! si) (fromMaybe True meval)
+>             zh                           = ZoneHeader bagIndex (ssShdrs ! si) Nothing
 >
 >             trace_BZ                     =
 >               unwords ["buildZone", show pgkwFile, iName
@@ -1038,7 +963,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         computeCanBePerc ZoneHeader{ .. } SFZone { .. }
 >           | traceNever trace_CCBP False  = undefined
->           | otherwise                    = pinned || nonPitchedByFuzz || nonPitchedByFft
+>           | otherwise                    = pinned || nonPitchedByFuzz
 >           where
 >             PreBundle{ .. }              =
 >               preLookup sffiles Map.empty preInstCache preSampleCache skMap pergm{pgkwBag = Just zhwBag}
@@ -1048,10 +973,8 @@ prepare the specified instruments and percussion ===============================
 >             isSample   :: PreSample → Bool
 >             isSample ps                  = any (isPossible' . flip evalAgainstKind (sMatches ps)) nonPitchedInstruments
 >
->             nonPitchedByFft              = sampleAnalyisEnabled && zhNonPitched
->
 >             trace_CCBP                   =
->               unwords ["computeCanBePerc", show pinned, show nonPitchedByFuzz, show nonPitchedByFft]
+>               unwords ["computeCanBePerc", show pinned, show nonPitchedByFuzz]
 >
 > pinnedKR               :: (AbsPitch, AbsPitch) → Bool
 > pinnedKR (p1, p2)                        = p1 == p2 || 1 == abs (p2 - p1) && matchedPair (p1, p2)
@@ -1116,7 +1039,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF SFRoster{ .. } pergm@PerGMKey{ .. } dur pchIn volIn params
->   | traceIf trace_ISF False             = undefined
+>   | traceNow trace_ISF False             = undefined
 >   | otherwise                            = eutSynthesize (reconL, reconR) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
@@ -1337,7 +1260,7 @@ reconcile zone and sample header ===============================================
 >   where
 >     m8n                :: Modulation     =
 >       defModulation{
->         mLowpass                         = Lowpass resonanceType curKernelSpec initFc normQ
+>         mLowpass                         = Lowpass resonanceType curKernelSpec
 >       , mModEnv                          = nModEnv
 >       , mModLfo                          = nModLfo
 >       , mVibLfo                          = nVibLfo
@@ -1350,9 +1273,8 @@ reconcile zone and sample header ===============================================
 >         (maybe 13_500 (clip (1_500, 13_500)) zInitFc)
 >         (maybe 0      (clip (0,     960))    zInitQ)
 >         (fromIntegral sampleRate)
->     initFc             :: Double         = fromAbsoluteCents ksFc
->     normQ              :: Double         = fromIntegral ksQ / 960
->     resonanceType      :: ResonanceType  = if initFc < 10_000
+>
+>     resonanceType      :: ResonanceType  = if lowpassFc (mLowpass m8n) < 10_000
 >                                              then loCutoffReson
 >                                              else hiCutoffReson
 >
