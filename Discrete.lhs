@@ -306,60 +306,129 @@ x-axis: frequency in cycles/sec
 y-axis: amplitude ratio normalized to 0..1
 
 but first, the y-axis is modeled as from 0 to one plus the Q-induced bulge ratio
-(i.e. these ys are multiplied by 1 / (1 + bulge) to normalize them)
+(i.e. these ys, in final step, are multiplied by 1 / (1 + bulge) to normalize them)
 
 because the Q "bulge" magnitude is defined as (0..960) centibels ABOVE DC-gain, and we treat the DC-gain as one
 
-second, we want to achieve drop-off (gain) of -120 centibels/octave from cutoff -- to do that, invert mapx
+second, we want to drop off (gain) -120 centibels/octave from the "cutoff"
 
-> freakyResponse         :: KernelSpec → Int → [ResponseShape] → Double → Double
-> freakyResponse KernelSpec{ .. } len shapes xIn
->                                          = (fryXform . modelXform . frxXform) xIn
+> testFreaks             :: IO Double
+> testFreaks                               = do
+>   let fun                                = getFreaky (KernelSpec 10_000 0 44_100) 300
+>   let xs               :: [Double]       = [fromIntegral x | x ← [0..44_100]]
+>   let ys                                 = map fun xs
+>   print ys
+>   return 0
+>
+> getFreaky              :: KernelSpec → Int → Double → Double
+> getFreaky ks@KernelSpec{ .. } len        = freakyResponse ks len shapes
 >   where
->     fc, q, sr, ynorm   :: Double
+>     stretch                              = if q == 0 then 0 else fc / 100
+>     width1                               = fc - stretch / 2
+>     width2                               = stretch
+>     height                               = 1
+>     rate                                 = -0.5 -- WOX
+>
+>     shapes             :: [ResponseShape]
+>     shapes                               =
+>       [  Block width1 height
+>        , Bulge width2 height stretch
+>        , Decline rate height] -- WOX
+>
+>     fc, q, sr, yn      :: Double
 >     fc                                   = fromAbsoluteCents ksFc
 >     q                                    = fromIntegral ksQ
 >     sr                                   = fromIntegral ksSr   
->     ynorm              :: Double         = 1 / (1 + fromCentibels q)
+>     yn                                   = 1 / (1 + fromCentibels q)
+>     
+> freakyResponse         :: KernelSpec → Int → [ResponseShape] → Double → Double
+> freakyResponse KernelSpec{ .. } len shapes xIn
+>   | traceNot trace_FR False              = undefined
+>   | otherwise                            = ((* yn) . fryXform . modelXform . frxXform) xIn
+>   where
+>     fs@FrSummary{ .. }                   = foldl' doShape (FrSummary [] 0) shapes
+>     FrItem{ .. }                         = fromJust $ find inVogue frsItems
 >
->     FrSummary{ .. }                      = foldl' doShape (FrSummary [] 0) shapes
->     FrItem{ .. }                         = fromJust $ find pred frsItems
+>     fc, q, sr, yn      :: Double
+>     fc                                   = fromAbsoluteCents ksFc
+>     q                                    = fromIntegral ksQ
+>     sr                                   = fromIntegral ksSr   
+>     yn                                   = 1 / (1 + fromCentibels q)
+>     
+>     inVogue            :: FrItem → Bool
+>     inVogue FrItem{ .. }                 = xIn == clip friRange xIn
 >
->     pred               :: FrItem → Bool
->     pred FrItem{ .. }                    = xIn == clip frRange xIn
->
->     funXform1d         :: Double → Double → (Double → Double)
->     funXform1d scale offset xIn          = scale * xIn + offset
->
->     makeBlock          :: Double → Double
->                           → (Double → Double) → (Double → Double) → (Double → Double)
->                           → FrItem
->     makeBlock width height preX xFun postY  = FrItem (width, height) preX xFun postY
+>     updateSummary      :: FrSummary → Double → [FrItem] → FrSummary
+>     updateSummary prev@FrSummary{ .. } newD newIs
+>                                          =
+>       prev{frsDisplacement = newD, frsItems = frsItems ++ newIs}
 >
 >     doShape            :: FrSummary → ResponseShape → FrSummary
->     doShape prev (Block width height)    =
->       let
->         newItem        :: FrItem         = makeBlock width height (const 1) (const 1) (const 1)
->         newDisplacement                  = frsDisplacement + width
->       in
->         prev{  frsItems                  = frsItems ++ [newItem]
->              , frsDisplacement           = newDisplacement}
->     doShape prev (Bulge width height)    =
->       let
->         newItem1                         = makeFrItem width height (\x → 1)
->         newItem2                         = makeFrItem width height (\x → 1)
->         newDisplacement                  = frsDisplacement + width
->       in
->         prev{  frsItems                  = frsItems ++ [newItem1, newItem2]
->              , frsDisplacement           = newDisplacement}
->     doShape prev (Decline rate)          =
->       let
->         newItem                          = makeFrItem rate 1 (\x → 1)
->       in
->         prev{frsItems = newItem : frsItems}
+>     doShape prev@FrSummary{ .. } (Block width height)
+>                                          = updateSummary prev newD [newI]
+>       where
+>         newD           :: Double         = frsDisplacement + width
+>         newI           :: FrItem         =
+>           FrItem
+>             (Block width height)  
+>             (frsDisplacement, newD)
+>             id
+>             (const height)
+>             id
+>         
+>     doShape prev@FrSummary{ .. } (Bulge width height stretch)
+>                                          = updateSummary prev newD2 iList
+>       where
+>         newD1, newD2   :: Double
+>         newD1                            = frsDisplacement + width / 2
+>         newD2                            = frsDisplacement + width
 >
->     makeFrItem         :: Double → Double → (Double → Double) → FrItem
->     makeFrItem width height fun          = FrItem (width, height) (const 1) fun (const 1) -- WOX
+>         iList          :: [FrItem]
+>         iList                            =
+>           if width <= 0 || stretch <= 0 || stretch >= width
+>             then []
+>             else [newI1, newI2]
+>         newI1, newI2   :: FrItem
+>         newI1                            =
+>           FrItem
+>             (Bulge (width / 2) height stretch)
+>             (frsDisplacement, newD1)
+>             ((/ (newD1 - frsDisplacement)) . ddSubtract frsDisplacement)
+>             startUp
+>             id
+>         newI2                            =
+>           FrItem
+>             (Bulge width height stretch)
+>             (newD1, newD2)
+>             ((/ (newD2 - newD1)) . ddSubtract newD1)
+>             finishDown
+>             id
+>         
+>     doShape prev@FrSummary{ .. } (Decline height rate)
+>                                          = updateSummary prev sr [newI]
+>       where
+>         newI                             =
+>           FrItem
+>             (Decline height rate)
+>             (frsDisplacement, sr)
+>             (ddSubtract frsDisplacement)
+>             (ddTaperOff rate height)
+>             (+ height)
+>
+>     ddXform1d          :: Double → Double → (Double → Double)
+>     ddXform1d scale offset xFrom         = scale * xFrom + offset
+>
+>     ddSubtract         :: Double → (Double → Double)
+>     ddSubtract offset                    = ddXform1d 1 (-offset)
+>
+>     ddTaperOff         :: Double → Double → (Double → Double)
+>     ddTaperOff height slope xFrom        = max 0 (ddXform1d slope height xFrom)
+>
+>     trace_FR                             = unwords ["freakyResponse", show fs, "\ndoing", show friShape]
+>
+> -- for testing only
+> defShapes              :: [ResponseShape]
+> defShapes                                = [Block 2_000 1, Bulge 50 1 5, Decline 1 77]
 
 Type declarations ============================================================================ =========================
 
@@ -408,25 +477,27 @@ Type declarations ==============================================================
 >   , qqUseFastFourier   :: Bool} deriving Show
 >
 > data ResponseShape =
->     Block Double Double 
->   | Bulge Double Double 
->   | Decline Double
+>     Block Double Double                  -- width height
+>   | Bulge Double Double Double           -- width height stretch
+>   | Decline Double Double                -- rate height
+>     deriving Show
 >
 > data FrItem =
 >   FrItem {
->     frRange            :: (Double, Double)
+>     friShape           :: ResponseShape
+>   , friRange           :: (Double, Double)
 >
 >   , frxXform           :: Double → Double
 >   , modelXform         :: Double → Double
 >   , fryXform           :: Double → Double}
 >
-> xform1d                :: Double → (Double, Double) → Double
-> xform1d c (s, o)                         = s * c + o
+> instance Show FrItem where
+>   show (FrItem shape range _ _ _) = unwords ["<", show shape, ">", show range]
 >
 > data FrSummary =
 >   FrSummary {
 >     frsItems           :: [FrItem]
->   , frsDisplacement    :: Double}
+>   , frsDisplacement    :: Double} deriving Show
 >
 > bulgeBandWidth                           = qqBulgeBandwidth             defD
 > impulseSize                              = qqImpulseSize                defD

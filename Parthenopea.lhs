@@ -1677,7 +1677,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = True
+>   , qqSkipReporting                      = False
 >   , qqSkipGlissandi                      = False
 >   , qqReplacePerCent                     = 0
 >   , qqUsingPlayCache                     = False
