@@ -22,6 +22,7 @@ Library
         Chart,
         Covers,
         Discrete,
+        DiscreteTest,
         Fanfare,
         Illiterate,
         Modulation,

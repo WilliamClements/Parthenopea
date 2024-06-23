@@ -49,5 +49,11 @@ Chart ==========================================================================
 >                    $ def
 >       in
 >         toPlot noints
+>
+> table2vals             :: Double → [Double] → [(Double, Double, Double, Double)]
+> table2vals scalix                        = zipWith convFun [0..]
+>   where
+>     convFun            :: Int → Double → (Double, Double, Double, Double)
+>     convFun i y                          = (fromIntegral i / scalix, y, 0, 0)
 
 The End

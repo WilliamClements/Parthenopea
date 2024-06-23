@@ -305,7 +305,7 @@ Frequency Response =============================================================
 x-axis: frequency in cycles/sec
 y-axis: amplitude ratio normalized to 0..1
 
-but first, the y-axis is modeled as from 0 to one plus the Q-induced bulge ratio
+but first, the y-axis is modeled as from 0 to one PLUS the Q-induced bulge ratio
 (i.e. these ys, in final step, are multiplied by 1 / (1 + bulge) to normalize them)
 
 because the Q "bulge" magnitude is defined as (0..960) centibels ABOVE DC-gain, and we treat the DC-gain as one

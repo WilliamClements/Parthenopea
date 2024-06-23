@@ -1,5 +1,6 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
+>
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -15,6 +16,7 @@ Rosters support ================================================================
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Debug.Trace ( traceIO, traceM )
+> import DiscreteTest
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
 > import Fanfare
