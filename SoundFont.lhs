@@ -1,3 +1,6 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
+>
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE NumericUnderscores #-}
@@ -8,7 +11,7 @@
 
 SoundFont support =====================================================================================================
 
-> module SoundFont where
+> module SoundFont (doEverything) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
@@ -1108,7 +1111,8 @@ zone selection for rendering ===================================================
 >                                              (unwords ["scores should not be null (selectBestZone)"])
 >                                              (minimumBy (comparing fst) scores)
 >
->     trace_SBZ                            = unwords ["selectBestZone", show (length zs)]
+>     trace_SBZ                            =
+>       unwords ["selectBestZone", show (F.sampleName (zhShdr ((fst . snd) whichZ)))]
 >
 > selectZonePair         :: [(ZoneHeader, SFZone)]
 >                           → (ZoneHeader, SFZone)
@@ -1273,6 +1277,8 @@ reconcile zone and sample header ===============================================
 >         (maybe 13_500 (clip (1_500, 13_500)) zInitFc)
 >         (maybe 0      (clip (0,     960))    zInitQ)
 >         (fromIntegral sampleRate)
+>         useFastFourier
+>         300 -- WOX
 >
 >     resonanceType      :: ResonanceType  = if lowpassFc (mLowpass m8n) < 10_000
 >                                              then loCutoffReson

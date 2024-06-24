@@ -7,7 +7,7 @@ Baking
 William Clements
 December 16, 2022
 
-> module Baking where
+> module Baking (bakedJingle) where
 
 > import Data.Array ( Array, (!), (//), array, listArray, bounds )
 > import Data.List ( sortOn )
@@ -20,9 +20,7 @@ December 16, 2022
   
 Bake ==================================================================================================================
 
->
 > type Baking = (BakingMetrics, Array Int (Music (Pitch, Volume)))
->
 
 The progress of the algorithm is expressed in above pair.
 

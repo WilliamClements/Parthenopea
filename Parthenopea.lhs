@@ -1,3 +1,6 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
+>
 > {-# LANGUAGE DeriveGeneric #-}
 > {-# LANGUAGE EmptyDataDecls #-}
 > {-# LANGUAGE FlexibleInstances #-}
@@ -10,7 +13,6 @@
 > {-# LANGUAGE TypeFamilies #-} 
 > {-# LANGUAGE TypeOperators #-}
 > {-# LANGUAGE UnicodeSyntax #-}
-> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 Parthenopea
 William Clements
@@ -18,7 +20,6 @@ December 12, 2022
 
 > module Parthenopea where
 >
-> import Chart
 > import Codec.Midi(exportFile, importFile, Midi)
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq (NFData)
@@ -26,8 +27,6 @@ December 12, 2022
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Colour
-> import Data.Colour.Names
 > import Data.Complex
 > import Data.Either
 > import Data.Graph (Graph)
@@ -42,28 +41,22 @@ December 12, 2022
 > import Data.MemoTrie
 > import Data.Ord
 > import Data.Ratio ( approxRational )
+> import Data.Set (Set)
 > import qualified Data.Set                as Set
 > import Data.Word
 > import Debug.Trace ( trace )
-> import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg, Table, tableSinesN, osc )
 > import Euterpea.IO.Audio.IO
-> import Euterpea.IO.Audio.Render
 > import Euterpea.IO.Audio.Types
-> import Euterpea.IO.MIDI.ExportMidiFile
-> import Euterpea.IO.MIDI.FromMidi2
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.IO.MIDI.MidiIO (unsafeOutputID, unsafeInputID, OutputDeviceID, InputDeviceID)
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.IO.MIDI.ToMidi2 (writeMidi2)
 > import Euterpea.Music
-> import FRP.UISF.AuxFunctions ( ArrowCircuit(delay) )
 > import GHC.Generics (Generic) 
-> import HSoM.Examples.Additive ( sineTable, sfTest1 )
 > import HSoM.Performance ( metro, Context (cDur) )
 > import System.Random ( Random(randomR), StdGen )
 > import qualified Text.FuzzyFind          as FF
-> import Numeric.FFT (fft)
   
 Utilities =============================================================================================================
 
@@ -1071,9 +1064,11 @@ music converter ================================================================
 >   KernelSpec {
 >     ksFc               :: Int
 >   , ksQ                :: Int
->   , ksSr               :: Int} deriving (Eq, Generic, Ord, Show)
+>   , ksSr               :: Int
+>   , ksFast             :: Bool
+>   , ksLen              :: Int} deriving (Eq, Generic, Ord, Show)
 >
-> defKernelSpec                            = KernelSpec 13_500 0 44_100
+> defKernelSpec bFast                      = KernelSpec 13_500 0 44_100 bFast 300
 >
 > instance HasTrie KernelSpec where
 >   newtype (KernelSpec :->: b)            = KernelSpecTrie { unKernelSpecTrie :: Reg KernelSpec :->: b } 
@@ -1304,6 +1299,10 @@ Conversion functions and general helpers =======================================
 >
 > makeRange              :: Integral n ⇒ n → n → [n]
 > makeRange x y                            = if x > y || y <= 0 then [] else [x..(y-1)]
+>
+> almostEqual            :: Double → Double → Bool
+> almostEqual 0 0                          = True
+> almostEqual a b                          = 1e-8 > abs ((a - b) / (a + b))
 
 Raises 'a' to the power 'b' using logarithms.
 

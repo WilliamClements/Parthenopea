@@ -1,7 +1,8 @@
-> {-# HLINT ignore "Use head" #-}
-> {-# LANGUAGE UnicodeSyntax #-}
-> {-# OPTIONS_GHC -fno-warn-orphans #-}
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
+> {-# HLINT ignore "Use head" #-}
+>
+> {-# LANGUAGE UnicodeSyntax #-}
 
 Playground using random number generation with Euterpea's Music data structures
 William Clements

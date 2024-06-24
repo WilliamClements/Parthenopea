@@ -30,11 +30,11 @@ Feed chart =====================================================================
 > allFilterTypes         :: [ResonanceType]
 > allFilterTypes                           = [minBound..maxBound]
 >
-> nKews                  :: Int            = 3
+> nKews                  :: Int            = 1
 > kews                   :: [Int]          = breakUp (0, 240) 0 nKews
-> nCutoffs               :: Int            = 7
+> nCutoffs               :: Int            = 1
 > cutoffs                :: [Int]          = breakUp (1000, 10_000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
-> nFreaks                :: Int            = 5
+> nFreaks                :: Int            = 1
 > freaks                 :: [Int]          = breakUp (80, 8_000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
 >
 > filterTestDur          :: Double         = 0.25
@@ -48,11 +48,9 @@ Feed chart =====================================================================
 >     ,  opaque red
 >     ,  opaque purple]
 >
-> bench                  :: IO ()
+> bench, porch           :: IO ()
 > bench                                    =
 >   benchFilters measureResponse [ResonanceConvo] cutoffs kews freaks
->
-> porch                  :: IO ()
 > porch                                    =
 >   benchFilters measureResponse [ResonanceTwoPoles] cutoffs kews freaks
 >
@@ -102,8 +100,8 @@ Feed chart =====================================================================
 >         sf             :: AudSF () Double
 >         sf                               =
 >           if ResonanceConvo == lowpassType
->             then createConvoTest sineTable m8n fk
->             else createFilterTest sineTable m8n fk
+>             then createConvoTest sineTable mLowpass fk
+>             else createFilterTest sineTable mLowpass fk
 > 
 > benchFilters           :: (BenchSpec → Modulation → [(Double, Double)]) → [ResonanceType] → [Int] → [Int] → [Int] → IO ()
 > benchFilters fun rts fcs qs fks          = doFilters fun bRanges
@@ -141,8 +139,10 @@ Feed chart =====================================================================
 >                     bs@BenchSpec{ .. }   = BenchSpec currentRt filterTestDur currentFc currentQ ranges_fks
 >                     ks                   = KernelSpec
 >                                              (toAbsoluteCents bench_fc)
->                                              (round (960 * currentQ))
+>                                              (round currentQ)
 >                                              44_100
+>                                              useFastFourier
+>                                              300
 >
 >                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks}
 >
@@ -171,33 +171,36 @@ Feed chart =====================================================================
 >                                              (toAbsoluteCents bench_fc)
 >                                              (round (960 * currentQ))
 >                                              44_100
+>                                              useFastFourier
+>                                              300
 >                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks}
 >
 > chartIr                :: IO ()
-> chartIr                                  = chartPoints "impulseResponse" [Section (opaque blue) grouts]
+> chartIr                                  = do
+>   chartPoints (if useFastFourier then "freakResponse" else "impulseResponse") [Section (opaque blue) grouts]
+>   print vec
 >   where
->     vec                                  = fromJust $ memoizedComputeIR (KernelSpec 500 0 44_100) impulseSize
+>     vec                :: Array Int Double
+>                                          =
+>       fromJust $ memoizedComputeIR (KernelSpec 1500 120 44_100 useFastFourier impulseSize)
 >     len                                  = snd $ bounds vec
 >     grouts             :: [(Double, Double)]
 >                                          = [(fromIntegral i, vec ! i) | i ← [0..len]]
 >     
-> createConvoTest        :: ∀ p . Clock p ⇒ Table → Modulation → Double → Signal p () Double
-> createConvoTest waveTable Modulation{ .. } freq
->   | traceNow trace_CCT False             = undefined
->   | otherwise                            = applyConvolutionMono mLowpass filterTestDur waveSF
+> createConvoTest        :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
+> createConvoTest waveTable lp@Lowpass{ .. } freq
+>   | traceNot trace_CCT False             = undefined
+>   | otherwise                            = applyConvolutionMono lp filterTestDur waveSF
 >   where
 >     trace_CCT                            = unwords ["createConvoTest", show lowpassKs]
->
->     Lowpass{ .. }                        = mLowpass
->     KernelSpec{ .. }                     = lowpassKs
 >
 >     waveSF                               =
 >       proc () → do
 >         a1 ← osc waveTable 0 ⤙ freq
 >         outA ⤙ a1
 >
-> createFilterTest       :: ∀ p . Clock p ⇒ Table → Modulation → Double → Signal p () Double
-> createFilterTest waveTable m8n@Modulation{ .. } freq
+> createFilterTest       :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
+> createFilterTest waveTable lp@Lowpass{ .. } freq
 >   | traceNot trace_CFT False             = undefined
 >   | otherwise                            =
 >   proc () → do
@@ -207,11 +210,10 @@ Feed chart =====================================================================
 >   where
 >     trace_CFT                            = unwords ["createFilterTest", show fc, show freq]
 >
->     Lowpass{ .. }                        = mLowpass
 >     KernelSpec{ .. }                     = lowpassKs
 >     fc                                   = fromAbsoluteCents ksFc                     
 >
->     filtersf                             = procFilter m8n
+>     filtersf                             = procFilter lp
 >
 > data BenchRanges                         =
 >   BenchRanges {

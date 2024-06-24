@@ -5,7 +5,8 @@ Fanfare
 William Clements
 November 11, 2022
 
-> module Fanfare where
+> module Fanfare (  theFanfare, kit, pit, dit, rattan, bill, roger, waypostpurple, deyDumpDum, getCITM, gold, silver
+>                 , whelpNarp, alice, bob, copper, dadadada) where
 
 > import Data.Map (Map)
 > import qualified Data.Map                as Map

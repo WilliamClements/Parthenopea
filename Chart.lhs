@@ -3,17 +3,14 @@
 
 Chart =================================================================================================================
 
-> module Chart where
+> module Chart ( Section( .. ), chartPoints, table2vals ) where
 >
 > import Control.Lens
-> import qualified Control.Monad           as CM
 > import Data.Colour
 > import Data.Colour.Names
 > import Data.Default.Class
-> import Debug.Trace ( traceIO )
 > import Graphics.Rendering.Chart
 > import Graphics.Rendering.Chart.Backend.Diagrams
-> import System.IO
 >
 > data Section                             =
 >   Section {

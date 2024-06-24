@@ -67,8 +67,8 @@ Discrete approach ==============================================================
 >     rolloff            :: Double → Double
 >     rolloff c                            = c * c / 1_048_576 -- WOX what should formula be?
 >
-> computeIR          :: KernelSpec → Int → Maybe (Array Int Double)
-> computeIR KernelSpec{ .. } len
+> computeIR          :: KernelSpec → Maybe (Array Int Double)
+> computeIR ks@KernelSpec{ .. }
 >   | traceNow trace_CIR False              = undefined
 >   | otherwise                             =
 >   if null esOut
@@ -76,14 +76,13 @@ Discrete approach ==============================================================
 >     else Just $ listArray (0, esOutLen - 1) (map (* amp) esOut)
 >   where
 >     trace_CIR                            =
->       unwords ["computeIR", show (ksFc, ksQ, ksSr)
->                           , "len=", show len, "delta=", show delta, "amp=", show amp]
+>       unwords ["computeIR", show ks, "delta=", show delta, "amp=", show amp]
 >
->     -- factor for choosing frequencies to be interested in
->     delta              :: Double         = fromIntegral ksSr / fromIntegral len
+>     -- used below for enumerating interesting frequencies
+>     delta              :: Double         = fromIntegral ksSr / fromIntegral ksLen
 >
 >     esIn, esOut        :: [Double]
->     esIn                                 = map (fr . (* delta) . fromIntegral) ([0..len - 1]::[Int])
+>     esIn                                 = map (getFreaky ks . (* delta) . fromIntegral) ([0..ksLen - 1]::[Int])
 >       
 >     esOut                                =
 >       if useFastFourier
@@ -92,13 +91,8 @@ Discrete approach ==============================================================
 >     esOutLen                             = length esOut
 >
 >     amp                                  = 1 -- WOX dividebyzero   1 / maximum esOut
->     
->     fr                 :: (Double → Double)
->                                          = createFrFun dInitFc dNormQ bulgeBandWidth
->     dInitFc                              = fromIntegral ksFc
->     dNormQ                               = fromIntegral ksQ / 960
 >
-> memoizedComputeIR = memo2 computeIR
+> memoizedComputeIR = memo computeIR
 >
 > applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
 > applyConvolutionMono lowP secsToPlay sIn
@@ -114,7 +108,7 @@ Discrete approach ==============================================================
 >     doIt dsigOut                         =
 >       if useFastFourier
 >         then toContinuousSig (fastConvolveFR dsigOut lowP) secsToPlay
->         else toContinuousSig (convolveIR     dsigOut lowP) secsToPlay 
+>         else toContinuousSig (slowConvolveIR dsigOut lowP) secsToPlay 
 >
 >     trace_AC                             = unwords ["applyConvolutionMono", show lowP]
 >
@@ -136,11 +130,11 @@ Discrete approach ==============================================================
 >     resultL                              =
 >       if useFastFourier
 >         then fastConvolveFR dsigInL lowpL
->         else convolveIR     dsigInL lowpL
+>         else slowConvolveIR     dsigInL lowpL
 >     resultR                              =
 >       if useFastFourier
 >         then fastConvolveFR dsigInR lowpR
->         else convolveIR     dsigInR lowpR
+>         else slowConvolveIR     dsigInR lowpR
 >
 >     pairs'                               = zip (elems $ dsigVec resultL) (elems $ dsigVec resultR)
 >     kN'                                  = length pairs'
@@ -152,7 +146,7 @@ Discrete approach ==============================================================
 > toDiscreteSig          :: ∀ a i p. (WaveAudioSample a, Ix i, Integral i, Show i, Clock p) ⇒
 >                           String → Double → Signal p () a → Maybe (DiscreteSig i a)
 > toDiscreteSig tag dur sf
->   | traceNow trace_TDS False             = undefined
+>   | traceNot trace_TDS False             = undefined
 >   | otherwise                            = 
 >   if not (null dlist)
 >     then Just $ DiscreteSig tag stats vec
@@ -185,7 +179,7 @@ Discrete approach ==============================================================
 >                                          =
 >   profess
 >     (len1 == len2)
->     (unwords ["lengths", show len1, "and", show len2, "illegally different for multiplyDiscreteSigs"])
+>     (unwords ["lengths", show len1, "and", show len2, "illegally different for multiplyDiscreteSigs", tag1, tag2])
 >     (fromRawVector
 >        (unwords ["product of (", tag1, ") and (", tag2, ")"])
 >        (listArray (0, zlen - 1) zipped))
@@ -195,17 +189,17 @@ Discrete approach ==============================================================
 >     zipped                               = zipWith (*) (elems vec1) (elems vec2)
 >     zlen                                 = fromIntegral $ length zipped
 >    
-> convolveIR             :: DiscreteSig Int Double → Lowpass → DiscreteSig Int Double
-> convolveIR dsigIn Lowpass{ .. }
+> slowConvolveIR         :: DiscreteSig Int Double → Lowpass → DiscreteSig Int Double
+> slowConvolveIR dsigIn Lowpass{ .. }
 >   | traceNot trace_CIR False             = undefined
 >   | otherwise                            =
 >   profess
 >     (ok x1 && ok x2 && ok x3)
->     (unwords ["convolveIR-- problem with 1,2, or 3:", show (ok x1, ok x2, ok x3)])
+>     (unwords ["slowConvolveIR-- problem with 1,2, or 3:", show (ok x1, ok x2, ok x3)])
 >     dsigOut
 >   where
 >     dsigIR                               =
->       maybe (error "convolveIR") (fromRawVector "IR") (memoizedComputeIR lowpassKs impulseSize)
+>       maybe (error "slowConvolveIR") (fromRawVector "IR") (memoizedComputeIR lowpassKs)
 >     (x1, x2)                             = (dsigVec dsigIn, dsigVec dsigIR)
 >     (m1, m2)                             = (snd (bounds x1), snd (bounds x2))
 >     m3                                   = m1 + m2 + 1
@@ -218,7 +212,7 @@ Discrete approach ==============================================================
 >       fst (bounds vec) == 0 && snd (bounds vec) > 0 && all ((< 1_000) . abs) vec
 >
 >     trace_CIR                            =
->       unwords ["convolveIR\n", show dsigIn
+>       unwords ["slowConvolveIR\n", show dsigIn
 >              , "\n X \n", show dsigIR
 >              , "\n = \n", show dsigOut]
 >
@@ -231,10 +225,10 @@ Discrete approach ==============================================================
 >     dsigIn', dsigFR    :: DiscreteSig Int Double
 >     dsigIn'                              = fftDiscreteSig dsigIn "toFrequencyDomain"
 >     mvec               :: Maybe (Array Int Double)
->     mvec                                 = memoizedComputeIR lowpassKs dsigIn'.dsigStats.dsigLength
+>     mvec                                 = memoizedComputeIR lowpassKs{ksLen = dsigIn'.dsigStats.dsigLength}
 >     vecOut             :: Array Int Double
 >     vecOut                               = fromMaybe dsigIn'.dsigVec mvec
->     dsigFR                               = fromRawVector "FR" vecOut
+>     dsigFR                               = fromRawVector "FR!" vecOut
 >     dsigOut                              =
 >       if null vecOut
 >         then dsigIn
@@ -267,7 +261,7 @@ Discrete approach ==============================================================
 > toContinuousSig        :: ∀ a i p. (WaveAudioSample a, Show a, Ix i, Integral i, Show i, Clock p) ⇒
 >                           DiscreteSig i a → Double → Signal p () a
 > toContinuousSig dsig@DiscreteSig{ .. } amp
->   | traceNow trace_MS False              = undefined
+>   | traceNot trace_MS False              = undefined
 >   | otherwise                            =
 >     proc ()                              → do
 >       rec
@@ -314,46 +308,43 @@ second, we want to drop off (gain) -120 centibels/octave from the "cutoff"
 
 > testFreaks             :: IO Double
 > testFreaks                               = do
->   let fun                                = getFreaky (KernelSpec 10_000 0 44_100) 300
+>   let fun                                = getFreaky (KernelSpec 10_000 0 44_100 True 300)
 >   let xs               :: [Double]       = [fromIntegral x | x ← [0..44_100]]
 >   let ys                                 = map fun xs
 >   print ys
 >   return 0
 >
-> getFreaky              :: KernelSpec → Int → Double → Double
-> getFreaky ks@KernelSpec{ .. } len        = freakyResponse ks len shapes
+> getFreaky              :: KernelSpec → Double → Double
+> getFreaky ks@KernelSpec{ .. }            = freakyResponse ks shapes
 >   where
 >     stretch                              = if q == 0 then 0 else fc / 100
->     width1                               = fc - stretch / 2
->     width2                               = stretch
+>     width                                = fc - (stretch / 2)
 >     height                               = 1
 >     rate                                 = -0.5 -- WOX
 >
 >     shapes             :: [ResponseShape]
 >     shapes                               =
->       [  Block width1 height
->        , Bulge width2 height stretch
+>       [  Block width height
+>        , Bulge stretch height 0
 >        , Decline rate height] -- WOX
 >
->     fc, q, sr, yn      :: Double
+>     fc, q              :: Double
 >     fc                                   = fromAbsoluteCents ksFc
 >     q                                    = fromIntegral ksQ
->     sr                                   = fromIntegral ksSr   
->     yn                                   = 1 / (1 + fromCentibels q)
 >     
-> freakyResponse         :: KernelSpec → Int → [ResponseShape] → Double → Double
-> freakyResponse KernelSpec{ .. } len shapes xIn
->   | traceNot trace_FR False              = undefined
->   | otherwise                            = ((* yn) . fryXform . modelXform . frxXform) xIn
+> freakyResponse         :: KernelSpec → [ResponseShape] → Double → Double
+> freakyResponse KernelSpec{ .. } shapes xIn
+>                                          = ((* yn) . fryXform . modelXform . frxXform) xIn
 >   where
->     fs@FrSummary{ .. }                   = foldl' doShape (FrSummary [] 0) shapes
+>     FrSummary{ .. }                      = foldl' doShape (FrSummary [] 0) shapes
 >     FrItem{ .. }                         = fromJust $ find inVogue frsItems
 >
->     fc, q, sr, yn      :: Double
+>     fc, q, sr, bp, yn  :: Double
 >     fc                                   = fromAbsoluteCents ksFc
 >     q                                    = fromIntegral ksQ
->     sr                                   = fromIntegral ksSr   
->     yn                                   = 1 / (1 + fromCentibels q)
+>     sr                                   = fromIntegral ksSr
+>     bp                                   = fromCentibels q   
+>     yn                                   = 1 / (1 + bp)
 >     
 >     inVogue            :: FrItem → Bool
 >     inVogue FrItem{ .. }                 = xIn == clip friRange xIn
@@ -372,11 +363,12 @@ second, we want to drop off (gain) -120 centibels/octave from the "cutoff"
 >           FrItem
 >             (Block width height)  
 >             (frsDisplacement, newD)
+>             44_100
 >             id
 >             (const height)
 >             id
 >         
->     doShape prev@FrSummary{ .. } (Bulge width height stretch)
+>     doShape prev@FrSummary{ .. } (Bulge width height _)
 >                                          = updateSummary prev newD2 iList
 >       where
 >         newD1, newD2   :: Double
@@ -385,24 +377,26 @@ second, we want to drop off (gain) -120 centibels/octave from the "cutoff"
 >
 >         iList          :: [FrItem]
 >         iList                            =
->           if width <= 0 || stretch <= 0 || stretch >= width
+>           if width <= 0
 >             then []
 >             else [newI1, newI2]
 >         newI1, newI2   :: FrItem
 >         newI1                            =
 >           FrItem
->             (Bulge (width / 2) height stretch)
+>             (Bulge (width / 2) height 0)
 >             (frsDisplacement, newD1)
+>             sr
 >             ((/ (newD1 - frsDisplacement)) . ddSubtract frsDisplacement)
 >             startUp
->             id
+>             (ddXform1d bp 1)
 >         newI2                            =
 >           FrItem
->             (Bulge width height stretch)
+>             (Bulge (width / 2) height 0)
 >             (newD1, newD2)
+>             sr
 >             ((/ (newD2 - newD1)) . ddSubtract newD1)
 >             finishDown
->             id
+>             (ddXform1d bp 1)
 >         
 >     doShape prev@FrSummary{ .. } (Decline height rate)
 >                                          = updateSummary prev sr [newI]
@@ -411,6 +405,7 @@ second, we want to drop off (gain) -120 centibels/octave from the "cutoff"
 >           FrItem
 >             (Decline height rate)
 >             (frsDisplacement, sr)
+>             44_100
 >             (ddSubtract frsDisplacement)
 >             (ddTaperOff rate height)
 >             (+ height)
@@ -424,7 +419,8 @@ second, we want to drop off (gain) -120 centibels/octave from the "cutoff"
 >     ddTaperOff         :: Double → Double → (Double → Double)
 >     ddTaperOff height slope xFrom        = max 0 (ddXform1d slope height xFrom)
 >
->     trace_FR                             = unwords ["freakyResponse", show fs, "\ndoing", show friShape]
+>     getRange           :: FrItem → (Double, Double) 
+>     getRange FrItem{ .. }                = friRange
 >
 > -- for testing only
 > defShapes              :: [ResponseShape]
@@ -486,18 +482,36 @@ Type declarations ==============================================================
 >   FrItem {
 >     friShape           :: ResponseShape
 >   , friRange           :: (Double, Double)
+>   , friSampleRate      :: Double
 >
 >   , frxXform           :: Double → Double
 >   , modelXform         :: Double → Double
 >   , fryXform           :: Double → Double}
 >
 > instance Show FrItem where
->   show (FrItem shape range _ _ _) = unwords ["<", show shape, ">", show range]
+>   show (FrItem shape range _ _ _ _) = unwords ["<", show shape, ">", show range]
 >
 > data FrSummary =
 >   FrSummary {
 >     frsItems           :: [FrItem]
 >   , frsDisplacement    :: Double} deriving Show
+>
+> type ObjectData                          = Double
+> defObjectData          :: ObjectData     = 0
+>
+> summaryOk              :: FrSummary → Bool
+> summaryOk FrSummary{ .. }                =
+>   profess
+>     (44_100 == foldl' requireAdjacent 0 frsItems)
+>     (error $ unwords ["requireAdjacent: bad total"])
+>     True
+>   where
+>     requireAdjacent :: ObjectData → FrItem → ObjectData
+>     requireAdjacent od FrItem{ .. }   =
+>       profess
+>         (almostEqual od (fst friRange))
+>         (error $ unwords ["requireAdjacent: bad item"])
+>         snd friRange
 >
 > bulgeBandWidth                           = qqBulgeBandwidth             defD
 > impulseSize                              = qqImpulseSize                defD

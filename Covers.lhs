@@ -5,7 +5,7 @@ Covers
 William Clements
 January 13, 2023
 
-> module Covers where
+> module Covers (littleSailor, slot, ssailor, deathlessHorsie, basicLick, packardGoose, yahozna) where
 
 > import Data.Map (Map)
 > import qualified Data.Map                as Map

@@ -4,7 +4,7 @@ Cecil
 William Clements
 December 18, 2022
 
-> module Cecil where
+> module Cecil ( cecil, abby, wj, shelby, weHateHer ) where
 
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music

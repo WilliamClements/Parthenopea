@@ -101,10 +101,10 @@ organize exposed music =========================================================
 >    -- [ ("deyDumpDum"     , deyDumpDum)]
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("slot1"       , slot 1)]
->    [ ("wj"          , wj) ]
+>    -- [ ("wj"          , wj) ]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]
 >    -- [ ("packardGoose", packardGoose)]
->    -- [ ("dadadada"    , shimSong $ aggrandize dadadada)]
+>    [ ("dadadada"    , shimSong $ aggrandize dadadada)]
 >    -- [ ("dh"          , deathlessHorsie)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 

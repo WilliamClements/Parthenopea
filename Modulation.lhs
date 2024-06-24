@@ -345,7 +345,7 @@ Modulator management ===========================================================
 >     stage                                =
 >         proc (sIn, msig)                 → do
 >           let fc                         = modulateFc msig
->           pickled      ← procFilter m8n  ⤙ (sIn, fc)
+>           pickled ← procFilter mLowpass  ⤙ (sIn, fc)
 >           let sOut                       = resonate sIn fc pickled
 >           outA                           ⤙ (sOut, msig)
 >
@@ -354,7 +354,7 @@ Modulator management ===========================================================
 >       | otherwise                        =
 >         proc (sIn, msig)                 → do
 >           let fc                         = modulateFc msig
->           pickled      ← procFilter m8n  ⤙ (sIn, fc)
+>           pickled ← procFilter mLowpass  ⤙ (sIn, fc)
 >           let sOut                       = resonate sIn fc pickled
 >           outA                           ⤙ sOut
 >     trace_MSF                            =
@@ -382,35 +382,34 @@ Modulator management ===========================================================
 >             , "\nfc"             , show (checkForNan fc "resonate fc")
 >             , "\nsOut"           , show y']
 >
-> procFilter             :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
-> procFilter m8n@Modulation{ .. }          =
->   case lowpassType mLowpass of
+> procFilter             :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
+> procFilter lp@Lowpass{ .. }          =
+>   case lowpassType of
 >     ResonanceNone                        → error $ unwords ["procFilter:"
 >                                                           , "should not reach makeSF if ResonanceNone"]
->     ResonanceLowpass                     → procLowpass m8n
->     ResonanceBandpass                    → procBandpass m8n
->     ResonanceSVF1                        → procSVF1 m8n
->     ResonanceSVF2                        → procSVF2 m8n
->     ResonanceOnePole                     → procOnePole m8n
->     ResonanceTwoPoles                    → procTwoPoles m8n
+>     ResonanceLowpass                     → procLowpass lp
+>     ResonanceBandpass                    → procBandpass lp
+>     ResonanceSVF1                        → procSVF1 lp
+>     ResonanceSVF2                        → procSVF2 lp
+>     ResonanceOnePole                     → procOnePole lp
+>     ResonanceTwoPoles                    → procTwoPoles lp
 >     ResonanceConvo                       → error $ unwords ["procFilter:"
 >                                                           , "should not reach makeSF if ResonanceConvo"]
 >
-> procLowpass            :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
+> procLowpass            :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
 > procLowpass _                            =
 >   proc (x, fc) → do
 >     y ← filterLowPassBW                  ⤙ (x, fc)
 >     outA                                 ⤙ notracer "lp" y
 >
-> procBandpass           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
-> procBandpass Modulation{ .. }            =
+> procBandpass           :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
+> procBandpass lp@Lowpass{ .. }            =
 >   proc (x, fc) → do
 >     y1 ← filterLowPassBW                 ⤙ (x, fc)
->     y2 ← filterBandPass 2                ⤙ (x, fc, lowpassQ mLowpass / 3)
+>     y2 ← filterBandPass 2                ⤙ (x, fc, lowpassQ lp / 3)
 >     let y'                               = traceBandpass y1 y2
 >     outA                                 ⤙ notracer "bp" y'
 >   where
->     Lowpass{ .. }                        = mLowpass
 >     lowpassWeight                        = 0.50
 >     bandpassWeight                       = 0.75
 >
@@ -428,8 +427,8 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 > indeedAverageInput                       = True
 > extraDampFactor                          = 1
 >
-> procSVF1               :: ∀ p . Clock p ⇒ Modulation → Signal p (Double,Double) Double
-> procSVF1 Modulation{..}                  =
+> procSVF1               :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
+> procSVF1 lp@Lowpass{..}                  =
 >   proc (x, fc) → do
 >     let f1                               = 2 * sin (theta fc)
 >     rec
@@ -443,9 +442,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       yB' ← delay 0                      ⤙ yB
 >     outA                                 ⤙ yL
 >   where
->     Lowpass{ .. }                        = mLowpass
->
->     damp                                 = extraDampFactor / fromCentibels (lowpassQ mLowpass)
+>     damp                                 = extraDampFactor / fromCentibels (lowpassQ lp)
 >     theta c                              = pi * c / rate (undefined :: p)
 >
 >     maybeAverageInput c c'               =
@@ -453,8 +450,8 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >         then (c + c') / 2
 >         else c
 >
-> procSVF2               :: ∀ p . Clock p ⇒ Modulation → Signal p (Double,Double) Double
-> procSVF2 Modulation{..}                  =
+> procSVF2               :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
+> procSVF2 lp@Lowpass{..}                  =
 >   proc (x, fc) → do
 >     let f1                               = 2 * sin (theta fc)
 >     rec
@@ -468,9 +465,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       yB' ← delay 0                      ⤙ yB
 >     outA                                 ⤙ yL
 >   where
->     Lowpass{ .. }                        = mLowpass
->
->     damp                                 = extraDampFactor / fromCentibels (lowpassQ mLowpass)
+>     damp                                 = extraDampFactor / fromCentibels (lowpassQ lp)
 >     theta c                              = pi * c / rate (undefined :: p)
 >
 >     maybeAverageInput c c'               =
@@ -478,8 +473,8 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >         then (c + c') / 2
 >         else c
 >
-> procOnePole            :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
-> procOnePole Modulation{ .. }             =
+> procOnePole            :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
+> procOnePole lp@Lowpass{ .. }             =
 >   proc (x, fc) → do
 >     let w0                               = 2 * pi * fc / sr
 >     let a                                =
@@ -490,11 +485,10 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       let y                              = c * x + (1 - c) * y'
 >     outA                                 ⤙ y
 >   where
->     Lowpass { .. }                       = mLowpass
 >     sr                                   = rate (undefined :: p)
 >
-> procTwoPoles           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, Double) Double
-> procTwoPoles Modulation{ .. }
+> procTwoPoles           :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
+> procTwoPoles lp@Lowpass{ .. }
 >   | traceNot trace_P2P False             = undefined
 >   | otherwise                            =
 >   proc (x, fc) → do
@@ -506,9 +500,8 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       x''    ← delay 0                   ⤙ x'
 >     outA                                 ⤙ y
 >   where
->     Lowpass { .. }                       = mLowpass
 >     cs@CoeffsM2N2{ .. }                  =
->       buildSystemM2N2 $ pickZerosAndPoles (2 * pi * lowpassFc mLowpass) (lowpassQ mLowpass / 960)
+>       buildSystemM2N2 $ pickZerosAndPoles (2 * pi * lowpassFc lp) (lowpassQ lp / 960)
 >
 >     trace_P2P                            = unwords ["procTwoPoles", show cs]
 >
@@ -683,7 +676,7 @@ Type declarations ==============================================================
 >   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
 > defModulation                            = Modulation
->                                              (Lowpass ResonanceNone defKernelSpec) Nothing Nothing Nothing
+>                                              (Lowpass ResonanceNone (defKernelSpec useFastFourier)) Nothing Nothing Nothing
 >                                              defModCoefficients defModCoefficients defModCoefficients
 >                                              Map.empty
 >

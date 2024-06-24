@@ -4,7 +4,7 @@ SunPyg
 William Clements
 March 20, 2023
 
-> module SunPyg where
+> module SunPyg (sunPyg) where
 
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music

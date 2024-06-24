@@ -397,7 +397,7 @@ Effects ========================================================================
 
 > deriveEffects          :: Modulation → NoteOn → Maybe Int → Maybe Int → Maybe Int → Effects
 > deriveEffects Modulation{ .. } noon mChorus mReverb mPan
->   | traceIf trace_DE False               = undefined
+>   | traceNot trace_DE False              = undefined
 >   | otherwise                            = Effects
 >                                              (dChorus / 1000)
 >                                              (dReverb / 1000)
