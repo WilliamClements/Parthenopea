@@ -1240,9 +1240,9 @@ The use of following functions requires that their input is normalized between 0
 > -- | Calculates all the nodes that are part of cycles in a graph.
 > cyclicNodes :: Graph → [Node]
 > cyclicNodes graph =
->   map fst . filter isCyclicAssoc . assocs $ graph
+>   (map fst . filter isCyclicAssoc . assocs) graph
 >   where
->    isCyclicAssoc = uncurry $ reachableFromAny graph
+>     isCyclicAssoc = uncurry (reachableFromAny graph)
 >
 > -- | In the specified graph, can the specified node be reached, starting out
 > -- from any of the specified vertices?
@@ -1351,6 +1351,13 @@ Returns the amplitude ratio
 >
 > toCentibels            :: Double → Double
 > toCentibels ratio                        = logBase 10 ratio * 1000
+
+Returns amplitude, computed relative to a fixed one
+
+> relativeAmp            :: Double → Double → Double → Double → Double
+> relativeAmp freakFrom ampFrom freakTo rate
+>                                          =
+>   ampFrom * pow (freakFrom / freakTo) (rate / logBase 10 2)
 
 Returns the elapsed time in seconds
 

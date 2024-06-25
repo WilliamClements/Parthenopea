@@ -11,7 +11,7 @@
 > import Euterpea.IO.Audio.Types
 > import Modulation
 > import Parthenopea
-> import Synthesizer
+> import Synthesizer ( eutDriver, Effects(Effects), Recon(Recon) )
   
 Testing ===============================================================================================================
 

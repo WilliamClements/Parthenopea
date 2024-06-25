@@ -46,6 +46,7 @@ struct sfInstModList
 >   , negativeEvaluationsDecrease
 >   , supercededModulatorWillBeEliminated
 >   , unsupercededModulatorWillNotBeEliminated
+>   , canonicalOrderingWorks
 >                        :: IO Bool
 >
 > modulationTests        :: [IO Bool]      = [vanillaModulatorWillNotBeEliminated

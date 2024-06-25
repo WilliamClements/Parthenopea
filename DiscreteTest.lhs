@@ -54,22 +54,6 @@ Feed chart =====================================================================
 > porch                                    =
 >   benchFilters measureResponse [ResonanceTwoPoles] cutoffs kews freaks
 >
-> testFrFr               :: Int → IO ()
-> testFrFr npoints                         = do
->   print "max"
->   let frFr                               = createFrFun 880 0.25 10
->   let points                             = [4_000 * fromIntegral x / fromIntegral npoints | x ← [0..(npoints-1)]]
->   -- let points                             = [fromIntegral npoints | x ← [0..(npoints-1)]]
->   let points'                            = map frFr points
->   print $ maximum points
->   print $ maximum points'
->   let grouts                             = zip points points'
->   sumUp                                  ← checkGrouts grouts
->   putStrLn sumUp
->
->   chartPoints "goose" [Section (opaque blue) grouts]
->   return ()
->
 > checkGrouts            ::  [(Double, Double)] → IO String
 > checkGrouts grouts                       = do
 >   let bummer                             = foldl' check ("checkGrouts", (0, 0)) grouts
@@ -182,7 +166,7 @@ Feed chart =====================================================================
 >   where
 >     vec                :: Array Int Double
 >                                          =
->       fromJust $ memoizedComputeIR (KernelSpec 1500 120 44_100 useFastFourier impulseSize)
+>       fromJust $ memoizedComputeIR (KernelSpec (toAbsoluteCents 1500) 120 44_100 useFastFourier 64)
 >     len                                  = snd $ bounds vec
 >     grouts             :: [(Double, Double)]
 >                                          = [(fromIntegral i, vec ! i) | i ← [0..len]]
@@ -214,6 +198,32 @@ Feed chart =====================================================================
 >     fc                                   = fromAbsoluteCents ksFc                     
 >
 >     filtersf                             = procFilter lp
+>
+> testKS                 :: KernelSpec
+> testKS                                   =
+>   KernelSpec
+>     (toAbsoluteCents 5_000)
+>     120 -- Q in centibels
+>     44_100
+>     True
+>     32_768
+
+> testFreaks             :: IO Double
+> testFreaks                               = do
+>   let ks@KernelSpec{ .. }                = testKS
+>   let fc                                 = fromAbsoluteCents ksFc
+>   let fun                                = getFreaky ks
+>
+>   -- let delta                              = fromIntegral ksSr / fromIntegral ksLen
+>   -- let numDump                            = 32
+>   -- let target           :: Int            = round (fc / delta) - (numDump `div` 2)
+>   -- print target
+>
+>   let xs                  :: [Double]    = take 256 [fromIntegral x | x ← [0, 64..]]
+>   let ys                                 = map fun xs
+>   print $ zip xs ys
+>   
+>   return 0
 >
 > data BenchRanges                         =
 >   BenchRanges {

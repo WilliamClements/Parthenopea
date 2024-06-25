@@ -1278,7 +1278,7 @@ reconcile zone and sample header ===============================================
 >         (maybe 0      (clip (0,     960))    zInitQ)
 >         (fromIntegral sampleRate)
 >         useFastFourier
->         300 -- WOX
+>         (-1) -- must always be replaced
 >
 >     resonanceType      :: ResonanceType  = if lowpassFc (mLowpass m8n) < 10_000
 >                                              then loCutoffReson
