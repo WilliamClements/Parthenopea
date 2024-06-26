@@ -4,7 +4,11 @@
 > {-# LANGUAGE BangPatterns #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
->
+
+ModulationTest
+William Clements
+November 24, 2023
+
 > module ModulationTest where
 >
 > import Control.Exception
@@ -202,12 +206,5 @@ struct sfInstModList
 >   let m8n0                               = resolveMods defModulation [m8r00, m8r01] []
 >   let m8n1                               = resolveMods defModulation [m8r10, m8r11] []
 >   return $ aEqual m8n0 m8n1
->
-
-nice simple range for initQ    0..960
-
-setting bw to testQ / 10  ... at 5000 (i.e., 500) things looked nominal so let us "equate" 
-
-> prevals = []
 
 The End

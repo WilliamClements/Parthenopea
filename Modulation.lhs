@@ -1,3 +1,6 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
+>
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NamedFieldPuns #-}
@@ -5,7 +8,11 @@
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
->
+
+Modulation
+William Clements
+November 6, 2023
+
 > module Modulation where
 >
 > import Control.Arrow

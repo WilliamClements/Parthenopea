@@ -1,3 +1,6 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
+>
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Cecil
@@ -5,7 +8,7 @@ William Clements
 December 18, 2022
 
 > module Cecil ( cecil, abby, wj, shelby, weHateHer ) where
-
+>
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import Parthenopea

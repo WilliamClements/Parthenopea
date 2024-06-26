@@ -5,7 +5,9 @@
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
-Rosters support =======================================================================================================
+Rosters
+William Clements
+May 4, 2023
 
 > module Main where
 >
@@ -26,7 +28,9 @@ Rosters support ================================================================
 > import SunPyg
 > import SynthesizerTest
 > import System.Environment ( getArgs )
->
+
+Rosters support =======================================================================================================
+
 > main                   :: IO ()
 > main = do
 >   args ← getArgs

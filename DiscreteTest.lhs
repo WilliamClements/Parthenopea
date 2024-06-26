@@ -7,7 +7,11 @@
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
->
+
+DiscreteTest
+William Clements
+June 22, 2024
+
 > module DiscreteTest where
 >
 > import Chart
@@ -32,12 +36,12 @@ Feed chart =====================================================================
 >
 > nKews                  :: Int            = 1
 > kews                   :: [Int]          = breakUp (0, 240) 0 nKews
-> nCutoffs               :: Int            = 1
-> cutoffs                :: [Int]          = breakUp (1000, 10_000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
-> nFreaks                :: Int            = 1
+> nCutoffs               :: Int            = 5
+> cutoffs                :: [Int]          = breakUp (1_000, 4_000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
+> nFreaks                :: Int            = 64
 > freaks                 :: [Int]          = breakUp (80, 8_000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
 >
-> filterTestDur          :: Double         = 0.25
+> filterTestDur          :: Double         = 1
 >
 > colors                 :: [AlphaColour Double]
 >                                          =

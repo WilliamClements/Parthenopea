@@ -4,9 +4,9 @@
 >
 > {-# LANGUAGE UnicodeSyntax #-}
 
-Playground using random number generation with Euterpea's Music data structures
+Aleatory
 William Clements
-Last modified: 27-September-2022
+27-September-2022
 
 > module Aleatory where
 >
@@ -19,6 +19,8 @@ Last modified: 27-September-2022
 > import GHC.Conc ( ThreadId, threadDelay, forkIO, atomically )
 > import Parthenopea
 > import System.Random
+
+Playground using random number generation with Euterpea's Music data structures =======================================
 
 > oldmain = do
 >     seed ← newStdGen

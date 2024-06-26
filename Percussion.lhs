@@ -1,9 +1,11 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
+>
 > {-# LANGUAGE UnicodeSyntax #-}
-> {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-Percussion-related Utilities
+Percussion
 William Clements
-Last modified: 18-Jul-2023
+Last modified: 23-Jan-2023
 
 > module Percussion where
 >

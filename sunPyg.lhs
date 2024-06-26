@@ -1,3 +1,6 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
+>
 > {-# LANGUAGE UnicodeSyntax #-}
 
 SunPyg
@@ -5,7 +8,7 @@ William Clements
 March 20, 2023
 
 > module SunPyg (sunPyg) where
-
+>
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import Parthenopea

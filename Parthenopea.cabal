@@ -22,21 +22,21 @@ Library
         Chart,
         Covers,
         Discrete,
-        DiscreteTest,
         Fanfare,
         Illiterate,
         Modulation,
-        ModulationTest,
         Parthenopea,
         Percussion,
         Players,
         Rosters,
         SoundFont,
         SunPyg,
-        Synthesizer,
+        Synthesizer
+  other-modules:
+        DiscreteTest,
+        ModulationTest,
         SynthesizerTest,
         Syntoolkit
-  other-modules:
   build-depends:
         array                      >= 0.5.0.0            && <= 0.6,
         arrows                     >= 0.4                && < 0.5,

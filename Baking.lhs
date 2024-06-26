@@ -1,14 +1,16 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
+>
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
-> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 Baking
 William Clements
 December 16, 2022
 
 > module Baking (bakedJingle) where
-
+>
 > import Data.Array ( Array, (!), (//), array, listArray, bounds )
 > import Data.List ( sortOn )
 > import Data.Maybe ( isJust )

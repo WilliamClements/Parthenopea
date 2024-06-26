@@ -1,8 +1,15 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
+>
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE FlexibleInstances #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
->
+
+SynthesizerTest
+William Clements
+March 2, 2024
+
 > module SynthesizerTest where
 >
 > import qualified Data.Audio              as A

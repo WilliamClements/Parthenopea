@@ -1,11 +1,22 @@
+> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
+>
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
->
-> module Synthesizer where
+
+Synthesizer
+William Clements
+May 14, 2023
+
+> module Synthesizer ( eutSynthesize, Recon( .. ), defS, defT, stands, scanningOutput, findOutliers, normalizingOutput
+>                    , scoreBool, SampleType( .. ), qqDesires', toSampleType, isConfirmed, isPossible', Desires( .. )
+>                    , deriveEnvelope, isPossible, qqDesireReStereo, usePitchCorrection, deriveEffects
+>                    , useAttenuation, weighHints, weighStereo, weigh24Bit, weighSplits, weighConformance
+>                    , weighFuzziness, eutDriver, Effects( .. ) ) where
 >
 > import qualified Codec.SoundFont         as F
 > import Control.Arrow
@@ -26,7 +37,6 @@
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import FRP.UISF.AuxFunctions ( constA, DeltaT )
 > import Modulation
-> import Numeric.FFT ( fft )
 > import Parthenopea
 > import qualified SynToolkit              as STK
   
