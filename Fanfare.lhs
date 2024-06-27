@@ -6,7 +6,7 @@ William Clements
 November 11, 2022
 
 > module Fanfare (  theFanfare, kit, pit, dit, rattan, bill, roger, waypostpurple, deyDumpDum, getCITM, gold, silver
->                 , whelpNarp, alice, bob, copper, dadadada ) where
+>                 , whelpNarp, alice, bob, copper, dadadada, snake, pendingtonArnt, littleWay ) where
 >
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
@@ -899,6 +899,8 @@ Way Pos' T' Purple =============================================================
 
 > littlePendingtonArnt =
 >   instrument TenorSax $ addVolume 70 (e 3 dwn)
+>
+> littleWay  = instrument HonkyTonkPiano $ addVolume 100 $ addDur qn [bf 4, a 4, g 4]
 
 Pendington Arnt  ======================================================================================================
 

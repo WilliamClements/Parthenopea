@@ -206,7 +206,7 @@ Feed chart =====================================================================
 > testKS                 :: KernelSpec
 > testKS                                   =
 >   KernelSpec
->     (toAbsoluteCents 5_000)
+>     (toAbsoluteCents 999)
 >     120 -- Q in centibels
 >     44_100
 >     True
@@ -215,17 +215,21 @@ Feed chart =====================================================================
 > testFreaks             :: IO Double
 > testFreaks                               = do
 >   let ks@KernelSpec{ .. }                = testKS
->   let fc                                 = fromAbsoluteCents ksFc
 >   let fun                                = getFreaky ks
 >
->   -- let delta                              = fromIntegral ksSr / fromIntegral ksLen
->   -- let numDump                            = 32
->   -- let target           :: Int            = round (fc / delta) - (numDump `div` 2)
->   -- print target
+>   let fc                                 = fromAbsoluteCents ksFc
+>   let fci              :: Int            = round fc
+>   let spread           :: Int            = min fci (10 * round (log fc))
+>   let fcStart                            = fci - spread `div` 2
+>   let fcEnd                              = fci + spread `div` 2
 >
->   let xs                  :: [Double]    = take 256 [fromIntegral x | x ← [0, 64..]]
+>   let xs                  :: [Double]    = [fromIntegral x | x ← [fcStart..fcEnd]]
 >   let ys                                 = map fun xs
->   print $ zip xs ys
+>   let pairs                              = zip xs ys
+>   let sects                              = [Section (opaque blue) pairs]
+>   
+>   -- print pairs
+>   chartPoints ("ResonanceConvo_fc" ++ show fci) sects
 >   
 >   return 0
 >

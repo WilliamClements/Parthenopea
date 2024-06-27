@@ -5,7 +5,7 @@
 
 Percussion
 William Clements
-Last modified: 23-Jan-2023
+23-Jan-2023
 
 > module Percussion where
 >

@@ -34,7 +34,7 @@ December 12, 2022
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
-> import Data.List ( singleton, foldl', sortOn, minimumBy )
+> import Data.List ( iterate', singleton, foldl', sortOn, minimumBy )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe )
@@ -1454,6 +1454,14 @@ Returns sample point as (normalized) Double
 >     (s0, s1)           :: (Double, Double)
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
+
+returns the lowest power of 2 greater than the input value
+
+> sampleUp               :: Int → Int
+> sampleUp i                               =
+>   if i <= 0
+>     then error "out of range for sampleUp"
+>     else head $ dropWhile (< i) (iterate' (* 2) 1)
 >
 > breakUp :: (Double, Double) → Double → Int → [Int]
 > breakUp (xmin, xmax) base nDivs =
@@ -1682,8 +1690,8 @@ Edit the following =============================================================
 > defC                   :: ControlSettings
 > defC =
 >   ControlSettings {
->     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = False
+>     qqDiagnosticsEnabled                 = True
+>   , qqSkipReporting                      = True
 >   , qqSkipGlissandi                      = False
 >   , qqReplacePerCent                     = 0
 >   , qqUsingPlayCache                     = False

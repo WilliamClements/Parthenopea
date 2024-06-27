@@ -767,8 +767,8 @@ Type declarations ==============================================================
 >   , qqChorusAllPerCent                   = 0
 >   , qqReverbAllPerCent                   = 0
 >   , qqUseDefaultMods                     = True
->   , qqLoCutoffReson                      = ResonanceBandpass
->   , qqHiCutoffReson                      = ResonanceBandpass
+>   , qqLoCutoffReson                      = ResonanceConvo
+>   , qqHiCutoffReson                      = ResonanceConvo
 >   , qqUseLFO                             = True
 >   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
 >   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)
