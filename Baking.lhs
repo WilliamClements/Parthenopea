@@ -11,7 +11,7 @@ December 16, 2022
 
 > module Baking (bakedJingle) where
 >
-> import Data.Array ( Array, (!), (//), array, listArray, bounds )
+> import Data.Array.Unboxed
 > import Data.List ( sortOn )
 > import Data.Maybe ( isJust )
 > import Euterpea.IO.MIDI.Play

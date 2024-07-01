@@ -14,7 +14,7 @@ Port (C++ to Haskell) of STK (called here Syntoolkit)
 
 > module SynToolkit where
 >
-> import Data.Array
+> import Data.Array.Unboxed
 > import Data.Int
 > import Data.Word
 > import System.Random

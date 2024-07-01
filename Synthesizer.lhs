@@ -22,7 +22,7 @@ May 14, 2023
 > import Control.Arrow
 > import Control.Arrow.ArrowP
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )
-> import Data.Array.Unboxed ( array, Array, (!), IArray(bounds), listArray )
+> import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Complex ( Complex(..), magnitude )
 > import Data.Int ( Int8, Int16 )
@@ -94,8 +94,7 @@ Signal function-based synth ====================================================
 >
 >     trace_eS                             =
 >       unwords [
->           "eutSynthesize",                show (dur, noon)
->         , "\n...", show $ toDiscreteSig "dumpsig" secsToPlay pumped'] 
+>           "eutSynthesize",               show (dur, noon)] 
 >         -- , " -- \n... sample, scored, toplay, looping", show (secsSample, secsScored, secsToPlay, looping)]
 >
 > useDCBlockForStrip                       = False

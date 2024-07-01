@@ -18,6 +18,7 @@ May 4, 2023
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Debug.Trace ( traceIO, traceM )
+> import Discrete
 > import DiscreteTest
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
@@ -52,6 +53,11 @@ Rosters support ================================================================
 >           then bench
 >           else doEverything sj -- modulationTest003-- cjingles -- pitchSamples 80
 >   return ()
+>
+> playWithWav            :: IO ()
+> playWithWav                              = do
+>   wav ← importWav' "BatCave.wav"
+>   print wav
 
 organize exposed music ================================================================================================
 
@@ -101,9 +107,10 @@ organize exposed music =========================================================
 >
 > sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
->    [ ("littleWay"   , shimSong $ aggrandize littleWay)]
+>    -- [ ("littleWay"   , shimSong $ aggrandize littleWay)]
 >    -- [ ("pa1"         , pendingtonArnt 1)]
->    -- [ ("deyDumpDum"  , deyDumpDum)]
+>    -- [ ("bill1"       , bill 1)]
+>    [ ("deyDumpDum"     , deyDumpDum)]
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("slot1"       , slot 1)]
 >    -- [ ("wj"          , wj) ]

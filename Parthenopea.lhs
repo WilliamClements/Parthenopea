@@ -20,7 +20,7 @@ December 12, 2022
 
 > module Parthenopea where
 >
-> import Codec.Midi(exportFile, importFile, Midi)
+> import qualified Codec.Midi              as M
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq (NFData)
 > import Control.SF.SF
@@ -92,12 +92,12 @@ Utilities ======================================================================
 >
 > importMidi             :: FilePath → IO (Music (Pitch, Volume))
 > importMidi fp = do
->   x ← importFile fp
+>   x ← M.importFile fp
 >   case x of
 >     Left z             → error z
 >     Right m2           → analyzeMidi m2
 >
-> analyzeMidi            :: Midi → IO (Music (Pitch, Volume))
+> analyzeMidi            :: M.Midi → IO (Music (Pitch, Volume))
 > analyzeMidi midi                         = do
 >   print midi
 >   return $ rest 0
@@ -560,10 +560,8 @@ examine song for instrument and percussion usage ===============================
 > shimSong m a                             = m
 >
 > shredMusic              :: ToMusic1 a ⇒ Music a → IO Shredding
-> shredMusic m                             = do
->   let ding1 = foldl' shredder defShredding $ fst (musicToMEvents defaultContext (toMusic1 m))
->   let ding2 = critiqueMusic ding1
->   return ding2
+> shredMusic m                             =
+>   return $ critiqueMusic $ foldl' shredder defShredding $ fst (musicToMEvents defaultContext (toMusic1 m))
 >
 > critiqueMusic          :: Shredding → Shredding
 > critiqueMusic Shredding{ .. }            = Shredding shRanges (concatMap critiqueShred (Map.assocs shRanges))
@@ -1145,6 +1143,12 @@ The use of following functions requires that their input is normalized between 0
 >    collapse ((a,b),(_,_)) = [a,b]
 >    numChans _ = 2
 >
+> instance AudioSample (Complex Double) where
+>    zero = 0
+>    mix x y = x + y
+>    collapse x = [realPart x]
+>    numChans _ = 1
+>
 > class AudioSample a ⇒ WaveAudioSample a where
 >   azero                :: a
 >   aabs                 :: a → a
@@ -1185,6 +1189,24 @@ The use of following functions requires that their input is normalized between 0
 >   amax (d, e) (f, g)                     = (max d f, max e g)
 >   asqrt                :: (Double, Double) → (Double, Double)
 >   asqrt (d, e)                           = (sqrt d, sqrt e)
+>
+> instance WaveAudioSample (Complex Double) where
+>   azero                :: Complex Double
+>   azero                                  = 0
+>   aabs                 :: Complex Double → Complex Double
+>   aabs                                   = abs
+>   ascale               :: Double → Complex Double → Complex Double
+>   ascale s                               = amul (s :+ 0)
+>   aadd                 :: Complex Double → Complex Double → Complex Double
+>   aadd d e                               = d + e
+>   amul                 :: Complex Double → Complex Double → Complex Double
+>   amul d e                               = d * e
+>   amax                 :: Complex Double → Complex Double → Complex Double
+>   amax x y                               = if realPart x > realPart y
+>                                              then x
+>                                              else y
+>   asqrt                :: Complex Double → Complex Double
+>   asqrt                                  = sqrt
 >
 > data ModSignals                          =
 >   ModSignals {
@@ -1455,7 +1477,7 @@ Returns sample point as (normalized) Double
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
 
-returns the lowest power of 2 greater than the input value
+returns the lowest power of 2 greater than OR EQUAL TO the input value
 
 > sampleUp               :: Int → Int
 > sampleUp i                               =
@@ -1478,38 +1500,15 @@ returns the lowest power of 2 greater than the input value
 >   in
 >     map (round . oper . (+ ymin) . (* delta) . fromIntegral) ([0..nDivs] :: [Int])
 >    
-> eeee :: Double
-> eeee = 2.718_281_828_459_045_235_360_287_471_352_7
+> theE' :: Complex Double
+> theE' = theE :+ 0
 >
-> eeee' :: Complex Double
-> eeee' = eeee :+ 0
+> theJ :: Complex Double
+> theJ = 0 :+ 1
 >
-> jjjj :: Complex Double
-> jjjj = 0 :+ 1
->
-> aitch1a :: Double → Double → Double → Double → Double
-> aitch1a b0 b1 a1 x = (b0 + b1/x) / (1 + a1/x)
->
-> aitch1b :: Double → Double → Double → Double → Double
-> aitch1b b0 z1 p1 x = b0 * ((1 - z1/x) / (1 - p1/x))
->    
-> aitch2a :: Double → Double → Double → Double → Double → Double → Double
-> aitch2a b0 b1 b2 a1 a2 x = (b0 + b1/x + b2/(x*x)) / (1 + a1/x + a2/(x*x))
->
-> aitch2b :: Double → Double → Double → Double → Double → Double → Double
-> aitch2b b0 z1 z2 p1 p2 x = b0 * ((1 - z1/x) * (1 - z2/(x*x) )) / ((1 - p1/x) * (1 - p2/(x*x)))
 
 r is the resonance radius, w0 is the angle of the poles and b0 is the gain factor
 
-> gush1 :: Double → Double → Double → Double → Double
-> gush1 b0 r w0 x = b0 / ((1 - (r * epos/x)) * (1 - (r * eneg/x)))
->   where
->     epos = realPart $ eeee' ** (0 :+ w0)
->     eneg = realPart $ eeee' ** (0 :+ (-w0))
->
-> gush2 :: Double → Double → Double → Double
-> gush2 r w0 x = 1 - ((2 * r * cos w0) / x) + r * r / (x * x)
->
 > data CoeffsM2N2                          =
 >   CoeffsM2N2 {
 >     m2n2_b0            :: Double
@@ -1654,7 +1653,6 @@ Emission capability ============================================================
 >
 > type Velocity                            = Volume
 > type KeyNumber                           = AbsPitch
->
 
 Tracing ===============================================================================================================
 

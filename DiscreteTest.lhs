@@ -18,6 +18,7 @@ June 22, 2024
 > import Data.Array.Unboxed
 > import Data.Colour
 > import Data.Colour.Names
+> import Data.Complex
 > import Data.List ( foldl', sort, nub, sortOn )
 > import Data.Maybe
 > import Data.Time.Clock ( UTCTime, diffUTCTime, getCurrentTime )
@@ -35,11 +36,11 @@ Feed chart =====================================================================
 > allFilterTypes                           = [minBound..maxBound]
 >
 > nKews                  :: Int            = 1
-> kews                   :: [Int]          = breakUp (0, 240) 0 nKews
-> nCutoffs               :: Int            = 5
-> cutoffs                :: [Int]          = breakUp (1_000, 4_000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
-> nFreaks                :: Int            = 64
-> freaks                 :: [Int]          = breakUp (80, 8_000) 0 {- 2.7182818284590452353602874713527 -} nFreaks
+> kews                   :: [Int]          = [0] -- breakUp (0, 240) 0 nKews
+> nCutoffs               :: Int            = 1
+> cutoffs                :: [Int]          = [19_000] -- WOX 64 breakUp (1_000, 4_000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
+> nFreaks                :: Int            = 50
+> freaks                 :: [Int]          = breakUp (80, 800) 0 {- 2.7182818284590452353602874713527 -} nFreaks
 >
 > filterTestDur          :: Double         = 1
 >
@@ -166,18 +167,42 @@ Feed chart =====================================================================
 > chartIr                :: IO ()
 > chartIr                                  = do
 >   chartPoints (if useFastFourier then "freakResponse" else "impulseResponse") [Section (opaque blue) grouts]
->   print vec
+>   -- print vec
 >   where
->     vec                :: Array Int Double
->                                          =
->       fromJust $ memoizedComputeIR (KernelSpec (toAbsoluteCents 1500) 120 44_100 useFastFourier 64)
->     len                                  = snd $ bounds vec
+>     targetFc, dataLen, sampleRate, nyquist, targetFreak
+>                        :: Int
+>     freakRatio         :: Double
+>     freakSpan          :: [Int]
+>     fudgeFreak         :: Int → Int
+>
+>     targetFc                             = 1500
+>     targetQ                              = 480
+>
+>     dataLen                              = 32_768
+>     sampleRate                           = 44_100
+>     nyquist                              = sampleRate `div` 2
+>
+>     targetFreak                          = 1500
+>     freakSpan                            = [targetFreak - 500..targetFreak + 500]
+>
+>     freakRatio                           = fromIntegral dataLen / fromIntegral nyquist
+>     fudgeFreak freak                     = round $ freakRatio * fromIntegral freak 
+>     history            :: String
+>     cdubs              :: [Complex Double]
+>     (history, cdubs)                     =
+>       memoizedComputeIR
+>         (KernelSpec
+>         ((toAbsoluteCents . fromIntegral) targetFc) targetQ
+>         44_100 useFastFourier 32_768)
+>     len                                  = length cdubs
+>     vec                :: UArray Int Double
+>     vec                                  = listArray (0, len - 1) (map finish cdubs)
 >     grouts             :: [(Double, Double)]
->                                          = [(fromIntegral i, vec ! i) | i ← [0..len]]
+>                                          = [(fromIntegral i, vec ! fudgeFreak i) | i ← freakSpan]
 >     
 > createConvoTest        :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
 > createConvoTest waveTable lp@Lowpass{ .. } freq
->   | traceNot trace_CCT False             = undefined
+>   | traceNow trace_CCT False             = undefined
 >   | otherwise                            = applyConvolutionMono lp filterTestDur waveSF
 >   where
 >     trace_CCT                            = unwords ["createConvoTest", show lowpassKs]

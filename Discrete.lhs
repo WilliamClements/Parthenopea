@@ -15,80 +15,76 @@ June 17, 2024
 
 > module Discrete where
 >
+> import qualified Codec.Wav               as W
 > import Control.Arrow
 > import Data.Array.Unboxed
-> import Data.Bits
+> import qualified Data.Audio              as A
 > import Data.Complex
-> import Data.Graph (Graph)
-> import qualified Data.Graph              as Graph
+> import Data.Int ( Int8, Int16, Int32 )
 > import Data.List ( foldl', iterate', find )
-> import Data.Map (Map)
-> import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
 > import Data.MemoTrie
 > import Debug.Trace ( traceIO, trace )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
-> import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..), collapse )
-> import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA, DeltaT )
+> import FRP.UISF.AuxFunctions ( delay )
+> import HSoM.Examples.FFT
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea
   
 Discrete approach =====================================================================================================
 
-> computeIR          :: KernelSpec → Maybe (Array Int Double)
-> computeIR ks@KernelSpec{ .. }
+> computeFR          :: KernelSpec → (String, [Complex Double])
+> computeFR ks@KernelSpec{ .. }
 >   | traceNow trace_CIR False              = undefined
 >   | otherwise                             =
 >   profess
 >     (ksLen >= 0)
->     (unwords ["computeIR bad ksLen"])
->     (if null esOut
->        then Nothing
->        else Just $ listArray (0, esOutLen - 1) esOut)
+>     (unwords ["computeFR bad ksLen"])
+>     (if ksFast then ("FR!", esIn) else ("IR!", ifft esIn))
 >   where
 >     trace_CIR                            =
->       unwords ["computeIR", show ks, "delta=", show delta]
+>       unwords ["computeFR", show ksLen, "delta", show delta]
 >
->     -- used below for enumerating interesting frequencies
->     delta              :: Double         = fromIntegral ksSr / fromIntegral ksLen
+>     -- set fudge3 to populate FR : 1 for full range, 2 for up to nyquist only
+>     fudge3             :: Double         = 2
 >
->     esIn, esOut        :: [Double]
->     esIn                                 = map (getFreaky ks . (* delta) . fromIntegral) ([0..ksLen - 1]::[Int])
->     esOut                                =
->       if useFastFourier
->         then esIn
->         else fftDoubles esIn "toTimeDomain"
->     esOutLen                             = length esOut
+>     delta              :: Double         = fromIntegral ksSr / (fudge3 * fromIntegral ksLen)
 >
-> memoizedComputeIR = memo computeIR
+>     freaks             :: [Double]
+>     freaks                               = map ((* delta) . fromIntegral) ([0..ksLen - 1]::[Int])
+>
+>     esIn               :: [Complex Double]
+>     esIn                                 = map ((:+ 0) . getFreaky ks) freaks
+>
+> memoizedComputeIR = memo computeFR
 >
 > applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
 > applyConvolutionMono lowP secsToPlay sIn
 >   | traceNot trace_AC False              = undefined
 >   | otherwise                            = sig 
 >   where
->     dsigIn             :: Maybe (DiscreteSig Int Double)
+>     dsigIn             :: Maybe (DiscreteSig Double)
 >     dsigIn                               = toDiscreteSig "input mono" secsToPlay sIn
 >
 >     sig                                  = maybe sIn doIt dsigIn
 >
->     doIt               :: DiscreteSig Int Double → Signal p () Double
->     doIt dsigOut                         =
+>     doIt               :: DiscreteSig Double → Signal p () Double
+>     doIt dsig                            =
 >       if useFastFourier
->         then toContinuousSig (fastConvolveFR dsigOut lowP) secsToPlay
->         else toContinuousSig (slowConvolveIR dsigOut lowP) secsToPlay 
+>         then toContinuousSigMono (fastConvolveFR dsig lowP) secsToPlay
+>         else toContinuousSigMono (slowConvolveIR dsig lowP) secsToPlay 
 >
 >     trace_AC                             = unwords ["applyConvolutionMono", show lowP]
 >
-> applyConvolutionStereo :: ∀ a p . Clock p ⇒
+> applyConvolutionStereo :: ∀ p . Clock p ⇒
 >                           (Lowpass, Lowpass)
 >                           → Double
 >                           → Signal p () (Double, Double)
 >                           → Signal p () (Double, Double)
 > applyConvolutionStereo (lowpL, lowpR) secsToPlay sIn
 >   | traceNot trace_AC False              = undefined
->   | otherwise                            = toContinuousSig result 1
+>   | otherwise                            = toContinuousSigStereo resultL resultR 1
 >   where
 >     pairs                                = toSamples secsToPlay sIn
 >     kN                                   = length pairs
@@ -99,21 +95,19 @@ Discrete approach ==============================================================
 >     resultL                              =
 >       if useFastFourier
 >         then fastConvolveFR dsigInL lowpL
->         else slowConvolveIR     dsigInL lowpL
+>         else slowConvolveIR dsigInL lowpL
 >     resultR                              =
 >       if useFastFourier
 >         then fastConvolveFR dsigInR lowpR
->         else slowConvolveIR     dsigInR lowpR
+>         else slowConvolveIR dsigInR lowpR
 >
 >     pairs'                               = zip (elems $ dsigVec resultL) (elems $ dsigVec resultR)
 >     kN'                                  = length pairs'
 >
->     result                               = fromRawVector "convolved stereo" $ listArray (0, kN' - 1) pairs'
->
 >     trace_AC                             = unwords ["applyConvolutionStereo", show lowpL]
 >
-> toDiscreteSig          :: ∀ a i p. (WaveAudioSample a, Ix i, Integral i, Show i, Clock p) ⇒
->                           String → Double → Signal p () a → Maybe (DiscreteSig i a)
+> toDiscreteSig          :: ∀ p. (Clock p) ⇒
+>                           String → Double → Signal p () Double → Maybe (DiscreteSig Double)
 > toDiscreteSig tag dur sf
 >   | traceNot trace_TDS False             = undefined
 >   | otherwise                            = 
@@ -121,106 +115,109 @@ Discrete approach ==============================================================
 >     then Just $ DiscreteSig tag stats vec
 >     else Nothing
 >   where
->     dlist              :: [a]            = toSamples dur sf
+>     dlist              :: [Double]       = toSamples dur sf
 >     dlistLen                             = fromIntegral $ length dlist
->     bs                 :: (i, i)         = (0, dlistLen - 1)
+>     bs                                   = (0, dlistLen - 1)
 >     vec                                  = listArray bs dlist
 >     stats                                = measureDiscreteSig vec
 >
->     trace_TDS                            = unwords ["toDiscreteSig", show dlistLen]
+>     trace_TDS                            = unwords ["toDiscreteSig", show stats]
 >
-> fromRawVector          :: ∀ a i. (WaveAudioSample a, Ix i, Integral i) ⇒
->                           String → Array i a → DiscreteSig i a
+> fromRawVector          :: String → UArray Int Double → DiscreteSig Double
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
 >
-> normalize, noNormalize :: ∀ a i. (WaveAudioSample a, Ix i) ⇒
->                           Array i a → Array i a
+> normalize, noNormalize :: UArray Int Double → UArray Int Double
 > normalize vec                            = listArray (bounds vec) (map (ascale (1 / maxImpulse vec)) (elems vec))
 > noNormalize vec                          = vec
 > 
-> maxImpulse             :: ∀ a i. (WaveAudioSample a, Ix i) ⇒ Array i a → Double
+> maxImpulse             :: UArray Int Double → Double
 > maxImpulse vec                           = maximum $ map abs (concatMap collapse (elems vec))
 >
-> multiplyDiscreteSigs   :: ∀ b i. (Ix i, Integral i, Show i, Ord b, Num b, WaveAudioSample b, Show b) ⇒
->                           DiscreteSig i b → DiscreteSig i b → DiscreteSig i b
-> multiplyDiscreteSigs dsig1@DiscreteSig{dsigTag = tag1, dsigVec = vec1, dsigStats = stats1}
->                      dsig2@DiscreteSig{dsigTag = tag2, dsigVec = vec2, dsigStats = stats2}
->                                          =
->   profess
->     (len1 == len2)
->     (unwords ["lengths", show len1, "and", show len2, "illegally different for multiplyDiscreteSigs", tag1, tag2])
->     (fromRawVector
->        (unwords ["product of (", tag1, ") and (", tag2, ")"])
->        (listArray (0, zlen - 1) zipped))
->   where
->     DiscreteStats{ dsigLength = len1 }   = stats1
->     DiscreteStats{ dsigLength = len2 }   = stats2
->     zipped                               = zipWith (*) (elems vec1) (elems vec2)
->     zlen                                 = fromIntegral $ length zipped
+> skipMultiply = False
+>
+> opera                                    = if skipMultiply
+>                                              then const
+>                                              else (*)
 >    
-> slowConvolveIR         :: DiscreteSig Int Double → Lowpass → DiscreteSig Int Double
-> slowConvolveIR dsigIn Lowpass{ .. }
+> slowConvolveIR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
+> slowConvolveIR dsigIn@DiscreteSig{ .. } Lowpass{ .. }
 >   | traceNot trace_CIR False             = undefined
 >   | otherwise                            =
 >   profess
->     (ok x1 && ok x2 && ok x3)
->     (unwords ["slowConvolveIR-- problem with 1,2, or 3:", show (ok x1, ok x2, ok x3)])
+>     (ok x1 && ok x2 && ok x3 && sane dsigOut)
+>     (unwords ["slowConvolveIR-- problem with 1,2, or 3"])
 >     dsigOut
 >   where
->     dsigIR                               =
->       maybe (error "slowConvolveIR") (fromRawVector "IR") (memoizedComputeIR lowpassKs)
->     (x1, x2)                             = (dsigVec dsigIn, dsigVec dsigIR)
->     (m1, m2)                             = (snd (bounds x1), snd (bounds x2))
->     m3                                   = m1 + m2 + 1
->     x3                                   =
->       listArray (0,m3)
->         [ sum [ x1 ! k * x2 ! (n-k) | k ← [max 0 (n-m2)..min n m1] ] | n ← [0..m3] ]
->     dsigOut                              = fromRawVector "slow-convolved" x3
+>     cdubsIn                              = map (:+ 0) (elems dsigVec)
+>     m1                                   = length cdubsIn - 1
+>
+>     history            :: String
+>     cdubsIR            :: [Complex Double]
+>     (history, cdubsIR)                   = memoizedComputeIR lowpassKs
+>     m2                                   = length cdubsIR - 1
+>     m3                                   = m1 + m2 + 1    
+>
+>     x1, x2, x3                           :: Array Int (Complex Double)
+>     x1                 = listArray (0, m1) cdubsIn
+>     x2                                   = listArray (0, m2) cdubsIR
+>     x3_                                  =
+>       [ sum [ x1 ! k * x2 ! (n-k) | k ← [max 0 (n-m2)..min n m1] ] | n ← [0..m3] ]
+>     x3                                   = listArray (0, m3) x3_
+>     dsigOut                              = fromRawVector "slowConvolveIR" (listArray (0, m3) (map finish x3_))
 >
 >     ok vec                               =
->       fst (bounds vec) == 0 && snd (bounds vec) > 0 && all ((< 1_000) . abs) vec
+>       fst (bounds vec) == 0 && snd (bounds vec) > 0
 >
 >     trace_CIR                            =
 >       unwords ["slowConvolveIR\n", show dsigIn
->              , "\n X \n", show dsigIR
+>              , "\n X \n", show dsigIn
 >              , "\n = \n", show dsigOut]
 >
-> fastConvolveFR         :: DiscreteSig Int Double → Lowpass → DiscreteSig Int Double
+> disableFft                               = False
+>
+> fastConvolveFR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > fastConvolveFR dsigIn Lowpass{ .. }
 >   | traceNow trace_FCIR False            = undefined
 >   | otherwise                            =
->     dsigOut
+>   if disableFft
+>     then dsigIn
+>     else dsigOut'
 >   where
->     dsigIn', dsigFR    :: DiscreteSig Int Double
->     dsigIn'                              = fftDiscreteSig dsigIn "toFrequencyDomain"
->     mvec               :: Maybe (Array Int Double)
->     mvec                                 = memoizedComputeIR lowpassKs{ksLen = dsigIn'.dsigStats.dsigLength}
->     vecOut             :: Array Int Double
->     vecOut                               = fromMaybe dsigIn'.dsigVec mvec
->     dsigFR                               = fromRawVector "FR!" vecOut
->     dsigOut_                             =
->       if null vecOut
->         then dsigIn
->         else fftDiscreteSig (multiplyDiscreteSigs dsigIn' dsigFR) "toTimeDomain"
->     dsigOut = dsigOut_
+>     dsigOut'                             =
+>       profess
+>         (sane dsigOut)
+>         (unwords ["fastConvolveFR-- insane result"])
+>         dsigOut
+>     dsigOut                              =
+>       fromRawVector "FR product" (listArray (0, productLen - 1) (map finish product))
 >
->     trace_FCIR                             =
+>     cdubsIn, product
+>                        :: [Complex Double]
+>     cdubsIn                              = fftDiscreteSig dsigIn "toFrequencyDomain"
+>
+>     history            :: String
+>     esOut              :: [Complex Double]
+>     (history, esOut)                     = memoizedComputeIR lowpassKs{ksLen = length cdubsIn}
+>
+>     product                              = ifft $ zipWith (*) cdubsIn esOut
+>     productLen                           = length product
+>
+>     trace_FCIR                           =
 >       unwords ["fastConvolveFR\n", show dsigIn
->                       , "\n X \n", show dsigFR
->                       , "\n = \n", show dsigOut_]
+>                       , "\n = \n", show dsigOut]
 >
-> measureDiscreteSig     :: ∀ a i. (WaveAudioSample a, Ix i, Integral i) ⇒ Array i a → DiscreteStats i a
+> measureDiscreteSig     :: UArray Int Double → DiscreteStats Double
 > measureDiscreteSig vec                   = stats''
 >   where
 >     len                :: Double         =
 >       profess
->         (not (null vec))
+>         (not (null $ assocs vec))
 >         (unwords ["discrete signal cannot be empty"])
 >         (fromIntegral $ snd (bounds vec) + 1)
 >     stats'@DiscreteStats{ .. }           = foldl' sfolder (DiscreteStats 0 azero azero azero) (elems vec)
 >     stats''                              = stats' {statsSquare = asqrt $ ascale (1/len) statsSquare}
 >
->     sfolder            :: DiscreteStats i a → a → DiscreteStats i a
+>     sfolder            :: DiscreteStats Double → Double → DiscreteStats Double
 >     sfolder stats@DiscreteStats{ .. } d  =
 >       stats {
 >              dsigLength                  = dsigLength + 1
@@ -228,9 +225,9 @@ Discrete approach ==============================================================
 >              , statsSquare               = aadd statsSquare (amul d d)
 >              , statsMaxAmp               = amax statsMaxAmp (aabs d)}
 >
-> toContinuousSig        :: ∀ a i p. (WaveAudioSample a, Show a, Ix i, Integral i, Show i, Clock p) ⇒
->                           DiscreteSig i a → Double → Signal p () a
-> toContinuousSig dsig@DiscreteSig{ .. } amp
+> toContinuousSigMono    :: ∀ p. (Clock p) ⇒
+>                           DiscreteSig Double → Double → Signal p () Double
+> toContinuousSigMono dsig@DiscreteSig{ .. } amp
 >   | traceNot trace_MS False              = undefined
 >   | otherwise                            =
 >     proc ()                              → do
@@ -243,21 +240,32 @@ Discrete approach ==============================================================
 >
 >     DiscreteStats{ .. }                  = dsigStats
 >
-> fftDiscreteSig         :: ∀ i. (Ix i, Integral i, Show i) ⇒
->                           DiscreteSig i Double → String → DiscreteSig i Double
-> fftDiscreteSig DiscreteSig{ .. } which
->   | traceNow trace_FDS False             = undefined
->   | otherwise                            = fromRawVector (unwords [which, "(", dsigTag, ")"]) raw 
+> toContinuousSigStereo  :: ∀ p. (Clock p) ⇒
+>                           DiscreteSig Double → DiscreteSig Double → Double → Signal p () (Double, Double)
+> toContinuousSigStereo dsig1@DiscreteSig{dsigVec = vec1} dsig2@DiscreteSig{dsigVec = vec2} amp
+>   | traceNot trace_MS False              = undefined
+>   | otherwise                            =
+>     proc ()                              → do
+>       rec
+>         ii' ← delay 0                    ⤙ ii
+>         let ii                           = ii' + 1
+>       outA                               ⤙ ( ascale amp (vec1 ! (ii' `mod` len1))
+>                                              ,ascale amp (vec2 ! (ii' `mod` len2)))
 >   where
->     DiscreteStats{ .. }                  = dsigStats
->     dsOut              :: [Double]       = fftDoubles (elems dsigVec) which
->     dsOutLen                             = fromIntegral $ length dsOut
->     raw                :: Array i Double = listArray (0, dsOutLen - 1) dsOut
+>     len1                                 = dsig1.dsigStats.dsigLength
+>     len2                                 = dsig2.dsigStats.dsigLength
+>     trace_MS                             = unwords ["toContinuousSig", show dsig1, show dsig2]
 >
->     trace_FDS                            = unwords ["fftDiscreteSig", which, show (dsigLength, dsOutLen)]
+> fftDiscreteSig         :: DiscreteSig Double → String → [Complex Double]
+> fftDiscreteSig DiscreteSig{ .. }         = fftDoubles (elems dsigVec)
 >
-> fftDoubles             :: [Double] → String → [Double]
-> fftDoubles dsIn which                    = map realPart (fftfun (map (:+ 0) (dsIn ++ zeros)))
+> produceMagnitudes = True
+> finish                                   = if produceMagnitudes
+>                                              then magnitude
+>                                              else realPart
+>
+> fftDoubles             :: [Double] → String → [Complex Double]
+> fftDoubles dsIn which                    = fftfun (map (:+ 0) (dsIn ++ zeros))
 >   where
 >     fftfun             :: [Complex Double] → [Complex Double]
 >     fftfun                               =
@@ -271,9 +279,6 @@ Discrete approach ==============================================================
 >       if dsInLen == newLen
 >         then []
 >         else replicate (newLen - dsInLen) 0.0
->
-> startUp                              = controlConvex
-> finishDown c                         = controlConvex (1 - c)
 
 Frequency Response ====================================================================================================
 
@@ -300,14 +305,11 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >       [  Block width height
 >        , Bulge kdStretch height
 >        , Decline dropoffRate height]
->
->     fc, q              :: Double
->     fc                                   = fromAbsoluteCents ksFc
->     q                                    = fromIntegral ksQ
 >     
 > freakyResponse         :: KernelSpec → [ResponseShape] → Double → Double
 > freakyResponse ks@KernelSpec{ .. } shapes xIn
->                                          = ((* ynorm) . fryXform . modelXform . frxXform) xIn
+>   | traceNot trace_FR False              = undefined
+>   | otherwise                            = ((* ynorm) . fryXform . modelXform . frxXform) xIn
 >   where
 >     KernelData{ .. }                     = calcKernelData ks
 >
@@ -317,8 +319,10 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >         (find inVogue frsItems)
 >         (unwords ["could not find an item??!? -- bad boundaries"])
 >
+>     fudge1, fudge2     :: Double
+>     fudge1                               = 8
 >     ynorm              :: Double
->     ynorm                                = 1 / (1 + kdEQ)
+>     ynorm                                = fudge1 / (1 + kdEQ) -- WOX instead of 1
 >     
 >     inVogue            :: FrItem → Bool
 >     inVogue FrItem{ .. }                 = xIn == clip friRange xIn
@@ -387,15 +391,42 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >         trace_DDN                        =
 >           unwords ["ddNorm2", show (dLeft, dRight, xFrom, ratio)]
 >
+>     fudge2                               = 100 -- WOX instead of 2 (that represented one octave)
+>
 >     ddDown3            :: Double → Double → Double → (Double → Double)
 >     ddDown3 fLeft rate height xFrom
 >       | traceNot trace_DDD False         = undefined
 >       | otherwise                        = relativeAmp fLeft height xFrom rate'
 >       where
->         rate'                            = rate * xFrom / (2 * fLeft)   -- centibels per octave
->                                                                         -- maybe fLeft and xFrom should be squared?
+>         rate'                            = rate * xFrom / (fudge2 * fLeft)   -- adjusted centibels per octave
+>                                                                              -- maybe fLeft and xFrom squared?
 >         trace_DDD                        =
 >           unwords ["ddDown3", show (fLeft, rate, height, xFrom)]
+>
+>     startUp                              = controlConvex
+>     finishDown c                         = controlConvex (1 - c)
+>
+>     trace_FR                             = unwords ["freakyResponse", show ynorm]
+
+WAV ===================================================================================================================
+
+> importWav'              :: FilePath → IO (DiscreteSig Double)
+> importWav' fp = do
+>   x ← W.importFile fp
+>   case x of
+>     Left z             → error z
+>     Right w            → return $ discretizeWav w
+>
+> discretizeWav             :: A.Audio Int32 → DiscreteSig Double
+> discretizeWav wav                           =
+>   let
+>     bookie = elems $ A.sampleData wav
+>     bookieLen = length bookie
+>
+>     kookie :: UArray Int Double
+>     kookie = listArray (0, bookieLen - 1) (map ((/ 4_294_967_296) . fromIntegral) bookie)
+>   in
+>     fromRawVector "fromWAV" kookie
 
 Type declarations =====================================================================================================
 
@@ -412,13 +443,11 @@ Type declarations ==============================================================
 > data Lowpass                             =
 >   Lowpass {
 >     lowpassType        :: ResonanceType
->   , lowpassKs          :: KernelSpec} deriving (Eq, Show)
->
-> lowpassFc              :: Lowpass → Double
-> lowpassFc lp                             = fromAbsoluteCents (ksFc $ lowpassKs lp)
->
-> lowpassQ               :: Lowpass → Double
-> lowpassQ lp                              = fromIntegral (ksQ $ lowpassKs lp)
+>   , lowpassKs          :: KernelSpec
+>   } deriving (Eq, Show)
+> lowpassFc, lowpassQ    :: Lowpass -> Double
+> lowpassFc lp                             = fromAbsoluteCents lp.lowpassKs.ksFc -- (ksFc $ lowpassKs lp)
+> lowpassQ lp                              = fromIntegral      (ksQ  $ lowpassKs lp)
 >
 > data KernelData                          =
 >   KernelData {
@@ -429,7 +458,6 @@ Type declarations ==============================================================
 >   , kdStretch          :: Double         -- bandwidth of center frequency (range)
 >   , kdSpread           :: Int            -- bandwidth of show-able range
 >   } deriving Show
->
 > calcKernelData         :: KernelSpec → KernelData
 > calcKernelData KernelSpec{ .. }          =
 >   KernelData
@@ -440,29 +468,36 @@ Type declarations ==============================================================
 >     stretch
 >     (round $ stretch * 2)
 >   where
->     fc, effectiveQ, stretch
+>     fc, effectiveQ, stretch, fudge4
 >                        :: Double
+>     fudge4                               = 8
 >     fc                                   = fromAbsoluteCents ksFc
->     effectiveQ                           = fromCentibels (fromIntegral ksQ) / 8
+>     effectiveQ                           = fromCentibels (fromIntegral ksQ) / fudge4
 >     stretch                              = if ksQ == 0 then 0 else fc / bulgeDiv
 >
-> data DiscreteStats i a                   =
+> data DiscreteStats a                     =
 >   DiscreteStats {
->     dsigLength         :: i
+>     dsigLength         :: Int
 >     , statsDCOffset    :: a
 >     , statsSquare      :: a
 >     , statsMaxAmp      :: a} deriving Show
->
-> data DiscreteSig i a                     =
+> data DiscreteSig a                       =
 >   DiscreteSig {
 >     dsigTag            :: String
->     , dsigStats        :: DiscreteStats i a
->     , dsigVec          :: Array i a}
->
-> instance (Show i, Show a) ⇒ Show (DiscreteSig i a) where
->   show                 :: DiscreteSig i a → String
+>     , dsigStats        :: DiscreteStats a
+>     , dsigVec          :: UArray Int a}
+> instance (Show a) ⇒ Show (DiscreteSig a) where
+>   show                 :: DiscreteSig a → String
 >   show DiscreteSig{ .. }                 = unwords [show dsigTag, show dsigStats]
-> 
+> sane                   :: DiscreteSig Double → Bool
+> sane dsig                                =
+>   profess
+>     (maxAmp < 1_000_000)
+>     (unwords ["insane amplitude", show maxAmp])
+>     True
+>   where
+>     maxAmp                               = dsig.dsigStats.statsMaxAmp
+>
 > data DiscreteSettings =
 >   DiscreteSettings {
 >     qqBulgeDiv         :: Double
@@ -505,7 +540,7 @@ Type declarations ==============================================================
 > defD =
 >   DiscreteSettings {
 >     qqBulgeDiv                           = 20                           -- bulge bandwidth is frequency / div
->   , qqDropoffRate                        = 120                          -- centibels per octave
+>   , qqDropoffRate                        = 60                           -- centibels per octave
 >   , qqImpulseSize                        = 2_048                        -- small "default" size
 >   , qqUseFastFourier                     = True}
 

@@ -2,7 +2,7 @@
 
 module Illiterate where
 
-import Data.Array
+import Data.Array.Unboxed
 import Data.Int
 
 aindexAt :: (Integral w) ⇒ Array Int w → Int → w

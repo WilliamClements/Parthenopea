@@ -17,7 +17,7 @@ April 16, 2023
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import Data.Array.Unboxed ( listArray, Array, (!), bounds )
+> import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Either
@@ -355,7 +355,7 @@ executive ======================================================================
 >         let ws@WinningRecord{ .. }
 >                        = WinningRecord (Map.map head wI) (Map.map head wP) (sI ++ sP)
 >
->         -- print song/orchestration info to user (can be stored by redirecting standard out)
+>         -- print song/orchestration info to user (can be captured by redirecting standard out)
 >         mapM_ putStrLn pWarnings
 >
 >         playCacheI     ← createPlayCache zFiles zc preSampleCache preInstCache skMap pWinningI
@@ -538,13 +538,10 @@ executive ======================================================================
 >
 > computePreInstrument       :: SFFile → PerGMKey → PreInstrument
 > computePreInstrument SFFile{ .. } PerGMKey{ .. }
->   | traceNever trace_CPI False           = undefined
->   | otherwise                            = PreInstrument instName (computeFFMatches instName)
+>                                          = PreInstrument instName (computeFFMatches instName)
 >   where
 >     SoundFontArrays{ .. }                = zArrays
 >     F.Inst{ .. }                         = ssInsts ! pgkwInst
-> 
->     trace_CPI                            = unwords ["computePreInstrument", show instName]
 >
 > formMasterInstList     :: Array Word SFFile → IO [PerGMKey]
 > formMasterInstList sffiles               = return $ concatMap formFI sffiles
@@ -1072,8 +1069,8 @@ define signal functions and instrument maps to support rendering ===============
 >
 > computePlayValue       :: PreBundle → PerGMKey → NoteOn → PlayValue
 > computePlayValue pb@PreBundle{ .. } pergm@PerGMKey{ .. } noon@NoteOn{ .. }
->   | traceIf trace_CPV False           = undefined
->   | otherwise                             =
+>   | traceNever trace_CPV False           = undefined
+>   | otherwise                            =
 >   let
 >     ((zoneL, shdrL), (zoneR, shdrR))
 >                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
