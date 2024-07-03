@@ -4,6 +4,7 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE BangPatterns #-}
 > {-# LANGUAGE NumericUnderscores #-}
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -22,6 +23,7 @@ June 22, 2024
 > import Data.List ( foldl', sort, nub, sortOn )
 > import Data.Maybe
 > import Data.Time.Clock ( UTCTime, diffUTCTime, getCurrentTime )
+> import qualified Data.Vector.Unboxed     as VU
 > import Discrete
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns ( osc, Table, filterLowPassBW, filterBandPass )
@@ -187,18 +189,16 @@ Feed chart =====================================================================
 >
 >     freakRatio                           = fromIntegral dataLen / fromIntegral nyquist
 >     fudgeFreak freak                     = round $ freakRatio * fromIntegral freak 
->     history            :: String
->     cdubs              :: [Complex Double]
->     (history, cdubs)                     =
->       memoizedComputeIR
->         (KernelSpec
+>     cdsigIn            :: DiscreteSig (Complex Double)
+>     cdsigIn                              =
+>       memoizedComputeIR (KernelSpec
 >         ((toAbsoluteCents . fromIntegral) targetFc) targetQ
 >         44_100 useFastFourier 32_768)
->     len                                  = length cdubs
->     vec                :: UArray Int Double
->     vec                                  = listArray (0, len - 1) (map finish cdubs)
+>     len                                  = cdsigIn.dsigStats.dsigLength
+>     vec                :: VU.Vector Double
+>     vec                                  = VU.map finish (dsigVec cdsigIn)
 >     grouts             :: [(Double, Double)]
->                                          = [(fromIntegral i, vec ! fudgeFreak i) | i ← freakSpan]
+>                                          = [(fromIntegral i, vec VU.! fudgeFreak i) | i ← freakSpan]
 >     
 > createConvoTest        :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
 > createConvoTest waveTable lp@Lowpass{ .. } freq

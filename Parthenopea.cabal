@@ -62,5 +62,6 @@ Library
         stm                        >= 2.4                && <2.6,
         time                       >= 1.11.1.1           && < 2.0,
         UISF                       >= 0.4.0.0,
+        vector                     >= 0.13.1.0,
         
         ghc-prim

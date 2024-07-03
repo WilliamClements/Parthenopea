@@ -1151,60 +1151,58 @@ The use of following functions requires that their input is normalized between 0
 >
 > class AudioSample a ⇒ WaveAudioSample a where
 >   azero                :: a
->   aabs                 :: a → a
+>   acomplex             :: a → Complex Double
+>   aamp                 :: a → Double
 >   ascale               :: Double → a → a
 >   aadd                 :: a → a → a
 >   amul                 :: a → a → a
->   amax                 :: a → a → a
 >   asqrt                :: a → a
 >
 > instance WaveAudioSample Double where
 >   azero                :: Double
 >   azero                                  = 0
->   aabs                 :: Double → Double
->   aabs                                   = abs
+>   acomplex             :: Double → Complex Double
+>   acomplex                               = (:+ 0)
+>   aamp                 :: Double → Double
+>   aamp                                   = abs
 >   ascale               :: Double → Double → Double
 >   ascale                                 = amul
 >   aadd                 :: Double → Double → Double
 >   aadd d e                               = d + e
 >   amul                 :: Double → Double → Double
 >   amul d e                               = d * e
->   amax                 :: Double → Double → Double
->   amax                                   = max
 >   asqrt                :: Double → Double
 >   asqrt                                  = sqrt
 >
 > instance WaveAudioSample (Double,Double) where
 >   azero                :: (Double, Double)
 >   azero                                  = (0, 0)
->   aabs                 :: (Double, Double) → (Double, Double)
->   aabs (d, e)                            = (abs d, abs e)
+>   acomplex             :: (Double, Double) → Complex Double
+>   acomplex                               = error "no acomplex for stereo type"
+>   aamp                 :: (Double, Double) → Double
+>   aamp (d, e)                            = sqrt (d * d + e * e)
 >   ascale               :: Double → (Double, Double) → (Double, Double)
 >   ascale d (e, f)                        = amul (d, d) (e, f)
 >   aadd                 :: (Double, Double) → (Double, Double) → (Double, Double)
 >   aadd (d, e) (f, g)                     = (d + f, e + g)
 >   amul                 :: (Double, Double) → (Double, Double) → (Double, Double)
 >   amul (d, e) (f, g)                     = (d * f, e * g)
->   amax                 :: (Double, Double) → (Double, Double) → (Double, Double)
->   amax (d, e) (f, g)                     = (max d f, max e g)
 >   asqrt                :: (Double, Double) → (Double, Double)
 >   asqrt (d, e)                           = (sqrt d, sqrt e)
 >
 > instance WaveAudioSample (Complex Double) where
 >   azero                :: Complex Double
 >   azero                                  = 0
->   aabs                 :: Complex Double → Complex Double
->   aabs                                   = abs
+>   acomplex             :: Complex Double → Complex Double
+>   acomplex                               = id
+>   aamp                 :: Complex Double → Double
+>   aamp                                   = magnitude
 >   ascale               :: Double → Complex Double → Complex Double
 >   ascale s                               = amul (s :+ 0)
 >   aadd                 :: Complex Double → Complex Double → Complex Double
 >   aadd d e                               = d + e
 >   amul                 :: Complex Double → Complex Double → Complex Double
 >   amul d e                               = d * e
->   amax                 :: Complex Double → Complex Double → Complex Double
->   amax x y                               = if realPart x > realPart y
->                                              then x
->                                              else y
 >   asqrt                :: Complex Double → Complex Double
 >   asqrt                                  = sqrt
 >
