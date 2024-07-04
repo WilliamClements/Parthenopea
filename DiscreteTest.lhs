@@ -133,7 +133,7 @@ Feed chart =====================================================================
 >                                              (round currentQ)
 >                                              44_100
 >                                              useFastFourier
->                                              300
+>                                              256
 >
 >                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks}
 >
@@ -163,7 +163,7 @@ Feed chart =====================================================================
 >                                              (round (960 * currentQ))
 >                                              44_100
 >                                              useFastFourier
->                                              300
+>                                              256
 >                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks}
 >
 > chartIr                :: IO ()
@@ -171,29 +171,28 @@ Feed chart =====================================================================
 >   chartPoints (if useFastFourier then "freakResponse" else "impulseResponse") [Section (opaque blue) grouts]
 >   -- print vec
 >   where
->     targetFc, dataLen, sampleRate, nyquist, targetFreak
+>     targetFc, dataLen, sampleRate, targetFreak
 >                        :: Int
 >     freakRatio         :: Double
 >     freakSpan          :: [Int]
 >     fudgeFreak         :: Int → Int
 >
->     targetFc                             = 1500
+>     targetFc                             = 15_000
 >     targetQ                              = 480
 >
->     dataLen                              = 32_768
+>     dataLen                              = 16_384
 >     sampleRate                           = 44_100
->     nyquist                              = sampleRate `div` 2
 >
 >     targetFreak                          = 1500
 >     freakSpan                            = [targetFreak - 500..targetFreak + 500]
 >
->     freakRatio                           = fromIntegral dataLen / fromIntegral nyquist
+>     freakRatio                           = fromIntegral dataLen / fromIntegral sampleRate
 >     fudgeFreak freak                     = round $ freakRatio * fromIntegral freak 
 >     cdsigIn            :: DiscreteSig (Complex Double)
 >     cdsigIn                              =
 >       memoizedComputeIR (KernelSpec
 >         ((toAbsoluteCents . fromIntegral) targetFc) targetQ
->         44_100 useFastFourier 32_768)
+>         sampleRate useFastFourier dataLen)
 >     len                                  = cdsigIn.dsigStats.dsigLength
 >     vec                :: VU.Vector Double
 >     vec                                  = VU.map finish (dsigVec cdsigIn)
@@ -235,7 +234,7 @@ Feed chart =====================================================================
 >     120 -- Q in centibels
 >     44_100
 >     True
->     32_768
+>     16_384
 
 > testFreaks             :: IO Double
 > testFreaks                               = do

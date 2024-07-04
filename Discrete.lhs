@@ -37,7 +37,7 @@ Discrete approach ==============================================================
 
 > computeFR          :: KernelSpec → DiscreteSig (Complex Double)
 > computeFR ks@KernelSpec{ .. }
->   | traceNow trace_CIR False              = undefined
+>   | traceIf trace_CIR False               = undefined
 >   | otherwise                             =
 >   profess
 >     ((ksLen > 0) && not (null frs'))
@@ -48,12 +48,14 @@ Discrete approach ==============================================================
 >       unwords ["computeFR", show ksLen, "delta", show delta, show $ length frs, show $ length frs']
 >
 >     -- set fudge3 to populate FR : 1 for full range, 2 for up to nyquist only
->     fudge3             :: Double         = 2
+>     fudge3             :: Double         = 1
 >
->     -- calculate the distance between frequencies on the x axis, and list them all
+>     -- calculate the bin width + list all the target freaks
 >     delta              :: Double         = fromIntegral ksSr / (fudge3 * fromIntegral ksLen)
 >     freaks             :: [Double]       = map ((* delta) . fromIntegral) ([0..ksLen - 1]::[Int])
 >
+>     -- capture the Frequency Response; stores the magnitudes (so sound of those frequencies 
+>     -- are amplified/attenuated) into a list -- slow path runs it first through fft
 >     frs, frs'          :: [Complex Double]
 >     frs                                 = map ((:+ 0) . getFreaky ks) freaks
 >     frs'                                = if ksFast then frs   else toTimeDomain frs
@@ -63,7 +65,7 @@ Discrete approach ==============================================================
 >
 > applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
 > applyConvolutionMono lowP secsToPlay sIn
->   | traceNow trace_AC False              = undefined
+>   | traceIf trace_AC False               = undefined
 >   | otherwise                            = sig 
 >   where
 >     dsigIn             :: Maybe (DiscreteSig Double)
@@ -85,7 +87,7 @@ Discrete approach ==============================================================
 >                           → Signal p () (Double, Double)
 >                           → Signal p () (Double, Double)
 > applyConvolutionStereo (lowpL, lowpR) secsToPlay sIn
->   | traceNow trace_AC False              = undefined
+>   | traceIf trace_AC False               = undefined
 >   | otherwise                            = toContinuousSig pairs'
 >   where
 >     pairs                                = toSamples secsToPlay sIn
@@ -99,7 +101,11 @@ Discrete approach ==============================================================
 >         then (fastConvolveFR dsigInL lowpL, fastConvolveFR dsigInR lowpR)
 >         else (slowConvolveIR dsigInL lowpL, slowConvolveIR dsigInR lowpR)
 >
->     pairs'                               = fromRawVector "convolved" (VU.zip (dsigVec resultL) (dsigVec resultR))
+>     pairs'                               =
+>       fromRawVector
+>       "convolved"
+>       (VU.zip (VU.slice 0 kN $ dsigVec resultL)
+>               (VU.slice 0 kN $ dsigVec resultR))
 >     kN'                                  = VU.length (dsigVec pairs')
 >
 >     trace_AC                             =
@@ -115,6 +121,20 @@ Discrete approach ==============================================================
 >     dlist              :: [a]            = toSamples dur sf
 >     vec                                  = VU.fromList dlist
 >
+> toContinuousSig        :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a, Show a) ⇒
+>                           DiscreteSig a → Signal p () a
+> toContinuousSig DiscreteSig{ .. }
+>   | traceIf trace_MS False               = undefined
+>   | otherwise                            =
+>     proc ()                              → do
+>       rec
+>         ii' ← delay 0                    ⤙ ii
+>         let ii                           = ii' + 1
+>       outA                               ⤙ (VU.!) dsigVec (ii' `mod` dsigLength)
+>   where
+>     DiscreteStats{ .. }                  = dsigStats
+>     trace_MS                             = unwords ["toContinuousSig", show dsigTag, show dsigStats]
+>
 > fromRawVector          :: (WaveAudioSample a, VU.Unbox a) ⇒ String → VU.Vector a → DiscreteSig a
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
 >
@@ -128,15 +148,15 @@ Discrete approach ==============================================================
 >         (fromIntegral $ VU.length vec )
 >
 >     folded                               = VU.foldl' sfolder defDiscreteStats vec
->     finished                             = folded {statsSquare = asqrt $ ascale (1/len) folded.statsSquare}
+>     finished                             = folded {stSquare = asqrt $ ascale (1/len) folded.stSquare}
 >
 >     sfolder            ::  ∀ a. (WaveAudioSample a) ⇒ DiscreteStats a → a → DiscreteStats a
 >     sfolder stats@DiscreteStats{ .. } d  =
 >       stats {
 >              dsigLength                  = dsigLength + 1
->              , statsDCOffset             = aadd statsDCOffset d
->              , statsSquare               = aadd statsSquare (amul d d)
->              , statsMaxAmp               = max statsMaxAmp (aamp d)}
+>              , stDCOffset                = aadd stDCOffset    d
+>              , stSquare                  = aadd stSquare      (amul d d)
+>              , stMaxAmp                  = max  stMaxAmp      (aamp d)}
 >
 > slowConvolveIR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > slowConvolveIR dsigIn Lowpass{ .. }
@@ -175,7 +195,7 @@ Discrete approach ==============================================================
 >
 > fastConvolveFR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > fastConvolveFR dsigIn Lowpass{ .. }
->   | traceNow trace_FCIR False            = undefined
+>   | traceIf trace_FCIR False             = undefined
 >   | otherwise                            =
 >   profess
 >     (sane dsigOut)
@@ -203,20 +223,6 @@ Discrete approach ==============================================================
 >     product                             = toTimeDomain (VU.toList $ uncurry (VU.zipWith (*)) vecs)
 >
 >     trace_FCIR                          = unwords ["fastConvolveFR\n", show cdsigIn, "\n", show cdsigFR]
->
-> toContinuousSig        :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a, Show a) ⇒
->                           DiscreteSig a → Signal p () a
-> toContinuousSig DiscreteSig{ .. }
->   | traceNow trace_MS False              = undefined
->   | otherwise                            =
->     proc ()                              → do
->       rec
->         ii' ← delay 0                    ⤙ ii
->         let ii                           = ii' + 1
->       outA                               ⤙ (VU.!) dsigVec (ii' `mod` dsigLength)
->   where
->     DiscreteStats{ .. }                  = dsigStats
->     trace_MS                             = unwords ["toContinuousSig", show dsigTag, show dsigStats]
 >
 > finishWithMagnitudes                     = False
 > finish                                   = if finishWithMagnitudes
@@ -433,9 +439,9 @@ Type declarations ==============================================================
 > data DiscreteStats a                     =
 >   DiscreteStats {
 >     dsigLength         :: Int
->     , statsDCOffset    :: a
->     , statsSquare      :: a
->     , statsMaxAmp      :: Double} deriving Show
+>     , stDCOffset       :: a
+>     , stSquare         :: a
+>     , stMaxAmp         :: Double} deriving Show
 > defDiscreteStats       :: (WaveAudioSample a, VU.Unbox a) ⇒ DiscreteStats a
 > defDiscreteStats                         = DiscreteStats 0 azero azero azero
 > data DiscreteSig a                       =
@@ -450,10 +456,10 @@ Type declarations ==============================================================
 > sane dsig                                =
 >   profess
 >     (maxAmp < 1_000_000)
->     (unwords ["insane amplitude", show maxAmp])
+>     (unwords ["insanely large amplitude", show maxAmp])
 >     True
 >   where
->     maxAmp                               = dsig.dsigStats.statsMaxAmp
+>     maxAmp                               = dsig.dsigStats.stMaxAmp
 >
 > data DiscreteSettings =
 >   DiscreteSettings {

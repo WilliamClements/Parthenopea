@@ -1041,7 +1041,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF SFRoster{ .. } pergm@PerGMKey{ .. } dur pchIn volIn params
->   | traceNow trace_ISF False             = undefined
+>   | traceIf trace_ISF False             = undefined
 >   | otherwise                            = eutSynthesize (reconL, reconR) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
@@ -1275,7 +1275,7 @@ reconcile zone and sample header ===============================================
 >       KernelSpec
 >         (maybe 13_500 (clip (1_500, 13_500)) zInitFc)
 >         (maybe 0      (clip (0,     960))    zInitQ)
->         (fromIntegral sampleRate)
+>         1 
 >         useFastFourier
 >         (-1) -- must always be replaced
 >

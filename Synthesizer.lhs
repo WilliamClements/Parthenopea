@@ -88,7 +88,8 @@ Signal function-based synth ====================================================
 >         else eutModulate secsScored (m8nL, m8nR) noon pumped
 >
 >     sig                                  =       modulated
->                                              >>> addModSignals  secsScored secsToPlay (reconL.rM8n, reconR.rM8n)
+>                                              >>> addModSignals  secsScored secsToPlay
+>                                                                            (reconL.rM8n, reconR.rM8n)
 >                                              >>> eutEffects                (reconL, reconR)
 >                                              >>> eutAmplify     secsScored (reconL, reconR) noon secsToPlay 
 >
