@@ -852,7 +852,12 @@ extract data from SoundFont per instrument =====================================
                                             
 prepare the specified instruments and percussion ======================================================================
 
-> formZoneCache          :: Array Word SFFile → PreSampleCache → PreInstCache → Map PerGMKey PreSampleKey → [PerGMKey] → IO ZoneCache
+> formZoneCache          :: Array Word SFFile
+>                           → PreSampleCache
+>                           → PreInstCache
+>                           → Map PerGMKey PreSampleKey
+>                           → [PerGMKey]
+>                           → IO ZoneCache
 > formZoneCache sffiles preSampleCache preInstCache skMap pergms
 >                                          = 
 >   return $ foldr (\p → Map.insert p (computePerInst p)) Map.empty pergms
@@ -880,7 +885,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         buildZone      :: SFZone → Word → (ZoneHeader, SFZone)
 >         buildZone fromZone bagIndex
->           | traceIf trace_BZ False      = undefined
+>           | traceNever trace_BZ False    = undefined
 >           | otherwise                    = (zh, zone)
 >           where
 >             xgeni                        = F.genNdx $ ssIBags!bagIndex
@@ -908,7 +913,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         categorizeInst :: [(ZoneHeader, SFZone)] → InstCat
 >         categorizeInst zs
->           | traceIf trace_CI False       = undefined
+>           | traceNever trace_CI False    = undefined
 >           | otherwise                    = fromMaybe InstCatPerc latched
 >           where
 >             confirmed                    = bqForce isConfirmed

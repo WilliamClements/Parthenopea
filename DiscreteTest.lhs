@@ -38,11 +38,11 @@ Feed chart =====================================================================
 > allFilterTypes                           = [minBound..maxBound]
 >
 > nKews                  :: Int            = 1
-> kews                   :: [Int]          = [0] -- breakUp (0, 240) 0 nKews
+> kews                   :: [Int]          = [240] -- breakUp (0, 480) 0 nKews
 > nCutoffs               :: Int            = 1
-> cutoffs                :: [Int]          = [19_000] -- WOX 64 breakUp (1_000, 4_000) 0 {- 2.7182818284590452353602874713527 -} nCutoffs
-> nFreaks                :: Int            = 50
-> freaks                 :: [Int]          = breakUp (80, 800) 0 {- 2.7182818284590452353602874713527 -} nFreaks
+> cutoffs                :: [Int]          = [2_000] -- breakUp (1_000, 2_000) 0 nCutoffs
+> nFreaks                :: Int            = 23
+> freaks                 :: [Int]          = breakUp (25, 22_000) 0 nFreaks
 >
 > filterTestDur          :: Double         = 1
 >
@@ -173,35 +173,35 @@ Feed chart =====================================================================
 >   where
 >     targetFc, dataLen, sampleRate, targetFreak
 >                        :: Int
->     freakRatio         :: Double
 >     freakSpan          :: [Int]
->     fudgeFreak         :: Int → Int
 >
->     targetFc                             = 15_000
->     targetQ                              = 480
+>     targetFc                             = 1_500
+>     targetQ                              = 120
 >
 >     dataLen                              = 16_384
 >     sampleRate                           = 44_100
 >
->     targetFreak                          = 1500
+>     targetFreak                          = 1_500
 >     freakSpan                            = [targetFreak - 500..targetFreak + 500]
 >
->     freakRatio                           = fromIntegral dataLen / fromIntegral sampleRate
->     fudgeFreak freak                     = round $ freakRatio * fromIntegral freak 
+>     kspec              :: KernelSpec
+>     kspec                                =
+>       KernelSpec
+>         ((toAbsoluteCents . fromIntegral) targetFc)
+>         targetQ sampleRate useFastFourier dataLen
+>
 >     cdsigIn            :: DiscreteSig (Complex Double)
->     cdsigIn                              =
->       memoizedComputeIR (KernelSpec
->         ((toAbsoluteCents . fromIntegral) targetFc) targetQ
->         sampleRate useFastFourier dataLen)
+>     cdsigIn                              = memoizedComputeIR kspec     
+>         
 >     len                                  = cdsigIn.dsigStats.dsigLength
 >     vec                :: VU.Vector Double
->     vec                                  = VU.map finish (dsigVec cdsigIn)
+>     vec                                  = VU.map realPart (dsigVec cdsigIn)
 >     grouts             :: [(Double, Double)]
->                                          = [(fromIntegral i, vec VU.! fudgeFreak i) | i ← freakSpan]
+>                                          = [(fromIntegral i, vec VU.! i) | i ← freakSpan]
 >     
 > createConvoTest        :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
 > createConvoTest waveTable lp@Lowpass{ .. } freq
->   | traceNow trace_CCT False             = undefined
+>   | traceNot trace_CCT False             = undefined
 >   | otherwise                            = applyConvolutionMono lp filterTestDur waveSF
 >   where
 >     trace_CCT                            = unwords ["createConvoTest", show lowpassKs]
@@ -234,12 +234,14 @@ Feed chart =====================================================================
 >     120 -- Q in centibels
 >     44_100
 >     True
->     16_384
-
+>     4_096
+>
 > testFreaks             :: IO Double
 > testFreaks                               = do
 >   let ks@KernelSpec{ .. }                = testKS
->   let fun                                = getFreaky ks
+>   let kd@KernelData{ .. }                = calcKernelData ks
+>   let shapes                             = makeShapes ResponseNormal kd
+>   let fun                                = getFreaky kd shapes
 >
 >   let fc                                 = fromAbsoluteCents ksFc
 >   let fci              :: Int            = round fc
@@ -248,9 +250,11 @@ Feed chart =====================================================================
 >   let fcEnd                              = fci + spread `div` 2
 >
 >   let xs                  :: [Double]    = [fromIntegral x | x ← [fcStart..fcEnd]]
->   let ys                                 = map fun xs
->   let pairs                              = zip xs ys
->   let sects                              = [Section (opaque blue) pairs]
+>   let ys                                 = map (realPart . fun) xs
+>   let zs                                 = map (imagPart . fun) xs
+>   let rpairs                             = zip xs ys
+>   let cpairs                             = zip xs zs
+>   let sects                              = [Section (opaque blue) rpairs, Section (opaque orange) cpairs]
 >   
 >   -- print pairs
 >   chartPoints ("ResonanceConvo_fc" ++ show fci) sects

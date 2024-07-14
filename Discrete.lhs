@@ -37,28 +37,27 @@ Discrete approach ==============================================================
 
 > computeFR          :: KernelSpec → DiscreteSig (Complex Double)
 > computeFR ks@KernelSpec{ .. }
->   | traceIf trace_CIR False               = undefined
->   | otherwise                             =
+>   | traceNow trace_CIR False             = undefined
+>   | otherwise                            =
 >   profess
->     ((ksLen > 0) && not (null frs'))
+>     ((ksLen > 0) && not (null ys'))
 >     (unwords ["computeFR bad input"])
->     (fromRawVector tag' (VU.fromList frs'))
+>     (fromRawVector tag' (VU.fromList ys'))
 >   where
->     trace_CIR                            =
->       unwords ["computeFR", show ksLen, "delta", show delta, show $ length frs, show $ length frs']
+>     trace_CIR                            = unwords ["computeFR", show ks, show shapes]
 >
->     -- set fudge3 to populate FR : 1 for full range, 2 for up to nyquist only
->     fudge3             :: Double         = 1
+>     kd                                   = calcKernelData ks
+>     shapes                               = makeShapes ResponseNormal kd
 >
->     -- calculate the bin width + list all the target freaks
->     delta              :: Double         = fromIntegral ksSr / (fudge3 * fromIntegral ksLen)
->     freaks             :: [Double]       = map ((* delta) . fromIntegral) ([0..ksLen - 1]::[Int])
+>     -- domain corresponds to 0..ksLen-1 
+>     -- this allows even coverage on whole target buffer
+>     -- but internally, freaks above nyq will go as negative
+>     ys, ys'            :: [Complex Double]
+>     ys                                   = map (getFreaky kd shapes . fromIntegral) ([0..ksLen - 1]::[Int])
 >
->     -- capture the Frequency Response; stores the magnitudes (so sound of those frequencies 
->     -- are amplified/attenuated) into a list -- slow path runs it first through fft
->     frs, frs'          :: [Complex Double]
->     frs                                 = map ((:+ 0) . getFreaky ks) freaks
->     frs'                                = if ksFast then frs   else toTimeDomain frs
+>     -- capture the Frequency Response; store the magnitudes (amplification/attenuation per freak)
+>     -- slow path then runs it through fft to create Impulse Response
+>     ys'                                 = if ksFast then ys    else toTimeDomain ys
 >     tag'                                = if ksFast then "FR!" else "IR!"
 >
 > memoizedComputeIR = memo computeFR
@@ -87,7 +86,7 @@ Discrete approach ==============================================================
 >                           → Signal p () (Double, Double)
 >                           → Signal p () (Double, Double)
 > applyConvolutionStereo (lowpL, lowpR) secsToPlay sIn
->   | traceIf trace_AC False               = undefined
+>   | traceNow trace_AC False              = undefined
 >   | otherwise                            = toContinuousSig pairs'
 >   where
 >     pairs                                = toSamples secsToPlay sIn
@@ -97,9 +96,11 @@ Discrete approach ==============================================================
 >     dsigInR                              = fromRawVector "input right" $ VU.fromList (map snd pairs)
 >
 >     (resultL, resultR)                   =
->       if lowpL.lowpassKs.ksFast
->         then (fastConvolveFR dsigInL lowpL, fastConvolveFR dsigInR lowpR)
->         else (slowConvolveIR dsigInL lowpL, slowConvolveIR dsigInR lowpR)
+>       if disableConvo
+>         then (dsigInL, dsigInR)
+>         else if lowpL.lowpassKs.ksFast
+>           then (fastConvolveFR dsigInL lowpL, fastConvolveFR dsigInR lowpR)
+>           else (slowConvolveIR dsigInL lowpL, slowConvolveIR dsigInR lowpR)
 >
 >     pairs'                               =
 >       fromRawVector
@@ -111,21 +112,18 @@ Discrete approach ==============================================================
 >     trace_AC                             =
 >       unwords ["applyConvolutionStereo", show kN, show kN', "\n", show resultL, "\n", show resultR]
 >
-> fromContinuousSig      :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a) ⇒
+> fromContinuousSig      :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a, Show a) ⇒
 >                           String → Double → Signal p () a → Maybe (DiscreteSig a)
 > fromContinuousSig tag dur sf             = 
 >   if not (null dlist)
->     then Just $ fromRawVector tag vec
+>     then Just $ fromRawVector tag (VU.fromList dlist)
 >     else Nothing
 >   where
 >     dlist              :: [a]            = toSamples dur sf
->     vec                                  = VU.fromList dlist
 >
 > toContinuousSig        :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a, Show a) ⇒
 >                           DiscreteSig a → Signal p () a
-> toContinuousSig DiscreteSig{ .. }
->   | traceIf trace_MS False               = undefined
->   | otherwise                            =
+> toContinuousSig DiscreteSig{ .. }        =
 >     proc ()                              → do
 >       rec
 >         ii' ← delay 0                    ⤙ ii
@@ -133,7 +131,6 @@ Discrete approach ==============================================================
 >       outA                               ⤙ (VU.!) dsigVec (ii' `mod` dsigLength)
 >   where
 >     DiscreteStats{ .. }                  = dsigStats
->     trace_MS                             = unwords ["toContinuousSig", show dsigTag, show dsigStats]
 >
 > fromRawVector          :: (WaveAudioSample a, VU.Unbox a) ⇒ String → VU.Vector a → DiscreteSig a
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
@@ -148,15 +145,29 @@ Discrete approach ==============================================================
 >         (fromIntegral $ VU.length vec )
 >
 >     folded                               = VU.foldl' sfolder defDiscreteStats vec
->     finished                             = folded {stSquare = asqrt $ ascale (1/len) folded.stSquare}
+>     finished                             = folded {stVariance = ascale (1/(len-1)) folded.stVariance}
 >
 >     sfolder            ::  ∀ a. (WaveAudioSample a) ⇒ DiscreteStats a → a → DiscreteStats a
 >     sfolder stats@DiscreteStats{ .. } d  =
->       stats {
->              dsigLength                  = dsigLength + 1
->              , stDCOffset                = aadd stDCOffset    d
->              , stSquare                  = aadd stSquare      (amul d d)
->              , stMaxAmp                  = max  stMaxAmp      (aamp d)}
+>       DiscreteStats
+>         (dsigLength + 1)
+>         (aadd stDCOffset         d)
+>         (aadd stVariance         (amul d d))
+>         (max  stMaxAmp           (aamp d))
+>
+> measureFrequencyResponse
+>                        :: VU.Vector (Complex Double) → FrequencyResponseStats
+> measureFrequencyResponse                 = VU.foldl' sfolder defFrequencyResponseStats
+>   where
+>     sfolder            ::  FrequencyResponseStats → Complex Double → FrequencyResponseStats
+>     sfolder FrequencyResponseStats{ .. } d
+>                                          =
+>       FrequencyResponseStats
+>         (accommodate stRealExtent (realPart d))
+>         (accommodate stImagExtent (imagPart d))
+>
+> accommodate            :: (Double, Double) -> Double -> (Double, Double)
+> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
 >
 > slowConvolveIR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > slowConvolveIR dsigIn Lowpass{ .. }
@@ -184,7 +195,7 @@ Discrete approach ==============================================================
 >
 >     x3                                   =
 >       VU.fromList [ sum [ x1 VU.! k * x2 VU.! (n-k) | k ← [max 0 (n-m2)..min n m1] ] | n ← [0..m3] ]
->     dsigOut                              = fromRawVector "slowConvolveIR" (VU.map finish x3)
+>     dsigOut                              = fromRawVector "slowConvolveIR" (VU.map realPart x3)
 >
 >     ok vec                               = VU.length vec > 0
 >
@@ -195,42 +206,53 @@ Discrete approach ==============================================================
 >
 > fastConvolveFR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > fastConvolveFR dsigIn Lowpass{ .. }
->   | traceIf trace_FCIR False             = undefined
+>   | traceNow trace_FCFR False            = undefined
 >   | otherwise                            =
 >   profess
 >     (sane dsigOut)
 >     (unwords ["fastConvolveFR-- insane result"])
 >     dsigOut
 >   where
+>     dsigIn'                              = if correctDCOffset
+>                                              then subtractDCOffset dsigIn
+>                                              else dsigIn
 >     dsigOut                              = fromRawVector
->                                              (unwords["product", fst tags, "X", snd tags])
->                                              (VU.fromList (map finish product))
+>                                              (unwords["toTime product of", fst tags, "&", snd tags])
+>                                              (VU.fromList (map realPart product))
 >
 >     cdubsIn            :: [Complex Double]
->     cdubsIn                              = toFrequencyDomain $ VU.toList $ dsigVec dsigIn
+>     cdubsIn                              = toFrequencyDomain $ VU.toList $ dsigVec dsigIn'
+>     len1               :: Int            = length cdubsIn
 >
->     cdsigIn            :: DiscreteSig (Complex Double)
+>     cdsigIn, cdsigIn'  :: DiscreteSig (Complex Double)
 >     cdsigIn                              =
->       fromRawVector ("toFreak " ++ dsigTag dsigIn) (VU.fromList cdubsIn)
+>       fromRawVector ("toFreak " ++ dsigTag dsigIn') (VU.fromList cdubsIn)
+>
+>     cdsigIn'                             = if correctDCOffset
+>                                              then subtractDCOffsetComplex cdsigIn
+>                                              else cdsigIn
 >
 >     cdsigFR            :: DiscreteSig (Complex Double)
->     cdsigFR                              = memoizedComputeIR lowpassKs{ksLen = length cdubsIn}
+>     cdsigFR                              = memoizedComputeIR lowpassKs{ksLen = length cdubsIn, ksSr = 44_100}
 >
->     tags                                 = (dsigTag cdsigIn, dsigTag cdsigFR)
->     vecs                                 = (dsigVec cdsigIn, dsigVec cdsigFR)
+>     tags                                 = (dsigTag cdsigIn', dsigTag cdsigFR)
+>     vecs                                 = (dsigVec cdsigIn', dsigVec cdsigFR)
+>
+>     disableMultiply                     = True
 >
 >     product            :: [Complex Double]
->     product                             = toTimeDomain (VU.toList $ uncurry (VU.zipWith (*)) vecs)
+>     product                             =
+>       if disableMultiply
+>         then toTimeDomain $ VU.toList $ dsigVec cdsigIn'
+>         else toTimeDomain $ VU.toList $ uncurry (VU.zipWith (*)) vecs
 >
->     trace_FCIR                          = unwords ["fastConvolveFR\n", show cdsigIn, "\n", show cdsigFR]
->
-> finishWithMagnitudes                     = False
-> finish                                   = if finishWithMagnitudes
->                                              then magnitude
->                                              else realPart
+>     trace_FCFR                          =
+>       unwords ["fastConvolveFR\n", show dsigIn, "\n", show cdsigFR, "\n", show $ measureFrequencyResponse $ dsigVec cdsigFR
+>                                  , show dsigOut]
 >
 > toFrequencyDomain      :: forall a. WaveAudioSample a ⇒ [a] → [Complex Double]
 > toFrequencyDomain                        = doFft fft
+>
 > toTimeDomain           :: forall a. WaveAudioSample a ⇒ [a] → [Complex Double]
 > toTimeDomain                             = doFft ifft
 >
@@ -244,7 +266,7 @@ Discrete approach ==============================================================
 
 Frequency Response ====================================================================================================
 
-x-axis: frequency in cycles/sec
+x-axis: frequency in cycles/sec 0..nyq
 y-axis: amplitude ratio normalized to 0..1
 
 but first, the y-axis is modeled as from 0 to one PLUS the Q-induced bulge ratio
@@ -254,37 +276,58 @@ because the Q "bulge" magnitude is defined as (0..960) centibels ABOVE DC-gain, 
 
 second, we want to "gain" -120 centibels/octave from the "cutoff"
 
-> getFreaky              :: KernelSpec → Double → Double
-> getFreaky ks@KernelSpec{ .. }            = freakyResponse ks shapes
+> getFreaky              :: KernelData → [ResponseShape] → Double → Complex Double
+> getFreaky kd shapes xIn                         =
+>   profess
+>     (xIn >= 0)
+>     (unwords ["failure to contain negative frequencies"])
+>     (freakyResponse kd shapes xIn)
+>
+> makeShapes             :: ResponseStrategy → KernelData → [ResponseShape]
+> makeShapes rs KernelData{ .. }
+>   | traceNow trace_MS False              = undefined
+>   | otherwise                            = shapes
 >   where
->     KernelData{ .. }                     = calcKernelData ks
+>     shapes, normalShapes, allShapes
+>                        :: [ResponseShape]
+>     shapes                               = if ResponseAllPass == rs
+>                                              then allShapes
+>                                              else normalShapes
+>     normalShapes                         =
+>       [  Block width height
+>        , Bulge kdStretch height
+>        , Decline dropoffRate height]
+>     allShapes                            =
+>       [  Block kdNyq height]
 >
 >     width                                = kdFc - (kdStretch / 2)
 >     height                               = 1
 >
->     shapes             :: [ResponseShape]
->     shapes                               =
->       [  Block width height
->        , Bulge kdStretch height
->        , Decline dropoffRate height]
->     
-> freakyResponse         :: KernelSpec → [ResponseShape] → Double → Double
-> freakyResponse ks@KernelSpec{ .. } shapes xIn
->   | traceNot trace_FR False              = undefined
->   | otherwise                            = ((* ynorm) . fryXform . modelXform . frxXform) xIn
->   where
->     KernelData{ .. }                     = calcKernelData ks
+>     trace_MS                             = unwords ["makeShapes", show shapes]
 >
->     FrSummary{ .. }                      = foldl' doShape (FrSummary [] 0) shapes
+> freakyResponse         :: KernelData → [ResponseShape] → Double → Complex Double
+> freakyResponse KernelData{ .. } shapes xIn
+>   | traceNever trace_FR False            = undefined
+>   | otherwise                            = mkPolar mag phase
+>   where
+>     phase                                = if xIn <= kdNyq
+>                                              then 3*pi/2
+>                                              else pi/2
+>     xIn'                                 = if xIn <= kdNyq
+>                                              then xIn
+>                                              else 2 * kdNyq - xIn
+>     mag                                  = ((* ynorm) . fryXform . modelXform . frxXform) xIn'
+>
+>     ksum@FrSummary{ .. }                 = foldl' doShape (FrSummary [] 0) shapes
 >     FrItem{ .. }                         =
 >       professIsJust
 >         (find inVogue frsItems)
->         (unwords ["could not find an item??!? -- bad boundaries"])
+>         (unwords [show frsItems, show "inVogue", show xIn])
 >
 >     fudge1, fudge2     :: Double
->     fudge1                               = 8
+>     fudge1                               = 8 -- fromIntegral ksLen / 2
 >     ynorm              :: Double
->     ynorm                                = fudge1 / (1 + kdEQ) -- WOX instead of 1
+>     ynorm                                = fudge1 / (1 + kdEQ) -- WOX 8 instead of 1
 >     
 >     inVogue            :: FrItem → Bool
 >     inVogue FrItem{ .. }                 = xIn == clip friRange xIn
@@ -329,7 +372,7 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >       where
 >         newI                             =
 >           FrItem
->             (frsDisplacement, kdSr)
+>             (frsDisplacement, kdNyq + epsilon)
 >             kdSr
 >             (ddDown3 frsDisplacement dropoff height)
 >             (max 0)
@@ -353,7 +396,7 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >         trace_DDN                        =
 >           unwords ["ddNorm2", show (dLeft, dRight, xFrom, ratio)]
 >
->     fudge2                               = 100 -- WOX instead of 2 (that represented one octave)
+>     fudge2                               = 2 -- WOX instead of 2 (that represented one octave) (was 100)
 >
 >     ddDown3            :: Double → Double → Double → (Double → Double)
 >     ddDown3 fLeft rate height xFrom
@@ -368,7 +411,7 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >     startUp                              = controlConvex
 >     finishDown c                         = controlConvex (1 - c)
 >
->     trace_FR                             = unwords ["freakyResponse", show ynorm]
+>     trace_FR                             = unwords ["freakyResponse", show ynorm, show ksum]
 
 WAV ===================================================================================================================
 
@@ -406,16 +449,16 @@ Type declarations ==============================================================
 >     lowpassType        :: ResonanceType
 >   , lowpassKs          :: KernelSpec
 >   } deriving (Eq, Show)
-> lowpassFc, lowpassQ    :: Lowpass -> Double
+> lowpassFc, lowpassQ    :: Lowpass → Double
 > lowpassFc lp                             = fromAbsoluteCents lp.lowpassKs.ksFc -- (ksFc $ lowpassKs lp)
 > lowpassQ lp                              = fromIntegral      (ksQ  $ lowpassKs lp)
 >
 > data KernelData                          =
 >   KernelData {
 >     kdFc               :: Double         -- filter cutoff (frequency)
->   , kdEQ               :: Double         -- effective Q ()
+>   , kdEQ               :: Double         -- effective Q (centibels)
 >   , kdSr               :: Double         -- sample rate (frequency)
->   , kdLen              :: Double         -- length of the FR (or IR)
+>   , kdNyq              :: Double         -- half-length of the FR (or IR)
 >   , kdStretch          :: Double         -- bandwidth of center frequency (range)
 >   , kdSpread           :: Int            -- bandwidth of show-able range
 >   } deriving Show
@@ -431,7 +474,7 @@ Type declarations ==============================================================
 >   where
 >     fc, effectiveQ, stretch, fudge4
 >                        :: Double
->     fudge4                               = 8
+>     fudge4                               = 4
 >     fc                                   = fromAbsoluteCents ksFc
 >     effectiveQ                           = fromCentibels (fromIntegral ksQ) / fudge4
 >     stretch                              = if ksQ == 0 then 0 else fc / bulgeDiv
@@ -440,10 +483,18 @@ Type declarations ==============================================================
 >   DiscreteStats {
 >     dsigLength         :: Int
 >     , stDCOffset       :: a
->     , stSquare         :: a
+>     , stVariance       :: a
 >     , stMaxAmp         :: Double} deriving Show
 > defDiscreteStats       :: (WaveAudioSample a, VU.Unbox a) ⇒ DiscreteStats a
 > defDiscreteStats                         = DiscreteStats 0 azero azero azero
+> data FrequencyResponseStats              =
+>   FrequencyResponseStats {
+>       stRealExtent     :: (Double, Double)
+>     , stImagExtent     :: (Double, Double)} deriving Show
+> defFrequencyResponseStats
+>                        :: FrequencyResponseStats
+> defFrequencyResponseStats                =
+>   FrequencyResponseStats (upsilon, -upsilon) (upsilon, -upsilon)
 > data DiscreteSig a                       =
 >   DiscreteSig {
 >     dsigTag            :: String
@@ -455,26 +506,33 @@ Type declarations ==============================================================
 > sane                   :: (WaveAudioSample a, VU.Unbox a) ⇒ DiscreteSig a → Bool
 > sane dsig                                =
 >   profess
->     (maxAmp < 1_000_000)
+>     (maxAmp < upsilon)
 >     (unwords ["insanely large amplitude", show maxAmp])
 >     True
 >   where
 >     maxAmp                               = dsig.dsigStats.stMaxAmp
 >
-> data DiscreteSettings =
->   DiscreteSettings {
->     qqBulgeDiv         :: Double
->   , qqDropoffRate      :: Double
->   , qqImpulseSize      :: Int
->   , qqUseFastFourier   :: Bool} deriving Show
+> subtractDCOffset       :: DiscreteSig Double → DiscreteSig Double
+> subtractDCOffset dIn                     =
+>   fromRawVector (dsigTag dIn) (VU.map (\x → x - dIn.dsigStats.stDCOffset) dIn.dsigVec)
 >
-> data ResponseShape =
+> subtractDCOffsetComplex
+>                        :: DiscreteSig (Complex Double) → DiscreteSig (Complex Double)
+> subtractDCOffsetComplex dIn                     =
+>   dIn -- fromRawVector (dsigTag dIn) (VU.map (\x → x - dIn.dsigStats.stDCOffset) dIn.dsigVec)
+>
+> data ResponseShape                       =
 >     Block Double Double                  -- width height
 >   | Bulge Double Double                  -- width height
 >   | Decline Double Double                -- dropoff height
->     deriving Show
+>     deriving (Eq, Show)
 >
-> data FrItem =
+> data ResponseStrategy                    =
+>     ResponseNormal
+>   | ResponseAllPass
+>     deriving (Eq, Show)
+>
+> data FrItem                              =
 >   FrItem {
 >     friRange           :: (Double, Double)
 >   , friSampleRate      :: Double
@@ -491,13 +549,23 @@ Type declarations ==============================================================
 >     frsItems           :: [FrItem]
 >   , frsDisplacement    :: Double} deriving Show
 >
-> type ObjectData                          = Double
-> defObjectData          :: ObjectData     = 0
+> data DiscreteSettings =
+>   DiscreteSettings {
+>     qqBulgeDiv         :: Double
+>   , qqDropoffRate      :: Double
+>   , qqImpulseSize      :: Int
+>   , qqDisableConvo
+>   , qqUseFastFourier   :: Bool
+>   , qqCorrectDCOffset  :: Bool
+>   , qqInvertFr         :: Bool} deriving Show
 >
 > bulgeDiv                                 = qqBulgeDiv                   defD
 > dropoffRate                              = qqDropoffRate                defD
 > impulseSize                              = qqImpulseSize                defD
+> disableConvo                             = qqDisableConvo               defD
 > useFastFourier                           = qqUseFastFourier             defD
+> correctDCOffset                          = qqCorrectDCOffset            defD
+> invertFR                                 = qqInvertFr                   defD
 >
 > defD                   :: DiscreteSettings
 > defD =
@@ -505,6 +573,9 @@ Type declarations ==============================================================
 >     qqBulgeDiv                           = 20                           -- bulge bandwidth is frequency / div
 >   , qqDropoffRate                        = 60                           -- centibels per octave
 >   , qqImpulseSize                        = 2_048                        -- small "default" size
->   , qqUseFastFourier                     = True}
+>   , qqDisableConvo                       = False
+>   , qqUseFastFourier                     = True
+>   , qqCorrectDCOffset                    = False
+>   , qqInvertFr                           = False}
 
 The End

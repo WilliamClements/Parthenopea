@@ -73,12 +73,17 @@ Utilities ======================================================================
 > traceNot   :: String → a → a
 > traceNot str expr = expr
 >
-> hzToAp                 :: Double -> AbsPitch
+> hzToAp                 :: Double → AbsPitch
 > hzToAp freak                             =
 >   round $ fromIntegral (absPitch (A,4)) + 12 * (logBase 2 freak - logBase 2 440)
 >
-> theE                   :: Double
+> theE, epsilon, upsilon :: Double
 > theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
+> epsilon                                  = 0.000_001          -- a generous little epsilon
+> upsilon                                  = 100_000_000_000    -- a scrawny big upsilon
+>
+> fixM                   :: Int
+> fixM                                     = 512
 >
 > freakRange             :: (Double, Double)
 >                                          = (20, 20_000)
@@ -1686,8 +1691,8 @@ Edit the following =============================================================
 > defC                   :: ControlSettings
 > defC =
 >   ControlSettings {
->     qqDiagnosticsEnabled                 = True
->   , qqSkipReporting                      = True
+>     qqDiagnosticsEnabled                 = False
+>   , qqSkipReporting                      = False
 >   , qqSkipGlissandi                      = False
 >   , qqReplacePerCent                     = 0
 >   , qqUsingPlayCache                     = False

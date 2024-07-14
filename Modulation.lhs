@@ -103,7 +103,7 @@ Modulator management ===========================================================
 >         linkageInOk                      =
 >           FromLinked /= m8rSource || maybe False (not . null) (Map.lookup (ToLink m8rId) byModDestType)
 >         linkageOutOk                     =
->           maybe True (\w -> (isJust . find (\m → mrModId m == w)) ssCurrent) (outGoing m8rDest)
+>           maybe True (\w → (isJust . find (\m → mrModId m == w)) ssCurrent) (outGoing m8rDest)
 >         
 >         m8rId                            = mrModId m8r
 >         m8rSource                        = msSource (mrModSrc m8r)

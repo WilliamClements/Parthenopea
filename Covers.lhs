@@ -33,8 +33,8 @@ Saucy Sailor ===================================================================
 >     $ instrument Clarinet
 >     $ addVolume 100
 >     $ transpose (-12)
->     $ line [f 5 en]
-> {- [
+>     $ line
+>       [
 >    --  3        Come      me       ow -     -n      one
 >           line [f 5 en,  g 5 en,  f 5 en, e 5 en,  c 5 qn],
 >    --  3         Come      me      fai -    -ai-    -ai-   -air-    one
@@ -42,8 +42,8 @@ Saucy Sailor ===================================================================
 >    --  3         Co-      -ome      now    un- 
 >           line [e 5 en,  f 5 en,  g 5 qn, c 6 qn],
 >    --  3         to-      -o       me
->           line [bf 5 en, a 5 en, g 5 hn]]
-> -}
+>           line [bf 5 en, a 5 en, g 5 hn]
+>       ]
 >
 > ssailor dynMap =
 >     removeZeros
