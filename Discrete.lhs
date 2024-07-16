@@ -41,7 +41,7 @@ Discrete approach ==============================================================
 >   profess
 >     ((ksLen > 0) && not (null ys'))
 >     (unwords ["computeFR bad input"])
->     (fromRawVector tag' (VU.fromList ys'))
+>     (fromRawVector tag' vec')
 >   where
 >     trace_CIR                            = unwords ["computeFR", show ks, show shapes]
 >
@@ -58,6 +58,7 @@ Discrete approach ==============================================================
 >     -- slow path then runs it through fft to create Impulse Response
 >     ys'                                 = if ksFast then ys    else toTimeDomain ys
 >     tag'                                = if ksFast then "FR!" else "IR!"
+>     vec'                                = VU.fromList ys'
 >
 > memoizedComputeIR = memo computeFR
 >
@@ -170,7 +171,7 @@ Discrete approach ==============================================================
 >
 > slowConvolveIR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > slowConvolveIR dsigIn Lowpass{ .. }
->   | traceNot trace_CIR False             = undefined
+>   | traceNow trace_CIR False             = undefined
 >   | otherwise                            =
 >   profess
 >     (ok x1 && ok x2 && ok x3 && sane dsigOut)
@@ -182,7 +183,8 @@ Discrete approach ==============================================================
 >       fromRawVector ("widen " ++ dsigTag dsigIn) $ VU.map (:+ 0) (dsigVec dsigIn)
 >
 >     cdsigIR            :: DiscreteSig (Complex Double)
->     cdsigIR                              = memoizedComputeIR lowpassKs
+>     cdsigIR                              =
+>       memoizedComputeIR lowpassKs{ksLen = VU.length (dsigVec cdsigIn), ksSr = 44_100}
 >
 >     x1, x2, x3         :: VU.Vector (Complex Double)
 >     x1                                   = dsigVec cdsigIn
@@ -200,7 +202,7 @@ Discrete approach ==============================================================
 >
 >     trace_CIR                            =
 >       unwords ["slowConvolveIR\n", show dsigIn
->              , "\n X \n", show dsigIn
+>              , "\n X \n", show cdsigIR
 >              , "\n = \n", show dsigOut]
 >
 > fastConvolveFR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
@@ -592,7 +594,7 @@ Type declarations ==============================================================
 >   , qqDropoffRate                        = 60                           -- centibels per octave
 >   , qqImpulseSize                        = 2_048                        -- small "default" size
 >   , qqDisableConvo                       = False
->   , qqDisableMultiply                    = True
+>   , qqDisableMultiply                    = False
 >   , qqUseFastFourier                     = True
 >   , qqCorrectDCOffset                    = False
 >   , qqChopSignal                         = False}
