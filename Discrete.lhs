@@ -29,7 +29,6 @@ June 17, 2024
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..), collapse )
 > import FRP.UISF.AuxFunctions ( delay )
-> import HSoM.Examples.FFT
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea
   
@@ -86,7 +85,7 @@ Discrete approach ==============================================================
 >                           → Signal p () (Double, Double)
 >                           → Signal p () (Double, Double)
 > applyConvolutionStereo (lowpL, lowpR) secsToPlay sIn
->   | traceNow trace_AC False              = undefined
+>   | traceNot trace_AC False              = undefined
 >   | otherwise                            = toContinuousSig pairs'
 >   where
 >     pairs                                = toSamples secsToPlay sIn
@@ -95,12 +94,10 @@ Discrete approach ==============================================================
 >     dsigInL                              = fromRawVector "input left"  $ VU.fromList (map fst pairs)
 >     dsigInR                              = fromRawVector "input right" $ VU.fromList (map snd pairs)
 >
->     (resultL, resultR)                   =
->       if disableConvo
->         then (dsigInL, dsigInR)
->         else if lowpL.lowpassKs.ksFast
->           then (fastConvolveFR dsigInL lowpL, fastConvolveFR dsigInR lowpR)
->           else (slowConvolveIR dsigInL lowpL, slowConvolveIR dsigInR lowpR)
+>     (resultL, resultR)
+>       | disableConvo                     = (dsigInL, dsigInR)
+>       | lowpL.lowpassKs.ksFast           = (fastConvolveFR dsigInL lowpL, fastConvolveFR dsigInR lowpR)
+>       | otherwise                        = (slowConvolveIR dsigInL lowpL, slowConvolveIR dsigInR lowpR)
 >
 >     pairs'                               =
 >       fromRawVector
@@ -110,7 +107,7 @@ Discrete approach ==============================================================
 >     kN'                                  = VU.length (dsigVec pairs')
 >
 >     trace_AC                             =
->       unwords ["applyConvolutionStereo", show kN, show kN', "\n", show resultL, "\n", show resultR]
+>       unwords ["applyConvolutionStereo", show kN, show kN', "\nresultL:", show resultL, "\nresultR:", show resultR]
 >
 > fromContinuousSig      :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a, Show a) ⇒
 >                           String → Double → Signal p () a → Maybe (DiscreteSig a)
@@ -151,6 +148,8 @@ Discrete approach ==============================================================
 >     sfolder stats@DiscreteStats{ .. } d  =
 >       DiscreteStats
 >         (dsigLength + 1)
+>         (stNumZeros + if aamp d < epsilon then 1 else 0)
+>         (stNZ16th   + if aamp d < epsilon && dsigLength < 512 then 1 else 0)
 >         (aadd stDCOffset         d)
 >         (aadd stVariance         (amul d d))
 >         (max  stMaxAmp           (aamp d))
@@ -206,7 +205,7 @@ Discrete approach ==============================================================
 >
 > fastConvolveFR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > fastConvolveFR dsigIn Lowpass{ .. }
->   | traceNow trace_FCFR False            = undefined
+>   | traceNot trace_FCFR False            = undefined
 >   | otherwise                            =
 >   profess
 >     (sane dsigOut)
@@ -217,8 +216,8 @@ Discrete approach ==============================================================
 >                                              then subtractDCOffset dsigIn
 >                                              else dsigIn
 >     dsigOut                              = fromRawVector
->                                              (unwords["toTime product of", fst tags, "&", snd tags])
->                                              (VU.fromList (map realPart product))
+>                                              (unwords["toTime.product(", fst tags, "&", snd tags, ")"])
+>                                              (VU.reverse (VU.fromList (map realPart product)))
 >
 >     cdubsIn            :: [Complex Double]
 >     cdubsIn                              = toFrequencyDomain $ VU.toList $ dsigVec dsigIn'
@@ -237,8 +236,6 @@ Discrete approach ==============================================================
 >
 >     tags                                 = (dsigTag cdsigIn', dsigTag cdsigFR)
 >     vecs                                 = (dsigVec cdsigIn', dsigVec cdsigFR)
->
->     disableMultiply                     = True
 >
 >     product            :: [Complex Double]
 >     product                             =
@@ -261,8 +258,25 @@ Discrete approach ==============================================================
 > doFft fftFun as                          = fftFun cds
 >   where
 >     inLen                                = length as
->     newLen                               = sampleUp inLen
+>     newLen                               = if chopSignal
+>                                              then sampleDown inLen
+>                                              else sampleUp inLen
 >     cds                                  = map acomplex as ++ replicate (newLen - inLen) 0
+>
+> interpVal              :: Double → Array Int Double → Int → Double
+> interpVal fact vSource ixAt          = profess
+>                                              (ix0 < (snd . bounds) vSource)
+>                                              "out of range (interpVal)"
+>                                              (dFirst + (dSecond - dFirst) * (dixAt - fromIntegral ix0))
+>       where
+>         dixAt          :: Double         = fromIntegral ixAt / fact
+>         ix0            :: Int            = truncate dixAt
+>         dFirst         :: Double         = vSource ! ix0
+>         dSecond        :: Double         = if ix0 == (snd . bounds) vSource
+>                                              then dFirst
+>                                              else vSource ! (ix0 + 1)
+>
+>         msg                              = unwords ["interpVal ", show (ixAt, dixAt, ix0)]
 
 Frequency Response ====================================================================================================
 
@@ -285,7 +299,7 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >
 > makeShapes             :: ResponseStrategy → KernelData → [ResponseShape]
 > makeShapes rs KernelData{ .. }
->   | traceNow trace_MS False              = undefined
+>   | traceNot trace_MS False              = undefined
 >   | otherwise                            = shapes
 >   where
 >     shapes, normalShapes, allShapes
@@ -482,11 +496,13 @@ Type declarations ==============================================================
 > data DiscreteStats a                     =
 >   DiscreteStats {
 >     dsigLength         :: Int
+>     , stNumZeros       :: Int
+>     , stNZ16th         :: Int
 >     , stDCOffset       :: a
 >     , stVariance       :: a
 >     , stMaxAmp         :: Double} deriving Show
 > defDiscreteStats       :: (WaveAudioSample a, VU.Unbox a) ⇒ DiscreteStats a
-> defDiscreteStats                         = DiscreteStats 0 azero azero azero
+> defDiscreteStats                         = DiscreteStats 0 0 0 azero azero 0
 > data FrequencyResponseStats              =
 >   FrequencyResponseStats {
 >       stRealExtent     :: (Double, Double)
@@ -554,18 +570,20 @@ Type declarations ==============================================================
 >     qqBulgeDiv         :: Double
 >   , qqDropoffRate      :: Double
 >   , qqImpulseSize      :: Int
->   , qqDisableConvo
+>   , qqDisableConvo     :: Bool
+>   , qqDisableMultiply  :: Bool
 >   , qqUseFastFourier   :: Bool
 >   , qqCorrectDCOffset  :: Bool
->   , qqInvertFr         :: Bool} deriving Show
+>   , qqChopSignal       :: Bool} deriving Show
 >
 > bulgeDiv                                 = qqBulgeDiv                   defD
 > dropoffRate                              = qqDropoffRate                defD
 > impulseSize                              = qqImpulseSize                defD
 > disableConvo                             = qqDisableConvo               defD
+> disableMultiply                          = qqDisableMultiply            defD
 > useFastFourier                           = qqUseFastFourier             defD
 > correctDCOffset                          = qqCorrectDCOffset            defD
-> invertFR                                 = qqInvertFr                   defD
+> chopSignal                               = qqChopSignal                 defD
 >
 > defD                   :: DiscreteSettings
 > defD =
@@ -574,8 +592,9 @@ Type declarations ==============================================================
 >   , qqDropoffRate                        = 60                           -- centibels per octave
 >   , qqImpulseSize                        = 2_048                        -- small "default" size
 >   , qqDisableConvo                       = False
+>   , qqDisableMultiply                    = True
 >   , qqUseFastFourier                     = True
 >   , qqCorrectDCOffset                    = False
->   , qqInvertFr                           = False}
+>   , qqChopSignal                         = False}
 
 The End

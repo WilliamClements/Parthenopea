@@ -305,8 +305,9 @@ Gold ===========================================================================
 >    $ tempo 2
 >    $ keysig C Mixolydian
 >    $ bandPart goldLead
->    $ times 2
->      (line [c 4 hn,  c 5 dhn]
+>    -- $ times 2
+>      (line [c 4 hn,  c 5 dhn])
+> {-
 >       :+: addDur qn [ c 5, bf 4,  a 4,  g 4,
 >                       g 4,  f 4,  a 4,  g 4,
 >                       g 4,  f 4,  a 4,  g 4,
@@ -315,6 +316,7 @@ Gold ===========================================================================
 >                       g 4,  f 4,  e 4,  d 4,
 >                       d 4, bf 3, bf 3])
 >       :+: c 4 hn
+> -}
 >   where
 >     goldLead                             = replace goldLead_ dynMap
 

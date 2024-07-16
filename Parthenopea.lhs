@@ -79,7 +79,7 @@ Utilities ======================================================================
 >
 > theE, epsilon, upsilon :: Double
 > theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
-> epsilon                                  = 0.000_001          -- a generous little epsilon
+> epsilon                                  = 0.000_000_01       -- a generous little epsilon
 > upsilon                                  = 100_000_000_000    -- a scrawny big upsilon
 >
 > fixM                   :: Int
@@ -1142,6 +1142,18 @@ The use of following functions requires that their input is normalized between 0
 >                                              then 0
 >                                              else 1
 >
+>
+> class Coeff a where
+>   czero                :: a
+>
+> instance Coeff (Complex Double) where
+>   czero                :: Complex Double
+>   czero                                  = 0 :+ 0
+>
+> instance Coeff Double where
+>   czero                :: Double
+>   czero                                  = 0
+>
 > instance AudioSample ((Double, Double), (ModSignals, ModSignals)) where
 >    zero = ((0,0),(defModSignals, defModSignals))
 >    mix ((a,b),(msL,msR)) ((c,d),(_,_)) = ((a+c,b+d), (msL, msR))
@@ -1223,25 +1235,6 @@ The use of following functions requires that their input is normalized between 0
 > instance Clock SlwRate where
 >   rate _ = 4.41
 > type SlwSF a b  = SigFun SlwRate a b
->
-> sumUpFft               :: [[Double]] → Double
-> sumUpFft xs                              =
->   let
->     (t, l)                               = foldl' (summer (qqNumTakeFftChunks defC)) (0,0) xs
->   in t/l
->
-> summer                 :: Int → (Double, Double) → [Double] → (Double, Double)
-> summer n (t, l) xs                   = (t', l')
->   where
->     n' = min n (length xs)
->     t' = t + sum (take n' xs)
->     l' = l + fromIntegral n'
->
-> showFft                :: Int → [[Double]] → String
-> showFft nChunks vFft                     = concatMap (showChunk vFft) [0..]
->   where
->     showChunk          :: [[Double]] → Int → String
->     showChunk vFft ix                    = show ix ++ ">" ++ show (vFft !! ix) ++ "\n"
 >
 > type Node = Int
 >
@@ -1487,6 +1480,12 @@ returns the lowest power of 2 greater than OR EQUAL TO the input value
 >   if i <= 0
 >     then error "out of range for sampleUp"
 >     else head $ dropWhile (< i) (iterate' (* 2) 1)
+>
+> sampleDown             :: Int → Int
+> sampleDown i                             =
+>   if i <= 0 || i > 2_147_483_648
+>     then error "out of range for sampleDown"
+>     else head $ dropWhile (> i) (iterate' (`div` 2) 2_147_483_648)
 >
 > breakUp :: (Double, Double) → Double → Int → [Int]
 > breakUp (xmin, xmax) base nDivs =
