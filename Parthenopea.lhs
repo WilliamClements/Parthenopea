@@ -43,6 +43,7 @@ December 12, 2022
 > import Data.Ratio ( approxRational )
 > import Data.Set (Set)
 > import qualified Data.Set                as Set
+> import qualified Data.Vector.Unboxed     as VU
 > import Data.Word
 > import Debug.Trace ( trace )
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg, Table, tableSinesN, osc )
@@ -1100,6 +1101,9 @@ Sampling =======================================================================
 >     numChannels                          = numChans (undefined :: a)
 >     numSamples                           = truncate (secs * sr)
 >
+> toFftSamples           :: ∀ a p. (AudioSample a, VU.Unbox a, Clock p) ⇒ Int → Signal p () a → VU.Vector a
+> toFftSamples numSamples sig              = VU.fromList $ take numSamples $ unfold $ strip sig
+>
 > toSampleDubs           :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [Double]
 > toSampleDubs secs sig                    = take numDubs $ concatMap collapse $ unfold $ strip sig
 >   where
@@ -1304,6 +1308,9 @@ Conversion functions and general helpers =======================================
 >
 > wrap                   :: (Ord n, Num n) ⇒ n → n → n
 > wrap val bound                           = if val > bound then wrap val (val-bound) else val
+>
+> accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
+> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
 >
 > clip                   :: Ord n ⇒ (n, n) → n → n
 > clip (lower, upper) val                  = min upper (max lower val)
@@ -1696,7 +1703,7 @@ Edit the following =============================================================
 >     qqDiagnosticsEnabled                 = False
 >   , qqSkipReporting                      = False
 >   , qqSkipGlissandi                      = False
->   , qqMinImpulseSize                     = 16_384
+>   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0
 >   , qqUsingPlayCache                     = False
 >   , qqDumpFftChunks                      = False

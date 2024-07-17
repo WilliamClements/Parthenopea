@@ -306,7 +306,7 @@ Gold ===========================================================================
 >    $ keysig C Mixolydian
 >    $ bandPart goldLead
 >    -- $ times 2
->      (line [c 4 hn,  c 5 dhn])
+>      (line [c 4 en, c 5 en, rest wn, c 4 hn])
 > {-
 >       :+: addDur qn [ c 5, bf 4,  a 4,  g 4,
 >                       g 4,  f 4,  a 4,  g 4,

@@ -19,6 +19,7 @@ June 17, 2024
 > import Control.Arrow
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
+> import qualified Data.Bifunctor          as BF
 > import Data.Complex
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List ( foldl', iterate', find )
@@ -36,14 +37,14 @@ Discrete approach ==============================================================
 
 > computeFR          :: KernelSpec → DiscreteSig (Complex Double)
 > computeFR ks@KernelSpec{ .. }
->   | traceNow trace_CIR False             = undefined
+>   | traceNow trace_CFR False             = undefined
 >   | otherwise                            =
 >   profess
 >     ((ksLen > 0) && not (null ys'))
 >     (unwords ["computeFR bad input"])
 >     (fromRawVector tag' vec')
 >   where
->     trace_CIR                            = unwords ["computeFR", show ks, show shapes]
+>     trace_CFR                            = unwords ["computeFR", show ks, show shapes]
 >
 >     kd                                   = calcKernelData ks
 >     shapes                               = makeShapes ResponseNormal kd
@@ -89,11 +90,13 @@ Discrete approach ==============================================================
 >   | traceNot trace_AC False              = undefined
 >   | otherwise                            = toContinuousSig pairs'
 >   where
->     pairs                                = toSamples secsToPlay sIn
->     kN                                   = length pairs
+>     baseLen            :: Int            = truncate (secsToPlay * rate (undefined :: p))
+>     fftLen                               = sampleUp baseLen
+>     
+>     pairs                                = toFftSamples fftLen sIn
 >
->     dsigInL                              = fromRawVector "input left"  $ VU.fromList (map fst pairs)
->     dsigInR                              = fromRawVector "input right" $ VU.fromList (map snd pairs)
+>     dsigInL                              = fromRawVector "input left"  $ VU.map fst pairs
+>     dsigInR                              = fromRawVector "input right" $ VU.map snd pairs
 >
 >     (resultL, resultR)
 >       | disableConvo                     = (dsigInL, dsigInR)
@@ -103,12 +106,11 @@ Discrete approach ==============================================================
 >     pairs'                               =
 >       fromRawVector
 >       "convolved"
->       (VU.zip (VU.slice 0 kN $ dsigVec resultL)
->               (VU.slice 0 kN $ dsigVec resultR))
->     kN'                                  = VU.length (dsigVec pairs')
+>       (VU.zip (VU.slice 0 baseLen $ dsigVec resultL)
+>               (VU.slice 0 baseLen $ dsigVec resultR))
 >
 >     trace_AC                             =
->       unwords ["applyConvolutionStereo", show kN, show kN', "\ndsigInL:", show dsigInL, "\ndsigInR:", show dsigInR]
+>       unwords ["applyConvolutionStereo", show baseLen, show fftLen, "\ndsigInL:", show dsigInL, "\ndsigInR:", show dsigInR]
 >
 > fromContinuousSig      :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a, Show a) ⇒
 >                           String → Double → Signal p () a → Maybe (DiscreteSig a)
@@ -121,7 +123,7 @@ Discrete approach ==============================================================
 >
 > toContinuousSig        :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a, Show a) ⇒
 >                           DiscreteSig a → Signal p () a
-> toContinuousSig DiscreteSig{ .. }
+> toContinuousSig ds@DiscreteSig{ .. }
 >   | traceNot trace_TCS False             = undefined
 >   | otherwise                            =
 >     proc ()                              → do
@@ -131,7 +133,7 @@ Discrete approach ==============================================================
 >       outA                               ⤙ (VU.!) dsigVec (ii' `mod` dsigLength)
 >   where
 >     DiscreteStats{ .. }                  = dsigStats
->     trace_TCS                            = unwords ["toContinuousSig", show dsigStats]
+>     trace_TCS                            = unwords ["toContinuousSig", show ds]
 >
 > fromRawVector          :: (WaveAudioSample a, VU.Unbox a) ⇒ String → VU.Vector a → DiscreteSig a
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
@@ -169,12 +171,9 @@ Discrete approach ==============================================================
 >         (accommodate stRealExtent (realPart (acomplex d)))
 >         (accommodate stImagExtent (imagPart (acomplex d)))
 >
-> accommodate            :: (Double, Double) -> Double -> (Double, Double)
-> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
->
 > slowConvolveIR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > slowConvolveIR dsigIn Lowpass{ .. }
->   | traceNow trace_CIR False             = undefined
+>   | traceNow trace_SCIR False            = undefined
 >   | otherwise                            =
 >   profess
 >     (ok x1 && ok x2 && ok x3 && sane dsigOut)
@@ -203,7 +202,7 @@ Discrete approach ==============================================================
 >
 >     ok vec                               = VU.length vec > 0
 >
->     trace_CIR                            =
+>     trace_SCIR                           =
 >       unwords ["slowConvolveIR\n", show dsigIn
 >              , "\n X \n", show cdsigIR
 >              , "\n = \n", show dsigOut]
@@ -223,9 +222,12 @@ Discrete approach ==============================================================
 >     dsigOut'                             = if correctDCOffset
 >                                              then subtractDCOffset dsigOut
 >                                              else dsigOut
->     dsigOut                              = fromRawVector
->                                              (unwords["toTime.product(", fst tags, "&", snd tags, ")"])
->                                              (VU.reverse (VU.fromList (map realPart result)))
+>     dsigOut                              =
+>       fromRawVector
+>         (unwords["toTime.product(", fst tags, "&", snd tags, ")"])
+>         (if reverseSignal
+>           then VU.reverse (VU.fromList (map realPart result))
+>           else VU.fromList (map realPart result))
 >
 >     cdubsIn            :: [Complex Double]
 >     cdubsIn                              = toFrequencyDomain $ VU.toList $ dsigVec dsigIn'
@@ -239,21 +241,27 @@ Discrete approach ==============================================================
 >     cdsigFR                              = memoizedComputeIR lowpassKs{ksLen = length cdubsIn, ksSr = 44_100}
 >
 >     tags                                 = (dsigTag cdsigIn, dsigTag cdsigFR)
->     vecs                                 = (dsigVec $ tracer "cdsigIn" cdsigIn, dsigVec cdsigFR)
+>     vecs                                 = (dsigVec cdsigIn, dsigVec cdsigFR)
+>     lens                                 = BF.bimap VU.length VU.length vecs
+>     lensOK                               = uncurry (==) lens
 >
 >     product            :: VU.Vector (Complex Double)
->     product                              = uncurry (VU.zipWith (*)) vecs
+>     product                              =
+>       profess
+>         lensOK
+>         (unwords ["multiplicand lengths incompatible", show lens])
+>         uncurry (VU.zipWith (*)) vecs
 >
 >     result             :: [Complex Double]
->     result                             =
+>     result                               =
 >       if disableMultiply
 >         then toTimeDomain cdubsIn
 >         else toTimeDomain $ VU.toList product
 >
->     trace_FCFR                          =
->       unwords ["fastConvolveFR\n", show $ measureFrequencyResponse (dsigVec cdsigIn)
->                                  , show $ measureFrequencyResponse (dsigVec cdsigFR)
->                                  , show $ measureFrequencyResponse product]
+>     trace_FCFR                           =
+>       unwords ["fastConvolveFR\n", show cdsigIn
+>                                  , show cdsigFR
+>                                  , show dsigOut]
 >
 > toFrequencyDomain      :: forall a. WaveAudioSample a ⇒ [a] → [Complex Double]
 > toFrequencyDomain                        = doFft fft
@@ -526,7 +534,7 @@ Type declarations ==============================================================
 > instance forall a. (Show a, WaveAudioSample a, VU.Unbox a) ⇒ Show (DiscreteSig a) where
 >   show                 :: DiscreteSig a → String
 >   show DiscreteSig{ .. }                 =
->     unwords [show dsigTag, show dsigStats, show (measureFrequencyResponse dsigVec)]
+>     unwords [show (dsigTag, dsigStats, measureFrequencyResponse dsigVec)]
 > sane                   :: (WaveAudioSample a, VU.Unbox a) ⇒ DiscreteSig a → Bool
 > sane dsig                                =
 >   profess
@@ -572,6 +580,7 @@ Type declarations ==============================================================
 >   DiscreteSettings {
 >     qqBulgeDiv         :: Double
 >   , qqDropoffRate      :: Double
+>   , qqReverseSignal    :: Bool
 >   , qqDisableConvo     :: Bool
 >   , qqDisableMultiply  :: Bool
 >   , qqUseFastFourier   :: Bool
@@ -582,6 +591,8 @@ Type declarations ==============================================================
 > -- what fraction of cutoff freak affected by nonzero Q
 > dropoffRate                              = qqDropoffRate                defD
 > -- how many centibels per octave to reduce magnitude after cutoff freq
+> reverseSignal                            = qqReverseSignal              defD
+> -- whether to reverse result to move the zeros to the end
 > disableConvo                             = qqDisableConvo               defD
 > -- if response type is convo, no modulation at all
 > disableMultiply                          = qqDisableMultiply            defD
@@ -598,6 +609,7 @@ Type declarations ==============================================================
 >   DiscreteSettings {
 >     qqBulgeDiv                           = 20                           -- bulge bandwidth is cutoff freak / div
 >   , qqDropoffRate                        = 60                           -- centibels per octave
+>   , qqReverseSignal                      = False
 >   , qqDisableConvo                       = False
 >   , qqDisableMultiply                    = False
 >   , qqUseFastFourier                     = True
