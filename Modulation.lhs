@@ -750,15 +750,25 @@ Type declarations ==============================================================
 >   , qqCascadeConfig    :: Int} deriving Show
 >
 > useModulators                            = qqUseModulators              defM
+> -- False to suppress all use of Modulators
 > chorusAllPercent                         = qqChorusAllPerCent           defM
+> -- force given Chorus level on ALL notes
 > reverbAllPercent                         = qqReverbAllPerCent           defM
+> -- force given Reverb level on ALL notes
 > useDefaultMods                           = qqUseDefaultMods             defM
+> -- False to suppress all use of defaul Modulators
 > loCutoffReson                            = qqLoCutoffReson              defM
+> -- response type if fc is less than 10 thousand
 > hiCutoffReson                            = qqHiCutoffReson              defM
+> -- response type if fc is greater than or equal to 10 thousand
 > useLFO                                   = qqUseLFO                     defM
+> -- False to suppress all uses of the low frequency oscillator
 > chorusRate                               = qqChorusRate                 defM
+> -- configures chorus param
 > chorusDepth                              = qqChorusDepth                defM
+> -- configures chorus param
 > cascadeConfig                            = qqCascadeConfig              defM
+> -- number of times to cascade the filter
 >
 > defM                   :: ModulationSettings
 > defM =

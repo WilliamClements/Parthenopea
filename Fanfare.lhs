@@ -902,7 +902,7 @@ Way Pos' T' Purple =============================================================
 > littlePendingtonArnt =
 >   instrument TenorSax $ addVolume 70 (e 3 dwn)
 >
-> littleWay  = instrument HonkyTonkPiano $ addVolume 100 $ addDur qn [bf 4, a 4, g 4]
+> littleWay  = instrument HonkyTonkPiano $ addVolume 100 $ addDur en [bf 4, a 4, g 4]
 
 Pendington Arnt  ======================================================================================================
 

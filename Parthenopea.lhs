@@ -1473,13 +1473,15 @@ Returns sample point as (normalized) Double
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
 
-returns the lowest power of 2 greater than OR EQUAL TO the input value
+sampleUp returns the lowest power of 2 greater than OR EQUAL TO the input value (min 2**14)
+sampleDown returns the highest power of 2 less than OR EQUAL TO the input value (max 2**31)
+breakUp returns a list of integers approximating divisions of a floating point range
 
 > sampleUp               :: Int → Int
 > sampleUp i                               =
 >   if i <= 0
 >     then error "out of range for sampleUp"
->     else head $ dropWhile (< i) (iterate' (* 2) 1)
+>     else max minImpulseSize (head $ dropWhile (< i) (iterate' (* 2) 1))
 >
 > sampleDown             :: Int → Int
 > sampleDown i                             =
@@ -1507,7 +1509,6 @@ returns the lowest power of 2 greater than OR EQUAL TO the input value
 >
 > theJ :: Complex Double
 > theJ = 0 :+ 1
->
 
 r is the resonance radius, w0 is the angle of the poles and b0 is the gain factor
 
@@ -1672,6 +1673,7 @@ Configurable parameters ========================================================
 > diagnosticsEnabled                       = qqDiagnosticsEnabled         defC 
 > skipReporting                            = qqSkipReporting              defC 
 > skipGlissandi                            = qqSkipGlissandi              defC
+> minImpulseSize                           = qqMinImpulseSize             defC
 > replacePerCent                           = qqReplacePerCent             defC
 > usingPlayCache                           = qqUsingPlayCache             defC
 >
@@ -1680,6 +1682,7 @@ Configurable parameters ========================================================
 >     qqDiagnosticsEnabled                 :: Bool
 >   , qqSkipReporting                      :: Bool
 >   , qqSkipGlissandi                      :: Bool
+>   , qqMinImpulseSize                     :: Int
 >   , qqReplacePerCent                     :: Double
 >   , qqUsingPlayCache                     :: Bool
 >   , qqDumpFftChunks                      :: Bool
@@ -1693,6 +1696,7 @@ Edit the following =============================================================
 >     qqDiagnosticsEnabled                 = False
 >   , qqSkipReporting                      = False
 >   , qqSkipGlissandi                      = False
+>   , qqMinImpulseSize                     = 16_384
 >   , qqReplacePerCent                     = 0
 >   , qqUsingPlayCache                     = False
 >   , qqDumpFftChunks                      = False

@@ -1060,7 +1060,8 @@ define signal functions and instrument maps to support rendering ===============
 >
 >     arrays                               = zArrays (zFiles ! pgkwFile)
 >     nameI                                = F.instName $ ssInsts arrays ! pgkwInst
->     trace_ISF                            = unwords ["instrumentSF", show pgkwFile, nameI, show (pchIn, volIn)]
+>     trace_ISF                            =
+>       unwords ["instrumentSF", show pgkwFile, nameI, show (pchIn, volIn), show dur]
 >
 >     pb                 :: PreBundle      = preLookup zFiles zZoneCache zPreInstCache zPreSampleCache zSkMap pergm
 >

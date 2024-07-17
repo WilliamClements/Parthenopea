@@ -49,7 +49,7 @@ Discrete approach ==============================================================
 >     shapes                               = makeShapes ResponseNormal kd
 >
 >     -- domain corresponds to 0..ksLen-1 
->     -- this allows even coverage on whole target buffer
+>     -- there is coverage on whole target buffer
 >     -- but internally, freaks above nyq will go as negative
 >     ys, ys'            :: [Complex Double]
 >     ys                                   = map (getFreaky kd shapes . fromIntegral) ([0..ksLen - 1]::[Int])
@@ -108,7 +108,7 @@ Discrete approach ==============================================================
 >     kN'                                  = VU.length (dsigVec pairs')
 >
 >     trace_AC                             =
->       unwords ["applyConvolutionStereo", show kN, show kN', "\nresultL:", show resultL, "\nresultR:", show resultR]
+>       unwords ["applyConvolutionStereo", show kN, show kN', "\ndsigInL:", show dsigInL, "\ndsigInR:", show dsigInR]
 >
 > fromContinuousSig      :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a, Show a) ⇒
 >                           String → Double → Signal p () a → Maybe (DiscreteSig a)
@@ -121,7 +121,9 @@ Discrete approach ==============================================================
 >
 > toContinuousSig        :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a, Show a) ⇒
 >                           DiscreteSig a → Signal p () a
-> toContinuousSig DiscreteSig{ .. }        =
+> toContinuousSig DiscreteSig{ .. }
+>   | traceNot trace_TCS False             = undefined
+>   | otherwise                            =
 >     proc ()                              → do
 >       rec
 >         ii' ← delay 0                    ⤙ ii
@@ -129,6 +131,7 @@ Discrete approach ==============================================================
 >       outA                               ⤙ (VU.!) dsigVec (ii' `mod` dsigLength)
 >   where
 >     DiscreteStats{ .. }                  = dsigStats
+>     trace_TCS                            = unwords ["toContinuousSig", show dsigStats]
 >
 > fromRawVector          :: (WaveAudioSample a, VU.Unbox a) ⇒ String → VU.Vector a → DiscreteSig a
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
@@ -156,15 +159,15 @@ Discrete approach ==============================================================
 >         (max  stMaxAmp           (aamp d))
 >
 > measureFrequencyResponse
->                        :: VU.Vector (Complex Double) → FrequencyResponseStats
+>                        :: forall a. (WaveAudioSample a, VU.Unbox a) ⇒ VU.Vector a → FrequencyResponseStats
 > measureFrequencyResponse                 = VU.foldl' sfolder defFrequencyResponseStats
 >   where
->     sfolder            ::  FrequencyResponseStats → Complex Double → FrequencyResponseStats
+>     sfolder            ::  FrequencyResponseStats → a → FrequencyResponseStats
 >     sfolder FrequencyResponseStats{ .. } d
 >                                          =
 >       FrequencyResponseStats
->         (accommodate stRealExtent (realPart d))
->         (accommodate stImagExtent (imagPart d))
+>         (accommodate stRealExtent (realPart (acomplex d)))
+>         (accommodate stImagExtent (imagPart (acomplex d)))
 >
 > accommodate            :: (Double, Double) -> Double -> (Double, Double)
 > accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
@@ -210,44 +213,47 @@ Discrete approach ==============================================================
 >   | traceNot trace_FCFR False            = undefined
 >   | otherwise                            =
 >   profess
->     (sane dsigOut)
+>     (sane dsigOut')
 >     (unwords ["fastConvolveFR-- insane result"])
->     dsigOut
+>     dsigOut'
 >   where
 >     dsigIn'                              = if correctDCOffset
 >                                              then subtractDCOffset dsigIn
 >                                              else dsigIn
+>     dsigOut'                             = if correctDCOffset
+>                                              then subtractDCOffset dsigOut
+>                                              else dsigOut
 >     dsigOut                              = fromRawVector
 >                                              (unwords["toTime.product(", fst tags, "&", snd tags, ")"])
->                                              (VU.reverse (VU.fromList (map realPart product)))
+>                                              (VU.reverse (VU.fromList (map realPart result)))
 >
 >     cdubsIn            :: [Complex Double]
 >     cdubsIn                              = toFrequencyDomain $ VU.toList $ dsigVec dsigIn'
 >     len1               :: Int            = length cdubsIn
 >
->     cdsigIn, cdsigIn'  :: DiscreteSig (Complex Double)
+>     cdsigIn            :: DiscreteSig (Complex Double)
 >     cdsigIn                              =
 >       fromRawVector ("toFreak " ++ dsigTag dsigIn') (VU.fromList cdubsIn)
->
->     cdsigIn'                             = if correctDCOffset
->                                              then subtractDCOffsetComplex cdsigIn
->                                              else cdsigIn
 >
 >     cdsigFR            :: DiscreteSig (Complex Double)
 >     cdsigFR                              = memoizedComputeIR lowpassKs{ksLen = length cdubsIn, ksSr = 44_100}
 >
->     tags                                 = (dsigTag cdsigIn', dsigTag cdsigFR)
->     vecs                                 = (dsigVec cdsigIn', dsigVec cdsigFR)
+>     tags                                 = (dsigTag cdsigIn, dsigTag cdsigFR)
+>     vecs                                 = (dsigVec $ tracer "cdsigIn" cdsigIn, dsigVec cdsigFR)
 >
->     product            :: [Complex Double]
->     product                             =
+>     product            :: VU.Vector (Complex Double)
+>     product                              = uncurry (VU.zipWith (*)) vecs
+>
+>     result             :: [Complex Double]
+>     result                             =
 >       if disableMultiply
->         then toTimeDomain $ VU.toList $ dsigVec cdsigIn'
->         else toTimeDomain $ VU.toList $ uncurry (VU.zipWith (*)) vecs
+>         then toTimeDomain cdubsIn
+>         else toTimeDomain $ VU.toList product
 >
 >     trace_FCFR                          =
->       unwords ["fastConvolveFR\n", show dsigIn, "\n", show cdsigFR, "\n", show $ measureFrequencyResponse $ dsigVec cdsigFR
->                                  , show dsigOut]
+>       unwords ["fastConvolveFR\n", show $ measureFrequencyResponse (dsigVec cdsigIn)
+>                                  , show $ measureFrequencyResponse (dsigVec cdsigFR)
+>                                  , show $ measureFrequencyResponse product]
 >
 > toFrequencyDomain      :: forall a. WaveAudioSample a ⇒ [a] → [Complex Double]
 > toFrequencyDomain                        = doFft fft
@@ -266,19 +272,18 @@ Discrete approach ==============================================================
 >     cds                                  = map acomplex as ++ replicate (newLen - inLen) 0
 >
 > interpVal              :: Double → Array Int Double → Int → Double
-> interpVal fact vSource ixAt          = profess
->                                              (ix0 < (snd . bounds) vSource)
->                                              "out of range (interpVal)"
->                                              (dFirst + (dSecond - dFirst) * (dixAt - fromIntegral ix0))
->       where
->         dixAt          :: Double         = fromIntegral ixAt / fact
->         ix0            :: Int            = truncate dixAt
->         dFirst         :: Double         = vSource ! ix0
->         dSecond        :: Double         = if ix0 == (snd . bounds) vSource
+> interpVal fact vSource ixAt          =
+>   profess
+>     (ix0 < (snd . bounds) vSource)
+>     (unwords ["out of range (interpVal)"])
+>     (dFirst + (dSecond - dFirst) * (dixAt - fromIntegral ix0))
+>   where
+>     dixAt              :: Double         = fromIntegral ixAt / fact
+>     ix0                :: Int            = truncate dixAt
+>     dFirst             :: Double         = vSource ! ix0
+>     dSecond            :: Double         = if ix0 == (snd . bounds) vSource
 >                                              then dFirst
 >                                              else vSource ! (ix0 + 1)
->
->         msg                              = unwords ["interpVal ", show (ixAt, dixAt, ix0)]
 
 Frequency Response ====================================================================================================
 
@@ -518,9 +523,10 @@ Type declarations ==============================================================
 >     dsigTag            :: String
 >     , dsigStats        :: DiscreteStats a
 >     , dsigVec          :: VU.Vector a}
-> instance (Show a) ⇒ Show (DiscreteSig a) where
+> instance forall a. (Show a, WaveAudioSample a, VU.Unbox a) ⇒ Show (DiscreteSig a) where
 >   show                 :: DiscreteSig a → String
->   show DiscreteSig{ .. }                 = unwords [show dsigTag, show dsigStats]
+>   show DiscreteSig{ .. }                 =
+>     unwords [show dsigTag, show dsigStats, show (measureFrequencyResponse dsigVec)]
 > sane                   :: (WaveAudioSample a, VU.Unbox a) ⇒ DiscreteSig a → Bool
 > sane dsig                                =
 >   profess
@@ -533,11 +539,6 @@ Type declarations ==============================================================
 > subtractDCOffset       :: DiscreteSig Double → DiscreteSig Double
 > subtractDCOffset dIn                     =
 >   fromRawVector (dsigTag dIn) (VU.map (\x → x - dIn.dsigStats.stDCOffset) dIn.dsigVec)
->
-> subtractDCOffsetComplex
->                        :: DiscreteSig (Complex Double) → DiscreteSig (Complex Double)
-> subtractDCOffsetComplex dIn                     =
->   dIn -- fromRawVector (dsigTag dIn) (VU.map (\x → x - dIn.dsigStats.stDCOffset) dIn.dsigVec)
 >
 > data ResponseShape                       =
 >     Block Double Double                  -- width height
@@ -571,7 +572,6 @@ Type declarations ==============================================================
 >   DiscreteSettings {
 >     qqBulgeDiv         :: Double
 >   , qqDropoffRate      :: Double
->   , qqImpulseSize      :: Int
 >   , qqDisableConvo     :: Bool
 >   , qqDisableMultiply  :: Bool
 >   , qqUseFastFourier   :: Bool
@@ -579,20 +579,25 @@ Type declarations ==============================================================
 >   , qqChopSignal       :: Bool} deriving Show
 >
 > bulgeDiv                                 = qqBulgeDiv                   defD
+> -- what fraction of cutoff freak affected by nonzero Q
 > dropoffRate                              = qqDropoffRate                defD
-> impulseSize                              = qqImpulseSize                defD
+> -- how many centibels per octave to reduce magnitude after cutoff freq
 > disableConvo                             = qqDisableConvo               defD
+> -- if response type is convo, no modulation at all
 > disableMultiply                          = qqDisableMultiply            defD
+> -- if response type is convo, do domain conversions, but not convolution
 > useFastFourier                           = qqUseFastFourier             defD
+> -- False to employ convolution in time domain
 > correctDCOffset                          = qqCorrectDCOffset            defD
+> -- experiment with neutralizing DC offset of a discrete signal
 > chopSignal                               = qqChopSignal                 defD
+> -- experiment with truncating, rather than padding, buffer, to power of two size
 >
 > defD                   :: DiscreteSettings
 > defD =
 >   DiscreteSettings {
->     qqBulgeDiv                           = 20                           -- bulge bandwidth is frequency / div
+>     qqBulgeDiv                           = 20                           -- bulge bandwidth is cutoff freak / div
 >   , qqDropoffRate                        = 60                           -- centibels per octave
->   , qqImpulseSize                        = 2_048                        -- small "default" size
 >   , qqDisableConvo                       = False
 >   , qqDisableMultiply                    = False
 >   , qqUseFastFourier                     = True
