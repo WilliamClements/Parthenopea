@@ -105,13 +105,13 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj =
+> sj = djingles
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleWay"   , shimSong $ aggrandize littleWay)]
 >    -- [ ("pa1"         , pendingtonArnt 1)]
 >    -- [ ("bill1"       , bill 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]
->       [ ("theFanfare"  , theFanfare False)]
+>    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("roger"       , roger)]
 >    -- [ ("kit"         , kit) ]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]

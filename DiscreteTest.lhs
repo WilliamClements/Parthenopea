@@ -168,20 +168,22 @@ Feed chart =====================================================================
 >
 > chartIr                :: IO ()
 > chartIr                                  = do
->   chartPoints (if useFastFourier then "freakResponse" else "impulseResponse") [Section (opaque blue) grouts]
+>   chartPoints
+>     (if useFastFourier then "freakResponse" else "impulseResponse")
+>     [Section (opaque blue) groutsR, Section (opaque orange) groutsI]
 >   -- print vec
 >   where
 >     targetFc, dataLen, sampleRate, targetFreak
 >                        :: Int
 >     freakSpan          :: [Int]
 >
->     targetFc                             = 1_500
->     targetQ                              = 120
+>     targetFc                             = 999
+>     targetQ                              = 40
 >
->     dataLen                              = 16_384
+>     dataLen                              = 65_536
 >     sampleRate                           = 44_100
 >
->     targetFreak                          = 1_500
+>     targetFreak                          = 999
 >     freakSpan                            = [targetFreak - 500..targetFreak + 500]
 >
 >     kspec              :: KernelSpec
@@ -190,14 +192,16 @@ Feed chart =====================================================================
 >         ((toAbsoluteCents . fromIntegral) targetFc)
 >         targetQ sampleRate useFastFourier dataLen
 >
->     cdsigIn            :: DiscreteSig (Complex Double)
->     cdsigIn                              = memoizedComputeIR kspec     
+>     cdsigFr            :: DiscreteSig (Complex Double)
+>     cdsigFr                              = memoizedComputeIR kspec     
 >         
->     len                                  = cdsigIn.dsigStats.dsigLength
->     vec                :: VU.Vector Double
->     vec                                  = VU.map realPart (dsigVec cdsigIn)
->     grouts             :: [(Double, Double)]
->                                          = [(fromIntegral i, vec VU.! i) | i ← freakSpan]
+>     len                                  = cdsigFr.dsigStats.dsigLength
+>     vecR, vecI                :: VU.Vector Double
+>     vecR                                 = VU.map realPart (dsigVec cdsigFr)
+>     vecI                                 = VU.map imagPart (dsigVec cdsigFr)
+>     groutsR, groutsI   :: [(Double, Double)]
+>     groutsR                              = [(fromIntegral i, - vecR VU.! i) | i ← freakSpan]
+>     groutsI                              = [(fromIntegral i, - vecI VU.! i) | i ← freakSpan]
 >     
 > createConvoTest        :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
 > createConvoTest waveTable lp@Lowpass{ .. } freq
@@ -277,5 +281,30 @@ Feed chart =====================================================================
 >     , bench_fks        :: [Double]} deriving Show
 >
 > varyFc                                   = False
+>
+> testDecline            :: Double → Double → IO ()
+> testDecline freakStart dropoff           = do
+>   mapM_ mapfun [freakStart..freakStart + 50]
+>   where
+>     sampleRate         :: Double
+>     sampleRate                           = 44_100
+>
+>     height             :: Double
+>     height                               = 1
+>
+>     ynorm              :: Double
+>     ynorm                                = 1
+>
+>     mapfun             :: Double → IO ()
+>     mapfun xIn                           = print (xIn, (* ynorm) . fryXform . modelXform . frxXform $ xIn)
+>
+>     fr                 :: FrItem
+>     fr@FrItem{ .. }                      =
+>       FrItem
+>         (freakStart, sampleRate)
+>         sampleRate 
+>         log
+>         (ddLinear2 (-dropoff) (height - log freakStart))
+>         (max 0)
 
 The End

@@ -1377,13 +1377,6 @@ Returns the amplitude ratio
 > toCentibels            :: Double → Double
 > toCentibels ratio                        = logBase 10 ratio * 1000
 
-Returns amplitude, computed relative to a fixed one
-
-> relativeAmp            :: Double → Double → Double → Double → Double
-> relativeAmp freakFrom ampFrom freakTo rate
->                                          =
->   ampFrom * pow (freakFrom / freakTo) (rate / logBase 10 2)
-
 Returns the elapsed time in seconds
 
 > fromTimecents          :: Maybe Int → Double
@@ -1701,7 +1694,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = False
+>   , qqSkipReporting                      = True
 >   , qqSkipGlissandi                      = False
 >   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0

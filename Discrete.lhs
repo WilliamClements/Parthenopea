@@ -333,11 +333,35 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >     height                               = 1
 >
 >     trace_MS                             = unwords ["makeShapes", show shapes]
->
+
+Each of the shape types has a driver to "get down to business"
+Each driver specifies three xforms (functions from Double to Double)
+We list them from right to left -- same order that the three appear in FrItem structure.
+
+name                     rough concept
+====                     ================
+frxXForm                 maps the (positive or negative) x value into a "model space"
+modelXform               maps within the model space
+fryXForm                 maps into the y-axis (but before multiplying by ynorm)
+
+Block:
+1. id
+2. const height          y value the same for any local x value
+3. id
+
+Bulge A and B:
+1. ddNorm2               normalizes x into 0..1
+2. start up/finishDown   trace the two semi-circles
+3. ddXform1d             denorms to stretch the bulge in y
+
+Decline:
+1. ddDown3               maps x into a monotonically decreasing curve
+2. max 0                 ensures y value is no less than 0
+3. id
+
 > freakyResponse         :: KernelData → [ResponseShape] → Double → Complex Double
 > freakyResponse KernelData{ .. } shapes xIn
->   | traceNever trace_FR False            = undefined
->   | otherwise                            = mkPolar mag phase
+>                                          = mkPolar mag phase
 >   where
 >     phase                                = if xIn <= kdNyq
 >                                              then 3*pi/2
@@ -353,7 +377,7 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >         (find inVogue frsItems)
 >         (unwords [show frsItems, show "inVogue", show xIn])
 >
->     fudge1, fudge2     :: Double
+>     fudge1             :: Double
 >     fudge1                               = 8 -- fromIntegral ksLen / 2
 >     ynorm              :: Double
 >     ynorm                                = fudge1 / (1 + kdEQ) -- WOX 8 instead of 1
@@ -387,14 +411,14 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >             kdSr
 >             (ddNorm2 frsDisplacement newD1)
 >             startUp
->             (ddXform1d kdEQ height)
+>             (ddLinear2 kdEQ height)
 >         newI2                            =
 >           FrItem
 >             (newD1, newD2)
 >             kdSr
 >             (ddNorm2 newD1 newD2)
 >             finishDown
->             (ddXform1d kdEQ height)
+>             (ddLinear2 kdEQ height)
 >         
 >     doShape prev@FrSummary{ .. } (Decline dropoff height)
 >                                          = upd prev kdSr [newI]
@@ -403,44 +427,18 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >           FrItem
 >             (frsDisplacement, kdNyq + epsilon)
 >             kdSr
->             (ddDown3 frsDisplacement dropoff height)
+>             log
+>             (ddLinear2 (height/2) (- (dropoff * height/2) * log frsDisplacement)) -- WOX dropoff height)
 >             (max 0)
->             id -- (alternatively, could be "ddXform1d bp height" with corresponding change above)
 >
->     ddXform1d          :: Double → Double → (Double → Double)
->     ddXform1d scale offset xFrom
->       | traceNot trace_DDX False         = undefined
->       | otherwise                        = yTo
->       where
->         yTo                              = scale * xFrom + offset
->         trace_DDX                        =
->           unwords ["ddXform1d", show (scale, offset, xFrom, yTo)]
+> ddNorm2            :: Double → Double → (Double → Double)
+> ddNorm2 dLeft dRight xIn                 = (xIn - dLeft) / (dRight - dLeft)
 >
->     ddNorm2            :: Double → Double → (Double → Double)
->     ddNorm2 dLeft dRight xFrom
->       | traceNot trace_DDN False         = undefined
->       | otherwise                        = ratio
->       where
->         ratio                            = (xFrom - dLeft) / (dRight - dLeft)
->         trace_DDN                        =
->           unwords ["ddNorm2", show (dLeft, dRight, xFrom, ratio)]
+> ddLinear2              :: Double → Double → (Double → Double)
+> ddLinear2 m b xIn                        = b + m * xIn
 >
->     fudge2                               = 2 -- WOX instead of 2 (that represented one octave) (was 100)
->
->     ddDown3            :: Double → Double → Double → (Double → Double)
->     ddDown3 fLeft rate height xFrom
->       | traceNot trace_DDD False         = undefined
->       | otherwise                        = relativeAmp fLeft height xFrom rate'
->       where
->         rate'                            = rate * xFrom / (fudge2 * fLeft)   -- adjusted centibels per octave
->                                                                              -- maybe fLeft and xFrom squared?
->         trace_DDD                        =
->           unwords ["ddDown3", show (fLeft, rate, height, xFrom)]
->
->     startUp                              = controlConvex
->     finishDown c                         = controlConvex (1 - c)
->
->     trace_FR                             = unwords ["freakyResponse", show ynorm, show ksum]
+> startUp                                  = controlConvex
+> finishDown c                             = controlConvex (1 - c)
 
 WAV ===================================================================================================================
 
