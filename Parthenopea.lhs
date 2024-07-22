@@ -552,8 +552,8 @@ examine song for instrument and percussion usage ===============================
 >
 > data Shredding =
 >   Shredding {
->       shRanges           :: Map Kind Shred
->     , shMsgs             :: [(InstrumentName, [String])]} deriving (Show, Eq, Ord)
+>       shRanges         :: Map Kind Shred
+>     , shMsgs           :: [(InstrumentName, [String])]} deriving (Show, Eq, Ord)
 > defShredding                             = Shredding Map.empty []
 >
 > getKind                :: MEvent → Kind
@@ -582,9 +582,9 @@ examine song for instrument and percussion usage ===============================
 >   in critiqueNote instr range shLowNote ++ critiqueNote instr range shHighNote
 > 
 > critiqueNote           :: InstrumentName → (Pitch, Pitch) → MEvent → [(InstrumentName, [String])]
-> critiqueNote name range MEvent{ .. }       =
+> critiqueNote name range MEvent{ .. }     =
 >   let
->     p                                      = pitch ePitch
+>     p                                    = pitch ePitch
 >   in
 >     if p == clipPitch range p
 >       then []
@@ -675,23 +675,26 @@ examine song for instrument and percussion usage ===============================
 apply fuzzyfind to mining instruments + percussion ====================================================================
 
 > class GMPlayable a where
+>   toKind               :: a → Kind
+>   getList              :: [a]
 >   getProFFKeys         :: a → Maybe [String]
 >   getConFFKeys         :: a → Maybe [String]
->   getList              :: [a]
 >   getProMatches        :: FFMatches → [(a, (String, Fuzz))]
 >   getConMatches        :: FFMatches → [(a, (String, Fuzz))]
 >
 > instance GMPlayable InstrumentName where
+>   toKind                                 = Left
+>   getList                                = map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
 >   getProFFKeys                           = instrumentProFFKeys
 >   getConFFKeys                           = instrumentConFFKeys
->   getList                                = map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
 >   getProMatches                          = instAs
 >   getConMatches                          = instBs
 >
 > instance GMPlayable PercussionSound where
+>   toKind                                 = Right
+>   getList                                = map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
 >   getProFFKeys                           = percussionProFFKeys
 >   getConFFKeys                           = percussionConFFKeys
->   getList                                = map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
 >   getProMatches                          = percAs
 >   getConMatches                          = percBs
 >

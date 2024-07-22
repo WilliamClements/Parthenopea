@@ -133,17 +133,14 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > class GMPlayable a ⇒ SFScorable a where
 >   splitScore           :: a → [(ZoneHeader, SFZone)] → Double
 >   fuzzFactor           :: a → Double
->   toKind               :: a → Kind
 >
 > instance SFScorable InstrumentName where
 >   splitScore                             = instrumentSplitScore
 >   fuzzFactor _                           = 7/8
->   toKind                                 = Left
 >
 > instance SFScorable PercussionSound where
 >   splitScore                             = percussionSplitScore
 >   fuzzFactor _                           = 3/4
->   toKind                                 = Right
 >
 > type PreSampleCache                      = Map PreSampleKey PreSample
 > type PreInstCache                        = Map PerGMKey     PreInstrument
@@ -331,7 +328,8 @@ executive ======================================================================
 >         -- filter master lists down to appropriate candidates
 >         let pergmsI'   = filter (flavor InstCatInst zc) pergmsI
 >         let filteredIP = filter (flavor InstCatPerc zc) pergmsI
->         (pergmsP', skMap) ← formMasterPercussionList zc preSampleCache filteredIP
+>         (pergmsP', skMap)
+>                        ← formMasterPercussionList zc preSampleCache filteredIP
 >
 >         CM.when diagnosticsEnabled
 >           (do
@@ -670,7 +668,7 @@ executive ======================================================================
 > emitCounts is ps name                         =
 >   [EndOfLine]
 >     ++ [emitShowL name 20, emitShowL (length is) 4]
->     ++ [Unblocked " <- instruments, percussion -> ", emitShowL (length ps) 4, EndOfLine]
+>     ++ [Unblocked " /- instruments, percussion -/ ", emitShowL (length ps) 4, EndOfLine]
 
 tournament among GM instruments and percussion from SoundFont files ===================================================
 

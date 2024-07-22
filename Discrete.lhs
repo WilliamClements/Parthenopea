@@ -339,39 +339,35 @@ Each driver specifies an xform composed of functions from Double to Double
 >                                              then xIn_
 >                                              else kdNyq - xIn_
 >
->     fritems                              = fst $ foldl' doShape ([], 0) shapes
+>     fritems                              = foldl' doShape [] shapes
 >     fritems'                             = dropWhile past fritems
 >     FrItem{ .. }                         =
 >       profess
 >         (not $ null fritems')
->         (unwords ["xIn", show xIn, "out of range", show fritems])
+>         (unwords ["xIn", show xIn, "out of range (FrItem)", show fritems])
 >         (head fritems')
 >
 >     mag'                                 = notracer "mag" mag
 >     mag                                  =
 >       profess
 >         (xIn <= kdNyq)
->         (unwords ["xIn", show xIn, "out of range (for mag)", show fritems])
+>         (unwords ["xIn", show xIn, "out of range (mag)", show fritems])
 >         (notracer "mag" $ ((* ynorm) . friCompute) xIn)
 >
->     ynorm              :: Double
+>     ynorm, height              :: Double
 >     ynorm                                = 1 / (1 + kdEQ)
->     height, hcent      :: Double
 >     height                               = 1
->     hcent                                = toCentibels height
 >     
 >     past               :: FrItem → Bool
->     past FrItem{ .. }                    = xIn > friSwitchPoint
+>     past FrItem{ .. }                    = xIn > friTrans
 >
->     doShape            :: ([FrItem], Double) → ResponseShape → ([FrItem], Double)
->     doShape (fritems, switchPoint) Block
->                                          = (fritems ++ [newI], newD)
+>     doShape            :: [FrItem] → ResponseShape → [FrItem]
+>     doShape fritems Block                = fritems ++ [newI]
 >       where
 >         newD           :: Double         = kdLeftOfBulge
 >         newI           :: FrItem         = FrItem newD (const height)
 >         
->     doShape (fritems, switchPoint) Bulge
->                                          = (fritems ++ iList, newD)
+>     doShape fritems Bulge                = fritems ++ iList
 >       where
 >         newD                             = kdRightOfBulge
 >         iList          :: [FrItem]       = if kdStretch == 0 then [] else [newI1, newI2]
@@ -386,8 +382,7 @@ Each driver specifies an xform composed of functions from Double to Double
 >             kdRightOfBulge
 >             (ddLinear2 kdEQ height . finishDown . ddNorm2 kdFc kdRightOfBulge)
 >         
->     doShape (fritems, switchPoint) Decline
->                                          = (fritems ++ [newI], newD)
+>     doShape fritems Decline              = fritems ++ [newI]
 >       where
 >         newD                             = kdNyq
 >         newI                             =
@@ -397,7 +392,7 @@ Each driver specifies an xform composed of functions from Double to Double
 >         xformDecline   :: Double → Double
 >         xformDecline                     =
 >             notracer "fromCentibels"     . fromCentibels
->           . notracer "ddLinear2"         . ddLinear2 (-dropoffRate) hcent
+>           . notracer "ddLinear2"         . ddLinear2 (-dropoffRate) (toCentibels height)
 >           . notracer "delta"             . flip (-) (logBase 2 kdFc)
 >           . notracer "logBase 2"         . logBase 2
 >           . notracer "xIn"
@@ -421,7 +416,7 @@ WAV ============================================================================
 >     Right w            → return $ discretizeWav w
 >
 > discretizeWav             :: A.Audio Int32 → DiscreteSig Double
-> discretizeWav wav                           =
+> discretizeWav wav                        =
 >   let
 >     bookie = elems $ A.sampleData wav
 >
@@ -507,7 +502,7 @@ Type declarations ==============================================================
 > instance forall a. (Show a, WaveAudioSample a, VU.Unbox a) ⇒ Show (DiscreteSig a) where
 >   show                 :: DiscreteSig a → String
 >   show DiscreteSig{ .. }                 =
->     unwords [show (dsigTag, dsigStats, measureFrequencyResponse dsigVec)]
+>     unwords ["DiscreteSig", show (dsigTag, dsigStats, measureFrequencyResponse dsigVec)]
 > sane                   :: (WaveAudioSample a, VU.Unbox a) ⇒ DiscreteSig a → Bool
 > sane dsig                                =
 >   profess
@@ -534,7 +529,7 @@ Type declarations ==============================================================
 >
 > data FrItem                              =
 >   FrItem {
->     friSwitchPoint     :: Double
+>     friTrans           :: Double
 >   , friCompute         :: Double → Double}
 >
 > instance Show FrItem where
