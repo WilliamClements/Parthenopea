@@ -313,125 +313,96 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >     (freakyResponse kd shapes xIn)
 >
 > makeShapes             :: ResponseStrategy → KernelData → [ResponseShape]
-> makeShapes rs KernelData{ .. }
->   | traceNot trace_MS False              = undefined
->   | otherwise                            = shapes
->   where
->     shapes, normalShapes, allShapes
->                        :: [ResponseShape]
->     shapes                               = if ResponseAllPass == rs
->                                              then allShapes
->                                              else normalShapes
->     normalShapes                         =
->       [  Block width height
->        , Bulge kdStretch height
->        , Decline dropoffRate height]
->     allShapes                            =
->       [  Block kdNyq height]
->
->     width                                = kdFc - (kdStretch / 2)
->     height                               = 1
->
->     trace_MS                             = unwords ["makeShapes", show shapes]
+> makeShapes rs KernelData{ .. }           =
+>   if ResponseAllPass == rs
+>     then [Block]
+>     else [Block, Bulge, Decline]
 
 Each of the shape types has a driver to "get down to business"
-Each driver specifies three xforms (functions from Double to Double)
-We list them from right to left -- same order that the three appear in FrItem structure.
+Each driver specifies an xform composed of functions from Double to Double
 
-name                     rough concept
-====                     ================
-frxXForm                 maps the (positive or negative) x value into a "model space"
-modelXform               maps within the model space
-fryXForm                 maps into the y-axis (but before multiplying by ynorm)
-
-Block:
-1. id
-2. const height          y value the same for any local x value
-3. id
-
-Bulge A and B:
-1. ddNorm2               normalizes x into 0..1
-2. start up/finishDown   trace the two semi-circles
-3. ddXform1d             denorms to stretch the bulge in y
-
-Decline:
-1. ddDown3               maps x into a monotonically decreasing curve
-2. max 0                 ensures y value is no less than 0
-3. id
+        rough concept
+        =============
+        factor out negative freaks by "copying" magnitude (not phase) from corresponding (careful!) positive freak
+        map x values (0 <= x <= nyquist) into a "model space"
+        map within the model space
+        map into the y-axis (but before multiplying by ynorm)
 
 > freakyResponse         :: KernelData → [ResponseShape] → Double → Complex Double
-> freakyResponse KernelData{ .. } shapes xIn
+> freakyResponse KernelData{ .. } shapes xIn_
 >                                          = mkPolar mag phase
 >   where
->     phase                                = if xIn <= kdNyq
+>     phase                                = if xIn_ <= kdNyq
 >                                              then 3*pi/2
 >                                              else pi/2
->     xIn'                                 = if xIn <= kdNyq
->                                              then xIn
->                                              else 2 * kdNyq - xIn
->     mag                                  = ((* ynorm) . fryXform . modelXform . frxXform) xIn'
+>     xIn                                  = if xIn_ <= kdNyq
+>                                              then xIn_
+>                                              else kdNyq - xIn_
 >
->     ksum@FrSummary{ .. }                 = foldl' doShape (FrSummary [] 0) shapes
+>     fritems                              = fst $ foldl' doShape ([], 0) shapes
+>     fritems'                             = dropWhile past fritems
 >     FrItem{ .. }                         =
->       professIsJust
->         (find inVogue frsItems)
->         (unwords [show frsItems, show "inVogue", show xIn])
+>       profess
+>         (not $ null fritems')
+>         (unwords ["xIn", show xIn, "out of range", show fritems])
+>         (head fritems')
 >
->     fudge1             :: Double
->     fudge1                               = 8 -- fromIntegral ksLen / 2
+>     mag'                                 = notracer "mag" mag
+>     mag                                  =
+>       profess
+>         (xIn <= kdNyq)
+>         (unwords ["xIn", show xIn, "out of range (for mag)", show fritems])
+>         (notracer "mag" $ ((* ynorm) . friCompute) xIn)
+>
 >     ynorm              :: Double
->     ynorm                                = fudge1 / (1 + kdEQ) -- WOX 8 instead of 1
+>     ynorm                                = 1 / (1 + kdEQ)
+>     height, hcent      :: Double
+>     height                               = 1
+>     hcent                                = toCentibels height
 >     
->     inVogue            :: FrItem → Bool
->     inVogue FrItem{ .. }                 = xIn == clip friRange xIn
+>     past               :: FrItem → Bool
+>     past FrItem{ .. }                    = xIn > friSwitchPoint
 >
->     upd                :: FrSummary → Double → [FrItem] → FrSummary
->     upd prev@FrSummary{ .. } newD newIs  = prev{frsDisplacement = newD, frsItems = frsItems ++ newIs}
->
->     doShape            :: FrSummary → ResponseShape → FrSummary
->     doShape prev@FrSummary{ .. } (Block width height)
->                                          = upd prev newD [newI]
+>     doShape            :: ([FrItem], Double) → ResponseShape → ([FrItem], Double)
+>     doShape (fritems, switchPoint) Block
+>                                          = (fritems ++ [newI], newD)
 >       where
->         newD           :: Double         = frsDisplacement + width
->         newI           :: FrItem         = FrItem (frsDisplacement, newD) kdSr id (const height) id
+>         newD           :: Double         = kdLeftOfBulge
+>         newI           :: FrItem         = FrItem newD (const height)
 >         
->     doShape prev@FrSummary{ .. } (Bulge width height)
->                                          = upd prev newD2 iList
+>     doShape (fritems, switchPoint) Bulge
+>                                          = (fritems ++ iList, newD)
 >       where
->         newD1, newD2   :: Double
->         newD1                            = frsDisplacement + width / 2
->         newD2                            = frsDisplacement + width
->
->         iList          :: [FrItem]       = if width <= 0 then [] else [newI1, newI2]
+>         newD                             = kdRightOfBulge
+>         iList          :: [FrItem]       = if kdStretch == 0 then [] else [newI1, newI2]
 >
 >         newI1, newI2   :: FrItem
 >         newI1                            =
 >           FrItem
->             (frsDisplacement, newD1)
->             kdSr
->             (ddNorm2 frsDisplacement newD1)
->             startUp
->             (ddLinear2 kdEQ height)
+>             kdFc
+>             (ddLinear2 kdEQ height . startUp . ddNorm2 kdLeftOfBulge kdFc)
 >         newI2                            =
 >           FrItem
->             (newD1, newD2)
->             kdSr
->             (ddNorm2 newD1 newD2)
->             finishDown
->             (ddLinear2 kdEQ height)
+>             kdRightOfBulge
+>             (ddLinear2 kdEQ height . finishDown . ddNorm2 kdFc kdRightOfBulge)
 >         
->     doShape prev@FrSummary{ .. } (Decline dropoff height)
->                                          = upd prev kdSr [newI]
+>     doShape (fritems, switchPoint) Decline
+>                                          = (fritems ++ [newI], newD)
 >       where
+>         newD                             = kdNyq
 >         newI                             =
 >           FrItem
->             (frsDisplacement, kdNyq + epsilon)
->             kdSr
->             log
->             (ddLinear2 (height/2) (- (dropoff * height/2) * log frsDisplacement)) -- WOX dropoff height)
->             (max 0)
->
-> ddNorm2            :: Double → Double → (Double → Double)
+>             newD
+>             xformDecline
+>         xformDecline   :: Double → Double
+>         xformDecline                     =
+>             notracer "fromCentibels"     . fromCentibels
+>           . notracer "ddLinear2"         . ddLinear2 (-dropoffRate) hcent
+>           . notracer "delta"             . flip (-) (logBase 2 kdFc)
+>           . notracer "logBase 2"         . logBase 2
+>           . notracer "xIn"
+>          
+> ddNorm2                :: Double → Double → (Double → Double)
 > ddNorm2 dLeft dRight xIn                 = (xIn - dLeft) / (dRight - dLeft)
 >
 > ddLinear2              :: Double → Double → (Double → Double)
@@ -482,22 +453,26 @@ Type declarations ==============================================================
 >
 > data KernelData                          =
 >   KernelData {
->     kdFc               :: Double         -- filter cutoff (frequency)
+>     kdLen              :: Double         -- from ksLen
+>   , kdFc               :: Double         -- filter cutoff (frequency)
 >   , kdEQ               :: Double         -- effective Q (centibels)
->   , kdSr               :: Double         -- sample rate (frequency)
 >   , kdNyq              :: Double         -- half-length of the FR (or IR)
 >   , kdStretch          :: Double         -- bandwidth of center frequency (range)
 >   , kdSpread           :: Int            -- bandwidth of show-able range
+>   , kdLeftOfBulge      :: Double
+>   , kdRightOfBulge     :: Double
 >   } deriving Show
 > calcKernelData         :: KernelSpec → KernelData
 > calcKernelData KernelSpec{ .. }          =
 >   KernelData
+>     (fromIntegral ksLen)
 >     fc
 >     effectiveQ
->     (fromIntegral ksSr)
->     (fromIntegral ksLen)
+>     (fromIntegral ksLen / 2)
 >     stretch
 >     (round $ stretch * 2)
+>     (fc - stretch / 2)
+>     (fc + stretch / 2)
 >   where
 >     fc, effectiveQ, stretch, fudge4
 >                        :: Double
@@ -547,9 +522,9 @@ Type declarations ==============================================================
 >   fromRawVector (dsigTag dIn) (VU.map (\x → x - dIn.dsigStats.stDCOffset) dIn.dsigVec)
 >
 > data ResponseShape                       =
->     Block Double Double                  -- width height
->   | Bulge Double Double                  -- width height
->   | Decline Double Double                -- dropoff height
+>     Block
+>   | Bulge
+>   | Decline
 >     deriving (Eq, Show)
 >
 > data ResponseStrategy                    =
@@ -559,20 +534,11 @@ Type declarations ==============================================================
 >
 > data FrItem                              =
 >   FrItem {
->     friRange           :: (Double, Double)
->   , friSampleRate      :: Double
->
->   , frxXform           :: Double → Double
->   , modelXform         :: Double → Double
->   , fryXform           :: Double → Double}
+>     friSwitchPoint     :: Double
+>   , friCompute         :: Double → Double}
 >
 > instance Show FrItem where
->   show (FrItem range _ _ _ _)    = unwords [show range]
->
-> data FrSummary =
->   FrSummary {
->     frsItems           :: [FrItem]
->   , frsDisplacement    :: Double} deriving Show
+>   show (FrItem startPoint _)             = unwords ["FrItem", show startPoint]
 >
 > data DiscreteSettings =
 >   DiscreteSettings {
@@ -606,7 +572,7 @@ Type declarations ==============================================================
 > defD =
 >   DiscreteSettings {
 >     qqBulgeDiv                           = 20                           -- bulge bandwidth is cutoff freak / div
->   , qqDropoffRate                        = 60                           -- centibels per octave
+>   , qqDropoffRate                        = 240                           -- centibels per octave
 >   , qqReverseSignal                      = False
 >   , qqDisableConvo                       = False
 >   , qqDisableMultiply                    = False

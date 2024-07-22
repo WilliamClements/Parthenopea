@@ -1368,9 +1368,6 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
 Returns the amplitude ratio
 
-> fromMaybeCentibels     :: Maybe Int → Double
-> fromMaybeCentibels mcentibels            = fromCentibels $ fromIntegral (fromMaybe 0 mcentibels)
-
 > fromCentibels          :: Double → Double
 > fromCentibels centibels                  = pow 10 (centibels/1000)
 >
@@ -1662,7 +1659,7 @@ Tracing ========================================================================
 > tracer                 :: Show a ⇒ String → a → a
 > tracer str x                             =
 >   if True
->     then traceNow (unwords [str, show x]) x
+>     then traceNow (unwords [str ++ "=", show x]) x
 >     else x
 >
 > notracer               :: Show a ⇒ String → a → a
@@ -1694,7 +1691,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = True
+>   , qqSkipReporting                      = False
 >   , qqSkipGlissandi                      = False
 >   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0

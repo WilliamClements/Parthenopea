@@ -171,20 +171,19 @@ Feed chart =====================================================================
 >   chartPoints
 >     (if useFastFourier then "freakResponse" else "impulseResponse")
 >     [Section (opaque blue) groutsR, Section (opaque orange) groutsI]
->   -- print vec
 >   where
->     targetFc, dataLen, sampleRate, targetFreak
+>     targetFc, dataLen, sampleRate, middleFreakShow
 >                        :: Int
 >     freakSpan          :: [Int]
 >
 >     targetFc                             = 999
->     targetQ                              = 40
+>     targetQ                              = 240
 >
 >     dataLen                              = 65_536
 >     sampleRate                           = 44_100
 >
->     targetFreak                          = 999
->     freakSpan                            = [targetFreak - 500..targetFreak + 500]
+>     middleFreakShow                      = 999
+>     freakSpan                            = [10..19_990] -- [middleFreakShow - 900 .. middleFreakShow  + 900]
 >
 >     kspec              :: KernelSpec
 >     kspec                                =
@@ -195,8 +194,7 @@ Feed chart =====================================================================
 >     cdsigFr            :: DiscreteSig (Complex Double)
 >     cdsigFr                              = memoizedComputeIR kspec     
 >         
->     len                                  = cdsigFr.dsigStats.dsigLength
->     vecR, vecI                :: VU.Vector Double
+>     vecR, vecI         :: VU.Vector Double
 >     vecR                                 = VU.map realPart (dsigVec cdsigFr)
 >     vecI                                 = VU.map imagPart (dsigVec cdsigFr)
 >     groutsR, groutsI   :: [(Double, Double)]
@@ -286,25 +284,22 @@ Feed chart =====================================================================
 > testDecline freakStart dropoff           = do
 >   mapM_ mapfun [freakStart..freakStart + 50]
 >   where
->     sampleRate         :: Double
->     sampleRate                           = 44_100
->
->     height             :: Double
->     height                               = 1
->
->     ynorm              :: Double
->     ynorm                                = 1
->
 >     mapfun             :: Double → IO ()
->     mapfun xIn                           = print (xIn, (* ynorm) . fryXform . modelXform . frxXform $ xIn)
+>     mapfun xIn                           = print (xIn, friCompute xIn)
 >
 >     fr                 :: FrItem
 >     fr@FrItem{ .. }                      =
 >       FrItem
->         (freakStart, sampleRate)
->         sampleRate 
->         log
->         (ddLinear2 (-dropoff) (height - log freakStart))
->         (max 0)
+>         (freakStart + 50)
+>         xformDecline
+>       where
+>         m = 0
+>         xformDecline   :: Double → Double
+>         xformDecline                     =
+>             tracer "fromCentibels"       . fromCentibels
+>           . tracer "ddLinear2"           . ddLinear2 (-dropoffRate) 0 -- hcent
+>           . tracer "delta"               . flip (-) (logBase 2 freakStart)
+>           . tracer "logBase 2"           . logBase 2
+>           . tracer "xIn"
 
 The End
