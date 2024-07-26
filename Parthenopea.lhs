@@ -7,6 +7,7 @@
 > {-# LANGUAGE InstanceSigs #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE NumericUnderscores  #-}
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TupleSections #-}
@@ -34,7 +35,7 @@ December 12, 2022
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
-> import Data.List ( iterate', singleton, foldl', sortOn, minimumBy )
+> import Data.List ( iterate', singleton, foldl', sortOn, minimumBy, find, elem )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe )
@@ -202,7 +203,7 @@ which makes for a cleaner sound on some synthesizers:
 >   n1, n2, n3           :: Music Pitch
 >   n1                                     = note dur $ pitch bP
 >   n2                                     = note dur $ pitch (bP + head        is)
->   n3                                     = note dur $ pitch (bP + (head.tail) is)
+>   n3                                     = note dur $ pitch (bP + (head . tail) is)
 >
 >   formExact :: AbsPitch → Mode → [AbsPitch]
 >   formExact apDelta mode                 = offsets2intervals apDelta $ mode2offsets mode
@@ -430,7 +431,7 @@ also
 >       else snd $ minimumBy (comparing fst) rangedInsts
 >   where
 >     rangedInsts        :: [(Int, InstrumentName)]
->     rangedInsts                          = mapMaybe judgeScore getList
+>     rangedInsts                          = mapMaybe judgeScore (fst allKinds)
 >
 >     judgeScore         :: InstrumentName → Maybe (Int, InstrumentName)
 >     judgeScore cand                      = (\c → if nonPitchedInstrument c then Nothing else Just c) cand
@@ -448,9 +449,6 @@ also
 >         trace_FI                         = unwords ["fitsIn", show range, show playedLo, show playedHi]
 >
 >     trace_FBI                            = unwords ["findBetterInstrument", show than, show rangedInsts]
->
-> nonPitchedInstruments  :: [InstrumentName]
-> nonPitchedInstruments                    = filter nonPitchedInstrument getList
 >
 > selectRanged           :: [InstrumentName] → Array Int (InstrumentName, (Pitch, Pitch))
 > selectRanged is                          = listArray (1, length qual) qual
@@ -569,8 +567,43 @@ examine song for instrument and percussion usage ===============================
 > shredMusic m                             =
 >   return $ critiqueMusic $ foldl' shredder defShredding $ fst (musicToMEvents defaultContext (toMusic1 m))
 >
+> shredSongs              :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO (Map Kind Shred)
+> shredSongs songs                         = do -- return $ shredMusic $ song Map.empty
+>   shredses                               <- mapM shredSong songs
+>   return $ foldr (Map.unionWith combineShreds) Map.empty shredses
+>
+> allKinds               :: ([InstrumentName], [PercussionSound])
+> allKinds                                 =
+>   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>    , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
+> qualifyKinds           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
+>                           → IO ([InstrumentName], [PercussionSound])
+> qualifyKinds songs                       = do
+>   mks                                    <- shredSongs songs
+>   let isandps                            = Map.keys mks
+>   return (lefts isandps, rights isandps)
+>
+> shredSong              :: (String, DynMap → Music (Pitch, [NoteAttribute])) → IO (Map Kind Shred)
+> shredSong (_, song)                      = do -- return $ shredMusic $ song Map.empty
+>   let asMusic                            = song Map.empty
+>   ding                                   <- shredMusic asMusic
+>   return $ shRanges ding
+>
 > critiqueMusic          :: Shredding → Shredding
 > critiqueMusic Shredding{ .. }            = Shredding shRanges (concatMap critiqueShred (Map.assocs shRanges))
+>
+> combineShreds          :: Shred → Shred → Shred
+> combineShreds s1 s2                      =
+>   s1 {  shLowNote                        =
+>           if ePitch s1.shLowNote < ePitch s2.shLowNote
+>             then s1.shLowNote
+>             else s2.shLowNote
+>       , shHighNote                       =
+>           if ePitch s1.shHighNote > ePitch s2.shHighNote
+>             then s1.shHighNote
+>             else s2.shHighNote
+>       , shCount        =
+>           s1.shCount + s2.shCount}
 >
 > critiqueShred          :: (Kind, Shred) → [(InstrumentName, [String])]
 > critiqueShred (kind, Shred{ .. })        =
@@ -676,7 +709,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 
 > class GMPlayable a where
 >   toKind               :: a → Kind
->   getList              :: [a]
+>   getQualified         :: ([InstrumentName], [PercussionSound]) → [a]
 >   getProFFKeys         :: a → Maybe [String]
 >   getConFFKeys         :: a → Maybe [String]
 >   getProMatches        :: FFMatches → [(a, (String, Fuzz))]
@@ -684,7 +717,10 @@ apply fuzzyfind to mining instruments + percussion =============================
 >
 > instance GMPlayable InstrumentName where
 >   toKind                                 = Left
->   getList                                = map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>   getQualified qualified                 =
+>     if reportTourney
+>       then map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>       else fst qualified
 >   getProFFKeys                           = instrumentProFFKeys
 >   getConFFKeys                           = instrumentConFFKeys
 >   getProMatches                          = instAs
@@ -692,7 +728,10 @@ apply fuzzyfind to mining instruments + percussion =============================
 >
 > instance GMPlayable PercussionSound where
 >   toKind                                 = Right
->   getList                                = map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
+>   getQualified qualified                 =
+>     if reportTourney
+>       then map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
+>       else snd qualified
 >   getProFFKeys                           = percussionProFFKeys
 >   getConFFKeys                           = percussionConFFKeys
 >   getProMatches                          = percAs
@@ -900,15 +939,24 @@ apply fuzzyfind to mining instruments + percussion =============================
 
 handle "matching as" cache misses =====================================================================================
 
-> computeMatchingAs      :: ∀ a. (GMPlayable a) ⇒ String → Bool → [(a, (String, Fuzz))]
-> computeMatchingAs inp pro                = sortOn (Down . snd) asScored
+> computeMatchingAs      :: ∀ a. (GMPlayable a, Eq a) ⇒ String
+>                                                  → Bool
+>                                                  → ([InstrumentName], [PercussionSound])
+>                                                  → [(a, (String, Fuzz))]
+> computeMatchingAs inp pro qualified      = sortOn (Down . snd) asScored
 >   where
+>     getFFKeys          :: a → Maybe [String]
+>     getFFKeys                            = if pro then getProFFKeys else getConFFKeys
+>
 >     -- weed out candidates with no fuzzy keys
 >     asLooks            :: [(a, [String])]
->                                          = mapMaybe eval1 getList
+>                                          = mapMaybe eval1 (getQualified qualified)
 >
 >     eval1              :: a → Maybe (a, [String])
->     eval1 kind                           = Just . (kind,) =<< (if pro then getProFFKeys else getConFFKeys) kind
+>     eval1 kind                           =
+>       Just . (kind,)
+>         =<< getFFKeys
+>         =<< if kind `elem` getQualified qualified then Just kind else Nothing
 >
 >     -- weed out candidates with no fuzzy key matches
 >     asScored           :: [(a, (String, Fuzz))]
@@ -932,8 +980,8 @@ handle "matching as" cache misses ==============================================
 use "matching as" cache ===============================================================================================
 
 > evalAgainstKind        :: ∀ a. (GMPlayable a, Eq a) ⇒ a → FFMatches → Fuzz
-> evalAgainstKind kind ffs                 = maybe 0 snd (lookup kind (getProMatches ffs))
->                                            - maybe 0 snd (lookup kind (getConMatches ffs))
+> evalAgainstKind kind ffs                 =
+>   maybe 0 snd (lookup kind (getProMatches ffs)) - maybe 0 snd (lookup kind (getConMatches ffs))
 >   
 > bestQualifying         :: ∀ a. (GMPlayable a) ⇒ [(a, (String, Fuzz))] → Double → Maybe (a, (String, Fuzz))
 > bestQualifying as thresh
@@ -948,13 +996,13 @@ use "matching as" cache ========================================================
 >   , instBs             :: [(InstrumentName, (String, Fuzz))]
 >   , percBs             :: [(PercussionSound, (String, Fuzz))]} deriving Show
 >
-> computeFFMatches       :: String → FFMatches
-> computeFFMatches inp                     = FFMatches ias pas ibs pbs
+> computeFFMatches       :: String → ([InstrumentName], [PercussionSound]) → FFMatches
+> computeFFMatches inp qualified           = FFMatches ias pas ibs pbs
 >   where
->     ias = computeMatchingAs inp True
->     pas = computeMatchingAs inp True
->     ibs = computeMatchingAs inp False
->     pbs = computeMatchingAs inp False
+>     ias = computeMatchingAs inp True qualified
+>     pas = computeMatchingAs inp True qualified
+>     ibs = computeMatchingAs inp False qualified
+>     pbs = computeMatchingAs inp False qualified
 
 tournament among instruments in various soundfont files ===============================================================
 
@@ -1042,7 +1090,7 @@ snippets to be used with "lake" ================================================
 >     mel0                                 = melInput
 >     mel1                                 = retro melInput
 >     mel2                                 = invert melInput
->     mel3                                 = (invert.retro) melInput
+>     mel3                                 = (invert . retro) melInput
 
 music converter =======================================================================================================
 
@@ -1325,8 +1373,8 @@ Conversion functions and general helpers =======================================
 >     lower'                               = absPitch lower
 >     val'                                 = absPitch val
 >
-> makeRange              :: Integral n ⇒ n → n → [n]
-> makeRange x y                            = if x > y || y <= 0 then [] else [x..(y-1)]
+> deriveRange            :: Integral n ⇒ n → n → [n]
+> deriveRange x y                          = if x > y || y <= 0 then [] else [x..(y-1)]
 >
 > almostEqual            :: Double → Double → Bool
 > almostEqual 0 0                          = True
@@ -1671,7 +1719,7 @@ Tracing ========================================================================
 Configurable parameters ===============================================================================================
 
 > diagnosticsEnabled                       = qqDiagnosticsEnabled         defC 
-> skipReporting                            = qqSkipReporting              defC 
+> reportTourney                            = qqReportTourney              defC 
 > skipGlissandi                            = qqSkipGlissandi              defC
 > minImpulseSize                           = qqMinImpulseSize             defC
 > replacePerCent                           = qqReplacePerCent             defC
@@ -1680,13 +1728,11 @@ Configurable parameters ========================================================
 > data ControlSettings =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 :: Bool
->   , qqSkipReporting                      :: Bool
+>   , qqReportTourney                      :: Bool
 >   , qqSkipGlissandi                      :: Bool
 >   , qqMinImpulseSize                     :: Int
 >   , qqReplacePerCent                     :: Double
->   , qqUsingPlayCache                     :: Bool
->   , qqDumpFftChunks                      :: Bool
->   , qqNumTakeFftChunks                   :: Int} deriving (Eq, Show)
+>   , qqUsingPlayCache                     :: Bool} deriving (Eq, Show)
 
 Edit the following ====================================================================================================
 
@@ -1694,12 +1740,10 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqSkipReporting                      = False
+>   , qqReportTourney                      = False
 >   , qqSkipGlissandi                      = False
 >   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0
->   , qqUsingPlayCache                     = False
->   , qqDumpFftChunks                      = False
->   , qqNumTakeFftChunks                   = 3}
+>   , qqUsingPlayCache                     = False}
 
 The End

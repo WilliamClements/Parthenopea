@@ -295,7 +295,7 @@ The progress of the algorithm is expressed in above pair.
 >       vChoiceP         :: Array Int PercussionSound
 >       vChoiceP                           = listArray (0, length curatedP - 1) curatedP
 >
->       curatedP                           = filter (not . flip elem blacklist) getList
+>       curatedP                           = filter (not . flip elem blacklist) (snd allKinds)
 >
 >       choices = [  Piccolo,         Oboe,      AltoSax,             Trumpet
 >                  , Trombone,        Marimba,   Vibraphone,          ElectricGuitarJazz

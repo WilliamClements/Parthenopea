@@ -13,7 +13,8 @@ May 4, 2023
 >
 > import Baking
 > import Cecil
-> import Control.Monad ( foldM )
+> import qualified Data.Bifunctor          as BF
+> import Control.Monad ( foldM, join )
 > import Covers
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
@@ -110,9 +111,9 @@ organize exposed music =========================================================
 >    -- [ ("littleWay"   , shimSong $ aggrandize littleWay)]
 >    -- [ ("pa1"         , pendingtonArnt 1)]
 >    -- [ ("bill1"       , bill 1)]
->       [ ("deyDumpDum"  , deyDumpDum)]
+>    -- [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("theFanfare"  , theFanfare False)]
->    -- [ ("roger"       , roger)]
+>    [ ("roger"       , roger)]
 >    -- [ ("kit"         , kit) ]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]
 >    -- [ ("gold"        , gold)]
@@ -130,6 +131,16 @@ a few playthings ... get it? ===================================================
 > playJingles            :: [(String, Music (Pitch, [NoteAttribute]))] → IO ()
 > playJingles jingles =
 >    foldM playJingle () (cycle jingles)
+>
+> shredAll               :: IO (Map Kind Shred)
+> shredAll                                 = do
+>   allSongs                               <- mapM shredSong combineAll
+>   return $ foldr (Map.unionWith combineShreds) Map.empty allSongs
+>
+> doShredAll             :: IO ()
+> doShredAll                               = do
+>   allShreds                              <- shredAll
+>   mapM_ (\(x, y) → print (x, shCount y)) (Map.assocs allShreds)
 >
 > playSnippet            :: () → Int → IO ()
 > playSnippet () i =
