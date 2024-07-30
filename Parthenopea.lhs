@@ -569,7 +569,7 @@ examine song for instrument and percussion usage ===============================
 >
 > shredSongs              :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO (Map Kind Shred)
 > shredSongs songs                         = do -- return $ shredMusic $ song Map.empty
->   shredses                               <- mapM shredSong songs
+>   shredses                               ← mapM shredSong songs
 >   return $ foldr (Map.unionWith combineShreds) Map.empty shredses
 >
 > allKinds               :: ([InstrumentName], [PercussionSound])
@@ -579,14 +579,14 @@ examine song for instrument and percussion usage ===============================
 > qualifyKinds           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
 >                           → IO ([InstrumentName], [PercussionSound])
 > qualifyKinds songs                       = do
->   mks                                    <- shredSongs songs
+>   mks                                    ← shredSongs songs
 >   let isandps                            = Map.keys mks
 >   return (lefts isandps, rights isandps)
 >
 > shredSong              :: (String, DynMap → Music (Pitch, [NoteAttribute])) → IO (Map Kind Shred)
 > shredSong (_, song)                      = do -- return $ shredMusic $ song Map.empty
 >   let asMusic                            = song Map.empty
->   ding                                   <- shredMusic asMusic
+>   ding                                   ← shredMusic asMusic
 >   return $ shRanges ding
 >
 > critiqueMusic          :: Shredding → Shredding
@@ -1357,6 +1357,12 @@ Conversion functions and general helpers =======================================
 >     iw                 :: Int            = fromIntegral w
 >     sum                :: Int            = iw + i
 >
+> integralize            :: ∀ a b. (Integral a, Integral b) ⇒ Maybe (a, a) → Maybe (b, b)
+> integralize mww                          =
+>   case mww of
+>     Nothing                              → Nothing
+>     Just (w1, w2)                        → Just (fromIntegral w1, fromIntegral w2)
+>
 > wrap                   :: (Ord n, Num n) ⇒ n → n → n
 > wrap val bound                           = if val > bound then wrap val (val-bound) else val
 >
@@ -1740,7 +1746,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqReportTourney                      = False
+>   , qqReportTourney                      = True
 >   , qqSkipGlissandi                      = False
 >   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0

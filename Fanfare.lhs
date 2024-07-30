@@ -297,7 +297,7 @@ Gold ===========================================================================
 > goldTempo                                = 2
 > goldTranspose                            = -5
 >
-> goldLead_                                = makePitched Harpsichord goldTranspose 0 100
+> goldLead_                                = makePitched Banjo goldTranspose 0 100
 >
 > gold dynMap =
 >    removeZeros

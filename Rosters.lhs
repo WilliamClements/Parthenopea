@@ -109,12 +109,12 @@ organize exposed music =========================================================
 > sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleWay"   , shimSong $ aggrandize littleWay)]
->    -- [ ("pa1"         , pendingtonArnt 1)]
+>    [ ("pa1"         , pendingtonArnt 1)]
 >    -- [ ("bill1"       , bill 1)]
->    -- [ ("deyDumpDum"  , deyDumpDum)]
+>    -- [ ("rattan"         , rattan)]
 >    -- [ ("theFanfare"  , theFanfare False)]
->    [ ("roger"       , roger)]
->    -- [ ("kit"         , kit) ]
+>    -- [ ("roger"       , roger)]
+>    -- [ ("kit"            , kit) ]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]
 >    -- [ ("gold"        , gold)]
 >    -- [ ("dh"          , deathlessHorsie)]
@@ -134,12 +134,12 @@ a few playthings ... get it? ===================================================
 >
 > shredAll               :: IO (Map Kind Shred)
 > shredAll                                 = do
->   allSongs                               <- mapM shredSong combineAll
+>   allSongs                               ← mapM shredSong combineAll
 >   return $ foldr (Map.unionWith combineShreds) Map.empty allSongs
 >
 > doShredAll             :: IO ()
 > doShredAll                               = do
->   allShreds                              <- shredAll
+>   allShreds                              ← shredAll
 >   mapM_ (\(x, y) → print (x, shCount y)) (Map.assocs allShreds)
 >
 > playSnippet            :: () → Int → IO ()
