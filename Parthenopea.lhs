@@ -1357,7 +1357,7 @@ Conversion functions and general helpers =======================================
 >     iw                 :: Int            = fromIntegral w
 >     sum                :: Int            = iw + i
 >
-> integralize            :: ∀ a b. (Integral a, Integral b) ⇒ Maybe (a, a) → Maybe (b, b)
+> integralize            :: ∀ a b. (Integral a, Num b) ⇒ Maybe (a, a) → Maybe (b, b)
 > integralize mww                          =
 >   case mww of
 >     Nothing                              → Nothing
@@ -1746,7 +1746,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqReportTourney                      = True
+>   , qqReportTourney                      = False
 >   , qqSkipGlissandi                      = False
 >   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0

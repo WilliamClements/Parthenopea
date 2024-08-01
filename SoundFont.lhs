@@ -545,7 +545,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                         , " = "           , show weightedScores]
 >   
 > formMasterSampleList   :: Array Word SFFile → IO [PreSampleKey]
-> formMasterSampleList sffiles      = return $ concatMap formFS sffiles
+> formMasterSampleList sffiles             = return $ concatMap formFS sffiles
 >   where
 >     formFS             :: SFFile → [PreSampleKey]
 >     formFS SFFile{ .. }                  =
@@ -570,7 +570,8 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         Map.insert presk (computePreSample sf qualified (ssShdrs ! pskwSample) presk) accum
 >
 > formPreInstCache       :: Array Word SFFile → ([InstrumentName], [PercussionSound]) → [PerGMKey] → IO PreInstCache
-> formPreInstCache sffiles qualified pergms          = return $ foldl' imFolder Map.empty pergms
+> formPreInstCache sffiles qualified pergms
+>                                          = return $ foldl' imFolder Map.empty pergms
 >   where
 >     imFolder im pergm@PerGMKey{ .. }     =
 >       Map.insert pergm (computePreInstrument (sffiles ! pgkwFile) qualified pergm) im
@@ -641,7 +642,9 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → ([PerGMKey], Map PerGMKey PreSampleKey)
 >     pfolder pergmI (pergmsP, skMap)      =
 >       let
->         perI                             = getPerInstrumentFromCache zc pergmI{pgkwBag = Nothing}
+>         pergmI'                          = pergmI{pgkwBag = Nothing}
+>         mperI                            = Map.lookup pergmI' zc
+>         perI                             = professIsJust mperI (unwords["no PerInstrument in cache for", show pergmI'])
 >         (pergmsP', skMap')               = instrumentPercList pergmI perI
 >       in
 >         (pergmsP ++ pergmsP', Map.union skMap skMap')
@@ -860,19 +863,27 @@ prepare the specified instruments and percussion ===============================
 >                        :: [PerGMKey]
 >     skMap              :: Map PerGMKey PreSampleKey
 >     zc                 :: ZoneCache
+>     zq                 :: Map PerGMKey [Word]
 >
->     (pergmsI, filteredIP)                = foldr winnow ([], []) pergms
->     zc                                   = foldr (\p → Map.insert p (computePerInst p)) Map.empty (pergms ++ filteredIP)
+>     (pergmsI, filteredIP, zq)            = foldr winnow ([], [], Map.empty) pergms
+>     zc                                   =
+>       foldr (\p → Map.insert p (computePerInst p)) Map.empty (pergmsI ++ filteredIP)
 >     (pergmsP, skMap)                     = formMasterPercussionList zc preSampleCache filteredIP
 >
->     winnow             :: PerGMKey → ([PerGMKey], [PerGMKey]) → ([PerGMKey], [PerGMKey])
->     winnow pergm (is, ps)
+>     winnow             :: PerGMKey
+>                           → ([PerGMKey], [PerGMKey], Map PerGMKey [Word])
+>                           → ([PerGMKey], [PerGMKey], Map PerGMKey [Word])
+>     winnow pergm@PerGMKey{ .. } (is, pis, zq')
 >       | traceNot trace_W False           = undefined
->       | otherwise                        = (is', ps')
+>       | otherwise                        = (is', pis', zq'')
 >       where
->         cat                              = categorizeInst pergm
+>         (cat, ws)                        = categorizeInst pergm
+>         -- mq                               = fromMaybe [] (Map.lookup pergm zq')
 >         is'                              = if InstCatInst == cat then is ++ [pergm] else is
->         ps'                              = if InstCatPerc == cat then ps ++ [pergm] else ps
+>         pis'                             = if InstCatPerc == cat then pis ++ [pergm] else pis
+>         zq''                             = if InstCatPerc == cat
+>                                              then Map.insert pergm ws zq'
+>                                              else zq'
 >         
 >         trace_W                          = unwords ["winnow", show pergm]
 >
@@ -881,20 +892,19 @@ prepare the specified instruments and percussion ===============================
 >       | traceNot trace_CPI False         = undefined
 >       | otherwise                        = PerInstrument iinst (gList ++ oList) 
 >       where
->         trace_CPI                        = unwords ["CPI", show pergm]
+>         trace_CPI                        = unwords ["computePerInst", show pergm]
 >         PreInstrument{ .. }              = fromJust $ Map.lookup pergm preInstCache
->
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
 >         iinst                            = ssInsts ! pgkwInst
 >         jinst                            = ssInsts ! (pgkwInst+1)
 >         ibagi                            = F.instBagNdx iinst
 >         jbagi                            = F.instBagNdx jinst
 >
->         (gIx, oIx)                       = profess
+>         (gIx, oIx_)                      = profess
 >                                              (ibagi <= jbagi)
 >                                              "SoundFont file corrupt (computePerInst)"
 >                                              (singleton ibagi, deriveRange (ibagi+1) jbagi)
->
+>         oIx                              = fromMaybe oIx_ (Map.lookup pergm zq)
 >         gList                            = map (buildZone defZone)               gIx
 >         gZone                            = (snd . head)                          gList
 >         oList                            = map (buildZone gZone)                 oIx
@@ -925,10 +935,10 @@ prepare the specified instruments and percussion ===============================
 >
 >             trace_BZ                     = unwords ["BZ", show bagIndex]
 >
->     categorizeInst :: PerGMKey → InstCat
+>     categorizeInst :: PerGMKey → (InstCat, [Word])
 >     categorizeInst pergm@PerGMKey{ .. }
 >       | traceNot trace_CI False          = undefined
->       | otherwise                        = fromMaybe InstCatPerc latched
+>       | otherwise                        = (icat', ws')
 >       where
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
 >         PreInstrument{ .. }              = fromJust $ Map.lookup pergm preInstCache
@@ -944,31 +954,31 @@ prepare the specified instruments and percussion ===============================
 >         zhs            :: [ZoneHeader]   = map fst zs
 >         zds            :: [ZoneDigest]   = map snd zs
 >
->   
+>         icat                             = fromMaybe InstCatDisq latched
+>         ws                               = if InstCatPerc == icat
+>                                              then wZones
+>                                              else []
+>         (icat', ws')                     = if InstCatPerc == icat && null ws
+>                                              then (InstCatDisq, [])
+>                                              else (icat, ws)
+>
 >         confirmed, standing
 >                        :: (Maybe InstCat, Maybe InstCat)
 >         confirmed                        = bqForce isConfirmed
 >         standing                         = bqForce stands
 >
->         badrom         :: Maybe InstCat  = if any (uncurry hasRom) zs
->                                              then Just InstCatDisq
->                                              else Nothing
->         badLinks       :: Maybe InstCat  = if IntSet.isSubsetOf sOut sIn
->                                              then Nothing
->                                              else Just InstCatDisq
->         sIn            :: IntSet         = IntSet.fromList $ mapMaybe (uncurry getSampleIndexIn) zs
->         sOut           :: IntSet         = IntSet.fromList $ mapMaybe (uncurry getSampleLinkOut) zs
+>         badrom         :: Maybe InstCat  =
+>           if any (uncurry hasRom) zs then Just InstCatDisq else Nothing
+>         badLinks       :: Maybe InstCat  =
+>           if IntSet.isSubsetOf sOut sIn then Nothing else Just InstCatDisq
+>         sIn            :: IntSet         = IntSet.fromList $ mapMaybe (uncurry indices) zs
+>         sOut           :: IntSet         = IntSet.fromList $ mapMaybe (uncurry links) zs
 >                                          
->         getSampleIndexIn, getSampleLinkOut
->                        :: ZoneHeader → ZoneDigest → Maybe Int
->         getSampleIndexIn zh ZoneDigest{ .. }
->                                          = if isStereoZone zh
->                                              then Just $ fromIntegral $ professIsJust zdSampleIndex "no sample index?!"
->                                              else Nothing
->         getSampleLinkOut zh@ZoneHeader{ .. } _
->                                          = if isStereoZone zh
->                                              then Just $ fromIntegral $ F.sampleLink zhShdr
->                                              else Nothing
+>         indices, links :: ZoneHeader → ZoneDigest → Maybe Int
+>         indices zh ZoneDigest{ .. }      =
+>           if isStereoZone zh then Just $ fromIntegral $ professIsJust zdSampleIndex "no sample index?!" else Nothing
+>         links zh@ZoneHeader{ .. } _      =
+>           if isStereoZone zh then Just $ fromIntegral $ F.sampleLink zhShdr else Nothing
 >
 >         alts       :: [Maybe InstCat]
 >         alts                         =
@@ -977,14 +987,16 @@ prepare the specified instruments and percussion ===============================
 >           , fst confirmed
 >           , snd confirmed
 >           , if 0.8 < howPercish then Just InstCatPerc else Nothing
+>           , if 0.4 < howPercish then Just InstCatPerc else Nothing
 >           , fst standing
 >           , snd standing]
 >
->         byZone     :: [Bool]         = map (uncurry computeCanBePerc) zs
->         howPercish :: Double         = fromIntegral (length (filter id byZone)) / fromIntegral (length byZone)
->         latched    :: Maybe InstCat  = foldr CM.mplus Nothing alts
+>         wZones     :: [Word]             = mapMaybe (uncurry computeCanBePerc) zs
+>         howPercish :: Double             = fromIntegral (length wZones) / fromIntegral (length zs)
+>         latched    :: Maybe InstCat      = foldr CM.mplus Nothing alts
+>         hasRom ZoneHeader{ .. } _        = F.sampleType zhShdr >= 0x8000
 >
->         trace_CI                     =
+>         trace_CI                         =
 >           unwords ["categorizeInst", iName, show pergm]
 >
 >         bqForce        :: Double → (Maybe InstCat, Maybe InstCat)
@@ -992,22 +1004,21 @@ prepare the specified instruments and percussion ===============================
 >           (            (\x → Just InstCatInst) =<< bestQualifying (instAs iMatches) thresh
 >           ,            (\x → Just InstCatPerc) =<< bestQualifying (percAs iMatches) thresh)
 >
->         hasRom ZoneHeader{ .. } _        = F.sampleType zhShdr >= 0x8000
->
+>         computeCanBePerc
+>                        :: ZoneHeader → ZoneDigest → Maybe Word
 >         computeCanBePerc ZoneHeader{ .. } ZoneDigest { .. }
 >           | traceNot trace_CCBP False    = undefined
->           | otherwise                    = pinned
+>           | otherwise                    =
+>           mwOut =<< integralize zdKeyRange
 >           where
+>             mwOut range                  = if pinnedKR pss range then Just zhwBag else Nothing
 >             pss        :: [PercussionSound]
 >             pss                          = getQualified qualified
 >             ins        :: [InstrumentName]
 >             ins                          = getQualified qualified
 >
->             mpair                        = integralize zdKeyRange
->             pinned                       = maybe False (pinnedKR pss) mpair
->
 >             trace_CCBP                   =
->               unwords ["computeCanBePerc", show pinned]
+>               unwords ["computeCanBePerc", show pss]
 >
 >         inspectZone    :: Word → (ZoneHeader, ZoneDigest)
 >         inspectZone bagIndex
@@ -1023,8 +1034,11 @@ prepare the specified instruments and percussion ===============================
 >                                              (map (ssIGens !) (deriveRange xgeni ygeni))
 >
 >             zd                           = foldr inspectGen defDigest gens
->             si                           = fromJust (zdSampleIndex zd)
->             zh                           = ZoneHeader bagIndex (ssShdrs ! si) Nothing
+>             si                           =
+>               professIsJust (zdSampleIndex zd) (unwords ["sample index"])
+>             zh                           =
+>               ZoneHeader bagIndex (ssShdrs ! si) Nothing
+>
 >             trace_IZ                     =
 >               unwords ["inspectZone", show gens]
 >
