@@ -283,7 +283,7 @@ executive ======================================================================
 >     tsStarted          ← getCurrentTime
 >
 >     qualified          ← qualifyKinds songs
->     print qualified
+>     putStrLn $ unwords ["qualified", show qualified]
 >
 >     -- represent all input SoundFont files in ordered list, thence a vector
 >     fps                ← FP.getDirectoryFiles "." (singleton "*.sf2")
@@ -489,7 +489,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → (Map a [PerGMScored], [String])
 >                           → (Map a [PerGMScored], [String])
 >     xaEnterTournament ffs pergm@PerGMKey{ .. } kind hints (wix, ss)
->       | traceNot trace_XAET False        = undefined
+>       | traceIf trace_XAET False         = undefined
 >       | otherwise                        = (Map.insert kind now wix, ss)
 >       where
 >         pergm_                           = pergm{pgkwBag = Nothing}
@@ -889,10 +889,10 @@ prepare the specified instruments and percussion ===============================
 >
 >     computePerInst     :: PerGMKey → PerInstrument
 >     computePerInst pergm@PerGMKey{ .. }
->       | traceNot trace_CPI False         = undefined
+>       | traceIf trace_CPI False          = undefined
 >       | otherwise                        = PerInstrument iinst (gList ++ oList) 
 >       where
->         trace_CPI                        = unwords ["computePerInst", show pergm]
+>         trace_CPI                        = unwords ["computePerInst", iName]
 >         PreInstrument{ .. }              = fromJust $ Map.lookup pergm preInstCache
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
 >         iinst                            = ssInsts ! pgkwInst
@@ -933,11 +933,11 @@ prepare the specified instruments and percussion ===============================
 >             si                           = fromMaybe 0 zSampleIndex
 >             zh                           = ZoneHeader bagIndex (ssShdrs ! si) Nothing
 >
->             trace_BZ                     = unwords ["BZ", show bagIndex]
+>             trace_BZ                     = unwords ["buildZone", show bagIndex]
 >
 >     categorizeInst :: PerGMKey → (InstCat, [Word])
 >     categorizeInst pergm@PerGMKey{ .. }
->       | traceNot trace_CI False          = undefined
+>       | traceIf trace_CI False           = undefined
 >       | otherwise                        = (icat', ws')
 >       where
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
@@ -997,7 +997,7 @@ prepare the specified instruments and percussion ===============================
 >         hasRom ZoneHeader{ .. } _        = F.sampleType zhShdr >= 0x8000
 >
 >         trace_CI                         =
->           unwords ["categorizeInst", iName, show pergm]
+>           unwords ["categorizeInst", iName, show wZones]
 >
 >         bqForce        :: Double → (Maybe InstCat, Maybe InstCat)
 >         bqForce thresh =
@@ -1014,8 +1014,6 @@ prepare the specified instruments and percussion ===============================
 >             mwOut range                  = if pinnedKR pss range then Just zhwBag else Nothing
 >             pss        :: [PercussionSound]
 >             pss                          = getQualified qualified
->             ins        :: [InstrumentName]
->             ins                          = getQualified qualified
 >
 >             trace_CCBP                   =
 >               unwords ["computeCanBePerc", show pss]
@@ -1177,7 +1175,7 @@ zone selection for rendering ===================================================
 >
 > selectBestZone         :: [(ZoneHeader, SFZone)] → NoteOn → (ZoneHeader, SFZone)
 > selectBestZone zs noon
->   | traceIf trace_SBZ False              = undefined
+>   | traceNot trace_SBZ False             = undefined
 >   | otherwise                            = snd whichZ
 >   where
 >     scores             :: [(Int, (ZoneHeader, SFZone))]

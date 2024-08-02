@@ -718,9 +718,9 @@ apply fuzzyfind to mining instruments + percussion =============================
 > instance GMPlayable InstrumentName where
 >   toKind                                 = Left
 >   getQualified qualified                 =
->     if reportTourney
->       then map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
->       else fst qualified
+>     if useNoteRestrictions
+>       then fst qualified
+>       else map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
 >   getProFFKeys                           = instrumentProFFKeys
 >   getConFFKeys                           = instrumentConFFKeys
 >   getProMatches                          = instAs
@@ -729,9 +729,9 @@ apply fuzzyfind to mining instruments + percussion =============================
 > instance GMPlayable PercussionSound where
 >   toKind                                 = Right
 >   getQualified qualified                 =
->     if reportTourney
->       then map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
->       else snd qualified
+>     if useNoteRestrictions
+>       then snd qualified
+>       else map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
 >   getProFFKeys                           = percussionProFFKeys
 >   getConFFKeys                           = percussionConFFKeys
 >   getProMatches                          = percAs
@@ -1608,7 +1608,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >     (z0, p0)                             =
 >       profess
 >         (length zeros == 2 && length poles == 2)
->         "only 2x2 systems are supportedi in ResonanceTwoPoles"
+>         "only 2x2 systems are supported in ResonanceTwoPoles"
 >         (head zeros, head poles)
 >     (b1, b2)                         = extractCoefficients z0
 >     (a1, a2)                         = extractCoefficients p0
@@ -1726,6 +1726,7 @@ Configurable parameters ========================================================
 
 > diagnosticsEnabled                       = qqDiagnosticsEnabled         defC 
 > reportTourney                            = qqReportTourney              defC 
+> useNoteRestrictions                      = qqUseNoteRestrictions        defC
 > skipGlissandi                            = qqSkipGlissandi              defC
 > minImpulseSize                           = qqMinImpulseSize             defC
 > replacePerCent                           = qqReplacePerCent             defC
@@ -1735,6 +1736,7 @@ Configurable parameters ========================================================
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 :: Bool
 >   , qqReportTourney                      :: Bool
+>   , qqUseNoteRestrictions                :: Bool
 >   , qqSkipGlissandi                      :: Bool
 >   , qqMinImpulseSize                     :: Int
 >   , qqReplacePerCent                     :: Double
@@ -1747,6 +1749,7 @@ Edit the following =============================================================
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
 >   , qqReportTourney                      = False
+>   , qqUseNoteRestrictions                = True
 >   , qqSkipGlissandi                      = False
 >   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0
