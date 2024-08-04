@@ -118,9 +118,8 @@ Signal function-based synth ====================================================
 >                           → Double
 >                           → Bool
 >                           → Signal p () (Double, (ModSignals, ModSignals))
-> eutDriver secsScored (reconL@Recon{rM8n = m8nL, rNoteOn}, reconR@Recon{rM8n = m8nR})
->           secsToPlay idelta looping
->   | traceNever trace_eD False            = undefined
+> eutDriver secsScored (reconL@Recon{rM8n = m8nL, rNoteOn}, reconR@Recon{rM8n = m8nR}) secsToPlay idelta looping
+>   | traceNot trace_eD False              = undefined
 >   | otherwise                            = if looping
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
@@ -155,7 +154,10 @@ Signal function-based synth ====================================================
 >     (loopst, loopen)                     = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
 >     denom              :: Double         = fullen - fullst
 >
-> eutModSignals          :: ∀ p. Clock p ⇒ Double → Double → (Modulation, Modulation) → Signal p () (ModSignals, ModSignals)
+> eutModSignals          :: ∀ p. Clock p ⇒
+>                           Double → Double
+>                           → (Modulation, Modulation)
+>                           → Signal p () (ModSignals, ModSignals)
 > eutModSignals secsScored secsToPlay (m8nL , m8nR)    =
 >   proc _ → do
 >     aL1 ← doEnvelope  mModEnvL secsScored secsToPlay ⤙ ()
@@ -191,7 +193,7 @@ Signal function-based synth ====================================================
 > eutPumpSamples _ (  Recon{rAttenuation = attenL, rStart = stL, rEnd = enL, rM8n = m8nL}
 >                   , Recon{rAttenuation = attenR, rStart = stR, rEnd = enR, rM8n = m8nR})
 >                  noon@NoteOn{noteOnVel, noteOnKey} dur s16 ms8
->   | traceNever trace_ePS False           = undefined
+>   | traceNot trace_ePS False             = undefined
 >   | otherwise                            =
 >   proc (pos, msig) → do
 >     let pos'           :: Double         = fromIntegral (enL - stL) * pos
@@ -216,7 +218,7 @@ Signal function-based synth ====================================================
 >         trace_P                          =
 >           unwords ["pump", show (xL, xR), "<=>", show (xL * ampL, xR * ampR)]
 >      
->     trace_ePS                            = unwords ["eutPumpSamples", show (ampL, ampR)]
+>     trace_ePS                            = unwords ["eutPumpSamples", show (dur, ampL, ampR)]
 >
 > eutAmplify             :: ∀ p . Clock p ⇒
 >                           Double

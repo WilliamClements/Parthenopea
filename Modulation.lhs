@@ -306,7 +306,9 @@ Modulator management ===========================================================
 >                           → NoteOn
 >                           → Signal p () ((Double, Double), (ModSignals, ModSignals))
 >                           → Signal p () (Double, Double)
-> eutModulate secs (m8nL, m8nR) noon sIn   = 
+> eutModulate secs (m8nL, m8nR) noon sIn
+>   | traceNot trace_EM False              = undefined
+>   | otherwise                            = 
 >   proc () → do
 >     ((a1L, a1R), (modSigL, modSigR))  ← sIn
 >                                          ⤙ ()
@@ -316,6 +318,8 @@ Modulator management ===========================================================
 >     outA                                 ⤙ (a3L', a3R')
 >
 >   where
+>     trace_EM                             = unwords ["eutModulate", show secs]
+>
 >     modulate           :: (Double, Double) → (Double, Double) → (Double, Double)
 >     modulate (a1L, a1R) (a2L, a2R)
 >       | traceNever trace_M False         = undefined
@@ -682,10 +686,10 @@ Type declarations ==============================================================
 >   , toVolumeCo         :: ModCoefficients
 >   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
-> defModulation                            = Modulation
->                                              (Lowpass ResonanceNone (defKernelSpec useFastFourier)) Nothing Nothing Nothing
->                                              defModCoefficients defModCoefficients defModCoefficients
->                                              Map.empty
+> defModulation                            =
+>   Modulation
+>     (Lowpass ResonanceNone (defKernelSpec useFastFourier)) Nothing Nothing Nothing
+>     defModCoefficients defModCoefficients defModCoefficients Map.empty
 >
 > data Modulator                           =
 >   Modulator {

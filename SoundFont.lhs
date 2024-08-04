@@ -458,7 +458,7 @@ executive ======================================================================
 >         mkind          :: Maybe PercussionSound
 >                                          =
 >           pgkwBag >>= lookupZone >>= getAP >>= pitchToPerc
->         kind                             = professIsJust mkind "pitchToPerc returned Nothing"
+>         kind                             = professIsJust mkind $ unwords["pitchToPerc returned Nothing"]
 >
 >         mmatches       :: Maybe FFMatches
 >                                          =
@@ -644,7 +644,8 @@ tournament among GM instruments and percussion from SoundFont files ============
 >       let
 >         pergmI'                          = pergmI{pgkwBag = Nothing}
 >         mperI                            = Map.lookup pergmI' zc
->         perI                             = professIsJust mperI (unwords["no PerInstrument in cache for", show pergmI'])
+>         perI                             =
+>           professIsJust mperI (unwords["no PerInstrument in cache for", show pergmI'])
 >         (pergmsP', skMap')               = instrumentPercList pergmI perI
 >       in
 >         (pergmsP ++ pergmsP', Map.union skMap skMap')
@@ -732,7 +733,11 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     ++ [emitShowL name 20, emitShowL (length is) 4]
 >     ++ [Unblocked " /- instruments, percussion -/ ", emitShowL (length ps) 4, EndOfLine]
 >
-> computeSplitCharacteristic  :: ∀ a. (SFScorable a) ⇒ a → ([InstrumentName], [PercussionSound]) → [(ZoneHeader, SFZone)] → Double
+> computeSplitCharacteristic  :: ∀ a. (SFScorable a) ⇒
+>                                a
+>                                → ([InstrumentName], [PercussionSound])
+>                                → [(ZoneHeader, SFZone)]
+>                                → Double
 > computeSplitCharacteristic kind qs zs = log (3 * splitScore kind qs zs * factor)
 >   where
 >     factor             :: Double         = if isStereoInst (map fst zs)
@@ -751,6 +756,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 > zoneConforms (ZoneHeader{ .. }, SFZone{ .. })
 >                                          = not $ or unsupported
 >   where
+>     F.Shdr{ .. }                           = zhShdr
 >     unsupported        :: [Bool]
 >     unsupported                          =
 >       [
@@ -758,6 +764,8 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         , 0 /= fromMaybe 0 zInitQ
 >         , 0 /= fromMaybe 0 zScaleTuning
 >         , 0 /= fromMaybe 0 zExclusiveClass
+>         , end < start
+>         , endLoop < startLoop
 >       ]
 >
 > is24BitInst _                     = True -- was isJust $ ssM24 arrays       
@@ -1370,8 +1378,9 @@ reconcile zone and sample header ===============================================
 >                                              zSustainModEnv
 >                                              zReleaseModEnv
 >                                              (Just (zModEnvToPitch, zModEnvToFc))
->     nModLfo            :: Maybe LFO      = deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc zModLfoToVol
->     nVibLfo            :: Maybe LFO      = deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
+>     nModLfo            :: Maybe LFO      =
+>       deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc zModLfoToVol
+>     nVibLfo            :: Maybe LFO      = deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing Nothing
 >
 >     summarize          :: ModDestType → ModCoefficients
 >     summarize toWhich                    =
@@ -1412,7 +1421,8 @@ reconcile zone and sample header ===============================================
 >                           → Map PlayKey (Recon, Maybe Recon)
 >                           → NoteOn
 >                           → Map PlayKey (Recon, Maybe Recon)
->     playFolder pergm ps noon             = Map.insert (PlayKey pergm noon) (computePlayValue pergm{pgkwBag = Nothing} zc noon) ps
+>     playFolder pergm ps noon             =
+>       Map.insert (PlayKey pergm noon) (computePlayValue pergm{pgkwBag = Nothing} zc noon) ps
 
 emit standard output text detailing what choices we made for rendering GM items =======================================
 

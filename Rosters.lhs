@@ -106,9 +106,9 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj = ejingles
+> sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
->    -- [ ("littleWay"   , shimSong $ aggrandize littleWay)]
+>    [ ("littleDH"       , shimSong $ aggrandize littleDH)]
 >    -- [ ("pa1"         , pendingtonArnt 1)]
 >    -- [ ("bill1"       , bill 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]

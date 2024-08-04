@@ -8,7 +8,7 @@ Covers
 William Clements
 January 13, 2023
 
-> module Covers (littleSailor, slot, ssailor, deathlessHorsie, basicLick, packardGoose, yahozna) where
+> module Covers (littleSailor, slot, ssailor, deathlessHorsie, basicLick, packardGoose, yahozna, littleDH) where
 
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
@@ -1097,6 +1097,9 @@ TC =============================================================================
 
 DH ====================================================================================================================
 
+> littleDH =
+>   instrument Violin $  addVolume 98 $ line [b 4 en, t32 [b 4 en, gs 4 sn, b 4 en, gs 5 sn], fs 5 dqn, rest qn]
+>
 > dhTempo                                  = 1
 > dhTranspose                              = 3
 >
