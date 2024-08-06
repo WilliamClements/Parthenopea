@@ -709,7 +709,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 
 > class GMPlayable a where
 >   toKind               :: a → Kind
->   getQualified         :: ([InstrumentName], [PercussionSound]) → [a]
+>   select               :: ([InstrumentName], [PercussionSound]) → [a]
 >   getProFFKeys         :: a → Maybe [String]
 >   getConFFKeys         :: a → Maybe [String]
 >   getProMatches        :: FFMatches → [(a, (String, Fuzz))]
@@ -717,10 +717,10 @@ apply fuzzyfind to mining instruments + percussion =============================
 >
 > instance GMPlayable InstrumentName where
 >   toKind                                 = Left
->   getQualified qualified                 =
+>   select roster                          =
 >     if useNoteRestrictions
->       then fst qualified
->       else map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>       then fst roster
+>       else fst universe
 >   getProFFKeys                           = instrumentProFFKeys
 >   getConFFKeys                           = instrumentConFFKeys
 >   getProMatches                          = instAs
@@ -728,10 +728,10 @@ apply fuzzyfind to mining instruments + percussion =============================
 >
 > instance GMPlayable PercussionSound where
 >   toKind                                 = Right
->   getQualified qualified                 =
+>   select roster                          =
 >     if useNoteRestrictions
->       then snd qualified
->       else map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle]
+>       then snd roster
+>       else snd universe
 >   getProFFKeys                           = percussionProFFKeys
 >   getConFFKeys                           = percussionConFFKeys
 >   getProMatches                          = percAs
@@ -939,24 +939,28 @@ apply fuzzyfind to mining instruments + percussion =============================
 
 handle "matching as" cache misses =====================================================================================
 
-> computeMatchingAs      :: ∀ a. (GMPlayable a, Eq a) ⇒ String
->                                                  → Bool
->                                                  → ([InstrumentName], [PercussionSound])
->                                                  → [(a, (String, Fuzz))]
-> computeMatchingAs inp pro qualified      = sortOn (Down . snd) asScored
+> universe               :: ([InstrumentName], [PercussionSound])
+> universe                                 = (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>                                             , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
+> computeMatchingAs      :: ∀ a. (GMPlayable a, Eq a) ⇒
+>                           String
+>                           → Bool
+>                           → ([InstrumentName], [PercussionSound])
+>                           → [(a, (String, Fuzz))]
+> computeMatchingAs inp pro roster         = sortOn (Down . snd) asScored
 >   where
 >     getFFKeys          :: a → Maybe [String]
 >     getFFKeys                            = if pro then getProFFKeys else getConFFKeys
 >
 >     -- weed out candidates with no fuzzy keys
 >     asLooks            :: [(a, [String])]
->                                          = mapMaybe eval1 (getQualified qualified)
+>                                          = mapMaybe eval1 (select roster)
 >
 >     eval1              :: a → Maybe (a, [String])
 >     eval1 kind                           =
 >       Just . (kind,)
 >         =<< getFFKeys
->         =<< if kind `elem` getQualified qualified then Just kind else Nothing
+>         =<< if kind `elem` select roster then Just kind else Nothing
 >
 >     -- weed out candidates with no fuzzy key matches
 >     asScored           :: [(a, (String, Fuzz))]
@@ -994,15 +998,17 @@ use "matching as" cache ========================================================
 >     instAs             :: [(InstrumentName, (String, Fuzz))]
 >   , percAs             :: [(PercussionSound, (String, Fuzz))]
 >   , instBs             :: [(InstrumentName, (String, Fuzz))]
->   , percBs             :: [(PercussionSound, (String, Fuzz))]} deriving Show
+>   , percBs             :: [(PercussionSound, (String, Fuzz))]
+>   , instUs             :: [(InstrumentName, (String, Fuzz))]} deriving Show
 >
 > computeFFMatches       :: String → ([InstrumentName], [PercussionSound]) → FFMatches
-> computeFFMatches inp qualified           = FFMatches ias pas ibs pbs
+> computeFFMatches inp roster              = FFMatches ias pas ibs pbs ius
 >   where
->     ias = computeMatchingAs inp True qualified
->     pas = computeMatchingAs inp True qualified
->     ibs = computeMatchingAs inp False qualified
->     pbs = computeMatchingAs inp False qualified
+>     ias = computeMatchingAs inp True roster
+>     pas = computeMatchingAs inp True roster
+>     ibs = computeMatchingAs inp False roster
+>     pbs = computeMatchingAs inp False roster
+>     ius = computeMatchingAs inp True universe
 
 tournament among instruments in various soundfont files ===============================================================
 

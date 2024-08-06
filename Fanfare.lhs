@@ -295,19 +295,17 @@ Copper =========================================================================
 Gold ==================================================================================================================
 
 > goldTempo                                = 2
-> goldTranspose                            = -5
+> goldTranspose                            = 12
 >
-> goldLead_                                = makePitched ElectricGrandPiano goldTranspose 0 100
->
+> goldLead_                                = makePitched Violin goldTranspose 0 100
 > gold dynMap =
 >    removeZeros
 >    $ aggrandize
 >    $ tempo 2
 >    $ keysig C Mixolydian
 >    $ bandPart goldLead
->    -- $ times 2
->      (line [c 4 en, c 5 en, rest wn, c 4 hn])
-> {-
+>    $ times 2
+>      (line [c 4 hn,  c 5 dhn]
 >       :+: addDur qn [ c 5, bf 4,  a 4,  g 4,
 >                       g 4,  f 4,  a 4,  g 4,
 >                       g 4,  f 4,  a 4,  g 4,
@@ -316,7 +314,6 @@ Gold ===========================================================================
 >                       g 4,  f 4,  e 4,  d 4,
 >                       d 4, bf 3, bf 3])
 >       :+: c 4 hn
-> -}
 >   where
 >     goldLead                             = replace goldLead_ dynMap
 
@@ -325,7 +322,7 @@ Silver =========================================================================
 > silverTempo                              = 2
 > silverTranspose                          = 7
 >
-> silverLead_                              = makePitched Trumpet silverTranspose 0 100
+> silverLead_                              = makePitched MusicBox silverTranspose 0 100
 >     
 > silver dynMap =
 >     removeZeros

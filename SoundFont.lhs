@@ -453,21 +453,22 @@ executive ======================================================================
 >                           → (Map PercussionSound [PerGMScored], [String])
 >     wpFolder wIn pergmP@PerGMKey{ .. }
 >       | traceNot trace_WP False          = undefined
->       | otherwise                        = xaEnterTournament smatches pergmP kind [] wIn
+>       | otherwise                        = xaEnterTournament sffm pergmP kind [] wIn
 >       where
 >         mkind          :: Maybe PercussionSound
 >                                          =
 >           pgkwBag >>= lookupZone >>= getAP >>= pitchToPerc
 >         kind                             = professIsJust mkind $ unwords["pitchToPerc returned Nothing"]
 >
->         mmatches       :: Maybe FFMatches
->                                          =
+>         mffm           :: Maybe FFMatches
+>         sffm           :: FFMatches
+>         mffm                             =
 >           pgkwBag >>= lookupZone
 >                   >>= zSampleIndex
 >                   >>= Just . PreSampleKey pgkwFile
 >                   >>= flip Map.lookup psc
 >                   >>= Just . sMatches
->         smatches                         = professIsJust mmatches $ unwords ["couldn't get PerSample"]
+>         sffm                             = professIsJust mffm $ unwords ["couldn't get PreSample?"]
 >
 >         PerInstrument{ .. }              = fromJust $ Map.lookup (pergmP{pgkwBag = Nothing}) zc
 >
@@ -863,7 +864,7 @@ prepare the specified instruments and percussion ===============================
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [PerGMKey]
 >                           → IO ([PerGMKey], [PerGMKey], Map PerGMKey PreSampleKey, ZoneCache)
-> formZoneCache sffiles preSampleCache preInstCache qualified pergms
+> formZoneCache sffiles preSampleCache preInstCache roster pergms
 >                                          = 
 >   return (pergmsI, pergmsP, skMap, zc)
 >   where
@@ -886,7 +887,6 @@ prepare the specified instruments and percussion ===============================
 >       | otherwise                        = (is', pis', zq'')
 >       where
 >         (cat, ws)                        = categorizeInst pergm
->         -- mq                               = fromMaybe [] (Map.lookup pergm zq')
 >         is'                              = if InstCatInst == cat then is ++ [pergm] else is
 >         pis'                             = if InstCatPerc == cat then pis ++ [pergm] else pis
 >         zq''                             = if InstCatPerc == cat
@@ -969,18 +969,15 @@ prepare the specified instruments and percussion ===============================
 >         (icat', ws')                     = if InstCatPerc == icat && null ws
 >                                              then (InstCatDisq, [])
 >                                              else (icat, ws)
->
->         confirmed, standing
->                        :: (Maybe InstCat, Maybe InstCat)
->         confirmed                        = bqForce isConfirmed
->         standing                         = bqForce stands
+>         sIn, sOut      :: IntSet
+>         sIn                              = IntSet.fromList $ mapMaybe (uncurry indices) zs
+>         sOut                             = IntSet.fromList $ mapMaybe (uncurry links) zs
 >
 >         badrom         :: Maybe InstCat  =
 >           if any (uncurry hasRom) zs then Just InstCatDisq else Nothing
 >         badLinks       :: Maybe InstCat  =
 >           if IntSet.isSubsetOf sOut sIn then Nothing else Just InstCatDisq
->         sIn            :: IntSet         = IntSet.fromList $ mapMaybe (uncurry indices) zs
->         sOut           :: IntSet         = IntSet.fromList $ mapMaybe (uncurry links) zs
+>         hasRom ZoneHeader{ .. } _        = F.sampleType zhShdr >= 0x8000
 >                                          
 >         indices, links :: ZoneHeader → ZoneDigest → Maybe Int
 >         indices zh ZoneDigest{ .. }      =
@@ -988,29 +985,35 @@ prepare the specified instruments and percussion ===============================
 >         links zh@ZoneHeader{ .. } _      =
 >           if isStereoZone zh then Just $ fromIntegral $ F.sampleLink zhShdr else Nothing
 >
+>         xinst x                          = Just InstCatInst
+>         xperc x                          = Just InstCatPerc
+>         xdisq x                          = Just InstCatDisq
+>
 >         alts       :: [Maybe InstCat]
->         alts                         =
+>         alts                             =
 >           [ badrom
 >           , badLinks
->           , fst confirmed
->           , snd confirmed
+>           , xinst =<< bestQualifying (instAs iMatches) isConfirmed
+>           , xperc =<< bestQualifying (percAs iMatches) isConfirmed
 >           , if 0.8 < howPercish then Just InstCatPerc else Nothing
+>           , xdisq =<< bestQualifying (instUs iMatches) stands
 >           , if 0.4 < howPercish then Just InstCatPerc else Nothing
->           , fst standing
->           , snd standing]
+>           , xinst =<< bestQualifying (instAs iMatches) stands
+>           , xperc =<< bestQualifying (percAs iMatches) stands]
 >
 >         wZones     :: [Word]             = mapMaybe (uncurry computeCanBePerc) zs
 >         howPercish :: Double             = fromIntegral (length wZones) / fromIntegral (length zs)
+
+   "now", run the alternatives to categorize as follows
+   a. Just InstCatInst           an inst bearing one inst, or
+   b. Just InstCatPerc           an inst bearing one or more percs, or
+   c. Just InstCatDisq           an inst disqualified from all tournaments, or else
+   d. Nothing                    undecided
+
 >         latched    :: Maybe InstCat      = foldr CM.mplus Nothing alts
->         hasRom ZoneHeader{ .. } _        = F.sampleType zhShdr >= 0x8000
 >
 >         trace_CI                         =
 >           unwords ["categorizeInst", iName, show wZones]
->
->         bqForce        :: Double → (Maybe InstCat, Maybe InstCat)
->         bqForce thresh =
->           (            (\x → Just InstCatInst) =<< bestQualifying (instAs iMatches) thresh
->           ,            (\x → Just InstCatPerc) =<< bestQualifying (percAs iMatches) thresh)
 >
 >         computeCanBePerc
 >                        :: ZoneHeader → ZoneDigest → Maybe Word
@@ -1021,7 +1024,7 @@ prepare the specified instruments and percussion ===============================
 >           where
 >             mwOut range                  = if pinnedKR pss range then Just zhwBag else Nothing
 >             pss        :: [PercussionSound]
->             pss                          = getQualified qualified
+>             pss                          = select roster
 >
 >             trace_CCBP                   =
 >               unwords ["computeCanBePerc", show pss]
@@ -1238,7 +1241,7 @@ zone selection for rendering ===================================================
 > percussionSplitScore kind qs zs          = max 1 (fromIntegral $ length $ mapMaybe (match . snd) zs)
 >   where
 >     pss                :: [PercussionSound]
->     pss                                  = getQualified qs
+>     pss                                  = select qs
 >
 >     match              :: SFZone → Maybe PercussionSound
 >     match SFZone{zKeyRange}
@@ -1431,7 +1434,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >                           → [(InstrumentName, [String])]
 >                           → [PercussionSound]
 >                           → ([(Bool, [Emission])], [(Bool, [Emission])])
-> printChoices SFRoster{ .. } is msgs ps = (map (showI zWinningRecord) is, map (showP zWinningRecord) ps)
+> printChoices SFRoster{ .. } is msgs ps   = (map (showI zWinningRecord) is, map (showP zWinningRecord) ps)
 >   where
 >     showI              :: WinningRecord → InstrumentName → (Bool, [Emission])
 >     showI WinningRecord{ .. } kind       = result
@@ -1456,11 +1459,9 @@ emit standard output text detailing what choices we made for rendering GM items 
 >           | otherwise                    = (False, [gmId kind, Unblocked " not found", EndOfLine])
 >
 >     showPerGM          :: PerGMScored → [Emission]
->     showPerGM PerGMScored{ .. }          = [emitShowL pgkwFile 4] ++ emitI pgkwInst ++ showmZ
+>     showPerGM PerGMScored{ .. }          = [emitShowL pgkwFile 4] ++ [ToFieldL szI 22] ++ showmZ
 >       where
 >         PerGMKey{ .. }                   = pPerGMKey
->         SoundFontArrays{ .. }            = zArrays (zFiles ! pgkwFile)
->         emitI wordI                      = [Unblocked szI]
 >         showmZ                           = maybe [] showZ mszP
 >         showZ name                       = [Unblocked name]
 >
