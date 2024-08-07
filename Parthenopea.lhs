@@ -712,8 +712,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >   select               :: ([InstrumentName], [PercussionSound]) → [a]
 >   getProFFKeys         :: a → Maybe [String]
 >   getConFFKeys         :: a → Maybe [String]
->   getProMatches        :: FFMatches → [(a, (String, Fuzz))]
->   getConMatches        :: FFMatches → [(a, (String, Fuzz))]
+>   getProAndCon         :: FFMatches → FFProAndCon a
 >
 > instance GMPlayable InstrumentName where
 >   toKind                                 = Left
@@ -723,8 +722,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       else fst universe
 >   getProFFKeys                           = instrumentProFFKeys
 >   getConFFKeys                           = instrumentConFFKeys
->   getProMatches                          = instAs
->   getConMatches                          = instBs
+>   getProAndCon                           = ffInst
 >
 > instance GMPlayable PercussionSound where
 >   toKind                                 = Right
@@ -734,8 +732,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       else snd universe
 >   getProFFKeys                           = percussionProFFKeys
 >   getConFFKeys                           = percussionConFFKeys
->   getProMatches                          = percAs
->   getConMatches                          = percBs
+>   getProAndCon                           = ffPerc
 >
 > type Fuzz = Double
 >
@@ -983,9 +980,9 @@ handle "matching as" cache misses ==============================================
 
 use "matching as" cache ===============================================================================================
 
-> evalAgainstKind        :: ∀ a. (GMPlayable a, Eq a) ⇒ a → FFMatches → Fuzz
-> evalAgainstKind kind ffs                 =
->   maybe 0 snd (lookup kind (getProMatches ffs)) - maybe 0 snd (lookup kind (getConMatches ffs))
+> evalAgainstKind        :: ∀ a. (GMPlayable a, Eq a) ⇒ a → FFProAndCon a → Fuzz
+> evalAgainstKind kind pandc                 =
+>   maybe 0 snd (lookup kind (ffPros pandc)) - maybe 0 snd (lookup kind (ffCons pandc))
 >   
 > bestQualifying         :: ∀ a. (GMPlayable a) ⇒ [(a, (String, Fuzz))] → Double → Maybe (a, (String, Fuzz))
 > bestQualifying as thresh
@@ -993,21 +990,26 @@ use "matching as" cache ========================================================
 >   | (snd . snd . head) as < thresh       = Nothing
 >   | otherwise                            = Just (head as)
 >
+> data FFProAndCon a =
+>   FFProAndCon {
+>     ffPros     :: [(a, (String, Fuzz))]
+>   , ffCons     :: [(a, (String, Fuzz))]} deriving Show
+>
 > data FFMatches =
 >   FFMatches {
->     instAs             :: [(InstrumentName, (String, Fuzz))]
->   , percAs             :: [(PercussionSound, (String, Fuzz))]
->   , instBs             :: [(InstrumentName, (String, Fuzz))]
->   , percBs             :: [(PercussionSound, (String, Fuzz))]
+>     ffInst             :: FFProAndCon InstrumentName 
+>   , ffPerc             :: FFProAndCon PercussionSound
 >   , instUs             :: [(InstrumentName, (String, Fuzz))]} deriving Show
 >
 > computeFFMatches       :: String → ([InstrumentName], [PercussionSound]) → FFMatches
-> computeFFMatches inp roster              = FFMatches ias pas ibs pbs ius
+> computeFFMatches inp roster              = FFMatches (FFProAndCon ias ibs) (FFProAndCon pas pbs) ius
 >   where
 >     ias = computeMatchingAs inp True roster
->     pas = computeMatchingAs inp True roster
 >     ibs = computeMatchingAs inp False roster
+>
+>     pas = computeMatchingAs inp True roster
 >     pbs = computeMatchingAs inp False roster
+>
 >     ius = computeMatchingAs inp True universe
 
 tournament among instruments in various soundfont files ===============================================================
@@ -1733,6 +1735,7 @@ Configurable parameters ========================================================
 > diagnosticsEnabled                       = qqDiagnosticsEnabled         defC 
 > reportTourney                            = qqReportTourney              defC 
 > useNoteRestrictions                      = qqUseNoteRestrictions        defC
+> multipleCompetes                         = qqMultipleCompetes           defC
 > skipGlissandi                            = qqSkipGlissandi              defC
 > minImpulseSize                           = qqMinImpulseSize             defC
 > replacePerCent                           = qqReplacePerCent             defC
@@ -1743,6 +1746,7 @@ Configurable parameters ========================================================
 >     qqDiagnosticsEnabled                 :: Bool
 >   , qqReportTourney                      :: Bool
 >   , qqUseNoteRestrictions                :: Bool
+>   , qqMultipleCompetes                   :: Bool
 >   , qqSkipGlissandi                      :: Bool
 >   , qqMinImpulseSize                     :: Int
 >   , qqReplacePerCent                     :: Double
@@ -1753,9 +1757,10 @@ Edit the following =============================================================
 > defC                   :: ControlSettings
 > defC =
 >   ControlSettings {
->     qqDiagnosticsEnabled                 = False
->   , qqReportTourney                      = False
+>     qqDiagnosticsEnabled                 = True
+>   , qqReportTourney                      = True
 >   , qqUseNoteRestrictions                = True
+>   , qqMultipleCompetes                   = True
 >   , qqSkipGlissandi                      = False
 >   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0

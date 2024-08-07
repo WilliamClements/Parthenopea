@@ -1098,7 +1098,7 @@ TC =============================================================================
 DH ====================================================================================================================
 
 > littleDH =
->   instrument Violin $  addVolume 98 $ line [b 4 en, t32 [b 4 en, gs 4 sn, b 4 en, gs 5 sn], fs 5 dqn, rest qn]
+>   instrument RhodesPiano $  addVolume 98 $ line [b 4 en, t32 [b 4 en, gs 4 sn, b 4 en, gs 5 sn], fs 5 dqn, rest qn]
 >
 > dhTempo                                  = 1
 > dhTranspose                              = 3

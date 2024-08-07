@@ -9,7 +9,7 @@ Rosters
 William Clements
 May 4, 2023
 
-> module Main where
+> module Rosters where
 >
 > import Baking
 > import Cecil
@@ -33,8 +33,8 @@ May 4, 2023
 
 Rosters support =======================================================================================================
 
-> main                   :: IO ()
-> main = do
+> rmain                   :: IO ()
+> rmain = do
 >   args ← getArgs
 >   let playAll          = (length args == 1) && ("all" == head args)
 >   let doBench          = (length args == 1) && ("bench" == head args)
@@ -108,7 +108,7 @@ organize exposed music =========================================================
 >
 > sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
->    [ ("littleDH"       , shimSong $ aggrandize littleDH)]
+>       [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("pa1"         , pendingtonArnt 1)]
 >    -- [ ("bill1"       , bill 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]
@@ -116,7 +116,7 @@ organize exposed music =========================================================
 >    -- [ ("roger"       , roger)]
 >    -- [ ("kit"         , kit) ]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]
->    -- [ ("gold"           , gold)]
+>    -- [ ("gold"        , gold)]
 >    -- [ ("dh"          , deathlessHorsie)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 
