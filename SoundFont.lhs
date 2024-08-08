@@ -147,14 +147,14 @@ Instrument categories: instrument, percussion, disqualified
 >     zFiles             :: Array Word SFFile
 >   , zPreSampleCache    :: PreSampleCache
 >   , zPreInstCache      :: PreInstCache
->   , zQualified         :: ([InstrumentName], [PercussionSound])
+>   , zRoster            :: ([InstrumentName], [PercussionSound])
 >   , zZoneCache         :: ZoneCache
 >   , zWinningRecord     :: WinningRecord
 >   , zPlayCache         :: Map PlayKey (Recon, Maybe Recon)}
 >
 > seedRoster :: Array Word SFFile → ([InstrumentName], [PercussionSound]) → SFRoster
-> seedRoster vFile qualified               =
->   SFRoster vFile Map.empty Map.empty qualified Map.empty seedWinningRecord Map.empty
+> seedRoster vFile rost                    =
+>   SFRoster vFile Map.empty Map.empty rost Map.empty seedWinningRecord Map.empty
 >
 > data SFFile =
 >   SFFile {
@@ -281,10 +281,12 @@ executive ======================================================================
 > doEverything songs = do
 >
 >     putStrLn "everything..."
+>     putStrLn $ reapEmissions emitSettingses
+>
 >     tsStarted          ← getCurrentTime
 >
->     qualified          ← qualifyKinds songs
->     putStrLn $ unwords ["qualified", show qualified]
+>     rost               ← qualifyKinds songs
+>     putStrLn $ unwords ["qualified", show rost]
 >
 >     -- represent all input SoundFont files in ordered list, thence a vector
 >     fps                ← FP.getDirectoryFiles "." (singleton "*.sf2")
@@ -292,7 +294,7 @@ executive ======================================================================
 >
 >     let boundsF::(Word, Word)
 >                        = (0, fromIntegral (length sffilesp - 1))
->     let preRoster      = seedRoster (listArray boundsF sffilesp) qualified
+>     let preRoster      = seedRoster (listArray boundsF sffilesp) rost
 >
 >     tsLoaded           ← getCurrentTime
 >     putStrLn ("___load files: " ++ show (diffUTCTime tsLoaded tsStarted))
@@ -322,11 +324,11 @@ executive ======================================================================
 >         presks         ← formMasterSampleList zFiles
 >         pergmsI_       ← formMasterInstList   zFiles
 >
->         preSampleCache ← formPreSampleCache zFiles zQualified presks
->         preInstCache   ← formPreInstCache   zFiles zQualified pergmsI_
+>         preSampleCache ← formPreSampleCache zFiles zRoster presks
+>         preInstCache   ← formPreInstCache   zFiles zRoster pergmsI_
 >
 >         (pergmsI, pergmsP, skMap, zc)
->                        ← formZoneCache zFiles preSampleCache preInstCache zQualified pergmsI_
+>                        ← formZoneCache zFiles preSampleCache preInstCache zRoster pergmsI_
 >
 >         CM.when diagnosticsEnabled
 >           (do
@@ -340,7 +342,7 @@ executive ======================================================================
 >
 >         -- actually conduct the tournament
 >         ((wI, sI), (wP, sP))
->                        ← decideWinners zFiles preInstCache preSampleCache zc skMap zQualified pergmsI pergmsP
+>                        ← decideWinners zFiles preInstCache preSampleCache zc skMap zRoster pergmsI pergmsP
 >         tsDecided      ← getCurrentTime
 >         putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsZoned))
 >
@@ -382,12 +384,7 @@ executive ======================================================================
 >   let esFiles          = emitFileListC
 >   let esI              = concatMap dumpContestants (Map.toList pContI)
 >   let esP              = concatMap dumpContestants (Map.toList pContP)
->   let esQ              = [ Unblocked "\n\n"
->                          , emitShowL defS 1000
->                          , Unblocked "\n\n"
->                          , emitShowL defT 1000
->                          , Unblocked "\n\n"
->                          , emitShowL defM 1000]
+>   let esQ              = emitSettingses
 >   let esTail           = singleton $ Unblocked "\n\nThe End\n\n"
 >   let eol              = singleton EndOfLine
 >
@@ -577,11 +574,10 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         Map.insert presk (computePreSample sf qualified (ssShdrs ! pskwSample) presk) accum
 >
 > formPreInstCache       :: Array Word SFFile → ([InstrumentName], [PercussionSound]) → [PerGMKey] → IO PreInstCache
-> formPreInstCache sffiles qualified pergms
->                                          = return $ foldl' imFolder Map.empty pergms
+> formPreInstCache sffiles rost pergms     = return $ foldl' imFolder Map.empty pergms
 >   where
 >     imFolder im pergm@PerGMKey{ .. }     =
->       Map.insert pergm (computePreInstrument (sffiles ! pgkwFile) qualified pergm) im
+>       Map.insert pergm (computePreInstrument (sffiles ! pgkwFile) rost pergm) im
 >
 > getPreSampleFromCache :: Map PreSampleKey PreSample → PreSampleKey → PreSample
 > getPreSampleFromCache preSampleCache presk
@@ -951,7 +947,7 @@ prepare the specified instruments and percussion ===============================
 >
 >     categorizeInst :: PerGMKey → (InstCat, [Word])
 >     categorizeInst pergm@PerGMKey{ .. }
->       | traceIf trace_CI False           = undefined
+>       | traceNow trace_CI False          = undefined
 >       | otherwise                        = (icat', ws')
 >       where
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
@@ -1010,7 +1006,7 @@ prepare the specified instruments and percussion ===============================
 >         wZones     :: [Word]             = mapMaybe (uncurry computeCanBePerc) zs
 >         howPercish :: Double             = fromIntegral (length wZones) / fromIntegral (length zs)
 
-   "now", step through the alternatives, categorizing as follows
+   "now", sequence through the alternatives, categorizing as follows
    a. Just InstCatInst           an inst bearing one inst, or
    b. Just InstCatPerc           an inst bearing one or more percs, or
    c. Just InstCatDisq           an inst disqualified from all tournaments, or else
@@ -1019,7 +1015,7 @@ prepare the specified instruments and percussion ===============================
 >         latched    :: Maybe InstCat      = foldr CM.mplus Nothing alts
 >
 >         trace_CI                         =
->           unwords ["categorizeInst", iName, show wZones, show iMatches]
+>           unwords ["categorizeInst", iName]
 >
 >         computeCanBePerc
 >                        :: ZoneHeader → ZoneDigest → Maybe Word
@@ -1470,6 +1466,20 @@ emit standard output text detailing what choices we made for rendering GM items 
 >         PerGMKey{ .. }                   = pPerGMKey
 >         showmZ                           = maybe [] showZ mszP
 >         showZ name                       = [Unblocked name]
+>
+> emitSettingses         :: [Emission]
+> emitSettingses                           =
+>   concat 
+>     [ emitSettings defC
+>     , emitSettings defS
+>     , emitSettings defM 
+>     , emitSettings defT
+>     , emitSettings defD]
+>
+> emitSettings           :: Show a ⇒ a → [Emission]
+> emitSettings def_                        =
+>   [ Unblocked "\n\n"
+>   , emitShowL def_ 1000]
 >
 > emitMsgs               :: InstrumentName → [(InstrumentName, [String])] → [Emission]
 > emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs

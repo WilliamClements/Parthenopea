@@ -710,28 +710,22 @@ apply fuzzyfind to mining instruments + percussion =============================
 > class GMPlayable a where
 >   toKind               :: a → Kind
 >   select               :: ([InstrumentName], [PercussionSound]) → [a]
->   getProFFKeys         :: a → Maybe [String]
->   getConFFKeys         :: a → Maybe [String]
 >   getProAndCon         :: FFMatches → FFProAndCon a
 >
 > instance GMPlayable InstrumentName where
 >   toKind                                 = Left
 >   select roster                          =
->     if useNoteRestrictions
+>     if narrowInstrumentScope
 >       then fst roster
 >       else fst universe
->   getProFFKeys                           = instrumentProFFKeys
->   getConFFKeys                           = instrumentConFFKeys
 >   getProAndCon                           = ffInst
 >
 > instance GMPlayable PercussionSound where
 >   toKind                                 = Right
 >   select roster                          =
->     if useNoteRestrictions
+>     if narrowInstrumentScope
 >       then snd roster
 >       else snd universe
->   getProFFKeys                           = percussionProFFKeys
->   getConFFKeys                           = percussionConFFKeys
 >   getProAndCon                           = ffPerc
 >
 > type Fuzz = Double
@@ -941,23 +935,20 @@ handle "matching as" cache misses ==============================================
 >                                             , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
 > computeMatchingAs      :: ∀ a. (GMPlayable a, Eq a) ⇒
 >                           String
->                           → Bool
+>                           → (a → Maybe [String])
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [(a, (String, Fuzz))]
-> computeMatchingAs inp pro roster         = sortOn (Down . snd) asScored
+> computeMatchingAs inp getFFKeys rost     = sortOn (Down . snd) asScored
 >   where
->     getFFKeys          :: a → Maybe [String]
->     getFFKeys                            = if pro then getProFFKeys else getConFFKeys
->
 >     -- weed out candidates with no fuzzy keys
 >     asLooks            :: [(a, [String])]
->                                          = mapMaybe eval1 (select roster)
+>                                          = mapMaybe eval1 (select rost)
 >
 >     eval1              :: a → Maybe (a, [String])
 >     eval1 kind                           =
 >       Just . (kind,)
 >         =<< getFFKeys
->         =<< if kind `elem` select roster then Just kind else Nothing
+>         =<< if kind `elem` select rost then Just kind else Nothing
 >
 >     -- weed out candidates with no fuzzy key matches
 >     asScored           :: [(a, (String, Fuzz))]
@@ -1002,15 +993,20 @@ use "matching as" cache ========================================================
 >   , instUs             :: [(InstrumentName, (String, Fuzz))]} deriving Show
 >
 > computeFFMatches       :: String → ([InstrumentName], [PercussionSound]) → FFMatches
-> computeFFMatches inp roster              = FFMatches (FFProAndCon ias ibs) (FFProAndCon pas pbs) ius
+> computeFFMatches inp rost                = FFMatches (FFProAndCon ias ibs) (FFProAndCon pas pbs) ius
 >   where
->     ias = computeMatchingAs inp True roster
->     ibs = computeMatchingAs inp False roster
+>     ipro                                 = instrumentProFFKeys
+>     icon                                 = instrumentConFFKeys
+>     ppro                                 = percussionProFFKeys
+>     pcon                                 = percussionConFFKeys
+>    
+>     ias = computeMatchingAs inp ipro rost
+>     ibs = computeMatchingAs inp icon rost
 >
->     pas = computeMatchingAs inp True roster
->     pbs = computeMatchingAs inp False roster
+>     pas = computeMatchingAs inp ppro rost
+>     pbs = computeMatchingAs inp pcon rost
 >
->     ius = computeMatchingAs inp True universe
+>     ius = computeMatchingAs inp ipro universe
 
 tournament among instruments in various soundfont files ===============================================================
 
@@ -1734,7 +1730,7 @@ Configurable parameters ========================================================
 
 > diagnosticsEnabled                       = qqDiagnosticsEnabled         defC 
 > reportTourney                            = qqReportTourney              defC 
-> useNoteRestrictions                      = qqUseNoteRestrictions        defC
+> narrowInstrumentScope                    = qqNarrowInstrumentScope      defC
 > multipleCompetes                         = qqMultipleCompetes           defC
 > skipGlissandi                            = qqSkipGlissandi              defC
 > minImpulseSize                           = qqMinImpulseSize             defC
@@ -1745,7 +1741,7 @@ Configurable parameters ========================================================
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 :: Bool
 >   , qqReportTourney                      :: Bool
->   , qqUseNoteRestrictions                :: Bool
+>   , qqNarrowInstrumentScope              :: Bool
 >   , qqMultipleCompetes                   :: Bool
 >   , qqSkipGlissandi                      :: Bool
 >   , qqMinImpulseSize                     :: Int
@@ -1759,7 +1755,7 @@ Edit the following =============================================================
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = True
 >   , qqReportTourney                      = True
->   , qqUseNoteRestrictions                = True
+>   , qqNarrowInstrumentScope              = True
 >   , qqMultipleCompetes                   = True
 >   , qqSkipGlissandi                      = False
 >   , qqMinImpulseSize                     = 65_536
