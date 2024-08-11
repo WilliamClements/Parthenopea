@@ -1717,7 +1717,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqReportTourney                      = True
+>   , qqReportTourney                      = False
 >   , qqNarrowInstrumentScope              = True
 >   , qqMultipleCompetes                   = True
 >   , qqSkipGlissandi                      = False

@@ -432,7 +432,7 @@ executive ======================================================================
 >                           → PerGMKey
 >                           → (Map InstrumentName [PerGMScored], [String])
 >     wiFolder accum pergmI
->       | traceNow trace_WI False          = undefined
+>       | traceNot trace_WI False          = undefined
 >       | otherwise                        = foldl' (xaEnterTournament (getProAndCon iMatches) pergmI []) accum as'
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
@@ -492,7 +492,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → a
 >                           → (Map a [PerGMScored], [String])
 >     xaEnterTournament pandc pergm@PerGMKey{ .. } hints (wins, ss) kind
->       | traceNow trace_XAET False         = undefined
+>       | traceNot trace_XAET False         = undefined
 >       | otherwise                        = (Map.insert kind now wins, ss)
 >       where
 >         pergm_                           = pergm{pgkwBag = Nothing}
@@ -967,7 +967,7 @@ prepare the specified instruments and percussion ===============================
 >
 >     categorizeInst :: PerGMKey → (InstCat, [Word])
 >     categorizeInst pergm@PerGMKey{ .. }
->       | traceNow trace_CI False          = undefined
+>       | traceNot trace_CI False          = undefined
 >       | otherwise                        = (icat', ws')
 >       where
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
