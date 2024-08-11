@@ -15,7 +15,7 @@ May 14, 2023
 > module Synthesizer ( eutSynthesize, Recon( .. ), defS, defT, stands, scanningOutput, findOutliers, normalizingOutput
 >                    , scoreBool, SampleType( .. ), qqDesires', toSampleType, isConfirmed, isPossible', Desires( .. )
 >                    , deriveEnvelope, isPossible, qqDesireReStereo, usePitchCorrection, deriveEffects
->                    , useAttenuation, weighHints, weighStereo, weigh24Bit, weighSplits, weighConformance
+>                    , useAttenuation, weighHints, weighStereo, weigh24Bit, weighResolution, weighConformance
 >                    , weighFuzziness, eutDriver, Effects( .. ) ) where
 >
 > import qualified Codec.SoundFont         as F
@@ -43,7 +43,7 @@ May 14, 2023
 Signal function-based synth ===========================================================================================
 
 > eutSynthesize          :: ∀ p . Clock p ⇒
->                           (Recon, Recon)
+>                           (Recon, Maybe Recon)
 >                           → Double
 >                           → Dur
 >                           → AbsPitch
@@ -52,7 +52,7 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL, reconR)
+> eutSynthesize (reconL, mreconR)
 >               sr dur pch vol params s16 ms8
 >   | traceNot trace_eS False              = undefined
 >   | otherwise                            = sig
@@ -74,24 +74,25 @@ Signal function-based synth ====================================================
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
 >
 >     pumped             :: Signal p () ((Double, Double), (ModSignals, ModSignals))
->     pumped                               =       eutDriver      secsScored (reconL, reconR) secsToPlay delta looping
->                                              >>> eutPumpSamples secsScored (reconL, reconR) noon dur s16 ms8
+>     pumped                               = 
+>       eutDriver secsScored (reconL, mreconR) secsToPlay delta looping
+>         >>> eutPumpSamples            (reconL, mreconR) noon dur s16 ms8
 >     pumped'            :: Signal p () (Double, Double)
 >     pumped'                              = pumped >>> stripModSignals
 >
->     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
+>     (m8nL, mm8nR)                        = (reconL.rM8n, fmap rM8n mreconR)
 >
 >     modulated          :: Signal p () (Double, Double)
 >     modulated                            =
 >       if ResonanceConvo == m8nL.mLowpass.lowpassType
->         then applyConvolutionStereo (m8nL.mLowpass, m8nR.mLowpass) secsScored pumped'
->         else eutModulate secsScored (m8nL, m8nR) noon pumped
+>         then applyConvolutionStereo (m8nL.mLowpass, maybe m8nL.mLowpass mLowpass mm8nR) secsScored pumped'
+>         else eutModulate secsScored (m8nL, mm8nR) noon pumped
 >
 >     sig                                  =       modulated
 >                                              >>> addModSignals  secsScored secsToPlay
->                                                                            (reconL.rM8n, reconR.rM8n)
->                                              >>> eutEffects                (reconL, reconR)
->                                              >>> eutAmplify     secsScored (reconL, reconR) noon secsToPlay 
+>                                                                            (reconL.rM8n, mm8nR)
+>                                              >>> eutEffects                (reconL, mreconR)
+>                                              >>> eutAmplify     secsScored (reconL, mreconR) noon secsToPlay 
 >
 >     trace_eS                             =
 >       unwords [
@@ -113,12 +114,12 @@ Signal function-based synth ====================================================
 >
 > eutDriver              :: ∀ p . Clock p ⇒
 >                           Double
->                           → (Recon, Recon)
+>                           → (Recon, Maybe Recon)
 >                           → Double
 >                           → Double
 >                           → Bool
 >                           → Signal p () (Double, (ModSignals, ModSignals))
-> eutDriver secsScored (reconL@Recon{rM8n = m8nL, rNoteOn}, reconR@Recon{rM8n = m8nR}) secsToPlay idelta looping
+> eutDriver secsScored (reconL@Recon{rM8n = m8nL, rNoteOn}, mreconR) secsToPlay idelta looping
 >   | traceNot trace_eD False              = undefined
 >   | otherwise                            = if looping
 >                                              then procDriver calcLooping
@@ -130,7 +131,7 @@ Signal function-based synth ====================================================
 >     calcNotLooping next                  = if next > 1      then frac next     else next
 >
 >     procDriver calcPhase                 = proc () → do
->       modSig ← eutModSignals secsScored secsToPlay (m8nL, m8nR) ⤙ ()
+>       modSig ← eutModSignals secsScored secsToPlay (m8nL, fmap rM8n mreconR) ⤙ ()
 >       let delta                          = idelta * evaluateModSignals
 >                                                       "procDriver"
 >                                                       m8nL
@@ -156,97 +157,117 @@ Signal function-based synth ====================================================
 >
 > eutModSignals          :: ∀ p. Clock p ⇒
 >                           Double → Double
->                           → (Modulation, Modulation)
+>                           → (Modulation, Maybe Modulation)
 >                           → Signal p () (ModSignals, ModSignals)
-> eutModSignals secsScored secsToPlay (m8nL , m8nR)    =
->   proc _ → do
->     aL1 ← doEnvelope  mModEnvL secsScored secsToPlay ⤙ ()
->     aL2 ← doLFO       mModLfoL                       ⤙ ()
->     aL3 ← doLFO       mVibLfoL                       ⤙ ()
->     aR1 ← doEnvelope  mModEnvR secsScored secsToPlay ⤙ ()
->     aR2 ← doLFO       mModLfoR                       ⤙ ()
->     aR3 ← doLFO       mVibLfoR                       ⤙ ()
->     outA                                             ⤙ (ModSignals aL1 aL2 aL3, ModSignals aR1 aR2 aR3)
+> eutModSignals secsScored secsToPlay (m8nL, mm8nR)
+>                                          = if isNothing mm8nR
+>                                              then procSame
+>                                              else procDiff
 >   where
 >     Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = m8nL
->     Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = m8nR
+>     Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = fromJust mm8nR
+>     procSame                             = proc _ → do
+>       aL1 ← doEnvelope  mModEnvL secsScored secsToPlay ⤙ ()
+>       aL2 ← doLFO       mModLfoL                       ⤙ ()
+>       aL3 ← doLFO       mVibLfoL                       ⤙ ()
+>       let msL                            = ModSignals aL1 aL2 aL3
+>       outA                                             ⤙ (msL, msL)
+>     procDiff                             = proc _ → do
+>       aL1 ← doEnvelope  mModEnvL secsScored secsToPlay ⤙ ()
+>       aL2 ← doLFO       mModLfoL                       ⤙ ()
+>       aL3 ← doLFO       mVibLfoL                       ⤙ ()
+>       aR1 ← doEnvelope  mModEnvR secsScored secsToPlay ⤙ ()
+>       aR2 ← doLFO       mModLfoR                       ⤙ ()
+>       aR3 ← doLFO       mVibLfoR                       ⤙ ()
+>       let msL                            = ModSignals aL1 aL2 aL3
+>       let msR                            = ModSignals aR1 aR2 aR3
+>       outA                                             ⤙ (msL, msR)
 >
 > addModSignals          :: ∀ p . Clock p ⇒
 >                           Double
 >                           → Double
->                           → (Modulation, Modulation)
+>                           → (Modulation, Maybe Modulation)
 >                           → Signal p (Double, Double) ((Double, Double), (ModSignals, ModSignals))
-> addModSignals secsScored secsToPlay (m8nL, m8nR)
+> addModSignals secsScored secsToPlay (m8nL, mm8nR)
 >                                          =
 >   proc (a1L, a1R)                        → do
->   modSig                                 ← eutModSignals secsScored secsToPlay (m8nL, m8nR) ⤙ ()
->   outA                                   ⤙ ((a1L, a1R), (defModSignals, defModSignals))
+>     modSig                               ← eutModSignals secsScored secsToPlay (m8nL, mm8nR) ⤙ ()
+>     outA                                 ⤙ ((a1L, a1R), modSig)
 >
 > eutPumpSamples         :: ∀ p . Clock p ⇒
->                           Double
->                           → (Recon, Recon)
+>                           (Recon, Maybe Recon)
 >                           → NoteOn
 >                           → Dur
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p (Double, (ModSignals, ModSignals)) ((Double, Double), (ModSignals, ModSignals))
-> eutPumpSamples _ (  Recon{rAttenuation = attenL, rStart = stL, rEnd = enL, rM8n = m8nL}
->                   , Recon{rAttenuation = attenR, rStart = stR, rEnd = enR, rM8n = m8nR})
+> eutPumpSamples (reconL, mReconR)
 >                  noon@NoteOn{noteOnVel, noteOnKey} dur s16 ms8
->   | traceNot trace_ePS False             = undefined
->   | otherwise                            =
->   proc (pos, msig) → do
->     let pos'           :: Double         = fromIntegral (enL - stL) * pos
->     let ix             :: Int            = truncate pos'
->     let offset         :: Double         = pos' - fromIntegral ix
->
->     let (a1L, a1R)                       = (  samplePointInterp s16 ms8 offset (fromIntegral stL + ix) 
->                                             , samplePointInterp s16 ms8 offset (fromIntegral stR + ix))
->     outA ⤙ (pump (a1L, a1R), msig)
+>                                          = if isNothing mReconR
+>                                              then procSame
+>                                              else procDiff
 >   where
->     (graphL, graphR)                     = (modGraph m8nL, modGraph m8nR)
->     cAttenL            :: Double         = fromCentibels (attenL + evaluateMods ToInitAtten graphL noon)
->     cAttenR            :: Double         = fromCentibels (attenR + evaluateMods ToInitAtten graphR noon)
->     (ampL, ampR)                         = ( fromIntegral noteOnVel / 100 / cAttenL
->                                            , fromIntegral noteOnVel / 100 / cAttenR)
+>     Recon{rAttenuation = attenL, rStart = stL, rEnd = enL, rM8n = m8nL} = reconL
+>     Recon{rAttenuation = attenR, rStart = stR, rEnd = enR, rM8n = m8nR} = fromJust mReconR
+>     procSame                               = proc (pos, msig) → do
+>       let pos'           :: Double         = fromIntegral (enL - stL) * pos
+>       let ix             :: Int            = truncate pos'
+>       let offset         :: Double         = pos' - fromIntegral ix
 >
->     pump               :: (Double, Double) → (Double, Double)
->     pump (xL, xR)
->       | traceNever trace_P False         = undefined
->       | otherwise                        = (xL * ampL, xR * ampR)
+>       let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral stL + ix) * ampL
+>       outA ⤙ ((a1L, a1L), msig)
+>
 >       where
->         trace_P                          =
->           unwords ["pump", show (xL, xR), "<=>", show (xL * ampL, xR * ampR)]
->      
->     trace_ePS                            = unwords ["eutPumpSamples", show (dur, ampL, ampR)]
+>         graphL                           = modGraph m8nL
+>         cAttenL            :: Double     = fromCentibels (attenL + evaluateMods ToInitAtten graphL noon)
+>         ampL                             = fromIntegral noteOnVel / 100 / cAttenL
+>
+>     procDiff                             = proc (pos, msig) → do
+>       let pos'         :: Double         = fromIntegral (enL - stL) * pos
+>       let ix           :: Int            = truncate pos'
+>       let offset       :: Double         = pos' - fromIntegral ix
+>
+>       let (a1L, a1R)                     = (  samplePointInterp s16 ms8 offset (fromIntegral stL + ix) 
+>                                             , samplePointInterp s16 ms8 offset (fromIntegral stR + ix))
+>       outA ⤙ ((a1L * ampL, a1R * ampR), msig)
+>
+>       where
+>         (graphL, graphR)                 = (modGraph m8nL, modGraph m8nR)
+>         cAttenL        :: Double         = fromCentibels (attenL + evaluateMods ToInitAtten graphL noon)
+>         cAttenR        :: Double         = fromCentibels (attenR + evaluateMods ToInitAtten graphR noon)
+>         (ampL, ampR)                     = ( fromIntegral noteOnVel / 100 / cAttenL
+>                                            , fromIntegral noteOnVel / 100 / cAttenR)
 >
 > eutAmplify             :: ∀ p . Clock p ⇒
 >                           Double
->                           → (Recon, Recon)
+>                           → (Recon, Maybe Recon)
 >                           → NoteOn
 >                           → Double
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals)) (Double, Double)
 > eutAmplify   secsScored
->              (Recon{rVolEnv = envL, rM8n = m8nL}, Recon{rVolEnv = envR, rM8n = m8nR})
+>              (reconL, mReconR)
 >              noon
->              secsToPlay                  =
->   proc ((a1L, a1R), (modSigL, modSigR)) → do
->     aenvL ← doEnvelope envL secsScored secsToPlay ⤙ ()
->     aenvR ← doEnvelope envR secsScored secsToPlay ⤙ ()
->
->     let (a2L, a2R)                       =
->          ( a1L * aenvL * evaluateModSignals "eutAmplify" m8nL ToVolume modSigL noon
->          , a1R * aenvR * evaluateModSignals "eutAmplify" m8nR ToVolume modSigR noon)
->     outA                                 ⤙ amplify (a1L, a1R) (aenvL, aenvR) (a2L, a2R)
->
+>              secsToPlay                  = if isNothing mReconR
+>                                              then procSame
+>                                              else procDiff
 >   where
->     amplify            :: (Double, Double) → (Double, Double) → (Double, Double) → (Double, Double)
->     amplify (a1L, a1R) (aenvL, aenvR) (a3L, a3R)
->       | traceNever trace_A False         = undefined
->       | otherwise                        = (a3L, a3R)
->       where
->         trace_A                          = unwords ["amplify",  show (a1L, aenvL, a3L)]
+>     Recon{rVolEnv = envL, rM8n = m8nL}   = reconL
+>     Recon{rVolEnv = envR, rM8n = m8nR}   = fromJust mReconR
+>     procSame                             = proc ((a1L, a1R), (modSigL, modSigR))  → do
+>       aenvL ← doEnvelope envL secsScored secsToPlay ⤙ ()
 >
+>       let a2L                            =
+>             a1L * aenvL * evaluateModSignals "eutAmplify" m8nL ToVolume modSigL noon
+>       outA                               ⤙ (a2L, a2L)
+>
+>     procDiff                             = proc ((a1L, a1R), (modSigL, modSigR))  → do
+>       aenvL ← doEnvelope envL secsScored secsToPlay ⤙ ()
+>       aenvR ← doEnvelope envR secsScored secsToPlay ⤙ ()
+>
+>       let (a2L, a2R)                     =
+>            ( a1L * aenvL * evaluateModSignals "eutAmplify" m8nL ToVolume modSigL noon
+>            , a1R * aenvR * evaluateModSignals "eutAmplify" m8nR ToVolume modSigR noon)
+>       outA                               ⤙ (a2L, a2R)
 
 FFT ===================================================================================================================
 
@@ -432,10 +453,10 @@ Effects ========================================================================
 >       unwords ["deriveEffects", show (mChorus, mReverb, mPan), show (dChorus, dReverb, dPan)]
 >
 > eutEffects             :: ∀ p . Clock p ⇒
->                           (Recon, Recon)
+>                           (Recon, Maybe Recon)
 >                           → Signal p ((Double, Double), (ModSignals, ModSignals))
 >                                      ((Double, Double), (ModSignals, ModSignals))
-> eutEffects (Recon{rEffects = effL}, Recon{rEffects = effR})
+> eutEffects (Recon{rEffects = effL}, mreconR)
 >   | traceNever trace_eE False = undefined
 >   | otherwise =
 >   proc ((aL, aR), (modSigL, modSigR)) → do
@@ -465,7 +486,7 @@ Effects ========================================================================
 >
 >   where
 >     Effects{efChorus = cFactorL, efReverb = rFactorL, efPan = pFactorL} = effL
->     Effects{efChorus = cFactorR, efReverb = rFactorR, efPan = pFactorR} = effR
+>     Effects{efChorus = cFactorR, efReverb = rFactorR, efPan = pFactorR} = effL -- WOX
 >
 >     trace_eE = unwords ["eutEffects", show ((cFactorL, cFactorR), (rFactorL, rFactorR))]
 > 
@@ -808,7 +829,7 @@ Flags for customization ========================================================
 > weighHints                               = qqWeighHints                 defT
 > weighStereo                              = qqWeighStereo                defT
 > weigh24Bit                               = qqWeigh24Bit                 defT
-> weighSplits                              = qqWeighSplits                defT
+> weighResolution                          = qqWeighSplits                defT
 > weighConformance                         = qqWeighConformance           defT
 > weighFuzziness                           = qqWeighFuzziness             defT
 >
@@ -854,12 +875,12 @@ Turn Knobs Here ================================================================
 >   , qqDesireReConformance                = DPreferOn
 >   , qqDesireReFuzzy                      = DPreferOn
 >
->   , qqWeighHints                         = 5
->   , qqWeighStereo                        = 2
+>   , qqWeighHints                         = 10
+>   , qqWeighStereo                        = 4
 >   , qqWeigh24Bit                         = 0
 >   , qqWeighSplits                        = 1
->   , qqWeighConformance                   = 2
->   , qqWeighFuzziness                     = 1
+>   , qqWeighConformance                   = 4
+>   , qqWeighFuzziness                     = 2
 >
 >   , qqFFThresholdPossible                = 0
 >   , qqFFThresholdStands                  = 150

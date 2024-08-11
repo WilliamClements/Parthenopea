@@ -35,10 +35,10 @@ December 12, 2022
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
-> import Data.List ( iterate', singleton, foldl', sortOn, minimumBy, find, elem )
+> import Data.List ( iterate', singleton, foldl', sortOn, minimumBy, find, elem, sort )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
-> import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe )
+> import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe, listToMaybe )
 > import Data.MemoTrie
 > import Data.Ord
 > import Data.Ratio ( approxRational )
@@ -735,6 +735,15 @@ apply fuzzyfind to mining instruments + percussion =============================
 >    case inst of
 >       AcousticGrandPiano        → Just            ["upright", "bright", "mellow", "elec"]
 >       Trumpet                   → Just $ singleton "mute"
+>       AcousticBass              → Just $ singleton "brass"
+>       ElectricBassFingered      → Just $ singleton "brass"
+>       ElectricBassPicked        → Just $ singleton "brass"
+>       FretlessBass              → Just $ singleton "brass"
+>       SlapBass1                 → Just $ singleton "brass"
+>       SlapBass2                 → Just $ singleton "brass"
+>       SynthBass1                → Just $ singleton "brass"
+>       SynthBass2                → Just $ singleton "brass"
+>       Violin                    → Just            ["tremolo", "strike", "pluck", "staccato"]
 >       _                         → Nothing
 >
 > instrumentProFFKeys    :: InstrumentName → Maybe [String]
@@ -972,14 +981,21 @@ handle "matching as" cache misses ==============================================
 use "matching as" cache ===============================================================================================
 
 > evalAgainstKind        :: ∀ a. (GMPlayable a, Eq a) ⇒ a → FFProAndCon a → Fuzz
-> evalAgainstKind kind pandc                 =
->   maybe 0 snd (lookup kind (ffPros pandc)) - maybe 0 snd (lookup kind (ffCons pandc))
+> evalAgainstKind kind pandc               =
+>   maybe 0 snd (lookup kind (ffPros pandc)) + (- conRatio) * maybe 0 snd (lookup kind (ffCons pandc))
 >   
-> bestQualifying         :: ∀ a. (GMPlayable a) ⇒ [(a, (String, Fuzz))] → Double → Maybe (a, (String, Fuzz))
-> bestQualifying as thresh
->   | null as                              = Nothing
->   | (snd . snd . head) as < thresh       = Nothing
->   | otherwise                            = Just (head as)
+> fuzziest               :: ∀ a. (GMPlayable a, Ord a) ⇒ FFProAndCon a → Double → [a]
+> fuzziest FFProAndCon{ .. } thresh        = sortOn Down $ Map.keys $ Map.mapMaybe qual togs
+>   where
+>     pros, cons, togs   :: Map a Fuzz
+>     pros                                 = Map.fromList $ map (BF.second snd) ffPros
+>     cons                                 = Map.fromList $ map (BF.second snd) ffCons
+>     cons'                                = Map.map (* (- conRatio)) cons
+>     togs                                 = Map.unionWith (+) pros cons'
+>
+>     qual x                               = if x > thresh
+>                                              then Just x
+>                                              else Nothing
 >
 > data FFProAndCon a =
 >   FFProAndCon {
@@ -990,23 +1006,22 @@ use "matching as" cache ========================================================
 >   FFMatches {
 >     ffInst             :: FFProAndCon InstrumentName 
 >   , ffPerc             :: FFProAndCon PercussionSound
->   , instUs             :: [(InstrumentName, (String, Fuzz))]} deriving Show
+>   , ffUnis             :: FFProAndCon InstrumentName} deriving Show
 >
 > computeFFMatches       :: String → ([InstrumentName], [PercussionSound]) → FFMatches
-> computeFFMatches inp rost                = FFMatches (FFProAndCon ias ibs) (FFProAndCon pas pbs) ius
+> computeFFMatches inp rost                = FFMatches
+>                                              (FFProAndCon ias ibs)
+>                                              (FFProAndCon pas pbs)
+>                                              (FFProAndCon uas ubs) 
 >   where
->     ipro                                 = instrumentProFFKeys
->     icon                                 = instrumentConFFKeys
->     ppro                                 = percussionProFFKeys
->     pcon                                 = percussionConFFKeys
->    
->     ias = computeMatchingAs inp ipro rost
->     ibs = computeMatchingAs inp icon rost
+>     ias = computeMatchingAs inp instrumentProFFKeys rost
+>     ibs = computeMatchingAs inp instrumentConFFKeys rost
 >
->     pas = computeMatchingAs inp ppro rost
->     pbs = computeMatchingAs inp pcon rost
+>     pas = computeMatchingAs inp percussionProFFKeys rost
+>     pbs = computeMatchingAs inp percussionConFFKeys rost
 >
->     ius = computeMatchingAs inp ipro universe
+>     uas = computeMatchingAs inp instrumentProFFKeys universe
+>     ubs = computeMatchingAs inp instrumentConFFKeys universe
 
 tournament among instruments in various soundfont files ===============================================================
 
@@ -1568,60 +1583,6 @@ breakUp returns a list of integers approximating divisions of a floating point r
 > theJ :: Complex Double
 > theJ = 0 :+ 1
 
-r is the resonance radius, w0 is the angle of the poles and b0 is the gain factor
-
-> data CoeffsM2N2                          =
->   CoeffsM2N2 {
->     m2n2_b0            :: Double
->   , m2n2_b1            :: Double
->   , m2n2_b2            :: Double
->   , m2n2_a1            :: Double
->   , m2n2_a2            :: Double} deriving (Eq, Show)
->
-> extractCoefficients    :: Complex Double → (Double, Double)
-> extractCoefficients porz                 = (k1, k2)
->   where
->     mag                                  = magnitude porz
->     ph                                   = phase porz
->
->     k1                                   = -2 * mag * cos ph
->     k2                                   = mag * mag
->
-> indeedReplaceRadius                      = False
->
-> pickZerosAndPoles      :: Double → Double → ([Complex Double], [Complex Double])
-> pickZerosAndPoles initFc normQ           = (zeros, poles)
->   where
->     zeros, poles       :: [Complex Double]
->     zeros                                = [cis pi, cis pi]
->     poles                                = [p, conjugate p]
->     -- two identical zeros
->     -- two poles that are complex conjugates
->     p                                    =
->       mkPolar
->         (if indeedReplaceRadius
->            then 1 - normQ * sin (pi * initFc)
->            else normQ)
->         (2 * pi * initFc)
->     
-> buildSystemM2N2        :: ([Complex Double], [Complex Double]) → CoeffsM2N2
-> buildSystemM2N2 (zeros, poles)
->   | traceNot trace_BSM2N2 False          = undefined
->   | otherwise                            =
->   let
->     (z0, p0)                             =
->       profess
->         (length zeros == 2 && length poles == 2)
->         "only 2x2 systems are supported in ResonanceTwoPoles"
->         (head zeros, head poles)
->     (b1, b2)                         = extractCoefficients z0
->     (a1, a2)                         = extractCoefficients p0
->     b0                               = (1 + a1 + a2) / 4
->   in
->     CoeffsM2N2 b0 b1 b2 a1 a2
->   where
->     trace_BSM2N2                         = unwords ["buildSystemM2N2\n", show zeros, "\n", show poles]
-
 Emission capability ===================================================================================================
 
 > data Emission                            = 
@@ -1736,6 +1697,7 @@ Configurable parameters ========================================================
 > minImpulseSize                           = qqMinImpulseSize             defC
 > replacePerCent                           = qqReplacePerCent             defC
 > usingPlayCache                           = qqUsingPlayCache             defC
+> conRatio                                 = qqConRatio                   defC
 >
 > data ControlSettings =
 >   ControlSettings {
@@ -1746,20 +1708,22 @@ Configurable parameters ========================================================
 >   , qqSkipGlissandi                      :: Bool
 >   , qqMinImpulseSize                     :: Int
 >   , qqReplacePerCent                     :: Double
->   , qqUsingPlayCache                     :: Bool} deriving (Eq, Show)
+>   , qqUsingPlayCache                     :: Bool
+>   , qqConRatio                           :: Double} deriving (Eq, Show)
 
 Edit the following ====================================================================================================
 
 > defC                   :: ControlSettings
 > defC =
 >   ControlSettings {
->     qqDiagnosticsEnabled                 = True
+>     qqDiagnosticsEnabled                 = False
 >   , qqReportTourney                      = True
 >   , qqNarrowInstrumentScope              = True
 >   , qqMultipleCompetes                   = True
 >   , qqSkipGlissandi                      = False
 >   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0
->   , qqUsingPlayCache                     = False}
+>   , qqUsingPlayCache                     = False
+>   , qqConRatio                           = 1/2}
 
 The End

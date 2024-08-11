@@ -512,6 +512,61 @@ Type declarations ==============================================================
 >   where
 >     maxAmp                               = dsig.dsigStats.stMaxAmp
 >
+
+r is the resonance radius, w0 is the angle of the poles and b0 is the gain factor
+
+> data CoeffsM2N2                          =
+>   CoeffsM2N2 {
+>     m2n2_b0            :: Double
+>   , m2n2_b1            :: Double
+>   , m2n2_b2            :: Double
+>   , m2n2_a1            :: Double
+>   , m2n2_a2            :: Double} deriving (Eq, Show)
+>
+> extractCoefficients    :: Complex Double → (Double, Double)
+> extractCoefficients porz                 = (k1, k2)
+>   where
+>     mag                                  = magnitude porz
+>     ph                                   = phase porz
+>
+>     k1                                   = -2 * mag * cos ph
+>     k2                                   = mag * mag
+>
+> indeedReplaceRadius                      = False
+>
+> pickZerosAndPoles      :: Double → Double → ([Complex Double], [Complex Double])
+> pickZerosAndPoles initFc normQ           = (zeros, poles)
+>   where
+>     zeros, poles       :: [Complex Double]
+>     zeros                                = [cis pi, cis pi]
+>     poles                                = [p, conjugate p]
+>     -- two identical zeros
+>     -- two poles that are complex conjugates
+>     p                                    =
+>       mkPolar
+>         (if indeedReplaceRadius
+>            then 1 - normQ * sin (pi * initFc)
+>            else normQ)
+>         (2 * pi * initFc)
+>     
+> buildSystemM2N2        :: ([Complex Double], [Complex Double]) → CoeffsM2N2
+> buildSystemM2N2 (zeros, poles)
+>   | traceNot trace_BSM2N2 False          = undefined
+>   | otherwise                            =
+>   let
+>     (z0, p0)                             =
+>       profess
+>         (length zeros == 2 && length poles == 2)
+>         "only 2x2 systems are supported in ResonanceTwoPoles"
+>         (head zeros, head poles)
+>     (b1, b2)                         = extractCoefficients z0
+>     (a1, a2)                         = extractCoefficients p0
+>     b0                               = (1 + a1 + a2) / 4
+>   in
+>     CoeffsM2N2 b0 b1 b2 a1 a2
+>   where
+>     trace_BSM2N2                         = unwords ["buildSystemM2N2\n", show zeros, "\n", show poles]
+>
 > subtractDCOffset       :: DiscreteSig Double → DiscreteSig Double
 > subtractDCOffset dIn                     =
 >   fromRawVector (dsigTag dIn) (VU.map (\x → x - dIn.dsigStats.stDCOffset) dIn.dsigVec)

@@ -302,33 +302,24 @@ Modulator management ===========================================================
 >
 > eutModulate            :: ∀ p . Clock p ⇒
 >                           Double
->                           → (Modulation, Modulation)
+>                           → (Modulation, Maybe Modulation)
 >                           → NoteOn
 >                           → Signal p () ((Double, Double), (ModSignals, ModSignals))
 >                           → Signal p () (Double, Double)
-> eutModulate secs (m8nL, m8nR) noon sIn
->   | traceNot trace_EM False              = undefined
->   | otherwise                            = 
->   proc () → do
->     ((a1L, a1R), (modSigL, modSigR))  ← sIn
->                                          ⤙ ()
->     a2L   ← addResonance noon m8nL       ⤙ (a1L, modSigL)
->     a2R   ← addResonance noon m8nR       ⤙ (a1R, modSigR)
->     let (a3L', a3R')                     = modulate (a1L, a1R) (a2L, a2R)
->     outA                                 ⤙ (a3L', a3R')
->
+> eutModulate secs (m8nL, mm8nR) noon sIn  =
+>   if isNothing mm8nR
+>     then procSame
+>     else procDiff
 >   where
->     trace_EM                             = unwords ["eutModulate", show secs]
->
->     modulate           :: (Double, Double) → (Double, Double) → (Double, Double)
->     modulate (a1L, a1R) (a2L, a2R)
->       | traceNever trace_M False         = undefined
->       | otherwise                        = (a2L, a2R)
->       where
->         (a3L, a3R)                       = (checkForNan a2L "mod a2L", checkForNan a2R "mod a2R" )
->
->         trace_M                          = unwords ["modulate", show ((a1L, a1R), (a3L, a3R))]
->
+>     procSame = proc () → do
+>       ((a1L, _), (modSigL, _))           ← sIn ⤙ ()
+>       a2L   ← addResonance noon m8nL     ⤙ (a1L, modSigL)
+>       outA                               ⤙ (a2L, a2L)
+>     procDiff = proc () → do
+>       ((a1L, a1R), (modSigL, modSigR))   ← sIn ⤙ ()
+>       a2L   ← addResonance noon m8nL     ⤙ (a1L, modSigL)
+>       a2R   ← addResonance noon m8nL     ⤙ (a1R, modSigR)
+>       outA                               ⤙ (a2L, a2R)
 >
 > mixDown                :: ∀ p . Clock p ⇒ Signal p (Double, Double) Double
 > mixDown                                  =
