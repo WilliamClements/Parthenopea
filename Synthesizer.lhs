@@ -805,7 +805,7 @@ Flags for customization ========================================================
 >   , qqWeighHints           :: Int
 >   , qqWeighStereo          :: Int
 >   , qqWeigh24Bit           :: Int
->   , qqWeighSplits          :: Int
+>   , qqWeighResolution      :: Int
 >   , qqWeighConformance     :: Int
 >   , qqWeighFuzziness       :: Int
 >
@@ -829,7 +829,7 @@ Flags for customization ========================================================
 > weighHints                               = qqWeighHints                 defT
 > weighStereo                              = qqWeighStereo                defT
 > weigh24Bit                               = qqWeigh24Bit                 defT
-> weighResolution                          = qqWeighSplits                defT
+> weighResolution                          = qqWeighResolution            defT
 > weighConformance                         = qqWeighConformance           defT
 > weighFuzziness                           = qqWeighFuzziness             defT
 >
@@ -878,8 +878,8 @@ Turn Knobs Here ================================================================
 >   , qqWeighHints                         = 10
 >   , qqWeighStereo                        = 4
 >   , qqWeigh24Bit                         = 0
->   , qqWeighSplits                        = 1
->   , qqWeighConformance                   = 4
+>   , qqWeighResolution                    = 2
+>   , qqWeighConformance                   = 3
 >   , qqWeighFuzziness                     = 2
 >
 >   , qqFFThresholdPossible                = 0

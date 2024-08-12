@@ -744,6 +744,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       SynthBass1                → Just $ singleton "brass"
 >       SynthBass2                → Just $ singleton "brass"
 >       Violin                    → Just            ["tremolo", "strike", "pluck", "staccato"]
+>       Agogo                     → Just $          ["hi", "low"]
 >       _                         → Nothing
 >
 > instrumentProFFKeys    :: InstrumentName → Maybe [String]
@@ -1724,6 +1725,6 @@ Edit the following =============================================================
 >   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0
 >   , qqUsingPlayCache                     = False
->   , qqConRatio                           = 1/2}
+>   , qqConRatio                           = 3/4}
 
 The End

@@ -106,17 +106,17 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj =
+> sj = djingles
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("pa1"         , pendingtonArnt 1)]
 >    -- [ ("bill1"       , bill 1)]
->       [ ("deyDumpDum"  , deyDumpDum)]
+>    -- [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("roger"       , roger)]
 >    -- [ ("kit"         , kit) ]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]
->    -- [ ("gold"        , gold)]
+>    -- [ ("slot"        , slot 1   )]
 >    -- [ ("dh"          , deathlessHorsie)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 

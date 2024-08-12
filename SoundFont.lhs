@@ -967,7 +967,7 @@ prepare the specified instruments and percussion ===============================
 >
 >     categorizeInst :: PerGMKey → (InstCat, [Word])
 >     categorizeInst pergm@PerGMKey{ .. }
->       | traceNot trace_CI False          = undefined
+>       | traceIf trace_CI False          = undefined
 >       | otherwise                        = (icat', ws')
 >       where
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
@@ -1007,6 +1007,8 @@ prepare the specified instruments and percussion ===============================
 >         links zh@ZoneHeader{ .. } _      =
 >           if isStereoZone zh then Just $ fromIntegral $ F.sampleLink zhShdr else Nothing
 >
+>         wZones     :: [Word]             = mapMaybe (uncurry computeCanBePerc) zs
+>
 >         xinst x                          = Just InstCatInst
 >         xperc x                          = Just InstCatPerc
 >         xdisq x                          = Just InstCatDisq
@@ -1017,14 +1019,10 @@ prepare the specified instruments and percussion ===============================
 >           , badLinks
 >           , xinst =<< listToMaybe (fuzziest iMatches.ffInst isConfirmed)
 >           , xperc =<< listToMaybe (fuzziest iMatches.ffPerc isConfirmed)
->           , if 0.8 < howPercish then Just InstCatPerc else Nothing
+>           , if not (null wZones) then Just InstCatPerc else Nothing
 >           , xinst =<< listToMaybe (fuzziest iMatches.ffInst stands)
 >           , xdisq =<< listToMaybe (fuzziest iMatches.ffUnis stands)
->           , if 0.4 < howPercish then Just InstCatPerc else Nothing
 >           , xperc =<< listToMaybe (fuzziest iMatches.ffPerc stands)]
->
->         wZones     :: [Word]             = mapMaybe (uncurry computeCanBePerc) zs
->         howPercish :: Double             = fromIntegral (length wZones) / fromIntegral (length zs)
 
    "now", sequence through the alternatives, categorizing as follows
    a. Just InstCatInst           an inst bearing one inst, or
@@ -1040,7 +1038,7 @@ prepare the specified instruments and percussion ===============================
 >         computeCanBePerc
 >                        :: ZoneHeader → ZoneDigest → Maybe Word
 >         computeCanBePerc ZoneHeader{ .. } ZoneDigest { .. }
->           | traceNot trace_CCBP False    = undefined
+>           | traceNow trace_CCBP False    = undefined
 >           | otherwise                    =
 >           mwOut =<< integralize zdKeyRange
 >           where
