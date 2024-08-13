@@ -516,14 +516,13 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         trace_XAET                       = unwords ["xaEnterTournament", show kind, show mnameZ]
 >
 >         computeGrade   :: [(ZoneHeader, SFZone)] → AgainstKindResult → ArtifactGrade
->         computeGrade zps againstKindResult
+>         computeGrade zs_ againstKindResult
 >           | traceNot trace_CG False      = undefined
 >           | otherwise                    = ArtifactGrade (sum weightedScores) baseScores
 >           where
->             zs                           = tail zps
->             zhs                          = map fst zs
->             empiricals :: [Int]          = [   scoreBool $ isStereoInst zhs
->                                              , scoreBool $ is24BitInst zhs
+>             zs                           = tail zs_
+>             empiricals :: [Int]          = [   scoreBool $ isStereoInst zs
+>                                              , scoreBool $ is24BitInst zs
 >                                              , round $ computeResolution kind rost zs
 >                                              , scoreBool $ all zoneConforms zs
 >                                              , round fuzz]
@@ -565,18 +564,20 @@ tournament among GM instruments and percussion from SoundFont files ============
 > formPreSampleCache sffiles qualified presks
 >                                          = return $ foldl' smFolder Map.empty presks
 >   where
->     smFolder accum presk@PreSampleKey{ .. } =
->       let 
->         sf@SFFile{.. }                   = sffiles ! pskwFile
->         SoundFontArrays{ .. }            = zArrays
+>     smFolder accum presk@PreSampleKey{pskwFile, pskwSample}
+>                                          =
+>       let
+>         SFFile{zArrays}                  = sffiles ! pskwFile
+>         SoundFontArrays{ssShdrs}         = zArrays
 >       in
->         Map.insert presk (computePreSample sf qualified (ssShdrs ! pskwSample) presk) accum
+>         Map.insert presk (computePreSample qualified (ssShdrs ! pskwSample) presk) accum
 >
 > formPreInstCache       :: Array Word SFFile → ([InstrumentName], [PercussionSound]) → [PerGMKey] → IO PreInstCache
 > formPreInstCache sffiles rost pergms     = return $ foldl' imFolder Map.empty pergms
 >   where
->     imFolder im pergm@PerGMKey{ .. }     =
->       Map.insert pergm (computePreInstrument (sffiles ! pgkwFile) rost pergm) im
+>     imFolder accum pergm@PerGMKey{pgkwFile}
+>                                          =
+>       Map.insert pergm (computePreInstrument (sffiles ! pgkwFile) rost pergm) accum
 >
 > getPreSampleFromCache :: Map PreSampleKey PreSample → PreSampleKey → PreSample
 > getPreSampleFromCache preSampleCache presk
@@ -586,17 +587,16 @@ tournament among GM instruments and percussion from SoundFont files ============
 > getPreInstrumentFromCache ic pergm       = fromMaybe (error $ "PreInstrument missing from cache: " ++ show pergm)
 >                                                      (Map.lookup pergm ic)
 >
-> computePreSample       :: SFFile → ([InstrumentName], [PercussionSound]) → F.Shdr → PreSampleKey → PreSample
-> computePreSample SFFile{ .. } qualified shdr k
+> computePreSample       :: ([InstrumentName], [PercussionSound]) → F.Shdr → PreSampleKey → PreSample
+> computePreSample qualified F.Shdr{originalPitch, sampleName} k
 >   | traceNot trace_CPS False             = undefined
 >   | otherwise                            = PreSample inp ffs
 >   where
->     SoundFontArrays{ .. }                = zArrays
->     ap                                   = fromIntegral $ F.originalPitch shdr
+>     ap                                   = fromIntegral originalPitch
 >     apLow                                = fromIntegral $ min 127 (ap - 6)
 >     apHigh                               = fromIntegral $ max 0   (ap + 4)
 >
->     inp                                  = F.sampleName shdr
+>     inp                                  = sampleName
 >     ffs                                  = computeFFMatches inp qualified
 >
 >     trace_CPS                            = unwords ["computePreSample", show (inp, k)]
@@ -613,14 +613,15 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 > -- file to instrument
 > formFI                 :: SFFile → [PerGMKey]
-> formFI SFFile{ .. }                      = mapMaybe qualifyInst rangeI
+> formFI SFFile{zArrays, zWordF}           = mapMaybe qualifyInst rangeI
 >   where
->     SoundFontArrays{ .. }                = zArrays
+>     SoundFontArrays{ssInsts}             = zArrays
 >     boundsI                              = bounds ssInsts
->     rangeI                               = profess
->                                              (uncurry (<=) boundsI)
->                                              "bad file: invalid bounds"
->                                              [fst boundsI..snd boundsI-1]
+>     rangeI                               =
+>       profess
+>         (uncurry (<=) boundsI)
+>         (unwords ["bad file: invalid bounds", show boundsI])
+>         [fst boundsI..snd boundsI-1]
 >
 >     qualifyInst        :: Word → Maybe PerGMKey
 >     qualifyInst wordI
@@ -740,16 +741,14 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                → ([InstrumentName], [PercussionSound])
 >                                → [(ZoneHeader, SFZone)]
 >                                → Double
-> computeResolution kind rost zs           = (csplit + csamplesize) / 2
+> computeResolution kind rost zs           = (m1 * measureSplits + m2 * measureSampleSize) / 2
 >   where
->     csplit, factor, csamplesize
->                        :: Double
->     csplit                               = log (3 * splitScore kind rost zs * factor)
->     factor                               = if isStereoInst (map fst zs)
->                                              then 1/2
->                                              else 1
->     avgDur                               = sum (map sampleDuration zs) / fromIntegral (length zs)
->     csamplesize                          = 3 * avgDur
+>     measureSplits                        = log (m3 * splitScore kind rost zs)
+>     measureSampleSize                    = sum (map sampleDuration zs) / fromIntegral (length zs)
+>
+>     m1                                   = 1
+>     m2                                   = 3
+>     m3                                   = 3 * if isStereoInst zs then 1/2 else 1
 >
 > sampleDuration         :: (ZoneHeader, SFZone) → Double
 > sampleDuration (ZoneHeader{ .. }, SFZone{ .. })
@@ -765,18 +764,18 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     numSamples / fromIntegral sampleRate
 >
 > isStereoInst, is24BitInst
->                        :: [ZoneHeader] → Bool
+>                        :: [(ZoneHeader, a)] → Bool
 >
-> isStereoInst zhs                         = isJust $ find isStereoZone zhs
+> isStereoInst zs                          = isJust $ find isStereoZone zs
 >       
-> isStereoZone ZoneHeader{ .. }            = stype == SampleTypeRight || stype == SampleTypeLeft
+> isStereoZone (ZoneHeader{ .. }, _)       = stype == SampleTypeRight || stype == SampleTypeLeft
 >   where
 >     stype = toSampleType $ F.sampleType zhShdr 
 >         
 > zoneConforms (ZoneHeader{ .. }, SFZone{ .. })
 >                                          = not $ or unsupported
 >   where
->     F.Shdr{ .. }                           = zhShdr
+>     F.Shdr{ .. }                         = zhShdr
 >     unsupported        :: [Bool]
 >     unsupported                          =
 >       [
@@ -981,9 +980,6 @@ prepare the specified instruments and percussion ===============================
 >         zs             :: [(ZoneHeader, ZoneDigest)]
 >         zs                               = map inspectZone (tail (deriveRange ibagi jbagi))
 >
->         zhs            :: [ZoneHeader]   = map fst zs
->         zds            :: [ZoneDigest]   = map snd zs
->
 >         icat                             = fromMaybe InstCatDisq latched
 >         ws                               = if InstCatPerc == icat
 >                                              then wZones
@@ -992,8 +988,8 @@ prepare the specified instruments and percussion ===============================
 >                                              then (InstCatDisq, [])
 >                                              else (icat, ws)
 >         sIn, sOut      :: IntSet
->         sIn                              = IntSet.fromList $ mapMaybe (uncurry indices) zs
->         sOut                             = IntSet.fromList $ mapMaybe (uncurry links) zs
+>         sIn                              = IntSet.fromList $ mapMaybe indices zs
+>         sOut                             = IntSet.fromList $ mapMaybe links zs
 >
 >         badrom         :: Maybe InstCat  =
 >           if any (uncurry hasRom) zs then Just InstCatDisq else Nothing
@@ -1001,11 +997,11 @@ prepare the specified instruments and percussion ===============================
 >           if IntSet.isSubsetOf sOut sIn then Nothing else Just InstCatDisq
 >         hasRom ZoneHeader{ .. } _        = F.sampleType zhShdr >= 0x8000
 >                                          
->         indices, links :: ZoneHeader → ZoneDigest → Maybe Int
->         indices zh ZoneDigest{ .. }      =
->           if isStereoZone zh then Just $ fromIntegral $ professIsJust zdSampleIndex "no sample index?!" else Nothing
->         links zh@ZoneHeader{ .. } _      =
->           if isStereoZone zh then Just $ fromIntegral $ F.sampleLink zhShdr else Nothing
+>         indices, links :: (ZoneHeader, ZoneDigest) → Maybe Int
+>         indices (zh, zd@ZoneDigest{ .. })   =
+>           if isStereoZone (zh, zd) then Just $ fromIntegral $ professIsJust zdSampleIndex "no sample index?!" else Nothing
+>         links (zh@ZoneHeader{ .. }, zd)   =
+>           if isStereoZone (zh, zd) then Just $ fromIntegral $ F.sampleLink zhShdr else Nothing
 >
 >         wZones     :: [Word]             = mapMaybe (uncurry computeCanBePerc) zs
 >
@@ -1226,7 +1222,7 @@ zone selection for rendering ===================================================
 >    | stype == SampleTypeRight            = (ozone, zone)
 >    | otherwise                           = (zone, zone)
 >    where
->      F.Shdr{ .. }                        = (zhShdr . fst) zone
+>      F.Shdr{sampleLink, sampleType}      = (zhShdr . fst) zone
 >      stype                               = toSampleType sampleType
 >      ozone                               = fromMaybe zone $ find (withSlink sampleLink) zs
 >
@@ -1242,7 +1238,7 @@ zone selection for rendering ===================================================
 > scoreOneZone NoteOn{ .. } (zh@ZoneHeader{ .. }, zone@SFZone{ .. })
 >   | traceNot trace_SOZ False             = undefined
 >   | otherwise                            =
->     if DAllOn /= qqDesireReStereo defT || isStereoZone zh
+>     if DAllOn /= qqDesireReStereo defT || isStereoZone (zh, zone)
 >       then Just (scoreByPitch + scoreByVelocity, (zh, zone))
 >       else Nothing
 >   where
