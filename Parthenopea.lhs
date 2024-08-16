@@ -730,12 +730,16 @@ apply fuzzyfind to mining instruments + percussion =============================
 >
 > type Fuzz = Double
 >
-> instrumentConFFKeys    :: InstrumentName → Maybe [String]
-> instrumentConFFKeys inst                 =
->    case inst of
+> embed                  :: a → Maybe [String] → Maybe (a, [String])
+> embed kind                               = fmap (kind,)
+>
+> instrumentConFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
+> instrumentConFFKeys inst                 = embed inst keys
+>   where
+>    keys = case inst of
 >       AcousticGrandPiano        → Just            ["upright", "bright", "mellow", "elec"]
 >       Trumpet                   → Just $ singleton "mute"
->       AcousticBass              → Just $ singleton "brass"
+>       AcousticBass              → Just            ["brass", "tremolo"]
 >       ElectricBassFingered      → Just $ singleton "brass"
 >       ElectricBassPicked        → Just $ singleton "brass"
 >       FretlessBass              → Just $ singleton "brass"
@@ -744,12 +748,14 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       SynthBass1                → Just $ singleton "brass"
 >       SynthBass2                → Just $ singleton "brass"
 >       Violin                    → Just            ["tremolo", "strike", "pluck", "staccato"]
->       Agogo                     → Just $          ["hi", "low"]
+>       Cello                     → Just            ["tremolo", "strike", "pluck", "staccato"]
+>       Agogo                     → Just            ["hi", "low"]
 >       _                         → Nothing
 >
-> instrumentProFFKeys    :: InstrumentName → Maybe [String]
-> instrumentProFFKeys inst                 =
->    case inst of
+> instrumentProFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
+> instrumentProFFKeys inst                 = embed inst keys
+>   where
+>     keys = case inst of
 >       AcousticGrandPiano        → Just            ["piano", "grand"]
 >       BrightAcousticPiano       → Just            ["piano", "bright", "brite"]
 >       ElectricGrandPiano        → Just            ["piano", "elec"]
@@ -880,12 +886,13 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Gunshot                   → Just $ singleton "gunshot"
 >       _                         → Nothing
 >
-> percussionConFFKeys    :: PercussionSound → Maybe [String]
+> percussionConFFKeys    :: PercussionSound → Maybe (PercussionSound, [String])
 > percussionConFFKeys perc                 = Nothing
 >
-> percussionProFFKeys    :: PercussionSound → Maybe [String]
-> percussionProFFKeys perc =
->    case perc of
+> percussionProFFKeys    :: PercussionSound → Maybe (PercussionSound, [String])
+> percussionProFFKeys perc = embed perc keys
+>   where
+>     keys = case perc of
 >       AcousticBassDrum          → Just            ["drum", "acou", "bass"]
 >       BassDrum1                 → Just            ["kick", "drum"]
 >       SideStick                 → Just            ["side", "stick"]
@@ -943,29 +950,25 @@ handle "matching as" cache misses ==============================================
 > universe               :: ([InstrumentName], [PercussionSound])
 > universe                                 = (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
 >                                             , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
-> computeMatchingAs      :: ∀ a. (GMPlayable a, Eq a) ⇒
+> computeMatchingAs      :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒
 >                           String
->                           → (a → Maybe [String])
+>                           → (a → Maybe (a, [String]))
 >                           → ([InstrumentName], [PercussionSound])
->                           → [(a, (String, Fuzz))]
-> computeMatchingAs inp getFFKeys rost     = sortOn (Down . snd) asScored
+>                           → Map a Fuzz
+> computeMatchingAs inp getFFKeys rost     = Map.fromList $ sortOn (Down . snd) (Map.toList asScored)
 >   where
 >     -- weed out candidates with no fuzzy keys
->     asLooks            :: [(a, [String])]
->                                          = mapMaybe eval1 (select rost)
+>     asLooks            :: Map a [String] = Map.fromList $ mapMaybe eval1 (select rost)
 >
->     eval1              :: a → Maybe (a, [String])
+>     eval1              :: a -> Maybe (a, [String])
 >     eval1 kind                           =
->       Just . (kind,)
->         =<< getFFKeys
->         =<< if kind `elem` select rost then Just kind else Nothing
+>       getFFKeys =<< if kind `elem` select rost then Just kind else Nothing
 >
 >     -- weed out candidates with no fuzzy key matches
->     asScored           :: [(a, (String, Fuzz))]
->                                          = mapMaybe (evalAgainstKeys inp) asLooks
+>     asScored           :: Map a Fuzz     = Map.mapMaybeWithKey (evalAgainstKeys inp) asLooks
 >
-> evalAgainstKeys        :: ∀ a. (GMPlayable a) ⇒ String → (a, [String]) → Maybe (a, (String, Double))
-> evalAgainstKeys inp (kind, keys)         = if tot <= 0 then Nothing else Just (kind, (inp, tot))
+> evalAgainstKeys        :: ∀ a. (GMPlayable a) ⇒ String → a ->[String] → Maybe Fuzz
+> evalAgainstKeys inp kind keys            = if tot <= 0 then Nothing else Just tot
 >   where
 >     lFactor        :: Double             = sqrt $ fromIntegral $ length keys
 >     weights        :: [Double]           = [1.6 / lFactor
@@ -981,36 +984,32 @@ handle "matching as" cache misses ==============================================
 
 use "matching as" cache ===============================================================================================
 
-> evalAgainstKind        :: ∀ a. (GMPlayable a, Eq a) ⇒ a → FFProAndCon a → Fuzz
-> evalAgainstKind kind pandc               =
->   maybe 0 snd (lookup kind (ffPros pandc)) + (- conRatio) * maybe 0 snd (lookup kind (ffCons pandc))
+> evalAgainstKind        :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ a → FFProAndCon a → Fuzz
+> evalAgainstKind kind FFProAndCon{ .. }   =
+>   fromMaybe 0 (Map.lookup kind ffPros) + (- conRatio) * fromMaybe 0 (Map.lookup kind ffCons)
 >   
-> fuzziest               :: ∀ a. (GMPlayable a, Ord a) ⇒ FFProAndCon a → Double → [a]
-> fuzziest FFProAndCon{ .. } thresh        = sortOn Down $ Map.keys $ Map.mapMaybe qual togs
+> fuzziest               :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ FFProAndCon a → Double → [a]
+> fuzziest FFProAndCon{ .. } thresh        = sortOn Down $ Map.keys $ Map.mapMaybe qual combo
 >   where
->     pros, cons, togs   :: Map a Fuzz
->     pros                                 = Map.fromList $ map (BF.second snd) ffPros
->     cons                                 = Map.fromList $ map (BF.second snd) ffCons
->     cons'                                = Map.map (* (- conRatio)) cons
->     togs                                 = Map.unionWith (+) pros cons'
->
+>     combo                                = Map.unionWith (+) ffPros (Map.map (* (- conRatio)) ffCons)
 >     qual x                               = if x > thresh
 >                                              then Just x
 >                                              else Nothing
 >
 > data FFProAndCon a =
 >   FFProAndCon {
->     ffPros     :: [(a, (String, Fuzz))]
->   , ffCons     :: [(a, (String, Fuzz))]} deriving Show
+>     ffPros     :: Map a Fuzz
+>   , ffCons     :: Map a Fuzz} deriving Show
 >
 > data FFMatches =
 >   FFMatches {
->     ffInst             :: FFProAndCon InstrumentName 
+>     ffInput            :: String
+>   , ffInst             :: FFProAndCon InstrumentName 
 >   , ffPerc             :: FFProAndCon PercussionSound
 >   , ffUnis             :: FFProAndCon InstrumentName} deriving Show
 >
 > computeFFMatches       :: String → ([InstrumentName], [PercussionSound]) → FFMatches
-> computeFFMatches inp rost                = FFMatches
+> computeFFMatches inp rost                = FFMatches inp
 >                                              (FFProAndCon ias ibs)
 >                                              (FFProAndCon pas pbs)
 >                                              (FFProAndCon uas ubs) 
@@ -1368,6 +1367,9 @@ Conversion functions and general helpers =======================================
 > professIsJust'         :: ∀ a. Maybe a → a
 > professIsJust' item                      = professIsJust item "expected Just"
 >
+> roundBy                :: Double -> Double -> Double
+> roundBy p10 x                            = fromIntegral (round (p10 * x)) / p10
+>
 > sumOfMaybeInts         :: [Maybe Int] → Int
 > sumOfMaybeInts                           = sum . map (fromMaybe 0)
 >       
@@ -1597,8 +1599,8 @@ Emission capability ============================================================
 > makeString             :: Emission → String
 > makeString e                             =
 >   case e of
->     ToFieldL str sz    → fillFieldL str sz
->     ToFieldR str sz    → fillFieldR str sz
+>     ToFieldL str sz    → fillFieldL sz str
+>     ToFieldR str sz    → fillFieldR sz str
 >     Unblocked str      → str
 >     Blanks sz          → replicate sz ' '
 >     Empty              → ""
@@ -1650,11 +1652,11 @@ Emission capability ============================================================
 > reapItem               :: [String] → Emission → [String]
 > reapItem outP e                          = init outP ++ [last outP ++ makeString e]
 >
-> fillFieldL             :: String → Int → String
-> fillFieldL str fieldSz                   = str ++ safeReplicate (length str) fieldSz ' '
+> fillFieldL             :: Int → String → String
+> fillFieldL fieldSz str                   = str ++ safeReplicate (length str) fieldSz ' '
 >
-> fillFieldR             :: String → Int → String
-> fillFieldR str fieldSz                   = safeReplicate (length str) fieldSz ' ' ++ str
+> fillFieldR             :: Int → String → String
+> fillFieldR fieldSz str                   = safeReplicate (length str) fieldSz ' ' ++ str
 >
 > safeReplicate          :: Int → Int → Char → String
 > safeReplicate sz maxSz                   = profess
@@ -1718,7 +1720,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDiagnosticsEnabled                 = False
->   , qqReportTourney                      = False
+>   , qqReportTourney                      = True
 >   , qqNarrowInstrumentScope              = True
 >   , qqMultipleCompetes                   = True
 >   , qqSkipGlissandi                      = False

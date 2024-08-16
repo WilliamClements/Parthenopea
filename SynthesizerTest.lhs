@@ -25,7 +25,7 @@ Testing ========================================================================
 > defRecon                                 =
 >   Recon
 >     A.ContLoop 44100 0 0 0 0
->     60 Nothing Nothing
+>     60 Nothing Nothing 100
 >     (NoteOn 100 60)
 >     0 Nothing Nothing
 >     defModulation defEffects

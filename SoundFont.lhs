@@ -89,7 +89,12 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data ArtifactGrade =
 >   ArtifactGrade {
 >     pScore             :: Int
->   , pEmpiricals        :: [Int]} deriving (Show)
+>   , pEmpiricals        :: [Double]} deriving (Show)
+> showEmpiricals         :: [Double] -> String
+> showEmpiricals                         = concatMap fun
+>   where
+>     fun                :: Double -> String
+>     fun x                              = fillFieldL 6 (show $ roundBy 10 x)
 >
 > data PerGMScored =
 >   PerGMScored {
@@ -131,11 +136,11 @@ Instrument categories: instrument, percussion, disqualified
 >   fuzzFactor           :: a → Double
 >
 > instance SFScorable InstrumentName where
->   splitScore                             = instrumentSplitScore
+>   splitScore _ _ zs                      = fromIntegral (length zs)
 >   fuzzFactor _                           = 7/8
 >
 > instance SFScorable PercussionSound where
->   splitScore                             = percussionSplitScore
+>   splitScore _ _ _                       = 0
 >   fuzzFactor _                           = 3/4
 >
 > type PreSampleCache                      = Map PreSampleKey PreSample
@@ -175,10 +180,9 @@ Instrument categories: instrument, percussion, disqualified
 > data ZoneDigest =
 >   ZoneDigest {
 >     zdKeyRange         :: Maybe (Word, Word)
->   , zdSampleIndex      :: Maybe Word
->   , zdSampleSize       :: Int} deriving Show
+>   , zdSampleIndex      :: Maybe Word} deriving Show
 > defDigest              :: ZoneDigest
-> defDigest                                = ZoneDigest Nothing Nothing 0
+> defDigest                                = ZoneDigest Nothing Nothing
 >
 > data SFZone =
 >   SFZone {
@@ -327,8 +331,14 @@ executive ======================================================================
 >         preSampleCache ← formPreSampleCache zFiles zRoster presks
 >         preInstCache   ← formPreInstCache   zFiles zRoster pergmsI_
 >
->         (pergmsI, pergmsP, skMap, zc)
->                        ← formZoneCache zFiles preSampleCache preInstCache zRoster pergmsI_
+>         (pergmsI, finishedIP, zq)
+>                        ← categorize zFiles preSampleCache preInstCache zRoster pergmsI_
+>
+>         tsCatted       ← getCurrentTime
+>         putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsLoaded))
+>
+>         (pergmsP, skMap, zc)
+>                        ← formZoneCache zFiles preSampleCache preInstCache zRoster (pergmsI, finishedIP, zq)
 >
 >         CM.when diagnosticsEnabled
 >           (do
@@ -338,7 +348,7 @@ executive ======================================================================
 >             print pergmsP)
 >
 >         tsZoned        ← getCurrentTime
->         putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsLoaded))
+>         putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsCatted))
 >
 >         -- actually conduct the tournament
 >         ((wI, sI), (wP, sP))
@@ -518,29 +528,29 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         computeGrade   :: [(ZoneHeader, SFZone)] → AgainstKindResult → ArtifactGrade
 >         computeGrade zs_ againstKindResult
 >           | traceNot trace_CG False      = undefined
->           | otherwise                    = ArtifactGrade (sum weightedScores) baseScores
+>           | otherwise                    = ArtifactGrade (round (500 * sum weightedScores)) baseScores
 >           where
 >             zs                           = tail zs_
->             empiricals :: [Int]          = [   scoreBool $ isStereoInst zs
->                                              , scoreBool $ is24BitInst zs
->                                              , round $ computeResolution kind rost zs
->                                              , scoreBool $ all zoneConforms zs
->                                              , round fuzz]
+>             empiricals :: [Double]     = [   fromRational $ scoreBool $ isStereoInst zs
+>                                              , fromRational $ scoreBool $ is24BitInst zs
+>                                              , computeResolution kind rost zs
+>                                              , fromRational $ scoreBool $ all zoneConforms zs
+>                                              , fuzz]
 >             howgood                      = againstKindResult - stands
 >             fuzz       :: Double
 >               | howgood > 0.000_001      = max 0 (logBase 2 howgood) * fuzzFactor kind
 >               | otherwise                = 0
->             ss         :: [Int]  = zipWith (*) qqDesires' empiricals
->             baseScores :: [Int]  = [  foldHints hints
->                                                  , head ss
->                                                  , ss !! 1
->                                                  , ss !! 2
->                                                  , ss !! 3
->                                                  , ss !! 4]
+>             ss         :: [Double]       = zipWith (*) qqDesires' empiricals
+>             baseScores :: [Double]       = [  foldHints hints
+>                                             , head ss
+>                                             , ss !! 1
+>                                             , ss !! 2
+>                                             , ss !! 3
+>                                             , ss !! 4]
 >             weightedScores
->                        :: [Int]          = zipWith (*) baseScores ssWeights
+>                        :: [Double]     = zipWith (*) baseScores (map fromRational ssWeights)
 >
->             trace_CG                             =
+>             trace_CG                     =
 >               unwords [   "computeGrade " , show iName
 >                         , " and "         , show baseScores
 >                         , " X "           , show ssWeights
@@ -736,19 +746,26 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     ++ [emitShowL name 20, emitShowL (length is) 4]
 >     ++ [Unblocked " /- instruments, percussion -/ ", emitShowL (length ps) 4, EndOfLine]
 >
-> computeResolution      :: ∀ a. (SFScorable a) ⇒
+> computeResolution      :: ∀ a. (Show a, SFScorable a) ⇒
 >                                a
 >                                → ([InstrumentName], [PercussionSound])
 >                                → [(ZoneHeader, SFZone)]
 >                                → Double
-> computeResolution kind rost zs           = (m1 * measureSplits + m2 * measureSampleSize) / 2
+> computeResolution kind rost zs
+>   | traceIf trace_CR False              = undefined
+>   | otherwise                            = (m1 * measureSplits + m2 * measureSampleSize) / 2
 >   where
->     measureSplits                        = log (m3 * splitScore kind rost zs)
+>     theScore                             = splitScore kind rost zs
+>     measureSplits
+>       | theScore == 0                    = 0
+>       | otherwise                        = log (m3 * theScore)
 >     measureSampleSize                    = sum (map sampleDuration zs) / fromIntegral (length zs)
 >
 >     m1                                   = 1
->     m2                                   = 3
+>     m2                                   = 2
 >     m3                                   = 3 * if isStereoInst zs then 1/2 else 1
+>
+>     trace_CR                             = unwords ["computeResolution", show kind, show (measureSplits, measureSampleSize)]
 >
 > sampleDuration         :: (ZoneHeader, SFZone) → Double
 > sampleDuration (ZoneHeader{ .. }, SFZone{ .. })
@@ -776,13 +793,15 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                          = not $ or unsupported
 >   where
 >     F.Shdr{ .. }                         = zhShdr
+>     tuning                               = fromMaybe 100 zScaleTuning
+>
 >     unsupported        :: [Bool]
 >     unsupported                          =
 >       [
 >           A.PressLoop == fromMaybe A.NoLoop zSampleMode
->         , 0 /= fromMaybe 0 zInitQ
->         , 0 /= fromMaybe 0 zScaleTuning
->         , 0 /= fromMaybe 0 zExclusiveClass
+>         , 0   /= fromMaybe 0   zInitQ
+>         , 100 /= tuning && 0 /= tuning
+>         , 0   /= fromMaybe 0   zExclusiveClass
 >         , end < start
 >         , endLoop < startLoop
 >       ]
@@ -876,26 +895,21 @@ extract data from SoundFont per instrument =====================================
                                             
 prepare the specified instruments and percussion ======================================================================
 
-> formZoneCache          :: Array Word SFFile
+> categorize             :: Array Word SFFile
 >                           → PreSampleCache
 >                           → PreInstCache
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [PerGMKey]
->                           → IO ([PerGMKey], [PerGMKey], Map PerGMKey PreSampleKey, ZoneCache)
-> formZoneCache sffiles preSampleCache preInstCache rost pergms
+>                           → IO ([PerGMKey], [PerGMKey], Map PerGMKey [Word])
+> categorize sffiles preSampleCache preInstCache rost pergms
 >                                          = 
->   return (pergmsI, pergmsP, skMap, zc)
+>   return (pergmsI, filteredIP, zq)
 >   where
->     pergmsI, filteredIP, pergmsP
+>     pergmsI, filteredIP
 >                        :: [PerGMKey]
->     skMap              :: Map PerGMKey PreSampleKey
->     zc                 :: ZoneCache
 >     zq                 :: Map PerGMKey [Word]
 >
 >     (pergmsI, filteredIP, zq)            = foldr winnow ([], [], Map.empty) pergms
->     zc                                   =
->       foldr (\p → Map.insert p (computePerInst p)) Map.empty (pergmsI ++ filteredIP)
->     (pergmsP, skMap)                     = formMasterPercussionList zc preSampleCache filteredIP
 >
 >     winnow             :: PerGMKey
 >                           → ([PerGMKey], [PerGMKey], Map PerGMKey [Word])
@@ -915,6 +929,144 @@ prepare the specified instruments and percussion ===============================
 >             else (pis,  zq')
 >         
 >         trace_W                          = unwords ["winnow", show pergm]
+>
+>     categorizeInst :: PerGMKey → (InstCat, [Word])
+>     categorizeInst pergm@PerGMKey{ .. }
+>       | traceIf trace_CI False           = undefined
+>       | otherwise                        = (icat', ws')
+>       where
+>         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
+>         PreInstrument{ .. }              =
+>           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
+>
+>         iinst                            = ssInsts ! pgkwInst
+>         jinst                            = ssInsts ! (pgkwInst+1)
+>         ibagi                            = F.instBagNdx iinst
+>         jbagi                            = F.instBagNdx jinst
+>
+>         zs             :: [(ZoneHeader, ZoneDigest)]
+>         zs                               = map inspectZone (tail (deriveRange ibagi jbagi))
+>
+>         icat                             = fromMaybe InstCatDisq latched
+>         ws                               = if InstCatPerc == icat
+>                                              then wZones
+>                                              else []
+>         (icat', ws')                     = if InstCatPerc == icat && null ws
+>                                              then (InstCatDisq, [])
+>                                              else (icat, ws)
+>         sIn, sOut      :: IntSet
+>         sIn                              = IntSet.fromList $ mapMaybe indices zs
+>         sOut                             = IntSet.fromList $ mapMaybe links zs
+>
+>         badrom         :: Maybe InstCat  =
+>           if any (uncurry hasRom) zs then Just InstCatDisq else Nothing
+>         badLinks       :: Maybe InstCat  =
+>           if IntSet.isSubsetOf sOut sIn then Nothing else Just InstCatDisq
+>         hasRom ZoneHeader{ .. } _        = F.sampleType zhShdr >= 0x8000
+>                                          
+>         indices, links :: (ZoneHeader, ZoneDigest) → Maybe Int
+>         indices (zh, zd@ZoneDigest{ .. })
+>                                          =
+>           if isStereoZone (zh, zd)
+>             then Just $ fromIntegral $ professIsJust zdSampleIndex "no sample index?!"
+>             else Nothing
+>         links (zh@ZoneHeader{ .. }, zd)  =
+>           if isStereoZone (zh, zd)
+>             then Just $ fromIntegral $ F.sampleLink zhShdr
+>             else Nothing
+>
+>         laden      :: [Word] → Double
+>         laden ws
+>           | null zs                      = 0
+>           | otherwise                    = (fromIntegral . length) ws / (fromIntegral . length) zs
+>
+>         uZones     :: [Word]             = mapMaybe (computeCanBePerc universe) zs
+>         wZones     :: [Word]             = mapMaybe (computeCanBePerc rost) zs
+>
+>         xinst x                          = Just InstCatInst
+>         xperc x                          = Just InstCatPerc
+>         xdisq x                          = Just InstCatDisq
+>
+>         alts       :: [Maybe InstCat]
+>         alts                             =
+>           [ badrom
+>           , badLinks
+>           , xinst =<< listToMaybe (fuzziest iMatches.ffInst isConfirmed)
+>           , xperc =<< listToMaybe (fuzziest iMatches.ffPerc isConfirmed)
+>           , if 0.4 < laden uZones
+>               then (if 0.05 < laden wZones then Just InstCatPerc else Just InstCatDisq)
+>               else Nothing
+>           , xinst =<< listToMaybe (fuzziest iMatches.ffInst stands)
+>           , xdisq =<< listToMaybe (fuzziest iMatches.ffUnis stands)
+>           , xperc =<< listToMaybe (fuzziest iMatches.ffPerc stands)]
+
+   "now", sequence through the alternatives, categorizing as follows
+   a. Just InstCatInst           an inst bearing one inst, or
+   b. Just InstCatPerc           an inst bearing one or more percs, or
+   c. Just InstCatDisq           an inst disqualified from all tournaments, or else
+   d. Nothing                    undecided
+
+>         latched    :: Maybe InstCat      = foldr CM.mplus Nothing alts
+>
+>         trace_CI                         =
+>           unwords ["categorizeInst", iName, show iMatches, show alts]
+>
+>         computeCanBePerc
+>                        :: ([InstrumentName], [PercussionSound]) → (ZoneHeader, ZoneDigest) → Maybe Word
+>         computeCanBePerc rost' (ZoneHeader{ .. }, zd@ZoneDigest { .. })
+>           | traceNever trace_CCBP False  = undefined
+>           | otherwise                    =
+>           mwOut =<< integralize zdKeyRange
+>           where
+>             mwOut range                  = if pinnedKR (select rost') range then Just zhwBag else Nothing
+>
+>             trace_CCBP                   =
+>               unwords ["computeCanBePerc", show zd]
+>
+>         inspectZone    :: Word → (ZoneHeader, ZoneDigest)
+>         inspectZone bagIndex
+>           | traceNot trace_IZ False      = undefined
+>           | otherwise                    = (zh, zd)
+>           where
+>             xgeni                        = F.genNdx $ ssIBags!bagIndex
+>             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
+>
+>             gens       :: [F.Generator]  = profess
+>                                              (xgeni <= ygeni)
+>                                              "SoundFont file corrupt (inspectZone gens)"
+>                                              (map (ssIGens !) (deriveRange xgeni ygeni))
+>
+>             zd                           = foldr inspectGen defDigest gens
+>             si                           =
+>               professIsJust (zdSampleIndex zd) (unwords ["sample index"])
+>             zh                           =
+>               ZoneHeader bagIndex (ssShdrs ! si) Nothing
+>
+>             trace_IZ                     =
+>               unwords ["inspectZone", show gens]
+>
+>         inspectGen     :: F.Generator → ZoneDigest → ZoneDigest 
+>         inspectGen (F.KeyRange i j) zd   = zd {zdKeyRange = Just (i, j)}
+>         inspectGen (F.SampleIndex w) zd  = zd {zdSampleIndex = Just w}
+>         inspectGen _ zd                  = zd
+>
+> formZoneCache          :: Array Word SFFile
+>                           → PreSampleCache
+>                           → PreInstCache
+>                           → ([InstrumentName], [PercussionSound])
+>                           → ([PerGMKey], [PerGMKey], Map PerGMKey [Word])
+>                           → IO ([PerGMKey], Map PerGMKey PreSampleKey, ZoneCache)
+> formZoneCache sffiles preSampleCache preInstCache rost (pergmsI, filteredIP, zq)
+>                                          = 
+>   return (pergmsP, skMap, zc)
+>   where
+>     pergmsP            :: [PerGMKey]
+>     skMap              :: Map PerGMKey PreSampleKey
+>     zc                 :: ZoneCache
+>
+>     zc                                   =
+>       foldr (\p → Map.insert p (computePerInst p)) Map.empty (pergmsI ++ filteredIP)
+>     (pergmsP, skMap)                     = formMasterPercussionList zc preSampleCache filteredIP
 >
 >     computePerInst     :: PerGMKey → PerInstrument
 >     computePerInst pergm@PerGMKey{ .. }
@@ -963,114 +1115,6 @@ prepare the specified instruments and percussion ===============================
 >             zh                           = ZoneHeader bagIndex (ssShdrs ! si) Nothing
 >
 >             trace_BZ                     = unwords ["buildZone", show bagIndex]
->
->     categorizeInst :: PerGMKey → (InstCat, [Word])
->     categorizeInst pergm@PerGMKey{ .. }
->       | traceIf trace_CI False          = undefined
->       | otherwise                        = (icat', ws')
->       where
->         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
->         PreInstrument{ .. }              = fromJust $ Map.lookup pergm preInstCache
->
->         iinst                            = ssInsts ! pgkwInst
->         jinst                            = ssInsts ! (pgkwInst+1)
->         ibagi                            = F.instBagNdx iinst
->         jbagi                            = F.instBagNdx jinst
->
->         zs             :: [(ZoneHeader, ZoneDigest)]
->         zs                               = map inspectZone (tail (deriveRange ibagi jbagi))
->
->         icat                             = fromMaybe InstCatDisq latched
->         ws                               = if InstCatPerc == icat
->                                              then wZones
->                                              else []
->         (icat', ws')                     = if InstCatPerc == icat && null ws
->                                              then (InstCatDisq, [])
->                                              else (icat, ws)
->         sIn, sOut      :: IntSet
->         sIn                              = IntSet.fromList $ mapMaybe indices zs
->         sOut                             = IntSet.fromList $ mapMaybe links zs
->
->         badrom         :: Maybe InstCat  =
->           if any (uncurry hasRom) zs then Just InstCatDisq else Nothing
->         badLinks       :: Maybe InstCat  =
->           if IntSet.isSubsetOf sOut sIn then Nothing else Just InstCatDisq
->         hasRom ZoneHeader{ .. } _        = F.sampleType zhShdr >= 0x8000
->                                          
->         indices, links :: (ZoneHeader, ZoneDigest) → Maybe Int
->         indices (zh, zd@ZoneDigest{ .. })   =
->           if isStereoZone (zh, zd) then Just $ fromIntegral $ professIsJust zdSampleIndex "no sample index?!" else Nothing
->         links (zh@ZoneHeader{ .. }, zd)   =
->           if isStereoZone (zh, zd) then Just $ fromIntegral $ F.sampleLink zhShdr else Nothing
->
->         wZones     :: [Word]             = mapMaybe (uncurry computeCanBePerc) zs
->
->         xinst x                          = Just InstCatInst
->         xperc x                          = Just InstCatPerc
->         xdisq x                          = Just InstCatDisq
->
->         alts       :: [Maybe InstCat]
->         alts                             =
->           [ badrom
->           , badLinks
->           , xinst =<< listToMaybe (fuzziest iMatches.ffInst isConfirmed)
->           , xperc =<< listToMaybe (fuzziest iMatches.ffPerc isConfirmed)
->           , if not (null wZones) then Just InstCatPerc else Nothing
->           , xinst =<< listToMaybe (fuzziest iMatches.ffInst stands)
->           , xdisq =<< listToMaybe (fuzziest iMatches.ffUnis stands)
->           , xperc =<< listToMaybe (fuzziest iMatches.ffPerc stands)]
-
-   "now", sequence through the alternatives, categorizing as follows
-   a. Just InstCatInst           an inst bearing one inst, or
-   b. Just InstCatPerc           an inst bearing one or more percs, or
-   c. Just InstCatDisq           an inst disqualified from all tournaments, or else
-   d. Nothing                    undecided
-
->         latched    :: Maybe InstCat      = foldr CM.mplus Nothing alts
->
->         trace_CI                         =
->           unwords ["categorizeInst", iName, show iMatches]
->
->         computeCanBePerc
->                        :: ZoneHeader → ZoneDigest → Maybe Word
->         computeCanBePerc ZoneHeader{ .. } ZoneDigest { .. }
->           | traceNow trace_CCBP False    = undefined
->           | otherwise                    =
->           mwOut =<< integralize zdKeyRange
->           where
->             mwOut range                  = if pinnedKR pss range then Just zhwBag else Nothing
->             pss        :: [PercussionSound]
->             pss                          = select rost
->
->             trace_CCBP                   =
->               unwords ["computeCanBePerc", show pss]
->
->         inspectZone    :: Word → (ZoneHeader, ZoneDigest)
->         inspectZone bagIndex
->           | traceNot trace_IZ False      = undefined
->           | otherwise                    = (zh, zd)
->           where
->             xgeni                        = F.genNdx $ ssIBags!bagIndex
->             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
->
->             gens       :: [F.Generator]  = profess
->                                              (xgeni <= ygeni)
->                                              "SoundFont file corrupt (inspectZone gens)"
->                                              (map (ssIGens !) (deriveRange xgeni ygeni))
->
->             zd                           = foldr inspectGen defDigest gens
->             si                           =
->               professIsJust (zdSampleIndex zd) (unwords ["sample index"])
->             zh                           =
->               ZoneHeader bagIndex (ssShdrs ! si) Nothing
->
->             trace_IZ                     =
->               unwords ["inspectZone", show gens]
->
->         inspectGen     :: F.Generator → ZoneDigest → ZoneDigest 
->         inspectGen (F.KeyRange i j) zd   = zd {zdKeyRange = Just (i, j)}
->         inspectGen (F.SampleIndex w) zd  = zd {zdSampleIndex = Just w}
->         inspectGen _ zd                  = zd
 >
 > pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Bool
 > pinnedKR pss (p1, p2)                    = any available cands
@@ -1249,23 +1293,6 @@ zone selection for rendering ===================================================
 >                                                    , "+",            show scoreByVelocity
 >                                                    , "for",          show zhwBag]
 >
-> instrumentSplitScore   :: InstrumentName → ([InstrumentName], [PercussionSound]) → [(ZoneHeader, SFZone)] → Double
-> instrumentSplitScore kind _ zs           = fromIntegral (length zs)
->
-> percussionSplitScore   :: PercussionSound → ([InstrumentName], [PercussionSound]) → [(ZoneHeader, SFZone)] → Double
-> percussionSplitScore kind rost zs        = max 1 (fromIntegral $ length $ mapMaybe (match . snd) zs)
->   where
->     pss                :: [PercussionSound]
->     pss                                  = select rost
->
->     match              :: SFZone → Maybe PercussionSound
->     match SFZone{zKeyRange}
->       | isNothing mkind                  = Nothing
->       | kind == fromJust mkind           = Just kind
->       | otherwise                        = Nothing
->       where
->         mkind                            = qualifyKeyRange pss =<< zKeyRange
->
 > scorePitchDistance     :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
 > scorePitchDistance cand mrange           =
 >   case mrange of
@@ -1329,6 +1356,7 @@ reconcile zone and sample header ===============================================
 >                                              originalPitch           zRootKey
 >   , rForceKey        = fmap                  fromIntegral            zKey
 >   , rForceVel        = fmap                  fromIntegral            zVel
+>   , rTuning          = fromMaybe             100                     zScaleTuning
 >   , rNoteOn          = noon
 >   , rAttenuation     = reconAttenuation                              zInitAtten
 >   , rVolEnv          = deriveEnvelope                                zDelayVolEnv
@@ -1520,11 +1548,12 @@ emit standard output text detailing what choices we made for rendering GM items 
 > dumpContestant         :: PerGMScored → [Emission]
 > dumpContestant PerGMScored{ .. }         = es
 >   where
+>     ArtifactGrade{ .. }                  = pArtifactGrade
 >     es = emitLine [ Blanks 8, emitShowL (pgkwFile pPerGMKey) 4, emitShowR szI 22
 >                   , Blanks 8, emitShowR (fromMaybe "" mszP) 22
->                   , Blanks 8, emitShowL (pScore pArtifactGrade) 8
->                   , emitShowL (pEmpiricals pArtifactGrade) 16
->                   , emitShowR pAgainstKindResult 20]
+>                   , Blanks 8, emitShowL pScore 10
+>                   , ToFieldL (showEmpiricals pEmpiricals) (7 * length pEmpiricals)
+>                   , emitShowR (roundBy 10 pAgainstKindResult) 8]
 
 Scoring stuff =========================================================================================================
 
@@ -1534,20 +1563,17 @@ Scoring stuff ==================================================================
 >   | DHigh
 >   | DScore Double deriving Show
 >
-> scoreHint              :: SSHint → Int
+> scoreHint              :: SSHint → Rational
 > scoreHint h                              = case h of
 >                                            DLow            → -1
 >                                            DMed            → 0
 >                                            DHigh           → 1
 >                                            DScore x        → 0 
 >             
-> foldHints              :: [SSHint] → Int
-> foldHints                                = foldr foldHint 0
+> foldHints              :: [SSHint] → Double
+> foldHints                                = foldr ((+) . fromRational . scoreHint) 0
 >
-> foldHint               :: SSHint → Int → Int
-> foldHint hint accum                      = accum + scoreHint hint   
->
-> ssWeights              :: [Int]          = [ weighHints
+> ssWeights              :: [Rational]     = [ weighHints
 >                                            , weighStereo
 >                                            , weigh24Bit
 >                                            , weighResolution

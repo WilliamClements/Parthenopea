@@ -13,7 +13,8 @@ William Clements
 May 14, 2023
 
 > module Synthesizer ( eutSynthesize, Recon( .. ), defS, defT, stands, scanningOutput, findOutliers, normalizingOutput
->                    , scoreBool, SampleType( .. ), qqDesires', toSampleType, isConfirmed, isPossible', Desires( .. )
+>                    , scoreBool, SampleType( .. ), qqDesires', toSampleType, isConfirmed, isConfirmed', isPossible'
+>                    , Desires( .. )
 >                    , deriveEnvelope, isPossible, qqDesireReStereo, usePitchCorrection, deriveEffects
 >                    , useAttenuation, weighHints, weighStereo, weigh24Bit, weighResolution, weighConformance
 >                    , weighFuzziness, eutDriver, Effects( .. ) ) where
@@ -68,7 +69,10 @@ Signal function-based synth ====================================================
 >                                              then secsScored
 >                                              else min secsSample secsScored
 >
->     freqRatio          :: Double         = apToHz reconL.rRootKey / apToHz noteOnKey
+>     freqRatio          :: Double         =
+>       if reconL.rTuning == 100
+>         then apToHz reconL.rRootKey / apToHz noteOnKey
+>         else 1
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
 >     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
@@ -738,6 +742,7 @@ Utility types ==================================================================
 >   , rRootKey           :: AbsPitch
 >   , rForceKey          :: Maybe AbsPitch
 >   , rForceVel          :: Maybe Volume
+>   , rTuning            :: Int
 >   , rNoteOn            :: NoteOn
 >   , rAttenuation       :: Double
 >   , rVolEnv            :: Maybe Envelope
@@ -802,12 +807,12 @@ Flags for customization ========================================================
 >   , qqDesireReConformance  :: Desires
 >   , qqDesireReFuzzy        :: Desires
 >
->   , qqWeighHints           :: Int
->   , qqWeighStereo          :: Int
->   , qqWeigh24Bit           :: Int
->   , qqWeighResolution      :: Int
->   , qqWeighConformance     :: Int
->   , qqWeighFuzziness       :: Int
+>   , qqWeighHints           :: Rational
+>   , qqWeighStereo          :: Rational
+>   , qqWeigh24Bit           :: Rational
+>   , qqWeighResolution      :: Rational
+>   , qqWeighConformance     :: Rational
+>   , qqWeighFuzziness       :: Rational
 >
 >   , qqFFThresholdPossible  :: Double
 >   , qqFFThresholdStands    :: Double
@@ -846,7 +851,7 @@ Flags for customization ========================================================
 > data Desires =
 >   DAllOff | DPreferOff | DNeutral | DPreferOn | DAllOn deriving (Eq, Show)
 >
-> scoreDesire            :: Desires → Int
+> scoreDesire            :: Desires → Rational
 > scoreDesire d = case d of
 >   DAllOff          → (-1)
 >   DPreferOff       → (-1)
@@ -854,7 +859,7 @@ Flags for customization ========================================================
 >   DPreferOn        → 1
 >   DAllOn           → 1
 >
-> scoreBool              :: Bool → Int
+> scoreBool              :: Bool → Rational
 > scoreBool b = if b then 1 else (-1)
 >
 > qqDesires              :: [Desires]      = [qqDesireReStereo      defT
@@ -862,7 +867,7 @@ Flags for customization ========================================================
 >                                           , qqDesireReSplits      defT
 >                                           , qqDesireReConformance defT
 >                                           , qqDesireReFuzzy       defT]
-> qqDesires'             :: [Int]          = map scoreDesire        qqDesires
+> qqDesires'             :: [Double]       = map (fromRational . scoreDesire) qqDesires
 
 Turn Knobs Here =======================================================================================================
 
@@ -875,12 +880,12 @@ Turn Knobs Here ================================================================
 >   , qqDesireReConformance                = DPreferOn
 >   , qqDesireReFuzzy                      = DPreferOn
 >
->   , qqWeighHints                         = 10
->   , qqWeighStereo                        = 4
+>   , qqWeighHints                         = 20
+>   , qqWeighStereo                        = 7
 >   , qqWeigh24Bit                         = 0
 >   , qqWeighResolution                    = 2
->   , qqWeighConformance                   = 3
->   , qqWeighFuzziness                     = 2
+>   , qqWeighConformance                   = 5
+>   , qqWeighFuzziness                     = 4
 >
 >   , qqFFThresholdPossible                = 0
 >   , qqFFThresholdStands                  = 150

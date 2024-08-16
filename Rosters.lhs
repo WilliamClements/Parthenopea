@@ -70,7 +70,6 @@ organize exposed music =========================================================
 >
 > ajingles =
 >    [ ("theFanfare"     , theFanfare False)
->    , ("slot"           , slot 4)
 >    , ("alice"          , alice)
 >    , ("bob"            , bob 4)
 >    , ("copper"         , copper 2)
@@ -79,6 +78,8 @@ organize exposed music =========================================================
 >    , ("deyDumpDum"     , deyDumpDum)]
 > bjingles =
 >    [ ("getCITM"        , getCITM)
+>    , ("slot"           , slot 4)
+>    , ("whelpNarp"      , whelpNarp)
 >    , ("bake"           , shimSong $ bakedJingle 9345)
 >    , ("bill"           , bill 4)
 >    , ("roger"          , roger)]
@@ -90,7 +91,6 @@ organize exposed music =========================================================
 >    , ("weHateHer"      , weHateHer)]
 > djingles =
 >    [ ("waypostpurple"  , waypostpurple)
->    , ("whelpNarp"      , whelpNarp)
 >    , ("snake"          , snake)
 >    , ("pendingtonArnt" , pendingtonArnt 2)
 >    , ("ssailor"        , ssailor)]
@@ -106,15 +106,15 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj = cjingles
+> sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("pa1"         , pendingtonArnt 1)]
 >    -- [ ("bill1"       , bill 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("theFanfare"  , theFanfare False)]
->    -- [ ("roger"       , roger)]
->    -- [ ("kit"         , kit) ]
+>    -- [ ("rattan"      , rattan)]
+>       [ ("whelpNarp"   , whelpNarp)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 47209)]
 >    -- [ ("slot"        , slot 1   )]
 >    -- [ ("dh"          , deathlessHorsie)]
