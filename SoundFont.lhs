@@ -90,10 +90,10 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   ArtifactGrade {
 >     pScore             :: Int
 >   , pEmpiricals        :: [Double]} deriving (Show)
-> showEmpiricals         :: [Double] -> String
+> showEmpiricals         :: [Double] → String
 > showEmpiricals                         = concatMap fun
 >   where
->     fun                :: Double -> String
+>     fun                :: Double → String
 >     fun x                              = fillFieldL 6 (show $ roundBy 10 x)
 >
 > data PerGMScored =
@@ -389,8 +389,9 @@ executive ======================================================================
 >
 >   -- output all selections to the report file
 >   let legend :: [Emission] =
->           emitComment [Unblocked "legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]"]
->        ++ emitNextComment [ToFieldL "weights = " 10, Unblocked (show ssWeights)] 
+>           emitComment     [   Unblocked "legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]"]
+>        ++ emitNextComment [   Unblocked "weights = "
+>                             , Unblocked (show ssWeights)] 
 >   let esFiles          = emitFileListC
 >   let esI              = concatMap dumpContestants (Map.toList pContI)
 >   let esP              = concatMap dumpContestants (Map.toList pContP)
@@ -467,30 +468,30 @@ executive ======================================================================
 >       | traceNot trace_WP False          = undefined
 >       | otherwise                        = xaEnterTournament pandc pergmP [] wIn kind
 >       where
+>         mz             :: Maybe (ZoneHeader, SFZone)
+>         mz                               = pgkwBag >>= lookupZone pZonePairs
 >         mkind          :: Maybe PercussionSound
->                                          =
->           pgkwBag >>= lookupZone >>= getAP >>= pitchToPerc
->         kind                             = professIsJust mkind $ unwords["pitchToPerc returned Nothing"]
+>         mkind                            = mz >>= getAP >>= pitchToPerc
+>         kind                             = professIsJust mkind $ unwords["wpFolder: pitchToPerc returned a Nothing"]
 >
 >         mffm           :: Maybe FFMatches
 >         mffm                             =
->           pgkwBag >>= lookupZone
->                   >>= zSampleIndex
->                   >>= Just . PreSampleKey pgkwFile
->                   >>= flip Map.lookup preSampleCache
->                   >>= Just . sMatches
+>           mz >>= (zSampleIndex . snd)
+>              >>= Just . PreSampleKey pgkwFile
+>              >>= flip Map.lookup preSampleCache
+>              >>= Just . sMatches
 >         pandc          :: FFProAndCon PercussionSound
 >         pandc                            = getProAndCon $ professIsJust mffm $ unwords ["couldn't get PreSample?"]
 >
 >         PerInstrument{ .. }              = fromJust $ Map.lookup (pergmP{pgkwBag = Nothing}) zc
 >
->         lookupZone     :: Word → Maybe SFZone
->         lookupZone bagI                  = lookup bagI (map (BF.first zhwBag) pZonePairs)
->
->         getAP          :: SFZone → Maybe AbsPitch
->         getAP zone@SFZone{ .. }          = (Just . fst) =<< zKeyRange
+>         getAP          :: (ZoneHeader, SFZone) → Maybe AbsPitch
+>         getAP (_, zone@SFZone{ .. })     = (Just . fst) =<< zKeyRange
 >
 >         trace_WP                         = unwords ["wpFolder", show pergmP]
+>
+>     lookupZone         :: [(ZoneHeader, SFZone)] → Word → Maybe (ZoneHeader, SFZone)
+>     lookupZone zs bagI                   = find (\(ZoneHeader{ .. }, _) → bagI == zhwBag) zs
 
 tournament among GM instruments and percussion from SoundFont files ===================================================
 
@@ -513,9 +514,20 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         now                              = scoredP : soFar
 >         akResult                         = evalAgainstKind kind pandc
 >
+>         scope          :: [(ZoneHeader, SFZone)]
+>         scope                            =
+>           case pgkwBag of
+>             Nothing                      → pZonePairs
+>             Just bagI                    →
+>                    maybe
+>                     (error $ unwords ["xaEnterTournament: lookupZone returned a Nothing for", iName, zName])
+>                     singleton
+>                     (lookupZone pZonePairs bagI)
 >         pk                               = fromJust $ Map.lookup pergm skMap
 >         ps                               = fromJust $ Map.lookup pk preSampleCache
 >         mnameZ         :: Maybe String   = pgkwBag >>= \w → Just (sName ps)
+>         zName                            =
+>           professIsJust mnameZ (unwords ["xaEnterTournament: bad pgkwBag"])
 >
 >         scoredP        :: PerGMScored    =
 >           PerGMScored
@@ -531,7 +543,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >           | otherwise                    = ArtifactGrade (round (500 * sum weightedScores)) baseScores
 >           where
 >             zs                           = tail zs_
->             empiricals :: [Double]     = [   fromRational $ scoreBool $ isStereoInst zs
+>             empiricals :: [Double]       = [   fromRational $ scoreBool $ isStereoInst zs
 >                                              , fromRational $ scoreBool $ is24BitInst zs
 >                                              , computeResolution kind rost zs
 >                                              , fromRational $ scoreBool $ all zoneConforms zs
@@ -548,7 +560,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                             , ss !! 3
 >                                             , ss !! 4]
 >             weightedScores
->                        :: [Double]     = zipWith (*) baseScores (map fromRational ssWeights)
+>                        :: [Double]       = zipWith (*) baseScores (map fromRational ssWeights)
 >
 >             trace_CG                     =
 >               unwords [   "computeGrade " , show iName

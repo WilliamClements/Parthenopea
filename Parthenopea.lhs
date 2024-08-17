@@ -960,14 +960,14 @@ handle "matching as" cache misses ==============================================
 >     -- weed out candidates with no fuzzy keys
 >     asLooks            :: Map a [String] = Map.fromList $ mapMaybe eval1 (select rost)
 >
->     eval1              :: a -> Maybe (a, [String])
+>     eval1              :: a → Maybe (a, [String])
 >     eval1 kind                           =
 >       getFFKeys =<< if kind `elem` select rost then Just kind else Nothing
 >
 >     -- weed out candidates with no fuzzy key matches
 >     asScored           :: Map a Fuzz     = Map.mapMaybeWithKey (evalAgainstKeys inp) asLooks
 >
-> evalAgainstKeys        :: ∀ a. (GMPlayable a) ⇒ String → a ->[String] → Maybe Fuzz
+> evalAgainstKeys        :: ∀ a. (GMPlayable a) ⇒ String → a → [String] → Maybe Fuzz
 > evalAgainstKeys inp kind keys            = if tot <= 0 then Nothing else Just tot
 >   where
 >     lFactor        :: Double             = sqrt $ fromIntegral $ length keys
@@ -1367,7 +1367,7 @@ Conversion functions and general helpers =======================================
 > professIsJust'         :: ∀ a. Maybe a → a
 > professIsJust' item                      = professIsJust item "expected Just"
 >
-> roundBy                :: Double -> Double -> Double
+> roundBy                :: Double → Double → Double
 > roundBy p10 x                            = fromIntegral (round (p10 * x)) / p10
 >
 > sumOfMaybeInts         :: [Maybe Int] → Int
@@ -1451,7 +1451,7 @@ Returns the amplitude ratio
 > fromCentibels centibels                  = pow 10 (centibels/1000)
 >
 > toCentibels            :: Double → Double
-> toCentibels ratio                        = logBase 10 ratio * 1000
+> toCentibels ratio                        = logBase 10 (ratio * 1000)
 
 Returns the elapsed time in seconds
 

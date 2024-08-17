@@ -880,12 +880,12 @@ Turn Knobs Here ================================================================
 >   , qqDesireReConformance                = DPreferOn
 >   , qqDesireReFuzzy                      = DPreferOn
 >
->   , qqWeighHints                         = 20
->   , qqWeighStereo                        = 7
+>   , qqWeighHints                         = 10
+>   , qqWeighStereo                        = 3
 >   , qqWeigh24Bit                         = 0
->   , qqWeighResolution                    = 2
->   , qqWeighConformance                   = 5
->   , qqWeighFuzziness                     = 4
+>   , qqWeighResolution                    = 5/2
+>   , qqWeighConformance                   = 2
+>   , qqWeighFuzziness                     = 5/2
 >
 >   , qqFFThresholdPossible                = 0
 >   , qqFFThresholdStands                  = 150
