@@ -359,7 +359,7 @@ executive ======================================================================
 >         CM.when reportTourney (writeTournamentReport zFiles wI wP)
 >         tsDecided'     ← getCurrentTime
 >
->         let ws@WinningRecord{ .. }
+>         let wins@WinningRecord{ .. }
 >                        = WinningRecord (Map.map head wI) (Map.map head wP) (sI ++ sP)
 >
 >         -- print song/orchestration info to user (can be captured by redirecting standard out)
@@ -371,7 +371,7 @@ executive ======================================================================
 >         let sfrost = preRoster{zPreSampleCache     = preSampleCache
 >                                , zPreInstCache     = preInstCache
 >                                , zZoneCache        = zc
->                                , zWinningRecord    = ws
+>                                , zWinningRecord    = wins
 >                                , zPlayCache        = Map.union playCacheI playCacheP}
 >
 >         tsRecond   ← getCurrentTime
@@ -503,7 +503,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → a
 >                           → (Map a [PerGMScored], [String])
 >     xaEnterTournament pandc pergm@PerGMKey{ .. } hints (wins, ss) kind
->       | traceNot trace_XAET False         = undefined
+>       | traceNot trace_XAET False        = undefined
 >       | otherwise                        = (Map.insert kind now wins, ss)
 >       where
 >         pergm_                           = pergm{pgkwBag = Nothing}
@@ -927,25 +927,18 @@ prepare the specified instruments and percussion ===============================
 >                           → ([PerGMKey], [PerGMKey], Map PerGMKey [Word])
 >                           → ([PerGMKey], [PerGMKey], Map PerGMKey [Word])
 >     winnow pergm@PerGMKey{ .. } (is, pis, zq')
->       | traceNot trace_W False           = undefined
->       | otherwise                        = (is', pis', zq'')
+>                                          = (is', pis', zq'')
 >       where
->         (cat, ws)                        = categorizeInst pergm
+>         (cat, words)                     = categorizeInst pergm
 >         is'                              =
->           if InstCatInst == cat
->             then is ++ [pergm]
->             else is
+>           if InstCatInst == cat then is ++ [pergm] else is
 >         (pis', zq'')                     =
->           if InstCatPerc == cat
->             then (pis ++ [pergm], Map.insert pergm ws zq')
->             else (pis,  zq')
->         
->         trace_W                          = unwords ["winnow", show pergm]
+>           if InstCatPerc == cat then (pis ++ [pergm], Map.insert pergm words zq') else (pis,  zq')
 >
->     categorizeInst :: PerGMKey → (InstCat, [Word])
+>     categorizeInst     :: PerGMKey → (InstCat, [Word])
 >     categorizeInst pergm@PerGMKey{ .. }
 >       | traceIf trace_CI False           = undefined
->       | otherwise                        = (icat', ws')
+>       | otherwise                        = (icat', words')
 >       where
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
 >         PreInstrument{ .. }              =
@@ -959,13 +952,10 @@ prepare the specified instruments and percussion ===============================
 >         zs             :: [(ZoneHeader, ZoneDigest)]
 >         zs                               = map inspectZone (tail (deriveRange ibagi jbagi))
 >
->         icat                             = fromMaybe InstCatDisq latched
->         ws                               = if InstCatPerc == icat
->                                              then wZones
->                                              else []
->         (icat', ws')                     = if InstCatPerc == icat && null ws
->                                              then (InstCatDisq, [])
->                                              else (icat, ws)
+>         (icat, words)                    =
+>           (fromMaybe InstCatDisq latched, if InstCatPerc == icat then wZones else [])
+>         (icat', words')                  =
+>           if InstCatPerc == icat && null words then (InstCatDisq, []) else (icat, words)
 >         sIn, sOut      :: IntSet
 >         sIn                              = IntSet.fromList $ mapMaybe indices zs
 >         sOut                             = IntSet.fromList $ mapMaybe links zs
@@ -990,10 +980,10 @@ prepare the specified instruments and percussion ===============================
 >         laden      :: [Word] → Double
 >         laden ws
 >           | null zs                      = 0
->           | otherwise                    = (fromIntegral . length) ws / (fromIntegral . length) zs
+>           | otherwise                    = (fromIntegral . length) words / (fromIntegral . length) zs
 >
->         uZones     :: [Word]             = mapMaybe (computeCanBePerc universe) zs
->         wZones     :: [Word]             = mapMaybe (computeCanBePerc rost) zs
+>         uZones     :: [Word]             = mapMaybe (evalForPerc universe) zs
+>         wZones     :: [Word]             = mapMaybe (evalForPerc rost) zs
 >
 >         xinst x                          = Just InstCatInst
 >         xperc x                          = Just InstCatPerc
@@ -1023,9 +1013,8 @@ prepare the specified instruments and percussion ===============================
 >         trace_CI                         =
 >           unwords ["categorizeInst", iName, show iMatches, show alts]
 >
->         computeCanBePerc
->                        :: ([InstrumentName], [PercussionSound]) → (ZoneHeader, ZoneDigest) → Maybe Word
->         computeCanBePerc rost' (ZoneHeader{ .. }, zd@ZoneDigest { .. })
+>         evalForPerc    :: ([InstrumentName], [PercussionSound]) → (ZoneHeader, ZoneDigest) → Maybe Word
+>         evalForPerc rost' (ZoneHeader{ .. }, zd@ZoneDigest { .. })
 >           | traceNever trace_CCBP False  = undefined
 >           | otherwise                    =
 >           mwOut =<< integralize zdKeyRange
@@ -1457,11 +1446,11 @@ reconcile zone and sample header ===============================================
 >                           → Map PerGMKey PreSampleKey
 >                           → Map a PerGMScored
 >                           → IO (Map PlayKey (Recon, Maybe Recon))
-> createPlayCache sffiles zc preSampleCache preInstCache _ ws
+> createPlayCache sffiles zc preSampleCache preInstCache _ wins
 >                                          =
 >   return
 >     $ if usingPlayCache
->       then Map.foldrWithKey precalcFolder Map.empty ws
+>       then Map.foldrWithKey precalcFolder Map.empty wins
 >       else Map.empty
 >   where
 >     precalcFolder      :: a
