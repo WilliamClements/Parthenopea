@@ -90,11 +90,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   ArtifactGrade {
 >     pScore             :: Int
 >   , pEmpiricals        :: [Double]} deriving (Show)
-> showEmpiricals         :: [Double] → String
-> showEmpiricals                         = concatMap fun
->   where
->     fun                :: Double → String
->     fun x                              = fillFieldL 6 (show $ roundBy 10 x)
 >
 > data PerGMScored =
 >   PerGMScored {
@@ -304,38 +299,32 @@ executive ======================================================================
 >     putStrLn ("___load files: " ++ show (diffUTCTime tsLoaded tsStarted))
 >
 >     -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->     (tsRecond, sfrost) ← finishRoster (tsLoaded, preRoster)
+>     sfrost             ← finishRoster preRoster
 >
->     -- readying instrument maps to be accessed from song renderer
->     traceIO             "prepareInstruments"
->     imap               ← prepareInstruments sfrost
->
->     tsPrepared         ← getCurrentTime
->     putStrLn ("___prepare instruments: " ++ show (diffUTCTime tsPrepared tsRecond))
->
->     -- here's the heart of the coconut
->     mapM_ (uncurry (renderSong sfrost imap)) songs
+>     CM.when doRender (doRendering sfrost)
 >
 >     tsRendered         ← getCurrentTime
->     putStrLn ("___render songs: "        ++ show (diffUTCTime tsRendered tsPrepared))
 >     putStrLn ("___overall: "             ++ show (diffUTCTime tsRendered tsStarted))
 >
 >     where
 >       -- track the complete populations of: samples, instruments, percussion
->       finishRoster     :: (UTCTime, SFRoster) → IO (UTCTime, SFRoster)
->       finishRoster (tsLoaded, preRoster@SFRoster{ .. })
+>       finishRoster     :: SFRoster → IO SFRoster
+>       finishRoster preRoster@SFRoster{ .. }
 >                                          = do
+>         tsStarted      ← getCurrentTime
+>
 >         presks         ← formMasterSampleList zFiles
 >         pergmsI_       ← formMasterInstList   zFiles
 >
 >         preSampleCache ← formPreSampleCache zFiles zRoster presks
 >         preInstCache   ← formPreInstCache   zFiles zRoster pergmsI_
 >
->         (pergmsI, finishedIP, zq)
+>         (pergmsI, finishedIP, zq, msgs)
 >                        ← categorize zFiles preSampleCache preInstCache zRoster pergmsI_
+>         CM.unless (null msgs) (traceIO $ unwords ["disqualified:", show msgs])
 >
 >         tsCatted       ← getCurrentTime
->         putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsLoaded))
+>         putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsStarted))
 >
 >         (pergmsP, skMap, zc)
 >                        ← formZoneCache zFiles preSampleCache preInstCache zRoster (pergmsI, finishedIP, zq)
@@ -357,7 +346,7 @@ executive ======================================================================
 >         putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsZoned))
 >
 >         CM.when reportTourney (writeTournamentReport zFiles wI wP)
->         tsDecided'     ← getCurrentTime
+>         tsReported     ← getCurrentTime
 >
 >         let wins@WinningRecord{ .. }
 >                        = WinningRecord (Map.map head wI) (Map.map head wP) (sI ++ sP)
@@ -375,9 +364,26 @@ executive ======================================================================
 >                                , zPlayCache        = Map.union playCacheI playCacheP}
 >
 >         tsRecond   ← getCurrentTime
->         putStrLn ("___create play cache: " ++ show (diffUTCTime tsRecond tsDecided'))
+>         putStrLn ("___create play cache: " ++ show (diffUTCTime tsRecond tsReported))
 >         
->         return (tsRecond, sfrost)
+>         return sfrost
+>
+>       -- get it on
+>       doRendering      :: SFRoster → IO ()
+>       doRendering sfrost                 = do
+>         tsStarted      ← getCurrentTime
+>
+>         -- readying instrument maps to be accessed from song renderer
+>         traceIO         "prepareInstruments"
+>         imap           ← prepareInstruments sfrost
+>         tsPrepared     ← getCurrentTime
+>         putStrLn ("___prepare instruments: " ++ show (diffUTCTime tsPrepared tsStarted))
+>
+>         -- here's the heart of the coconut
+>         mapM_ (uncurry (renderSong sfrost imap)) songs
+>
+>         tsRendered     ← getCurrentTime
+>         putStrLn ("___render songs: "        ++ show (diffUTCTime tsRendered tsPrepared))
 >
 > writeTournamentReport  :: Array Word SFFile
 >                           → Map InstrumentName [PerGMScored]
@@ -442,14 +448,11 @@ executive ======================================================================
 >     wiFolder           :: (Map InstrumentName [PerGMScored], [String])
 >                           → PerGMKey
 >                           → (Map InstrumentName [PerGMScored], [String])
->     wiFolder accum pergmI
->       | traceNot trace_WI False          = undefined
->       | otherwise                        = foldl' (xaEnterTournament (getProAndCon iMatches) pergmI []) accum as'
+>     wiFolder accum pergmI                = foldl' (xaEnterTournament (getProAndCon iMatches) pergmI []) accum as'
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
 >         PreInstrument{ .. }              =
 >           professIsJust (Map.lookup pergmI preInstCache) (unwords ["no PreInstrument?!"])
->         trace_WI                         = unwords ["wiFolder", iName, show as']
 >
 >         as, as'        :: [InstrumentName]
 >         as                               = fuzziest (getProAndCon iMatches) stands
@@ -517,7 +520,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         scope          :: [(ZoneHeader, SFZone)]
 >         scope                            =
 >           case pgkwBag of
->             Nothing                      → pZonePairs
+>             Nothing                      → tail pZonePairs
 >             Just bagI                    →
 >                    maybe
 >                     (error $ unwords ["xaEnterTournament: lookupZone returned a Nothing for", iName, zName])
@@ -531,18 +534,17 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >         scoredP        :: PerGMScored    =
 >           PerGMScored
->             (computeGrade pZonePairs akResult)
+>             (computeGrade scope akResult)
 >             (toKind kind)
 >             akResult pergm iName mnameZ 
 >
 >         trace_XAET                       = unwords ["xaEnterTournament", show kind, show mnameZ]
 >
 >         computeGrade   :: [(ZoneHeader, SFZone)] → AgainstKindResult → ArtifactGrade
->         computeGrade zs_ againstKindResult
->           | traceNot trace_CG False      = undefined
+>         computeGrade zs againstKindResult
+>           | traceIf trace_CG False       = undefined
 >           | otherwise                    = ArtifactGrade (round (500 * sum weightedScores)) baseScores
 >           where
->             zs                           = tail zs_
 >             empiricals :: [Double]       = [   fromRational $ scoreBool $ isStereoInst zs
 >                                              , fromRational $ scoreBool $ is24BitInst zs
 >                                              , computeResolution kind rost zs
@@ -755,7 +757,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 > emitCounts             :: [InstrumentName] → [PercussionSound] → String → [Emission]
 > emitCounts is ps name                         =
 >   [EndOfLine]
->     ++ [emitShowL name 20, emitShowL (length is) 4]
+>     ++ [emitShowL name 22, emitShowL (length is) 4]
 >     ++ [Unblocked " /- instruments, percussion -/ ", emitShowL (length ps) 4, EndOfLine]
 >
 > computeResolution      :: ∀ a. (Show a, SFScorable a) ⇒
@@ -764,33 +766,37 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                → [(ZoneHeader, SFZone)]
 >                                → Double
 > computeResolution kind rost zs
->   | traceIf trace_CR False              = undefined
->   | otherwise                            = (m1 * measureSplits + m2 * measureSampleSize) / 2
+>   | traceIf trace_CR False               = undefined
+>   | null zs                              = error $ unwords ["null zs"]
+>   | otherwise                            = m1 * measureSplits + m2 * measureSampleSize
 >   where
 >     theScore                             = splitScore kind rost zs
 >     measureSplits
->       | theScore == 0                    = 0
+>       | theScore <= 1                    = 0
 >       | otherwise                        = log (m3 * theScore)
->     measureSampleSize                    = sum (map sampleDuration zs) / fromIntegral (length zs)
+>     measureSampleSize                    = sum (map sampleDurationScoring zs) / fromIntegral (length zs)
 >
->     m1                                   = 1
->     m2                                   = 2
+>     m1                                   = 1/2
+>     m2                                   = 1/2
 >     m3                                   = 3 * if isStereoInst zs then 1/2 else 1
 >
 >     trace_CR                             = unwords ["computeResolution", show kind, show (measureSplits, measureSampleSize)]
 >
-> sampleDuration         :: (ZoneHeader, SFZone) → Double
-> sampleDuration (ZoneHeader{ .. }, SFZone{ .. })
->                                          =
->   let
->     F.Shdr{ .. }                         = zhShdr
+> sampleDurationScoring  :: (ZoneHeader, SFZone) → Double
+> sampleDurationScoring (zh@ZoneHeader{ .. } , z)
+>                                          = min 100_000 (sampleSize (zh, z)) / fromIntegral sampleRate
+>   where
+>     F.Shdr{ .. }                         = zhShdr  
+>
+> sampleSize         :: (ZoneHeader, SFZone) → Double
+> sampleSize (ZoneHeader{ .. }, SFZone{ .. })
+>                                          = fromIntegral $ xEnd - xStart
+>   where
+>     F.Shdr{ .. }     = zhShdr
 >     xStart           = addIntToWord          start                  (sumOfMaybeInts
 >                                                                        [zStartOffs, zStartCoarseOffs])
 >     xEnd             = addIntToWord          end                    (sumOfMaybeInts
 >                                                                        [zEndOffs, zEndCoarseOffs])
->     numSamples       = fromIntegral $ xEnd - xStart
->   in
->     numSamples / fromIntegral sampleRate
 >
 > isStereoInst, is24BitInst
 >                        :: [(ZoneHeader, a)] → Bool
@@ -912,37 +918,37 @@ prepare the specified instruments and percussion ===============================
 >                           → PreInstCache
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [PerGMKey]
->                           → IO ([PerGMKey], [PerGMKey], Map PerGMKey [Word])
+>                           → IO ([PerGMKey], [PerGMKey], Map PerGMKey [Word], [String])
 > categorize sffiles preSampleCache preInstCache rost pergms
->                                          = 
->   return (pergmsI, filteredIP, zq)
+>                                          = do
+>   return (pergmsI, filteredIP, zq, rejects)
 >   where
 >     pergmsI, filteredIP
 >                        :: [PerGMKey]
 >     zq                 :: Map PerGMKey [Word]
 >
->     (pergmsI, filteredIP, zq)            = foldr winnow ([], [], Map.empty) pergms
+>     (pergmsI, filteredIP, zq, rejects)   = foldr winnow ([], [], Map.empty, []) pergms
 >
 >     winnow             :: PerGMKey
->                           → ([PerGMKey], [PerGMKey], Map PerGMKey [Word])
->                           → ([PerGMKey], [PerGMKey], Map PerGMKey [Word])
->     winnow pergm@PerGMKey{ .. } (is, pis, zq')
->                                          = (is', pis', zq'')
+>                           → ([PerGMKey], [PerGMKey], Map PerGMKey [Word], [String])
+>                           → ([PerGMKey], [PerGMKey], Map PerGMKey [Word], [String])
+>     winnow pergm@PerGMKey{ .. } (is, pis, zq', ss)
+>                                          = (is', pis', zq'', ss')
 >       where
->         (cat, words)                     = categorizeInst pergm
+>         (cat, words, cName)              = categorizeInst pergm
 >         is'                              =
 >           if InstCatInst == cat then is ++ [pergm] else is
 >         (pis', zq'')                     =
 >           if InstCatPerc == cat then (pis ++ [pergm], Map.insert pergm words zq') else (pis,  zq')
+>         ss'                              =
+>           if InstCatDisq == cat then ss ++ [cName] else ss
 >
->     categorizeInst     :: PerGMKey → (InstCat, [Word])
+>     categorizeInst     :: PerGMKey → (InstCat, [Word], String)
 >     categorizeInst pergm@PerGMKey{ .. }
 >       | traceIf trace_CI False           = undefined
->       | otherwise                        = (icat', words')
+>       | otherwise                        = (icat', words', iName)
 >       where
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
->         PreInstrument{ .. }              =
->           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
 >
 >         iinst                            = ssInsts ! pgkwInst
 >         jinst                            = ssInsts ! (pgkwInst+1)
@@ -952,13 +958,21 @@ prepare the specified instruments and percussion ===============================
 >         zs             :: [(ZoneHeader, ZoneDigest)]
 >         zs                               = map inspectZone (tail (deriveRange ibagi jbagi))
 >
->         (icat, words)                    =
->           (fromMaybe InstCatDisq latched, if InstCatPerc == icat then wZones else [])
+>         PreInstrument{ .. }              =
+>           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
+>
+>         icat                             = fromMaybe InstCatDisq latched
+>         words                            = if InstCatPerc == icat then wZones else []
 >         (icat', words')                  =
 >           if InstCatPerc == icat && null words then (InstCatDisq, []) else (icat, words)
 >         sIn, sOut      :: IntSet
 >         sIn                              = IntSet.fromList $ mapMaybe indices zs
 >         sOut                             = IntSet.fromList $ mapMaybe links zs
+>
+>         corruptNames   :: Maybe InstCat  =
+>           if kindNameOk iName && all (kindNameOk . F.sampleName . zhShdr . fst) zs
+>             then Nothing
+>             else Just InstCatDisq
 >
 >         badrom         :: Maybe InstCat  =
 >           if any (uncurry hasRom) zs then Just InstCatDisq else Nothing
@@ -978,9 +992,9 @@ prepare the specified instruments and percussion ===============================
 >             else Nothing
 >
 >         laden      :: [Word] → Double
->         laden ws
+>         laden wZones
 >           | null zs                      = 0
->           | otherwise                    = (fromIntegral . length) words / (fromIntegral . length) zs
+>           | otherwise                    = (fromIntegral . length) wZones / (fromIntegral . length) zs
 >
 >         uZones     :: [Word]             = mapMaybe (evalForPerc universe) zs
 >         wZones     :: [Word]             = mapMaybe (evalForPerc rost) zs
@@ -989,9 +1003,9 @@ prepare the specified instruments and percussion ===============================
 >         xperc x                          = Just InstCatPerc
 >         xdisq x                          = Just InstCatDisq
 >
->         alts       :: [Maybe InstCat]
->         alts                             =
->           [ badrom
+>         alts       :: [Maybe InstCat]    =
+>           [ corruptNames
+>           , badrom
 >           , badLinks
 >           , xinst =<< listToMaybe (fuzziest iMatches.ffInst isConfirmed)
 >           , xperc =<< listToMaybe (fuzziest iMatches.ffPerc isConfirmed)
@@ -1011,23 +1025,17 @@ prepare the specified instruments and percussion ===============================
 >         latched    :: Maybe InstCat      = foldr CM.mplus Nothing alts
 >
 >         trace_CI                         =
->           unwords ["categorizeInst", iName, show iMatches, show alts]
+>           unwords ["categorizeInst", iName, show iName, show iMatches, show alts]
 >
 >         evalForPerc    :: ([InstrumentName], [PercussionSound]) → (ZoneHeader, ZoneDigest) → Maybe Word
->         evalForPerc rost' (ZoneHeader{ .. }, zd@ZoneDigest { .. })
->           | traceNever trace_CCBP False  = undefined
->           | otherwise                    =
+>         evalForPerc rost' (ZoneHeader{ .. }, ZoneDigest { .. })
+>                                          =
 >           mwOut =<< integralize zdKeyRange
 >           where
 >             mwOut range                  = if pinnedKR (select rost') range then Just zhwBag else Nothing
 >
->             trace_CCBP                   =
->               unwords ["computeCanBePerc", show zd]
->
 >         inspectZone    :: Word → (ZoneHeader, ZoneDigest)
->         inspectZone bagIndex
->           | traceNot trace_IZ False      = undefined
->           | otherwise                    = (zh, zd)
+>         inspectZone bagIndex             = (zh, zd)
 >           where
 >             xgeni                        = F.genNdx $ ssIBags!bagIndex
 >             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
@@ -1042,9 +1050,6 @@ prepare the specified instruments and percussion ===============================
 >               professIsJust (zdSampleIndex zd) (unwords ["sample index"])
 >             zh                           =
 >               ZoneHeader bagIndex (ssShdrs ! si) Nothing
->
->             trace_IZ                     =
->               unwords ["inspectZone", show gens]
 >
 >         inspectGen     :: F.Generator → ZoneDigest → ZoneDigest 
 >         inspectGen (F.KeyRange i j) zd   = zd {zdKeyRange = Just (i, j)}
@@ -1550,11 +1555,22 @@ emit standard output text detailing what choices we made for rendering GM items 
 > dumpContestant PerGMScored{ .. }         = es
 >   where
 >     ArtifactGrade{ .. }                  = pArtifactGrade
->     es = emitLine [ Blanks 8, emitShowL (pgkwFile pPerGMKey) 4, emitShowR szI 22
->                   , Blanks 8, emitShowR (fromMaybe "" mszP) 22
->                   , Blanks 8, emitShowL pScore 10
->                   , ToFieldL (showEmpiricals pEmpiricals) (7 * length pEmpiricals)
->                   , emitShowR (roundBy 10 pAgainstKindResult) 8]
+>     PerGMKey{ .. }                       = pPerGMKey
+>     showAkr            :: Double         = roundBy 10 pAgainstKindResult
+>     (showEmp, n)                         = showEmpiricals pEmpiricals
+> 
+>     es = emitLine [ Blanks 8, emitShowL      pgkwFile                  6
+>                             , emitShowR      szI                      22
+>                   , Blanks 8, emitShowR      (fromMaybe "" mszP)      22
+>                   , Blanks 8, emitShowL      pScore                   10
+>                   , ToFieldL                 showEmp                   n
+>                             , emitShowR      showAkr                   8]
+>
+> showEmpiricals         :: [Double] → (String, Int)
+> showEmpiricals ds                        = (concatMap fun ds, 7 * length ds)
+>   where
+>     fun                :: Double → String
+>     fun x                                = fillFieldL 6 (show $ roundBy 10 x)
 
 Scoring stuff =========================================================================================================
 

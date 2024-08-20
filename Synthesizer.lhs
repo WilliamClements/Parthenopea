@@ -408,12 +408,13 @@ Create a straight-line envelope generator with following phases:
 >                                                    "time too short for envelope"
 >                                                    secsToPlay
 >
->     -- pin down onset of Release phase
->     rp                                   = secsToUse - min 0.1 (10 * minDeltaT)
 >
 >     fSusLevel          :: Double         = clip (0, 1) eSustainLevel
 >
+>     -- pin down onset of Release phase
+>     rp                                   = secsToUse - min 0.1 (10 * minDeltaT)
 >     fReleaseT          :: Double         = secsToUse - rp
+>
 >     fDelayT                              =
 >       clip (minDeltaT, max minDeltaT rp)                                         eDelayT
 >     fAttackT                             =
@@ -464,10 +465,10 @@ Effects ========================================================================
 >   | traceNever trace_eE False = undefined
 >   | otherwise =
 >   proc ((aL, aR), (modSigL, modSigR)) → do
->     chL ← eutChorus chorusRate chorusDepth cFactorL ⤙ aL
->     chR ← eutChorus chorusRate chorusDepth cFactorR ⤙ aR
+>     chL ← eutChorus chorusRate chorusDepth cFactorL      ⤙ aL
+>     chR ← eutChorus chorusRate chorusDepth cFactorR      ⤙ aR
 >
->     (rbL, rbR) ← eutReverb rFactorL rFactorR ⤙ (aL, aR)
+>     (rbL, rbR) ← eutReverb rFactorL rFactorR             ⤙ (aL, aR)
 >
 >     let mixL = (  cFactorL       * chL
 >                 + rFactorL       * rbL
@@ -481,16 +482,17 @@ Effects ========================================================================
 >     let (pL, pR) = doPan (pFactorL, pFactorR) (mixL, mixR)
 >
 >     pL' ←        if not useDCBlock
->                    then delay 0          ⤙ pL
->                    else dcBlock 0.995    ⤙ pL
+>                    then delay 0                          ⤙ pL
+>                    else dcBlock 0.995                    ⤙ pL
 >     pR' ←        if not useDCBlock
->                    then delay 0          ⤙ pR
->                    else dcBlock 0.995    ⤙ pR
->     outA                                 ⤙ ((pL', pR'), (modSigL, modSigR))
+>                    then delay 0                          ⤙ pR
+>                    else dcBlock 0.995                    ⤙ pR
+>     outA                                                 ⤙ ((pL', pR'), (modSigL, modSigR))
 >
 >   where
+>     effR                                 = maybe effL rEffects mreconR
 >     Effects{efChorus = cFactorL, efReverb = rFactorL, efPan = pFactorL} = effL
->     Effects{efChorus = cFactorR, efReverb = rFactorR, efPan = pFactorR} = effL -- WOX
+>     Effects{efChorus = cFactorR, efReverb = rFactorR, efPan = pFactorR} = effR
 >
 >     trace_eE = unwords ["eutEffects", show ((cFactorL, cFactorR), (rFactorL, rFactorR))]
 > 

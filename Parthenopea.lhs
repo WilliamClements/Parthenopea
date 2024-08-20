@@ -28,6 +28,7 @@ December 12, 2022
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
+> import Data.Char
 > import Data.Complex
 > import Data.Either
 > import Data.Graph (Graph)
@@ -702,8 +703,8 @@ examine song for instrument and percussion usage ===============================
 >     ad                                   = ap - 35
 >   in
 >     if ad >= fromEnum AcousticBassDrum && ad <= fromEnum OpenTriangle
->     then Just (toEnum ad)
->     else Nothing
+>       then Just (toEnum ad)
+>       else Nothing
 
 apply fuzzyfind to mining instruments + percussion ====================================================================
 
@@ -714,17 +715,17 @@ apply fuzzyfind to mining instruments + percussion =============================
 >
 > instance GMPlayable InstrumentName where
 >   toKind                                 = Left
->   select roster                          =
+>   select rost                          =
 >     if narrowInstrumentScope
->       then fst roster
+>       then fst rost
 >       else fst universe
 >   getProAndCon                           = ffInst
 >
 > instance GMPlayable PercussionSound where
 >   toKind                                 = Right
->   select roster                          =
+>   select rost                          =
 >     if narrowInstrumentScope
->       then snd roster
+>       then snd rost
 >       else snd universe
 >   getProAndCon                           = ffPerc
 >
@@ -732,6 +733,9 @@ apply fuzzyfind to mining instruments + percussion =============================
 >
 > embed                  :: a → Maybe [String] → Maybe (a, [String])
 > embed kind                               = fmap (kind,)
+>
+> kindNameOk             :: String → Bool
+> kindNameOk str                           = length str <= 20 && length (show str) <= 22
 >
 > instrumentConFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
 > instrumentConFFKeys inst                 = embed inst keys
@@ -887,7 +891,12 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       _                         → Nothing
 >
 > percussionConFFKeys    :: PercussionSound → Maybe (PercussionSound, [String])
-> percussionConFFKeys perc                 = Nothing
+> percussionConFFKeys perc = embed perc keys
+>   where
+>     keys = case perc of
+>       AcousticSnare             → Just            ["elec"]
+>       AcousticBassDrum          → Just            ["elec"]
+>       _                         → Nothing
 >
 > percussionProFFKeys    :: PercussionSound → Maybe (PercussionSound, [String])
 > percussionProFFKeys perc = embed perc keys
@@ -989,9 +998,9 @@ use "matching as" cache ========================================================
 >   fromMaybe 0 (Map.lookup kind ffPros) + (- conRatio) * fromMaybe 0 (Map.lookup kind ffCons)
 >   
 > fuzziest               :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ FFProAndCon a → Double → [a]
-> fuzziest FFProAndCon{ .. } thresh        = sortOn Down $ Map.keys $ Map.mapMaybe qual combo
+> fuzziest FFProAndCon{ .. } thresh        = sortOn Down $ Map.keys $ Map.mapMaybe qual num
 >   where
->     combo                                = Map.unionWith (+) ffPros (Map.map (* (- conRatio)) ffCons)
+>     num                                  = Map.unionWith (+) ffPros (Map.map (* (- conRatio)) ffCons)
 >     qual x                               = if x > thresh
 >                                              then Just x
 >                                              else Nothing
@@ -1456,15 +1465,15 @@ Returns the amplitude ratio
 Returns the elapsed time in seconds
 
 > fromTimecents          :: Maybe Int → Double
-> fromTimecents mtimecents                 = pow 2 (fromIntegral (fromMaybe (-12_000) mtimecents)/1_200)
+> fromTimecents mtimecents                 = pow 2 (maybe (-12_000) fromIntegral mtimecents)/1_200
 
 > fromTimecents'         :: Maybe Int → Maybe Int → KeyNumber → Double
 > fromTimecents' mtimecents mfact key      = pow 2 (base + inc)
 >   where
->     base               :: Double         = fromIntegral (fromMaybe (-12_000) mtimecents) / 1_200
->     inc                :: Double         = fromIntegral (fromMaybe 0 mfact) * fromIntegral (60 - key) / 128 / 1_200
+>     base               :: Double         = maybe (-12_000) fromIntegral mtimecents / 1_200
+>     inc                :: Double         = maybe 0 fromIntegral mfact * fromIntegral (60 - key) / 128 / 1_200
 
-Returns the attenuation (based on input 10ths of a percent)
+Returns the attenuation (based on input 10ths of a percent) 
 
 > fromTithe              :: Maybe Int → Double
 > fromTithe iS                             = 1 / pow 10 (jS/200)
@@ -1692,6 +1701,7 @@ Tracing ========================================================================
 
 Configurable parameters ===============================================================================================
 
+> doRender                                 = qqDoRender                   defC
 > diagnosticsEnabled                       = qqDiagnosticsEnabled         defC 
 > reportTourney                            = qqReportTourney              defC 
 > narrowInstrumentScope                    = qqNarrowInstrumentScope      defC
@@ -1704,7 +1714,8 @@ Configurable parameters ========================================================
 >
 > data ControlSettings =
 >   ControlSettings {
->     qqDiagnosticsEnabled                 :: Bool
+>     qqDoRender                           :: Bool
+>   , qqDiagnosticsEnabled                 :: Bool
 >   , qqReportTourney                      :: Bool
 >   , qqNarrowInstrumentScope              :: Bool
 >   , qqMultipleCompetes                   :: Bool
@@ -1719,7 +1730,8 @@ Edit the following =============================================================
 > defC                   :: ControlSettings
 > defC =
 >   ControlSettings {
->     qqDiagnosticsEnabled                 = False
+>     qqDoRender                           = True
+>   , qqDiagnosticsEnabled                 = False
 >   , qqReportTourney                      = True
 >   , qqNarrowInstrumentScope              = True
 >   , qqMultipleCompetes                   = True
