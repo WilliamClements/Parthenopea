@@ -763,9 +763,9 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       AcousticGrandPiano        → Just            ["piano", "grand"]
 >       BrightAcousticPiano       → Just            ["piano", "bright", "brite"]
 >       ElectricGrandPiano        → Just            ["piano", "elec"]
->       HonkyTonkPiano            → Just            ["piano", "honkytonk"]
->       RhodesPiano               → Just            ["piano", "rhodes"]
->       ChorusedPiano             → Just            ["piano", "chorused"]
+>       HonkyTonkPiano            → Just            ["honky", "tonk", "piano"]
+>       RhodesPiano               → Just            ["rhodes", "piano"]
+>       ChorusedPiano             → Just            ["chorused", "piano"]
 >       Harpsichord               → Just            ["harpsi", "harpsichord"]
 >       Clavinet                  → Just $ singleton "clavinet"
 >       Celesta                   → Just $ singleton "celesta"
@@ -1732,7 +1732,7 @@ Edit the following =============================================================
 >   ControlSettings {
 >     qqDoRender                           = True
 >   , qqDiagnosticsEnabled                 = False
->   , qqReportTourney                      = True
+>   , qqReportTourney                      = False
 >   , qqNarrowInstrumentScope              = True
 >   , qqMultipleCompetes                   = True
 >   , qqSkipGlissandi                      = False

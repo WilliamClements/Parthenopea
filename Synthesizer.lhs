@@ -764,7 +764,10 @@ Utility types ==================================================================
 >   | SampleTypeLeft
 >   | SampleTypeLinked
 >   | SampleTypeOggVorbis
->   | SampleTypeRom deriving (Eq, Show)
+>   | SampleTypeRomMono
+>   | SampleTypeRomRight
+>   | SampleTypeRomLeft
+>   | SampleTypeRomLinked deriving (Eq, Show)
 >
 > toSampleType               :: Word → SampleType
 > toSampleType n =
@@ -774,7 +777,11 @@ Utility types ==================================================================
 >     0x4                    → SampleTypeLeft
 >     0x8                    → SampleTypeLinked
 >     0x10                   → SampleTypeOggVorbis
->     0x8000                 → SampleTypeRom
+>     0x8001                 → SampleTypeRomMono
+>     0x8002                 → SampleTypeRomRight
+>     0x8004                 → SampleTypeRomLeft
+>     0x8008                 → SampleTypeRomLinked
+>     _                      → error $ unwords ["bad sample type", show n]
 >
 > fromSampleType             :: SampleType → Word
 > fromSampleType stype =
@@ -784,7 +791,10 @@ Utility types ==================================================================
 >     SampleTypeLeft         → 0x4
 >     SampleTypeLinked       → 0x8
 >     SampleTypeOggVorbis    → 0x10
->     SampleTypeRom          → 0x8000
+>     SampleTypeRomMono      → 0x8001
+>     SampleTypeRomRight     → 0x8002
+>     SampleTypeRomLeft      → 0x8004
+>     SampleTypeRomLinked    → 0x8008
 
 Flags for customization ===============================================================================================
 

@@ -319,9 +319,9 @@ executive ======================================================================
 >         preSampleCache ← formPreSampleCache zFiles zRoster presks
 >         preInstCache   ← formPreInstCache   zFiles zRoster pergmsI_
 >
->         (pergmsI, finishedIP, zq, msgs)
+>         (pergmsI, finishedIP, zq, disqMsgs)
 >                        ← categorize zFiles preSampleCache preInstCache zRoster pergmsI_
->         CM.unless (null msgs) (traceIO $ unwords ["disqualified:", show msgs])
+>         CM.unless (null disqMsgs) (traceIO $ unwords ["disqualified:", show disqMsgs])
 >
 >         tsCatted       ← getCurrentTime
 >         putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsStarted))
@@ -921,13 +921,14 @@ prepare the specified instruments and percussion ===============================
 >                           → IO ([PerGMKey], [PerGMKey], Map PerGMKey [Word], [String])
 > categorize sffiles preSampleCache preInstCache rost pergms
 >                                          = do
->   return (pergmsI, filteredIP, zq, rejects)
+>   return (pergmsI, filteredIP, zq, disqMsgs)
 >   where
 >     pergmsI, filteredIP
 >                        :: [PerGMKey]
 >     zq                 :: Map PerGMKey [Word]
+>     disqMsgs           :: [String]
 >
->     (pergmsI, filteredIP, zq, rejects)   = foldr winnow ([], [], Map.empty, []) pergms
+>     (pergmsI, filteredIP, zq, disqMsgs)  = foldr winnow ([], [], Map.empty, []) pergms
 >
 >     winnow             :: PerGMKey
 >                           → ([PerGMKey], [PerGMKey], Map PerGMKey [Word], [String])
@@ -946,7 +947,7 @@ prepare the specified instruments and percussion ===============================
 >     categorizeInst     :: PerGMKey → (InstCat, [Word], String)
 >     categorizeInst pergm@PerGMKey{ .. }
 >       | traceIf trace_CI False           = undefined
->       | otherwise                        = (icat', words', iName)
+>       | otherwise                        = (icat', words', unwords [show (pgkwFile, iName)])
 >       where
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
 >
@@ -1025,7 +1026,7 @@ prepare the specified instruments and percussion ===============================
 >         latched    :: Maybe InstCat      = foldr CM.mplus Nothing alts
 >
 >         trace_CI                         =
->           unwords ["categorizeInst", iName, show iName, show iMatches, show alts]
+>           unwords ["categorizeInst", iName, show iName, show alts]
 >
 >         evalForPerc    :: ([InstrumentName], [PercussionSound]) → (ZoneHeader, ZoneDigest) → Maybe Word
 >         evalForPerc rost' (ZoneHeader{ .. }, ZoneDigest { .. })
