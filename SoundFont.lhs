@@ -961,6 +961,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         PreInstrument{ .. }              =
 >           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
+>         FFMatches{ .. }                  = iMatches
 >
 >         icat                             = fromMaybe InstCatDisq latched
 >         words                            = if InstCatPerc == icat then wZones else []
@@ -1008,14 +1009,14 @@ prepare the specified instruments and percussion ===============================
 >           [ corruptNames
 >           , badrom
 >           , badLinks
->           , xinst =<< listToMaybe (fuzziest iMatches.ffInst isConfirmed)
->           , xperc =<< listToMaybe (fuzziest iMatches.ffPerc isConfirmed)
+>           , xinst =<< listToMaybe (fuzziest ffInst isConfirmed)
+>           , xperc =<< listToMaybe (fuzziest ffPerc isConfirmed)
 >           , if 0.4 < laden uZones
 >               then (if 0.05 < laden wZones then Just InstCatPerc else Just InstCatDisq)
 >               else Nothing
->           , xinst =<< listToMaybe (fuzziest iMatches.ffInst stands)
->           , xdisq =<< listToMaybe (fuzziest iMatches.ffUnis stands)
->           , xperc =<< listToMaybe (fuzziest iMatches.ffPerc stands)]
+>           , xinst =<< listToMaybe (fuzziest ffInst stands)
+>           , xdisq =<< listToMaybe (fuzziest ffUnis stands)
+>           , xperc =<< listToMaybe (fuzziest ffPerc stands)]
 
    "now", sequence through the alternatives, categorizing as follows
    a. Just InstCatInst           an inst bearing one inst, or
