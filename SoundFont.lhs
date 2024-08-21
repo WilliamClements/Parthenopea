@@ -967,9 +967,6 @@ prepare the specified instruments and percussion ===============================
 >         words                            = if InstCatPerc == icat then wZones else []
 >         (icat', words')                  =
 >           if InstCatPerc == icat && null words then (InstCatDisq, []) else (icat, words)
->         sIn, sOut      :: IntSet
->         sIn                              = IntSet.fromList $ mapMaybe indices zs
->         sOut                             = IntSet.fromList $ mapMaybe links zs
 >
 >         corruptNames   :: Maybe InstCat  =
 >           if kindNameOk iName && all (kindNameOk . F.sampleName . zhShdr . fst) zs
@@ -977,12 +974,17 @@ prepare the specified instruments and percussion ===============================
 >             else Just InstCatDisq
 >
 >         badrom         :: Maybe InstCat  =
->           if any (uncurry hasRom) zs then Just InstCatDisq else Nothing
+>           if any hasRom zs then Just InstCatDisq else Nothing
 >         badLinks       :: Maybe InstCat  =
 >           if IntSet.isSubsetOf sOut sIn then Nothing else Just InstCatDisq
->         hasRom ZoneHeader{ .. } _        = F.sampleType zhShdr >= 0x8000
+>         hasRom (ZoneHeader{ .. }, _)     = F.sampleType zhShdr >= 0x8000
 >                                          
 >         indices, links :: (ZoneHeader, ZoneDigest) → Maybe Int
+>         sIn, sOut      :: IntSet
+>
+>         sIn                              = IntSet.fromList $ mapMaybe indices zs
+>         sOut                             = IntSet.fromList $ mapMaybe links zs
+>
 >         indices (zh, zd@ZoneDigest{ .. })
 >                                          =
 >           if isStereoZone (zh, zd)
@@ -1009,12 +1011,12 @@ prepare the specified instruments and percussion ===============================
 >           [ corruptNames
 >           , badrom
 >           , badLinks
->           , xinst =<< listToMaybe (fuzziest ffInst isConfirmed)
->           , xperc =<< listToMaybe (fuzziest ffPerc isConfirmed)
->           , if 0.4 < laden uZones
+>           , xinst =<< listToMaybe (fuzziest (tracer "ffInst" ffInst) isConfirmed)
+>           , xperc =<< listToMaybe (fuzziest (tracer "ffPerc" ffPerc) isConfirmed)
+>           , xinst =<< listToMaybe (fuzziest ffInst stands)
+>           , if 0.6 < laden uZones
 >               then (if 0.05 < laden wZones then Just InstCatPerc else Just InstCatDisq)
 >               else Nothing
->           , xinst =<< listToMaybe (fuzziest ffInst stands)
 >           , xdisq =<< listToMaybe (fuzziest ffUnis stands)
 >           , xperc =<< listToMaybe (fuzziest ffPerc stands)]
 
@@ -1026,15 +1028,13 @@ prepare the specified instruments and percussion ===============================
 
 >         latched    :: Maybe InstCat      = foldr CM.mplus Nothing alts
 >
->         trace_CI                         =
->           unwords ["categorizeInst", iName, show iName, show alts]
+>         trace_CI                         = unwords ["categorizeInst", show pgkwFile, iName, show alts]
 >
 >         evalForPerc    :: ([InstrumentName], [PercussionSound]) → (ZoneHeader, ZoneDigest) → Maybe Word
 >         evalForPerc rost' (ZoneHeader{ .. }, ZoneDigest { .. })
->                                          =
->           mwOut =<< integralize zdKeyRange
+>                                          = pinOut =<< integralize zdKeyRange
 >           where
->             mwOut range                  = if pinnedKR (select rost') range then Just zhwBag else Nothing
+>             pinOut range                 = if pinnedKR (select rost') range then Just zhwBag else Nothing
 >
 >         inspectZone    :: Word → (ZoneHeader, ZoneDigest)
 >         inspectZone bagIndex             = (zh, zd)
@@ -1093,7 +1093,7 @@ prepare the specified instruments and percussion ===============================
 >                                              (ibagi <= jbagi)
 >                                              "SoundFont file corrupt (computePerInst)"
 >                                              (singleton ibagi, deriveRange (ibagi+1) jbagi)
->         oIx                              = fromMaybe oIx_ (Map.lookup pergm zq)
+>         oIx                              = fromMaybe oIx_                        (Map.lookup pergm zq)
 >         gList                            = map (buildZone defZone)               gIx
 >         gZone                            = (snd . head)                          gList
 >         oList                            = map (buildZone gZone)                 oIx
