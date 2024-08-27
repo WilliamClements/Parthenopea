@@ -1211,29 +1211,6 @@ The use of following functions requires that their input is normalized between 0
 >
 >
 > class Coeff a where
->   czero                :: a
->
-> instance Coeff (Complex Double) where
->   czero                :: Complex Double
->   czero                                  = 0 :+ 0
->
-> instance Coeff Double where
->   czero                :: Double
->   czero                                  = 0
->
-> instance AudioSample ((Double, Double), (ModSignals, ModSignals)) where
->    zero = ((0,0),(defModSignals, defModSignals))
->    mix ((a,b),(msL,msR)) ((c,d),(_,_)) = ((a+c,b+d), (msL, msR))
->    collapse ((a,b),(_,_)) = [a,b]
->    numChans _ = 2
->
-> instance AudioSample (Complex Double) where
->    zero = 0
->    mix x y = x + y
->    collapse x = [realPart x]
->    numChans _ = 1
->
-> class AudioSample a ⇒ WaveAudioSample a where
 >   azero                :: a
 >   acomplex             :: a → Complex Double
 >   aamp                 :: a → Double
@@ -1242,7 +1219,7 @@ The use of following functions requires that their input is normalized between 0
 >   amul                 :: a → a → a
 >   asqrt                :: a → a
 >
-> instance WaveAudioSample Double where
+> instance Coeff Double where
 >   azero                :: Double
 >   azero                                  = 0
 >   acomplex             :: Double → Complex Double
@@ -1258,23 +1235,7 @@ The use of following functions requires that their input is normalized between 0
 >   asqrt                :: Double → Double
 >   asqrt                                  = sqrt
 >
-> instance WaveAudioSample (Double,Double) where
->   azero                :: (Double, Double)
->   azero                                  = (0, 0)
->   acomplex             :: (Double, Double) → Complex Double
->   acomplex                               = error "no acomplex for stereo type"
->   aamp                 :: (Double, Double) → Double
->   aamp (d, e)                            = sqrt (d * d + e * e)
->   ascale               :: Double → (Double, Double) → (Double, Double)
->   ascale d (e, f)                        = amul (d, d) (e, f)
->   aadd                 :: (Double, Double) → (Double, Double) → (Double, Double)
->   aadd (d, e) (f, g)                     = (d + f, e + g)
->   amul                 :: (Double, Double) → (Double, Double) → (Double, Double)
->   amul (d, e) (f, g)                     = (d * f, e * g)
->   asqrt                :: (Double, Double) → (Double, Double)
->   asqrt (d, e)                           = (sqrt d, sqrt e)
->
-> instance WaveAudioSample (Complex Double) where
+> instance Coeff (Complex Double) where
 >   azero                :: Complex Double
 >   azero                                  = 0
 >   acomplex             :: Complex Double → Complex Double

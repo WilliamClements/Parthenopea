@@ -88,7 +88,7 @@ Discrete approach ==============================================================
 >                           → Signal p () (Double, Double)
 > applyConvolutionStereo (lowpL, lowpR) secsToPlay sIn
 >   | traceNot trace_AC False              = undefined
->   | otherwise                            = toContinuousSig pairs'
+>   | otherwise                            = toContinuousSig' resultL resultR
 >   where
 >     baseLen            :: Int            = truncate (secsToPlay * rate (undefined :: p))
 >     fftLen                               = sampleUp baseLen
@@ -103,42 +103,51 @@ Discrete approach ==============================================================
 >       | lowpL.lowpassKs.ksFast           = (fastConvolveFR dsigInL lowpL, fastConvolveFR dsigInR lowpR)
 >       | otherwise                        = (slowConvolveIR dsigInL lowpL, slowConvolveIR dsigInR lowpR)
 >
->     pairs'                               =
->       fromRawVector
->       "convolved"
->       (VU.zip (VU.slice 0 baseLen $ dsigVec resultL)
->               (VU.slice 0 baseLen $ dsigVec resultR))
->
 >     trace_AC                             =
 >       unwords ["applyConvolutionStereo", show baseLen, show fftLen, "\ndsigInL:", show dsigInL, "\ndsigInR:", show dsigInR]
 >
-> fromContinuousSig      :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a, Show a) ⇒
->                           String → Double → Signal p () a → Maybe (DiscreteSig a)
+> fromContinuousSig'     :: ∀ p. Clock p ⇒
+>                           String → Double → Signal p () (Double, Double)
+>                           → Maybe (DiscreteSig Double, DiscreteSig Double)
+> fromContinuousSig' tag dur sf            = 
+>   if not (null dlist)
+>     then Just (fromRawVector tag (VU.fromList (map fst dlist)), fromRawVector tag (VU.fromList (map snd dlist)))
+>     else Nothing
+>   where
+>     dlist              :: [(Double, Double)]
+>     dlist                                = toSamples dur sf
+>
+> fromContinuousSig      :: ∀ p a. (Clock p) ⇒
+>                           String → Double → Signal p () Double → Maybe (DiscreteSig Double)
 > fromContinuousSig tag dur sf             = 
 >   if not (null dlist)
 >     then Just $ fromRawVector tag (VU.fromList dlist)
 >     else Nothing
 >   where
->     dlist              :: [a]            = toSamples dur sf
+>     dlist              :: [Double]
+>     dlist                                = toSamples dur sf
 >
-> toContinuousSig        :: ∀ p a. (Clock p, WaveAudioSample a, VU.Unbox a, Show a) ⇒
->                           DiscreteSig a → Signal p () a
-> toContinuousSig ds@DiscreteSig{ .. }
->   | traceNot trace_TCS False             = undefined
->   | otherwise                            =
->     proc ()                              → do
->       rec
->         ii' ← delay 0                    ⤙ ii
->         let ii                           = ii' + 1
->       outA                               ⤙ (VU.!) dsigVec (ii' `mod` dsigLength)
->   where
->     DiscreteStats{ .. }                  = dsigStats
->     trace_TCS                            = unwords ["toContinuousSig", show ds]
+> toContinuousSig         :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒ DiscreteSig a → Signal p () a
+> toContinuousSig dsL                    =
+>   proc ()                              → do
+>     rec
+>       ii' ← delay 0                    ⤙ ii
+>       let ii                           = ii' + 1
+>     outA                               ⤙ dsL.dsigVec VU.! (ii' `mod` dsL.dsigStats.dsigLength)
 >
-> fromRawVector          :: (WaveAudioSample a, VU.Unbox a) ⇒ String → VU.Vector a → DiscreteSig a
+> toContinuousSig'        :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒ DiscreteSig a → DiscreteSig a → Signal p () (a, a)
+> toContinuousSig' dsL dsR                 =
+>   proc ()                              → do
+>     rec
+>       ii' ← delay 0                    ⤙ ii
+>       let ii                           = ii' + 1
+>     outA                               ⤙ (  dsL.dsigVec VU.! (ii' `mod` dsL.dsigStats.dsigLength)
+>                                            , dsR.dsigVec VU.! (ii' `mod` dsR.dsigStats.dsigLength))
+>
+> fromRawVector          :: (Coeff a, VU.Unbox a) ⇒ String → VU.Vector a → DiscreteSig a
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
 >
-> measureDiscreteSig     :: (WaveAudioSample a, VU.Unbox a) ⇒ VU.Vector a → DiscreteStats a
+> measureDiscreteSig     :: (Coeff a, VU.Unbox a) ⇒ VU.Vector a → DiscreteStats a
 > measureDiscreteSig vec                   = finished
 >   where
 >     len                :: Double         =
@@ -150,7 +159,7 @@ Discrete approach ==============================================================
 >     folded                               = VU.foldl' sfolder defDiscreteStats vec
 >     finished                             = folded {stVariance = ascale (1/(len-1)) folded.stVariance}
 >
->     sfolder            ::  ∀ a. (WaveAudioSample a) ⇒ DiscreteStats a → a → DiscreteStats a
+>     sfolder            ::  ∀ a. (Coeff a) ⇒ DiscreteStats a → a → DiscreteStats a
 >     sfolder stats@DiscreteStats{ .. } d  =
 >       DiscreteStats
 >         (dsigLength + 1)
@@ -161,7 +170,7 @@ Discrete approach ==============================================================
 >         (max  stMaxAmp           (aamp d))
 >
 > measureFrequencyResponse
->                        :: forall a. (WaveAudioSample a, VU.Unbox a) ⇒ VU.Vector a → FrequencyResponseStats
+>                        :: forall a. (Coeff a, VU.Unbox a) ⇒ VU.Vector a → FrequencyResponseStats
 > measureFrequencyResponse                 = VU.foldl' sfolder defFrequencyResponseStats
 >   where
 >     sfolder            ::  FrequencyResponseStats → a → FrequencyResponseStats
@@ -263,13 +272,13 @@ Discrete approach ==============================================================
 >                                  , show cdsigFR
 >                                  , show dsigOut]
 >
-> toFrequencyDomain      :: forall a. WaveAudioSample a ⇒ [a] → [Complex Double]
+> toFrequencyDomain      :: forall a. Coeff a ⇒ [a] → [Complex Double]
 > toFrequencyDomain                        = doFft fft
 >
-> toTimeDomain           :: forall a. WaveAudioSample a ⇒ [a] → [Complex Double]
+> toTimeDomain           :: forall a. Coeff a ⇒ [a] → [Complex Double]
 > toTimeDomain                             = doFft ifft
 >
-> doFft                  :: forall a. WaveAudioSample a ⇒
+> doFft                  :: forall a. Coeff a ⇒
 >                           ([Complex Double] → [Complex Double]) → [a] → [Complex Double]
 > doFft fftFun as                          = fftFun cds
 >   where
@@ -484,7 +493,7 @@ Type declarations ==============================================================
 >     , stDCOffset       :: a
 >     , stVariance       :: a
 >     , stMaxAmp         :: Double} deriving Show
-> defDiscreteStats       :: (WaveAudioSample a, VU.Unbox a) ⇒ DiscreteStats a
+> defDiscreteStats       :: (Coeff a, VU.Unbox a) ⇒ DiscreteStats a
 > defDiscreteStats                         = DiscreteStats 0 0 0 azero azero 0
 > data FrequencyResponseStats              =
 >   FrequencyResponseStats {
@@ -499,11 +508,11 @@ Type declarations ==============================================================
 >     dsigTag            :: String
 >     , dsigStats        :: DiscreteStats a
 >     , dsigVec          :: VU.Vector a}
-> instance forall a. (Show a, WaveAudioSample a, VU.Unbox a) ⇒ Show (DiscreteSig a) where
+> instance forall a. (Show a, Coeff a, VU.Unbox a) ⇒ Show (DiscreteSig a) where
 >   show                 :: DiscreteSig a → String
 >   show DiscreteSig{ .. }                 =
 >     unwords ["DiscreteSig", show (dsigTag, dsigStats, measureFrequencyResponse dsigVec)]
-> sane                   :: (WaveAudioSample a, VU.Unbox a) ⇒ DiscreteSig a → Bool
+> sane                   :: (Coeff a, VU.Unbox a) ⇒ DiscreteSig a → Bool
 > sane dsig                                =
 >   profess
 >     (maxAmp < upsilon)
