@@ -718,7 +718,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >   select rost                          =
 >     if narrowInstrumentScope
 >       then fst rost
->       else fst universe
+>       else fst allKinds
 >   getProAndCon                           = ffInst
 >
 > instance GMPlayable PercussionSound where
@@ -726,35 +726,44 @@ apply fuzzyfind to mining instruments + percussion =============================
 >   select rost                          =
 >     if narrowInstrumentScope
 >       then snd rost
->       else snd universe
+>       else snd allKinds
 >   getProAndCon                           = ffPerc
 >
 > type Fuzz = Double
 >
-> embed                  :: a → Maybe [String] → Maybe (a, [String])
+> embed                  :: a → Maybe b → Maybe (a, b)
 > embed kind                               = fmap (kind,)
 >
 > kindNameOk             :: String → Bool
 > kindNameOk str                           = length str <= 20 && length (show str) <= 22
+>
+> genericInstFFKeys      :: [String]
+> genericInstFFKeys                        = singleton "horn" 
+>
+> genericPercFFKeys      :: [String]
+> genericPercFFKeys                        = ["percuss", "kit", "kick"]
 >
 > instrumentConFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
 > instrumentConFFKeys inst                 = embed inst keys
 >   where
 >    keys = case inst of
 >       AcousticGrandPiano        → Just            ["upright", "bright", "mellow", "elec"]
->       Trumpet                   → Just $ singleton "mute"
->       AcousticBass              → Just            ["brass", "tremolo"]
->       ElectricBassFingered      → Just $ singleton "brass"
->       ElectricBassPicked        → Just $ singleton "brass"
->       FretlessBass              → Just $ singleton "brass"
->       SlapBass1                 → Just $ singleton "brass"
->       SlapBass2                 → Just $ singleton "brass"
->       SynthBass1                → Just $ singleton "brass"
->       SynthBass2                → Just $ singleton "brass"
->       Violin                    → Just            ["tremolo", "strike", "pluck", "staccato"]
->       Cello                     → Just            ["tremolo", "strike", "pluck", "staccato"]
+>       AcousticBass              → Just            ["brass", "tremolo", "elec"]
 >       Agogo                     → Just            ["hi", "low"]
+>       Cello                     → Just            ["tremolo", "strike", "pluck", "staccato"]
+>       Contrabass                → Just $ singleton "tremolo"
+>       ElectricBassFingered      → Just            ["acou", "brass"]
+>       ElectricBassPicked        → Just            ["acou", "brass"]
 >       Flute                     → Just $ singleton "pan"
+>       FretlessBass              → Just            ["brass", "bassoon"]
+>       OrchestraHit              → Just $ singleton "kit"
+>       SlapBass1                 → Just            ["brass", "bassoon"]
+>       SlapBass2                 → Just            ["brass", "bassoon"]
+>       SynthBass1                → Just            ["brass", "bassoon"]
+>       SynthBass2                → Just            ["brass", "bassoon"]
+>       TelephoneRing             → Just $ singleton "string"
+>       Trumpet                   → Just $ singleton "mute"
+>       Violin                    → Just            ["tremolo", "strike", "pluck", "staccato"]
 >       _                         → Nothing
 >
 > instrumentProFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
@@ -774,29 +783,29 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       MusicBox                  → Just $ singleton "musicbox"
 >       Vibraphone                → Just            ["vibra", "phone"]
 >       Marimba                   → Just $ singleton "marimba"
->       Xylophone                 → Just $ singleton "xylophone"
->       TubularBells              → Just            ["bells", "tubular"]
+>       Xylophone                 → Just $ singleton "xylo"
+>       TubularBells              → Just            ["tubular", "bells"]
 >       Dulcimer                  → Just $ singleton "dulcimer"
->       HammondOrgan              → Just            ["org", "hammond"]
->       PercussiveOrgan           → Just            ["org", "percuss"]
->       RockOrgan                 → Just            ["org", "rock"] 
->       ChurchOrgan               → Just            ["org", "church"]
->       ReedOrgan                 → Just            ["org", "reed"]
->       Accordion                 → Just $ singleton "accordion"
+>       HammondOrgan              → Just            ["organ", "hammond"]
+>       PercussiveOrgan           → Just            ["organ", "percuss"]
+>       RockOrgan                 → Just            ["organ", "rock"] 
+>       ChurchOrgan               → Just            ["organ", "church"]
+>       ReedOrgan                 → Just            ["organ", "reed", "accord"]
+>       Accordion                 → Just $ singleton "accord"
 >       Harmonica                 → Just $ singleton "harmonica"
 >       TangoAccordion            → Just            ["accordion", "tango"]
->       AcousticGuitarNylon       → Just            ["guit", "nylon"]
->       AcousticGuitarSteel       → Just            ["guit", "steel"]
->       ElectricGuitarJazz        → Just            ["guit", "jazz"]
->       ElectricGuitarClean       → Just            ["guit", "clean"]
->       ElectricGuitarMuted       → Just            ["guit", "mute"]
->       OverdrivenGuitar          → Just            ["guit", "overdrive"]
->       DistortionGuitar          → Just            ["guit", "fuzz", "distort"]
->       GuitarHarmonics           → Just            ["guit", "harmonics"]
+>       AcousticGuitarNylon       → Just            ["nylon", "guit", "acou"]
+>       AcousticGuitarSteel       → Just            ["steel", "guit", "acou"]
+>       ElectricGuitarJazz        → Just            ["jazz", "guit", "elec"]
+>       ElectricGuitarClean       → Just            ["clean", "guit", "elec"]
+>       ElectricGuitarMuted       → Just            ["mute", "guit", "elec"]
+>       OverdrivenGuitar          → Just            ["overdrive", "guit"]
+>       DistortionGuitar          → Just            ["distort", "guit", "fuzz"]
+>       GuitarHarmonics           → Just            ["harmonics", "guit"]
 >       AcousticBass              → Just            ["bass", "acou"]
->       ElectricBassFingered      → Just            ["bass", "elec", "finger"]
->       ElectricBassPicked        → Just            ["bass", "elec", "pick"]
->       FretlessBass              → Just            ["bass", "fretless"] 
+>       ElectricBassFingered      → Just            ["bass", "finger", "elec"]
+>       ElectricBassPicked        → Just            ["bass", "pick", "elec"]
+>       FretlessBass              → Just            ["fretless", "bass"] 
 >       SlapBass1                 → Just            ["bass", "slap", "1"]
 >       SlapBass2                 → Just            ["bass", "slap", "2"]
 >       SynthBass1                → Just            ["bass", "synth", "1"]
@@ -805,14 +814,14 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Viola                     → Just $ singleton "viola"
 >       Cello                     → Just $ singleton "cello"
 >       Contrabass                → Just $ singleton "contrabass"
->       TremoloStrings            → Just            ["string", "tremolo"]
+>       TremoloStrings            → Just            ["tremolo", "string"]
 >       PizzicatoStrings          → Just            ["string", "pizzicato"]
 >       OrchestralHarp            → Just            ["harp", "orchest"]
 >       Timpani                   → Just            ["timpani", "timp"]
 >       StringEnsemble1           → Just            ["ensemble", "string", "1"]
 >       StringEnsemble2           → Just            ["ensemble", "string", "2"]
->       SynthStrings1             → Just            ["string", "synth", "1"]
->       SynthStrings2             → Just            ["string", "synth", "2"]
+>       SynthStrings1             → Just            ["synth", "string", "1"]
+>       SynthStrings2             → Just            ["synth", "string", "2"]
 >       ChoirAahs                 → Just            ["choir", "aahs", "chorus"]
 >       VoiceOohs                 → Just            ["voice", "oohs", "chorus"]
 >       SynthVoice                → Just            ["voice", "synth"]
@@ -857,14 +866,14 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Pad6Metallic              → Just $ singleton "pad6metallic"
 >       Pad7Halo                  → Just $ singleton "pad7halo"
 >       Pad8Sweep                 → Just $ singleton "pad8sweep"
->       FX1Train                  → Just $ singleton "fx1train"
->       FX2Soundtrack             → Just $ singleton "fx2soundtrack"
->       FX3Crystal                → Just $ singleton "fx3crystal"
->       FX4Atmosphere             → Just $ singleton "fx4atmosphere"
->       FX5Brightness             → Just $ singleton "fx5brightness"
->       FX6Goblins                → Just $ singleton "fx6goblins"
->       FX7Echoes                 → Just $ singleton "fx7echoes"
->       FX8SciFi                  → Just $ singleton "fx8scifi"
+>       FX1Train                  → Just $ singleton "train"
+>       FX2Soundtrack             → Just $ singleton "soundtrack"
+>       FX3Crystal                → Just $ singleton "crystal"
+>       FX4Atmosphere             → Just $ singleton "atmosphere"
+>       FX5Brightness             → Just $ singleton "brightness"
+>       FX6Goblins                → Just $ singleton "goblins"
+>       FX7Echoes                 → Just $ singleton "echoes"
+>       FX8SciFi                  → Just $ singleton "scifi"
 >       Sitar                     → Just $ singleton "sitar"
 >       Banjo                     → Just $ singleton "banjo"
 >       Shamisen                  → Just $ singleton "shamisen"
@@ -885,7 +894,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       BreathNoise               → Just            ["breath", "noise"]
 >       Seashore                  → Just $ singleton "seashore"
 >       BirdTweet                 → Just            ["bird", "tweet"]
->       TelephoneRing             → Just            ["ring", "telephone"]
+>       TelephoneRing             → Just            ["tele", "ring"]
 >       Helicopter                → Just $ singleton "helicopter"
 >       Applause                  → Just $ singleton "applause"
 >       Gunshot                   → Just $ singleton "gunshot"
@@ -922,7 +931,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       RideCymbal1               → Just            ["cymbal", "ride", "1"]
 >       ChineseCymbal             → Just            ["cymbal", "chinese"]
 >       RideBell                  → Just            ["bell", "ride"]
->       Tambourine                → Just            ["tambourine"]
+>       Tambourine                → Just            ["tambo"]
 >       SplashCymbal              → Just            ["cymbal", "splash"]
 >       Cowbell                   → Just            ["cowbell"]
 >       CrashCymbal2              → Just            ["crash", "cymbal", "2"]
@@ -953,37 +962,37 @@ apply fuzzyfind to mining instruments + percussion =============================
 >
 > adhocFuzz              :: String → [String] → [Maybe FF.Alignment]
 > adhocFuzz inp                            = map (`FF.bestMatch` inp)
->
 
 handle "matching as" cache misses =====================================================================================
 
-> universe               :: ([InstrumentName], [PercussionSound])
-> universe                                 = (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
->                                             , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
->
-> computeMatchingAs      :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒
->                           String
->                           → (a → Maybe (a, [String]))
->                           → Map a Fuzz
-> computeMatchingAs inp getFFKeys          = Map.fromList $ mapMaybe (evalAgainstKeys inp) asLooks
+> computeMatchingAs      :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ String → (a → Maybe (a, [String])) → Map a Fuzz
+> computeMatchingAs inp getFFKeys          = Map.fromList $ mapMaybe (evalAgainstKindKeys inp) asLooks
 >   where
 >     -- weed out candidates with no fuzzy keys
->     asLooks            :: [(a, [String])] = mapMaybe getFFKeys (select universe)
+>     asLooks            :: [(a, [String])]
+>     asLooks                              = mapMaybe getFFKeys (select allKinds)
 >
-> evalAgainstKeys        :: String → (a, [String]) → Maybe (a, Fuzz)
-> evalAgainstKeys inp (kind, keys)            = if tot <= 0 then Nothing else Just (kind, tot)
+> evalAgainstKeys        :: String → [String] → Fuzz
+> evalAgainstKeys inp keys                 = sum $ zipWith evalAgainstOne keys weights
 >   where
 >     lFactor        :: Double             = sqrt $ fromIntegral $ length keys
->     weights        :: [Double]           = [1.6 / lFactor
->                                           , 1.4 / lFactor
+>     weights        :: [Double]           = [1.9 / lFactor
+>                                           , 1.6 / lFactor
 >                                           , 1.25 / lFactor
 >                                           , 1.17 / lFactor
 >                                           , 1.14 / lFactor]
->     tot            :: Double             = sum $ zipWith evalAgainstOne keys weights
 >
 >     evalAgainstOne     :: String → Double → Double
 >     evalAgainstOne key weight            = maybe 0 ((* weight) . fromIntegral . FF.score) (FF.bestMatch key inp)
 >
+> evalAgainstKindKeys    :: String → (a, [String]) → Maybe (a, Fuzz)
+> evalAgainstKindKeys inp (kind, keys)     = if tot <= 0 then Nothing else Just (kind, tot)
+>   where
+>     tot            :: Double             = evalAgainstKeys inp keys
+>
+> evalAgainstGeneric     :: String → Fuzz
+> evalAgainstGeneric inp                   =
+>   evalAgainstKeys inp genericInstFFKeys - evalAgainstKeys inp genericPercFFKeys
 
 use "matching as" cache ===============================================================================================
 
@@ -1631,10 +1640,7 @@ Emission capability ============================================================
 > gmName str                               = emitShowL str 22
 >
 > reapEmissions          :: [Emission] → String
-> reapEmissions es                         = concat $ foldl' reapItem [""] es
->
-> reapItem               :: [String] → Emission → [String]
-> reapItem outP e                          = init outP ++ [last outP ++ makeString e]
+> reapEmissions                            = concatMap makeString
 >
 > fillFieldL             :: Int → String → String
 > fillFieldL fieldSz str                   = str ++ safeReplicate (length str) fieldSz ' '
@@ -1657,8 +1663,7 @@ Emission capability ============================================================
 >
 > writeFileBySections    :: FilePath → [[Emission]] → IO ()
 > writeFileBySections fp eSections         = do
->   let zSections                          = map reapEmissions eSections
->   appendFile fp (concat zSections)
+>   mapM_ (appendFile fp . reapEmissions) eSections
 >
 > type Velocity                            = Volume
 > type KeyNumber                           = AbsPitch
@@ -1706,7 +1711,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDoRender                           = True
->   , qqDiagnosticsEnabled                 = False
+>   , qqDiagnosticsEnabled                 = True
 >   , qqReportTourney                      = True
 >   , qqNarrowInstrumentScope              = True
 >   , qqMultipleCompetes                   = True

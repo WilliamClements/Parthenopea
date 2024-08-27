@@ -100,8 +100,7 @@ Signal function-based synth ====================================================
 >
 >     trace_eS                             =
 >       unwords [
->           "eutSynthesize",               show (dur, noon)] 
->         -- , " -- \n... sample, scored, toplay, looping", show (secsSample, secsScored, secsToPlay, looping)]
+>           "eutSynthesize",               show (dur, noon), show (secsSample, secsScored, secsToPlay, looping)] 
 >
 > useDCBlockForStrip                       = False
 >
@@ -150,7 +149,7 @@ Signal function-based synth ====================================================
 >     (lst, len)         :: (Double, Double)
 >                                          = normalizeLooping reconL
 >
->     trace_eD                             = unwords ["eutDriver idelta", show idelta, "looping", show looping]
+>     trace_eD                             = unwords ["eutDriver idelta", show idelta, "lst, len", show (lst, len)]
 >
 > normalizeLooping       :: Recon → (Double, Double)
 > normalizeLooping Recon{ .. }             = ((loopst - fullst) / denom, (loopen - fullst) / denom)
@@ -205,8 +204,7 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p (Double, (ModSignals, ModSignals)) ((Double, Double), (ModSignals, ModSignals))
-> eutPumpSamples (reconL, mReconR)
->                  noon@NoteOn{noteOnVel, noteOnKey} dur s16 ms8
+> eutPumpSamples (reconL, mReconR) noon@NoteOn{noteOnVel, noteOnKey} dur s16 ms8
 >                                          = if isNothing mReconR
 >                                              then procSame
 >                                              else procDiff
@@ -313,7 +311,7 @@ Envelopes ======================================================================
 >                           → Maybe Envelope
 > deriveEnvelope mDelay mAttack NoteOn{noteOnKey} (mHold, mHoldByKey) (mDecay, mDecayByKey)
 >                mSustain mRelease mTriple
->   | traceNever trace_DE False            = undefined
+>   | traceNot trace_DE False            = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTriple
 >                                              then Just env
 >                                              else Nothing
@@ -895,9 +893,9 @@ Turn Knobs Here ================================================================
 >   , qqWeighHints                         = 10
 >   , qqWeighStereo                        = 3
 >   , qqWeigh24Bit                         = 0
->   , qqWeighResolution                    = 5/2
->   , qqWeighConformance                   = 2
->   , qqWeighFuzziness                     = 5/2
+>   , qqWeighResolution                    = 2
+>   , qqWeighConformance                   = 3
+>   , qqWeighFuzziness                     = 3
 >
 >   , qqFFThresholdPossible                = 0
 >   , qqFFThresholdStands                  = 150
