@@ -761,6 +761,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       SlapBass2                 → Just            ["brass", "bassoon"]
 >       SynthBass1                → Just            ["brass", "bassoon"]
 >       SynthBass2                → Just            ["brass", "bassoon"]
+>       SynthDrum                 → Just            ["bass"]
 >       TelephoneRing             → Just $ singleton "string"
 >       Trumpet                   → Just $ singleton "mute"
 >       Violin                    → Just            ["tremolo", "strike", "pluck", "staccato"]
@@ -1672,7 +1673,7 @@ Edit the following =============================================================
 > defC =
 >   ControlSettings {
 >     qqDoRender                           = True
->   , qqDiagnosticsEnabled                 = True
+>   , qqDiagnosticsEnabled                 = False
 >   , qqReportTourney                      = True
 >   , qqNarrowInstrumentScope              = True
 >   , qqMultipleCompetes                   = True

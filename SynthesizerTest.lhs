@@ -34,8 +34,8 @@ Testing ========================================================================
 >
 > driveDriver            :: ∀ p. Clock p ⇒ Signal p () Double
 > driveDriver                              = proc _ → do
->   (x, (_, _))                            ← eutDriver 1 (defRecon, Nothing) 1 0.1 True  ⤙ ()
->   outA                                                                                  ⤙ x
+>   x                                      ← eutDriver 1 (defRecon, Nothing) 1 0.1 True  ⤙ ()
+>   outA                                                                                 ⤙ x
 > 
 > checkSignal            :: ∀ p. Clock p ⇒ Double → Signal p () Double → IO Bool
 > checkSignal nSecs sf                     = do

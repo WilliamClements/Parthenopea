@@ -300,32 +300,6 @@ Modulator management ===========================================================
 >     ResonanceConvo                       → Nothing
 >     _                                    → Just cascadeConfig
 >
-> eutModulate            :: ∀ p . Clock p ⇒
->                           Double
->                           → (Modulation, Maybe Modulation)
->                           → NoteOn
->                           → Signal p () ((Double, Double), (ModSignals, ModSignals))
->                           → Signal p () (Double, Double)
-> eutModulate secs (m8nL, mm8nR) noon sIn  =
->   if isNothing mm8nR
->     then procSame
->     else procDiff
->   where
->     procSame = proc () → do
->       ((a1L, _), (modSigL, _))           ← sIn ⤙ ()
->       a2L   ← addResonance noon m8nL     ⤙ (a1L, modSigL)
->       outA                               ⤙ (a2L, a2L)
->     procDiff = proc () → do
->       ((a1L, a1R), (modSigL, modSigR))   ← sIn ⤙ ()
->       a2L   ← addResonance noon m8nL     ⤙ (a1L, modSigL)
->       a2R   ← addResonance noon m8nL     ⤙ (a1R, modSigR)
->       outA                               ⤙ (a2L, a2R)
->
-> mixDown                :: ∀ p . Clock p ⇒ Signal p (Double, Double) Double
-> mixDown                                  =
->   proc (a1L, a1R)                        → do
->   outA                                   ⤙ a1L + a1R
->
 > addResonance           :: Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
 > addResonance noon m8n@Modulation{ .. }   =
 >   case cascadeCount lowpassType of
