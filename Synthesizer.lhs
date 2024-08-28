@@ -111,8 +111,8 @@ Signal function-based synth ====================================================
 >     else procDiff
 >   where
 >     procSame = proc () → do
->       (modSigL, _) ← eutModSignals secsScored secsToPlay (m8nL, mm8nR) ToFilterFc ⤙ ()
->       (a1L, _)          ← sIn ⤙ ()
+>       (modSigL, _)                       ← eutModSignals secsScored secsToPlay (m8nL, mm8nR) ToFilterFc ⤙ ()
+>       (a1L, _)                           ← sIn ⤙ ()
 >       a2L   ← addResonance noon m8nL     ⤙ (a1L, modSigL)
 >       outA                               ⤙ (a2L, a2L)
 >     procDiff = proc () → do
@@ -172,10 +172,12 @@ Signal function-based synth ====================================================
 >                           → ModDestType
 >                           → Signal p () (ModSignals, ModSignals)
 > eutModSignals secsScored secsToPlay (m8nL, mm8nR) md
->                                          = if isNothing mm8nR
+>   | traceIf trace_EMS False             = undefined
+>   | otherwise                            = if isNothing mm8nR
 >                                              then procSame
 >                                              else procDiff
 >   where
+>     trace_EMS                            = unwords ["eutModSignals", show md]
 >     Modulation{mModEnv = mModEnvL, mModLfo = mModLfoL, mVibLfo = mVibLfoL} = m8nL
 >     Modulation{mModEnv = mModEnvR, mModLfo = mModLfoR, mVibLfo = mVibLfoR} = fromJust mm8nR
 >     (kModEnvL, kModEnvR, kModLfoL, kModLfoR, kVibLfoL, kVibLfoR) = doModSigMaybes 
@@ -199,27 +201,21 @@ Signal function-based synth ====================================================
 >     xModEnvR x                           = mModEnvR
 >     xModLfoR x                           = mModLfoR
 >     xVibLfoR x                           = mVibLfoR
-
+>
 >     doModSigMaybes                       = case md of
->       ToPitch                            → ( mModEnvL
->                                            , mm8nR >>= xModEnvR
->                                            , mModLfoL
->                                            , mm8nR >>= xModLfoR
->                                            , mVibLfoL
->                                            , mm8nR >>= xVibLfoR)
->       ToFilterFc                         → ( mModEnvL
->                                            , mm8nR >>= xModEnvR
->                                            , mModLfoL
->                                            , mm8nR >>= xModLfoR
->                                            , Nothing
->                                            , Nothing)
->       ToVolume                           → ( Nothing
->                                            , Nothing
->                                            , mModLfoL
->                                            , mm8nR >>= xModLfoR
->                                            , Nothing
->                                            , Nothing)
->       _                                  → error "only ToPitch, ToFilterFc, and ToVolume supported in doModSigMaybes"
+>       ToPitch                            → ( mModEnvL,       mm8nR >>= xModEnvR
+>                                            , mModLfoL,       mm8nR >>= xModLfoR
+>                                            , mVibLfoL,       mm8nR >>= xVibLfoR)
+>
+>       ToFilterFc                         → ( mModEnvL,       mm8nR >>= xModEnvR
+>                                            , mModLfoL,       mm8nR >>= xModLfoR
+>                                            , Nothing,        Nothing)
+>
+>       ToVolume                           → ( Nothing,        Nothing
+>                                            , mModLfoL,       mm8nR >>= xModLfoR
+>                                            , Nothing,        Nothing)
+>       _                                  →
+>         error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in doModSigMaybes, not", show md]
 >
 > eutPumpSamples         :: ∀ p . Clock p ⇒
 >                           (Recon, Maybe Recon)
@@ -339,7 +335,7 @@ Envelopes ======================================================================
 >                           → Maybe Envelope
 > deriveEnvelope mDelay mAttack NoteOn{noteOnKey} (mHold, mHoldByKey) (mDecay, mDecayByKey)
 >                mSustain mRelease mTriple
->   | traceNot trace_DE False            = undefined
+>   | traceNot trace_DE False              = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTriple
 >                                              then Just env
 >                                              else Nothing

@@ -466,11 +466,6 @@ also
 >     frange                               = (0, fromIntegral (hi - lo + 1) - 0.000_001)
 >
 > wideOpen               :: (Pitch, Pitch) = (pitch 0, pitch 127)
->
-> type PercussionPair                      = [PercussionSound]
->
-> getPairs               :: [PercussionPair]
-> getPairs                                 = [ [AcousticBassDrum, BassDrum1], [LowMidTom, HiMidTom]]
 
 instrument range checking =============================================================================================
 
@@ -752,11 +747,14 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Agogo                     → Just            ["hi", "low"]
 >       Cello                     → Just            ["tremolo", "strike", "pluck", "staccato"]
 >       Contrabass                → Just $ singleton "tremolo"
->       ElectricBassFingered      → Just            ["acou", "brass"]
->       ElectricBassPicked        → Just            ["acou", "brass"]
+>       ElectricBassFingered      → Just            ["acous", "brass"]
+>       ElectricBassPicked        → Just            ["acous", "brass"]
 >       Flute                     → Just $ singleton "pan"
 >       FretlessBass              → Just            ["brass", "bassoon"]
+>       GuitarFretNoise           → Just            ["clean", "nylon"]
+>       HonkyTonkPiano            → Just            ["grand", "rhodes"]
 >       OrchestraHit              → Just $ singleton "kit"
+>       RhodesPiano               → Just            ["upright", "grand"]
 >       SlapBass1                 → Just            ["brass", "bassoon"]
 >       SlapBass2                 → Just            ["brass", "bassoon"]
 >       SynthBass1                → Just            ["brass", "bassoon"]
@@ -771,7 +769,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 > instrumentProFFKeys inst                 = embed inst keys
 >   where
 >     keys = case inst of
->       AcousticGrandPiano        → Just            ["piano", "grand"]
+>       AcousticGrandPiano        → Just            ["piano", "grand", "concert"]
 >       BrightAcousticPiano       → Just            ["piano", "bright", "brite"]
 >       ElectricGrandPiano        → Just            ["piano", "elec"]
 >       HonkyTonkPiano            → Just            ["honky", "tonk", "piano"]
@@ -795,15 +793,15 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Accordion                 → Just $ singleton "accord"
 >       Harmonica                 → Just $ singleton "harmonica"
 >       TangoAccordion            → Just            ["accordion", "tango"]
->       AcousticGuitarNylon       → Just            ["nylon", "guit", "acou"]
->       AcousticGuitarSteel       → Just            ["steel", "guit", "acou"]
+>       AcousticGuitarNylon       → Just            ["nylon", "guit", "acous"]
+>       AcousticGuitarSteel       → Just            ["steel", "guit", "acous"]
 >       ElectricGuitarJazz        → Just            ["jazz", "guit", "elec"]
 >       ElectricGuitarClean       → Just            ["clean", "guit", "elec"]
 >       ElectricGuitarMuted       → Just            ["mute", "guit", "elec"]
 >       OverdrivenGuitar          → Just            ["overdrive", "guit"]
 >       DistortionGuitar          → Just            ["distort", "guit", "fuzz"]
 >       GuitarHarmonics           → Just            ["harmonics", "guit"]
->       AcousticBass              → Just            ["bass", "acou"]
+>       AcousticBass              → Just            ["bass", "acous"]
 >       ElectricBassFingered      → Just            ["bass", "finger", "elec"]
 >       ElectricBassPicked        → Just            ["bass", "pick", "elec"]
 >       FretlessBass              → Just            ["fretless", "bass"] 
@@ -817,7 +815,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Contrabass                → Just $ singleton "contrabass"
 >       TremoloStrings            → Just            ["tremolo", "string"]
 >       PizzicatoStrings          → Just            ["string", "pizzicato"]
->       OrchestralHarp            → Just            ["harp", "orchest"]
+>       OrchestralHarp            → Just            ["harp", "orchest", "concert"]
 >       Timpani                   → Just            ["timpani", "timp"]
 >       StringEnsemble1           → Just            ["ensemble", "string", "1"]
 >       StringEnsemble2           → Just            ["ensemble", "string", "2"]
@@ -891,7 +889,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       MelodicDrum               → Just            ["drum", "melodic"]
 >       SynthDrum                 → Just            ["drum", "synth"]
 >       ReverseCymbal             → Just            ["cymbal", "reverse"]
->       GuitarFretNoise           → Just            ["guit", "fret", "noise"]
+>       GuitarFretNoise           → Just            ["fret", "noise", "guit"]
 >       BreathNoise               → Just            ["breath", "noise"]
 >       Seashore                  → Just $ singleton "seashore"
 >       BirdTweet                 → Just            ["bird", "tweet"]
@@ -913,10 +911,10 @@ apply fuzzyfind to mining instruments + percussion =============================
 > percussionProFFKeys perc = embed perc keys
 >   where
 >     keys = case perc of
->       AcousticBassDrum          → Just            ["drum", "acou", "bass"]
->       BassDrum1                 → Just            ["kick", "drum"]
+>       AcousticBassDrum          → Just            ["drum", "acous", "bass", "concert"]
+>       BassDrum1                 → Just            ["kick", "drum", "bass"]
 >       SideStick                 → Just            ["side", "stick"]
->       AcousticSnare             → Just            ["snare", "drum", "acou"]
+>       AcousticSnare             → Just            ["snare", "drum", "acous"]
 >       HandClap                  → Just            ["clap", "hand"]
 >       ElectricSnare             → Just            ["snare", "elec", "drum"]
 >       LowFloorTom               → Just            ["tom", "floor", "low"]
@@ -1257,7 +1255,6 @@ The use of following functions requires that their input is normalized between 0
 >     xModEnvPos         :: Double
 >   , xModLfoPos         :: Double
 >   , xVibLfoPos         :: Double} deriving (Show)
->
 > defModSignals                            = ModSignals 0 0 0
 >
 > data SlwRate
@@ -1411,7 +1408,7 @@ Returns the amplitude ratio
 Returns the elapsed time in seconds
 
 > fromTimecents          :: Maybe Int → Double
-> fromTimecents mtimecents                 = pow 2 (maybe (-12_000) fromIntegral mtimecents)/1_200
+> fromTimecents mtimecents                 = pow 2 (maybe (- 12_000) fromIntegral mtimecents / 1_200)
 
 > fromTimecents'         :: Maybe Int → Maybe Int → KeyNumber → Double
 > fromTimecents' mtimecents mfact key      = pow 2 (base + inc)

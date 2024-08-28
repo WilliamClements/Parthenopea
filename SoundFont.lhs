@@ -1145,32 +1145,10 @@ prepare the specified instruments and percussion ===============================
 >             trace_BZ                     = unwords ["buildZone", show bagIndex]
 >
 > pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Bool
-> pinnedKR pss (p1, p2)                    = any available cands
+> pinnedKR pss (p1, p2)                    = (p2 < p1 + 4) && any available [p1 .. p2]
 >   where
 >     available          :: AbsPitch → Bool
 >     available ap                         = maybe False (`elem` pss) (pitchToPerc ap)
->
->     cands              :: [AbsPitch]
->     cands
->       | p1 == p2                         = singleton p1
->       | 1 == abs (p2 - p1) && matchedPair (p1, p2)
->                                          = [p1, p2]
->       | otherwise                        = []
->       
->     matchedPair        :: (AbsPitch, AbsPitch) → Bool
->     matchedPair p0                       = any matching getPairs
->
->     matching           :: PercussionPair → Bool
->     matching ps                          =
->       let
->         p3             :: AbsPitch       = 35 + fromEnum (head ps)
->         p4             :: AbsPitch       = 35 + fromEnum (last ps)
->       in
->         min p1 p2 == min p3 p4
->
-> getPerInstrumentFromCache
->                        :: ZoneCache → PerGMKey → PerInstrument
-> getPerInstrumentFromCache zc pergm       = zc Map.! pergm
 
 define signal functions and instrument maps to support rendering ======================================================
 
@@ -1418,9 +1396,11 @@ reconcile zone and sample header ===============================================
 >                                              else 0.0
 >
 > reconModulation        :: SFZone → F.Shdr → NoteOn → Modulation
-> reconModulation SFZone{ .. } F.Shdr{ .. } noon
->                                          = resolveMods m8n zModulators defaultMods
+> reconModulation sfz@SFZone{ .. } F.Shdr{ .. } noon
+>   | traceIf trace_RM False               = undefined
+>   | otherwise                            = resolveMods m8n zModulators defaultMods
 >   where
+>     trace_RM                             = unwords ["reconModulation", sampleName, show sfz]
 >     m8n                :: Modulation     =
 >       defModulation{
 >         mLowpass                         = Lowpass resonanceType curKernelSpec
@@ -1454,7 +1434,8 @@ reconcile zone and sample header ===============================================
 >                                              (Just (zModEnvToPitch, zModEnvToFc))
 >     nModLfo            :: Maybe LFO      =
 >       deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc zModLfoToVol
->     nVibLfo            :: Maybe LFO      = deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing Nothing
+>     nVibLfo            :: Maybe LFO      =
+>       deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
 >
 >     summarize          :: ModDestType → ModCoefficients
 >     summarize toWhich                    =
@@ -1477,8 +1458,8 @@ reconcile zone and sample header ===============================================
 >                                          =
 >   return
 >     $ if usingPlayCache
->       then Map.foldrWithKey precalcFolder Map.empty wins
->       else Map.empty
+>         then Map.foldrWithKey precalcFolder Map.empty wins
+>         else Map.empty
 >   where
 >     precalcFolder      :: a
 >                           → PerGMScored
@@ -1554,15 +1535,6 @@ emit standard output text detailing what choices we made for rendering GM items 
 > emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs
 >   where
 >     imsgs              :: [String]       = fromMaybe [] (lookup kind msgs)
->
-> qualifyKeyRange        :: [PercussionSound] → (AbsPitch, AbsPitch) → Maybe PercussionSound
-> qualifyKeyRange pss (p1, p2)
->   | pinnedKR pss (p1, p2)
->     && ap >= fromEnum AcousticBassDrum
->     && ap <= fromEnum OpenTriangle       = Just (toEnum ap)
->   | otherwise                            = Nothing
->   where
->     ap = p1 - 35    
 >
 > dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ (a, [PerGMScored]) → [Emission]
 > dumpContestants (kind, contestants)      = prolog ++ es ++ epilog

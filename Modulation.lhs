@@ -491,16 +491,16 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >
 > deriveLFO              :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
 > deriveLFO del mfreq toPitch toFilterFc toVolume
->   | traceNever trace_DLFO False          = undefined
+>   | traceIf trace_DLFO False             = undefined
 >   | otherwise                            =
 >       if useLFO && anyJust
 >         then Just $ LFO (fromTimecents del)
->                         (fromAbsoluteCents $ maybe 0 (clip (-16_000, 4500)) mfreq)
+>                         (fromAbsoluteCents $ maybe 0 (clip (-16_000, 4_500)) mfreq)
 >                         (deriveModTriple toPitch toFilterFc toVolume)
 >         else Nothing
 >   where
 >     anyJust            :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
->     trace_DLFO                           = unwords ["deriveLFO", show (toPitch, toFilterFc, toVolume)]
+>     trace_DLFO                           = unwords ["deriveLFO", show (fromTimecents del), show (toPitch, toFilterFc, toVolume)]
 >
 > doLFO                  :: ∀ p . Clock p ⇒ Maybe LFO → Signal p () Double
 > doLFO                                    = maybe (constA 0) makeSF
