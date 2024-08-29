@@ -1335,7 +1335,7 @@ Conversion functions and general helpers =======================================
 > integralize mww                          =
 >   case mww of
 >     Nothing                              → Nothing
->     Just (w1, w2)                        → Just (fromIntegral w1, fromIntegral w2)
+>     Just (w1, w2)                        → if w1 > w2 then Nothing else Just (fromIntegral w1, fromIntegral w2)
 >
 > wrap                   :: (Ord n, Num n) ⇒ n → n → n
 > wrap val bound                           = if val > bound then wrap val (val-bound) else val
@@ -1369,24 +1369,6 @@ Returns the fractional part of 'x'.
 
 > frac                   :: RealFrac r ⇒ r → r
 > frac                                     = snd . properFraction
-
-Takes care of characters that need quoting like '"'
-
-> quoteCodeString        :: String → String
-> quoteCodeString                          = concatMap quote
->   where
->     quote              :: Char → String
->     quote c = case c of
->                 '\"'   → "\\\""
->                 _      → [c]
->
-> unquoteCodeString      :: String → String
-> unquoteCodeString                        = concatMap unquote
->   where
->     unquote            :: Char → String
->     unquote c = case c of
->                 '\\'   → ""
->                 _      → [c]
 
 forms an IntSet based on an arbitrary list and corresponding input function to Int
 

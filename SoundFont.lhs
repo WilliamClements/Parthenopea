@@ -1144,10 +1144,10 @@ prepare the specified instruments and percussion ===============================
 >             si                           = fromMaybe 0 zSampleIndex
 >             zh                           = ZoneHeader bagIndex (ssShdrs ! si)
 >
->             trace_BZ                     = unwords ["buildZone", show bagIndex]
+>             trace_BZ                     = unwords ["buildZone", show pgkwFile, iName, show bagIndex]
 >
 > pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Bool
-> pinnedKR pss (p1, p2)                    = (p2 < p1 + 4) && any available [p1 .. p2]
+> pinnedKR pss (p1, p2)                    = (p2 < p1 + 4) && all available [p1 .. p2]
 >   where
 >     available          :: AbsPitch → Bool
 >     available ap                         = maybe False (`elem` pss) (pitchToPerc ap)
