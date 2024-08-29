@@ -743,12 +743,12 @@ apply fuzzyfind to mining instruments + percussion =============================
 >   where
 >    keys = case inst of
 >       AcousticGrandPiano        → Just            ["upright", "bright", "mellow", "elec"]
->       AcousticBass              → Just            ["brass", "tremolo", "elec"]
+>       AcousticBass              → Just            ["brass", "bassoon", "tremolo", "elec"]
 >       Agogo                     → Just            ["hi", "low"]
 >       Cello                     → Just            ["tremolo", "strike", "pluck", "staccato"]
 >       Contrabass                → Just $ singleton "tremolo"
->       ElectricBassFingered      → Just            ["acous", "brass"]
->       ElectricBassPicked        → Just            ["acous", "brass"]
+>       ElectricBassFingered      → Just            ["acous", "brass", "bassoon"]
+>       ElectricBassPicked        → Just            ["acous", "brass", "bassoon"]
 >       Flute                     → Just $ singleton "pan"
 >       FretlessBass              → Just            ["brass", "bassoon"]
 >       GuitarFretNoise           → Just            ["clean", "nylon"]

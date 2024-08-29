@@ -365,9 +365,9 @@ Shelby Parsley =================================================================
 > spTranspose                              = 0
 > spTempo                                  = 1
 >
-> spVibes_                                 = makePitched Vibraphone          spTranspose 0  80
-> spBass_                                  = makePitched ElectricBassPicked  spTranspose 0 110
-> dihtRhodes_                              = makePitched RhodesPiano         spTranspose 0 110
+> spVibes_                                 = makePitched Vibraphone          spTranspose 0  90
+> spBass_                                  = makePitched ElectricBassPicked  spTranspose 0  75
+> dihtRhodes_                              = makePitched RhodesPiano         spTranspose 0  90
 > 
 > spEflat'                                 = triad Ef Major           (Bf, 3)
 >

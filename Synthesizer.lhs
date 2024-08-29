@@ -914,9 +914,9 @@ Turn Knobs Here ================================================================
 >   , qqDesireReFuzzy                      = DPreferOn
 >
 >   , qqWeighHints                         = 10
->   , qqWeighStereo                        = 3
+>   , qqWeighStereo                        = 5/2
 >   , qqWeigh24Bit                         = 0
->   , qqWeighResolution                    = 2
+>   , qqWeighResolution                    = 3/2
 >   , qqWeighConformance                   = 3
 >   , qqWeighFuzziness                     = 3
 >

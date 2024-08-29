@@ -544,9 +544,9 @@ Whelp Narp =====================================================================
 > wnTempo                                  = 2
 > wnTranspose                              = 4
 >
-> wnLead_                                  = makePitched    Vibraphone           wnTranspose 0 100
-> wnStrings_                               = makePitched    OrchestralHarp       wnTranspose 0 100
-> wnBass_                                  = makePitched    ElectricBassPicked   wnTranspose 0 100
+> wnLead_                                  = makePitched    Vibraphone           wnTranspose 0 90
+> wnStrings_                               = makePitched    OrchestralHarp       wnTranspose 0 90
+> wnBass_                                  = makePitched    ElectricBassPicked   wnTranspose 0 80
 > wnPerc_                                  = makeNonPitched                                    100
 >
 > whelpNarp dynMap =
