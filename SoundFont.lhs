@@ -454,16 +454,18 @@ executive ======================================================================
 >     wiFolder           :: (Map InstrumentName [PerGMScored], [String])
 >                           → PerGMKey
 >                           → (Map InstrumentName [PerGMScored], [String])
->     wiFolder accum pergmI                = foldl' (xaEnterTournament pandc pergmI []) accum as'
+>     wiFolder accum pergmI                = foldl' (xaEnterTournament fuzzMap pergmI []) accum as'
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
 >         PreInstrument{ .. }              =
 >           professIsJust (Map.lookup pergmI preInstCache) (unwords ["no PreInstrument?!"])
->         pandc                            = getProAndCon iMatches
+>         fuzzMap                          = getProAndCon iMatches
 >
 >         as             :: Map InstrumentName Fuzz
+>         as                               =
+>           Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) fuzzMap
+>
 >         as'            :: [InstrumentName]
->         as                               = Map.filter (> isPossible) pandc
 >         as'                              =
 >           profess
 >             (not $ null as)
@@ -477,7 +479,7 @@ executive ======================================================================
 >                           → (Map PercussionSound [PerGMScored], [String])
 >     wpFolder wIn pergmP@PerGMKey{ .. }
 >       | traceNot trace_WP False          = undefined
->       | otherwise                        = xaEnterTournament pandc pergmP [] wIn kind
+>       | otherwise                        = xaEnterTournament fuzzMap pergmP [] wIn kind
 >       where
 >         mz             :: Maybe (ZoneHeader, SFZone)
 >         mz                               = pgkwBag >>= lookupZone pZonePairs
@@ -491,8 +493,8 @@ executive ======================================================================
 >              >>= Just . PreSampleKey pgkwFile
 >              >>= flip Map.lookup preSampleCache
 >              >>= Just . sMatches
->         pandc          :: Map PercussionSound Fuzz
->         pandc                            = getProAndCon $ professIsJust mffm (unwords ["couldn't get PreSample?"])
+>         fuzzMap        :: Map PercussionSound Fuzz
+>         fuzzMap                          = getProAndCon $ professIsJust mffm (unwords ["couldn't get PreSample?"])
 >
 >         PerInstrument{ .. }              =
 >           professIsJust (Map.lookup (pergmP{pgkwBag = Nothing}) zc) (unwords["no PerInstrument?!"])
@@ -514,7 +516,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → (Map a [PerGMScored], [String])
 >                           → a
 >                           → (Map a [PerGMScored], [String])
->     xaEnterTournament pandc pergm@PerGMKey{ .. } hints (wins, ss) kind
+>     xaEnterTournament fuzzMap pergm@PerGMKey{ .. } hints (wins, ss) kind
 >       | traceNot trace_XAET False        = undefined
 >       | otherwise                        = (Map.insert kind now wins, ss)
 >       where
@@ -526,7 +528,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >         soFar          :: [PerGMScored]  = fromMaybe [] (Map.lookup kind wins)
 >         now                              = scoredP : soFar
->         akResult                         = fromMaybe 0 (Map.lookup kind pandc)
+>         akResult                         = fromMaybe 0 (Map.lookup kind fuzzMap)
 >
 >         scope          :: [(ZoneHeader, SFZone)]
 >         scope                            =
@@ -1541,9 +1543,9 @@ emit standard output text detailing what choices we made for rendering GM items 
 >   where
 >     prolog, es, epilog :: [Emission]
 >
->     prolog = emitLine [emitShowL kind 50]
->     es =  concatMap dumpContestant contestants
->     epilog = emitLine []
+>     prolog                               = emitLine [emitShowL kind 50]
+>     es                                   = concatMap dumpContestant contestants
+>     epilog                               = emitLine []
 >
 > dumpContestant         :: PerGMScored → [Emission]
 > dumpContestant PerGMScored{ .. }         = es

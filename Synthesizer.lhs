@@ -875,9 +875,9 @@ Flags for customization ========================================================
 > stands                                   = qqFFThresholdStands          defT
 > isConfirmed                              = qqFFThresholdConfirmed       defT
 >
-> isPossible' fuzz                         = fuzz > isPossible
-> stands' fuzz                             = fuzz > stands
-> isConfirmed' fuzz                        = fuzz > isConfirmed
+> isPossible' fuzz                         = fuzz > qqFFThresholdPossible defT
+> stands' fuzz                             = fuzz > qqFFThresholdStands defT
+> isConfirmed' fuzz                        = fuzz > qqFFThresholdConfirmed defT
 >
 > sampleAnalyisEnabled                     = qqEnableSampleAnalysis       defT
 >
@@ -920,7 +920,7 @@ Turn Knobs Here ================================================================
 >   , qqWeighConformance                   = 3
 >   , qqWeighFuzziness                     = 3
 >
->   , qqFFThresholdPossible                = 0
+>   , qqFFThresholdPossible                = 50
 >   , qqFFThresholdStands                  = 150
 >   , qqFFThresholdConfirmed               = 250
 >

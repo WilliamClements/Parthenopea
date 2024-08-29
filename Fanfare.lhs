@@ -297,7 +297,7 @@ Gold ===========================================================================
 > goldTempo                                = 2
 > goldTranspose                            = 12
 >
-> goldLead_                                = makePitched Violin goldTranspose 0 100
+> goldLead_                                = makePitched AcousticGrandPiano goldTranspose 0 100
 > gold dynMap =
 >    removeZeros
 >    $ aggrandize
