@@ -832,6 +832,18 @@ Flags for customization ========================================================
 >   , qqNormalizingOutput    :: Bool
 >   , qqScanningOutput       :: Bool} deriving (Eq, Show)
 >
+> usePitchCorrection                       = qqUsePitchCorrection         defS
+> useAttenuation                           = qqUseAttenuation             defS
+> useEnvelopes                             = qqUseEnvelopes               defS
+> useLoopSwitching                         = qqUseLoopSwitching           defS
+> useReverb                                = qqUseEffectReverb            defS
+> useChorus                                = qqUseEffectChorus            defS
+> usePan                                   = qqUseEffectPan               defS
+> useDCBlock                               = qqUseEffectDCBlock           defS
+> normalizingOutput                        = qqNormalizingOutput          defS
+> scanningOutput                           = qqScanningOutput             defS
+>
+>
 > data ScoringSettings =
 >   ScoringSettings {
 >     qqDesireReStereo       :: Desires
@@ -852,17 +864,6 @@ Flags for customization ========================================================
 >   , qqFFThresholdConfirmed :: Double
 >
 >   , qqEnableSampleAnalysis :: Bool} deriving (Eq, Show)
->
-> usePitchCorrection                       = qqUsePitchCorrection         defS
-> useAttenuation                           = qqUseAttenuation             defS
-> useEnvelopes                             = qqUseEnvelopes               defS
-> useLoopSwitching                         = qqUseLoopSwitching           defS
-> useReverb                                = qqUseEffectReverb            defS
-> useChorus                                = qqUseEffectChorus            defS
-> usePan                                   = qqUseEffectPan               defS
-> useDCBlock                               = qqUseEffectDCBlock           defS
-> normalizingOutput                        = qqNormalizingOutput          defS
-> scanningOutput                           = qqScanningOutput             defS
 >
 > weighHints                               = qqWeighHints                 defT
 > weighStereo                              = qqWeighStereo                defT
@@ -914,7 +915,7 @@ Turn Knobs Here ================================================================
 >   , qqDesireReFuzzy                      = DPreferOn
 >
 >   , qqWeighHints                         = 10
->   , qqWeighStereo                        = 5/2
+>   , qqWeighStereo                        = 2
 >   , qqWeigh24Bit                         = 0
 >   , qqWeighResolution                    = 3/2
 >   , qqWeighConformance                   = 3

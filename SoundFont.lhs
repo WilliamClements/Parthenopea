@@ -932,9 +932,9 @@ prepare the specified instruments and percussion ===============================
 >       let doShow                         = renderDisqReason (InstCatDisq, reason)
 >
 >       CM.when (InstCatDisq == cat && isJust doShow)
->               (putStrLn $ unwords ["disq:", show pgkwFile, iName, ":", fromMaybe [] doShow])
+>               (putStrLn $ unwords ["disq:", show pgkwFile, show iName, ":", fromMaybe [] doShow])
 >
->       let is                             = if InstCatInst == cat then pcPergmsI ++ [pergm] else pcPergmsI
+>       let is                             = if InstCatInst == cat then pergm : pcPergmsI else pcPergmsI
 >       let (pis, permitted)               =
 >             if InstCatPerc == cat
 >               then (pis ++ [pergm], Map.insert pergm words pcPermitted)
@@ -946,15 +946,15 @@ prepare the specified instruments and percussion ===============================
 >           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
 >         (cat, words, reason)             = categorizeInst pergm
 >         is                               =
->           if InstCatInst == cat then pcPergmsI ++ [pergm] else pcPergmsI
+>           if InstCatInst == cat then pergm : pcPergmsI else pcPergmsI
 >         pis                               = pcFinishedIP
 >         (pis', permitted)                 =
->           if InstCatPerc == cat then (pis ++ [pergm], Map.insert pergm words pcPermitted) else (pis,  pcPermitted)
+>           if InstCatPerc == cat then (pergm : pis, Map.insert pergm words pcPermitted) else (pis,  pcPermitted)
 >
 >     categorizeInst     :: PerGMKey → (InstCat, [Word], DisqReason)
 >     categorizeInst pergm@PerGMKey{ .. }
 >       | traceIf trace_CI False           = undefined
->       | otherwise                        = (icat', words', if InstCatDisq /= icat' then DisqOk else reason) -- unwords [show pgkwFile, iName, reason])
+>       | otherwise                        = (icat', words', if InstCatDisq /= icat' then DisqOk else reason)
 >       where
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
 >
@@ -982,7 +982,7 @@ prepare the specified instruments and percussion ===============================
 >             processOne strType strName   =
 >               if kindNameOk iName
 >               then Nothing
->               else Just (InstCatDisq, DisqCorrupt strType strName)
+>               else Just (InstCatDisq, DisqCorrupt strType (show strName))
 >             sampler    :: (ZoneHeader, ZoneDigest) → Maybe (InstCat, DisqReason) → Maybe (InstCat, DisqReason)
 >             sampler (ZoneHeader{ .. }, zd) accum
 >                                          = processOne "Sample"  (F.sampleName zhShdr)

@@ -63,17 +63,12 @@ December 12, 2022
   
 Utilities =============================================================================================================
 
-> traceIf      :: String → a → a
-> traceIf str expr = if diagnosticsEnabled
->                    then trace str expr
->                    else expr
-> traceNow  :: String → a → a
+> traceIf, traceNow, traceAlways, traceNever, traceNot
+>                        :: String → a → a
+> traceIf str expr = if diagnosticsEnabled then trace str expr else expr
 > traceNow = trace
-> traceAlways  :: String → a → a
 > traceAlways = trace
-> traceNever   :: String → a → a
 > traceNever str expr = expr
-> traceNot   :: String → a → a
 > traceNot str expr = expr
 >
 > hzToAp                 :: Double → AbsPitch
@@ -730,7 +725,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 > embed kind                               = fmap (kind,)
 >
 > kindNameOk             :: String → Bool
-> kindNameOk str                           = length str <= 20 && length (show str) <= 22
+> kindNameOk str                           = length str <= 20 && length (show str) <= 22 && not (any isControl str)
 >
 > genericInstFFKeys      :: [String]
 > genericInstFFKeys                        = singleton "horn" 
@@ -1533,8 +1528,8 @@ Emission capability ============================================================
 > makeString             :: Emission → String
 > makeString e                             =
 >   case e of
->     ToFieldL str sz    → fillFieldL sz str
->     ToFieldR str sz    → fillFieldR sz str
+>     ToFieldL str sz    → if length str > sz then error $ unwords ["overflowL", show str] else fillFieldL sz str
+>     ToFieldR str sz    → if length str > sz then error $ unwords ["overflowR", show str] else fillFieldR sz str
 >     Unblocked str      → str
 >     Blanks sz          → replicate sz ' '
 >     Empty              → ""
@@ -1577,9 +1572,6 @@ Emission capability ============================================================
 > gmId                   :: (Show a) ⇒ a → Emission
 > gmId i                                   = emitShowL i 22
 >
-> gmName                 :: String → Emission
-> gmName str                               = emitShowL str 22
->
 > reapEmissions          :: [Emission] → String
 > reapEmissions                            = concatMap makeString
 >
@@ -1590,10 +1582,7 @@ Emission capability ============================================================
 > fillFieldR fieldSz str                   = safeReplicate (length str) fieldSz ' ' ++ str
 >
 > safeReplicate          :: Int → Int → Char → String
-> safeReplicate sz maxSz                   = profess
->                                              (sz <= maxSz)
->                                              (unwords ["safeReplicate", show (sz, maxSz)])
->                                              (replicate (maxSz - sz))
+> safeReplicate sz maxSz                   = replicate (maxSz - sz)
 >
 > emitTaggedLine         :: String → String → String → [Emission]
 > emitTaggedLine prolog item epilog        = emitLine [Unblocked prolog, Unblocked item, Unblocked epilog]
