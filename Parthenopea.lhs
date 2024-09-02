@@ -701,23 +701,23 @@ apply fuzzyfind to mining instruments + percussion =============================
 > class GMPlayable a where
 >   toKind               :: a → Kind
 >   select               :: ([InstrumentName], [PercussionSound]) → [a]
->   getProAndCon         :: FFMatches → Map a Fuzz
+>   getFuzzMap           :: FFMatches → Map a Fuzz
 >
 > instance GMPlayable InstrumentName where
 >   toKind                                 = Left
->   select rost                          =
+>   select rost                            =
 >     if narrowInstrumentScope
 >       then fst rost
 >       else fst allKinds
->   getProAndCon                           = ffInst
+>   getFuzzMap                             = ffInst
 >
 > instance GMPlayable PercussionSound where
 >   toKind                                 = Right
->   select rost                          =
+>   select rost                            =
 >     if narrowInstrumentScope
 >       then snd rost
 >       else snd allKinds
->   getProAndCon                           = ffPerc
+>   getFuzzMap                             = ffPerc
 >
 > type Fuzz = Double
 >

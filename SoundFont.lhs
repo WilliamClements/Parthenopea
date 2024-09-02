@@ -139,7 +139,7 @@ Instrument categories: instrument, percussion, disqualified
 >
 > instance SFScorable InstrumentName where
 >   splitScore _ _ zs                      = fromIntegral (length zs)
->   fuzzFactor :: InstrumentName -> Double 
+>   fuzzFactor :: InstrumentName → Double 
 >   fuzzFactor _                           = 7/8
 >
 > instance SFScorable PercussionSound where
@@ -459,7 +459,7 @@ executive ======================================================================
 >         -- access potentially massive amount of processed information regarding instrument
 >         PreInstrument{ .. }              =
 >           professIsJust (Map.lookup pergmI preInstCache) (unwords ["no PreInstrument?!"])
->         fuzzMap                          = getProAndCon iMatches
+>         fuzzMap                          = getFuzzMap iMatches
 >
 >         as             :: Map InstrumentName Fuzz
 >         as                               =
@@ -494,7 +494,7 @@ executive ======================================================================
 >              >>= flip Map.lookup preSampleCache
 >              >>= Just . sMatches
 >         fuzzMap        :: Map PercussionSound Fuzz
->         fuzzMap                          = getProAndCon $ professIsJust mffm (unwords ["couldn't get PreSample?"])
+>         fuzzMap                          = getFuzzMap $ professIsJust mffm (unwords ["couldn't get PreSample?"])
 >
 >         PerInstrument{ .. }              =
 >           professIsJust (Map.lookup (pergmP{pgkwBag = Nothing}) zc) (unwords["no PerInstrument?!"])
@@ -815,15 +815,22 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                          = not $ or unsupported
 >   where
 >     F.Shdr{ .. }                         = zhShdr
->     tuning                               = fromMaybe 100 zScaleTuning
 >
 >     unsupported        :: [Bool]
 >     unsupported                          =
 >       [
->           A.PressLoop == fromMaybe A.NoLoop zSampleMode
->         , 0   /= fromMaybe 0   zInitQ
->         , 100 /= tuning && 0 /= tuning
->         , 0   /= fromMaybe 0   zExclusiveClass
+>           case zSampleMode of
+>             Nothing                      → False
+>             Just n                       → n == A.PressLoop
+>         , case zInitQ of
+>             Nothing                      → False
+>             Just n                       → n /= 0
+>         , case zScaleTuning of
+>             Nothing                      → False
+>             Just n                       → n /= 0 && n /= 100
+>         , case zExclusiveClass of
+>             Nothing                      → False
+>             Just n                       → n /= 0
 >         , end < start
 >         , endLoop < startLoop
 >       ]
@@ -934,22 +941,18 @@ prepare the specified instruments and percussion ===============================
 >       CM.when (InstCatDisq == cat && isJust doShow)
 >               (putStrLn $ unwords ["disq:", show pgkwFile, show iName, ":", fromMaybe [] doShow])
 >
->       let is                             = if InstCatInst == cat then pergm : pcPergmsI else pcPergmsI
->       let (pis, permitted)               =
->             if InstCatPerc == cat
->               then (pis ++ [pergm], Map.insert pergm words pcPermitted)
->               else (pis,  pcPermitted)
->       return $ PreCategory is pis' permitted
+>       return $ PreCategory is pis permitted
 >
 >       where
->         PreInstrument{ .. }              =
+>         PreInstrument{iName}              =
 >           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
 >         (cat, words, reason)             = categorizeInst pergm
 >         is                               =
 >           if InstCatInst == cat then pergm : pcPergmsI else pcPergmsI
->         pis                               = pcFinishedIP
->         (pis', permitted)                 =
->           if InstCatPerc == cat then (pergm : pis, Map.insert pergm words pcPermitted) else (pis,  pcPermitted)
+>         pis                              =
+>           if InstCatPerc == cat then pergm : pcFinishedIP else pcFinishedIP
+>         permitted                        =
+>           if InstCatPerc == cat then Map.insert pergm words pcPermitted else pcPermitted
 >
 >     categorizeInst     :: PerGMKey → (InstCat, [Word], DisqReason)
 >     categorizeInst pergm@PerGMKey{ .. }
@@ -995,8 +998,8 @@ prepare the specified instruments and percussion ===============================
 >         uZones         :: [Word]         = mapMaybe (evalForPerc allKinds) zs
 >         wZones         :: [Word]         = mapMaybe (evalForPerc rost) zs
 >
->         ffInst'                          = Map.filterWithKey (\k _ -> k `elem` select rost) ffInst
->         ffPerc'                          = Map.filterWithKey (\k _ -> k `elem` select rost) ffPerc
+>         ffInst'                          = Map.filterWithKey (\k _ → k `elem` select rost) ffInst
+>         ffPerc'                          = Map.filterWithKey (\k _ → k `elem` select rost) ffPerc
 >
 >         ffAllInst                        = Map.elems ffInst
 >         ffInst''                         = Map.elems ffInst'

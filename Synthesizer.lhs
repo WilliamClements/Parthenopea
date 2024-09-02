@@ -793,6 +793,7 @@ Utility types ==================================================================
 > toSampleType               :: Word → SampleType
 > toSampleType n =
 >   case n of
+>     0x0                    → SampleTypeMono
 >     0x1                    → SampleTypeMono
 >     0x2                    → SampleTypeRight
 >     0x4                    → SampleTypeLeft
