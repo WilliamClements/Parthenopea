@@ -106,7 +106,7 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj =
+> sj = ajingles
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("pa1"         , pendingtonArnt 1)]
@@ -115,7 +115,7 @@ organize exposed music =========================================================
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("basicLick"   , basicLick)]
 >    -- [ ("silver"      , silver)]
->    [ ("baked"       , shimSong $ bakedJingle 206673)]
+>    -- [ ("baked"       , shimSong $ bakedJingle 206673)]
 >    -- [ ("slot"        , slot 1   )]
 >    -- [ ("dh"          , deathlessHorsie)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]

@@ -1227,32 +1227,30 @@ define signal functions and instrument maps to support rendering ===============
 > computePlayValue pergm@PerGMKey{ .. } zc noon@NoteOn{ .. }
 >   | traceNot trace_CPV False             = undefined
 >   | otherwise                            =
->   let
->     ((zoneL, shdrL), (zoneR, shdrR))
->                        :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
->                                          = setZone pergm zc noon
->     (reconL, reconR)   :: (Recon, Recon)
->                                          = reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon
->   in
->     (reconL, if reconR == reconL
->                then Nothing
->                else Just reconR)
+>     case eZones of
+>       Left (zoneL, shdrL)                → (recon zoneL shdrL noon, Nothing)
+>       Right ((zoneL, shdrL), (zoneR, shdrR))
+>                                          → reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon
 >   where
 >     trace_CPV                            = unwords ["computePlayValue", show pergm]
+>     eZones                               = setZone pergm zc noon
 
 zone selection for rendering ==========================================================================================
 
 > setZone                :: PerGMKey
 >                           → ZoneCache
 >                           → NoteOn
->                           → ((SFZone, F.Shdr), (SFZone, F.Shdr))
-> setZone pergm@PerGMKey{ .. } zc noon
->                                          = ((snd zoneL, sampleL) ,(snd zoneR, sampleR))
+>                           → Either (SFZone, F.Shdr) ((SFZone, F.Shdr), (SFZone, F.Shdr))
+> setZone pergm@PerGMKey{ .. } zc noon     = eor
 >   where
 >     PerInstrument{ .. }                  = fromJust $ Map.lookup pergm zc
 >     zs                                   = tail pZonePairs
->     (zoneL, zoneR)                       = selectZonePair zs (selectBestZone zs noon)
->     (sampleL, sampleR)                   = ((zhShdr . fst) zoneL, (zhShdr . fst) zoneR)
+>     ezones                               = selectZonePair zs (selectBestZone zs noon)
+>     eor                                  =
+>       case ezones of 
+>         Left (zhL, zoneL)                → Left (zoneL, zhShdr zhL)
+>         Right ((zhL, zoneL), (zhR, zoneR))
+>                                          → Right ((zoneL, zhShdr zhL), (zoneR, zhShdr zhR))
 >
 > selectBestZone         :: [(ZoneHeader, SFZone)] → NoteOn → (ZoneHeader, SFZone)
 > selectBestZone zs noon
@@ -1271,15 +1269,16 @@ zone selection for rendering ===================================================
 >
 > selectZonePair         :: [(ZoneHeader, SFZone)]
 >                           → (ZoneHeader, SFZone)
->                           → ((ZoneHeader, SFZone), (ZoneHeader, SFZone))
+>                           → Either (ZoneHeader, SFZone) ((ZoneHeader, SFZone), (ZoneHeader, SFZone))
 > selectZonePair zs zone
->    | stype == SampleTypeLeft             = (zone, ozone)
->    | stype == SampleTypeRight            = (ozone, zone)
->    | otherwise                           = (zone, zone)
+>    | stype == SampleTypeLeft             = Right (zone, ozone)
+>    | stype == SampleTypeRight            = Right (ozone, zone)
+>    | otherwise                           = Left zone
 >    where
 >      F.Shdr{sampleLink, sampleType}      = (zhShdr . fst) zone
 >      stype                               = toSampleType sampleType
->      ozone                               = fromMaybe zone $ find (withSlink sampleLink) zs
+>      mozone                              = find (withSlink sampleLink) zs
+>      ozone                               = professIsJust mozone (unwords["zone linkage"])
 >
 >      withSlink          :: Word → (ZoneHeader, SFZone) → Bool
 >      withSlink toMatch czone             =
@@ -1330,10 +1329,10 @@ zone selection for rendering ===================================================
 
 reconcile zone and sample header ======================================================================================
 
-> reconLR                :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → NoteOn → (Recon, Recon)
+> reconLR                :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → NoteOn → (Recon, Maybe Recon)
 > reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon
 >   | traceNever trace_RLR False           = undefined
->   | otherwise                            = (recL, recR')
+>   | otherwise                            = (recL, Just recR')
 >   where
 >     recL@Recon{rRootKey = rkL, rPitchCorrection = pcL}
 >                                          = recon zoneL shdrL noon
