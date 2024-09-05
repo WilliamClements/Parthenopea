@@ -248,16 +248,16 @@ The progress of the algorithm is expressed in above pair.
 >   where
 >     restDur, fillDur   :: Double
 >     ((restDur, _), (fillDur, _))         = ss
->     baked'                              = sBaked           + 1
->     restDur'                            = sRestDur         + restDur
->     fillDur'                            = sFillDur         + fillDur
->     accum'                              = sAccumBaked      + os
->     zlist                               = quantize sHistogram os fillDur
->     hst'                                = if not (checkZListOk zlist)
+>     baked'                               = sBaked           + 1
+>     restDur'                             = sRestDur         + restDur
+>     fillDur'                             = sFillDur         + fillDur
+>     accum'                               = sAccumBaked      + os
+>     zlist                                = quantize sHistogram os fillDur
+>     hst'                                 = if not (checkZListOk zlist)
 >                                              then error "Bad ZList"
 >                                              else sHistogram // zlist
 >
->     trace_AM                            =                   
+>     trace_AM                             =                   
 >       unwords ["acceptMetrics", show durSoFar, "← durSoFar, os →", show os
 >              , "\nss", show ss, "\nnewDur", show newDur]
 >

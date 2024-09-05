@@ -322,7 +322,7 @@ Silver =========================================================================
 > silverTempo                              = 2
 > silverTranspose                          = 7
 >
-> silverLead_                              = makePitched Sitar silverTranspose 0 100
+> silverLead_                              = makePitched OrchestralHarp silverTranspose 0 100
 >     
 > silver dynMap =
 >     removeZeros

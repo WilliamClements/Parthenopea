@@ -1,6 +1,7 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
+> {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE DeriveGeneric #-}
 > {-# LANGUAGE EmptyDataDecls #-}
 > {-# LANGUAGE FlexibleInstances #-}
@@ -48,6 +49,7 @@ December 12, 2022
 > import qualified Data.Vector.Unboxed     as VU
 > import Data.Word
 > import Debug.Trace ( trace )
+> import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg, Table, tableSinesN, osc )
 > import Euterpea.IO.Audio.IO
 > import Euterpea.IO.Audio.Types
@@ -1136,6 +1138,11 @@ music converter ================================================================
 >   trie                                   = trieGeneric KernelSpecTrie 
 >   untrie                                 = untrieGeneric unKernelSpecTrie
 >   enumerate                              = enumerateGeneric unKernelSpecTrie
+>
+> eutSplit               :: ∀ p . Clock p ⇒ Signal p Double (Double, Double)
+> eutSplit                                 =
+>   proc sIn → do
+>     outA                                 ⤙ (sIn, sIn)
 
 Sampling ==============================================================================================================
 
@@ -1528,8 +1535,14 @@ Emission capability ============================================================
 > makeString             :: Emission → String
 > makeString e                             =
 >   case e of
->     ToFieldL str sz    → if length str > sz then error $ unwords ["overflowL", show str] else fillFieldL sz str
->     ToFieldR str sz    → if length str > sz then error $ unwords ["overflowR", show str] else fillFieldR sz str
+>     ToFieldL str sz    → if len > sz then error $ unwords ["overflowL", show sz, show len, show str]
+>                                      else fillFieldL sz str
+>       where
+>         len                              = length str
+>     ToFieldR str sz    → if len > sz then error $ unwords ["overflowR", show sz, show len, show str]
+>                                      else fillFieldR sz str
+>       where
+>         len                              = length str
 >     Unblocked str      → str
 >     Blanks sz          → replicate sz ' '
 >     Empty              → ""

@@ -113,7 +113,7 @@ organize exposed music =========================================================
 >    -- [ ("bill1"       , bill 1)]
 >    -- [ ("gold"        , gold)]
 >    -- [ ("theFanfare"  , theFanfare False)]
->    -- [ ("basicLick"   , basicLick)]
+>    -- [ ("packardGoose", packardGoose)]
 >    -- [ ("silver"      , silver)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 206673)]
 >    -- [ ("slot"        , slot 1   )]

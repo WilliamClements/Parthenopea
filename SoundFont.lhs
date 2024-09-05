@@ -134,16 +134,16 @@ Instrument categories: instrument, percussion, disqualified
 >      | InstCatDisq deriving (Show,Eq,Ord,Enum)
 >     
 > class GMPlayable a ⇒ SFScorable a where
->   splitScore           :: a → ([InstrumentName], [PercussionSound]) → [(ZoneHeader, SFZone)] → Double
+>   splitScore           :: a → [(ZoneHeader, SFZone)] → Double
 >   fuzzFactor           :: a → Double
 >
 > instance SFScorable InstrumentName where
->   splitScore _ _ zs                      = fromIntegral (length zs)
+>   splitScore     kind zs                 = fromIntegral (length zs)
 >   fuzzFactor :: InstrumentName → Double 
 >   fuzzFactor _                           = 7/8
 >
 > instance SFScorable PercussionSound where
->   splitScore _ _ _                       = 0
+>   splitScore kind _                      = 1
 >   fuzzFactor _                           = 3/4
 >
 > type PreSampleCache                      = Map PreSampleKey PreSample
@@ -772,19 +772,20 @@ tournament among GM instruments and percussion from SoundFont files ============
 > computeResolution kind rost zs
 >   | traceIf trace_CR False               = undefined
 >   | null zs                              = error $ unwords ["null zs"]
->   | otherwise                            = m1 * measureSplits + m2 * measureSampleSize
+>   | otherwise                            = m1 * measureSplits kind + m2 * measureSampleSize
 >   where
->     theScore                             = splitScore kind rost zs
->     measureSplits
->       | theScore <= 1                    = 0
->       | otherwise                        = log (m3 * theScore)
+>     theSplit                             = splitScore kind zs
+>     measureSplits kind
+>       | theSplit <= 1                    = 1
+>       | otherwise                        = log (m3 * theSplit)
 >     measureSampleSize                    = sum (map sampleDurationScoring zs) / fromIntegral (length zs)
 >
 >     m1                                   = 1/2
 >     m2                                   = 1/2
 >     m3                                   = 3 * if isStereoInst zs then 1/2 else 1
 >
->     trace_CR                             = unwords ["computeResolution", show kind, show (measureSplits, measureSampleSize)]
+>     trace_CR                             =
+>       unwords ["computeResolution", show kind, show (measureSplits kind, measureSampleSize)]
 >
 > sampleDurationScoring  :: (ZoneHeader, SFZone) → Double
 > sampleDurationScoring (zh@ZoneHeader{ .. } , z)
@@ -944,7 +945,7 @@ prepare the specified instruments and percussion ===============================
 >       return $ PreCategory is pis permitted
 >
 >       where
->         PreInstrument{iName}              =
+>         PreInstrument{iName}             =
 >           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
 >         (cat, words, reason)             = categorizeInst pergm
 >         is                               =
@@ -978,17 +979,23 @@ prepare the specified instruments and percussion ===============================
 >         (icat', words')                  =
 >           if InstCatPerc == icat && null words then (InstCatDisq, []) else (icat, words)
 >
->         corruptNames   :: Maybe (InstCat, DisqReason)
->         corruptNames                     =
+>         corruption     :: Maybe (InstCat, DisqReason)
+>         corruption                       =
 >           processOne "Inst" iName `CM.mplus` foldr sampler Nothing zs
 >           where
 >             processOne strType strName   =
 >               if kindNameOk iName
 >               then Nothing
->               else Just (InstCatDisq, DisqCorrupt strType (show strName))
+>               else Just (InstCatDisq, DisqNameCorrupt strType (show strName))
 >             sampler    :: (ZoneHeader, ZoneDigest) → Maybe (InstCat, DisqReason) → Maybe (InstCat, DisqReason)
 >             sampler (ZoneHeader{ .. }, zd) accum
->                                          = processOne "Sample"  (F.sampleName zhShdr)
+>                                          =
+>               processOne "Sample"  (F.sampleName zhShdr) `CM.mplus` sHdrOk zhShdr 
+>
+>             sHdrOk     :: F.Shdr → Maybe (InstCat, DisqReason)
+>             sHdrOk F.Shdr{ .. }          = if sampleRate > 0
+>                                              then Nothing
+>                                              else Just (InstCatDisq, DisqSampleHeaderCorrupt)
 >
 >         laden          :: [Word] → Double
 >         laden ws
@@ -1014,7 +1021,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         alts           :: [Maybe (InstCat, DisqReason)]
 >         alts                             =
->           [ corruptNames
+>           [ corruption
 >           , if any hasRom zs then Just (InstCatDisq, DisqRomBased) else Nothing
 >           , if IntSet.isSubsetOf sOut sIn then Nothing else Just (InstCatDisq, DisqZoneLinkage)
 >           , winSlot isConfirmed InstCatInst DisqOk ffInst'
@@ -1557,10 +1564,10 @@ emit standard output text detailing what choices we made for rendering GM items 
 >     showAkr            :: Double         = roundBy 10 pAgainstKindResult
 >     (showEmp, n)                         = showEmpiricals pEmpiricals
 > 
->     es = emitLine [ Blanks 8, emitShowL      pgkwFile                  6
+>     es = emitLine [ Blanks 4, emitShowL      pgkwFile                  8
 >                             , emitShowR      szI                      22
->                   , Blanks 8, emitShowR      (fromMaybe "" mszP)      22
->                   , Blanks 8, emitShowL      pScore                   10
+>                   , Blanks 4, emitShowR      (fromMaybe "" mszP)      22
+>                   , Blanks 4, emitShowL      pScore                   15
 >                             , ToFieldL       showEmp                   n
 >                             , emitShowR      showAkr                   8]
 >
@@ -1579,7 +1586,8 @@ emit standard output text detailing what choices we made for rendering GM items 
 > data DisqReason                          =
 >     DisqOk
 >   | DisqUnknown
->   | DisqCorrupt String String
+>   | DisqNameCorrupt String String
+>   | DisqSampleHeaderCorrupt 
 >   | DisqNarrow
 >   | DisqRomBased
 >   | DisqNoPercZones
@@ -1590,8 +1598,10 @@ emit standard output text detailing what choices we made for rendering GM items 
 > renderDisqReason         :: (InstCat, DisqReason) → Maybe String
 > renderDisqReason (_, DisqOk)             = Nothing
 > renderDisqReason (_, DisqUnknown)        = Just (unwords["unrecognized"])
-> renderDisqReason (_, DisqCorrupt strType strName)
+> renderDisqReason (_, DisqNameCorrupt strType strName)
 >                                          = Just (unwords["corrupt", strType, strName])
+> renderDisqReason (_, DisqSampleHeaderCorrupt)
+>                                          = Just (unwords["corrupt e.g. sample rate"])
 > renderDisqReason (_, DisqNarrow)         = if qqIncludeUnused then Just (unwords["narrow inst scope"]) else Nothing
 > renderDisqReason (_, DisqRomBased)       = Just (unwords["ROM-based"])
 > renderDisqReason (_, DisqNoPercZones)    = if qqIncludeUnused then Just (unwords["unused zone liat"]) else Nothing
