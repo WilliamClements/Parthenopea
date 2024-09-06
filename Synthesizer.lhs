@@ -13,9 +13,10 @@ William Clements
 May 14, 2023
 
 > module Synthesizer ( eutSynthesize, Recon( .. ), defS, defT, stands, scanningOutput, findOutliers, normalizingOutput
->                    , scoreBool, SampleType( .. ), qqDesires', toSampleType, isConfirmed, isConfirmed', isPossible'
+>                    , scoreBool, SampleType( .. ), qqDesires', toMaybeSampleType, toSampleType
+>                    , isConfirmed, isConfirmed', isPossible, isPossible'
 >                    , Desires( .. )
->                    , deriveEnvelope, isPossible, qqDesireReStereo, usePitchCorrection, deriveEffects
+>                    , deriveEnvelope, qqDesireReStereo, usePitchCorrection, deriveEffects
 >                    , useAttenuation, weighHints, weighStereo, weigh24Bit, weighResolution, weighConformance
 >                    , weighFuzziness, eutDriver, Effects( .. ) ) where
 >
@@ -108,8 +109,7 @@ Signal function-based synth ====================================================
 >     ampStereo          :: Signal p (Double, Double) (Double, Double)
 >     ampStereo                            =
 >       proc (sL, sR) → do
->         tL                               ← eutEffectsMono reconL ⤙ sL
->         tR                               ← eutEffectsMono reconR ⤙ sR
+>         (tL, tR)                         ← eutEffectsStereo (reconL, reconR) ⤙ (sL, sR)
 >         mL                               ← eutAmplify secsScored reconL noon secsToPlay ⤙ tL
 >         mR                               ← eutAmplify secsScored reconR noon secsToPlay ⤙ tR
 >         outA ⤙ (mL, mR)
@@ -448,13 +448,13 @@ Effects ========================================================================
 >
 >     let (pL, _) = doPan (efPan, efPan) (mixL, mixL)
 >
->     pL' ←        if not useDCBlock
+>     pL' ←          if not useDCBlock
 >                    then delay 0                          ⤙ pL
 >                    else dcBlock 0.995                    ⤙ pL
 >     outA                                                 ⤙ pL'
 >   where
 >     Effects{ .. }                                        = rEffects
-> 
+>
 > eutEffectsStereo       :: ∀ p . Clock p ⇒ (Recon, Recon) → Signal p (Double, Double) (Double, Double)
 > eutEffectsStereo (Recon{rEffects = effL}, Recon{rEffects = effR})
 >   | traceNever trace_eE False = undefined
@@ -749,20 +749,23 @@ Utility types ==================================================================
 >   | SampleTypeRomLeft
 >   | SampleTypeRomLinked deriving (Eq, Show)
 >
-> toSampleType               :: Word → SampleType
-> toSampleType n =
+> toSampleType           :: Word → SampleType
+> toSampleType n                           = professIsJust (toMaybeSampleType n) "sampleType"
+>
+> toMaybeSampleType      :: Word → Maybe SampleType
+> toMaybeSampleType n                      =
 >   case n of
->     0x0                    → SampleTypeMono
->     0x1                    → SampleTypeMono
->     0x2                    → SampleTypeRight
->     0x4                    → SampleTypeLeft
->     0x8                    → SampleTypeLinked
->     0x10                   → SampleTypeOggVorbis
->     0x8001                 → SampleTypeRomMono
->     0x8002                 → SampleTypeRomRight
->     0x8004                 → SampleTypeRomLeft
->     0x8008                 → SampleTypeRomLinked
->     _                      → error $ unwords ["bad sample type", show n]
+>     0x0                    → Just SampleTypeMono
+>     0x1                    → Just SampleTypeMono
+>     0x2                    → Just SampleTypeRight
+>     0x4                    → Just SampleTypeLeft
+>     0x8                    → Just SampleTypeLinked
+>     0x10                   → Just SampleTypeOggVorbis
+>     0x8001                 → Just SampleTypeRomMono
+>     0x8002                 → Just SampleTypeRomRight
+>     0x8004                 → Just SampleTypeRomLeft
+>     0x8008                 → Just SampleTypeRomLinked
+>     _                      → Nothing
 >
 > fromSampleType             :: SampleType → Word
 > fromSampleType stype =

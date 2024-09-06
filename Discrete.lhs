@@ -49,7 +49,7 @@ Discrete approach ==============================================================
 >     kd                                   = calcKernelData ks
 >     shapes                               = makeShapes ResponseNormal kd
 >
->     -- domain corresponds to 0..ksLen-1 
+>     -- function's domain corresponds to 0..ksLen-1 
 >     -- there is coverage on whole target buffer
 >     -- but internally, freaks above nyq will go as negative
 >     ys, ys'            :: [Complex Double]

@@ -802,15 +802,18 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                                                        [zStartOffs, zStartCoarseOffs])
 >     xEnd             = addIntToWord          end                    (sumOfMaybeInts
 >                                                                        [zEndOffs, zEndCoarseOffs])
->
+
+Note that harsher consequences of unacceptable sample header live elsewhere. Logically, that would be
+sufficient protection. But diagnostic output might cause us to execute this first. So, being careful
+but not punitive in isStereoZone.
+
 > isStereoInst, is24BitInst
 >                        :: [(ZoneHeader, a)] → Bool
 >
 > isStereoInst zs                          = isJust $ find isStereoZone zs
 >       
-> isStereoZone (ZoneHeader{ .. }, _)       = stype == SampleTypeRight || stype == SampleTypeLeft
->   where
->     stype = toSampleType $ F.sampleType zhShdr 
+> isStereoZone (ZoneHeader{ .. }, _)       =
+>   maybe False (\t → t == SampleTypeRight || t == SampleTypeLeft) (toMaybeSampleType $ F.sampleType zhShdr)
 >         
 > zoneConforms (ZoneHeader{ .. }, SFZone{ .. })
 >                                          = not $ or unsupported
@@ -985,17 +988,18 @@ prepare the specified instruments and percussion ===============================
 >           where
 >             processOne strType strName   =
 >               if kindNameOk iName
->               then Nothing
->               else Just (InstCatDisq, DisqNameCorrupt strType (show strName))
+>                 then Nothing
+>                 else Just (InstCatDisq, DisqNameCorrupt strType (show strName))
 >             sampler    :: (ZoneHeader, ZoneDigest) → Maybe (InstCat, DisqReason) → Maybe (InstCat, DisqReason)
 >             sampler (ZoneHeader{ .. }, zd) accum
 >                                          =
 >               processOne "Sample"  (F.sampleName zhShdr) `CM.mplus` sHdrOk zhShdr 
 >
 >             sHdrOk     :: F.Shdr → Maybe (InstCat, DisqReason)
->             sHdrOk F.Shdr{ .. }          = if sampleRate > 0
->                                              then Nothing
->                                              else Just (InstCatDisq, DisqSampleHeaderCorrupt)
+>             sHdrOk F.Shdr{ .. }          =
+>               if sampleRate > 0 && sampleRate < 4_294_967_296 && isJust (toMaybeSampleType sampleType)
+>                 then Nothing
+>                 else Just (InstCatDisq, DisqSampleHeaderCorrupt)
 >
 >         laden          :: [Word] → Double
 >         laden ws
@@ -1270,9 +1274,9 @@ zone selection for rendering ===================================================
 >                                              (not $ null scores)
 >                                              (unwords ["scores should not be null (selectBestZone)"])
 >                                              (minimumBy (comparing fst) scores)
->
+>     shdr                                 = zhShdr ((fst . snd) whichZ)
 >     trace_SBZ                            =
->       unwords ["selectBestZone", show (F.sampleName (zhShdr ((fst . snd) whichZ)))]
+>       unwords ["selectBestZone", show $ F.sampleName shdr, show $ F.sampleType shdr]
 >
 > selectZonePair         :: [(ZoneHeader, SFZone)]
 >                           → (ZoneHeader, SFZone)
