@@ -29,7 +29,6 @@ December 12, 2022
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Char
 > import Data.Complex
 > import Data.Either
 > import Data.Graph (Graph)
@@ -726,9 +725,6 @@ apply fuzzyfind to mining instruments + percussion =============================
 > embed                  :: a → Maybe b → Maybe (a, b)
 > embed kind                               = fmap (kind,)
 >
-> kindNameOk             :: String → Bool
-> kindNameOk str                           = length str <= 20 && length (show str) <= 22 && not (any isControl str)
->
 > genericInstFFKeys      :: [String]
 > genericInstFFKeys                        = singleton "horn" 
 >
@@ -742,6 +738,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       AcousticGrandPiano        → Just            ["upright", "bright", "mellow", "elec"]
 >       AcousticBass              → Just            ["brass", "bassoon", "tremolo", "elec"]
 >       Agogo                     → Just            ["hi", "low"]
+>       BrightAcousticPiano       → Just            ["brightness", "grand"]
 >       Cello                     → Just            ["tremolo", "strike", "pluck", "staccato"]
 >       Contrabass                → Just $ singleton "tremolo"
 >       ElectricBassFingered      → Just            ["acous", "brass", "bassoon"]
@@ -812,7 +809,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Contrabass                → Just $ singleton "contrabass"
 >       TremoloStrings            → Just            ["tremolo", "string"]
 >       PizzicatoStrings          → Just            ["string", "pizzicato"]
->       OrchestralHarp            → Just            ["harp", "orchest", "concert"]
+>       OrchestralHarp            → Just            ["harp", "harp", "orchest", "concert"]
 >       Timpani                   → Just            ["timpani", "timp"]
 >       StringEnsemble1           → Just            ["ensemble", "string", "1"]
 >       StringEnsemble2           → Just            ["ensemble", "string", "2"]

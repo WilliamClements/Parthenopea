@@ -22,6 +22,7 @@ April 16, 2023
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
+> import Data.Char
 > import Data.Either
 > import Data.Foldable ( toList )
 > import Data.Int ( Int8, Int16 )
@@ -987,13 +988,17 @@ prepare the specified instruments and percussion ===============================
 >           processOne "Inst" iName `CM.mplus` foldr sampler Nothing zs
 >           where
 >             processOne strType strName   =
->               if kindNameOk iName
+>               if kindNameOk strName
 >                 then Nothing
 >                 else Just (InstCatDisq, DisqNameCorrupt strType (show strName))
 >             sampler    :: (ZoneHeader, ZoneDigest) → Maybe (InstCat, DisqReason) → Maybe (InstCat, DisqReason)
 >             sampler (ZoneHeader{ .. }, zd) accum
 >                                          =
 >               processOne "Sample"  (F.sampleName zhShdr) `CM.mplus` sHdrOk zhShdr 
+>
+>             kindNameOk :: String → Bool
+>             kindNameOk str               =
+>               length str <= 20 && length (show str) <= 22 && not (any isControl str)
 >
 >             sHdrOk     :: F.Shdr → Maybe (InstCat, DisqReason)
 >             sHdrOk F.Shdr{ .. }          =
