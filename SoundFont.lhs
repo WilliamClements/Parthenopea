@@ -579,7 +579,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                        :: [Double]       = zipWith (*) baseScores (map fromRational ssWeights)
 >
 >             trace_CG                     =
->               unwords [   "computeGrade " , show iName
+>               unwords [   "computeGrade " , show pgkwFile, show iName
 >                         , " and "         , show baseScores
 >                         , " X "           , show ssWeights
 >                         , " = "           , show weightedScores]
@@ -985,16 +985,16 @@ prepare the specified instruments and percussion ===============================
 >
 >         corruption     :: Maybe (InstCat, DisqReason)
 >         corruption                       =
->           processOne "Inst" iName `CM.mplus` foldr sampler Nothing zs
+>           processOne "Inst" iName `CM.mplus` foldl' sampler Nothing zs
 >           where
 >             processOne strType strName   =
 >               if kindNameOk strName
 >                 then Nothing
 >                 else Just (InstCatDisq, DisqNameCorrupt strType (show strName))
->             sampler    :: (ZoneHeader, ZoneDigest) → Maybe (InstCat, DisqReason) → Maybe (InstCat, DisqReason)
->             sampler (ZoneHeader{ .. }, zd) accum
+>             sampler    :: Maybe (InstCat, DisqReason) → (ZoneHeader, ZoneDigest) → Maybe (InstCat, DisqReason)
+>             sampler accum (ZoneHeader{ .. }, _)
 >                                          =
->               processOne "Sample"  (F.sampleName zhShdr) `CM.mplus` sHdrOk zhShdr 
+>               sHdrOk zhShdr `CM.mplus` processOne "Sample"  (F.sampleName zhShdr)
 >
 >             kindNameOk :: String → Bool
 >             kindNameOk str               =

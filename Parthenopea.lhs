@@ -958,8 +958,8 @@ apply fuzzyfind to mining instruments + percussion =============================
 
 handle "matching as" cache misses =====================================================================================
 
-> computeMatchingAs      :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ String → (a → Maybe (a, [String])) → Map a Fuzz
-> computeMatchingAs inp getFFKeys          = Map.fromList $ mapMaybe (evalAgainstKindKeys inp) asLooks
+> createFuzzMap          :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ String → (a → Maybe (a, [String])) → Map a Fuzz
+> createFuzzMap inp getFFKeys              = Map.fromList $ mapMaybe (evalAgainstKindKeys inp) asLooks
 >   where
 >     -- weed out candidates with no fuzzy keys
 >     asLooks            :: [(a, [String])]
@@ -1003,11 +1003,11 @@ use "matching as" cache ========================================================
 >                                              (combineFF ias ibs)
 >                                              (combineFF pas pbs)
 >   where
->     ias = computeMatchingAs inp instrumentProFFKeys
->     ibs = computeMatchingAs inp instrumentConFFKeys
+>     ias = createFuzzMap inp instrumentProFFKeys
+>     ibs = createFuzzMap inp instrumentConFFKeys
 >
->     pas = computeMatchingAs inp percussionProFFKeys
->     pbs = computeMatchingAs inp percussionConFFKeys
+>     pas = createFuzzMap inp percussionProFFKeys
+>     pbs = createFuzzMap inp percussionConFFKeys
 
 tournament among instruments in various soundfont files ===============================================================
 
