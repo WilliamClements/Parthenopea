@@ -132,7 +132,7 @@ Instrument categories: instrument, percussion, disqualified
 > data InstCat =
 >        InstCatInst
 >      | InstCatPerc
->      | InstCatDisq deriving Show
+>      | InstCatDisq DisqReason deriving Show
 >     
 > class GMPlayable a ⇒ SFScorable a where
 >   splitScore           :: a → [(ZoneHeader, SFZone)] → Double
@@ -328,18 +328,17 @@ executive ======================================================================
 >         preSampleCache ← formPreSampleCache zFiles presks
 >         preInstCache   ← formPreInstCache   zFiles pergmsI_
 >
->         preCategory    ← categorize zFiles preSampleCache preInstCache zRoster pergmsI_
->         let PreCategory{ .. }            = preCategory
+>         prec           ← categorize zFiles preSampleCache preInstCache zRoster pergmsI_
 >         tsCatted       ← getCurrentTime
 >         putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsStarted))
 >
 >         (pergmsP, skMap, zc)
->                        ← formZoneCache zFiles preSampleCache preInstCache zRoster preCategory
+>                        ← formZoneCache zFiles preSampleCache preInstCache zRoster prec
 >
 >         CM.when diagnosticsEnabled
 >           (do
 >             print "pergmsI"
->             print pcPergmsI
+>             print prec.pcPergmsI
 >             print "pergmsP"
 >             print pergmsP)
 >
@@ -348,7 +347,7 @@ executive ======================================================================
 >
 >         -- actually conduct the tournament
 >         ((wI, sI), (wP, sP))
->                        ← decideWinners zFiles preInstCache preSampleCache zc skMap zRoster pcPergmsI pergmsP
+>                        ← decideWinners zFiles preInstCache preSampleCache zc skMap zRoster prec.pcPergmsI pergmsP
 >         tsDecided      ← getCurrentTime
 >         putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsZoned))
 >
@@ -936,7 +935,7 @@ prepare the specified instruments and percussion ===============================
 >     winnow prec@PreCategory{ .. } pergm@PerGMKey{ .. }
 >                                          = do
 >       let doShow                         = case cat of
->                                               InstCatDisq          → renderDisqReason (InstCatDisq, reason)
+>                                               InstCatDisq reason   → renderDisqReason reason
 >                                               _                    → Nothing
 >
 >       CM.when (isJust doShow)
@@ -947,17 +946,17 @@ prepare the specified instruments and percussion ===============================
 >       where
 >         PreInstrument{iName}             =
 >           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
->         (cat, words, reason)             = categorizeInst pergm
+>         (cat, words)                     = categorizeInst pergm
 >         prec'                            =
 >           case cat of
 >             InstCatInst                  → PreCategory (pergm : pcPergmsI) pcFinishedIP pcPermitted
 >             InstCatPerc                  → PreCategory pcPergmsI (pergm : pcFinishedIP) (Map.insert pergm words pcPermitted)
->             InstCatDisq                  → prec
+>             InstCatDisq _                → prec
 >
->     categorizeInst     :: PerGMKey → (InstCat, [Word], DisqReason)
+>     categorizeInst     :: PerGMKey → (InstCat, [Word])
 >     categorizeInst pergm@PerGMKey{ .. }
 >       | traceIf trace_CI False           = undefined
->       | otherwise                        = (icat', words', reason')
+>       | otherwise                        = (icat', words')
 >       where
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
 >
@@ -973,25 +972,20 @@ prepare the specified instruments and percussion ===============================
 >           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
 >         FFMatches{ .. }                  = iMatches
 >
->         (icat, reason)                   = fromMaybe (InstCatDisq, DisqUnknown) (foldr CM.mplus Nothing alts)
+>         icat                             = fromMaybe (InstCatDisq DisqUnknown) (foldr CM.mplus Nothing alts)
 >
 >         (icat', words')                  =
 >           case icat of
 >             InstCatPerc                  → if null wZones
->                                              then (InstCatDisq, [])
+>                                              then (InstCatDisq DisqNarrow, [])
 >                                              else (icat, wZones)
 >             _                            → (icat, [])
 >
->         reason'                          =
->           case icat' of
->             InstCatDisq                  → reason
->             _                            → DisqOk                 
->
->         corrupt        :: Maybe (InstCat, DisqReason)
+>         corrupt        :: Maybe InstCat
 >         corrupt                          =
 >           foldl' sampler Nothing zs `CM.mplus` checkName "Inst" iName
 >           where
->             sampler    :: Maybe (InstCat, DisqReason) → (ZoneHeader, ZoneDigest) → Maybe (InstCat, DisqReason)
+>             sampler    :: Maybe InstCat → (ZoneHeader, ZoneDigest) → Maybe InstCat
 >             sampler accum (ZoneHeader{ .. }, _)
 >                                          =
 >               let
@@ -999,25 +993,25 @@ prepare the specified instruments and percussion ===============================
 >               in
 >                 checkShdr zhShdr `CM.mplus` checkName "Sample" sampleName
 >
->         checkName      :: String → String → Maybe (InstCat, DisqReason)
+>         checkName      :: String → String → Maybe InstCat
 >         checkName strType strName        =
 >           if length strName <= 20 && length (show strName) <= 22
 >             then Nothing
->             else Just (InstCatDisq, DisqNameCorrupt strType (show strName))
+>             else Just (InstCatDisq $ DisqNameCorrupt strType (show strName))
 >
->         checkShdr      :: F.Shdr → Maybe (InstCat, DisqReason)
+>         checkShdr      :: F.Shdr → Maybe InstCat
 >         checkShdr F.Shdr{ .. }           =
 >           if sampleRate > 0 && sampleRate < 2^31 && isJust (toMaybeSampleType sampleType)
 >             then Nothing
->             else Just (InstCatDisq, DisqSampleHeaderCorrupt)
+>             else Just (InstCatDisq DisqSampleHeaderCorrupt)
 >
 >         hasRom (ZoneHeader{ .. }, _)     = F.sampleType zhShdr >= 0x8000
 >                                          
->         checkLinkage   :: Maybe (InstCat, DisqReason)
+>         checkLinkage   :: Maybe InstCat
 >         checkLinkage
 >           | traceNot trace_CL False      = undefined
 >           | otherwise                    =
->           if IntSet.isSubsetOf sOut sIn then Nothing else Just (InstCatDisq, DisqZoneLinkage)
+>           if IntSet.isSubsetOf sOut sIn then Nothing else Just $ InstCatDisq DisqZoneLinkage
 >           where
 >             sIn, sOut      :: IntSet
 >
@@ -1051,11 +1045,8 @@ prepare the specified instruments and percussion ===============================
 >
 >         ffAllInst                        = Map.elems ffInst
 >
->         xreason reason _                 = Just reason
->
->         maybeSettle    :: (Foldable t) ⇒ Fuzz → (InstCat, DisqReason) → t Fuzz → Maybe (InstCat, DisqReason)
->         maybeSettle thresh (icat, reason) keys
->                                          = embed icat $ find (> thresh) keys >>= xreason reason
+>         maybeSettle    :: (Foldable t) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
+>         maybeSettle thresh icat keys     = find (> thresh) keys >>= (\x → Just icat)
 
    "now", sequence through the alternatives, categorizing as follows
    a. Just InstCatInst           an inst bearing one inst, or
@@ -1063,19 +1054,19 @@ prepare the specified instruments and percussion ===============================
    c. Just InstCatDisq           an inst disqualified from all tournaments, or else
    d. Nothing                    undecided
 
->         alts           :: [Maybe (InstCat, DisqReason)]
+>         alts           :: [Maybe InstCat]
 >         alts                             =
 >           [ corrupt
->           , if any hasRom zs then Just (InstCatDisq, DisqRomBased) else Nothing
+>           , if any hasRom zs then Just (InstCatDisq DisqRomBased) else Nothing
 >           , checkLinkage
->           , maybeSettle isConfirmed (InstCatInst, DisqOk) ffInst'
->           , maybeSettle isConfirmed (InstCatPerc, DisqOk) ffPerc'
->           , maybeSettle stands      (InstCatInst, DisqOk) ffInst'
->           , maybeSettle stands      (InstCatDisq, DisqNarrow) ffAllInst
+>           , maybeSettle isConfirmed InstCatInst ffInst'
+>           , maybeSettle isConfirmed InstCatPerc ffPerc'
+>           , maybeSettle stands      InstCatInst ffInst'
+>           , maybeSettle stands      (InstCatDisq DisqNarrow) ffAllInst
 >           , if 0.75 < howLaden uZones
->               then (if 0.05 < howLaden wZones then Just (InstCatPerc, DisqOk) else Just (InstCatDisq, DisqNoPercZones))
+>               then (if 0.05 < howLaden wZones then Just InstCatPerc else Just (InstCatDisq DisqNoPercZones))
 >               else Nothing
->           , maybeSettle stands      (InstCatPerc, DisqOk) ffPerc'
+>           , maybeSettle stands      InstCatPerc ffPerc'
 >           -- WOX , if evalAgainstGeneric iName > 0 then Just (InstCatInst, DisqOk) else Nothing
 >           -- WOX , if evalAgainstGeneric iName < 0 then Just (InstCatPerc, DisqOk) else Nothing
 >           ]
@@ -1602,8 +1593,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >     showIfThere str                  = CM.unless (null str) (putStrLn str)
 >
 > data DisqReason                          =
->     DisqOk
->   | DisqUnknown
+>     DisqUnknown
 >   | DisqNameCorrupt String String
 >   | DisqSampleHeaderCorrupt 
 >   | DisqNarrow
@@ -1613,17 +1603,15 @@ emit standard output text detailing what choices we made for rendering GM items 
 >
 > qqIncludeUnused          :: Bool         = False
 >
-> renderDisqReason         :: (InstCat, DisqReason) → Maybe String
-> renderDisqReason (_, DisqOk)             = Nothing
-> renderDisqReason (_, DisqUnknown)        = Just (unwords["unrecognized"])
-> renderDisqReason (_, DisqNameCorrupt strType strName)
+> renderDisqReason         :: DisqReason → Maybe String
+> renderDisqReason DisqUnknown             = Just (unwords["unrecognized"])
+> renderDisqReason (DisqNameCorrupt strType strName)
 >                                          = Just (unwords["corrupt", strType, strName])
-> renderDisqReason (_, DisqSampleHeaderCorrupt)
->                                          = Just (unwords["corrupt e.g. sample rate"])
-> renderDisqReason (_, DisqNarrow)         = if qqIncludeUnused then Just (unwords["narrow inst scope"]) else Nothing
-> renderDisqReason (_, DisqRomBased)       = Just (unwords["ROM-based"])
-> renderDisqReason (_, DisqNoPercZones)    = if qqIncludeUnused then Just (unwords["unused zone liat"]) else Nothing
-> renderDisqReason (_, DisqZoneLinkage)    = Just (unwords["zone linkage"])
+> renderDisqReason DisqSampleHeaderCorrupt = Just (unwords["corrupt e.g. sample rate"])
+> renderDisqReason DisqNarrow              = if qqIncludeUnused then Just (unwords["narrow inst scope"]) else Nothing
+> renderDisqReason DisqRomBased            = Just (unwords["ROM-based"])
+> renderDisqReason DisqNoPercZones         = if qqIncludeUnused then Just (unwords["unused zone liat"]) else Nothing
+> renderDisqReason DisqZoneLinkage         = Just (unwords["zone linkage"])
 
 Scoring stuff =========================================================================================================
  
