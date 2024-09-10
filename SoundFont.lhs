@@ -737,7 +737,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     let ks                               = Map.keys shRanges
 >     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
 >     let (esI, esP)                       = printChoices sfrost is shMsgs ps
->     let es                               = emitCounts is ps name ++ concatMap snd esI ++ concatMap snd esP
+>     let es                               = [Unblocked name, EndOfLine] ++ concatMap snd esI ++ concatMap snd esP
 >     putStr (reapEmissions es)
 >     -- render song only if all OK
 >     if all fst esI && all fst esP
@@ -758,12 +758,6 @@ tournament among GM instruments and percussion from SoundFont files ============
 >       else
 >         putStrLn "skipping..."
 >     return ()
->
-> emitCounts             :: [InstrumentName] → [PercussionSound] → String → [Emission]
-> emitCounts is ps name                         =
->   [EndOfLine]
->     ++ [emitShowL name 22, emitShowL (length is) 4]
->     ++ [Unblocked " /- instruments, percussion -/ ", emitShowL (length ps) 4, EndOfLine]
 >
 > computeResolution      :: ∀ a. (Show a, SFScorable a) ⇒
 >                                a
@@ -1017,6 +1011,33 @@ prepare the specified instruments and percussion ===============================
 >             then Nothing
 >             else Just (InstCatDisq, DisqSampleHeaderCorrupt)
 >
+>         hasRom (ZoneHeader{ .. }, _)     = F.sampleType zhShdr >= 0x8000
+>                                          
+>         checkLinkage   :: Maybe (InstCat, DisqReason)
+>         checkLinkage
+>           | traceNot trace_CL False      = undefined
+>           | otherwise                    =
+>           if IntSet.isSubsetOf sOut sIn then Nothing else Just (InstCatDisq, DisqZoneLinkage)
+>           where
+>             sIn, sOut      :: IntSet
+>
+>             sIn                          = IntSet.fromList $ mapMaybe indices zs
+>             sOut                         = IntSet.fromList $ mapMaybe links zs
+>
+>             trace_CL                     = unwords ["checkLinkage", show sIn, show sOut]       
+>
+>         indices, links :: (ZoneHeader, ZoneDigest) → Maybe Int
+>         indices (zh, zd@ZoneDigest{ .. })
+>                                          =
+>           if isStereoZone (zh, zd)
+>             then Just $ fromIntegral $ professIsJust zdSampleIndex "no sample index?!"
+>             else Nothing
+>         links (zh@ZoneHeader{ .. }, zd)
+>                                          =
+>           if isStereoZone (zh, zd)
+>             then Just $ fromIntegral $ F.sampleLink zhShdr
+>             else Nothing
+>
 >         howLaden       :: [Word] → Double
 >         howLaden ws
 >           | null zs                      = 0
@@ -1046,7 +1067,7 @@ prepare the specified instruments and percussion ===============================
 >         alts                             =
 >           [ corrupt
 >           , if any hasRom zs then Just (InstCatDisq, DisqRomBased) else Nothing
->           , if IntSet.isSubsetOf sOut sIn then Nothing else Just (InstCatDisq, DisqZoneLinkage)
+>           , checkLinkage
 >           , maybeSettle isConfirmed (InstCatInst, DisqOk) ffInst'
 >           , maybeSettle isConfirmed (InstCatPerc, DisqOk) ffPerc'
 >           , maybeSettle stands      (InstCatInst, DisqOk) ffInst'
@@ -1084,24 +1105,6 @@ prepare the specified instruments and percussion ===============================
 >         inspectGen (F.KeyRange i j) zd   = zd {zdKeyRange = Just (i, j)}
 >         inspectGen (F.SampleIndex w) zd  = zd {zdSampleIndex = Just w}
 >         inspectGen _ zd                  = zd
->
->         hasRom (ZoneHeader{ .. }, _)     = F.sampleType zhShdr >= 0x8000
->                                          
->         indices, links :: (ZoneHeader, ZoneDigest) → Maybe Int
->         sIn, sOut      :: IntSet
->
->         sIn                              = IntSet.fromList $ mapMaybe indices zs
->         sOut                             = IntSet.fromList $ mapMaybe links zs
->
->         indices (zh, zd@ZoneDigest{ .. })
->                                          =
->           if isStereoZone (zh, zd)
->             then Just $ fromIntegral $ professIsJust zdSampleIndex "no sample index?!"
->             else Nothing
->         links (zh@ZoneHeader{ .. }, zd)  =
->           if isStereoZone (zh, zd)
->             then Just $ fromIntegral $ F.sampleLink zhShdr
->             else Nothing
 >
 >         trace_CI                         = unwords ["categorizeInst", show pgkwFile, iName, show alts]
 >
