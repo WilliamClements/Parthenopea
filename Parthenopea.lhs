@@ -78,8 +78,8 @@ Utilities ======================================================================
 >
 > theE, epsilon, upsilon :: Double
 > theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
-> epsilon                                  = 0.000_000_01       -- a generous little epsilon
-> upsilon                                  = 100_000_000_000    -- a scrawny big upsilon
+> epsilon                                  = 1e-8               -- a generous little epsilon
+> upsilon                                  = 1e10               -- a scrawny  big    upsilon
 >
 > fixM                   :: Int
 > fixM                                     = 512
@@ -602,7 +602,7 @@ examine song for instrument and percussion usage ===============================
 >   let
 >     (instr, range)                       =
 >       case kind of
->         Left iName                       → (iName, fromMaybe wideOpen (instrumentRange iName))
+>         Left iname                       → (iname, fromMaybe wideOpen (instrumentRange iname))
 >         _                                → (Percussion, wideOpen)
 >   in critiqueNote instr range shLowNote ++ critiqueNote instr range shHighNote
 > 
@@ -622,21 +622,14 @@ examine song for instrument and percussion usage ===============================
 >     mshred             :: Maybe Shred    = Map.lookup kind shRanges
 >   in
 >     case mshred of
->       Nothing                            → Shredding
->                                              (Map.insert kind (Shred mev mev 1) shRanges)
->                                              shMsgs
->       Just shred                         → Shredding
->                                              (Map.insert kind (upd shred)       shRanges)
->                                              shMsgs
+>       Nothing                            → Shredding (Map.insert kind (Shred mev mev 1) shRanges) shMsgs
+>       Just shred                         → Shredding (Map.insert kind (upd shred)       shRanges) shMsgs
 >   where
->     upd Shred{ .. }                      = Shred
->                                              (if ePitch mev < ePitch shLowNote
->                                                 then mev
->                                                 else shLowNote)
->                                              (if ePitch mev > ePitch shHighNote
->                                                 then mev
->                                                 else shHighNote)
->                                              (shCount + 1)
+>     upd Shred{ .. }                      =
+>       Shred
+>         (if ePitch mev < ePitch shLowNote then mev else shLowNote)
+>         (if ePitch mev > ePitch shHighNote then mev else shHighNote)
+>         (shCount + 1)
 >
 > shredJingles           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
 > shredJingles js                          = do
@@ -1357,7 +1350,7 @@ Conversion functions and general helpers =======================================
 >
 > almostEqual            :: Double → Double → Bool
 > almostEqual 0 0                          = True
-> almostEqual a b                          = 1e-8 > abs ((a - b) / (a + b))
+> almostEqual a b                          = epsilon > abs ((a - b) / (a + b))
 
 Raises 'a' to the power 'b' using logarithms.
 

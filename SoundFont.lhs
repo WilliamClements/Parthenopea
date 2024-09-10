@@ -401,7 +401,7 @@ executive ======================================================================
 >   tsStarted            ← getCurrentTime
 >
 >   -- output all selections to the report file
->   let legend :: [Emission] =
+>   let legend           =
 >           emitComment     [   Unblocked "legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]"]
 >        ++ emitNextComment [   Unblocked "weights = "
 >                             , Unblocked (show ssWeights)] 
@@ -455,7 +455,7 @@ executive ======================================================================
 >     wiFolder           :: (Map InstrumentName [PerGMScored], [String])
 >                           → PerGMKey
 >                           → (Map InstrumentName [PerGMScored], [String])
->     wiFolder accum pergmI                = foldl' (xaEnterTournament fuzzMap pergmI []) accum as'
+>     wiFolder accum pergmI@PerGMKey{ .. } = foldl' (xaEnterTournament fuzzMap pergmI []) accum as'
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
 >         PreInstrument{ .. }              =
@@ -464,13 +464,13 @@ executive ======================================================================
 >
 >         as             :: Map InstrumentName Fuzz
 >         as                               =
->           Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) fuzzMap
+>           Map.filterWithKey (\k v → k `elem` select rost) fuzzMap
 >
 >         as'            :: [InstrumentName]
 >         as'                              =
 >           profess
 >             (not $ null as)
->             (unwords ["unexpected empty matches for", iName]) 
+>             (unwords ["unexpected empty matches for", show pgkwFile, iName]) 
 >             (if multipleCompetes
 >                then Map.keys as
 >                else (singleton . fst) (Map.findMax as))
@@ -537,9 +537,9 @@ tournament among GM instruments and percussion from SoundFont files ============
 >             Nothing                      → tail pZonePairs
 >             Just bagI                    →
 >                    maybe
->                     (error $ unwords ["xaEnterTournament: lookupZone returned a Nothing for", iName, zName])
->                     singleton
->                     (lookupZone pZonePairs bagI)
+>                      (error $ unwords [ "xaEnterTournament: lookupZone returned a Nothing for"
+>                                       , show pgkwFile, iName, zName])
+>                      singleton (lookupZone pZonePairs bagI)
 >         pk                               = fromJust $ Map.lookup pergm skMap
 >         ps                               = fromJust $ Map.lookup pk preSampleCache
 >         mnameZ         :: Maybe String   = pgkwBag >>= \w → Just (sName ps)
@@ -978,71 +978,53 @@ prepare the specified instruments and percussion ===============================
 >           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
 >         FFMatches{ .. }                  = iMatches
 >
->         (icat, reason)                   = fromMaybe (InstCatDisq, DisqUnknown) latched
+>         (icat, reason)                   = fromMaybe (InstCatDisq, DisqUnknown) (foldr CM.mplus Nothing alts)
 >         words                            = if InstCatPerc == icat then wZones else []
 >         (icat', words')                  =
 >           if InstCatPerc == icat && null words then (InstCatDisq, []) else (icat, words)
 >
->         corruption     :: Maybe (InstCat, DisqReason)
->         corruption                       =
->           processOne "Inst" iName `CM.mplus` foldl' sampler Nothing zs
+>         corrupt        :: Maybe (InstCat, DisqReason)
+>         corrupt                          =
+>           foldl' sampler Nothing zs `CM.mplus` checkName "Inst" iName
 >           where
->             processOne strType strName   =
->               if kindNameOk strName
->                 then Nothing
->                 else Just (InstCatDisq, DisqNameCorrupt strType (show strName))
 >             sampler    :: Maybe (InstCat, DisqReason) → (ZoneHeader, ZoneDigest) → Maybe (InstCat, DisqReason)
 >             sampler accum (ZoneHeader{ .. }, _)
 >                                          =
->               sHdrOk zhShdr `CM.mplus` processOne "Sample"  (F.sampleName zhShdr)
+>               let
+>                 F.Shdr{ .. }             = zhShdr
+>               in
+>                 checkShdr zhShdr `CM.mplus` checkName "Sample" sampleName
 >
->             kindNameOk :: String → Bool
->             kindNameOk str               =
->               length str <= 20 && length (show str) <= 22 && not (any isControl str)
+>         checkName      :: String -> String -> Maybe (InstCat, DisqReason)
+>         checkName strType strName        =
+>           if length strName <= 20 && length (show strName) <= 22
+>             then Nothing
+>             else Just (InstCatDisq, DisqNameCorrupt strType (show strName))
 >
->             sHdrOk     :: F.Shdr → Maybe (InstCat, DisqReason)
->             sHdrOk F.Shdr{ .. }          =
->               if sampleRate > 0 && sampleRate < 4_294_967_296 && isJust (toMaybeSampleType sampleType)
->                 then Nothing
->                 else Just (InstCatDisq, DisqSampleHeaderCorrupt)
+>         checkShdr      :: F.Shdr → Maybe (InstCat, DisqReason)
+>         checkShdr F.Shdr{ .. }           =
+>           if sampleRate > 0 && sampleRate < 2^31 && isJust (toMaybeSampleType sampleType)
+>             then Nothing
+>             else Just (InstCatDisq, DisqSampleHeaderCorrupt)
 >
->         laden          :: [Word] → Double
->         laden ws
+>         howLaden       :: [Word] → Double
+>         howLaden ws
 >           | null zs                      = 0
 >           | otherwise                    = (fromIntegral . length) ws / (fromIntegral . length) zs
 >
 >         uZones         :: [Word]         = mapMaybe (evalForPerc allKinds) zs
 >         wZones         :: [Word]         = mapMaybe (evalForPerc rost) zs
 >
->         ffInst'                          = Map.filterWithKey (\k _ → k `elem` select rost) ffInst
->         ffPerc'                          = Map.filterWithKey (\k _ → k `elem` select rost) ffPerc
+>         ffInst'                          = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) ffInst
+>         ffPerc'                          = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) ffPerc
 >
 >         ffAllInst                        = Map.elems ffInst
->         ffInst''                         = Map.elems ffInst'
->         ffPerc''                         = Map.elems ffPerc'
 >
 >         xreason reason _                 = Just reason
 >
->         winSlot        :: (Foldable t) ⇒ Fuzz → InstCat → DisqReason → t Fuzz → Maybe (InstCat, DisqReason)
->         winSlot thresh icat reason keys  = embed icat $ find (> thresh) keys >>= xreason reason
->
->         genericFuzz                      = evalAgainstGeneric iName
->
->         alts           :: [Maybe (InstCat, DisqReason)]
->         alts                             =
->           [ corruption
->           , if any hasRom zs then Just (InstCatDisq, DisqRomBased) else Nothing
->           , if IntSet.isSubsetOf sOut sIn then Nothing else Just (InstCatDisq, DisqZoneLinkage)
->           , winSlot isConfirmed InstCatInst DisqOk ffInst'
->           , winSlot isConfirmed InstCatPerc DisqOk ffPerc'
->           , winSlot stands      InstCatInst DisqOk ffInst'
->           , winSlot stands      InstCatDisq DisqNarrow ffAllInst
->           , if 0.75 < laden uZones
->               then (if 0.05 < laden wZones then Just (InstCatPerc, DisqOk) else Just (InstCatDisq, DisqNoPercZones))
->               else Nothing
->           , winSlot stands      InstCatPerc DisqOk ffPerc'
->           , if genericFuzz > 0 then Just (InstCatInst, DisqOk) else Nothing
->           , if genericFuzz < 0 then Just (InstCatPerc, DisqOk) else Nothing]
+>         maybeSettle    :: (Foldable t) ⇒ Fuzz → (InstCat, DisqReason) → t Fuzz → Maybe (InstCat, DisqReason)
+>         maybeSettle thresh (icat, reason) keys
+>                                          = embed icat $ find (> thresh) keys >>= xreason reason
 
    "now", sequence through the alternatives, categorizing as follows
    a. Just InstCatInst           an inst bearing one inst, or
@@ -1050,8 +1032,22 @@ prepare the specified instruments and percussion ===============================
    c. Just InstCatDisq           an inst disqualified from all tournaments, or else
    d. Nothing                    undecided
 
->         latched        :: Maybe (InstCat, DisqReason)
->                                          = foldr CM.mplus Nothing alts
+>         alts           :: [Maybe (InstCat, DisqReason)]
+>         alts                             =
+>           [ corrupt
+>           , if any hasRom zs then Just (InstCatDisq, DisqRomBased) else Nothing
+>           , if IntSet.isSubsetOf sOut sIn then Nothing else Just (InstCatDisq, DisqZoneLinkage)
+>           , maybeSettle isConfirmed (InstCatInst, DisqOk) ffInst'
+>           , maybeSettle isConfirmed (InstCatPerc, DisqOk) ffPerc'
+>           , maybeSettle stands      (InstCatInst, DisqOk) ffInst'
+>           , maybeSettle stands      (InstCatDisq, DisqNarrow) ffAllInst
+>           , if 0.75 < howLaden uZones
+>               then (if 0.05 < howLaden wZones then Just (InstCatPerc, DisqOk) else Just (InstCatDisq, DisqNoPercZones))
+>               else Nothing
+>           , maybeSettle stands      (InstCatPerc, DisqOk) ffPerc'
+>           -- WOX , if evalAgainstGeneric iName > 0 then Just (InstCatInst, DisqOk) else Nothing
+>           -- WOX , if evalAgainstGeneric iName < 0 then Just (InstCatPerc, DisqOk) else Nothing
+>           ]
 >
 >         evalForPerc    :: ([InstrumentName], [PercussionSound]) → (ZoneHeader, ZoneDigest) → Maybe Word
 >         evalForPerc rost' (ZoneHeader{ .. }, ZoneDigest { .. })
