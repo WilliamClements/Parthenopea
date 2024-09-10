@@ -132,7 +132,7 @@ Instrument categories: instrument, percussion, disqualified
 > data InstCat =
 >        InstCatInst
 >      | InstCatPerc
->      | InstCatDisq deriving (Show,Eq,Ord,Enum)
+>      | InstCatDisq deriving Show
 >     
 > class GMPlayable a ⇒ SFScorable a where
 >   splitScore           :: a → [(ZoneHeader, SFZone)] → Double
@@ -941,28 +941,29 @@ prepare the specified instruments and percussion ===============================
 >     winnow             :: PreCategory → PerGMKey → IO PreCategory
 >     winnow prec@PreCategory{ .. } pergm@PerGMKey{ .. }
 >                                          = do
->       let doShow                         = renderDisqReason (InstCatDisq, reason)
+>       let doShow                         = case cat of
+>                                               InstCatDisq          → renderDisqReason (InstCatDisq, reason)
+>                                               _                    → Nothing
 >
->       CM.when (InstCatDisq == cat && isJust doShow)
+>       CM.when (isJust doShow)
 >               (putStrLn $ unwords ["disq:", show pgkwFile, show iName, ":", fromMaybe [] doShow])
 >
->       return $ PreCategory is pis permitted
+>       return prec'
 >
 >       where
 >         PreInstrument{iName}             =
 >           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
 >         (cat, words, reason)             = categorizeInst pergm
->         is                               =
->           if InstCatInst == cat then pergm : pcPergmsI else pcPergmsI
->         pis                              =
->           if InstCatPerc == cat then pergm : pcFinishedIP else pcFinishedIP
->         permitted                        =
->           if InstCatPerc == cat then Map.insert pergm words pcPermitted else pcPermitted
+>         prec'                            =
+>           case cat of
+>             InstCatInst                  → PreCategory (pergm : pcPergmsI) pcFinishedIP pcPermitted
+>             InstCatPerc                  → PreCategory pcPergmsI (pergm : pcFinishedIP) (Map.insert pergm words pcPermitted)
+>             InstCatDisq                  → prec
 >
 >     categorizeInst     :: PerGMKey → (InstCat, [Word], DisqReason)
 >     categorizeInst pergm@PerGMKey{ .. }
 >       | traceIf trace_CI False           = undefined
->       | otherwise                        = (icat', words', if InstCatDisq /= icat' then DisqOk else reason)
+>       | otherwise                        = (icat', words', reason')
 >       where
 >         SoundFontArrays{ .. }            = zArrays (sffiles ! pgkwFile)
 >
@@ -979,9 +980,18 @@ prepare the specified instruments and percussion ===============================
 >         FFMatches{ .. }                  = iMatches
 >
 >         (icat, reason)                   = fromMaybe (InstCatDisq, DisqUnknown) (foldr CM.mplus Nothing alts)
->         words                            = if InstCatPerc == icat then wZones else []
+>
 >         (icat', words')                  =
->           if InstCatPerc == icat && null words then (InstCatDisq, []) else (icat, words)
+>           case icat of
+>             InstCatPerc                  → if null wZones
+>                                              then (InstCatDisq, [])
+>                                              else (icat, wZones)
+>             _                            → (icat, [])
+>
+>         reason'                          =
+>           case icat' of
+>             InstCatDisq                  → reason
+>             _                            → DisqOk                 
 >
 >         corrupt        :: Maybe (InstCat, DisqReason)
 >         corrupt                          =
@@ -995,7 +1005,7 @@ prepare the specified instruments and percussion ===============================
 >               in
 >                 checkShdr zhShdr `CM.mplus` checkName "Sample" sampleName
 >
->         checkName      :: String -> String -> Maybe (InstCat, DisqReason)
+>         checkName      :: String → String → Maybe (InstCat, DisqReason)
 >         checkName strType strName        =
 >           if length strName <= 20 && length (show strName) <= 22
 >             then Nothing
