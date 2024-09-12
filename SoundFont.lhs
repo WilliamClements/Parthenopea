@@ -277,108 +277,108 @@ executive ======================================================================
 > doEverything           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
 > doEverything songs = do
 >
->     putStrLn "everything..."
->     putStrLn $ reapEmissions emitSettingses
+>   putStrLn "everything..."
+>   putStrLn $ reapEmissions emitSettingses
 >
->     tsStarted          ← getCurrentTime
+>   tsStarted           ← getCurrentTime
 >
->     rost               ← qualifyKinds songs
->     putStrLn $ unwords ["rost", show rost]
+>   rost                ← qualifyKinds songs
+>   putStrLn $ unwords ["rost", show rost]
 >
->     -- represent all input SoundFont files in ordered list, thence a vector
->     fps                ← FP.getDirectoryFiles "." (singleton "*.sf2")
->     sffilesp           ← CM.zipWithM openSoundFontFile [0..] fps
+>   -- represent all input SoundFont files in ordered list, thence a vector
+>   fps                  ← FP.getDirectoryFiles "." (singleton "*.sf2")
+>   sffilesp             ← CM.zipWithM openSoundFontFile [0..] fps
 >
->     let boundsF::(Word, Word)
+>   let boundsF::(Word, Word)
 >                        = (0, fromIntegral (length sffilesp - 1))
->     let preRoster      = seedRoster (listArray boundsF sffilesp) rost
+>   let preRoster        = seedRoster (listArray boundsF sffilesp) rost
 >
->     tsLoaded           ← getCurrentTime
->     putStrLn ("___load files: " ++ show (diffUTCTime tsLoaded tsStarted))
+>   tsLoaded             ← getCurrentTime
+>   putStrLn ("___load files: " ++ show (diffUTCTime tsLoaded tsStarted))
 >
->     -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->     sfrost             ← finishRoster preRoster
+>   -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
+>   sfrost               ← finishRoster preRoster
 >
->     CM.when doRender (doRendering sfrost)
+>   CM.when doRender (doRendering sfrost)
 >
->     tsRendered         ← getCurrentTime
->     putStrLn ("___overall: "             ++ show (diffUTCTime tsRendered tsStarted))
+>   tsRendered           ← getCurrentTime
+>   putStrLn ("___overall: " ++ show (diffUTCTime tsRendered tsStarted))
 >
->     where
->       -- track the complete populations of: samples, instruments, percussion
->       finishRoster     :: SFRoster → IO SFRoster
->       finishRoster preRoster@SFRoster{ .. }
+>   where
+>     -- track the complete populations of: samples, instruments, percussion
+>     finishRoster       :: SFRoster → IO SFRoster
+>     finishRoster preRoster@SFRoster{ .. }
 >                                          = do
->         tsStarted      ← getCurrentTime
+>       tsStarted        ← getCurrentTime
 >
->         presks         ← formMasterSampleList zFiles
->         pergmsI_       ← formMasterInstList   zFiles
+>       presks           ← formMasterSampleList zFiles
+>       pergmsI_         ← formMasterInstList   zFiles
 >
->         preSampleCache ← formPreSampleCache zFiles presks
->         preInstCache   ← formPreInstCache   zFiles pergmsI_
+>       preSampleCache   ← formPreSampleCache zFiles presks
+>       preInstCache     ← formPreInstCache   zFiles pergmsI_
 >
->         jobs           ← categorize zFiles preSampleCache preInstCache zRoster pergmsI_
->         tsCatted       ← getCurrentTime
->         putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsStarted))
+>       jobs             ← categorize zFiles preSampleCache preInstCache zRoster pergmsI_
+>       tsCatted         ← getCurrentTime
+>       putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsStarted))
 >
->         zc             ← formZoneCache zFiles preSampleCache preInstCache zRoster jobs
->         (pergmsI, pergmsP)
+>       zc               ← formZoneCache zFiles preSampleCache preInstCache zRoster jobs
+>       (pergmsI, pergmsP)
 >                        ← arrangeCategorizationResults zc preSampleCache jobs
->         CM.when diagnosticsEnabled
->           (do
->             print "pergmsI"
->             print pergmsI
->             print "pergmsP"
->             print pergmsP)
+>       CM.when diagnosticsEnabled
+>         (do
+>           print "pergmsI"
+>           print pergmsI
+>           print "pergmsP"
+>           print pergmsP)
 >
->         tsZoned        ← getCurrentTime
->         putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsCatted))
+>       tsZoned          ← getCurrentTime
+>       putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsCatted))
 >
->         -- actually conduct the tournament
->         ((wI, sI), (wP, sP))
+>       -- actually conduct the tournament
+>       ((wI, sI), (wP, sP))
 >                        ← decideWinners zFiles preInstCache preSampleCache zc zRoster pergmsI pergmsP
->         tsDecided      ← getCurrentTime
->         putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsZoned))
+>       tsDecided        ← getCurrentTime
+>       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsZoned))
 >
->         CM.when reportTourney (writeTournamentReport zFiles wI wP)
->         tsReported     ← getCurrentTime
+>       CM.when reportTourney (writeTournamentReport zFiles wI wP)
+>       tsReported       ← getCurrentTime
 >
->         let wins@WinningRecord{ .. }
+>       let wins@WinningRecord{ .. }
 >                        = WinningRecord (Map.map head wI) (Map.map head wP) (sI ++ sP)
 >
->         -- print song/orchestration info to user (can be captured by redirecting standard out)
->         mapM_ putStrLn pWarnings
+>       -- print song/orchestration info to user (can be captured by redirecting standard out)
+>       mapM_ putStrLn pWarnings
 >
->         playCacheI     ← createPlayCache zFiles zc preSampleCache preInstCache pWinningI
->         playCacheP     ← createPlayCache zFiles zc preSampleCache preInstCache pWinningP
+>       playCacheI       ← createPlayCache zFiles zc preSampleCache preInstCache pWinningI
+>       playCacheP       ← createPlayCache zFiles zc preSampleCache preInstCache pWinningP
 >
->         let sfrost = preRoster{zPreSampleCache     = preSampleCache
->                                , zPreInstCache     = preInstCache
->                                , zZoneCache        = zc
->                                , zWinningRecord    = wins
->                                , zPlayCache        = Map.union playCacheI playCacheP}
+>       let sfrost       = preRoster{zPreSampleCache     = preSampleCache
+>                                  , zPreInstCache     = preInstCache
+>                                  , zZoneCache        = zc
+>                                  , zWinningRecord    = wins
+>                                  , zPlayCache        = Map.union playCacheI playCacheP}
 >
->         tsRecond   ← getCurrentTime
->         putStrLn ("___create play cache: " ++ show (diffUTCTime tsRecond tsReported))
+>       tsRecond     ← getCurrentTime
+>       putStrLn ("___create play cache: " ++ show (diffUTCTime tsRecond tsReported))
 >         
->         return sfrost
+>       return sfrost
 >
->       -- get it on
->       doRendering      :: SFRoster → IO ()
->       doRendering sfrost                 = do
->         tsStarted      ← getCurrentTime
+>     -- get it on
+>     doRendering      :: SFRoster → IO ()
+>     doRendering sfrost                 = do
+>       tsStarted        ← getCurrentTime
 >
->         -- readying instrument maps to be accessed from song renderer
->         traceIO         "prepareInstruments"
->         imap           ← prepareInstruments sfrost
->         tsPrepared     ← getCurrentTime
->         putStrLn ("___prepare instruments: " ++ show (diffUTCTime tsPrepared tsStarted))
+>       -- readying instrument maps to be accessed from song renderer
+>       traceIO          "prepareInstruments"
+>       imap             ← prepareInstruments sfrost
+>       tsPrepared       ← getCurrentTime
+>       putStrLn ("___prepare instruments: " ++ show (diffUTCTime tsPrepared tsStarted))
 >
->         -- here's the heart of the coconut
->         mapM_ (uncurry (renderSong sfrost imap)) songs
+>       -- here's the heart of the coconut
+>       mapM_ (uncurry (renderSong sfrost imap)) songs
 >
->         tsRendered     ← getCurrentTime
->         putStrLn ("___render songs: "        ++ show (diffUTCTime tsRendered tsPrepared))
+>       tsRendered       ← getCurrentTime
+>       putStrLn ("___render songs: "        ++ show (diffUTCTime tsRendered tsPrepared))
 >
 > writeTournamentReport  :: Array Word SFFile
 >                           → Map InstrumentName [PerGMScored]
@@ -505,7 +505,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → a
 >                           → (Map a [PerGMScored], [String])
 >     xaEnterTournament fuzzMap pergm@PerGMKey{ .. } hints (wins, ss) kind
->       | traceIf trace_XAET False        = undefined
+>       | traceIf trace_XAET False         = undefined
 >       | otherwise                        = (Map.insert kind now wins, ss)
 >       where
 >         pergm_                           = pergm{pgkwBag = Nothing}
@@ -535,7 +535,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >         mnameZ         :: Maybe String   =     pgkwBag
 >                                            >>= lookupZone pZonePairs
->                                            >>= \(ZoneHeader{ .. }, _) → Just (F.sampleName zhShdr)
+>                                            >>= \(ZoneHeader{zhShdr}, _) → Just (F.sampleName zhShdr)
 >         zName                            =
 >           professIsJust mnameZ (unwords ["xaEnterTournament: bad pgkwBag"])
 >
@@ -665,7 +665,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         perI                             =
 >           professIsJust mperI (unwords["no PerInstrument in cache for", show pergmI'])
 >         pergmsP'                         = instrumentPercList pergmI perI
->         (pergmsI', pergmsP'')     =
+>         (pergmsI', pergmsP'')            =
 >           case icat of
 >             InstCatPerc _                → (pergmsI, pergmsP ++ pergmsP')
 >             InstCatInst                  → (pergmI : pergmsI, pergmsP)
@@ -984,7 +984,7 @@ prepare the specified instruments and percussion ===============================
 >           | otherwise                    =
 >           if IntSet.isSubsetOf sOut sIn then Nothing else Just $ InstCatDisq DisqZoneLinkage
 >           where
->             sIn, sOut      :: IntSet
+>             sIn, sOut  :: IntSet
 >
 >             sIn                          = IntSet.fromList $ mapMaybe indices zs
 >             sOut                         = IntSet.fromList $ mapMaybe links zs
