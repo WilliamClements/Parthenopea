@@ -140,14 +140,11 @@ Instrument categories: instrument, percussion, disqualified
 >   splitScore kind _                      = 1
 >   fuzzFactor _                           = 3/4
 >
-> type PreSampleCache                      = Map PreSampleKey PreSample
-> type PreInstCache                        = Map PerGMKey     PreInstrument
->
 > data SFRoster =
 >   SFRoster {
 >     zFiles             :: Array Word SFFile
->   , zPreSampleCache    :: PreSampleCache
->   , zPreInstCache      :: PreInstCache
+>   , zPreSampleCache    :: Map PreSampleKey PreSample
+>   , zPreInstCache      :: Map PerGMKey PreInstrument
 >   , zRoster            :: ([InstrumentName], [PercussionSound])
 >   , zZoneCache         :: Map PerGMKey PerInstrument
 >   , zWinningRecord     :: WinningRecord
@@ -325,7 +322,7 @@ executive ======================================================================
 >         putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsStarted))
 >
 >         zc             ← formZoneCache zFiles preSampleCache preInstCache zRoster jobs
->         (pergmsI, pergmsP, skMap)
+>         (pergmsI, pergmsP)
 >                        ← arrangeCategorizationResults zc preSampleCache jobs
 >         CM.when diagnosticsEnabled
 >           (do
@@ -339,7 +336,7 @@ executive ======================================================================
 >
 >         -- actually conduct the tournament
 >         ((wI, sI), (wP, sP))
->                        ← decideWinners zFiles preInstCache preSampleCache zc skMap zRoster pergmsI pergmsP
+>                        ← decideWinners zFiles preInstCache preSampleCache zc zRoster pergmsI pergmsP
 >         tsDecided      ← getCurrentTime
 >         putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsZoned))
 >
@@ -352,8 +349,8 @@ executive ======================================================================
 >         -- print song/orchestration info to user (can be captured by redirecting standard out)
 >         mapM_ putStrLn pWarnings
 >
->         playCacheI     ← createPlayCache zFiles zc preSampleCache preInstCache skMap pWinningI
->         playCacheP     ← createPlayCache zFiles zc preSampleCache preInstCache skMap pWinningP
+>         playCacheI     ← createPlayCache zFiles zc preSampleCache preInstCache pWinningI
+>         playCacheP     ← createPlayCache zFiles zc preSampleCache preInstCache pWinningP
 >
 >         let sfrost = preRoster{zPreSampleCache     = preSampleCache
 >                                , zPreInstCache     = preInstCache
@@ -419,16 +416,15 @@ executive ======================================================================
 >         
 >
 > decideWinners          :: Array Word SFFile
->                           → PreInstCache
->                           → PreSampleCache
+>                           → Map PerGMKey PreInstrument
+>                           → Map PreSampleKey PreSample
 >                           → Map PerGMKey PerInstrument
->                           → Map PerGMKey PreSampleKey
 >                           → ([InstrumentName], [PercussionSound]) 
 >                           → [PerGMKey]
 >                           → [PerGMKey]
 >                           → IO ((Map InstrumentName [PerGMScored], [String])
 >                               , (Map PercussionSound [PerGMScored], [String]))
-> decideWinners sffiles preInstCache preSampleCache zc skMap rost pergmsI pergmsP
+> decideWinners sffiles preInstCache preSampleCache zc rost pergmsI pergmsP
 >                                          = do
 >   return wiExec
 >
@@ -509,7 +505,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → a
 >                           → (Map a [PerGMScored], [String])
 >     xaEnterTournament fuzzMap pergm@PerGMKey{ .. } hints (wins, ss) kind
->       | traceNot trace_XAET False        = undefined
+>       | traceIf trace_XAET False        = undefined
 >       | otherwise                        = (Map.insert kind now wins, ss)
 >       where
 >         pergm_                           = pergm{pgkwBag = Nothing}
@@ -518,8 +514,12 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         PerInstrument{ .. }              =
 >           professIsJust (Map.lookup pergm_ zc)                  (unwords["no PerInstrument?!"])
 >
->         soFar          :: [PerGMScored]  = fromMaybe [] (Map.lookup kind wins)
+>         soFar, now     :: [PerGMScored]
+>         soFar                            = fromMaybe [] (Map.lookup kind wins)
 >         now                              = scoredP : soFar
+>         scoredP        :: PerGMScored    =
+>           PerGMScored (computeGrade scope akResult) (toKind kind) akResult pergm iName mnameZ
+>
 >         akResult                         = fromMaybe 0 (Map.lookup kind fuzzMap)
 >
 >         scope          :: [(ZoneHeader, SFZone)]
@@ -529,19 +529,15 @@ tournament among GM instruments and percussion from SoundFont files ============
 >             Just bagI                    →
 >                    maybe
 >                      (error $ unwords [ "xaEnterTournament: lookupZone returned a Nothing for"
->                                       , show pgkwFile, iName, zName])
->                      singleton (lookupZone pZonePairs bagI)
->         pk                               = fromJust $ Map.lookup pergm skMap
->         ps                               = fromJust $ Map.lookup pk preSampleCache
->         mnameZ         :: Maybe String   = pgkwBag >>= \w → Just (sName ps)
+>                                       , show pgkwFile, iName])
+>                      singleton
+>                      (lookupZone pZonePairs bagI)
+>
+>         mnameZ         :: Maybe String   =     pgkwBag
+>                                            >>= lookupZone pZonePairs
+>                                            >>= \(ZoneHeader{ .. }, _) → Just (F.sampleName zhShdr)
 >         zName                            =
 >           professIsJust mnameZ (unwords ["xaEnterTournament: bad pgkwBag"])
->
->         scoredP        :: PerGMScored    =
->           PerGMScored
->             (computeGrade scope akResult)
->             (toKind kind)
->             akResult pergm iName mnameZ 
 >
 >         trace_XAET                       = unwords ["xaEnterTournament", show kind, show mnameZ]
 >
@@ -588,7 +584,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 > formPreSampleCache     :: Array Word SFFile
 >                           → [PreSampleKey]
->                           → IO PreSampleCache
+>                           → IO (Map PreSampleKey PreSample)
 > formPreSampleCache sffiles presks
 >                                          = return $ foldl' smFolder Map.empty presks
 >   where
@@ -600,7 +596,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >       in
 >         Map.insert presk (computePreSample (ssShdrs ! pskwSample) presk) accum
 >
-> formPreInstCache       :: Array Word SFFile → [PerGMKey] → IO PreInstCache
+> formPreInstCache       :: Array Word SFFile → [PerGMKey] → IO (Map PerGMKey PreInstrument)
 > formPreInstCache sffiles pergms          = return $ foldl' imFolder Map.empty pergms
 >   where
 >     imFolder accum pergm@PerGMKey{pgkwFile}
@@ -655,40 +651,30 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 > arrangeCategorizationResults
 >                        :: Map PerGMKey PerInstrument
->                           → PreSampleCache
+>                           → Map PreSampleKey PreSample
 >                           → [(PerGMKey, InstCat)]
->                           → IO ([PerGMKey], [PerGMKey], Map PerGMKey PreSampleKey)
-> arrangeCategorizationResults zc _ jobs   = return $ foldl' pfolder ([], [], Map.empty) jobs
+>                           → IO ([PerGMKey], [PerGMKey])
+> arrangeCategorizationResults zc _ jobs   = return $ foldl' pfolder ([], []) jobs
 >   where
->     pfolder            :: ([PerGMKey], [PerGMKey], Map PerGMKey PreSampleKey)
->                           → (PerGMKey, InstCat)
->                           → ([PerGMKey], [PerGMKey], Map PerGMKey PreSampleKey)
->     pfolder  (pergmsI, pergmsP, skMap)  (pergm, icat)
->                                          = (pergmsI', pergmsP'', skMap'')
+>     pfolder            :: ([PerGMKey], [PerGMKey]) → (PerGMKey, InstCat) → ([PerGMKey], [PerGMKey])
+>     pfolder  (pergmsI, pergmsP)  (pergmI, icat)
+>                                          = (pergmsI', pergmsP'')
 >       where
->         pergmI'                          = pergm{pgkwBag = Nothing}
+>         pergmI'                          = pergmI{pgkwBag = Nothing}
 >         mperI                            = Map.lookup pergmI' zc
 >         perI                             =
 >           professIsJust mperI (unwords["no PerInstrument in cache for", show pergmI'])
->         (pergmsP', skMap')               = instrumentPercList pergm perI
->         (pergmsI', pergmsP'', skMap'')     =
+>         pergmsP'                         = instrumentPercList pergmI perI
+>         (pergmsI', pergmsP'')     =
 >           case icat of
->             InstCatPerc _                → (pergmsI, pergmsP ++ pergmsP', Map.union skMap skMap')
->             InstCatInst                  → (pergm : pergmsI, pergmsP, skMap)
->             _   → error $ unwords ["formMasterPercussionList", "illegal input", show icat]
+>             InstCatPerc _                → (pergmsI, pergmsP ++ pergmsP')
+>             InstCatInst                  → (pergmI : pergmsI, pergmsP)
+>             _   → error $ unwords ["arrangeCategorizationResults", "illegal input", show icat]
 >
->     instrumentPercList :: PerGMKey → PerInstrument → ([PerGMKey], Map PerGMKey PreSampleKey)
+>     instrumentPercList :: PerGMKey → PerInstrument → [PerGMKey]
 >     instrumentPercList pergmI@PerGMKey{ .. } PerInstrument{ .. }
 >                                          =
->       let
->         pWords         :: [(Word, Word)]
->         pWords                           =
->           map (BF.bimap zhwBag (flip professIsJust "zSampleIndex" . zSampleIndex)) (tail pZonePairs)
->         pKeys          :: [(PerGMKey, PreSampleKey)]
->         pKeys                            =
->           map (BF.bimap (\w → pergmI {pgkwBag = Just w}) (PreSampleKey pgkwFile)) pWords
->       in
->         (map fst pKeys, Map.fromList pKeys)
+>        map ((\w → pergmI {pgkwBag = Just w}) . zhwBag . fst)  (tail pZonePairs)
 >
 > openSoundFontFile      :: Word → FilePath → IO SFFile
 > openSoundFontFile wFile filename = do
@@ -919,8 +905,8 @@ extract data from SoundFont per instrument =====================================
 prepare the specified instruments and percussion ======================================================================
 
 > categorize             :: Array Word SFFile
->                           → PreSampleCache
->                           → PreInstCache
+>                           → Map PreSampleKey PreSample
+>                           → Map PerGMKey PreInstrument
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [PerGMKey]
 >                           → IO [(PerGMKey, InstCat)]
@@ -1094,8 +1080,8 @@ prepare the specified instruments and percussion ===============================
 >         trace_CI                         = unwords ["categorizeInst", show pgkwFile, iName, show alts]
 >
 > formZoneCache          :: Array Word SFFile
->                           → PreSampleCache
->                           → PreInstCache
+>                           → Map PreSampleKey PreSample
+>                           → Map PerGMKey PreInstrument
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [(PerGMKey, InstCat)]
 >                           → IO (Map PerGMKey PerInstrument)
@@ -1169,7 +1155,7 @@ define signal functions and instrument maps to support rendering ===============
 
 > prepareInstruments     :: SFRoster → IO [(InstrumentName, Instr (Stereo AudRate))]
 > prepareInstruments sfrost@SFRoster{ .. } = 
->     return $ (Percussion, assignPercussion pmap)                                                   : imap
+>     return $ (Percussion, assignPercussion pmap)                                                 : imap
 >   where
 >     WinningRecord{ .. }                  = zWinningRecord
 >     imap                                 = Map.foldrWithKey imapFolder [] pWinningI
@@ -1463,12 +1449,11 @@ reconcile zone and sample header ===============================================
 > createPlayCache        :: ∀ a. (Ord a) ⇒
 >                           Array Word SFFile
 >                           → Map PerGMKey PerInstrument
->                           → PreSampleCache
->                           → PreInstCache
->                           → Map PerGMKey PreSampleKey
+>                           → Map PreSampleKey PreSample
+>                           → Map PerGMKey PreInstrument
 >                           → Map a PerGMScored
 >                           → IO (Map PlayKey (Recon, Maybe Recon))
-> createPlayCache sffiles zc preSampleCache preInstCache _ wins
+> createPlayCache sffiles zc preSampleCache preInstCache wins
 >                                          =
 >   return
 >     $ if usingPlayCache
