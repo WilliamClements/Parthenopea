@@ -315,13 +315,13 @@ executive ======================================================================
 >       preSampleCache   ← formPreSampleCache zFiles presks
 >       preInstCache     ← formPreInstCache   zFiles pergmsI_
 >
->       jobs             ← categorize zFiles preSampleCache preInstCache zRoster pergmsI_
+>       jobs             ← categorize zFiles preInstCache zRoster pergmsI_
 >       tsCatted         ← getCurrentTime
 >       putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsStarted))
 >
->       zc               ← formZoneCache zFiles preSampleCache preInstCache zRoster jobs
+>       zc               ← formZoneCache zFiles preInstCache zRoster jobs
 >       (pergmsI, pergmsP)
->                        ← arrangeCategorizationResults zc preSampleCache jobs
+>                        ← arrangeCategorizationResults zc jobs
 >       CM.when diagnosticsEnabled
 >         (do
 >           print "pergmsI"
@@ -347,8 +347,8 @@ executive ======================================================================
 >       -- print song/orchestration info to user (can be captured by redirecting standard out)
 >       mapM_ putStrLn pWarnings
 >
->       playCacheI       ← createPlayCache zFiles zc preSampleCache preInstCache pWinningI
->       playCacheP       ← createPlayCache zFiles zc preSampleCache preInstCache pWinningP
+>       playCacheI       ← createPlayCache zFiles zc preInstCache pWinningI
+>       playCacheP       ← createPlayCache zFiles zc preInstCache pWinningP
 >
 >       let sfrost       = preRoster{zPreSampleCache     = preSampleCache
 >                                  , zPreInstCache     = preInstCache
@@ -634,13 +634,12 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 > arrangeCategorizationResults
 >                        :: Map PerGMKey PerInstrument
->                           → Map PreSampleKey PreSample
 >                           → [(PerGMKey, InstCat)]
 >                           → IO ([PerGMKey], [PerGMKey])
-> arrangeCategorizationResults zc _ jobs   = return $ foldl' pfolder ([], []) jobs
+> arrangeCategorizationResults zc jobs     = return $ foldl' pfolder ([], []) jobs
 >   where
 >     pfolder            :: ([PerGMKey], [PerGMKey]) → (PerGMKey, InstCat) → ([PerGMKey], [PerGMKey])
->     pfolder  (pergmsI, pergmsP)  (pergmI, icat)
+>     pfolder (pergmsI, pergmsP) (pergmI, icat)
 >                                          = (pergmsI', pergmsP'')
 >       where
 >         pergmI'                          = pergmI{pgkwBag = Nothing}
@@ -888,12 +887,11 @@ extract data from SoundFont per instrument =====================================
 prepare the specified instruments and percussion ======================================================================
 
 > categorize             :: Array Word SFFile
->                           → Map PreSampleKey PreSample
 >                           → Map PerGMKey PreInstrument
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [PerGMKey]
 >                           → IO [(PerGMKey, InstCat)]
-> categorize sffiles preSampleCache preInstCache rost pergms
+> categorize sffiles preInstCache rost pergms
 >                                          = do CM.foldM winnow [] pergms
 >   where
 >     winnow             :: [(PerGMKey, InstCat)] → PerGMKey → IO [(PerGMKey, InstCat)]
@@ -1063,12 +1061,11 @@ prepare the specified instruments and percussion ===============================
 >         trace_CI                         = unwords ["categorizeInst", show pgkwFile, iName, show alts]
 >
 > formZoneCache          :: Array Word SFFile
->                           → Map PreSampleKey PreSample
 >                           → Map PerGMKey PreInstrument
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [(PerGMKey, InstCat)]
 >                           → IO (Map PerGMKey PerInstrument)
-> formZoneCache sffiles preSampleCache preInstCache rost jobs
+> formZoneCache sffiles preInstCache rost jobs
 >                                          = return zc
 >   where
 >     zc                                   =
@@ -1402,11 +1399,10 @@ reconcile zone and sample header ===============================================
 > createPlayCache        :: ∀ a. (Ord a) ⇒
 >                           Array Word SFFile
 >                           → Map PerGMKey PerInstrument
->                           → Map PreSampleKey PreSample
 >                           → Map PerGMKey PreInstrument
 >                           → Map a PerGMScored
 >                           → IO (Map PlayKey (Recon, Maybe Recon))
-> createPlayCache sffiles zc preSampleCache preInstCache wins
+> createPlayCache sffiles zc preInstCache wins
 >                                          =
 >   return
 >     $ if usingPlayCache
