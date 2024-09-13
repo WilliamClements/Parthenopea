@@ -12,13 +12,7 @@ Synthesizer
 William Clements
 May 14, 2023
 
-> module Synthesizer ( eutSynthesize, Recon( .. ), defS, defT, stands, scanningOutput, findOutliers, normalizingOutput
->                    , scoreBool, SampleType( .. ), qqDesires', toMaybeSampleType, toSampleType
->                    , isConfirmed, isConfirmed', isPossible, isPossible'
->                    , Desires( .. )
->                    , deriveEnvelope, qqDesireReStereo, usePitchCorrection, deriveEffects
->                    , useAttenuation, weighHints, weighStereo, weigh24Bit, weighResolution, weighConformance
->                    , weighFuzziness, eutDriver, Effects( .. ) ) where
+> module Synthesizer where
 >
 > import qualified Codec.SoundFont         as F
 > import Control.Arrow
@@ -805,91 +799,9 @@ Flags for customization ========================================================
 > useDCBlock                               = qqUseEffectDCBlock           defS
 > normalizingOutput                        = qqNormalizingOutput          defS
 > scanningOutput                           = qqScanningOutput             defS
->
->
-> data ScoringSettings =
->   ScoringSettings {
->     qqDesireReStereo       :: Desires
->   , qqDesireRe24Bit        :: Desires
->   , qqDesireReSplits       :: Desires
->   , qqDesireReConformance  :: Desires
->   , qqDesireReFuzzy        :: Desires
->
->   , qqWeighHints           :: Rational
->   , qqWeighStereo          :: Rational
->   , qqWeigh24Bit           :: Rational
->   , qqWeighResolution      :: Rational
->   , qqWeighConformance     :: Rational
->   , qqWeighFuzziness       :: Rational
->
->   , qqFFThresholdPossible  :: Double
->   , qqFFThresholdStands    :: Double
->   , qqFFThresholdConfirmed :: Double
->
->   , qqEnableSampleAnalysis :: Bool} deriving (Eq, Show)
->
-> weighHints                               = qqWeighHints                 defT
-> weighStereo                              = qqWeighStereo                defT
-> weigh24Bit                               = qqWeigh24Bit                 defT
-> weighResolution                          = qqWeighResolution            defT
-> weighConformance                         = qqWeighConformance           defT
-> weighFuzziness                           = qqWeighFuzziness             defT
->
-> isPossible                               = qqFFThresholdPossible        defT
-> stands                                   = qqFFThresholdStands          defT
-> isConfirmed                              = qqFFThresholdConfirmed       defT
->
-> isPossible' fuzz                         = fuzz > qqFFThresholdPossible defT
-> stands' fuzz                             = fuzz > qqFFThresholdStands defT
-> isConfirmed' fuzz                        = fuzz > qqFFThresholdConfirmed defT
->
-> sampleAnalyisEnabled                     = qqEnableSampleAnalysis       defT
->
-> data Desires =
->   DAllOff | DPreferOff | DNeutral | DPreferOn | DAllOn deriving (Eq, Show)
->
-> scoreDesire            :: Desires → Rational
-> scoreDesire d = case d of
->   DAllOff          → (-1)
->   DPreferOff       → (-1)
->   DNeutral         → 0
->   DPreferOn        → 1
->   DAllOn           → 1
->
-> scoreBool              :: Bool → Rational
-> scoreBool b = if b then 1 else (-1)
->
-> qqDesires              :: [Desires]      = [qqDesireReStereo      defT
->                                           , qqDesireRe24Bit       defT
->                                           , qqDesireReSplits      defT
->                                           , qqDesireReConformance defT
->                                           , qqDesireReFuzzy       defT]
-> qqDesires'             :: [Double]       = map (fromRational . scoreDesire) qqDesires
 
 Turn Knobs Here =======================================================================================================
 
-> defT                   :: ScoringSettings
-> defT =
->   ScoringSettings {
->     qqDesireReStereo                     = DPreferOn
->   , qqDesireRe24Bit                      = DPreferOn
->   , qqDesireReSplits                     = DPreferOn
->   , qqDesireReConformance                = DPreferOn
->   , qqDesireReFuzzy                      = DPreferOn
->
->   , qqWeighHints                         = 10
->   , qqWeighStereo                        = 2
->   , qqWeigh24Bit                         = 0
->   , qqWeighResolution                    = 3/2
->   , qqWeighConformance                   = 3
->   , qqWeighFuzziness                     = 3
->
->   , qqFFThresholdPossible                = 50
->   , qqFFThresholdStands                  = 150
->   , qqFFThresholdConfirmed               = 250
->
->   , qqEnableSampleAnalysis               = False} 
->
 > defS                   :: SynthSettings
 > defS =
 >   SynthSettings {

@@ -59,7 +59,7 @@ library
     -- import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  Rosters, Synthesizer, Modulation
+    exposed-modules:  Rosters, Synthesizer, Modulation, Scoring
 
     -- Modules included in this library but not exported.
     other-modules:  Chart, SynthesizerTest, ModulationTest, SynToolkit, Discrete, 
@@ -122,6 +122,7 @@ executable h
         ModulationTest
         Percussion
         Rosters
+        Scoring
         SoundFont
         SunPyg
         SynthesizerTest

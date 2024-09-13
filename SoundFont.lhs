@@ -43,6 +43,7 @@ April 16, 2023
 > import Euterpea.Music
 > import Modulation
 > import Parthenopea
+> import Scoring
 > import Synthesizer
 > import qualified System.FilePattern.Directory
 >                                          as FP
@@ -87,11 +88,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     pgkwFile           :: Word
 >   , pgkwInst           :: Word
 >   , pgkwBag            :: Maybe Word} deriving (Eq, Ord, Show)
->
-> data ArtifactGrade =
->   ArtifactGrade {
->     pScore             :: Int
->   , pEmpiricals        :: [Double]} deriving (Show)
 >
 > data PerGMScored =
 >   PerGMScored {
@@ -271,6 +267,8 @@ Instrument categories: instrument, percussion, disqualified
 >     xItem              :: PerGMKey
 >   , xNoteOn            :: NoteOn} deriving (Eq, Ord, Show)
 > type PlayValue                           = (Recon, Maybe Recon)
+>
+> theGrader              :: Grader         = grader ssWeights 500
 
 executive =============================================================================================================
 
@@ -543,10 +541,10 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >         computeGrade   :: [(ZoneHeader, SFZone)] → AgainstKindResult → ArtifactGrade
 >         computeGrade zs againstKindResult
->           | traceIf trace_CG False       = undefined
->           | otherwise                    = ArtifactGrade (round (500 * sum weightedScores)) baseScores
+>                                          = gradeEmpiricals theGrader empiricals
 >           where
->             empiricals :: [Double]       = [   fromRational $ scoreBool $ isStereoInst zs
+>             empiricals :: [Double]       = [   foldHints hints
+>                                              , fromRational $ scoreBool $ isStereoInst zs
 >                                              , fromRational $ scoreBool $ is24BitInst zs
 >                                              , computeResolution kind rost zs
 >                                              , fromRational $ scoreBool $ all zoneConforms zs
@@ -555,21 +553,6 @@ tournament among GM instruments and percussion from SoundFont files ============
 >             fuzz       :: Double
 >               | howgood > 0.000_001      = max 0 (logBase 2 howgood) * fuzzFactor kind
 >               | otherwise                = 0
->             ss         :: [Double]       = zipWith (*) qqDesires' empiricals
->             baseScores :: [Double]       = [  foldHints hints
->                                             , head ss
->                                             , ss !! 1
->                                             , ss !! 2
->                                             , ss !! 3
->                                             , ss !! 4]
->             weightedScores
->                        :: [Double]       = zipWith (*) baseScores (map fromRational ssWeights)
->
->             trace_CG                     =
->               unwords [   "computeGrade " , show pgkwFile, show iName
->                         , " and "         , show baseScores
->                         , " X "           , show ssWeights
->                         , " = "           , show weightedScores]
 >   
 > formMasterSampleList   :: Array Word SFFile → IO [PreSampleKey]
 > formMasterSampleList sffiles             = return $ concatMap formFS sffiles
@@ -1022,7 +1005,7 @@ prepare the specified instruments and percussion ===============================
    "now", sequence through the alternatives, categorizing as follows
    a. Just InstCatInst           an inst bearing one inst, or
    b. Just InstCatPerc           an inst bearing one or more percs, or
-   c. Just InstCatDisq           an inst disqualified from all tournaments, or else
+   c. Just InstCatDisq           an inst disqualified from tournaments, or
    d. Nothing                    undecided
 
 >         alts           :: [Maybe InstCat]
@@ -1144,12 +1127,6 @@ prepare the specified instruments and percussion ===============================
 >             zh                           = ZoneHeader bagIndex (ssShdrs ! si)
 >
 >             trace_BZ                     = unwords ["buildZone", show pgkwFile, iName, show bagIndex]
->
-> pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Bool
-> pinnedKR pss (p1, p2)                    = (p2 < p1 + 4) && all available [p1 .. p2]
->   where
->     available          :: AbsPitch → Bool
->     available ap                         = maybe False (`elem` pss) (pitchToPerc ap)
 
 define signal functions and instrument maps to support rendering ======================================================
 
@@ -1298,30 +1275,6 @@ zone selection for rendering ===================================================
 >     trace_SOZ                             = unwords ["scoreOneZone", show scoreByPitch
 >                                                    , "+",            show scoreByVelocity
 >                                                    , "for",          show zhwBag]
->
-> scorePitchDistance     :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
-> scorePitchDistance cand mrange           =
->   case mrange of
->     Nothing                   → 1000
->     Just (rangeMin, rangeMax) → let
->                                   dist1  = abs $ cand - rangeMin
->                                   dist2  = abs $ cand - rangeMax
->                                 in
->                                   if cand >= rangeMin && cand <= rangeMax
->                                   then 100 * max dist1 dist2
->                                   else 1000 * min dist1 dist2
->
-> scoreVelocityDistance  :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
-> scoreVelocityDistance cand mrange        =
->   case mrange of
->     Nothing                   → 100
->     Just (rangeMin, rangeMax) → let
->                                   dist1  = abs $ cand - rangeMin
->                                   dist2  = abs $ cand - rangeMax
->                                 in
->                                   if cand >= rangeMin && cand <= rangeMax
->                                   then 10 * max dist1 dist2
->                                   else 100 * min dist1 dist2
 
 reconcile zone and sample header ======================================================================================
 
@@ -1559,12 +1512,6 @@ emit standard output text detailing what choices we made for rendering GM items 
 >                             , ToFieldL       showEmp                   n
 >                             , emitShowR      showAkr                   8]
 >
-> showEmpiricals         :: [Double] → (String, Int)
-> showEmpiricals ds                        = (concatMap fun ds, 7 * length ds)
->   where
->     fun                :: Double → String
->     fun x                                = fillFieldL 6 (show $ roundBy 10 x)
->
 > showDisqMsgs   :: [String] → IO ()
 > showDisqMsgs ms                = do
 >   mapM_ showIfThere ms
@@ -1591,49 +1538,5 @@ emit standard output text detailing what choices we made for rendering GM items 
 > renderDisqReason DisqRomBased            = Just (unwords["ROM-based"])
 > renderDisqReason DisqNoPercZones         = if qqIncludeUnused then Just (unwords["unused zone liat"]) else Nothing
 > renderDisqReason DisqZoneLinkage         = Just (unwords["zone linkage"])
-
-Scoring stuff =========================================================================================================
- 
-> data SSHint =
->   DLow
->   | DMed
->   | DHigh
->   | DScore Double deriving Show
->
-> scoreHint              :: SSHint → Rational
-> scoreHint h                              = case h of
->                                            DLow            → -1
->                                            DMed            → 0
->                                            DHigh           → 1
->                                            DScore x        → 0 
->             
-> foldHints              :: [SSHint] → Double
-> foldHints                                = foldr ((+) . fromRational . scoreHint) 0
->
-> ssWeights              :: [Rational]     = [ weighHints
->                                            , weighStereo
->                                            , weigh24Bit
->                                            , weighResolution
->                                            , weighConformance
->                                            , weighFuzziness ]
->
-> -- hints
-> data HintId =
->   HintId {
->     pNameF             :: String
->   , pNameI             :: String
->   , mpNameZ            :: Maybe String} deriving (Eq, Ord, Show)
->
-> type HintBody          = String
->
-> myHints                :: [(HintId, HintBody)]
->                                          =
->   [
->       (HintId "editHiDef.sf2"             "Rock Tom"            (Just "TOM_S446.446T.L08")      , "analyze")
->     , (HintId "editHiDef.sf2"             "Tuba"                (Just "Tuba.A-A*B")             , "analyze")
->   ]
->                           
-> qqHints                :: Map HintId HintBody
-> qqHints                                  = Map.fromList myHints
 
 The End

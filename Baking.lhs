@@ -18,6 +18,7 @@ December 16, 2022
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
 > import Parthenopea
+> import Scoring
 > import System.Random ( mkStdGen )
   
 Bake ==================================================================================================================
