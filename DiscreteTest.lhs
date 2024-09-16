@@ -192,7 +192,7 @@ Feed chart =====================================================================
 >         targetQ sampleRate useFastFourier dataLen
 >
 >     cdsigFr            :: DiscreteSig (Complex Double)
->     cdsigFr                              = memoizedComputeIR kspec     
+>     cdsigFr                              = memoizedComputeFR kspec     
 >         
 >     vecR, vecI         :: VU.Vector Double
 >     vecR                                 = VU.map realPart (dsigVec cdsigFr)

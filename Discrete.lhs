@@ -61,7 +61,7 @@ Discrete approach ==============================================================
 >     tag'                                = if ksFast then "FR!" else "IR!"
 >     vec'                                = VU.fromList ys'
 >
-> memoizedComputeIR = memo computeFR
+> memoizedComputeFR = memo computeFR
 >
 > applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
 > applyConvolutionMono lowP secsToPlay sIn
@@ -195,7 +195,7 @@ Discrete approach ==============================================================
 >
 >     cdsigIR            :: DiscreteSig (Complex Double)
 >     cdsigIR                              =
->       memoizedComputeIR lowpassKs{ksLen = VU.length (dsigVec cdsigIn), ksSr = 44_100}
+>       memoizedComputeFR lowpassKs{ksLen = VU.length (dsigVec cdsigIn), ksSr = 44_100}
 >
 >     x1, x2, x3         :: VU.Vector (Complex Double)
 >     x1                                   = dsigVec cdsigIn
@@ -247,7 +247,7 @@ Discrete approach ==============================================================
 >       fromRawVector ("toFreak " ++ dsigTag dsigIn') (VU.fromList cdubsIn)
 >
 >     cdsigFR            :: DiscreteSig (Complex Double)
->     cdsigFR                              = memoizedComputeIR lowpassKs{ksLen = length cdubsIn, ksSr = 44_100}
+>     cdsigFR                              = memoizedComputeFR lowpassKs{ksLen = length cdubsIn, ksSr = 44_100}
 >
 >     tags                                 = (dsigTag cdsigIn, dsigTag cdsigFR)
 >     vecs                                 = (dsigVec cdsigIn, dsigVec cdsigFR)

@@ -37,7 +37,7 @@ Rosters support ================================================================
 > rmain = do
 >   args ← getArgs
 >   let playAll          = (length args == 1) && ("all" == head args)
->   let doBench          = (length args == 1) && ("bench" == head args)
+>   let doProf           = (length args == 1) && ("prof" == head args)
 >
 >   _ ← if playAll
 >         then do
@@ -50,8 +50,8 @@ Rosters support ================================================================
 >                   True
 >           putStrLn "Unit tests completed successfully"
 >           doEverything combineAll
->         else if doBench
->           then bench
+>         else if doProf
+>           then profileSF2s
 >           else doEverything sj -- modulationTest003-- cjingles -- pitchSamples 80
 >   return ()
 >
@@ -106,14 +106,14 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj = ejingles
+> sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("pa1"         , pendingtonArnt 1)]
 >    -- [ ("bill1"       , bill 1)]
->    -- [ ("gold"        , gold)]
+>    -- [ ("basicLick"   , basicLick)]
 >    -- [ ("theFanfare"  , theFanfare False)]
->    -- [ ("deyDumpDum"  , deyDumpDum)]
+>    [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 206673)]
 >    -- [ ("slot"        , slot 1   )]
 >    -- [ ("dh"          , deathlessHorsie)]

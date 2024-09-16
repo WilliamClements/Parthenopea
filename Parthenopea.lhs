@@ -29,6 +29,7 @@ December 12, 2022
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
+> import Data.Char
 > import Data.Complex
 > import Data.Either
 > import Data.Graph (Graph)
@@ -352,13 +353,13 @@ also
 >       MusicBox                  → Just (( C, 4), ( E, 7)) -- made up out of thin air
 >       Percussion                → Nothing -- was Just wideOpen
 >       -- Chimes
->       AcousticGuitarNylon       → Just (( E, 2), ( B, 5))
->       AcousticGuitarSteel       → Just (( E, 2), ( B, 5))
->       ElectricGuitarJazz        → Just (( E, 2), ( B, 5))
+>       AcousticGuitarNylon       → Just (( E, 2), ( B, 6))
+>       AcousticGuitarSteel       → Just (( E, 2), ( B, 6))
+>       ElectricGuitarJazz        → Just (( E, 2), ( B, 6))
 >       ElectricGuitarClean       → Just (( E, 2), ( B, 6))
->       ElectricGuitarMuted       → Just (( E, 2), ( B, 5))
->       OverdrivenGuitar          → Just (( E, 2), ( B, 5))
->       DistortionGuitar          → Just (( E, 2), ( B, 5))
+>       ElectricGuitarMuted       → Just (( E, 2), ( B, 6))
+>       OverdrivenGuitar          → Just (( E, 2), ( B, 6))
+>       DistortionGuitar          → Just (( E, 2), ( B, 6))
 >       OrchestralHarp            → Just (( C, 1), (Fs, 7))
 >       AcousticBass              → Just (( E, 1), ( C, 8))
 >       ElectricBassFingered      → Just (( E, 1), ( C, 8))
@@ -770,6 +771,20 @@ music converter ================================================================
 >   untrie                                 = untrieGeneric unKernelSpecTrie
 >   enumerate                              = enumerateGeneric unKernelSpecTrie
 >
+> data ZoneLink                            =
+>   ZoneLink {
+>     zlwFile            :: Word
+>   , zlwInst            :: Word
+>   , zlwBag             :: Word} deriving (Eq, Generic, Ord, Show)
+>
+> defZoneLink                             = ZoneLink 0 0 0
+>
+> instance HasTrie ZoneLink where
+>   newtype (ZoneLink :->: b)              = ZoneLinkTrie { unZoneLinkTrie :: Reg ZoneLink :->: b } 
+>   trie                                   = trieGeneric ZoneLinkTrie 
+>   untrie                                 = untrieGeneric unZoneLinkTrie
+>   enumerate                              = enumerateGeneric unZoneLinkTrie
+>
 > eutSplit               :: ∀ p . Clock p ⇒ Signal p Double (Double, Double)
 > eutSplit                                 =
 >   proc sIn → do
@@ -935,6 +950,9 @@ Conversion functions and general helpers =======================================
 >     (not $ isNaN y || isInfinite y || isDenormalized y || abs y > 200_000)
 >     (msg ++ " bad Double = " ++ show y)
 >                                              y
+>
+> goodName               :: String → Bool
+> goodName name                            = all isPrint name && length (show name) - length name == 2
 >
 > profess                :: Bool → String → a → a
 > profess assertion msg something          = if not assertion

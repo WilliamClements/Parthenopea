@@ -384,10 +384,10 @@ TC =============================================================================
 > bassTranspose                            = 0
 > tcTempo                                  = 1
 >
-> tcLead_                                  = makePitched Violin        tcTranspose leadTranspose  100
-> tcRepeat_                                = makePitched FrenchHorn    tcTranspose repeatTranspose 50
-> tcBass_                                  = makePitched FretlessBass  tcTranspose bassTranspose   85
-> tcPerc_                                  = makeNonPitched                                       100
+> tcLead_                                  = makePitched OverdrivenGuitar        tcTranspose leadTranspose  100
+> tcRepeat_                                = makePitched FrenchHorn              tcTranspose repeatTranspose 50
+> tcBass_                                  = makePitched FretlessBass            tcTranspose bassTranspose   85
+> tcPerc_                                  = makeNonPitched                                                 100
 >
 > basicLick :: DynMap → Music (Pitch, [NoteAttribute])
 > basicLick dynMap =

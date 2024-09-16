@@ -15,7 +15,7 @@ SoundFont
 William Clements
 April 16, 2023
 
-> module SoundFont (doEverything) where
+> module SoundFont (doEverything, profileSF2s) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
@@ -24,14 +24,14 @@ April 16, 2023
 > import qualified Data.Bifunctor          as BF
 > import Data.Char
 > import Data.Either
-> import Data.Foldable ( toList )
+> import Data.Foldable ( toList, for_ )
 > import Data.Int ( Int8, Int16 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
 > import Data.List ( find, foldr, minimumBy, singleton, foldl', sortOn, partition )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
-> import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe, listToMaybe )
+> import Data.Maybe ( isJust, fromJust, fromMaybe, mapMaybe )
 > import Data.Ord ( Down(Down), comparing )
 > import Data.Time.Clock ( UTCTime, diffUTCTime, getCurrentTime )
 > import Debug.Trace ( traceIO )
@@ -169,9 +169,10 @@ Instrument categories: instrument, percussion, disqualified
 > data ZoneDigest =
 >   ZoneDigest {
 >     zdKeyRange         :: Maybe (Word, Word)
+>   , zdVelRange         :: Maybe (Word, Word)
 >   , zdSampleIndex      :: Maybe Word} deriving Show
 > defDigest              :: ZoneDigest
-> defDigest                                = ZoneDigest Nothing Nothing
+> defDigest                                = ZoneDigest Nothing Nothing Nothing
 >
 > data SFZone =
 >   SFZone {
@@ -270,6 +271,67 @@ Instrument categories: instrument, percussion, disqualified
 >
 > theGrader              :: Grader         = grader ssWeights 500
 
+profiler =============================================================================================================
+
+> profileSF2s            :: IO ()
+> profileSF2s                              = do
+>   putStrLn "profileSF2s..."
+>   fps                  ← FP.getDirectoryFiles "." (singleton "*.sf2")
+>   mapM_ profileSF2 fps
+>
+> profileSF2             :: FilePath → IO ()
+> profileSF2 fp                            = do
+>   sffile@SFFile{ .. }                    ← openSoundFontFile 0 fp
+>   let SoundFontArrays{ .. }              = zArrays
+>   putStrLn $ unwords [   show $ length ssInsts
+>                      ,   show $ length ssIBags
+>                      ,   show $ length ssIGens
+>                      ,   show $ length ssIMods
+>                      ,   show $ length ssShdrs  ]
+>   let lInst                              = length ssInsts
+>   putStrLn ""
+>   mapM_ (profileInst sffile) (deriveRange 0 (lInst-1))
+>   where
+>     profileInst            :: SFFile → Int → IO ()
+>     profileInst sffile@SFFile{ .. } ii = do
+>       CM.when diagnosticsEnabled (print ii)
+>       mapM_ doOne oList
+>       where
+>         SoundFontArrays{ .. }            = zArrays
+>         iinst                            = ssInsts ! fromIntegral ii
+>         jinst                            = ssInsts ! fromIntegral (ii+1)
+>
+>         sInst                            = F.instName iinst
+>
+>         ibagi                            = F.instBagNdx iinst
+>         jbagi                            = F.instBagNdx jinst
+>         (gIx, oIx)                       = profess
+>                                              (ibagi <= jbagi)
+>                                              (unwords["SoundFont file corrupt (profileInst)"])
+>                                              (singleton ibagi, deriveRange (ibagi+1) (jbagi-1))
+>         gList                            = map (buildZone sffile defZone)        gIx
+>         gZone                            = (snd . head)                          gList
+>         oList                            = map (buildZone sffile gZone)          oIx
+>
+>         doOne    :: (ZoneHeader, SFZone) → IO ()
+>         doOne zone                       = do
+>           let mout                       = profileZone zone
+>           for_ mout putStrLn
+> 
+>         profileZone    :: (ZoneHeader, SFZone) → Maybe String
+>         profileZone (ZoneHeader{ .. }, SFZone{ .. })
+>                                          =
+>           let
+>             sSample                      = F.sampleName zhShdr
+>             sout                         =
+>               unwords [show sInst, ","
+>                      , show sSample, "======="
+>                      , show zInitFc
+>                      , show zInitQ, "=======", show zKeyRange]
+>           in
+>             (    zInitQ >>= (\x -> if x == 0 then Nothing else Just sSample))
+>                >> (if goodName sInst && goodName sSample then Just sout else Nothing)
+
 executive =============================================================================================================
 
 > doEverything           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
@@ -350,7 +412,7 @@ executive ======================================================================
 >       playCacheI       ← createPlayCache zFiles zc preInstCache pWinningI
 >       playCacheP       ← createPlayCache zFiles zc preInstCache pWinningP
 >
->       let sfrost       = preRoster{zPreSampleCache     = preSampleCache
+>       let sfrost       = preRoster{zPreSampleCache   = preSampleCache
 >                                  , zPreInstCache     = preInstCache
 >                                  , zZoneCache        = zc
 >                                  , zWinningRecord    = wins
@@ -696,7 +758,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     ts1                                  ← getCurrentTime
 >     ding@Shredding{ .. }                 ← shredMusic (song Map.empty)
 >     let dynMap                           = makeDynMap ding
->     CM.unless (null (Map.assocs dynMap)) (traceIO ("dynMap " ++ show dynMap))
+>     CM.unless (null (Map.assocs dynMap)) (traceIO $ unwords ["dynMap", show dynMap])
 >     let ks                               = Map.keys shRanges
 >     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
 >     let (esI, esP)                       = printChoices sfrost is shMsgs ps
@@ -947,7 +1009,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         checkName      :: String → String → Maybe InstCat
 >         checkName strType strName        =
->           if length strName <= 20 && length (show strName) <= 22
+>           if goodName strName
 >             then Nothing
 >             else Just (InstCatDisq $ DisqNameCorrupt strType (show strName))
 >
@@ -971,6 +1033,28 @@ prepare the specified instruments and percussion ===============================
 >             sOut                         = IntSet.fromList $ mapMaybe links zs
 >
 >             trace_CL                     = unwords ["checkLinkage", show sIn, show sOut]       
+>
+>         checkRanges    :: Maybe InstCat
+>         checkRanges
+>           | traceNot trace_CR False      = undefined
+>           | otherwise                    =
+>           if all (<= 1) histResult then Nothing else Just $ InstCatDisq DisqZoneRanges
+>           where
+>             histSeed, histResult
+>                        :: Array Int Int
+>             histSeed                     = listArray (0, 128 * 128 - 1) (repeat 0)
+>             histResult                   = foldl' folder histSeed (map (formPair . snd) zs)
+>
+>             formPair   :: ZoneDigest → ((Int, Int), (Int, Int))
+>             formPair ZoneDigest{ .. }    = tracer "ij" 
+>               (fromMaybe (0, 127) (integralize zdKeyRange), fromMaybe (0, 127) (integralize zdVelRange))
+>
+>             folder     :: Array Int Int → ((Int, Int), (Int, Int)) → Array Int Int
+>             folder hist ((p1,p2),(v1,v2))
+>                                          =
+>               accum (+) hist ([(i + 128 * j, 1) | i ← [p1..p2], j ← [v1..v2]])
+>                   
+>             trace_CR                     = unwords ["checkRanges"]       
 >
 >         indices, links :: (ZoneHeader, ZoneDigest) → Maybe Int
 >         indices (zh, zd@ZoneDigest{ .. })
@@ -1011,6 +1095,7 @@ prepare the specified instruments and percussion ===============================
 >           [ corrupt
 >           , if any hasRom zs then Just (InstCatDisq DisqRomBased) else Nothing
 >           , checkLinkage
+>           , checkRanges
 >           , maybeSettle isConfirmed catInst                  ffInst'
 >           , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
 >           , maybeSettle stands      catInst                  ffInst'
@@ -1055,6 +1140,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         inspectGen     :: F.Generator → ZoneDigest → ZoneDigest 
 >         inspectGen (F.KeyRange i j) zd   = zd {zdKeyRange = Just (i, j)}
+>         inspectGen (F.VelRange i j) zd   = zd {zdVelRange = Just (i, j)}
 >         inspectGen (F.SampleIndex w) zd  = zd {zdSampleIndex = Just w}
 >         inspectGen _ zd                  = zd
 >
@@ -1076,7 +1162,7 @@ prepare the specified instruments and percussion ===============================
 >       | traceIf trace_CPI False          = undefined
 >       | otherwise                        = PerInstrument iinst (gList ++ oList) 
 >       where
->         SFFile{ .. }                     = sffiles ! pgkwFile
+>         sffile@SFFile{ .. }              = sffiles ! pgkwFile
 >         PreInstrument{ .. }              = fromJust $ Map.lookup pergm preInstCache
 >         SoundFontArrays{ .. }            = zArrays
 >         iinst                            = ssInsts ! pgkwInst
@@ -1091,39 +1177,38 @@ prepare the specified instruments and percussion ===============================
 >         oIx                              = case icat of
 >                                              InstCatPerc ws        → ws
 >                                              _                     → oIx_
->         gList                            = map (buildZone defZone)               gIx
->         gZone                            = (snd . head)                          gList
->         oList                            = map (buildZone gZone)                 oIx
+>         gList                            = map (buildZone sffile defZone)               gIx
+>         gZone                            = (snd . head)                                 gList
+>         oList                            = map (buildZone sffile gZone)                 oIx
 >
 >         trace_CPI                        = unwords ["computePerInst", show pgkwFile, zFilename, iName]
 >
->         buildZone      :: SFZone → Word → (ZoneHeader, SFZone)
->         buildZone fromZone bagIndex
->           | traceIf trace_BZ False       = undefined
->           | otherwise                    = (zh, zone)
->           where
->             xgeni                        = F.genNdx $ ssIBags!bagIndex
->             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
->             xmodi                        = F.modNdx $ ssIBags!bagIndex
->             ymodi                        = F.modNdx $ ssIBags!(bagIndex + 1)
+> buildZone              :: SFFile → SFZone → Word → (ZoneHeader, SFZone)
+> buildZone SFFile{ .. } fromZone bagIndex
+>                                  = (zh, zone)
+>   where
+>     SoundFontArrays{ .. }        = zArrays
 >
->             gens       :: [F.Generator]  =
->               profess
->                 (xgeni <= ygeni)
->                 (unwords["SoundFont file", show pgkwFile, zFilename, "corrupt (buildZone gens)"])
->                 (map (ssIGens !) (deriveRange xgeni ygeni))
->             mods       :: [(Word, F.Mod)]
->                                          =
->               profess
->                 (xmodi <= ymodi)
->                 (unwords["SoundFont file", show pgkwFile, zFilename, "corrupt (buildZone mods)"])
->                 (zip [10_000..] (map (ssIMods !) (deriveRange xmodi ymodi)))
+>     xgeni                        = F.genNdx $ ssIBags!bagIndex
+>     ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
+>     xmodi                        = F.modNdx $ ssIBags!bagIndex
+>     ymodi                        = F.modNdx $ ssIBags!(bagIndex + 1)
 >
->             zone@SFZone{ .. }            = foldr addMod (foldl' addGen fromZone gens) mods
->             si                           = fromMaybe 0 zSampleIndex
->             zh                           = ZoneHeader bagIndex (ssShdrs ! si)
+>     gens       :: [F.Generator]  =
+>       profess
+>         (xgeni <= ygeni)
+>         (unwords["SoundFont file", show zWordF, zFilename, "corrupt (buildZone gens)"])
+>         (map (ssIGens !) (deriveRange xgeni ygeni))
+>     mods       :: [(Word, F.Mod)]
+>                                  =
+>       profess
+>         (xmodi <= ymodi)
+>         (unwords["SoundFont file", show zWordF, zFilename, "corrupt (buildZone mods)"])
+>         (zip [10_000..] (map (ssIMods !) (deriveRange xmodi ymodi)))
 >
->             trace_BZ                     = unwords ["buildZone", show pgkwFile, iName, show bagIndex]
+>     zone@SFZone{ .. }                    = foldr addMod (foldl' addGen fromZone gens) mods
+>     si                                   = fromMaybe 0 zSampleIndex
+>     zh                                   = ZoneHeader bagIndex (ssShdrs ! si)
 
 define signal functions and instrument maps to support rendering ======================================================
 
@@ -1521,7 +1606,8 @@ emit standard output text detailing what choices we made for rendering GM items 
 >   | DisqNarrow
 >   | DisqRomBased
 >   | DisqNoPercZones
->   | DisqZoneLinkage deriving Show
+>   | DisqZoneLinkage
+>   | DisqZoneRanges deriving Show
 >
 > qqIncludeUnused          :: Bool         = False
 >
@@ -1529,10 +1615,11 @@ emit standard output text detailing what choices we made for rendering GM items 
 > renderDisqReason DisqUnknown             = Just (unwords["unrecognized"])
 > renderDisqReason (DisqNameCorrupt strType strName)
 >                                          = Just (unwords["corrupt", strType, strName])
-> renderDisqReason DisqSampleHeaderCorrupt = Just (unwords["corrupt e.g. sample rate"])
+> renderDisqReason DisqSampleHeaderCorrupt = Just (unwords["corrupt header; e.g. sample rate"])
 > renderDisqReason DisqNarrow              = if qqIncludeUnused then Just (unwords["narrow inst scope"]) else Nothing
 > renderDisqReason DisqRomBased            = Just (unwords["ROM-based"])
 > renderDisqReason DisqNoPercZones         = if qqIncludeUnused then Just (unwords["unused zone liat"]) else Nothing
 > renderDisqReason DisqZoneLinkage         = Just (unwords["zone linkage"])
+> renderDisqReason DisqZoneRanges          = Just (unwords["zone ranges"])
 
 The End
