@@ -771,20 +771,6 @@ music converter ================================================================
 >   untrie                                 = untrieGeneric unKernelSpecTrie
 >   enumerate                              = enumerateGeneric unKernelSpecTrie
 >
-> data ZoneLink                            =
->   ZoneLink {
->     zlwFile            :: Word
->   , zlwInst            :: Word
->   , zlwBag             :: Word} deriving (Eq, Generic, Ord, Show)
->
-> defZoneLink                             = ZoneLink 0 0 0
->
-> instance HasTrie ZoneLink where
->   newtype (ZoneLink :->: b)              = ZoneLinkTrie { unZoneLinkTrie :: Reg ZoneLink :->: b } 
->   trie                                   = trieGeneric ZoneLinkTrie 
->   untrie                                 = untrieGeneric unZoneLinkTrie
->   enumerate                              = enumerateGeneric unZoneLinkTrie
->
 > eutSplit               :: ∀ p . Clock p ⇒ Signal p Double (Double, Double)
 > eutSplit                                 =
 >   proc sIn → do

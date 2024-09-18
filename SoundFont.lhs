@@ -3,12 +3,15 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
 > {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE DeriveGeneric #-}
 > {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TupleSections #-}
+> {-# LANGUAGE TypeFamilies #-} 
+> {-# LANGUAGE TypeOperators #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 SoundFont
@@ -32,6 +35,7 @@ April 16, 2023
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, mapMaybe )
+> import Data.MemoTrie
 > import Data.Ord ( Down(Down), comparing )
 > import Data.Time.Clock ( UTCTime, diffUTCTime, getCurrentTime )
 > import Debug.Trace ( traceIO )
@@ -41,6 +45,7 @@ April 16, 2023
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, Mono, Stereo, Clock, Signal )
 > import Euterpea.Music
+> import GHC.Generics (Generic) 
 > import Modulation
 > import Parthenopea
 > import Scoring
@@ -87,7 +92,12 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   PerGMKey {
 >     pgkwFile           :: Word
 >   , pgkwInst           :: Word
->   , pgkwBag            :: Maybe Word} deriving (Eq, Ord, Show)
+>   , pgkwBag            :: Maybe Word} deriving (Eq, Generic, Ord, Show)
+> instance HasTrie PerGMKey where
+>   newtype (PerGMKey :->: b)            = PerGMKeyTrie { unPerGMKeyTrie :: Reg PerGMKey :->: b } 
+>   trie                                   = trieGeneric PerGMKeyTrie 
+>   untrie                                 = untrieGeneric unPerGMKeyTrie
+>   enumerate                              = enumerateGeneric unPerGMKeyTrie
 >
 > data PerGMScored =
 >   PerGMScored {
@@ -143,12 +153,11 @@ Instrument categories: instrument, percussion, disqualified
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
 >   , zRoster            :: ([InstrumentName], [PercussionSound])
 >   , zZoneCache         :: Map PerGMKey PerInstrument
->   , zWinningRecord     :: WinningRecord
->   , zPlayCache         :: Map PlayKey PlayValue}
+>   , zWinningRecord     :: WinningRecord}
 >
 > seedRoster :: Array Word SFFile → ([InstrumentName], [PercussionSound]) → SFRoster
 > seedRoster vFile rost                    =
->   SFRoster vFile Map.empty Map.empty rost Map.empty seedWinningRecord Map.empty
+>   SFRoster vFile Map.empty Map.empty rost Map.empty seedWinningRecord
 >
 > data SFFile =
 >   SFFile {
@@ -409,14 +418,10 @@ executive ======================================================================
 >       -- print song/orchestration info to user (can be captured by redirecting standard out)
 >       mapM_ putStrLn pWarnings
 >
->       playCacheI       ← createPlayCache zFiles zc preInstCache pWinningI
->       playCacheP       ← createPlayCache zFiles zc preInstCache pWinningP
->
 >       let sfrost       = preRoster{zPreSampleCache   = preSampleCache
 >                                  , zPreInstCache     = preInstCache
 >                                  , zZoneCache        = zc
->                                  , zWinningRecord    = wins
->                                  , zPlayCache        = Map.union playCacheI playCacheP}
+>                                  , zWinningRecord    = wins}
 >
 >       tsRecond     ← getCurrentTime
 >       putStrLn ("___create play cache: " ++ show (diffUTCTime tsRecond tsReported))
@@ -1046,7 +1051,7 @@ prepare the specified instruments and percussion ===============================
 >             histResult                   = foldl' folder histSeed (map (formPair . snd) zs)
 >
 >             formPair   :: ZoneDigest → ((Int, Int), (Int, Int))
->             formPair ZoneDigest{ .. }    = tracer "ij" 
+>             formPair ZoneDigest{ .. }    =
 >               (fromMaybe (0, 127) (integralize zdKeyRange), fromMaybe (0, 127) (integralize zdVelRange))
 >
 >             folder     :: Array Int Int → ((Int, Int), (Int, Int)) → Array Int Int
@@ -1254,7 +1259,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF SFRoster{ .. } pergm@PerGMKey{ .. } dur pchIn volIn params
->   | traceIf trace_ISF False              = undefined
+>   | traceNow trace_ISF False              = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
@@ -1271,16 +1276,11 @@ define signal functions and instrument maps to support rendering ===============
 >     trace_ISF                            =
 >       unwords ["instrumentSF", show pgkwFile, nameI, show (pchIn, volIn), show dur]
 >
->     (reconX@Recon{ .. }, mreconX)                    =
->       if usingPlayCache
->         then fromMaybe
->                (error $ unwords ["Note missing from play cache:", show noon])
->                (Map.lookup (PlayKey pergm noon) zPlayCache)
->         else computePlayValue pergm{pgkwBag = Nothing} zZoneCache noon
+>     (reconX@Recon{ .. }, mreconX)        = memoizedComputePlayValue pergm{pgkwBag = Nothing} zZoneCache noon
 >
 > computePlayValue       :: PerGMKey → Map PerGMKey PerInstrument → NoteOn → PlayValue
 > computePlayValue pergm@PerGMKey{ .. } zc noon@NoteOn{ .. }
->   | traceNot trace_CPV False             = undefined
+>   | traceNow trace_CPV False             = undefined
 >   | otherwise                            =
 >     case eZones of
 >       Left (zoneL, shdrL)                → (recon zoneL shdrL noon, Nothing)
@@ -1289,6 +1289,8 @@ define signal functions and instrument maps to support rendering ===============
 >   where
 >     trace_CPV                            = unwords ["computePlayValue", show pergm]
 >     eZones                               = setZone pergm zc noon
+>
+> memoizedComputePlayValue = memo computePlayValue
 
 zone selection for rendering ==========================================================================================
 
@@ -1478,39 +1480,6 @@ reconcile zone and sample header ===============================================
 >         (coAccess toWhich $ maybe defModTriple   eModTriple nModEnv)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
-
-"calculate and pre-cache" comprehensive play situations/results =======================================================
-
-> createPlayCache        :: ∀ a. (Ord a) ⇒
->                           Array Word SFFile
->                           → Map PerGMKey PerInstrument
->                           → Map PerGMKey PreInstrument
->                           → Map a PerGMScored
->                           → IO (Map PlayKey (Recon, Maybe Recon))
-> createPlayCache sffiles zc preInstCache wins
->                                          =
->   return
->     $ if usingPlayCache
->         then Map.foldrWithKey precalcFolder Map.empty wins
->         else Map.empty
->   where
->     precalcFolder      :: a
->                           → PerGMScored
->                           → Map PlayKey (Recon, Maybe Recon)
->                           → Map PlayKey (Recon, Maybe Recon)
->     precalcFolder kind pergm ps          = Map.union ps (precalcNotes kind pergm)
->
->     precalcNotes       :: a → PerGMScored → Map PlayKey (Recon, Maybe Recon)
->     precalcNotes kind PerGMScored{ .. }  = foldl' (playFolder pPerGMKey{pgkwBag = Nothing})
->                                                   Map.empty
->                                                   [NoteOn v k | v ← [0..127], k ← [0..127]]
->
->     playFolder         :: PerGMKey
->                           → Map PlayKey (Recon, Maybe Recon)
->                           → NoteOn
->                           → Map PlayKey (Recon, Maybe Recon)
->     playFolder pergm ps noon             =
->       Map.insert (PlayKey pergm noon) (computePlayValue pergm{pgkwBag = Nothing} zc noon) ps
 
 emit standard output text detailing what choices we made for rendering GM items =======================================
 

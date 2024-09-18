@@ -53,8 +53,10 @@ Signal function-based synth ====================================================
 >   | traceNot trace_eS False              = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
->     then eutSplit <<< pumpMonoPath
->     else              pumpStereoPath
+>     then if ResonanceConvo == m8nL.mLowpass.lowpassType
+>            then eutSplit <<< pumpMonoConvoPath
+>            else eutSplit <<< pumpMonoPath
+>     else pumpStereoPath
 >   where
 >     noon@NoteOn{ .. }                    = NoteOn vol pch
 >     reconR                               = fromJust mreconR
@@ -79,6 +81,20 @@ Signal function-based synth ====================================================
 >
 >     pumpMonoPath       :: Signal p () Double
 >     pumpStereoPath     :: Signal p () (Double, Double)
+>
+>     pumpMonoConvoPath                    = sig
+>       where
+>         pumped                           =
+>           eutDriver secsScored reconL secsToPlay delta looping
+>           >>> eutPumpMono reconL noon dur s16 ms8
+>         modulated          :: Signal p () Double
+>         modulated                            =
+>           applyConvolutionMono m8nL.mLowpass secsScored pumped
+>         sig                :: Signal p () Double
+>         sig                                  =
+>           modulated
+>           >>> eutEffectsMono         reconL
+>           >>> eutAmplify             secsScored reconL noon secsToPlay
 >
 >     pumpMonoPath                         =
 >       eutDriver                      secsScored reconL secsToPlay delta looping

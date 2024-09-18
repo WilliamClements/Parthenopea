@@ -1210,8 +1210,8 @@ Deydumpdum =====================================================================
 > d3TempoPlay                              = 3/2
 > d3Transpose                              = 0
 >
-> d3Lead_                                  = makePitched Violin               d3Transpose          0        100
-> d3LeadQ_                                 = makePitched Violin               d3Transpose          0         75
+> d3Lead_                                  = makePitched OverdrivenGuitar     d3Transpose          0        100
+> d3LeadQ_                                 = makePitched OverdrivenGuitar     d3Transpose          0         75
 > d3Bass_                                  = makePitched SynthBass2           d3Transpose          0         90
 > d3BassQ_                                 = makePitched SynthBass2           d3Transpose          0         60
 >

@@ -41,7 +41,7 @@ Discrete approach ==============================================================
 >   | otherwise                            =
 >   profess
 >     ((ksLen > 0) && not (null ys'))
->     (unwords ["computeFR bad input"])
+>     (unwords ["computeFR bad input", show ksLen, show ys'])
 >     (fromRawVector tag' vec')
 >   where
 >     trace_CFR                            = unwords ["computeFR", show ks, show shapes]
@@ -65,7 +65,7 @@ Discrete approach ==============================================================
 >
 > applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
 > applyConvolutionMono lowP secsToPlay sIn
->   | traceIf trace_AC False               = undefined
+>   | traceNow trace_AC False              = undefined
 >   | otherwise                            = sig 
 >   where
 >     dsigIn             :: Maybe (DiscreteSig Double)
@@ -218,7 +218,7 @@ Discrete approach ==============================================================
 >
 > fastConvolveFR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > fastConvolveFR dsigIn Lowpass{ .. }
->   | traceNot trace_FCFR False            = undefined
+>   | traceNow trace_FCFR False            = undefined
 >   | otherwise                            =
 >   profess
 >     (sane dsigOut')
@@ -632,7 +632,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   DiscreteSettings {
 >     qqBulgeDiv                           = 20                           -- bulge bandwidth is cutoff freak / div
 >   , qqDropoffRate                        = 240                           -- centibels per octave
->   , qqReverseSignal                      = False
+>   , qqReverseSignal                      = True
 >   , qqDisableConvo                       = False
 >   , qqDisableMultiply                    = False
 >   , qqUseFastFourier                     = True
