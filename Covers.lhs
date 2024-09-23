@@ -3006,4 +3006,48 @@ PG =============================================================================
 >       , chord [line [percBDen, percBDen, rest hn, percBDqn, rest (hn + dhn)]
 >              , line [times 6 (perc PedalHiHat qn), rest dhn]]]
 
+Hills of Greenmore ====================================================================================================
+
+> hgTempo                                  = 1
+> hgTranspose                              = 0
+>
+> hgLead_                                  = makePitched ElectricGuitarClean               hgTranspose     0     100
+> hgBass_                                  = makePitched SynthBass1 hgTranspose     0     100
+> hgPerc_                                  = makeNonPitched                                         100
+>
+> greenMore dynMap                         =
+>   removeZeros
+>   $ aggrandize
+>   $ tempo hgTempo
+>   $ chord [leadMusic, bassMusic, percMusic]
+>
+>   where
+>
+>     hgLead                               = replace hgLead_ dynMap
+>     hgBass                               = replace hgBass_ dynMap
+>     hgPerc                               = replace hgPerc_ dynMap
+>
+>     leadMusic = bandPart hgLead leadLine
+>     bassMusic = bandPart hgBass bassLine
+>     percMusic = bandPart hgPerc percLine
+>
+>     leadLine, bassLine, percLine
+>                        :: Music Pitch
+>     leadLine = line [lead001, lead002, lead003, lead004]
+>     bassLine = line [bass001, bass002, bass003, bass004]
+>     percLine = line []
+>
+>     lead001  = line [ g 5 qn, fs 5 en, fs 5 qn, e 5 en]
+>     lead002 = line [ d 5 qn,  g 4 en,  g 4 sn,  a 4 sn,  b 4 qn,  a 4 en, g 4 en]
+>     lead003  = line [ g 4 en,  a 4 en,  b 4 qn,  a 4 qn, g 4 qn]
+>     lead004 = line [ a 4 wn]
+
+>     bass001  = line [ c 3 dhn, g 3 dhn]
+>     bass002 = line [ d 3 dhn, c 3 dhn, g 3 dhn]
+>     bass003  = line [ ]
+>     bass004 = line [ ]
+
+> -- t32[g 4 qn
+
+
 The End

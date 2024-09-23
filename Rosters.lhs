@@ -43,6 +43,7 @@ Rosters support ================================================================
 >         then do
 >           resultA                        ← runTestsQuietly modulationTests     
 >           resultB                        ← runTestsQuietly synthesizerTests
+>           -- resultC                        ← runTestsQuietly discreteTests
 >           let all                        =
 >                 profess
 >                   (resultA && resultB)

@@ -238,28 +238,28 @@ Feed chart =====================================================================
 >     True
 >     4_096
 >
-> testFreaks             :: IO Double
-> testFreaks                               = do
->   let ks@KernelSpec{ .. }                = testKS
+> testFreaks             :: Int → IO Double
+> testFreaks qIter                         = do
+>   let ks@KernelSpec{ .. }                = testKS{ksQ = qIter}
 >   let kd@KernelData{ .. }                = calcKernelData ks
 >   let shapes                             = makeShapes ResponseNormal kd
 >   let fun                                = getFreaky kd shapes
 >
 >   let fc                                 = fromAbsoluteCents ksFc
 >   let fci              :: Int            = round fc
->   let spread           :: Int            = min fci (10 * round (log fc))
+>   let spread           :: Int            = min fci (50 * round (log fc))
 >   let fcStart                            = fci - spread `div` 2
 >   let fcEnd                              = fci + spread `div` 2
 >
 >   let xs                  :: [Double]    = [fromIntegral x | x ← [fcStart..fcEnd]]
 >   let ys                                 = map (realPart . fun) xs
->   let zs                                 = map (imagPart . fun) xs
+>   let zs                                 = map ((*) (-1) . imagPart . fun) xs
 >   let rpairs                             = zip xs ys
 >   let cpairs                             = zip xs zs
 >   let sects                              = [Section (opaque blue) rpairs, Section (opaque orange) cpairs]
 >   
 >   -- print pairs
->   chartPoints ("ResonanceConvo_fc" ++ show fci) sects
+>   chartPoints ("ResonanceConvo_fc" ++ show qIter) sects
 >   
 >   return 0
 >

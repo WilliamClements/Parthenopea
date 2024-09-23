@@ -94,7 +94,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , pgkwInst           :: Word
 >   , pgkwBag            :: Maybe Word} deriving (Eq, Generic, Ord, Show)
 > instance HasTrie PerGMKey where
->   newtype (PerGMKey :->: b)            = PerGMKeyTrie { unPerGMKeyTrie :: Reg PerGMKey :->: b } 
+>   newtype (PerGMKey :->: b)              = PerGMKeyTrie { unPerGMKeyTrie :: Reg PerGMKey :->: b } 
 >   trie                                   = trieGeneric PerGMKeyTrie 
 >   untrie                                 = untrieGeneric unPerGMKeyTrie
 >   enumerate                              = enumerateGeneric unPerGMKeyTrie
