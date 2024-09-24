@@ -552,7 +552,6 @@ Miscellaneous ==================================================================
 
 Controller Curves =====================================================================================================
 
-> qMidiSize128           :: Int            = 128
 > qStepSize                                = qTableSize `div` qMidiSize128
 >
 > controlDenormal        :: Mapping → Double → (Double, Double) → Double

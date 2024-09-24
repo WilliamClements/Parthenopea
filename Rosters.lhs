@@ -144,11 +144,11 @@ a few playthings ... get it? ===================================================
 >
 > playSnippet            :: () → Int → IO ()
 > playSnippet () i =
->    let inst :: InstrumentName
->        inst = toEnum (i `mod` fromEnum Gunshot)
->    in do
->       traceIO ("InstrumentName = " ++ show inst)
->       play $ instrument inst pSnippet02
+>   let inst :: InstrumentName
+>       inst = toEnum (i `mod` fromEnum Gunshot)
+>   in do
+>     traceIO ("InstrumentName = " ++ show inst)
+>     play $ instrument inst pSnippet02
 >
 > playSnippets           :: IO ()
 > playSnippets = 

@@ -84,6 +84,8 @@ Utilities ======================================================================
 > fixM                   :: Int
 > fixM                                     = 512
 >
+> qMidiSize128           :: Int            = 128
+>
 > freakRange             :: (Double, Double)
 >                                          = (20, 20_000)
 >
@@ -1032,8 +1034,10 @@ Returns the elapsed time in seconds
 > fromTimecents'         :: Maybe Int → Maybe Int → KeyNumber → Double
 > fromTimecents' mtimecents mfact key      = pow 2 (base + inc)
 >   where
->     base               :: Double         = maybe (-12_000) fromIntegral mtimecents / 1_200
->     inc                :: Double         = maybe 0 fromIntegral mfact * fromIntegral (60 - key) / 128 / 1_200
+>     base               :: Double         =
+>       maybe (-12_000) fromIntegral mtimecents / 1_200
+>     inc                :: Double         =
+>       maybe 0 fromIntegral mfact * fromIntegral (60 - key) / fromIntegral qMidiSize128 / 1_200
 
 Returns the attenuation (based on input 10ths of a percent) 
 

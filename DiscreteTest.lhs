@@ -220,7 +220,7 @@ Feed chart =====================================================================
 >   proc () → do
 >     a1 ← osc waveTable 0 ⤙ freq
 >     a2 ← filtersf ⤙ (a1, fc)
->     outA ⤙ a2 * 100 / 128
+>     outA ⤙ a2 * 100 / fromIntegral qMidiSize128
 >   where
 >     trace_CFT                            = unwords ["createFilterTest", show fc, show freq]
 >

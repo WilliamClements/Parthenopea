@@ -424,7 +424,7 @@ executive ======================================================================
 >                                  , zWinningRecord    = wins}
 >
 >       tsRecond     ← getCurrentTime
->       putStrLn ("___create play cache: " ++ show (diffUTCTime tsRecond tsReported))
+>       putStrLn ("___create winning record: " ++ show (diffUTCTime tsRecond tsReported))
 >         
 >       return sfrost
 >
@@ -764,14 +764,11 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         let path                         = name ++ ".wav"
 >         putStr path
 >         let (d,s)                        = renderSF (song dynMap) imap
->         if scanningOutput
->           then findOutliers d s
->           else do
->             traceIO (unwords ["-> outFile*", path, show d])
->             if normalizingOutput
->               then outFileNorm path d s
->               else outFile     path d s
->             traceIO (unwords ["<- outFile*", path, show d])
+>         traceIO (unwords ["-> outFile*", path, show d])
+>         if normalizingOutput
+>           then outFileNorm path d s
+>           else outFile     path d s
+>         traceIO (unwords ["<- outFile*", path, show d])
 >         ts2                              ← getCurrentTime
 >         putStrLn (" (dur=" ++ show d ++ ") written in " ++ show (diffUTCTime ts2 ts1))
 >       else
@@ -1029,26 +1026,22 @@ prepare the specified instruments and percussion ===============================
 >             trace_CL                     = unwords ["checkLinkage", show sIn, show sOut]       
 >
 >         checkRanges    :: Maybe InstCat
->         checkRanges
->           | traceNot trace_CR False      = undefined
->           | otherwise                    =
+>         checkRanges                      =
 >           if all (<= 1) histResult then Nothing else Just $ InstCatDisq DisqZoneRanges
 >           where
 >             histSeed, histResult
 >                        :: Array Int Int
->             histSeed                     = listArray (0, 128 * 128 - 1) (repeat 0)
->             histResult                   = foldl' folder histSeed (map (formPair . snd) zs)
+>             histSeed                     = listArray (0, qMidiSize128 * qMidiSize128 - 1) (repeat 0)
+>             histResult                   = foldl' crFolder histSeed (map (formPair . snd) zs)
 >
 >             formPair   :: ZoneDigest → ((Int, Int), (Int, Int))
 >             formPair ZoneDigest{ .. }    =
 >               (fromMaybe (0, 127) (integralize zdKeyRange), fromMaybe (0, 127) (integralize zdVelRange))
 >
->             folder     :: Array Int Int → ((Int, Int), (Int, Int)) → Array Int Int
->             folder hist ((p1,p2),(v1,v2))
+>             crFolder   :: Array Int Int → ((Int, Int), (Int, Int)) → Array Int Int
+>             crFolder hist ((p1,p2),(v1,v2))
 >                                          =
 >               accum (+) hist ([(i + 128 * j, 1) | i ← [p1..p2], j ← [v1..v2]])
->                   
->             trace_CR                     = unwords ["checkRanges"]       
 >
 >         indices, links :: (ZoneHeader, ZoneDigest) → Maybe Int
 >         indices (zh, zd@ZoneDigest{ .. })

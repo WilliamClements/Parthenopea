@@ -820,8 +820,7 @@ Flags for customization ========================================================
 >   , qqUseEffectChorus      :: Bool
 >   , qqUseEffectPan         :: Bool
 >   , qqUseEffectDCBlock     :: Bool
->   , qqNormalizingOutput    :: Bool
->   , qqScanningOutput       :: Bool} deriving (Eq, Show)
+>   , qqNormalizingOutput    :: Bool} deriving (Eq, Show)
 >
 > usePitchCorrection                       = qqUsePitchCorrection         defS
 > useAttenuation                           = qqUseAttenuation             defS
@@ -832,7 +831,6 @@ Flags for customization ========================================================
 > usePan                                   = qqUseEffectPan               defS
 > useDCBlock                               = qqUseEffectDCBlock           defS
 > normalizingOutput                        = qqNormalizingOutput          defS
-> scanningOutput                           = qqScanningOutput             defS
 
 Turn Knobs Here =======================================================================================================
 
@@ -847,7 +845,6 @@ Turn Knobs Here ================================================================
 >   , qqUseEffectChorus                    = True
 >   , qqUseEffectPan                       = True
 >   , qqUseEffectDCBlock                   = True
->   , qqNormalizingOutput                  = True
->   , qqScanningOutput                     = False}
+>   , qqNormalizingOutput                  = True}
 
 The End
