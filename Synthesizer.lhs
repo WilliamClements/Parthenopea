@@ -88,44 +88,42 @@ Signal function-based synth ====================================================
 >     modulateStereo, ampStereo
 >                        :: Signal p (Double, Double) (Double, Double)
 >
->     pumpMonoConvoPath                    = sig
+>     pumpMonoConvoPath                    =
+>       modulated
+>       >>> eutEffectsMono           reconL
+>       >>> eutAmplify               secsScored reconL noon secsToPlay
 >       where
+>         pumped, modulated
+>                        :: Signal p () Double
 >         pumped                           =
->           eutDriver secsScored reconL secsToPlay delta looping
->             >>> eutPumpMono reconL noon dur s16 ms8
->         modulated          :: Signal p () Double
+>           eutDriver                secsScored reconL secsToPlay delta looping
+>           >>> eutPumpMono          reconL noon dur s16 ms8
 >         modulated                            =
->           applyConvolutionMono m8nL.mLowpass secsScored pumped
->         sig                :: Signal p () Double
->         sig                                  =
->           modulated
->             >>> eutEffectsMono         reconL
->             >>> eutAmplify             secsScored reconL noon secsToPlay
+>           applyConvolutionMono     m8nL.mLowpass secsScored pumped
 >
 >     pumpMonoPath                         =
->       eutDriver                      secsScored reconL secsToPlay delta looping
->         >>> eutPumpMono              reconL noon dur s16 ms8
->         >>> eutModulate              secsScored secsToPlay m8nL noon
->         >>> eutEffectsMono           reconL
->         >>> eutAmplify               secsScored reconL noon secsToPlay
+>       eutDriver                    secsScored reconL secsToPlay delta looping
+>       >>> eutPumpMono              reconL noon dur s16 ms8
+>       >>> eutModulate              secsScored secsToPlay m8nL noon
+>       >>> eutEffectsMono           reconL
+>       >>> eutAmplify               secsScored reconL noon secsToPlay
 >
->     pumpStereoConvoPath                    = sig
+>     pumpStereoConvoPath                    =
+>       modulated
+>       >>> modulateStereo
+>       >>> ampStereo
 >       where
+>         pumped, modulated
+>                        :: Signal p () (Double, Double)
 >         pumped                           =
->           eutDriver secsScored reconL secsToPlay delta looping
->             >>> eutPumpStereo (reconL, reconR) noon dur s16 ms8
->         modulated          :: Signal p () (Double, Double)
->         modulated                            =
->           applyConvolutionStereo (m8nL.mLowpass, m8nR.mLowpass) secsScored pumped
->         sig                :: Signal p () (Double, Double)
->         sig                                  =
->           modulated
->           >>> modulateStereo
->           >>> ampStereo
+>           eutDriver                secsScored reconL secsToPlay delta looping
+>           >>> eutPumpStereo        (reconL, reconR) noon dur s16 ms8
+>         modulated                        =
+>           applyConvolutionStereo   (m8nL.mLowpass, m8nR.mLowpass) secsScored pumped
 >
 >     pumpStereoPath                       = 
->       eutDriver                      secsScored reconL secsToPlay delta looping
->         >>> eutPumpStereo            (reconL, reconR) noon dur s16 ms8
+>       eutDriver                    secsScored reconL secsToPlay delta looping
+>         >>> eutPumpStereo          (reconL, reconR) noon dur s16 ms8
 >         >>> modulateStereo
 >         >>> ampStereo
 >

@@ -20,7 +20,7 @@ name:               h
 -- PVP summary:     +-+------- breaking API changes
 --                  | | +----- non-breaking API additions
 --                  | | | +--- code changes with no API change
-version:            0.1.0.0
+version:            0.1.0.1
 
 -- A short (one-line) description of the package.
 -- synopsis:
@@ -59,12 +59,15 @@ library
     -- import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  Rosters, Synthesizer, Modulation, Scoring
-
+    exposed-modules: Rosters
+    
     -- Modules included in this library but not exported.
-    other-modules:  Chart, SynthesizerTest, ModulationTest, SynToolkit, Discrete, 
-                    Parthenopea, Baking, Cecil,
-                    Covers, DiscreteTest, Fanfare, Percussion, SoundFont, SunPyg
+    other-modules:  Baking, Cecil, Chart,
+                    Covers, Discrete, DiscreteTest, Fanfare,
+                    Modulation, ModulationTest, Parthenopea,
+                    Percussion, Scoring, SoundFont,
+                    SunPyg, Synthesizer, SynthesizerTest,
+                    SynToolkit
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -89,7 +92,6 @@ library
         lens                       >= 5.2.1,
         MemoTrie                   >= 0.6.11,
         monadplus                  >= 1.4.3,
-        mtl                        >= 2.2.0,
         pure-fft                   >= 0.2.0,
         random                     >= 1.0.1.1,
         time                       >= 1.11.1.1,
@@ -102,67 +104,4 @@ library
     hs-source-dirs:   .
 
     -- Base language which the package is written in.
-    default-language: Haskell2010
-
-executable h
-    -- Import common warning flags.
-    -- import:           warnings
-
-    -- .hs or .lhs file containing the Main module.
-    main-is:          Main.lhs
-
-    -- Modules included in this executable, other than Main.
-    other-modules:
-        Discrete Modulation Parthenopea SynToolkit Synthesizer  Baking
-        Cecil
-        Chart
-        Covers
-        DiscreteTest
-        Fanfare
-        ModulationTest
-        Percussion
-        Rosters
-        Scoring
-        SoundFont
-        SunPyg
-        SynthesizerTest
-
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
-
-    -- Other library packages from which modules are imported.
-    build-depends:
-        base                       ^>=4.17.2.1,
-        h,
-        array                      >= 0.5.0.0,
-        arrows                     >= 0.4,
-        base                       >= 4,
-        bytestring                 >= 0.12.1.0,
-        Chart                      >= 1.9.4,
-        Chart-diagrams             >= 1.9.4,
-        colour                     >= 2.3.6,
-        containers                 >= 0.5.5.1,
-        data-default-class         >= 0.1.2.0,
-        deepseq                    >= 1.3.0.2,
-        Euterpea                   >= 2.0.8,
-        filepattern                >= 0.1.3,
-        fuzzyfind                  >= 3.0.1,
-        HCodecs                    >= 0.5.1,
-        HSoM                       >= 1.0.0,
-        lens                       >= 5.2.1,
-        MemoTrie                   >= 0.6.11,
-        monadplus                  >= 1.4.3,
-        mtl                        >= 2.2.0,
-        pure-fft                   >= 0.2.0,
-        random                     >= 1.0.1.1,
-        time                       >= 1.11.1.1,
-        UISF                       >= 0.4.0.0,
-        vector                     >= 0.13.1.0,
-        
-        ghc-prim
-
-    -- Directories containing source files.
-    hs-source-dirs:   .
-
-    -- Base language which the package is written in.
-    default-language: Haskell2010
+    default-language: GHC2021
