@@ -635,10 +635,13 @@ tournament among GM instruments and percussion from SoundFont files ============
 > formPreSampleCache     :: Array Word SFFile
 >                           → [PreSampleKey]
 >                           → IO (Map PreSampleKey PreSample)
-> formPreSampleCache sffiles presks
->                                          = return $ foldl' smFolder Map.empty presks
+> formPreSampleCache sffiles presks        = return $ foldl' preSFolder Map.empty presks
 >   where
->     smFolder accum presk@PreSampleKey{pskwFile, pskwSample}
+>     computePreSample   :: F.Shdr → PreSampleKey → PreSample
+>     computePreSample F.Shdr{sampleName} k
+>                                          = PreSample sampleName (computeFFMatches sampleName)
+>
+>     preSFolder accum presk@PreSampleKey{pskwFile, pskwSample}
 >                                          =
 >       let
 >         SFFile{zArrays}                  = sffiles ! pskwFile
@@ -647,32 +650,18 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         Map.insert presk (computePreSample (ssShdrs ! pskwSample) presk) accum
 >
 > formPreInstCache       :: Array Word SFFile → [PerGMKey] → IO (Map PerGMKey PreInstrument)
-> formPreInstCache sffiles pergms          = return $ foldl' imFolder Map.empty pergms
+> formPreInstCache sffiles pergms          = return $ foldl' preIFolder Map.empty pergms
 >   where
->     imFolder accum pergm@PerGMKey{pgkwFile}
+>     computePreInstrument   :: SFFile → PerGMKey → PreInstrument
+>     computePreInstrument SFFile{zArrays} PerGMKey{pgkwInst}
+>                                          = PreInstrument instName (computeFFMatches instName)
+>       where
+>         SoundFontArrays{ .. }            = zArrays
+>         F.Inst{ .. }                     = ssInsts ! pgkwInst
+>
+>     preIFolder accum pergm@PerGMKey{pgkwFile}
 >                                          =
 >       Map.insert pergm (computePreInstrument (sffiles ! pgkwFile) pergm) accum
->
-> computePreSample       :: F.Shdr → PreSampleKey → PreSample
-> computePreSample F.Shdr{originalPitch, sampleName} k
->   | traceNot trace_CPS False             = undefined
->   | otherwise                            = PreSample inp ffs
->   where
->     ap                                   = fromIntegral originalPitch
->     apLow                                = fromIntegral $ min 127 (ap - 6)
->     apHigh                               = fromIntegral $ max 0   (ap + 4)
->
->     inp                                  = sampleName
->     ffs                                  = computeFFMatches inp
->
->     trace_CPS                            = unwords ["computePreSample", show (inp, k)]
->
-> computePreInstrument       :: SFFile → PerGMKey → PreInstrument
-> computePreInstrument SFFile{ .. } PerGMKey{ .. }
->                                          = PreInstrument instName (computeFFMatches instName)
->   where
->     SoundFontArrays{ .. }                = zArrays
->     F.Inst{ .. }                         = ssInsts ! pgkwInst
 >
 > formMasterInstList     :: Array Word SFFile → IO [PerGMKey]
 > formMasterInstList sffiles               = return $ concatMap formFI sffiles
@@ -1065,7 +1054,7 @@ prepare the specified instruments and percussion ===============================
 >         indices (zh, zd@ZoneDigest{ .. })
 >                                          =
 >           if isStereoZone (zh, zd)
->             then Just $ fromIntegral $ professIsJust zdSampleIndex "no sample index?!"
+>             then Just $ fromIntegral $ professIsJust zdSampleIndex "categorizeInst: no sample index?!"
 >             else Nothing
 >         links (zh@ZoneHeader{ .. }, zd)
 >                                          =
@@ -1084,12 +1073,10 @@ prepare the specified instruments and percussion ===============================
 >         ffInst'                          = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) ffInst
 >         ffPerc'                          = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) ffPerc
 >
->         ffAllInst                        = Map.elems ffInst
->
 >         maybeSettle    :: (Foldable t) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
 >         maybeSettle thresh icat keys     = find (> thresh) keys >>= (\x → Just icat)
 
-   "now", sequence through the alternatives, categorizing as follows
+   "now", sequence through the alternatives, categorizing encountered instruments as follows:
    a. Just InstCatInst           an inst bearing one inst, or
    b. Just InstCatPerc           an inst bearing one or more percs, or
    c. Just InstCatDisq           an inst disqualified from tournaments, or
@@ -1104,7 +1091,7 @@ prepare the specified instruments and percussion ===============================
 >           , maybeSettle isConfirmed catInst                  ffInst'
 >           , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
 >           , maybeSettle stands      catInst                  ffInst'
->           , maybeSettle stands      (catDisq DisqNarrow)     ffAllInst
+>           , maybeSettle stands      (catDisq DisqNarrow)     ffInst
 >           , if 0.75 < howLaden uZones
 >               then (if 0.05 < howLaden wZones then Just (catPerc wZones) else Just (catDisq DisqNoPercZones))
 >               else Nothing
@@ -1259,7 +1246,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF SFRoster{ .. } pergm@PerGMKey{ .. } dur pchIn volIn params
->   | traceNow trace_ISF False              = undefined
+>   | traceIf trace_ISF False              = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
@@ -1279,16 +1266,11 @@ define signal functions and instrument maps to support rendering ===============
 >     (reconX@Recon{ .. }, mreconX)        = memoizedComputePlayValue pergm{pgkwBag = Nothing} zZoneCache noon
 >
 > computePlayValue       :: PerGMKey → Map PerGMKey PerInstrument → NoteOn → PlayValue
-> computePlayValue pergm@PerGMKey{ .. } zc noon@NoteOn{ .. }
->   | traceNow trace_CPV False             = undefined
->   | otherwise                            =
->     case eZones of
->       Left (zoneL, shdrL)                → (recon zoneL shdrL noon, Nothing)
->       Right ((zoneL, shdrL), (zoneR, shdrR))
->                                          → reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon
->   where
->     trace_CPV                            = unwords ["computePlayValue", show pergm]
->     eZones                               = setZone pergm zc noon
+> computePlayValue pergm@PerGMKey{ .. } zc noon
+>                                          =
+>   case setZone pergm zc noon of
+>     Left (zL, sL)                        → (recon zL sL noon, Nothing)
+>     Right ((zL, sL), (zR, sR))           → reconLR ((zL, sL), (zR, sR)) noon
 >
 > memoizedComputePlayValue = memo computePlayValue
 
