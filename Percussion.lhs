@@ -12,6 +12,7 @@ William Clements
 > import Debug.Trace
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
+> import Parthenopea
 > import System.Random
 
 perc helpers ==========================================================================================================
@@ -46,39 +47,17 @@ perc helpers ===================================================================
 > percLTsn =  perc LowTom        sn
 > percHTsn =  perc HighTom       sn
 
-Piece =================================================================================================================
-
-> piece =
->    removeZeros
->    $ tempo 2
->    $ transpose 5
->    $ keysig C Mixolydian
->    $ instrument Percussion guts
->
->    where
->
->       guts = line [rest hn, c 3 qn, c 4 qn, a 3 qn, a 4 qn]
-
-Oceans ================================================================================================================
+play water ============================================================================================================
 
 > oceans, seas, water    :: Music Pitch    
-> oceans                                   = line $ map nRandom2Note $ normalizedDoubles $ mkStdGen 259
-> seas                                     = line $ map nRandom2Perc $ normalizedDoubles $ mkStdGen 747
+> oceans                                   = line $ map nRandom2Note $ randomNorms $ mkStdGen 259
+> seas                                     = line $ map nRandom2Perc $ randomNorms $ mkStdGen 747
 > water                                    = (rest en :+: oceans) :=: seas
 >
-> normalizedDoubles      :: StdGen → [Double]
-> normalizedDoubles g                      = x : normalizedDoubles g'
->    where
->      (x, g') = randomR (0,1) g
->
 > nRandom2Note           :: Double → Music Pitch
-> nRandom2Note r                           = note qn $ pitch $ round $ normalized2ranged r (24, 92)
->
->   -- calibrate [0,1] to [lo,up]
-> normalized2ranged      :: Double → (Double, Double) → Double
-> normalized2ranged r (lo, up)             = lo + r * (up-lo)
+> nRandom2Note r                           = note qn $ pitch $ round $ denorm r (24, 92)
 >
 > nRandom2Perc           :: Double → Music Pitch
-> nRandom2Perc r                           = perc (toEnum $ round $ normalized2ranged r (0, 46)) qn
+> nRandom2Perc r                           = perc (toEnum $ round $ denorm r (0, 46)) qn
 
 The End

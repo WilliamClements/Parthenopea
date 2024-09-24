@@ -71,9 +71,9 @@ The progress of the algorithm is expressed in above pair.
 >                                            $ bakeUtility seed
 >
 > bakeUtility            :: Int → [Bake]
-> bakeUtility seed                         = map sex2Bake
+> bakeUtility seed                         = map rs2Bake
 >                                            $ take (round numSections)
->                                            $ sextuplets
+>                                            $ randomNormSets 6
 >                                            $ mkStdGen seed
 >
 > buildChannels          :: [Bake] → Baking
@@ -279,8 +279,8 @@ The progress of the algorithm is expressed in above pair.
 >     skipped'                             = sSkipped      + 1
 >     accum'                               = sAccumSkipped + accum
 >
-> sex2Bake               :: [Double] → Bake
-> sex2Bake rs
+> rs2Bake                :: [Double] → Bake
+> rs2Bake rs
 >   | length rs >= 6                       = Bake {
 >                                              bIx       = 0
 >                                            , bWch      = denormVector     (head rs)     vChoiceI
@@ -289,7 +289,7 @@ The progress of the algorithm is expressed in above pair.
 >                                            , bSnd      = denormVector     (rs!!3)       vChoiceP
 >                                            , bVol      = round $ denorm   (rs!!4)       (60, 100)
 >                                            , bTempo    = denorm           (rs!!5)       (2, 5)}
->   | otherwise                            = error $ unwords ["sex2Bake:", "insufficiently sized randoms list", show $ length rs]
+>   | otherwise                            = error $ unwords ["rs2Bake:", "insufficiently sized randoms list", show $ length rs]
 >     where
 >       vChoiceI         :: Array Int (InstrumentName, (Pitch, Pitch))
 >       vChoiceI                           = selectRanged choices

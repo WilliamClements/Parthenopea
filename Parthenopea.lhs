@@ -37,7 +37,7 @@ December 12, 2022
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
-> import Data.List ( iterate', singleton, foldl', sortOn, minimumBy, find, elem, sort )
+> import Data.List ( iterate', singleton, foldl', sortOn, minimumBy, find, elem, sort, unfoldr )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe, listToMaybe )
@@ -294,16 +294,13 @@ ranges =========================================================================
 > denorm                 :: Double → (Double, Double) → Double
 > denorm r (lo, up)                        = lo + r * (up-lo)
 >
-> sextuplets   :: StdGen → [[Double]]
-> sextuplets g =
->    let (z1, g') =      randomR (0,1) g
->        (z2, g'') =     randomR (0,1) g'
->        (z3, g''') =    randomR (0,1) g''
->        (z4, g'''') =   randomR (0,1) g'''
->        (z5, g''''') =  randomR (0,1) g''''
->        (z6, g'''''') = randomR (0,1) g'''''
->        sextuplet = z1:z2:z3:z4:z5:[z6]
->    in sextuplet : sextuplets g''''''
+> randomNorms            :: StdGen → [Double]
+> randomNorms g                            = x : randomNorms g'
+>    where
+>      (x, g') = randomR (0,1) g
+>
+> randomNormSets         :: Int → StdGen → [[Double]]
+> randomNormSets n g                       = takeWhile (not . null) $ unfoldr (Just . splitAt n) (randomNorms g)
 >
 > instrumentLimit :: Double
 > instrumentLimit = fromIntegral $ fromEnum Gunshot
