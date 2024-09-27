@@ -57,10 +57,9 @@ notes on three kinds of scoring ================================================
 
 In order of when they occur in the overall process:
 
-1. FuzzyFind        - For each *.sf2, we record qualifying items into roster whose names match keywords for GM
-                      instrument and percussion names -- e.g. "Iowa Viola-pp" maps to Viola. The highest FuzzyFind
-                      results figure into "tournament" selection. But only the instrument selections are _profoundly_
-                      affected by fuzziness. PercussionSound winners go mostly by matching "pitch" with zonal key
+1. FuzzyFind        - For each *.sf2, we record items into overall roster when their names score high when
+                      fuzzy-matched versus identifying words (e.g. piano) The instrument selections are _profoundly_
+                      affected by fuzziness. But PercussionSound winners go mostly by matching "pitch" with zonal key
                       range.
   
 2. artifact grading - Before rendering, we bind the tournament winner (highest grade) to each GM InstrumentName or
@@ -272,12 +271,6 @@ Instrument categories: instrument, percussion, disqualified
 >
 >                                            []
 >
-> data PlayKey =
->   PlayKey {
->     xItem              :: PerGMKey
->   , xNoteOn            :: NoteOn} deriving (Eq, Ord, Show)
-> type PlayValue                           = (Recon, Maybe Recon)
->
 > theGrader              :: Grader         = grader ssWeights 500
 
 profiler =============================================================================================================
@@ -286,17 +279,13 @@ profiler =======================================================================
 > profileSF2s                              = do
 >   putStrLn "profileSF2s..."
 >   fps                  ← FP.getDirectoryFiles "." (singleton "*.sf2")
+>   putStrLn $ unwords ["scanning", show $ length fps, "files..."]
 >   mapM_ profileSF2 fps
 >
 > profileSF2             :: FilePath → IO ()
 > profileSF2 fp                            = do
 >   sffile@SFFile{ .. }                    ← openSoundFontFile 0 fp
 >   let SoundFontArrays{ .. }              = zArrays
->   putStrLn $ unwords [   show $ length ssInsts
->                      ,   show $ length ssIBags
->                      ,   show $ length ssIGens
->                      ,   show $ length ssIMods
->                      ,   show $ length ssShdrs  ]
 >   let lInst                              = length ssInsts
 >   putStrLn ""
 >   mapM_ (profileInst sffile) (deriveRange 0 (lInst-1))
@@ -338,8 +327,8 @@ profiler =======================================================================
 >                      , show zInitFc
 >                      , show zInitQ, "=======", show zKeyRange]
 >           in
->             (    zInitQ >>= (\x -> if x == 0 then Nothing else Just sSample))
->                >> (if goodName sInst && goodName sSample then Just sout else Nothing)
+>             (zInitQ >>= (\x -> if x == 0 then Nothing else Just sSample))
+>             >> (if goodName sInst && goodName sSample then Just sout else Nothing)
 
 executive =============================================================================================================
 
@@ -724,7 +713,8 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     Right soundFont      → do
 >       let pdata = F.pdta soundFont
 >       let sdata = F.sdta soundFont
->       let arrays = SoundFontArrays
+>       let arrays@SoundFontArrays{ .. }
+>                 = SoundFontArrays
 >                      (F.insts pdata)
 >                      (F.ibags pdata)
 >                      (F.igens pdata)
@@ -733,10 +723,16 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                      (F.smpl sdata)
 >                      (F.sm24 sdata)
 >       let sffile = SFFile filename arrays wFile
->       let nBits = case ssM24 (zArrays sffile) of
+>       let nBits = case ssM24 of
 >             Nothing          → 16
 >             Just s24data     → 24
 >       ts2 ← getCurrentTime
+>       CM.when diagnosticsEnabled (
+>         putStrLn $ unwords [   show $ length ssInsts
+>                            ,   show $ length ssIBags
+>                            ,   show $ length ssIGens
+>                            ,   show $ length ssIMods
+>                            ,   show $ length ssShdrs  ])
 >       putStrLn (" (" ++ show nBits ++ ") loaded in " ++ show (diffUTCTime ts2 ts1))
 >       return sffile
 >     
@@ -984,19 +980,28 @@ prepare the specified instruments and percussion ===============================
 >           professIsJust (Map.lookup pergm preInstCache) (unwords ["no PreInstrument?!"])
 >         FFMatches{ .. }                  = iMatches
 >
->         icat                             = fromMaybe (InstCatDisq DisqUnknown) (foldr CM.mplus Nothing alts)
+>         icat                             = fromMaybe (InstCatDisq DisqUnknown) (foldl' CM.mplus Nothing alts)
 >
 >         corrupt        :: Maybe InstCat
 >         corrupt                          =
->           foldl' sampler Nothing zs `CM.mplus` checkName "Inst" iName
+>           foldl' byZone Nothing zs `CM.mplus` checkName "Inst" iName
 >           where
->             sampler    :: Maybe InstCat → (ZoneHeader, ZoneDigest) → Maybe InstCat
->             sampler accum (ZoneHeader{ .. }, _)
+>             byZone     :: Maybe InstCat → (ZoneHeader, ZoneDigest) → Maybe InstCat
+>             byZone accum (ZoneHeader{ .. }, ZoneDigest{ .. })
 >                                          =
 >               let
 >                 F.Shdr{ .. }             = zhShdr
 >               in
->                 checkShdr zhShdr `CM.mplus` checkName "Sample" sampleName
+>                 foldl'
+>                   CM.mplus
+>                   Nothing
+>                   [checkName "Sample" sampleName, checkGMRange zdKeyRange, checkGMRange zdVelRange]
+>
+>         checkGMRange   :: (Num a, Ord a) ⇒ Maybe (a, a) → Maybe InstCat
+>         checkGMRange mrng                =
+>           mrng >>= \(j, k) → if (0 <= j) && j <= k && k < fromIntegral qMidiSize128
+>                                then Nothing
+>                                else Just $ InstCatDisq DisqZoneRanges
 >
 >         checkName      :: String → String → Maybe InstCat
 >         checkName strType strName        =
@@ -1005,12 +1010,13 @@ prepare the specified instruments and percussion ===============================
 >             else Just (InstCatDisq $ DisqNameCorrupt strType (show strName))
 >
 >         checkShdr      :: F.Shdr → Maybe InstCat
->         checkShdr F.Shdr{ .. }           =
->           if sampleRate > 0 && sampleRate < 2^31 && isJust (toMaybeSampleType sampleType)
+>         checkShdr F.Shdr{sampleRate, sampleType}
+>                                          =
+>           if sampleRate > 0 && sampleRate < 2^30 && isJust (toMaybeSampleType sampleType)
 >             then Nothing
 >             else Just (InstCatDisq DisqSampleHeaderCorrupt)
 >
->         hasRom (ZoneHeader{ .. }, _)     = F.sampleType zhShdr >= 0x8000
+>         hasRom (ZoneHeader{zhShdr}, _)   = F.sampleType zhShdr >= 0x8000
 >                                          
 >         checkLinkage   :: Maybe InstCat
 >         checkLinkage
@@ -1040,8 +1046,11 @@ prepare the specified instruments and percussion ===============================
 >
 >             crFolder   :: Array Int Int → ((Int, Int), (Int, Int)) → Array Int Int
 >             crFolder hist ((p1,p2),(v1,v2))
->                                          =
->               accum (+) hist ([(i + 128 * j, 1) | i ← [p1..p2], j ← [v1..v2]])
+>               | traceNever trace_CRF False
+>                                          = undefined
+>               | otherwise                = accum (+) hist ([(i + 128 * j, 1) | i ← [p1..p2], j ← [v1..v2]])
+>               where
+>                 trace_CRF                = unwords ["crFolder", show ((p1,p2),(v1,v2))]
 >
 >         indices, links :: (ZoneHeader, ZoneDigest) → Maybe Int
 >         indices (zh, zd@ZoneDigest{ .. })
@@ -1080,7 +1089,8 @@ prepare the specified instruments and percussion ===============================
 >           [ corrupt
 >           , if any hasRom zs then Just (InstCatDisq DisqRomBased) else Nothing
 >           , checkLinkage
->           , checkRanges
+>           -- WOX problem with stereo and disqualifying instruments with GM range redundancies
+>           -- WOX , checkRanges
 >           , maybeSettle isConfirmed catInst                  ffInst'
 >           , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
 >           , maybeSettle stands      catInst                  ffInst'
@@ -1129,7 +1139,7 @@ prepare the specified instruments and percussion ===============================
 >         inspectGen (F.SampleIndex w) zd  = zd {zdSampleIndex = Just w}
 >         inspectGen _ zd                  = zd
 >
->         trace_CI                         = unwords ["categorizeInst", show pgkwFile, iName, show alts]
+>         trace_CI                         = unwords ["categorizeInst", show pgkwFile, iName]
 >
 > formZoneCache          :: Array Word SFFile
 >                           → Map PerGMKey PreInstrument
@@ -1251,31 +1261,34 @@ define signal functions and instrument maps to support rendering ===============
 >     pchOut              :: AbsPitch      = maybe noteOnKey (clip (0, 127)) rForceKey
 >     volOut              :: Volume        = maybe noteOnVel (clip (0, 127)) rForceVel
 >
+>     perI@PerInstrument{ .. }             = fromJust $ Map.lookup pergm zZoneCache
 >     arrays                               = zArrays (zFiles ! pgkwFile)
 >     nameI                                = F.instName $ ssInsts arrays ! pgkwInst
 >     trace_ISF                            =
 >       unwords ["instrumentSF", show pgkwFile, nameI, show (pchIn, volIn), show dur]
 >
->     (reconX@Recon{ .. }, mreconX)        = memoizedComputePlayValue pergm{pgkwBag = Nothing} zZoneCache noon
+>     (reconX@Recon{ .. }, mreconX)        = memoizedComputeRecons pergm{pgkwBag = Nothing} perI noon
 >
-> computePlayValue       :: PerGMKey → Map PerGMKey PerInstrument → NoteOn → PlayValue
-> computePlayValue pergm@PerGMKey{ .. } zc noon
->                                          =
->   case setZone pergm zc noon of
+> computeRecons          :: PerGMKey → PerInstrument → NoteOn → (Recon, Maybe Recon)
+> computeRecons pergm@PerGMKey{ .. } perI@PerInstrument{ .. } noon
+>   | traceNot trace_CR False              = undefined
+>   | otherwise                            =
+>   case setZone pergm perI noon of
 >     Left (zL, sL)                        → (recon zL sL noon, Nothing)
 >     Right ((zL, sL), (zR, sR))           → reconLR ((zL, sL), (zR, sR)) noon
+>   where
+>     trace_CR                             = unwords ["computeRecons", show pgkwFile, F.instName pInst, show noon]
 >
-> memoizedComputePlayValue = memo computePlayValue
+> memoizedComputeRecons = memo computeRecons
 
 zone selection for rendering ==========================================================================================
 
 > setZone                :: PerGMKey
->                           → Map PerGMKey PerInstrument
+>                           → PerInstrument
 >                           → NoteOn
 >                           → Either (SFZone, F.Shdr) ((SFZone, F.Shdr), (SFZone, F.Shdr))
-> setZone pergm@PerGMKey{ .. } zc noon     = eor
+> setZone pergm@PerGMKey{ .. } perI@PerInstrument{ .. } noon   = eor
 >   where
->     PerInstrument{ .. }                  = fromJust $ Map.lookup pergm zc
 >     zs                                   = tail pZonePairs
 >     ezones                               = selectZonePair zs (selectBestZone zs noon)
 >     eor                                  =

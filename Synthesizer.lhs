@@ -57,8 +57,8 @@ Signal function-based synth ====================================================
 >            then eutSplit <<< pumpMonoConvoPath
 >            else eutSplit <<< pumpMonoPath
 >     else if ResonanceConvo == m8nL.mLowpass.lowpassType
->            then pumpStereoPath
->            else pumpStereoConvoPath
+>            then pumpStereoConvoPath
+>            else pumpStereoPath
 >   where
 >     noon@NoteOn{ .. }                    = NoteOn vol pch
 >     reconR                               = fromJust mreconR

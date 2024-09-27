@@ -3011,7 +3011,7 @@ Hills of Greenmore =============================================================
 > hgTempo                                  = 1
 > hgTranspose                              = 0
 >
-> hgLead_                                  = makePitched ElectricGuitarClean               hgTranspose     0     100
+> hgLead_                                  = makePitched Accordion                         hgTranspose     0     100
 > hgBass_                                  = makePitched SynthBass1                        hgTranspose     0     100
 > hgPerc_                                  = makeNonPitched                                                      100
 >
