@@ -81,9 +81,6 @@ Utilities ======================================================================
 > epsilon                                  = 1e-8               -- a generous little epsilon
 > upsilon                                  = 1e10               -- a scrawny  big    upsilon
 >
-> fixM                   :: Int
-> fixM                                     = 512
->
 > qMidiSize128           :: Int            = 128
 >
 > freakRange             :: (Double, Double)
@@ -952,8 +949,8 @@ Conversion functions and general helpers =======================================
 > professIsJust          :: ∀ a. Maybe a → String → a
 > professIsJust item msg                   = profess (isJust item) msg (fromJust item)
 >
-> professIsJust'         :: ∀ a. Maybe a → a
-> professIsJust' item                      = professIsJust item "expected Just"
+> xJust                  :: ∀ a. Maybe a → a
+> xJust item                               = professIsJust item "expected Just"
 >
 > roundBy                :: Double → Double → Double
 > roundBy p10 x                            = fromIntegral (round (p10 * x)) / p10

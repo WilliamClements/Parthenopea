@@ -170,7 +170,7 @@ Discrete approach ==============================================================
 >         (max  stMaxAmp           (aamp d))
 >
 > measureFrequencyResponse
->                        :: forall a. (Coeff a, VU.Unbox a) ⇒ VU.Vector a → FrequencyResponseStats
+>                        :: ∀ a. (Coeff a, VU.Unbox a) ⇒ VU.Vector a → FrequencyResponseStats
 > measureFrequencyResponse                 = VU.foldl' sfolder defFrequencyResponseStats
 >   where
 >     sfolder            ::  FrequencyResponseStats → a → FrequencyResponseStats
@@ -272,13 +272,13 @@ Discrete approach ==============================================================
 >                                  , show cdsigFR
 >                                  , show dsigOut]
 >
-> toFrequencyDomain      :: forall a. Coeff a ⇒ [a] → [Complex Double]
+> toFrequencyDomain      :: ∀ a. Coeff a ⇒ [a] → [Complex Double]
 > toFrequencyDomain                        = doFft fft
 >
-> toTimeDomain           :: forall a. Coeff a ⇒ [a] → [Complex Double]
+> toTimeDomain           :: ∀ a. Coeff a ⇒ [a] → [Complex Double]
 > toTimeDomain                             = doFft ifft
 >
-> doFft                  :: forall a. Coeff a ⇒
+> doFft                  :: ∀ a. Coeff a ⇒
 >                           ([Complex Double] → [Complex Double]) → [a] → [Complex Double]
 > doFft fftFun as                          = fftFun cds
 >   where
@@ -508,7 +508,7 @@ Type declarations ==============================================================
 >     dsigTag            :: String
 >     , dsigStats        :: DiscreteStats a
 >     , dsigVec          :: VU.Vector a}
-> instance forall a. (Show a, Coeff a, VU.Unbox a) ⇒ Show (DiscreteSig a) where
+> instance ∀ a. (Show a, Coeff a, VU.Unbox a) ⇒ Show (DiscreteSig a) where
 >   show                 :: DiscreteSig a → String
 >   show DiscreteSig{ .. }                 =
 >     unwords ["DiscreteSig", show (dsigTag, dsigStats, measureFrequencyResponse dsigVec)]
