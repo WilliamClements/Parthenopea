@@ -106,8 +106,11 @@ apply fuzzyfind to mining instruments + percussion =============================
 > instrumentConFFKeys inst                 = embed inst keys
 >   where
 >    keys = case inst of
->       AcousticGrandPiano        → Just            ["upright", "bright", "mellow", "elec"]
->       AcousticBass              → Just            ["brass", "bassoon", "tremolo", "elec"]
+>       AcousticBass              → Just            ["drum", "brass", "bassoon", "tremolo", "elec"]
+>       AcousticGrandPiano        → Just            ["drum", "upright", "bright", "mellow", "elec"]
+>       ElectricGuitarJazz        → Just            ["drum", "bass"]
+>       AcousticGuitarNylon       → Just            ["drum", "bass"]
+>       AcousticGuitarSteel       → Just            ["drum", "bass"]
 >       Agogo                     → Just            ["hi", "low"]
 >       BrightAcousticPiano       → Just            ["brightness", "grand"]
 >       Cello                     → Just            ["tremolo", "strike", "pluck", "staccato"]
@@ -367,7 +370,8 @@ use "matching as" cache ========================================================
 >   , ffPerc             :: Map PercussionSound Fuzz} deriving Show
 >
 > combineFF              :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ Map a Fuzz → Map a Fuzz → Map a Fuzz
-> combineFF ffpros ffcons                  = Map.unionWith (+) ffpros (Map.map (* (- conRatio)) ffcons)
+> combineFF ffpros ffcons                  =
+>   Map.filter (>= 0) (Map.unionWith (\pro con → pro + ((- conRatio) * con)) ffpros ffcons)
 >
 > computeFFMatches       :: String → FFMatches
 > computeFFMatches inp                     = FFMatches inp
@@ -478,24 +482,25 @@ Flags for customization ========================================================
 
 > data ScoringSettings =
 >   ScoringSettings {
->     qqDesireReStereo       :: Desires
->   , qqDesireRe24Bit        :: Desires
->   , qqDesireReSplits       :: Desires
->   , qqDesireReConformance  :: Desires
->   , qqDesireReFuzzy        :: Desires
+>     qqDesireReStereo                     :: Desires
+>   , qqDesireRe24Bit                      :: Desires
+>   , qqDesireReSplits                     :: Desires
+>   , qqDesireReConformance                :: Desires
+>   , qqDesireReFuzzy                      :: Desires
 >
->   , qqWeighHints           :: Rational
->   , qqWeighStereo          :: Rational
->   , qqWeigh24Bit           :: Rational
->   , qqWeighResolution      :: Rational
->   , qqWeighConformance     :: Rational
->   , qqWeighFuzziness       :: Rational
+>   , qqWeighHints                         :: Rational
+>   , qqWeighStereo                        :: Rational
+>   , qqWeigh24Bit                         :: Rational
+>   , qqWeighResolution                    :: Rational
+>   , qqWeighConformance                   :: Rational
+>   , qqWeighFuzziness                     :: Rational
 >
->   , qqConRatio             :: Double
+>   , qqNarrowInstrumentScope              :: Bool
+>   , qqConRatio                           :: Double
 >
->   , qqFFThresholdPossible  :: Double
->   , qqFFThresholdStands    :: Double
->   , qqFFThresholdConfirmed :: Double
+>   , qqFFThresholdPossible                :: Double
+>   , qqFFThresholdStands                  :: Double
+>   , qqFFThresholdConfirmed               :: Double
 >
 >   , qqEnableSampleAnalysis :: Bool} deriving (Eq, Show)
 >
@@ -510,6 +515,7 @@ Flags for customization ========================================================
 > stands                                   = qqFFThresholdStands          defT
 > isConfirmed                              = qqFFThresholdConfirmed       defT
 >
+> narrowInstrumentScope                    = qqNarrowInstrumentScope      defT
 > conRatio                                 = qqConRatio                   defT
 >
 > isPossible' fuzz                         = fuzz > qqFFThresholdPossible defT
@@ -558,6 +564,7 @@ Edit the following =============================================================
 >   , qqWeighConformance                   = 3
 >   , qqWeighFuzziness                     = 3
 >
+>   , qqNarrowInstrumentScope              = True
 >   , qqConRatio                           = 3/4
 >
 >   , qqFFThresholdPossible                = 50

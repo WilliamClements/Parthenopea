@@ -1123,7 +1123,7 @@ breakUp returns a list of integers approximating divisions of a floating point r
 > sampleUp i                               =
 >   if i <= 0
 >     then error "out of range for sampleUp"
->     else max minImpulseSize (head $ dropWhile (< i) (iterate' (* 2) 1))
+>     else max 16_384 (head $ dropWhile (< i) (iterate' (* 2) 1))
 >
 > sampleDown             :: Int → Int
 > sampleDown i                             =
@@ -1257,10 +1257,7 @@ Configurable parameters ========================================================
 > doRender                                 = qqDoRender                   defC
 > diagnosticsEnabled                       = qqDiagnosticsEnabled         defC 
 > reportTourney                            = qqReportTourney              defC 
-> narrowInstrumentScope                    = qqNarrowInstrumentScope      defC
-> multipleCompetes                         = qqMultipleCompetes           defC
 > skipGlissandi                            = qqSkipGlissandi              defC
-> minImpulseSize                           = qqMinImpulseSize             defC
 > replacePerCent                           = qqReplacePerCent             defC
 > usingPlayCache                           = qqUsingPlayCache             defC
 >
@@ -1269,10 +1266,7 @@ Configurable parameters ========================================================
 >     qqDoRender                           :: Bool
 >   , qqDiagnosticsEnabled                 :: Bool
 >   , qqReportTourney                      :: Bool
->   , qqNarrowInstrumentScope              :: Bool
->   , qqMultipleCompetes                   :: Bool
 >   , qqSkipGlissandi                      :: Bool
->   , qqMinImpulseSize                     :: Int
 >   , qqReplacePerCent                     :: Double
 >   , qqUsingPlayCache                     :: Bool} deriving (Eq, Show)
 
@@ -1284,10 +1278,7 @@ Edit the following =============================================================
 >     qqDoRender                           = True
 >   , qqDiagnosticsEnabled                 = False
 >   , qqReportTourney                      = True
->   , qqNarrowInstrumentScope              = True
->   , qqMultipleCompetes                   = True
 >   , qqSkipGlissandi                      = False
->   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0
 >   , qqUsingPlayCache                     = False}
 

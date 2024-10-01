@@ -1117,6 +1117,8 @@ prepare the specified instruments and percussion ===============================
 >
 >         maybeSettle    :: (Foldable t) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
 >         maybeSettle thresh icat keys     = find (> thresh) keys >>= (\x → Just icat)
+>
+>         genericScore                     = evalAgainstGeneric iName
 
    "now", sequence through the alternatives, categorizing encountered instruments as follows:
    a. Just InstCatInst           an inst bearing one inst, or
@@ -1144,8 +1146,8 @@ prepare the specified instruments and percussion ===============================
 >               else Nothing
 >           , maybeSettle stands      (catPerc wZones)         ffPerc'
 >           , maybeSettle stands      (catDisq DisqNarrow)     ffInst
->           , if evalAgainstGeneric iName > 0 then Just catInst                else Nothing
->           , if evalAgainstGeneric iName < 0 then Just (catPerc wZones)       else Nothing
+>           , if genericScore > 0 then Just catInst                else Nothing
+>           , if genericScore < 0 then Just (catPerc wZones)       else Nothing
 >           ]
 >           where
 >             catInst    :: InstCat        = InstCatInst
@@ -1662,20 +1664,21 @@ emit standard output text detailing what choices we made for rendering GM items 
 >
 > data SoundFontSettings =
 >   SoundFontSettings {
->     qqAllowStereoCrossovers
->                        :: Bool
->   , qqAllowOverlappingRanges
->                        :: Bool} deriving Show
+>     qqAllowStereoCrossovers              :: Bool
+>   , qqAllowOverlappingRanges             :: Bool
+>   , qqMultipleCompetes                   :: Bool} deriving Show
 >
 > allowStereoCrossovers                    = qqAllowStereoCrossovers      defF
 > -- stereo pair can come from 2 different instruments
 > allowOverlappingRanges                   = qqAllowOverlappingRanges     defF
-> -- more than one zone can reference a given range cellSoundFontSettings
+> -- more than one zone can reference a given range cell
+> multipleCompetes                         = qqMultipleCompetes           defF
 >
 > defF                   :: SoundFontSettings
 > defF =
 >   SoundFontSettings {
 >     qqAllowStereoCrossovers              = True
->   , qqAllowOverlappingRanges             = True}
+>   , qqAllowOverlappingRanges             = True
+>   , qqMultipleCompetes                   = True}
 
 The End
