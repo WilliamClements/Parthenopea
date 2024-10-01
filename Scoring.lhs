@@ -141,7 +141,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       RhodesPiano               → Just            ["rhodes", "piano"]
 >       ChorusedPiano             → Just            ["chorused", "piano"]
 >       Harpsichord               → Just            ["harpsi", "harpsichord"]
->       Clavinet                  → Just $ singleton "clavinet"
+>       Clavinet                  → Just $ singleton "clav"
 >       Celesta                   → Just $ singleton "celesta"
 >       Glockenspiel              → Just $ singleton "glockenspiel"
 >       MusicBox                  → Just $ singleton "musicbox"
@@ -491,6 +491,8 @@ Flags for customization ========================================================
 >   , qqWeighConformance     :: Rational
 >   , qqWeighFuzziness       :: Rational
 >
+>   , qqConRatio             :: Double
+>
 >   , qqFFThresholdPossible  :: Double
 >   , qqFFThresholdStands    :: Double
 >   , qqFFThresholdConfirmed :: Double
@@ -507,6 +509,8 @@ Flags for customization ========================================================
 > isPossible                               = qqFFThresholdPossible        defT
 > stands                                   = qqFFThresholdStands          defT
 > isConfirmed                              = qqFFThresholdConfirmed       defT
+>
+> conRatio                                 = qqConRatio                   defT
 >
 > isPossible' fuzz                         = fuzz > qqFFThresholdPossible defT
 > stands' fuzz                             = fuzz > qqFFThresholdStands defT
@@ -536,7 +540,7 @@ Flags for customization ========================================================
 > qqDesires'             :: [Double]       = map (fromRational . scoreDesire) qqDesires
 >
 
-Turn Knobs Here =======================================================================================================
+Edit the following ====================================================================================================
 
 > defT                   :: ScoringSettings
 > defT =
@@ -553,6 +557,8 @@ Turn Knobs Here ================================================================
 >   , qqWeighResolution                    = 3/2
 >   , qqWeighConformance                   = 3
 >   , qqWeighFuzziness                     = 3
+>
+>   , qqConRatio                           = 3/4
 >
 >   , qqFFThresholdPossible                = 50
 >   , qqFFThresholdStands                  = 150

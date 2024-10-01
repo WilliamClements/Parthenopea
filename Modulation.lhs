@@ -217,14 +217,13 @@ Modulator management ===========================================================
 >     ms2                                  = ModSrc   (Mapping Switch    False  True False) FromNoteOnVel
 >
 >     makeDefaultMod     :: Word → ModSrc → Word → Double → ModSrc → Modulator
->     makeDefaultMod mId ms igen amt amtSrc
->                                          = professIsJust
+>     makeDefaultMod mId ms igen amt aSrc  = deJust
+>                                              "makeDefaultMod"
 >                                              (Just defModulator{mrModId = mId}
->                                              >>= addSrc ms
->                                              >>= addDest igen
->                                              >>= addAmount amt
->                                              >>= addAmtSrc' amtSrc)
->                                            "makeDefaultMod"
+>                                               >>= addSrc ms
+>                                               >>= addDest igen
+>                                               >>= addAmount amt
+>                                               >>= addAmtSrc' aSrc)
 >
 >     ms3                                  = ModSrc   (Mapping Linear False False False) FromNoController
 >

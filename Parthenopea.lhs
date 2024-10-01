@@ -946,11 +946,8 @@ Conversion functions and general helpers =======================================
 >                                              (val == clip range val)
 >                                              (unwords ["out of", role, "range", show range, show val])
 >
-> professIsJust          :: ∀ a. Maybe a → String → a
-> professIsJust item msg                   = profess (isJust item) msg (fromJust item)
->
-> xJust                  :: ∀ a. Maybe a → a
-> xJust item                               = professIsJust item "expected Just"
+> deJust                 :: ∀ a. String → Maybe a → a
+> deJust tag item                          = profess (isJust item) (unwords["expected Just for", tag]) (fromJust item)
 >
 > roundBy                :: Double → Double → Double
 > roundBy p10 x                            = fromIntegral (round (p10 * x)) / p10
@@ -1266,7 +1263,6 @@ Configurable parameters ========================================================
 > minImpulseSize                           = qqMinImpulseSize             defC
 > replacePerCent                           = qqReplacePerCent             defC
 > usingPlayCache                           = qqUsingPlayCache             defC
-> conRatio                                 = qqConRatio                   defC
 >
 > data ControlSettings =
 >   ControlSettings {
@@ -1278,8 +1274,7 @@ Configurable parameters ========================================================
 >   , qqSkipGlissandi                      :: Bool
 >   , qqMinImpulseSize                     :: Int
 >   , qqReplacePerCent                     :: Double
->   , qqUsingPlayCache                     :: Bool
->   , qqConRatio                           :: Double} deriving (Eq, Show)
+>   , qqUsingPlayCache                     :: Bool} deriving (Eq, Show)
 
 Edit the following ====================================================================================================
 
@@ -1294,7 +1289,6 @@ Edit the following =============================================================
 >   , qqSkipGlissandi                      = False
 >   , qqMinImpulseSize                     = 65_536
 >   , qqReplacePerCent                     = 0
->   , qqUsingPlayCache                     = False
->   , qqConRatio                           = 3/4}
+>   , qqUsingPlayCache                     = False}
 
 The End

@@ -776,7 +776,7 @@ Utility types ==================================================================
 >   | SampleTypeRomLinked deriving (Eq, Show)
 >
 > toSampleType           :: Word → SampleType
-> toSampleType n                           = professIsJust (toMaybeSampleType n) "sampleType"
+> toSampleType hex                         = deJust "toMaybeSampleType" (toMaybeSampleType hex)
 >
 > toMaybeSampleType      :: Word → Maybe SampleType
 > toMaybeSampleType n                      =
