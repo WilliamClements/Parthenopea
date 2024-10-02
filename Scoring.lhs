@@ -371,7 +371,7 @@ use "matching as" cache ========================================================
 >
 > combineFF              :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ Map a Fuzz → Map a Fuzz → Map a Fuzz
 > combineFF ffpros ffcons                  =
->   Map.filter (>= 0) (Map.unionWith (\pro con → pro + ((- conRatio) * con)) ffpros ffcons)
+>   Map.filter (>= 0) (Map.unionWith (+) ffpros (Map.map (* (- conRatio)) ffcons))
 >
 > computeFFMatches       :: String → FFMatches
 > computeFFMatches inp                     = FFMatches inp

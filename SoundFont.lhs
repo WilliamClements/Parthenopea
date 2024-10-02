@@ -953,8 +953,8 @@ prepare the specified instruments and percussion ===============================
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [PerGMKey]
 >                           → IO [(PerGMKey, InstCat)]
-> categorize sffiles preInstCache rost pergms
->                                          = do CM.foldM winnow [] pergms
+> categorize sffiles preInstCache rost
+>                                          = CM.foldM winnow []
 >   where
 >     winnow             :: [(PerGMKey, InstCat)] → PerGMKey → IO [(PerGMKey, InstCat)]
 >     winnow accum pergm@PerGMKey{ .. }    = do
@@ -964,7 +964,7 @@ prepare the specified instruments and percussion ===============================
 >       where
 >         PreInstrument{iName}             =
 >           deJust (unwords ["winnow", "PreInstrument"]) (Map.lookup pergm preInstCache)
->         cat                              = notracer "cat" (categorizeInst pergm)
+>         cat                              = categorizeInst pergm
 >         doShow                           = case cat of
 >                                              InstCatDisq reason   → renderDisqReason reason
 >                                              _                    → Nothing
@@ -977,7 +977,7 @@ prepare the specified instruments and percussion ===============================
 >     categorizeInst     :: PerGMKey → InstCat
 >     categorizeInst pergm@PerGMKey{pgkwFile, pgkwInst}
 >       | traceIf trace_CI False           = undefined
->       | otherwise                        = icat
+>       | otherwise                        = deJust (unwords["categorizeInst icat"]) icat
 >       where
 >         SoundFontArrays{ssInsts, ssIBags, ssIGens, ssShdrs}
 >                                          = zArrays (sffiles ! pgkwFile)
@@ -995,9 +995,20 @@ prepare the specified instruments and percussion ===============================
 >         zs                               = map inspectZone (tail (deriveRange ibagi jbagi))
 >         zsLessCross                      = filter (not . hasCrossover) zs
 >         zsLessLocalRights                = filter (\z → hasCrossover z || not (isRightSample z)) zs
->         links                            = map extractLink zs
 >
->         icat                             = fromMaybe (InstCatDisq DisqUnknown) (foldl' CM.mplus Nothing alts)
+>         icatU, icatR, icat
+>                        :: Maybe InstCat
+>         icatU                            = foldl' CM.mplus Nothing (alts Nothing allKinds)
+>         icatR                            = foldl' CM.mplus Nothing (alts icatU rost)
+>         icat                             =
+>           case (icatU, icatR) of
+>             (Just InstCatInst, Just InstCatInst)
+>                                          → icatR
+>             (Just (InstCatPerc _), Just (InstCatPerc _))
+>                                          → icatR
+>             (Just (InstCatDisq _), _)    → icatU
+>             (_, Just (InstCatDisq _))    → icatR
+>             _                            → Just (InstCatDisq DisqNarrow)
 >
 >         corrupt        :: Maybe InstCat
 >         corrupt                          =
@@ -1055,7 +1066,7 @@ prepare the specified instruments and percussion ===============================
 >                                              else Nothing
 >
 >         hasCrossover   :: (ZoneHeader, ZoneDigest) → Bool
->         hasCrossover z                   = isStereoZone z && notElem myLink links
+>         hasCrossover z                   = isStereoZone z && notElem myLink (map extractLink zs)
 >           where
 >             ZoneHeader{zhShdr}           = fst z
 >             myLink                       = F.sampleLink zhShdr
@@ -1109,12 +1120,6 @@ prepare the specified instruments and percussion ===============================
 >           | null zs                      = 0
 >           | otherwise                    = (fromIntegral . length) ws / (fromIntegral . length) zs
 >
->         uZones         :: [Word]         = notracer "uZones" (mapMaybe (evalForPerc allKinds) zs)
->         wZones         :: [Word]         = notracer "wZones" (mapMaybe (evalForPerc rost) zs)
->
->         ffInst'                          = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) ffInst
->         ffPerc'                          = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) ffPerc
->
 >         maybeSettle    :: (Foldable t) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
 >         maybeSettle thresh icat keys     = find (> thresh) keys >>= (\x → Just icat)
 >
@@ -1126,38 +1131,57 @@ prepare the specified instruments and percussion ===============================
    c. Just InstCatDisq           an inst disqualified from tournaments, or
    d. Nothing                    undecided
 
->         alts           :: [Maybe InstCat]
->         alts                             =
->           [ corrupt
->           , if any hasRom zs then Just (InstCatDisq DisqRomBased) else Nothing
->           , if allowStereoCrossovers
->               then Nothing
->               else rejectCrossovers
->           , checkLinkage
->           , if allowOverlappingRanges
->               then Nothing
->               else checkRanges -- disqualifying instruments with GM range redundancies
->                                -- (issue: ranges covered twice due to stereo duplication)
->           , maybeSettle isConfirmed catInst                  ffInst'
->           , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
->           , maybeSettle stands      catInst                  ffInst'
->           , if 0.75 < howLaden uZones
->               then (if 0.05 < howLaden wZones then Just (catPerc wZones) else Just (catDisq DisqNoPercZones))
->               else Nothing
->           , maybeSettle stands      (catPerc wZones)         ffPerc'
->           , maybeSettle stands      (catDisq DisqNarrow)     ffInst
->           , if genericScore > 0 then Just catInst                else Nothing
->           , if genericScore < 0 then Just (catPerc wZones)       else Nothing
->           ]
+>         alts           :: Maybe InstCat → ([InstrumentName], [PercussionSound]) → [Maybe InstCat]
+>         alts seed rost                 =
+>           if isNothing seed
+>             then structuralAlts ++ alts2 allKinds
+>             else alts2 rost
+>
 >           where
->             catInst    :: InstCat        = InstCatInst
->             catPerc    :: [Word] → InstCat
+>             structuralAlts               =
+>               [
+>                 corrupt
+>               , if any hasRom zs then Just (InstCatDisq DisqRomBased) else Nothing
+>               , if allowStereoCrossovers
+>                   then Nothing
+>                   else rejectCrossovers
+>               , checkLinkage
+>               , if allowOverlappingRanges
+>                   then Nothing
+>                   else checkRanges -- disqualifying instruments with GM range redundancies
+>                                    -- (issue: ranges covered twice due to stereo duplication)
+>               ]
+>             alts2 rost          =
+>               let
+>                 ffInst'                  = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) ffInst
+>                 ffPerc'                  = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) ffPerc
+>                 wZones :: [Word]         = mapMaybe (evalForPerc rost) zs
+>               in
+>
+>               [ 
+>                 maybeSettle isConfirmed catInst                  ffInst'
+>               , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
+>               , maybeSettle stands      catInst                  ffInst'
+>               , if 0.75 < howLaden wZones
+>                   then (if 0.05 < howLaden wZones then Just (catPerc wZones) else Just (catDisq DisqNoPercZones))
+>                   else Nothing
+>               , maybeSettle stands      (catPerc wZones)         ffPerc'
+>               , maybeSettle stands      (catDisq DisqNarrow)     ffInst
+>               , if genericScore > 0 then Just catInst                else Nothing
+>               , if genericScore < 0 then Just (catPerc wZones)       else Nothing
+>               , maybeSettle isConfirmed catInst                  ffInst'
+>               , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
+>               , maybeSettle stands      catInst                  ffInst'
+>               , Just $ catDisq DisqUnrecognized
+>               ]
+>
+>             catInst      :: InstCat        = InstCatInst
+>             catPerc      :: [Word] → InstCat
 >             catPerc ws                   = if null ws
 >                                              then InstCatDisq DisqNarrow
 >                                              else InstCatPerc ws
 >             catDisq    :: DisqReason → InstCat
 >             catDisq                      = InstCatDisq
->
 >
 >         evalForPerc    :: ([InstrumentName], [PercussionSound]) → (ZoneHeader, ZoneDigest) → Maybe Word
 >         evalForPerc rost' (ZoneHeader{zhwBag}, ZoneDigest{zdKeyRange})
@@ -1186,7 +1210,7 @@ prepare the specified instruments and percussion ===============================
 >         inspectGen (F.SampleIndex w) zd  = zd {zdSampleIndex = Just w}
 >         inspectGen _ zd                  = zd
 >
->         trace_CI                         = unwords ["categorizeInst", show pgkwFile, iName, show (length ffInst, length ffPerc, length ffInst', length ffPerc')]
+>         trace_CI                         = unwords ["categorizeInst", show pgkwFile, iName, show (ffInst, ffPerc)]
 >
 > formZoneCache          :: Array Word SFFile
 >                           → Map PerGMKey PreInstrument
@@ -1636,7 +1660,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >     showIfThere str                  = CM.unless (null str) (putStrLn str)
 >
 > data DisqReason                          =
->     DisqUnknown
+>     DisqUnrecognized
 >   | DisqCorruptId String String
 >   | DisqCorruptHeader 
 >   | DisqNarrow
@@ -1650,7 +1674,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 > qqIncludeUnused          :: Bool         = False
 >
 > renderDisqReason         :: DisqReason → Maybe String
-> renderDisqReason DisqUnknown             = Just (unwords["unrecognized"])
+> renderDisqReason DisqUnrecognized        = Just (unwords["unrecognized"])
 > renderDisqReason (DisqCorruptId strType strName)
 >                                          = Just (unwords["corrupt", strType, strName])
 > renderDisqReason DisqCorruptHeader       = Just (unwords["corrupt header; e.g. sample rate"])
