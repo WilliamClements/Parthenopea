@@ -953,36 +953,36 @@ prepare the specified instruments and percussion ===============================
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [PerGMKey]
 >                           → IO [(PerGMKey, InstCat)]
-> categorize sffiles preInstCache rost
->                                          = CM.foldM winnow []
+> categorize sffiles preInstCache rost     = CM.foldM winnow []
 >   where
 >     winnow             :: [(PerGMKey, InstCat)] → PerGMKey → IO [(PerGMKey, InstCat)]
 >     winnow accum pergm@PerGMKey{ .. }    = do
->       CM.when (isJust doShow)
->               (putStrLn $ unwords ["disq:", show pgkwFile, show iName, ":", fromMaybe [] doShow])
+>       CM.when (isJust doShow) (putStrLn $ fromMaybe [] doShow)
 >       return $ accum ++ news
 >       where
->         PreInstrument{iName}             =
->           deJust (unwords ["winnow", "PreInstrument"]) (Map.lookup pergm preInstCache)
->         cat                              = categorizeInst pergm
->         doShow                           = case cat of
->                                              InstCatDisq reason   → renderDisqReason reason
->                                              _                    → Nothing
+>         (cat, doShow)                    = categorizeInst pergm
 >         news                             =
 >           case cat of
 >             InstCatInst                  → singleton (pergm, cat)
 >             InstCatPerc _                → singleton (pergm, cat)
 >             InstCatDisq _                → []
 >
->     categorizeInst     :: PerGMKey → InstCat
+>     categorizeInst     :: PerGMKey → (InstCat, Maybe String)
 >     categorizeInst pergm@PerGMKey{pgkwFile, pgkwInst}
 >       | traceIf trace_CI False           = undefined
->       | otherwise                        = deJust (unwords["categorizeInst icat"]) icat
+>       | otherwise                        =
+>       (deJust "categorizeInst icat" icat, doShow >>= (\x → Just $ disqMsg ++ x))
 >       where
+>         doShow                           =
+>           case icat of
+>             Just (InstCatDisq reason)    → renderDisqReason reason
+>             _                            → Nothing
+>         disqMsg                          = unwords ["disq:", show pgkwFile, show iName, ":"]
+>
 >         SoundFontArrays{ssInsts, ssIBags, ssIGens, ssShdrs}
 >                                          = zArrays (sffiles ! pgkwFile)
 >         PreInstrument{iName, iMatches}   =
->           deJust (unwords ["categorizeInst", "PreInstrument"]) (Map.lookup pergm preInstCache)
+>           deJust "categorizeInst PreInstrument" (Map.lookup pergm preInstCache)
 >         FFMatches{ffInst, ffPerc}        = iMatches
 >
 >         iinst                            = ssInsts ! pgkwInst
@@ -1121,7 +1121,7 @@ prepare the specified instruments and percussion ===============================
 >           | otherwise                    = (fromIntegral . length) ws / (fromIntegral . length) zs
 >
 >         maybeSettle    :: (Foldable t) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
->         maybeSettle thresh icat keys     = find (> thresh) keys >>= (\x → Just icat)
+>         maybeSettle thresh icat keys     = find (> thresh) keys >> Just icat
 >
 >         genericScore                     = evalAgainstGeneric iName
 
@@ -1132,7 +1132,7 @@ prepare the specified instruments and percussion ===============================
    d. Nothing                    undecided
 
 >         alts           :: Maybe InstCat → ([InstrumentName], [PercussionSound]) → [Maybe InstCat]
->         alts seed rost                 =
+>         alts seed rost                   =
 >           if isNothing seed
 >             then structuralAlts ++ alts2 allKinds
 >             else alts2 rost
@@ -1155,25 +1155,28 @@ prepare the specified instruments and percussion ===============================
 >               let
 >                 ffInst'                  = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) ffInst
 >                 ffPerc'                  = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) ffPerc
+>                 uZones :: [Word]         = case seed of
+>                                              Nothing                 → wZones
+>                                              Just (InstCatPerc us)   → us
+>                                              _                       → []
 >                 wZones :: [Word]         = mapMaybe (evalForPerc rost) zs
 >               in
->
->               [ 
->                 maybeSettle isConfirmed catInst                  ffInst'
->               , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
->               , maybeSettle stands      catInst                  ffInst'
->               , if 0.75 < howLaden wZones
->                   then (if 0.05 < howLaden wZones then Just (catPerc wZones) else Just (catDisq DisqNoPercZones))
->                   else Nothing
->               , maybeSettle stands      (catPerc wZones)         ffPerc'
->               , maybeSettle stands      (catDisq DisqNarrow)     ffInst
->               , if genericScore > 0 then Just catInst                else Nothing
->               , if genericScore < 0 then Just (catPerc wZones)       else Nothing
->               , maybeSettle isConfirmed catInst                  ffInst'
->               , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
->               , maybeSettle stands      catInst                  ffInst'
->               , Just $ catDisq DisqUnrecognized
->               ]
+>                 [ 
+>                     maybeSettle isConfirmed catInst                  ffInst'
+>                   , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
+>                   , maybeSettle stands      catInst                  ffInst'
+>                   , if 0.75 < howLaden uZones
+>                       then
+>                         (if 0.05 < howLaden wZones
+>                            then Just (catPerc wZones)
+>                            else Just (catDisq DisqNoPercZones))
+>                       else Nothing
+>                   , maybeSettle stands      (catPerc wZones)         ffPerc'
+>                   , maybeSettle stands      (catDisq DisqNarrow)     ffInst
+>                   , if genericScore > 0 then Just catInst                else Nothing
+>                   , if genericScore < 0 then Just (catPerc wZones)       else Nothing
+>                   , Just $ catDisq DisqUnrecognized
+>                 ]
 >
 >             catInst      :: InstCat        = InstCatInst
 >             catPerc      :: [Word] → InstCat
