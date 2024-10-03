@@ -604,11 +604,10 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                            >>= \(ZoneHeader{zhShdr}, _) → Just (F.sampleName zhShdr)
 >         zName                            = deJust "mnameZ" mnameZ
 >
->         trace_XAET                       = unwords ["xaEnterTournament", show kind, show mnameZ]
+>         trace_XAET                       = unwords ["xaEnterTournament", iName, show kind, show scoredP.pArtifactGrade]
 >
 >         computeGrade   :: [(ZoneHeader, SFZone)] → AgainstKindResult → ArtifactGrade
->         computeGrade zs againstKindResult
->                                          = gradeEmpiricals theGrader empiricals
+>         computeGrade zs akResult         = gradeEmpiricals theGrader empiricals
 >           where
 >             empiricals :: [Double]       = [   foldHints hints
 >                                              , fromRational $ scoreBool $ isStereoInst zs
@@ -616,7 +615,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                              , computeResolution kind rost zs
 >                                              , fromRational $ scoreBool $ all zoneConforms zs
 >                                              , fuzz]
->             howgood                      = againstKindResult - stands
+>             howgood                      = akResult - stands
 >             fuzz       :: Double
 >               | howgood > 0.000_001      = max 0 (logBase 2 howgood) * fuzzFactor kind
 >               | otherwise                = 0
@@ -1023,7 +1022,7 @@ prepare the specified instruments and percussion ===============================
 >                 foldl'
 >                   CM.mplus
 >                   accum
->                   [checkName "Sample" sampleName, checkGMRange zdKeyRange, checkGMRange zdVelRange]
+>                   [checkShdr zhShdr, checkName "Sample" sampleName, checkGMRange zdKeyRange, checkGMRange zdVelRange]
 >
 >         checkGMRange   :: (Num a, Ord a) ⇒ Maybe (a, a) → Maybe InstCat
 >         checkGMRange mrng                =
@@ -1071,8 +1070,8 @@ prepare the specified instruments and percussion ===============================
 >             ZoneHeader{zhShdr}           = fst z
 >             myLink                       = F.sampleLink zhShdr
 >
->         checkRanges    :: Maybe InstCat
->         checkRanges                      =
+>         rejectOverlaps :: Maybe InstCat
+>         rejectOverlaps                   =
 >           if all (<= 1) histResult then Nothing else Just $ InstCatDisq DisqOverlappingRanges
 >           where
 >             histSeed, histResult
@@ -1148,8 +1147,8 @@ prepare the specified instruments and percussion ===============================
 >               , checkLinkage
 >               , if allowOverlappingRanges
 >                   then Nothing
->                   else checkRanges -- disqualifying instruments with GM range redundancies
->                                    -- (issue: ranges covered twice due to stereo duplication)
+>                   else rejectOverlaps -- disqualifying instruments with GM range redundancies
+>                                       -- (issue: ranges covered twice due to stereo duplication)
 >               ]
 >             alts2 rost          =
 >               let
