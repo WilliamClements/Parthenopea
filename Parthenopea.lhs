@@ -563,6 +563,7 @@ examine song for instrument and percussion usage ===============================
 > allKinds                                 =
 >   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
 >    , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
+>
 > qualifyKinds           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
 >                           → IO ([InstrumentName], [PercussionSound])
 > qualifyKinds songs                       = do

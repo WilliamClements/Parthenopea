@@ -387,7 +387,7 @@ use "matching as" cache ========================================================
 Utilities =============================================================================================================
 
 > pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Bool
-> pinnedKR pss (p1, p2)                    = (p2 < p1 + 4) && all available [p1 .. p2]
+> pinnedKR pss (p1, p2)                    = (p2 < p1 + 2) && all available [p1 .. p2]
 >   where
 >     available          :: AbsPitch → Bool
 >     available ap                         = maybe False (`elem` pss) (pitchToPerc ap)
@@ -467,7 +467,8 @@ Utilities ======================================================================
 > grader                 :: [Rational] → Double → Grader
 > grader rs                                = Grader (map fromRational rs)
 > gradeEmpiricals        :: Grader → [Double] → ArtifactGrade
-> gradeEmpiricals Grader{ .. } emps        = ArtifactGrade score emps
+> gradeEmpiricals Grader{gorWeights, gorScalar} emps
+>                                          = ArtifactGrade score emps
 >   where
 >     wSize                                = length gorWeights
 >     eSize                                = length emps

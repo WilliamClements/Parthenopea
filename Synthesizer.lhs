@@ -354,27 +354,13 @@ Envelopes ======================================================================
 >         else unwords ["deriveEnvelope (none)"]
 >
 > doEnvelope             :: ∀ p . Clock p ⇒ Maybe Envelope → Double → Double → Signal p () Double
-> doEnvelope menv secsScored secsToPlay    = case menv of
->                                              Nothing            → constA 1
->                                              Just env           → makeSF env
+> doEnvelope menv secsScored secsToPlay    = maybe (constA 1) makeSF menv
 >   where
 >     makeSF             :: Envelope → Signal p () Double
->     makeSF env
->       | traceNever trace_MSF False       = undefined
->       | otherwise                        = dumpSF secsScored secsToPlay sf
->       where
->         Segments{ .. }                   = computeSegments secsScored secsToPlay env
->         sf                               = envLineSeg sAmps sDeltaTs
->
->         trace_MSF                        =
->           unwords ["doEnvelope/makeSF", show (secsScored, secsToPlay), show (sAmps, sDeltaTs)]
->
->     dumpSF             :: Double → Double → Signal p () Double → Signal p () Double
->     dumpSF secsScored secsToUse sigIn
->       | traceNever trace_DSF False       = undefined
->       | otherwise                        = sigIn
->       where
->         trace_DSF                        = unwords ["dumpSF", findOutliersString secsScored sigIn]
+>     makeSF env                           =
+>       let
+>         Segments{sAmps, sDeltaTs}        = computeSegments secsScored secsToPlay env
+>       in envLineSeg sAmps sDeltaTs
 
 Implement the SoundFont envelope model with specified:
   1. delay time                      0 → 0

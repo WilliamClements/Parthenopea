@@ -850,7 +850,7 @@ but not punitive in isStereoZone.
 >             Just n                       → n /= 0
 >         , case zScaleTuning of
 >             Nothing                      → False
->             Just n                       → n /= 0 && n /= 100
+>             Just n                       → n /= 0 -- WOX && n /= 100
 >         , case zExclusiveClass of
 >             Nothing                      → False
 >             Just n                       → n /= 0
@@ -992,8 +992,8 @@ prepare the specified instruments and percussion ===============================
 >         zs, zsLessCross, zsLessLocalRights
 >                        :: [(ZoneHeader, ZoneDigest)]
 >         zs                               = map inspectZone (tail (deriveRange ibagi jbagi))
->         zsLessCross                      = filter (not . hasCrossover) zs
->         zsLessLocalRights                = filter (\z → hasCrossover z || not (isRightSample z)) zs
+>         zsLessCross                      = filter (not . hasCross) zs
+>         zsLessLocalRights                = filter (\z → hasCross z || not (isRightSample z)) zs
 >
 >         icatU, icatR, icat
 >                        :: Maybe InstCat
@@ -1058,14 +1058,12 @@ prepare the specified instruments and percussion ===============================
 >
 >             trace_CL                     = unwords ["checkLinkage", show sIn, show sOut]       
 >
->         rejectCrossovers
->                        :: Maybe InstCat
->         rejectCrossovers                 = if any hasCrossover zs
->                                              then Just $ InstCatDisq DisqIllegalCrossover
->                                              else Nothing
+>         rejectCrosses  :: Maybe InstCat
+>         rejectCrosses                 =
+>           if any hasCross zs then Just $ InstCatDisq DisqIllegalCrossover else Nothing
 >
->         hasCrossover   :: (ZoneHeader, ZoneDigest) → Bool
->         hasCrossover z                   = isStereoZone z && notElem myLink (map extractLink zs)
+>         hasCross       :: (ZoneHeader, ZoneDigest) → Bool
+>         hasCross z                       = isStereoZone z && notElem myLink (map extractLink zs)
 >           where
 >             ZoneHeader{zhShdr}           = fst z
 >             myLink                       = F.sampleLink zhShdr
@@ -1143,7 +1141,7 @@ prepare the specified instruments and percussion ===============================
 >               , if any hasRom zs then Just (InstCatDisq DisqRomBased) else Nothing
 >               , if allowStereoCrossovers
 >                   then Nothing
->                   else rejectCrossovers
+>                   else rejectCrosses
 >               , checkLinkage
 >               , if allowOverlappingRanges
 >                   then Nothing
@@ -1159,19 +1157,24 @@ prepare the specified instruments and percussion ===============================
 >                                              Just (InstCatPerc us)   → us
 >                                              _                       → []
 >                 wZones :: [Word]         = mapMaybe (evalForPerc rost) zs
+>                 maybeNailAsPerc
+>                        :: Double → Maybe InstCat
+>                 maybeNailAsPerc frac  =
+>                   if frac < howLaden uZones
+>                     then
+>                       (if 0.05 < howLaden wZones
+>                          then Just (catPerc wZones)
+>                          else Just (catDisq DisqNoPercZones))
+>                     else Nothing
 >               in
 >                 [ 
 >                     maybeSettle isConfirmed catInst                  ffInst'
 >                   , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
 >                   , maybeSettle stands      catInst                  ffInst'
->                   , if 0.75 < howLaden uZones
->                       then
->                         (if 0.05 < howLaden wZones
->                            then Just (catPerc wZones)
->                            else Just (catDisq DisqNoPercZones))
->                       else Nothing
+>                   , maybeNailAsPerc 0.8 
 >                   , maybeSettle stands      (catPerc wZones)         ffPerc'
 >                   , maybeSettle stands      (catDisq DisqNarrow)     ffInst
+>                   , maybeNailAsPerc 0.6 
 >                   , if genericScore > 0 then Just catInst                else Nothing
 >                   , if genericScore < 0 then Just (catPerc wZones)       else Nothing
 >                   , Just $ catDisq DisqUnrecognized
