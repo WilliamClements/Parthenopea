@@ -552,10 +552,10 @@ examine song for instrument and percussion usage ===============================
 >
 > shredMusic              :: ToMusic1 a ⇒ Music a → IO Shredding
 > shredMusic m                             =
->   return $ critiqueMusic $ foldl' shredder defShredding $ fst (musicToMEvents defaultContext (toMusic1 m))
+>   return $ critiqueMusic $ foldl' shFolder defShredding $ fst (musicToMEvents defaultContext (toMusic1 m))
 >
 > shredSongs              :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO (Map Kind Shred)
-> shredSongs songs                         = do -- return $ shredMusic $ song Map.empty
+> shredSongs songs                         = do
 >   shredses                               ← mapM shredSong songs
 >   return $ foldr (Map.unionWith combineShreds) Map.empty shredses
 >
@@ -611,8 +611,9 @@ examine song for instrument and percussion usage ===============================
 >       then []
 >       else singleton (name, singleton $ unwords ["...", show p, "out of range", show range])
 >
-> shredder               :: Shredding → MEvent → Shredding
-> shredder Shredding{ .. } mev             =
+> shFolder               :: Shredding → MEvent → Shredding
+> shFolder Shredding{shRanges, shMsgs} mev
+>                                          =
 >   let
 >     kind               :: Kind           = getKind mev
 >     mshred             :: Maybe Shred    = Map.lookup kind shRanges
@@ -621,7 +622,8 @@ examine song for instrument and percussion usage ===============================
 >       Nothing                            → Shredding (Map.insert kind (Shred mev mev 1) shRanges) shMsgs
 >       Just shred                         → Shredding (Map.insert kind (upd shred)       shRanges) shMsgs
 >   where
->     upd Shred{ .. }                      =
+>     upd Shred{shLowNote, shHighNote, shCount}  
+>                                          =
 >       Shred
 >         (if ePitch mev < ePitch shLowNote then mev else shLowNote)
 >         (if ePitch mev > ePitch shHighNote then mev else shHighNote)

@@ -754,7 +754,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >   do
 >     traceIO ("renderSong " ++ name)
 >     ts1                                  ← getCurrentTime
->     ding@Shredding{ .. }                 ← shredMusic (song Map.empty)
+>     ding@Shredding{shRanges, shMsgs}     ← shredMusic (song Map.empty)
 >     let dynMap                           = makeDynMap ding
 >     CM.unless (null (Map.assocs dynMap)) (traceIO $ unwords ["dynMap", show dynMap])
 >     let ks                               = Map.keys shRanges
@@ -989,11 +989,11 @@ prepare the specified instruments and percussion ===============================
 >         ibagi                            = F.instBagNdx iinst
 >         jbagi                            = F.instBagNdx jinst
 >
->         zs, zsLessCross, zsLessLocalRights
+>         zs, zsLocalStereo, zsLessLocalRights
 >                        :: [(ZoneHeader, ZoneDigest)]
 >         zs                               = map inspectZone (tail (deriveRange ibagi jbagi))
->         zsLessCross                      = filter (not . hasCross) zs
->         zsLessLocalRights                = filter (\z → hasCross z || not (isRightSample z)) zs
+>         zsLocalStereo                    = filter (\z → isStereoZone z && not (hasCross z)) zs
+>         zsLessLocalRights                = filter (\z → not (isRightSample z) || hasCross z) zs
 >
 >         icatU, icatR, icat
 >                        :: Maybe InstCat
@@ -1047,26 +1047,31 @@ prepare the specified instruments and percussion ===============================
 >                                          
 >         checkLinkage   :: Maybe InstCat
 >         checkLinkage
->           | traceNot trace_CL False      = undefined
+>           | traceNow trace_CL False      = undefined
 >           | otherwise                    =
->           if IntSet.isSubsetOf sOut sIn then Nothing else Just $ InstCatDisq DisqLinkage
+>           if all (matched sList) sList then Nothing else Just $ InstCatDisq DisqLinkage
 >           where
->             sIn, sOut  :: IntSet
+>             sList      :: [(Int, Int)]
+>             sList                        = map (\z → (extractIndex z, extractLink z)) zsLocalStereo
 >
->             sIn                          = IntSet.fromList $ mapMaybe kindices zsLessCross
->             sOut                         = IntSet.fromList $ mapMaybe klinks zsLessCross
+>             matched    :: [(Int, Int)] → (Int, Int) → Bool
+>             matched ps (xfrom, xto)      = (xfrom /= xto) && isJust (find (== (xto, xfrom)) ps)
 >
->             trace_CL                     = unwords ["checkLinkage", show sIn, show sOut]       
+>             trace_CL                     = unwords ["checkLinkage", show sList]       
+>
+>         extractIndex, extractLink
+>                        :: (ZoneHeader, ZoneDigest) → Int
+>         extractIndex (_, zd@ZoneDigest{zdSampleIndex})
+>                                          = fromIntegral $ deJust "extractIndex" zdSampleIndex
+>         extractLink (zh@ZoneHeader{zhShdr}, _)
+>                                          = fromIntegral $ F.sampleLink zhShdr
 >
 >         rejectCrosses  :: Maybe InstCat
 >         rejectCrosses                 =
 >           if any hasCross zs then Just $ InstCatDisq DisqIllegalCrossover else Nothing
 >
 >         hasCross       :: (ZoneHeader, ZoneDigest) → Bool
->         hasCross z                       = isStereoZone z && notElem myLink (map extractLink zs)
->           where
->             ZoneHeader{zhShdr}           = fst z
->             myLink                       = F.sampleLink zhShdr
+>         hasCross z                       = isStereoZone z && notElem (extractLink z) (map extractLink zs)
 >
 >         rejectOverlaps :: Maybe InstCat
 >         rejectOverlaps                   =
@@ -1095,22 +1100,6 @@ prepare the specified instruments and percussion ===============================
 >             histFolder :: Array Int Int → ((Int, Int), (Int, Int)) → Array Int Int
 >             histFolder hist ((p1,p2),(v1,v2))
 >                                          = accum (+) hist ([(i + 128 * j, 1) | i ← [p1..p2], j ← [v1..v2]])
->
->         kindices, klinks
->                        :: (ZoneHeader, ZoneDigest) → Maybe Int
->         kindices (zh, zd@ZoneDigest{ .. })
->                                          =
->           if isStereoZone (zh, zd)
->             then Just $ fromIntegral $ deJust "kindices" zdSampleIndex
->             else Nothing
->         klinks (zh@ZoneHeader{ .. }, zd)
->                                          =
->           if isStereoZone (zh, zd)
->             then Just $ fromIntegral $ F.sampleLink zhShdr
->             else Nothing
->
->         extractLink (ZoneHeader{zhShdr}, _)
->                                          = F.sampleLink zhShdr
 >
 >         howLaden       :: [Word] → Double
 >         howLaden ws
