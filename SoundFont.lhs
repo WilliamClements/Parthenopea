@@ -989,11 +989,12 @@ prepare the specified instruments and percussion ===============================
 >         ibagi                            = F.instBagNdx iinst
 >         jbagi                            = F.instBagNdx jinst
 >
->         zs, zsLocalStereo, zsLessLocalRights
->                        :: [(ZoneHeader, ZoneDigest)]
+>         zs             :: [(ZoneHeader, ZoneDigest)]
 >         zs                               = map inspectZone (tail (deriveRange ibagi jbagi))
->         zsLocalStereo                    = filter (\z → isStereoZone z && not (hasCross z)) zs
->         zsLessLocalRights                = filter (\z → not (isRightSample z) || hasCross z) zs
+>
+>         (zsStereo, zsMono)               = partition isStereoZone zs
+>         (zsOutbound, zsLocal)            = partition hasCross zsStereo
+>         zsLessLocalRights                = zsMono ++ zsOutbound ++ filter isLeftSample zsLocal
 >
 >         icatU, icatR, icat
 >                        :: Maybe InstCat
@@ -1008,6 +1009,22 @@ prepare the specified instruments and percussion ===============================
 >             (Just (InstCatDisq _), _)    → icatU
 >             (_, Just (InstCatDisq _))    → icatR
 >             _                            → Just (InstCatDisq DisqNarrow)
+>
+>         isSafe         :: ∀ a . (Eq a, Ord a, Show a) ⇒ [(a,a)] → Bool
+>         isSafe pairs                     = closed && allPaired
+>           where
+>             uniquer    :: Map a a
+>             uniquer                      =
+>               foldl' (\accum (f, t) → Map.insert f t accum) Map.empty pairs
+>
+>             closed                       = all (\x → isJust (Map.lookup x uniquer)) uniquer
+>             allPaired                    = all (paired uniquer) uniquer
+>
+>         paired         :: ∀ a . (Eq a, Ord a, Show a) ⇒ Map a a → a → Bool
+>         paired accum x                   = x == z
+>           where
+>             y                            = accum Map.! x
+>             z                            = accum Map.! y
 >
 >         corrupt        :: Maybe InstCat
 >         corrupt                          =
@@ -1046,18 +1063,11 @@ prepare the specified instruments and percussion ===============================
 >         hasRom (ZoneHeader{zhShdr}, _)   = F.sampleType zhShdr >= 0x8000
 >                                          
 >         checkLinkage   :: Maybe InstCat
->         checkLinkage
->           | traceNow trace_CL False      = undefined
->           | otherwise                    =
->           if all (matched sList) sList then Nothing else Just $ InstCatDisq DisqLinkage
+>         checkLinkage                     =
+>           if isSafe sList then Nothing else Just $ InstCatDisq DisqLinkage
 >           where
 >             sList      :: [(Int, Int)]
->             sList                        = map (\z → (extractIndex z, extractLink z)) zsLocalStereo
->
->             matched    :: [(Int, Int)] → (Int, Int) → Bool
->             matched ps (xfrom, xto)      = (xfrom /= xto) && isJust (find (== (xto, xfrom)) ps)
->
->             trace_CL                     = unwords ["checkLinkage", show sList]       
+>             sList                        = map (\z → (extractIndex z, extractLink z)) zsLocal
 >
 >         extractIndex, extractLink
 >                        :: (ZoneHeader, ZoneDigest) → Int
