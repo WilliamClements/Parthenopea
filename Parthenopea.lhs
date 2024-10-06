@@ -210,6 +210,7 @@ which makes for a cleaner sound on some synthesizers:
 >       sus4                               = [0, 5, 7, 12, 17]
 >       sus2                               = [0, 2, 7, 12, 14]
 >       aug                                = [0, 4, 8, 12, 16]
+>       chrome                             = [0, 1, 2,  3,  4]
 >
 >       mode2offsets :: Mode → [AbsPitch]
 >       mode2offsets mode
@@ -226,6 +227,8 @@ which makes for a cleaner sound on some synthesizers:
 >         | CustomMode "Sus2" == mode = sus2
 >         | CustomMode "Dim"  == mode = dim
 >         | CustomMode "Aug"  == mode = aug
+>         | CustomMode "Chrome"
+>                             == mode = chrome
 >         | otherwise          = error "Requested Mode not supported"
 >
 >       offsets2intervals :: AbsPitch → [AbsPitch] → [AbsPitch]
@@ -268,7 +271,7 @@ which makes for a cleaner sound on some synthesizers:
 >     trace_G                              = unwords ["glissando", show pitches]
 >
 > descent                :: BandPart → Pitch → Dur → Music Pitch
-> descent BandPart{ .. } p dur
+> descent BandPart{bpInstrument, bpTranspose} p dur
 >   | traceNow trace_D False               = undefined
 >   | otherwise                            = chord [rest dur, glissando True (absPitch bottom, absPitch p) dur]
 >   where

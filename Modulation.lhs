@@ -54,7 +54,8 @@ Modulator management ===========================================================
 > groomMods m8rs                           = Map.elems uniqued
 >   where
 >     uniqued                              = foldl' ufolder Map.empty m8rs
->     ufolder accum m8r@Modulator{ .. }    = Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r accum
+>     ufolder accum m8r@Modulator{mrModSrc, mrModDest, mrAmountSrc}
+>                                          = Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r accum
 >
 > freeOfCycles           :: [Modulator] → Bool
 > freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
@@ -84,7 +85,8 @@ Modulator management ===========================================================
 >     , ssPrevious       :: [Modulator]} deriving Show 
 >
 > eliminateDanglingMods  :: Sifting → Sifting
-> eliminateDanglingMods Sifting{ .. }      = Sifting (ssCounter + 1) newTry ssCurrent
+> eliminateDanglingMods Sifting{ssCounter, ssCurrent}
+>                                          = Sifting (ssCounter + 1) newTry ssCurrent
 >   where
 >     -- let's examine result of the previous generation
 >     -- use it to produce next generation, dropping nodes that:
@@ -99,28 +101,31 @@ Modulator management ===========================================================
 >
 >     byModDestType                        = compileMods ssCurrent
 >
->     shouldStay m8r                       = linkageInOk && linkageOutOk
+>     shouldStay Modulator{mrModId, mrModSrc, mrModDest}
+>                                          = linkageInOk && linkageOutOk
 >       where
 >         linkageInOk                      =
 >           FromLinked /= m8rSource || maybe False (not . null) (Map.lookup (ToLink m8rId) byModDestType)
 >         linkageOutOk                     =
->           maybe True (\w → (isJust . find (\m → mrModId m == w)) ssCurrent) (outGoing m8rDest)
+>           maybe True (\w → (isJust . find (\m → mrModId == w)) ssCurrent) (outGoing m8rDest)
 >         
->         m8rId                            = mrModId m8r
->         m8rSource                        = msSource (mrModSrc m8r)
->         m8rDest                          = mrModDest m8r
+>         m8rId                            = mrModId
+>         m8rSource                        = msSource mrModSrc
+>         m8rDest                          = mrModDest
 >
 > siftMods               :: [Modulator] → [Modulator]
 > siftMods m8rs                            = ssCurrent 
 >   where
 >     generations                          = iterate' eliminateDanglingMods (Sifting 0 m8rs [])
->     Sifting{ .. }                        = head $ dropWhile unfinished generations
->     unfinished Sifting{ .. }             = ssCurrent /= ssPrevious
+>     Sifting{ssCurrent}                   = head $ dropWhile unfinished generations
+>     unfinished Sifting{ssCurrent, ssPrevious}
+>                                          = ssCurrent /= ssPrevious
 >
 > compileMods            :: [Modulator] → Map ModDestType [Modulator]
 > compileMods                              = foldl' mfolder Map.empty
 >   where
->     mfolder accum m8r@Modulator{ .. }    =
+>     mfolder accum m8r@Modulator{mrModDest}
+>                                          =
 >       let
 >         soFar                            = fromMaybe [] (Map.lookup mrModDest accum)
 >       in
@@ -132,7 +137,8 @@ Modulator management ===========================================================
 >     subs               :: [(Word, Word)]
 >     subs                                 = zipWith (\i m → (mrModId m, i)) [0..] m8rs
 >     renumber           :: Modulator → Modulator
->     renumber m8r@Modulator{ .. }         =
+>     renumber m8r@Modulator{mrModId, mrModDest}
+>                                          =
 >       let
 >         upd mid                          = fromJust $ lookup mid subs
 >       in
@@ -240,14 +246,15 @@ Modulator management ===========================================================
 >             else []
 >
 > evaluateMods           :: ModDestType → Map ModDestType [Modulator] → NoteOn → Double
-> evaluateMods md graph noon@NoteOn{ .. }  = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
+> evaluateMods md graph noon@NoteOn{noteOnVel, noteOnKey}
+>                                          = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
 >   where
 >     evaluateMod        :: Modulator → Double
->     evaluateMod Modulator{ .. }
+>     evaluateMod Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
 >       | traceNever trace_EM False        = undefined
 >       | otherwise                        = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
 >       where
->         getValue ModSrc{ .. }
+>         getValue ModSrc{msSource, msMapping}
 >           | useModulators                =
 >               case msSource of
 >                 FromNoController         → 1
@@ -301,12 +308,13 @@ Modulator management ===========================================================
 >     _                                    → Just cascadeConfig
 >
 > addResonance           :: Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
-> addResonance noon m8n@Modulation{ .. }   =
+> addResonance noon m8n@Modulation{mLowpass}
+>                                          =
 >   case cascadeCount lowpassType of
 >     Nothing            →
->       proc (x, modSig)                     → do
->         y ← delay 0                        ⤙ x  
->         outA                               ⤙ y
+>       proc (x, modSig)                   → do
+>         y ← delay 0                      ⤙ x  
+>         outA                             ⤙ y
 >     Just count         →
 >       case count of
 >         0              → final
@@ -316,7 +324,7 @@ Modulator management ===========================================================
 >         4              → stage >>> stage >>> stage >>> stage >>> final
 >         _              → error $ unwords [show count, "cascades are too many, not supported"]
 >   where
->     Lowpass{ .. }                        = mLowpass
+>     Lowpass{lowpassType}                 = mLowpass
 >
 >     stage                                =
 >         proc (sIn, msig)                 → do
@@ -359,7 +367,7 @@ Modulator management ===========================================================
 >             , "\nsOut"           , show y']
 >
 > procFilter             :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procFilter lp@Lowpass{ .. }          =
+> procFilter lp@Lowpass{lowpassType}       =
 >   case lowpassType of
 >     ResonanceNone                        → error $ unwords ["procFilter:"
 >                                                           , "should not reach makeSF if ResonanceNone"]
@@ -379,7 +387,7 @@ Modulator management ===========================================================
 >     outA                                 ⤙ notracer "lp" y
 >
 > procBandpass           :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procBandpass lp@Lowpass{ .. }            =
+> procBandpass lp                          =
 >   proc (x, fc) → do
 >     y1 ← filterLowPassBW                 ⤙ (x, fc)
 >     y2 ← filterBandPass 2                ⤙ (x, fc, lowpassQ lp / 3)
@@ -427,7 +435,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >         else c
 >
 > procSVF2               :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
-> procSVF2 lp@Lowpass{..}                  =
+> procSVF2 lp                              =
 >   proc (x, fc) → do
 >     let f1                               = 2 * sin (theta fc)
 >     rec
@@ -450,7 +458,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >         else c
 >
 > procOnePole            :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procOnePole lp@Lowpass{ .. }             =
+> procOnePole lp                           =
 >   proc (x, fc) → do
 >     let w0                               = 2 * pi * fc / sr
 >     let a                                =
@@ -464,7 +472,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >     sr                                   = rate (undefined :: p)
 >
 > procTwoPoles           :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procTwoPoles lp@Lowpass{ .. }
+> procTwoPoles lp
 >   | traceNot trace_P2P False             = undefined
 >   | otherwise                            =
 >   proc (x, fc) → do
@@ -506,20 +514,11 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 > doLFO                                    = maybe (constA 0) makeSF
 >   where
 >     makeSF             :: LFO → Signal p () Double
->     makeSF LFO{ .. }                     = 
+>     makeSF o                             = 
 >       proc _ → do
->         y ← triangleWave lfoFrequency    ⤙ ()
->         z ← delayLine lfoDelay           ⤙ y
->         outA                             ⤙ oscillate z
->
->     oscillate          :: Double → Double
->     oscillate sIn
->       | traceNever trace_O False         = undefined
->       | otherwise                        = sOut
->       where
->         sOut                             = sIn
->         trace_O                          = unwords ["oscillate", show sIn]
->
+>         y ← triangleWave o.lfoFrequency  ⤙ ()
+>         z ← delayLine    o.lfoDelay      ⤙ y
+>         outA                             ⤙ z
 
 Miscellaneous =========================================================================================================
 

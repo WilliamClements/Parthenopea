@@ -106,17 +106,6 @@ Discrete approach ==============================================================
 >     trace_AC                             =
 >       unwords ["applyConvolutionStereo", show baseLen, show fftLen, "\ndsigInL:", show dsigInL, "\ndsigInR:", show dsigInR]
 >
-> fromContinuousSig'     :: ∀ p. Clock p ⇒
->                           String → Double → Signal p () (Double, Double)
->                           → Maybe (DiscreteSig Double, DiscreteSig Double)
-> fromContinuousSig' tag dur sf            = 
->   if not (null dlist)
->     then Just (fromRawVector tag (VU.fromList (map fst dlist)), fromRawVector tag (VU.fromList (map snd dlist)))
->     else Nothing
->   where
->     dlist              :: [(Double, Double)]
->     dlist                                = toSamples dur sf
->
 > fromContinuousSig      :: ∀ p a. (Clock p) ⇒
 >                           String → Double → Signal p () Double → Maybe (DiscreteSig Double)
 > fromContinuousSig tag dur sf             = 

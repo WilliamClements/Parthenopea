@@ -113,10 +113,10 @@ organize exposed music =========================================================
 >    -- [ ("pa1"         , pendingtonArnt 1)]
 >    -- [ ("bill1"       , bill 1)]
 >    -- [ ("basicLick"   , basicLick)]
->       [ ("ssailor"     , ssailor)]
+>    -- [ ("ssailor"     , ssailor)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 206673)]
->    -- [ ("slot"        , slot 1   )]
+>       [ ("slot"        , slot 1   )]
 >    -- [ ("dh"          , deathlessHorsie)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 
