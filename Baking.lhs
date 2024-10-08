@@ -129,11 +129,11 @@ The progress of the algorithm is expressed in above pair.
 >         newm           :: Music (Pitch, Volume)
 >
 >         -- algorithm gets an N squared component here
->         durSoFar                         = fromRational $ dur (ms!chan)
+>         durSoFar                         = fromRational $ dur (ms ! chan)
 >         ss                               = calibrateSection durSoFar urn
 >         newm                             = generateSection bSnd bVol ss inst range bXpose
 >         ms'                              = appendSection ms chan newm
->         newDur                           = fromRational $ dur (ms'!chan)
+>         newDur                           = fromRational $ dur (ms' ! chan)
 >
 >         -- statskeeping
 >         bm'                              = acceptMetrics bm durSoFar newDur ss bOnset

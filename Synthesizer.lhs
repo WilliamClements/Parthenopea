@@ -64,15 +64,15 @@ Signal function-based synth ====================================================
 >     reconR                               = fromJust mreconR
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
 >
->     secsSampleOrig     :: Double         = fromIntegral (reconL.rEnd - reconL.rStart) / sr
->     secsSampleNow                        = secsSampleOrig * freqRatio
->     secsScored         :: Double         = 1 * fromRational dur
->     looping            :: Bool           = secsScored > secsSampleNow
+>     numSamples         :: Double         = fromIntegral (reconL.rEnd - reconL.rStart)
+>     secsSample                           = numSamples * freqRatio / sr
+>     secsScored                           = 1 * fromRational dur
+>     looping            :: Bool           = secsScored > secsSample
 >                                            && (reconL.rSampleMode /= A.NoLoop)
 >                                            && useLoopSwitching
 >     secsToPlay         :: Double         = if looping
 >                                              then secsScored
->                                              else min secsSampleNow secsScored
+>                                              else min secsSample secsScored
 >
 >     freqRatio          :: Double         =
 >       if reconL.rTuning == 100
@@ -80,7 +80,7 @@ Signal function-based synth ====================================================
 >         else 1
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
->     delta              :: Double         = 1 / (secsSampleOrig * freqFactor * sr)
+>     delta              :: Double         = 1 / (numSamples * freqFactor)
 >
 >     pumpMonoPath, pumpMonoConvoPath
 >                        :: Signal p () Double
@@ -144,7 +144,7 @@ Signal function-based synth ====================================================
 >     trace_eS                             =
 >       unwords [
 >             "eutSynthesize"
->           , show (dur, noon), show (secsSampleOrig, secsSampleNow, secsScored, secsToPlay, looping)] 
+>           , show (dur, noon), show (numSamples, secsSample, secsScored, secsToPlay, looping)] 
 >
 > eutModulate            :: ∀ p . Clock p ⇒
 >                           Double
@@ -401,9 +401,10 @@ Create a straight-line envelope generator with following phases:
 >     deltaTs            :: [Double]       = [  fDelayT, fAttackT, fHoldT,  fDecayT, fSustainT, fReleaseT,   fPostT]
 >
 >     minDeltaT          :: Double         = fromTimecents Nothing
->     secsToUse          :: Double         = profess (secsToPlay > 5 * minDeltaT)
->                                                    "time too short for envelope"
->                                                    secsToPlay
+>     secsToUse          :: Double         =
+>       profess (secsToPlay > 5 * minDeltaT)
+>         (unwords["computeSegments", show (secsScored, secsToPlay), "..time too short for envelope"])
+>         secsToPlay
 >
 >
 >     fSusLevel          :: Double         = clip (0, 1) eSustainLevel

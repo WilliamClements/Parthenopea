@@ -147,8 +147,7 @@ Instrument categories: instrument, percussion, disqualified
 >   fuzzFactor           :: a → Double
 >
 > instance SFScorable InstrumentName where
->   splitScore     kind zs                 = fromIntegral (length zs)
->   fuzzFactor :: InstrumentName → Double 
+>   splitScore kind zs                     = fromIntegral (length zs)
 >   fuzzFactor _                           = 7/8
 >
 > instance SFScorable PercussionSound where
@@ -577,9 +576,9 @@ tournament among GM instruments and percussion from SoundFont files ============
 >       | otherwise                        = (Map.insert kind now wins, ss)
 >       where
 >         pergm_                           = pergm{pgkwBag = Nothing}
->         PreInstrument{iName}              =
+>         PreInstrument{iName}             =
 >           deJust (unwords["xaEnterTournament", "PreInstrument"]) (Map.lookup pergm_ preInstCache)
->         PerInstrument{pZonePairs}              =
+>         PerInstrument{pZonePairs}        =
 >           deJust (unwords["xaEnterTournament", "PerInstrument"]) (Map.lookup pergm_ zc)
 >
 >         soFar, now     :: [PerGMScored]
@@ -606,7 +605,9 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                            >>= \(ZoneHeader{zhShdr}, _) → Just (F.sampleName zhShdr)
 >         zName                            = deJust "mnameZ" mnameZ
 >
->         trace_XAET                       = unwords ["xaEnterTournament", iName, show kind, show scoredP.pArtifactGrade]
+>         trace_XAET                       =
+>           unwords ["xaEnterTournament", iName, show mnameZ, show kind, show scoredP.pArtifactGrade
+>                  , "num zones in scope=", show $ length scope]
 >
 >         computeGrade   :: [(ZoneHeader, SFZone)] → AgainstKindResult → ArtifactGrade
 >         computeGrade zs akResult         = gradeEmpiricals theGrader empiricals
@@ -802,13 +803,14 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     m3                                   = 3 * if isStereoInst zs then 1/2 else 1
 >
 >     trace_CR                             =
->       unwords ["computeResolution", show kind, show (measureSplits kind, measureSampleSize)]
+>       unwords ["computeResolution", show kind, show theSplit, show (measureSplits kind, measureSampleSize)]
 >
 > sampleDurationScoring  :: (ZoneHeader, SFZone) → Double
 > sampleDurationScoring (zh@ZoneHeader{zhShdr} , z)
->                                          = min 100_000 (sampleSize (zh, z)) / fromIntegral sampleRate
+>                                          = if score < 0.01 then -10 else score
 >   where
->     F.Shdr{sampleRate}                   = zhShdr  
+>     F.Shdr{sampleRate}                   = zhShdr
+>     score                                = sampleSize (zh, z) / fromIntegral sampleRate
 >
 > sampleSize         :: (ZoneHeader, SFZone) → Double
 > sampleSize (ZoneHeader{zhShdr}, SFZone{zStartOffs, zStartCoarseOffs, zEndOffs, zEndCoarseOffs})
