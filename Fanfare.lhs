@@ -6,7 +6,7 @@ William Clements
 November 11, 2022
 
 > module Fanfare (  theFanfare, kit, pit, dit, rattan, bill, roger, waypostpurple, deyDumpDum, getCITM, gold, silver
->                 , whelpNarp, alice, bob, copper, dadadada, snake, pendingtonArnt, littleWay ) where
+>                 , littleCITM, whelpNarp, alice, bob, copper, dadadada, snake, pendingtonArnt, littleWay ) where
 >
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
@@ -482,6 +482,13 @@ Country In The Morning =========================================================
 > citmStrum_                              = makePitched AcousticGuitarSteel   citmTranspose 0 100
 > citmBass_                               = makePitched ElectricBassFingered  citmTranspose 0 100
 >
+> littleCITM dynMap =
+>    removeZeros
+>    $ aggrandize
+>    $ tempo citmTempo
+>    $ keysig G Major
+>    $ line [bandPart citmStrum_ (line [d 3 wn])]
+
 > getCITM dynMap =
 >    removeZeros
 >    $ aggrandize

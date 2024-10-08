@@ -128,7 +128,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > zfindByBagIndex        :: [(ZoneHeader, a)] → Word → Maybe (ZoneHeader, a)
 > zfindByBagIndex zs w                     =
->   find (\(ZoneHeader{zhwBag}, zd) → w == zhwBag) zs
+>   find (\(ZoneHeader{zhwBag}, _) → w == zhwBag) zs
 >
 > data PerInstrument =
 >   PerInstrument {
@@ -332,15 +332,16 @@ profiler =======================================================================
 >       profileZone (ZoneHeader{zhShdr}, SFZone{zKeyRange, zInitFc, zInitQ})
 >                                          =
 >         let
->           sSample                        = F.sampleName zhShdr
+>           F.Shdr{sampleName}             = zhShdr
 >           sout                           =
->             unwords [show sInst, ","
->                    , show sSample, "======="
+>             unwords [show sInst          , ","
+>                    , show sampleName     , "======="
 >                    , show zInitFc
->                    , show zInitQ, "=======", show zKeyRange]
+>                    , show zInitQ         , "======="
+>                    , show zKeyRange      , "======="]
 >         in
->           (zInitQ >>= (\x -> if x == 0 then Nothing else Just sSample))
->           >> (if goodName sInst && goodName sSample then Just sout else Nothing)
+>           (zInitQ >>= (\x -> if x == 0 then Nothing else Just sampleName))
+>           >> (if goodName sInst && goodName sampleName then Just sout else Nothing)
 
 executive =============================================================================================================
 
@@ -1350,7 +1351,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF sfrost@SFRoster{zFiles, zZoneCache} pergm@PerGMKey{pgkwFile, pgkwInst} dur pchIn volIn params
->   | traceIf trace_ISF False              = undefined
+>   | traceNow trace_ISF False             = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
@@ -1593,22 +1594,22 @@ emit standard output text detailing what choices we made for rendering GM items 
 >       where
 >         mpergm                           = Map.lookup kind pWinningI
 >         result
->           | isJust mpergm                = (True, [gmId kind, Unblocked " -> "] 
+>           | isJust mpergm                = (True, [Blanks 3, gmId kind, Unblocked " -> "] 
 >                                                    ++ showPerGM (fromJust mpergm)
 >                                                    ++ [EndOfLine]
 >                                                    ++ emitMsgs kind msgs)
->           | kind == Percussion           = (True, [gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
->           | otherwise                    = (False, [gmId kind, Unblocked " not found", EndOfLine])
+>           | kind == Percussion           = (True, [Blanks 3, gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
+>           | otherwise                    = (False, [Blanks 3, gmId kind, Unblocked " not found", EndOfLine])
 >
 >     showP               :: WinningRecord → PercussionSound → (Bool, [Emission])
 >     showP WinningRecord{ .. } kind       = result
 >       where
 >         mpergm                           = Map.lookup kind pWinningP
 >         result
->           | isJust mpergm                = (True, [gmId kind, Unblocked " -> "]
+>           | isJust mpergm                = (True, [Blanks 3, gmId kind, Unblocked " -> "]
 >                                                    ++ showPerGM (fromJust mpergm)
 >                                                    ++ [EndOfLine])
->           | otherwise                    = (False, [gmId kind, Unblocked " not found", EndOfLine])
+>           | otherwise                    = (False, [Blanks 3, gmId kind, Unblocked " not found", EndOfLine])
 >
 >     showPerGM          :: PerGMScored → [Emission]
 >     showPerGM PerGMScored{ .. }          = [emitShowL pgkwFile 4] ++ [ToFieldL szI 22] ++ showmZ

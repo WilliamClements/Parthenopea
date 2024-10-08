@@ -64,14 +64,15 @@ Signal function-based synth ====================================================
 >     reconR                               = fromJust mreconR
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
 >
->     secsSample         :: Double         = fromIntegral (reconL.rEnd - reconL.rStart) / sr
+>     secsSampleOrig     :: Double         = fromIntegral (reconL.rEnd - reconL.rStart) / sr
+>     secsSampleNow                        = secsSampleOrig * freqRatio
 >     secsScored         :: Double         = 1 * fromRational dur
->     looping            :: Bool           = secsScored > secsSample
+>     looping            :: Bool           = secsScored > secsSampleNow
 >                                            && (reconL.rSampleMode /= A.NoLoop)
 >                                            && useLoopSwitching
 >     secsToPlay         :: Double         = if looping
 >                                              then secsScored
->                                              else min secsSample secsScored
+>                                              else min secsSampleNow secsScored
 >
 >     freqRatio          :: Double         =
 >       if reconL.rTuning == 100
@@ -79,7 +80,7 @@ Signal function-based synth ====================================================
 >         else 1
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
->     delta              :: Double         = 1 / (secsSample * freqFactor * sr)
+>     delta              :: Double         = 1 / (secsSampleOrig * freqFactor * sr)
 >
 >     pumpMonoPath, pumpMonoConvoPath
 >                        :: Signal p () Double
@@ -142,7 +143,8 @@ Signal function-based synth ====================================================
 >
 >     trace_eS                             =
 >       unwords [
->           "eutSynthesize",               show (dur, noon), show (secsSample, secsScored, secsToPlay, looping)] 
+>             "eutSynthesize"
+>           , show (dur, noon), show (secsSampleOrig, secsSampleNow, secsScored, secsToPlay, looping)] 
 >
 > eutModulate            :: ∀ p . Clock p ⇒
 >                           Double
@@ -179,13 +181,17 @@ Signal function-based synth ====================================================
 >       let delta                          = idelta * evaluateModSignals "procDriver" rM8n ToPitch modSig rNoteOn
 >       rec
 >         let phase                        = calcPhase next
->         next           ← delay 0         ⤙ frac (phase + delta)                           
+>         next           ← delay 0         ⤙ phase + delta                           
 >       outA                               ⤙ phase
 >
 >     (lst, len)         :: (Double, Double)
 >                                          = normalizeLooping reconL
 >
->     trace_eD                             = unwords ["eutDriver idelta", show idelta, "lst, len", show (lst, len)]
+>     trace_eD                             = unwords ["eutDriver"
+>                                                   , "secsScored",     show secsScored
+>                                                   , "secsToPlay",     show secsToPlay
+>                                                   , "idelta",         show idelta
+>                                                   , "lst, len",       show (lst, len)]
 >
 > normalizeLooping       :: Recon → (Double, Double)
 > normalizeLooping Recon{ .. }             = ((loopst - fullst) / denom, (loopen - fullst) / denom)
@@ -235,7 +241,8 @@ Signal function-based synth ====================================================
 >
 >   where
 >     Recon{ .. }                          = reconL
->     cAttenL            :: Double         = fromCentibels (rAttenuation + evaluateMods ToInitAtten (modGraph rM8n) noon)
+>     cAttenL            :: Double         =
+>       fromCentibels (rAttenuation + evaluateMods ToInitAtten (modGraph rM8n) noon)
 >     ampL                                 = fromIntegral noteOnVel / 100 / cAttenL
 >
 > eutPumpStereo         :: ∀ p . Clock p ⇒
