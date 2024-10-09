@@ -75,9 +75,9 @@ Signal function-based synth ====================================================
 >                                              else min secsSample secsScored
 >
 >     freqRatio          :: Double         =
->       if reconL.rTuning == 100
->         then apToHz reconL.rRootKey / apToHz noteOnKey
->         else 1
+>       if reconL.rTuning == 0
+>         then 1
+>         else (apToHz reconL.rRootKey * fromIntegral reconL.rTuning) / (apToHz noteOnKey * 100)
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
 >     delta              :: Double         = 1 / (numSamples * freqFactor)

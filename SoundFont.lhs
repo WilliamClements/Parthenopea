@@ -326,21 +326,25 @@ profiler =======================================================================
 >         CM.forM_ mout putStrLn
 > 
 >       profileZone      :: (ZoneHeader, SFZone) → Maybe String
->       profileZone (ZoneHeader{zhShdr}, SFZone{zKeyRange, zInitFc, zInitQ})
+>       profileZone (zh@ZoneHeader{ .. }, z@SFZone{ .. })
 >                                          =
 >         let
 >           F.Inst{instName}               = iinst
 >           F.Shdr{sampleName}             = zhShdr
 >
+>           seed                           = if zoneConforms (zh, z)
+>                                              then Nothing
+>                                              else Just True
+>
 >           sout                           =
->             unwords [show instName       , ","
->                    , show sampleName     , "======="
->                    , show zInitFc
->                    , show zInitQ         , "======="
->                    , show zKeyRange      , "======="]
+>             unwords [show instName                      , ","
+>                    , show sampleName                    , "==="
+>                                                         , "zInitFc,zInitQ="
+>                    , show (zInitFc, zInitQ)             , "zSampleMode, zScaleTuning, zExclusiveClass="
+>                    , show (zSampleMode, zScaleTuning, zExclusiveClass)
+>                    , show zKeyRange      , "= zKeyRange"]
 >         in
->           (zInitQ >>= (\x -> if x == 0 then Nothing else Just sampleName))
->           >> (if goodName instName && goodName sampleName then Just sout else Nothing)
+>           seed >> if goodName instName && goodName sampleName then Just sout else Nothing
 
 executive =============================================================================================================
 
