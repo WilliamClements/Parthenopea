@@ -25,7 +25,7 @@ Saucy Sailor ===================================================================
 >
 > ssLead1_                                 = makePitched Flute                ssTranspose          0         90
 > ssLead2_                                 = makePitched Flute                ssTranspose          0        115
-> ssPicked_                                = makePitched AcousticGuitarNylon  ssTranspose          0        100
+> ssPicked_                                = makePitched AcousticGuitarNylon  ssTranspose          0         75
 > ssBass_                                  = makePitched ElectricBassPicked   ssTranspose          0        100
 >
 > littleSailor =
@@ -85,7 +85,7 @@ Saucy Sailor ===================================================================
 >                  $ line [rest dhn
 >                       , times 6 (line [xSongB1, xSongB2])
 >                       , xSongB1
->                       , f 1 wn]
+>                       , c 2 wn]
 >         xClosB = rest 0
 >
 >         xSongTA = line [xSongT1, xSongT2, xSongT3, xSongT4, xSongT5, xSongT6]

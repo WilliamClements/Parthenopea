@@ -308,8 +308,6 @@ profiler =======================================================================
 >       iinst                              = ssInsts ! fromIntegral ii
 >       jinst                              = ssInsts ! fromIntegral (ii+1)
 >
->       sInst                              = F.instName iinst
->
 >       ibagi                              = F.instBagNdx iinst
 >       jbagi                              = F.instBagNdx jinst
 >
@@ -331,16 +329,18 @@ profiler =======================================================================
 >       profileZone (ZoneHeader{zhShdr}, SFZone{zKeyRange, zInitFc, zInitQ})
 >                                          =
 >         let
+>           F.Inst{instName}               = iinst
 >           F.Shdr{sampleName}             = zhShdr
+>
 >           sout                           =
->             unwords [show sInst          , ","
+>             unwords [show instName       , ","
 >                    , show sampleName     , "======="
 >                    , show zInitFc
 >                    , show zInitQ         , "======="
 >                    , show zKeyRange      , "======="]
 >         in
 >           (zInitQ >>= (\x -> if x == 0 then Nothing else Just sampleName))
->           >> (if goodName sInst && goodName sampleName then Just sout else Nothing)
+>           >> (if goodName instName && goodName sampleName then Just sout else Nothing)
 
 executive =============================================================================================================
 
@@ -357,23 +357,25 @@ executive ======================================================================
 >
 >   -- represent all input SoundFont files in ordered list, thence a vector
 >   fps                  ← FP.getDirectoryFiles "." (singleton "*.sf2")
->   sffilesp             ← CM.zipWithM openSoundFontFile [0..] fps
->
->   let boundsF::(Word, Word)
+>   if null fps
+>     then do
+>       putStrLn "no *.sf2 files found"
+>     else do
+>       sffilesp         ← CM.zipWithM openSoundFontFile [0..] fps
+>       let boundsF::(Word, Word)
 >                        = (0, fromIntegral (length sffilesp - 1))
->   let preRoster        = seedRoster (listArray boundsF sffilesp) rost
+>       let preRoster    = seedRoster (listArray boundsF sffilesp) rost
 >
->   tsLoaded             ← getCurrentTime
->   putStrLn ("___load files: " ++ show (diffUTCTime tsLoaded tsStarted))
+>       tsLoaded         ← getCurrentTime
+>       putStrLn ("___load files: " ++ show (diffUTCTime tsLoaded tsStarted))
 >
->   -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->   sfrost               ← finishRoster preRoster
+>       -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
+>       sfrost           ← finishRoster preRoster
 >
->   CM.when doRender (doRendering sfrost)
+>       CM.when doRender (doRendering sfrost)
 >
->   tsRendered           ← getCurrentTime
->   putStrLn ("___overall: " ++ show (diffUTCTime tsRendered tsStarted))
->
+>       tsRendered       ← getCurrentTime
+>       putStrLn ("___overall: " ++ show (diffUTCTime tsRendered tsStarted))
 >   where
 >     -- track the complete populations of: samples, instruments, percussion
 >     finishRoster       :: SFRoster → IO SFRoster

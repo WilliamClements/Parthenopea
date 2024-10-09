@@ -112,8 +112,8 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       AcousticGuitarNylon       → Just            ["drum", "bass"]
 >       AcousticGuitarSteel       → Just            ["drum", "bass"]
 >       Agogo                     → Just            ["hi", "low"]
->       BrightAcousticPiano       → Just            ["brightness", "grand"]
->       Cello                     → Just            ["tremolo", "strike", "pluck", "staccato"]
+>       BrightAcousticPiano       → Just            ["elec", "grand"]
+>       Cello                     → Just            ["tremolo", "strike", "pluck", "stacc"]
 >       Contrabass                → Just $ singleton "tremolo"
 >       ElectricBassFingered      → Just            ["acous", "brass", "bassoon"]
 >       ElectricBassPicked        → Just            ["acous", "brass", "bassoon"]
@@ -130,7 +130,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       SynthDrum                 → Just            ["bass"]
 >       TelephoneRing             → Just $ singleton "string"
 >       Trumpet                   → Just $ singleton "mute"
->       Violin                    → Just            ["tremolo", "strike", "pluck", "staccato"]
+>       Violin                    → Just            ["tremolo", "strike", "pluck", "stacc"]
 >       _                         → Nothing
 >
 > instrumentProFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
@@ -153,7 +153,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Xylophone                 → Just $ singleton "xylo"
 >       TubularBells              → Just            ["tubular", "bells"]
 >       Dulcimer                  → Just $ singleton "dulcimer"
->       HammondOrgan              → Just            ["organ", "hammond"]
+>       HammondOrgan              → Just            ["organ", "hamm"]
 >       PercussiveOrgan           → Just            ["organ", "percuss"]
 >       RockOrgan                 → Just            ["organ", "rock"] 
 >       ChurchOrgan               → Just            ["organ", "church"]
@@ -166,13 +166,13 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       ElectricGuitarJazz        → Just            ["jazz", "guit", "elec"]
 >       ElectricGuitarClean       → Just            ["clean", "guit", "elec"]
 >       ElectricGuitarMuted       → Just            ["mute", "guit", "elec"]
->       OverdrivenGuitar          → Just            ["overdrive", "guit"]
->       DistortionGuitar          → Just            ["distort", "guit", "fuzz"]
+>       OverdrivenGuitar          → Just            ["over", "driv", "guit"]
+>       DistortionGuitar          → Just            ["dist", "guit", "fuzz"]
 >       GuitarHarmonics           → Just            ["harmonics", "guit"]
 >       AcousticBass              → Just            ["bass", "acous"]
 >       ElectricBassFingered      → Just            ["bass", "finger", "elec"]
 >       ElectricBassPicked        → Just            ["bass", "pick", "elec"]
->       FretlessBass              → Just            ["fretless", "bass"] 
+>       FretlessBass              → Just            ["fret", "less", "bass"] 
 >       SlapBass1                 → Just            ["bass", "slap", "1"]
 >       SlapBass2                 → Just            ["bass", "slap", "2"]
 >       SynthBass1                → Just            ["bass", "synth", "1"]
@@ -194,17 +194,17 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       SynthVoice                → Just            ["voice", "synth"]
 >       OrchestraHit              → Just            ["orchest", "hit"]
 >       Trumpet                   → Just            ["trumpet", "trump"]
->       Trombone                  → Just $ singleton "trombone"
+>       Trombone                  → Just $ singleton "trom"
 >       Tuba                      → Just $ singleton "tuba"
 >       MutedTrumpet              → Just            ["trumpet", "mute"]
 >       FrenchHorn                → Just            ["horn", "french"]
 >       BrassSection              → Just            ["brass", "section"]
 >       SynthBrass1               → Just            ["brass", "synth", "1"]
 >       SynthBrass2               → Just            ["brass", "synth", "2"]
->       SopranoSax                → Just            ["sax" , "soprano"]
+>       SopranoSax                → Just            ["sax" , "sopr"]
 >       AltoSax                   → Just            ["sax" , "alto"]
 >       TenorSax                  → Just            ["sax" , "tenor"]
->       BaritoneSax               → Just            ["sax" , "baritone"]
+>       BaritoneSax               → Just            ["sax" , "bari"]
 >       Oboe                      → Just $ singleton "oboe"
 >       Bassoon                   → Just $ singleton "bassoon"
 >       EnglishHorn               → Just            ["horn", "english"]
@@ -225,14 +225,14 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Lead6Voice                → Just $ singleton "lead6voice"
 >       Lead7Fifths               → Just $ singleton "lead7fifths"
 >       Lead8BassLead             → Just $ singleton "lead8basslead"
->       Pad1NewAge                → Just $ singleton "pad1newage"
+>       Pad1NewAge                → Just             ["new", "age"]
 >       Pad2Warm                  → Just $ singleton "pad2warm"
 >       Pad3Polysynth             → Just $ singleton "pad3polysynth"
 >       Pad4Choir                 → Just $ singleton "pad4choir"
 >       Pad5Bowed                 → Just $ singleton "pad5bowed"
 >       Pad6Metallic              → Just $ singleton "pad6metallic"
->       Pad7Halo                  → Just $ singleton "pad7halo"
->       Pad8Sweep                 → Just $ singleton "pad8sweep"
+>       Pad7Halo                  → Just             ["halo", "pad"]
+>       Pad8Sweep                 → Just             ["sweep", "pad"]
 >       FX1Train                  → Just $ singleton "train"
 >       FX2Soundtrack             → Just $ singleton "soundtrack"
 >       FX3Crystal                → Just $ singleton "crystal"

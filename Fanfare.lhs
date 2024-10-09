@@ -142,7 +142,7 @@ Alice ==========================================================================
 >       aliceLead                          = replace aliceLead_ dynMap
 >
 >       frag00 = line [g 3 qn, rest en, a 3 en, bf 3 wn]
->       frag01 = tempo (5/2) $ line [a 3 qn, bf 3 qn, a 3 qn,  g 3 hn]
+>       frag01 = line [t32[a 3 en, bf 3 en, a 3 en], g 3 qn]
 >       frag02 = line [f 3 hn, g 3 ddhn]
 >
 >       line00 = line [frag00, frag01, frag02]
@@ -158,8 +158,8 @@ Bob ============================================================================
 > bobTranspose                             = 0
 >
 > bobTreble_                               = makePitched Violin        bobTranspose 0 100
-> bobAlto_                                 = makePitched Oboe          bobTranspose 0  80
-> bobBass_                                 = makePitched Cello         bobTranspose 0  75
+> bobAlto_                                 = makePitched Oboe          bobTranspose 0  70
+> bobBass_                                 = makePitched Cello         bobTranspose 0  50
 >
 > bob :: Int → DynMap → Music (Pitch, [NoteAttribute])
 > bob nRepeats dynMap = removeZeros
@@ -1217,8 +1217,8 @@ Deydumpdum =====================================================================
 > d3TempoPlay                              = 3/2
 > d3Transpose                              = 0
 >
-> d3Lead_                                  = makePitched OverdrivenGuitar     d3Transpose          0        100
-> d3LeadQ_                                 = makePitched OverdrivenGuitar     d3Transpose          0         75
+> d3Lead_                                  = makePitched Violin               d3Transpose          0        100
+> d3LeadQ_                                 = makePitched Violin               d3Transpose          0         75
 > d3Bass_                                  = makePitched SynthBass2           d3Transpose          0         90
 > d3BassQ_                                 = makePitched SynthBass2           d3Transpose          0         60
 >
