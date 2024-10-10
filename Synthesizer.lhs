@@ -73,11 +73,11 @@ Signal function-based synth ====================================================
 >     secsToPlay         :: Double         = if looping
 >                                              then secsScored
 >                                              else min secsSample secsScored
->
 >     freqRatio          :: Double         =
->       if reconL.rTuning == 0
->         then 1
->         else (apToHz reconL.rRootKey * fromIntegral reconL.rTuning) / (apToHz noteOnKey * 100)
+>       case reconL.rTuning of
+>       0                                  → 1
+>       100                                → apToHz reconL.rRootKey / apToHz noteOnKey
+>       _                                  → calcMicrotoneRatio reconL.rRootKey noteOnKey (fromIntegral reconL.rTuning)
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
 >     delta              :: Double         = 1 / (numSamples * freqFactor)

@@ -996,6 +996,13 @@ Conversion functions and general helpers =======================================
 > almostEqual 0 0                          = True
 > almostEqual a b                          = epsilon > abs ((a - b) / (a + b))
 
+Account for microtones specified by SoundFont scale tuning : 0 < x < 100 < 1200
+
+> calcMicrotoneRatio          :: AbsPitch → AbsPitch → Double → Double
+> calcMicrotoneRatio rootp p x             = step ** fromIntegral (rootp - p)
+>   where
+>     step               :: Double         = 2 ** (x / 1_200)
+
 Raises 'a' to the power 'b' using logarithms.
 
 > pow                    :: Floating a ⇒ a → a → a
