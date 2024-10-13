@@ -65,7 +65,7 @@ library
     other-modules:  Baking, Cecil, Chart,
                     Covers, Discrete, DiscreteTest, Fanfare,
                     Modulation, ModulationTest, Parthenopea,
-                    Percussion, Scoring, SoundFont,
+                    ParthenopeaTest, Percussion, Scoring, SoundFont,
                     SunPyg, Synthesizer, SynthesizerTest,
                     SynToolkit
 

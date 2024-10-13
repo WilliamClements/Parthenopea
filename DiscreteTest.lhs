@@ -24,6 +24,7 @@ June 22, 2024
 > import Data.Maybe
 > import Data.Time.Clock ( UTCTime, diffUTCTime, getCurrentTime )
 > import qualified Data.Vector.Unboxed     as VU
+> import qualified Data.Vector             as VB
 > import Discrete
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns ( osc, Table, filterLowPassBW, filterBandPass )

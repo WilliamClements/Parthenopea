@@ -37,7 +37,7 @@ December 12, 2022
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
-> import Data.List ( iterate', singleton, foldl', sortOn, minimumBy, find, elem, sort, unfoldr )
+> import Data.List ( iterate', singleton, foldl', sortOn, minimumBy, find, elem, sort, unfoldr, genericLength )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe, listToMaybe )
@@ -47,6 +47,7 @@ December 12, 2022
 > import Data.Set (Set)
 > import qualified Data.Set                as Set
 > import qualified Data.Vector.Unboxed     as VU
+> import qualified Data.Vector             as VB
 > import Data.Word
 > import Debug.Trace ( trace )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
@@ -990,19 +991,99 @@ Conversion functions and general helpers =======================================
 >     val'                                 = absPitch val
 >
 > deriveRange            :: Integral n ⇒ n → n → [n]
-> deriveRange x y                          = if x > y || y <= 0 then [] else [x..(y-1)]
+> walkRange              :: Integral n ⇒ (n, n) → [n]
+> deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]
+> walkRange (x, y)                         = if x > y || y < 0 then [] else [x..y]
 >
 > almostEqual            :: Double → Double → Bool
 > almostEqual 0 0                          = True
 > almostEqual a b                          = epsilon > abs ((a - b) / (a + b))
 
 Account for microtones specified by SoundFont scale tuning : 0 < x < 100 < 1200
+Note result is incorrect overall when involves multiple root pitches
 
 > calcMicrotoneRatio          :: AbsPitch → AbsPitch → Double → Double
 > calcMicrotoneRatio rootp p x             = step ** fromIntegral (rootp - p)
 >   where
 >     step               :: Double         = 2 ** (x / 1_200)
 
+Range theory ==========================================================================================================
+
+Find unwanted (sub-)space overlaps. Each space (of nspaces) contains ndims ranges. The ranges are 0-based
+and define limit per each.
+
+Say you have ndims=2 dimensions of ndeep=64 extent. Covering overall 64x64 space are nspaces=3 "zones". 
+
+Zone 1: 32..57 "pitch", 11..47 "velocity"
+Zone 2: 21..40        , 20..21
+Zone 3: 0..1          , 0..1
+
+You see there was some overlap between Zone 1 and Zone 2.
+
+> smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i) ⇒
+>                           [i] → [[Maybe (i, i)]] → VB.Vector (Maybe (i, i))
+> smashSubspaces dims spaces_              = foldl' smasher seed (zip [0..] spaces) 
+>   where
+>     smasher            :: VB.Vector (Maybe (i, i)) → (i, [(i, i)]) → VB.Vector (Maybe (i, i))
+>     smasher overall (spacenum, rngs)     = VB.accum assignCell overall (enumAssocs spacenum rngs)
+>
+>     assignCell            :: Maybe (i, i) → Maybe (i, i) → Maybe (i, i)
+>     assignCell mfrom mto                 =
+>       case mfrom of
+>         Nothing                          → mto
+>         Just (id, count)                 → Just (id, count + 1)
+>
+>     ndims              :: i              = genericLength dims
+>     nspaces            :: i              = genericLength spaces
+>     spaces             :: [[(i, i)]]     = map (fmap (fromMaybe (0, ndims - 1))) spaces_
+>
+>     mag                :: i              = product dims
+>
+>     seed               ::  VB.Vector (Maybe (i, i))
+>     seed                                 = VB.replicate (fromIntegral mag) Nothing
+>
+>     enumAssocs         :: i → [(i,i)] → [(Int, Maybe (i,i))]
+>     enumAssocs spacenum rngs             = map (, Just (spacenum, 1)) indices
+>       where
+>         indices        :: [Int]
+>         indices                          = map (fromIntegral . computeCellIndex dims) (traverse walkRange rngs)
+>
+> lookupCellIndex        :: ∀ i . (Integral i) ⇒ [i] → [i] → VB.Vector (Maybe (i, i)) → Maybe (i, i)
+> lookupCellIndex dims coords overall      = overall VB.! fromIntegral (computeCellIndex dims coords)
+>
+> computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → i
+> computeCellIndex [] []                   = 0
+> computeCellIndex (_:as) (b:bs)           = b * product as + computeCellIndex as bs
+> computeCellIndex _ _                     =
+>   error $ unwords ["computeCellIndex input args dims and coords have unequal lengths"]
+>
+> data Smashing i                          =
+>   Smashing {
+>     smashTag            :: String
+>     , smashStats        :: SmashStats
+>     , smashVec          :: VB.Vector (Maybe (i, i))}
+> instance ∀ i. (Integral i, Num i, Show i) ⇒ Show (Smashing i) where
+>   show                 :: Smashing i → String
+>   show Smashing{ .. }                    =
+>     unwords ["Smashing", show (smashTag, smashStats)]
+> data SmashStats                        =
+>   SmashStats {
+>     countNothings      :: Int
+>   , countSingles       :: Int
+>   , countMultiples     :: Int} deriving Show
+> seedSmashStats         :: SmashStats
+> seedSmashStats                           = SmashStats 0 0 0
+> developSmashStats      :: ∀ i. (Integral i, Show i) ⇒ VB.Vector (Maybe (i,i)) → SmashStats
+> developSmashStats                        = VB.foldl' sfolder seedSmashStats
+>   where
+>     sfolder            ::  SmashStats → Maybe (i, i) → SmashStats
+>     sfolder stats@SmashStats{ .. } d =
+>       case d of
+>         Nothing                          → stats{countNothings = countNothings + 1}
+>         Just (_, y)                      → if y == 1
+>                                              then stats{countSingles = countSingles + 1}
+>                                              else stats{countMultiples = countMultiples + 1}
+          
 Raises 'a' to the power 'b' using logarithms.
 
 > pow                    :: Floating a ⇒ a → a → a

@@ -38,6 +38,8 @@ April 16, 2023
 > import Data.MemoTrie
 > import Data.Ord ( Down(Down), comparing )
 > import Data.Time.Clock ( UTCTime, diffUTCTime, getCurrentTime )
+> import qualified Data.Vector.Unboxed     as VU
+> import qualified Data.Vector             as VB
 > import Debug.Trace ( traceIO )
 > import Discrete
 > import Euterpea.IO.Audio.Basics ( outA )
@@ -1096,30 +1098,15 @@ prepare the specified instruments and percussion ===============================
 >
 >         rejectOverlaps :: Maybe InstCat
 >         rejectOverlaps                   =
->           if all (<= 1) histResult then Nothing else Just $ InstCatDisq DisqOverlappingRanges
+>           if 0 == countMultiples (developSmashStats smash) then Nothing else Just $ InstCatDisq DisqOverRanges
 >           where
->             histSeed, histResult
->                        :: Array Int Int
->             histSeed                     =
->               listArray (0, qMidiSize128 * qMidiSize128 - 1) (repeat 0)
->             histResult                   =
->               foldl' histFolder histSeed (map (realizeRs . snd) zsLessLocalRights)
+>             smash      :: VB.Vector (Maybe (Word, Word))
+>             smash                        = smashSubspaces dims spaces
 >
->             realizeRs  :: ZoneDigest → ((Int, Int), (Int, Int))
->             realizeRs ZoneDigest{zdKeyRange, zdVelRange}
->                                          = (realize zdKeyRange, realize zdVelRange)
->
->             realize    :: Maybe (Word, Word) → (Int, Int)
->             realize mRange               =
->               case mRange of
->                 Nothing                  → (0, 127)
->                 Just (x, y)              → if x < 0 || x > y || y >= fromIntegral qMidiSize128
->                                              then (0, 127)
->                                              else (fromIntegral x, fromIntegral y)
->
->             histFolder :: Array Int Int → ((Int, Int), (Int, Int)) → Array Int Int
->             histFolder hist ((p1,p2),(v1,v2))
->                                          = accum (+) hist ([(i + 128 * j, 1) | i ← [p1..p2], j ← [v1..v2]])
+>             dims       :: [Word]
+>             spaces     :: [[Maybe (Word, Word)]]
+>             dims                         = [fromIntegral qMidiSize128, fromIntegral qMidiSize128] 
+>             spaces                       = map (\(_, ZoneDigest{ .. }) → [zdKeyRange, zdVelRange]) zs 
 >
 >         howLaden       :: [Word] → Double
 >         howLaden ws
@@ -1487,17 +1474,15 @@ reconcile zone and sample header ===============================================
 > recon zone@SFZone{ .. } sHdr@F.Shdr{ .. } noon@NoteOn{ .. }
 >                                          = recon
 >   where
->     xSampleRate      = fromIntegral          sampleRate
->     xStart           = addIntToWord          start                  (sumOfMaybeInts
->                                                                        [zStartOffs, zStartCoarseOffs])
->     xEnd             = addIntToWord          end                    (sumOfMaybeInts
->                                                                        [zEndOffs, zEndCoarseOffs])
 >     m8n                                  = reconModulation zone sHdr noon
+>
 >     recon = Recon {
 >     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
->   , rSampleRate      = xSampleRate
->   , rStart           = xStart
->   , rEnd             = xEnd
+>   , rSampleRate      = fromIntegral          sampleRate
+>   , rStart           = addIntToWord          start                  (sumOfMaybeInts
+>                                                                        [zStartOffs, zStartCoarseOffs])
+>   , rEnd             = addIntToWord          end                    (sumOfMaybeInts
+>                                                                        [zEndOffs, zEndCoarseOffs])
 >   , rLoopStart       = addIntToWord          startLoop              (sumOfMaybeInts
 >                                                                        [zLoopStartOffs, zLoopStartCoarseOffs])
 >   , rLoopEnd         = addIntToWord          endLoop                (sumOfMaybeInts
@@ -1540,7 +1525,7 @@ reconcile zone and sample header ===============================================
 >                                              else 0.0
 >
 > reconModulation        :: SFZone → F.Shdr → NoteOn → Modulation
-> reconModulation sfz@SFZone{ .. } F.Shdr{ .. } noon
+> reconModulation sfz@SFZone{ .. } F.Shdr{sampleName} noon
 >   | traceIf trace_RM False               = undefined
 >   | otherwise                            = resolveMods m8n zModulators defaultMods
 >   where
@@ -1686,7 +1671,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >   | DisqNoPercZones
 >   | DisqLinkage
 >   | DisqCorruptRange
->   | DisqOverlappingRanges
+>   | DisqOverRanges
 >   | DisqIllegalCrossover deriving Show
 >
 > qqIncludeUnused          :: Bool         = False
@@ -1701,7 +1686,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 > renderDisqReason DisqNoPercZones         = if qqIncludeUnused then Just (unwords["unused zone liat"]) else Nothing
 > renderDisqReason DisqLinkage             = Just (unwords["zone linkage"])
 > renderDisqReason DisqCorruptRange        = Just (unwords["illegal zone range"])
-> renderDisqReason DisqOverlappingRanges   = Just (unwords["overlapping zone ranges"])
+> renderDisqReason DisqOverRanges          = Just (unwords["overlapping zone ranges"])
 > renderDisqReason DisqIllegalCrossover    = Just (unwords["illegal crossover"])
 >
 > data SoundFontSettings =
@@ -1720,7 +1705,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 > defF =
 >   SoundFontSettings {
 >     qqAllowStereoCrossovers              = True
->   , qqAllowOverlappingRanges             = True
+>   , qqAllowOverlappingRanges             = False
 >   , qqMultipleCompetes                   = True}
 
 The End

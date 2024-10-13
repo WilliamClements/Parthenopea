@@ -26,6 +26,7 @@ June 17, 2024
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
 > import Data.MemoTrie
 > import qualified Data.Vector.Unboxed     as VU
+> import qualified Data.Vector             as VB
 > import Debug.Trace ( traceIO, trace )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..), collapse )
@@ -482,7 +483,7 @@ Type declarations ==============================================================
 >     , stDCOffset       :: a
 >     , stVariance       :: a
 >     , stMaxAmp         :: Double} deriving Show
-> defDiscreteStats       :: (Coeff a, VU.Unbox a) ⇒ DiscreteStats a
+> defDiscreteStats       :: (Coeff a) ⇒ DiscreteStats a
 > defDiscreteStats                         = DiscreteStats 0 0 0 azero azero 0
 > data FrequencyResponseStats              =
 >   FrequencyResponseStats {
@@ -501,7 +502,7 @@ Type declarations ==============================================================
 >   show                 :: DiscreteSig a → String
 >   show DiscreteSig{ .. }                 =
 >     unwords ["DiscreteSig", show (dsigTag, dsigStats, measureFrequencyResponse dsigVec)]
-> sane                   :: (Coeff a, VU.Unbox a) ⇒ DiscreteSig a → Bool
+> sane                   :: (Coeff a) ⇒ DiscreteSig a → Bool
 > sane dsig                                =
 >   profess
 >     (maxAmp < upsilon)
@@ -619,7 +620,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > defD                   :: DiscreteSettings
 > defD =
 >   DiscreteSettings {
->     qqBulgeDiv                           = 20                           -- bulge bandwidth is cutoff freak / div
+>     qqBulgeDiv                           = 20                            -- bulge bandwidth is cutoff freak / div
 >   , qqDropoffRate                        = 240                           -- centibels per octave
 >   , qqReverseSignal                      = True
 >   , qqDisableConvo                       = False
