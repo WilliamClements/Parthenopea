@@ -4,7 +4,6 @@
 >
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE DeriveGeneric #-}
-> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
@@ -25,7 +24,6 @@ April 16, 2023
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Char
 > import Data.Either
 > import Data.Foldable ( toList, for_ )
 > import Data.Int ( Int8, Int16 )

@@ -1,9 +1,6 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
-> {-# LANGUAGE BangPatterns #-}
-> {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 ParthenopeaTest
@@ -12,18 +9,7 @@ October 11, 2024
 
 > module ParthenopeaTest where
 >
-> import Control.Exception
-> import Data.Array.Unboxed
-> import Data.Either
-> import Data.List ( foldl', sort, nub, sortOn, singleton )
-> import Data.Map ( Map )
-> import qualified Data.Map                as Map
 > import Data.Maybe
-> import Data.Ord
-> import qualified Data.Vector.Unboxed     as VU
-> import qualified Data.Vector             as VB
-> import Modulation
-> import ModulationTest
 > import Parthenopea
 
 Testing ===============================================================================================================
@@ -51,12 +37,14 @@ Testing ========================================================================
 > filln                  :: Int → Maybe (Int, Int)
 > filln n                                  = Just (0, n - 1)
 >
-> pt01, pt02, pt03, pt04 :: Smashing Int
+> pt01, pt02, pt03, pt04, pt05
+>                        :: Smashing Int
+>
 > pt01                                     =
 >   smashSubspaces
 >     "pt01"
 >     s2x2
->     (singleton [filln 2, filln 2])
+>     [[filln 2, filln 2]]
 >
 > canClaimEntireSpaceWithImpunity          = do
 >   let result                             =

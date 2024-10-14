@@ -3,10 +3,7 @@
 >
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE DeriveGeneric #-}
-> {-# LANGUAGE EmptyDataDecls #-}
-> {-# LANGUAGE FlexibleInstances #-}
 > {-# LANGUAGE InstanceSigs #-}
-> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE NumericUnderscores  #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
@@ -35,8 +32,6 @@ December 12, 2022
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
 > import Data.Int ( Int8, Int16, Int32 )
-> import Data.IntSet (IntSet)
-> import qualified Data.IntSet             as IntSet
 > import Data.List ( iterate', singleton, foldl', sortOn, minimumBy, find, elem, sort, unfoldr, genericLength )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
@@ -44,15 +39,12 @@ December 12, 2022
 > import Data.MemoTrie
 > import Data.Ord
 > import Data.Ratio ( approxRational )
-> import Data.Set (Set)
-> import qualified Data.Set                as Set
 > import qualified Data.Vector.Unboxed     as VU
 > import qualified Data.Vector             as VB
 > import Data.Word
 > import Debug.Trace ( trace )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg, Table, tableSinesN, osc )
-> import Euterpea.IO.Audio.IO
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.IO.MIDI.MidiIO (unsafeOutputID, unsafeInputID, OutputDeviceID, InputDeviceID)
@@ -63,16 +55,27 @@ December 12, 2022
 > import HSoM.Performance ( metro, Context (cDur) )
 > import System.Random ( Random(randomR), StdGen )
   
-Utilities =============================================================================================================
+Tracing ===============================================================================================================
 
 > traceIf, traceNow, traceAlways, traceNever, traceNot
 >                        :: String → a → a
-> traceIf str expr = if diagnosticsEnabled then trace str expr else expr
-> traceNow = trace
-> traceAlways = trace
-> traceNever str expr = expr
-> traceNot str expr = expr
+> traceIf str expr                         = if diagnosticsEnabled then trace str expr else expr
+> traceNow                                 = trace
+> traceAlways                              = trace
+> traceNever str expr                      = expr
+> traceNot str expr                        = expr
 >
+> tracer                 :: Show a ⇒ String → a → a
+> tracer str x                             =
+>   if True
+>     then traceNow (unwords [str ++ "=", show x]) x
+>     else x
+>
+> notracer               :: Show a ⇒ String → a → a
+> notracer _ x                             = x
+
+Utilities =============================================================================================================
+
 > hzToAp                 :: Double → AbsPitch
 > hzToAp freak                             =
 >   round $ fromIntegral (absPitch (A,4)) + 12 * (logBase 2 freak - logBase 2 440)
@@ -106,73 +109,68 @@ Utilities ======================================================================
 >   print midi
 >   return $ rest 0
 >
-> hasDuplicates :: (Ord a) ⇒ [a] → Bool
-> hasDuplicates list = length list /= length set
->   where
->     set = Set.fromList list
->
-> addDur       :: Dur → [Dur → Music a] → Music a
+> addDur                 :: Dur → [Dur → Music a] → Music a
 > addDur d ns  =  let f n = n d
 >                 in line (map f ns)
 >
 > grace                  :: Int → Music Pitch → Music Pitch
-> grace n (Prim (Note d p)) = note (est * d) (trans n p) :+: note ((1 - est) * d) p
+> grace n (Prim (Note d p))                = note (est * d) (trans n p) :+: note ((1 - est) * d) p
 >   where
 >     est                :: Rational
 >     est
 >       | d < 1/8                          = 1/2
 >       | d > (2*wn)                       = 1/(8*d)
 >       | otherwise                        = 1/8
-> grace n  _                  = 
->           error "Can only add a grace note to a note."
+> grace n _                                = 
+>   error "Can only add a grace note to a note."
 >
-> t32 :: [Music a] → Music a
-> t32 notes = tempo (3/2) (foldr (:+:) (rest 0) notes)
+> t32                    :: [Music a] → Music a
+> t32 notes                                = tempo (3/2) (foldr (:+:) (rest 0) notes)
 >
-> dim          :: Rational → Music a → Music a
-> dim amt = phrase [Dyn (Diminuendo amt)]
+> dim                    :: Rational → Music a → Music a
+> dim amt                                  = phrase [Dyn (Diminuendo amt)]
 >
-> capture      :: Music (Pitch, [NoteAttribute]) → IO()
-> capture = writeMidi2 "Parthenopea.mid"
+> capture                :: Music (Pitch, [NoteAttribute]) → IO()
+> capture                                  = writeMidi2 "Parthenopea.mid"
 >
-> fractionOf   :: Int → Double → Int
-> fractionOf x d = min 127 $ round $ d * fromIntegral x
+> fractionOf             :: Int → Double → Int
+> fractionOf x d                           = min 127 $ round $ d * fromIntegral x
 >
-> slur         :: Rational → Music a → Music a
-> slur rate = Modify (Phrase [Art (Slurred rate)])
+> slur                   :: Rational → Music a → Music a
+> slur rate                                = Modify (Phrase [Art (Slurred rate)])
 >
-> durS         :: Rational → Double
-> durS r = 2 * fromRational r
+> durS                   :: Rational → Double
+> durS r                                   = 2 * fromRational r
 > 
-> ratEps       :: Double
-> ratEps = 0.000_1
+> ratEps                 :: Double
+> ratEps                                   = 0.000_1
 >
-> approx       :: Double → Dur
-> approx dur = approxRational dur ratEps
+> approx                 :: Double → Dur
+> approx dur                               = approxRational dur ratEps
 >
-> rawPitches = [0..127]
+> rawPitches                               = [0..127]
 >
 > allPitches =
 >    foldr ((:+:) . notize) (rest 0) rawPitches
 >    where
->       notize aP = note qn (pitch aP)
+>       notize aP                          = note qn (pitch aP)
 >
 > -- note chordFromArray has the same function body as chord itself
-> chordFromArray :: Array Int (Music (Pitch, [NoteAttribute]))
->                   → Music (Pitch, [NoteAttribute])
-> chordFromArray = foldr (:=:) (rest 0)
+> chordFromArray         :: Array Int (Music (Pitch, [NoteAttribute])) → Music (Pitch, [NoteAttribute])
+> chordFromArray                           = foldr (:=:) (rest 0)
 
 This alternate playback function will enable channel manipulation to allow
 more than 16 instruments to be used in the source music.
 
-> playDM       :: (NFData a, ToMusic1 a) ⇒ Maybe Int → Music a → IO ()
-> playDM mi = playC defParams
->                 { strict=False
->                 , chanPolicy = dynamicCP 16 9
->                 , devID=case mi of
->                         Nothing → Nothing
->                         Just i → Just $ unsafeOutputID i
->                 , perfAlg= map (\e → e{eDur = max 0 (eDur e - 0.000_001)}) . perform}
+> playDM                 :: (NFData a, ToMusic1 a) ⇒ Maybe Int → Music a → IO ()
+> playDM mi                                =
+>   playC defParams
+>     { strict=False
+>     , chanPolicy = dynamicCP 16 9
+>     , devID                              = case mi of
+>                                              Nothing → Nothing
+>                                              Just i → Just $ unsafeOutputID i
+>     , perfAlg= map (\e → e{eDur = max 0 (eDur e - 0.000_001)}) . perform}
 
 This alternate playback function will merge overlapping notes, 
 which makes for a cleaner sound on some synthesizers:
@@ -465,20 +463,20 @@ also
 
 instrument range checking =============================================================================================
 
-> union2Ranges :: (Ord a, Ord b) ⇒ (a, b) → (a, b) → (a, b)
-> union2Ranges r1 r2 = unionRanges (r1:[r2])
-> unionRanges [] = error "empty range list"
-> unionRanges (r:rs) = ( minimum (map fst (r:rs))
->                      , maximum (map snd (r:rs)) )
-> intersect2Ranges r1 r2 = intersectRanges (r1:[r2])
-> intersectRanges (r:rs) =
+> union2Ranges           :: (Ord a, Ord b) ⇒ (a, b) → (a, b) → (a, b)
+> union2Ranges r1 r2                       = unionRanges (r1:[r2])
+> unionRanges []                           = error "empty range list"
+> unionRanges (r:rs)                       = ( minimum (map fst (r:rs))
+>                                            , maximum (map snd (r:rs)) )
+> intersect2Ranges r1 r2                   = intersectRanges (r1:[r2])
+> intersectRanges (r:rs)                   =
 >   case uncurry compare inverted of
 >     LT → Just inverted
 >     _  → Nothing
 >   where
->     inverted = ( maximum (map fst (r:rs))
->                , minimum (map snd (r:rs)) )
-> intersectRanges _ = error "empty range list"
+>     inverted                             = ( maximum (map fst (r:rs))
+>                                            , minimum (map snd (r:rs)) )
+> intersectRanges _                        = error "empty range list"
 >
 > data BandPart =
 >   BandPart {
@@ -816,7 +814,7 @@ Sampling =======================================================================
 Control Functions
 
 The use of following functions requires that their input is normalized between 0 and 1
-(And you can count on the output being normalized!)
+(And you can count on the output being likewise normalized!)
 
 > controlLinear          :: Double → Double
 > controlLinear d                          = d
@@ -886,13 +884,6 @@ The use of following functions requires that their input is normalized between 0
 >   amul d e                               = d * e
 >   asqrt                :: Complex Double → Complex Double
 >   asqrt                                  = sqrt
->
-> data ModSignals                          =
->   ModSignals {
->     xModEnvPos         :: Double
->   , xModLfoPos         :: Double
->   , xVibLfoPos         :: Double} deriving (Show)
-> defModSignals                            = ModSignals 0 0 0
 >
 > data SlwRate
 > instance Clock SlwRate where
@@ -1100,11 +1091,6 @@ Returns the fractional part of 'x'.
 
 > frac                   :: RealFrac r ⇒ r → r
 > frac                                     = snd . properFraction
-
-forms an IntSet based on an arbitrary list and corresponding input function to Int
-
-> formIntSet             :: ∀ a . [a] → (a → Int) → IntSet
-> formIntSet as fun                        = IntSet.fromList $ map fun as
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
@@ -1341,17 +1327,6 @@ Emission capability ============================================================
 >
 > type Velocity                            = Volume
 > type KeyNumber                           = AbsPitch
-
-Tracing ===============================================================================================================
-
-> tracer                 :: Show a ⇒ String → a → a
-> tracer str x                             =
->   if True
->     then traceNow (unwords [str ++ "=", show x]) x
->     else x
->
-> notracer               :: Show a ⇒ String → a → a
-> notracer _ x                             = x
 
 Configurable parameters ===============================================================================================
 

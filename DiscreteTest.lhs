@@ -2,11 +2,8 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE BangPatterns #-}
 > {-# LANGUAGE NumericUnderscores #-}
-> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
-> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 DiscreteTest
@@ -16,11 +13,10 @@ June 22, 2024
 > module DiscreteTest where
 >
 > import Chart
-> import Data.Array.Unboxed
 > import Data.Colour
 > import Data.Colour.Names
 > import Data.Complex
-> import Data.List ( foldl', sort, nub, sortOn )
+> import Data.List ( foldl' )
 > import Data.Maybe
 > import Data.Time.Clock ( UTCTime, diffUTCTime, getCurrentTime )
 > import qualified Data.Vector.Unboxed     as VU

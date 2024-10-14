@@ -9,7 +9,6 @@ William Clements
 
 > module Percussion where
 >
-> import Debug.Trace
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import Parthenopea

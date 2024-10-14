@@ -3,7 +3,6 @@
 >
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE LambdaCase #-}
-> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
@@ -17,18 +16,14 @@ November 6, 2023
 > module Modulation where
 >
 > import Control.Arrow
-> import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Bits
 > import Data.Complex
-> import Data.Graph (Graph)
-> import qualified Data.Graph              as Graph
 > import Data.List ( foldl', iterate', find )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
-> import Debug.Trace ( traceIO, trace )
 > import Discrete
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
@@ -631,6 +626,13 @@ Type declarations ==============================================================
 >     _                  → error $ unwords["coAccess: ModTriple only deals with ToPitch, ToFilterFc, and ToVolume"]
 >                            
 > defModTriple                             = ModTriple 0 0 0
+>
+> data ModSignals                          =
+>   ModSignals {
+>     xModEnvPos         :: Double
+>   , xModLfoPos         :: Double
+>   , xVibLfoPos         :: Double} deriving (Show)
+> defModSignals                            = ModSignals 0 0 0
 >
 > data LFO                                 =
 >   LFO {

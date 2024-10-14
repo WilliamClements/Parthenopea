@@ -1,8 +1,6 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
-> {-# LANGUAGE BangPatterns #-}
-> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 ModulationTest
@@ -13,7 +11,7 @@ November 24, 2023
 >
 > import Control.Exception
 > import Data.Either
-> import Data.List ( foldl', sort, nub, sortOn )
+> import Data.List ( nub, sort, sortOn )
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Ord

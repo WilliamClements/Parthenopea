@@ -2,8 +2,6 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE FlexibleInstances #-}
-> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 SynthesizerTest
@@ -13,7 +11,6 @@ March 2, 2024
 > module SynthesizerTest ( runSynthesizerTests, synthesizerTests ) where
 >
 > import qualified Data.Audio              as A
-> import Debug.Trace ( traceIO )
 > import Euterpea.IO.Audio.Basics
 > import Euterpea.IO.Audio.Types
 > import Modulation
