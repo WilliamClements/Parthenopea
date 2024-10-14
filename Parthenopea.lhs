@@ -1021,9 +1021,11 @@ Zone 3: 0..1          , 0..1
 You see there was some overlap between Zone 1 and Zone 2.
 
 > smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i) ⇒
->                           [i] → [[Maybe (i, i)]] → VB.Vector (Maybe (i, i))
-> smashSubspaces dims spaces_              = foldl' sfolder seed (zip [0..] spaces) 
+>                           String → [i] → [[Maybe (i, i)]] → Smashing i
+> smashSubspaces tag dims spaces_          = Smashing tag dims (developSmashStats svector) svector
 >   where
+>     svector            :: VB.Vector (Maybe (i, i))
+>     svector                              = foldl' sfolder seed (zip [0..] spaces) 
 >     sfolder            :: VB.Vector (Maybe (i, i)) → (i, [(i, i)]) → VB.Vector (Maybe (i, i))
 >     sfolder smashup (spacenum, rngs)     = VB.accum assignCell smashup (enumAssocs dims spacenum rngs)
 >
@@ -1042,7 +1044,7 @@ You see there was some overlap between Zone 1 and Zone 2.
 >     enumAssocs         ::  [i] → i → [(i,i)] → [(Int, Maybe (i,i))]
 >     enumAssocs dims spacenum rngs        =
 >       profess
->         (mag <= 8_192 && all (\(d, rng) → 0 <= d && d == clip rng d) (zip dims rngs))
+>         (0 <= mag && mag <= 65_536 && all (\(d, rng) → 0 <= d && d == clip rng d) (zip dims rngs))
 >         (unwords ["enumAssocs: range violation"])
 >         (map (, Just (spacenum, 1)) indices)
 >       where
@@ -1051,8 +1053,9 @@ You see there was some overlap between Zone 1 and Zone 2.
 >           map (fromIntegral . computeCellIndex dims) (traverse walkRange rngs)
 >           
 >
-> lookupCellIndex        :: ∀ i . (Integral i) ⇒ [i] → [i] → VB.Vector (Maybe (i, i)) → Maybe (i, i)
-> lookupCellIndex dims coords smashup      = smashup VB.! fromIntegral (computeCellIndex dims coords)
+> lookupCellIndex        :: ∀ i . (Integral i) ⇒ [i] → Smashing i → Maybe (i, i)
+> lookupCellIndex coords smashup@Smashing{ .. }
+>                                          = smashVec VB.! fromIntegral (computeCellIndex smashDims coords)
 >
 > computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → i
 > computeCellIndex [] []                   = 0
@@ -1063,6 +1066,7 @@ You see there was some overlap between Zone 1 and Zone 2.
 > data Smashing i                          =
 >   Smashing {
 >     smashTag            :: String
+>     , smashDims         :: [i]
 >     , smashStats        :: SmashStats
 >     , smashVec          :: VB.Vector (Maybe (i, i))}
 > instance ∀ i. (Integral i, Num i, Show i) ⇒ Show (Smashing i) where

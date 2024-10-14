@@ -1098,10 +1098,10 @@ prepare the specified instruments and percussion ===============================
 >
 >         rejectOverlaps :: Maybe InstCat
 >         rejectOverlaps                   =
->           if 0 == countMultiples (developSmashStats smashup) then Nothing else Just $ InstCatDisq DisqOverRanges
+>           if 0 == countMultiples smashStats then Nothing else Just $ InstCatDisq DisqOverRanges
 >           where
->             smashup    :: VB.Vector (Maybe (Word, Word))
->             smashup                      = smashSubspaces dims spaces
+>             smashup    :: Smashing Word
+>             smashup@Smashing{ .. }       = smashSubspaces "smashup" dims spaces
 >
 >             dims       :: [Word]
 >             spaces     :: [[Maybe (Word, Word)]]

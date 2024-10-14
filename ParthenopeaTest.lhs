@@ -51,29 +51,29 @@ Testing ========================================================================
 > filln                  :: Int → Maybe (Int, Int)
 > filln n                                  = Just (0, n - 1)
 >
-> pt01, pt02, pt03, pt04 :: VB.Vector (Maybe (Int, Int))
+> pt01, pt02, pt03, pt04 :: Smashing Int
 > pt01                                     =
 >   smashSubspaces
+>     "pt01"
 >     s2x2
 >     (singleton [filln 2, filln 2])
 >
 > canClaimEntireSpaceWithImpunity          = do
 >   let result                             =
 >         lookupCellIndex
->           s2x2 
 >           [0, 0]
 >           pt01
 >   return $ aEqual True (isJust result)
 >
 > pt02                                     =
 >   smashSubspaces
+>     "pt02"
 >     s2x2
 >     [[filln 2, filln 2], [filln 2, filln 2]]
 >
 > firstSpaceWins                           = do
 >   let aat                                =
 >         lookupCellIndex
->           s2x2
 >           [1, 0]
 >           pt02
 >   let spacenum                           =
@@ -84,6 +84,7 @@ Testing ========================================================================
 >
 > pt03                                     =
 >   smashSubspaces
+>     "pt03"
 >     s2x2
 >     [[Just (0, 1), Just (0, 0)], [Just (0, 1), Just (0, 1)]]
 >
@@ -91,7 +92,6 @@ Testing ========================================================================
 >   print pt03
 >   let aat                                =
 >         lookupCellIndex
->           s2x2
 >           [1, 0]
 >           pt03
 >   let count                              =
@@ -103,7 +103,6 @@ Testing ========================================================================
 > nonOverlapsCountedCorrectly              = do
 >   let aat                                =
 >         lookupCellIndex
->           s2x2
 >           [0, 1]
 >           pt03
 >   let count                              =
@@ -114,13 +113,16 @@ Testing ========================================================================
 >
 > pt04                                     =
 >   smashSubspaces
+>     "pt04"
 >     [4, 4, 4]
 >     [   [Just (0, 0), Just (1, 1), Just (1, 2)]
 >       , [Just (1, 3), Just (2, 3), Just (3, 3)]]
 >
 > handle3dSpaces                           = do
 >   let aat                                =
->         lookupCellIndex [4, 4, 4] [0, 0, 1] pt04
+>         lookupCellIndex
+>           [0, 0, 1]
+>           pt04
 >   let spacenum                           =
 >         case aat of
 >           Nothing                        → Nothing
@@ -129,13 +131,16 @@ Testing ========================================================================
 >
 > pt05                                     =
 >   smashSubspaces
+>     "pt05"
 >     [3, 3, 3, 3]
 >     [   [Just (0, 0), Just (1, 1), Just (1, 2), Just (2, 2)]
 >       , [Just (1, 2), Just (0, 1), Just (1, 1), Just (0, 1)]]
 >
 > handle4dSpaces                           = do
 >   let aat                                =
->         lookupCellIndex [3, 3, 3, 3] [0, 0, 1, 0] pt05
+>         lookupCellIndex
+>           [0, 0, 1, 0]
+>           pt05
 >   let spacenum                           =
 >         case aat of
 >           Nothing                        → Nothing
