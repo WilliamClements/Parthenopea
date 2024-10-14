@@ -1098,15 +1098,16 @@ prepare the specified instruments and percussion ===============================
 >
 >         rejectOverlaps :: Maybe InstCat
 >         rejectOverlaps                   =
->           if 0 == countMultiples (developSmashStats smash) then Nothing else Just $ InstCatDisq DisqOverRanges
+>           if 0 == countMultiples (developSmashStats smashup) then Nothing else Just $ InstCatDisq DisqOverRanges
 >           where
->             smash      :: VB.Vector (Maybe (Word, Word))
->             smash                        = smashSubspaces dims spaces
+>             smashup    :: VB.Vector (Maybe (Word, Word))
+>             smashup                      = smashSubspaces dims spaces
 >
 >             dims       :: [Word]
 >             spaces     :: [[Maybe (Word, Word)]]
 >             dims                         = [fromIntegral qMidiSize128, fromIntegral qMidiSize128] 
->             spaces                       = map (\(_, ZoneDigest{ .. }) → [zdKeyRange, zdVelRange]) zs 
+>             spaces                       =
+>               map (\(_, ZoneDigest{ .. }) → [zdKeyRange, zdVelRange]) zsLessLocalRights 
 >
 >         howLaden       :: [Word] → Double
 >         howLaden ws
@@ -1705,7 +1706,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 > defF =
 >   SoundFontSettings {
 >     qqAllowStereoCrossovers              = True
->   , qqAllowOverlappingRanges             = False
+>   , qqAllowOverlappingRanges             = True
 >   , qqMultipleCompetes                   = True}
 
 The End

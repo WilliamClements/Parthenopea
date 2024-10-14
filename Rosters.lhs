@@ -26,6 +26,7 @@ May 4, 2023
 > import Fanfare
 > import ModulationTest
 > import Parthenopea
+> import ParthenopeaTest
 > import SoundFont
 > import SunPyg
 > import SynthesizerTest
@@ -43,10 +44,11 @@ Rosters support ================================================================
 >         then do
 >           resultA                        ← runTestsQuietly modulationTests     
 >           resultB                        ← runTestsQuietly synthesizerTests
->           -- resultC                        ← runTestsQuietly discreteTests
+>           let resultC                    = True -- runTestsQuietly discreteTests
+>           resultD                        ← runTestsQuietly parthTests
 >           let all                        =
 >                 profess
->                   (resultA && resultB)
+>                   (resultA && resultB && resultC && resultD)
 >                   (unwords ["one or more unit tests failed"])
 >                   True
 >           putStrLn "Unit tests completed successfully"
@@ -107,14 +109,14 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj = bjingles
+> sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("pa1"         , pendingtonArnt 1)]
 >    -- [ ("bill1"       , bill 1)]
 >    -- [ ("basicLick"   , basicLick)]
 >    -- [ ("ssailor"     , ssailor)]
->    -- [ ("deyDumpDum"  , deyDumpDum)]
+>       [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 2570)]
 >    -- [ ("getCITM"     , getCITM)]
 >    -- [ ("littleCITM"  , littleCITM)]

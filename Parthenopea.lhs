@@ -1022,34 +1022,37 @@ You see there was some overlap between Zone 1 and Zone 2.
 
 > smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i) ⇒
 >                           [i] → [[Maybe (i, i)]] → VB.Vector (Maybe (i, i))
-> smashSubspaces dims spaces_              = foldl' smasher seed (zip [0..] spaces) 
+> smashSubspaces dims spaces_              = foldl' sfolder seed (zip [0..] spaces) 
 >   where
->     smasher            :: VB.Vector (Maybe (i, i)) → (i, [(i, i)]) → VB.Vector (Maybe (i, i))
->     smasher overall (spacenum, rngs)     = VB.accum assignCell overall (enumAssocs spacenum rngs)
+>     sfolder            :: VB.Vector (Maybe (i, i)) → (i, [(i, i)]) → VB.Vector (Maybe (i, i))
+>     sfolder smashup (spacenum, rngs)     = VB.accum assignCell smashup (enumAssocs dims spacenum rngs)
 >
->     assignCell            :: Maybe (i, i) → Maybe (i, i) → Maybe (i, i)
->     assignCell mfrom mto                 =
->       case mfrom of
->         Nothing                          → mto
->         Just (id, count)                 → Just (id, count + 1)
+>     assignCell         :: Maybe (i, i) → Maybe (i, i) → Maybe (i, i)
+>     assignCell mfrom mto                 = maybe mto (\(x, y) → Just (x, y + 1)) mfrom
 >
 >     ndims              :: i              = genericLength dims
 >     nspaces            :: i              = genericLength spaces
 >     spaces             :: [[(i, i)]]     = map (fmap (fromMaybe (0, ndims - 1))) spaces_
 >
->     mag                :: i              = product dims
+>     mag                :: Int            = fromIntegral $ product dims
 >
->     seed               ::  VB.Vector (Maybe (i, i))
->     seed                                 = VB.replicate (fromIntegral mag) Nothing
+>     seed               :: VB.Vector (Maybe (i, i))
+>     seed                                 = VB.replicate mag Nothing
 >
->     enumAssocs         :: i → [(i,i)] → [(Int, Maybe (i,i))]
->     enumAssocs spacenum rngs             = map (, Just (spacenum, 1)) indices
+>     enumAssocs         ::  [i] → i → [(i,i)] → [(Int, Maybe (i,i))]
+>     enumAssocs dims spacenum rngs        =
+>       profess
+>         (mag <= 8_192 && all (\(d, rng) → 0 <= d && d == clip rng d) (zip dims rngs))
+>         (unwords ["enumAssocs: range violation"])
+>         (map (, Just (spacenum, 1)) indices)
 >       where
 >         indices        :: [Int]
->         indices                          = map (fromIntegral . computeCellIndex dims) (traverse walkRange rngs)
+>         indices                          =
+>           map (fromIntegral . computeCellIndex dims) (traverse walkRange rngs)
+>           
 >
 > lookupCellIndex        :: ∀ i . (Integral i) ⇒ [i] → [i] → VB.Vector (Maybe (i, i)) → Maybe (i, i)
-> lookupCellIndex dims coords overall      = overall VB.! fromIntegral (computeCellIndex dims coords)
+> lookupCellIndex dims coords smashup      = smashup VB.! fromIntegral (computeCellIndex dims coords)
 >
 > computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → i
 > computeCellIndex [] []                   = 0
@@ -1183,10 +1186,10 @@ Mapping is used in SoundFont modulator
 >   | Switch deriving (Eq, Ord, Show, Enum)
 >
 > defMapping                               = Mapping Linear False False False
-> allMappings                              = [Mapping cont polar dir False
->                                                   | cont   ← [Linear, Concave, Convex, Switch]
->                                                        , polar  ← [False, True]
->                                                              , dir    ← [False, True]]                                          
+> allMappings                              = [Mapping cont bipolar max2min False
+>                                                   | cont                  ← [Linear, Concave, Convex, Switch]
+>                                                        , bipolar          ← [False, True]
+>                                                              , max2min    ← [False, True]]                                          
 
 Returns sample point as (normalized) Double
 

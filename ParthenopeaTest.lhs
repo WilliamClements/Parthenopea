@@ -34,26 +34,28 @@ Testing ========================================================================
 >                                         ,   firstSpaceWins
 >                                         ,   overlapsCountedCorrectly
 >                                         ,   nonOverlapsCountedCorrectly
->                                         ,   handle3dSpaces]
+>                                         ,   handle3dSpaces
+>                                         ,   handle4dSpaces]
 >
 > canClaimEntireSpaceWithImpunity
 >   , firstSpaceWins
 >   , overlapsCountedCorrectly
 >   , nonOverlapsCountedCorrectly
 >   , handle3dSpaces
+>   , handle4dSpaces
 >                        :: IO Bool
 >
 > s2x2                   :: [Int]
 > s2x2                                     = [2, 2]
 >
-> fillit                 :: Maybe (Int, Int)
-> fillit                                   = Just (0, 1)
+> filln                  :: Int → Maybe (Int, Int)
+> filln n                                  = Just (0, n - 1)
 >
 > pt01, pt02, pt03, pt04 :: VB.Vector (Maybe (Int, Int))
 > pt01                                     =
 >   smashSubspaces
 >     s2x2
->     (singleton [fillit, fillit])
+>     (singleton [filln 2, filln 2])
 >
 > canClaimEntireSpaceWithImpunity          = do
 >   let result                             =
@@ -66,7 +68,7 @@ Testing ========================================================================
 > pt02                                     =
 >   smashSubspaces
 >     s2x2
->     [[fillit, fillit], [fillit, fillit]]
+>     [[filln 2, filln 2], [filln 2, filln 2]]
 >
 > firstSpaceWins                           = do
 >   let aat                                =
@@ -119,6 +121,21 @@ Testing ========================================================================
 > handle3dSpaces                           = do
 >   let aat                                =
 >         lookupCellIndex [4, 4, 4] [0, 0, 1] pt04
+>   let spacenum                           =
+>         case aat of
+>           Nothing                        → Nothing
+>           Just (sn, _)                   → Just sn
+>   return $ aEqual Nothing spacenum
+>
+> pt05                                     =
+>   smashSubspaces
+>     [3, 3, 3, 3]
+>     [   [Just (0, 0), Just (1, 1), Just (1, 2), Just (2, 2)]
+>       , [Just (1, 2), Just (0, 1), Just (1, 1), Just (0, 1)]]
+>
+> handle4dSpaces                           = do
+>   let aat                                =
+>         lookupCellIndex [3, 3, 3, 3] [0, 0, 1, 0] pt05
 >   let spacenum                           =
 >         case aat of
 >           Nothing                        → Nothing

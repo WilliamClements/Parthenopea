@@ -10,7 +10,7 @@ SynthesizerTest
 William Clements
 March 2, 2024
 
-> module SynthesizerTest where
+> module SynthesizerTest ( runSynthesizerTests, synthesizerTests ) where
 >
 > import qualified Data.Audio              as A
 > import Debug.Trace ( traceIO )

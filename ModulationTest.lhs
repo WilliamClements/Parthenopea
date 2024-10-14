@@ -9,7 +9,7 @@ ModulationTest
 William Clements
 November 24, 2023
 
-> module ModulationTest where
+> module ModulationTest ( modulationTests, runModulationTests ) where
 >
 > import Control.Exception
 > import Data.Either
