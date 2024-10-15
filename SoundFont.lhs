@@ -1252,7 +1252,8 @@ prepare the specified instruments and percussion ===============================
 >
 > buildZone              :: SFFile → SFZone → Word → (ZoneHeader, SFZone)
 > buildZone SFFile{zArrays, zFilename, zWordF} fromZone bagIndex
->                                          = (zh, zone)
+>   | traceIf trace_BZ False               = undefined
+>   | otherwise                            = (zh, zone)
 >   where
 >     SoundFontArrays{ssIBags, ssIGens, ssIMods, ssShdrs}
 >                                          = zArrays
@@ -1267,8 +1268,7 @@ prepare the specified instruments and percussion ===============================
 >         (xgeni <= ygeni)
 >         (unwords["SoundFont file", show zWordF, zFilename, "corrupt (buildZone gens)"])
 >         (map (ssIGens !) (deriveRange xgeni ygeni))
->     mods       :: [(Word, F.Mod)]
->                                          =
+>     mods       :: [(Word, F.Mod)]        =
 >       profess
 >         (xmodi <= ymodi)
 >         (unwords["SoundFont file", show zWordF, zFilename, "corrupt (buildZone mods)"])
@@ -1277,6 +1277,8 @@ prepare the specified instruments and percussion ===============================
 >     zone@SFZone{zSampleIndex}            = foldr addMod (foldl' addGen fromZone gens) mods
 >     si                                   = fromMaybe 0 zSampleIndex
 >     zh                                   = ZoneHeader bagIndex (ssShdrs ! si)
+>
+>     trace_BZ                             = unwords ["buildZone", show zWordF, show bagIndex]
 >
 > formSampleParentCache  :: Map PerGMKey PerInstrument → IO (Map PreSampleKey [PerGMKey])
 > formSampleParentCache zc                 = return $ Map.foldlWithKey spFolder Map.empty zc
@@ -1375,7 +1377,7 @@ zone selection for rendering ===================================================
 >     setZone                              = eor
 >       where
 >         zs                               = tail $ pZonePairs perI
->         ezones                           = selectZonePair $ selectBestZone zs noon
+>         ezones                           = selectZonePair zs $ selectBestZone zs noon
 >         eor                              =
 >           case ezones of 
 >             Left (zhL, zoneL)            → Left (zoneL, zhShdr zhL)
@@ -1397,45 +1399,44 @@ zone selection for rendering ===================================================
 >         trace_SBZ                        =
 >           unwords ["selectBestZone", show $ F.sampleName shdr, show $ F.sampleType shdr]
 >
->     selectZonePair         :: (ZoneHeader, SFZone)
->                               → Either (ZoneHeader, SFZone) ((ZoneHeader, SFZone), (ZoneHeader, SFZone))
->     selectZonePair zone
+>     selectZonePair     :: [(ZoneHeader, SFZone)] → (ZoneHeader, SFZone)
+>                           → Either (ZoneHeader, SFZone) ((ZoneHeader, SFZone), (ZoneHeader, SFZone))
+>     selectZonePair zs zone
 >        | stype == SampleTypeLeft         = Right (zone, ozone)
 >        | stype == SampleTypeRight        = Right (ozone, zone)
 >        | otherwise                       = Left zone
 >        where
 >          F.Shdr{sampleType}              = (zhShdr . fst) zone
 >          stype                           = toSampleType sampleType
->          ozone                           = deJust "ozone" (findStereoPartner sfrost pergm zone)
+>          ozone                           = deJust "ozone" (findStereoPartner sfrost pergm zs zone)
 >
-> findStereoPartner      :: SFRoster → PerGMKey → (ZoneHeader, SFZone) → Maybe (ZoneHeader, SFZone)
-> findStereoPartner SFRoster{zZoneCache, zSample2Insts} PerGMKey{pgkwFile = myFile, pgkwInst = myInst} myZonePair
+> findMatchingZone       :: Word → [(ZoneHeader, SFZone)] → Maybe (ZoneHeader, SFZone)
+> findMatchingZone sampleIx                = find (\(_, SFZone{zSampleIndex = mix}) → mix == Just sampleIx)
+>
+> findStereoPartner      :: SFRoster → PerGMKey → [(ZoneHeader, SFZone)]
+>                           → (ZoneHeader, SFZone) → Maybe (ZoneHeader, SFZone)
+> findStereoPartner SFRoster{ .. }
+>                   PerGMKey{pgkwFile = myFile, pgkwInst = myInst}
+>                   zs
+>                   zone
 >                                          =
->   if not $ isStereoZone myZonePair
->     then error $ unwords["findStereoPartner", "attempted on non-stereo zone"]
->     else
->       case toSampleType (F.sampleType myShdr) of
->         SampleTypeLeft                   → Just partner
->         SampleTypeRight                  → Just partner
->         _                                → Nothing 
+>   case toSampleType (F.sampleType myShdr) of
+>     SampleTypeLeft                       → partner
+>     SampleTypeRight                      → partner
+>     _                                    → error $ unwords["findStereoPartner", "attempted on non-stereo zone"]
 >   where
->     (ZoneHeader{zhShdr = myShdr}, SFZone{zSampleIndex = mmySI})
->                                          = myZonePair
->     targetSI                             = F.sampleLink myShdr
+>     (ZoneHeader{zhShdr = myShdr}, SFZone{zSampleIndex = mmySamplix}) = zone
 >
->     presk                                = PreSampleKey myFile targetSI
->     theirP@PerGMKey{pgkwFile = theirFile, pgkwInst = theirInst}
->                                          = last $ deJust "mtargetPs" (Map.lookup presk zSample2Insts)
->       
->     mtheirPerI                           =
->       profess
->         (myFile == theirFile && (allowStereoCrossovers || (myInst == theirInst)))
->         (unwords ["findStereoPartner:", "illegal crossover"])
->         (Map.lookup theirP{pgkwBag = Nothing} zZoneCache)
->     they                                 = (deJust "mtheirPerI" mtheirPerI).pZonePairs
->     them                                 =
->       find (\(_, SFZone{zSampleIndex = mtheirSI}) → mtheirSI == Just targetSI) they
->     partner                              = deJust "them" them      
+>     targetSampleIx                       = F.sampleLink myShdr
+>
+>     partner                              = findMatchingZone targetSampleIx zs `CM.mplus` hardWay
+>
+>     hardWay                              =
+>       Map.lookup (PreSampleKey myFile targetSampleIx) zSample2Insts
+>         >>= Just . head
+>         >>= flip Map.lookup zZoneCache
+>         >>= Just . pZonePairs
+>         >>= findMatchingZone targetSampleIx
 >
 > scoreOneZone           :: NoteOn
 >                           → (ZoneHeader, SFZone)

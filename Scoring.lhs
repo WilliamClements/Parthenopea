@@ -544,7 +544,6 @@ Flags for customization ========================================================
 >                                           , qqDesireReConformance defT
 >                                           , qqDesireReFuzzy       defT]
 > qqDesires'             :: [Double]       = map (fromRational . scoreDesire) qqDesires
->
 
 Edit the following ====================================================================================================
 
