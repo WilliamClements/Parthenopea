@@ -1415,24 +1415,21 @@ zone selection for rendering ===================================================
 >
 > findStereoPartner      :: SFRoster → PerGMKey → [(ZoneHeader, SFZone)]
 >                           → (ZoneHeader, SFZone) → Maybe (ZoneHeader, SFZone)
-> findStereoPartner SFRoster{ .. }
->                   PerGMKey{pgkwFile = myFile, pgkwInst = myInst}
->                   zs
->                   zone
+> findStereoPartner SFRoster{zSample2Insts, zZoneCache} PerGMKey{pgkwFile} zs zone
 >                                          =
 >   case toSampleType (F.sampleType myShdr) of
 >     SampleTypeLeft                       → partner
 >     SampleTypeRight                      → partner
 >     _                                    → error $ unwords["findStereoPartner", "attempted on non-stereo zone"]
 >   where
->     (ZoneHeader{zhShdr = myShdr}, SFZone{zSampleIndex = mmySamplix}) = zone
+>     (ZoneHeader{zhShdr = myShdr}, _)     = zone
 >
 >     targetSampleIx                       = F.sampleLink myShdr
 >
 >     partner                              = findMatchingZone targetSampleIx zs `CM.mplus` hardWay
 >
 >     hardWay                              =
->       Map.lookup (PreSampleKey myFile targetSampleIx) zSample2Insts
+>       Map.lookup (PreSampleKey pgkwFile targetSampleIx) zSample2Insts
 >         >>= Just . head
 >         >>= flip Map.lookup zZoneCache
 >         >>= Just . pZonePairs
