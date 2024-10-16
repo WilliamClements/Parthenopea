@@ -17,14 +17,14 @@ Testing ========================================================================
 > runParthTests                            = runTests parthTests
 >
 > parthTests             :: [IO Bool]      = [canClaimEntireSpaceWithImpunity
->                                         ,   firstSpaceWins
+>                                         ,   lastSpaceWins
 >                                         ,   overlapsCountedCorrectly
 >                                         ,   nonOverlapsCountedCorrectly
 >                                         ,   handle3dSpaces
 >                                         ,   handle4dSpaces]
 >
 > canClaimEntireSpaceWithImpunity
->   , firstSpaceWins
+>   , lastSpaceWins
 >   , overlapsCountedCorrectly
 >   , nonOverlapsCountedCorrectly
 >   , handle3dSpaces
@@ -44,37 +44,34 @@ Testing ========================================================================
 >   smashSubspaces
 >     "pt01"
 >     s2x2
->     [[filln 2, filln 2]]
+>     [(101, [filln 2, filln 2])]
 >
 > canClaimEntireSpaceWithImpunity          = do
->   let result                             =
->         lookupCellIndex
->           [0, 0]
->           pt01
->   return $ aEqual True (isJust result)
+>   let (_, count)                   = lookupCellIndex [0, 0] pt01
+>   return $ aEqual count 1
 >
 > pt02                                     =
 >   smashSubspaces
 >     "pt02"
 >     s2x2
->     [[filln 2, filln 2], [filln 2, filln 2]]
+>     [(201, [filln 2, filln 2]), (202, [filln 2, filln 2])]
 >
-> firstSpaceWins                           = do
+> lastSpaceWins                            = do
 >   let aat                                =
 >         lookupCellIndex
 >           [1, 0]
 >           pt02
 >   let spacenum                           =
 >         case aat of
->           Nothing                        → error "expected non-Nothing"
->           Just (sn, _)                   → sn
->   return $ aEqual 0 spacenum
+>           (_, 0)                         → error $ unwords["lastSpaceWins", "expected non-Nothing"]
+>           (sn, _)                        → sn
+>   return $ aEqual spacenum 202
 >
 > pt03                                     =
 >   smashSubspaces
 >     "pt03"
 >     s2x2
->     [[Just (0, 1), Just (0, 0)], [Just (0, 1), Just (0, 1)]]
+>     [(301, [Just (0, 1), Just (0, 0)]), (302, [Just (0, 1), Just (0, 1)])]
 >
 > overlapsCountedCorrectly                 = do
 >   print pt03
@@ -84,9 +81,9 @@ Testing ========================================================================
 >           pt03
 >   let count                              =
 >         case aat of
->           Nothing                        → Nothing
->           Just (_, cnt)                  → Just cnt
->   return $ aEqual (Just 2) count
+>           (_, 0)                         → error $ unwords["overlapsCountedCorrectly", "expected non-Nothing"]
+>           (_, cnt)                       → cnt
+>   return $ aEqual count 2
 >
 > nonOverlapsCountedCorrectly              = do
 >   let aat                                =
@@ -95,44 +92,44 @@ Testing ========================================================================
 >           pt03
 >   let count                              =
 >         case aat of
->           Nothing                        → Nothing
->           Just (_, cnt)                  → Just cnt
->   return $ aEqual (Just 1) count
+>           (_, 0)                         → error $ unwords["nonOverlapsCountedCorrectly", "expected non-Nothing"]
+>           (_, cnt)                       → cnt
+>   return $ aEqual count 1
 >
 > pt04                                     =
 >   smashSubspaces
 >     "pt04"
 >     [4, 4, 4]
->     [   [Just (0, 0), Just (1, 1), Just (1, 2)]
->       , [Just (1, 3), Just (2, 3), Just (3, 3)]]
+>     [   (401, [Just (0, 0), Just (1, 1), Just (1, 2)])
+>       , (402, [Just (1, 3), Just (2, 3), Just (3, 3)])]
 >
 > handle3dSpaces                           = do
 >   let aat                                =
 >         lookupCellIndex
->           [0, 0, 1]
+>           [0, 1, 1]
 >           pt04
 >   let spacenum                           =
 >         case aat of
->           Nothing                        → Nothing
->           Just (sn, _)                   → Just sn
->   return $ aEqual Nothing spacenum
+>           (_, 0)                         → error $ unwords["handle3dSpaces", "expected non-Nothing"]
+>           (sn, _)                        → sn
+>   return $ aEqual spacenum 401 
 >
 > pt05                                     =
 >   smashSubspaces
 >     "pt05"
 >     [3, 3, 3, 3]
->     [   [Just (0, 0), Just (1, 1), Just (1, 2), Just (2, 2)]
->       , [Just (1, 2), Just (0, 1), Just (1, 1), Just (0, 1)]]
+>     [   (501, [Just (0, 0), Just (1, 1), Just (1, 2), Just (2, 2)])
+>       , (502, [Just (1, 2), Just (0, 1), Just (1, 1), Just (0, 1)])]
 >
 > handle4dSpaces                           = do
 >   let aat                                =
 >         lookupCellIndex
->           [0, 0, 1, 0]
+>           [1, 0, 1, 0]
 >           pt05
 >   let spacenum                           =
 >         case aat of
->           Nothing                        → Nothing
->           Just (sn, _)                   → Just sn
->   return $ aEqual Nothing spacenum
+>           (_, 0)                         → error $ unwords["handle4dSpaces", "expected non-Nothing"]
+>           (sn, _)                        → sn
+>   return $ aEqual spacenum 502
 
 The End

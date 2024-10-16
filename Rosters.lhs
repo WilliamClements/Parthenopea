@@ -13,7 +13,6 @@ May 4, 2023
 >
 > import Baking
 > import Cecil
-> import qualified Data.Bifunctor          as BF
 > import Control.Monad ( foldM, join )
 > import Covers
 > import Data.Map (Map)
@@ -116,9 +115,9 @@ organize exposed music =========================================================
 >    -- [ ("bill1"       , bill 1)]
 >    -- [ ("basicLick"   , basicLick)]
 >    -- [ ("ssailor"     , ssailor)]
->       [ ("deyDumpDum"  , deyDumpDum)]
+>    -- [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 2570)]
->    -- [ ("getCITM"     , getCITM)]
+>       [ ("getCITM"     , getCITM)]
 >    -- [ ("littleCITM"  , littleCITM)]
 >    -- [ ("dh"          , deathlessHorsie)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]

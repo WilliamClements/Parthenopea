@@ -8,7 +8,6 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
-> {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE TypeFamilies #-} 
 > {-# LANGUAGE TypeOperators #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -23,7 +22,6 @@ April 16, 2023
 > import qualified Control.Monad           as CM
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
-> import qualified Data.Bifunctor          as BF
 > import Data.Either
 > import Data.Foldable ( toList, for_ )
 > import Data.Int ( Int8, Int16 )
@@ -133,12 +131,13 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data PerInstrument =
 >   PerInstrument {
 >     pInst              :: F.Inst
->   , pZonePairs         :: [(ZoneHeader, SFZone)]}
+>   , pZonePairs         :: [(ZoneHeader, SFZone)]
+>   , pSmashing          :: Smashing Word}
 
 Instrument categories: instrument, percussion, disqualified
 
 > data InstCat =
->        InstCatInst
+>        InstCatInst (Smashing Word)
 >      | InstCatPerc [Word]
 >      | InstCatDisq DisqReason deriving Show
 >     
@@ -399,7 +398,7 @@ executive ======================================================================
 >
 >       zc               ← formZoneCache zFiles preInstCache zRost jobs
 >       (pergmsI, pergmsP)
->                        ← arrangeCategorizationResults zc jobs
+>                        ← sortByCategory zc jobs
 >       CM.when diagnosticsEnabled
 >         (do
 >           print "pergmsI"
@@ -696,11 +695,10 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         ibagi                            = F.instBagNdx iinst
 >         jbagi                            = F.instBagNdx jinst
 >
-> arrangeCategorizationResults
->                        :: Map PerGMKey PerInstrument
+> sortByCategory         :: Map PerGMKey PerInstrument
 >                           → [(PerGMKey, InstCat)]
 >                           → IO ([PerGMKey], [PerGMKey])
-> arrangeCategorizationResults zc jobs     = return $ foldl' pfolder ([], []) jobs
+> sortByCategory zc jobs                   = return $ foldl' pfolder ([], []) jobs
 >   where
 >     pfolder            :: ([PerGMKey], [PerGMKey]) → (PerGMKey, InstCat) → ([PerGMKey], [PerGMKey])
 >     pfolder (pergmsI, pergmsP) (pergmI, icat)
@@ -712,8 +710,8 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         (pergmsI', pergmsP'')            =
 >           case icat of
 >             InstCatPerc _                → (pergmsI, pergmsP ++ pergmsP')
->             InstCatInst                  → (pergmI : pergmsI, pergmsP)
->             _   → error $ unwords ["arrangeCategorizationResults", "illegal input", show icat]
+>             InstCatInst _                → (pergmI : pergmsI, pergmsP)
+>             _   → error $ unwords ["sortByCategory", "illegal input", show icat]
 >
 >     instrumentPercList :: PerGMKey → PerInstrument → [PerGMKey]
 >     instrumentPercList pergmI PerInstrument{pZonePairs}
@@ -840,6 +838,11 @@ but not punitive in isStereoZone.
 >       
 > isStereoZone z                           = isLeftSample z || isRightSample z
 >
+> findSamplIxMatch       :: Word → [(ZoneHeader, SFZone)] → Maybe (ZoneHeader, SFZone)
+> findSamplIxMatch sampleIx                = find (\(_, SFZone{zSampleIndex}) → zSampleIndex == Just sampleIx)
+>
+> findBagIxMatch         :: Word → [(ZoneHeader, SFZone)] → Maybe (ZoneHeader, SFZone)
+> findBagIxMatch bagIx                     = find (\(ZoneHeader{zhwBag}, _) → zhwBag == bagIx)
 >
 > isLeftSample (ZoneHeader{zhShdr}, _)     = SampleTypeLeft == toSampleType (F.sampleType zhShdr)
 > isRightSample (ZoneHeader{zhShdr}, _)    = SampleTypeRight == toSampleType (F.sampleType zhShdr)
@@ -973,7 +976,7 @@ prepare the specified instruments and percussion ===============================
 >         (cat, doShow)                    = categorizeInst pergm
 >         news                             =
 >           case cat of
->             InstCatInst                  → singleton (pergm, cat)
+>             InstCatInst _                → singleton (pergm, cat)
 >             InstCatPerc _                → singleton (pergm, cat)
 >             InstCatDisq _                → []
 >
@@ -988,6 +991,15 @@ prepare the specified instruments and percussion ===============================
 >             Just (InstCatDisq reason)    → renderDisqReason reason
 >             _                            → Nothing
 >         disqMsg                          = unwords ["disq:", show pgkwFile, show iName, ":"]
+>
+>         smashup        :: Smashing Word
+>         smashup@Smashing{ .. }           = smashSubspaces "smashup" dims spaces
+>           where
+>             dims       :: [Word]
+>             spaces     :: [(Word, [Maybe (Word, Word)])]
+>             dims                         = [fromIntegral qMidiSize128, fromIntegral qMidiSize128] 
+>             spaces                       =
+>               map (\(ZoneHeader{ .. }, ZoneDigest{ .. }) → (zhwBag, [zdKeyRange, zdVelRange])) zsLessLocalRights
 >
 >         SoundFontArrays{ssInsts, ssIBags, ssIGens, ssShdrs}
 >                                          = zArrays (sffiles ! pgkwFile)
@@ -1013,7 +1025,7 @@ prepare the specified instruments and percussion ===============================
 >         icatR                            = foldl' CM.mplus Nothing (alts icatU rost)
 >         icat                             =
 >           case (icatU, icatR) of
->             (Just InstCatInst, Just InstCatInst)
+>             (Just (InstCatInst _), Just (InstCatInst _))
 >                                          → icatR
 >             (Just (InstCatPerc _), Just (InstCatPerc _))
 >                                          → icatR
@@ -1097,15 +1109,6 @@ prepare the specified instruments and percussion ===============================
 >         rejectOverlaps :: Maybe InstCat
 >         rejectOverlaps                   =
 >           if 0 == countMultiples smashStats then Nothing else Just $ InstCatDisq DisqOverRanges
->           where
->             smashup    :: Smashing Word
->             smashup@Smashing{ .. }       = smashSubspaces "smashup" dims spaces
->
->             dims       :: [Word]
->             spaces     :: [[Maybe (Word, Word)]]
->             dims                         = [fromIntegral qMidiSize128, fromIntegral qMidiSize128] 
->             spaces                       =
->               map (\(_, ZoneDigest{ .. }) → [zdKeyRange, zdVelRange]) zsLessLocalRights 
 >
 >         howLaden       :: [Word] → Double
 >         howLaden ws
@@ -1175,7 +1178,7 @@ prepare the specified instruments and percussion ===============================
 >                   , Just $ catDisq DisqUnrecognized
 >                 ]
 >
->             catInst      :: InstCat        = InstCatInst
+>             catInst      :: InstCat        = InstCatInst smashup
 >             catPerc      :: [Word] → InstCat
 >             catPerc ws                   = if null ws
 >                                              then InstCatDisq DisqNarrow
@@ -1225,7 +1228,7 @@ prepare the specified instruments and percussion ===============================
 >     computePerInst     :: (PerGMKey, InstCat) → PerInstrument
 >     computePerInst (pergm@PerGMKey{pgkwFile, pgkwInst}, icat)
 >       | traceIf trace_CPI False          = undefined
->       | otherwise                        = PerInstrument iinst (gList ++ oList) 
+>       | otherwise                        = PerInstrument iinst (gList ++ oList) (deJust "smashup" mSmashup)
 >       where
 >         sffile@SFFile{zFilename, zArrays}
 >                                          = sffiles ! pgkwFile
@@ -1244,6 +1247,9 @@ prepare the specified instruments and percussion ===============================
 >         oIx                              = case icat of
 >                                              InstCatPerc ws        → ws
 >                                              _                     → oIx_
+>         mSmashup                         = case icat of
+>                                              InstCatInst msm       → Just msm
+>                                              _                     → Nothing
 >         gList                            = map (buildZone sffile defZone)               gIx
 >         gZone                            = (snd . head)                                 gList
 >         oList                            = map (buildZone sffile gZone)                 oIx
@@ -1352,16 +1358,18 @@ define signal functions and instrument maps to support rendering ===============
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
 >   where
->     noon@NoteOn{noteOnKey, noteOnVel}    = NoteOn
+>     noon@NoteOn{ .. }                    = NoteOn
 >                                              (clip (0, 127) volIn)
 >                                              (clip (0, 127) pchIn)
 >
 >     pchOut              :: AbsPitch      = maybe noteOnKey (clip (0, 127)) rForceKey
 >     volOut              :: Volume        = maybe noteOnVel (clip (0, 127)) rForceVel
 >
->     perI                                 = fromJust $ Map.lookup pergm zZoneCache
+>     PerInstrument{pZonePairs, pSmashing} = deJust "instrumentSF" (Map.lookup pergm zZoneCache)
+>
 >     arrays                               = zArrays (zFiles ! pgkwFile)
 >     nameI                                = F.instName $ ssInsts arrays ! pgkwInst
+>
 >     trace_ISF                            =
 >       unwords ["instrumentSF", show pgkwFile, nameI, show (pchIn, volIn), show dur]
 >
@@ -1376,7 +1384,7 @@ zone selection for rendering ===================================================
 >     setZone            :: Either (SFZone, F.Shdr) ((SFZone, F.Shdr), (SFZone, F.Shdr))
 >     setZone                              = eor
 >       where
->         zs                               = tail $ pZonePairs perI
+>         zs                               = tail pZonePairs
 >         ezones                           = selectZonePair zs $ selectBestZone zs noon
 >         eor                              =
 >           case ezones of 
@@ -1385,19 +1393,9 @@ zone selection for rendering ===================================================
 >                                          → Right ((zoneL, zhShdr zhL), (zoneR, zhShdr zhR))
 >
 >     selectBestZone     :: [(ZoneHeader, SFZone)] → NoteOn → (ZoneHeader, SFZone)
->     selectBestZone zs noon
->       | traceNot trace_SBZ False         = undefined
->       | otherwise                        = snd whichZ
+>     selectBestZone zs noon               = deJust "whichZ" (findBagIxMatch bagId zs)
 >       where
->         scores         :: [(Int, (ZoneHeader, SFZone))]
->                                          = mapMaybe (scoreOneZone noon) zs
->         whichZ                           = profess
->                                              (not $ null scores)
->                                              (unwords ["scores should not be null (selectBestZone)"])
->                                              (minimumBy (comparing fst) scores)
->         shdr                             = zhShdr ((fst . snd) whichZ)
->         trace_SBZ                        =
->           unwords ["selectBestZone", show $ F.sampleName shdr, show $ F.sampleType shdr]
+>         (bagId, _)                       = lookupCellIndex (noonAsCoords noon) pSmashing
 >
 >     selectZonePair     :: [(ZoneHeader, SFZone)] → (ZoneHeader, SFZone)
 >                           → Either (ZoneHeader, SFZone) ((ZoneHeader, SFZone), (ZoneHeader, SFZone))
@@ -1409,9 +1407,6 @@ zone selection for rendering ===================================================
 >          F.Shdr{sampleType}              = (zhShdr . fst) zone
 >          stype                           = toSampleType sampleType
 >          ozone                           = deJust "ozone" (findStereoPartner sfrost pergm zs zone)
->
-> findMatchingZone       :: Word → [(ZoneHeader, SFZone)] → Maybe (ZoneHeader, SFZone)
-> findMatchingZone sampleIx                = find (\(_, SFZone{zSampleIndex = mix}) → mix == Just sampleIx)
 >
 > findStereoPartner      :: SFRoster → PerGMKey → [(ZoneHeader, SFZone)]
 >                           → (ZoneHeader, SFZone) → Maybe (ZoneHeader, SFZone)
@@ -1426,30 +1421,14 @@ zone selection for rendering ===================================================
 >
 >     targetSampleIx                       = F.sampleLink myShdr
 >
->     partner                              = findMatchingZone targetSampleIx zs `CM.mplus` hardWay
+>     partner                              = findSamplIxMatch targetSampleIx zs `CM.mplus` hardWay
 >
 >     hardWay                              =
 >       Map.lookup (PreSampleKey pgkwFile targetSampleIx) zSample2Insts
 >         >>= Just . head
 >         >>= flip Map.lookup zZoneCache
 >         >>= Just . pZonePairs
->         >>= findMatchingZone targetSampleIx
->
-> scoreOneZone           :: NoteOn
->                           → (ZoneHeader, SFZone)
->                           → Maybe (Int, (ZoneHeader, SFZone))
-> scoreOneZone NoteOn{noteOnKey, noteOnVel} (zh, zone@SFZone{zKeyRange, zVelRange})
->   | traceNot trace_SOZ False             = undefined
->   | otherwise                            =
->     if DAllOn /= qqDesireReStereo defT || isStereoZone (zh, zone)
->       then Just (scoreByPitch + scoreByVelocity, (zh, zone))
->       else Nothing
->   where
->     scoreByPitch                         = scorePitchDistance    noteOnKey zKeyRange
->     scoreByVelocity                      = scoreVelocityDistance noteOnVel zVelRange
->
->     trace_SOZ                             = unwords ["scoreOneZone", show scoreByPitch
->                                                    , "+",            show scoreByVelocity]
+>         >>= findSamplIxMatch targetSampleIx
 
 reconcile zone and sample header ======================================================================================
 

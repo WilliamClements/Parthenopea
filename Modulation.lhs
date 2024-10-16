@@ -602,6 +602,8 @@ Type declarations ==============================================================
 >   NoteOn {
 >     noteOnVel          :: Velocity
 >   , noteOnKey          :: KeyNumber} deriving (Eq, Ord, Show)
+> noonAsCoords           :: NoteOn → [Word]
+> noonAsCoords NoteOn{ .. }                =  [fromIntegral noteOnKey, fromIntegral noteOnVel]
 >
 > data ModCoefficients                     =
 >   ModCoefficients {

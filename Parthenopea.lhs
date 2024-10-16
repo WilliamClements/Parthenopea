@@ -8,7 +8,6 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
-> {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE TypeFamilies #-} 
 > {-# LANGUAGE TypeOperators #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -1011,42 +1010,45 @@ Zone 3: 0..1          , 0..1
 
 You see there was some overlap between Zone 1 and Zone 2.
 
-> smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i) ⇒
->                           String → [i] → [[Maybe (i, i)]] → Smashing i
-> smashSubspaces tag dims spaces_          = Smashing tag dims (developSmashStats svector) svector
+> smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
+>                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
+> smashSubspaces tag dims spaces_          = Smashing tag dims (notracer "developSmashStats" $ developSmashStats svector) svector
 >   where
->     svector            :: VB.Vector (Maybe (i, i))
->     svector                              = foldl' sfolder seed (zip [0..] spaces) 
->     sfolder            :: VB.Vector (Maybe (i, i)) → (i, [(i, i)]) → VB.Vector (Maybe (i, i))
->     sfolder smashup (spacenum, rngs)     = VB.accum assignCell smashup (enumAssocs dims spacenum rngs)
+>     mag                :: Int            = fromIntegral $ product dims
 >
->     assignCell         :: Maybe (i, i) → Maybe (i, i) → Maybe (i, i)
->     assignCell mfrom mto                 = maybe mto (\(x, y) → Just (x, y + 1)) mfrom
+>     spaces             :: [(i, [(i, i)])]
+>     spaces                               = map (BF.second (zipWith (\dim → fromMaybe (0, dim-1)) dims)) spaces_
+>
+>     svector            :: VU.Vector (i, i)
+>     svector                              = foldl' sfolder (VU.replicate mag (0, 0)) spaces
+>
+>     sfolder            :: VU.Vector (i, i) → (i, [(i, i)]) → VU.Vector (i, i)
+>     sfolder smashup (spaceId, rngs)      = VU.accum assignCell smashup (notracer "assocs" $ enumAssocs dims spaceId rngs)
+>
+>     assignCell         :: (i, i) → (i, i) → (i, i)
+>     assignCell mfrom mto               = (fst mto, snd mfrom + 1)
 >
 >     ndims              :: i              = genericLength dims
 >     nspaces            :: i              = genericLength spaces
->     spaces             :: [[(i, i)]]     = map (fmap (fromMaybe (0, ndims - 1))) spaces_
 >
->     mag                :: Int            = fromIntegral $ product dims
->
->     seed               :: VB.Vector (Maybe (i, i))
->     seed                                 = VB.replicate mag Nothing
->
->     enumAssocs         ::  [i] → i → [(i,i)] → [(Int, Maybe (i,i))]
->     enumAssocs dims spacenum rngs        =
+>     enumAssocs         ::  [i] → i → [(i, i)] → [(Int, (i, i))]
+>     enumAssocs dims spaceId rngs         =
 >       profess
->         (0 <= mag && mag <= 65_536 && all (\(d, rng) → 0 <= d && d == clip rng d) (zip dims rngs))
->         (unwords ["enumAssocs: range violation"])
->         (map (, Just (spacenum, 1)) indices)
+>         (0 <= mag && mag <= 65_536 && all (uncurry validRange) (zip dims rngs))
+>         (unwords ["enumAssocs: range violation", tag, show mag, show dims, show spaces])
+>         (map (, (spaceId, 1)) indices)
 >       where
 >         indices        :: [Int]
 >         indices                          =
 >           map (fromIntegral . computeCellIndex dims) (traverse walkRange rngs)
->           
 >
-> lookupCellIndex        :: ∀ i . (Integral i) ⇒ [i] → Smashing i → Maybe (i, i)
-> lookupCellIndex coords smashup@Smashing{ .. }
->                                          = smashVec VB.! fromIntegral (computeCellIndex smashDims coords)
+>     validRange        :: i → (i, i) → Bool
+>     validRange dim (r, s)                = 0 <= dim && r <= s && inrange r dim && inrange s dim
+>       where
+>         inrange d x                      = d == clip (0, x - 1) d 
+>
+> lookupCellIndex        :: ∀ i . (Integral i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
+> lookupCellIndex coords Smashing{ .. }    = smashVec VU.! fromIntegral (computeCellIndex smashDims coords)
 >
 > computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → i
 > computeCellIndex [] []                   = 0
@@ -1059,7 +1061,7 @@ You see there was some overlap between Zone 1 and Zone 2.
 >     smashTag            :: String
 >     , smashDims         :: [i]
 >     , smashStats        :: SmashStats
->     , smashVec          :: VB.Vector (Maybe (i, i))}
+>     , smashVec          :: VU.Vector (i, i)}
 > instance ∀ i. (Integral i, Num i, Show i) ⇒ Show (Smashing i) where
 >   show                 :: Smashing i → String
 >   show Smashing{ .. }                    =
@@ -1071,16 +1073,14 @@ You see there was some overlap between Zone 1 and Zone 2.
 >   , countMultiples     :: Int} deriving Show
 > seedSmashStats         :: SmashStats
 > seedSmashStats                           = SmashStats 0 0 0
-> developSmashStats      :: ∀ i. (Integral i, Show i) ⇒ VB.Vector (Maybe (i,i)) → SmashStats
-> developSmashStats                        = VB.foldl' sfolder seedSmashStats
+> developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ VU.Vector (i,i) → SmashStats
+> developSmashStats                        = VU.foldl' sfolder seedSmashStats
 >   where
->     sfolder            ::  SmashStats → Maybe (i, i) → SmashStats
->     sfolder stats@SmashStats{ .. } d =
->       case d of
->         Nothing                          → stats{countNothings = countNothings + 1}
->         Just (_, y)                      → if y == 1
->                                              then stats{countSingles = countSingles + 1}
->                                              else stats{countMultiples = countMultiples + 1}
+>     sfolder            ::  SmashStats → (i, i) → SmashStats
+>     sfolder stats@SmashStats{ .. } (_, count)
+>       | count == 0                       = stats{countNothings = countNothings + 1}
+>       | count == 1                       = stats{countSingles = countSingles + 1}
+>       | otherwise                        = stats{countMultiples = countMultiples + 1}
           
 Raises 'a' to the power 'b' using logarithms.
 
