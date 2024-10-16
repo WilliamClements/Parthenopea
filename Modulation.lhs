@@ -494,7 +494,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >
 > deriveLFO              :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
 > deriveLFO del mfreq toPitch toFilterFc toVolume
->   | traceIf trace_DLFO False             = undefined
+>   | traceNot trace_DLFO False            = undefined
 >   | otherwise                            =
 >       if useLFO && anyJust
 >         then Just $ LFO (fromTimecents del)

@@ -201,7 +201,7 @@ Signal function-based synth ====================================================
 >
 > eutModSignals          :: ∀ p. Clock p ⇒ Double → Double → Modulation → ModDestType → Signal p () ModSignals
 > eutModSignals secsScored secsToPlay m8nL md
->   | traceIf trace_EMS False              = undefined
+>   | traceNot trace_EMS False             = undefined
 >   | otherwise                            =
 >   proc _ → do
 >     aL1 ← doEnvelope  kModEnvL secsScored secsToPlay ⤙ ()
@@ -424,9 +424,7 @@ Create a straight-line envelope generator with following phases:
 >       max minDeltaT (secsToUse - (fReleaseT + fDelayT + fAttackT + fHoldT + fDecayT + minDeltaT))
 >     fPostT                               = (2*minDeltaT) + secsScored - secsToUse
 >
->     trace_CS                             = unwords ["computeSegments secs"    , show (secsScored, secsToUse)
->                                                   , "total time"              , show (sum deltaTs)
->                                                   , "rp"                      , show rp]
+>     trace_CS                             = unwords ["computeSegments secs"    , show (amps, deltaTs)]
 
 Effects ===============================================================================================================
 

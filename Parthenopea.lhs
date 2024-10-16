@@ -1042,19 +1042,30 @@ You see there was some overlap between Zone 1 and Zone 2.
 >         indices                          =
 >           map (fromIntegral . computeCellIndex dims) (traverse walkRange rngs)
 >
->     validRange        :: i → (i, i) → Bool
->     validRange dim (r, s)                = 0 <= dim && r <= s && inrange r dim && inrange s dim
->       where
->         inrange d x                      = d == clip (0, x - 1) d 
+> inZRange d x                             = inRange (0, x - 1) d 
 >
-> lookupCellIndex        :: ∀ i . (Integral i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
-> lookupCellIndex coords Smashing{ .. }    = smashVec VU.! fromIntegral (computeCellIndex smashDims coords)
+> validRange             :: ∀ i . (Integral i, Ix i) ⇒ i → (i, i) → Bool
+> validRange dim (r, s)                    = 0 <= dim && r <= s && inZRange r dim && inZRange s dim
 >
-> computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → i
+> validCoords            :: ∀ i . (Integral i, Ix i, VU.Unbox i) ⇒ [i] → Smashing i → Bool
+> validCoords coords Smashing{ .. }        = and $ zipWith inZRange coords smashDims
+>
+> lookupCellIndex        :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
+> lookupCellIndex coords smashup@Smashing{ .. }
+>                                          =
+>   profess
+>     (validCoords (notracer "coords" coords) smashup)
+>     (unwords ["lookupCellIndex", "invalid coords"])
+>     (smashVec VU.! notracer "ix" (computeCellIndex smashDims coords))
+>
+> computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → Int
 > computeCellIndex [] []                   = 0
-> computeCellIndex (_:as) (b:bs)           = b * product as + computeCellIndex as bs
+> computeCellIndex (_:as) (b:bs)           = fromIntegral (b * product as) + computeCellIndex as bs
 > computeCellIndex _ _                     =
->   error $ unwords ["computeCellIndex input args dims and coords have unequal lengths"]
+>   error $ unwords ["computeCellIndex", "input args dims and coords have unequal lengths"]
+>
+> allCellsEqualTo        :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ Smashing i → (i, i) → Bool
+> allCellsEqualTo Smashing{ .. } value     = all (\j → value == (smashVec VU.! j)) [0..(VU.length smashVec - 1)]
 >
 > data Smashing i                          =
 >   Smashing {
@@ -1071,7 +1082,6 @@ You see there was some overlap between Zone 1 and Zone 2.
 >     countNothings      :: Int
 >   , countSingles       :: Int
 >   , countMultiples     :: Int} deriving Show
-> seedSmashStats         :: SmashStats
 > seedSmashStats                           = SmashStats 0 0 0
 > developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ VU.Vector (i,i) → SmashStats
 > developSmashStats                        = VU.foldl' sfolder seedSmashStats
@@ -1335,7 +1345,6 @@ Configurable parameters ========================================================
 > reportTourney                            = qqReportTourney              defC 
 > skipGlissandi                            = qqSkipGlissandi              defC
 > replacePerCent                           = qqReplacePerCent             defC
-> usingPlayCache                           = qqUsingPlayCache             defC
 >
 > data ControlSettings =
 >   ControlSettings {
@@ -1343,8 +1352,7 @@ Configurable parameters ========================================================
 >   , qqDiagnosticsEnabled                 :: Bool
 >   , qqReportTourney                      :: Bool
 >   , qqSkipGlissandi                      :: Bool
->   , qqReplacePerCent                     :: Double
->   , qqUsingPlayCache                     :: Bool} deriving (Eq, Show)
+>   , qqReplacePerCent                     :: Double} deriving (Eq, Show)
 
 Edit the following ====================================================================================================
 
@@ -1355,7 +1363,6 @@ Edit the following =============================================================
 >   , qqDiagnosticsEnabled                 = False
 >   , qqReportTourney                      = True
 >   , qqSkipGlissandi                      = False
->   , qqReplacePerCent                     = 0
->   , qqUsingPlayCache                     = False}
+>   , qqReplacePerCent                     = 0}
 
 The End

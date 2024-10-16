@@ -138,7 +138,7 @@ Instrument categories: instrument, percussion, disqualified
 
 > data InstCat =
 >        InstCatInst (Smashing Word)
->      | InstCatPerc [Word]
+>      | InstCatPerc (Smashing Word) [Word]
 >      | InstCatDisq DisqReason deriving Show
 >     
 > class GMPlayable a ⇒ SFScorable a where
@@ -709,7 +709,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         pergmsP'                         = instrumentPercList pergmI perI
 >         (pergmsI', pergmsP'')            =
 >           case icat of
->             InstCatPerc _                → (pergmsI, pergmsP ++ pergmsP')
+>             InstCatPerc _ _              → (pergmsI, pergmsP ++ pergmsP')
 >             InstCatInst _                → (pergmI : pergmsI, pergmsP)
 >             _   → error $ unwords ["sortByCategory", "illegal input", show icat]
 >
@@ -977,7 +977,7 @@ prepare the specified instruments and percussion ===============================
 >         news                             =
 >           case cat of
 >             InstCatInst _                → singleton (pergm, cat)
->             InstCatPerc _                → singleton (pergm, cat)
+>             InstCatPerc _ _              → singleton (pergm, cat)
 >             InstCatDisq _                → []
 >
 >     categorizeInst     :: PerGMKey → (InstCat, Maybe String)
@@ -1027,7 +1027,7 @@ prepare the specified instruments and percussion ===============================
 >           case (icatU, icatR) of
 >             (Just (InstCatInst _), Just (InstCatInst _))
 >                                          → icatR
->             (Just (InstCatPerc _), Just (InstCatPerc _))
+>             (Just (InstCatPerc _ _), Just (InstCatPerc _ _))
 >                                          → icatR
 >             (Just (InstCatDisq _), _)    → icatU
 >             (_, Just (InstCatDisq _))    → icatR
@@ -1152,7 +1152,7 @@ prepare the specified instruments and percussion ===============================
 >                 ffPerc'                  = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) ffPerc
 >                 uZones :: [Word]         = case seed of
 >                                              Nothing                 → wZones
->                                              Just (InstCatPerc us)   → us
+>                                              Just (InstCatPerc _ us) → us
 >                                              _                       → []
 >                 wZones :: [Word]         = mapMaybe (evalForPerc rost) zs
 >                 maybeNailAsPerc
@@ -1182,7 +1182,7 @@ prepare the specified instruments and percussion ===============================
 >             catPerc      :: [Word] → InstCat
 >             catPerc ws                   = if null ws
 >                                              then InstCatDisq DisqNarrow
->                                              else InstCatPerc ws
+>                                              else InstCatPerc smashup ws
 >             catDisq    :: DisqReason → InstCat
 >             catDisq                      = InstCatDisq
 >
@@ -1228,7 +1228,7 @@ prepare the specified instruments and percussion ===============================
 >     computePerInst     :: (PerGMKey, InstCat) → PerInstrument
 >     computePerInst (pergm@PerGMKey{pgkwFile, pgkwInst}, icat)
 >       | traceIf trace_CPI False          = undefined
->       | otherwise                        = PerInstrument iinst (gList ++ oList) (deJust "smashup" mSmashup)
+>       | otherwise                        = PerInstrument iinst (gList ++ oList) smashup
 >       where
 >         sffile@SFFile{zFilename, zArrays}
 >                                          = sffiles ! pgkwFile
@@ -1244,12 +1244,10 @@ prepare the specified instruments and percussion ===============================
 >             (ibagi <= jbagi)
 >             (unwords["SoundFont file", show pgkwFile, zFilename, "corrupt (computePerInst)"])
 >             (singleton ibagi, deriveRange (ibagi+1) jbagi)
->         oIx                              = case icat of
->                                              InstCatPerc ws        → ws
->                                              _                     → oIx_
->         mSmashup                         = case icat of
->                                              InstCatInst msm       → Just msm
->                                              _                     → Nothing
+>         (smashup, oIx)                   = case icat of
+>                                              InstCatPerc sm ws     → (sm, ws)
+>                                              InstCatInst sm        → (sm, oIx_)
+>                                              _                     → error "only Inst and Perc are valid here"
 >         gList                            = map (buildZone sffile defZone)               gIx
 >         gZone                            = (snd . head)                                 gList
 >         oList                            = map (buildZone sffile gZone)                 oIx
@@ -1281,10 +1279,10 @@ prepare the specified instruments and percussion ===============================
 >         (zip [10_000..] (map (ssIMods !) (deriveRange xmodi ymodi)))
 >
 >     zone@SFZone{zSampleIndex}            = foldr addMod (foldl' addGen fromZone gens) mods
->     si                                   = fromMaybe 0 zSampleIndex
->     zh                                   = ZoneHeader bagIndex (ssShdrs ! si)
+>     sh@F.Shdr{ .. }                      = ssShdrs ! fromMaybe 0 zSampleIndex
+>     zh                                   = ZoneHeader bagIndex sh
 >
->     trace_BZ                             = unwords ["buildZone", show zWordF, show bagIndex]
+>     trace_BZ                             = unwords ["buildZone", sampleName, show zWordF, show bagIndex]
 >
 > formSampleParentCache  :: Map PerGMKey PerInstrument → IO (Map PreSampleKey [PerGMKey])
 > formSampleParentCache zc                 = return $ Map.foldlWithKey spFolder Map.empty zc
@@ -1353,7 +1351,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF sfrost@SFRoster{zFiles, zZoneCache} pergm@PerGMKey{pgkwFile, pgkwInst} dur pchIn volIn params
->   | traceNow trace_ISF False             = undefined
+>   | traceIf trace_ISF False              = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
