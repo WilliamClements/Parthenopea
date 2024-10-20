@@ -241,7 +241,7 @@ Signal function-based synth ====================================================
 >   where
 >     Recon{ .. }                          = reconL
 >     cAttenL            :: Double         =
->       fromCentibels (rAttenuation + evaluateMods ToInitAtten (modGraph rM8n) noon)
+>       fromCentibels (rAttenuation + evaluateMods ToInitAtten (mmods rM8n) noon)
 >     ampL                                 = fromIntegral noteOnVel / 100 / cAttenL
 >
 > eutPumpStereo         :: ∀ p . Clock p ⇒
@@ -255,7 +255,7 @@ Signal function-based synth ====================================================
 >                                          = 
 >   proc pos → do
 >     let pos'           :: Double         = fromIntegral (enL - stL) * pos
->     let ix             :: Int            = truncate pos'
+>     let ix             :: Int            = truncate pos' -- WOX should be round?
 >     let offset         :: Double         = pos' - fromIntegral ix
 >
 >     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral stL + ix) 
@@ -267,8 +267,8 @@ Signal function-based synth ====================================================
 >                                          = reconL
 >     Recon{rAttenuation = attenR, rStart = stR, rEnd = enR, rM8n = m8nR}
 >                                          = reconR
->     cAttenL                              = fromCentibels (attenL + evaluateMods ToInitAtten (modGraph m8nL) noon)
->     cAttenR                              = fromCentibels (attenR + evaluateMods ToInitAtten (modGraph m8nR) noon)
+>     cAttenL                              = fromCentibels (attenL + evaluateMods ToInitAtten (mmods m8nL) noon)
+>     cAttenR                              = fromCentibels (attenR + evaluateMods ToInitAtten (mmods m8nR) noon)
 >     ampL                                 = fromIntegral noteOnVel / 100 / cAttenL
 >     ampR                                 = fromIntegral noteOnVel / 100 / cAttenR
 >
@@ -424,7 +424,7 @@ Create a straight-line envelope generator with following phases:
 >       max minDeltaT (secsToUse - (fReleaseT + fDelayT + fAttackT + fHoldT + fDecayT + minDeltaT))
 >     fPostT                               = (2*minDeltaT) + secsScored - secsToUse
 >
->     trace_CS                             = unwords ["computeSegments secs"    , show (amps, deltaTs)]
+>     trace_CS                             = unwords ["computeSegments", show (amps, deltaTs)]
 
 Effects ===============================================================================================================
 
@@ -438,11 +438,11 @@ Effects ========================================================================
 >   where
 >     dChorus            :: Double         =
 >       if useChorus
->         then maybe 0 (fromIntegral . clip (0, 1000)) mChorus + evaluateMods ToChorus modGraph noon
+>         then maybe 0 (fromIntegral . clip (0, 1000)) mChorus + evaluateMods ToChorus mmods noon
 >         else 0
 >     dReverb            :: Double         =
 >       if useReverb
->         then maybe 0 (fromIntegral . clip (0, 1000)) mReverb + evaluateMods ToReverb modGraph noon
+>         then maybe 0 (fromIntegral . clip (0, 1000)) mReverb + evaluateMods ToReverb mmods noon
 >         else 0
 >     dPan               :: Double         =
 >       if usePan
@@ -463,6 +463,7 @@ Effects ========================================================================
 >                 + (1 - efChorus) * aL
 >                 + (1 - efReverb) * aL) / 2
 >
+>     -- WOX for mono, ignore pan?
 >     let (pL, _) = doPan (efPan, efPan) (mixL, mixL)
 >
 >     pL' ←          if not useDCBlock

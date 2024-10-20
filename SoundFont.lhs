@@ -22,12 +22,13 @@ April 16, 2023
 > import qualified Control.Monad           as CM
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
+> import qualified Data.Bifunctor          as BF
 > import Data.Either
 > import Data.Foldable ( toList, for_ )
 > import Data.Int ( Int8, Int16 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
-> import Data.List ( find, foldl', foldr, last, minimumBy, partition, singleton, sortOn )
+> import Data.List ( find, foldl', foldr, last, minimumBy, partition, singleton, sortOn, elemIndex )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, fromMaybe, isJust, isNothing, mapMaybe )
@@ -341,7 +342,7 @@ profiler =======================================================================
 >                                                         , "zInitFc,zInitQ="
 >                    , show (zInitFc, zInitQ)             , "zSampleMode, zScaleTuning, zExclusiveClass="
 >                    , show (zSampleMode, zScaleTuning, zExclusiveClass)
->                    , show zKeyRange      , "= zKeyRange"]
+>                    , show zKeyRange                     , "= zKeyRange"]
 >         in
 >           seed >> if goodName instName && goodName sampleName then Just sout else Nothing
 
@@ -1503,7 +1504,7 @@ reconcile zone and sample header ===============================================
 >   | traceIf trace_RM False               = undefined
 >   | otherwise                            = resolveMods m8n zModulators defaultMods
 >   where
->     trace_RM                             = unwords ["reconModulation", sampleName, show sfz]
+>     trace_RM                             = unwords ["reconModulation", sampleName]
 >     m8n                :: Modulation     =
 >       defModulation{
 >         mLowpass                         = Lowpass resonanceType curKernelSpec
@@ -1638,6 +1639,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >
 > data DisqReason                          =
 >     DisqUnrecognized
+>   | DisqNoQualifiedZones
 >   | DisqCorruptId String String
 >   | DisqCorruptHeader 
 >   | DisqNarrow
@@ -1652,6 +1654,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >
 > renderDisqReason         :: DisqReason → Maybe String
 > renderDisqReason DisqUnrecognized        = Just (unwords["unrecognized"])
+> renderDisqReason DisqNoQualifiedZones    = Just (unwords["no qualified zones"])
 > renderDisqReason (DisqCorruptId strType strName)
 >                                          = Just (unwords["corrupt", strType, strName])
 > renderDisqReason DisqCorruptHeader       = Just (unwords["corrupt header; e.g. sample rate"])

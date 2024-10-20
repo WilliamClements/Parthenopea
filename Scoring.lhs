@@ -500,9 +500,7 @@ Flags for customization ========================================================
 >
 >   , qqFFThresholdPossible                :: Double
 >   , qqFFThresholdStands                  :: Double
->   , qqFFThresholdConfirmed               :: Double
->
->   , qqEnableSampleAnalysis :: Bool} deriving (Eq, Show)
+>   , qqFFThresholdConfirmed               :: Double} deriving (Eq, Show)
 >
 > weighHints                               = qqWeighHints                 defT
 > weighStereo                              = qqWeighStereo                defT
@@ -522,7 +520,6 @@ Flags for customization ========================================================
 > stands' fuzz                             = fuzz > qqFFThresholdStands defT
 > isConfirmed' fuzz                        = fuzz > qqFFThresholdConfirmed defT
 >
-> sampleAnalyisEnabled                     = qqEnableSampleAnalysis       defT
 >
 > data Desires =
 >   DAllOff | DPreferOff | DNeutral | DPreferOn | DAllOn deriving (Eq, Show)
@@ -568,8 +565,6 @@ Edit the following =============================================================
 >
 >   , qqFFThresholdPossible                = 50
 >   , qqFFThresholdStands                  = 150
->   , qqFFThresholdConfirmed               = 250
->
->   , qqEnableSampleAnalysis               = False} 
+>   , qqFFThresholdConfirmed               = 250} 
 
 The End

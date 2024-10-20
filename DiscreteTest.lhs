@@ -248,7 +248,7 @@ Feed chart =====================================================================
 >   let fcStart                            = fci - spread `div` 2
 >   let fcEnd                              = fci + spread `div` 2
 >
->   let xs                  :: [Double]    = [fromIntegral x | x ← [fcStart..fcEnd]]
+>   let xs               :: [Double]       = [fromIntegral x | x ← [fcStart..fcEnd]]
 >   let ys                                 = map (realPart . fun) xs
 >   let zs                                 = map ((*) (-1) . imagPart . fun) xs
 >   let rpairs                             = zip xs ys

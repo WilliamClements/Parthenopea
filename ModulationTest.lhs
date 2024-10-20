@@ -35,7 +35,7 @@ struct sfInstModList
 > countSurvivingMods     :: [Modulator] → IO Int
 > countSurvivingMods m8rs                  = do
 >   let !count                             =
->         sum $ map length $ Map.elems $ modGraph $ resolveMods defModulation m8rs []
+>         sum $ map length $ Map.elems $ mmods $ resolveMods defModulation m8rs []
 >   return count
 >
 > vanillaModulatorWillNotBeEliminated

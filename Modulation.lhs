@@ -37,7 +37,7 @@ November 6, 2023
 Modulator management ==================================================================================================
 
 > resolveMods            :: Modulation → [Modulator] → [Modulator] → Modulation
-> resolveMods m8n m8rs dm8rs               = m8n{modGraph = compileMods checked}
+> resolveMods m8n m8rs dm8rs               = m8n{mmods = compileMods checked}
 >   where
 >     sifted                               = renumberMods $ siftMods $ groomMods (dm8rs ++ m8rs)
 >     checked                              = profess
@@ -284,7 +284,7 @@ Modulator management ===========================================================
 >    xmodEnv             :: Double         = xModEnvPos * xModEnvCo
 >    xmodLfo                               = xModLfoPos * xModLfoCo
 >    xvibLfo                               = xVibLfoPos * xVibLfoCo
->    xmods                                 = evaluateMods md modGraph noon
+>    xmods                                 = evaluateMods md mmods noon
 >
 >    trace_EMS                             = unwords ["evaluateModSignals: "
 >                                                     , show tag,    " + "
@@ -307,7 +307,7 @@ Modulator management ===========================================================
 >                                          =
 >   case cascadeCount lowpassType of
 >     Nothing            →
->       proc (x, modSig)                   → do
+>       proc (x, _)                        → do
 >         y ← delay 0                      ⤙ x  
 >         outA                             ⤙ y
 >     Just count         →
@@ -379,7 +379,7 @@ Modulator management ===========================================================
 > procLowpass _                            =
 >   proc (x, fc) → do
 >     y ← filterLowPassBW                  ⤙ (x, fc)
->     outA                                 ⤙ notracer "lp" y
+>     outA                                 ⤙ y
 >
 > procBandpass           :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
 > procBandpass lp                          =
@@ -387,7 +387,7 @@ Modulator management ===========================================================
 >     y1 ← filterLowPassBW                 ⤙ (x, fc)
 >     y2 ← filterBandPass 2                ⤙ (x, fc, lowpassQ lp / 3)
 >     let y'                               = traceBandpass y1 y2
->     outA                                 ⤙ notracer "bp" y'
+>     outA                                 ⤙ y'
 >   where
 >     lowpassWeight                        = 0.50
 >     bandpassWeight                       = 0.75
@@ -651,7 +651,7 @@ Type declarations ==============================================================
 >   , toPitchCo          :: ModCoefficients
 >   , toFilterFcCo       :: ModCoefficients
 >   , toVolumeCo         :: ModCoefficients
->   , modGraph           :: Map ModDestType [Modulator]} deriving (Eq, Show)
+>   , mmods              :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
 > defModulation                            =
 >   Modulation

@@ -753,7 +753,7 @@ music converter ================================================================
 >     j (Dyn dyn)                          = [show dyn]
 >     j _                                  = []
 
------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
 
 > data KernelSpec                          =
 >   KernelSpec {
@@ -776,10 +776,8 @@ music converter ================================================================
 >   proc sIn → do
 >     outA                                 ⤙ (sIn, sIn)
 
-Sampling ==============================================================================================================
+Signals of interest ===================================================================================================
 
-> type SampleAnalysis    = Double
->
 > sawtoothTable      :: Table              = tableSinesN 16_384 
 >                                                          [      1, 0.5  , 0.3
 >                                                            , 0.25, 0.2  , 0.167
@@ -790,6 +788,9 @@ Sampling =======================================================================
 >                                                           , -0.25,  0,  0.2,  0, -0.167, 0
 >                                                           ,  0.14,  0, -0.125]
 >
+
+Sampling ==============================================================================================================
+
 > toSamples              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [a]
 > toSamples secs sig                       = take numSamples $ unfold $ strip sig
 >   where
@@ -999,20 +1000,21 @@ Note result is incorrect overall when involves multiple root pitches
 
 Range theory ==========================================================================================================
 
-Find unwanted (sub-)space overlaps. Each space (of nspaces) contains ndims ranges. The ranges are 0-based
-and define limit per each.
+Find unwanted (sub-)space overlaps. Each space (of nspaces) contains exactly ndims (2 in the MIDI case) ranges. If
+dim is the value of a dimension then its overall range is 0..dim-1 -- the associated _specified_ space range carves
+out a subset thereof.
 
-Say you have ndims=2 dimensions of ndeep=64 extent. Covering overall 64x64 space are nspaces=3 "zones". 
+Say you have ndims=2 dimensions each of 64 extent. (Partially) covering overall 64x64 space are nspaces=3 "zones". 
 
 Zone 1: 32..57 "pitch", 11..47 "velocity"
 Zone 2: 21..40        , 20..21
 Zone 3: 0..1          , 0..1
 
-You see there was some overlap between Zone 1 and Zone 2.
+You see there is some overlap between Zone 1 and Zone 2.
 
 > smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
 >                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
-> smashSubspaces tag dims spaces_          = Smashing tag dims (notracer "developSmashStats" $ developSmashStats svector) svector
+> smashSubspaces tag dims spaces_          = Smashing tag dims (developSmashStats svector) svector
 >   where
 >     mag                :: Int            = fromIntegral $ product dims
 >
@@ -1023,7 +1025,7 @@ You see there was some overlap between Zone 1 and Zone 2.
 >     svector                              = foldl' sfolder (VU.replicate mag (0, 0)) spaces
 >
 >     sfolder            :: VU.Vector (i, i) → (i, [(i, i)]) → VU.Vector (i, i)
->     sfolder smashup (spaceId, rngs)      = VU.accum assignCell smashup (notracer "assocs" $ enumAssocs dims spaceId rngs)
+>     sfolder smashup (spaceId, rngs)      = VU.accum assignCell smashup (enumAssocs dims spaceId rngs)
 >
 >     assignCell         :: (i, i) → (i, i) → (i, i)
 >     assignCell mfrom mto               = (fst mto, snd mfrom + 1)
@@ -1054,18 +1056,24 @@ You see there was some overlap between Zone 1 and Zone 2.
 > lookupCellIndex coords smashup@Smashing{ .. }
 >                                          =
 >   profess
->     (validCoords (notracer "coords" coords) smashup)
+>     (validCoords coords smashup)
 >     (unwords ["lookupCellIndex", "invalid coords"])
->     (smashVec VU.! notracer "ix" (computeCellIndex smashDims coords))
+>     (smashVec VU.! computeCellIndex smashDims coords)
 >
 > computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → Int
 > computeCellIndex [] []                   = 0
 > computeCellIndex (_:as) (b:bs)           = fromIntegral (b * product as) + computeCellIndex as bs
 > computeCellIndex _ _                     =
->   error $ unwords ["computeCellIndex", "input args dims and coords have unequal lengths"]
+>   error $ unwords ["computeCellIndex:", "input args dims and coords have unequal lengths"]
 >
-> allCellsEqualTo        :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ Smashing i → (i, i) → Bool
-> allCellsEqualTo Smashing{ .. } value     = all (\j → value == (smashVec VU.! j)) [0..(VU.length smashVec - 1)]
+> allCellsEqualTo        :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ Smashing i → Maybe (i, i)
+> allCellsEqualTo Smashing{ .. }           =
+>   let
+>     cand                                 = smashVec VU.! 0
+>   in
+>     if all (\j → cand == (smashVec VU.! j)) [0..(VU.length smashVec - 1)]
+>       then Just cand
+>       else Nothing
 >
 > data Smashing i                          =
 >   Smashing {
