@@ -1016,10 +1016,13 @@ You see there is some overlap between Zone 1 and Zone 2.
 >                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
 > smashSubspaces tag dims spaces_          = Smashing tag dims (developSmashStats svector) svector
 >   where
->     mag                :: Int            = fromIntegral $ product dims
->
 >     spaces             :: [(i, [(i, i)])]
 >     spaces                               = map (BF.second (zipWith (\dim → fromMaybe (0, dim-1)) dims)) spaces_
+>
+>     ndims              :: i              = genericLength dims
+>     nspaces            :: i              = genericLength spaces
+>
+>     mag                :: Int            = fromIntegral $ product dims
 >
 >     svector            :: VU.Vector (i, i)
 >     svector                              = foldl' sfolder (VU.replicate mag (0, 0)) spaces
@@ -1028,10 +1031,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >     sfolder smashup (spaceId, rngs)      = VU.accum assignCell smashup (enumAssocs dims spaceId rngs)
 >
 >     assignCell         :: (i, i) → (i, i) → (i, i)
->     assignCell mfrom mto               = (fst mto, snd mfrom + 1)
->
->     ndims              :: i              = genericLength dims
->     nspaces            :: i              = genericLength spaces
+>     assignCell mfrom mto                 = (fst mto, snd mfrom + 1)
 >
 >     enumAssocs         ::  [i] → i → [(i, i)] → [(Int, (i, i))]
 >     enumAssocs dims spaceId rngs         =
