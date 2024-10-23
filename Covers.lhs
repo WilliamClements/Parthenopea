@@ -304,7 +304,7 @@ Slot ===========================================================================
 > slotTempo                                = 2
 > slotTranspose                            = 0
 >
-> slotLead_                                = makePitched Clarinet            slotTranspose 0                100
+> slotLead_                                = makePitched Violin              slotTranspose 0                100
 > slotStrum_                               = makePitched AcousticGuitarNylon slotTranspose 0                100
 > slotBass_                                = makePitched SynthBass1          slotTranspose 0                110
 > slotPerc_                                = makeNonPitched                                                 100

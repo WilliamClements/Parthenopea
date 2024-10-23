@@ -410,7 +410,7 @@ executive ======================================================================
 >     -- track the complete populations of: samples, instruments, percussion
 >     finishRoster       :: SFRoster → IO SFRoster
 >     finishRoster preRoster@SFRoster{zFiles, zRost}
->                                          = do
+>                        = do
 >       tsStarted        ← getCurrentTime
 >
 >       presks           ← formMasterSampleList zFiles
@@ -431,7 +431,7 @@ executive ======================================================================
 >
 >       mapM_ putStrLn (reverse errs)
 >
->       jobs             ← categorize zFiles preInstCache zRost preZoneCache pergmsI_
+>       jobs             ← categorize zFiles preInstCache zRost preZoneCache
 >       tsCatted         ← getCurrentTime
 >       putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsStarted))
 >
@@ -868,6 +868,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         then Left $ PreInstrument instName (computeFFMatches instName)
 >         else Right $ unwords ["formPreInstCache", "skipping", show instName]
 >
+>     loadInst           :: PerGMKey -> F.Inst
 >     loadInst PerGMKey{ .. }              = ssInsts ! pgkwInst
 >       where
 >         SFFile{zArrays}                  = sffiles ! pgkwFile
@@ -1176,10 +1177,9 @@ prepare the specified instruments and percussion ===============================
 >                           → Map PerGMKey PreInstrument
 >                           → ([InstrumentName], [PercussionSound])
 >                           → Map PreZoneKey PreZone
->                           → [PerGMKey]
 >                           → IO [(PerGMKey, InstCat)]
-> categorize sffiles preInstCache rost prezoneCache
->                                          = CM.foldM winnow []
+> categorize sffiles preInstCache rost preZoneCache
+>                                          = CM.foldM winnow [] (Map.keys preInstCache)
 >   where
 >     winnow             :: [(PerGMKey, InstCat)] → PerGMKey → IO [(PerGMKey, InstCat)]
 >     winnow accum pergm@PerGMKey{}        = do
@@ -1203,13 +1203,14 @@ prepare the specified instruments and percussion ===============================
 >           case icat of
 >             Just (InstCatDisq reason)    → renderDisqReason reason
 >             _                            → Nothing
->         disqMsg                          = unwords ["disq:", show pgkwFile, show iName, ":"]
+>         disqMsg                          = unwords ["categorizeInst:", "skipping", show pgkwFile, show iName, ":"]
 >
 >         trace_CI                         =
 >           unwords ["categorizeInst", show pgkwFile, iName, show (ffInst, ffPerc)]
 >
 >         SoundFontArrays{ssInsts, ssIBags, ssIGens, ssShdrs}
 >                                          = zArrays (sffiles ! pgkwFile)
+>
 >         PreInstrument{iName, iMatches}   =
 >           deJust "categorizeInst PreInstrument" (Map.lookup pergm preInstCache)
 >         FFMatches{ffInst, ffPerc}        = iMatches
@@ -1221,12 +1222,12 @@ prepare the specified instruments and percussion ===============================
 >
 >         bagIndices_    :: [Word]         = deriveRange (ibagi + 1) jbagi
 >         prezones       :: [PreZone]      =
->           mapMaybe (\x → Map.lookup (PreZoneKey pgkwFile x) prezoneCache) bagIndices_
+>           mapMaybe (\x → Map.lookup (PreZoneKey pgkwFile x) preZoneCache) bagIndices_
 >         pzkeys         :: [PreZoneKey]   = map pzkSelf prezones
 >         bagIndices                       =
 >           profess
 >             (all (\PreZoneKey{pzkwFile} → pzkwFile == pgkwFile) pzkeys)
->             (unwords ["file mismatch in pzkeys"])
+>             (unwords ["categorizeInst", "reports file mismatch in pzkeys"])
 >             (map (\PreZoneKey{pzkwBag} → pzkwBag) pzkeys)
 >
 >         zs             :: [(ZoneHeader, ZoneDigest)]
@@ -1595,10 +1596,9 @@ zone selection for rendering ===================================================
 >     SampleTypeRight                      → partner
 >     _                                    → error $ unwords["locateStereoPartner", "attempted on non-stereo zone"]
 >   where
->     (ZoneHeader{zhShdr = myShdr, zhwBag = bagIndex}, _)
->                                          = zone
+>     (ZoneHeader{zhShdr = myShdr}, _)     = zone
 >     targetSampleIx                       = F.sampleLink myShdr
->     partner                              = zfindByBagIndex zs targetSampleIx `CM.mplus` hardWay
+>     partner                              = zfindBySampleIndex zs targetSampleIx `CM.mplus` hardWay
 >
 >     hardWay                              =
 >       accessPreZone pgkwFile zone
@@ -1609,7 +1609,7 @@ zone selection for rendering ===================================================
 >       >>= (\(f, i) → Just (PerGMKey f i Nothing))
 >       >>= (`Map.lookup` zZoneCache)
 >       >>= Just . pZones
->       >>= (`zfindByBagIndex` bagIndex)
+>       >>= (`zfindBySampleIndex` targetSampleIx)
 
 reconcile zone and sample header ======================================================================================
 
