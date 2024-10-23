@@ -141,6 +141,9 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > zfindByBagIndex        :: [(ZoneHeader, a)] → Word → Maybe (ZoneHeader, a)
 > zfindByBagIndex zs w                     =
 >   find (\(ZoneHeader{zhwBag}, _) → w == zhwBag) zs
+> zfindBySampleIndex     :: [(a, SFZone)] → Word → Maybe (a, SFZone)
+> zfindBySampleIndex zs w                 =
+>   find (\(_, SFZone{zSampleIndex}) → zSampleIndex == Just w) zs
 >
 > data PerInstrument =
 >   PerInstrument {
@@ -172,15 +175,15 @@ Instrument categories: instrument, percussion, disqualified
 >   SFRoster {
 >     zFiles             :: Array Word SFFile
 >   , zPreSampleCache    :: Map PreSampleKey PreSample
+>   , zPreZoneCache      :: Map PreZoneKey PreZone
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
 >   , zRost              :: ([InstrumentName], [PercussionSound])
 >   , zZoneCache         :: Map PerGMKey PerInstrument
->   , zSample2Insts      :: Map PreSampleKey [PerGMKey]
 >   , zWinningRecord     :: WinningRecord}
 >
 > seedRoster :: Array Word SFFile → ([InstrumentName], [PercussionSound]) → SFRoster
 > seedRoster vFile rost                    =
->   SFRoster vFile Map.empty Map.empty rost Map.empty Map.empty seedWinningRecord
+>   SFRoster vFile Map.empty Map.empty Map.empty rost Map.empty seedWinningRecord
 >
 > data SFFile =
 >   SFFile {
@@ -440,9 +443,9 @@ executive ======================================================================
 >           print "pergmsI"
 >           print pergmsI
 >           print "pergmsP"
->           print pergmsP)
->
->       spc              ← formSampleParentCache zc
+>           print pergmsP
+>           print "preZoneCache"
+>           print preZoneCache)
 >
 >       tsZoned          ← getCurrentTime
 >       putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsCatted))
@@ -463,9 +466,9 @@ executive ======================================================================
 >       mapM_ putStrLn pWarnings
 >
 >       let sfrost       = preRoster{zPreSampleCache   = preSampleCache
+>                                  , zPreZoneCache     = preZoneCache
 >                                  , zPreInstCache     = preInstCache
 >                                  , zZoneCache        = zc
->                                  , zSample2Insts     = spc
 >                                  , zWinningRecord    = wins}
 >
 >       tsRecond     ← getCurrentTime
@@ -833,15 +836,16 @@ tournament among GM instruments and percussion from SoundFont files ============
 >             ibagi                        = F.instBagNdx iinst
 >             jbagi                        = F.instBagNdx jinst
 >
->             invert wB                    = Map.insert (PreZoneKey zWordF wB) (zWordF, wB) Map.empty
+>             invert wB                    = Map.insert (PreZoneKey zWordF wB) (zWordF, wI) Map.empty
 >
 >     attach             :: PreZoneKey → PreZone → PreZone
->     attach PreZoneKey{pzkwFile, pzkwBag} val@PreZone{ .. }
+>     attach key@PreZoneKey{pzkwFile, pzkwBag} val@PreZone{ .. }
 >                                          =
 >       let
 >         others                           = deJust "others" (Map.lookup pzPresk inverse)
+>         inst                             = deJust "inst" (Map.lookup key zoneInsts)
 >       in
->         val{pzmkPartner = Just $ favorite others}
+>         val{pzmkPartner = Just $ favorite others, pzInst = inst}
 >       where
 >         favorite       :: [PreZoneKey] → PreZoneKey
 >         favorite choices                 =
@@ -1047,12 +1051,10 @@ but not punitive in isStereoZone.
 >       
 > isStereoZone z                           = isLeftSample z || isRightSample z
 >
-> findSamplIxMatch       :: Word → [(ZoneHeader, SFZone)] → Maybe (ZoneHeader, SFZone)
-> findSamplIxMatch sampleIx                = find (\(_, SFZone{zSampleIndex}) → zSampleIndex == Just sampleIx)
+> -- see also zfindByBagIndex
 >
-> findBagIxMatch         :: Word → [(ZoneHeader, SFZone)] → Maybe (ZoneHeader, SFZone)
-> findBagIxMatch bagIx                     = find (\(ZoneHeader{zhwBag}, _) → zhwBag == bagIx)
->
+> accessPreZone wordF (ZoneHeader{zhwBag}, _)
+>                                          = Just $ PreZoneKey wordF zhwBag  
 > isLeftSample (ZoneHeader{zhShdr}, _)     = SampleTypeLeft == toSampleType (F.sampleType zhShdr)
 > isRightSample (ZoneHeader{zhShdr}, _)    = SampleTypeRight == toSampleType (F.sampleType zhShdr)
 >
@@ -1482,27 +1484,6 @@ prepare the specified instruments and percussion ===============================
 >
 >     trace_BZ                             = unwords ["buildZone", sampleName, show zWordF, show bagIndex, show (fromZone == defZone)]
 >
-> formSampleParentCache  :: Map PerGMKey PerInstrument → IO (Map PreSampleKey [PerGMKey])
-> formSampleParentCache zc                 = return $ Map.foldlWithKey spFolder Map.empty zc
->   where
->     spFolder           ::  Map PreSampleKey [PerGMKey] → PerGMKey → PerInstrument → Map PreSampleKey [PerGMKey]
->     spFolder accum pergm@PerGMKey{pgkwFile} PerInstrument{pZones}
->                                          = 
->       let
->         parentFolder   :: Map PreSampleKey [PerGMKey] → (ZoneHeader, SFZone) → Map PreSampleKey [PerGMKey]
->         parentFolder accum'  (ZoneHeader{zhwBag, zhShdr}, SFZone{zSampleIndex})
->                                          = Map.insert presk now accum'
->           where
->             presk                        =
->               PreSampleKey
->                 pgkwFile
->                 (deJust (unwords ["formSampleParentCache", "zSampleIndex"]) zSampleIndex) 
->             pergm'                       = pergm{pgkwBag = Just zhwBag}
->             soFar, now :: [PerGMKey]
->             soFar                        = fromMaybe [] (Map.lookup presk accum')
->             now                          = pergm' : soFar
->       in
->         foldl' parentFolder accum (tail pZones) 
 
 define signal functions and instrument maps to support rendering ======================================================
 
@@ -1590,7 +1571,7 @@ zone selection for rendering ===================================================
 >                                          → Right ((zoneL, zhShdr zhL), (zoneR, zhShdr zhR))
 >
 >     selectBestZone     :: [(ZoneHeader, SFZone)] → NoteOn → (ZoneHeader, SFZone)
->     selectBestZone zs noon               = deJust "whichZ" (findBagIxMatch bagId zs)
+>     selectBestZone zs noon               = deJust "whichZ" (zfindByBagIndex zs bagId)
 >       where
 >         (bagId, _)                       = lookupCellIndex (noonAsCoords noon) pSmashing
 >
@@ -1603,29 +1584,32 @@ zone selection for rendering ===================================================
 >        where
 >          F.Shdr{sampleType}              = (zhShdr . fst) zone
 >          stype                           = toSampleType sampleType
->          ozone                           = deJust "ozone" (findStereoPartner sfrost pergm zs zone)
+>          ozone                           = deJust "ozone" (locateStereoPartner sfrost pergm zs zone)
 >
-> findStereoPartner      :: SFRoster → PerGMKey → [(ZoneHeader, SFZone)]
+> locateStereoPartner    :: SFRoster → PerGMKey → [(ZoneHeader, SFZone)]
 >                           → (ZoneHeader, SFZone) → Maybe (ZoneHeader, SFZone)
-> findStereoPartner SFRoster{zSample2Insts, zZoneCache} PerGMKey{pgkwFile} zs zone
+> locateStereoPartner SFRoster{zPreZoneCache, zZoneCache} PerGMKey{pgkwFile} zs zone
 >                                          =
 >   case toSampleType (F.sampleType myShdr) of
 >     SampleTypeLeft                       → partner
 >     SampleTypeRight                      → partner
->     _                                    → error $ unwords["findStereoPartner", "attempted on non-stereo zone"]
+>     _                                    → error $ unwords["locateStereoPartner", "attempted on non-stereo zone"]
 >   where
->     (ZoneHeader{zhShdr = myShdr}, _)     = zone
->
+>     (ZoneHeader{zhShdr = myShdr, zhwBag = bagIndex}, _)
+>                                          = zone
 >     targetSampleIx                       = F.sampleLink myShdr
->
->     partner                              = findSamplIxMatch targetSampleIx zs `CM.mplus` hardWay
+>     partner                              = zfindByBagIndex zs targetSampleIx `CM.mplus` hardWay
 >
 >     hardWay                              =
->       Map.lookup (PreSampleKey pgkwFile targetSampleIx) zSample2Insts
->         >>= Just . head
->         >>= flip Map.lookup zZoneCache
->         >>= Just . pZones
->         >>= findSamplIxMatch targetSampleIx
+>       accessPreZone pgkwFile zone
+>       >>= (`Map.lookup` zPreZoneCache)
+>       >>= pzmkPartner
+>       >>= (`Map.lookup` zPreZoneCache)
+>       >>= (Just . pzInst)
+>       >>= (\(f, i) → Just (PerGMKey f i Nothing))
+>       >>= (`Map.lookup` zZoneCache)
+>       >>= Just . pZones
+>       >>= (`zfindByBagIndex` bagIndex)
 
 reconcile zone and sample header ======================================================================================
 
