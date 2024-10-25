@@ -412,23 +412,9 @@ executive ======================================================================
 >                        = do
 >       tsStarted        ← getCurrentTime
 >
->       presks           ← formMasterSampleList zFiles
->       (preSampleCache_, errs)
->                        ← formPreSampleCache zFiles presks
->       (preSampleCache, errs')
->                        ← finishPreSampleCache zFiles preSampleCache_
->
->       mapM_ putStrLn (reverse (errs ++ errs'))
->
->       prezks           ← formMasterZoneList zFiles
->       preZoneCache_    ← formPreZoneCache zFiles preSampleCache prezks
->       preZoneCache     ← finishPreZoneCache zFiles preSampleCache preZoneCache_
->
->       pergmsI_         ← formMasterInstList   zFiles
->       (preInstCache, errs)
->                        ← formPreInstCache zFiles pergmsI_
->
->       mapM_ putStrLn (reverse errs)
+>       preSampleCache   ← initSamples zFiles
+>       preZoneCache     ← initZones zFiles preSampleCache
+>       preInstCache     ← initInsts zFiles preZoneCache
 >
 >       jobs             ← categorize zFiles preInstCache zRost preZoneCache
 >       tsCatted         ← getCurrentTime
@@ -489,6 +475,44 @@ executive ======================================================================
 >
 >       tsRendered       ← getCurrentTime
 >       putStrLn ("___render songs: "        ++ show (diffUTCTime tsRendered tsPrepared))
+
+To support extracting from flawed SoundFont files, we - up front - withdraw unrecoverable items from
+their respective collections. The withdrawn items are ignored by all later phases. When constructing those
+later items, some critical data may be missing. So that may entail deletion/recovery also.
+
+>     initSamples        :: Array Word SFFile → IO (Map PreSampleKey PreSample)
+>     initSamples sffiles
+>                        = do
+>       presks           ← formMasterSampleList sffiles
+>       (preSampleCache_, errs)
+>                        ← formPreSampleCache sffiles presks
+>       (preSampleCache, errs')
+>                        ← finishPreSampleCache sffiles preSampleCache_
+>
+>       mapM_ putStrLn (reverse (errs ++ errs'))
+>       return preSampleCache
+>         
+>     initZones          :: Array Word SFFile → Map PreSampleKey PreSample → IO (Map PreZoneKey PreZone)
+>     initZones sffiles preSampleCache
+>                        = do
+>       prezks           ← formMasterZoneList sffiles
+>       (preZoneCache_, errs)
+>                        ← formPreZoneCache sffiles preSampleCache prezks
+>       (preZoneCache, errs')
+>                        ← finishPreZoneCache sffiles preSampleCache preZoneCache_
+>
+>       mapM_ putStrLn (reverse (errs ++ errs'))
+>       return preZoneCache
+>
+>     initInsts          :: Array Word SFFile → Map PreZoneKey PreZone → IO (Map PerGMKey PreInstrument)
+>     initInsts sffiles preZoneCache
+>                        = do
+>       pergmsI_         ← formMasterInstList sffiles
+>       (preInstCache, errs)
+>                        ← formPreInstCache sffiles preZoneCache pergmsI_
+>
+>       mapM_ putStrLn (reverse errs)
+>       return preInstCache
 >
 > writeTournamentReport  :: Array Word SFFile
 >                           → Map InstrumentName [PerGMScored]
@@ -708,7 +732,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >           Just pres                      → (Map.insert presk pres accum, errs)
 >           Nothing                        → (accum, err : errs)
 >             where
->               err                        = unwords ["skipped", show presk]
+>               err                        = unwords ["formPreSampleCache", "illegal name", show presk]
 >
 > finishPreSampleCache    :: Array Word SFFile
 >                            → Map PreSampleKey PreSample
@@ -736,6 +760,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >       where
 >         otherKey                         = PreSampleKey pskwFile sampleLink
 >         other                            = Map.lookup otherKey preSampleCache 
+>
 >         SFFile{zArrays}                  = sffiles ! pskwFile
 >         SoundFontArrays{ssShdrs}         = zArrays
 >         F.Shdr{sampleType, sampleLink}   = ssShdrs ! pskwSample
@@ -757,21 +782,21 @@ tournament among GM instruments and percussion from SoundFont files ============
 > formPreZoneCache       :: Array Word SFFile
 >                           → Map PreSampleKey PreSample
 >                           → [PreZoneKey]
->                           → IO (Map PreZoneKey PreZone)
+>                           → IO (Map PreZoneKey PreZone, [String])
 > formPreZoneCache sffiles preSampleCache prezks
->                                          = return $ foldl' preZFolder Map.empty prezks
+>                                          = return $ foldl' preZFolder (Map.empty, []) prezks
 >   where
->     preZFolder :: Map PreZoneKey PreZone → PreZoneKey → Map PreZoneKey PreZone
->     preZFolder preZoneCache prezk@PreZoneKey{pzkwFile}
+>     preZFolder :: (Map PreZoneKey PreZone, [String]) → PreZoneKey → (Map PreZoneKey PreZone, [String])
+>     preZFolder (preZoneCache, errs) prezk@PreZoneKey{pzkwFile}
 >                                          =
 >       let
->         mprez                            = computePreZone (sffiles ! pzkwFile) prezk
+>         eprez                            = computePreZone (sffiles ! pzkwFile) prezk
 >       in
->         case mprez of
->           Just prez                      → Map.insert prezk prez preZoneCache
->           Nothing                        → preZoneCache
+>         case eprez of
+>           Left prez                      → (Map.insert prezk prez preZoneCache, errs)
+>           Right err                      → (preZoneCache, err : errs)
 >
->     computePreZone   :: SFFile → PreZoneKey → Maybe PreZone
+>     computePreZone   :: SFFile → PreZoneKey → Either PreZone String
 >     computePreZone SFFile{zArrays, zWordF} prezk@PreZoneKey{pzkwBag}
 >                                          =
 >       let
@@ -787,18 +812,22 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >         ZoneDigest{zdSampleIndex}        = formDigest gens
 >         presk                            = PreSampleKey zWordF (deJust "si" zdSampleIndex)
+>         mprez                            =
+>           zdSampleIndex
+>           >>= Just . PreSampleKey zWordF
+>           >>= (`Map.lookup` preSampleCache)
+>           >> Just (PreZone presk (0,0) Nothing)
 >       in
->         zdSampleIndex
->          >>= Just . PreSampleKey zWordF
->          >>= (`Map.lookup` preSampleCache)
->          >> Just (PreZone presk (0,0) Nothing)
+>         case mprez of
+>           Just prez                      → Left prez
+>           Nothing                        → Right (unwords ["computePreZone", show zdSampleIndex])
 >
 > finishPreZoneCache    :: Array Word SFFile
 >                          → Map PreSampleKey PreSample
 >                          → Map PreZoneKey PreZone
->                          → IO (Map PreZoneKey PreZone)
+>                          → IO (Map PreZoneKey PreZone, [String])
 > finishPreZoneCache sffiles preSampleCache preZoneCache
->                                          = return $ Map.mapWithKey attach preZoneCache
+>                                          = return (Map.mapWithKey attach preZoneCache, [])
 >   where
 >     zoneInsts          :: Map PreZoneKey (Word, Word)
 >     zoneInsts                            = makeZoneInsts sffiles
@@ -856,14 +885,18 @@ tournament among GM instruments and percussion from SoundFont files ============
 >           in
 >             foldl' Map.union Map.empty (map formIZ rangeI)
 >
-> formPreInstCache       :: Array Word SFFile → [PerGMKey] → IO (Map PerGMKey PreInstrument, [String])
-> formPreInstCache sffiles pergms          = return $ foldl' preIFolder (Map.empty, []) pergms
+> formPreInstCache       :: Array Word SFFile
+>                           → Map PreZoneKey PreZone
+>                           → [PerGMKey]
+>                           → IO (Map PerGMKey PreInstrument, [String])
+> formPreInstCache sffiles preZoneCache pergms
+>                                          = return $ foldl' preIFolder (Map.empty, []) pergms
 >   where
 >     computePreInst     :: F.Inst → Either PreInstrument String
 >     computePreInst F.Inst{instName}      =
 >       if goodName instName
 >         then Left $ PreInstrument instName (computeFFMatches instName)
->         else Right $ unwords ["formPreInstCache", "skipping", show instName]
+>         else Right $ unwords ["formPreInstCache", "illegal name", show instName]
 >
 >     loadInst           :: PerGMKey -> F.Inst
 >     loadInst PerGMKey{pgkwFile, pgkwInst}
