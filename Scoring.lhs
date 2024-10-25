@@ -467,8 +467,11 @@ Utilities ======================================================================
 > grader rs                                = Grader (map fromRational rs)
 > gradeEmpiricals        :: Grader → [Double] → ArtifactGrade
 > gradeEmpiricals Grader{gorWeights, gorScalar} emps
->                                          = ArtifactGrade score emps
+>   | traceIf trace_GE False               = undefined
+>   | otherwise                            = ArtifactGrade (consume (gorScalar * lincombo)) emps
 >   where
+>     trace_GE                             =
+>       unwords["gradeEmpiricals", "lincombo", show lincombo]
 >     wSize                                = length gorWeights
 >     eSize                                = length emps
 >     lincombo           :: Double         =
@@ -476,7 +479,12 @@ Utilities ======================================================================
 >         (wSize == eSize)
 >         (unwords ["gradeEmpiricals:", "wSize =", show wSize, "eSize =", show eSize])
 >         (sum $ zipWith (*) emps gorWeights)
->     score              :: Int            = round $ gorScalar * lincombo
+>     consume            :: Double → Int
+>     consume x                            =
+>       profess
+>         (x == clip (-1_000_000, 1_000_000) x)
+>         (unwords ["gradeEmpiricals", "fatal scoring out of bounds numbers like", show x])
+>         (round x)
 
 Flags for customization ===============================================================================================
 
