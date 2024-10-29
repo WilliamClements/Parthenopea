@@ -505,6 +505,7 @@ Flags for customization ========================================================
 >
 >   , qqNarrowInstrumentScope              :: Bool
 >   , qqConRatio                           :: Double
+>   , qqSampleLimits                       :: (Word, Word)
 >
 >   , qqFFThresholdPossible                :: Double
 >   , qqFFThresholdStands                  :: Double
@@ -523,6 +524,7 @@ Flags for customization ========================================================
 >
 > narrowInstrumentScope                    = qqNarrowInstrumentScope      defT
 > conRatio                                 = qqConRatio                   defT
+> sampleMinima                             = qqSampleLimits               defT
 >
 > isPossible' fuzz                         = fuzz > qqFFThresholdPossible defT
 > stands' fuzz                             = fuzz > qqFFThresholdStands defT
@@ -570,6 +572,7 @@ Edit the following =============================================================
 >
 >   , qqNarrowInstrumentScope              = True
 >   , qqConRatio                           = 3/4
+>   , qqSampleLimits                       = (48, 32) -- minimum size from start to end, startLoop to endLoop
 >
 >   , qqFFThresholdPossible                = 50
 >   , qqFFThresholdStands                  = 150

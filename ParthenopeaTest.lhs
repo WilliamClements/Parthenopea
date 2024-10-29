@@ -1,6 +1,7 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 ParthenopeaTest
@@ -11,16 +12,21 @@ October 11, 2024
 >
 > import Data.Maybe
 > import Parthenopea
-
+  
 Testing ===============================================================================================================
 
 > runParthTests                            = runTests parthTests
 >
 > parthTests             :: [IO Bool]      = [canClaimEntireSpaceWithImpunity
+>                                         ,   canClaimEntireSpaceByDefault
 >                                         ,   lastSpaceWins
+>                                         ,   nothingNothings
+>                                         ,   theWholeIsEqualToTheSumOfItsParts
 >                                         ,   spotCheckOverlapCounts
 >                                         ,   spotCheck3dSpaceCell
->                                         ,   spotCheck4dSpaceCell]
+>                                         ,   spotCheck4dSpaceCell
+>                                         ,   canCountPartialCover
+>                                         ,   canCountMultiples]
 >
 > filln                  :: Int → Maybe (Int, Int)
 > filln n                                  = Just (0, n - 1)
@@ -30,11 +36,27 @@ Testing ========================================================================
 >         smashSubspaces "smashup" [3, 2] [(101, [filln 3, filln 2])]
 >   return $ aEqual (allCellsEqualTo smashup) (Just (101, 1))
 >
+> canClaimEntireSpaceByDefault             = do
+>   let smashup          :: Smashing Int   =
+>         smashSubspaces "smashup" [3, 2] [(101, [Nothing, Nothing])]
+>   return $ aEqual (allCellsEqualTo smashup) (Just (101, 1))
+>
 > lastSpaceWins                            = do
 >   let smashup          :: Smashing Int   =
 >         smashSubspaces "smashup" [3, 2]  [(201, [filln 3, filln 2])
 >                                         , (202, [filln 3, filln 2])]
 >   return $ aEqual (allCellsEqualTo smashup) (Just (202, 2))
+>
+> nothingNothings                          = do
+>   let smashup          :: Smashing Int   =
+>         smashSubspaces "smashup" [3,2] []
+>   return $ aEqual smashup.smashStats.countNothings 6
+>
+> theWholeIsEqualToTheSumOfItsParts        = do
+>   let smashup          :: Smashing Int   =
+>         smashSubspaces "smashup" [4, 8]  [(101, [Nothing, Just (0, 5)])
+>                                         , (102, [Nothing, Just (6, 7)])]
+>   return $ aEqual smashup.smashStats.countSingles 32
 >
 > spotCheckOverlapCounts                   = do
 >   let smashup          :: Smashing Int   =
@@ -60,5 +82,20 @@ Testing ========================================================================
 >   let aat                                = lookupCellIndex [1, 0, 1, 0] smashup
 >   print aat
 >   return $ aEqual (fst aat) 502
+>
+> canCountPartialCover                     = do
+>   -- 0 1 1
+>   -- 0 1 1
+>   let smashup          :: Smashing Int   =
+>         smashSubspaces "smashup" [3, 2] [(101, [Just (1, 2), Nothing])]
+>   return $ aEqual smashup.smashStats.countSingles 4
+>
+> canCountMultiples                        = do
+>   -- 0 1 1   +   0 0 0    ==   0 1 1
+>   -- 0 1 1   +   1 1 1    ==   1 2 2
+>   let smashup          :: Smashing Int   =
+>         smashSubspaces "smashup" [3, 2] [(101, [Just (1, 2), Nothing])
+>                                        , (102, [Nothing, Just (1,1)])]
+>   return $ aEqual smashup.smashStats.countMultiples 2
 
 The End

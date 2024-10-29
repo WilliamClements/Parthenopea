@@ -204,14 +204,14 @@ The progress of the algorithm is expressed in above pair.
 >
 > checkMeasureOk         :: BakingMetrics → Bool
 > checkMeasureOk BakingMetrics{ .. }
->   | traceAlways trace_CMO False          = undefined
+>   | traceNot trace_CMO False             = undefined
 >   | otherwise                            = True
 >   where
 >     trace_CMO                            = unwords ["\ncheckMeasureOk", show sHistogram]
 >
 > checkJobOk             :: BakingMetrics → Bool
 > checkJobOk BakingMetrics{ .. }
->   | traceIf trace_CBO False              = undefined
+>   | traceNot trace_CBO False             = undefined
 >   | otherwise                            = True
 >   where
 >     trace_CBO                            =
@@ -226,14 +226,14 @@ The progress of the algorithm is expressed in above pair.
 >
 > checkUrnOk             :: Bake → Bool
 > checkUrnOk urn
->   | traceIf trace_CUO False              = undefined
+>   | traceNot trace_CUO False             = undefined
 >   | otherwise                            = True
 >   where
 >     trace_CUO                            = unwords ["checkUrnOk", show urn]
 >
 > checkZListOk           :: [(Int,  Int)] → Bool
 > checkZListOk zlist
->   | traceAlways trace_CZLO False         = undefined
+>   | traceNot trace_CZLO False            = undefined
 >   | otherwise                            = True
 >   where
 >     trace_CZLO                           = unwords ["checkZListOK", show zlist]

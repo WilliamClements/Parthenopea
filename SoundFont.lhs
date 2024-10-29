@@ -28,7 +28,7 @@ April 16, 2023
 > import Data.Int ( Int8, Int16 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
-> import Data.List ( find, foldl', foldr, last, minimumBy, partition, singleton, sortOn, elemIndex )
+> import Data.List ( find, foldl', foldr, last, minimumBy, partition, singleton, sortOn, elemIndex, iterate' )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, fromMaybe, isJust, isNothing, mapMaybe, catMaybes )
@@ -80,6 +80,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   trie                                   = trieGeneric PreSampleKeyTrie 
 >   untrie                                 = untrieGeneric unPreSampleKeyTrie
 >   enumerate                              = enumerateGeneric unPreSampleKeyTrie
+> nilPreSampleKey                          = PreSampleKey 0 0
 >
 > data PreSample =
 >   PreSample {
@@ -91,18 +92,25 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   PreZoneKey {
 >     pzkwFile           :: Word
 >   , pzkwBag            :: Word} deriving (Eq, Ord, Show)
-> defPreZoneKey                            = PreZoneKey 0 0
+> nilPreZoneKey                            = PreZoneKey 0 0
+>
+> data ZoneRole                            = ZRGlobal | ZRNonGlobal deriving Show
 >
 > data PreZone =
 >   PreZone {
->     pzPresk            :: PreSampleKey
->   , pzInst             :: PerGMKey
+>     pzRole             :: ZoneRole
+>   , pzPresk            :: PreSampleKey
+>   , pzPergm            :: PerGMKey
+>   , pzBagIndex         :: Word
+>   , pzDigest           :: Maybe ZoneDigest
 >   , pzmkPartner        :: Maybe PreZoneKey} deriving Show
 >
 > data PreInstrument =
 >   PreInstrument {
->     iName              :: String
->   , iMatches           :: FFMatches} deriving Show
+>     pInst              :: F.Inst
+>   , iName              :: String
+>   , iMatches           :: FFMatches
+>   , iPreZones          :: [PreZone]}
 >
 > data PerGMKey =
 >   PerGMKey {
@@ -147,9 +155,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > data PerInstrument =
 >   PerInstrument {
->     pInst              :: F.Inst
->   , pZones             :: [(ZoneHeader, SFZone)]
->   , pPreZones          :: [PreZone]
+>     pZones             :: [(ZoneHeader, SFZone)]
 >   , pSmashing          :: Smashing Word}
 
 Instrument categories: instrument, percussion, disqualified
@@ -322,7 +328,7 @@ profiler =======================================================================
 >   sffile@SFFile{zArrays}                 ← openSoundFontFile 0 fp
 >   let SoundFontArrays{ssInsts}           = zArrays
 >   putStrLn ""
->   mapM_ (profileInst sffile) (deriveRange 0 (length ssInsts - 1))
+>   mapM_ (profileInst sffile) (deriveRange 0 (length ssInsts))
 >
 > profileInst          :: SFFile → Int → IO ()
 > profileInst sffile@SFFile{zArrays} ii  = do
@@ -340,7 +346,7 @@ profiler =======================================================================
 >          profess
 >            (ibagi <= jbagi)
 >            (unwords["SoundFont file corrupt (profileInst)"])
->            (singleton ibagi, deriveRange (ibagi+1) (jbagi-1))
+>            (singleton ibagi, deriveRange (ibagi+1) jbagi)
 >       gList                              = map (buildZone sffile defZone)        gIx
 >       gZone                              = (snd . head)                          gList
 >       oList                              = map (buildZone sffile gZone)          oIx
@@ -351,13 +357,13 @@ profiler =======================================================================
 >         CM.forM_ mout putStrLn
 > 
 >       profileZone      :: (ZoneHeader, SFZone) → Maybe String
->       profileZone (zh@ZoneHeader{zhShdr}, z@SFZone{ .. })
+>       profileZone (zh@ZoneHeader{zhShdr}, zone@SFZone{ .. })
 >                                          =
 >         let
 >           F.Inst{instName}               = iinst
 >           F.Shdr{sampleName}             = zhShdr
 >
->           seed                           = if zoneConforms (zh, z)
+>           seed                           = if zoneConforms (zh, zone)
 >                                              then Nothing
 >                                              else Just True
 >
@@ -413,15 +419,19 @@ executive ======================================================================
 >                        = do
 >       tsStarted        ← getCurrentTime
 >
+>       putStrLn "initSamples"
 >       preSampleCache   ← initSamples zFiles
->       preInstCache     ← initInsts zFiles
->       preZoneCache     ← initZones zFiles preSampleCache
+>       putStrLn "initInsts"
+>       preInstCache_    ← initInsts zFiles
+>       putStrLn "initZones"
+>       preZoneCache     ← initZones zFiles preSampleCache preInstCache_
+>       preInstCache     ← associateZones preInstCache_ preZoneCache
 >
 >       jobs             ← categorize zFiles preInstCache zRost preZoneCache
 >       tsCatted         ← getCurrentTime
 >       putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsStarted))
 >
->       zc               ← formZoneCache zFiles preInstCache zRost jobs
+>       zc               ← formZoneCache zFiles preInstCache preZoneCache zRost jobs
 >       (pergmsI, pergmsP)
 >                        ← sortByCategory zc jobs
 >       CM.when diagnosticsEnabled
@@ -490,7 +500,8 @@ later items, some critical data may thereby be missing. So that entails deletion
 >       (preSampleCache, errs')
 >                        ← finishPreSampleCache sffiles preSampleCache_
 >
->       mapM_ putStrLn (reverse (errs ++ errs'))
+>       mapM_ putStrLn (reverse errs ++ reverse errs')
+>       print $ length preSampleCache
 >       return preSampleCache
 >         
 >     initInsts          :: Array Word SFFile → IO (Map PerGMKey PreInstrument)
@@ -503,18 +514,48 @@ later items, some critical data may thereby be missing. So that entails deletion
 >       mapM_ putStrLn (reverse errs)
 >       return preInstCache
 >
->     initZones          :: Array Word SFFile → Map PreSampleKey PreSample → IO (Map PreZoneKey PreZone)
->     initZones sffiles preSampleCache
+>     initZones          :: Array Word SFFile
+>                           → Map PreSampleKey PreSample → Map PerGMKey PreInstrument
+>                           → IO (Map PreZoneKey PreZone)
+>     initZones sffiles preSampleCache preInstCache
 >                        = do
->       prezks           ← formMasterZoneList sffiles
->       (preZoneCache_, errs)
->                        ← formPreZoneCache sffiles preSampleCache prezks
->       (preZoneCache, errs')
->                        ← finishPreZoneCache sffiles preSampleCache preZoneCache_
+>       (preZoneCache, errs)
+>                        ← formPreZoneCache sffiles preSampleCache preInstCache
 >
->       mapM_ putStrLn (reverse (errs ++ errs'))
+>       mapM_ putStrLn (reverse errs)
 >       return preZoneCache
 >
+>     associateZones     :: Map PerGMKey PreInstrument → Map PreZoneKey PreZone → IO (Map PerGMKey PreInstrument)
+>     associateZones preInstCache_ preZoneCache
+>                                          = do
+>       print "associateZones"
+>       let preInstCache = Map.mapWithKey addZones preInstCache_
+>       print (length preInstCache_)
+>       print (length preInstCache)
+>       return preInstCache
+>       
+>       where
+>         inverter       :: Map PerGMKey [PreZone]
+>         inverter                        = Map.foldlWithKey inverseFolder Map.empty preZoneCache
+>
+>         addZones       :: PerGMKey → PreInstrument → PreInstrument
+>         addZones pergm preI             =
+>           let
+>             inverted                    = Map.lookup pergm inverter
+>             newPreZones                 = maybe [] reverse inverted
+>           in
+>             preI{iPreZones = newPreZones}
+>
+>         inverseFolder  :: Map PerGMKey [PreZone] → PreZoneKey → PreZone → Map PerGMKey [PreZone]
+>         inverseFolder target key new@PreZone{pzPergm}
+>           | traceNot trace_IF False      = undefined
+>           | otherwise                    = Map.insert pzPergm now target
+>           where
+>             trace_IF                     = unwords ["soFar", show key, show pzPergm, show $ length now]
+>             soFar, now :: [PreZone]
+>             soFar                        = fromMaybe [] (Map.lookup pzPergm target)
+>             now                          = new : soFar
+
 > writeTournamentReport  :: Array Word SFFile
 >                           → Map InstrumentName [PerGMScored]
 >                           → Map PercussionSound [PerGMScored]
@@ -549,7 +590,6 @@ later items, some critical data may thereby be missing. So that entails deletion
 >     doF                :: Int → SFFile → [Emission]
 >     doF nth sffile                       = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
 >         
->
 > decideWinners          :: Array Word SFFile
 >                           → Map PerGMKey PreInstrument
 >                           → Map PreSampleKey PreSample
@@ -615,7 +655,7 @@ later items, some critical data may thereby be missing. So that entails deletion
 >         mffm                             =
 >           mz >>= (zSampleIndex . snd)
 >              >>= Just . PreSampleKey pgkwFile
->              >>= flip Map.lookup preSampleCache
+>              >>= (`Map.lookup` preSampleCache)
 >              >>= Just . sMatches
 >         fuzzMap        :: Map PercussionSound Fuzz
 >         fuzzMap                          = getFuzzMap $ deJust "mffm" mffm
@@ -655,8 +695,8 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >         akResult                         = fromMaybe 0 (Map.lookup kind fuzzMap)
 >
->         scope          :: [(ZoneHeader, SFZone)]
->         scope                            =
+>         scope_, scope  :: [(ZoneHeader, SFZone)]
+>         scope_                           =
 >           case pgkwBag of
 >             Nothing                      → tail pZones
 >             Just bagI                    →
@@ -665,6 +705,12 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                       , show pgkwFile, iName])
 >                      singleton
 >                      (zfindByBagIndex pZones bagI)
+>         scope                            =
+>           profess
+>             (not (null scope_))
+>             (unwords["xaEnterTournament", "null scope", iName, show (length pZones)])
+>             scope_
+>             
 >
 >         mnameZ         :: Maybe String   =     pgkwBag
 >                                            >>= zfindByBagIndex pZones
@@ -673,7 +719,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >         trace_XAET                       =
 >           unwords ["xaEnterTournament", iName, show mnameZ, show kind, show scoredP.pArtifactGrade
->                  , "num zones in scope=", show $ length scope]
+>                  , "scope", show $ length scope]
 >
 >         computeGrade   :: [(ZoneHeader, SFZone)] → AgainstKindResult → ArtifactGrade
 >         computeGrade zs akResult         = gradeEmpiricals theGrader empiricals
@@ -706,16 +752,20 @@ tournament among GM instruments and percussion from SoundFont files ============
 > formPreSampleCache sffiles presks        = return $ foldl' preSFolder (Map.empty, []) presks
 >   where
 >     computePreSample   :: F.Shdr → (Maybe PreSample, String)
->     computePreSample shdr@F.Shdr{sampleName, sampleRate, sampleType} 
->                                          =
->       if goodName sampleName && sampleRate > 0 && sampleRate < 2^30 && isJust (toMaybeSampleType sampleType)
+>     computePreSample shdr@F.Shdr{ .. }   =
+>       if goodName sampleName
+>          && sampleRate >= 64
+>          && sampleRate < 2^20
+>          && isJust (toMaybeSampleType sampleType)
+>          && sampleLimitsOk (start, end)
+>          && sampleLoopLimitsOk (startLoop, endLoop)
 >         then (Just $ PreSample sampleName (computeFFMatches sampleName) Nothing, [])
 >         else (Nothing, diagnose shdr)
 >
 >     diagnose           :: F.Shdr → String
->     diagnose F.Shdr{sampleName, sampleRate, sampleType} 
+>     diagnose fshdr@F.Shdr{ .. } 
 >                                          =
->       unwords ["formPreSampleCache", "problem", show (sampleName, sampleRate, toMaybeSampleType sampleType)]
+>       unwords ["formPreSampleCache", "problem", show (fshdr, toMaybeSampleType sampleType)]
 >
 >     loadShdr PreSampleKey{pskwSample, pskwFile}
 >                                          = ssShdrs ! pskwSample
@@ -766,61 +816,110 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         stype                            = toSampleType sampleType
 >         stereo                           = SampleTypeLeft == stype || SampleTypeRight == stype
 >
-> formMasterZoneList      :: Array Word SFFile → IO [PreZoneKey]
-> formMasterZoneList sffiles               = return $ concatMap formFZ sffiles
+> data ZoneScanner                         =
+>   ZoneScanner {
+>     zsSFFiles          :: Array Word SFFile
+>   , zsPreSampleCache   :: Map PreSampleKey PreSample
+>   , zsPreInstCache     :: Map PerGMKey PreInstrument
+>   , zswFile            :: Word
+>   , zswInst            :: Word
+>   , zsmZkz             :: [(PreZoneKey, PreZone)]}
+> nextZoneScanner        :: ZoneScanner → ZoneScanner
+> nextZoneScanner zsor@ZoneScanner{ .. }   = zsor{zswInst = zswInst + 1, zsmZkz = news}
 >   where
->     -- file to zone
->     formFZ             :: SFFile → [PreZoneKey]
->     formFZ SFFile{zArrays, zWordF}       =
->       let
->         SoundFontArrays {ssIBags}        = zArrays
->         (st, en)       :: (Word, Word)   = bounds ssIBags
->       in
->         map (PreZoneKey zWordF) [st..(en - 1)]
+>     SoundFontArrays{ .. }                = zArrays (zsSFFiles ! zswFile)
+>     iinst                                = ssInsts ! fromIntegral zswInst
+>     jinst                                = ssInsts ! fromIntegral (zswInst+1)
 >
-> formPreZoneCache       :: Array Word SFFile
->                           → Map PreSampleKey PreSample
->                           → [PreZoneKey]
->                           → IO (Map PreZoneKey PreZone, [String])
-> formPreZoneCache sffiles preSampleCache prezks
->                                          = return $ foldl' preZFolder (Map.empty, []) prezks
->   where
->     preZFolder :: (Map PreZoneKey PreZone, [String]) → PreZoneKey → (Map PreZoneKey PreZone, [String])
->     preZFolder (preZoneCache, errs) prezk@PreZoneKey{pzkwFile}
->                                          =
->       let
->         eprez                            = computePreZone (sffiles ! pzkwFile) prezk
->       in
->         case eprez of
->           Left prez                      → (Map.insert prezk prez preZoneCache, errs)
->           Right err                      → (preZoneCache, err : errs)
+>     pergm                                = PerGMKey zswFile zswInst Nothing
+>     mPreInst                             = Map.lookup pergm zsPreInstCache
+>     news                                 = if isJust mPreInst
+>                                              then capturePreZones
+>                                              else error $ unwords ["nextZoneScanner", show pergm, "has no PreInst"]
 >
->     computePreZone   :: SFFile → PreZoneKey → Either PreZone String
->     computePreZone SFFile{zArrays, zWordF} prezk@PreZoneKey{pzkwBag}
->                                          =
->       let
->         SoundFontArrays{ssIBags, ssIGens, ssShdrs}
->                                          = zArrays
->         xgeni                            = F.genNdx $ ssIBags ! pzkwBag
->         ygeni                            = F.genNdx $ ssIBags ! (pzkwBag + 1)
+>     capturePreZones    :: [(PreZoneKey, PreZone)]
+>     capturePreZones
+>       | traceIf trace_CPZ False          = undefined
+>       | otherwise                        =
+>       if null pzkO
+>         then []
+>         else pzkG ++ pzkO
+>       where
+>         trace_CPZ                        = unwords ["capturePreZones", show $ length pzkO]
+>
+>         ibagi                            = F.instBagNdx iinst
+>         jbagi                            = F.instBagNdx jinst
+>
+>         pzkG           :: [(PreZoneKey, PreZone)]
+>         pzkG                             =
+>           mapMaybe (producePreZone ZRGlobal) (deriveRange ibagi (ibagi + 1))
+>         pzkO           :: [(PreZoneKey, PreZone)]
+>         pzkO                             =
+>           mapMaybe (producePreZone ZRNonGlobal) (deriveRange (ibagi + 1) jbagi)
+>
+>     producePreZone     :: ZoneRole → Word → Maybe (PreZoneKey, PreZone)
+>     producePreZone zrole bagIndex
+>       | traceIf trace_PPZ False          = undefined
+>       | otherwise                        = mpres >> makePreZone zrole presk bagIndex zd 
+>       where
+>         trace_PPZ                        = unwords ["producePreZone", show bagIndex]
+>
+>         xgeni                            = F.genNdx $ ssIBags ! bagIndex
+>         ygeni                            = F.genNdx $ ssIBags ! (bagIndex + 1)
 >
 >         gens       :: [F.Generator]      = profess
 >                                              (xgeni <= ygeni)
 >                                              "SoundFont file corrupt (computePreZone gens)"
->                                              (map (ssIGens !) (deriveRange (xgeni + 1) ygeni))
+>                                              (map (ssIGens !) (deriveRange xgeni ygeni))
 >
->         ZoneDigest{zdSampleIndex}        = formDigest gens
->         presk                            = PreSampleKey zWordF (deJust "si" zdSampleIndex)
->         mprez                            =
->           zdSampleIndex
->           >>= Just . PreSampleKey zWordF
->           >>= (`Map.lookup` preSampleCache)
->           >> Just (PreZone presk nilPerGMKey Nothing)
->       in
->         case mprez of
->           Just prez                      → Left prez
->           Nothing                        → Right (unwords ["computePreZone", "problem", show zdSampleIndex])
+>         zd@ZoneDigest{zdSampleIndex}     = formDigest gens
+>         si                               = fromMaybe nilSampleIndex zdSampleIndex
+>         nilSampleIndex                   = 0
+>         presk                            = PreSampleKey zswFile si
+>         mpres                            = Map.lookup presk zsPreSampleCache
+>         
+>     makePreZone        :: ZoneRole → PreSampleKey → Word → ZoneDigest → Maybe (PreZoneKey, PreZone)
+>     makePreZone zrole presk bagIndex zd
+>       | traceNot trace_MPZ False         = undefined
+>       | otherwise                        = Just (pzk, pz)
+>       where
+>         trace_MPZ                        = unwords ["makePreZone", show zrole, show pergm, show bagIndex]
 >
+>         pzk                              = PreZoneKey zswFile bagIndex
+>         pz                               = PreZone zrole presk pergm bagIndex (Just zd) Nothing
+> 
+> formPreZoneCache       :: Array Word SFFile
+>                           → Map PreSampleKey PreSample → Map PerGMKey PreInstrument
+>                           → IO (Map PreZoneKey PreZone, [String])
+> formPreZoneCache sffiles preSampleCache preInstCache
+>                                          = return $ foldl' formFZ (Map.empty, []) sffiles
+>   where
+>     -- file to zone
+>     formFZ             :: (Map PreZoneKey PreZone, [String]) → SFFile → (Map PreZoneKey PreZone, [String])
+>     formFZ (target, errs) sffile@SFFile{zArrays, zWordF}
+>                                          = (Map.union target (extractPreZones sffile), errs)
+>
+>     extractPreZones   :: SFFile → Map PreZoneKey PreZone
+>     extractPreZones sffile@SFFile{zArrays, zWordF}
+>       | traceIf trace_EPZ False         = undefined
+>       | otherwise                        = Map.fromList zkz
+>       where
+>         trace_EPZ                        =
+>           unwords ["extractPreZones", show (stI, enI), show (stB, enB), show (length zkz)]
+>
+>         SoundFontArrays {ssInsts, ssIBags}
+>                                          = zArrays
+>         (stI, enI)     :: (Word, Word)   = bounds ssInsts
+>         (stB, enB)     :: (Word, Word)   = bounds ssIBags
+>
+>         seedZoneScanner                  =
+>           ZoneScanner sffiles preSampleCache preInstCache zWordF stI []
+>
+>         infinite                         = iterate' nextZoneScanner seedZoneScanner
+>         finite                           = takeWhile (\b → zswInst b <= enI) infinite
+>         zkz                              = concatMap zsmZkz finite
+>
+> {-
 > finishPreZoneCache    :: Array Word SFFile
 >                          → Map PreSampleKey PreSample
 >                          → Map PreZoneKey PreZone
@@ -836,25 +935,25 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >     inverseFolder      :: Map PreSampleKey [PreZoneKey] → PreZoneKey → PreZone → Map PreSampleKey [PreZoneKey]
 >     inverseFolder target key PreZone{pzPresk}
->                                          = Map.insert pzPresk now target
+>                                          = Map.insert key now target
 >       where
 >         soFar, now     :: [PreZoneKey]
 >         soFar                            = fromMaybe [] (Map.lookup pzPresk target)
 >         now                              = key : soFar
 >
 >     attach             :: PreZoneKey → PreZone → PreZone
->     attach key val@PreZone{pzPresk, pzInst}
+>     attach key val@PreZone{pzPresk, pzPergm}
 >                                          =
 >       let
 >         others                           = deJust "others" (Map.lookup pzPresk inverse)
->         inst                             = deJust "inst" (Map.lookup key zoneInsts)
+>         pergm                            = tracer "me" $ deJust "me" (Map.lookup key zoneInsts)
 >       in
->         val{pzmkPartner = Just (favoriteOf others), pzInst = inst}
+>         val{pzmkPartner = Just (favoriteOf others), pzPergm = pergm} {- , pzDigest = Just (formDigest gens)} -}
 >       where
 >         favoriteOf     :: [PreZoneKey] → PreZoneKey
 >         favoriteOf choices               =
 >           let
->             local                        = find (\zk → pzInst == fromJust (Map.lookup zk zoneInsts)) choices
+>             local                        = find (\zk → pzPergm == fromJust (Map.lookup zk zoneInsts)) choices
 >             global                       = Just $ head choices
 >           in
 >             deJust "cand" (local `CM.mplus` global)
@@ -884,16 +983,20 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                   Map.insert (PreZoneKey zWordF wB) (PerGMKey zWordF wI Nothing) Map.empty
 >           in
 >             foldl' Map.union Map.empty (map formIZ rangeI)
+> -}
 >
 > formPreInstCache       :: Array Word SFFile → [PerGMKey] → IO (Map PerGMKey PreInstrument, [String])
 > formPreInstCache sffiles pergms
 >                                          = return $ foldl' preIFolder (Map.empty, []) pergms
 >   where
 >     computePreInst     :: F.Inst → Either PreInstrument String
->     computePreInst F.Inst{instName}      =
->       if goodName instName
->         then Left $ PreInstrument instName (computeFFMatches instName)
->         else Right $ unwords ["formPreInstCache", "illegal name", show instName]
+>     computePreInst ii@F.Inst{instName}   =
+>       let
+>         checkName = goodName instName
+>       in
+>         if checkName
+>           then Left $ PreInstrument ii instName (computeFFMatches instName) []
+>           else Right $ unwords ["formPreInstCache", "illegal name", show instName]
 >
 >     loadInst           :: PerGMKey -> F.Inst
 >     loadInst PerGMKey{pgkwFile, pgkwInst}
@@ -903,13 +1006,13 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         SoundFontArrays{ssInsts}         = zArrays
 >
 >     preIFolder         :: (Map PerGMKey PreInstrument, [String]) → PerGMKey → (Map PerGMKey PreInstrument, [String])
->     preIFolder (accum, errs) pergm       =
+>     preIFolder (target, errs) pergm       =
 >       let
 >         eith                             = (computePreInst . loadInst) pergm
 >       in
 >         case eith of
->           Left preI                      → (Map.insert pergm preI accum, errs)
->           Right str                      → (accum, str : errs)
+>           Left preI                      → (Map.insert pergm preI target, errs)
+>           Right str                      → (target, str : errs)
 >
 > formMasterInstList     :: Array Word SFFile → IO [PerGMKey]
 > formMasterInstList sffiles               = return $ concatMap formFI sffiles
@@ -921,10 +1024,12 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         SoundFontArrays{ssInsts}         = zArrays
 >         boundsI                          = bounds ssInsts
 >         rangeI                           =
->           profess
->             (uncurry (<=) boundsI)
->             (unwords ["bad file: invalid bounds", show boundsI])
->             [fst boundsI..snd boundsI-1]
+>           uncurry
+>             (profess
+>               (uncurry (<=) boundsI)
+>               (unwords ["bad file: invalid bounds", show boundsI])
+>               deriveRange)
+>             boundsI
 >
 >         qualifyInst    :: Word → Maybe PerGMKey
 >         qualifyInst wordI
@@ -945,16 +1050,16 @@ tournament among GM instruments and percussion from SoundFont files ============
 >   where
 >     pfolder            :: ([PerGMKey], [PerGMKey]) → (PerGMKey, InstCat) → ([PerGMKey], [PerGMKey])
 >     pfolder (pergmsI, pergmsP) (pergmI, icat)
->                                          = (pergmsI', pergmsP'')
->       where
+>                                          =
+>       let
 >         pergmI'                          = pergmI{pgkwBag = Nothing}
 >         perI                             = deJust "perI" (Map.lookup pergmI' zc)
 >         pergmsP'                         = instrumentPercList pergmI perI
->         (pergmsI', pergmsP'')            =
->           case icat of
->             InstCatPerc _ _              → (pergmsI, pergmsP ++ pergmsP')
->             InstCatInst _                → (pergmI : pergmsI, pergmsP)
->             _   → error $ unwords ["sortByCategory", "illegal input", show icat]
+>       in
+>         case icat of
+>           InstCatPerc _ _                → (pergmsI, pergmsP ++ pergmsP')
+>           InstCatInst _                  → (pergmI : pergmsI, pergmsP)
+>           _                              → error $ unwords ["sortByCategory", "illegal input", show icat]
 >
 >     instrumentPercList :: PerGMKey → PerInstrument → [PerGMKey]
 >     instrumentPercList pergmI PerInstrument{pZones}
@@ -967,30 +1072,35 @@ tournament among GM instruments and percussion from SoundFont files ============
 >   ts1                                    ← getCurrentTime
 >   result                                 ← F.importFile filename
 >   case result of
->     Left s               → error $ "SoundFont decoding error: " ++ s ++ show filename
->     Right soundFont      → do
->       let pdata = F.pdta soundFont
->       let sdata = F.sdta soundFont
->       let arrays@SoundFontArrays{ .. }
->                 = SoundFontArrays
->                      (F.insts pdata)
->                      (F.ibags pdata)
->                      (F.igens pdata)
->                      (F.imods pdata)
->                      (F.shdrs pdata)
->                      (F.smpl sdata)
->                      (F.sm24 sdata)
->       let sffile = SFFile filename arrays wFile
->       let nBits = case ssM24 of
->             Nothing          → 16
->             Just s24data     → 24
->       ts2 ← getCurrentTime
+>     Left s                               →
+>       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
+>     Right soundFont                      → do
+>       let pdata                          = F.pdta soundFont
+>       let sdata                          = F.sdta soundFont
+>       let arrays@SoundFontArrays{ .. }   =
+>             SoundFontArrays
+>               (F.insts pdata)
+>               (F.ibags pdata)
+>               (F.igens pdata)
+>               (F.imods pdata)
+>               (F.shdrs pdata)
+>               (F.smpl  sdata)
+>               (F.sm24  sdata)
+>       let sffile                         = SFFile filename arrays wFile
+>       let nBits                          =
+>             case ssM24 of
+>               Nothing                    → 16
+>               Just s24data               → 24
+>       ts2                                ← getCurrentTime
 >       CM.when diagnosticsEnabled (
->         putStrLn $ unwords [   show $ length ssInsts
->                            ,   show $ length ssIBags
->                            ,   show $ length ssIGens
->                            ,   show $ length ssIMods
->                            ,   show $ length ssShdrs  ])
+>         putStrLn $ unwords [
+>                           "openSoundFontFile"
+>                       ,   "insts,bags,gens,mods,shdrs"
+>                       ,   show $ length ssInsts
+>                       ,   show $ length ssIBags
+>                       ,   show $ length ssIGens
+>                       ,   show $ length ssIMods
+>                       ,   show $ length ssShdrs  ])
 >       putStrLn (" (" ++ show nBits ++ ") loaded in " ++ show (diffUTCTime ts2 ts1))
 >       return sffile
 >     
@@ -1030,14 +1140,15 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     return ()
 >
 > computeResolution      :: ∀ a. (Show a, SFScorable a) ⇒
->                                a
->                                → ([InstrumentName], [PercussionSound])
->                                → [(ZoneHeader, SFZone)]
->                                → Double
+>                           a
+>                           → ([InstrumentName], [PercussionSound])
+>                           → [(ZoneHeader, SFZone)]
+>                           → Double
 > computeResolution kind rost zs
->   | traceNot trace_CR False               = undefined
+>   | traceNot trace_CR False              = undefined
 >   | null zs                              = error $ unwords ["null zs"]
->   | otherwise                            = m1 * measureSplits kind + m2 * measureSampleSize
+>   | otherwise                            =
+>   fromRational m1 * measureSplits kind + fromRational m2 * measureSampleSize
 >   where
 >     theSplit                             = splitScore kind zs
 >     measureSplits kind
@@ -1067,12 +1178,16 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                      = zhShdr
 >     xStart           = addIntToWord          start                  (sumOfMaybeInts
 >                                                                        [zStartOffs, zStartCoarseOffs])
->     xEnd             = addIntToWord          end                    (sumOfMaybeInts
->                                                                        [zEndOffs, zEndCoarseOffs])
+>     xEnd             = addIntToWord          end                    (sumOfMaybeInts [zEndOffs, zEndCoarseOffs])
+>
+> sampleLimitsOk         :: (Word, Word) → Bool
+> sampleLimitsOk (st, en)                  = st >= 0 && en - st >= fst sampleMinima && en - st < 2^22
+> sampleLoopLimitsOk     :: (Word, Word) → Bool
+> sampleLoopLimitsOk (st, en)              = st >= 0 && en - st >= snd sampleMinima && en - st < 2^22
 
-Note that harsher consequences of unacceptable sample header live elsewhere. Logically, that would be
-sufficient protection. But diagnostic output might cause us to execute this first. So, being careful
-but not punitive in isStereoZone.
+Note that harsher consequences of unacceptable sample header are enforced earlier. Logically, that would be
+sufficient to protect below code from bad data and document the situation. But ... mechanism such as putting
+out diagnostics might cause us to execute this code first. So, being crash-free/minimal in isStereoZone et al.
 
 > isStereoInst, is24BitInst
 >                        :: [(ZoneHeader, a)] → Bool
@@ -1083,6 +1198,7 @@ but not punitive in isStereoZone.
 >
 > -- see also zfindByBagIndex
 >
+> accessPreZone          :: Word -> (ZoneHeader, b) -> Maybe PreZoneKey
 > accessPreZone wordF (ZoneHeader{zhwBag}, _)
 >                                          = Just $ PreZoneKey wordF zhwBag  
 > isLeftSample (ZoneHeader{zhShdr}, _)     = SampleTypeLeft == toSampleType (F.sampleType zhShdr)
@@ -1235,27 +1351,22 @@ prepare the specified instruments and percussion ===============================
 >         disqMsg                          = unwords ["categorizeInst:", "skipping", show pgkwFile, show iName, ":"]
 >
 >         trace_CI                         =
->           unwords ["categorizeInst", show pgkwFile, iName, show (ffInst, ffPerc)]
->
+>           unwords ["categorizeInst", show pgkwFile, iName, show pgkwInst, show (length zs)]
+>  
 >         SoundFontArrays{ssInsts, ssIBags, ssIGens, ssShdrs}
 >                                          = zArrays (sffiles ! pgkwFile)
 >
->         PreInstrument{iName, iMatches}   =
+>         PreInstrument{iName, iMatches, iPreZones}
+>                                          =
 >           deJust "categorizeInst PreInstrument" (Map.lookup pergm preInstCache)
 >         FFMatches{ffInst, ffPerc}        = iMatches
 >
->         iinst                            = ssInsts ! pgkwInst
->         jinst                            = ssInsts ! (pgkwInst+1)
->         ibagi                            = F.instBagNdx iinst
->         jbagi                            = F.instBagNdx jinst
->
->         keys_, keys    :: [PreZoneKey]
->         keys_                            = map (PreZoneKey pgkwFile) (deriveRange (ibagi + 1) (jbagi - 1))
->         keys                             = filter (\k → isJust (Map.lookup k preZoneCache)) keys_
->         prezones       :: [PreZone]      = mapMaybe (`Map.lookup` preZoneCache) keys
+>         preZones                         = if length iPreZones < 2
+>                                              then []
+>                                              else tail iPreZones
 >
 >         zs             :: [(ZoneHeader, ZoneDigest)]
->         zs                               = map (inspectZone . pzkwBag) keys
+>         zs                               = map inspectZone preZones
 >
 >         (zsStereo, zsMono)               = partition isStereoZone zs
 >         (zsOutbound, zsLocal)            = partition hasCross zsStereo
@@ -1400,11 +1511,15 @@ prepare the specified instruments and percussion ===============================
 >                   , Just $ catDisq DisqUnrecognized
 >                 ]
 >
->             catInst      :: InstCat        = InstCatInst prezones
+>             catInst      :: InstCat      =
+>               if length iPreZones < 2
+>                 then InstCatDisq DisqNoQualifiedZones
+>                 else InstCatInst iPreZones
 >             catPerc      :: [Word] → InstCat
->             catPerc ws                   = if null ws
->                                              then InstCatDisq DisqNarrow
->                                              else InstCatPerc prezones ws
+>             catPerc ws                   =
+>               if null ws
+>                 then InstCatDisq DisqNarrow
+>                 else InstCatPerc iPreZones ws
 >             catDisq    :: DisqReason → InstCat
 >             catDisq                      = InstCatDisq
 >
@@ -1414,14 +1529,14 @@ prepare the specified instruments and percussion ===============================
 >           where
 >             pinOut range                 = if pinnedKR (select rost') range then Just zhwBag else Nothing
 >
->         inspectZone    :: Word → (ZoneHeader, ZoneDigest)
->         inspectZone bagIndex
+>         inspectZone    :: PreZone → (ZoneHeader, ZoneDigest)
+>         inspectZone pz@PreZone{pzBagIndex}
 >           | traceNot trace_IZ False      = undefined
 >           | otherwise                    = (zh, zd)
 >           where
->             trace_IZ                     = unwords ["inspectZone", show bagIndex]
->             xgeni                        = F.genNdx $ ssIBags!bagIndex
->             ygeni                        = F.genNdx $ ssIBags!(bagIndex + 1)
+>             trace_IZ                     = unwords ["inspectZone", show pz, show zd]
+>             xgeni                        = F.genNdx $ ssIBags!pzBagIndex
+>             ygeni                        = F.genNdx $ ssIBags!(pzBagIndex + 1)
 >
 >             gens       :: [F.Generator]  = profess
 >                                              (xgeni <= ygeni)
@@ -1430,14 +1545,15 @@ prepare the specified instruments and percussion ===============================
 >
 >             zd                           = formDigest gens
 >             si                           = deJust "inspectZone si" (zdSampleIndex zd)
->             zh                           = ZoneHeader bagIndex (ssShdrs ! si)
+>             zh                           = ZoneHeader pzBagIndex (ssShdrs ! si)
 >
 > formZoneCache          :: Array Word SFFile
 >                           → Map PerGMKey PreInstrument
+>                           → Map PreZoneKey PreZone
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [(PerGMKey, InstCat)]
 >                           → IO (Map PerGMKey PerInstrument)
-> formZoneCache sffiles preInstCache rost jobs
+> formZoneCache sffiles preInstCache preZoneCache rost jobs
 >                                          =
 >   return $ foldr (\(p, i) → Map.insert p (computePerInst (p, i))) Map.empty jobs
 >
@@ -1445,16 +1561,23 @@ prepare the specified instruments and percussion ===============================
 >     computePerInst     :: (PerGMKey, InstCat) → PerInstrument
 >     computePerInst (pergm@PerGMKey{pgkwFile, pgkwInst}, icat)
 >       | traceIf trace_CPI False          = undefined
->       | otherwise                        = PerInstrument iinst (gList ++ oList) prezones smashup
+>       | otherwise                        = PerInstrument (gList ++ oList) {- (mapMaybe (`Map.lookup` preZoneCache)) -} smashup
 >       where
 >         sffile@SFFile{zFilename, zArrays}
 >                                          = sffiles ! pgkwFile
->         PreInstrument{iName}             = fromJust $ Map.lookup pergm preInstCache
+>         PreInstrument{pInst, iName}      = fromJust $ Map.lookup pergm preInstCache
 >         SoundFontArrays{ssInsts}         = zArrays
->         iinst                            = ssInsts ! pgkwInst
->         jinst                            = ssInsts ! (pgkwInst+1)
->         ibagi                            = F.instBagNdx iinst
->         jbagi                            = F.instBagNdx jinst
+>
+>         (pzs, oIx)                       = case icat of
+>                                              InstCatPerc pzs_ ws   → (pzs_, ws)
+>                                              InstCatInst pzs_      → (pzs_, tail allIx)
+>                                              _                     → error "only Inst and Perc are valid here"
+>         allIx                            = map pzBagIndex pzs
+>         gList                            = [buildZone sffile defZone (head allIx)]
+>         gZone                            = (snd . head)                                 gList
+>         oList                            = map (buildZone sffile gZone)                 oIx
+>
+>         trace_CPI                        = unwords ["computePerInst", show pgkwFile, iName]
 >
 >         smashup        :: Smashing Word
 >         smashup@Smashing{ .. }           = smashSubspaces "smashup" dims spaces
@@ -1465,25 +1588,10 @@ prepare the specified instruments and percussion ===============================
 >             spaces                       =
 >               map (\(ZoneHeader{ .. }, SFZone{ .. }) → (zhwBag, [integralize zKeyRange, integralize zVelRange])) oList
 >
->         (gIx, oIx_)                      =
->           profess
->             (ibagi <= jbagi)
->             (unwords["SoundFont file", show pgkwFile, zFilename, "corrupt (computePerInst)"])
->             (singleton ibagi, deriveRange (ibagi+1) jbagi)
->         (prezones, oIx)                  = case icat of
->                                              InstCatPerc pzs ws     → (pzs, ws)
->                                              InstCatInst pzs        → (pzs, oIx_)
->                                              _                     → error "only Inst and Perc are valid here"
->         gList                            = map (buildZone sffile defZone)               gIx
->         gZone                            = (snd . head)                                 gList
->         oList                            = map (buildZone sffile gZone)                 oIx
->
->         trace_CPI                        = unwords ["computePerInst", show pgkwFile, zFilename, iName]
->
 > buildZone              :: SFFile → SFZone → Word → (ZoneHeader, SFZone)
 > buildZone SFFile{zArrays, zFilename, zWordF} fromZone bagIndex
 >   | traceIf trace_BZ False               = undefined
->   | otherwise                            = (zh, z)
+>   | otherwise                            = (zh, zone)
 >   where
 >     SoundFontArrays{ssIBags, ssIGens, ssIMods, ssShdrs}
 >                                          = zArrays
@@ -1504,11 +1612,11 @@ prepare the specified instruments and percussion ===============================
 >         (unwords["SoundFont file", show zWordF, zFilename, "corrupt (buildZone mods)"])
 >         (zip [10_000..] (map (ssIMods !) (deriveRange xmodi ymodi)))
 >
->     z@SFZone{zSampleIndex}               = foldr addMod (foldl' addGen fromZone gens) mods
+>     zone@SFZone{zSampleIndex}            = foldr addMod (foldl' addGen fromZone gens) mods
 >     sh@F.Shdr{sampleName}                = ssShdrs ! fromMaybe 0 zSampleIndex
 >     zh                                   = ZoneHeader bagIndex sh
 >
->     trace_BZ                             = unwords ["buildZone", sampleName, show zWordF, show bagIndex, show (fromZone == defZone)]
+>     trace_BZ                             = unwords ["buildZone", show zWordF, show bagIndex, show (fromZone == defZone)]
 >
 
 define signal functions and instrument maps to support rendering ======================================================
@@ -1555,8 +1663,8 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Volume
 >                           → [Double]
 >                           → Signal p () (Double, Double)
-> instrumentSF sfrost@SFRoster{zFiles, zZoneCache} pergm@PerGMKey{pgkwFile, pgkwInst} dur pchIn volIn params
->   | traceIf trace_ISF False              = undefined
+> instrumentSF sfrost@SFRoster{zFiles, zPreInstCache, zZoneCache} pergm@PerGMKey{pgkwFile, pgkwInst} dur pchIn volIn params
+>   | traceNot trace_ISF False             = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
@@ -1568,8 +1676,8 @@ define signal functions and instrument maps to support rendering ===============
 >     pchOut              :: AbsPitch      = maybe noteOnKey (clip (0, 127)) rForceKey
 >     volOut              :: Volume        = maybe noteOnVel (clip (0, 127)) rForceVel
 >
->     PerInstrument{pPreZones, pZones, pSmashing}
->                                          = deJust "instrumentSF" (Map.lookup pergm zZoneCache)
+>     PreInstrument{iPreZones}             = deJust "instrumentSF1" (Map.lookup pergm zPreInstCache)
+>     PerInstrument{pZones, pSmashing}     = deJust "instrumentSF2" (Map.lookup pergm zZoneCache)
 >
 >     arrays                               = zArrays (zFiles ! pgkwFile)
 >     nameI                                = F.instName $ ssInsts arrays ! pgkwInst
@@ -1614,23 +1722,26 @@ zone selection for rendering ===================================================
 >
 > locateStereoPartner    :: SFRoster → PerGMKey → [(ZoneHeader, SFZone)]
 >                           → (ZoneHeader, SFZone) → Maybe (ZoneHeader, SFZone)
-> locateStereoPartner SFRoster{zPreZoneCache, zZoneCache} PerGMKey{pgkwFile} zs zone
->                                          =
+> locateStereoPartner SFRoster{zPreZoneCache, zZoneCache} PerGMKey{pgkwFile} zs z
+>   | traceIf trace_LSP False              = undefined
+>   | otherwise                            =
 >   case toSampleType (F.sampleType myShdr) of
 >     SampleTypeLeft                       → partner
 >     SampleTypeRight                      → partner
 >     _                                    → error $ unwords["locateStereoPartner", "attempted on non-stereo zone"]
 >   where
->     (ZoneHeader{zhShdr = myShdr}, _)     = zone
+>     trace_LSP                            = unwords ["locateStereoPartner", show (isJust partner)]
+>
+>     (ZoneHeader{zhShdr = myShdr}, _)     = z
 >     targetSampleIx                       = F.sampleLink myShdr
 >     partner                              = zfindBySampleIndex zs targetSampleIx `CM.mplus` hardWay
 >
 >     hardWay                              =
->       accessPreZone pgkwFile zone
+>       accessPreZone pgkwFile z
 >       >>= (`Map.lookup` zPreZoneCache)
 >       >>= pzmkPartner
 >       >>= (`Map.lookup` zPreZoneCache)
->       >>= (Just . pzInst)
+>       >>= (Just . pzPergm)
 >       >>= (`Map.lookup` zZoneCache)
 >       >>= Just . pZones
 >       >>= (`zfindBySampleIndex` targetSampleIx)
@@ -1652,12 +1763,12 @@ reconcile zone and sample header ===============================================
 >     trace_RLR                            = unwords ["reconLR:\n", show zoneL, "\n", show shdrL]
 >
 > recon                  :: SFZone → F.Shdr → NoteOn → Recon 
-> recon z@SFZone{ .. } sHdr@F.Shdr{ .. } noon@NoteOn{ .. }
->                                          = recon
+> recon zone@SFZone{ .. } sHdr@F.Shdr{ .. } noon@NoteOn{ .. }
+>                                          = reconL
 >   where
->     m8n                                  = reconModulation z sHdr noon
+>     m8n                                  = reconModulation zone sHdr noon
 >
->     recon = Recon {
+>     reconL = Recon {
 >     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
 >   , rSampleRate      = fromIntegral          sampleRate
 >   , rStart           = addIntToWord          start                  (sumOfMaybeInts
@@ -1698,7 +1809,7 @@ reconcile zone and sample header ===============================================
 >
 >     reconPitchCorrection
 >                        :: Int → Maybe Int → Maybe Int → Double
->     reconPitchCorrection alt mps mpc     = fromMaybe ((fromCents . fromIntegral) alt) (fromCents' mps mpc)
+>     reconPitchCorrection sub mps mpc     = fromMaybe ((fromCents . fromIntegral) sub) (fromCents' mps mpc)
 >
 >     reconAttenuation   :: Maybe Int → Double
 >     reconAttenuation matten              = if useAttenuation
@@ -1706,7 +1817,7 @@ reconcile zone and sample header ===============================================
 >                                              else 0.0
 >
 > reconModulation        :: SFZone → F.Shdr → NoteOn → Modulation
-> reconModulation sfz@SFZone{ .. } F.Shdr{sampleName} noon
+> reconModulation SFZone{ .. } F.Shdr{sampleName} noon
 >   | traceIf trace_RM False               = undefined
 >   | otherwise                            = resolveMods m8n zModulators defaultMods
 >   where
@@ -1742,7 +1853,8 @@ reconcile zone and sample header ===============================================
 >                                              zSustainModEnv
 >                                              zReleaseModEnv
 >                                              (Just (zModEnvToPitch, zModEnvToFc))
->     nModLfo            :: Maybe LFO      =
+>     nModLfo, nVibLfo   :: Maybe LFO
+>     nModLfo                              =
 >       deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc zModLfoToVol
 >     nVibLfo            :: Maybe LFO      =
 >       deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
@@ -1761,34 +1873,34 @@ emit standard output text detailing what choices we made for rendering GM items 
 >                           → [(InstrumentName, [String])]
 >                           → [PercussionSound]
 >                           → ([(Bool, [Emission])], [(Bool, [Emission])])
-> printChoices SFRoster{ .. } is msgs ps   = (map (showI zWinningRecord) is, map (showP zWinningRecord) ps)
+> printChoices SFRoster{zWinningRecord} is msgs ps
+>                                          = (map (showI zWinningRecord) is, map (showP zWinningRecord) ps)
 >   where
 >     showI              :: WinningRecord → InstrumentName → (Bool, [Emission])
->     showI WinningRecord{ .. } kind       = result
+>     showI WinningRecord{pWinningI} kind
+>       | isJust mpergm                    = (True, true kind mpergm ++ emitMsgs kind msgs)
+>       | kind == Percussion               = (True, [Blanks 3, gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
+>       | otherwise                        = (False, false kind)
 >       where
 >         mpergm                           = Map.lookup kind pWinningI
->         result
->           | isJust mpergm                = (True, [Blanks 3, gmId kind, Unblocked " -> "] 
->                                                    ++ showPerGM (fromJust mpergm)
->                                                    ++ [EndOfLine]
->                                                    ++ emitMsgs kind msgs)
->           | kind == Percussion           = (True, [Blanks 3, gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
->           | otherwise                    = (False, [Blanks 3, gmId kind, Unblocked " not found", EndOfLine])
 >
 >     showP               :: WinningRecord → PercussionSound → (Bool, [Emission])
->     showP WinningRecord{ .. } kind       = result
+>     showP WinningRecord{pWinningP} kind
+>       | isJust mpergm                    = (True, true kind mpergm)
+>       | otherwise                        = (False, false kind)
 >       where
 >         mpergm                           = Map.lookup kind pWinningP
->         result
->           | isJust mpergm                = (True, [Blanks 3, gmId kind, Unblocked " -> "]
->                                                    ++ showPerGM (fromJust mpergm)
->                                                    ++ [EndOfLine])
->           | otherwise                    = (False, [Blanks 3, gmId kind, Unblocked " not found", EndOfLine])
+>
+>     true kind mpergm                     =
+>       [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM (fromJust mpergm) ++ [EndOfLine]
+>     false kind                           =
+>       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
 >
 >     showPerGM          :: PerGMScored → [Emission]
->     showPerGM PerGMScored{ .. }          = [emitShowL pgkwFile 4] ++ [ToFieldL szI 22] ++ showmZ
+>     showPerGM PerGMScored{szI, mszP, pPerGMKey}
+>                                          = [emitShowL pgkwFile 4] ++ [ToFieldL szI 22] ++ showmZ
 >       where
->         PerGMKey{ .. }                   = pPerGMKey
+>         PerGMKey{pgkwFile}               = pPerGMKey
 >         showmZ                           = maybe [] showZ mszP
 >         showZ name                       = [Unblocked name]
 >
@@ -1838,10 +1950,9 @@ emit standard output text detailing what choices we made for rendering GM items 
 >                             , emitShowR      showAkr                   8]
 >
 > showDisqMsgs   :: [String] → IO ()
-> showDisqMsgs ms                = do
->   mapM_ showIfThere ms
+> showDisqMsgs                             = mapM_ showIfThere
 >   where
->     showIfThere str                  = CM.unless (null str) (putStrLn str)
+>     showIfThere str                      = CM.unless (null str) (putStrLn str)
 >
 > data DisqReason                          =
 >     DisqUnrecognized
