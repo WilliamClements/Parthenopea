@@ -331,12 +331,9 @@ Each driver specifies an xform composed of functions from Double to Double
 > freakyResponse KernelData{ .. } shapes xIn_
 >                                          = mkPolar mag phase
 >   where
->     phase                                = if xIn_ <= kdNyq
->                                              then 3*pi/2
->                                              else pi/2
->     xIn                                  = if xIn_ <= kdNyq
->                                              then xIn_
->                                              else kdNyq - xIn_
+>     (phase, xIn)                         = if xIn_ <= kdNyq
+>                                              then (3*pi/2, xIn_)
+>                                              else (pi/2, kdNyq - xIn)
 >
 >     fritems                              = foldl' doShape [] shapes
 >     fritems'                             = dropWhile past fritems

@@ -839,7 +839,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >     capturePreZones    :: [(PreZoneKey, PreZone)]
 >     capturePreZones
->       | traceIf trace_CPZ False          = undefined
+>       | traceNever trace_CPZ False       = undefined
 >       | otherwise                        =
 >       if null pzkO
 >         then []
@@ -850,16 +850,15 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         ibagi                            = F.instBagNdx iinst
 >         jbagi                            = F.instBagNdx jinst
 >
->         pzkG           :: [(PreZoneKey, PreZone)]
+>         pzkG, pzkO     :: [(PreZoneKey, PreZone)]
 >         pzkG                             =
 >           mapMaybe (producePreZone ZRGlobal) (deriveRange ibagi (ibagi + 1))
->         pzkO           :: [(PreZoneKey, PreZone)]
 >         pzkO                             =
 >           mapMaybe (producePreZone ZRNonGlobal) (deriveRange (ibagi + 1) jbagi)
 >
 >     producePreZone     :: ZoneRole → Word → Maybe (PreZoneKey, PreZone)
 >     producePreZone zrole bagIndex
->       | traceIf trace_PPZ False          = undefined
+>       | traceNever trace_PPZ False       = undefined
 >       | otherwise                        = mpres >> makePreZone zrole presk bagIndex zd 
 >       where
 >         trace_PPZ                        = unwords ["producePreZone", show bagIndex]
@@ -1181,9 +1180,9 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     xEnd             = addIntToWord          end                    (sumOfMaybeInts [zEndOffs, zEndCoarseOffs])
 >
 > sampleLimitsOk         :: (Word, Word) → Bool
-> sampleLimitsOk (st, en)                  = st >= 0 && en - st >= fst sampleMinima && en - st < 2^22
+> sampleLimitsOk (st, en)                  = st >= 0 && en - st >= fst sampleLimits && en - st < 2^22
 > sampleLoopLimitsOk     :: (Word, Word) → Bool
-> sampleLoopLimitsOk (st, en)              = st >= 0 && en - st >= snd sampleMinima && en - st < 2^22
+> sampleLoopLimitsOk (st, en)              = st >= 0 && en - st >= snd sampleLimits && en - st < 2^22
 
 Note that harsher consequences of unacceptable sample header are enforced earlier. Logically, that would be
 sufficient to protect below code from bad data and document the situation. But ... mechanism such as putting
@@ -1353,7 +1352,7 @@ prepare the specified instruments and percussion ===============================
 >         trace_CI                         =
 >           unwords ["categorizeInst", show pgkwFile, iName, show pgkwInst, show (length zs)]
 >  
->         SoundFontArrays{ssInsts, ssIBags, ssIGens, ssShdrs}
+>         SoundFontArrays{ssIBags, ssIGens, ssShdrs}
 >                                          = zArrays (sffiles ! pgkwFile)
 >
 >         PreInstrument{iName, iMatches, iPreZones}
@@ -1565,8 +1564,7 @@ prepare the specified instruments and percussion ===============================
 >       where
 >         sffile@SFFile{zFilename, zArrays}
 >                                          = sffiles ! pgkwFile
->         PreInstrument{pInst, iName}      = fromJust $ Map.lookup pergm preInstCache
->         SoundFontArrays{ssInsts}         = zArrays
+>         PreInstrument{pInst, iName}      = deJust "computePerInst PreInstrument" (Map.lookup pergm preInstCache)
 >
 >         (pzs, oIx)                       = case icat of
 >                                              InstCatPerc pzs_ ws   → (pzs_, ws)
@@ -1664,7 +1662,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF sfrost@SFRoster{zFiles, zPreInstCache, zZoneCache} pergm@PerGMKey{pgkwFile, pgkwInst} dur pchIn volIn params
->   | traceNot trace_ISF False             = undefined
+>   | traceNow trace_ISF False             = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) rSampleRate
 >                                              dur pchOut volOut params
 >                                              (ssData arrays) (ssM24 arrays)
@@ -1676,14 +1674,13 @@ define signal functions and instrument maps to support rendering ===============
 >     pchOut              :: AbsPitch      = maybe noteOnKey (clip (0, 127)) rForceKey
 >     volOut              :: Volume        = maybe noteOnVel (clip (0, 127)) rForceVel
 >
->     PreInstrument{iPreZones}             = deJust "instrumentSF1" (Map.lookup pergm zPreInstCache)
+>     arrays                               = zArrays (zFiles ! pgkwFile)
+>
+>     PreInstrument{iPreZones, pInst}      = deJust "instrumentSF1" (Map.lookup pergm zPreInstCache)
 >     PerInstrument{pZones, pSmashing}     = deJust "instrumentSF2" (Map.lookup pergm zZoneCache)
 >
->     arrays                               = zArrays (zFiles ! pgkwFile)
->     nameI                                = F.instName $ ssInsts arrays ! pgkwInst
->
 >     trace_ISF                            =
->       unwords ["instrumentSF", show pgkwFile, nameI, show (pchIn, volIn), show dur]
+>       unwords ["instrumentSF", show pgkwFile, F.instName pInst, show (pchIn, volIn), show dur]
 >
 >     (reconX@Recon{rSampleRate, rForceKey, rForceVel}, mreconX)
 >                                          =

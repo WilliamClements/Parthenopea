@@ -506,6 +506,7 @@ Flags for customization ========================================================
 >   , qqNarrowInstrumentScope              :: Bool
 >   , qqConRatio                           :: Double
 >   , qqSampleLimits                       :: (Word, Word)
+>   , qqInferStereo                        :: Bool
 >
 >   , qqFFThresholdPossible                :: Double
 >   , qqFFThresholdStands                  :: Double
@@ -524,7 +525,8 @@ Flags for customization ========================================================
 >
 > narrowInstrumentScope                    = qqNarrowInstrumentScope      defT
 > conRatio                                 = qqConRatio                   defT
-> sampleMinima                             = qqSampleLimits               defT
+> sampleLimits                             = qqSampleLimits               defT
+> inferStereo                              = qqInferStereo                defT
 >
 > isPossible' fuzz                         = fuzz > qqFFThresholdPossible defT
 > stands' fuzz                             = fuzz > qqFFThresholdStands defT
@@ -572,7 +574,8 @@ Edit the following =============================================================
 >
 >   , qqNarrowInstrumentScope              = True
 >   , qqConRatio                           = 3/4
->   , qqSampleLimits                       = (48, 32) -- minimum size from start to end, startLoop to endLoop
+>   , qqSampleLimits                       = (48, 1) -- minimum size from start to end, startLoop to endLoop
+>   , qqInferStereo                        = True
 >
 >   , qqFFThresholdPossible                = 50
 >   , qqFFThresholdStands                  = 150
