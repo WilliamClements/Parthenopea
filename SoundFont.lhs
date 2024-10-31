@@ -94,16 +94,16 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , pzkwBag            :: Word} deriving (Eq, Ord, Show)
 > nilPreZoneKey                            = PreZoneKey 0 0
 >
-> data ZoneRole                            = ZRGlobal | ZRNonGlobal deriving Show
+> data ZoneRole                            = ZRGlobal | ZRNonGlobal deriving (Eq, Show)
 >
 > data PreZone =
 >   PreZone {
 >     pzRole             :: ZoneRole
->   , pzPresk            :: PreSampleKey
+>   , pzShdr             :: Maybe F.Shdr
 >   , pzPergm            :: PerGMKey
 >   , pzBagIndex         :: Word
 >   , pzDigest           :: Maybe ZoneDigest
->   , pzmkPartner        :: Maybe PreZoneKey} deriving Show
+>   , pzmkPartner        :: Maybe PreZoneKey} deriving (Eq, Show)
 >
 > data PreInstrument =
 >   PreInstrument {
@@ -211,7 +211,7 @@ Instrument categories: instrument, percussion, disqualified
 >   ZoneDigest {
 >     zdKeyRange         :: Maybe (Word, Word)
 >   , zdVelRange         :: Maybe (Word, Word)
->   , zdSampleIndex      :: Maybe Word} deriving Show
+>   , zdSampleIndex      :: Maybe Word} deriving (Eq, Show)
 > defDigest              :: ZoneDigest
 > defDigest                                = ZoneDigest Nothing Nothing Nothing
 > formDigest             :: [F.Generator] → ZoneDigest
@@ -859,7 +859,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     producePreZone     :: ZoneRole → Word → Maybe (PreZoneKey, PreZone)
 >     producePreZone zrole bagIndex
 >       | traceNever trace_PPZ False       = undefined
->       | otherwise                        = mpres >> makePreZone zrole presk bagIndex zd 
+>       | otherwise                        = makePreZone zrole mshdr bagIndex zd
 >       where
 >         trace_PPZ                        = unwords ["producePreZone", show bagIndex]
 >
@@ -872,20 +872,18 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                                              (map (ssIGens !) (deriveRange xgeni ygeni))
 >
 >         zd@ZoneDigest{zdSampleIndex}     = formDigest gens
->         si                               = fromMaybe nilSampleIndex zdSampleIndex
->         nilSampleIndex                   = 0
->         presk                            = PreSampleKey zswFile si
->         mpres                            = Map.lookup presk zsPreSampleCache
+>         mshdr                            = zdSampleIndex >>= \x → Just (ssShdrs ! x)
+>         shdr                             = deJust "producerPreZone shdr" mshdr
 >         
->     makePreZone        :: ZoneRole → PreSampleKey → Word → ZoneDigest → Maybe (PreZoneKey, PreZone)
->     makePreZone zrole presk bagIndex zd
+>     makePreZone        :: ZoneRole → Maybe F.Shdr → Word → ZoneDigest → Maybe (PreZoneKey, PreZone)
+>     makePreZone zrole mshdr bagIndex zd
 >       | traceNot trace_MPZ False         = undefined
 >       | otherwise                        = Just (pzk, pz)
 >       where
 >         trace_MPZ                        = unwords ["makePreZone", show zrole, show pergm, show bagIndex]
 >
 >         pzk                              = PreZoneKey zswFile bagIndex
->         pz                               = PreZone zrole presk pergm bagIndex (Just zd) Nothing
+>         pz                               = PreZone zrole mshdr pergm bagIndex (Just zd) Nothing
 > 
 > formPreZoneCache       :: Array Word SFFile
 >                           → Map PreSampleKey PreSample → Map PerGMKey PreInstrument
