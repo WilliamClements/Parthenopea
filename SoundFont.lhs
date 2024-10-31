@@ -617,8 +617,8 @@ later items, some critical data may thereby be missing. So that entails deletion
 >     wiFolder           :: (Map InstrumentName [PerGMScored], [String])
 >                           → PerGMKey
 >                           → (Map InstrumentName [PerGMScored], [String])
->     wiFolder accum pergmI@PerGMKey{pgkwFile}
->                                          = foldl' (xaEnterTournament fuzzMap pergmI []) accum as'
+>     wiFolder target pergmI@PerGMKey{pgkwFile}
+>                                          = foldl' (xaEnterTournament fuzzMap pergmI []) target as'
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
 >         PreInstrument{iName, iMatches}   =
@@ -774,14 +774,14 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         SoundFontArrays{ssShdrs}         = zArrays
 >
 >     preSFolder :: (Map PreSampleKey PreSample, [String]) → PreSampleKey → (Map PreSampleKey PreSample, [String])
->     preSFolder (accum, errs) presk@PreSampleKey{pskwFile, pskwSample}
+>     preSFolder (target, errs) presk@PreSampleKey{pskwFile, pskwSample}
 >                                          =
 >       let
 >         (mpres, err)                     = (computePreSample . loadShdr) presk
 >       in
 >         case mpres of
->           Just pres                      → (Map.insert presk pres accum, errs)
->           Nothing                        → (accum, err : errs)
+>           Just pres                      → (Map.insert presk pres target, errs)
+>           Nothing                        → (target, err : errs)
 >
 > finishPreSampleCache    :: Array Word SFFile
 >                            → Map PreSampleKey PreSample
@@ -793,12 +793,12 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     combine            :: (Map PreSampleKey PreSample, [String])
 >                           → Either (PreSampleKey, PreSample) String
 >                           → (Map PreSampleKey PreSample, [String])
->     combine (accum, errs) eith           = (accum', errs')
+>     combine (target, errs) eith         = (target', errs')
 >       where
->         (accum', errs')                  =
+>         (target', errs')                  =
 >           case eith of
->             Left (presk, val)            → (Map.insert presk val accum, errs)
->             Right err                    → (accum, err : errs)
+>             Left (presk, val)            → (Map.insert presk val target, errs)
+>             Right err                    → (target, err : errs)
 >
 >     qualify            :: PreSampleKey → PreSample → Either (PreSampleKey, PreSample) String
 >     qualify key@PreSampleKey{pskwFile, pskwSample} val
@@ -1326,9 +1326,9 @@ prepare the specified instruments and percussion ===============================
 >                                          = CM.foldM winnow [] (Map.keys preInstCache)
 >   where
 >     winnow             :: [(PerGMKey, InstCat)] → PerGMKey → IO [(PerGMKey, InstCat)]
->     winnow accum pergm@PerGMKey{}        = do
+>     winnow target pergm@PerGMKey{}       = do
 >       CM.when (isJust doShow) (putStrLn $ fromMaybe [] doShow)
->       return $ accum ++ news
+>       return $ target ++ news
 >       where
 >         (cat, doShow)                    = categorizeInst pergm
 >         news                             =
@@ -1391,30 +1391,30 @@ prepare the specified instruments and percussion ===============================
 >           where
 >             uniquer    :: Map a a
 >             uniquer                      =
->               foldl' (\accum (f, t) → Map.insert f t accum) Map.empty pairs
+>               foldl' (\target (f, t) → Map.insert f t target) Map.empty pairs
 >
 >             closed                       = all (\x → isJust (Map.lookup x uniquer)) uniquer
 >             allPaired                    = all (paired uniquer) uniquer
 >
 >         paired         :: ∀ a . (Eq a, Ord a, Show a) ⇒ Map a a → a → Bool
->         paired accum x                   = x == z
+>         paired target x                  = x == z
 >           where
->             y                            = accum Map.! x
->             z                            = accum Map.! y
+>             y                            = target Map.! x
+>             z                            = target Map.! y
 >
 >         corrupt        :: Maybe InstCat
 >         corrupt                          =
 >           foldl' byZone Nothing zs
 >           where
 >             byZone     :: Maybe InstCat → (ZoneHeader, ZoneDigest) → Maybe InstCat
->             byZone accum (ZoneHeader{zhShdr}, ZoneDigest{zdKeyRange, zdVelRange})
+>             byZone target (ZoneHeader{zhShdr}, ZoneDigest{zdKeyRange, zdVelRange})
 >                                          =
 >               let
 >                 F.Shdr{sampleName}       = zhShdr
 >               in
 >                 foldl'
 >                   CM.mplus
->                   accum
+>                   target
 >                   [checkGMRange zdKeyRange, checkGMRange zdVelRange]
 >
 >         checkGMRange   :: (Num a, Ord a) ⇒ Maybe (a, a) → Maybe InstCat
@@ -1628,11 +1628,11 @@ define signal functions and instrument maps to support rendering ===============
 >     imap                                 = Map.foldrWithKey imapFolder [] pWinningI
 >     pmap                                 = Map.foldrWithKey pmapFolder [] pWinningP
 >
->     imapFolder kind PerGMScored{pPerGMKey} accum
->                                          = (kind, assignInstrument pPerGMKey)                    : accum
+>     imapFolder kind PerGMScored{pPerGMKey} target
+>                                          = (kind, assignInstrument pPerGMKey)                    : target
 >
->     pmapFolder kind PerGMScored{pPerGMKey} accum
->                                          = (kind, (pgkwFile pPerGMKey, pgkwInst pPerGMKey))      : accum
+>     pmapFolder kind PerGMScored{pPerGMKey} target
+>                                          = (kind, (pgkwFile pPerGMKey, pgkwInst pPerGMKey))      : target
 >
 >     assignInstrument   :: ∀ p . Clock p ⇒ PerGMKey → Instr (Stereo p)
 >     assignInstrument pergm dur pch vol params
