@@ -433,7 +433,7 @@ executive ======================================================================
 >
 >       zc               ← formZoneCache zFiles preInstCache preZoneCache zRost jobs
 >       (pergmsI, pergmsP)
->                        ← sortByCategory zc jobs
+>                        ← sortByCategory preInstCache jobs
 >       CM.when diagnosticsEnabled
 >         (do
 >           print "pergmsI"
@@ -446,7 +446,7 @@ executive ======================================================================
 >
 >       -- actually conduct the tournament
 >       ((wI, sI), (wP, sP))
->                        ← decideWinners zFiles preInstCache preSampleCache zc zRost pergmsI pergmsP
+>                        ← decideWinners zFiles preSampleCache preInstCache preZoneCache zc zRost pergmsI pergmsP
 >       tsDecided        ← getCurrentTime
 >       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsZoned))
 >
@@ -591,15 +591,16 @@ later items, some critical data may thereby be missing. So that entails deletion
 >     doF nth sffile                       = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
 >         
 > decideWinners          :: Array Word SFFile
->                           → Map PerGMKey PreInstrument
 >                           → Map PreSampleKey PreSample
+>                           → Map PerGMKey PreInstrument
+>                           → Map PreZoneKey PreZone
 >                           → Map PerGMKey PerInstrument
 >                           → ([InstrumentName], [PercussionSound]) 
 >                           → [PerGMKey]
 >                           → [PerGMKey]
 >                           → IO ((Map InstrumentName [PerGMScored], [String])
 >                               , (Map PercussionSound [PerGMScored], [String]))
-> decideWinners sffiles preInstCache preSampleCache zc rost pergmsI pergmsP
+> decideWinners sffiles preSampleCache preInstCache preZoneCache zc rost pergmsI pergmsP
 >                                          = do
 >   return wiExec
 >
@@ -1040,28 +1041,28 @@ tournament among GM instruments and percussion from SoundFont files ============
 >       in
 >         mapMaybe qualifyInst rangeI
 >
-> sortByCategory         :: Map PerGMKey PerInstrument
+> sortByCategory         :: Map PerGMKey PreInstrument
 >                           → [(PerGMKey, InstCat)]
 >                           → IO ([PerGMKey], [PerGMKey])
-> sortByCategory zc jobs                   = return $ foldl' pfolder ([], []) jobs
+> sortByCategory preInstCache jobs         = return $ foldl' pfolder ([], []) jobs
 >   where
 >     pfolder            :: ([PerGMKey], [PerGMKey]) → (PerGMKey, InstCat) → ([PerGMKey], [PerGMKey])
 >     pfolder (pergmsI, pergmsP) (pergmI, icat)
 >                                          =
 >       let
 >         pergmI'                          = pergmI{pgkwBag = Nothing}
->         perI                             = deJust "perI" (Map.lookup pergmI' zc)
->         pergmsP'                         = instrumentPercList pergmI perI
+>         preI                             = deJust "perI" (Map.lookup pergmI' preInstCache)
+>         pergmsP'                         = instrumentPercList pergmI preI
 >       in
 >         case icat of
 >           InstCatPerc _ _                → (pergmsI, pergmsP ++ pergmsP')
 >           InstCatInst _                  → (pergmI : pergmsI, pergmsP)
 >           _                              → error $ unwords ["sortByCategory", "illegal input", show icat]
 >
->     instrumentPercList :: PerGMKey → PerInstrument → [PerGMKey]
->     instrumentPercList pergmI PerInstrument{pZones}
+>     instrumentPercList :: PerGMKey → PreInstrument → [PerGMKey]
+>     instrumentPercList pergmI PreInstrument{iPreZones}
 >                                          =
->        map ((\w → pergmI {pgkwBag = Just w}) . zhwBag . fst)  (tail pZones)
+>        map ((\w → pergmI {pgkwBag = Just w}) . pzBagIndex)  (tail iPreZones)
 >
 > openSoundFontFile      :: Word → FilePath → IO SFFile
 > openSoundFontFile wFile filename = do
@@ -1683,8 +1684,8 @@ define signal functions and instrument maps to support rendering ===============
 >     (reconX@Recon{rSampleRate, rForceKey, rForceVel}, mreconX)
 >                                          =
 >       case setZone of
->         Left (zL, sL)                    → (recon zL sL noon, Nothing)
->         Right ((zL, sL), (zR, sR))       → reconLR ((zL, sL), (zR, sR)) noon
+>         Left zplus                       → (recon zplus noon, Nothing)
+>         Right zsPlus                     → reconLR zsPlus noon
 
 zone selection for rendering ==========================================================================================
 
@@ -1749,16 +1750,16 @@ reconcile zone and sample header ===============================================
 >   | otherwise                            = (recL, Just recR')
 >   where
 >     recL@Recon{rRootKey = rkL, rPitchCorrection = pcL}
->                                          = recon zoneL shdrL noon
->     recR                                 = recon zoneR shdrR noon
+>                                          = recon (zoneL, shdrL) noon
+>     recR                                 = recon (zoneR, shdrR) noon
 >     recR'                                = recR{
 >                                                rRootKey                   = rkL
 >                                              , rPitchCorrection           = pcL}
 >
 >     trace_RLR                            = unwords ["reconLR:\n", show zoneL, "\n", show shdrL]
 >
-> recon                  :: SFZone → F.Shdr → NoteOn → Recon 
-> recon zone@SFZone{ .. } sHdr@F.Shdr{ .. } noon@NoteOn{ .. }
+> recon                  :: (SFZone, F.Shdr) → NoteOn → Recon 
+> recon (zone@SFZone{ .. }, sHdr@F.Shdr{ .. }) noon@NoteOn{ .. }
 >                                          = reconL
 >   where
 >     m8n                                  = reconModulation zone sHdr noon
