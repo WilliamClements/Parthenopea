@@ -1014,7 +1014,9 @@ You see there is some overlap between Zone 1 and Zone 2.
 
 > smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
 >                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
-> smashSubspaces tag dims spaces_          = Smashing tag dims (developSmashStats svector) svector
+> smashSubspaces tag dims spaces_
+>   | traceIf trace_SS False               = undefined
+>   | otherwise                            = Smashing tag dims (developSmashStats svector) svector
 >   where
 >     spaces             :: [(i, [(i, i)])]
 >     spaces                               = map (BF.second (zipWith (\dim → fromMaybe (0, dim-1)) dims)) spaces_
@@ -1043,6 +1045,8 @@ You see there is some overlap between Zone 1 and Zone 2.
 >         indices        :: [Int]
 >         indices                          =
 >           map (fromIntegral . computeCellIndex dims) (traverse walkRange rngs)
+>
+>     trace_SS                             = unwords ["smashSubspaces", show (length spaces_)]
 >
 > inZRange d x                             = inRange (0, x - 1) d 
 >

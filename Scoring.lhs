@@ -467,7 +467,7 @@ Utilities ======================================================================
 > grader rs                                = Grader (map fromRational rs)
 > gradeEmpiricals        :: Grader → [Double] → ArtifactGrade
 > gradeEmpiricals Grader{gorWeights, gorScalar} emps
->   | traceIf trace_GE False               = undefined
+>   | traceNot trace_GE False              = undefined
 >   | otherwise                            = ArtifactGrade (consume (gorScalar * lincombo)) emps
 >   where
 >     trace_GE                             =
@@ -507,6 +507,7 @@ Flags for customization ========================================================
 >   , qqConRatio                           :: Double
 >   , qqSampleLimits                       :: (Word, Word)
 >   , qqInferStereo                        :: Bool
+>   , qqRequiredZoneLinkage                :: Rational
 >
 >   , qqFFThresholdPossible                :: Double
 >   , qqFFThresholdStands                  :: Double
@@ -527,6 +528,7 @@ Flags for customization ========================================================
 > conRatio                                 = qqConRatio                   defT
 > sampleLimits                             = qqSampleLimits               defT
 > inferStereo                              = qqInferStereo                defT
+> requiredZoneLinkage                      = qqRequiredZoneLinkage        defT
 >
 > isPossible' fuzz                         = fuzz > qqFFThresholdPossible defT
 > stands' fuzz                             = fuzz > qqFFThresholdStands defT
@@ -574,8 +576,9 @@ Edit the following =============================================================
 >
 >   , qqNarrowInstrumentScope              = True
 >   , qqConRatio                           = 3/4
->   , qqSampleLimits                       = (48, 1) -- minimum size from start to end, startLoop to endLoop
+>   , qqSampleLimits                       = (48, 0) -- minimum size from start to end, startLoop to endLoop -- WOX
 >   , qqInferStereo                        = True
+>   , qqRequiredZoneLinkage                = 0 -- WOX
 >
 >   , qqFFThresholdPossible                = 50
 >   , qqFFThresholdStands                  = 150

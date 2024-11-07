@@ -23,7 +23,7 @@ November 6, 2023
 > import Data.List ( foldl', iterate', find )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
-> import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
+> import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing )
 > import Discrete
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns

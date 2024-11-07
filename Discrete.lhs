@@ -23,7 +23,7 @@ June 17, 2024
 > import Data.Complex
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List ( foldl', iterate', find )
-> import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing, mapMaybe )
+> import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing )
 > import Data.MemoTrie
 > import qualified Data.Vector.Unboxed     as VU
 > import qualified Data.Vector             as VB
