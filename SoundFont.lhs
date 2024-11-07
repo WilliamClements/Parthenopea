@@ -728,12 +728,13 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         computeGrade   :: [(PreZone, (ZoneHeader, SFZone))] → AgainstKindResult → ArtifactGrade
 >         computeGrade ds akResult        = gradeEmpiricals theGrader empiricals
 >           where
->             pzs                          = map fst ds
+>             pzs                          = map fst ds -- WOX
+>             zhzs                         = map snd ds -- WOX
 >             empiricals :: [Double]       = [   foldHints hints
 >                                              , fromRational $ scoreBool $ isStereoInst pzs
 >                                              , fromRational $ scoreBool $ is24BitInst pzs
 >                                              , computeResolution kind rost ds
->                                              , fromRational $ scoreBool True -- WOX $ all pzoneConforms zs
+>                                              , fromRational $ scoreBool $ all zoneConforms zhzs
 >                                              , fuzz]
 >             howgood                      = akResult - stands
 >             fuzz       :: Double
@@ -764,8 +765,8 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → IO (Map PreSampleKey PreSample, [String])
 > formPreSampleCache sffiles presks        = return $ foldl' preSFolder (Map.empty, []) presks
 >   where
->     computePreSample   :: F.Shdr → (Maybe PreSample, String)
->     computePreSample shdr@F.Shdr{ .. }
+>     computePreSample   :: Word → F.Shdr → (Maybe PreSample, String)
+>     computePreSample wF shdr@F.Shdr{ .. }
 >       | traceNot trace_FPSC False        = undefined
 >       | otherwise                        = 
 >       if goodName sampleName
@@ -775,14 +776,14 @@ tournament among GM instruments and percussion from SoundFont files ============
 >          && sampleLimitsOk (start, end)
 >          && sampleLoopLimitsOk (startLoop, endLoop)
 >         then (Just $ PreSample sampleName (computeFFMatches sampleName) Nothing, [])
->         else (Nothing, diagnose shdr)
+>         else (Nothing, diagnose wF shdr)
 >       where
 >         trace_FPSC                       = unwords ["computePreSample", sampleName]
 >
->     diagnose           :: F.Shdr → String
->     diagnose fshdr@F.Shdr{ .. } 
+>     diagnose           :: Word → F.Shdr → String
+>     diagnose wF fshdr@F.Shdr{ .. } 
 >                                          =
->       unwords ["formPreSampleCache", "problem", show (toMaybeSampleType sampleType), show fshdr]
+>       unwords ["formPreSampleCache", "problem", show wF, show (toMaybeSampleType sampleType), show fshdr]
 >
 >     loadShdr PreSampleKey{pskwSample, pskwFile}
 >                                          = ssShdrs ! pskwSample
@@ -794,7 +795,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >     preSFolder (target, errs) presk@PreSampleKey{pskwFile, pskwSample}
 >                                          =
 >       let
->         (mpres, err)                     = (computePreSample . loadShdr) presk
+>         (mpres, err)                     = (computePreSample pskwFile . loadShdr) presk
 >       in
 >         case mpres of
 >           Just pres                      → (Map.insert presk pres target, errs)
