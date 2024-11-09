@@ -384,7 +384,7 @@ also
 >       Violin                    → Just (( G, 3), ( A, 7))
 >       Viola                     → Just (( C, 3), ( E, 6))
 >       Cello                     → Just (( C, 2), ( C, 6))
->       Contrabass                → Just (( E, 1), ( G, 4)) -- alias Doublebass
+>       Contrabass                → Just (( C, 1), (Cs, 2))
 >       StringEnsemble1           → Just
 >                                    $ unionRanges
 >                                    $ map (fromJust . instrumentRange)
@@ -950,7 +950,7 @@ Conversion functions and general helpers =======================================
 > roundBy                :: Double → Double → Double
 > roundBy p10 x                            = fromIntegral (round (p10 * x)) / p10
 >
-> sumOfMaybeInts         :: [Maybe Int] → Int
+> sumOfMaybeInts         :: ∀ a. Num a ⇒ [Maybe a] → a
 > sumOfMaybeInts                           = sum . map (fromMaybe 0)
 >       
 > addIntToWord           :: Word → Int → Word
