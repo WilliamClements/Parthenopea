@@ -774,7 +774,7 @@ Way Pos' T' Purple =============================================================
 > wayposTempo                              = 1
 > wayposTranspose                          = 0
 >
-> wayposLead_                              = makePitched    HonkyTonkPiano wayposTranspose 0 100
+> wayposLead_                              = makePitched    Clarinet       wayposTranspose 0 100
 > wayposStrum_                             = makePitched    OrchestralHarp wayposTranspose 0 100
 > wayposBass_                              = makePitched    Bassoon        wayposTranspose 0  50
 > wayposPerc_                              = makeNonPitched                                  100

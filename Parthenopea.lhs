@@ -1000,9 +1000,9 @@ Note result is incorrect overall when involves multiple root pitches
 
 Range theory ==========================================================================================================
 
-Find unwanted (sub-)space overlaps. Each space (of nspaces) contains exactly ndims (2 in the MIDI case) ranges. If
-dim is the value of a dimension then its overall range is 0..dim-1 -- the associated _specified_ space range carves
-out a subset thereof.
+Model rectilinear sub-space coverage; e.g. find unwanted (sub-)space overlaps. Each space (of nspaces) contains
+exactly ndims (2 in the MIDI case) ranges. If dim is the value of a dimension then its overall range is
+0..dim-1 -- the associated _specified_ space range carves out a subset thereof.
 
 Say you have ndims=2 dimensions each of 64 extent. (Partially) covering overall 64x64 space are nspaces=3 "zones". 
 
@@ -1046,7 +1046,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >         indices                          =
 >           map (fromIntegral . computeCellIndex dims) (traverse walkRange rngs)
 >
->     trace_SS                             = unwords ["smashSubspaces", show (length spaces_)]
+>     trace_SS                             = unwords ["smashSubspaces", show (length spaces_), show spaces_]
 >
 > inZRange d x                             = inRange (0, x - 1) d 
 >
@@ -1054,15 +1054,14 @@ You see there is some overlap between Zone 1 and Zone 2.
 > validRange dim (r, s)                    = 0 <= dim && r <= s && inZRange r dim && inZRange s dim
 >
 > validCoords            :: ∀ i . (Integral i, Ix i, VU.Unbox i) ⇒ [i] → Smashing i → Bool
-> validCoords coords Smashing{ .. }        = and $ zipWith inZRange coords smashDims
+> validCoords coords smashup               = and $ zipWith inZRange coords smashup.smashDims
 >
 > lookupCellIndex        :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
-> lookupCellIndex coords smashup@Smashing{ .. }
->                                          =
+> lookupCellIndex coords smashup           =
 >   profess
 >     (validCoords coords smashup)
 >     (unwords ["lookupCellIndex", "invalid coords"])
->     (smashVec VU.! computeCellIndex smashDims coords)
+>     (smashup.smashVec VU.! computeCellIndex smashup.smashDims coords)
 >
 > computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → Int
 > computeCellIndex [] []                   = 0
@@ -1071,11 +1070,11 @@ You see there is some overlap between Zone 1 and Zone 2.
 >   error $ unwords ["computeCellIndex:", "input args dims and coords have unequal lengths"]
 >
 > allCellsEqualTo        :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ Smashing i → Maybe (i, i)
-> allCellsEqualTo Smashing{ .. }           =
+> allCellsEqualTo smashup                  =
 >   let
->     cand                                 = smashVec VU.! 0
+>     cand                                 = smashup.smashVec VU.! 0
 >   in
->     if all (\j → cand == (smashVec VU.! j)) [0..(VU.length smashVec - 1)]
+>     if all (\j → cand == (smashup.smashVec VU.! j)) [0..(VU.length smashup.smashVec - 1)]
 >       then Just cand
 >       else Nothing
 >
