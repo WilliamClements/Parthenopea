@@ -453,25 +453,28 @@ Effects ========================================================================
 >       unwords ["deriveEffects", show (mChorus, mReverb, mPan), show (dChorus, dReverb, dPan)]
 >
 > eutEffectsMono       :: ∀ p . Clock p ⇒ Recon → Signal p Double Double
-> eutEffectsMono Recon{ .. }                               =
+> eutEffectsMono r                                         =
 >   proc aL → do
->     chL ← eutChorus chorusRate chorusDepth efChorus      ⤙ aL
->     rbL ← eutReverb efReverb                             ⤙ aL
+>     chL ← eutChorus chorusRate chorusDepth cho           ⤙ aL
+>     rbL ← eutReverb rev                                  ⤙ aL
 >
->     let mixL = (  efChorus       * chL
->                 + efReverb       * rbL
->                 + (1 - efChorus) * aL
->                 + (1 - efReverb) * aL) / 2
+>     let mixL = (  cho       * chL
+>                 + rev       * rbL
+>                 + (1 - cho) * aL
+>                 + (1 - rev) * aL) / 2
 >
->     -- WOX for mono, ignore pan?
->     let (pL, _) = doPan (efPan, efPan) (mixL, mixL)
+>     let pL                                               =
+>           if noStereoNoPan then mixL else fst $ doPan (pan, pan) (mixL, mixL)
 >
 >     pL' ←          if not useDCBlock
 >                    then delay 0                          ⤙ pL
 >                    else dcBlock 0.995                    ⤙ pL
 >     outA                                                 ⤙ pL'
 >   where
->     Effects{ .. }                                        = rEffects
+>     cho                                                  = r.rEffects.efChorus
+>     rev                                                  = r.rEffects.efReverb
+>     pan                                                  = r.rEffects.efPan
+>     
 >
 > eutEffectsStereo       :: ∀ p . Clock p ⇒ (Recon, Recon) → Signal p (Double, Double) (Double, Double)
 > eutEffectsStereo (Recon{rEffects = effL}, Recon{rEffects = effR})
@@ -810,6 +813,7 @@ Flags for customization ========================================================
 >   , qqUseEffectChorus      :: Bool
 >   , qqUseEffectPan         :: Bool
 >   , qqUseEffectDCBlock     :: Bool
+>   , qqNoStereoNoPan        :: Bool
 >   , qqNormalizingOutput    :: Bool} deriving (Eq, Show)
 >
 > usePitchCorrection                       = qqUsePitchCorrection         defS
@@ -820,6 +824,7 @@ Flags for customization ========================================================
 > useChorus                                = qqUseEffectChorus            defS
 > usePan                                   = qqUseEffectPan               defS
 > useDCBlock                               = qqUseEffectDCBlock           defS
+> noStereoNoPan                            = qqNoStereoNoPan              defS
 > normalizingOutput                        = qqNormalizingOutput          defS
 
 Turn Knobs Here =======================================================================================================
@@ -835,6 +840,7 @@ Turn Knobs Here ================================================================
 >   , qqUseEffectChorus                    = True
 >   , qqUseEffectPan                       = True
 >   , qqUseEffectDCBlock                   = True
+>   , qqNoStereoNoPan                      = True
 >   , qqNormalizingOutput                  = True}
 
 The End
