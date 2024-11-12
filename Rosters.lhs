@@ -108,7 +108,7 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj = ejingles
+> sj = ajingles
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("dh"          , deathlessHorsie)]
@@ -119,7 +119,7 @@ organize exposed music =========================================================
 >    -- [ ("baked"       , shimSong $ bakedJingle 23320)]
 >    -- [ ("slot_1"      , slot 1)]
 >    -- [ ("littleCITM"  , littleCITM)]
->    -- [ ("wj"          , wj)]
+>    -- [ ("kit"         , kit)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 
 a few playthings ... get it? ==========================================================================================
