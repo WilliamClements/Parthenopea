@@ -577,7 +577,8 @@ Edit the following =============================================================
 >
 >   , qqNarrowInstrumentScope              = True
 >   , qqConRatio                           = 3/4
->   , qqSampleLimits                       = (48, 0) -- minimum size from start to end, startLoop to endLoop -- WOX
+>   , qqSampleLimits                       = (48, 0) -- minimum size from start to end, startLoop to endLoop
+>                                                    -- WOX 0 only if no-loop?
 >   , qqInferStereo                        = True
 >   , qqRequiredZoneLinkage                = 0 -- WOX
 >
