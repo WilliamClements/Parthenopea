@@ -86,6 +86,7 @@ Utilities ======================================================================
 >
 > qMidiSize128           :: Int            = 128
 >
+> qOffsetWeights         :: [Int]          = [1, 32768]
 > freakRange             :: (Double, Double)
 >                                          = (20, 20_000)
 >
@@ -950,8 +951,8 @@ Conversion functions and general helpers =======================================
 > roundBy                :: Double → Double → Double
 > roundBy p10 x                            = fromIntegral (round (p10 * x)) / p10
 >
-> sumOfMaybeInts         :: ∀ a. Num a ⇒ [Maybe a] → a
-> sumOfMaybeInts                           = sum . map (fromMaybe 0)
+> sumOfWeightedInts      :: ∀ a. Num a ⇒ [Maybe a] → [a] → a
+> sumOfWeightedInts xs ws                  = sum $ zipWith (\w x → w * fromMaybe 0 x) ws xs
 >       
 > addIntToWord           :: Word → Int → Word
 > addIntToWord w i                         = fromIntegral sum

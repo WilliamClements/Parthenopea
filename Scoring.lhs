@@ -467,19 +467,19 @@ Utilities ======================================================================
 > grader                 :: [Rational] → Double → Grader
 > grader rs                                = Grader (map fromRational rs)
 > gradeEmpiricals        :: Grader → [Double] → ArtifactGrade
-> gradeEmpiricals Grader{gorWeights, gorScalar} emps
+> gradeEmpiricals grader emps
 >   | traceNot trace_GE False              = undefined
->   | otherwise                            = ArtifactGrade (consume (gorScalar * lincombo)) emps
+>   | otherwise                            = ArtifactGrade (consume (grader.gorScalar * lincombo)) emps
 >   where
 >     trace_GE                             =
->       unwords["gradeEmpiricals", "lincombo", show lincombo]
->     wSize                                = length gorWeights
+>       unwords["gradeEmpiricals", "emps", show emps, "lincombo", show lincombo]
+>     wSize                                = length grader.gorWeights
 >     eSize                                = length emps
 >     lincombo           :: Double         =
 >       profess
 >         (wSize == eSize)
 >         (unwords ["gradeEmpiricals:", "wSize =", show wSize, "eSize =", show eSize])
->         (sum $ zipWith (*) emps gorWeights)
+>         (sum $ zipWith (*) emps grader.gorWeights)
 >     consume            :: Double → Int
 >     consume x                            =
 >       profess
@@ -579,7 +579,7 @@ Edit the following =============================================================
 >   , qqConRatio                           = 3/4
 >   , qqSampleLimits                       = (48, 0) -- minimum size from start to end, startLoop to endLoop
 >                                                    -- WOX 0 only if no-loop?
->   , qqInferStereo                        = True
+>   , qqInferStereo                        = False
 >   , qqRequiredZoneLinkage                = 0 -- WOX
 >
 >   , qqFFThresholdPossible                = 50
