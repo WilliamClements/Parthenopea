@@ -895,8 +895,8 @@ bootstrapping methods ==========================================================
 >         capture wI                       = cTry
 >           where
 >             cTry
->               | isNothing target         = Right (unwords ["formPreZoneCache", "orphaned by instrument"], zsr)
->               | null pzsRemaining        = Right (unwords ["formPreZoneCache", "problem", "no qualified zones"], zsr)
+>               | isNothing target         = Right (unwords ["formPreZoneCache", "orphaned by instrument", show wI], zsr)
+>               | null pzsRemaining        = Right (unwords ["formPreZoneCache", "problem", "no qualified zones", show wI], zsr)
 >               | otherwise                = Left zsr
 >
 >             target                       = Map.lookup (PerGMKey sffile.zWordF wI Nothing) preInstCache
@@ -1705,11 +1705,14 @@ zone selection for rendering ===================================================
 >     selectBestZone noon
 >       | traceNot trace_SBZ False         = undefined
 >       | otherwise                        =
->       deJust
->         (unwords ["selectBestZone", show bagId])
->         (findByBagIndex' perI.pZones bagId)
+>       if count == 0
+>         then error "out of range"
+>         else if isNothing foundInInst
+>                then error "not found in inst"
+>                else deJust "foundInInst" foundInInst
 >       where
 >         (bagId, count)                   = lookupCellIndex (noonAsCoords noon) perI.pSmashing
+>         foundInInst                      = findByBagIndex' perI.pZones bagId
 >
 >         trace_SBZ                        = unwords ["selectBestZone", show (bagId, count)]
 >
