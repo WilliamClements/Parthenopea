@@ -103,7 +103,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , pzmkPartners       :: [PreZoneKey]} deriving (Eq, Show)
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                     = PreSampleKey pz.pzWordF pz.pzWordS
-> extractZoneKey             :: PreZone → PreZoneKey
+> extractZoneKey         :: PreZone → PreZoneKey
 > extractZoneKey pz                       = PreZoneKey pz.pzWordF pz.pzWordB
 > reformPreZoneCache     :: [PreZone] → Map PreZoneKey PreZone
 > reformPreZoneCache                      = foldl' (\xs y → Map.insert (extractZoneKey y) y xs) Map.empty
@@ -851,45 +851,40 @@ bootstrapping methods ==========================================================
 >         sfa                              = sffile.zArrays
 >         (stI, enI)     :: (Word, Word)   = bounds sfa.ssInsts
 >
+>         results1                         = map capture (deriveRange stI enI)
+>
 >         back1                            = makeBack (lefts results1)
 >
->         results1                         =
+>         results2                         =
 >           if allowStereoCrossovers
->             then map (groom . capture) (deriveRange stI enI)
->             else map capture (deriveRange stI enI)
->         results2                         = results1 -- WOX
+>             then map groom results1
+>             else results1
 >
->         allPzs                           = foldl' (\x y → x ++ y.zsPreZones ) [] (lefts results2)
->         (errs, badzsrs)                  = unzip (rights results2)
+>         results3                         = vet results2
+>
+>         allPzs                           = foldl' (\x y → x ++ y.zsPreZones ) [] (lefts results3)
+>         mapAllPzs                        = reformPreZoneCache allPzs
+>         mapStereo                        = Map.filter isStereoZone mapAllPzs
+>         (errs, badzsrs)                  = unzip (rights results3)
 >         newPreInstCache                  = foldl' (\x y → Map.delete (instKey y) x) preInstCache badzsrs
 >
 >         groom          :: Either InstZoneScan (String, InstZoneScan)
 >                           → Either InstZoneScan (String, InstZoneScan)
 >         groom res                        =
 >           case res of
->             Left zsr → maybeFlipZsr zsr
->             Right x  → Right x
+>             Left zsr                     → maybeFlipZsr zsr
+>             Right str                    → Right str
 >
 >         maybeFlipZsr   :: InstZoneScan → Either InstZoneScan (String, InstZoneScan)
 >         maybeFlipZsr zsr
 >           | traceNot trace_MFZSR False   = undefined
->           | null newPzs                  = Right (unwords ["formPreZoneCache", "problem", "no flipped zones"], zsr)
+>           | null newPzs                  =
+>           Right (unwords ["formPreZoneCache", "problem"
+>                         , show (PerGMKey sffile.zWordF zsr.zswInst Nothing), "no flipped zones"], zsr)
 >           | otherwise                    = Left zsr{zsPreZones = newPzs}
 >           where
->             newPzs                       = [] -- WOX groomPreZones back zsr.zsPreZones
+>             newPzs                       = groomPreZones back1 zsr.zsPreZones
 >             trace_MFZSR                  = unwords ["maybeFlipZsr", show (length zsr.zsPreZones), show (length newPzs)]
->
->         makeBack       :: [InstZoneScan] → Map PreSampleKey [PreZoneKey]
->         makeBack zsrs                    = foldl' Map.union Map.empty (map zsr2back zsrs)
->           where
->             zsr2back zsr                 = foldl' backFolder Map.empty (filter isStereoZone zsr.zsPreZones)
->             backFolder target pz         =
->               let
->                 presk                    = PreSampleKey pz.pzWordF pz.pzWordS
->                 prezk                    = extractZoneKey pz
->                 sofar                    = fromMaybe [] (Map.lookup presk Map.empty) -- WOX back
->               in
->                 Map.insert presk (prezk : sofar) target
 >
 >         capture        :: Word → Either InstZoneScan (String, InstZoneScan)
 >         capture wI                       = cTry
@@ -944,37 +939,96 @@ bootstrapping methods ==========================================================
 >                 si                       = deJust "produce si" zd.zdSampleIndex
 >                 shdr                     = sfa.ssShdrs ! si
 >
->     groomPreZones      :: Map PreSampleKey [PreZoneKey] → [PreZone] → [PreZone]
->     groomPreZones inverter preZones
->       | traceNot trace_GPZ False         = undefined
->       | otherwise                        = pzsStereo ++ pzsMono
->       where
->         trace_GPZ                        =
->           unwords ["groomPreZones", show (length pzsMono), show (length pzsStereo_), show (length inverter)]
->         (pzsStereo_, pzsMono)            = partition isStereoZone preZones
->         pzsStereo                        = map partnerUp pzsStereo_
+>         vet                              = map vetResult
 >
->         partnerUp          :: PreZone → PreZone
->         partnerUp pz
->           | traceNot trace_PU False          = undefined
->           | otherwise                        = pz{pzmkPartners = partners}
+>         vetResult      :: Either InstZoneScan (String, InstZoneScan)
+>                           → Either InstZoneScan (String, InstZoneScan)
+>         vetResult res                    =
+>           case res of
+>             Left zsr                     → vetSuccess zsr
+>             Right x                      → Right x
+>
+>         vetSuccess     :: InstZoneScan → Either InstZoneScan (String, InstZoneScan)
+>         vetSuccess zsr                   =
+>           if null newPzs
+>             then Right ("vet diminished to zero", zsr)
+>             else Left zsr{zsPreZones = newPzs}
 >           where
->             trace_PU                         = unwords["partnerUp", show (length partners)]
->             mpartners                        = Map.lookup (PreSampleKey pz.pzWordF pz.pzWordS) inverter
->             partners                         = fromMaybe [] mpartners
->     
->     markGlobalZone     :: Map PerGMKey PreInstrument → InstZoneScan → Map PerGMKey PreInstrument
->     markGlobalZone preic zsr
->       | traceNot trace_MGZ False         = undefined
->       | otherwise                        =
->       if isNothing zsr.zswGBix
->         then preic
->         else Map.insert pergm oldpreI{iGlobalKey = Just $ PreZoneKey zsr.zswFile (fromJust zsr.zswGBix)} preic
+>             newPzs                       =
+>               let
+>                 (pzsStereo, pzsMono)     = partition isStereoZone zsr.zsPreZones
+>                 vetPreZone pz            =
+>                   if null newPartners
+>                     then Nothing
+>                     else Just pz{pzmkPartners = newPartners}
+>                   where
+>                     newPartners          = filter (okPartner mapStereo pz) pz.pzmkPartners
+>               in
+>                 mapMaybe vetPreZone pzsStereo ++ pzsMono
+>
+>     okPartner      :: Map PreZoneKey PreZone → PreZone → PreZoneKey → Bool
+>     okPartner pzCache pz pzk
+>       | traceNow trace_OKP False     = undefined
+>       | otherwise                    =
+>       case mpzPartner of
+>         Nothing                      → False
+>         Just pzPartner               → goodPartners pz pzPartner
 >       where
->         pergm                            = PerGMKey zsr.zswFile zsr.zswInst Nothing
->         moldpreI                         = Map.lookup pergm preic
->         oldpreI                          = deJust (unwords["mold", show pergm]) moldpreI
->         trace_MGZ                        = unwords ["markGlobalZone", show zsr.zswGBix, show pergm]
+>         mpzPartner                   = Map.lookup pzk pzCache
+>         trace_OKP                    = unwords ["okPartner", show (extractZoneKey pz), show pzk]
+>
+>     goodPartners   :: PreZone → PreZone → Bool
+>     goodPartners pz pzPartner        =
+>       let
+>         myThing                      = tracer "myThing" $ PreSampleKey pz.pzWordF (F.sampleLink pz.pzShdr)
+>         yrThing                      = tracer "yrThing" $ PreSampleKey pzPartner.pzWordF (F.sampleLink pzPartner.pzShdr)
+>       in
+>         (Just yrThing == Map.lookup myThing partnerMap)
+>         && (Just myThing == Map.lookup yrThing partnerMap)
+>
+> makeBack               :: [InstZoneScan] → Map PreSampleKey [PreZoneKey]
+> makeBack zsrs                            = foldl' Map.union Map.empty (map zsr2back zsrs)
+>   where
+>     zsr2back zsr                         = foldl' backFolder Map.empty (filter isStereoZone zsr.zsPreZones)
+>     backFolder target pz                 =
+>       let
+>         presk                            = PreSampleKey pz.pzWordF pz.pzWordS
+>         prezk                            = extractZoneKey pz
+>         sofar                            = fromMaybe [] (Map.lookup presk target)
+>       in
+>         Map.insert presk (prezk : sofar) target
+>
+> groomPreZones          :: Map PreSampleKey [PreZoneKey] → [PreZone] → [PreZone]
+> groomPreZones inverter preZones
+>   | traceNot trace_GPZ False             = undefined
+>   | otherwise                            = pzsStereo ++ pzsMono
+>   where
+>     trace_GPZ                            =
+>       unwords ["groomPreZones", show (length pzsMono), show (length pzsStereo_), show (length inverter)]
+>     (pzsStereo_, pzsMono)                = partition isStereoZone preZones
+>     pzsStereo                            = map partnerUp pzsStereo_
+>
+>     partnerUp          :: PreZone → PreZone
+>     partnerUp pz
+>       | traceNot trace_PU False          = undefined
+>       | otherwise                        = pz{pzmkPartners = partners}
+>       where
+>         trace_PU                         = unwords["partnerUp", show (length partners)]
+>         mpartners                        = Map.lookup (PreSampleKey pz.pzWordF pz.pzWordS) inverter
+>         partners                         = fromMaybe [] mpartners
+>     
+> markGlobalZone     :: Map PerGMKey PreInstrument → InstZoneScan → Map PerGMKey PreInstrument
+> markGlobalZone preic zsr
+>   | traceNot trace_MGZ False         = undefined
+>   | otherwise                        =
+>   if isNothing zsr.zswGBix || isNothing moldpreI
+>     then preic
+>     else Map.insert pergm oldpreI{iGlobalKey = Just $ PreZoneKey zsr.zswFile (fromJust zsr.zswGBix)} preic
+>   where
+>     pergm                            = PerGMKey zsr.zswFile zsr.zswInst Nothing
+>     moldpreI                         = Map.lookup pergm preic
+>     oldpreI                          = deJust (unwords["mold", show pergm]) moldpreI
+>     trace_MGZ                        = unwords ["markGlobalZone", show zsr.zswGBix, show pergm]
 >
 > formPreInstCache       :: Array Word SFFile → [PerGMKey] → IO (Map PerGMKey PreInstrument, [String])
 > formPreInstCache sffiles pergms          = return $ foldl' preIFolder (Map.empty, []) pergms
@@ -1667,7 +1721,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF sfrost pergm dur pchIn volIn params
->   | traceNow trace_ISF False             = undefined
+>   | traceAlways trace_ISF False          = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rSampleRate
 >                                              dur pchOut volOut params
 >                                              sfa.ssData sfa.ssM24
@@ -1749,27 +1803,30 @@ zone selection for rendering ===================================================
 >             Just (pz, _)                 → show pz.pzWordB
 >             Nothing                      → "Nothing" 
 >
+>         -- maybe hide this hack of getting zone "directly" under a conditional
 >         targetSampleIx                   = F.sampleLink shdr
->         partner                          = findBySampleIndex' perI.pZones (F.sampleLink shdr) -- WOX crossovers `CM.mplus` Just (pz, zone)
+>         partner                          = findBySampleIndex' perI.pZones (F.sampleLink shdr)
 >         shdr                             = (pzShdr . fst) z
 >
 >         partnerKeys                      = (pzmkPartners . fst) z
->         pzk                              = head partnerKeys -- WOX
->         mpz                              = Map.lookup pzk sfrost.zPreZoneCache 
->         pz                               = deJust "getStereoPartner1" mpz
 >         zone                             =
 >           if allowStereoCrossovers
->             then computeCross mpz
+>             then deJust (unwords ["getStereoPartner", "zone"]) (find isJust (map computeCross partnerKeys))
 >             else Nothing
 >
->         computeCross   :: Maybe PreZone → Maybe SFZone
->         computeCross mpz                 =
->           mpz
+>         computeCross   :: PreZoneKey → Maybe SFZone
+>         computeCross pzk
+>           | traceAlways trace_CC False   = undefined
+>           | otherwise                    =
+>           Just pzk
+>           >>= (`Map.lookup` sfrost.zPreZoneCache)
 >           >>= Just . extractInstKey
 >           >>= (`Map.lookup` sfrost.zPerInstCache)
 >           >>= Just . pZones
 >           >>= Just . map snd
 >           >>= (`findBySampleIndex` targetSampleIx)
+>           where
+>             trace_CC                     = unwords ["computeCross", show pzk]
 
 reconcile zone and sample header ======================================================================================
 
