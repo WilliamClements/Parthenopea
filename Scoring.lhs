@@ -106,7 +106,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >   where
 >    keys = case inst of
 >       AcousticBass              → Just            ["drum", "brass", "bassoon", "tremolo", "elec"]
->       AcousticGrandPiano        → Just            ["drum", "upright", "bright", "mellow", "elec"]
+>       AcousticGrandPiano        → Just            ["drum", "harp", "upright", "bright", "mellow", "elec"]
 >       ElectricGuitarJazz        → Just            ["drum", "bass"]
 >       AcousticGuitarNylon       → Just            ["drum", "bass"]
 >       AcousticGuitarSteel       → Just            ["drum", "bass"]
