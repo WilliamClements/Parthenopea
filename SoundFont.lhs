@@ -432,7 +432,7 @@ executive ======================================================================
 >
 >       -- actually conduct the tournament
 >       ((wI, sI), (wP, sP))
->                        ← decideWinners preR.zFiles preSampleCache preInstCache reinverter preZoneCache
+>                        ← decideWinners preR.zFiles preSampleCache preInstCache reinverter
 >                                        zc preR.zRost pergmsI pergmsP
 >       tsDecided        ← getCurrentTime
 >       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsZoned))
@@ -573,14 +573,13 @@ later items, some critical data may thereby be missing. So that entails deletion
 >                           → Map PreSampleKey PreSample
 >                           → Map PerGMKey PreInstrument
 >                           → Map PerGMKey [PreZone]
->                           → Map PreZoneKey PreZone
 >                           → Map PerGMKey PerInstrument
 >                           → ([InstrumentName], [PercussionSound]) 
 >                           → [PerGMKey]
 >                           → [PerGMKey]
 >                           → IO ((Map InstrumentName [PerGMScored], [String])
 >                               , (Map PercussionSound [PerGMScored], [String]))
-> decideWinners sffiles preSampleCache preInstCache inverter preZoneCache zc rost pergmsI pergmsP
+> decideWinners sffiles preSampleCache preInstCache inverter zc rost pergmsI pergmsP
 >                                          = do
 >   traceIO "decideWinners"
 >   return wiExec
@@ -740,11 +739,11 @@ bootstrapping methods ==========================================================
 >     computePreSample   :: Word → F.Shdr → (Maybe PreSample, String)
 >     computePreSample wF shdr@F.Shdr{ .. }
 >                                          = 
->       if qualifyPreSample1
+>       if qualifySampleHeader
 >         then (Just $ PreSample sampleName (computeFFMatches sampleName), [])
 >         else (Nothing, diagnose wF shdr)
 >       where
->         qualifyPreSample1                =
+>         qualifySampleHeader              =
 >             goodName sampleName
 >          && sampleRate >= 64
 >          && sampleRate < 2^20
@@ -776,8 +775,9 @@ bootstrapping methods ==========================================================
 >                           → IO (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, [String])
 > finishPreSampleCache sffiles preSampleCache
 >                                          =
->   return $ foldl' psFolder (Map.empty, Map.empty, []) (Map.mapWithKey qualifyPreSample2 preSampleCache)
+>   return $ foldl' psFolder (Map.empty, Map.empty, []) (Map.mapWithKey qualifyPartnering preSampleCache)
 >   where
+>     fName                                = "finishPreSampleCache"
 >     psFolder           :: (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, [String])
 >                           → Either (PreSampleKey, PreSample, Maybe PreSampleKey) String
 >                           → (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, [String])
@@ -798,20 +798,28 @@ bootstrapping methods ==========================================================
 >               Just preskPartner          → Map.insert presk preskPartner partnerMap
 >           , errs)
 >
->     qualifyPreSample2  :: PreSampleKey → PreSample → Either (PreSampleKey, PreSample, Maybe PreSampleKey) String
->     qualifyPreSample2 key val
+>     qualifyPartnering  :: PreSampleKey → PreSample → Either (PreSampleKey, PreSample, Maybe PreSampleKey) String
+>     qualifyPartnering key val
 >       | not stereo                       = Left (key, val, Nothing)
->       | isJust other                     = Left (key, val, Just otherKey)
->       | otherwise                        = Right problem
+>       | isNothing other                  = Right problemMissing
+>       | isNothing backLink               = Right problemDisqual
+>       | otherwise                        = Left (key, val, Just otherKey)
 >       where
->         problem                          =
->           unwords ["finishPreSampleCache", "problem", "missing stereo partner", show key, show shdr.sampleLink]
+>         problemMissing                   =
+>           unwords [fName, "problem", "missing stereo partner", show key, show shdr.sampleLink]
+>         problemDisqual                   =
+>           unwords [fName, "problem", "stereo partner disqual", show key, show otherKey]
 >         otherKey                         = PreSampleKey key.pskwFile shdr.sampleLink
->         other                            = Map.lookup otherKey preSampleCache 
+>         other                            = Map.lookup otherKey preSampleCache
+>         oBackLink                        = if F.sampleLink oshdr == key.pskwSampleIndex
+>                                              then Just otherKey
+>                                              else Nothing
+>         backLink                         = other >> oBackLink
 >
 >         sffile                           = sffiles ! key.pskwFile
 >         sfa                              = sffile.zArrays
 >         shdr                             = sfa.ssShdrs ! key.pskwSampleIndex
+>         oshdr                            = sfa.ssShdrs ! otherKey.pskwSampleIndex
 >         stype                            = toSampleType shdr.sampleType
 >         stereo                           = SampleTypeLeft == stype || SampleTypeRight == stype
 >
