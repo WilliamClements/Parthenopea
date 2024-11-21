@@ -210,18 +210,22 @@ Instrument categories: instrument, percussion, disqualified
 >
 > data SFFile =
 >   SFFile {
->     zFilename          :: FilePath
->   , zArrays            :: SoundFontArrays
->   , zWordF             :: Word}
+>     zWordF             :: Word
+>   , zFilename          :: FilePath
+>   , zBoot              :: BootstrapArrays
+>   , zSample            :: SampleArrays}
 >
-> data SoundFontArrays = 
->   SoundFontArrays {
+> data BootstrapArrays = 
+>   BootstrapArrays {
 >     ssInsts            :: Array Word F.Inst
 >   , ssIBags            :: Array Word F.Bag
 >   , ssIGens            :: Array Word F.Generator
 >   , ssIMods            :: Array Word F.Mod
->   , ssShdrs            :: Array Word F.Shdr
->   , ssData             :: A.SampleData Int16
+>   , ssShdrs            :: Array Word F.Shdr}
+>
+> data SampleArrays = 
+>   SampleArrays {
+>     ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
 >
 > data ZoneDigest =
@@ -487,7 +491,6 @@ later items, some critical data may thereby be missing. So that entails deletion
 >       (preSampleCache, partnerMap, errs')
 >                        ← finishPreSampleCache sffiles preSampleCache_
 >
->       print partnerMap
 >       mapM_ putStrLn (reverse errs ++ reverse errs')
 >       return (preSampleCache, partnerMap)
 >         
@@ -508,11 +511,9 @@ later items, some critical data may thereby be missing. So that entails deletion
 >     initZones sffiles preSampleCache partnerMap preInstCache_
 >                        = do
 >       print "initZones"
->       print (length preInstCache_)
 >       (preZoneCache, preInstCache, errs)
 >                        ← formPreZoneCache sffiles preSampleCache partnerMap preInstCache_
 >       mapM_ putStrLn (reverse errs)
->       print (length preInstCache)
 >       return (preZoneCache, preInstCache)
 >
 >     associateZones     :: Map PreZoneKey PreZone → IO (Map PerGMKey [PreZone])
@@ -726,8 +727,7 @@ bootstrapping methods ==========================================================
 >     formFS             :: SFFile → [PreSampleKey]
 >     formFS sffile                        =
 >       let
->         sfa                              = sffile.zArrays
->         (st, en)       :: (Word, Word)   = bounds sfa.ssShdrs
+>         (st, en)       :: (Word, Word)   = bounds sffile.zBoot.ssShdrs
 >       in
 >         map (PreSampleKey sffile.zWordF) (deriveRange st en)
 >
@@ -755,10 +755,9 @@ bootstrapping methods ==========================================================
 >     diagnose wF shdr                     =
 >       unwords ["formPreSampleCache", "problem", show wF, show (toMaybeSampleType shdr.sampleType), show shdr]
 >
->     loadShdr presk                       = sfa.ssShdrs ! presk.pskwSampleIndex
+>     loadShdr presk                       = sffile.zBoot.ssShdrs ! presk.pskwSampleIndex
 >       where
 >         sffile                           = sffiles ! presk.pskwFile
->         sfa                              = sffile.zArrays
 >
 >     preSFolder :: (Map PreSampleKey PreSample, [String]) → PreSampleKey → (Map PreSampleKey PreSample, [String])
 >     preSFolder (target, errs) presk@PreSampleKey{pskwFile, pskwSampleIndex}
@@ -817,9 +816,8 @@ bootstrapping methods ==========================================================
 >         backLink                         = other >> oBackLink
 >
 >         sffile                           = sffiles ! key.pskwFile
->         sfa                              = sffile.zArrays
->         shdr                             = sfa.ssShdrs ! key.pskwSampleIndex
->         oshdr                            = sfa.ssShdrs ! otherKey.pskwSampleIndex
+>         shdr                             = sffile.zBoot.ssShdrs ! key.pskwSampleIndex
+>         oshdr                            = sffile.zBoot.ssShdrs ! otherKey.pskwSampleIndex
 >         stype                            = toSampleType shdr.sampleType
 >         stereo                           = SampleTypeLeft == stype || SampleTypeRight == stype
 >
@@ -860,8 +858,7 @@ bootstrapping methods ==========================================================
 >                          , foldl' markGlobalZone newPreInstCache (lefts results3), errs)
 >       where
 >         wF                               = sffile.zWordF
->         sfa                              = sffile.zArrays
->         (stI, enI)     :: (Word, Word)   = bounds sfa.ssInsts
+>         (stI, enI)     :: (Word, Word)   = bounds sffile.zBoot.ssInsts
 >
 >         results1                         = map capture (deriveRange stI enI)
 >         results2                         = groom (makeBack (lefts results1)) results1
@@ -884,8 +881,8 @@ bootstrapping methods ==========================================================
 >
 >             target                       = Map.lookup (PerGMKey sffile.zWordF wI Nothing) preInstCache
 >
->             iinst                        = sfa.ssInsts ! wI
->             jinst                        = sfa.ssInsts ! (wI+1)
+>             iinst                        = sffile.zBoot.ssInsts ! wI
+>             jinst                        = sffile.zBoot.ssInsts ! (wI+1)
 >
 >             ibagi                        = F.instBagNdx iinst
 >             jbagi                        = F.instBagNdx jinst
@@ -915,17 +912,17 @@ bootstrapping methods ==========================================================
 >                 trace_P                  = unwords ["produce", show bix]
 >                 presTarget               = Map.lookup (PreSampleKey sffile.zWordF si) preSampleCache
 >                 limitsCheckedOk          = adjustedSampleLimitsOk zd shdr
->                 xgeni                    = F.genNdx $ sfa.ssIBags ! bix
->                 ygeni                    = F.genNdx $ sfa.ssIBags ! (bix + 1)
+>                 xgeni                    = F.genNdx $ sffile.zBoot.ssIBags ! bix
+>                 ygeni                    = F.genNdx $ sffile.zBoot.ssIBags ! (bix + 1)
 >
 >                 gens   :: [F.Generator]  = profess
 >                                              (xgeni <= ygeni)
 >                                              "SoundFont file corrupt (computePreZone gens)"
->                                              (map (sfa.ssIGens !) (deriveRange xgeni ygeni))
+>                                              (map (sffile.zBoot.ssIGens !) (deriveRange xgeni ygeni))
 >
 >                 zd                       = formDigest gens
 >                 si                       = deJust "produce si" zd.zdSampleIndex
->                 shdr                     = sfa.ssShdrs ! si
+>                 shdr                     = sffile.zBoot.ssShdrs ! si
 >
 >         groom back                       = map groomRes
 >           where
@@ -1058,10 +1055,9 @@ bootstrapping methods ==========================================================
 >
 >     loadInst           :: PerGMKey -> F.Inst
 >     loadInst PerGMKey{pgkwFile, pgkwInst}
->                                          = sfa.ssInsts ! pgkwInst
+>                                          = sffile.zBoot.ssInsts ! pgkwInst
 >       where
 >         sffile                           = sffiles ! pgkwFile
->         sfa                              = sffile.zArrays
 >
 >     preIFolder         :: (Map PerGMKey PreInstrument, [String]) → PerGMKey → (Map PerGMKey PreInstrument, [String])
 >     preIFolder (target, errs) pergm      =
@@ -1079,8 +1075,7 @@ bootstrapping methods ==========================================================
 >     formFI             :: SFFile → [PerGMKey]
 >     formFI sffile                        =
 >       let
->         sfa                              = sffile.zArrays
->         boundsI                          = bounds sfa.ssInsts
+>         boundsI                          = bounds sffile.zBoot.ssInsts
 >         rangeI                           =
 >           uncurry
 >             (profess
@@ -1094,8 +1089,8 @@ bootstrapping methods ==========================================================
 >           | (jbagi - ibagi) >= 2         = Just $ PerGMKey sffile.zWordF wordI Nothing
 >           | otherwise                    = Nothing
 >           where
->             iinst                        = sfa.ssInsts ! wordI
->             jinst                        = sfa.ssInsts ! (wordI+1)
+>             iinst                        = sffile.zBoot.ssInsts ! wordI
+>             jinst                        = sffile.zBoot.ssInsts ! (wordI+1)
 >             ibagi                        = F.instBagNdx iinst
 >             jbagi                        = F.instBagNdx jinst
 >       in
@@ -1131,14 +1126,17 @@ bootstrapping methods ==========================================================
 >     Right soundFont                      → do
 >       let pdata                          = F.pdta soundFont
 >       let sdata                          = F.sdta soundFont
->       let sfa                            =
->             SoundFontArrays
+>       let boota                          =
+>             BootstrapArrays
 >               (F.insts pdata) (F.ibags pdata)
 >               (F.igens pdata) (F.imods pdata)
->               (F.shdrs pdata) (F.smpl  sdata) (F.sm24  sdata)
->       let sffile                         = SFFile filename sfa wFile
+>               (F.shdrs pdata)
+>       let samplea                          =
+>             SampleArrays
+>               (F.smpl  sdata) (F.sm24  sdata)
+>       let sffile                         = SFFile wFile filename boota samplea
 >       let nBits                          =
->             case sfa.ssM24 of
+>             case samplea.ssM24 of
 >               Nothing                    → 16
 >               Just s24data               → 24
 >       ts2                                ← getCurrentTime
@@ -1146,11 +1144,11 @@ bootstrapping methods ==========================================================
 >         putStrLn $ unwords [
 >                           "openSoundFontFile"
 >                       ,   "insts,bags,gens,mods,shdrs"
->                       ,   show $ length sfa.ssInsts
->                       ,   show $ length sfa.ssIBags
->                       ,   show $ length sfa.ssIGens
->                       ,   show $ length sfa.ssIMods
->                       ,   show $ length sfa.ssShdrs ])
+>                       ,   show $ length boota.ssInsts
+>                       ,   show $ length boota.ssIBags
+>                       ,   show $ length boota.ssIGens
+>                       ,   show $ length boota.ssIMods
+>                       ,   show $ length boota.ssShdrs ])
 >       putStrLn (" (" ++ show nBits ++ ") loaded in " ++ show (diffUTCTime ts2 ts1))
 >       return sffile
 >     
@@ -1610,8 +1608,7 @@ prepare the specified instruments and percussion ===============================
 >       | traceIf trace_CPI False          = undefined
 >       | otherwise                        = PerInstrument (zip pzs oList) icd.inSmashup
 >       where
->         sffile@SFFile{zFilename, zArrays}
->                                          = sffiles ! pergm.pgkwFile
+>         sffile                           = sffiles ! pergm.pgkwFile
 >         preI                             = deJust "computePerInst PreInstrument" (Map.lookup pergm preInstCache)
 >
 >         icd            :: InstCatData
@@ -1666,30 +1663,30 @@ prepare the specified instruments and percussion ===============================
 >   | otherwise                            = zone
 >   where
 >     zone                                 = foldr addMod (foldl' addGen fromZone gens) mods
->     sfa                                  = sffile.zArrays
+>     boota                                = sffile.zBoot
 >
->     xgeni                                = F.genNdx $ sfa.ssIBags!bagIndex
->     ygeni                                = F.genNdx $ sfa.ssIBags!(bagIndex + 1)
->     xmodi                                = F.modNdx $ sfa.ssIBags!bagIndex
->     ymodi                                = F.modNdx $ sfa.ssIBags!(bagIndex + 1)
+>     xgeni                                = F.genNdx $ boota.ssIBags!bagIndex
+>     ygeni                                = F.genNdx $ boota.ssIBags!(bagIndex + 1)
+>     xmodi                                = F.modNdx $ boota.ssIBags!bagIndex
+>     ymodi                                = F.modNdx $ boota.ssIBags!(bagIndex + 1)
 >
 >     gens               :: [F.Generator]  =
 >       profess
 >         (xgeni <= ygeni)
 >         (unwords["SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt (buildZone gens)"])
->         (map (sfa.ssIGens !) (deriveRange xgeni ygeni))
+>         (map (boota.ssIGens !) (deriveRange xgeni ygeni))
 >     mods               :: [(Word, F.Mod)]
 >                                          =
 >       profess
 >         (xmodi <= ymodi)
 >         (unwords["SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt (buildZone mods)"])
->         (zip [10_000..] (map (sfa.ssIMods !) (deriveRange xmodi ymodi)))
+>         (zip [10_000..] (map (boota.ssIMods !) (deriveRange xmodi ymodi)))
 >
 >     trace_BZ                             =
 >       unwords ["buildZone", show sffile.zWordF, show bagIndex, show zone.zSampleIndex
 >              , show (fromMaybe "" name), show (fromZone == defZone)]
 >
->     name               :: Maybe String   = zone.zSampleIndex >>= \x → Just (sfa.ssShdrs ! x) >>= Just . F.sampleName
+>     name               :: Maybe String   = zone.zSampleIndex >>= \x → Just (boota.ssShdrs ! x) >>= Just . F.sampleName
 
 define signal functions and instrument maps to support rendering ======================================================
 
@@ -1739,7 +1736,7 @@ define signal functions and instrument maps to support rendering ===============
 >   | traceAlways trace_ISF False          = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rSampleRate
 >                                              dur pchOut volOut params
->                                              sfa.ssData sfa.ssM24
+>                                              samplea.ssData samplea.ssM24
 >   where
 >     noon                                 = NoteOn
 >                                              (clip (0, 127) volIn)
@@ -1748,7 +1745,7 @@ define signal functions and instrument maps to support rendering ===============
 >     volOut              :: Volume        = maybe noon.noteOnVel (clip (0, 127)) reconX.rForceVel
 >
 >     sffile                               = sfrost.zFiles ! pergm.pgkwFile
->     sfa                                  = sffile.zArrays
+>     samplea                              = sffile.zSample
 >
 >     preI                                 = deJust "instrumentSF preI" (Map.lookup pergm sfrost.zPreInstCache)
 >     perI                                 = deJust "instrumentSF perI" (Map.lookup pergm sfrost.zPerInstCache)
