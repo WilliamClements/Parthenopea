@@ -411,11 +411,11 @@ executive ======================================================================
 >                        ← initZones preR.zFiles preSampleCache spartnerMap preInstCache_
 >       inverter         ← associateZones preZoneCache
 >
->       jobs             ← categorize preR.zFiles preInstCache inverter preR.zRost preZoneCache
+>       jobs             ← categorize preR.zFiles preInstCache inverter preR.zRost
 >       tsCatted         ← getCurrentTime
 >       putStrLn ("___categorize: " ++ show (diffUTCTime tsCatted tsStarted))
 >
->       zc               ← formZoneCache preR.zFiles preInstCache preZoneCache preR.zRost jobs
+>       zc               ← formZoneCache preR.zFiles preInstCache preR.zRost jobs
 >       reinverter       ← reassociateZones zc
 >
 >       (pergmsI, pergmsP)
@@ -1375,9 +1375,8 @@ prepare the specified instruments and percussion ===============================
 >                           → Map PerGMKey PreInstrument
 >                           → Map PerGMKey [PreZone] 
 >                           → ([InstrumentName], [PercussionSound])
->                           → Map PreZoneKey PreZone
 >                           → IO [(PerGMKey, InstCat)]
-> categorize sffiles preInstCache inverter rost preZoneCache
+> categorize sffiles preInstCache inverter rost
 >                                          = CM.foldM winnow [] (Map.keys preInstCache)
 >   where
 >     winnow             :: [(PerGMKey, InstCat)] → PerGMKey → IO [(PerGMKey, InstCat)]
@@ -1598,11 +1597,10 @@ prepare the specified instruments and percussion ===============================
 >
 > formZoneCache          :: Array Word SFFile
 >                           → Map PerGMKey PreInstrument
->                           → Map PreZoneKey PreZone
 >                           → ([InstrumentName], [PercussionSound])
 >                           → [(PerGMKey, InstCat)]
 >                           → IO (Map PerGMKey PerInstrument)
-> formZoneCache sffiles preInstCache preZoneCache rost jobs
+> formZoneCache sffiles preInstCache rost jobs
 >                                          =
 >   return $ foldr (\(p, i) → Map.insert p (computePerInst (p, i))) Map.empty jobs
 >
@@ -1631,9 +1629,7 @@ prepare the specified instruments and percussion ===============================
 >             Just pzk                     → buildZone sffile defZone pzk.pzkwBag
 >         oList                            = map (buildZone sffile gZone) bixen
 >
->         pzs                              = mapMaybe plookup bixen
->         plookup        :: Word → Maybe PreZone
->         plookup wBix                     = Map.lookup (PreZoneKey sffile.zWordF wBix) preZoneCache
+>         pzs                              = filter (\pz → pz.pzWordB `elem` bixen) icd.inPreZones
 >
 >         trace_CPI                        =
 >           unwords ["computePerInst", show pergm.pgkwFile, preI.iName, show (length oList)]
