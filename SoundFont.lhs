@@ -236,7 +236,7 @@ Instrument categories: instrument, percussion, disqualified
 >   , zdStart            :: Word
 >   , zdEnd              :: Word
 >   , zdStartLoop        :: Word
->   , zdEndLoop            :: Word} deriving (Eq, Show)
+>   , zdEndLoop          :: Word} deriving (Eq, Show)
 > defDigest              :: ZoneDigest
 > defDigest                                = ZoneDigest Nothing Nothing Nothing 0 0 0 0
 > formDigest             :: [F.Generator] → ZoneDigest
@@ -367,14 +367,14 @@ profiler =======================================================================
 executive =============================================================================================================
 
 > doEverything           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
-> doEverything songs = do
+> doEverything songs     = do
 >
 >   putStrLn "everything..."
 >   putStrLn $ reapEmissions emitSettingses
 >
->   tsStarted           ← getCurrentTime
+>   tsStarted            ← getCurrentTime
 >
->   rost                ← qualifyKinds songs
+>   rost                 ← qualifyKinds songs
 >   putStrLn $ unwords ["rost", show rost]
 >
 >   -- represent all input SoundFont files in ordered list, thence a vector
@@ -453,7 +453,7 @@ executive ======================================================================
 >                              , zPreInstCache     = preInstCache
 >                              , zPerInstCache     = zc
 >                              , zWinningRecord    = wins}
->       let sfrost       = sfrost_{zPartnerCache   = formPartnerCache sfrost_ preZoneCache}
+>       let sfrost       = sfrost_{ zPartnerCache  = formZPartnerCache sfrost_ preZoneCache}
 >       
 >       tsRecond     ← getCurrentTime
 >       putStrLn ("___create winning record: " ++ show (diffUTCTime tsRecond tsReported))
@@ -1035,8 +1035,8 @@ bootstrapping methods ==========================================================
 >     oldpreI                              = deJust (unwords["mold", show pergm]) moldpreI
 >     trace_MGZ                            = unwords ["markGlobalZone", show zscan.zswGBix, show pergm]
 >
-> formPartnerCache       :: SFRoster → Map PreZoneKey PreZone → Map PreZoneKey SFZone
-> formPartnerCache sfrost preZoneCache_    = Map.mapMaybe chaseIt preZoneCache
+> formZPartnerCache      :: SFRoster → Map PreZoneKey PreZone → Map PreZoneKey SFZone
+> formZPartnerCache sfrost preZoneCache_   = Map.mapMaybe chaseIt preZoneCache
 >   where
 >     preZoneCache                         = Map.filter isStereoZone preZoneCache_
 >
