@@ -832,7 +832,7 @@ bootstrapping methods ==========================================================
 > instance Show InstZoneScan where
 >   show (InstZoneScan{ .. })              = unwords ["InstZoneScan", show zswFile, show zswInst, show zswGBix]
 >
-> instKey zsr                              = PerGMKey zsr.zswFile zsr.zswInst Nothing
+> instKey zscan                            = PerGMKey zscan.zswFile zscan.zswInst Nothing
 >         
 > formPreZoneCache       :: Array Word SFFile
 >                           → Map PreSampleKey PreSample → Map PreSampleKey PreSampleKey → Map PerGMKey PreInstrument
@@ -840,6 +840,7 @@ bootstrapping methods ==========================================================
 > formPreZoneCache sffiles preSampleCache partnerMap preInstCache
 >                                          = return $ foldl' formFZ (Map.empty, preInstCache, []) sffiles
 >   where
+>     fName                                = "formPreZoneCache"
 >     -- FZ = file to zone
 >     formFZ             :: (Map PreZoneKey PreZone, Map PerGMKey PreInstrument, [String])
 >                           → SFFile
@@ -870,16 +871,16 @@ bootstrapping methods ==========================================================
 >         mapAllPzs                        = reformPreZoneCache allPzs
 >         mapStereo                        = Map.filter isStereoZone mapAllPzs
 >
->         (errs, badzsrs)                  = unzip (rights results3)
->         newPreInstCache                  = foldl' (\x y → Map.delete (instKey y) x) preInstCache badzsrs
+>         (errs, badzscans)                = unzip (rights results3)
+>         newPreInstCache                  = foldl' (\x y → Map.delete (instKey y) x) preInstCache badzscans
 >
 >         capture        :: Word → Either InstZoneScan (String, InstZoneScan)
 >         capture wI                       = cTry
 >           where
 >             cTry
->               | isNothing target         = Right (unwords ["formPreZoneCache", "orphaned by instrument", show wI], zsr)
->               | null pzsRemaining        = Right (unwords ["formPreZoneCache", "problem", "no qualified zones", show wI], zsr)
->               | otherwise                = Left zsr
+>               | isNothing target         = Right (unwords [fName, "orphaned by instrument", show wI], zscan)
+>               | null pzsRemaining        = Right (unwords [fName, "problem", "no qualified zones", show wI], zscan)
+>               | otherwise                = Left zscan
 >
 >             target                       = Map.lookup (PerGMKey sffile.zWordF wI Nothing) preInstCache
 >
@@ -893,7 +894,7 @@ bootstrapping methods ==========================================================
 >             mGBKey                       = if head results == Right "global zone"
 >                                              then Just ibagi
 >                                              else Nothing
->             zsr                          = InstZoneScan sffile.zWordF wI mGBKey pzsRemaining
+>             zscan                        = InstZoneScan sffile.zWordF wI mGBKey pzsRemaining
 >
 >             bads                         = rights results
 >             pzsRemaining                 = lefts results
@@ -907,8 +908,8 @@ bootstrapping methods ==========================================================
 >                 pTry
 >                   | isNothing zd.zdSampleIndex
 >                                          = Right "global zone"
->                   | not limitsCheckedOk  = Right (unwords ["formPreZoneCache", "problem", "corrupt adjusted limits"]) 
->                   | isNothing presTarget = Right (unwords ["formPreZoneCache", "orphaned by sample"])
+>                   | not limitsCheckedOk  = Right (unwords [fName, "problem", "corrupt adjusted limits"]) 
+>                   | isNothing presTarget = Right (unwords [fName, "orphaned by sample"])
 >                   | otherwise            = Left (makePreZone wF si wI bix zd shdr)
 >
 >                 trace_P                  = unwords ["produce", show bix]
@@ -930,19 +931,19 @@ bootstrapping methods ==========================================================
 >           where
 >             groomRes res                 =
 >               case res of
->                 Left zsr                 → groomScan zsr
+>                 Left zscan               → groomScan zscan
 >                 Right x                  → Right x
 >
 >             groomScan  :: InstZoneScan → Either InstZoneScan (String, InstZoneScan)
->             groomScan zsr
->               | traceNot trace_MFZSR False
->                                          = undefined
->               | null newPzs              = Right (unwords ["formPreZoneCache", "problem"
->                                                 , show (PerGMKey sffile.zWordF zsr.zswInst Nothing), "no flipped zones"], zsr)
->               | otherwise                = Left zsr{zsPreZones = newPzs}
+>             groomScan zscan
+>               | traceNot trace_GS False  = undefined
+>               | null newPzs              = Right (unwords [fName, "problem"
+>                                                 , show (PerGMKey sffile.zWordF zscan.zswInst Nothing)
+>                                                 , "no flipped zones"], zscan)
+>               | otherwise                = Left zscan{zsPreZones = newPzs}
 >               where
->                 newPzs                   = groomPreZones back zsr.zsPreZones
->                 trace_MFZSR              = unwords ["groomScan", show (length zsr.zsPreZones), show (length newPzs)]
+>                 newPzs                   = groomPreZones back zscan.zsPreZones
+>                 trace_GS                 = unwords ["groomScan", show (length zscan.zsPreZones), show (length newPzs)]
 >
 >         vet                              = map vetRes
 >
@@ -950,18 +951,18 @@ bootstrapping methods ==========================================================
 >                           → Either InstZoneScan (String, InstZoneScan)
 >         vetRes res                       =
 >           case res of
->             Left zsr                     → vetSuccess zsr
+>             Left zscan                   → vetSuccess zscan
 >             Right x                      → Right x
 >
 >         vetSuccess     :: InstZoneScan → Either InstZoneScan (String, InstZoneScan)
->         vetSuccess zsr                   =
+>         vetSuccess zscan                 =
 >           if null newPzs
->             then Right (unwords["vet diminished to zero", show zsr.zswInst], zsr)
->             else Left zsr{zsPreZones = newPzs}
+>             then Right (unwords["vet diminished to zero", show zscan.zswInst], zscan)
+>             else Left zscan{zsPreZones = newPzs}
 >           where
 >             newPzs                       =
 >               let
->                 (pzsStereo, pzsMono)     = partition isStereoZone zsr.zsPreZones
+>                 (pzsStereo, pzsMono)     = partition isStereoZone zscan.zsPreZones
 >                 vetPreZone pz            =
 >                   if null newPartners
 >                     then Nothing
@@ -973,28 +974,29 @@ bootstrapping methods ==========================================================
 >
 >     okPartner      :: Map PreZoneKey PreZone → PreZone → PreZoneKey → Bool
 >     okPartner pzCache pz pzk
->       | traceNot trace_OKP False     = undefined
->       | otherwise                    =
+>       | traceNot trace_OKP False         = undefined
+>       | otherwise                        =
 >       case mpzPartner of
->         Nothing                      → False
->         Just pzPartner               → goodPartners pz pzPartner
+>         Nothing                          → False
+>         Just pzPartner                   → goodPartners pz pzPartner
 >       where
->         mpzPartner                   = Map.lookup pzk pzCache
->         trace_OKP                    = unwords ["okPartner", show (extractSampleKey (deJust "golf" mpzPartner))]
+>         mpzPartner                       = Map.lookup pzk pzCache
+>         trace_OKP                        =
+>           unwords ["okPartner", show (extractSampleKey (deJust "not in partner cache" mpzPartner))]
 >
 >     goodPartners   :: PreZone → PreZone → Bool
->     goodPartners pzMe pzYou          =
+>     goodPartners pzMe pzYou              =
 >       let
->         mySPartner                   = PreSampleKey pzMe.pzWordF        (F.sampleLink pzMe.pzShdr)
->         yrSPartner                   = PreSampleKey pzYou.pzWordF       (F.sampleLink pzYou.pzShdr)
+>         mySPartner                       = PreSampleKey pzMe.pzWordF        (F.sampleLink pzMe.pzShdr)
+>         yrSPartner                       = PreSampleKey pzYou.pzWordF       (F.sampleLink pzYou.pzShdr)
 >       in
 >         (Just yrSPartner == Map.lookup mySPartner partnerMap)
 >         && (Just mySPartner == Map.lookup yrSPartner partnerMap)
 >
 > makeBack               :: [InstZoneScan] → Map PreSampleKey [PreZoneKey]
-> makeBack zsrs                            = foldl' Map.union Map.empty (map zsr2back zsrs)
+> makeBack zscans                          = foldl' Map.union Map.empty (map zscan2back zscans)
 >   where
->     zsr2back zsr                         = foldl' backFolder Map.empty (filter isStereoZone zsr.zsPreZones)
+>     zscan2back zscan                     = foldl' backFolder Map.empty (filter isStereoZone zscan.zsPreZones)
 >     backFolder target pz                 =
 >       let
 >         presk                            = PreSampleKey pz.pzWordF pz.pzWordS
@@ -1024,17 +1026,17 @@ bootstrapping methods ==========================================================
 >         partners                         = fromMaybe [] mpartners
 >     
 > markGlobalZone         :: Map PerGMKey PreInstrument → InstZoneScan → Map PerGMKey PreInstrument
-> markGlobalZone preic zsr
+> markGlobalZone preic zscan
 >   | traceNot trace_MGZ False             = undefined
 >   | otherwise                            =
->   if isNothing zsr.zswGBix || isNothing moldpreI
+>   if isNothing zscan.zswGBix || isNothing moldpreI
 >     then preic
->     else Map.insert pergm oldpreI{iGlobalKey = Just $ PreZoneKey zsr.zswFile (fromJust zsr.zswGBix)} preic
+>     else Map.insert pergm oldpreI{iGlobalKey = Just $ PreZoneKey zscan.zswFile (fromJust zscan.zswGBix)} preic
 >   where
->     pergm                                = PerGMKey zsr.zswFile zsr.zswInst Nothing
+>     pergm                                = PerGMKey zscan.zswFile zscan.zswInst Nothing
 >     moldpreI                             = Map.lookup pergm preic
 >     oldpreI                              = deJust (unwords["mold", show pergm]) moldpreI
->     trace_MGZ                            = unwords ["markGlobalZone", show zsr.zswGBix, show pergm]
+>     trace_MGZ                            = unwords ["markGlobalZone", show zscan.zswGBix, show pergm]
 >
 > formPartnerCache       :: SFRoster → Map PreZoneKey PreZone → Map PreZoneKey SFZone
 > formPartnerCache sfrost preZoneCache_    = Map.mapMaybe chaseIt preZoneCache
