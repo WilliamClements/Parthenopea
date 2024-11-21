@@ -1617,19 +1617,21 @@ prepare the specified instruments and percussion ===============================
 >         preI                             = deJust "computePerInst PreInstrument" (Map.lookup pergm preInstCache)
 >
 >         icd            :: InstCatData
->         allBix         :: [Word]
+>         bixen          :: [Word]
 >
->         (icd, allBix)                    =
+>         (icd, bixen)                     =
 >           case icat of
 >             InstCatPerc x                → (x, x.inPercBixen)
 >             InstCatInst x                → (x, map pzWordB x.inPreZones)
 >             _                            → error $ unwords ["formZoneCache", "only Inst and Perc are valid here"]
 >
->         gZone                            = case preI.iGlobalKey of
->                                              Nothing                 → defZone
->                                              Just pzk                → buildZone sffile defZone pzk.pzkwBag
->         oList                            = map (buildZone sffile gZone) allBix
->         pzs                              = mapMaybe plookup allBix
+>         gZone                            =
+>           case preI.iGlobalKey of
+>             Nothing                      → defZone
+>             Just pzk                     → buildZone sffile defZone pzk.pzkwBag
+>         oList                            = map (buildZone sffile gZone) bixen
+>
+>         pzs                              = mapMaybe plookup bixen
 >         plookup        :: Word → Maybe PreZone
 >         plookup wBix                     = Map.lookup (PreZoneKey sffile.zWordF wBix) preZoneCache
 >
