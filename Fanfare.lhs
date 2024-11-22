@@ -1022,7 +1022,7 @@ Rattan =========================================================================
 > ratTempo                                 = 1
 > ratTranspose                             = 0
 >
-> ratLead_                                 = makePitched Clarinet        ratTranspose 0 100
+> ratLead_                                 = makePitched AltoSax         ratTranspose 0 100
 > ratBass_                                 = makePitched SynthBass1      ratTranspose 0 100
 > ratPerc_                                 = makeNonPitched                             100
 > 

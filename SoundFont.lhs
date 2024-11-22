@@ -146,7 +146,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   WinningRecord {
 >     pWinningI          :: Map InstrumentName PerGMScored
 >   , pWinningP          :: Map PercussionSound PerGMScored} deriving Show
->
 > seedWinningRecord      :: WinningRecord
 > seedWinningRecord                        = WinningRecord Map.empty Map.empty
 >
@@ -198,6 +197,7 @@ Instrument categories: instrument, percussion, disqualified
 >   SFRoster {
 >     zFiles             :: Array Word SFFile
 >   , zPreSampleCache    :: Map PreSampleKey PreSample
+>   , zPreZoneCache      :: Map PreZoneKey PreZone
 >   , zPartnerCache      :: Map PreZoneKey SFZone
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
 >   , zRost              :: ([InstrumentName], [PercussionSound])
@@ -206,7 +206,7 @@ Instrument categories: instrument, percussion, disqualified
 >
 > seedRoster :: Array Word SFFile → ([InstrumentName], [PercussionSound]) → SFRoster
 > seedRoster vFile rost                    =
->   SFRoster vFile Map.empty Map.empty Map.empty rost Map.empty seedWinningRecord
+>   SFRoster vFile Map.empty Map.empty Map.empty Map.empty rost Map.empty seedWinningRecord
 >
 > data SFFile =
 >   SFFile {
@@ -449,11 +449,12 @@ executive ======================================================================
 >
 >       let wins         = WinningRecord (Map.map head wI) (Map.map head wP)
 >
->       let sfrost_      = preR{ zPreSampleCache   = preSampleCache
+>       let sfrost       = preR{ zPreSampleCache   = preSampleCache
+>                              , zPreZoneCache     = preZoneCache  -- WOX not up to date
+>                              , zPartnerCache     = formZPartnerCache zc preZoneCache
 >                              , zPreInstCache     = preInstCache
 >                              , zPerInstCache     = zc
 >                              , zWinningRecord    = wins}
->       let sfrost       = sfrost_{ zPartnerCache  = formZPartnerCache sfrost_ preZoneCache}
 >       
 >       tsRecond     ← getCurrentTime
 >       putStrLn ("___create winning record: " ++ show (diffUTCTime tsRecond tsReported))
@@ -928,7 +929,7 @@ bootstrapping methods ==========================================================
 >             groomRes res                 =
 >               case res of
 >                 Left zscan               → groomScan zscan
->                 Right x                  → Right x
+>                 Right _                  → res
 >
 >             groomScan  :: InstZoneScan → Either InstZoneScan (String, InstZoneScan)
 >             groomScan zscan
@@ -1029,14 +1030,14 @@ bootstrapping methods ==========================================================
 >     oldpreI                              = deJust (unwords["mold", show pergm]) moldpreI
 >     trace_MGZ                            = unwords ["markGlobalZone", show zscan.zswGBix, show pergm]
 >
-> formZPartnerCache      :: SFRoster → Map PreZoneKey PreZone → Map PreZoneKey SFZone
-> formZPartnerCache sfrost preZoneCache_   = Map.mapMaybe chaseIt preZoneCache
+> formZPartnerCache      :: Map PerGMKey PerInstrument → Map PreZoneKey PreZone → Map PreZoneKey SFZone
+> formZPartnerCache perIs preZoneCache_   = Map.mapMaybe chaseIt preZoneCache
 >   where
 >     preZoneCache                         = Map.filter isStereoZone preZoneCache_
 >
 >     chaseIt            :: PreZone → Maybe SFZone
 >     chaseIt pz                           =
->       computeCross sfrost.zPerInstCache preZoneCache pz.pzWordS (extractZoneKey pz)
+>       computeCross perIs preZoneCache pz.pzWordS (extractZoneKey pz)
 > 
 > computeCross           :: Map PerGMKey PerInstrument → Map PreZoneKey PreZone → Word → PreZoneKey → Maybe SFZone
 > computeCross perIs preZs si pzk
@@ -1051,7 +1052,7 @@ bootstrapping methods ==========================================================
 >   >>= (`findBySampleIndex` si)
 >   where
 >     trace_CC                             = unwords ["computeCross", show pzk]
-
+>
 > formPreInstCache       :: Array Word SFFile → [PerGMKey] → IO (Map PerGMKey PreInstrument, [String])
 > formPreInstCache sffiles pergms          = return $ foldl' preIFolder (Map.empty, []) pergms
 >   where
@@ -1815,28 +1816,39 @@ zone selection for rendering ===================================================
 >       case toSampleType (F.sampleType shdr) of
 >         SampleTypeLeft                   → partner
 >         SampleTypeRight                  → partner
->         _                                → error $ unwords["getStereoPartner", "attempted on non-stereo zone"]
+>         _                                → error $ unwords [fName, "attempted on non-stereo zone"]
 >       where
 >         fName                            = "getStereoPartner"
->         trace_GSP                        = unwords [fName, showable, showPreZones (singleton $ fst z)]
 >
+>         shdr                             = (pzShdr . fst) z
+>         partnerKeys                      = (pzmkPartners . fst) z
+>
+>         trace_GSP                        = unwords [fName, showable, showPreZones (singleton $ fst z)]
 >         showable                         =
 >           case partner of
 >             Just (pz, _)                 → show pz.pzWordB
 >             Nothing                      → "Nothing" 
 >
 >         -- maybe hide this hack of getting zone "directly" under a conditional
->         targetSampleIx                   = F.sampleLink shdr
->         partner                          = findBySampleIndex' perI.pZones (F.sampleLink shdr)
->         shdr                             = (pzShdr . fst) z
+>         partner                          =
+>           findBySampleIndex' perI.pZones (F.sampleLink shdr) `CM.mplus` getCrossover
 >
->         partnerKeys                      = (pzmkPartners . fst) z
->         zone                             =
->           if allowStereoCrossovers
->             then deJust
->                    (unwords [fName, "zone"])
->                    (find isJust (map (`Map.lookup` sfrost.zPartnerCache) partnerKeys))
->             else Nothing
+>         getCrossover   :: Maybe (PreZone, SFZone)
+>         getCrossover                     = if allowStereoCrossovers && not (null cands)
+>                                              then Just (head cands)
+>                                              else Nothing
+>           where
+>             cands                        = mapMaybe evalCand partnerKeys
+>
+>             evalCand   :: PreZoneKey → Maybe (PreZone, SFZone)
+>             evalCand pzk                 =
+>               let
+>                 pz                       = pzk `Map.lookup` sfrost.zPreZoneCache
+>                 zone                     = pzk `Map.lookup` sfrost.zPartnerCache
+>               in
+>                 if isJust pz && isJust zone
+>                   then Just (fromJust pz, fromJust zone)
+>                   else Nothing
 
 reconcile zone and sample header ======================================================================================
 
