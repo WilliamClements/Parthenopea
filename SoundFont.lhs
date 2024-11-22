@@ -827,6 +827,9 @@ bootstrapping methods ==========================================================
 >     isResults          :: [Either InstZoneScan (String, InstZoneScan)]
 >   , isTasks            :: [[Either InstZoneScan (String, InstZoneScan)]
 >                            → [Either InstZoneScan (String, InstZoneScan)]]}
+> unfinished             :: FileInstScan → Bool
+> unfinished iscan                         = not (null iscan.isTasks)
+>
 > data InstZoneScan                        =
 >   InstZoneScan {
 >     zswFile            :: Word
@@ -854,31 +857,48 @@ bootstrapping methods ==========================================================
 >     formFZ (pzcache_, picache_, errs_) sffile
 >                                          =
 >       let
->         (pzcache, picache, errs)         = extract sffile
+>         (pzcache, picache, errs)         = captureFile sffile
 >       in
 >         (Map.union pzcache pzcache_, picache, errs_ ++ errs)
 >          
 >     makePreZone wF wS wI wB zd shdr      = PreZone wF wS wI wB zd shdr []
 >
->     extract            :: SFFile → (Map PreZoneKey PreZone, Map PerGMKey PreInstrument, [String])
->     extract sffile                       =
->       (reformPreZoneCache (foldl' (\x y → x ++ y.zsPreZones ) [] (lefts results3))
->                          , foldl' markGlobalZone newPreInstCache (lefts results3), errs)
+>     captureFile        :: SFFile → (Map PreZoneKey PreZone, Map PerGMKey PreInstrument, [String])
+>     captureFile sffile                   =
+>       (reformPreZoneCache (foldl' (\x y → x ++ y.zsPreZones ) [] (lefts isFinal.isResults))
+>                          , foldl' markGlobalZone newPreInstCache (lefts isFinal.isResults), errs)
 >       where
 >         wF                               = sffile.zWordF
 >         boota                            = sffile.zBoot
 >
 >         (stI, enI)     :: (Word, Word)   = bounds boota.ssInsts
 >
->         results1                         = map capture (deriveRange stI enI)
->         results2                         = groom (makeBack (lefts results1)) results1
->         results3                         = vet results2
+>         results                          = map capture (deriveRange stI enI)
+>         tasks          :: [[Either InstZoneScan (String, InstZoneScan)]
+>                            → [Either InstZoneScan (String, InstZoneScan)]]
+>         tasks                            = [groomTask, vetTask, reorgTask]
+>         isInitial                        = FileInstScan results tasks
+>         isSeries                         = iterate' advance isInitial
+>         isFinal                          = head $ dropWhile unfinished isSeries
 >
->         allPzs                           = foldl' (\x y → x ++ y.zsPreZones ) [] (lefts results2)
+>         advance        :: FileInstScan → FileInstScan
+>         advance iscan_@FileInstScan{ .. }
+>                                          =
+>           let
+>             fun                          = head iscan_.isTasks
+>             res                          = fun iscan_.isResults
+>           in
+>             iscan_{isResults = res, isTasks = tail isTasks}
+>          
+>         groomTask resultsIn              = groom (makeBack (lefts resultsIn)) resultsIn
+>         vetTask                          = map vet
+>         reorgTask                        = map reorg
+>
+>         allPzs                           = foldl' (\x y → x ++ y.zsPreZones ) [] (lefts isFinal.isResults)
 >         mapAllPzs                        = reformPreZoneCache allPzs
 >         mapStereo                        = Map.filter isStereoZone mapAllPzs
 >
->         (errs, badzscans)                = unzip (rights results3)
+>         (errs, badzscans)                = unzip (rights isFinal.isResults)
 >         newPreInstCache                  = foldl' (\x y → Map.delete (instKey y) x) preInstCache badzscans
 >
 >         capture        :: Word → Either InstZoneScan (String, InstZoneScan)
@@ -949,11 +969,9 @@ bootstrapping methods ==========================================================
 >                 newPzs                   = groomPreZones back zscan.zsPreZones
 >                 trace_GS                 = unwords ["groomScan", show (length zscan.zsPreZones), show (length newPzs)]
 >
->         vet                              = map vetRes
->
->         vetRes         :: Either InstZoneScan (String, InstZoneScan)
+>         vet            :: Either InstZoneScan (String, InstZoneScan)
 >                           → Either InstZoneScan (String, InstZoneScan)
->         vetRes res                       =
+>         vet res                          =
 >           case res of
 >             Left zscan                   → vetSuccess zscan
 >             Right x                      → Right x
@@ -975,6 +993,16 @@ bootstrapping methods ==========================================================
 >                     newPartners          = filter (okPartner mapStereo pz) pz.pzmkPartners
 >               in
 >                 mapMaybe vetPreZone pzsStereo ++ pzsMono
+>
+>         reorg          :: Either InstZoneScan (String, InstZoneScan)
+>                           → Either InstZoneScan (String, InstZoneScan)
+>         reorg                            = id
+> {-
+>         reorg res                        =
+>           case res of
+>             Left zscan                   → reorgSuccess zscan
+>             Right x                      → Right x
+> -}
 >
 >     okPartner      :: Map PreZoneKey PreZone → PreZone → PreZoneKey → Bool
 >     okPartner pzCache pz pzk
