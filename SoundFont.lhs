@@ -822,6 +822,11 @@ bootstrapping methods ==========================================================
 >         stype                            = toSampleType shdr.sampleType
 >         stereo                           = SampleTypeLeft == stype || SampleTypeRight == stype
 >
+> data FileInstScan                        =
+>   FileInstScan {
+>     isResults          :: [Either InstZoneScan (String, InstZoneScan)]
+>   , isTasks            :: [[Either InstZoneScan (String, InstZoneScan)]
+>                            → [Either InstZoneScan (String, InstZoneScan)]]}
 > data InstZoneScan                        =
 >   InstZoneScan {
 >     zswFile            :: Word
@@ -830,6 +835,8 @@ bootstrapping methods ==========================================================
 >   , zsPreZones         :: [PreZone]}
 > instance Show InstZoneScan where
 >   show (InstZoneScan{ .. })              = unwords ["InstZoneScan", show zswFile, show zswInst, show zswGBix]
+> makeZScan              :: Word → Word → [PreZone] → InstZoneScan
+> makeZScan wF wI                          = InstZoneScan wF wI Nothing
 >
 > instKey zscan                            = PerGMKey zscan.zswFile zscan.zswInst Nothing
 >         
@@ -894,7 +901,7 @@ bootstrapping methods ==========================================================
 >             mGBKey                       = if head results == Right "global zone"
 >                                              then Just ibagi
 >                                              else Nothing
->             zscan                        = InstZoneScan sffile.zWordF wI mGBKey pzsRemaining
+>             zscan                        = makeZScan sffile.zWordF wI pzsRemaining
 >
 >             bads                         = rights results
 >             pzsRemaining                 = lefts results
@@ -1062,7 +1069,7 @@ bootstrapping methods ==========================================================
 >         then Left $ PreInstrument iinst iinst.instName (computeFFMatches iinst.instName) Nothing
 >         else Right $ unwords ["formPreInstCache", "illegal name", show iinst.instName]
 >
->     loadInst           :: PerGMKey -> F.Inst
+>     loadInst           :: PerGMKey → F.Inst
 >     loadInst pergm
 >                                          = boota.ssInsts ! pergm.pgkwInst
 >       where
@@ -1242,7 +1249,7 @@ bootstrapping methods ==========================================================
 > sampleLoopLimitsOk     :: (Word, Word) → Bool
 > sampleLoopLimitsOk (st, en)              = st >= 0 && en - st >= snd sampleLimits && en - st < 2^22
 > adjustedSampleLimitsOk :: ZoneDigest → F.Shdr → Bool
-> adjustedSampleLimitsOk zd shdr           = st < en && stl <= enl
+> adjustedSampleLimitsOk zd shdr           = 0 <= st && st <= en && 0 <= stl && stl <= enl
 >   where
 >     st                                   = shdr.start     + zd.zdStart
 >     en                                   = shdr.end       + zd.zdEnd

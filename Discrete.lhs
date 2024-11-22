@@ -22,7 +22,7 @@ June 17, 2024
 > import qualified Data.Bifunctor          as BF
 > import Data.Complex
 > import Data.Int ( Int8, Int16, Int32 )
-> import Data.List ( foldl', iterate', find )
+> import Data.List ( foldl', find )
 > import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing )
 > import Data.MemoTrie
 > import qualified Data.Vector.Unboxed     as VU
