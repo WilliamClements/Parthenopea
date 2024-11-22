@@ -874,12 +874,20 @@ bootstrapping methods ==========================================================
 >         (stI, enI)     :: (Word, Word)   = bounds boota.ssInsts
 >
 >         results                          = map capture (deriveRange stI enI)
->         tasks          :: [[Either InstZoneScan (String, InstZoneScan)]
->                            → [Either InstZoneScan (String, InstZoneScan)]]
->         tasks                            = [groomTask, vetTask, reorgTask]
+>         tasks                            = [groomTask, map (forward vetSuccess), reorgTask]
 >         isInitial                        = FileInstScan results tasks
 >         isSeries                         = iterate' advance isInitial
 >         isFinal                          = head $ dropWhile unfinished isSeries
+>
+>         groomTask resultsIn              = groom (makeBack (lefts resultsIn)) resultsIn
+>         reorgTask                        = map reorg
+>
+>         allPzs                           = foldl' (\x y → x ++ y.zsPreZones ) [] (lefts isFinal.isResults)
+>         mapAllPzs                        = reformPreZoneCache allPzs
+>         mapStereo                        = Map.filter isStereoZone mapAllPzs
+>
+>         (errs, badzscans)                = unzip (rights isFinal.isResults)
+>         newPreInstCache                  = foldl' (\x y → Map.delete (instKey y) x) preInstCache badzscans
 >
 >         advance        :: FileInstScan → FileInstScan
 >         advance iscan_@FileInstScan{ .. }
@@ -889,17 +897,11 @@ bootstrapping methods ==========================================================
 >             res                          = fun iscan_.isResults
 >           in
 >             iscan_{isResults = res, isTasks = tail isTasks}
->          
->         groomTask resultsIn              = groom (makeBack (lefts resultsIn)) resultsIn
->         vetTask                          = map vet
->         reorgTask                        = map reorg
->
->         allPzs                           = foldl' (\x y → x ++ y.zsPreZones ) [] (lefts isFinal.isResults)
->         mapAllPzs                        = reformPreZoneCache allPzs
->         mapStereo                        = Map.filter isStereoZone mapAllPzs
->
->         (errs, badzscans)                = unzip (rights isFinal.isResults)
->         newPreInstCache                  = foldl' (\x y → Map.delete (instKey y) x) preInstCache badzscans
+>         
+>         forward ffun res                 =
+>           case res of
+>             Left zscan                   → ffun zscan
+>             Right x                      → Right x
 >
 >         capture        :: Word → Either InstZoneScan (String, InstZoneScan)
 >         capture wI                       = cTry
@@ -916,8 +918,8 @@ bootstrapping methods ==========================================================
 >
 >             ibagi                        = F.instBagNdx iinst
 >             jbagi                        = F.instBagNdx jinst
->
 >             results                      = map produce (deriveRange ibagi jbagi)
+>
 >             mGBKey                       = if head results == Right "global zone"
 >                                              then Just ibagi
 >                                              else Nothing
@@ -946,35 +948,25 @@ bootstrapping methods ==========================================================
 >                                              (xgeni <= ygeni)
 >                                              "SoundFont file corrupt (computePreZone gens)"
 >                                              (map (boota.ssIGens !) (deriveRange xgeni ygeni))
->
 >                 zd                       = formDigest gens
 >                 si                       = deJust "produce si" zd.zdSampleIndex
 >                 shdr                     = boota.ssShdrs ! si
 >
->         groom back                       = map groomRes
+>         groom          :: Map PreSampleKey [PreZoneKey]
+>                           → [Either InstZoneScan (String, InstZoneScan)]
+>                           → [Either InstZoneScan (String, InstZoneScan)]
+>         groom back                       = map (forward groomScan)
 >           where
->             groomRes res                 =
->               case res of
->                 Left zscan               → groomScan zscan
->                 Right _                  → res
->
 >             groomScan  :: InstZoneScan → Either InstZoneScan (String, InstZoneScan)
 >             groomScan zscan
 >               | traceNot trace_GS False  = undefined
 >               | null newPzs              = Right (unwords [fName, "problem"
->                                                 , show (PerGMKey sffile.zWordF zscan.zswInst Nothing)
->                                                 , "no flipped zones"], zscan)
+>                                                          , show (PerGMKey sffile.zWordF zscan.zswInst Nothing)
+>                                                          , "no flipped zones"], zscan)
 >               | otherwise                = Left zscan{zsPreZones = newPzs}
 >               where
 >                 newPzs                   = groomPreZones back zscan.zsPreZones
 >                 trace_GS                 = unwords ["groomScan", show (length zscan.zsPreZones), show (length newPzs)]
->
->         vet            :: Either InstZoneScan (String, InstZoneScan)
->                           → Either InstZoneScan (String, InstZoneScan)
->         vet res                          =
->           case res of
->             Left zscan                   → vetSuccess zscan
->             Right x                      → Right x
 >
 >         vetSuccess     :: InstZoneScan → Either InstZoneScan (String, InstZoneScan)
 >         vetSuccess zscan                 =
