@@ -879,7 +879,7 @@ bootstrapping methods ==========================================================
 >         isSeries                         = iterate' advance isInitial
 >         isFinal                          = head $ dropWhile unfinished isSeries
 >
->         groomTask resultsIn              = groom (makeBack (lefts resultsIn)) resultsIn
+>         groomTask res                    = groom (makeBack (lefts res)) res
 >         reorgTask                        = map reorg
 >
 >         allPzs                           = foldl' (\x y → x ++ y.zsPreZones ) [] (lefts isFinal.isResults)
@@ -890,13 +890,12 @@ bootstrapping methods ==========================================================
 >         newPreInstCache                  = foldl' (\x y → Map.delete (instKey y) x) preInstCache badzscans
 >
 >         advance        :: FileInstScan → FileInstScan
->         advance iscan_@FileInstScan{ .. }
->                                          =
+>         advance iscan@FileInstScan{ .. } =
 >           let
->             fun                          = head iscan_.isTasks
->             res                          = fun iscan_.isResults
+>             fun                          = head isTasks
+>             res                          = fun isResults
 >           in
->             iscan_{isResults = res, isTasks = tail isTasks}
+>             iscan{isResults = res, isTasks = tail isTasks}
 >         
 >         forward ffun res                 =
 >           case res of
