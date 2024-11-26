@@ -37,7 +37,7 @@ December 12, 2022
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe, listToMaybe )
 > import Data.MemoTrie
 > import Data.Ord
-> import Data.Ratio ( approxRational )
+> import Data.Ratio ( approxRational, (%) )
 > import qualified Data.Vector.Unboxed     as VU
 > import qualified Data.Vector             as VB
 > import Data.Word
@@ -85,8 +85,9 @@ Utilities ======================================================================
 > upsilon                                  = 1e10               -- a scrawny  big    upsilon
 >
 > qMidiSize128           :: Int            = 128
+> qMidiSizeSpace         :: Int            = qMidiSize128 * qMidiSize128
 >
-> qOffsetWeights         :: [Int]          = [1, 32768]
+> qOffsetWeights         :: [Int]          = [1, 32_768]
 > freakRange             :: (Double, Double)
 >                                          = (20, 20_000)
 >
@@ -1049,8 +1050,6 @@ You see there is some overlap between Zone 1 and Zone 2.
 >
 >     trace_SS                             = unwords ["smashSubspaces", show (length spaces_), show spaces_]
 >
-> inZRange d x                             = inRange (0, x - 1) d 
->
 > validRange             :: ∀ i . (Integral i, Ix i) ⇒ i → (i, i) → Bool
 > validRange dim (r, s)                    = 0 <= dim && r <= s && inZRange r dim && inZRange s dim
 >
@@ -1089,20 +1088,29 @@ You see there is some overlap between Zone 1 and Zone 2.
 >   show                 :: Smashing i → String
 >   show Smashing{ .. }                    =
 >     unwords ["Smashing", show (smashTag, smashStats)]
+> sLength smashup                        = product smashup.smashDims
 > data SmashStats                        =
 >   SmashStats {
 >     countNothings      :: Int
 >   , countSingles       :: Int
 >   , countMultiples     :: Int} deriving Show
+
 > seedSmashStats                           = SmashStats 0 0 0
 > developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ VU.Vector (i,i) → SmashStats
 > developSmashStats                        = VU.foldl' sfolder seedSmashStats
 >   where
->     sfolder            ::  SmashStats → (i, i) → SmashStats
+>     sfolder            :: SmashStats → (i, i) → SmashStats
 >     sfolder stats@SmashStats{ .. } (_, count)
 >       | count == 0                       = stats{countNothings = countNothings + 1}
 >       | count == 1                       = stats{countSingles = countSingles + 1}
 >       | otherwise                        = stats{countMultiples = countMultiples + 1}
+> fractionEmpty, fractionCovered
+>                        :: ∀ i. (Integral i, Show i) ⇒ Smashing i → Rational
+> fractionEmpty smashup                    = fromIntegral (countNothings smashup.smashStats) % fromIntegral (sLength smashup)
+> fractionCovered smashup                  =
+>   fromIntegral (countSingles smashup.smashStats + countMultiples smashup.smashStats) % fromIntegral (sLength smashup)
+>
+> inZRange d x                             = inRange (0, x - 1) d 
           
 Raises 'a' to the power 'b' using logarithms.
 
