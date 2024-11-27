@@ -120,11 +120,7 @@ Modulator management ===========================================================
 > compileMods                              = foldl' mfolder Map.empty
 >   where
 >     mfolder accum m8r@Modulator{mrModDest}
->                                          =
->       let
->         soFar                            = fromMaybe [] (Map.lookup mrModDest accum)
->       in
->         Map.insert mrModDest (m8r : soFar) accum
+>                                          = Map.insertWith (++) mrModDest [m8r] accum
 >
 > renumberMods           :: [Modulator] → [Modulator]
 > renumberMods m8rs                        = map renumber m8rs
@@ -135,7 +131,7 @@ Modulator management ===========================================================
 >     renumber m8r@Modulator{mrModId, mrModDest}
 >                                          =
 >       let
->         upd mid                          = fromJust $ lookup mid subs
+>         upd mid                          = deJust "upd mid" $ lookup mid subs
 >       in
 >         m8r{  mrModId                    = upd mrModId
 >             , mrModDest                  = (\case (ToLink m)         → (ToLink $ upd m);

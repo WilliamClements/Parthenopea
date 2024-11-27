@@ -3,6 +3,7 @@
 >
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE DeriveGeneric #-}
+> {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
@@ -511,6 +512,7 @@ later items, some critical data may thereby be missing. So that entails deletion
 >
 >       putStrLn (unwords [fName, "preInstCache size 3", show (length preInstCache)])
 >
+>       print (length preZoneCache)
 >       mapM_ putStrLn (reverse errs)
 >       return (preZoneCache, preInstCache)
 >
@@ -521,12 +523,7 @@ later items, some critical data may thereby be missing. So that entails deletion
 >     inverter                             = Map.foldlWithKey inverseFolder Map.empty preZoneCache
 >
 >     inverseFolder      :: Map PerGMKey [PreZone] → PreZoneKey → PreZone → Map PerGMKey [PreZone]
->     inverseFolder target key newpz       = Map.insert pergm now target
->       where
->         pergm                            = extractInstKey newpz
->         soFar, now     :: [PreZone]
->         soFar                            = fromMaybe [] (Map.lookup pergm target)
->         now                              = newpz : soFar
+>     inverseFolder m key newpz            = Map.insertWith (++) (extractInstKey newpz) [newpz] m
 >
 > reassociateZones       :: Map PerGMKey PerInstrument → IO (Map PerGMKey [PreZone])
 > reassociateZones zc                      = return $ Map.map (\q → map fst q.pZones) zc
@@ -654,13 +651,15 @@ tournament among GM instruments and percussion from SoundFont files ============
 >                           → (Map a [PerGMScored], [String])
 >     xaEnterTournament fuzzMap pergm hints (wins, ss) kind
 >       | traceIf trace_XAET False         = undefined
->       | otherwise                        = (Map.insert kind now wins, ss)
+>       | otherwise                        = (Map.insertWith (++) kind [scoredP] wins, ss)
 >       where
+>         fName                            = "xaEnterTournament"
+>
 >         pergm_                           = pergm{pgkwBag = Nothing}
 >         preI                             =
->           deJust (unwords["xaEnterTournament", "PreInstrument"]) (Map.lookup pergm_ preInstCache)
+>           deJust (unwords[fName, "PreInstrument"]) (Map.lookup pergm_ preInstCache)
 >         perI                             =
->           deJust (unwords["xaEnterTournament", "PerInstrument"]) (Map.lookup pergm_ zc)
+>           deJust (unwords[fName, "PerInstrument"]) (Map.lookup pergm_ zc)
 >
 >         scope_, scope  :: [(PreZone, SFZone)]
 >         scope_                           =
@@ -675,7 +674,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         scope                            =
 >           profess
 >             (not (null scope_))
->             (unwords["xaEnterTournament", "null scope", preI.iName])
+>             (unwords[fName, "null scope", preI.iName])
 >             scope_
 >             
 >
@@ -685,7 +684,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >         zName                            = deJust "mnameZ2" mnameZ
 >
 >         trace_XAET                       =
->           unwords ["xaEnterTournament", preI.iName, fromMaybe "" mnameZ, show kind]
+>           unwords [fName, preI.iName, fromMaybe "" mnameZ, show kind]
 >
 >         computeGrade   :: [(PreZone, SFZone)] → AgainstKindResult → ArtifactGrade
 >         computeGrade zs akResult         = gradeEmpiricals theGrader empiricals
@@ -701,9 +700,6 @@ tournament among GM instruments and percussion from SoundFont files ============
 >               | howgood > 0.000_001      = max 0 (logBase 2 howgood) * fuzzFactor kind
 >               | otherwise                = 0
 >   
->         soFar, now     :: [PerGMScored]
->         soFar                            = fromMaybe [] (Map.lookup kind wins)
->         now                              = scoredP : soFar
 >         scoredP        :: PerGMScored    =
 >           PerGMScored (computeGrade scope akResult) (toKind kind) akResult pergm preI.iName mnameZ
 >
@@ -848,31 +844,30 @@ bootstrapping methods ==========================================================
 >                           → IO (Map PreZoneKey PreZone, Map PerGMKey PreInstrument, [String])
 >     formFZ (preZs, preIs, errs) sffile   = do
 >       (preZs', preIs', errs')            ← captureFile sffile
->       putStrLn (unwords [fName, show (length preZs'), show (length preIs')])
 >       return (Map.union preZs preZs', preIs', errs ++ errs')
 >          
 >     makePreZone wF wS wI wB gens shdr    = PreZone wF wS wI wB (formDigest gens) shdr []
 >
 >     captureFile        :: SFFile → IO (Map PreZoneKey PreZone, Map PerGMKey PreInstrument, [String])
->     captureFile sffile                   = return
->       (formPreZoneMap (foldl' (\x y → x ++ y.zsPreZones ) []   (lefts isFinal.isResults))
->                      , foldl' markGlobalZone shavePreInstCache (lefts isFinal.isResults), errs)
+>     captureFile sffile                   = do
+>       let preZs                          = formPreZoneMap (foldl' (\x y → x ++ y.zsPreZones ) []   (lefts isFinal.isResults))
+>       let preIs                          = foldl' markGlobalZone shavePreInstCache (lefts isFinal.isResults)
+>       putStrLn (unwords [fName, show (length preZs), show (length preIs)])
+>       return (preZs, preIs, errs)
 >       where
->         fName                            = "captureFile"
->
 >         wF                               = sffile.zWordF
 >         boota                            = sffile.zBoot
 >
 >         (stI, enI)     :: (Word, Word)   = bounds boota.ssInsts
 >         resInit                          = map capture (deriveRange stI enI)
 >
->         tasks                            = [groomTask, vetTask, reorgTask]
+>         tasks                            = if combinePartials
+>                                              then [groomTask, vetTask, reorgTask]
+>                                              else [groomTask, vetTask]
 >
 >         isInitial                        = FileInstScan resInit tasks
 >         isSeries                         = iterate' nextGen isInitial
 >         isFinal                          = head $ dropWhile unfinished isSeries
->
->         groomTask res                    = groom (makeBack (lefts res)) res
 >
 >         (errs, badzscans)                = unzip (rights isFinal.isResults)
 >         shavePreInstCache                = foldl' (\x y → Map.delete (instKey y) x) preInstCache badzscans
@@ -898,7 +893,7 @@ capture (initial) task =========================================================
 >           where
 >             cTry
 >               | isNothing target         = Right (unwords [fName, "orphaned by instrument", show wI], zscan)
->               | null pzsRemaining        = Right (unwords [fName, "problem", "no qualified zones", show wI], zscan)
+>               | null pzsRemaining        = Right (unwords [fName, "problem", "no qualified zones", show (wF, wI)], zscan)
 >               | otherwise                = Left zscan
 >
 >             target                       = Map.lookup (PerGMKey sffile.zWordF wI Nothing) preInstCache
@@ -933,7 +928,7 @@ capture (initial) task =========================================================
 >
 >                 gens   :: [F.Generator]  = profess
 >                                              (xgeni <= ygeni)
->                                              "SoundFont file corrupt (computePreZone gens)"
+>                                              (unwords [fName, "SoundFont file corrupt (gens)"])
 >                                              (map (boota.ssIGens !) (deriveRange xgeni ygeni))
 >                 pz                       = makePreZone wF si wI bix gens shdr
 >                 si                       = deJust "produce si" pz.pzDigest.zdSampleIndex
@@ -944,6 +939,8 @@ capture (initial) task =========================================================
 
 groom task ============================================================================================================
           
+>         groomTask res                    = groom (makeBack (lefts res)) res
+>
 >         groom          :: Map PreSampleKey [PreZoneKey]
 >                           → [Either InstZoneScan (String, InstZoneScan)]
 >                           → [Either InstZoneScan (String, InstZoneScan)]
@@ -978,7 +975,6 @@ groom task =====================================================================
 vet task ============================================================================================================
           remove bad stereo partners from PreZones per instrument, delete instrument if down to zero PreZones
 
->         vetTask        :: [Either InstZoneScan (String, InstZoneScan)] → [Either InstZoneScan (String, InstZoneScan)]
 >         vetTask res                      =
 >           let
 >             filePzs                      = foldl' (\x y → x ++ filter isStereoZone y.zsPreZones) [] (lefts res)
@@ -1025,14 +1021,16 @@ vet task =======================================================================
 reorg task ============================================================================================================
           group lists of instruments by matching names - if group qualifies, collapse its member insts together as one
 
->         reorgTask      :: [Either InstZoneScan (String, InstZoneScan)] → [Either InstZoneScan (String, InstZoneScan)]
->         reorgTask res                    =
->           if combinePartials
->             then map (forward reorgSuccess) res
->             else res
+>         reorgTask res                    = map (forward reorgSuccess) res
 >           where
 >             fname                        = "reorgTask"
 >
+>             oMap                         =
+>               associateZones $ formPreZoneMap $ concatMap (convert (\z → z.zsPreZones)) res
+>             aMap                         =
+>               foldl' (\m0 (wL, wsM) → foldl' (\m1 w → Map.insert w wL m1) m0 wsM) Map.empty (dissect res)
+>             hMap                         = foldl' makeHolds Map.empty res
+>             
 >             reorgSuccess   :: InstZoneScan → Either InstZoneScan (String, InstZoneScan)
 >             reorgSuccess zscan           =
 >               let
@@ -1042,17 +1040,10 @@ reorg task =====================================================================
 >               in
 >                 case aprobe of
 >                   Just target            → if target /= zscan.zswInst
->                                              then Right ("absorbed", zscan)
+>                                              then Right ("absorbed", zscan{zsPreZones = []})
 >                                              else Left zscan'
 >                   Nothing                → Left zscan
 >
->             oMap                         =
->               associateZones $ formPreZoneMap $ concatMap (convert (\z → z.zsPreZones)) res
->             sMap                         = dissect res
->             aMap                         =
->               foldl' (\m0 (wLead, wsMembers) → foldl' (\m1 w → Map.insert w wLead m1) m0 wsMembers) Map.empty sMap
->             hMap                         = foldl' makeHolds Map.empty res
->             
 >             dissect    :: [Either InstZoneScan b] → [(Word, [Word])]
 >             dissect res                  = filter qualifySet groupedC
 >               where
@@ -1066,25 +1057,34 @@ reorg task =====================================================================
 >             makeActs w2w (w0, ws)        = foldl' (\m w → Map.insert w w0 m) w2w ws
 > 
 >             makeHolds  :: Map Word [PreZone] → Either InstZoneScan (String, InstZoneScan) → Map Word [PreZone]
->             makeHolds iHold eith          =
+>             makeHolds iHold eith
+>               | traceNow trace_MH False  = undefined
+>               | otherwise                =
 >               case eith of
 >                 Left zscan               → exert zscan
 >                 Right _                  → iHold
 >               where
+>                 trace_MH                 = unwords [fName, "iHold", show (length iHold), show (Map.keys iHold)]
+>
 >                 exert zscan              =
->                   let
+>                   (\case
+>                     Just target          → upd target
+>                     Nothing              → iHold) macts
+>                   where
 >                     macts                = Map.lookup zscan.zswInst aMap
->                     mholds               = Map.lookup zscan.zswInst iHold
->                     sofar                = fromMaybe [] mholds
->                     rebased              = map rebase zscan.zsPreZones
+>                     rebased              = map rebase (tracer "rebased" zscan.zsPreZones)
 >                     rebase pz            =
->                       case macts of
->                         Just target      → pz{pzWordI = target}
->                         Nothing          → pz
->                   in
->                     case macts of
->                       Just target        → Map.insert target (sofar ++ rebased) iHold
->                       Nothing            → iHold
+>                       (\case
+>                         Just owner       → pz{pzWordI = owner}
+>                         Nothing          → pz) macts
+>
+>                     upd target
+>                       | traceNow trace_U False
+>                                          = undefined
+>                       | otherwise        = Map.insertWith (++) (tracer "target" target) rebased iHold
+>                       where
+>                         trace_U          = unwords [fName, "upd from/to", show (zscan.zswInst, target), show (length rebased)]
+>
 >
 >             enFrag     :: InstZoneScan → [(String, Word)]
 >             enFrag zscan                 =
@@ -1105,22 +1105,30 @@ reorg task =====================================================================
 >                   else Nothing
 >
 >             qualifySet :: (Word, [Word]) → Bool
->             qualifySet (_, allIs)        =
->               let
->                 nInsts :: Double         = fromIntegral $ genericLength allIs
->                 pergms                   = map (\wI → PerGMKey sffile.zWordF wI Nothing) allIs
+>             qualifySet (leadI, subIs)
+>               | traceNow trace_QS False  = undefined
+>               | otherwise                = answer
+>               where
+>                 fName                    = "qualifySet"
+>
+>                 nInsts :: Double         = fromIntegral $ genericLength subIs
+>                 pergms                   = map (\wI → PerGMKey sffile.zWordF wI Nothing) subIs
 >                 smashups                 = map smash pergms
 >                 pzLoads                  = map (\p → deJust "pzs" (Map.lookup p oMap)) pergms
 >                 pears                    = zip pzLoads smashups
 >                 pzsAll                   = concat pzLoads
->                 fracOne                  = minimum (map calcFrac pears)
+>                 fracOne                  = 100 * fromRational ((maximum . map calcFrac) pears)
 >                 calcFrac (pzs, smashup)  = fractionCovered smashup
 >                 smashAll                 = smush (zip pzLoads smashups)
->                 fracAll                  = fractionCovered smashAll
+>                 fracAll                  = 100 * fromRational (fractionCovered smashAll)
+>                 answer                   = fracAll / fracOne > 1.25
 >
 >                 smash pergm              = computeInstSmashup $ deJust "pzs" (Map.lookup pergm oMap)
->               in
->                 (fromRational fracAll / fromRational fracOne) > exp (1 + log nInsts)
+>
+>                 trace_QS                 =
+>                   unwords [fName, show leadI, show (fracOne, fracAll)
+>                          , show "...."
+>                          , show answer, show (fracAll / fracOne)]
 >
 > smush                  :: [([PreZone], Smashing Word)] → Smashing Word
 > smush pears                                 =
@@ -1136,7 +1144,7 @@ reorg task =====================================================================
 >     smashSubspaces allTags dims allSpaces
 >
 > shorten        :: (Char → Bool) → [Char] → [Char] 
-> shorten qual chars               = reverse (dropWhile qual (reverse chars))
+> shorten qual chars                       = reverse (dropWhile qual (reverse chars))
 >
 > makeBack               :: [InstZoneScan] → Map PreSampleKey [PreZoneKey]
 > makeBack zscans                          = foldl' Map.union Map.empty (map zscan2back zscans)
@@ -1146,9 +1154,8 @@ reorg task =====================================================================
 >       let
 >         presk                            = PreSampleKey pz.pzWordF pz.pzWordS
 >         prezk                            = extractZoneKey pz
->         sofar                            = fromMaybe [] (Map.lookup presk target)
 >       in
->         Map.insert presk (prezk : sofar) target
+>         Map.insertWith (++) presk [prezk] target
 >
 > markGlobalZone         :: Map PerGMKey PreInstrument → InstZoneScan → Map PerGMKey PreInstrument
 > markGlobalZone preic zscan
@@ -1164,7 +1171,7 @@ reorg task =====================================================================
 >     trace_MGZ                            = unwords ["markGlobalZone", show zscan.zswGBix, show pergm]
 >
 > formZPartnerCache      :: Map PerGMKey PerInstrument → Map PreZoneKey PreZone → Map PreZoneKey SFZone
-> formZPartnerCache perIs preZoneCache_   = Map.mapMaybe chaseIt preZoneCache
+> formZPartnerCache perIs preZoneCache_    = Map.mapMaybe chaseIt preZoneCache
 >   where
 >     preZoneCache                         = Map.filter isStereoZone preZoneCache_
 >
@@ -1213,7 +1220,7 @@ reorg task =====================================================================
 >
 > addPreInst              :: PerGMKey → PreInstrument → Map PerGMKey PreInstrument → Map PerGMKey PreInstrument
 > addPreInst pergm preI m
->   | traceNot trace_API False             = undefined
+>   | traceNow trace_API False             = undefined
 >   | otherwise                            = Map.insert pergm preI m 
 >   where
 >     fName                                = "addPreInst"
@@ -1545,7 +1552,10 @@ prepare the specified instruments and percussion ===============================
 >       | otherwise                        =
 >       (deJust "categorizeInst icat" icat, doShow >>= (\x → Just $ disqMsg ++ x))
 >       where
->         preI                             = deJust "categorizeInst PreInstrument" (Map.lookup pergm preInstCache)
+>         fName                            = "categorizeInst"
+>
+>         preI                             =
+>           deJust (unwords [fName, "PreInstrument"]) (Map.lookup pergm preInstCache)
 >         mpzs                             = Map.lookup pergm inverter
 >         pzs                              = deJust "categorizeInst inverter" mpzs
 >
@@ -1554,10 +1564,10 @@ prepare the specified instruments and percussion ===============================
 >             Just (InstCatDisq reason)    → renderDisqReason reason
 >             _                            → Nothing
 >         disqMsg                          =
->           unwords ["categorizeInst:", "skipping", show pergm.pgkwFile, show pergm.pgkwInst, show preI.iName, ":"]
+>           unwords [fName, "skipping", show (pergm.pgkwFile, pergm.pgkwInst), show preI.iName, ":"]
 >
 >         trace_CI                         =
->           unwords ["categorizeInst", show pergm.pgkwFile, preI.iName, show pergm.pgkwInst]
+>           unwords [fName, preI.iName, show (pergm.pgkwFile, pergm.pgkwInst), show (length pzs)]
 >  
 >         -- Put the Instrument, of either category, through a gauntlet of checks.
 >         -- This diverges, and then we have qualInstZone and qualPercZone 
@@ -1674,10 +1684,10 @@ prepare the specified instruments and percussion ===============================
 >               let
 >                 ffInst'                  = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) preI.iMatches.ffInst
 >                 ffPerc'                  = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) preI.iMatches.ffPerc
->                 uZones :: [Word]         = case seed of
+>                 uZones :: [Word]         = (\case
 >                                              Nothing                 → wZones
 >                                              Just (InstCatPerc icd)  → icd.inPercBixen
->                                              _                       → []
+>                                              _                       → []) seed
 >                 wZones :: [Word]         = mapMaybe (qualPercZone rost) pzs
 >                 maybeNailAsPerc
 >                        :: Double → Maybe InstCat
@@ -1732,7 +1742,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         qualPercZone   :: ([InstrumentName], [PercussionSound]) → PreZone → Maybe Word
 >         qualPercZone rost' prez
->           | traceNot trace_EFP False     = undefined
+>           | traceNot trace_QPZ False     = undefined
 >           | otherwise                    = result
 >           where
 >             result                       =
@@ -1741,7 +1751,7 @@ prepare the specified instruments and percussion ===============================
 >               >>= pinnedKR (select rost')
 >               >> Just prez.pzWordB
 >
->             trace_EFP                    = unwords ["qualPercZone", show prez.pzWordB, show result]
+>             trace_QPZ                    = unwords ["qualPercZone", show prez.pzWordB, show result]
 >
 > formZoneCache          :: Array Word SFFile
 >                           → Map PerGMKey PreInstrument
