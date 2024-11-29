@@ -108,11 +108,11 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj = ejingles ++ zjingles
+> sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("dh"          , deathlessHorsie)]
->    -- [ ("bill1"       , bill 1)]
+>       [ ("basicLick"   , basicLick)]
 >    -- [ ("pa"          , pendingtonArnt 1)]
 >    -- [ ("slot"        , slot 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]

@@ -309,7 +309,7 @@ re instrumentRange content, see:
    https://www.orchestralibrary.com/reftables/rang.html
 also
    https://philharmonia.co.uk/resources/instruments/
-   https://omeka-s.grinnell.edu/s/MusicalInstruments/item/631
+   https://omeka-s.grinnell.edu/s/MusicalInstruments
 
 > instrumentRange :: InstrumentName → Maybe (Pitch, Pitch)
 > instrumentRange inst =
@@ -593,7 +593,7 @@ examine song for instrument and percussion usage ===============================
 >           if ePitch s1.shHighNote > ePitch s2.shHighNote
 >             then s1.shHighNote
 >             else s2.shHighNote
->       , shCount        =
+>       , shCount                          =
 >           s1.shCount + s2.shCount}
 >
 > critiqueShred          :: (Kind, Shred) → [(InstrumentName, [String])]
@@ -606,31 +606,29 @@ examine song for instrument and percussion usage ===============================
 >   in critiqueNote instr range shLowNote ++ critiqueNote instr range shHighNote
 > 
 > critiqueNote           :: InstrumentName → (Pitch, Pitch) → MEvent → [(InstrumentName, [String])]
-> critiqueNote name range MEvent{ .. }     =
+> critiqueNote name range mev              =
 >   let
->     p                                    = pitch ePitch
+>     p                                    = pitch mev.ePitch
 >   in
->     if p == clipPitch range p
+>     if p == clip range p
 >       then []
 >       else singleton (name, singleton $ unwords ["...", show p, "out of range", show range])
 >
 > shFolder               :: Shredding → MEvent → Shredding
-> shFolder Shredding{shRanges, shMsgs} mev
->                                          =
+> shFolder ding mev                        =
 >   let
 >     kind               :: Kind           = getKind mev
->     mshred             :: Maybe Shred    = Map.lookup kind shRanges
+>     mshred             :: Maybe Shred    = Map.lookup kind ding.shRanges
 >   in
 >     case mshred of
->       Nothing                            → Shredding (Map.insert kind (Shred mev mev 1) shRanges) shMsgs
->       Just shred                         → Shredding (Map.insert kind (upd shred)       shRanges) shMsgs
+>       Nothing                            → Shredding (Map.insert kind (Shred mev mev 1) ding.shRanges) ding.shMsgs
+>       Just shred                         → Shredding (Map.insert kind (upd shred)       ding.shRanges) ding.shMsgs
 >   where
->     upd Shred{shLowNote, shHighNote, shCount}  
->                                          =
+>     upd shred                            =
 >       Shred
->         (if ePitch mev < ePitch shLowNote then mev else shLowNote)
->         (if ePitch mev > ePitch shHighNote then mev else shHighNote)
->         (shCount + 1)
+>         (if ePitch mev < ePitch shred.shLowNote  then mev else shred.shLowNote)
+>         (if ePitch mev > ePitch shred.shHighNote then mev else shred.shHighNote)
+>         (shred.shCount + 1)
 >
 > shredJingles           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
 > shredJingles js                          = do
@@ -672,12 +670,12 @@ examine song for instrument and percussion usage ===============================
 >     case kind of
 >       Left _                             → showShred shLowNote ++ "\n" ++ showShred shHighNote ++ "\n" 
 >       _                                  → showShred shLowNote ++ "\n" 
->   showShred MEvent{ .. }                 =
+>   showShred mev                          =
 >     case kind of
->       Left _                             → show (fromRational eTime)
->                                            ++ show (pitch ePitch)
->                                            ++ showOutOfRangeIndicator ePitch
->       _                                  → show (fromRational eTime)
+>       Left _                             → show (fromRational mev.eTime)
+>                                            ++ show (pitch mev.ePitch)
+>                                            ++ showOutOfRangeIndicator mev.ePitch
+>       _                                  → show (fromRational mev.eTime)
 >   showOutOfRangeIndicator p              = if isNothing mrange || inRange range p
 >                                              then "."
 >                                              else "!"
@@ -976,13 +974,6 @@ Conversion functions and general helpers =======================================
 > clip                   :: Ord n ⇒ (n, n) → n → n
 > clip (lower, upper) val                  = min upper (max lower val)
 >
-> clipPitch              :: (Pitch, Pitch) → Pitch → Pitch
-> clipPitch (lower, upper) val             = pitch $ clip (lower', upper') val'
->   where
->     upper'                               = absPitch upper
->     lower'                               = absPitch lower
->     val'                                 = absPitch val
->
 > deriveRange            :: Integral n ⇒ n → n → [n]
 > walkRange              :: Integral n ⇒ (n, n) → [n]
 > deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]
@@ -1017,7 +1008,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 > smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
 >                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
 > smashSubspaces tag dims spaces_
->   | traceIf trace_SS False               = undefined
+>   | traceNow trace_SS False              = undefined
 >   | otherwise                            = Smashing tag dims (developSmashStats svector) svector
 >   where
 >     spaces             :: [(i, [(i, i)])]

@@ -94,6 +94,11 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     pzkwFile           :: Word
 >   , pzkwBag            :: Word} deriving (Eq, Ord, Show)
 >
+> data ShdrXForm =
+>   MakeMono
+>   | MakeLeft PreZoneKey
+>   | MakeRight PreZoneKey deriving Eq
+>
 > data PreZone =
 >   PreZone {
 >     pzWordF            :: Word
@@ -102,13 +107,21 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , pzWordB            :: Word
 >   , pzDigest           :: ZoneDigest
 >   , pzShdr             :: F.Shdr
->   , pzmkPartners       :: [PreZoneKey]} deriving (Eq)
+>   , pzmkPartners       :: [PreZoneKey]
+>   , pzShdrXForms       :: [ShdrXForm]} deriving Eq
 > instance Show PreZone where
 >   show (PreZone{ .. })                   = unwords ["PreZone", show (pzWordF, pzWordS, pzWordI, pzWordB), show pzDigest]
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
 > extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
 > extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordB
 > extractSpace pz                          = (pz.pzWordB, [pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange])
+> effShdr                :: PreZone → F.Shdr
+> effShdr pz                               =
+>   foldl' (\s x → (\case
+>                   MakeMono               → s{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
+>                   MakeLeft pz            → s{F.sampleType = fromSampleType SampleTypeLeft, F.sampleLink = 0}
+>                   MakeRight pz           → s{F.sampleType = fromSampleType SampleTypeRight, F.sampleLink = 0}) x) pz.pzShdr pz.pzShdrXForms
+> appendChange pz@PreZone{ .. } change     = pz{pzShdrXForms = pzShdrXForms ++ change}
 > showPreZones pzs                         = show $ map pzWordB pzs
 >
 > formPreZoneMap         :: [PreZone] → Map PreZoneKey PreZone
@@ -488,15 +501,11 @@ later items, some critical data may thereby be missing. So that entails deletion
 >       mapM_ putStrLn (reverse errs ++ reverse errs')
 >       return (preSampleCache, sPartnerMap)
 >         
->     initInsts          :: Array Word SFFile → IO (Map PerGMKey PreInstrument)
 >     initInsts sffiles
 >                        = do
 >       pergmsI_         ← formMasterInstList sffiles
 >       (preInstCache, errs)
 >                        ← formPreInstCache sffiles pergmsI_
->
->       putStrLn (unwords [fName, "preInstCache size 1", show (length preInstCache)])
->
 >       mapM_ putStrLn (reverse errs)
 >       return preInstCache
 >
@@ -680,7 +689,7 @@ tournament among GM instruments and percussion from SoundFont files ============
 >
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
 >                                            >>= findByBagIndex' perI.pZones
->                                            >>= \(q, _) → Just (F.sampleName q.pzShdr)
+>                                            >>= \(q, _) → Just (F.sampleName (effShdr q))
 >         zName                            = deJust "mnameZ2" mnameZ
 >
 >         trace_XAET                       =
@@ -846,7 +855,7 @@ bootstrapping methods ==========================================================
 >       (preZs', preIs', errs')            ← captureFile sffile
 >       return (Map.union preZs preZs', preIs', errs ++ errs')
 >          
->     makePreZone wF wS wI wB gens shdr    = PreZone wF wS wI wB (formDigest gens) shdr []
+>     makePreZone wF wS wI wB gens shdr    = PreZone wF wS wI wB (formDigest gens) shdr [] []
 >
 >     captureFile        :: SFFile → IO (Map PreZoneKey PreZone, Map PerGMKey PreInstrument, [String])
 >     captureFile sffile                   = do
@@ -970,7 +979,7 @@ groom task =====================================================================
 >             partnerUp pz                 = pz{pzmkPartners = fromMaybe [] mpartners}
 >               where
 >                 mpartners                =
->                   Map.lookup (PreSampleKey pz.pzWordF (F.sampleLink pz.pzShdr)) back    
+>                   Map.lookup (PreSampleKey pz.pzWordF (F.sampleLink (effShdr pz))) back    
 
 vet task ============================================================================================================
           remove bad stereo partners from PreZones per instrument, delete instrument if down to zero PreZones
@@ -984,7 +993,7 @@ vet task =======================================================================
 >
 >         vetSuccess     :: Map PreZoneKey PreZone → InstZoneScan → Either InstZoneScan (String, InstZoneScan)
 >         vetSuccess mapStereo zscan
->           | traceNot trace_VS False      = undefined
+>           | traceNow trace_VS False      = undefined
 >           | otherwise                    =
 >           if null newPzs
 >             then Right (unwords["vet diminished to zero", show zscan.zswInst], zscan)
@@ -1004,16 +1013,16 @@ vet task =======================================================================
 >             trace_VS                     = unwords ["vetSuccess", show zscan]
 >
 >         okPartner      :: Map PreZoneKey PreZone → PreZone → PreZoneKey → Bool
->         okPartner pzCache pz pzk         =
->           case Map.lookup pzk pzCache of
+>         okPartner pzMap pz pzk           =
+>           case Map.lookup pzk pzMap of
 >             Nothing                      → False
 >             Just pzPartner               → goodPartners pz pzPartner
 >
 >         goodPartners   :: PreZone → PreZone → Bool
 >         goodPartners pzMe pzYou          =
 >           let
->             mySPartner                   = PreSampleKey pzMe.pzWordF   (F.sampleLink pzMe.pzShdr)
->             yrSPartner                   = PreSampleKey pzYou.pzWordF  (F.sampleLink pzYou.pzShdr)
+>             mySPartner                   = PreSampleKey pzMe.pzWordF   (F.sampleLink (effShdr pzMe))
+>             yrSPartner                   = PreSampleKey pzYou.pzWordF  (F.sampleLink (effShdr pzYou))
 >           in
 >             (Just yrSPartner == Map.lookup mySPartner sPartnerMap)
 >             && (Just mySPartner == Map.lookup yrSPartner sPartnerMap)
@@ -1319,12 +1328,12 @@ reorg task =====================================================================
 >   do
 >     traceIO ("renderSong " ++ name)
 >     ts1                                  ← getCurrentTime
->     ding@Shredding{shRanges, shMsgs}     ← shredMusic (song Map.empty)
+>     ding                                 ← shredMusic (song Map.empty)
 >     let dynMap                           = makeDynMap ding
 >     CM.unless (null (Map.assocs dynMap)) (traceIO $ unwords ["dynMap", show dynMap])
->     let ks                               = Map.keys shRanges
+>     let ks                               = Map.keys ding.shRanges
 >     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
->     let (esI, esP)                       = printChoices sfrost is shMsgs ps
+>     let (esI, esP)                       = printChoices sfrost is ding.shMsgs ps
 >     let es                               = [Unblocked name, EndOfLine] ++ concatMap snd esI ++ concatMap snd esP
 >     putStr (reapEmissions es)
 >     -- render song only if all OK
@@ -1375,14 +1384,14 @@ reorg task =====================================================================
 >   | traceNot trace_SDS False             = undefined
 >   | otherwise                            = if score < 0.01 then -10 else score
 >   where
->     trace_SDS                            = unwords ["sampleDurationScoring", show sampleSize, show score, show zone, show pz.pzShdr]
->     score                                = sampleSize / fromIntegral pz.pzShdr.sampleRate
+>     trace_SDS                            = unwords ["sampleDurationScoring", show sampleSize, show score, show zone, show (effShdr pz)]
+>     score                                = sampleSize / fromIntegral (effShdr pz).sampleRate
 >
 >     sampleSize         :: Double
 >     sampleSize                           = fromIntegral $ xEnd - xStart
 >       where
->         xStart         = addIntToWord    pz.pzShdr.start   (sumOfWeightedInts [zone.zStartOffs, zone.zStartCoarseOffs] qOffsetWeights)
->         xEnd           = addIntToWord    pz.pzShdr.end     (sumOfWeightedInts [zone.zEndOffs,   zone.zEndCoarseOffs]   qOffsetWeights)
+>         xStart         = addIntToWord    (effShdr pz).start   (sumOfWeightedInts [zone.zStartOffs, zone.zStartCoarseOffs] qOffsetWeights)
+>         xEnd           = addIntToWord    (effShdr pz).end     (sumOfWeightedInts [zone.zEndOffs,   zone.zEndCoarseOffs]   qOffsetWeights)
 >
 > sampleLimitsOk         :: (Word, Word) → Bool
 > sampleLimitsOk (st, en)                  = st >= 0 && en - st >= fst sampleLimits && en - st < 2^22
@@ -1409,14 +1418,14 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >
 > -- see also zfindByBagIndex
 >
-> isLeftPreZone pz                         = SampleTypeLeft == toSampleType (F.sampleType pz.pzShdr)
-> isRightPreZone pz                        = SampleTypeRight == toSampleType (F.sampleType pz.pzShdr)
+> isLeftPreZone pz                         = SampleTypeLeft == toSampleType (F.sampleType (effShdr pz))
+> isRightPreZone pz                        = SampleTypeRight == toSampleType (F.sampleType (effShdr pz))
 >
 > zoneConforms (pz, SFZone{zSampleMode, zInitQ, zScaleTuning, zExclusiveClass})
 >                                          = not $ or unsupported
 >   where
 >     F.Shdr{end, start, endLoop, startLoop}
->                                          = pz.pzShdr
+>                                          = effShdr pz
 >
 >     unsupported        :: [Bool]
 >     unsupported                          =
@@ -1606,7 +1615,7 @@ prepare the specified instruments and percussion ===============================
 >                                then Nothing
 >                                else Just $ InstCatDisq DisqCorruptRange
 >
->         hasRom pz                        = F.sampleType pz.pzShdr >= 0x8000
+>         hasRom pz                        = F.sampleType (effShdr pz) >= 0x8000
 >                                          
 >         checkLinkage   :: Maybe InstCat
 >         checkLinkage                     =
@@ -1634,7 +1643,7 @@ prepare the specified instruments and percussion ===============================
 >         extractIndex, extractLink
 >                        :: PreZone → Int
 >         extractIndex pz                  = fromIntegral $ deJust "extractIndex" pz.pzDigest.zdSampleIndex
->         extractLink pz                   = fromIntegral $ F.sampleLink pz.pzShdr
+>         extractLink pz                   = fromIntegral $ F.sampleLink (effShdr pz)
 >
 >         rejectCrosses  :: Maybe InstCat
 >         rejectCrosses                 =
@@ -1664,11 +1673,11 @@ prepare the specified instruments and percussion ===============================
 >           | traceNot trace_PA False      = undefined
 >           | otherwise                    =
 >           if isNothing seed
->             then structuralAlts ++ alts2 allKinds
->             else alts2 rost
+>             then structuralAlts ++ functionalAlts allKinds
+>             else functionalAlts rost
 >
 >           where
->             trace_PA                     = unwords ["provideAlts", show (alts2 rost)]
+>             trace_PA                     = unwords ["provideAlts", show (functionalAlts rost)]
 >             structuralAlts               =
 >               [if isNothing mpzs || null (fromJust mpzs)
 >                  then Just (InstCatDisq DisqNoQualifiedZones)
@@ -1680,7 +1689,7 @@ prepare the specified instruments and percussion ===============================
 >                   else rejectCrosses
 >               , checkLinkage
 >               ]
->             alts2 rost                   =
+>             functionalAlts rost          =
 >               let
 >                 ffInst'                  = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) preI.iMatches.ffInst
 >                 ffPerc'                  = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) preI.iMatches.ffPerc
@@ -1923,9 +1932,9 @@ zone selection for rendering ===================================================
 >     setZone            :: Either (SFZone, F.Shdr) ((SFZone, F.Shdr), (SFZone, F.Shdr))
 >     setZone                              =
 >       case selectZoneConfig (selectBestZone noon) of 
->         Left (pzL, zoneL)                → Left (zoneL, pzL.pzShdr)
+>         Left (pzL, zoneL)                → Left (zoneL, effShdr pzL)
 >         Right ((pzL, zoneL), (pzR, zoneR))
->                                          → Right ((zoneL, pzL.pzShdr), (zoneR, pzR.pzShdr))
+>                                          → Right ((zoneL, effShdr pzL), (zoneR, effShdr pzR))
 >
 >     selectBestZone     :: NoteOn → (PreZone, SFZone)
 >     selectBestZone noon
@@ -1955,7 +1964,7 @@ zone selection for rendering ===================================================
 >                                              else eith
 >
 >          mpartner                        = getStereoPartner z
->          shdr                            = (pzShdr . fst) z
+>          shdr                            = (effShdr . fst) z
 >          stype                           = toSampleType shdr.sampleType
 >          oz                              = deJust "oz" mpartner
 >
@@ -1970,7 +1979,7 @@ zone selection for rendering ===================================================
 >       where
 >         fName                            = "getStereoPartner"
 >
->         shdr                             = (pzShdr . fst) z
+>         shdr                             = (effShdr . fst) z
 >         partnerKeys                      = (pzmkPartners . fst) z
 >
 >         trace_GSP                        = unwords [fName, showable, showPreZones (singleton $ fst z)]
@@ -2086,7 +2095,7 @@ reconcile zone and sample header ===============================================
 >       , toFilterFcCo                     = summarize ToFilterFc
 >       , toVolumeCo                       = summarize ToVolume}
 >
->     curKernelSpec@KernelSpec{ .. }       =
+>     curKernelSpec                        =
 >       KernelSpec
 >         (maybe 13_500 (clip (1_500, 13_500)) zInitFc)
 >         (maybe 0      (clip (0,     960))    zInitQ)
@@ -2245,7 +2254,8 @@ emit standard output text detailing what choices we made for rendering GM items 
 >   , qqAllowOverlappingRanges             :: Bool
 >   , qqAllowOutOfRange                    :: Bool
 >   , qqMultipleCompetes                   :: Bool
->   , qqCombinePartials                    :: Bool} deriving Show
+>   , qqCombinePartials                    :: Bool
+>   , qqCanDevolveToMono                   :: Bool} deriving Show
 >
 > allowStereoCrossovers                    = qqAllowStereoCrossovers      defF
 > -- stereo pair can come from 2 different instruments in the same file
@@ -2254,6 +2264,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 > -- more than one zone can reference a given range cell
 > multipleCompetes                         = qqMultipleCompetes           defF
 > combinePartials                          = qqCombinePartials            defF
+> canDevolveToMono                         = qqCanDevolveToMono           defF
 >
 > defF                   :: SoundFontSettings
 > defF =
@@ -2262,6 +2273,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >   , qqAllowOverlappingRanges             = True
 >   , qqAllowOutOfRange                    = True
 >   , qqMultipleCompetes                   = True
->   , qqCombinePartials                    = False}
+>   , qqCombinePartials                    = False
+>   , qqCanDevolveToMono                   = True}
 
 The End

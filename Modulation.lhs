@@ -68,10 +68,10 @@ Modulator management ===========================================================
 >         (outGoing mdt)
 >
 > outGoing               :: ModDestType → Maybe Word
-> outGoing mdt                             =
->   case mdt of
->     ToLink mId         → Just mId
->     _                  → Nothing
+> outGoing                                 =
+>   \case
+>     ToLink mId                           → Just mId
+>     _                                    → Nothing
 >
 > data Sifting                             =
 >   Sifting {
@@ -83,7 +83,7 @@ Modulator management ===========================================================
 > eliminateDanglingMods Sifting{ssCounter, ssCurrent}
 >                                          = Sifting (ssCounter + 1) newTry ssCurrent
 >   where
->     -- let's examine result of the previous generation
+>     -- examine result of the previous generation
 >     -- use it to produce next generation, dropping nodes that:
 >     -- 1. expect linked sources but have none
 >     -- 2. consist of an outbound link (by Id) to non-existent mod
@@ -94,19 +94,16 @@ Modulator management ===========================================================
 >                                              "maximum of 10 tries exceeded..."
 >                                              filter shouldStay ssCurrent
 >
->     byModDestType                        = compileMods ssCurrent
->
->     shouldStay Modulator{mrModId, mrModSrc, mrModDest}
->                                          = linkageInOk && linkageOutOk
+>     shouldStay         :: Modulator → Bool
+>     shouldStay m8r                       = linkageInOk && linkageOutOk
 >       where
 >         linkageInOk                      =
->           FromLinked /= m8rSource || maybe False (not . null) (Map.lookup (ToLink m8rId) byModDestType)
+>           FromLinked /= m8rSource || maybe False (not . null) (Map.lookup (ToLink m8r.mrModId) byModDestType)
 >         linkageOutOk                     =
->           maybe True (\w → (isJust . find (\m → mrModId == w)) ssCurrent) (outGoing m8rDest)
+>           maybe True (\w → (isJust . find (\m → m.mrModId == w)) ssCurrent) (outGoing m8r.mrModDest)
 >         
->         m8rId                            = mrModId
->         m8rSource                        = msSource mrModSrc
->         m8rDest                          = mrModDest
+>         m8rSource                        = msSource m8r.mrModSrc
+>         byModDestType                    = compileMods ssCurrent
 >
 > siftMods               :: [Modulator] → [Modulator]
 > siftMods m8rs                            = ssCurrent 
