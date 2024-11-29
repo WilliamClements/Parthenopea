@@ -121,7 +121,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >                   MakeMono               → s{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
 >                   MakeLeft pz            → s{F.sampleType = fromSampleType SampleTypeLeft, F.sampleLink = 0}
 >                   MakeRight pz           → s{F.sampleType = fromSampleType SampleTypeRight, F.sampleLink = 0}) x) pz.pzShdr pz.pzShdrXForms
-> appendChange pz@PreZone{ .. } change     = pz{pzShdrXForms = pzShdrXForms ++ change}
+> appendChange pz@PreZone{ .. } change     = pz{pzShdrXForms = pzShdrXForms ++ singleton change}
 > showPreZones pzs                         = show $ map pzWordB pzs
 >
 > formPreZoneMap         :: [PreZone] → Map PreZoneKey PreZone
@@ -1004,7 +1004,9 @@ vet task =======================================================================
 >                 (pzsStereo, pzsMono)     = partition isStereoZone zscan.zsPreZones
 >                 vetPreZone pz            =
 >                   if null newPartners
->                     then Nothing
+>                     then if canDevolveToMono
+>                            then Just $ appendChange pz MakeMono
+>                            else Nothing
 >                     else Just pz{pzmkPartners = newPartners}
 >                   where
 >                     newPartners          = filter (okPartner mapStereo pz) pz.pzmkPartners
