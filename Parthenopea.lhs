@@ -887,8 +887,8 @@ The use of following functions requires that their input is normalized between 0
 >
 > data SlwRate
 > instance Clock SlwRate where
->   rate _ = 4.41
-> type SlwSF a b  = SigFun SlwRate a b
+>   rate _                                 = 4.41
+> type SlwSF a b                           = SigFun SlwRate a b
 >
 > type Node = Int
 >
@@ -911,10 +911,9 @@ The use of following functions requires that their input is normalized between 0
 >
 > -- | Calculates all the nodes that are part of cycles in a graph.
 > cyclicNodes :: Graph → [Node]
-> cyclicNodes graph =
->   (map fst . filter isCyclicAssoc . assocs) graph
+> cyclicNodes graph                        = (map fst . filter isCyclicAssoc . assocs) graph
 >   where
->     isCyclicAssoc = uncurry (reachableFromAny graph)
+>     isCyclicAssoc                        = uncurry (reachableFromAny graph)
 >
 > -- | In the specified graph, can the specified node be reached, starting out
 > -- from any of the specified vertices?
@@ -1008,8 +1007,8 @@ You see there is some overlap between Zone 1 and Zone 2.
 > smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
 >                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
 > smashSubspaces tag dims spaces_
->   | traceNow trace_SS False              = undefined
->   | otherwise                            = Smashing tag dims (developSmashStats svector) svector
+>   | traceIf trace_SS False               = undefined
+>   | otherwise                            = Smashing tag dims spaces (developSmashStats svector) svector
 >   where
 >     spaces             :: [(i, [(i, i)])]
 >     spaces                               = map (BF.second (zipWith (\dim → fromMaybe (0, dim-1)) dims)) spaces_
@@ -1048,11 +1047,45 @@ You see there is some overlap between Zone 1 and Zone 2.
 > validCoords coords smashup               = and $ zipWith inZRange coords smashup.smashDims
 >
 > lookupCellIndex        :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
-> lookupCellIndex coords smashup           =
->   profess
->     (validCoords coords smashup)
->     (unwords ["lookupCellIndex", "invalid coords"])
->     (smashup.smashVec VU.! computeCellIndex smashup.smashDims coords)
+> lookupCellIndex coords smashup           = try
+>   where
+>     try_                                 =
+>       profess
+>         (validCoords coords smashup)
+>         (unwords ["lookupCellIndex", "invalid coords"])
+>         (smashup.smashVec VU.! computeCellIndex smashup.smashDims coords)
+>     try                                  =
+>       if snd try_ > 0
+>         then try_
+>         else hardWay
+>
+>     hardWay                              =
+>       let
+>         way                              = (snd $ minimum (map (measure coords) smashup.smashSpaces), 1)
+>       in
+>         way
+>
+>     switchy            :: (a, i) → (i, i)
+>     switchy (_, bix)                     = (bix, 1)
+>
+>     measure            :: [i] → (i, [(i, i)]) → (Double, i)
+>     measure coords space                 =
+>       minimum (map (distance (fst space) coords) (listOutPoints (snd space)))
+>
+>     distance           :: i → [i] → [i] → (Double, i)
+>     distance bix [] []                   = (0, bix)
+>     distance bix (x:xs) (y:ys)           = (var + fst (distance bix xs ys), bix)
+>       where
+>         delta, var     :: Double
+>         delta                            = fromIntegral (x - y)
+>         var                              = delta * delta
+>
+> listOutPoints          :: ∀ i . (Integral i) ⇒ [(i, i)] → [[i]]
+> listOutPoints []                       = [[]]
+> listOutPoints ((r, s) : ranges)      = points1 ++ points2
+>   where
+>     points1                              = map ([r] ++) (listOutPoints ranges)
+>     points2                              = map ([s] ++) (listOutPoints ranges)
 >
 > computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → Int
 > computeCellIndex [] []                   = 0
@@ -1073,6 +1106,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >   Smashing {
 >     smashTag            :: String
 >     , smashDims         :: [i]
+>     , smashSpaces       :: [(i, [(i, i)])]
 >     , smashStats        :: SmashStats
 >     , smashVec          :: VU.Vector (i, i)}
 > instance ∀ i. (Integral i, Num i, Show i) ⇒ Show (Smashing i) where

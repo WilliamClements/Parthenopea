@@ -209,13 +209,12 @@ Signal function-based synth ====================================================
 >     aL3 ← doLFO       kVibLfoL                       ⤙ ()
 >     outA                                             ⤙ ModSignals aL1 aL2 aL3
 >   where
->     Modulation{ .. }                     = m8nL
 >     (kModEnvL, kModLfoL, kVibLfoL)       = doModSigMaybes 
 >
 >     doModSigMaybes                       = case md of
->       ToPitch                            → ( mModEnv, mModLfo, mVibLfo)
->       ToFilterFc                         → ( mModEnv, mModLfo, Nothing)
->       ToVolume                           → ( Nothing, mModLfo, Nothing)
+>       ToPitch                            → ( m8nL.mModEnv, m8nL.mModLfo, m8nL.mVibLfo)
+>       ToFilterFc                         → ( m8nL.mModEnv, m8nL.mModLfo, Nothing)
+>       ToVolume                           → ( Nothing, m8nL.mModLfo, Nothing)
 >       _                                  →
 >         error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in doModSigMaybes, not", show md]
 >

@@ -26,7 +26,9 @@ Testing ========================================================================
 >                                         ,   spotCheck3dSpaceCell
 >                                         ,   spotCheck4dSpaceCell
 >                                         ,   canCountPartialCover
->                                         ,   canCountMultiples]
+>                                         ,   canCountMultiples
+>                                         ,   workOutNearbyVerticalUncovered
+>                                         ,   workOutNearbyHorizontalUncovered ]
 >
 > filln                  :: Int → Maybe (Int, Int)
 > filln n                                  = Just (0, n - 1)
@@ -97,5 +99,25 @@ Testing ========================================================================
 >         smashSubspaces "smashup" [3, 2] [(101, [Just (1, 2), Nothing])
 >                                        , (102, [Nothing, Just (1,1)])]
 >   return $ aEqual smashup.smashStats.countMultiples 2
+>
+> workOutNearbyVerticalUncovered           = do
+>   let smashup          :: Smashing Int   =
+>         smashSubspaces "smashup" [4, 8]  [(101, [Nothing, Just (2, 4)])
+>                                         , (102, [Nothing, Just (5, 6)])]
+>   let southern                           = [1, 3]
+>   let northern                           = [1, 7]
+>   let aat                                = lookupCellIndex southern smashup
+>   let bat                                = lookupCellIndex northern smashup
+>   return $ aEqual (aat, bat) ((101, 1), (102, 1))
+>
+> workOutNearbyHorizontalUncovered         = do
+>   let smashup          :: Smashing Int   =
+>         smashSubspaces "smashup" [8, 4]  [(101, [Just (2, 3), Nothing])
+>                                         , (102, [Just (6, 7), Nothing])]
+>   let western                            = [3, 1]
+>   let eastern                            = [7, 1]
+>   let aat                                = lookupCellIndex western smashup
+>   let bat                                = lookupCellIndex eastern smashup
+>   return $ aEqual (aat, bat) ((101, 1), (102, 1))
 
 The End
