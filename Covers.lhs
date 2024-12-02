@@ -250,13 +250,16 @@ Yahozna ========================================================================
 > yaChoir                                  = (AltoSax,            110)
 >
 > yahozna =
->    removeZeros
->    $ tempo 4
->    $ transpose 0
->    $ keysig C Mixolydian
->    $          bandPart_ yaGuitar (line [rest dwn, rest dwn] :+: yahoznaGuitar)
->           :=: bandPart_ yaBass (yahoznaBassIntro :+: yahoznaBass)
->           :=: bandPart_ yaChoir choirPart
+>   removeZeros
+>   $ tempo 4
+>   $ transpose 0
+>   $ keysig C Mixolydian
+>   $          bandPart_ yaGuitar (line [rest dwn, rest dwn] :+: yahoznaGuitar)
+>          :=: bandPart_ yaBass (yahoznaBassIntro :+: yahoznaBass)
+>          :=: bandPart_ yaChoir choirPart
+>   where
+>     bandPart_          :: (InstrumentName, Velocity) → Music Pitch → Music (Pitch, Volume)
+>     bandPart_ (inst, vel) m              = mMap (, vel) (instrument inst m)
 
 > guitarLick 
 >   =    line [ c 3 hn,  c 3 qn,  c 3 qn,  c 3 wn]

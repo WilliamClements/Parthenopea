@@ -523,17 +523,14 @@ instrument range checking ======================================================
 >           then Map.insert inameL inameR i2i
 >           else i2i
 >
-> bandPart_              :: (InstrumentName, Velocity) → Music Pitch → Music (Pitch, Volume)
-> bandPart_ (inst, vel) m                  = mMap (, vel) (instrument inst m)
->
 > bandPart               :: BandPart → Music Pitch → Music (Pitch, [NoteAttribute])
-> bandPart bp m                = mMap bchanger (instrument bp.bpInstrument (transpose bp.bpTranspose m))
+> bandPart bp                              = mMap bChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
 >   where
->     bchanger           :: Pitch → (Pitch, [NoteAttribute])
->     bchanger p                           = (p, [Volume bp.bpVelocity])
+>     bChanger           :: Pitch → (Pitch, [NoteAttribute])
+>     bChanger p                           = (p, [Volume bp.bpVelocity])
 >
 > orchestraPart          :: BandPart → Music (Pitch, [NoteAttribute]) → Music (Pitch, [NoteAttribute])
-> orchestraPart bp m           = mMap oChanger (instrument bp.bpInstrument (transpose bp.bpTranspose m))
+> orchestraPart bp                         = mMap oChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
 >   where
 >     oChanger           :: (Pitch, [NoteAttribute]) → (Pitch, [NoteAttribute])
 >     oChanger (p, nas)                    = (p, map nasFun nas)
