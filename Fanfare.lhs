@@ -49,7 +49,6 @@ Fanfare ========================================================================
 >
 > theFanfare isCap dynMap
 >              = removeZeros
->              $ aggrandize
 >              $ tempo fgTempo
 >              $ keysig C Mixolydian
 >              $ (tTreble1 :=: bBass) :+: (tTreble1 :=: tTreble2 :=: bBass)
@@ -131,7 +130,6 @@ Alice ==========================================================================
 >
 > alice dynMap =
 >         removeZeros
->         $ aggrandize
 >         $ tempo                          aliceTempo
 >         $ keysig G Dorian
 >         $ bandPart aliceLead
@@ -163,7 +161,6 @@ Bob ============================================================================
 >
 > bob :: Int → DynMap → Music (Pitch, [NoteAttribute])
 > bob nRepeats dynMap = removeZeros
->       $ aggrandize
 >       $ tempo bobTempo
 >       $ keysig D Mixolydian
 >       $     bandPart bobTreble (times nRepeats treblebob)
@@ -221,7 +218,6 @@ Bill ===========================================================================
 >
 > bill nRepeats dynMap =
 >    removeZeros
->    $ aggrandize
 >    $ tempo     billTempo
 >    $ keysig Ef Mixolydian
 >
@@ -279,7 +275,6 @@ Copper =========================================================================
 > copper :: Int → DynMap → Music (Pitch, [NoteAttribute])
 > copper n dynMap =
 >    removeZeros
->    $ aggrandize
 >    $ tempo 2
 >    $ keysig C Dorian
 >    $ bandPart copperLead
@@ -300,7 +295,6 @@ Gold ===========================================================================
 > goldLead_                                = makePitched AcousticGrandPiano goldTranspose 0 100
 > gold dynMap =
 >    removeZeros
->    $ aggrandize
 >    $ tempo 2
 >    $ keysig C Mixolydian
 >    $ bandPart goldLead
@@ -326,7 +320,6 @@ Silver =========================================================================
 >     
 > silver dynMap =
 >     removeZeros
->     $ aggrandize
 >     $ tempo 2
 >     $ keysig A Mixolydian
 >     $ bandPart silverLead
@@ -387,7 +380,6 @@ Snake ==========================================================================
 >
 > snake dynMap =
 >    removeZeros
->    $ aggrandize
 >    $ tempo snakeTempo
 >    $ keysig D Mixolydian
 >    $     bandPart snakeLead treblePart
@@ -484,14 +476,12 @@ Country In The Morning =========================================================
 >
 > littleCITM dynMap =
 >    removeZeros
->    $ aggrandize
 >    $ tempo citmTempo
 >    $ keysig G Major
 >    $ line [bandPart citmStrum_ (line [d 3 wn])]
 
 > getCITM dynMap =
 >    removeZeros
->    $ aggrandize
 >    $ tempo citmTempo
 >    $ keysig G Major
 >    $ chord [     
@@ -558,7 +548,6 @@ Whelp Narp =====================================================================
 >
 > whelpNarp dynMap =
 >    removeZeros
->    $ aggrandize
 >    $ tempo wnTempo
 >    $ keysig C Mixolydian
 >    $     bandPart wnLead                    (wnAltoI :+: wnAltoII)
@@ -693,7 +682,6 @@ Roger ==========================================================================
 > roger :: DynMap → Music (Pitch, [NoteAttribute])
 > roger dynMap                             =
 >    removeZeros
->    $ aggrandize
 >    $ tempo                               rogerTempo
 >    $ keysig Cs Dorian
 >    $     bandPart rogerAlto  (line [cAltoI,  cAltoIIA, cAltoIIB])
@@ -781,7 +769,6 @@ Way Pos' T' Purple =============================================================
 >
 > waypostpurple dynMap =
 >    removeZeros
->    $ aggrandize
 >    $ tempo                               wayposTempo
 >    $ keysig C Major
 >          (bandPart wayposLead  leadPart
@@ -920,7 +907,6 @@ Pendington Arnt  ===============================================================
 > pendingtonArnt :: Int → DynMap → Music (Pitch, [NoteAttribute])
 > pendingtonArnt nRepeats dynMap =
 >    removeZeros
->    $ aggrandize
 >    $ tempo pArntTempo
 >    $ keysig C Lydian
 >    $ times nRepeats
@@ -1028,7 +1014,6 @@ Rattan =========================================================================
 > 
 > rattan dynMap =
 >     removeZeros
->     $ aggrandize
 >     $ tempo ratTempo
 >     $ keysig E Locrian
 >     $ chord [vpart, spart, ppart]
@@ -1083,7 +1068,6 @@ Kit ============================================================================
 > kit                    :: DynMap → Music (Pitch,[NoteAttribute])
 > kit dynMap =
 >   removeZeros
->   $ aggrandize
 >   $ tempo kitTempo
 >   $ chord [bandPart kitPerc npart, bandPart kitLead tpart]
 >
@@ -1154,7 +1138,6 @@ Pit ============================================================================
 >
 > pit dynMap =
 >   removeZeros
->   $ aggrandize
 >   $ tempo pitTempo
 >   $ keysig B Lydian
 >   $     bandPart pitLead pitA
@@ -1176,18 +1159,22 @@ Dit ============================================================================
 >
 > dit dynMap = 
 >   removeZeros
->   $ aggrandize
 >   $ tempo ditTempo
 >   $ keysig Af Mixolydian
->   $ bandPart ditBass (times 2 ditbody)
+>   $ line [bandPart ditBass ditbody1, orchestraPart ditBass ditbody2, bandPart ditBass ditbody3]
 >
 >   where
 >
 >   ditBass                                = replace ditBass_ dynMap
 >
-> ditbody =
+> ditbody1                                 =
 >   line [rest dhn, ds 4 qn, fs 4 den, e 4 sn, ds 4 qn, e 4 den, cs 4 sn, a 3 qn, ds 3 den, ds 3 sn
->       , ds 4 den, e 4 sn, ds 4 sn, cs 4 en, cs 4 sn, b 3 den, a 3 sn, fs 3 den
+>       , ds 4 den, e 4 sn]
+>
+> ditbody2                                 = note sn ((Ds, 4), [Params [-1.0]])
+>
+> ditbody3                                 =
+>   line [cs 4 en, cs 4 sn, b 3 den, a 3 sn, fs 3 den
 >       , e 3 sn, ds 3 den, e 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn
 >       , fs 3 qn, fs 4 dqn, fs 4 en, t32 [e 4 en, ds 4 en, cs 4 en], cs 4 den, cs 4 sn
 >       , b 3 den, cs 4 sn, ds 4 qn] 
@@ -1224,7 +1211,6 @@ Deydumpdum =====================================================================
 >
 > deyDumpDum dynMap =
 >   removeZeros
->   $ aggrandize
 >   $ tempo d3TempoPlay
 >   $ keysig Af Mixolydian
 >   $     line [         bandPart d3Lead leadI, bandPart d3LeadQ leadIIa, bandPart d3Lead leadIIb]

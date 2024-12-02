@@ -25,7 +25,6 @@ Cecil's Asleep =================================================================
 > cecil                  :: DynMap → Music (Pitch, [NoteAttribute])
 > cecil dynMap                             =
 >    removeZeros
->    $ aggrandize
 >    $ tempo cecilTempo
 >    $ keysig G Dorian
 >    $ bandPart cecilAlto
@@ -228,7 +227,6 @@ Abby Cissa =====================================================================
 > abby                   :: DynMap → Music (Pitch, [NoteAttribute])
 > abby dynMap                              =
 >    removeZeros
->    $ aggrandize
 >    $ tempo abbyTempo
 >    $ keysig C Major
 >    $ bandPart abbyGrand aLink
@@ -308,7 +306,6 @@ There Goes W.J. ================================================================
 > wj                     :: DynMap → Music (Pitch, [NoteAttribute])
 > wj dynMap                                =
 >    removeZeros
->    $ aggrandize
 >    $ tempo wjTempo
 >    $ keysig G Dorian
 >    $     bandPart wjAlto  (line [wjAltoI,  wjAltoII,  wjAltoIII,  wjAltoIV])
@@ -374,7 +371,6 @@ Shelby Parsley =================================================================
 > shelby                 :: DynMap → Music (Pitch, [NoteAttribute])
 > shelby dynMap                            =
 >   removeZeros
->   $ aggrandize
 >   $ tempo spTempo
 >   $ keysig Ef Mixolydian
 >   $ (if skip_SP
@@ -388,7 +384,7 @@ Shelby Parsley =================================================================
 >   spBass                                 = replace spBass_ dynMap
 >   dihtRhodes                             = replace dihtRhodes_ dynMap
 >
->   spv, spb             :: Music (Pitch, Volume)
+>   spv, spb             :: Music (Pitch, [NoteAttribute])
 >   spv                                    = bandPart spVibes     (line [spAltoI,  spAltoII,  spAltoIII])
 >   spb                                    = bandPart spBass      (line [spBassI,  spBassII,  spBassIII])
 >   dihtr                                  = bandPart dihtRhodes  (line [dihtRhodesI])
@@ -544,7 +540,6 @@ We Hate Her ====================================================================
 > weHateHer              :: DynMap → Music (Pitch, [NoteAttribute])
 > weHateHer dynMap                         =
 >    removeZeros
->    $ aggrandize
 >    $ tempo whhTempo
 >    $ keysig G Dorian
 >    $ bandPart whhLead whhMel

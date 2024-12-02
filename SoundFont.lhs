@@ -1105,7 +1105,7 @@ reorg task =====================================================================
 >             
 >             makeHolds  :: Map Word [PreZone] → Either InstZoneScan (String, InstZoneScan) → Map Word [PreZone]
 >             makeHolds iHold eith
->               | traceNow trace_MH False  = undefined
+>               | traceNot trace_MH False  = undefined
 >               | otherwise                =
 >               case eith of
 >                 Left zscan               → exert zscan
@@ -1119,16 +1119,16 @@ reorg task =====================================================================
 >                     Nothing              → iHold) macts
 >                   where
 >                     macts                = Map.lookup zscan.zswInst aMap
->                     rebased              = map rebase (tracer "rebased" zscan.zsPreZones)
+>                     rebased              = map rebase zscan.zsPreZones
 >                     rebase pz            =
 >                       (\case
 >                         Just owner       → pz{pzWordI = owner}
 >                         Nothing          → pz) macts
 >
 >                     upd target
->                       | traceNow trace_U False
+>                       | traceNot trace_U False
 >                                          = undefined
->                       | otherwise        = Map.insertWith (++) (tracer "target" target) rebased iHold
+>                       | otherwise        = Map.insertWith (++) target rebased iHold
 >                       where
 >                         trace_U          = unwords [fName, "upd from/to", show (zscan.zswInst, target), show (length rebased)]
 >
@@ -1153,7 +1153,7 @@ reorg task =====================================================================
 >
 >             qualifySet :: (Word, [Word]) → Bool
 >             qualifySet (leadI, subIs)
->               | traceNow trace_QS False  = undefined
+>               | traceNot trace_QS False  = undefined
 >               | otherwise                = answer
 >               where
 >                 fName                    = "qualifySet"
@@ -1930,7 +1930,8 @@ zone selection for rendering ===================================================
 >       case selectZoneConfig (selectBestZone noon) of 
 >         Left (pzL, zoneL)                → Left (zoneL, effShdr sfrost.zPreSampleCache pzL)
 >         Right ((pzL, zoneL), (pzR, zoneR))
->                                          → Right ((zoneL, effShdr sfrost.zPreSampleCache pzL), (zoneR, effShdr sfrost.zPreSampleCache pzR))
+>                                          → Right ((zoneL, effShdr sfrost.zPreSampleCache pzL)
+>                                                 , (zoneR, effShdr sfrost.zPreSampleCache pzR))
 >
 >     selectBestZone     :: NoteOn → (PreZone, SFZone)
 >     selectBestZone noon

@@ -507,9 +507,9 @@ instrument range checking ======================================================
 >     trace_R                              = unwords ["replace", show dynMap, show minst, show ninst]
 >
 > makeDynMap             :: Shredding → DynMap
-> makeDynMap Shredding{ .. }               =
+> makeDynMap ding                          =
 >   if replacePerCent > 50
->     then foldl' maker Map.empty (Map.assocs shRanges)
+>     then foldl' maker Map.empty (Map.assocs ding.shRanges)
 >     else Map.empty
 >   where
 >     maker              :: DynMap → (Kind, Shred) → DynMap
@@ -525,8 +525,22 @@ instrument range checking ======================================================
 >
 > bandPart_              :: (InstrumentName, Velocity) → Music Pitch → Music (Pitch, Volume)
 > bandPart_ (inst, vel) m                  = mMap (, vel) (instrument inst m)
-> bandPart               :: BandPart → Music Pitch → Music (Pitch, Volume)
-> bandPart BandPart{ .. } m                = mMap (, bpVelocity) (instrument bpInstrument (transpose bpTranspose m))
+>
+> bandPart               :: BandPart → Music Pitch → Music (Pitch, [NoteAttribute])
+> bandPart bp m                = mMap bchanger (instrument bp.bpInstrument (transpose bp.bpTranspose m))
+>   where
+>     bchanger           :: Pitch → (Pitch, [NoteAttribute])
+>     bchanger p                           = (p, [Volume bp.bpVelocity])
+>
+> orchestraPart          :: BandPart → Music (Pitch, [NoteAttribute]) → Music (Pitch, [NoteAttribute])
+> orchestraPart bp m           = mMap oChanger (instrument bp.bpInstrument (transpose bp.bpTranspose m))
+>   where
+>     oChanger           :: (Pitch, [NoteAttribute]) → (Pitch, [NoteAttribute])
+>     oChanger (p, nas)                    = (p, map nasFun nas)
+>
+>     nasFun             :: NoteAttribute → NoteAttribute
+>     nasFun (Volume _)                     = Volume bp.bpVelocity
+>     nasFun na                             = na 
 
 examine song for instrument and percussion usage ======================================================================
 
@@ -1057,16 +1071,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >     try                                  =
 >       if snd try_ > 0
 >         then try_
->         else hardWay
->
->     hardWay                              =
->       let
->         way                              = (snd $ minimum (map (measure coords) smashup.smashSpaces), 1)
->       in
->         way
->
->     switchy            :: (a, i) → (i, i)
->     switchy (_, bix)                     = (bix, 1)
+>         else (snd $ minimum (map (measure coords) smashup.smashSpaces), 1)
 >
 >     measure            :: [i] → (i, [(i, i)]) → (Double, i)
 >     measure coords space                 =
@@ -1079,10 +1084,12 @@ You see there is some overlap between Zone 1 and Zone 2.
 >         delta, var     :: Double
 >         delta                            = fromIntegral (x - y)
 >         var                              = delta * delta
+>     distance _ _ _                       =
+>       error $ unwords ["distance:", "input coords args have unequal lengths"]
 >
 > listOutPoints          :: ∀ i . (Integral i) ⇒ [(i, i)] → [[i]]
-> listOutPoints []                       = [[]]
-> listOutPoints ((r, s) : ranges)      = points1 ++ points2
+> listOutPoints []                         = [[]]
+> listOutPoints ((r, s) : ranges)          = points1 ++ points2
 >   where
 >     points1                              = map ([r] ++) (listOutPoints ranges)
 >     points2                              = map ([s] ++) (listOutPoints ranges)

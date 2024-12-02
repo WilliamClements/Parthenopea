@@ -47,7 +47,6 @@ Saucy Sailor ===================================================================
 >
 > ssailor dynMap =
 >     removeZeros
->     $ aggrandize
 >     $ tempo                              ssTempo
 >     $ keysig C Mixolydian
 >     $ ((if includeOpen then xOpenT        else rest 0)
@@ -312,7 +311,6 @@ Slot ===========================================================================
 > slot :: Int → DynMap → Music (Pitch, [NoteAttribute])
 > slot n dynMap =
 >    removeZeros
->    $ aggrandize 
 >    $ tempo slotTempo
 >    $ keysig G Dorian
 >    $ chord [ bandPart slotLead          (vSlotV n)
@@ -392,7 +390,6 @@ TC =============================================================================
 > basicLick :: DynMap → Music (Pitch, [NoteAttribute])
 > basicLick dynMap =
 >   removeZeros
->   $ aggrandize
 >   $ tempo                                tcTempo
 >   $ keysig A Major
 >   $ chord [ bandPart tcLead    tcV
@@ -1122,7 +1119,6 @@ DH =============================================================================
 >
 > deathlessHorsie dynMap =
 >   removeZeros
->   $ aggrandize
 >   $ tempo dhTempo
 >   $ chord [vibeMusic, percMusic, leadMusic, bassMusic, synthMusic, organMusic]
 >
@@ -2245,7 +2241,6 @@ PG =============================================================================
 >
 > packardGoose dynMap                      =
 >   removeZeros
->   $ aggrandize
 >   $ tempo pgTempo
 >   $ chord [leadMusic, bassMusic, percMusic]
 >
@@ -3017,7 +3012,6 @@ Hills of Greenmore =============================================================
 >
 > greenMore dynMap                         =
 >   removeZeros
->   $ aggrandize
 >   $ tempo hgTempo
 >   $ chord [leadMusic, bassMusic, percMusic]
 >

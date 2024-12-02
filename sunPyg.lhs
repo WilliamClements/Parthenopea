@@ -26,7 +26,6 @@ SunPyg =========================================================================
 >
 > sunPyg dynMap =
 >   removeZeros
->   $ aggrandize
 >   $ tempo sunPygTempo
 >   $ chord [percMusic, leadMusic, vocalMusic, bassMusic]
 >
