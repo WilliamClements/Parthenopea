@@ -271,20 +271,22 @@ which makes for a cleaner sound on some synthesizers:
 >     trace_G                              = unwords ["glissando", show pitches]
 >
 > descent                :: BandPart → Pitch → Dur → Music Pitch
-> descent BandPart{bpInstrument, bpTranspose} p dur
+> descent bp p dur
 >   | traceNow trace_D False               = undefined
 >   | otherwise                            = chord [rest dur, glissando True (absPitch bottom, absPitch p) dur]
 >   where
->     bottom                               = trans (-bpTranspose) $ fst (fromJust (instrumentRange bpInstrument))
+>     bottom                               =
+>       trans (-bp.bpTranspose) $ (pitch . fst) (fromJust (instrumentRange bp.bpInstrument))
 >
 >     trace_D                              = unwords ["descent ", show p]
 >
 > ascent                 :: BandPart → Pitch → Dur → Music Pitch
-> ascent BandPart{ .. } p dur
+> ascent bp p dur
 >   | traceNow trace_A False               = undefined
 >   | otherwise                            = chord [rest dur, glissando False (absPitch p, absPitch top) dur]
 >   where
->     top                                  = trans (-bpTranspose) $ snd (fromJust (instrumentRange bpInstrument))
+>     top                                  =
+>       trans (-bp.bpTranspose) $ (pitch . snd) (fromJust (instrumentRange bp.bpInstrument))
 >
 >     trace_A                              = unwords ["ascent", show p]
 
@@ -311,8 +313,13 @@ also
    https://philharmonia.co.uk/resources/instruments/
    https://omeka-s.grinnell.edu/s/MusicalInstruments
 
-> instrumentRange :: InstrumentName → Maybe (Pitch, Pitch)
-> instrumentRange inst =
+> instrumentRange        :: InstrumentName → Maybe (AbsPitch, AbsPitch)
+> instrumentRange inst                     = mrange >>= Just . BF.bimap absPitch absPitch
+>   where
+>     mrange                               = instrumentRange_ inst
+>
+> instrumentRange_       :: InstrumentName → Maybe (Pitch, Pitch)
+> instrumentRange_ inst =
 >    case inst of
 >       Piccolo                   → Just (( D, 5), ( C, 8)) -- C piccolo
 >       Flute                     → Just (( C, 4), ( D, 7))
@@ -389,7 +396,7 @@ also
 >       Contrabass                → Just (( C, 1), (Cs, 2))
 >       StringEnsemble1           → Just
 >                                    $ unionRanges
->                                    $ map (fromJust . instrumentRange)
+>                                    $ map (fromJust . instrumentRange_)
 >                                          (Violin:Viola:[Cello])
 >
 >       Banjo                     → Just (( C, 3), ( E, 5))
@@ -433,7 +440,7 @@ also
 >     judgeScore cand                      = (\c → if nonPitchedInstrument c then Nothing else Just c) cand
 >                                            >>= instrumentRange >>= uncurry (fitsIn cand)
 >     
->     fitsIn             :: InstrumentName → Pitch → Pitch → Maybe (Int, InstrumentName)
+>     fitsIn             :: InstrumentName → AbsPitch → AbsPitch → Maybe (Int, InstrumentName)
 >     fitsIn cand rangeLo rangeHi
 >       | traceNever trace_FI False        = undefined
 >       | otherwise                        =
@@ -441,12 +448,12 @@ also
 >           then Just (snd range - fst range, cand)
 >           else Nothing
 >       where
->         range                            = (absPitch rangeLo, absPitch rangeHi)
+>         range                            = (rangeLo, rangeHi)
 >         trace_FI                         = unwords ["fitsIn", show range, show playedLo, show playedHi]
 >
 >     trace_FBI                            = unwords ["findBetterInstrument", show than, show rangedInsts]
 >
-> selectRanged           :: [InstrumentName] → Array Int (InstrumentName, (Pitch, Pitch))
+> selectRanged           :: [InstrumentName] → Array Int (InstrumentName, (AbsPitch, AbsPitch))
 > selectRanged is                          = listArray (1, length qual) qual
 >   where
 >     qual                                 = mapMaybe (\i → instrumentRange i >>= Just . (i,)) is
@@ -460,7 +467,7 @@ also
 >     (lo, hi)                             = bounds vect
 >     frange                               = (0, fromIntegral (hi - lo + 1) - 0.000_001)
 >
-> wideOpen               :: (Pitch, Pitch) = (pitch 0, pitch 127)
+> wideOpen               :: (AbsPitch, AbsPitch) = (0, 127)
 
 instrument range checking =============================================================================================
 
@@ -616,10 +623,10 @@ examine song for instrument and percussion usage ===============================
 >         _                                → (Percussion, wideOpen)
 >   in critiqueNote instr range shLowNote ++ critiqueNote instr range shHighNote
 > 
-> critiqueNote           :: InstrumentName → (Pitch, Pitch) → MEvent → [(InstrumentName, [String])]
+> critiqueNote           :: InstrumentName → (AbsPitch, AbsPitch) → MEvent → [(InstrumentName, [String])]
 > critiqueNote name range mev              =
 >   let
->     p                                    = pitch mev.ePitch
+>     p                                    = mev.ePitch
 >   in
 >     if p == clip range p
 >       then []
@@ -662,14 +669,10 @@ examine song for instrument and percussion usage ===============================
 >   putStrLn showLowHighNotes
 >
 >   where
->
->   mrange               :: Maybe (Pitch, Pitch)
->                                          =
+>   mrange                                 =
 >     case kind of
 >       Left iname                         → instrumentRange iname
 >       _                                  → Nothing
->   range                                  = BF.bimap absPitch absPitch (fromJust mrange)
->
 >   showGivenRange                         = showKind ++ "(" ++ show shCount ++ ")" ++ " = " ++ showAvail
 >     where
 >       showAvail                          = maybe "" (\r → show (fst r) ++ " .. " ++ show (snd r)) mrange
@@ -687,7 +690,7 @@ examine song for instrument and percussion usage ===============================
 >                                            ++ show (pitch mev.ePitch)
 >                                            ++ showOutOfRangeIndicator mev.ePitch
 >       _                                  → show (fromRational mev.eTime)
->   showOutOfRangeIndicator p              = if isNothing mrange || inRange range p
+>   showOutOfRangeIndicator p              = if isNothing mrange || inRange (deJust "range" mrange) p
 >                                              then "."
 >                                              else "!"
 >
@@ -1167,7 +1170,7 @@ Returns the elapsed time in seconds
 
 > fromTimecents          :: Maybe Int → Double
 > fromTimecents mtimecents                 = pow 2 (maybe (- 12_000) fromIntegral mtimecents / 1_200)
-
+>
 > fromTimecents'         :: Maybe Int → Maybe Int → KeyNumber → Double
 > fromTimecents' mtimecents mfact key      = pow 2 (base + inc)
 >   where
@@ -1175,6 +1178,9 @@ Returns the elapsed time in seconds
 >       maybe (-12_000) fromIntegral mtimecents / 1_200
 >     inc                :: Double         =
 >       maybe 0 fromIntegral mfact * fromIntegral (60 - key) / fromIntegral qMidiSize128 / 1_200
+>
+> toTimecents            :: Double → Int
+> toTimecents secs                         = round $ logBase 2 secs * 1_200
 
 Returns the attenuation (based on input 10ths of a percent) 
 

@@ -300,7 +300,7 @@ There Goes W.J. ================================================================
 > wjTranspose                              = 0
 >
 > wjAlto_                                  = makePitched AltoSax               wjTranspose 0           100
-> wjTenor_                                 = makePitched HammondOrgan          wjTranspose 0           100
+> wjTenor_                                 = makePitched ReedOrgan             wjTranspose 0           75
 > wjBass_                                  = makePitched ElectricBassFingered  wjTranspose 0           100
 >
 > wj                     :: DynMap → Music (Pitch, [NoteAttribute])

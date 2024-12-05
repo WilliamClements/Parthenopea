@@ -163,7 +163,7 @@ The progress of the algorithm is expressed in above pair.
 >                           → Volume
 >                           → SectionSpec
 >                           → InstrumentName
->                           → (Pitch, Pitch)
+>                           → (AbsPitch, AbsPitch)
 >                           → Double
 >                           → Music (Pitch, Volume)
 >     generateSection sound vol ss inst range dXp
@@ -189,7 +189,7 @@ The progress of the algorithm is expressed in above pair.
 >                                            $ makeInstFill fillBeats range dXp
 >         ratDur         :: Rational       = approx fillDur
 >
-> makeInstFill           :: Int → (Pitch, Pitch) → Double → Music Pitch
+> makeInstFill           :: Int → (AbsPitch, AbsPitch) → Double → Music Pitch
 > makeInstFill nBeats (lo, hi) dXp         = note dur p
 >   where
 >     dur                :: Rational
@@ -198,8 +198,8 @@ The progress of the algorithm is expressed in above pair.
 >
 >     dur                                  = qn * toRational nBeats
 >
->     dLo                                  = fromIntegral (absPitch lo)
->     dHi                                  = fromIntegral (absPitch hi)
+>     dLo                                  = fromIntegral lo
+>     dHi                                  = fromIntegral hi
 >     p                                    = pitch $ round $ dLo + (dXp * (dHi - dLo))
 >
 > checkMeasureOk         :: BakingMetrics → Bool
@@ -291,7 +291,7 @@ The progress of the algorithm is expressed in above pair.
 >                                            , bTempo    = denorm           (rs!!5)       (2, 5)}
 >   | otherwise                            = error $ unwords ["rs2Bake:", "insufficiently sized randoms list", show $ length rs]
 >     where
->       vChoiceI         :: Array Int (InstrumentName, (Pitch, Pitch))
+>       vChoiceI         :: Array Int (InstrumentName, (AbsPitch, AbsPitch))
 >       vChoiceI                           = selectRanged choices
 >       vChoiceP         :: Array Int PercussionSound
 >       vChoiceP                           = listArray (0, length curatedP - 1) curatedP
@@ -312,7 +312,7 @@ Definitions ====================================================================
 > data Bake                                =
 >   Bake {
 >       bIx              :: Int
->     , bWch             :: (InstrumentName, (Pitch, Pitch))
+>     , bWch             :: (InstrumentName, (AbsPitch, AbsPitch))
 >     , bOnset           :: Double
 >     , bXpose           :: Double
 >     , bSnd             :: PercussionSound

@@ -2,6 +2,7 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
 > {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
@@ -43,12 +44,11 @@ Signal function-based synth ====================================================
 >                           → Dur
 >                           → AbsPitch
 >                           → Volume
->                           → [Double]
+>                           → [NoteParameter]
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL, mreconR)
->               sr dur pch vol params s16 ms8
+> eutSynthesize (reconL, mreconR) sr dur pch vol nps s16 ms8
 >   | traceNot trace_eS False              = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
@@ -143,7 +143,7 @@ Signal function-based synth ====================================================
 >     trace_eS                             =
 >       unwords [
 >             "eutSynthesize"
->           , show (dur, noon), show (numSamples, secsSample, secsScored, secsToPlay, looping)] 
+>           , show (dur, noon), show (numSamples, secsSample, secsScored, secsToPlay, looping), show nps] 
 >
 > eutModulate            :: ∀ p . Clock p ⇒
 >                           Double
@@ -285,9 +285,7 @@ Signal function-based synth ====================================================
 FFT ===================================================================================================================
 
 > findOutliers           :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → IO ()
-> findOutliers secs sig                    = do
->   putStrLn (findOutliersString secs sig)
->   return ()
+> findOutliers secs sig                    = putStrLn $ findOutliersString secs sig
 >
 > findOutliersString     :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → String
 > findOutliersString secs sig              = "findOutliers " ++ show secs
@@ -314,13 +312,14 @@ Envelopes ======================================================================
 > deriveEnvelope         :: Maybe Int
 >                           → Maybe Int
 >                           → NoteOn
+>                           → [NoteParameter]
 >                           → (Maybe Int, Maybe Int)
 >                           → (Maybe Int, Maybe Int)
 >                           → Maybe Int
 >                           → Maybe Int
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe Envelope
-> deriveEnvelope mDelay mAttack NoteOn{noteOnKey} (mHold, mHoldByKey) (mDecay, mDecayByKey)
+> deriveEnvelope mDelay mAttack NoteOn{noteOnKey} nps (mHold, mHoldByKey) (mDecay, mDecayByKey)
 >                mSustain mRelease mTriple
 >   | traceNot trace_DE False              = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTriple
@@ -337,15 +336,16 @@ Envelopes ======================================================================
 >                (makeModTriple mTriple)
 >
 >     doUse              :: Maybe (Maybe Int, Maybe Int) → Bool
->     doUse mTriple                        = case mTriple of
->                                              Nothing           → True
->                                              Just (xToPitch, xToFilterFc)
->                                                                → isJust xToPitch || isJust xToFilterFc
+>     doUse                                =
+>       \case
+>         Nothing                          → True
+>         Just (xToPitch, xToFilterFc)     → isJust xToPitch || isJust xToFilterFc
 >
 >     makeModTriple      :: Maybe (Maybe Int, Maybe Int) → ModTriple
->     makeModTriple mTriple                = case mTriple of
->                                              Nothing           → defModTriple
->                                              Just target       → uncurry deriveModTriple target Nothing
+>     makeModTriple                        =
+>       \case
+>         Nothing                          → defModTriple
+>         Just target                      → uncurry deriveModTriple target Nothing
 >
 >     trace_DE                             =
 >       if useEnvelopes
@@ -391,25 +391,34 @@ Create a straight-line envelope generator with following phases:
    release  
 
 > computeSegments        :: Double → Double → Envelope → Segments
-> computeSegments secsScored secsToPlay Envelope{ .. }
->   | traceNever trace_CS False            = undefined
+> computeSegments secsScored secsToUse_ Envelope{ .. }
+>   | traceNot trace_CS False              = undefined
 >   | otherwise                            = Segments amps deltaTs
 >   where
 >     amps               :: [Double]       = [0,       0,       1,       1,     fSusLevel, fSusLevel,      0,      0]
 >     deltaTs            :: [Double]       = [  fDelayT, fAttackT, fHoldT,  fDecayT, fSustainT, fReleaseT,   fPostT]
 >
->     minDeltaT          :: Double         = fromTimecents Nothing
->     secsToUse          :: Double         =
->       profess (secsToPlay > 5 * minDeltaT)
->         (unwords["computeSegments", show (secsScored, secsToPlay), "..time too short for envelope"])
->         secsToPlay
->
->
 >     fSusLevel          :: Double         = clip (0, 1) eSustainLevel
 >
+>     minDeltaT          :: Double         = fromTimecents Nothing
+>     lump                                 = min 0.1 (10 * minDeltaT)
+>     secsToUse          :: Double         =
+>       profess (secsToUse_ > 5 * minDeltaT)
+>         (unwords["computeSegments", show (secsScored, secsToUse_), "..time too short for envelope"])
+>         secsToUse_
+>
+>     reserve_                             = eDelayT + eAttackT + eHoldT + eDecayT
+>     reserveOk                            = secsToUse - reserve_ > lump
+>     reserve                              = if reserveOk
+>                                              then reserve_
+>                                              else 4 * minDeltaT
+>
 >     -- pin down onset of Release phase
->     rp                                   = secsToUse - min 0.1 (10 * minDeltaT)
->     fReleaseT          :: Double         = secsToUse - rp
+>     lump, fReleaseT, rp  :: Double
+>     fReleaseT                            = if secsToUse - (reserve + eReleaseT) > lump
+>                                              then eReleaseT
+>                                              else secsToUse - reserve
+>     rp = secsToUse - (fReleaseT + lump)
 >
 >     fDelayT                              =
 >       clip (minDeltaT, max minDeltaT rp)                                         eDelayT

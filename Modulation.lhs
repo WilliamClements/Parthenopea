@@ -262,32 +262,37 @@ Modulator management ===========================================================
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
 > evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
-> evaluateModSignals tag Modulation{ .. } md ModSignals{ .. } noon
+> evaluateModSignals tag m8n md msig noon
 >  | traceNever trace_EMS False            = undefined
 >  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
->    ModCoefficients{ .. }                 =
+>    mco                                   =
 >      case md of
->        ToPitch         → toPitchCo
->        ToFilterFc      → toFilterFcCo
->        ToVolume        → toVolumeCo
->        _               → error $ unwords ["evaluateModSignals: only ToPitch, ToFilterFc, and ToVolume supported"
->                                         , show tag, show md]
+>        ToPitch                           → m8n.toPitchCo
+>        ToFilterFc                        → m8n.toFilterFcCo
+>        ToVolume                          → m8n.toVolumeCo
+>        _                                 → error $
+>          unwords ["evaluateModSignals: only ToPitch, ToFilterFc, and ToVolume supported"
+>                 , show tag, show md]
 >
->    xmodEnv             :: Double         = xModEnvPos * xModEnvCo
->    xmodLfo                               = xModLfoPos * xModLfoCo
->    xvibLfo                               = xVibLfoPos * xVibLfoCo
->    xmods                                 = evaluateMods md mmods noon
+>    xmodEnv                               = msig.xModEnvValue * mco.xModEnvCo
+>    xmodLfo                               = msig.xModLfoValue * mco.xModLfoCo
+>    xvibLfo                               = msig.xVibLfoValue * mco.xVibLfoCo
+>    xmods                                 = evaluateMods md m8n.mmods noon
 >
->    trace_EMS                             = unwords ["evaluateModSignals: "
->                                                     , show tag,    " + "
->                                                     , show xmodEnv, " + "
->                                                     , show xmodLfo, " + "
->                                                     , show xvibLfo, " + "
->                                                     , show xmods,   " = "
->                                                     , show (xmodEnv+xmodLfo+xvibLfo+xmods), " => "
->                                                     , show (fromCents (xmodEnv+xmodLfo+xvibLfo+xmods))]
+>    trace_EMS                             =
+>      unwords ["evaluateModSignals: "
+>             , show tag,     " + "
+>             , show xmodEnv, " + "
+>             , show xmodLfo, " + "
+>             , show xvibLfo, " + "
+>             , show xmods,   " = "
+>             , show (xmodEnv + xmodLfo + xvibLfo + xmods), " => "
+>             , show (fromCents (xmodEnv + xmodLfo + xvibLfo + xmods))]
 >
+
+Filters ===============================================================================================================
+
 > cascadeCount           :: ResonanceType → Maybe Int
 > cascadeCount resonType                   =
 >   case resonType of
@@ -476,7 +481,9 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       buildSystemM2N2 $ pickZerosAndPoles (2 * pi * lowpassFc lp) (lowpassQ lp / 960)
 >
 >     trace_P2P                            = unwords ["procTwoPoles", show cs]
->
+
+Miscellaneous =========================================================================================================
+
 > deriveModTriple        :: Maybe Int → Maybe Int → Maybe Int → ModTriple
 > deriveModTriple toPitch toFilterFc toVolume
 >                                          =
@@ -496,7 +503,8 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >         else Nothing
 >   where
 >     anyJust            :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
->     trace_DLFO                           = unwords ["deriveLFO", show (fromTimecents del), show (toPitch, toFilterFc, toVolume)]
+>     trace_DLFO                           =
+>       unwords ["deriveLFO", show (fromTimecents del), show (toPitch, toFilterFc, toVolume)]
 >
 > doLFO                  :: ∀ p . Clock p ⇒ Maybe LFO → Signal p () Double
 > doLFO                                    = maybe (constA 0) makeSF
@@ -507,9 +515,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >         y ← triangleWave o.lfoFrequency  ⤙ ()
 >         z ← delayLine    o.lfoDelay      ⤙ y
 >         outA                             ⤙ z
-
-Miscellaneous =========================================================================================================
-
+>
 > triangleWave           :: ∀ p . Clock p ⇒ Double → Signal p () Double
 > triangleWave freq                        = 
 >   proc _ → do
@@ -598,6 +604,46 @@ Type declarations ==============================================================
 > noonAsCoords           :: NoteOn → [Word]
 > noonAsCoords NoteOn{ .. }                =  [fromIntegral noteOnKey, fromIntegral noteOnVel]
 >
+> data NoteParameter                       =
+>   DownFrom AbsPitch
+>   | UpFrom AbsPitch
+>   | DownTo AbsPitch
+>   | UpTo AbsPitch deriving (Show)
+>
+> toParams               :: [NoteParameter] → [Double]
+> toParams                                 =
+>   concatMap (\case
+>                DownFrom interval         → [0, fromIntegral interval]
+>                UpFrom interval           → [1, fromIntegral interval]
+>                DownTo interval           → [2, fromIntegral interval]
+>                UpTo interval             → [3, fromIntegral interval])
+>
+> data NoteFold                            =
+>   NoteFold {
+>     nfSkip             :: Int
+>   , nfArgs             :: [Double]
+>   , nfNps              :: [NoteParameter]} deriving Show
+>
+> fromParams             :: [Double] → [NoteParameter]
+> fromParams dsIn                          = nfaccum.nfNps
+>   where
+>     nfaccum                              = foldl' nfolder (NoteFold 1 [] []) dsIn
+>
+>     nfolder             :: NoteFold → Double → NoteFold
+>     nfolder nf d                         =
+>       if nf.nfSkip > 0
+>         then NoteFold     (nf.nfSkip - 1)     (d : nf.nfArgs)        nf.nfNps
+>         else NoteFold     1                   []                     (makeParam (d : nf.nfArgs) : nf.nfNps)
+>
+> makeParam              :: [Double] → NoteParameter
+> makeParam dsIn                           =
+>   case round $ last dsIn of
+>     0                                    → DownFrom (round $ head dsIn)
+>     1                                    → UpFrom   (round $ head dsIn)
+>     2                                    → DownTo   (round $ head dsIn)
+>     3                                    → UpTo     (round $ head dsIn)
+>     _                                    → error $ unwords ["makeParam", "invalid input"]
+>
 > data ModCoefficients                     =
 >   ModCoefficients {
 >     xModEnvCo          :: Double
@@ -624,9 +670,9 @@ Type declarations ==============================================================
 >
 > data ModSignals                          =
 >   ModSignals {
->     xModEnvPos         :: Double
->   , xModLfoPos         :: Double
->   , xVibLfoPos         :: Double} deriving (Show)
+>     xModEnvValue       :: Double
+>   , xModLfoValue       :: Double
+>   , xVibLfoValue       :: Double} deriving (Show)
 > defModSignals                            = ModSignals 0 0 0
 >
 > data LFO                                 =

@@ -32,7 +32,7 @@ April 16, 2023
 > import Data.List
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
-> import Data.Maybe ( fromJust, fromMaybe, isJust, isNothing, mapMaybe, catMaybes )
+> import Data.Maybe ( fromJust, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, catMaybes )
 > import Data.MemoTrie
 > import Data.Ord ( Down(Down), comparing )
 > import Data.Ratio ( approxRational, (%) )
@@ -1874,7 +1874,7 @@ define signal functions and instrument maps to support rendering ===============
 >     assignInstrument pergm dur pch vol params
 >                                          =
 >       proc _ → do
->         (zL, zR)                         ← instrumentSF sfrost pergm dur pch vol params ⤙ ()
+>         (zL, zR)                         ← instrumentSF sfrost pergm dur pch vol (fromParams params) ⤙ ()
 >         outA                             ⤙ (zL, zR)
 >
 >     assignPercussion   :: ∀ p . Clock p ⇒ [(PercussionSound, (Word, Word))] → Instr (Stereo p)
@@ -1895,14 +1895,15 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Dur
 >                           → AbsPitch
 >                           → Volume
->                           → [Double]
+>                           → [NoteParameter]
 >                           → Signal p () (Double, Double)
-> instrumentSF sfrost pergm dur pchIn volIn params
+> instrumentSF sfrost pergm dur pchIn volIn nps
 >   | traceAlways trace_ISF False          = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rSampleRate
->                                              dur pchOut volOut params
+>                                              dur pchOut volOut nps
 >                                              samplea.ssData samplea.ssM24
 >   where
+>     fName                                = "instrumentSF"
 >     noon                                 = NoteOn
 >                                              (clip (0, 127) volIn)
 >                                              (clip (0, 127) pchIn)
@@ -1912,26 +1913,27 @@ define signal functions and instrument maps to support rendering ===============
 >     sffile                               = sfrost.zFiles ! pergm.pgkwFile
 >     samplea                              = sffile.zSample
 >
->     preI                                 = deJust "instrumentSF preI" (Map.lookup pergm sfrost.zPreInstCache)
->     perI                                 = deJust "instrumentSF perI" (Map.lookup pergm sfrost.zPerInstCache)
+>     preI                                 = deJust (unwords [fName, "preI"]) (Map.lookup pergm sfrost.zPreInstCache)
+>     perI                                 = deJust (unwords [fName, "perI"]) (Map.lookup pergm sfrost.zPerInstCache)
 >
 >     trace_ISF                            =
->       unwords ["instrumentSF", show pergm.pgkwFile, show preI.pInst, show (pchIn, volIn), show dur]
+>       unwords [fName, show pergm.pgkwFile, show preI.pInst, show (pchIn, volIn), show dur]
 >
 >     (reconX, mreconX)                    =
 >       case setZone of
->         Left zplus                       → (recon zplus noon, Nothing)
->         Right zsPlus                     → reconLR zsPlus noon
+>         Left zplus                       → (recon zplus noon nps (fromRational dur), Nothing)
+>         Right zsPlus                     → reconLR zsPlus noon nps (fromRational dur)
 
 zone selection for rendering ==========================================================================================
 
 >     setZone            :: Either (SFZone, F.Shdr) ((SFZone, F.Shdr), (SFZone, F.Shdr))
 >     setZone                              =
 >       case selectZoneConfig (selectBestZone noon) of 
->         Left (pzL, zoneL)                → Left (zoneL, effShdr sfrost.zPreSampleCache pzL)
+>         Left (pzL, zoneL)                → Left (zoneL, shdr pzL)
 >         Right ((pzL, zoneL), (pzR, zoneR))
->                                          → Right ((zoneL, effShdr sfrost.zPreSampleCache pzL)
->                                                 , (zoneR, effShdr sfrost.zPreSampleCache pzR))
+>                                          → Right ((zoneL, shdr pzL), (zoneR, shdr pzR))
+>       where
+>         shdr                             = effShdr sfrost.zPreSampleCache
 >
 >     selectBestZone     :: NoteOn → (PreZone, SFZone)
 >     selectBestZone noon
@@ -2008,64 +2010,75 @@ zone selection for rendering ===================================================
 
 reconcile zone and sample header ======================================================================================
 
-> reconLR                :: ((SFZone, F.Shdr), (SFZone, F.Shdr)) → NoteOn → (Recon, Maybe Recon)
-> reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon
+> reconLR                :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
+>                           → NoteOn
+>                           → [NoteParameter]
+>                           → Dur
+>                           → (Recon, Maybe Recon)
+> reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon nps dur
 >   | traceNever trace_RLR False           = undefined
 >   | otherwise                            = (recL, Just recR')
 >   where
+>     secsScored         :: Double         = fromRational dur
 >     recL@Recon{rRootKey = rkL, rPitchCorrection = pcL}
->                                          = recon (zoneL, shdrL) noon
->     recR                                 = recon (zoneR, shdrR) noon
+>                                          = recon (zoneL, shdrL) noon nps secsScored
+>     recR                                 = recon (zoneR, shdrR) noon nps secsScored
 >     recR'                                = recR{
 >                                                rRootKey                   = rkL
 >                                              , rPitchCorrection           = pcL}
 >
 >     trace_RLR                            = unwords ["reconLR:\n", show zoneL, "\n", show shdrL]
 >
-> recon                  :: (SFZone, F.Shdr) → NoteOn → Recon 
-> recon (zone@SFZone{ .. }, sHdr@F.Shdr{ .. }) noon@NoteOn{ .. }
+> recon                  :: (SFZone, F.Shdr) → NoteOn → [NoteParameter] → Double → Recon 
+> recon (zone_@SFZone{ .. }, sHdr@F.Shdr{ .. }) noon@NoteOn{ .. } nps secsScored
 >                                          = reconL
 >   where
->     m8n                                  = reconModulation zone sHdr noon
+>     zone               :: SFZone         =
+>       (\case
+>         Just np                          → applyNoteParameter zone_ np secsScored
+>         Nothing                          → zone_) (listToMaybe nps) -- WOX "we needed to be more multiple"
+>     m8n                                  = reconModulation zone sHdr noon nps secsScored
 >
 >     reconL = Recon {
->     rSampleMode      = fromMaybe             A.NoLoop                zSampleMode
->   , rSampleRate      = fromIntegral          sampleRate
->   , rStart           = addIntToWord          start                  (sumOfWeightedInts
->                                                                        [zStartOffs,     zStartCoarseOffs]     qOffsetWeights)
->   , rEnd             = addIntToWord          end                    (sumOfWeightedInts
->                                                                        [zEndOffs,       zEndCoarseOffs]       qOffsetWeights)
->   , rLoopStart       = addIntToWord          startLoop              (sumOfWeightedInts
->                                                                        [zLoopStartOffs, zLoopStartCoarseOffs] qOffsetWeights)
->   , rLoopEnd         = addIntToWord          endLoop                (sumOfWeightedInts
->                                                                        [zLoopEndOffs,   zLoopEndCoarseOffs]   qOffsetWeights)
->   , rRootKey         = fromIntegral $ fromMaybe
->                                              originalPitch           zRootKey
->   , rForceKey        = fmap                  fromIntegral            zKey
->   , rForceVel        = fmap                  fromIntegral            zVel
->   , rTuning          = fromMaybe             100                     zScaleTuning
->   , rNoteOn          = noon
->   , rAttenuation     = reconAttenuation                              zInitAtten
->   , rVolEnv          = deriveEnvelope                                zDelayVolEnv
->                                                                      zAttackVolEnv
->                                                                      noon
->                                                                      (zHoldVolEnv,  zKeyToVolEnvHold)
->                                                                      (zDecayVolEnv, zKeyToVolEnvDecay)
->                                                                      zSustainVolEnv
->                                                                      zReleaseVolEnv
->                                                                      Nothing
->   , rPitchCorrection = if usePitchCorrection
->                          then Just $ reconPitchCorrection            pitchCorrection
->                                                                      zCoarseTune
->                                                                      zFineTune
->                          else Nothing
+>     rSampleMode    = fromMaybe           A.NoLoop           zSampleMode
+>   , rSampleRate    = fromIntegral        sampleRate
+>   , rStart         = addIntToWord        start              (sumOfWeightedInts
+>                                                               [zStartOffs,     zStartCoarseOffs]     qOffsetWeights)
+>   , rEnd           = addIntToWord        end                (sumOfWeightedInts
+>                                                               [zEndOffs,       zEndCoarseOffs]       qOffsetWeights)
+>   , rLoopStart     = addIntToWord        startLoop          (sumOfWeightedInts
+>                                                               [zLoopStartOffs, zLoopStartCoarseOffs] qOffsetWeights)
+>   , rLoopEnd       = addIntToWord        endLoop            (sumOfWeightedInts
+>                                                               [zLoopEndOffs,   zLoopEndCoarseOffs]   qOffsetWeights)
+>   , rRootKey       = fromIntegral $ fromMaybe
+>                                          originalPitch      zRootKey
+>   , rForceKey      = fmap                fromIntegral       zKey
+>   , rForceVel      = fmap                fromIntegral       zVel
+>   , rTuning        = fromMaybe           100                zScaleTuning
+>   , rNoteOn        = noon
+>   , rAttenuation   = reconAttenuation                       zInitAtten
+>   , rVolEnv        = deriveEnvelope                         zDelayVolEnv
+>                                                             zAttackVolEnv
+>                                                             noon
+>                                                             nps
+>                                                             (zHoldVolEnv,  zKeyToVolEnvHold)
+>                                                             (zDecayVolEnv, zKeyToVolEnvDecay)
+>                                                             zSustainVolEnv
+>                                                             zReleaseVolEnv
+>                                                             Nothing
+>   , rPitchCorrection
+>                    = if usePitchCorrection
+>                        then Just $ reconPitchCorrection     pitchCorrection
+>                                                             zCoarseTune
+>                                                             zFineTune
+>                        else Nothing
 >
->   , rM8n             =                                                m8n
->   , rEffects         = deriveEffects                                  m8n
->                                                                       noon
->                                                                       zChorus
->                                                                       zReverb
->                                                                       zPan}
+>   , rM8n             =                                      m8n
+>   , rEffects         = deriveEffects                        m8n
+>                                                             noon
+>                                                             zChorus
+>                                                             zReverb
+>                                                             zPan}
 >
 >     reconPitchCorrection
 >                        :: Int → Maybe Int → Maybe Int → Double
@@ -2076,12 +2089,22 @@ reconcile zone and sample header ===============================================
 >                                              then maybe 0 fromIntegral zInitAtten
 >                                              else 0.0
 >
-> reconModulation        :: SFZone → F.Shdr → NoteOn → Modulation
-> reconModulation SFZone{ .. } shdr noon
+> applyNoteParameter     :: SFZone → NoteParameter → Double → SFZone
+> applyNoteParameter zone np secs          =
+>   zone{  zModEnvToPitch = Just (-200)  -- WOX re np
+>        , zDelayModEnv   = Nothing
+>        , zAttackModEnv  = Nothing
+>        , zHoldModEnv    = Nothing
+>        , zDecayModEnv   = Nothing
+>        , zSustainModEnv = Just 0
+>        , zReleaseModEnv = Just (toTimecents secs)}
+>
+> reconModulation        :: SFZone → F.Shdr → NoteOn → [NoteParameter] → Double → Modulation
+> reconModulation SFZone{ .. } shdr noon nps secsScored
 >   | traceIf trace_RM False               = undefined
 >   | otherwise                            = resolveMods m8n zModulators defaultMods
 >   where
->     trace_RM                             = unwords ["reconModulation", shdr.sampleName]
+>     trace_RM                             = unwords ["reconModulation", shdr.sampleName, show nModEnv]
 >     m8n                :: Modulation     =
 >       defModulation{
 >         mLowpass                         = Lowpass resonanceType curKernelSpec
@@ -2108,6 +2131,7 @@ reconcile zone and sample header ===============================================
 >                                              zDelayModEnv
 >                                              zAttackModEnv
 >                                              noon
+>                                              nps
 >                                              (zHoldModEnv, zKeyToModEnvHold) 
 >                                              (zDecayModEnv, zKeyToModEnvDecay)
 >                                              zSustainModEnv
