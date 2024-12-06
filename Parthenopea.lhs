@@ -543,8 +543,20 @@ instrument range checking ======================================================
 >     oChanger (p, nas)                    = (p, map nasFun nas)
 >
 >     nasFun             :: NoteAttribute → NoteAttribute
->     nasFun (Volume _)                     = Volume bp.bpVelocity
->     nasFun na                             = na 
+>     nasFun (Volume _)                    = Volume bp.bpVelocity
+>     nasFun na                            = na 
+>
+> downFrom, upFrom, downTo, upTo
+>                        :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music (Pitch, [NoteAttribute])
+> downFrom bp pc o d ap                    = note d ((pc, o), [Volume bp.bpVelocity, Params [0, fromIntegral ap]])
+> upFrom   bp pc o d ap                    = note d ((pc, o), [Volume bp.bpVelocity, Params [1, fromIntegral ap]])
+> downTo   bp pc o d ap                    = note d ((pc, o), [Volume bp.bpVelocity, Params [2, fromIntegral ap]])
+> upTo     bp pc o d ap                    = note d ((pc, o), [Volume bp.bpVelocity, Params [3, fromIntegral ap]])
+> deadOn                 :: BandPart → PitchClass → Octave → Dur → Music (Pitch, [NoteAttribute])
+> deadOn   bp pc o d                       = note d ((pc, o), [Volume bp.bpVelocity])
+>
+> addVolume'    :: BandPart -> Music Pitch -> Music (Pitch,[NoteAttribute])
+> addVolume' bp                              = mMap (, [Volume bp.bpVelocity])
 
 examine song for instrument and percussion usage ======================================================================
 

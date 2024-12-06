@@ -2029,13 +2029,13 @@ reconcile zone and sample header ===============================================
 >
 >     trace_RLR                            = unwords ["reconLR:\n", show zoneL, "\n", show shdrL]
 >
-> recon                  :: (SFZone, F.Shdr) → NoteOn → [NoteParameter] → Double → Recon 
-> recon (zone_@SFZone{ .. }, sHdr@F.Shdr{ .. }) noon@NoteOn{ .. } nps secsScored
+> recon                  :: (SFZone, F.Shdr) → NoteOn → [NoteParameter] → Double → Recon
+> recon (zone_@SFZone{ .. }, sHdr@F.Shdr{ .. }) noon nps secsScored
 >                                          = reconL
 >   where
 >     zone               :: SFZone         =
 >       (\case
->         Just np                          → applyNoteParameter zone_ np secsScored
+>         Just np                          → applyNoteParameter noon zone_ np secsScored
 >         Nothing                          → zone_) (listToMaybe nps) -- WOX "we needed to be more multiple"
 >     m8n                                  = reconModulation zone sHdr noon nps secsScored
 >
@@ -2089,15 +2089,27 @@ reconcile zone and sample header ===============================================
 >                                              then maybe 0 fromIntegral zInitAtten
 >                                              else 0.0
 >
-> applyNoteParameter     :: SFZone → NoteParameter → Double → SFZone
-> applyNoteParameter zone np secs          =
->   zone{  zModEnvToPitch = Just (-200)  -- WOX re np
->        , zDelayModEnv   = Nothing
->        , zAttackModEnv  = Nothing
->        , zHoldModEnv    = Nothing
->        , zDecayModEnv   = Nothing
->        , zSustainModEnv = Just 0
->        , zReleaseModEnv = Just (toTimecents secs)}
+> applyNoteParameter     :: NoteOn → SFZone → NoteParameter → Double → SFZone
+> applyNoteParameter noon zone np secs     = zone'
+>   where
+>     deltaKey           :: AbsPitch
+>     deltaFreq          :: Int
+>     (deltaKey, deltaFreq)                =
+>       case np of
+>         DownFrom ap                      → (-ap,  200) -- (0, 200)
+>         UpFrom ap                        → ( ap, -200) -- (0, -200)
+>         DownTo ap                        → (  0,  200) -- (ap, 200)
+>         UpTo ap                          → (  0, -200) -- (-ap, -200)
+>     zone'                                =
+>       zone{  zModEnvToPitch = Just deltaFreq
+>            , zDelayModEnv   = Nothing
+>            , zAttackModEnv  = Nothing
+>            , zHoldModEnv    = Nothing
+>            , zDecayModEnv   = Nothing
+>            , zSustainModEnv = Just 0
+>            , zKey           = Just (fromIntegral newKey)
+>            , zReleaseModEnv = Just (toTimecents secs)}
+>     newKey                               = noon.noteOnKey + deltaKey
 >
 > reconModulation        :: SFZone → F.Shdr → NoteOn → [NoteParameter] → Double → Modulation
 > reconModulation SFZone{ .. } shdr noon nps secsScored

@@ -1155,7 +1155,7 @@ Dit ============================================================================
 > ditTempo                                 = 1
 > ditTranspose                             = -6
 >
-> ditBass_                                  = makePitched Trombone ditTranspose 0 100
+> ditBass_                                 = makePitched Trombone ditTranspose 0 100
 >
 > dit dynMap = 
 >   removeZeros
@@ -1167,17 +1167,21 @@ Dit ============================================================================
 >
 >   ditBass                                = replace ditBass_ dynMap
 >
-> ditbody1                                 =
->   line [rest dhn, ds 4 qn, fs 4 den, e 4 sn, ds 4 qn, e 4 den, cs 4 sn, a 3 qn, ds 3 den, ds 3 sn
->       , ds 4 den, e 4 sn]
+>   dfdb                                   = downFrom ditBass
+>   dtdb                                   = downTo   ditBass
+>   dodb                                   = deadOn   ditBass
 >
-> ditbody2                                 = note qn ((Ds, 4), [Volume 100, Params [0, 2]]) -- WOX 100
+>   ditbody1                               =
+>     line [rest dhn, ds 4 qn, fs 4 den, e 4 sn, ds 4 qn, e 4 den, cs 4 sn, a 3 qn]
 >
-> ditbody3                                 =
->   line [cs 4 en, cs 4 sn, b 3 den, a 3 sn, fs 3 den
->       , e 3 sn, ds 3 den, e 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn
->       , fs 3 qn, fs 4 dqn, fs 4 en, t32 [e 4 en, ds 4 en, cs 4 en], cs 4 den, cs 4 sn
->       , b 3 den, cs 4 sn, ds 4 qn] 
+>   ditbody2                               =
+>     line [dtdb Ds 3 den 9, dodb Ds 3 sn, dodb Ds 4 den, dodb E 4 sn, dfdb Ds 4 den 2, dodb Ds 4 sn]
+>
+>   ditbody3                               =
+>     line [cs 4 en, cs 4 sn, b 3 den, a 3 sn, fs 3 den
+>         , e 3 sn, ds 3 den, e 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn, fs 3 den, gs 3 sn
+>         , fs 3 qn, fs 4 dqn, fs 4 en, t32 [e 4 en, ds 4 en, cs 4 en], cs 4 den, cs 4 sn
+>         , b 3 den, cs 4 sn, ds 4 qn] 
 
 Dadadada ==============================================================================================================
 
