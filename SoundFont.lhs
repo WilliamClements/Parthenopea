@@ -1874,7 +1874,7 @@ define signal functions and instrument maps to support rendering ===============
 >     assignInstrument pergm dur pch vol params
 >                                          =
 >       proc _ → do
->         (zL, zR)                         ← instrumentSF sfrost pergm dur pch vol (fromParams params) ⤙ ()
+>         (zL, zR)                         ← instrumentSF sfrost pergm dur pch vol params ⤙ ()
 >         outA                             ⤙ (zL, zR)
 >
 >     assignPercussion   :: ∀ p . Clock p ⇒ [(PercussionSound, (Word, Word))] → Instr (Stereo p)
@@ -1895,7 +1895,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Dur
 >                           → AbsPitch
 >                           → Volume
->                           → [NoteParameter]
+>                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF sfrost pergm dur pchIn volIn nps
 >   | traceAlways trace_ISF False          = undefined
@@ -2012,7 +2012,7 @@ reconcile zone and sample header ===============================================
 
 > reconLR                :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
 >                           → NoteOn
->                           → [NoteParameter]
+>                           → [Double]
 >                           → Dur
 >                           → (Recon, Maybe Recon)
 > reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon nps dur
@@ -2029,14 +2029,14 @@ reconcile zone and sample header ===============================================
 >
 >     trace_RLR                            = unwords ["reconLR:\n", show zoneL, "\n", show shdrL]
 >
-> recon                  :: (SFZone, F.Shdr) → NoteOn → [NoteParameter] → Double → Recon
-> recon (zone_@SFZone{ .. }, sHdr@F.Shdr{ .. }) noon nps secsScored
+> recon                  :: (SFZone, F.Shdr) → NoteOn → [Double] → Double → Recon
+> recon (zone_, sHdr@F.Shdr{ .. }) noon nps secsScored
 >                                          = reconL
 >   where
->     zone               :: SFZone         =
+>     zone@SFZone{ .. }                    =
 >       (\case
 >         Just np                          → applyNoteParameter noon zone_ np secsScored
->         Nothing                          → zone_) (listToMaybe nps) -- WOX "we needed to be more multiple"
+>         Nothing                          → zone_) (listToMaybe nps)
 >     m8n                                  = reconModulation zone sHdr noon nps secsScored
 >
 >     reconL = Recon {
@@ -2089,29 +2089,20 @@ reconcile zone and sample header ===============================================
 >                                              then maybe 0 fromIntegral zInitAtten
 >                                              else 0.0
 >
-> applyNoteParameter     :: NoteOn → SFZone → NoteParameter → Double → SFZone
-> applyNoteParameter noon zone np secs     = zone'
+> applyNoteParameter     :: NoteOn → SFZone → Double → Double → SFZone
+> applyNoteParameter noon zone bend secs     = zone'
 >   where
->     deltaKey           :: AbsPitch
->     deltaFreq          :: Int
->     (deltaKey, deltaFreq)                =
->       case np of
->         DownFrom ap                      → (-ap,  200) -- (0, 200)
->         UpFrom ap                        → ( ap, -200) -- (0, -200)
->         DownTo ap                        → (  0,  200) -- (ap, 200)
->         UpTo ap                          → (  0, -200) -- (-ap, -200)
 >     zone'                                =
->       zone{  zModEnvToPitch = Just deltaFreq
+>       zone{  zModEnvToPitch = (Just . round) (bend * 100)
 >            , zDelayModEnv   = Nothing
->            , zAttackModEnv  = Nothing
+>            , zAttackModEnv  = Just $ toTimecents secs - 1
 >            , zHoldModEnv    = Nothing
 >            , zDecayModEnv   = Nothing
 >            , zSustainModEnv = Just 0
->            , zKey           = Just (fromIntegral newKey)
->            , zReleaseModEnv = Just (toTimecents secs)}
->     newKey                               = noon.noteOnKey + deltaKey
+>            , zKey           = (Just . fromIntegral) noon.noteOnKey
+>            , zReleaseModEnv = Nothing}
 >
-> reconModulation        :: SFZone → F.Shdr → NoteOn → [NoteParameter] → Double → Modulation
+> reconModulation        :: SFZone → F.Shdr → NoteOn → [Double] → Double → Modulation
 > reconModulation SFZone{ .. } shdr noon nps secsScored
 >   | traceIf trace_RM False               = undefined
 >   | otherwise                            = resolveMods m8n zModulators defaultMods

@@ -604,46 +604,6 @@ Type declarations ==============================================================
 > noonAsCoords           :: NoteOn → [Word]
 > noonAsCoords NoteOn{ .. }                =  [fromIntegral noteOnKey, fromIntegral noteOnVel]
 >
-> data NoteParameter                       =
->   DownFrom AbsPitch
->   | UpFrom AbsPitch
->   | DownTo AbsPitch
->   | UpTo AbsPitch deriving (Show)
->
-> toParams               :: [NoteParameter] → [Double]
-> toParams                                 =
->   concatMap (\case
->                DownFrom interval         → [0, fromIntegral interval]
->                UpFrom interval           → [1, fromIntegral interval]
->                DownTo interval           → [2, fromIntegral interval]
->                UpTo interval             → [3, fromIntegral interval])
->
-> data NoteFold                            =
->   NoteFold {
->     nfSkip             :: Int
->   , nfArgs             :: [Double]
->   , nfNps              :: [NoteParameter]} deriving Show
->
-> fromParams             :: [Double] → [NoteParameter]
-> fromParams dsIn                          = nfaccum.nfNps
->   where
->     nfaccum                              = foldl' nfolder (NoteFold 1 [] []) dsIn
->
->     nfolder             :: NoteFold → Double → NoteFold
->     nfolder nf d                         =
->       if nf.nfSkip > 0
->         then NoteFold     (nf.nfSkip - 1)     (d : nf.nfArgs)        nf.nfNps
->         else NoteFold     1                   []                     (makeParam (d : nf.nfArgs) : nf.nfNps)
->
-> makeParam              :: [Double] → NoteParameter
-> makeParam dsIn                           =
->   case round $ last dsIn of
->     0                                    → DownFrom (round $ head dsIn)
->     1                                    → UpFrom   (round $ head dsIn)
->     2                                    → DownTo   (round $ head dsIn)
->     3                                    → UpTo     (round $ head dsIn)
->     _                                    → error $ unwords ["makeParam", "invalid input"]
->
 > data ModCoefficients                     =
 >   ModCoefficients {
 >     xModEnvCo          :: Double

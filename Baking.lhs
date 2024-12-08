@@ -1,6 +1,7 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -23,7 +24,7 @@ December 16, 2022
   
 Bake ==================================================================================================================
 
-> type Baking = (BakingMetrics, Array Int (Music (Pitch, Volume)))
+> type Baking = (BakingMetrics, Array Int (Music (Pitch, [NoteAttribute])))
 
 The progress of the algorithm is expressed in above pair.
 
@@ -33,7 +34,7 @@ The progress of the algorithm is expressed in above pair.
 > consumeBakes bakes                       = profess
 >                                              (checkJobOk bm)
 >                                              "consumeBakes checkJobOk"
->                                              (aggrandize <$> ms)
+>                                              ms
 >   where
 >     (bm, ms)                             = buildChannels bakes
 >
@@ -73,14 +74,14 @@ The progress of the algorithm is expressed in above pair.
 > bakeUtility            :: Int → [Bake]
 > bakeUtility seed                         = map rs2Bake
 >                                            $ take (round numSections)
->                                            $ randomNormSets 6
+>                                            $ randomNormSets 7
 >                                            $ mkStdGen seed
 >
 > buildChannels          :: [Bake] → Baking
 > buildChannels bakes                      = build bakes [] (newBakingMetrics, newMusic)
 >   where
->     -- "Contexts" -urns- are in increasing onset time order. There is
->     -- an algorithm to mitigate "collisions", via skipping of
+>     -- "Bakes" -urns- are in increasing onset time order. There is
+>     -- an algorithm to mitigate "collisions" by skipping
 >     -- excessively "simultaneous" Bakes. Therefore, the -inns- list
 >     -- is arranged in increasing end time order.
 >     build              :: [Bake] → [Bake] → Baking → Baking
@@ -88,7 +89,7 @@ The progress of the algorithm is expressed in above pair.
 >     build (urn:urns) [] baking           = tryUrn urn urns [] baking
 >     build [] (inn:inns) baking           = retireInn inn [] inns baking
 >     build (urn:urns) (inn:inns) baking
->       | computeEnd (bOnset inn) 1.0 < bOnset urn
+>       | computeEnd inn.bOnset 1.0 < urn.bOnset
 >                                          = retireInn inn (urn:urns) inns baking
 >       | otherwise                        = tryUrn urn urns (inn:inns) baking
 >
@@ -102,13 +103,13 @@ The progress of the algorithm is expressed in above pair.
 >       | skipThreshold >= length inns     = acceptUrn urn urns inns baking
 >       | otherwise                        = skipUrn   urn urns inns baking
 >
->     acceptUrn urn urns inns baking       = profess
->                                              (checkUrnOk urn)
->                                              "acceptUrn checkUrnOk"
->                                              (build urns inns' baking')
+>     acceptUrn urn urns inns baking       =
+>       profess
+>         (checkUrnOk urn)
+>         (unwords [fName, "checkUrnOk"])
+>         (build urns (sortOn bOnset (urn:inns)) (acceptSection urn baking))
 >       where
->         inns'                            = sortOn bOnset (urn:inns)
->         baking'                          = acceptSection urn baking
+>         fName                            = "acceptUrn"
 >                 
 >     skipUrn urn urns inns baking         = build urns inns (skipSection urn baking)
 >               
@@ -126,22 +127,23 @@ The progress of the algorithm is expressed in above pair.
 >         durSoFar       :: Double
 >         newDur         :: Double
 >         ss             :: SectionSpec
->         newm           :: Music (Pitch, Volume)
+>         newm           :: Music (Pitch, [NoteAttribute])
 >
 >         -- algorithm gets an N squared component here
 >         durSoFar                         = fromRational $ dur (ms ! chan)
 >         ss                               = calibrateSection durSoFar urn
->         newm                             = generateSection bSnd bVol ss inst range bXpose
+>         newm                             =
+>           generateSection bSnd bVol ss inst range bXpose bSweep
 >         ms'                              = appendSection ms chan newm
 >         newDur                           = fromRational $ dur (ms' ! chan)
 >
 >         -- statskeeping
 >         bm'                              = acceptMetrics bm durSoFar newDur ss bOnset
 >                   
->     appendSection      :: Array Int (Music (Pitch, Volume))
+>     appendSection      :: Array Int (Music (Pitch, [NoteAttribute]))
 >                           → Int
->                           → Music (Pitch, Volume)
->                           → Array Int (Music (Pitch, Volume))
+>                           → Music (Pitch, [NoteAttribute])
+>                           → Array Int (Music (Pitch, [NoteAttribute]))
 >     appendSection ms chan newm           = ms // [(chan, ms!chan :+: newm)]
 >
 >     calibrateSection   :: Double → Bake → SectionSpec
@@ -165,8 +167,9 @@ The progress of the algorithm is expressed in above pair.
 >                           → InstrumentName
 >                           → (AbsPitch, AbsPitch)
 >                           → Double
->                           → Music (Pitch, Volume)
->     generateSection sound vol ss inst range dXp
+>                           → Double
+>                           → Music (Pitch, [NoteAttribute])
+>     generateSection sound vol ss inst range dXp sweep
 >                                          = theRest :+: (thePercFill :=: theInstFill)
 >       where
 >         restDur, restTempo, fillDur, fillTempo
@@ -178,29 +181,27 @@ The progress of the algorithm is expressed in above pair.
 >         fillBeats                        = round (fillDur * fillTempo * 3.0 / 4.0)
 >
 >         theRest, thePercFill, theInstFill
->                        :: Music (Pitch, Volume)
+>                        :: Music (Pitch, [NoteAttribute])
 >         theRest                          = rest $ approx restDur
->         thePercFill                      = addVolume (fractionOf vol 1.25)
->                                            $ if skipGlissandi
->                                                then rest ratDur
->                                                else roll ratDur $ perc sound $ approx (0.5/fillTempo)
->         theInstFill                      = addVolume (fractionOf vol 0.60)
->                                            $ instrument inst
->                                            $ makeInstFill fillBeats range dXp
+>         thePercFill                      =
+>           makePercFill sound (approx (0.5/fillTempo)) (fractionOf vol 1.25) (approx fillDur)
+>         theInstFill                      =
+>           instrument inst $ makeInstFill fillBeats range dXp sweep (fractionOf vol 0.60) 
 >         ratDur         :: Rational       = approx fillDur
 >
-> makeInstFill           :: Int → (AbsPitch, AbsPitch) → Double → Music Pitch
-> makeInstFill nBeats (lo, hi) dXp         = note dur p
+> makePercFill           :: PercussionSound → Rational → Volume → Dur → Music (Pitch, [NoteAttribute])
+> makePercFill sound beats vol dur         = bandPart (makeNonPitched vol) m
 >   where
->     dur                :: Rational
->     p                  :: Pitch
->     dLo, dHi           :: Double
+>     m                                    =
+>       if skipGlissandi
+>         then rest dur
+>         else roll dur $ perc sound beats
 >
->     dur                                  = qn * toRational nBeats
->
->     dLo                                  = fromIntegral lo
->     dHi                                  = fromIntegral hi
->     p                                    = pitch $ round $ dLo + (dXp * (dHi - dLo))
+> makeInstFill           :: Int → (AbsPitch, AbsPitch) → Double → Double → Volume → Music (Pitch, [NoteAttribute])
+> makeInstFill beats (lo, hi) dXp bend vol
+>                                          = note (qn * toRational beats) (p, [Volume vol, Params [bend]])
+>   where
+>     p                  :: Pitch          = pitch $ lo + round (dXp * fromIntegral (hi - lo))
 >
 > checkMeasureOk         :: BakingMetrics → Bool
 > checkMeasureOk BakingMetrics{ .. }
@@ -273,22 +274,20 @@ The progress of the algorithm is expressed in above pair.
 >     histSelect os                        = floor $ os * fromIntegral bakingBins / songLength
 >
 > skipMetrics            :: BakingMetrics → Double → BakingMetrics
-> skipMetrics bm@BakingMetrics{ .. } accum = bm { sSkipped      = skipped'
->                                               , sAccumSkipped = accum'}
->   where
->     skipped'                             = sSkipped      + 1
->     accum'                               = sAccumSkipped + accum
+> skipMetrics bm@BakingMetrics{ .. } accum = bm { sSkipped      = sSkipped      + 1
+>                                               , sAccumSkipped = sAccumSkipped + accum}
 >
 > rs2Bake                :: [Double] → Bake
 > rs2Bake rs
->   | length rs >= 6                       = Bake {
+>   | length rs >= 7                       = Bake {
 >                                              bIx       = 0
 >                                            , bWch      = denormVector     (head rs)     vChoiceI
 >                                            , bOnset    = denorm           (rs!!1)       (0, songLength)
 >                                            , bXpose    = denorm           (rs!!2)       (0.2, 0.8)
 >                                            , bSnd      = denormVector     (rs!!3)       vChoiceP
 >                                            , bVol      = round $ denorm   (rs!!4)       (60, 100)
->                                            , bTempo    = denorm           (rs!!5)       (2, 5)}
+>                                            , bTempo    = denorm           (rs!!5)       (2, 5)
+>                                            , bSweep    = denorm           (rs!!6)       (-6, 6)}
 >   | otherwise                            = error $ unwords ["rs2Bake:", "insufficiently sized randoms list", show $ length rs]
 >     where
 >       vChoiceI         :: Array Int (InstrumentName, (AbsPitch, AbsPitch))
@@ -317,7 +316,8 @@ Definitions ====================================================================
 >     , bXpose           :: Double
 >     , bSnd             :: PercussionSound
 >     , bVol             :: Volume
->     , bTempo           :: Double} deriving (Show, Eq, Ord)
+>     , bTempo           :: Double
+>     , bSweep           :: Double} deriving (Show, Eq, Ord)
 >
 > type TimeSpec                            = (Double, Double)
 > type SectionSpec                         = (TimeSpec, TimeSpec)

@@ -44,7 +44,7 @@ Signal function-based synth ====================================================
 >                           → Dur
 >                           → AbsPitch
 >                           → Volume
->                           → [NoteParameter]
+>                           → [Double]
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
@@ -312,7 +312,7 @@ Envelopes ======================================================================
 > deriveEnvelope         :: Maybe Int
 >                           → Maybe Int
 >                           → NoteOn
->                           → [NoteParameter]
+>                           → [Double]
 >                           → (Maybe Int, Maybe Int)
 >                           → (Maybe Int, Maybe Int)
 >                           → Maybe Int

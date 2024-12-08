@@ -546,17 +546,14 @@ instrument range checking ======================================================
 >     nasFun (Volume _)                    = Volume bp.bpVelocity
 >     nasFun na                            = na 
 >
-> downFrom, upFrom, downTo, upTo
->                        :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music (Pitch, [NoteAttribute])
-> downFrom bp pc o d ap                    = note d ((pc, o), [Volume bp.bpVelocity, Params [0, fromIntegral ap]])
-> upFrom   bp pc o d ap                    = note d ((pc, o), [Volume bp.bpVelocity, Params [1, fromIntegral ap]])
-> downTo   bp pc o d ap                    = note d ((pc, o), [Volume bp.bpVelocity, Params [2, fromIntegral ap]])
-> upTo     bp pc o d ap                    = note d ((pc, o), [Volume bp.bpVelocity, Params [3, fromIntegral ap]])
-> deadOn                 :: BandPart → PitchClass → Octave → Dur → Music (Pitch, [NoteAttribute])
-> deadOn   bp pc o d                       = note d ((pc, o), [Volume bp.bpVelocity])
+> bendNote               :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music (Pitch, [NoteAttribute])
+> bendNote bp pc o d bend                  = note d ((pc, o), [Volume bp.bpVelocity, Params [fromIntegral bend]])
 >
-> addVolume'    :: BandPart -> Music Pitch -> Music (Pitch,[NoteAttribute])
-> addVolume' bp                              = mMap (, [Volume bp.bpVelocity])
+> addVolume'    :: BandPart → Music Pitch → Music (Pitch,[NoteAttribute])
+> addVolume' bp                            = mMap (, [Volume bp.bpVelocity])
+>
+> psoundToPitch :: PercussionSound → Pitch
+> psoundToPitch psound                     = pitch (fromEnum psound + 35)
 
 examine song for instrument and percussion usage ======================================================================
 
@@ -1019,7 +1016,7 @@ Note result is incorrect overall when involves multiple root pitches
 Range theory ==========================================================================================================
 
 Model rectilinear sub-space coverage; e.g. find unwanted (sub-)space overlaps. Each space (of nspaces) contains
-exactly ndims (2 in the MIDI case) ranges. If dim is the value of a dimension then its overall range is
+exactly ndims (2 in the MIDI case) ranges. If dim is the value of a dimension then its overall range is implicitly
 0..dim-1 -- the associated _specified_ space range carves out a subset thereof.
 
 Say you have ndims=2 dimensions each of 64 extent. (Partially) covering overall 64x64 space are nspaces=3 "zones". 

@@ -116,7 +116,7 @@ organize exposed music =========================================================
 >    -- [ ("pa"          , pendingtonArnt 1)]
 >    -- [ ("slot"        , slot 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]
->    -- [ ("baked"       , shimSong $ bakedJingle 23320)]
+>    -- [ ("baked"       , shimSong $ bakedJingle 26420)]
 >    -- [ ("slot_1"      , slot 1)]
 >    -- [ ("theFanfare"  , theFanfare)]
 >       [ ("dit"         , dit)]

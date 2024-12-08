@@ -1161,21 +1161,18 @@ Dit ============================================================================
 >   removeZeros
 >   $ tempo ditTempo
 >   $ keysig Af Mixolydian
->   $ line [bandPart ditBass ditbody1, orchestraPart ditBass ditbody2, bandPart ditBass ditbody3]
+>   $ line [bandPart db ditbody1, orchestraPart db ditbody2, bandPart db ditbody3]
 >
 >   where
 >
->   ditBass                                = replace ditBass_ dynMap
->
->   dfdb                                   = downFrom ditBass
->   dtdb                                   = downTo   ditBass
->   dodb                                   = deadOn   ditBass
+>   db                                     = replace ditBass_ dynMap
 >
 >   ditbody1                               =
 >     line [rest dhn, ds 4 qn, fs 4 den, e 4 sn, ds 4 qn, e 4 den, cs 4 sn, a 3 qn]
 >
 >   ditbody2                               =
->     line [dtdb Ds 3 den 9, dodb Ds 3 sn, dodb Ds 4 den, dodb E 4 sn, dfdb Ds 4 den 2, dodb Ds 4 sn]
+>     line [bendNote db Ds 4 den (-12), bendNote db Ds 3 sn 0,     bendNote db Ds 4 den 0
+>         , bendNote db E 4 sn 0,       bendNote db Ds 4 den (-2), bendNote db Ds 4 sn 0]
 >
 >   ditbody3                               =
 >     line [cs 4 en, cs 4 sn, b 3 den, a 3 sn, fs 3 den
