@@ -31,7 +31,7 @@ December 12, 2022
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
 > import Data.Int ( Int8, Int16, Int32 )
-> import Data.List ( iterate', singleton, foldl', sortOn, minimumBy, find, elem, sort, unfoldr, genericLength )
+> import Data.List hiding (transpose)
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe, listToMaybe )
@@ -246,11 +246,31 @@ which makes for a cleaner sound on some synthesizers:
 
 "ascent/descent" ======================================================================================================
 
-> glissando'              :: [AbsPitch] → Dur → Music Pitch
-> glissando' gliss dur                     = dim 1 $ slur 2 $ line notes
+> squeezeAPSequence      :: [AbsPitch] → Dur → Music Pitch
+> squeezeAPSequence gliss dur              = dim 1 $ slur 2 $ line notes
 >   where
 >     reach              :: Rational       = fromIntegral $ length gliss
 >     notes              :: [Music Pitch]  = [note (dur * 9 / (reach * 10)) (pitch x) | x ← gliss]
+>
+> extendModeToInfinity   :: Bool → AbsPitch → [AbsPitch] → [(AbsPitch, Int)]
+> extendModeToInfinity desc start templ8
+>   | traceNow trace_EMTI False            = undefined
+>   | otherwise                            = iterate' doNext (start, 0)
+>   where
+>     fName                                = "extendModeToInfinity"
+>
+>     n                                    = length templ8
+>     doNext             :: (AbsPitch, Int) → (AbsPitch, Int)
+>     doNext (ap, index)                   = (ap + delta, index')
+>       where  
+>         (index', offset)
+>           | desc                         = if index == 0 then (n - 1, -12) else (index - 1, 0)
+>           | index + 1 == n               = (0, 12)
+>           | otherwise                    = (index + 1, 0)
+>  
+>         delta                            = templ8 !! index' - templ8 !! index  + offset
+>
+>     trace_EMTI                           = unwords [fName, show start, show templ8]
 >
 > glissando              :: Bool → (AbsPitch, AbsPitch) → Dur → Music Pitch
 > glissando _ _ 0                          = rest 0
@@ -263,32 +283,85 @@ which makes for a cleaner sound on some synthesizers:
 >   | dur < 1 / 8                          = error (unwords ["glissando:"
 >                                                          , show dur
 >                                                          , "is not enough duration"])
->   | otherwise                            = glissando' (take 28 pitches) dur
+>   | otherwise                            = squeezeAPSequence (take 28 pitches) dur
 >   where
 >     pitches                              = if desc
 >                                              then reverse [xLo..xHi]
 >                                              else [xLo..xHi]
 >     trace_G                              = unwords ["glissando", show pitches]
 >
-> descent                :: BandPart → Pitch → Dur → Music Pitch
-> descent bp p dur
->   | traceNow trace_D False               = undefined
->   | otherwise                            = chord [rest dur, glissando True (absPitch bottom, absPitch p) dur]
+> mode2Templ8            :: Mode → [AbsPitch]
+> mode2Templ8 mode                         = templ8
 >   where
->     bottom                               =
->       trans (-bp.bpTranspose) $ (pitch . fst) (fromJust (instrumentRange bp.bpInstrument))
+>     fName                                = "mode2templ8"
 >
->     trace_D                              = unwords ["descent ", show p]
+>     base                                 = [0,2,4,5,7,9,11]
+>     templ8
+>       | Ionian                   == mode = shift 0 base
+>       | Dorian                   == mode = shift 1 base
+>       | Phrygian                 == mode = shift 2 base
+>       | Mixolydian               == mode = shift 3 base
+>       | Lydian                   == mode = shift 4 base
+>       | Aeolian                  == mode = shift 5 base
+>       | Locrian                  == mode = shift 6 base
 >
-> ascent                 :: BandPart → Pitch → Dur → Music Pitch
-> ascent bp p dur
->   | traceNow trace_A False               = undefined
->   | otherwise                            = chord [rest dur, glissando False (absPitch p, absPitch top) dur]
+>       | Major                    == mode = shift 0 base
+>       | Minor                    == mode = [0,2,3,5,7,9,11]
+>
+>       | chromatic                == mode = [0,1,2,3,4,5,6,7,8,9,10,11]
+>       | diminished               == mode = [0,2,3,5,6,8,9,11]
+>       | augmented                == mode = [0,2,4,6,8,10]
+>       | otherwise                        = error $ unwords [fName, show mode, "not supported yet"]
+>
+>     shift k t                            =
+>       let
+>         n                                = length t
+>         t'                               = t ++ t
+>         v                                = 12 - t' !! k
+>       in
+>         take n $ map (\x → (v + x) `mod` 12) (drop k t')
+>         
+> chromatic                                = CustomMode "Chrome"
+> diminished                               = CustomMode "Dim"
+> augmented                                = CustomMode "Aug"
+>
+> findInMode               :: Pitch → PitchClass → Mode → Maybe Int
+> findInMode p pc mode                     = elemIndex q t
 >   where
+>     q1                                   = fromEnum pc
+>     q2                                   = fromEnum (fst p)
+>     q                  :: Int            = fromEnum $ abs (q2 - q1)
+>     t                                    = mode2Templ8 mode
+>
+> descent                :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
+> descent bp p pc mode dur                 = chord [rest dur, squeezeAPSequence (takeWhile (>= bottom) (map fst extend)) dur]
+>   where
+>     fName                                = "descent"
+>
+>     eindex                               = findInMode p pc mode
 >     top                                  =
->       trans (-bp.bpTranspose) $ (pitch . snd) (fromJust (instrumentRange bp.bpInstrument))
+>       case eindex of
+>         Just x                           → absPitch p
+>         Nothing                          → error $ unwords [fName, "first note not in Mode"]
+>     bottom                               =
+>       absPitch $ trans (-bp.bpTranspose) $ (pitch . fst) (fromJust (instrumentRange bp.bpInstrument))
 >
->     trace_A                              = unwords ["ascent", show p]
+>     extend                               = extendModeToInfinity True top (mode2Templ8 mode)
+>
+> ascent                 :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
+> ascent bp p pc mode dur                  = chord [rest dur, squeezeAPSequence (takeWhile (<= top) (map fst extend)) dur]
+>   where
+>     fName                                = "ascent"
+>
+>     eindex                               = findInMode p pc mode
+>     top                                  =
+>       absPitch $ trans (-bp.bpTranspose) $ (pitch . snd) (fromJust (instrumentRange bp.bpInstrument))
+>     bottom                               =
+>       case eindex of
+>         Just x                           → absPitch p
+>         Nothing                          → error $ unwords [fName, "first note not in Mode"]
+>
+>     extend                               = extendModeToInfinity False bottom (mode2Templ8 mode)
 
 ranges ================================================================================================================
 
@@ -490,7 +563,7 @@ instrument range checking ======================================================
 >   BandPart {
 >     bpInstrument       :: InstrumentName
 >   , bpTranspose        :: AbsPitch
->   , bpVelocity         :: Velocity}
+>   , bpVelocity         :: Velocity} deriving Show
 >
 > type DynMap                              = Map InstrumentName InstrumentName
 >
@@ -1191,12 +1264,15 @@ Returns the elapsed time in seconds
 > toTimecents            :: Double → Int
 > toTimecents secs                         = round $ logBase 2 secs * 1_200
 
-Returns the attenuation (based on input 10ths of a percent) 
+Returns the amplitude ratio (based on input 10ths of a percent) 
 
-> fromTithe              :: Maybe Int → Double
-> fromTithe iS                             = 1 / pow 10 (jS/200)
+> fromTithe              :: Maybe Int → Bool → Double
+> fromTithe iS isVol                       =
+>   if isVol
+>     then 1 / fromCentibels jS
+>     else (1000 - jS) / 1000
 >   where
->     jS                 :: Double         = maybe 0 (clip (0, 1000) . fromIntegral) iS
+>     jS                 :: Double         = maybe 0 (fromIntegral . clip (0, 1000)) iS
 
 Returns the frequency ratio
 

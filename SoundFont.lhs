@@ -2073,8 +2073,8 @@ reconcile zone and sample header ===============================================
 >                                                             zFineTune
 >                        else Nothing
 >
->   , rM8n             =                                      m8n
->   , rEffects         = deriveEffects                        m8n
+>   , rM8n           =                                        m8n
+>   , rEffects       = deriveEffects                          m8n
 >                                                             noon
 >                                                             zChorus
 >                                                             zReverb

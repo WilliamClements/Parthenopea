@@ -266,14 +266,16 @@ Modulator management ===========================================================
 >  | traceNever trace_EMS False            = undefined
 >  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
->    mco                                   =
+>    fName                                 = "evaluateModSignals"
+>
+>    mco                 :: ModCoefficients
+>                                          =
 >      case md of
 >        ToPitch                           → m8n.toPitchCo
 >        ToFilterFc                        → m8n.toFilterFcCo
 >        ToVolume                          → m8n.toVolumeCo
 >        _                                 → error $
->          unwords ["evaluateModSignals: only ToPitch, ToFilterFc, and ToVolume supported"
->                 , show tag, show md]
+>          unwords [fName, "only ToPitch, ToFilterFc, and ToVolume supported", show tag, show md]
 >
 >    xmodEnv                               = msig.xModEnvValue * mco.xModEnvCo
 >    xmodLfo                               = msig.xModLfoValue * mco.xModLfoCo
@@ -609,7 +611,6 @@ Type declarations ==============================================================
 >     xModEnvCo          :: Double
 >   , xModLfoCo          :: Double
 >   , xVibLfoCo          :: Double} deriving (Eq, Show)
->
 > defModCoefficients                       = ModCoefficients 0 0 0
 >
 > data ModTriple                           =
@@ -617,15 +618,13 @@ Type declarations ==============================================================
 >     coPitch            :: Double
 >   , coFilterFc         :: Double
 >   , coVolume           :: Double} deriving (Eq, Show)
->
 > coAccess               :: ModDestType → ModTriple → Double
 > coAccess md ModTriple{ .. }              =
 >   case md of
 >     ToPitch            → coPitch
 >     ToFilterFc         → coFilterFc
 >     ToVolume           → coVolume
->     _                  → error $ unwords["coAccess: ModTriple only deals with ToPitch, ToFilterFc, and ToVolume"]
->                            
+>     _                  → error $ unwords["coAccess: ModTriple only deals with ToPitch, ToFilterFc, and ToVolume"]                         
 > defModTriple                             = ModTriple 0 0 0
 >
 > data ModSignals                          =

@@ -319,7 +319,7 @@ Envelopes ======================================================================
 >                           → Maybe Int
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe Envelope
-> deriveEnvelope mDelay mAttack NoteOn{noteOnKey} nps (mHold, mHoldByKey) (mDecay, mDecayByKey)
+> deriveEnvelope mDelay mAttack noon nps (mHold, mHoldByKey) (mDecay, mDecayByKey)
 >                mSustain mRelease mTriple
 >   | traceNot trace_DE False              = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTriple
@@ -327,12 +327,12 @@ Envelopes ======================================================================
 >                                              else Nothing
 >   where
 >     minDeltaT          :: Double         = fromTimecents Nothing
->     dHold              :: Double         = max minDeltaT (fromTimecents' mHold  mHoldByKey  noteOnKey)
->     dDecay             :: Double         = max minDeltaT (fromTimecents' mDecay mDecayByKey noteOnKey)
+>     dHold              :: Double         = max minDeltaT (fromTimecents' mHold  mHoldByKey  noon.noteOnKey)
+>     dDecay             :: Double         = max minDeltaT (fromTimecents' mDecay mDecayByKey noon.noteOnKey)
 >
 >     env                                  =
->       Envelope (fromTimecents mDelay) (fromTimecents mAttack)      dHold
->                dDecay                 (fromTithe mSustain)         (fromTimecents mRelease)
+>       Envelope (fromTimecents mDelay) (fromTimecents mAttack)                          dHold
+>                dDecay                 (fromTithe mSustain (isNothing mTriple))         (fromTimecents mRelease)
 >                (makeModTriple mTriple)
 >
 >     doUse              :: Maybe (Maybe Int, Maybe Int) → Bool
@@ -364,8 +364,8 @@ Envelopes ======================================================================
 >     makeSF             :: Envelope → Signal p () Double
 >     makeSF env                           =
 >       let
->         Segments{sAmps, sDeltaTs}        = computeSegments secsScored secsToPlay env
->       in envLineSeg sAmps sDeltaTs
+>         segs                             = computeSegments secsScored secsToPlay env
+>       in envLineSeg segs.sAmps segs.sDeltaTs
 
 Implement the SoundFont envelope model with specified:
   1. delay time                      0 → 0
