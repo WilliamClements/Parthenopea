@@ -445,7 +445,7 @@ TC =============================================================================
 >   tcV01C = -- measures 6, 7
 >     line [
 >   {-  1   -}   tempo (3/2)   (line [ cs 6 qn])
->   {-  4   -} , cs 6  (1/12 + qn), descent tcLead (Cs, 6) Cs chromatic (qn*3)
+>   {-  4   -} , cs 6  (1/12 + qn), descendFrom tcLead (Cs, 6) Cs chromatic (qn*3)
 >   {-  4   -} , tempo (5/4) tcVnt58
 >   {-  1   -} , grace (-2) (b 5 den), a 5 sn
 >   {-  1   -} , tempo (3/2)   (line [a 5 en, g 5 qn])
@@ -458,7 +458,7 @@ TC =============================================================================
 >   tcV01D = -- measure 8
 >     line [
 >   {-  1   -}   tempo (3/2)   (line [f 5 sn, e 5 sn, e 5 qn])
->   {-  7   -} , e 5 wn, ascent tcLead (F,5) F chromatic dhn]
+>   {-  7   -} , e 5 wn, ascendFrom tcLead (F,5) F chromatic dhn]
 >
 >   tcV02 = line [tcV02A, tcV02B, tcV02C, tcV02D, tcV02E, tcV02F, tcV02G]
 >
@@ -531,7 +531,7 @@ TC =============================================================================
 >   {-  1   -}   d 5 en, e 5 en, cs 5 en
 >   {-  1   -} , tempo (3/2)   (line [cs 5 en, b 4 sn])
 >   {-  4   -} , cs 5 wn
->   {-  2   -} , cs 5 qn, descent tcLead (Cs,6) Cs chromatic qn]
+>   {-  2   -} , cs 5 qn, descendFrom tcLead (Cs,6) Cs chromatic qn]
 >
 >   tcV03 = line [tcV03A, tcV03B, tcV03C, tcV03D, tcV03E, tcV03F, tcV03G, tcV03H]
 >
@@ -562,7 +562,7 @@ TC =============================================================================
 >   {-  2   -}   tempo (3/2)   tcVnt01
 >   {-  2   -} , tempo (7/4)   tcVnt02
 >   {-  2   -} , tempo (7/4)   tcVnt03
->   {-  2   -} , ascent tcLead (E,5) E chromatic hn
+>   {-  2   -} , ascendFrom tcLead (E,5) E chromatic hn
 >        ]
 >   tcV03C = -- measure 19
 >     line [
@@ -685,7 +685,7 @@ TC =============================================================================
 >
 >   tcV04F = -- measure 32
 >     line [
->   {-  4   -}    cs 5 en, cs 5 sn, d 5 sn, descent tcLead (E,5) E chromatic dhn
+>   {-  4   -}    cs 5 en, cs 5 sn, d 5 sn, descendFrom tcLead (E,5) E chromatic dhn
 >   {-  4   -}  , rest hn,  a 6 sn, a 6 sn, e 6 en, a 6 qn]
 >
 >   tcV04G = rest 0
@@ -704,7 +704,7 @@ TC =============================================================================
 >
 >   tcV05B = -- measure 34
 >     line [
->   {-  6   -}   e 6 sn, descent tcLead (E,6) E chromatic (en + ddqn), rest dqn, rest hn
+>   {-  6   -}   e 6 sn, descendFrom tcLead (E,6) E chromatic (en + ddqn), rest dqn, rest hn
 >   {-  2   -} , f 6 sn, d 6 sn, cs 6 en, cs 6 sn, d 6 sn, e 6 en]
 >
 >   tcVnt10 =
@@ -968,7 +968,7 @@ TC =============================================================================
 >
 >   tcV08D = -- measure 59
 >     line [
->   {-  4   -}   tempo (5/4) (addDur en [d 5, e 5, f 5, e 5, d 5]), descent tcLead (E,5) E chromatic hn
+>   {-  4   -}   tempo (5/4) (addDur en [d 5, e 5, f 5, e 5, d 5]), descendFrom tcLead (E,5) E chromatic hn
 >   {-  2   -} , tempo (3/2)   (line [d 4 qn, cs 4 en, d 4 en, d 4 en, e 4 en])
 >   {-  2   -} , tempo (3/2)   (line [e 4 en,  f 4 en, e 4 en, d 4 qn, d 4 en])]
 >
@@ -995,7 +995,7 @@ TC =============================================================================
 >   tcV08G = -- measure 62
 >     line [
 >   {-  0.7 -}   tempo (3/2)   (line [a 5 en, b 5 en])
->   {-  5.3 -} , cs 6 ((1/12) + hn), descent tcLead (Cs, 6) Cs chromatic qn, rest hn
+>   {-  5.3 -} , cs 6 ((1/12) + hn), descendFrom tcLead (Cs, 6) Cs chromatic qn, rest hn
 >   {-  2.0 -} , tempo (3/2)   (line [cs 6 qn, cs 6 qn, cs 6 qn])]
 >
 >   tcV08H = -- measure 63
@@ -1267,7 +1267,7 @@ DH =============================================================================
 >                       , fs 4 sn, ds 4 sn, grace (-2) (gs 4 en), fs 4 dqn]
 > -- 7/4
 >     l011        = line [t32 [grace (-2) (ds 5 qn), fs 5 en], fs 5 hn, fs 5 sn, gs 5 sn, fs 5 sn, gs 5 sn
->                       , t32 [gs 5 qn, fs 5 en], descent dhLead (Fs, 5) Fs chromatic hn]
+>                       , t32 [gs 5 qn, fs 5 en], descendFrom dhLead (Fs, 5) Fs chromatic hn]
 > -- 2/4
 >     l012        = line [rest qn, t32 [ds 5 en, cs 5 en, cs 5 en]]
 >
@@ -1389,8 +1389,8 @@ DH =============================================================================
 >                              , tempo (5/4) (line [rest sn, percm BassDrum1 [sn], percm AcousticSnare [sn]
 >                                                 , percm BassDrum1 [sn], percm AcousticSnare [sn]])]]
 >
->     l025        = line [ds 5 hn, chord [line [grace (-1) (e 6 qn), descent dhLead (E, 6) E chromatic qn]
->                                ,        line [grace (-2) (b 5 qn), descent dhLead (B, 5) B chromatic qn]]
+>     l025        = line [ds 5 hn, chord [line [grace (-1) (e 6 qn), descendFrom dhLead (E, 6) E chromatic qn]
+>                                ,        line [grace (-2) (b 5 qn), descendFrom dhLead (B, 5) B chromatic qn]]
 >                       , chord [addDur sn [ds 5, e 5, e 5, gs 5]
 >                       ,        addDur sn [fs 4, a 4, a 4, cs 5]]]
 > -- 6/4
@@ -1573,7 +1573,7 @@ DH =============================================================================
 >           , t32 [e 5 en, a 5 en, a 5 en, grace (-2) (b 5 en), grace 3 (gs 5 en), fs 5 en], fs 5 dqn, rest en]
 >     l047        =
 >       t32 [trill 1 tn (ds 5 dqn), ds 5 en, rest en, a 3 en, e 5 en, ds 5 en, ds 5 en, e 5 en, ds 5 en, e 5 en
->          , grace (-2) (fs 5 en), descent dhLead (Fs, 5) Fs chromatic qn]
+>          , grace (-2) (fs 5 en), descendFrom dhLead (Fs, 5) Fs chromatic qn]
 >     l048        =
 >       line [rest en, grace (-4) (ds 6 en), b 5 sn, a 5 sn, a 3 sn, gs 5 sn, chord [e 5 sn, a 5 sn], fs 5 sn
 >           , b 5 sn, gs 5 sn, a 5 sn, b 5 sn, ds 6 sn, cs 6 sn, cs 5 tn, fs 4 tn, rest sn, e 6 sn, e 6 sn]
@@ -1669,7 +1669,7 @@ DH =============================================================================
 >     l056        =
 >       line [fs 5 den, fs 5 sn, fs 5 sn, fs 5 tn, e 5 tn, chord [line [b 4 sn, b 4 sn], line [ds 5 sn, ds 5 sn]]
 >           , ds 5 sn, e 5 sn, ds 5 en, tempo (5/4) (line [ds 5 sn, ds 5 tn, e 5 tn, ds 5 tn]), ds 5 sn, b 4 sn
->           , cs 5 qn, descent dhLead (Cs, 5) Cs chromatic qn]
+>           , cs 5 qn, descendFrom dhLead (Cs, 5) Cs chromatic qn]
 >
 >     p057_060    = line [p057, p058, p059, p060]
 >     l057_060    = line [l057, l058, l059, l060]
@@ -1710,7 +1710,7 @@ DH =============================================================================
 >           , cs 5 sn, ds 5 tn, cs 5 tn, bs 4 sn, bs 4 sn]
 >     l059        =
 >       line [cs 5 sn, e 5 sn, t32 [b 4 tn, a 4 tn, gs 4 tn], fs 5 sn, t32 [gs 5 en, fs 5 sn], gs 5 en, fs 5 en
->           , descent dhLead (Fs, 5) Fs chromatic qn, grace (-5) (b 5 dqn)]
+>           , descendFrom dhLead (Fs, 5) Fs chromatic qn, grace (-5) (b 5 dqn)]
 >     l060        =
 >       t32 [b  5 en, b 5 en, b 5 en, b 5 sn, fss 5 sn, gs 5 en, gs 5 en, gs 5 en, t32 [b 5 sn, a 5 sn, gs 5 sn]
 >          , gs 5 en, gs 5 en, gs 5 en, b 5 sn, a 5 sn, gs 5 en, gs 5 en, b 5 en]
@@ -1821,7 +1821,7 @@ DH =============================================================================
 >           , trill 1 tn (fs 5 dqn), t32 [fs 5 en, gs 5 en, gs 5 en], gs 5 tn, fs 5 tn, rest sn, grace (-5) (b 5 en)]
 >     l068        =
 >       line [t32 [b 5 en, addDur sn [b 5, gs 5, fs 5, cs 5]]
->           , chord [line [grace (-4) (gs 5 qn), rest qn], line [cs 6 qn, ascent dhLead (Cs, 6) Cs chromatic qn]]
+>           , chord [line [grace (-4) (gs 5 qn), rest qn], line [cs 6 qn, ascendFrom dhLead (Cs, 6) Cs chromatic qn]]
 >           , rest qn, grace (-2) (ds 6 qn)]
 >
 >     p069_072    = line [p069, p070, p071, p072]
@@ -2112,9 +2112,9 @@ DH =============================================================================
 >       line [rest en, chord [line [ a 4 en, t32 [gs 4  qn,  b 4 en, cs 5 en, cs 5 en, fs 4 en], fs 4 qn]
 >                           , line [ds 5 en, t32 [cs 5 dqn, rest qn,  b 4 en], b 4 qn]]]
 >     l099        =
->       line [rest en, chord [line [fs 4 en, fs 4 qn, descent dhLead (Fs, 4) Fs chromatic qn]
->                           , line [ b 4 en,  b 4 qn, descent dhLead ( B, 4) B chromatic qn]
->                           , line [rest en, ds 5 qn, descent dhLead (Ds, 5) Ds chromatic qn]]
+>       line [rest en, chord [line [fs 4 en, fs 4 qn, descendFrom dhLead (Fs, 4) Fs chromatic qn]
+>                           , line [ b 4 en,  b 4 qn, descendFrom dhLead ( B, 4) B chromatic qn]
+>                           , line [rest en, ds 5 qn, descendFrom dhLead (Ds, 5) Ds chromatic qn]]
 >           , rest en, t32 [fs 4 en, gs 4 sn], b 4 en, b 4 sn, gs 4 sn]
 > -- 6/4
 >     l100        =
@@ -2259,7 +2259,7 @@ PG =============================================================================
 >
 >     lead025_028 =
 >       line [line [fs 4 en, times 10 (fs 4 sn)]
->           , line [fs 4 en, times 4 (fs 4 sn), fs 4 en, ascent pgLead (F,4) F chromatic hn]
+>           , line [fs 4 en, times 4 (fs 4 sn), fs 4 en, ascendFrom pgLead (F,4) F chromatic hn]
 >           , line [rest (dhn + en), as 5 en, tempo (5/4) (line [gs 5 sn, as 5 sn, gs 5 sn, fs 5 en])]]
 >     lead029_032 =
 >       line [line [t32 [fs 5 sn, gs 5 sn, fs 5 sn], e 5 en, t32 [e 5 qn, as 5 sn, b 4 sn], gs 5 qn]
@@ -2478,7 +2478,7 @@ PG =============================================================================
 >           , line [rest dhn]
 >           , line [e 3 en, e 3 en, e 3 sn, gs 3 sn, fs 3 en, grace (-2) (gs 3 en), gs 3 sn, fs 3 sn]]
 >     lead202_204 =
->       line [line [e 3 en, fs 3 en, ascent pgLead (Fs, 3) Fs chromatic hn]
+>       line [line [e 3 en, fs 3 en, ascendFrom pgLead (Fs, 3) Fs chromatic hn]
 >           , line [rest en, grace 2 (gs 3 hn), as 3 en]
 >           , line [grace (-3) (b 3 dqn), grace (-4) (bs 3 dqn)]]
 >     lead205_207 =

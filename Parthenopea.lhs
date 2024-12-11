@@ -244,17 +244,62 @@ which makes for a cleaner sound on some synthesizers:
 >           d                              = os!!3
 >           e                              = os!!4
 
-"ascent/descent" ======================================================================================================
+"mode2Templ8" =========================================================================================================
+
+> mode2Templ8            :: Mode → [AbsPitch]
+> mode2Templ8 mode                         = templ8
+>   where
+>     fName                                = "mode2templ8"
+>
+>     base                                 = [0,2,4,5,7,9,11]
+>     templ8
+>       | Ionian                   == mode = shiftMode 0 base
+>       | Dorian                   == mode = shiftMode 1 base
+>       | Phrygian                 == mode = shiftMode 2 base
+>       | Mixolydian               == mode = shiftMode 3 base
+>       | Lydian                   == mode = shiftMode 4 base
+>       | Aeolian                  == mode = shiftMode 5 base
+>       | Locrian                  == mode = shiftMode 6 base
+>
+>       | Major                    == mode = shiftMode 0 base
+>       | Minor                    == mode = [0,2,3,5,7,9,11]
+>
+>       | chromatic                == mode = [0,1,2,3,4,5,6,7,8,9,10,11]
+>       | diminished               == mode = [0,2,3,5,6,8,9,11]
+>       | augmented                == mode = [0,2,4,6,8,10]
+>       | otherwise                        = error $ unwords [fName, show mode, "not supported yet"]
+>
+> shiftMode k t                            =
+>   let
+>     n                                    = length t
+>     t'                                   = t ++ t
+>     v                                    = 12 - t' !! k
+>   in
+>     take n $ map (\x → (v + x) `mod` 12) (drop k t')
+>         
+> chromatic                                = CustomMode "Chrome"
+> diminished                               = CustomMode "Dim"
+> augmented                                = CustomMode "Aug"
+>
+> findInMode               :: Pitch → PitchClass → Mode → Maybe Int
+> findInMode p pc mode                     = elemIndex (abs (q2 - q1)) (mode2Templ8 mode)
+>   where
+>     q1                                   = fromEnum (fst p)
+>     q2                                   = fromEnum pc
+
+"ascendFrom/descendFrom" ==============================================================================================
 
 > squeezeAPSequence      :: [AbsPitch] → Dur → Music Pitch
-> squeezeAPSequence gliss dur              = dim 1 $ slur 2 $ line notes
+> squeezeAPSequence gliss dur              = if skipGlissandi
+>                                              then rest dur
+>                                              else chord [rest dur, dim 1 $ slur 2 $ line notes]
 >   where
 >     reach              :: Rational       = fromIntegral $ length gliss
 >     notes              :: [Music Pitch]  = [note (dur * 9 / (reach * 10)) (pitch x) | x ← gliss]
 >
 > extendModeToInfinity   :: Bool → AbsPitch → [AbsPitch] → [(AbsPitch, Int)]
 > extendModeToInfinity desc start templ8
->   | traceNow trace_EMTI False            = undefined
+>   | traceIf trace_EMTI False             = undefined
 >   | otherwise                            = iterate' doNext (start, 0)
 >   where
 >     fName                                = "extendModeToInfinity"
@@ -290,78 +335,21 @@ which makes for a cleaner sound on some synthesizers:
 >                                              else [xLo..xHi]
 >     trace_G                              = unwords ["glissando", show pitches]
 >
-> mode2Templ8            :: Mode → [AbsPitch]
-> mode2Templ8 mode                         = templ8
+> descendFrom            :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
+> descendFrom bp p pc mode                 = squeezeAPSequence (takeWhile (>= bottom) (map fst extend))
 >   where
->     fName                                = "mode2templ8"
+>     (top, shift)                         =
+>       (absPitch p, deJust "first note (top) not in Mode" (findInMode p pc mode))
+>     bottom                               = (absPitch . fst) (relativeRange bp)
+>     extend                               = extendModeToInfinity True top $ shiftMode shift $ mode2Templ8 mode
 >
->     base                                 = [0,2,4,5,7,9,11]
->     templ8
->       | Ionian                   == mode = shift 0 base
->       | Dorian                   == mode = shift 1 base
->       | Phrygian                 == mode = shift 2 base
->       | Mixolydian               == mode = shift 3 base
->       | Lydian                   == mode = shift 4 base
->       | Aeolian                  == mode = shift 5 base
->       | Locrian                  == mode = shift 6 base
->
->       | Major                    == mode = shift 0 base
->       | Minor                    == mode = [0,2,3,5,7,9,11]
->
->       | chromatic                == mode = [0,1,2,3,4,5,6,7,8,9,10,11]
->       | diminished               == mode = [0,2,3,5,6,8,9,11]
->       | augmented                == mode = [0,2,4,6,8,10]
->       | otherwise                        = error $ unwords [fName, show mode, "not supported yet"]
->
->     shift k t                            =
->       let
->         n                                = length t
->         t'                               = t ++ t
->         v                                = 12 - t' !! k
->       in
->         take n $ map (\x → (v + x) `mod` 12) (drop k t')
->         
-> chromatic                                = CustomMode "Chrome"
-> diminished                               = CustomMode "Dim"
-> augmented                                = CustomMode "Aug"
->
-> findInMode               :: Pitch → PitchClass → Mode → Maybe Int
-> findInMode p pc mode                     = elemIndex q t
+> ascendFrom             :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
+> ascendFrom bp p pc mode                  = squeezeAPSequence (takeWhile (<= top) (map fst extend))
 >   where
->     q1                                   = fromEnum pc
->     q2                                   = fromEnum (fst p)
->     q                  :: Int            = fromEnum $ abs (q2 - q1)
->     t                                    = mode2Templ8 mode
->
-> descent                :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
-> descent bp p pc mode dur                 = chord [rest dur, squeezeAPSequence (takeWhile (>= bottom) (map fst extend)) dur]
->   where
->     fName                                = "descent"
->
->     eindex                               = findInMode p pc mode
->     top                                  =
->       case eindex of
->         Just x                           → absPitch p
->         Nothing                          → error $ unwords [fName, "first note not in Mode"]
->     bottom                               =
->       absPitch $ trans (-bp.bpTranspose) $ (pitch . fst) (fromJust (instrumentRange bp.bpInstrument))
->
->     extend                               = extendModeToInfinity True top (mode2Templ8 mode)
->
-> ascent                 :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
-> ascent bp p pc mode dur                  = chord [rest dur, squeezeAPSequence (takeWhile (<= top) (map fst extend)) dur]
->   where
->     fName                                = "ascent"
->
->     eindex                               = findInMode p pc mode
->     top                                  =
->       absPitch $ trans (-bp.bpTranspose) $ (pitch . snd) (fromJust (instrumentRange bp.bpInstrument))
->     bottom                               =
->       case eindex of
->         Just x                           → absPitch p
->         Nothing                          → error $ unwords [fName, "first note not in Mode"]
->
->     extend                               = extendModeToInfinity False bottom (mode2Templ8 mode)
+>     top                                  = (absPitch . snd) (relativeRange bp)
+>     (bottom, shift)                      =
+>       (absPitch p, deJust "first note (bottom) not in Mode" (findInMode p pc mode))
+>     extend                               = extendModeToInfinity False bottom $ shiftMode shift $ mode2Templ8 mode
 
 ranges ================================================================================================================
 
@@ -564,6 +552,13 @@ instrument range checking ======================================================
 >     bpInstrument       :: InstrumentName
 >   , bpTranspose        :: AbsPitch
 >   , bpVelocity         :: Velocity} deriving Show
+> relativeRange          :: BandPart → (Pitch, Pitch)
+> relativeRange bp                         =
+>   let
+>     recenter           :: AbsPitch → Pitch
+>     recenter                             = trans (-bp.bpTranspose) . pitch
+>   in
+>     BF.bimap recenter recenter (fromJust (instrumentRange bp.bpInstrument))
 >
 > type DynMap                              = Map InstrumentName InstrumentName
 >
