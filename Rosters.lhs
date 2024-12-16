@@ -112,7 +112,7 @@ organize exposed music =========================================================
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("dh"          , deathlessHorsie)]
->       [ ("basicLick"   , basicLick)]
+>       [ ("sunPyg"      , sunPyg)]
 >    -- [ ("pa"          , pendingtonArnt 1)]
 >    -- [ ("slot"        , slot 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]

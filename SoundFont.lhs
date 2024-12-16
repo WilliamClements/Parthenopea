@@ -181,6 +181,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   PerInstrument {
 >     pZones             :: [(PreZone, SFZone)]
 >   , pSmashing          :: Smashing Word}
+> showBags               :: PerInstrument → String
+> showBags perI                            = show (map (pzWordB . fst) perI.pZones)
 
 Instrument categories: instrument, percussion, disqualified
 
@@ -807,6 +809,7 @@ bootstrapping methods ==========================================================
 >   return $ foldl' psFolder (Map.empty, Map.empty, []) (Map.mapWithKey qualifyPartnering preSampleCache)
 >   where
 >     fName                                = "finishPreSampleCache"
+>
 >     psFolder           :: (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, [String])
 >                           → Either (PreSampleKey, PreSample, Maybe PreSampleKey) String
 >                           → (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, [String])
@@ -1559,6 +1562,8 @@ prepare the specified instruments and percussion ===============================
 >       (deJust "categorizeInst icat" icat, doShow >>= (\x → Just $ disqMsg ++ x))
 >       where
 >         fName                            = "categorizeInst"
+>         trace_CI                         =
+>           unwords [fName, preI.iName, show (pergm.pgkwFile, pergm.pgkwInst), show (length pzs), show icatRost]
 >
 >         preI                             =
 >           deJust (unwords [fName, "PreInstrument"]) (Map.lookup pergm preInstCache)
@@ -1572,15 +1577,12 @@ prepare the specified instruments and percussion ===============================
 >         disqMsg                          =
 >           unwords [fName, "skipping", show (pergm.pgkwFile, pergm.pgkwInst), show preI.iName, ":"]
 >
->         trace_CI                         =
->           unwords [fName, preI.iName, show (pergm.pgkwFile, pergm.pgkwInst), show (length pzs)]
->  
 >         -- Put the Instrument, of either category, through a gauntlet of checks.
 >         -- This diverges, and then we have qualInstZone and qualPercZone 
 >
->         (zsStereo, zsMono)               = partition (isStereoZone preSampleCache) pzs
->         (zsOutbound, zsLocal)            = partition hasCross zsStereo
->         zsLessLocalRights                = zsMono ++ zsOutbound ++ filter (isLeftPreZone preSampleCache) zsLocal
+>         (pzsStereo, pzsMono)             = partition (isStereoZone preSampleCache) pzs
+>         (pzsOutbound, pzsLocal)          = partition hasCross pzsStereo
+>         pzsLessLocalRights               = pzsMono ++ pzsOutbound ++ filter (isLeftPreZone preSampleCache) pzsLocal
 >
 >         -- Determine which category will belong to the Instrument, based on its performance for
 >         -- 1. all kinds
@@ -1619,7 +1621,7 @@ prepare the specified instruments and percussion ===============================
 >           if isSafe sList || requiredZoneLinkage < 1 then Nothing else Just $ InstCatDisq DisqLinkage
 >           where
 >             sList      :: [(Int, Int)]
->             sList                        = map (\z → (extractIndex z, extractLink z)) zsLocal
+>             sList                        = map (\z → (extractIndex z, extractLink z)) pzsLocal
 >
 >         isSafe         :: ∀ a . (Eq a, Ord a, Show a) ⇒ [(a,a)] → Bool
 >         isSafe pairs                     = closed && allPaired
@@ -1647,15 +1649,23 @@ prepare the specified instruments and percussion ===============================
 >           if any hasCross pzs then Just $ InstCatDisq DisqIllegalCrossover else Nothing
 >
 >         hasCross       :: PreZone → Bool
->         hasCross pz                      = isStereoZone preSampleCache pz && notElem (extractLink pz) (map extractLink pzs)
+>         hasCross pz                      =
+>           isStereoZone preSampleCache pz && notElem (extractLink pz) (map extractLink pzs)
+>
+>         showSeed       :: Maybe InstCat → String
+>         showSeed                         = \case
+>                                              Just (InstCatInst _)       → "seed=InstCatInst"
+>                                              Just (InstCatPerc _)       → "seed=InstCatPerc"
+>                                              Just (InstCatDisq _)       → "seed=InstCatDisq"
+>                                              Nothing                    → "seed=Nothing" 
 >
 >         howLaden       :: [Word] → Double
 >         howLaden ws
 >           | null pzs                     = 0
 >           | otherwise                    = (fromIntegral . length) ws / (fromIntegral . length) pzs
 >
->         maybeSettle    :: (Foldable t) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
->         maybeSettle thresh icat keys     = find (> thresh) keys >> Just icat
+>         maybeSettle    :: (Foldable t, Show (t Fuzz)) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
+>         maybeSettle thresh icat keys     = find (> thresh) keys >> Just icat -- WOX 
 >
 >         genericScore                     = evalAgainstGeneric preI.iName
 
@@ -1666,15 +1676,18 @@ prepare the specified instruments and percussion ===============================
    d. Nothing                    undecided
 
 >         provideAlts    :: Maybe InstCat → ([InstrumentName], [PercussionSound]) → [Maybe InstCat]
->         provideAlts seed rost
+>         provideAlts seed srost
 >           | traceNot trace_PA False      = undefined
 >           | otherwise                    =
 >           if isNothing seed
 >             then structuralAlts ++ functionalAlts allKinds
->             else functionalAlts rost
+>             else functionalAlts srost
 >
 >           where
->             trace_PA                     = unwords ["provideAlts", show (functionalAlts rost)]
+>             fName                        = "provideAlts"
+>             trace_PA                     =
+>               unwords [fName, show (length pzs), showSeed seed, show (BF.bimap length length srost)]
+>
 >             structuralAlts               =
 >               [if isNothing mpzs || null (fromJust mpzs)
 >                  then Just (InstCatDisq DisqNoQualifiedZones)
@@ -1686,15 +1699,36 @@ prepare the specified instruments and percussion ===============================
 >                   else rejectCrosses
 >               , checkLinkage
 >               ]
->             functionalAlts rost          =
+>             functionalAlts frost
+>               | traceNot trace_FA False  = undefined
+>               | otherwise                =
 >               let
->                 ffInst'                  = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) preI.iMatches.ffInst
->                 ffPerc'                  = Map.filterWithKey (\k v → k `elem` select rost && isPossible' v) preI.iMatches.ffPerc
+>                 ffInst'                  =
+>                   Map.filterWithKey (\k v → k `elem` select frost && isPossible' v) preI.iMatches.ffInst
+>                 ffPerc'                  =
+>                   Map.filterWithKey (\k v → k `elem` select frost && isPossible' v) preI.iMatches.ffPerc
+>               in
+>                 [ 
+>                     maybeSettle isConfirmed catInst                  ffInst'
+>                   , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
+>                   , maybeNailAsPerc 0.6 
+>                   , maybeSettle stands      catInst                  ffInst'
+>
+>                   , maybeSettle stands      (catPerc wZones)         ffPerc'
+>                   , maybeSettle stands      (catDisq DisqNarrow)     preI.iMatches.ffInst
+>
+>                   , maybeNailAsPerc 0.3
+>                   , if genericScore > 0 then Just catInst            else Nothing
+>                   , if genericScore < 0 then Just (catPerc wZones)   else Nothing
+>                   , Just $ catDisq DisqUnrecognized
+>                 ]
+>               where
 >                 uZones :: [Word]         = (\case
 >                                              Nothing                 → wZones
 >                                              Just (InstCatPerc icd)  → icd.inPercBixen
 >                                              _                       → []) seed
->                 wZones :: [Word]         = mapMaybe (qualPercZone rost) pzs
+>                 wZones :: [Word]         = mapMaybe (qualPercZone frost) pzs
+>
 >                 maybeNailAsPerc
 >                        :: Double → Maybe InstCat
 >                 maybeNailAsPerc frac  =
@@ -1704,21 +1738,9 @@ prepare the specified instruments and percussion ===============================
 >                          then Just (catPerc wZones)
 >                          else Just (catDisq DisqNoPercZones))
 >                     else Nothing
->               in
->                 [ 
->                     maybeSettle isConfirmed catInst                  ffInst'
->                   , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
->                   , maybeSettle stands      catInst                  ffInst'
 >
->                   , maybeNailAsPerc 0.8 
->                   , maybeSettle stands      (catPerc wZones)         ffPerc'
->                   , maybeSettle stands      (catDisq DisqNarrow)     preI.iMatches.ffInst
->
->                   , maybeNailAsPerc 0.6 
->                   , if genericScore > 0 then Just catInst            else Nothing
->                   , if genericScore < 0 then Just (catPerc wZones)   else Nothing
->                   , Just $ catDisq DisqUnrecognized
->                 ]
+>                 fName                    = "functionalAlts"
+>                 trace_FA = unwords [fName, preI.iName, show frost, show (length uZones, length wZones)]
 >
 >             catInst      :: InstCat      =
 >               if null pzs
@@ -1732,29 +1754,35 @@ prepare the specified instruments and percussion ===============================
 >                 eith                     = checkSmashing smashup
 >
 >             catPerc      :: [Word] → InstCat
->             catPerc ws                   =
+>             catPerc ws
+>               | traceNot trace_CP False  = undefined
+>               | otherwise                =
 >               if null pzs || null ws || (null . init) ws
 >                 then InstCatDisq DisqNarrow
 >                 else (case eith of
 >                        Left _            → InstCatPerc icd
 >                        Right reason      → InstCatDisq reason)
 >               where
->                 smashup                  = computeInstSmashup pzs
->                 icd                      = InstCatData pzs smashup ws
+>                 fName                    = "catPerc"
+>                 trace_CP                 = unwords [fName, show (length ws, length pzs)]
+>
+>                 pzs'                     = filter (\x → x.pzWordB `elem` ws) pzs
+>                 smashup                  = computeInstSmashup pzs'
+>                 icd                      = InstCatData pzs' smashup ws
 >                 eith                     = checkSmashing smashup
 >
 >             catDisq    :: DisqReason → InstCat
 >             catDisq                      = InstCatDisq
 >
 >         qualPercZone   :: ([InstrumentName], [PercussionSound]) → PreZone → Maybe Word
->         qualPercZone rost' prez
+>         qualPercZone qrost prez
 >           | traceNot trace_QPZ False     = undefined
 >           | otherwise                    = result
 >           where
 >             result                       =
 >               prez.pzDigest.zdKeyRange
->               >>= (\(x,y) → Just (fromIntegral x, fromIntegral y))
->               >>= pinnedKR (select rost')
+>               >>= (Just . BF.bimap fromIntegral fromIntegral)
+>               >>= pinnedKR (select qrost)
 >               >> Just prez.pzWordB
 >
 >             trace_QPZ                    = unwords ["qualPercZone", show prez.pzWordB, show result]
@@ -1851,7 +1879,8 @@ prepare the specified instruments and percussion ===============================
 >       unwords ["buildZone", show sffile.zWordF, show bagIndex, show zone.zSampleIndex
 >              , show (fromMaybe "" name), show (fromZone == defZone)]
 >
->     name               :: Maybe String   = zone.zSampleIndex >>= \x → Just (boota.ssShdrs ! x) >>= Just . F.sampleName
+>     name               :: Maybe String   =
+>       zone.zSampleIndex >>= \x → Just (boota.ssShdrs ! x) >>= Just . F.sampleName
 
 define signal functions and instrument maps to support rendering ======================================================
 
@@ -1942,7 +1971,7 @@ zone selection for rendering ===================================================
 >       if count == 0
 >         then error "out of range"
 >         else if isNothing foundInInst
->                then error "not found in inst"
+>                then error $ unwords[fName, show bagId, "not found in inst", preI.iName, showBags perI]
 >                else deJust "foundInInst" foundInInst
 >       where
 >         (bagId, count)                   = lookupCellIndex (noonAsCoords noon) perI.pSmashing

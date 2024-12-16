@@ -190,59 +190,57 @@ which makes for a cleaner sound on some synthesizers:
 > triad                  :: PitchClass → Mode → Pitch → Dur → Music Pitch
 > triad key mode base dur                  = chord [n1, n2, n3]
 >   where
->   rkP                                    = absPitch (key, snd base - 1)
->   bP                                     = absPitch base
->   ocd                                    = (bP - rkP) `div` 12
->   kP                                     = rkP + (12*ocd)
->   apD                                    = bP - kP           -- guaranteed to be nonnegative
->   is                   :: [AbsPitch]     = formExact apD mode
->   n1, n2, n3           :: Music Pitch
->   n1                                     = note dur $ pitch bP
->   n2                                     = note dur $ pitch (bP + head        is)
->   n3                                     = note dur $ pitch (bP + (head . tail) is)
+>     rkP                                  = absPitch (key, snd base - 1)
+>     bP                                   = absPitch base
+>     ocd                                  = (bP - rkP) `div` 12
+>     kP                                   = rkP + (12 * ocd)
+>     apD                                  = bP - kP           -- guaranteed to be nonnegative
 >
->   formExact :: AbsPitch → Mode → [AbsPitch]
->   formExact apDelta mode                 = offsets2intervals apDelta $ mode2offsets mode
->     where
->       major                              = [0, 4, 7, 12, 16]
->       minor                              = [0, 3, 7, 12, 15]
->       dim                                = [0, 3, 6, 12, 15]
->       sus4                               = [0, 5, 7, 12, 17]
->       sus2                               = [0, 2, 7, 12, 14]
->       aug                                = [0, 4, 8, 12, 16]
->       chrome                             = [0, 1, 2,  3,  4]
+>     is                 :: [AbsPitch]     = offsets2intervals mode2offsets
 >
->       mode2offsets :: Mode → [AbsPitch]
->       mode2offsets mode
->         | Major             == mode = major
->         | Minor             == mode = minor
->         | Ionian            == mode = major
->         | Dorian            == mode = minor
->         | Phrygian          == mode = minor
->         | Lydian            == mode = major
->         | Mixolydian        == mode = major
->         | Aeolian           == mode = minor
->         | Locrian           == mode = dim
->         | CustomMode "Sus4" == mode = sus4
->         | CustomMode "Sus2" == mode = sus2
->         | CustomMode "Dim"  == mode = dim
->         | CustomMode "Aug"  == mode = aug
->         | CustomMode "Chrome"
->                             == mode = chrome
->         | otherwise          = error "Requested Mode not supported"
+>     n1, n2, n3         :: Music Pitch
+>     n1                                   = note dur $ pitch bP
+>     n2                                   = note dur $ pitch (bP + head          is)
+>     n3                                   = note dur $ pitch (bP + (head . tail) is)
 >
->       offsets2intervals :: AbsPitch → [AbsPitch] → [AbsPitch]
->       offsets2intervals apDelta os
->         | apDelta == a                   = (b - a) : [c - a]
->         | apDelta == b                   = (c - b) : [d - b]
->         | apDelta == c                   = (d - c) : [e - c]
->         | otherwise          = error "Malformed Triad"
->         where
->           a                              = head os
->           b                              = os!!1
->           c                              = os!!2
->           d                              = os!!3
->           e                              = os!!4
+>     major                                = [0, 4, 7, 12, 16]
+>     minor                                = [0, 3, 7, 12, 15]
+>     dim                                  = [0, 3, 6, 12, 15]
+>     sus4                                 = [0, 5, 7, 12, 17]
+>     sus2                                 = [0, 2, 7, 12, 14]
+>     aug                                  = [0, 4, 8, 12, 16]
+>     chrome                               = [0, 1, 2,  3,  4]
+>
+>     mode2offsets       :: [AbsPitch]
+>     mode2offsets
+>       | Major                == mode     = major
+>       | Minor                == mode     = minor
+>       | Ionian               == mode     = major
+>       | Dorian               == mode     = minor
+>       | Phrygian             == mode     = minor
+>       | Lydian               == mode     = major
+>       | Mixolydian           == mode     = major
+>       | Aeolian              == mode     = minor
+>       | Locrian              == mode     = dim
+>       | CustomMode "Sus4"    == mode     = sus4
+>       | CustomMode "Sus2"    == mode     = sus2
+>       | CustomMode "Dim"     == mode     = dim
+>       | CustomMode "Aug"     == mode     = aug
+>       | CustomMode "Chrome"  == mode     = chrome
+>       | otherwise                        = error "Requested Mode not supported"
+>
+>     offsets2intervals  :: [AbsPitch] → [AbsPitch]
+>     offsets2intervals os
+>       | apD == a                         = (b - a) : [c - a]
+>       | apD == b                         = (c - b) : [d - b]
+>       | apD == c                         = (d - c) : [e - c]
+>       | otherwise                        = error "Malformed Triad"
+>       where
+>         a                                = head os
+>         b                                = os!!1
+>         c                                = os!!2
+>         d                                = os!!3
+>         e                                = os!!4
 
 "mode2Templ8" =========================================================================================================
 
@@ -290,10 +288,14 @@ which makes for a cleaner sound on some synthesizers:
 "ascendFrom/descendFrom" ==============================================================================================
 
 > squeezeAPSequence      :: [AbsPitch] → Dur → Music Pitch
-> squeezeAPSequence gliss dur              = if skipGlissandi
->                                              then rest dur
->                                              else chord [rest dur, dim 1 $ slur 2 $ line notes]
+> squeezeAPSequence gliss dur
+>   | skipGlissandi                         = rest dur
+>   | length gliss < 6                      = error $ unwords [fName, "not enough notes"]
+>   | dur < 1 / 8                           = error $ unwords [fName, "not enough duration"]
+>   | otherwise                             = chord [rest dur, dim 1 $ slur 2 $ line notes]
 >   where
+>     fName                                = "squeezeAPSequence"
+>
 >     reach              :: Rational       = fromIntegral $ length gliss
 >     notes              :: [Music Pitch]  = [note (dur * 9 / (reach * 10)) (pitch x) | x ← gliss]
 >
@@ -317,39 +319,23 @@ which makes for a cleaner sound on some synthesizers:
 >
 >     trace_EMTI                           = unwords [fName, show start, show templ8]
 >
-> glissando              :: Bool → (AbsPitch, AbsPitch) → Dur → Music Pitch
-> glissando _ _ 0                          = rest 0
-> glissando desc (xLo, xHi) dur
->   | traceIf trace_G False                = undefined
->   | skipGlissandi                        = rest dur
->   | xHi < xLo + 6                        = error (unwords ["glissando:"
->                                                          , show (pitch xLo, pitch xHi)
->                                                          , "is not enough range"])
->   | dur < 1 / 8                          = error (unwords ["glissando:"
->                                                          , show dur
->                                                          , "is not enough duration"])
->   | otherwise                            = squeezeAPSequence (take 28 pitches) dur
->   where
->     pitches                              = if desc
->                                              then reverse [xLo..xHi]
->                                              else [xLo..xHi]
->     trace_G                              = unwords ["glissando", show pitches]
->
 > descendFrom            :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
-> descendFrom bp p pc mode                 = squeezeAPSequence (takeWhile (>= bottom) (map fst extend))
+> descendFrom bp p pc mode                 = squeezeAPSequence (takeWhile (>= bottom) limited)
 >   where
->     (top, shift)                         =
->       (absPitch p, deJust "first note (top) not in Mode" (findInMode p pc mode))
+>     top                                  = absPitch p
 >     bottom                               = (absPitch . fst) (relativeRange bp)
->     extend                               = extendModeToInfinity True top $ shiftMode shift $ mode2Templ8 mode
+>     shift                                = deJust "first note (top) not in Mode" (findInMode p pc mode)
+>     extended                             = extendModeToInfinity True top $ shiftMode shift $ mode2Templ8 mode
+>     limited                              = take 28 (map fst extended)
 >
 > ascendFrom             :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
-> ascendFrom bp p pc mode                  = squeezeAPSequence (takeWhile (<= top) (map fst extend))
+> ascendFrom bp p pc mode                  = squeezeAPSequence (takeWhile (<= top) limited)
 >   where
 >     top                                  = (absPitch . snd) (relativeRange bp)
->     (bottom, shift)                      =
->       (absPitch p, deJust "first note (bottom) not in Mode" (findInMode p pc mode))
->     extend                               = extendModeToInfinity False bottom $ shiftMode shift $ mode2Templ8 mode
+>     bottom                               = absPitch p
+>     shift                                = deJust "first note (bottom) not in Mode" (findInMode p pc mode)
+>     extended                             = extendModeToInfinity False bottom $ shiftMode shift $ mode2Templ8 mode
+>     limited                              = take 28 (map fst extended)
 
 ranges ================================================================================================================
 
