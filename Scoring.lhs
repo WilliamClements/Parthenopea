@@ -116,7 +116,9 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       Contrabass                → Just $ singleton "tremolo"
 >       ElectricBassFingered      → Just            ["acous", "brass", "bassoon"]
 >       ElectricBassPicked        → Just            ["acous", "brass", "bassoon"]
+>       EnglishHorn               → Just $ singleton "french"
 >       Flute                     → Just $ singleton "pan"
+>       FrenchHorn                → Just $ singleton "english"
 >       FretlessBass              → Just            ["brass", "bassoon"]
 >       GuitarFretNoise           → Just            ["clean", "nylon"]
 >       HonkyTonkPiano            → Just            ["grand", "rhodes"]

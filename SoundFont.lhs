@@ -116,12 +116,14 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
 > extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordB
 > extractSpace pz                          = (pz.pzWordB, [pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange])
-> effShdr                :: Map PreSampleKey PreSample  → PreZone → F.Shdr
+> effShdr                :: Map PreSampleKey PreSample → PreZone → F.Shdr
 > effShdr psCache pz                       =
 >   foldl' (\s x → (\case
 >                   MakeMono               → s{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
 >                   MakeLeft pz            → s{F.sampleType = fromSampleType SampleTypeLeft, F.sampleLink = 0}
->                   MakeRight pz           → s{F.sampleType = fromSampleType SampleTypeRight, F.sampleLink = 0}) x) (rawShdr psCache pz) pz.pzChanges
+>                   MakeRight pz           → s{F.sampleType = fromSampleType SampleTypeRight, F.sampleLink = 0}) x)
+>          (rawShdr psCache pz)
+>          pz.pzChanges
 > appendChange pz@PreZone{ .. } change     = pz{pzChanges = pzChanges ++ singleton change}
 > showPreZones pzs                         = show $ map pzWordB pzs
 >
@@ -249,10 +251,10 @@ Instrument categories: instrument, percussion, disqualified
 >     zdKeyRange         :: Maybe (Word, Word)
 >   , zdVelRange         :: Maybe (Word, Word)
 >   , zdSampleIndex      :: Maybe Word
->   , zdStart            :: Word
->   , zdEnd              :: Word
->   , zdStartLoop        :: Word
->   , zdEndLoop          :: Word} deriving (Eq, Show)
+>   , zdStart            :: Int
+>   , zdEnd              :: Int
+>   , zdStartLoop        :: Int
+>   , zdEndLoop          :: Int} deriving (Eq, Show)
 > defDigest              :: ZoneDigest
 > defDigest                                = ZoneDigest Nothing Nothing Nothing 0 0 0 0
 > formDigest             :: [F.Generator] → ZoneDigest
@@ -264,22 +266,22 @@ Instrument categories: instrument, percussion, disqualified
 >     inspectGen (F.SampleIndex w) zd      = zd {zdSampleIndex = Just w}
 >
 >     inspectGen (F.StartAddressCoarseOffset i)            zd
->                                          = zd {zdStart = zd.zdStart + 32_768 * fromIntegral i}
+>                                          = zd {zdStart = zd.zdStart + 32_768 * i}
 >     inspectGen (F.StartAddressOffset i)                  zd
->                                          = zd {zdStart = zd.zdStart + fromIntegral i}
+>                                          = zd {zdStart = zd.zdStart + i}
 >     inspectGen (F.EndAddressCoarseOffset i)              zd
->                                          = zd {zdEnd = zd.zdEnd + 32_768 * fromIntegral i}
+>                                          = zd {zdEnd = zd.zdEnd + 32_768 * i}
 >     inspectGen (F.EndAddressOffset i)                    zd
->                                          = zd {zdEnd = zd.zdEnd + fromIntegral i}
+>                                          = zd {zdEnd = zd.zdEnd + i}
 >
 >     inspectGen (F.LoopStartAddressCoarseOffset i)        zd
->                                          = zd {zdStartLoop = zd.zdStartLoop + 32_768 * fromIntegral i}
+>                                          = zd {zdStartLoop = zd.zdStartLoop + 32_768 * i}
 >     inspectGen (F.LoopStartAddressOffset i)              zd
->                                          = zd {zdStartLoop = zd.zdStartLoop + fromIntegral i}
+>                                          = zd {zdStartLoop = zd.zdStartLoop + i}
 >     inspectGen (F.LoopEndAddressCoarseOffset i)          zd
->                                          = zd {zdEndLoop = zd.zdEndLoop + 32_768 * fromIntegral i}
+>                                          = zd {zdEndLoop = zd.zdEndLoop + 32_768 * i}
 >     inspectGen (F.LoopEndAddressOffset i)                zd
->                                          = zd {zdEndLoop = zd.zdEndLoop + fromIntegral i}
+>                                          = zd {zdEndLoop = zd.zdEndLoop + i}
 >
 >     inspectGen _ zd                      = zd
 >
@@ -722,13 +724,13 @@ tournament starts here =========================================================
 >                           → Double
 >         computeResolution kind rost preI zs
 >           | null zs                      = error $ unwords ["null zs"]
->           | otherwise                    = fromRational m1 * measureSplits kind + fromRational m2 * measureSampleSize
+>           | otherwise                    = fromRational m1 * evalSplits kind + fromRational m2 * evalSampleSize
 >           where
 >             theSplit                     = splitScore kind (map fst zs)
->             measureSplits kind
+>             evalSplits kind
 >               | theSplit <= 1            = 1
 >               | otherwise                = log (m3 * theSplit)
->             measureSampleSize            = sum (map durScoring zs) / fromIntegral (length zs)
+>             evalSampleSize               = sum (map durScoring zs) / fromIntegral (length zs)
 >
 >             m1                           = 1/2
 >             m2                           = 1/2
@@ -737,13 +739,18 @@ tournament starts here =========================================================
 >         durScoring     :: (PreZone, SFZone) → Double
 >         durScoring (pz, zone) = if score < 0.01 then -10 else score
 >           where
->             score                        = sampleSize / fromIntegral (effShdr preSampleCache pz).sampleRate
+>             shdr                         = effShdr preSampleCache pz
+>             score                        = sampleSize / fromIntegral shdr.sampleRate
 >
 >             sampleSize :: Double
 >             sampleSize                   = fromIntegral $ xEnd - xStart
 >               where
->                 xStart         = addIntToWord    (effShdr preSampleCache pz).start   (sumOfWeightedInts [zone.zStartOffs, zone.zStartCoarseOffs] qOffsetWeights)
->                 xEnd           = addIntToWord    (effShdr preSampleCache pz).end     (sumOfWeightedInts [zone.zEndOffs,   zone.zEndCoarseOffs]   qOffsetWeights)
+>                 xStart                   =
+>                   addIntToWord    shdr.start
+>                                   (sumOfWeightedInts [zone.zStartOffs, zone.zStartCoarseOffs] qOffsetWeights)
+>                 xEnd                     =
+>                   addIntToWord    shdr.end
+>                                   (sumOfWeightedInts [zone.zEndOffs,   zone.zEndCoarseOffs]   qOffsetWeights)
 >
 >         akResult                         = fromMaybe 0 (Map.lookup kind fuzzMap)
 
@@ -799,7 +806,8 @@ bootstrapping methods ==========================================================
 >           Nothing                        → (target, err : errs)
 >
 > rawShdr                :: Map PreSampleKey PreSample → PreZone → F.Shdr
-> rawShdr preSampleCache pz                = psShdr (deJust "rawShdr" (Map.lookup (extractSampleKey pz) preSampleCache))
+> rawShdr preSampleCache pz                =
+>   psShdr (deJust "rawShdr" (Map.lookup (extractSampleKey pz) preSampleCache))
 >
 > finishPreSampleCache   :: Array Word SFFile
 >                           → Map PreSampleKey PreSample
@@ -1400,10 +1408,10 @@ reorg task =====================================================================
 > adjustedSampleLimitsOk :: ZoneDigest → F.Shdr → Bool
 > adjustedSampleLimitsOk zd shdr           = 0 <= st && st <= en && 0 <= stl && stl <= enl
 >   where
->     st                                   = shdr.start     + zd.zdStart
->     en                                   = shdr.end       + zd.zdEnd
->     stl                                  = shdr.startLoop + zd.zdStartLoop
->     enl                                  = shdr.endLoop   + zd.zdEndLoop
+>     st                                   = shdr.start     + fromIntegral zd.zdStart
+>     en                                   = shdr.end       + fromIntegral zd.zdEnd
+>     stl                                  = shdr.startLoop + fromIntegral zd.zdStartLoop
+>     enl                                  = shdr.endLoop   + fromIntegral zd.zdEndLoop
 
 Note that harsher consequences of unacceptable sample header are enforced earlier. Logically, that would be
 sufficient to protect below code from bad data and document the situation. But ... mechanism such as putting

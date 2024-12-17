@@ -403,7 +403,7 @@ Create a straight-line envelope generator with following phases:
 >     minDeltaT          :: Double         = fromTimecents Nothing
 >     lump                                 = min 0.1 (10 * minDeltaT)
 >     secsToUse          :: Double         =
->       profess (secsToUse_ > 5 * minDeltaT)
+>       profess (secsToUse_ > 7 * minDeltaT)
 >         (unwords["computeSegments", show (secsScored, secsToUse_), "..time too short for envelope"])
 >         secsToUse_
 >
