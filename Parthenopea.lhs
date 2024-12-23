@@ -574,7 +574,7 @@ instrument range checking ======================================================
 >     then foldl' maker Map.empty (Map.assocs ding.shRanges)
 >     else Map.empty
 >   where
->     maker              :: DynMap → (Kind, Shred) → DynMap
+>     maker              :: DynMap → (GMKind, Shred) → DynMap
 >     maker i2i (kind, Shred{ .. })        =
 >       let
 >         inameL, inameR :: InstrumentName
@@ -612,7 +612,7 @@ instrument range checking ======================================================
 
 examine song for instrument and percussion usage ======================================================================
 
-> type Kind                                = Either InstrumentName PercussionSound
+> type GMKind                              = Either InstrumentName PercussionSound
 > 
 > data Shred =
 >   Shred {
@@ -622,12 +622,12 @@ examine song for instrument and percussion usage ===============================
 >
 > data Shredding =
 >   Shredding {
->       shRanges         :: Map Kind Shred
+>       shRanges         :: Map GMKind Shred
 >     , shMsgs           :: [(InstrumentName, [String])]} deriving (Show, Eq, Ord)
 > defShredding                             = Shredding Map.empty []
 >
-> getKind                :: MEvent → Kind
-> getKind MEvent{eInst, ePitch}            =
+> getGMKind              :: MEvent → GMKind
+> getGMKind MEvent{eInst, ePitch}          =
 >   case eInst of
 >     Percussion                           → Right $ toEnum (ePitch - 35)
 >     _                                    → Left eInst
@@ -639,7 +639,7 @@ examine song for instrument and percussion usage ===============================
 > shredMusic m                             =
 >   return $ critiqueMusic $ foldl' shFolder defShredding $ fst (musicToMEvents defaultContext (toMusic1 m))
 >
-> shredSongs              :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO (Map Kind Shred)
+> shredSongs              :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO (Map GMKind Shred)
 > shredSongs songs                         = do
 >   shredses                               ← mapM shredSong songs
 >   return $ foldr (Map.unionWith combineShreds) Map.empty shredses
@@ -656,7 +656,7 @@ examine song for instrument and percussion usage ===============================
 >   let isandps                            = Map.keys mks
 >   return (lefts isandps, rights isandps)
 >
-> shredSong              :: (String, DynMap → Music (Pitch, [NoteAttribute])) → IO (Map Kind Shred)
+> shredSong              :: (String, DynMap → Music (Pitch, [NoteAttribute])) → IO (Map GMKind Shred)
 > shredSong (_, song)                      = do -- return $ shredMusic $ song Map.empty
 >   let asMusic                            = song Map.empty
 >   ding                                   ← shredMusic asMusic
@@ -678,7 +678,7 @@ examine song for instrument and percussion usage ===============================
 >       , shCount                          =
 >           s1.shCount + s2.shCount}
 >
-> critiqueShred          :: (Kind, Shred) → [(InstrumentName, [String])]
+> critiqueShred          :: (GMKind, Shred) → [(InstrumentName, [String])]
 > critiqueShred (kind, Shred{ .. })        =
 >   let
 >     (instr, range)                       =
@@ -699,7 +699,7 @@ examine song for instrument and percussion usage ===============================
 > shFolder               :: Shredding → MEvent → Shredding
 > shFolder ding mev                        =
 >   let
->     kind               :: Kind           = getKind mev
+>     kind               :: GMKind         = getGMKind mev
 >     mshred             :: Maybe Shred    = Map.lookup kind ding.shRanges
 >   in
 >     case mshred of
@@ -727,7 +727,7 @@ examine song for instrument and percussion usage ===============================
 > printShreds Shredding{shRanges}          = 
 >   mapM_ (uncurry printShred) (Map.assocs shRanges)
 >   
-> printShred             :: Kind → Shred → IO ()
+> printShred             :: GMKind → Shred → IO ()
 > printShred kind Shred{ .. }              = do
 >   putStrLn showGivenRange
 >   putStrLn showLowHighNotes

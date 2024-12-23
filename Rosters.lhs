@@ -134,7 +134,7 @@ a few playthings ... get it? ===================================================
 > playJingles jingles =
 >    foldM playJingle () (cycle jingles)
 >
-> shredAll               :: IO (Map Kind Shred)
+> shredAll               :: IO (Map GMKind Shred)
 > shredAll                                 = do
 >   allSongs                               ← mapM shredSong combineAll
 >   return $ foldr (Map.unionWith combineShreds) Map.empty allSongs

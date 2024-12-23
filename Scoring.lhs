@@ -42,7 +42,7 @@ Scoring stuff ==================================================================
 > foldHints              :: [SSHint] → Double
 > foldHints                                = foldr ((+) . fromRational . scoreHint) 0
 >
-> ssWeights              :: [Rational]     = [ weighHints
+> ssWeights              :: [Double]       = [ weighHints
 >                                            , weighStereo
 >                                            , weigh24Bit
 >                                            , weighResolution
@@ -71,12 +71,12 @@ Scoring stuff ==================================================================
 apply fuzzyfind to mining instruments + percussion ====================================================================
 
 > class GMPlayable a where
->   toKind               :: a → Kind
+>   toGMKind             :: a → GMKind
 >   select               :: ([InstrumentName], [PercussionSound]) → [a]
 >   getFuzzMap           :: FFMatches → Map a Fuzz
 >
 > instance GMPlayable InstrumentName where
->   toKind                                 = Left
+>   toGMKind                               = Left
 >   select rost                            =
 >     if narrowInstrumentScope
 >       then fst rost
@@ -84,7 +84,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >   getFuzzMap                             = ffInst
 >
 > instance GMPlayable PercussionSound where
->   toKind                                 = Right
+>   toGMKind                               = Right
 >   select rost                            =
 >     if narrowInstrumentScope
 >       then snd rost
@@ -467,8 +467,6 @@ Utilities ======================================================================
 >   Grader {
 >     gorWeights         :: [Double]
 >   , gorScalar          :: Double} 
-> grader                 :: [Rational] → Double → Grader
-> grader rs                                = Grader (map fromRational rs)
 > gradeEmpiricals        :: Grader → [Double] → ArtifactGrade
 > gradeEmpiricals grader emps
 >   | traceNot trace_GE False              = undefined

@@ -6,10 +6,10 @@
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE OverloadedStrings #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TypeFamilies #-} 
-> {-# LANGUAGE TypeOperators #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 SoundFont
@@ -20,6 +20,8 @@ April 16, 2023
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
+> import Control.Monad.IO.Class
+> import Control.Monad.Trans.Reader
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
@@ -29,13 +31,16 @@ April 16, 2023
 > import Data.Int ( Int8, Int16 )
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
-> import Data.List
+> import Data.List hiding (insert)
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromJust, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe, catMaybes )
 > import Data.MemoTrie
 > import Data.Ord ( Down(Down), comparing )
 > import Data.Ratio ( approxRational, (%) )
+> import Database.MongoDB.Connection
+> import Database.Persist.MongoDB
+> import Database.Persist.TH
 > import Data.Time.Clock ( UTCTime, diffUTCTime, getCurrentTime )
 > import qualified Data.Vector.Unboxed     as VU
 > import qualified Data.Vector             as VB
@@ -153,7 +158,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data PerGMScored                         =
 >   PerGMScored {
 >     pArtifactGrade     :: ArtifactGrade
->   , pKind              :: Kind
+>   , pKind              :: GMKind
 >   , pAgainstKindResult :: AgainstKindResult
 >   , pPerGMKey          :: PerGMKey
 >   , szI                :: String
@@ -375,7 +380,7 @@ Instrument categories: instrument, percussion, disqualified
 >
 >                                            []
 >
-> theGrader              :: Grader         = grader ssWeights 500
+> theGrader                                = Grader ssWeights 500
 
 profiler ==============================================================================================================
 
@@ -714,7 +719,7 @@ tournament starts here =========================================================
 >               | otherwise                = 0
 >   
 >         scoredP        :: PerGMScored    =
->           PerGMScored (computeGrade scope akResult) (toKind kind) akResult pergm preI.iName mnameZ
+>           PerGMScored (computeGrade scope akResult) (toGMKind kind) akResult pergm preI.iName mnameZ
 >
 >         computeResolution
 >                        :: ∀ a. (Show a, SFScorable a) ⇒
@@ -1156,8 +1161,11 @@ reorg task =====================================================================
 >             deFrag     :: (String, Word) → Maybe (String, Word)
 >             deFrag (str, w)              =
 >               let
+>                 str', okstr, str''
+>                        :: String
 >                 str'                     = shorten isDigit str
->                 str''                    = shorten (\c → isSpace c || c `elem` "_-") str'
+>                 okstr                    = "_-"
+>                 str''                    = shorten (\c → isSpace c || c `elem` okstr) str'
 >               in
 >                 if str /= str'
 >                   then Just (str'', w)
@@ -2228,6 +2236,27 @@ emit standard output text detailing what choices we made for rendering GM items 
 >         PerGMKey{pgkwFile}               = pPerGMKey
 >         showmZ                           = maybe [] showZ mszP
 >         showZ name                       = [Unblocked name]
+>
+> runDBActions  :: ReaderT MongoContext IO () -> IO ()
+> runDBActions as = 
+>   withMongoDBConn "parth" "localhost" (PortNumber 27_017) Nothing 2000 $ \pool ->    
+>     runMongoDBPool master as pool
+>
+> actions :: ReaderT MongoContext IO ()
+> actions = do
+>   ckey <- insert defC
+>   skey <- insert defS
+>   mkey <- insert defM
+>   fkey <- insert defF 
+>   tkey <- insert defT
+>   dkey <- insert defD
+>   liftIO $ print (ckey, skey, mkey)
+>   liftIO $ print (fkey, tkey, dkey) -- , tkey, dkey)
+>   return ()
+>
+> mmain :: IO ()
+> mmain = do
+>   runDBActions actions
 >
 > emitSettingses         :: [Emission]
 > emitSettingses                           =
