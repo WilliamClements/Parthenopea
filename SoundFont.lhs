@@ -50,6 +50,7 @@ April 16, 2023
 > import Modulation
 > import Parthenopea
 > import Scoring
+> import SettingsDefs
 > import Synthesizer
 > import qualified System.FilePattern.Directory
 >                                          as FP
@@ -784,8 +785,8 @@ bootstrapping methods ==========================================================
 >          && sampleRate >= 64
 >          && sampleRate < 2^20
 >          && isJust (toMaybeSampleType sampleType)
->          && sampleLimitsOk (start, end)
->          && sampleLoopLimitsOk (startLoop, endLoop)
+>          && sampleSizeOk (start, end)
+>          && sampleLoopSizeOk (startLoop, endLoop)
 >
 >     diagnose           :: Word → F.Shdr → String
 >     diagnose wF shdr                     =
@@ -992,7 +993,7 @@ capture (initial) task =========================================================
 >                 si                       = deJust "produce si" pz.pzDigest.zdSampleIndex
 >                 shdr                     = boota.ssShdrs ! si
 >
->                 limitsCheckedOk          = adjustedSampleLimitsOk pz.pzDigest shdr
+>                 limitsCheckedOk          = adjustedSampleSizeOk pz.pzDigest shdr
 >                 presTarget               = Map.lookup (PreSampleKey sffile.zWordF si) preSampleCache
 >                 pres                     = deJust "pres" presTarget
 
@@ -1189,7 +1190,7 @@ reorg task =====================================================================
 >                          , show answer, show (fracAll / fracOne)]
 >
 > smush                  :: [([PreZone], Smashing Word)] → Smashing Word
-> smush pears                                 =
+> smush pears                              =
 >   let
 >     allTags            :: String
 >     allSpaces          :: [(Word, [Maybe (Word, Word)])]
@@ -1401,12 +1402,12 @@ reorg task =====================================================================
 >         putStrLn "skipping..."
 >     return ()
 >
-> sampleLimitsOk         :: (Word, Word) → Bool
-> sampleLimitsOk (st, en)                  = st >= 0 && en - st >= fst sampleLimits && en - st < 2^22
-> sampleLoopLimitsOk     :: (Word, Word) → Bool
-> sampleLoopLimitsOk (stl, enl)            = stl >= 0 && enl - stl >= snd sampleLimits && enl - stl < 2^22
-> adjustedSampleLimitsOk :: ZoneDigest → F.Shdr → Bool
-> adjustedSampleLimitsOk zd shdr           = 0 <= st && st <= en && 0 <= stl && stl <= enl
+> sampleSizeOk           :: (Word, Word) → Bool
+> sampleSizeOk (st, en)                    = st >= 0 && en - st >= 0 && en - st < 2^22
+> sampleLoopSizeOk       :: (Word, Word) → Bool
+> sampleLoopSizeOk (stl, enl)              = stl >= 0 && enl - stl >= sampleSizeMin && enl - stl < 2^22
+> adjustedSampleSizeOk   :: ZoneDigest → F.Shdr → Bool
+> adjustedSampleSizeOk zd shdr             = 0 <= st && st <= en && 0 <= stl && stl <= enl
 >   where
 >     st                                   = shdr.start     + fromIntegral zd.zdStart
 >     en                                   = shdr.end       + fromIntegral zd.zdEnd
@@ -2164,8 +2165,8 @@ reconcile zone and sample header ===============================================
 >         (-1) -- must always be replaced
 >
 >     resonanceType      :: ResonanceType  = if lowpassFc (mLowpass m8n) < 10_000
->                                              then loCutoffReson
->                                              else hiCutoffReson
+>                                              then ResonanceBandpass
+>                                              else ResonanceBandpass
 >
 >     nModEnv            :: Maybe Envelope = deriveEnvelope
 >                                              zDelayModEnv
@@ -2309,32 +2310,16 @@ emit standard output text detailing what choices we made for rendering GM items 
 > renderDisqReason DisqUnderRanges         = Just (unwords["incomplete coverage for zone ranges"])
 > renderDisqReason DisqIllegalCrossover    = Just (unwords["illegal crossover"])
 >
-> data SoundFontSettings =
->   SoundFontSettings {
->     qqAllowStereoCrossovers              :: Bool
->   , qqAllowOverlappingRanges             :: Bool
->   , qqAllowOutOfRange                    :: Bool
->   , qqMultipleCompetes                   :: Bool
->   , qqCombinePartials                    :: Bool
->   , qqCanDevolveToMono                   :: Bool} deriving Show
->
-> allowStereoCrossovers                    = qqAllowStereoCrossovers      defF
+> allowStereoCrossovers                    = soundFontSettingsQqAllowStereoCrossovers      defF
 > -- stereo pair can come from 2 different instruments in the same file
-> allowOverlappingRanges                   = qqAllowOverlappingRanges     defF
-> allowOutOfRange                          = qqAllowOutOfRange            defF
+> allowOverlappingRanges                   = soundFontSettingsQqAllowOverlappingRanges     defF
+> allowOutOfRange                          = soundFontSettingsQqAllowOutOfRange            defF
 > -- more than one zone can reference a given range cell
-> multipleCompetes                         = qqMultipleCompetes           defF
-> combinePartials                          = qqCombinePartials            defF
-> canDevolveToMono                         = qqCanDevolveToMono           defF
+> multipleCompetes                         = soundFontSettingsQqMultipleCompetes           defF
+> combinePartials                          = soundFontSettingsQqCombinePartials            defF
+> canDevolveToMono                         = soundFontSettingsQqCanDevolveToMono           defF
 >
 > defF                   :: SoundFontSettings
-> defF =
->   SoundFontSettings {
->     qqAllowStereoCrossovers              = False
->   , qqAllowOverlappingRanges             = True
->   , qqAllowOutOfRange                    = True
->   , qqMultipleCompetes                   = True
->   , qqCombinePartials                    = False
->   , qqCanDevolveToMono                   = True}
+> defF                                     = SoundFontSettings False True True True False True
 
 The End

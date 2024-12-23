@@ -52,6 +52,7 @@ December 12, 2022
 > import Euterpea.Music
 > import GHC.Generics (Generic) 
 > import HSoM.Performance ( metro, Context (cDur) )
+> import SettingsDefs
 > import System.Random ( Random(randomR), StdGen )
   
 Tracing ===============================================================================================================
@@ -1461,29 +1462,15 @@ Emission capability ============================================================
 
 Configurable parameters ===============================================================================================
 
-> doRender                                 = qqDoRender                   defC
-> diagnosticsEnabled                       = qqDiagnosticsEnabled         defC 
-> reportTourney                            = qqReportTourney              defC 
-> skipGlissandi                            = qqSkipGlissandi              defC
-> replacePerCent                           = qqReplacePerCent             defC
->
-> data ControlSettings =
->   ControlSettings {
->     qqDoRender                           :: Bool
->   , qqDiagnosticsEnabled                 :: Bool
->   , qqReportTourney                      :: Bool
->   , qqSkipGlissandi                      :: Bool
->   , qqReplacePerCent                     :: Double} deriving (Eq, Show)
+> doRender                                 = controlSettingsQqDoRender                   defC
+> diagnosticsEnabled                       = controlSettingsQqDiagnosticsEnabled         defC 
+> reportTourney                            = controlSettingsQqReportTourney              defC 
+> skipGlissandi                            = controlSettingsQqSkipGlissandi              defC
+> replacePerCent                           = controlSettingsQqReplacePerCent             defC
 
 Edit the following ====================================================================================================
 
 > defC                   :: ControlSettings
-> defC =
->   ControlSettings {
->     qqDoRender                           = True
->   , qqDiagnosticsEnabled                 = False
->   , qqReportTourney                      = True
->   , qqSkipGlissandi                      = False
->   , qqReplacePerCent                     = 0}
+> defC                                     = ControlSettings True False True False 0
 
 The End

@@ -34,6 +34,7 @@ May 14, 2023
 > import FRP.UISF.AuxFunctions ( constA, DeltaT )
 > import Modulation
 > import Parthenopea
+> import SettingsDefs
 > import qualified SynToolkit              as STK
   
 Signal function-based synth ===========================================================================================
@@ -811,44 +812,20 @@ Utility types ==================================================================
 
 Flags for customization ===============================================================================================
 
-> data SynthSettings =
->   SynthSettings {
->     qqUsePitchCorrection   :: Bool
->   , qqUseAttenuation       :: Bool
->   , qqUseEnvelopes         :: Bool
->   , qqUseLoopSwitching     :: Bool
->   , qqUseEffectReverb      :: Bool
->   , qqUseEffectChorus      :: Bool
->   , qqUseEffectPan         :: Bool
->   , qqUseEffectDCBlock     :: Bool
->   , qqNoStereoNoPan        :: Bool
->   , qqNormalizingOutput    :: Bool} deriving (Eq, Show)
->
-> usePitchCorrection                       = qqUsePitchCorrection         defS
-> useAttenuation                           = qqUseAttenuation             defS
-> useEnvelopes                             = qqUseEnvelopes               defS
-> useLoopSwitching                         = qqUseLoopSwitching           defS
-> useReverb                                = qqUseEffectReverb            defS
-> useChorus                                = qqUseEffectChorus            defS
-> usePan                                   = qqUseEffectPan               defS
-> useDCBlock                               = qqUseEffectDCBlock           defS
-> noStereoNoPan                            = qqNoStereoNoPan              defS
-> normalizingOutput                        = qqNormalizingOutput          defS
+> usePitchCorrection                       = synthSettingsQqUsePitchCorrection         defS
+> useAttenuation                           = synthSettingsQqUseAttenuation             defS
+> useEnvelopes                             = synthSettingsQqUseEnvelopes               defS
+> useLoopSwitching                         = synthSettingsQqUseLoopSwitching           defS
+> useReverb                                = synthSettingsQqUseEffectReverb            defS
+> useChorus                                = synthSettingsQqUseEffectChorus            defS
+> usePan                                   = synthSettingsQqUseEffectPan               defS
+> useDCBlock                               = synthSettingsQqUseEffectDCBlock           defS
+> noStereoNoPan                            = synthSettingsQqNoStereoNoPan              defS
+> normalizingOutput                        = synthSettingsQqNormalizingOutput          defS
 
 Turn Knobs Here =======================================================================================================
 
 > defS                   :: SynthSettings
-> defS =
->   SynthSettings {
->     qqUsePitchCorrection                 = True
->   , qqUseAttenuation                     = True
->   , qqUseEnvelopes                       = True
->   , qqUseLoopSwitching                   = True
->   , qqUseEffectReverb                    = True
->   , qqUseEffectChorus                    = True
->   , qqUseEffectPan                       = True
->   , qqUseEffectDCBlock                   = True
->   , qqNoStereoNoPan                      = True
->   , qqNormalizingOutput                  = True}
+> defS                                     = SynthSettings True True True True True True True True True True
 
 The End

@@ -21,6 +21,7 @@ September 12, 2024
 > import Data.Maybe ( mapMaybe )
 > import Euterpea.Music
 > import Parthenopea
+> import SettingsDefs
 > import qualified Text.FuzzyFind          as FF
   
 Scoring stuff =========================================================================================================
@@ -491,51 +492,34 @@ Utilities ======================================================================
 
 Flags for customization ===============================================================================================
 
-> data ScoringSettings =
->   ScoringSettings {
+> data ScoringDesires =
+>   ScoringDesires {
 >     qqDesireReStereo                     :: Desires
 >   , qqDesireRe24Bit                      :: Desires
 >   , qqDesireReSplits                     :: Desires
 >   , qqDesireReConformance                :: Desires
->   , qqDesireReFuzzy                      :: Desires
+>   , qqDesireReFuzzy                      :: Desires} deriving Show
 >
->   , qqWeighHints                         :: Rational
->   , qqWeighStereo                        :: Rational
->   , qqWeigh24Bit                         :: Rational
->   , qqWeighResolution                    :: Rational
->   , qqWeighConformance                   :: Rational
->   , qqWeighFuzziness                     :: Rational
+> weighHints                               = scoringSettingsQqWeighHints                 defT
+> weighStereo                              = scoringSettingsQqWeighStereo                defT
+> weigh24Bit                               = scoringSettingsQqWeigh24Bit                 defT
+> weighResolution                          = scoringSettingsQqWeighResolution            defT
+> weighConformance                         = scoringSettingsQqWeighConformance           defT
+> weighFuzziness                           = scoringSettingsQqWeighFuzziness             defT
 >
->   , qqNarrowInstrumentScope              :: Bool
->   , qqConRatio                           :: Double
->   , qqSampleLimits                       :: (Word, Word)
->   , qqInferStereo                        :: Bool
->   , qqRequiredZoneLinkage                :: Rational
+> isPossible                               = scoringSettingsQqFFThresholdPossible        defT
+> stands                                   = scoringSettingsQqFFThresholdStands          defT
+> isConfirmed                              = scoringSettingsQqFFThresholdConfirmed       defT
 >
->   , qqFFThresholdPossible                :: Double
->   , qqFFThresholdStands                  :: Double
->   , qqFFThresholdConfirmed               :: Double} deriving (Eq, Show)
+> narrowInstrumentScope                    = scoringSettingsQqNarrowInstrumentScope      defT
+> conRatio                                 = scoringSettingsQqConRatio                   defT
+> sampleSizeMin                            = scoringSettingsQqSampleSizeMin              defT
+> inferStereo                              = scoringSettingsQqInferStereo                defT
+> requiredZoneLinkage                      = scoringSettingsQqRequiredZoneLinkage        defT
 >
-> weighHints                               = qqWeighHints                 defT
-> weighStereo                              = qqWeighStereo                defT
-> weigh24Bit                               = qqWeigh24Bit                 defT
-> weighResolution                          = qqWeighResolution            defT
-> weighConformance                         = qqWeighConformance           defT
-> weighFuzziness                           = qqWeighFuzziness             defT
->
-> isPossible                               = qqFFThresholdPossible        defT
-> stands                                   = qqFFThresholdStands          defT
-> isConfirmed                              = qqFFThresholdConfirmed       defT
->
-> narrowInstrumentScope                    = qqNarrowInstrumentScope      defT
-> conRatio                                 = qqConRatio                   defT
-> sampleLimits                             = qqSampleLimits               defT
-> inferStereo                              = qqInferStereo                defT
-> requiredZoneLinkage                      = qqRequiredZoneLinkage        defT
->
-> isPossible' fuzz                         = fuzz > qqFFThresholdPossible defT
-> stands' fuzz                             = fuzz > qqFFThresholdStands defT
-> isConfirmed' fuzz                        = fuzz > qqFFThresholdConfirmed defT
+> isPossible' fuzz                         = fuzz > isPossible
+> stands' fuzz                             = fuzz > stands
+> isConfirmed' fuzz                        = fuzz > isConfirmed
 >
 >
 > data Desires =
@@ -552,40 +536,20 @@ Flags for customization ========================================================
 > scoreBool              :: Bool → Rational
 > scoreBool b = if b then 1 else (-1)
 >
-> qqDesires              :: [Desires]      = [qqDesireReStereo      defT
->                                           , qqDesireRe24Bit       defT
->                                           , qqDesireReSplits      defT
->                                           , qqDesireReConformance defT
->                                           , qqDesireReFuzzy       defT]
+> qqDesires              :: [Desires]      = [qqDesireReStereo      defZ
+>                                           , qqDesireRe24Bit       defZ
+>                                           , qqDesireReSplits      defZ
+>                                           , qqDesireReConformance defZ
+>                                           , qqDesireReFuzzy       defZ]
 > qqDesires'             :: [Double]       = map (fromRational . scoreDesire) qqDesires
 
 Edit the following ====================================================================================================
 
+> defZ                   :: ScoringDesires
+> defZ                                     = ScoringDesires DPreferOn DPreferOn DPreferOn DPreferOn DPreferOn
+>
 > defT                   :: ScoringSettings
-> defT =
->   ScoringSettings {
->     qqDesireReStereo                     = DPreferOn
->   , qqDesireRe24Bit                      = DPreferOn
->   , qqDesireReSplits                     = DPreferOn
->   , qqDesireReConformance                = DPreferOn
->   , qqDesireReFuzzy                      = DPreferOn
->
->   , qqWeighHints                         = 10
->   , qqWeighStereo                        = 2
->   , qqWeigh24Bit                         = 0
->   , qqWeighResolution                    = 3/2
->   , qqWeighConformance                   = 3
->   , qqWeighFuzziness                     = 3
->
->   , qqNarrowInstrumentScope              = True
->   , qqConRatio                           = 3/4
->   , qqSampleLimits                       = (48, 0) -- minimum size from start to end, startLoop to endLoop
->                                                    -- WOX 0 only if no-loop?
->   , qqInferStereo                        = False
->   , qqRequiredZoneLinkage                = 0 -- WOX
->
->   , qqFFThresholdPossible                = 50
->   , qqFFThresholdStands                  = 150
->   , qqFFThresholdConfirmed               = 250} 
+> defT                                     =
+>   ScoringSettings 10 2 0 (3/2) 3 3 True (3/4) 48 False 0 50 150 250
 
 The End

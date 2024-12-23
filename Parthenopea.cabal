@@ -65,7 +65,8 @@ library
     other-modules:  Baking, Cecil, Chart,
                     Covers, Discrete, DiscreteTest, Fanfare,
                     Modulation, ModulationTest, Parthenopea,
-                    ParthenopeaTest, Percussion, Scoring, SoundFont,
+                    ParthenopeaTest, Percussion, Scoring,
+                    SettingsDefs, SoundFont,
                     SunPyg, Synthesizer, SynthesizerTest,
                     SynToolkit
 
@@ -95,7 +96,13 @@ library
         monadplus                  >= 1.4.3,
         pure-fft                   >= 0.2.0,
         random                     >= 1.0.1.1,
+        mongoDB                    >= 2.7.1.4,
+        network                    >= 2.6.3.1,
+        persistent                 >= 2.14.6.3,
+        persistent-mongoDB         >= 2.13.1.0,        
+        template-haskell           >= 2.19.0.0,
         time                       >= 1.11.1.1,
+        transformers               >= 0.5.6.2,
         UISF                       >= 0.4.0.0,
         vector                     >= 0.13.1.0,
         

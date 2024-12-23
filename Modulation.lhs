@@ -33,6 +33,7 @@ November 6, 2023
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA, DeltaT )
 > import HSoM.Examples.Additive ( sineTable, sfTest1 )
 > import Parthenopea
+> import SettingsDefs
   
 Modulator management ==================================================================================================
 
@@ -705,53 +706,26 @@ Type declarations ==============================================================
 >   , eReleaseT          :: Double
 >   , eModTriple         :: ModTriple} deriving (Eq, Show)
 >
-> data ModulationSettings =
->   ModulationSettings {
->     qqUseModulators    :: Bool
->   , qqChorusAllPerCent :: Double
->   , qqReverbAllPerCent :: Double
->   , qqUseDefaultMods   :: Bool
->   , qqLoCutoffReson    :: ResonanceType
->   , qqHiCutoffReson    :: ResonanceType
->   , qqUseLFO           :: Bool
->   , qqChorusRate       :: Double
->   , qqChorusDepth      :: Double
->   , qqCascadeConfig    :: Int} deriving Show
->
-> useModulators                            = qqUseModulators              defM
+> useModulators                            = modulationSettingsQqUseModulators              defM
 > -- False to suppress all use of Modulators
-> chorusAllPercent                         = qqChorusAllPerCent           defM
+> chorusAllPercent                         = modulationSettingsQqChorusAllPerCent           defM
 > -- force given Chorus level on ALL notes
-> reverbAllPercent                         = qqReverbAllPerCent           defM
+> reverbAllPercent                         = modulationSettingsQqReverbAllPerCent           defM
 > -- force given Reverb level on ALL notes
-> useDefaultMods                           = qqUseDefaultMods             defM
+> useDefaultMods                           = modulationSettingsQqUseDefaultMods             defM
 > -- False to suppress all use of defaul Modulators
-> loCutoffReson                            = qqLoCutoffReson              defM
-> -- response type if fc is less than 10 thousand
-> hiCutoffReson                            = qqHiCutoffReson              defM
-> -- response type if fc is greater than or equal to 10 thousand
-> useLFO                                   = qqUseLFO                     defM
+> useLFO                                   = modulationSettingsQqUseLFO                     defM
 > -- False to suppress all uses of the low frequency oscillator
-> chorusRate                               = qqChorusRate                 defM
+> chorusRate                               = modulationSettingsQqChorusRate                 defM
 > -- configures chorus param
-> chorusDepth                              = qqChorusDepth                defM
+> -- suggested default is 5 Hz
+> chorusDepth                              = modulationSettingsQqChorusDepth                defM
 > -- configures chorus param
-> cascadeConfig                            = qqCascadeConfig              defM
+> -- suggested default is + or - 1/1000 (of the rate)
+> cascadeConfig                            = modulationSettingsQqCascadeConfig              defM
 > -- number of times to cascade the filter
 >
 > defM                   :: ModulationSettings
-> defM =
->   ModulationSettings {
->     qqUseModulators                      = True
->   , qqChorusAllPerCent                   = 0
->   , qqReverbAllPerCent                   = 0
->   , qqUseDefaultMods                     = True
->   , qqLoCutoffReson                      = ResonanceBandpass
->   , qqHiCutoffReson                      = ResonanceBandpass
->   , qqUseLFO                             = True
->   , qqChorusRate                         = 5.0   -- suggested default is 5 Hz
->   , qqChorusDepth                        = 0.001 -- suggested default is + or - 1/1000 (of the rate)
->   , qqCascadeConfig                      = 0
->   }
+> defM                                     = ModulationSettings True 0 0 True True 5.0 0.001 0
 
 The End

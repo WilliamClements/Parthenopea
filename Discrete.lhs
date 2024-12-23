@@ -33,6 +33,7 @@ June 17, 2024
 > import FRP.UISF.AuxFunctions ( delay )
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea
+> import SettingsDefs
   
 Discrete approach =====================================================================================================
 
@@ -586,44 +587,24 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > instance Show FrItem where
 >   show (FrItem startPoint _)             = unwords ["FrItem", show startPoint]
 >
-> data DiscreteSettings =
->   DiscreteSettings {
->     qqBulgeDiv         :: Double
->   , qqDropoffRate      :: Double
->   , qqReverseSignal    :: Bool
->   , qqDisableConvo     :: Bool
->   , qqDisableMultiply  :: Bool
->   , qqUseFastFourier   :: Bool
->   , qqCorrectDCOffset  :: Bool
->   , qqChopSignal       :: Bool} deriving Show
->
-> bulgeDiv                                 = qqBulgeDiv                   defD
-> -- what fraction of cutoff freak affected by nonzero Q
-> dropoffRate                              = qqDropoffRate                defD
+> bulgeDiv                                 = discreteSettingsQqBulgeDiv                   defD
+> -- what fraction of cutoff freak affected by nonzero Q (cutoff freak / div)
+> dropoffRate                              = discreteSettingsQqDropoffRate                defD
 > -- how many centibels per octave to reduce magnitude after cutoff freq
-> reverseSignal                            = qqReverseSignal              defD
+> reverseSignal                            = discreteSettingsQqReverseSignal              defD
 > -- whether to reverse result to move the zeros to the end
-> disableConvo                             = qqDisableConvo               defD
+> disableConvo                             = discreteSettingsQqDisableConvo               defD
 > -- if response type is convo, no modulation at all
-> disableMultiply                          = qqDisableMultiply            defD
+> disableMultiply                          = discreteSettingsQqDisableMultiply            defD
 > -- if response type is convo, do domain conversions, but not convolution
-> useFastFourier                           = qqUseFastFourier             defD
+> useFastFourier                           = discreteSettingsQqUseFastFourier             defD
 > -- False to employ convolution in time domain
-> correctDCOffset                          = qqCorrectDCOffset            defD
+> correctDCOffset                          = discreteSettingsQqCorrectDCOffset            defD
 > -- experiment with neutralizing DC offset of a discrete signal
-> chopSignal                               = qqChopSignal                 defD
+> chopSignal                               = discreteSettingsQqChopSignal                 defD
 > -- experiment with truncating, rather than padding, buffer, to power of two size
 >
 > defD                   :: DiscreteSettings
-> defD =
->   DiscreteSettings {
->     qqBulgeDiv                           = 20                            -- bulge bandwidth is cutoff freak / div
->   , qqDropoffRate                        = 240                           -- centibels per octave
->   , qqReverseSignal                      = True
->   , qqDisableConvo                       = False
->   , qqDisableMultiply                    = False
->   , qqUseFastFourier                     = True
->   , qqCorrectDCOffset                    = False
->   , qqChopSignal                         = False}
+> defD                                     = DiscreteSettings 20 240 True False False True False False
 
 The End
