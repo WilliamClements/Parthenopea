@@ -198,6 +198,20 @@ Instrument categories: instrument, percussion, disqualified
 >        InstCatInst InstCatData
 >      | InstCatPerc InstCatData
 >      | InstCatDisq DisqReason deriving Show
+> getMaybePercList       :: Maybe InstCat → Maybe [Word]
+> getMaybePercList                         =
+>   \case
+>     Nothing                              → Nothing
+>     Just (InstCatPerc icd)               → Just icd.inPercBixen
+>     _                                    → Just []
+> showMaybeInstCat       :: Maybe InstCat → String
+> showMaybeInstCat                         =
+>   \case
+>     Nothing                              → "icNothing"
+>     Just (InstCatInst _)                 → "icInst"
+>     Just (InstCatPerc _)                 → "icPerc"
+>     Just (InstCatDisq _)                 → "icDisq"
+>
 >     
 > data InstCatData                         =
 >   InstCatData {
@@ -913,9 +927,11 @@ bootstrapping methods ==========================================================
 >
 >     captureFile        :: SFFile → IO (Map PreZoneKey PreZone, Map PerGMKey PreInstrument, [String])
 >     captureFile sffile                   = do
->       let preZs                          = formPreZoneMap (foldl' (\x y → x ++ y.zsPreZones ) []   (lefts isFinal.isResults))
->       let preIs                          = foldl' markGlobalZone shavePreInstCache (lefts isFinal.isResults)
->       putStrLn (unwords [fName, show (length preZs), show (length preIs)])
+>       let preZs                          =
+>             formPreZoneMap $ foldl' (\x y → x ++ y.zsPreZones ) [] (lefts isFinal.isResults)
+>       let preIs                          =
+>             foldl' markGlobalZone shavePreInstCache (lefts isFinal.isResults)
+>       CM.when diagnosticsEnabled (putStrLn (unwords [fName, show (length preZs), show (length preIs)]))
 >       return (preZs, preIs, errs)
 >       where
 >         wF                               = sffile.zWordF
@@ -1580,7 +1596,7 @@ prepare the specified instruments and percussion ===============================
 >       where
 >         fName                            = "categorizeInst"
 >         trace_CI                         =
->           unwords [fName, preI.iName, show (pergm.pgkwFile, pergm.pgkwInst), show (length pzs), show icatRost]
+>           unwords [fName, preI.iName, show (pergm.pgkwFile, pergm.pgkwInst), show (length pzs)]
 >
 >         preI                             =
 >           deJust (unwords [fName, "PreInstrument"]) (Map.lookup pergm preInstCache)
@@ -1669,13 +1685,6 @@ prepare the specified instruments and percussion ===============================
 >         hasCross pz                      =
 >           isStereoZone preSampleCache pz && notElem (extractLink pz) (map extractLink pzs)
 >
->         showSeed       :: Maybe InstCat → String
->         showSeed                         = \case
->                                              Just (InstCatInst _)       → "seed=InstCatInst"
->                                              Just (InstCatPerc _)       → "seed=InstCatPerc"
->                                              Just (InstCatDisq _)       → "seed=InstCatDisq"
->                                              Nothing                    → "seed=Nothing" 
->
 >         howLaden       :: [Word] → Double
 >         howLaden ws
 >           | null pzs                     = 0
@@ -1703,7 +1712,7 @@ prepare the specified instruments and percussion ===============================
 >           where
 >             fName                        = "provideAlts"
 >             trace_PA                     =
->               unwords [fName, show (length pzs), showSeed seed, show (BF.bimap length length srost)]
+>               unwords [fName, showMaybeInstCat seed, show (length pzs), show (BF.bimap length length srost)]
 >
 >             structuralAlts               =
 >               [if isNothing mpzs || null (fromJust mpzs)
@@ -1740,10 +1749,7 @@ prepare the specified instruments and percussion ===============================
 >                   , Just $ catDisq DisqUnrecognized
 >                 ]
 >               where
->                 uZones :: [Word]         = (\case
->                                              Nothing                 → wZones
->                                              Just (InstCatPerc icd)  → icd.inPercBixen
->                                              _                       → []) seed
+>                 uZones :: [Word]         = fromMaybe wZones (getMaybePercList seed)
 >                 wZones :: [Word]         = mapMaybe (qualPercZone frost) pzs
 >
 >                 maybeNailAsPerc

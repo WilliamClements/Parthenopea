@@ -100,7 +100,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 > genericInstFFKeys                        = singleton "horn" 
 >
 > genericPercFFKeys      :: [String]
-> genericPercFFKeys                        = ["percuss", "kit", "kick"]
+> genericPercFFKeys                        = ["perc", "hat", "kit", "kick"]
 >
 > instrumentConFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
 > instrumentConFFKeys inst                 = embed inst keys

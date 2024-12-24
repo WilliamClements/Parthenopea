@@ -115,11 +115,11 @@ organize exposed music =========================================================
 >    -- [ ("sunPyg"      , sunPyg)]
 >    -- [ ("pa"          , shimSong $ aggrandize littlePendingtonArnt)]
 >    -- [ ("slot"        , slot 1)]
->       [ ("deyDumpDum"  , deyDumpDum)]
+>    -- [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 26420)]
 >    -- [ ("slot_1"      , slot 1)]
 >    -- [ ("theFanfare"  , theFanfare)]
->    -- [ ("dit"         , dit)]
+>       [ ("rattan"      , rattan)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 
 a few playthings ... get it? ==========================================================================================

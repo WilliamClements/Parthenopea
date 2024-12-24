@@ -89,10 +89,11 @@ Discrete approach ==============================================================
 >                           → Signal p () (Double, Double)
 >                           → Signal p () (Double, Double)
 > applyConvolutionStereo (lowpL, lowpR) secsToPlay sIn
->   | traceNot trace_AC False              = undefined
+>   | traceNot trace_ACS False             = undefined
 >   | otherwise                            = toContinuousSig' resultL resultR
 >   where
->     baseLen            :: Int            = truncate (secsToPlay * rate (undefined :: p))
+>     baseLen, fftLen    :: Int
+>     baseLen                              = truncate (secsToPlay * rate (undefined :: p))
 >     fftLen                               = sampleUp baseLen
 >     
 >     pairs                                = toFftSamples fftLen sIn
@@ -105,8 +106,10 @@ Discrete approach ==============================================================
 >       | lowpL.lowpassKs.ksFast           = (fastConvolveFR dsigInL lowpL, fastConvolveFR dsigInR lowpR)
 >       | otherwise                        = (slowConvolveIR dsigInL lowpL, slowConvolveIR dsigInR lowpR)
 >
->     trace_AC                             =
->       unwords ["applyConvolutionStereo", show baseLen, show fftLen, "\ndsigInL:", show dsigInL, "\ndsigInR:", show dsigInR]
+>     trace_ACS                            =
+>       unwords ["applyConvolutionStereo", show baseLen, show fftLen
+>              , "\ndsigInL:", show dsigInL
+>              , "\ndsigInR:", show dsigInR]
 >
 > fromContinuousSig      :: ∀ p a. (Clock p) ⇒
 >                           String → Double → Signal p () Double → Maybe (DiscreteSig Double)
@@ -269,8 +272,7 @@ Discrete approach ==============================================================
 > toTimeDomain           :: ∀ a. Coeff a ⇒ [a] → [Complex Double]
 > toTimeDomain                             = doFft ifft
 >
-> doFft                  :: ∀ a. Coeff a ⇒
->                           ([Complex Double] → [Complex Double]) → [a] → [Complex Double]
+> doFft                  :: ∀ a. Coeff a ⇒ ([Complex Double] → [Complex Double]) → [a] → [Complex Double]
 > doFft fftFun as                          = fftFun cds
 >   where
 >     inLen                                = length as
@@ -332,32 +334,28 @@ Each driver specifies an xform composed of functions from Double to Double
 > freakyResponse KernelData{ .. } shapes xIn_
 >                                          = mkPolar mag phase
 >   where
->     (phase, xIn)                         = if xIn_ <= kdNyq
->                                              then (3*pi/2, xIn_)
->                                              else (pi/2, kdNyq - xIn)
->
->     fritems                              = foldl' doShape [] shapes
->     fritems'                             = dropWhile past fritems
->     FrItem{ .. }                         =
->       profess
->         (not $ null fritems')
->         (unwords ["xIn", show xIn, "out of range (FrItem)", show fritems])
->         (head fritems')
->
->     mag'                                 = notracer "mag" mag
 >     mag                                  =
 >       profess
 >         (xIn <= kdNyq)
 >         (unwords ["xIn", show xIn, "out of range (mag)", show fritems])
->         (notracer "mag" $ ((* ynorm) . friCompute) xIn)
+>         ((* ynorm) . \x → friCompute x xIn) fritem
+>
+>     (phase, xIn)                         = if xIn_ <= kdNyq
+>                                              then (3*pi/2, xIn_)
+>                                              else (pi/2, kdNyq - xIn_)
+>
+>     fritem                               =
+>       profess
+>         (not $ null fritems')
+>         (unwords ["xIn", show xIn, "out of range (FrItem)", show fritems])
+>         (head fritems')
+>     fritems'                             = dropWhile ((xIn <) . friTrans) fritems
+>     fritems                              = foldl' doShape [] shapes
 >
 >     ynorm, height              :: Double
 >     ynorm                                = 1 / (1 + kdEQ)
 >     height                               = 1
 >     
->     past               :: FrItem → Bool
->     past FrItem{ .. }                    = xIn > friTrans
->
 >     doShape            :: [FrItem] → ResponseShape → [FrItem]
 >     doShape fritems Block                = fritems ++ [newI]
 >       where
@@ -385,14 +383,10 @@ Each driver specifies an xform composed of functions from Double to Double
 >         newI                             =
 >           FrItem
 >             newD
->             xformDecline
->         xformDecline   :: Double → Double
->         xformDecline                     =
->             notracer "fromCentibels"     . fromCentibels
->           . notracer "ddLinear2"         . ddLinear2 (-dropoffRate) (toCentibels height)
->           . notracer "delta"             . flip (-) (logBase 2 kdFc)
->           . notracer "logBase 2"         . logBase 2
->           . notracer "xIn"
+>             (fromCentibels
+>              . ddLinear2 (-dropoffRate) (toCentibels height)
+>              . flip (-) (logBase 2 kdFc)
+>              . logBase 2)
 >          
 > ddNorm2                :: Double → Double → (Double → Double)
 > ddNorm2 dLeft dRight xIn                 = (xIn - dLeft) / (dRight - dLeft)
