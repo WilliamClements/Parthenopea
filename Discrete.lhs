@@ -339,7 +339,6 @@ Each driver specifies an xform composed of functions from Double to Double
 >         (xIn <= kdNyq)
 >         (unwords ["xIn", show xIn, "out of range (mag)", show fritems])
 >         ((* ynorm) . \x → friCompute x xIn) fritem
->
 >     (phase, xIn)                         = if xIn_ <= kdNyq
 >                                              then (3*pi/2, xIn_)
 >                                              else (pi/2, kdNyq - xIn_)

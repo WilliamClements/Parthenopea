@@ -52,5 +52,6 @@ cmd /c '.\pkt259.exe dig 1>d:\zh\zh220a.log 2>d:\zh\zh220b.log'
 cmd /c '.\Rosters.exe 1>d:\zh\zj005a.log 2>d:\zh\zj005b.log'
 
 cmd /c '.\Rosters.exe 1>d:\zh\zj579a.log 2>d:\zh\zj579b.log'
+cmd /c 'cabal v2-run +RTS -pj -RTS exes -- 1>c:\zh\zj543a.log 2>c:\zh\zj543b.log'
 
 ghc-options: -prof -fprof-late -rtsopts -g2 -v4 -O2 -funbox-strict-fields -fexcess-precision -Wall

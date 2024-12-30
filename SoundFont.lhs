@@ -1802,9 +1802,11 @@ prepare the specified instruments and percussion ===============================
 >           | traceNot trace_QPZ False     = undefined
 >           | otherwise                    = result
 >           where
+>             mrange                       =
+>               notracer
+>                 "mrange" (prez.pzDigest.zdKeyRange >>= (Just . BF.bimap fromIntegral fromIntegral))
 >             result                       =
->               prez.pzDigest.zdKeyRange
->               >>= (Just . BF.bimap fromIntegral fromIntegral)
+>               mrange
 >               >>= pinnedKR (select qrost)
 >               >> Just prez.pzWordB
 >
@@ -1950,7 +1952,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF sfrost pergm dur pchIn volIn nps
->   | traceAlways trace_ISF False          = undefined
+>   | traceNot trace_ISF False             = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rSampleRate
 >                                              dur pchOut volOut nps
 >                                              samplea.ssData samplea.ssM24
@@ -2250,14 +2252,15 @@ emit standard output text detailing what choices we made for rendering GM items 
 >
 > actions :: ReaderT MongoContext IO ()
 > actions = do
->   ckey <- insert defC
->   skey <- insert defS
->   mkey <- insert defM
->   fkey <- insert defF 
->   tkey <- insert defT
->   dkey <- insert defD
->   liftIO $ print (ckey, skey, mkey)
->   liftIO $ print (fkey, tkey, dkey) -- , tkey, dkey)
+>   ckey ← insert defC
+>   skey ← insert defS
+>   fkey ← insert defF 
+>   mkey ← insert defM
+>   tkey ← insert defT
+>   dkey ← insert defD
+>   let config = Config "default" ckey skey fkey mkey tkey dkey
+>   gkey ← insert config
+>   liftIO $ print gkey
 >   return ()
 >
 > mmain :: IO ()

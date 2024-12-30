@@ -265,9 +265,15 @@ Modulator management ===========================================================
 > evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
 > evaluateModSignals tag m8n md msig noon
 >  | traceNever trace_EMS False            = undefined
->  | otherwise                             = fromCents (xmodEnv + xmodLfo + xvibLfo + xmods)
+>  | otherwise                             = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    fName                                 = "evaluateModSignals"
+>
+>    converter           :: ModDestType → (Double → Double)
+>    converter                             =
+>      \case
+>         ToVolume                         → fromCentibels
+>         _                                → fromCents
 >
 >    mco                 :: ModCoefficients
 >                                          =

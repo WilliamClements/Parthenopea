@@ -67,7 +67,7 @@
 >
 >         qqNarrowInstrumentScope          Bool                        default = True
 >         qqConRatio                       Double                      default = 3/4
->         qqSampleSizeMin                  Word                        default = 48
+>         qqSampleSizeMin                  Word                        default = 0 -- 48
 >         qqInferStereo                    Bool                        default = False
 >         qqRequiredZoneLinkage            Double                      default = 0
 >
@@ -86,6 +86,15 @@
 >         qqCorrectDCOffset                Bool                        default = False
 >         qqChopSignal                     Bool                        default = False
 >         deriving Show
+>
+>       Config
+>         name                            String
+>         control                         ControlSettingsId
+>         synth                           SynthSettingsId
+>         soundfont                       SoundFontSettingsId
+>         modulation                      ModulationSettingsId
+>         scoring                         ScoringSettingsId
+>         discrete                        DiscreteSettingsId 
 >     |]
 
 The End
