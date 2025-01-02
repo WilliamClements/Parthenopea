@@ -224,11 +224,11 @@ Instrument categories: instrument, percussion, disqualified
 >   fuzzFactor           :: a → Double
 >
 > instance SFScorable InstrumentName where
->   splitScore kind pzs                    = fromIntegral (length pzs)
+>   splitScore _ pzs                       = fromIntegral (length pzs)
 >   fuzzFactor _                           = 7/8
 >
 > instance SFScorable PercussionSound where
->   splitScore kind _                      = 1
+>   splitScore _ _                         = 1
 >   fuzzFactor _                           = 3/4
 >
 > data SFRoster                            =
@@ -445,9 +445,11 @@ executive ======================================================================
 >       let fName        = "finishRoster"
 >       tsStarted        ← getCurrentTime
 >
->       (preSampleCache, sPartnerMap)
->                        ← initSamples preR.zFiles
->       preInstCache_    ← initInsts preR.zFiles
+>       (preSampleCache, sPartnerMap, rdGen01)
+>                        ← initSamples preR.zFiles defResultDispositions
+>
+>       (preInstCache_, rdGen02)
+>                        ← initInsts preR.zFiles rdGen01
 >       (preZoneCache, preInstCache)
 >                        ← initZones preR.zFiles preSampleCache sPartnerMap preInstCache_
 >       let inverter     = associateZones preZoneCache
@@ -466,12 +468,15 @@ executive ======================================================================
 >       tsZoned          ← getCurrentTime
 >       putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsCatted))
 >
+>       CM.when reportScan (writeScanReport preR.zFiles rdGen02)
+>       tsScanned        ← getCurrentTime
+>      
 >       -- actually conduct the tournament
 >       ((wI, sI), (wP, sP))
 >                        ← decideWinners preR.zFiles preSampleCache preInstCache reinverter
 >                                        zc preR.zRost pergmsI pergmsP
 >       tsDecided        ← getCurrentTime
->       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsZoned))
+>       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsScanned))
 >
 >       CM.when reportTourney (writeTournamentReport preR.zFiles wI wP)
 >       tsReported       ← getCurrentTime
@@ -514,25 +519,23 @@ To support extracting from flawed SoundFont files, we - up front - withdraw unre
 their respective collections. The withdrawn items are ignored by all later phases. When constructing those
 later items, some critical data may thereby be missing. So that entails deletion-recovery also.
 
->     initSamples        :: Array Word SFFile → IO (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey)
->     initSamples sffiles
+>     initSamples        :: Array Word SFFile
+>                           → ResultDispositions
+>                           → IO (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, ResultDispositions)
+>     initSamples sffiles rd
 >                        = do
->       presks           ← formMasterSampleList sffiles
->       (preSampleCache_, errs)
->                        ← formPreSampleCache sffiles presks
->       (preSampleCache, sPartnerMap, errs')
->                        ← finishPreSampleCache sffiles preSampleCache_
->
->       mapM_ putStrLn (reverse errs ++ reverse errs')
->       return (preSampleCache, sPartnerMap)
+>       (preSampleCache, rd')
+>                        ← formPreSampleCache sffiles rd
+>       finishPreSampleCache sffiles preSampleCache rd'
 >         
->     initInsts sffiles
+>     initInsts          :: Array Word SFFile
+>                           → ResultDispositions
+>                           → IO (Map PerGMKey PreInstrument, ResultDispositions)
+>     initInsts sffiles rd
 >                        = do
->       pergmsI_         ← formMasterInstList sffiles
->       (preInstCache, errs)
->                        ← formPreInstCache sffiles pergmsI_
->       mapM_ putStrLn (reverse errs)
->       return preInstCache
+>       (preInstCache, rd')
+>                        ← formPreInstCache sffiles rd
+>       return (preInstCache, rd')
 >
 >     initZones          :: Array Word SFFile
 >                           → Map PreSampleKey PreSample → Map PreSampleKey PreSampleKey → Map PerGMKey PreInstrument
@@ -546,7 +549,6 @@ later items, some critical data may thereby be missing. So that entails deletion
 >
 >       putStrLn (unwords [fName, "preInstCache size 3", show (length preInstCache)])
 >
->       print (length preZoneCache)
 >       mapM_ putStrLn (reverse errs)
 >       return (preZoneCache, preInstCache)
 >
@@ -557,6 +559,42 @@ later items, some critical data may thereby be missing. So that entails deletion
 >
 > reassociateZones       :: Map PerGMKey PerInstrument → IO (Map PerGMKey [PreZone])
 > reassociateZones zc    = return $ Map.map (\q → map fst q.pZones) zc
+>
+> writeScanReport        :: Array Word SFFile → ResultDispositions → IO ()
+> writeScanReport sffiles rdGenLast
+>                        = do
+>   tsStarted            ← getCurrentTime
+>
+>   -- output all selections to the report file
+>   let esTimeStamp      = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
+>   let esSampleScan     = procMap rdGenLast.preSampleDispos
+>   let esInstScan       = procMap rdGenLast.preInstDispos
+>   let esZoneScan       = [] -- WOX scan rdGenLast.preZoneDispos
+>   let esTail           = [EndOfLine, EndOfLine]
+>
+>   writeFileBySections reportScanName [esTimeStamp, esSampleScan, esInstScan, esZoneScan, esTail]
+>   tsFinished           ← getCurrentTime
+>   putStrLn ("___report scan results: " ++ show (diffUTCTime tsFinished tsStarted))
+>   traceIO ("wrote " ++ reportScanName)
+>
+>   where
+>     procMap            :: ∀ r a . (SFResource r, Show r) ⇒ Map r [(Disposition, Impact, String)] → [Emission]
+>     procMap ds         = concat $ Map.mapWithKey procr ds
+>       where
+>         procr          :: r → [(Disposition, Impact, String)] → [Emission]
+>         procr k diss_
+>                        =
+>           let
+>             diss       = filter (\(d, _, _) → Accepted /= d) diss_
+>           in
+>             if null diss
+>               then []
+>               else concatMap (showDiss k) diss ++ [EndOfLine]
+>
+>         showDiss       :: r → (Disposition, Impact, String) → [Emission]
+>         showDiss k (d, i, s)
+>                        =
+>           [Unblocked (show k), EndOfLine, emitShowL d 32, emitShowL i 32, Blanks 5, Unblocked s, EndOfLine]
 >
 > writeTournamentReport  :: Array Word SFFile
 >                           → Map InstrumentName [PerGMScored]
@@ -578,10 +616,10 @@ later items, some critical data may thereby be missing. So that entails deletion
 >   let esTail           = singleton $ Unblocked "\n\nThe End\n\n"
 >   let eol              = singleton EndOfLine
 >
->   writeFileBySections reportName [esFiles, legend, esI, eol, esFiles, legend, esP, esQ, esTail]
+>   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP, esQ, esTail]
 >   tsFinished           ← getCurrentTime
 >   putStrLn ("___report tournament results: " ++ show (diffUTCTime tsFinished tsStarted))
->   traceIO ("wrote " ++ reportName)
+>   traceIO ("wrote " ++ reportTournamentName)
 >
 >   where
 >     emitFileListC      = concatMap (uncurry doF) (zip [0..] (toList sffiles))
@@ -683,7 +721,7 @@ tournament starts here =========================================================
 >                           → (Map a [PerGMScored], [String])
 >     xaEnterTournament fuzzMap pergm hints (wins, ss) kind
 >       | traceIf trace_XAET False         = undefined
->       | otherwise                        = (Map.insertWith (++) kind [scoredP] wins, ss)
+>       | otherwise                        = (Map.insertWith (++) kind [scored] wins, ss)
 >       where
 >         fName                            = "xaEnterTournament"
 >
@@ -709,11 +747,9 @@ tournament starts here =========================================================
 >             (unwords[fName, "null scope", preI.iName])
 >             scope_
 >             
->
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
 >                                            >>= findByBagIndex' perI.pZones
 >                                            >>= \(q, _) → Just (F.sampleName (effShdr preSampleCache q))
->         zName                            = deJust "mnameZ2" mnameZ
 >
 >         trace_XAET                       =
 >           unwords [fName, preI.iName, fromMaybe "" mnameZ, show kind]
@@ -732,7 +768,7 @@ tournament starts here =========================================================
 >               | howgood > 0.000_001      = max 0 (logBase 2 howgood) * fuzzFactor kind
 >               | otherwise                = 0
 >   
->         scoredP        :: PerGMScored    =
+>         scored         :: PerGMScored    =
 >           PerGMScored (computeGrade scope akResult) (toGMKind kind) akResult pergm preI.iName mnameZ
 >
 >         computeResolution
@@ -776,36 +812,103 @@ tournament starts here =========================================================
 
 bootstrapping methods =================================================================================================
 
-> formMasterSampleList   :: Array Word SFFile → IO [PreSampleKey]
-> formMasterSampleList sffiles             = return $ concatMap formFS sffiles
+> data Disposition                         =
+>   Accepted | Violation | Rescued
+>   deriving (Eq, Show)
+>
+> data Impact                              =
+>   Ok | CorruptName | SampleHeaderWoes | ImpactGoofy | ImpactHoofy
+>   deriving (Eq, Show)
+>
+> data ResultDispositions                  =
+>   ResultDispositions {
+>     preSampleDispos    :: Map PreSampleKey     [(Disposition, Impact, String)]
+>   , preInstDispos      :: Map PerGMKey         [(Disposition, Impact, String)]
+>   , preZoneDispos      :: Map PreZoneKey       [(Disposition, Impact, String)]}
+> defResultDispositions                    = ResultDispositions Map.empty Map.empty Map.empty
+> addPreSampleDisposition rd presk dispos impact msg
+>                                          =
+>   rd{preSampleDispos = Map.insertWith (++) presk [(dispos, impact, msg)] rd.preSampleDispos}
+> addPreInstDisposition rd pergm dispos impact msg
+>                                          =
+>   rd{preInstDispos = Map.insertWith (++) pergm [(dispos, impact, msg)] rd.preInstDispos}
+> addPreZoneDisposition rd prezk dispos impact msg
+>                                          =
+>   rd{preZoneDispos = Map.insertWith (++) prezk [(dispos, impact, msg)] rd.preZoneDispos}
+>
+> class SFResource a where
+>   sfrange              :: Array Word a → [Word]
+>   sfkey                :: Word → Word → a
+>
+> instance SFResource PreSampleKey where
+>   sfrange shdrs                          = [] -- WOX (mapMaybe sfqualify )
+>   sfkey                                  = PreSampleKey
+>
+> instance SFResource PerGMKey where
+>   sfrange insts                          = [] -- WOX (mapMaybe sfqualify )
+>   sfkey wF wI                            = PerGMKey wF wI Nothing
+>
+> formComprehension      :: ∀ r a . SFResource r ⇒ Array Word SFFile → (BootstrapArrays → Array Word a) → [r]
+> formComprehension sffiles blobfun        = concatMap formFolder sffiles
 >   where
->     formFS             :: SFFile → [PreSampleKey]
->     formFS sffile                        =
+>     fName                                = "formComprehension"
+>
+>     formFolder         :: SFFile → [r]
+>     formFolder sffile                    =
 >       let
->         (st, en)       :: (Word, Word)   = bounds sffile.zBoot.ssShdrs
+>         (st, en)       :: (Word, Word)   = bounds $ blobfun sffile.zBoot
+>         range                            =
+>           profess
+>             ((st == 0) && (st <= en) && (en < 2_147_483_648))
+>             (error $ unwords [fName, "corrupt blob"])
+>             (deriveRange st en)
 >       in
->         map (PreSampleKey sffile.zWordF) (deriveRange st en)
+>         map (sfkey sffile.zWordF) range  
 >
 > formPreSampleCache     :: Array Word SFFile
->                           → [PreSampleKey]
->                           → IO (Map PreSampleKey PreSample, [String])
-> formPreSampleCache sffiles presks        = return $ foldl' preSFolder (Map.empty, []) presks
+>                           → ResultDispositions
+>                           → IO (Map PreSampleKey PreSample, ResultDispositions)
+> formPreSampleCache sffiles rd            = return $ foldl' formFolder (Map.empty, rd) comprehension
 >   where
 >     fName                                = "formPreSampleCache"
->     computePreSample   :: Word → F.Shdr → (Maybe PreSample, String)
->     computePreSample wF shdr@F.Shdr{ .. }
->                                          = 
->       if qualifySampleHeader
->         then (Just $ PreSample sampleName (computeFFMatches sampleName) shdr [], [])
->         else (Nothing, diagnose wF shdr)
+>     comprehension                        = formComprehension sffiles ssShdrs
+>
+>     formFolder         :: (Map PreSampleKey PreSample, ResultDispositions)
+>                           → PreSampleKey
+>                           → (Map PreSampleKey PreSample, ResultDispositions)
+>     formFolder (target, rd) presk        = (target', rd')
 >       where
->         qualifySampleHeader              =
->             goodName sampleName
->          && sampleRate >= 64
->          && sampleRate < 2^20
->          && isJust (toMaybeSampleType sampleType)
->          && sampleSizeOk (start, end)
->          && sampleLoopSizeOk (startLoop, endLoop)
+>         shdr                             = loadShdr presk
+>
+>         qual           :: Maybe (Disposition, Impact, String)
+>         qual                             = foldl' CM.mplus Nothing alts
+>
+>         (target', rd')                   =
+>           case qual of
+>             Nothing                      → (Map.insert presk (computePreSample shdr) target, accept presk)
+>             Just (d, i, s)               → (target, addPreSampleDisposition rd presk d i s) 
+>
+>         accept presk                     = addPreSampleDisposition rd presk Accepted Ok fName
+>
+>         alts           :: [Maybe (Disposition, Impact, String)]
+>         alts                             =
+>           [  if goodName shdr.sampleName
+>                then Nothing
+>                else Just (Violation, CorruptName, unwords [fName, "corrupt name", show shdr.sampleName])
+>            , if okSampleHeader shdr
+>                then Nothing
+>                else Just (Violation, SampleHeaderWoes, unwords [fName, "corrupt header", show shdr.sampleName])]
+>
+>     computePreSample   :: F.Shdr → PreSample
+>     computePreSample shdr                = PreSample shdr.sampleName (computeFFMatches shdr.sampleName) shdr []
+>
+>     okSampleHeader     :: F.Shdr → Bool
+>     okSampleHeader F.Shdr{ .. }          =
+>       sampleRate >= 64
+>       && sampleRate < 2^20
+>       && isJust (toMaybeSampleType sampleType)
+>       && sampleSizeOk (start, end)
+>       && sampleLoopSizeOk (startLoop, endLoop)
 >
 >     diagnose           :: Word → F.Shdr → String
 >     diagnose wF shdr                     =
@@ -815,55 +918,46 @@ bootstrapping methods ==========================================================
 >       where
 >         sffile                           = sffiles ! presk.pskwFile
 >
->     preSFolder :: (Map PreSampleKey PreSample, [String]) → PreSampleKey → (Map PreSampleKey PreSample, [String])
->     preSFolder (target, errs) presk@PreSampleKey{pskwFile, pskwSampleIndex}
->                                          =
->       let
->         (mpres, err)                     = (computePreSample pskwFile . loadShdr) presk
->       in
->         case mpres of
->           Just pres                      → (Map.insert presk pres target, errs)
->           Nothing                        → (target, err : errs)
->
 > rawShdr                :: Map PreSampleKey PreSample → PreZone → F.Shdr
 > rawShdr preSampleCache pz                =
 >   psShdr (deJust "rawShdr" (Map.lookup (extractSampleKey pz) preSampleCache))
 >
 > finishPreSampleCache   :: Array Word SFFile
 >                           → Map PreSampleKey PreSample
->                           → IO (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, [String])
-> finishPreSampleCache sffiles preSampleCache
+>                           → ResultDispositions
+>                           → IO (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, ResultDispositions)
+> finishPreSampleCache sffiles preSampleCache rd
 >                                          =
->   return $ foldl' psFolder (Map.empty, Map.empty, []) (Map.mapWithKey qualifyPartnering preSampleCache)
+>   return $ foldl' finishFolder (Map.empty, Map.empty, rd) (Map.assocs preSampleCache) -- WOX (Map.mapWithKey qualifyPartnering preSampleCache)
 >   where
 >     fName                                = "finishPreSampleCache"
 >
->     psFolder           :: (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, [String])
->                           → Either (PreSampleKey, PreSample, Maybe PreSampleKey) String
->                           → (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, [String])
->     psFolder (target, sPartnerMap, errs) eith
->                                          = (target', sPartnerMap', errs')
+>     finishFolder       :: (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, ResultDispositions)
+>                           → (PreSampleKey, PreSample)
+>                           → (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, ResultDispositions)
+>     finishFolder (target, sPartnerMap, rd) (k, v)
+>                                          = (target', sPartnerMap', rd')
 >       where
->         (target', sPartnerMap', errs')    =
->           case eith of
->             Left (presk, val, mpreskPartner)
->                                          → consumeLeft presk val mpreskPartner
->             Right err                    → (target, sPartnerMap, err : errs)
+>         (target', sPartnerMap', rd')     =
+>           case qualifyPartnering k v of
+>             Left mpreskPartner           → consumeLeft k v mpreskPartner
+>             Right (d, i, s)              → (target, sPartnerMap, addPreSampleDisposition rd k d i s)
 >
 >         consumeLeft presk val mpreskPartner
 >                                          =
->           (Map.insert presk val target
->           , (\case
+>           (  Map.insert presk val target
+>            , (\case
 >               Nothing                    → sPartnerMap
 >               Just preskPartner          → Map.insert presk preskPartner sPartnerMap) mpreskPartner
->           , errs)
+>            , rd)
 >
->     qualifyPartnering  :: PreSampleKey → PreSample → Either (PreSampleKey, PreSample, Maybe PreSampleKey) String
+>     qualifyPartnering  :: PreSampleKey → PreSample
+>                           → Either (Maybe PreSampleKey) (Disposition, Impact, String)
 >     qualifyPartnering key val
->       | not stereo                       = Left (key, val, Nothing)
->       | isNothing other                  = possiblySave problemMissing
->       | isNothing backLink               = possiblySave problemDisqual
->       | otherwise                        = Left (key, val, Just otherKey)
+>       | not stereo                       = Left Nothing
+>       | isNothing other                  = Right $ (Violation, ImpactGoofy, "") -- WOX possiblySave problemMissing
+>       | isNothing backLink               = Right $ (Violation, ImpactHoofy, "") -- WOX possiblySave problemDisqual
+>       | otherwise                        = Left $ Just otherKey
 >       where
 >         possiblySave errStr              = if canDevolveToMono
 >                                              then Left (key, val{psChanges = singleton MakeMono}, Nothing)
@@ -1275,10 +1369,13 @@ reorg task =====================================================================
 >   where
 >     trace_CC                             = unwords ["computeCross", show pzk]
 >
-> formPreInstCache       :: Array Word SFFile → [PerGMKey] → IO (Map PerGMKey PreInstrument, [String])
-> formPreInstCache sffiles pergms          = return $ foldl' preIFolder (Map.empty, []) pergms
+> formPreInstCache       :: Array Word SFFile
+>                           → ResultDispositions
+>                           → IO (Map PerGMKey PreInstrument, ResultDispositions)
+> formPreInstCache sffiles rd              = return $ foldl' preIFolder (Map.empty, rd) pergms
 >   where
 >     fName                                = "formPreInstCache"
+>     pergms                               = formComprehension sffiles ssInsts
 >
 >     computePreInst     :: F.Inst → Either PreInstrument String
 >     computePreInst iinst                 =
@@ -1291,14 +1388,25 @@ reorg task =====================================================================
 >       where
 >         boota                            = (sffiles ! pergm.pgkwFile).zBoot
 >
->     preIFolder         :: (Map PerGMKey PreInstrument, [String]) → PerGMKey → (Map PerGMKey PreInstrument, [String])
->     preIFolder (m, errs) pergm           = (m', errs')
+>     preIFolder         :: (Map PerGMKey PreInstrument, ResultDispositions)
+>                           → PerGMKey
+>                           → (Map PerGMKey PreInstrument, ResultDispositions)
+>     preIFolder (m, rd) pergm             = (m', rd')
 >       where
->         eith                             = (computePreInst . loadInst) pergm
->         (m', errs')                      =
->           case eith of
->             Left preI                    → (addPreInst pergm preI m, errs)
->             Right str                    → (m, str : errs)
+>         iinst                            = loadInst pergm
+>         nm                               = iinst.instName
+>         
+>         (m', rd')                        =
+>           if goodName nm
+>             then (  Map.insert pergm (PreInstrument iinst nm (computeFFMatches nm) Nothing) m
+>                   , addPreInstDisposition rd pergm Accepted Ok fName)
+>             else (  m
+>                   , addPreInstDisposition
+>                       rd
+>                       pergm
+>                       Violation
+>                       CorruptName
+>                       (unwords [fName, "problem", "illegal name", show iinst.instName]))
 >
 > addPreInst              :: PerGMKey → PreInstrument → Map PerGMKey PreInstrument → Map PerGMKey PreInstrument
 > addPreInst pergm preI m
@@ -1307,33 +1415,6 @@ reorg task =====================================================================
 >   where
 >     fName                                = "addPreInst"
 >     trace_API                            = unwords [fName, show (pergm.pgkwFile, pergm.pgkwInst), preI.iName]
->
-> formMasterInstList     :: Array Word SFFile → IO [PerGMKey]
-> formMasterInstList sffiles               = return $ concatMap formFI sffiles
->   where
->     -- file to instrument
->     formFI             :: SFFile → [PerGMKey]
->     formFI sffile                        =
->       let
->         boota                            = sffile.zBoot
->         boundsI                          = bounds boota.ssInsts
->         rangeI                           =                                     
->           profess
->             (uncurry (<=) boundsI)
->             (unwords ["bad file: invalid bounds", show boundsI])
->             (deriveRange 0 (snd boundsI - 1))
->
->         qualifyInst    :: Word → Maybe PerGMKey
->         qualifyInst wordI
->           | (jbagi - ibagi) >= 2         = Just $ PerGMKey sffile.zWordF wordI Nothing
->           | otherwise                    = Nothing
->           where
->             iinst                        = boota.ssInsts ! wordI
->             jinst                        = boota.ssInsts ! (wordI+1)
->             ibagi                        = F.instBagNdx iinst
->             jbagi                        = F.instBagNdx jinst
->       in
->         mapMaybe qualifyInst rangeI
 >
 > sortByCategory         :: Map PerGMKey PreInstrument
 >                           → [(PerGMKey, InstCat)]

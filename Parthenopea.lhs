@@ -1220,7 +1220,8 @@ Returns the fractional part of 'x'.
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
-> reportName             :: FilePath       = "TournamentReport'.lhs"
+> reportScanName         :: FilePath       = "ScanReport'.log"
+> reportTournamentName   :: FilePath       = "TournamentReport'.log"
 
 Returns the amplitude ratio
 
@@ -1334,8 +1335,8 @@ Returns sample point as (normalized) Double
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
 
-sampleUp returns the lowest power of 2 greater than OR EQUAL TO the input value (min 2**14)
-sampleDown returns the highest power of 2 less than OR EQUAL TO the input value (max 2**31)
+sampleUp returns power of 2 greater than OR EQUAL TO the input value (result at least 2**14)
+sampleDown returns power of 2 less than OR EQUAL TO the input value (input enforced <= 2**31)
 breakUp returns a list of integers approximating divisions of a floating point range
 
 > sampleUp               :: Int → Int
@@ -1464,6 +1465,7 @@ Configurable parameters ========================================================
 
 > doRender                                 = controlSettingsQqDoRender                   defC
 > diagnosticsEnabled                       = controlSettingsQqDiagnosticsEnabled         defC 
+> reportScan                               = controlSettingsQqReportScan                 defC 
 > reportTourney                            = controlSettingsQqReportTourney              defC 
 > skipGlissandi                            = controlSettingsQqSkipGlissandi              defC
 > replacePerCent                           = controlSettingsQqReplacePerCent             defC
@@ -1471,6 +1473,6 @@ Configurable parameters ========================================================
 Edit the following ====================================================================================================
 
 > defC                   :: ControlSettings
-> defC                                     = ControlSettings True False True False 0
+> defC                                     = ControlSettings True False True True False 0
 
 The End

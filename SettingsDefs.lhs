@@ -19,6 +19,7 @@
 >       ControlSettings
 >         qqDoRender                       Bool                        default = True
 >         qqDiagnosticsEnabled             Bool                        default = False
+>         qqReportScan                     Bool                        default = True
 >         qqReportTourney                  Bool                        default = True
 >         qqSkipGlissandi                  Bool                        default = False
 >         qqReplacePerCent                 Double                      default = 0
