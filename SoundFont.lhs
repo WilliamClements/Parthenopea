@@ -1114,24 +1114,16 @@ groom task =====================================================================
 >         groom back                       = map groomSuccess
 >           where
 >             groomSuccess (zscan, _)
->               | traceNot trace_GS False  = undefined
->               | null newPzs              = (zscan, Map.fromList [(instKey zscan, [Scan Violation NoFlippedZones fName ""])])
+>               | null newPzs              = (zscan, Map.fromList [(instKey zscan, violate NoFlippedZones fName "")])
 >               | otherwise                = (zscan{zsPreZones = newPzs}, Map.empty)
 >               where
 >                 newPzs                   = groomPreZones zscan.zsPreZones
->                 trace_GS                 = unwords ["groomScan", show (length zscan.zsPreZones), show (length newPzs)]
 >
->             groomPreZones preZones
->               | traceNot trace_GPZ False = undefined
->               | otherwise                = pzsStereo ++ pzsMono
+>             groomPreZones preZones       = pzsStereo ++ pzsMono
 >               where
 >                 (pzsStereo_, pzsMono)    = partition (isStereoZone preSampleCache) preZones
 >                 pzsStereo                = map partnerUp pzsStereo_
 >
->                 trace_GPZ                =
->                   unwords ["groomPreZones", show (length pzsMono, length pzsStereo_, length pzsStereo)]
->
->             partnerUp          :: PreZone → PreZone
 >             partnerUp pz                 = pz{pzmkPartners = fromMaybe [] mpartners}
 >               where
 >                 mpartners                =
@@ -1142,14 +1134,14 @@ vet task =======================================================================
 
 >         vetTask res                      =
 >           let
->             filePzs                      = foldl' (\x y → x ++ filter (isStereoZone preSampleCache) y.zsPreZones) [] (getGoodIScans res)
+>             filePzs                      =
+>               foldl' (\x y → x ++ filter (isStereoZone preSampleCache) y.zsPreZones) [] (getGoodIScans res)
 >             mapStereo                    = formPreZoneMap filePzs
 >           in
 >             map (vetSuccess mapStereo) res
 >
 >         vetSuccess mapStereo (zscan, scanMap)
->           | traceNot trace_VS False      = undefined
->           | otherwise                    =
+>                                          =
 >           if null newPzs
 >             then (zscan, Map.fromList [(instKey zscan, [Scan Violation DiminishToZero fName ""])])
 >             else (zscan{zsPreZones = newPzs}, Map.empty)
@@ -1365,17 +1357,6 @@ reorg task =====================================================================
 >     fName                                = "formPreInstCache"
 >     pergms                               = formComprehension sffiles ssInsts
 >
->     computePreInst     :: F.Inst → Either PreInstrument String
->     computePreInst iinst                 =
->       if goodName iinst.instName
->         then Left $ PreInstrument iinst iinst.instName (computeFFMatches iinst.instName) Nothing
->         else Right $ unwords [fName, "problem", "illegal name", show iinst.instName]
->
->     loadInst           :: PerGMKey → F.Inst
->     loadInst pergm                       = boota.ssInsts ! pergm.pgkwInst
->       where
->         boota                            = (sffiles ! pergm.pgkwFile).zBoot
->
 >     preIFolder         :: (Map PerGMKey PreInstrument, ResultDispositions)
 >                           → PerGMKey
 >                           → (Map PerGMKey PreInstrument, ResultDispositions)
@@ -1391,13 +1372,10 @@ reorg task =====================================================================
 >             else (  m
 >                   , disposePreInst rd pergm [Scan Violation CorruptName fName (unwords [show iinst.instName])])
 >
-> addPreInst              :: PerGMKey → PreInstrument → Map PerGMKey PreInstrument → Map PerGMKey PreInstrument
-> addPreInst pergm preI m
->   | traceIf trace_API False              = undefined
->   | otherwise                            = Map.insert pergm preI m 
->   where
->     fName                                = "addPreInst"
->     trace_API                            = unwords [fName, show (pergm.pgkwFile, pergm.pgkwInst), preI.iName]
+>     loadInst           :: PerGMKey → F.Inst
+>     loadInst pergm                       = boota.ssInsts ! pergm.pgkwInst
+>       where
+>         boota                            = (sffiles ! pergm.pgkwFile).zBoot
 >
 > sortByCategory         :: Map PerGMKey PreInstrument
 >                           → Map PerGMKey InstCat
@@ -2197,7 +2175,7 @@ reconcile zone and sample header ===============================================
 >                                              else 0.0
 >
 > applyNoteParameter     :: NoteOn → SFZone → Double → Double → SFZone
-> applyNoteParameter noon zone bend secs     = zone'
+> applyNoteParameter noon zone bend secs   = zone'
 >   where
 >     zone'                                =
 >       zone{  zModEnvToPitch = (Just . round) (bend * 100)

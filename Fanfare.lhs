@@ -541,7 +541,7 @@ Whelp Narp =====================================================================
 > wnTempo                                  = 2
 > wnTranspose                              = 4
 >
-> wnLead_                                  = makePitched    Vibraphone           wnTranspose 0 90
+> wnLead_                                  = makePitched    AltoSax              wnTranspose 0 90
 > wnStrings_                               = makePitched    OrchestralHarp       wnTranspose 0 90
 > wnBass_                                  = makePitched    ElectricBassPicked   wnTranspose 0 80
 > wnPerc_                                  = makeNonPitched                                    100
