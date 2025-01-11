@@ -39,6 +39,7 @@
 >         deriving Show
 >
 >       SoundFontSettings
+>         qqFixBadNames                    Bool                        default = False
 >         qqAllowStereoCrossovers          Bool                        default = False
 >         qqAllowOverlappingRanges         Bool                        default = True
 >         qqAllowOutOfRange                Bool                        default = True

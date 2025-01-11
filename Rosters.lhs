@@ -27,6 +27,7 @@ May 4, 2023
 > import Parthenopea
 > import ParthenopeaTest
 > import SoundFont
+> import SoundFontTest
 > import SunPyg
 > import SynthesizerTest
 > import System.Environment ( getArgs )
@@ -41,13 +42,14 @@ Rosters support ================================================================
 >
 >   _ ← if playAll
 >         then do
->           resultA                        ← runTestsQuietly modulationTests     
->           resultB                        ← runTestsQuietly synthesizerTests
->           let resultC                    = True -- runTestsQuietly discreteTests
->           resultD                        ← runTestsQuietly parthTests
->           let all                        =
+>           resultParthenopea              ← runTestsQuietly parthTests
+>           resultSoundFont                ← runTestsQuietly bootTests
+>           resultModulation               ← runTestsQuietly modulationTests     
+>           resultSynthesizer              ← runTestsQuietly synthesizerTests
+>           let resultDiscrete             = True -- runTestsQuietly discreteTests
+>           let resultAll                  =
 >                 profess
->                   (resultA && resultB && resultC && resultD)
+>                   (and [resultParthenopea, resultSoundFont, resultSynthesizer, resultDiscrete])
 >                   (unwords ["one or more unit tests failed"])
 >                   True
 >           putStrLn "Unit tests completed successfully"
@@ -108,14 +110,14 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
-> sj =
+> sj = ejingles
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("dh"          , deathlessHorsie)]
->    -- [ ("sunPyg"      , sunPyg)]
+>    -- [ ("whelpNarp"   , whelpNarp)]
 >    -- [ ("pa"          , shimSong $ aggrandize littlePendingtonArnt)]
 >    -- [ ("slot"        , slot 1)]
->       [ ("deyDumpDum"  , deyDumpDum)]
+>    -- [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 26420)]
 >    -- [ ("slot_1"      , slot 1)]
 >    -- [ ("theFanfare"  , theFanfare)]

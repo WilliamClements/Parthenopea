@@ -1006,10 +1006,16 @@ Conversion functions and general helpers =======================================
 >   profess
 >     (not $ isNaN y || isInfinite y || isDenormalized y || abs y > 200_000)
 >     (msg ++ " bad Double = " ++ show y)
->                                              y
+>     y
+>
+> goodChar               :: Char → Bool
+> goodChar c                               = isAscii c && not (isControl c)
 >
 > goodName               :: String → Bool
-> goodName name                            = all isPrint name && length (show name) - length name == 2
+> goodName                                 = all goodChar
+>
+> fixName                :: String → String
+> fixName                                  = map (\c → if goodChar c then c else '_')
 >
 > profess                :: Bool → String → a → a
 > profess assertion msg something          = if not assertion
@@ -1063,7 +1069,7 @@ Conversion functions and general helpers =======================================
 Account for microtones specified by SoundFont scale tuning : 0 < x < 100 < 1200
 Note result is incorrect overall when involves multiple root pitches
 
-> calcMicrotoneRatio          :: AbsPitch → AbsPitch → Double → Double
+> calcMicrotoneRatio     :: AbsPitch → AbsPitch → Double → Double
 > calcMicrotoneRatio rootp p x             = step ** fromIntegral (rootp - p)
 >   where
 >     step               :: Double         = 2 ** (x / 1_200)

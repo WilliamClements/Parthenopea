@@ -66,7 +66,7 @@ library
                     Covers, Discrete, DiscreteTest, Fanfare,
                     Modulation, ModulationTest, Parthenopea,
                     ParthenopeaTest, Percussion, Scoring,
-                    SettingsDefs, SoundFont,
+                    SettingsDefs, SoundFont, SoundFontTest,
                     SunPyg, Synthesizer, SynthesizerTest,
                     SynToolkit
 
