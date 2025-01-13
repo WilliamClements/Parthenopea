@@ -24,7 +24,9 @@ Testing ========================================================================
 >                                             , noNewsIsGoodNews1
 >                                             , noNewsIsGoodNews2
 >                                             , fatalrdCorrectlyJudgesFatal
->                                             , fatalrdCorrectlyJudgesNonFatal ]
+>                                             , fatalrdCorrectlyJudgesNonFatal
+>                                             , orderIndependence1
+>                                             , orderIndependence2 ]
 >
 > nonFatalScanIsNotFatal                   = do
 >   let fName                              = "nonFatalScanIsNotFatal"
@@ -65,5 +67,17 @@ Testing ========================================================================
 >   let pergm                              = PerGMKey 0 0 Nothing
 >   let rd                                 = dispose pergm [Scan Accepted Ok fName "test"] virginrd
 >   return $ not (fatalrd rd pergm)
+>
+> orderIndependence1                       = do
+>   let fName                              = "orderIndependence1"
+>   let order1                             = [Scan Accepted Ok fName "test",       Scan Violation NoZones fName "test"]
+>   let order2                             = [Scan Violation NoZones fName "test", Scan Accepted Ok fName "test"]
+>   return $ fatalss order1 && fatalss order2
+>
+> orderIndependence2                       = do
+>   let fName                              = "orderIndependence2"
+>   let order1                             = [Scan Violation NoZones fName "test", Scan Rescued NoZones fName "test"]
+>   let order2                             = [Scan Rescued NoZones fName "test",   Scan Violation NoZones fName "test"]
+>   return $ not (fatalss order1) && not (fatalss order2)
 
 The End
