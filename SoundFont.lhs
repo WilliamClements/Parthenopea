@@ -889,10 +889,13 @@ bootstrapping methods ==========================================================
 >   ResultDispositions {
 >     preSampleDispos    :: Map PreSampleKey     [Scan]
 >   , preInstDispos      :: Map PerGMKey         [Scan]
->   , preZoneDispos      :: Map PreZoneKey       [Scan]}
+>   , preZoneDispos      :: Map PreZoneKey       [Scan]} deriving Show
 > virginrd                                 = ResultDispositions Map.empty Map.empty Map.empty
 > emptyrd ResultDispositions{ .. }         = null preSampleDispos && null preInstDispos && null preZoneDispos
 > rdLengths ResultDispositions{ .. }       = (length preSampleDispos, length preInstDispos, length preZoneDispos)
+> countScans             :: ∀ k . SFResource k ⇒ Map k [Scan] → Int
+> countScans                               = foldl' (\n ss → n + length ss) 0
+> rdScans  ResultDispositions{ .. }        = (countScans preSampleDispos, countScans preInstDispos, countScans preZoneDispos)
 > combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
 > combinerd rd1 rd2                        =
 >   rd1{  preSampleDispos                  = Map.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
@@ -901,24 +904,24 @@ bootstrapping methods ==========================================================
 >
 > class SFResource a where
 >   sfkey                :: Word → Word → a
->   dispose              :: ResultDispositions → a → [Scan] → ResultDispositions
+>   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
 >   fatalrd              :: ResultDispositions → a → Bool
 >
 > instance SFResource PreSampleKey where
 >   sfkey                                  = PreSampleKey
->   dispose rd presk ss                    =
+>   dispose presk ss rd                    =
 >     rd{preSampleDispos = Map.insertWith (++) presk ss rd.preSampleDispos}
 >   fatalrd rd presk                       = fatalss $ fromMaybe [] (Map.lookup presk rd.preSampleDispos)
 >
 > instance SFResource PerGMKey where
 >   sfkey wF wI                            = PerGMKey wF wI Nothing
->   dispose rd pergm ss                    =
+>   dispose pergm ss rd                    =
 >     rd{preInstDispos = Map.insertWith (++) pergm ss rd.preInstDispos}
 >   fatalrd rd pergm                       = fatalss $ fromMaybe [] (Map.lookup pergm rd.preInstDispos)
 >
 > instance SFResource PreZoneKey where
 >   sfkey                                  = PreZoneKey
->   dispose rd prezk ss                    =
+>   dispose prezk ss rd                    =
 >     rd{preZoneDispos = Map.insertWith (++) prezk ss rd.preZoneDispos}
 >   fatalrd rd prezk                       = fatalss $ fromMaybe [] (Map.lookup prezk rd.preZoneDispos)
 >
@@ -954,8 +957,8 @@ bootstrapping methods ==========================================================
 >       | traceNot trace_FPSC False        = undefined
 >       | otherwise                        =
 >       if fatalss scanned
->         then (target,                                          dispose rd presk scanned)
->         else (Map.insert presk (computePreSample shdr) target, dispose rd presk (accept Ok fName ""))
+>         then (target,                                          dispose presk scanned rd)
+>         else (Map.insert presk (computePreSample shdr) target, dispose presk (accept Ok fName "") rd)
 >       where
 >         fName                            = unwords [fName_, "formFolder"]
 >         trace_FPSC                       = unwords [fName, show presk, show (length scanned)]
@@ -992,7 +995,7 @@ bootstrapping methods ==========================================================
 >         Left mpreskPartner               →
 >           (Map.insert k v target, makePartner mpreskPartner, rd)
 >         Right ss                         →
->           (target,                sPartnerMap,               dispose rd k ss)
+>           (target,                sPartnerMap,               dispose k ss rd)
 >       where
 >         makePartner                      =
 >           \case
@@ -1081,7 +1084,7 @@ bootstrapping methods ==========================================================
 >
 >     captureFileZones   :: SFFile → ResultDispositions
 >                           → IO (Map PreZoneKey PreZone, Map PerGMKey PreInstrument, ResultDispositions)
->     captureFileZones sffile rdNow
+>     captureFileZones sffile rdFile_
 >                                          = do
 >       let preZs                          =
 >             formPreZoneMap $ getZones isFinal.isResults
@@ -1090,7 +1093,7 @@ bootstrapping methods ==========================================================
 >       CM.when diagnosticsEnabled (putStrLn (unwords [fName, "z&i lengths", show (length preZs, length preIs)]))
 >       return (  preZs
 >               , preIs
->               , rdNow `combinerd` snd isFinal.isResults)
+>               , rdFile_ `combinerd` snd isFinal.isResults)
 >       where
 >         fName                            = unwords [fName_, "captureFileZones"]
 >
@@ -1102,7 +1105,7 @@ bootstrapping methods ==========================================================
 >
 >         tasks          :: [([InstZoneScan], ResultDispositions) → ([InstZoneScan], ResultDispositions)]
 >         tasks                            = if combinePartials
->                                              then error "not supported" -- [groomTask, vetTask, reorgTask]
+>                                              then error "not supported" -- WOX [groomTask, vetTask, reorgTask]
 >                                              else [groomTask, vetTask]
 >
 >         isInitial, isFinal
@@ -1110,26 +1113,26 @@ bootstrapping methods ==========================================================
 >         isInitial                        = FileInstScan (foldl' captureInstZones ([], virginrd) cut) tasks
 >         isFinal                          = head $ dropWhile isUnfinished (iterate' nextGen isInitial)
 >
->         shavePreInstCache                =
->           foldl' (\x y → Map.delete (instKey y) x) preInstCache (badZScans isFinal.isResults)
->
 >         nextGen        :: FileInstScan → FileInstScan
 >         nextGen iscan@FileInstScan{ .. } = iscan{isResults = head isTasks isResults, isTasks = tail isTasks}
+>
+>         shavePreInstCache                =
+>           foldl' (\x y → Map.delete (instKey y) x) preInstCache (badZScans isFinal.isResults)
 
 capture (initial) task ================================================================================================
           assign each instrument's info to an InstZoneScan, capture PreZones; skip global zones, (but later "mark")
 
 >         captureInstZones
 >                         :: ([InstZoneScan], ResultDispositions) → Word → ([InstZoneScan], ResultDispositions)
->         captureInstZones (zscans, rd) wI
+>         captureInstZones (zscans, rdInst_) wI
 >           | traceNot trace_CIZ False     = undefined
 >           | otherwise                    =
 >           if not (fatalss scanned)
->             then (zscans ++ [zscan], dispose rd pergm (accept Ok fName ""))
->             else (zscans ++ [zscan], dispose rd pergm scanned)
+>             then (zscans ++ [zscan], dispose pergm (accept Ok fName "") rdInst_)
+>             else (zscans ++ [zscan], dispose pergm scanned rdInst_)
 >           where
 >             fName                        = unwords[fName_, "captureInstZones"]
->             trace_CIZ                    = unwords[fName, show (length pzsRemaining), show pergm]
+>             trace_CIZ                    = unwords[fName, show (length pzsRemaining), show pergm, show (rdScans rdInst_)]
 >
 >             pergm                        = PerGMKey sffile.zWordF wI Nothing
 >             preI                           =
@@ -1199,15 +1202,18 @@ groom task =====================================================================
 >                             → ([InstZoneScan], ResultDispositions)
 >                             → InstZoneScan
 >                             → ([InstZoneScan], ResultDispositions)
->         groomFolder back (zscans, rd) zscan
->           | fatalrd rd (instKey zscan)   = (zscans ++ [zscan],                      rd)
+>         groomFolder back (zscans, rdGroom_) zscan
+>           | traceNot trace_GF False      = undefined
+>           | fatalrd rdGroom_ (instKey zscan)
+>                                          = (zscans ++ [zscan],                      rdGroom_)
 >           | null newPzs                  = (zscans ++ [zscan],                      rdNew)
->           | otherwise                    = (zscans ++ [zscan{zsPreZones = newPzs}], rd)
+>           | otherwise                    = (zscans ++ [zscan{zsPreZones = newPzs}], rdGroom_)
 >
 >           where
->             fName                        = unwords[fName_, "groom"]
+>             fName                        = unwords [fName_, "groom"]
+>             trace_GF                     = unwords [fName, show (rdScans rdGroom_)]
 >             newPzs                       = groomPreZones zscan.zsPreZones
->             rdNew                        = dispose rd (instKey zscan) (violate NoFlippedZones fName "")
+>             rdNew                        = dispose (instKey zscan) (violate NoFlippedZones fName "") rdGroom_
 >
 >             groomPreZones preZones       = pzsStereo ++ pzsMono
 >               where
@@ -1234,8 +1240,8 @@ vet task =======================================================================
 >                           → ([InstZoneScan], ResultDispositions)
 >                           → InstZoneScan
 >                           → ([InstZoneScan], ResultDispositions)
->         vetFolder mapStereo (zscans, rd) zscan
->           | fatalrd rd (instKey zscan)   = (zscans ++ [zscan],                      rd)
+>         vetFolder mapStereo (zscans, rdVet_) zscan
+>           | fatalrd rdVet_ (instKey zscan)   = (zscans ++ [zscan],                  rdVet_)
 >           | null newPzs                  = (zscans ++ [zscan],                      rdNew)
 >           | otherwise                    = (zscans ++ [zscan{zsPreZones = newPzs}], rdNew)
 >           where
@@ -1254,7 +1260,7 @@ vet task =======================================================================
 >                     newPartners          = filter (okPartner mapStereo pz) pz.pzmkPartners
 >               in
 >                 mapMaybe vetPreZone pzsStereo ++ pzsMono
->             rdNew                        = dispose rdNow (instKey zscan) (violate NoZones fName "after vet")
+>             rdNew                        = dispose (instKey zscan) (violate NoZones fName "after vet") rdVet_
 >
 >         okPartner pzMap pz pzk           =
 >           case Map.lookup pzk pzMap of
@@ -1461,7 +1467,7 @@ reorg task =====================================================================
 >                           → PerGMKey
 >                           → (Map PerGMKey PreInstrument, ResultDispositions)
 >     preIFolder (m, rd) pergm@PerGMKey{ .. }
->                                          = (m', dispose rd pergm ss)
+>                                          = (m', dispose pergm ss rd)
 > {-
 >       | goodName nm                      =
 >         (  Map.insert pergm (PreInstrument iinst nm (computeFFMatches nm) Nothing) m

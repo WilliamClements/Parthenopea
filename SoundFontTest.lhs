@@ -51,19 +51,19 @@ Testing ========================================================================
 > noNewsIsGoodNews2                        = do
 >   let fName                              = "noNewsIsGoodNews2"
 >   let pergm                              = PerGMKey 0 0 Nothing
->   let rd                                 = dispose virginrd pergm []
+>   let rd                                 = dispose pergm [] virginrd
 >   return $ not (fatalrd rd pergm)
 >
 > fatalrdCorrectlyJudgesFatal              = do
 >   let fName                              = "fatalrdCorrectlyJudgesFatal"
 >   let pergm                              = PerGMKey 0 0 Nothing
->   let rd                                 = dispose virginrd pergm [Scan Violation NoZones fName "test"]
+>   let rd                                 = dispose pergm [Scan Violation NoZones fName "test"] virginrd
 >   return $ fatalrd rd pergm
 >
 > fatalrdCorrectlyJudgesNonFatal           = do
 >   let fName                              = "fatalrdCorrectlyJudgesNonFatal"
 >   let pergm                              = PerGMKey 0 0 Nothing
->   let rd                                 = dispose virginrd pergm [Scan Accepted Ok fName "test"]
+>   let rd                                 = dispose pergm [Scan Accepted Ok fName "test"] virginrd
 >   return $ not (fatalrd rd pergm)
 
 The End
