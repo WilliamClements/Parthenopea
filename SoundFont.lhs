@@ -824,7 +824,7 @@ tournament starts here =========================================================
 bootstrapping methods =================================================================================================
 
 > data Disposition                         =
->   Accepted | Violation | Rescued | Dropped
+>   Accepted | Violated | Rescued | Dropped
 >   deriving (Eq, Show)
 >
 > data Impact                              =
@@ -845,24 +845,25 @@ bootstrapping methods ==========================================================
 >   , sImpact            :: Impact
 >   , sFunction          :: String
 >   , sClue              :: String} deriving (Eq, Show)
-> curateThing            :: ∀ a . Show a ⇒ a → (a → Bool) → (a → [Scan]) → Maybe [Scan]
-> curateThing thing ok scan                = if ok thing then Nothing else Just (scan thing)
+> curate                 :: ∀ a . Show a ⇒ a → (a → Bool) → (a → [Scan]) → Maybe [Scan]
+> curate thing ok scan                     = if ok thing then Nothing else Just (scan thing)
 >
 > data ScanScan                            =
 >   ScanScan {
->     s2Scans            :: [Scan]
+>     s2FromName         :: String
+>   , s2Scans            :: [Scan]
 >   , s2Alts             :: [Maybe [Scan]]}
 >
-> scanThings             :: [Maybe [Scan]] → [Scan]
-> scanThings alts                          = s2Final.s2Scans
+> scanAlts               :: String → [Maybe [Scan]] → [Scan]
+> scanAlts fromName alts                   = s2Final.s2Scans
 >   where
->    s2Final             :: ScanScan
->    s2Final                               = head $ dropWhile unfinished (iterate' nextGen (ScanScan [] alts))
+>    s2Final             :: ScanScan       =
+>      head $ dropWhile unfinished (iterate' nextGen (ScanScan fromName [] alts))
 >
 >    unfinished s2gen@ScanScan{ .. }       = not (fatalss s2Scans) && not (null s2Alts)
 >
 >    nextGen s2gen@ScanScan{ .. }          =
->      s2gen{ s2Scans = s2Scans ++ fromMaybe [] (head s2Alts), s2Alts = tail s2Alts}
+>      s2gen{s2Scans = s2Scans ++ fromMaybe [] (head s2Alts), s2Alts = tail s2Alts}
 >
 > fatalss                :: [Scan] → Bool
 > fatalss ss_                              = any odd (Map.elems m)
@@ -872,18 +873,13 @@ bootstrapping methods ==========================================================
 >     m                  :: Map Impact Int
 >     m                                    = foldl' (\n v → Map.insertWith (+) v 1 n) Map.empty (map sImpact ss)
 >
-> commonDispos           :: Disposition → Impact → String → String → [Scan]
-> commonDispos d impact fName clue         = singleton $ Scan d impact fName clue
-> accept, violate, dropped
->                        :: Impact → String → String → [Scan]
-> accept                                   = commonDispos Accepted
-> violate                                  = commonDispos Violation
-> dropped                                  = commonDispos Dropped
-> acceptThing, violateThing, dropThing
+> accepted, violated, dropped, rescued, violatedOrRescued
 >                        :: ∀ a . Show a ⇒ Impact → String → a → [Scan]
-> acceptThing impact fName thing           = commonDispos Accepted impact fName (show thing)
-> violateThing impact fName thing          = commonDispos Violation impact fName (show thing)
-> dropThing impact fName thing             = commonDispos Dropped impact fName (show thing)
+> accepted impact fName thing              = singleton $ Scan Accepted impact fName (show thing)
+> violated impact fName thing              = singleton $ Scan Violated impact fName (show thing)
+> dropped impact fName thing               = singleton $ Scan Dropped impact fName (show thing)
+> rescued impact fName thing               = singleton $ Scan Rescued impact fName (show thing)
+> violatedOrRescued impact fName thing     = violated impact fName thing ++ rescued impact fName thing
 >
 > data ResultDispositions                  =
 >   ResultDispositions {
@@ -895,7 +891,8 @@ bootstrapping methods ==========================================================
 > rdLengths ResultDispositions{ .. }       = (length preSampleDispos, length preInstDispos, length preZoneDispos)
 > countScans             :: ∀ k . SFResource k ⇒ Map k [Scan] → Int
 > countScans                               = foldl' (\n ss → n + length ss) 0
-> rdScans  ResultDispositions{ .. }        = (countScans preSampleDispos, countScans preInstDispos, countScans preZoneDispos)
+> rdScans  ResultDispositions{ .. }        =
+>   (countScans preSampleDispos, countScans preInstDispos, countScans preZoneDispos)
 > combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
 > combinerd rd1 rd2                        =
 >   rd1{  preSampleDispos                  = Map.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
@@ -954,24 +951,24 @@ bootstrapping methods ==========================================================
 >                           → PreSampleKey
 >                           → (Map PreSampleKey PreSample, ResultDispositions)
 >     formFolder (target, rd) presk
->       | traceNot trace_FPSC False        = undefined
+>       | traceNow trace_FPSC False        = undefined
 >       | otherwise                        =
 >       if fatalss scanned
 >         then (target,                                          dispose presk scanned rd)
->         else (Map.insert presk (computePreSample shdr) target, dispose presk (accept Ok fName "") rd)
+>         else (Map.insert presk (computePreSample shdr) target, dispose presk (accepted Ok fName "") rd)
 >       where
 >         fName                            = unwords [fName_, "formFolder"]
 >         trace_FPSC                       = unwords [fName, show presk, show (length scanned)]
 >
 >         shdr@F.Shdr{ .. }                = (sffiles ! presk.pskwFile).zBoot.ssShdrs ! presk.pskwSampleIndex
->         scanned                          = scanThings alts
+>         scanned                          = scanAlts fName alts
 >
 >         alts           :: [Maybe [Scan]]
 >         alts                             =
->           [  curateThing sampleName      goodName                          (violateThing CorruptName fName)
->            , curateThing sampleRate      (\x → x == clip (64, 2^20) x)     (violateThing BadSampleRate fName)
->            , curateThing sampleType      (isJust . toMaybeSampleType)      (violateThing BadSampleType fName)
->            , curateThing (start, end)    sampleSizeOk                      (violateThing BadSampleLimits fName)]
+>           [  curate sampleName      goodName                          (violatedOrRescued CorruptName fName)
+>            , curate sampleRate      (\x → x == clip (64, 2^20) x)     (violated BadSampleRate fName)
+>            , curate sampleType      (isJust . toMaybeSampleType)      (violated BadSampleType fName)
+>            , curate (start, end)    sampleSizeOk                      (violated BadSampleLimits fName)]
 >
 >            -- WOX , curateThing (startLoop, endLoop, sampleMode)
 >            -- WOX                                      sampleLoopSizeOk                  (violateThing BadSampleLoopLimits fName)]
@@ -1006,8 +1003,8 @@ bootstrapping methods ==========================================================
 >                           → Either (Maybe PreSampleKey) [Scan]
 >     qualifyPartnering key val
 >       | not stereo                       = Left Nothing
->       | isNothing other                  = Right $ violate MissingStereoPartner fName (show otherKey)         -- WOX possiblySave problemMissing
->       | isNothing backLink               = Right $ violate BadStereoPartner     fName (show oshdr.sampleLink) -- WOX possiblySave problemDisqual
+>       | isNothing other                  = Right $ violated MissingStereoPartner fName (show otherKey)         -- WOX possiblySave problemMissing
+>       | isNothing backLink               = Right $ violated BadStereoPartner     fName (show oshdr.sampleLink) -- WOX possiblySave problemDisqual
 >       | otherwise                        = Left $ Just otherKey
 >       where
 >         fName                            = unwords [fName_, "qualifyPartnering"]
@@ -1029,6 +1026,9 @@ bootstrapping methods ==========================================================
 >                                              then Left (key, val{psChanges = singleton MakeMono}, Nothing)
 >                                              else Right errStr
 >
+
+PreZone administration ================================================================================================
+
 > data FileInstScan                        =
 >   FileInstScan {
 >     isResults          :: ([InstZoneScan], ResultDispositions)
@@ -1128,7 +1128,7 @@ capture (initial) task =========================================================
 >           | traceNot trace_CIZ False     = undefined
 >           | otherwise                    =
 >           if not (fatalss scanned)
->             then (zscans ++ [zscan], dispose pergm (accept Ok fName "") rdInst_)
+>             then (zscans ++ [zscan], dispose pergm (accepted Ok fName "") rdInst_)
 >             else (zscans ++ [zscan], dispose pergm scanned rdInst_)
 >           where
 >             fName                        = unwords[fName_, "captureInstZones"]
@@ -1137,12 +1137,12 @@ capture (initial) task =========================================================
 >             pergm                        = PerGMKey sffile.zWordF wI Nothing
 >             preI                           =
 >               deJust "preI" (Map.lookup (PerGMKey sffile.zWordF wI Nothing) preInstCache)
->             scanned                      = scanThings alts
+>             scanned                      = scanAlts fName alts
 >
 >             alts       :: [Maybe [Scan]]
 >             alts                         =
->               [  curateThing preOk           id                       (violateThing OrphanedByInst fName)
->                , curateThing pzsRemaining    (not . null)             (violateThing NoZones        fName)]
+>               [  curate preOk           id                       (violated OrphanedByInst fName)
+>                , curate pzsRemaining    (not . null)             (violated NoZones        fName)]
 >
 >             preOk                        = isJust $ Map.lookup pergm preInstCache
 >
@@ -1213,7 +1213,7 @@ groom task =====================================================================
 >             fName                        = unwords [fName_, "groom"]
 >             trace_GF                     = unwords [fName, show (rdScans rdGroom_)]
 >             newPzs                       = groomPreZones zscan.zsPreZones
->             rdNew                        = dispose (instKey zscan) (violate NoFlippedZones fName "") rdGroom_
+>             rdNew                        = dispose (instKey zscan) (violated NoFlippedZones fName "") rdGroom_
 >
 >             groomPreZones preZones       = pzsStereo ++ pzsMono
 >               where
@@ -1260,7 +1260,7 @@ vet task =======================================================================
 >                     newPartners          = filter (okPartner mapStereo pz) pz.pzmkPartners
 >               in
 >                 mapMaybe vetPreZone pzsStereo ++ pzsMono
->             rdNew                        = dispose (instKey zscan) (violate NoZones fName "after vet") rdVet_
+>             rdNew                        = dispose (instKey zscan) (violated NoZones fName "after vet") rdVet_
 >
 >         okPartner pzMap pz pzk           =
 >           case Map.lookup pzk pzMap of
@@ -1308,7 +1308,7 @@ reorg task =====================================================================
 >                 hprobe                   = Map.lookup zscan.zswInst hMap
 >                 zscan'                   = zscan{zsPreZones = deJust "hprobe" hprobe}
 >
->                 rdNew                    = dispose rd (instKey zscan) [Scan Violation Absorbed fName ""]
+>                 rdNew                    = dispose rd (instKey zscan) [Scan Violated Absorbed fName ""]
 >
 >             dissect    :: ([InstZoneScan], ResultDispositions) → [(Word, [Word])]
 >             dissect res                  = filter qualifySet groupedC
@@ -1458,16 +1458,20 @@ reorg task =====================================================================
 > formPreInstCache       :: Array Word SFFile
 >                           → ResultDispositions
 >                           → IO (Map PerGMKey PreInstrument, ResultDispositions)
-> formPreInstCache sffiles rd              = return $ foldl' preIFolder (Map.empty, rd) pergms
+> formPreInstCache sffiles rd              = CM.foldM preIFolder (Map.empty, rd) pergms
 >   where
 >     fName                                = "formPreInstCache"
 >     pergms                               = formComprehension sffiles ssInsts
 >
 >     preIFolder         :: (Map PerGMKey PreInstrument, ResultDispositions)
 >                           → PerGMKey
->                           → (Map PerGMKey PreInstrument, ResultDispositions)
+>                           → IO (Map PerGMKey PreInstrument, ResultDispositions)
 >     preIFolder (m, rd) pergm@PerGMKey{ .. }
->                                          = (m', dispose pergm ss rd)
+>                                          =
+>       return $
+>         if iinst.instBagNdx < jinst.instBagNdx
+>           then (m', dispose pergm ss rd)
+>           else error $ unwords [fName, "corrupt instBagNdx"]
 > {-
 >       | goodName nm                      =
 >         (  Map.insert pergm (PreInstrument iinst nm (computeFFMatches nm) Nothing) m
@@ -1480,14 +1484,14 @@ reorg task =====================================================================
 >          , dispose rd pergm [viol])
 > -}
 >       where
->         ss                               = scanThings alts
+>         ss                               = scanAlts fName alts
 >         iinst                            = loadInst pergm
 >         jinst                            = loadInst pergm{pgkwInst = pgkwInst + 1}
 >         zrange                           = (iinst.instBagNdx, jinst.instBagNdx)
 >
 >         nm                               = iinst.instName
 >         fixednm                          = fixName iinst.instName -- WOX do fix names
->         viol                             = Scan Violation CorruptName fName (show nm)
+>         viol                             = Scan Violated CorruptName fName (show nm)
 >         resc                             = Scan Rescued CorruptName fName fixednm
 >
 >         m'                               =
@@ -1496,8 +1500,7 @@ reorg task =====================================================================
 >              else Map.insert pergm (PreInstrument iinst nm (computeFFMatches nm) Nothing) m
 >         alts           :: [Maybe [Scan]]
 >         alts                             =
->           [  curateThing iinst.instName  goodName                          (violateThing CorruptName    fName)
->            , curateThing zrange          (\(x, y) → 2 < (y - x))           (violateThing DegenerateInst fName)]
+>           [curate iinst.instName goodName (violated CorruptName    fName)]
 >
 >     loadInst           :: PerGMKey → F.Inst
 >     loadInst pergm                       = boota.ssInsts ! pergm.pgkwInst
@@ -1796,13 +1799,13 @@ prepare the specified instruments and percussion ===============================
 >         checkGMRange mrng                =
 >           mrng >>= \(j, k) → if (0 <= j) && j <= k && k < fromIntegral qMidiSize128
 >                                then Nothing
->                                else Just $ InstCatDisq (violate CorruptGMRange fName (show mrng))
+>                                else Just $ InstCatDisq (violated CorruptGMRange fName (show mrng))
 >
 >         hasRom pz                        = F.sampleType (effShdr preSampleCache pz) >= 0x8000
 >                                          
 >         checkLinkage   :: Maybe InstCat
 >         checkLinkage                     =
->           if isSafe sList || requiredZoneLinkage < 1 then Nothing else Just $ InstCatDisq (violate BadLinkage fName "")
+>           if isSafe sList || requiredZoneLinkage < 1 then Nothing else Just $ InstCatDisq (violated BadLinkage fName "")
 >           where
 >             sList      :: [(Int, Int)]
 >             sList                        = map (\z → (extractIndex z, extractLink z)) pzsLocal
@@ -1830,7 +1833,7 @@ prepare the specified instruments and percussion ===============================
 >
 >         rejectCrosses  :: Maybe InstCat
 >         rejectCrosses                 =
->           if any hasCross pzs then Just $ InstCatDisq (violate IllegalCrossover fName "") else Nothing
+>           if any hasCross pzs then Just $ InstCatDisq (violated IllegalCrossover fName "") else Nothing
 >
 >         hasCross       :: PreZone → Bool
 >         hasCross pz                      =
@@ -1867,10 +1870,10 @@ prepare the specified instruments and percussion ===============================
 >
 >             structuralAlts               =
 >               [if isNothing mpzs || null (fromJust mpzs)
->                  then Just $ InstCatDisq (violate NoZones fName "")
+>                  then Just $ InstCatDisq (violated NoZones fName "")
 >                  else Nothing
 >               , corrupt
->               , if any hasRom pzs then Just $ InstCatDisq (violate RomBased fName "") else Nothing
+>               , if any hasRom pzs then Just $ InstCatDisq (violated RomBased fName "") else Nothing
 >               , if allowStereoCrossovers
 >                   then Nothing
 >                   else rejectCrosses
@@ -1910,7 +1913,7 @@ prepare the specified instruments and percussion ===============================
 >                     then
 >                       (if 0.05 < howLaden wZones
 >                          then Just (catPerc wZones)
->                          else Just (catDisq (violate NoPercZones fName "")))
+>                          else Just (catDisq (violated NoPercZones fName "")))
 >                     else Nothing
 >
 >                 fName                    = "functionalAlts"
@@ -1918,7 +1921,7 @@ prepare the specified instruments and percussion ===============================
 >
 >             catInst      :: InstCat      =
 >               if null pzs
->                 then InstCatDisq (violate NoZones fName "")
+>                 then InstCatDisq (violated NoZones fName "")
 >                 else (case checkSmashing smashup of
 >                        Left _            → InstCatInst icd
 >                        Right reason      → InstCatDisq reason)
@@ -2011,8 +2014,8 @@ prepare the specified instruments and percussion ===============================
 >
 > checkSmashing          :: Smashing Word → Either Bool [Scan]
 > checkSmashing smashup
->   | not ok1                              = Right $ violate UndercoveredRanges fName ""
->   | not ok2                              = Right $ violate OverCoveredRanges fName ""
+>   | not ok1                              = Right $ violated UndercoveredRanges fName ""
+>   | not ok2                              = Right $ violated OverCoveredRanges fName ""
 >   | otherwise                            = Left True
 >   where
 >     fName                                = "checkSmashing"
