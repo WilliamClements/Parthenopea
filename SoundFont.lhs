@@ -831,7 +831,6 @@ bootstrapping methods ==========================================================
 >   Ok | CorruptName
 >      | BadSampleRate | BadSampleType | BadSampleLimits | BadSampleLoopLimits
 >      | MissingStereoPartner | BadStereoPartner
->      | DegenerateInst
 >      | OrphanedBySample | OrphanedByInst
 >      | Absorbed | NoZones | NoFlippedZones
 >      | CorruptGMRange | Narrow | BadLinkage | IllegalCrossover
@@ -1194,58 +1193,75 @@ capture (initial) task =========================================================
 
 groom task ============================================================================================================
 
->         groomTask        :: ([InstZoneScan], ResultDispositions) → ([InstZoneScan], ResultDispositions)
->         groomTask (zscans, rd)           =
->           foldl' (groomFolder (makeBack preSampleCache (goodZScans (zscans, rd)))) ([], rd) zscans
->
->         groomFolder      :: Map PreSampleKey [PreZoneKey]
->                             → ([InstZoneScan], ResultDispositions)
->                             → InstZoneScan
->                             → ([InstZoneScan], ResultDispositions)
->         groomFolder back (zscans, rdGroom_) zscan
->           | traceNot trace_GF False      = undefined
->           | fatalrd rdGroom_ (instKey zscan)
->                                          = (zscans ++ [zscan],                      rdGroom_)
->           | null newPzs                  = (zscans ++ [zscan],                      rdNew)
->           | otherwise                    = (zscans ++ [zscan{zsPreZones = newPzs}], rdGroom_)
->
+>         taskTask       :: (InstZoneScan → ResultDispositions → (InstZoneScan, ResultDispositions))
+>                           → ([InstZoneScan], ResultDispositions)
+>                           → ([InstZoneScan], ResultDispositions)
+>         taskTask fun (zscans, rd)        = foldl' taskFolder ([], rd) zscans
 >           where
->             fName                        = unwords [fName_, "groom"]
->             trace_GF                     = unwords [fName, show (rdScans rdGroom_)]
+>             taskFolder :: ([InstZoneScan], ResultDispositions) → InstZoneScan → ([InstZoneScan], ResultDispositions)
+>             taskFolder (zscans, rd) zscan
+>                                          =
+>               let
+>                 (zscan', rd')            = fun zscan rd
+>               in
+>                 if fatalrd rd (instKey zscan)
+>                   then (zscans ++ [zscan], rd)
+>                   else (zscans ++ [zscan'], rd')
+>
+>         groomTask      :: ([InstZoneScan], ResultDispositions) → ([InstZoneScan], ResultDispositions)
+>         groomTask (zscans, rd)           =
+>           let
+>             back                         = makeBack preSampleCache (goodZScans (zscans, rd))
+>           in
+>             taskTask (groomer back) (zscans, rd)
+>
+>         groomer        :: Map PreSampleKey [PreZoneKey]
+>                           → InstZoneScan
+>                           → ResultDispositions
+>                           → (InstZoneScan, ResultDispositions)
+>         groomer back zscan rdGroom_
+>           | traceNot trace_G False       = undefined
+>           | otherwise                    = (zscan{zsPreZones = newPzs}, rdNew)
+>           where
+>             fName                        = unwords [fName_, "groomer"]
+>             trace_G                      = unwords [fName, show (rdScans rdGroom_)]
+>
 >             newPzs                       = groomPreZones zscan.zsPreZones
->             rdNew                        = dispose (instKey zscan) (violated NoFlippedZones fName "") rdGroom_
+>             rdNew                        =
+>               if null newPzs
+>                 then dispose (instKey zscan) (violated NoFlippedZones fName "") rdGroom_
+>                 else rdGroom_
 >
 >             groomPreZones preZones       = pzsStereo ++ pzsMono
 >               where
 >                 (pzsStereo_, pzsMono)    = partition (isStereoZone preSampleCache) preZones
 >                 pzsStereo                = map partnerUp pzsStereo_
 >
->             partnerUp pz                 = pz{pzmkPartners = fromMaybe [] mpartners}
->               where
+>             partnerUp pz                 =
+>               let
 >                 mpartners                =
->                   Map.lookup (PreSampleKey pz.pzWordF (F.sampleLink (effShdr preSampleCache pz))) back    
->
+>                   Map.lookup (PreSampleKey pz.pzWordF (F.sampleLink (effShdr preSampleCache pz))) back 
+>               in
+>                 pz{pzmkPartners = fromMaybe [] mpartners}
 
 vet task ============================================================================================================
           remove bad stereo partners from PreZones per instrument, delete instrument if down to zero PreZones
 
->         vetTask        :: ([InstZoneScan], ResultDispositions) → ([InstZoneScan], ResultDispositions)
->         vetTask (zscans, rdNow)          = foldl' (vetFolder mapStereo) ([], rdNow) zscans
->           where
+>         vetTask (zscans, rd)             =
+>           let
 >             filePzs                      =
->               foldl' (\x y → x ++ filter (isStereoZone preSampleCache) y.zsPreZones) [] (goodZScans (zscans, rdNow))
+>               foldl' (\x y → x ++ filter (isStereoZone preSampleCache) y.zsPreZones) [] (goodZScans (zscans, rd))
 >             mapStereo                    = formPreZoneMap filePzs
+>           in
+>             taskTask (vetter mapStereo) (zscans, rd)
 >
->         vetFolder      :: Map PreZoneKey PreZone
->                           → ([InstZoneScan], ResultDispositions)
+>         vetter         :: Map PreZoneKey PreZone
 >                           → InstZoneScan
->                           → ([InstZoneScan], ResultDispositions)
->         vetFolder mapStereo (zscans, rdVet_) zscan
->           | fatalrd rdVet_ (instKey zscan)   = (zscans ++ [zscan],                  rdVet_)
->           | null newPzs                  = (zscans ++ [zscan],                      rdNew)
->           | otherwise                    = (zscans ++ [zscan{zsPreZones = newPzs}], rdNew)
+>                           → ResultDispositions
+>                           → (InstZoneScan, ResultDispositions)
+>         vetter mapStereo zscan rdVet_    = (zscan{zsPreZones = newPzs}, rdNew)
 >           where
->             fName                        = unwords[fName_, "vetSuccess"]
+>             fName                        = unwords[fName_, "vetter"]
 >
 >             newPzs                       =
 >               let
@@ -1260,7 +1276,10 @@ vet task =======================================================================
 >                     newPartners          = filter (okPartner mapStereo pz) pz.pzmkPartners
 >               in
 >                 mapMaybe vetPreZone pzsStereo ++ pzsMono
->             rdNew                        = dispose (instKey zscan) (violated NoZones fName "after vet") rdVet_
+>             rdNew                        =
+>               if null newPzs
+>                 then dispose (instKey zscan) (violated NoZones fName "after vet") rdVet_
+>                 else rdVet_
 >
 >         okPartner pzMap pz pzk           =
 >           case Map.lookup pzk pzMap of
