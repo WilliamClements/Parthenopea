@@ -113,10 +113,10 @@ organize exposed music =========================================================
 > sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
->    -- [ ("dh"          , deathlessHorsie)]
->    -- [ ("whelpNarp"   , whelpNarp)]
+>    -- [ ("pit"         , pit)]
+>       [ ("whelpNarp"   , whelpNarp)]
 >    -- [ ("pa"          , shimSong $ aggrandize littlePendingtonArnt)]
->       [ ("deyDumpDum"  , deyDumpDum)]
+>    -- [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 26420)]
 >    -- [ ("slot_1"      , slot 1)]
 >    -- [ ("theFanfare"  , theFanfare False)]

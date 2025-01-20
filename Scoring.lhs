@@ -514,6 +514,7 @@ Flags for customization ========================================================
 > sampleSizeMin                            = scoringSettingsQqSampleSizeMin              defT
 > inferStereo                              = scoringSettingsQqInferStereo                defT
 > requiredZoneLinkage                      = scoringSettingsQqRequiredZoneLinkage        defT
+> howVerboseScan                           = scoringSettingsQqHowVerboseScan             defT
 >
 > isPossible' fuzz                         = fuzz > isPossible
 > stands' fuzz                             = fuzz > stands
@@ -548,6 +549,6 @@ Edit the following =============================================================
 >
 > defT                   :: ScoringSettings
 > defT                                     =
->   ScoringSettings 10 2 0 (3/2) 3 3 True (3/4) 48 False 0 50 150 250
+>   ScoringSettings 10 2 0 (3/2) 3 3 True (3/4) 48 False 0 0 50 150 250
 
 The End

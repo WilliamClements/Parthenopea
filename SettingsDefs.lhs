@@ -72,6 +72,7 @@
 >         qqSampleSizeMin                  Word                        default = 0 -- 48
 >         qqInferStereo                    Bool                        default = False
 >         qqRequiredZoneLinkage            Double                      default = 0
+>         qqHowVerboseScan                 Double                      default = 0
 >
 >         qqFFThresholdPossible            Double                      default = 50
 >         qqFFThresholdStands              Double                      default = 150

@@ -1377,6 +1377,9 @@ breakUp returns a list of integers approximating divisions of a floating point r
 >
 > theJ :: Complex Double
 > theJ = 0 :+ 1
+>
+> zshow                  :: ∀ a . a → String
+> zshow a                                  = "list"
 
 Emission capability ===================================================================================================
 
@@ -1479,6 +1482,6 @@ Configurable parameters ========================================================
 Edit the following ====================================================================================================
 
 > defC                   :: ControlSettings
-> defC                                     = ControlSettings True False True True False 0
+> defC                                     = ControlSettings True True True True False 0
 
 The End
