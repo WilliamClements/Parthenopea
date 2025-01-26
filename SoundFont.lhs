@@ -8,7 +8,6 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE OverloadedStrings #-}
 > {-# LANGUAGE RecordWildCards #-}
-> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TypeFamilies #-} 
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -107,7 +106,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data ShdrXForm =
 >   MakeMono
 >   | MakeLeft PreZoneKey
->   | MakeRight PreZoneKey deriving Eq
+>   | MakeRight PreZoneKey
+>   | FixCorruptName deriving Eq
 >
 > data PreZone =
 >   PreZone {
@@ -630,7 +630,6 @@ later items, some critical data may thereby be missing. So that entails deletion
 >   where
 >     emitFileListC      = concatMap (uncurry doF) (zip [0..] (toList sffiles))
 >     doF nth sffile     = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
->
 
 tournament starts here ================================================================================================
 
@@ -1101,8 +1100,18 @@ PreZone administration =========================================================
 >                           → IO (Map PerGMKey PreInstrument, Map PerGMKey [PreZone], ResultDispositions)
 >     formFolder (preIs, preZs, rd) sffile = do
 >       let fName                          = unwords[fName_, "formFolder"]
->       CM.when diagnosticsEnabled (putStrLn (unwords [fName, "lengths", show (length preSampleCache, length preZs, length preIs)]))
+>       CM.when diagnosticsEnabled (
+>                 putStrLn (unwords [  fName
+>                                    , "lengths preS,preZ,preI Before captureFileZones"
+>                                    , show (length preSampleCache, length preZs, length preIs)]))
+>
 >       (preIs', preZs', rd')              ← captureFileZones sffile rd
+>
+>       CM.when diagnosticsEnabled (
+>                 putStrLn (unwords [  fName
+>                                    , "lengths preZ,preI After captureFileZones"
+>                                    , show (length preZs', length preIs')]))
+>
 >       return (preIs', preZs `Map.union` preZs', rd')
 >          
 >     makePreZone wF wS wI wB gens shdr    = PreZone wF wS wI wB (formDigest gens) [] []
@@ -1114,7 +1123,6 @@ PreZone administration =========================================================
 >       let preIs                          = 
 >             foldl' markGlobalZone shavePreInstCache (goodZScans isFinal.isResults)
 >       let preZs                          = getZones isFinal.isResults
->       CM.when diagnosticsEnabled (putStrLn (unwords [fName, "z&i lengths", show (length preZs, length preIs)]))
 >       return (  preIs
 >               , preZs
 >               , rdFile_ `combinerd` snd isFinal.isResults)
@@ -1216,12 +1224,8 @@ capture (initial) task =========================================================
 
 iterating on InstZoneScan list ========================================================================================
 
->         taskTask       :: (InstZoneScan → ResultDispositions → (InstZoneScan, ResultDispositions))
->                           → ([InstZoneScan], ResultDispositions)
->                           → ([InstZoneScan], ResultDispositions)
 >         taskTask fun (zscans, rd)        = foldl' taskFolder ([], rd) zscans
 >           where
->             taskFolder :: ([InstZoneScan], ResultDispositions) → InstZoneScan → ([InstZoneScan], ResultDispositions)
 >             taskFolder (zscans, rd) zscan
 >                                          =
 >               let
@@ -1233,7 +1237,6 @@ iterating on InstZoneScan list =================================================
 
 groom task ============================================================================================================
 
->         groomTask      :: ([InstZoneScan], ResultDispositions) → ([InstZoneScan], ResultDispositions)
 >         groomTask (zscans, rd)           =
 >           let
 >             back                         = makeBack preSampleCache (goodZScans (zscans, rd))
