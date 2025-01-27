@@ -6,11 +6,10 @@ William Clements
 November 11, 2022
 
 > module Fanfare (  theFanfare, kit, pit, dit, rattan, bill, roger, waypostpurple, deyDumpDum, getCITM, gold, silver
->                 , littleCITM, whelpNarp, alice, bob, copper, dadadada, snake, littlePendingtonArnt, pendingtonArnt, littleWay ) where
+>                 , littleCITM, whelpNarp, alice, bob, copper, dadadada, snake, littlePendingtonArnt, pendingtonArnt
+>                 , littleWay, pan ) where
 >
 > import Data.Map (Map)
-> import qualified Data.Map                as Map
-> import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
 > import Parthenopea
@@ -41,12 +40,17 @@ November 11, 2022
 
 Fanfare ===============================================================================================================
 
-> ffTempo                :: Rational       = 5 / 2
-> ffTranspose            :: AbsPitch       = 5
+> ffTempo                :: Dur
+> ffTempo                                  = 5 / 2
+> ffTranspose            :: AbsPitch
+> ffTranspose                              = 5
 >
-> ffTempoCap             :: Rational       = 4
-> ffTransposeCap         :: AbsPitch       = 0
+> ffTempoCap             :: Dur
+> ffTempoCap                               = 4
+> ffTransposeCap         :: AbsPitch
+> ffTransposeCap                           = 0
 >
+> theFanfare             :: Bool → Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > theFanfare isCap dynMap
 >              = removeZeros
 >              $ tempo fgTempo
@@ -124,10 +128,14 @@ The fanfare's answer
 
 Alice =================================================================================================================
 
+> aliceTempo             :: Dur
 > aliceTempo                               = 2
+> aliceTranspose        :: AbsPitch
 > aliceTranspose                           = 10
+> aliceLead_            :: BandPart
 > aliceLead_                               = makePitched Vibraphone aliceTranspose 0 100
 >
+> alice                 :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > alice dynMap =
 >         removeZeros
 >         $ tempo                          aliceTempo
@@ -152,9 +160,13 @@ Alice ==========================================================================
 
 Bob ===================================================================================================================
 
+> bobTempo               :: Dur
 > bobTempo                                 = 2
+> bobTranspose           :: AbsPitch
 > bobTranspose                             = 0
 >
+> bobTreble_, bobAlto_, bobBass_
+>                        :: BandPart
 > bobTreble_                               = makePitched Violin        bobTranspose 0 100
 > bobAlto_                                 = makePitched Oboe          bobTranspose 0  70
 > bobBass_                                 = makePitched Cello         bobTranspose 0  50
@@ -203,19 +215,18 @@ Bob ============================================================================
 
 Bill ==================================================================================================================
 
-> alto00 = rest hn
->          :+: f 4 hn :+: rest dwn
->          :+: c 4 wn :+: rest wn
->          :+: ef 3 hn :+: rest dwn
->          :+: gf 3 wn :+: rest wn
->
+> billTempo              :: Dur
 > billTempo                                = 2
+> billTranspose          :: AbsPitch
 > billTranspose                            = 0
 >
+> billTreble_, billAlto_, billBass_
+>                        :: BandPart
 > billTreble_                              = makePitched Violin              billTranspose 0  80
 > billAlto_                                = makePitched RhodesPiano         billTranspose 0 110
 > billBass_                                = makePitched Cello               billTranspose 0  60
 >
+> bill                   :: Int → Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > bill nRepeats dynMap =
 >    removeZeros
 >    $ tempo     billTempo
@@ -230,6 +241,12 @@ Bill ===========================================================================
 >    billTreble                            = replace billTreble_ dynMap
 >    billAlto                              = replace billAlto_ dynMap
 >    billBass                              = replace billBass_ dynMap
+>
+>    alto00 = rest hn
+>             :+: f 4 hn :+: rest dwn
+>             :+: c 4 wn :+: rest wn
+>             :+: ef 3 hn :+: rest dwn
+>             :+: gf 3 wn :+: rest wn
 >
 >    treble00 =
 >        tempo (3/2) (line [ef 4 qn, f 4 qn, g 4 qn])
@@ -267,15 +284,18 @@ Bill ===========================================================================
 
 Copper ================================================================================================================
 
+> copperTempo            :: Dur
 > copperTempo                              = 2
+> copperTranspose        :: AbsPitch
 > copperTranspose                          = -4
 >
+> copperLead_            :: BandPart
 > copperLead_                              = makePitched Banjo copperTranspose 0 100
 >
-> copper :: Int → DynMap → Music (Pitch, [NoteAttribute])
+> copper                 :: Int → DynMap → Music (Pitch, [NoteAttribute])
 > copper n dynMap =
 >    removeZeros
->    $ tempo 2
+>    $ tempo copperTempo
 >    $ keysig C Dorian
 >    $ bandPart copperLead
 >    $ times n
@@ -289,13 +309,18 @@ Copper =========================================================================
 
 Gold ==================================================================================================================
 
+> goldTempo              :: Dur
 > goldTempo                                = 2
+> goldTranspose          :: AbsPitch
 > goldTranspose                            = 12
 >
+> goldLead_              :: BandPart
 > goldLead_                                = makePitched AcousticGrandPiano goldTranspose 0 100
+>
+> gold                   :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > gold dynMap =
 >    removeZeros
->    $ tempo 2
+>    $ tempo goldTempo
 >    $ keysig C Mixolydian
 >    $ bandPart goldLead
 >    $ times 2
@@ -313,14 +338,18 @@ Gold ===========================================================================
 
 Silver ================================================================================================================
 
+> silverTempo            :: Dur
 > silverTempo                              = 2
+> silverTranspose        :: AbsPitch
 > silverTranspose                          = 7
 >
+> silverLead_            :: BandPart
 > silverLead_                              = makePitched OrchestralHarp silverTranspose 0 100
 >     
+> silver                 :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > silver dynMap =
 >     removeZeros
->     $ tempo 2
+>     $ tempo silverTempo
 >     $ keysig A Mixolydian
 >     $ bandPart silverLead
 >     $ line allSilver
@@ -357,27 +386,17 @@ Silver =========================================================================
 
 Snake =================================================================================================================
 
-> gSnip01 = line [ c 4 hn,  g 4 hn,  b 3 hn, g 4 qn, a 3 qn
->                , a 3 qn,  d 4 qn, chord [d 4 dwn, fs 4 dwn]]
-> gSnip02 = line [  g 4 qn,  g 3 qn,  c 4 hn, rest wn, rest wn]
-> gSnip03 = addDur en [  g 4, fs 4,  e 4,  d 4,       e 4,  d 4,  c 4,  b 3
->                     ,  c 4,  b 3,  a 3,  g 3,       a 3,  g 3]
-> gSnip04 = addDur en [             fs 3,  g 3,       a 3,  g 3,  a 3, b 3
->                     ,  c 4,  b 3,  a 3,  g 3,      fs 3,  g 3, fs 3, e 3
->                     ,  d 3,  e 3,  d 3, cs 3]
-> gSnip05 = addDur en [  b 4,  a 4,  g 4, fs 4,       g 4,  fs 4,  e 4,  d 4
->                     ,  e 4,  d 4,  c 4,  b 3,       c 4,  b 3]
-> gSnip06 = addDur en [              a 3,  b 3,       c 4,  b 3,  c 4, d 4
->                     ,  e 4,  d 4,  c 4,  b 3,       a 3,  b 3,  a 3, g 3
->                     , fs 3,  g 3, fs 3,  f 3]
-> gSnip07 = line [ c 4 hn, e 4 hn, fs 4 hn, g 4 dqn, g 4 en]
->
+> snakeTempo             :: Dur
 > snakeTempo                               = 2
+> snakeTranspose         :: AbsPitch
 > snakeTranspose                           = 0
 >
+> snakeLead_, snakeSecond_
+>                        :: BandPart
 > snakeLead_                               = makePitched    AltoSax    snakeTranspose  0  100
 > snakeSecond_                             = makePitched    TenorSax   snakeTranspose  0  100
 >
+> snake                  :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > snake dynMap =
 >    removeZeros
 >    $ tempo snakeTempo
@@ -389,6 +408,21 @@ Snake ==========================================================================
 >
 >    snakeLead                             = replace snakeLead_ dynMap
 >    snakeSecond                           = replace snakeSecond_ dynMap
+>
+>    gSnip01 = line [ c 4 hn,  g 4 hn,  b 3 hn, g 4 qn, a 3 qn
+>                   , a 3 qn,  d 4 qn, chord [d 4 dwn, fs 4 dwn]]
+>    gSnip02 = line [  g 4 qn,  g 3 qn,  c 4 hn, rest wn, rest wn]
+>    gSnip03 = addDur en [  g 4, fs 4,  e 4,  d 4,       e 4,  d 4,  c 4,  b 3
+>                        ,  c 4,  b 3,  a 3,  g 3,       a 3,  g 3]
+>    gSnip04 = addDur en [             fs 3,  g 3,       a 3,  g 3,  a 3, b 3
+>                        ,  c 4,  b 3,  a 3,  g 3,      fs 3,  g 3, fs 3, e 3
+>                        ,  d 3,  e 3,  d 3, cs 3]
+>    gSnip05 = addDur en [  b 4,  a 4,  g 4, fs 4,       g 4,  fs 4,  e 4,  d 4
+>                        ,  e 4,  d 4,  c 4,  b 3,       c 4,  b 3]
+>    gSnip06 = addDur en [              a 3,  b 3,       c 4,  b 3,  c 4, d 4
+>                        ,  e 4,  d 4,  c 4,  b 3,       a 3,  b 3,  a 3, g 3
+>                        , fs 3,  g 3, fs 3,  f 3]
+>    gSnip07 = line [ c 4 hn, e 4 hn, fs 4 hn, g 4 dqn, g 4 en]
 >
 >    treblePart = line [treb00, treb01, treb02, treb03, treb04]
 >    altoPart   = line [alto00, alto01, alto02, alto03, alto04]
@@ -405,7 +439,6 @@ Snake ==========================================================================
 >                  ,  gSnip03,  gTail03, gHead01,  gSnip03, gSnip04]
 >
 >    -- Pedal Tones
->    cee = c 3 dhn :+: rest qn
 >    dee = d 3 dhn :+: rest qn
 >    ceecee = c 3 dwn :+: rest hn
 >    deedee = d 3 dwn :+: rest hn
@@ -467,19 +500,25 @@ Snake ==========================================================================
 
 Country In The Morning ================================================================================================
 
+> citmTempo              :: Dur
 > citmTempo                               = 1
+> citmTranspose          :: AbsPitch
 > citmTranspose                           = 0
 >
+> citmLead_, citmStrum_, citmBass_
+>                        :: BandPart
 > citmLead_                               = makePitched AltoSax               citmTranspose 0 100
-> citmStrum_                              = makePitched AcousticGuitarSteel   citmTranspose 0 100
+> citmStrum_                              = makePitched ElectricGuitarJazz    citmTranspose 0 100
 > citmBass_                               = makePitched ElectricBassFingered  citmTranspose 0 100
 >
-> littleCITM dynMap =
+> littleCITM             :: Music (Pitch, [NoteAttribute])
+> littleCITM =
 >    removeZeros
 >    $ tempo citmTempo
 >    $ keysig G Major
 >    $ line [bandPart citmStrum_ (line [d 3 wn])]
 
+> getCITM                :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > getCITM dynMap =
 >    removeZeros
 >    $ tempo citmTempo
@@ -538,14 +577,19 @@ Country In The Morning =========================================================
 
 Whelp Narp ============================================================================================================
 
+> wnTempo                :: Dur
 > wnTempo                                  = 2
+> wnTranspose            :: AbsPitch
 > wnTranspose                              = 4
 >
+> wnLead_, wnStrings_, wnBass_, wnPerc_
+>                        :: BandPart
 > wnLead_                                  = makePitched    AltoSax              wnTranspose 0 90
-> wnStrings_                               = makePitched    OrchestralHarp       wnTranspose 0 90
+> wnStrings_                               = makePitched    Bagpipe              wnTranspose 0 90
 > wnBass_                                  = makePitched    ElectricBassPicked   wnTranspose 0 80
 > wnPerc_                                  = makeNonPitched                                    100
 >
+> whelpNarp :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > whelpNarp dynMap =
 >    removeZeros
 >    $ tempo wnTempo
@@ -673,9 +717,13 @@ Percussion-----
 
 Roger =================================================================================================================
 
+> rogerTempo             :: Dur
 > rogerTempo                               = 1
+> rogerTranspose         :: AbsPitch
 > rogerTranspose                           = 0
 >
+> rogerAlto_, rogerTenor_
+>                        :: BandPart
 > rogerAlto_                               = makePitched Flute               rogerTranspose 12 100
 > rogerTenor_                              = makePitched AcousticGuitarNylon rogerTranspose  0 100
 >
@@ -759,14 +807,19 @@ Roger ==========================================================================
 
 Way Pos' T' Purple ====================================================================================================
 
+> wayposTempo            :: Dur
 > wayposTempo                              = 1
+> wayposTranspose        :: AbsPitch
 > wayposTranspose                          = 0
 >
+> wayposLead_, wayposStrum_, wayposBass_, wayposPerc_
+>                        :: BandPart
 > wayposLead_                              = makePitched    Clarinet       wayposTranspose 0 100
 > wayposStrum_                             = makePitched    OrchestralHarp wayposTranspose 0 100
 > wayposBass_                              = makePitched    Bassoon        wayposTranspose 0  50
 > wayposPerc_                              = makeNonPitched                                  100
 >
+> waypostpurple          :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > waypostpurple dynMap =
 >    removeZeros
 >    $ tempo                               wayposTempo
@@ -890,16 +943,22 @@ Way Pos' T' Purple =============================================================
 >   pPoolB  = line [pPoolB1, pPoolB1]
 >   pPoolP  = rest 0
 
+> littlePendingtonArnt   :: Music (Pitch, Volume)
 > littlePendingtonArnt =
 >   instrument TenorSax $ addVolume 70 (addDur en [c 3, e 3, fs 3, g 3])
 >
+> littleWay              :: Music (Pitch, Volume)
 > littleWay  = instrument HonkyTonkPiano $ addVolume 100 $ addDur en [bf 4, a 4, g 4]
 
 Pendington Arnt  ======================================================================================================
 
+> pArntTempo             :: Dur
 > pArntTempo                              = 1
+> pArntTranspose         :: AbsPitch
 > pArntTranspose                          = 0
 >
+> pArntLead_, pArntStrum_, pArntBass_
+>                        :: BandPart
 > pArntLead_                              = makePitched TenorSax               pArntTranspose 0 100
 > pArntStrum_                             = makePitched AcousticGuitarNylon    pArntTranspose 0 100
 > pArntBass_                              = makePitched Cello                  pArntTranspose 0 100
@@ -929,41 +988,46 @@ Pendington Arnt  ===============================================================
 >      includeOpen                        = True
 >      includeClos                        = False -- intentional, TODO: cleanup
 >
-> zOpenT1 = addDur en [c 3, e 3, fs 3, g 3,
->                      a 3, b 3,  c 4, e 4]
-> zOpenT2 = line [fs 4 qn, fs 4 en, g 4 qn, g 4 en,
->                  e 4 qn,  e 4 en, f 4 qn, f 4 en]
-> zOpenT3 = line [e 4 qn,  e 4 en,
->                 Modify (Phrase [Dyn $ Diminuendo 0.9]) (e 4 dwn),
->                 rest qn, rest dqn]
-> zOpenT = line [zOpenT1, zOpenT2, zOpenT3]
-> zClosT = zOpenT
+>      zOpenT1 = addDur en [c 3, e 3, fs 3, g 3,
+>                           a 3, b 3,  c 4, e 4]
+>      zOpenT2 = line [fs 4 qn, fs 4 en, g 4 qn, g 4 en,
+>                       e 4 qn,  e 4 en, f 4 qn, f 4 en]
+>      zOpenT3 = line [e 4 qn,  e 4 en,
+>                      Modify (Phrase [Dyn $ Diminuendo 0.9]) (e 4 dwn),
+>                      rest qn, rest dqn]
+>      zOpenT = line [zOpenT1, zOpenT2, zOpenT3]
+>      zClosT = zOpenT
 >
-> zOpenG1 = rest wn
-> zOpenG2 = line [pTriadD dqn, pTriadG dqn,
->                 pTriadC dqn, pTriadBf dqn,
->                 pTriadSusA dqn,
->                 Modify (Phrase [Dyn $ Diminuendo 0.9]) (pTriadDim7A dwn),
->                 rest qn, rest dqn]
-> zOpenG = line [zOpenG1, zOpenG2]
-> zClosG = zOpenG
+>      zOpenG1 = rest wn
+>      zOpenG2 = line [pTriadD dqn, pTriadG dqn,
+>                      pTriadC dqn, pTriadBf dqn,
+>                      pTriadSusA dqn,
+>                      Modify (Phrase [Dyn $ Diminuendo 0.9]) (pTriadDim7A dwn),
+>                      rest qn, rest dqn]
+>      zOpenG = line [zOpenG1, zOpenG2]
+>      zClosG = zOpenG
 >
-> zOpenB1 = line [c 3 hn, a 2 hn, d 3 dqn, g 3 dqn, c 3 dqn, bf 2 dqn]
-> zOpenB2 = line [a 2 dqn,
->                 Modify (Phrase [Dyn $ Diminuendo 0.9]) (g 2 dwn),
->                 rest qn, rest dqn]
-> zOpenB = line [zOpenB1, zOpenB2]
-> zClosB = zOpenB
+>      zOpenB1 = line [c 3 hn, a 2 hn, d 3 dqn, g 3 dqn, c 3 dqn, bf 2 dqn]
+>      zOpenB2 = line [a 2 dqn,
+>                      Modify (Phrase [Dyn $ Diminuendo 0.9]) (g 2 dwn),
+>                      rest qn, rest dqn]
+>      zOpenB = line [zOpenB1, zOpenB2]
+>      zClosB = zOpenB
 
 Pan ===================================================================================================================
 
+> panTempo               :: Dur
 > panTempo                              = 1
+> panTranspose           :: AbsPitch
 > panTranspose                          = 0
 >
+> panLead_, panStrum_, panBass_
+>                        :: BandPart
 > panLead_                              = makePitched AltoSax                panTranspose 0 100
 > panStrum_                             = makePitched AcousticGuitarSteel    panTranspose 0 100
 > panBass_                              = makePitched AcousticBass           panTranspose 0 100
 >
+> pan                    :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > pan dynMap =
 >     removeZeros
 >     $ tempo panTempo
@@ -986,32 +1050,37 @@ Pan ============================================================================
 >         includeOpen = True
 >         includeClos = True
 >
-> xOpenT1 = addDur hn [gf 3, c 4, ef 4, af 4]
-> xOpenT2 = line [gf 3 hn, af 3 sn,  bf 3 sn,  c 4 sn,
->                 df 4 sn, ef 4 sn,   f 4 sn, gf 4 sn, f 4 sn]
-> xOpenT3 = line [ef 4 hn, df 4 dhn, ef 4 qn, df 4 en, c 4 en, df 4 en]
-> xOpenT = line [xOpenT1, xOpenT2, xOpenT3]
-> xClosT = xOpenT
+>         xOpenT1 = addDur hn [gf 3, c 4, ef 4, af 4]
+>         xOpenT2 = line [gf 3 hn, af 3 sn,  bf 3 sn,  c 4 sn,
+>                         df 4 sn, ef 4 sn,   f 4 sn, gf 4 sn, f 4 sn]
+>         xOpenT3 = line [ef 4 hn, df 4 dhn, ef 4 qn, df 4 en, c 4 en, df 4 en]
+>         xOpenT = line [xOpenT1, xOpenT2, xOpenT3]
+>         xClosT = xOpenT
 >
-> xOpenG1 = rest wn
-> xOpenG2 = line [pTriadAf hn]
-> xOpenG = line [xOpenG1, xOpenG2]
-> xClosG = xOpenG
+>         xOpenG1 = rest wn
+>         xOpenG2 = line [pTriadAf hn]
+>         xOpenG = line [xOpenG1, xOpenG2]
+>         xClosG = xOpenG
 >
-> xOpenB1 = line [gf 1 hn]
-> xOpenB2 = line [af 1 hn]
-> xOpenB = line [xOpenB1, xOpenB2]
-> xClosB = xOpenB
+>         xOpenB1 = line [gf 1 hn]
+>         xOpenB2 = line [af 1 hn]
+>         xOpenB = line [xOpenB1, xOpenB2]
+>         xClosB = xOpenB
 
 Rattan ================================================================================================================
 
+> ratTempo               :: Dur
 > ratTempo                                 = 1
+> ratTranspose           :: AbsPitch
 > ratTranspose                             = 0
 >
+> ratLead_, ratBass_, ratPerc_
+>                        :: BandPart
 > ratLead_                                 = makePitched AltoSax         ratTranspose 0 100
 > ratBass_                                 = makePitched SynthBass1      ratTranspose 0 100
 > ratPerc_                                 = makeNonPitched                             100
 > 
+> rattan                 :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > rattan dynMap =
 >     removeZeros
 >     $ tempo ratTempo
@@ -1028,40 +1097,41 @@ Rattan =========================================================================
 >   spart                                  = bandPart ratBass (times 2 sline)
 >   ppart                                  = bandPart ratPerc (times 2 pline)
 >
-> vline = line [vl_l01a, vl_101b, vl_l01a, vl_101b', vl_l01a, vl_101b, vl_l01a, vl_101b''
->             , vl_201a, vl_201a, vl_201a, vl_201a,  vl_201b, vl_201b, vl_201b, vl_201b
->             , vl_301a, vl_301a, vl_301a, vl_301a,  vl_301b]
+>   vline = line [vl_l01a, vl_101b, vl_l01a, vl_101b', vl_l01a, vl_101b, vl_l01a, vl_101b''
+>               , vl_201a, vl_201a, vl_201a, vl_201a,  vl_201b, vl_201b, vl_201b, vl_201b
+>               , vl_301a, vl_301a, vl_301a, vl_301a,  vl_301b]
 >
-> vl_l01a = line [chord [af 4 dqn, d 5 dqn, g 5 dqn]
->               , chord [af 4 en,  d 5 en,  g 5 en]
->               , rest en, f 5 en, e 5 en, d 5 en
->               , c 5 en, d 5 en, e 5 en, f 5 en]
-> vl_101b = line [e 5 qn, c 5 qn]
-> vl_101b' = e 5 hn
-> vl_101b'' = line [e 5 en, d 5 en, c 5 en, b 4 en]
-> vl_201a = triad A Minor (A, 4) qn
-> vl_201b = triad F Major (A, 4) qn
-> vl_301a = chord [af 4 qn, d 5 qn, gf 5 qn]
-> vl_301b = tempo (3/2) (line [c 4 en, d 4 en, e 4 en, d 4 en, e 4 en, fs 4 en, e 4 en, fs 4 en, gs 4 en])
-> vl_102 = rest 0
-> vl_103 = rest 0
+>   vl_l01a = line [chord [af 4 dqn, d 5 dqn, g 5 dqn]
+>                 , chord [af 4 en,  d 5 en,  g 5 en]
+>                 , rest en, f 5 en, e 5 en, d 5 en
+>                 , c 5 en, d 5 en, e 5 en, f 5 en]
+>   vl_101b = line [e 5 qn, c 5 qn]
+>   vl_101b' = e 5 hn
+>   vl_101b'' = line [e 5 en, d 5 en, c 5 en, b 4 en]
+>   vl_201a = triad A Minor (A, 4) qn
+>   vl_201b = triad F Major (A, 4) qn
+>   vl_301a = chord [af 4 qn, d 5 qn, gf 5 qn]
+>   vl_301b = tempo (3/2) (line [c 4 en, d 4 en, e 4 en, d 4 en, e 4 en, fs 4 en, e 4 en, fs 4 en, gs 4 en])
 >
-> sline = line [sl_l01, sl_l01, sl_l01, sl_l01, sl_102, sl_103]
+>   sline = line [sl_l01, sl_l01, sl_l01, sl_l01, sl_102, sl_103]
 >
-> sl_l01 = line [e 2 qn, e 2 qn, e 2 qn, e 2 qn, bf 2 qn, bf 2 qn, c 3 qn, c 3 qn]
-> sl_102 = line [a 2 qn, a 2 qn, a 2 qn, a 2 qn, ef 2 qn, ef 2 qn, ef 2 qn, ef 2 qn]
-> sl_103 = line [d 2 qn, d 2 qn, d 2 qn, d 2 qn, c 2 qn, d 2 qn, e 2 qn]
+>   sl_l01 = line [e 2 qn, e 2 qn, e 2 qn, e 2 qn, bf 2 qn, bf 2 qn, c 3 qn, c 3 qn]
+>   sl_102 = line [a 2 qn, a 2 qn, a 2 qn, a 2 qn, ef 2 qn, ef 2 qn, ef 2 qn, ef 2 qn]
+>   sl_103 = line [d 2 qn, d 2 qn, d 2 qn, d 2 qn, c 2 qn, d 2 qn, e 2 qn]
 >
-> pline   = line [pline01, pline02, pline03]
-> pline01 = line [times 2 (line [percLTqn, percHTen, roll sn (perc AcousticSnare wn), percCCen, percCCqn])]
-> pline02 = line [times 2 (line [percCHHen, percOHHqn, percOHHqn, percBDqn])]
-> pline03 = line [times 2 (line [roll en (perc ClosedHiHat 2), percCHHen, percOHHqn, percOHHqn, percBDqn])]
+>   pline   = line [pline01, pline02, pline03]
+>   pline01 = line [times 2 (line [percLTqn, percHTen, roll sn (perc AcousticSnare wn), percCCen, percCCqn])]
+>   pline02 = line [times 2 (line [percCHHen, percOHHqn, percOHHqn, percBDqn])]
+>   pline03 = line [times 2 (line [roll en (perc ClosedHiHat 2), percCHHen, percOHHqn, percOHHqn, percBDqn])]
 
 Kit ===================================================================================================================
 
+> kitTempo               :: Dur
 > kitTempo                                 = 2
+> kitTranspose           :: AbsPitch
 > kitTranspose                             = 0
 >
+> kitLead_, kitPerc_     :: BandPart
 > kitLead_                                 = makePitched FrenchHorn kitTranspose 0 100
 > kitPerc_                                 = makeNonPitched                        100
 >
@@ -1078,7 +1148,6 @@ Kit ============================================================================
 >
 >   p1 = perc LowTom
 >   p2 = perc AcousticSnare
->   p3 = perc CrashCymbal2
 >
 >   c1qn = chord [c 4 qn, e 4 qn, fs 4 qn, g 4 qn]
 >   c1en = chord [c 4 en, e 4 en, fs 4 en, g 4 en]
@@ -1088,11 +1157,9 @@ Kit ============================================================================
 >   c3en = chord [ds 4 en, f 4 en, a 4 en, c 5 en]
 >   c4qn = chord [e 4 qn, fs 4 qn, as 4 qn, c 5 qn]
 >   c4en = chord [e 4 en, fs 4 en, as 4 en, c 5 en]
->   c5qn = chord [b 4 qn, ds 5 qn]
 >   c5en = chord [b 4 en, ds 5 en]
 >   c6qn = chord [a 4 qn, cs 5 qn]
 >   c6en = chord [a 4 en, cs 5 en]
->   c7qn = chord [g 4 qn, b 4 qn]
 >   c7en = chord [g 4 en, b 4 en]
 >
 >   npart = line [npart01, npart02]
@@ -1109,33 +1176,18 @@ Kit ============================================================================
 
 Pit ===================================================================================================================
 
+> pitTempo               :: Dur
 > pitTempo                                 = 1
+> pitTranspose           :: AbsPitch
 > pitTranspose                             = 0
 >
+> pitLead_, pitStrum_, pitBass_
+>                        :: BandPart
 > pitLead_                                 = makePitched EnglishHorn           pitTranspose 0 100
 > pitStrum_                                = makePitched AcousticGuitarSteel   pitTranspose 0 100
 > pitBass_                                 = makePitched SynthBass1            pitTranspose 0 100
 >
-> pit1 = line [b 3 en, cs 4 en, ds 4 en, cs 4 en, fs 4 en, ds 4 en, cs 4 en, f 4 en]
-> pit2 = line [c 4 en, ds 4 en,  f 4 en, ds 4 en, fs 4 en, ds 4 en, d 4 en, ds 4 en]
-> pitA = times 2 $ line [times 4 pit1, times 4 pit2]
-> pitB = times 2 $ line [times 4 $ b 2 wn, times 4 $ gs 2 wn]
-> pitC = line [rest (4 * wn),  b 3 sn,  c 4 sn, cs 4 sn,  d 4 sn
->                           , ds 4 sn,  e 4 sn,  f 4 sn, fs 4 sn
->                           ,  g 4 sn, gs 4 sn,  a 4 sn, as 4 sn
->                           , times 4 (chord [b 4 qn, ds 4 qn, fs 4 qn])
->                           , times 2 (chord [c 5 qn,  d 5 qn, fs 4 qn])
->                           , times 2 (chord [c 5 qn, fs 5 qn, as 4 qn])
->                           ,  c 5 sn,  b 4 sn,  as 4 sn,  a 4 sn
->                           , gs 4 sn,  f 4 sn,   e 4 sn, ds 4 sn
->                           ,  d 4 sn, cs 4 sn,   c 4 sn,  b 3 sn
->                           , as 3 sn,  a 3 sn,  gs 3 sn,  g 3 sn
->                           , fs 3 sn,  f 3 sn,   e 3 sn,  f 3 sn
->                           , fs 3 wn,  f 3 wn,  fs 3 qn, gs 3 qn
->                           ,  a 3 wn, chord [ d 3 hn,  f 3 hn,  b 3 hn]
->                                    , chord [ds 3 wn, fs 3 wn,  c 4 wn]
->             ]
->
+> pit                    :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > pit dynMap =
 >   removeZeros
 >   $ tempo pitTempo
@@ -1149,14 +1201,38 @@ Pit ============================================================================
 >   pitLead                                = replace pitLead_ dynMap
 >   pitStrum                               = replace pitStrum_ dynMap
 >   pitBass                                = replace pitBass_ dynMap
+>
+>   pit1 = line [b 3 en, cs 4 en, ds 4 en, cs 4 en, fs 4 en, ds 4 en, cs 4 en, f 4 en]
+>   pit2 = line [c 4 en, ds 4 en,  f 4 en, ds 4 en, fs 4 en, ds 4 en, d 4 en, ds 4 en]
+>   pitA = times 2 $ line [times 4 pit1, times 4 pit2]
+>   pitB = times 2 $ line [times 4 $ b 2 wn, times 4 $ gs 2 wn]
+>   pitC = line [rest (4 * wn),  b 3 sn,  c 4 sn, cs 4 sn,  d 4 sn
+>                             , ds 4 sn,  e 4 sn,  f 4 sn, fs 4 sn
+>                             ,  g 4 sn, gs 4 sn,  a 4 sn, as 4 sn
+>                             , times 4 (chord [b 4 qn, ds 4 qn, fs 4 qn])
+>                             , times 2 (chord [c 5 qn,  d 5 qn, fs 4 qn])
+>                             , times 2 (chord [c 5 qn, fs 5 qn, as 4 qn])
+>                             ,  c 5 sn,  b 4 sn,  as 4 sn,  a 4 sn
+>                             , gs 4 sn,  f 4 sn,   e 4 sn, ds 4 sn
+>                             ,  d 4 sn, cs 4 sn,   c 4 sn,  b 3 sn
+>                             , as 3 sn,  a 3 sn,  gs 3 sn,  g 3 sn
+>                             , fs 3 sn,  f 3 sn,   e 3 sn,  f 3 sn
+>                             , fs 3 wn,  f 3 wn,  fs 3 qn, gs 3 qn
+>                             ,  a 3 wn, chord [ d 3 hn,  f 3 hn,  b 3 hn]
+>                                      , chord [ds 3 wn, fs 3 wn,  c 4 wn]
+>             ]
 
 Dit ===================================================================================================================
 
+> ditTempo               :: Dur
 > ditTempo                                 = 1
+> ditTranspose           :: AbsPitch
 > ditTranspose                             = -6
 >
+> ditBass_               :: BandPart
 > ditBass_                                 = makePitched Trombone ditTranspose 0 100
 >
+> dit                    :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > dit dynMap = 
 >   removeZeros
 >   $ tempo ditTempo
@@ -1182,11 +1258,15 @@ Dit ============================================================================
 
 Dadadada ==============================================================================================================
 
+> da4Tempo               :: Dur
 > da4Tempo                                 = 1
+> da4Transpose           :: AbsPitch
 > da4Transpose                             = 0
 >
+> da4Lead_               :: BandPart
 > da4Lead_                                 = makePitched AltoSax da4Transpose 0 100
 >
+> dadadada               :: Music (Pitch, [NoteAttribute])
 > dadadada =
 >   removeZeros
 >   $ tempo da4Tempo
@@ -1195,24 +1275,29 @@ Dadadada =======================================================================
 >
 >   where
 >
->   da4Lead                                = replace da4Lead_
->
+>   -- WOX da4Lead                                = replace da4Lead_
 >   body = line [af 4 en, bf 4 en, c 5 en, bf 4 en, c 5 en, bf 4 en]
 
 Deydumpdum ============================================================================================================
 
+> d3TempoCapture         :: Dur
 > d3TempoCapture                           = 1
+> d3TempoPlay            :: Dur
 > d3TempoPlay                              = 3/2
+> d3Transpose            :: AbsPitch
 > d3Transpose                              = 0
 >
+> d3Lead_, d3LeadQ_, d3Bass_, d3BassQ_
+>                         :: BandPart
 > d3Lead_                                  = makePitched Violin               d3Transpose          0        100
 > d3LeadQ_                                 = makePitched Violin               d3Transpose          0         75
 > d3Bass_                                  = makePitched SynthBass2           d3Transpose          0         90
 > d3BassQ_                                 = makePitched SynthBass2           d3Transpose          0         60
 >
-> deyDumpDum dynMap =
+> deyDumpDum             :: Bool → Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
+> deyDumpDum cap dynMap =
 >   removeZeros
->   $ tempo d3TempoPlay
+>   $ tempo (if cap then d3TempoCapture else d3TempoPlay)
 >   $ keysig Af Mixolydian
 >   $     line [         bandPart d3Lead leadI, bandPart d3LeadQ leadIIa, bandPart d3Lead leadIIb]
 >     :=: line [rest wn, bandPart d3Bass bassI, bandPart d3BassQ bassII]

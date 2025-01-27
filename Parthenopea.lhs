@@ -18,6 +18,7 @@ December 12, 2022
 
 > module Parthenopea where
 >
+> import Boot
 > import qualified Codec.Midi              as M
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq (NFData)
@@ -25,7 +26,6 @@ December 12, 2022
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Char
 > import Data.Complex
 > import Data.Either
 > import Data.Graph (Graph)
@@ -34,45 +34,23 @@ December 12, 2022
 > import Data.List hiding (transpose)
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
-> import Data.Maybe ( fromJust, isJust, isNothing, mapMaybe, fromMaybe, listToMaybe )
+> import Data.Maybe
 > import Data.MemoTrie
 > import Data.Ord
-> import Data.Ratio ( approxRational, (%) )
+> import Data.Ratio ( approxRational )
 > import qualified Data.Vector.Unboxed     as VU
-> import qualified Data.Vector             as VB
 > import Data.Word
-> import Debug.Trace ( trace )
-> import Euterpea.IO.Audio.Basics ( outA, apToHz )
-> import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg, Table, tableSinesN, osc )
+> import Euterpea.IO.Audio.Basics ( outA )
+> import Euterpea.IO.Audio.BasicSigFuns ( Table, tableSinesN )
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MEvent
-> import Euterpea.IO.MIDI.MidiIO (unsafeOutputID, unsafeInputID, OutputDeviceID, InputDeviceID)
+> import Euterpea.IO.MIDI.MidiIO ( unsafeOutputID )
 > import Euterpea.IO.MIDI.Play
-> import Euterpea.IO.MIDI.ToMidi2 (writeMidi2)
+> import Euterpea.IO.MIDI.ToMidi2 ( writeMidi2 )
 > import Euterpea.Music
-> import GHC.Generics (Generic) 
-> import HSoM.Performance ( metro, Context (cDur) )
-> import SettingsDefs
+> import GHC.Generics ( Generic ) 
+> import HSoM.Performance ( metro )
 > import System.Random ( Random(randomR), StdGen )
-  
-Tracing ===============================================================================================================
-
-> traceIf, traceNow, traceAlways, traceNever, traceNot
->                        :: String → a → a
-> traceIf str expr                         = if diagnosticsEnabled then trace str expr else expr
-> traceNow                                 = trace
-> traceAlways                              = trace
-> traceNever str expr                      = expr
-> traceNot str expr                        = expr
->
-> tracer                 :: Show a ⇒ String → a → a
-> tracer str x                             =
->   if True
->     then traceNow (unwords [str ++ "=", show x]) x
->     else x
->
-> notracer               :: Show a ⇒ String → a → a
-> notracer _ x                             = x
 
 Utilities =============================================================================================================
 
@@ -80,17 +58,10 @@ Utilities ======================================================================
 > hzToAp freak                             =
 >   round $ fromIntegral (absPitch (A,4)) + 12 * (logBase 2 freak - logBase 2 440)
 >
-> theE, epsilon, upsilon :: Double
-> theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
-> epsilon                                  = 1e-8               -- a generous little epsilon
-> upsilon                                  = 1e10               -- a scrawny  big    upsilon
->
-> qMidiSize128           :: Int            = 128
-> qMidiSizeSpace         :: Int            = qMidiSize128 * qMidiSize128
->
-> qOffsetWeights         :: [Int]          = [1, 32_768]
+> qOffsetWeights         :: [Int]
+> qOffsetWeights                           = [1, 32_768]
 > freakRange             :: (Double, Double)
->                                          = (20, 20_000)
+> freakRange                               = (20, 20_000)
 >
 > impM                   :: FilePath → IO ()
 > impM fp                                  = do
@@ -112,18 +83,18 @@ Utilities ======================================================================
 >   return $ rest 0
 >
 > addDur                 :: Dur → [Dur → Music a] → Music a
-> addDur d ns  =  let f n = n d
->                 in line (map f ns)
+> addDur durA ns  =  let fun n = n durA
+>                    in line (map fun ns)
 >
 > grace                  :: Int → Music Pitch → Music Pitch
-> grace n (Prim (Note d p))                = note (est * d) (trans n p) :+: note ((1 - est) * d) p
+> grace n (Prim (Note durG p))             = note (est * durG) (trans n p) :+: note ((1 - est) * durG) p
 >   where
 >     est                :: Rational
 >     est
->       | d < 1/8                          = 1/2
->       | d > (2*wn)                       = 1/(8*d)
+>       | durG < 1/8                       = 1/2
+>       | durG > (2*wn)                    = 1/(8*durG)
 >       | otherwise                        = 1/8
-> grace n _                                = 
+> grace _ _                                = 
 >   error "Can only add a grace note to a note."
 >
 > t32                    :: [Music a] → Music a
@@ -136,22 +107,21 @@ Utilities ======================================================================
 > capture                                  = writeMidi2 "Parthenopea.mid"
 >
 > fractionOf             :: Int → Double → Int
-> fractionOf x d                           = min 127 $ round $ d * fromIntegral x
+> fractionOf x doub                        = min 127 $ round $ doub * fromIntegral x
 >
 > slur                   :: Rational → Music a → Music a
-> slur rate                                = Modify (Phrase [Art (Slurred rate)])
+> slur rateS                               = Modify (Phrase [Art (Slurred rateS)])
 >
-> durS                   :: Rational → Double
-> durS r                                   = 2 * fromRational r
-> 
 > ratEps                 :: Double
 > ratEps                                   = 0.000_1
 >
 > approx                 :: Double → Dur
-> approx dur                               = approxRational dur ratEps
+> approx durA                              = approxRational durA ratEps
 >
+> rawPitches             :: [AbsPitch]
 > rawPitches                               = [0..127]
 >
+> allPitches             :: Music Pitch
 > allPitches =
 >    foldr ((:+:) . notize) (rest 0) rawPitches
 >    where
@@ -172,7 +142,7 @@ more than 16 instruments to be used in the source music.
 >     , devID                              = case mi of
 >                                              Nothing → Nothing
 >                                              Just i → Just $ unsafeOutputID i
->     , perfAlg= map (\e → e{eDur = max 0 (eDur e - 0.000_001)}) . perform}
+>     , perfAlg= map (\mev → mev{eDur = max 0 (eDur mev - 0.000_001)}) . perform}
 
 This alternate playback function will merge overlapping notes, 
 which makes for a cleaner sound on some synthesizers:
@@ -180,16 +150,16 @@ which makes for a cleaner sound on some synthesizers:
 > playX        :: (NFData a, ToMusic1 a) ⇒ Music a → IO ()
 > playX = playC defParams{perfAlg = eventMerge . perform} where 
 >     eventMerge :: Performance → Performance
->     eventMerge (e1:e2:es) = 
+>     eventMerge (e1:e2:mevs) = 
 >         let e1' = e1{eDur = eTime e2 + eDur e2 - eTime e1}
->         in  if ePitch e1 == ePitch e2 then eventMerge (e1':es) 
->             else e1 : eventMerge (e2:es)
->     eventMerge e = e
+>         in  if ePitch e1 == ePitch e2 then eventMerge (e1':mevs) 
+>             else e1 : eventMerge (e2:mevs)
+>     eventMerge mev = mev
 
 "triad" ===============================================================================================================
 
 > triad                  :: PitchClass → Mode → Pitch → Dur → Music Pitch
-> triad key mode base dur                  = chord [n1, n2, n3]
+> triad key mode base durT                 = chord [n1, n2, n3]
 >   where
 >     rkP                                  = absPitch (key, snd base - 1)
 >     bP                                   = absPitch base
@@ -200,13 +170,13 @@ which makes for a cleaner sound on some synthesizers:
 >     is                 :: [AbsPitch]     = offsets2intervals mode2offsets
 >
 >     n1, n2, n3         :: Music Pitch
->     n1                                   = note dur $ pitch bP
->     n2                                   = note dur $ pitch (bP + head          is)
->     n3                                   = note dur $ pitch (bP + (head . tail) is)
+>     n1                                   = note durT $ pitch bP
+>     n2                                   = note durT $ pitch (bP + head          is)
+>     n3                                   = note durT $ pitch (bP + (head . tail) is)
 >
 >     major                                = [0, 4, 7, 12, 16]
 >     minor                                = [0, 3, 7, 12, 15]
->     dim                                  = [0, 3, 6, 12, 15]
+>     dimn                                 = [0, 3, 6, 12, 15]
 >     sus4                                 = [0, 5, 7, 12, 17]
 >     sus2                                 = [0, 2, 7, 12, 14]
 >     aug                                  = [0, 4, 8, 12, 16]
@@ -222,26 +192,26 @@ which makes for a cleaner sound on some synthesizers:
 >       | Lydian               == mode     = major
 >       | Mixolydian           == mode     = major
 >       | Aeolian              == mode     = minor
->       | Locrian              == mode     = dim
+>       | Locrian              == mode     = dimn
 >       | CustomMode "Sus4"    == mode     = sus4
 >       | CustomMode "Sus2"    == mode     = sus2
->       | CustomMode "Dim"     == mode     = dim
+>       | CustomMode "Dim"     == mode     = dimn
 >       | CustomMode "Aug"     == mode     = aug
 >       | CustomMode "Chrome"  == mode     = chrome
 >       | otherwise                        = error "Requested Mode not supported"
 >
 >     offsets2intervals  :: [AbsPitch] → [AbsPitch]
 >     offsets2intervals os
->       | apD == a                         = (b - a) : [c - a]
->       | apD == b                         = (c - b) : [d - b]
->       | apD == c                         = (d - c) : [e - c]
+>       | apD == aI                        = (bI - aI) : [cI - aI]
+>       | apD == bI                        = (cI - bI) : [dI - bI]
+>       | apD == cI                        = (dI - cI) : [eI - cI]
 >       | otherwise                        = error "Malformed Triad"
 >       where
->         a                                = head os
->         b                                = os!!1
->         c                                = os!!2
->         d                                = os!!3
->         e                                = os!!4
+>         aI                               = head os
+>         bI                               = os!!1
+>         cI                               = os!!2
+>         dI                               = os!!3
+>         eI                               = os!!4
 
 "mode2Templ8" =========================================================================================================
 
@@ -268,6 +238,7 @@ which makes for a cleaner sound on some synthesizers:
 >       | augmented                == mode = [0,2,4,6,8,10]
 >       | otherwise                        = error $ unwords [fName, show mode, "not supported yet"]
 >
+> shiftMode              :: Integral a ⇒ Int → [a] → [a]
 > shiftMode k t                            =
 >   let
 >     n                                    = length t
@@ -275,7 +246,9 @@ which makes for a cleaner sound on some synthesizers:
 >     v                                    = 12 - t' !! k
 >   in
 >     take n $ map (\x → (v + x) `mod` 12) (drop k t')
->         
+>
+> chromatic, diminished, augmented
+>                        :: Mode         
 > chromatic                                = CustomMode "Chrome"
 > diminished                               = CustomMode "Dim"
 > augmented                                = CustomMode "Aug"
@@ -289,16 +262,16 @@ which makes for a cleaner sound on some synthesizers:
 "ascendFrom/descendFrom" ==============================================================================================
 
 > squeezeAPSequence      :: [AbsPitch] → Dur → Music Pitch
-> squeezeAPSequence gliss dur
->   | skipGlissandi                         = rest dur
+> squeezeAPSequence gliss durS
+>   | skipGlissandi                         = rest durS
 >   | length gliss < 6                      = error $ unwords [fName, "not enough notes"]
->   | dur < 1 / 8                           = error $ unwords [fName, "not enough duration"]
->   | otherwise                             = chord [rest dur, dim 1 $ slur 2 $ line notes]
+>   | durS < 1 / 8                          = error $ unwords [fName, "not enough duration"]
+>   | otherwise                             = chord [rest durS, dim 1 $ slur 2 $ line notes]
 >   where
 >     fName                                = "squeezeAPSequence"
 >
 >     reach              :: Rational       = fromIntegral $ length gliss
->     notes              :: [Music Pitch]  = [note (dur * 9 / (reach * 10)) (pitch x) | x ← gliss]
+>     notes              :: [Music Pitch]  = [note (durS * 9 / (reach * 10)) (pitch x) | x ← gliss]
 >
 > extendModeToInfinity   :: Bool → AbsPitch → [AbsPitch] → [(AbsPitch, Int)]
 > extendModeToInfinity desc start templ8
@@ -307,16 +280,16 @@ which makes for a cleaner sound on some synthesizers:
 >   where
 >     fName                                = "extendModeToInfinity"
 >
->     n                                    = length templ8
+>     nT                                   = length templ8
 >     doNext             :: (AbsPitch, Int) → (AbsPitch, Int)
->     doNext (ap, index)                   = (ap + delta, index')
+>     doNext (ap, ix)                      = (ap + delta, ix')
 >       where  
->         (index', offset)
->           | desc                         = if index == 0 then (n - 1, -12) else (index - 1, 0)
->           | index + 1 == n               = (0, 12)
->           | otherwise                    = (index + 1, 0)
+>         (ix', offs)
+>           | desc                         = if ix == 0 then (nT - 1, -12) else (ix - 1, 0)
+>           | ix + 1 == nT                 = (0, 12)
+>           | otherwise                    = (ix + 1, 0)
 >  
->         delta                            = templ8 !! index' - templ8 !! index  + offset
+>         delta                            = templ8 !! ix' - templ8 !! ix  + offs
 >
 >     trace_EMTI                           = unwords [fName, show start, show templ8]
 >
@@ -345,12 +318,12 @@ ranges =========================================================================
 > denorm r (lo, up)                        = lo + r * (up-lo)
 >
 > randomNorms            :: StdGen → [Double]
-> randomNorms g                            = x : randomNorms g'
+> randomNorms genR                         = x : randomNorms genR'
 >    where
->      (x, g') = randomR (0,1) g
+>      (x, genR')                          = randomR (0,1) genR
 >
 > randomNormSets         :: Int → StdGen → [[Double]]
-> randomNormSets n g                       = takeWhile (not . null) $ unfoldr (Just . splitAt n) (randomNorms g)
+> randomNormSets n genR                    = takeWhile (not . null) $ unfoldr (Just . splitAt n) (randomNorms genR)
 >
 > instrumentLimit :: Double
 > instrumentLimit = fromIntegral $ fromEnum Gunshot
@@ -485,19 +458,19 @@ also
 >     rangedInsts                          = mapMaybe judgeScore (fst allKinds)
 >
 >     judgeScore         :: InstrumentName → Maybe (Int, InstrumentName)
->     judgeScore cand                      = (\c → if nonPitchedInstrument c then Nothing else Just c) cand
+>     judgeScore cand                      = (\j → if nonPitchedInstrument j then Nothing else Just j) cand
 >                                            >>= instrumentRange >>= uncurry (fitsIn cand)
 >     
 >     fitsIn             :: InstrumentName → AbsPitch → AbsPitch → Maybe (Int, InstrumentName)
 >     fitsIn cand rangeLo rangeHi
 >       | traceNever trace_FI False        = undefined
 >       | otherwise                        =
->         if inRange range playedLo && inRange range playedHi 
->           then Just (snd range - fst range, cand)
+>         if inRange rng playedLo && inRange rng playedHi 
+>           then Just (snd rng - fst rng, cand)
 >           else Nothing
 >       where
->         range                            = (rangeLo, rangeHi)
->         trace_FI                         = unwords ["fitsIn", show range, show playedLo, show playedHi]
+>         rng                              = (rangeLo, rangeHi)
+>         trace_FI                         = unwords ["fitsIn", show rng, show playedLo, show playedHi]
 >
 >     trace_FBI                            = unwords ["findBetterInstrument", show than, show rangedInsts]
 >
@@ -515,16 +488,20 @@ also
 >     (lo, hi)                             = bounds vect
 >     frange                               = (0, fromIntegral (hi - lo + 1) - 0.000_001)
 >
-> wideOpen               :: (AbsPitch, AbsPitch) = (0, 127)
+> wideOpen               :: (AbsPitch, AbsPitch)
+> wideOpen                                       = (0, 127)
 
 instrument range checking =============================================================================================
 
 > union2Ranges           :: (Ord a, Ord b) ⇒ (a, b) → (a, b) → (a, b)
 > union2Ranges r1 r2                       = unionRanges (r1:[r2])
+> unionRanges            :: (Ord a, Ord b) ⇒ [(a, b)] → (a, b)
 > unionRanges []                           = error "empty range list"
 > unionRanges (r:rs)                       = ( minimum (map fst (r:rs))
 >                                            , maximum (map snd (r:rs)) )
+> intersect2Ranges       :: Ord b ⇒ (b, b) → (b, b) → Maybe (b, b)
 > intersect2Ranges r1 r2                   = intersectRanges (r1:[r2])
+> intersectRanges        :: Ord b ⇒ [(b, b)] → Maybe (b, b)
 > intersectRanges (r:rs)                   =
 >   case uncurry compare inverted of
 >     LT → Just inverted
@@ -602,7 +579,7 @@ instrument range checking ======================================================
 >     nasFun na                            = na 
 >
 > bendNote               :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music (Pitch, [NoteAttribute])
-> bendNote bp pc o d bend                  = note d ((pc, o), [Volume bp.bpVelocity, Params [fromIntegral bend]])
+> bendNote bp pc o durB bend               = note durB ((pc, o), [Volume bp.bpVelocity, Params [fromIntegral bend]])
 >
 > addVolume'    :: BandPart → Music Pitch → Music (Pitch,[NoteAttribute])
 > addVolume' bp                            = mMap (, [Volume bp.bpVelocity])
@@ -612,8 +589,6 @@ instrument range checking ======================================================
 
 examine song for instrument and percussion usage ======================================================================
 
-> type GMKind                              = Either InstrumentName PercussionSound
-> 
 > data Shred =
 >   Shred {
 >       shLowNote        :: MEvent
@@ -624,6 +599,7 @@ examine song for instrument and percussion usage ===============================
 >   Shredding {
 >       shRanges         :: Map GMKind Shred
 >     , shMsgs           :: [(InstrumentName, [String])]} deriving (Show, Eq, Ord)
+> defShredding           :: Shredding
 > defShredding                             = Shredding Map.empty []
 >
 > getGMKind              :: MEvent → GMKind
@@ -633,7 +609,7 @@ examine song for instrument and percussion usage ===============================
 >     _                                    → Left eInst
 >
 > shimSong                :: Music (Pitch, [NoteAttribute]) → DynMap → Music (Pitch, [NoteAttribute])
-> shimSong m a                             = m
+> shimSong m _                             = m
 >
 > shredMusic              :: ToMusic1 a ⇒ Music a → IO Shredding
 > shredMusic m                             =
@@ -643,11 +619,6 @@ examine song for instrument and percussion usage ===============================
 > shredSongs songs                         = do
 >   shredses                               ← mapM shredSong songs
 >   return $ foldr (Map.unionWith combineShreds) Map.empty shredses
->
-> allKinds               :: ([InstrumentName], [PercussionSound])
-> allKinds                                 =
->   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
->    , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
 >
 > qualifyKinds           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
 >                           → IO ([InstrumentName], [PercussionSound])
@@ -681,20 +652,20 @@ examine song for instrument and percussion usage ===============================
 > critiqueShred          :: (GMKind, Shred) → [(InstrumentName, [String])]
 > critiqueShred (kind, Shred{ .. })        =
 >   let
->     (instr, range)                       =
+>     (instr, rng)                       =
 >       case kind of
 >         Left iname                       → (iname, fromMaybe wideOpen (instrumentRange iname))
 >         _                                → (Percussion, wideOpen)
->   in critiqueNote instr range shLowNote ++ critiqueNote instr range shHighNote
+>   in critiqueNote instr rng shLowNote ++ critiqueNote instr rng shHighNote
 > 
 > critiqueNote           :: InstrumentName → (AbsPitch, AbsPitch) → MEvent → [(InstrumentName, [String])]
-> critiqueNote name range mev              =
+> critiqueNote name rng mev              =
 >   let
 >     p                                    = mev.ePitch
 >   in
->     if p == clip range p
+>     if p == clip rng p
 >       then []
->       else singleton (name, singleton $ unwords ["...", show p, "out of range", show range])
+>       else singleton (name, singleton $ unwords ["...", show p, "out of range", show rng])
 >
 > shFolder               :: Shredding → MEvent → Shredding
 > shFolder ding mev                        =
@@ -750,22 +721,16 @@ examine song for instrument and percussion usage ===============================
 >       _                                  → showShred shLowNote ++ "\n" 
 >   showShred mev                          =
 >     case kind of
->       Left _                             → show (fromRational mev.eTime)
+>       Left _                             → show v
 >                                            ++ show (pitch mev.ePitch)
 >                                            ++ showOutOfRangeIndicator mev.ePitch
->       _                                  → show (fromRational mev.eTime)
+>       _                                  → show v
+>     where
+>       v                :: Double
+>       v                                  = fromRational mev.eTime
 >   showOutOfRangeIndicator p              = if isNothing mrange || inRange (deJust "range" mrange) p
 >                                              then "."
 >                                              else "!"
->
-> pitchToPerc            :: AbsPitch → Maybe PercussionSound
-> pitchToPerc ap                           =
->   let
->     ad                                   = ap - 35
->   in
->     if ad >= fromEnum AcousticBassDrum && ad <= fromEnum OpenTriangle
->       then Just (toEnum ad)
->       else Nothing
 
 tournament among instruments in various soundfont files ===============================================================
 
@@ -813,23 +778,11 @@ snippets to be used with "lake" ================================================
 music converter =======================================================================================================
 
 > aggrandize             :: Music (Pitch, Volume) → Music (Pitch, [NoteAttribute])
-> aggrandize (Prim (Note d (p, v)))        = Prim (Note d (p, [Volume v]))
-> aggrandize (Prim (Rest d))               = Prim (Rest d)
+> aggrandize (Prim (Note durN (p, v)))     = Prim (Note durN (p, [Volume v]))
+> aggrandize (Prim (Rest durN))            = Prim (Rest durN)
 > aggrandize (m1 :+: m2)                   = aggrandize m1 :+: aggrandize m2
 > aggrandize (m1 :=: m2)                   = aggrandize m1 :=: aggrandize m2
-> aggrandize (Modify c m)                  = Modify c (aggrandize m)
->
-> linten                 :: Music (Pitch, [NoteAttribute]) → [String]
-> linten                                   = mFold f (++) (++) h
->   where
->     f (Note _ (_, na))                   = concatMap g na
->     f _                                  = []
->     g (Volume v)                         = [show v | v < 0]
->     g _                                  = []
->     h (Phrase pa) ss                     = ss ++ concatMap j pa
->     h _ ss                               = ss
->     j (Dyn dyn)                          = [show dyn]
->     j _                                  = []
+> aggrandize (Modify ctrl m)               = Modify ctrl (aggrandize m)
 
 -----------------------------------------------------------------------------------------------------------------------
 
@@ -841,6 +794,7 @@ music converter ================================================================
 >   , ksFast             :: Bool
 >   , ksLen              :: Int} deriving (Eq, Generic, Ord, Show)
 >
+> defKernelSpec          :: Bool → KernelSpec
 > defKernelSpec bFast                      = KernelSpec 13_500 0 44_100 bFast 300
 >
 > instance HasTrie KernelSpec where
@@ -856,12 +810,14 @@ music converter ================================================================
 
 Signals of interest ===================================================================================================
 
-> sawtoothTable      :: Table              = tableSinesN 16_384 
+> sawtoothTable          :: Table
+> sawtoothTable                            = tableSinesN 16_384 
 >                                                          [      1, 0.5  , 0.3
 >                                                            , 0.25, 0.2  , 0.167
 >                                                            , 0.14, 0.125, 0.111]
 >
-> triangleWaveTable      :: Table          = tableSinesN 16_384 
+> triangleWaveTable      :: Table
+> triangleWaveTable                        = tableSinesN 16_384 
 >                                                          [      1,  0, -0.5,  0,  0.3,   0
 >                                                           , -0.25,  0,  0.2,  0, -0.167, 0
 >                                                           ,  0.14,  0, -0.125]
@@ -873,7 +829,6 @@ Sampling =======================================================================
 > toSamples secs sig                       = take numSamples $ unfold $ strip sig
 >   where
 >     sr                                   = rate     (undefined :: p)
->     numChannels                          = numChans (undefined :: a)
 >     numSamples                           = truncate (secs * sr)
 >
 > toFftSamples           :: ∀ a p. (AudioSample a, VU.Unbox a, Clock p) ⇒ Int → Signal p () a → VU.Vector a
@@ -887,7 +842,7 @@ Sampling =======================================================================
 >     numDubs                              = truncate (secs * sr) * numChannels
 >
 > maxSample              :: ∀ p. (Clock p) ⇒ Double → Signal p () Double → Double
-> maxSample dur sf                         = maximum $ map abs (toSamples dur sf)
+> maxSample durS sf                        = maximum $ map abs (toSamples durS sf)
 
 Control Functions
 
@@ -895,29 +850,34 @@ The use of following functions requires that their input is normalized between 0
 (And you can count on the output being likewise normalized!)
 
 > controlLinear          :: Double → Double
-> controlLinear d                          = d
+> controlLinear                            = id
 >
 > quarterCircleTable     :: Array Int Double
 >                                            -- TODO: use Table
->                                          = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
+> quarterCircleTable                       = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
 >   where
 >     calc               :: Int → Double
->     calc i                               = 1 - sqrt (1 - c*c)
+>     calc i                               = 1 - sqrt (1 - cD*cD)
 >       where
->         c              :: Double         = fromIntegral i / tableSize
+>         cD             :: Double         = fromIntegral i / tableSize
 >
-> qTableSize             :: Int            = 1024
-> tableSize              :: Double         = fromIntegral qTableSize
+> qTableSize             :: Int
+> qTableSize                               = 1024
+> tableSize              :: Double
+> tableSize                                = fromIntegral qTableSize
 >
-> controlConcave d
->   | d >= 1                               = 1
->   | otherwise                            = quarterCircleTable ! truncate (d * tableSize)
+> controlConcave         :: Double → Double
+> controlConcave doub
+>   | doub >= 1                            = 1
+>   | otherwise                            = quarterCircleTable ! truncate (doub * tableSize)
 >
-> controlConvex d
->   | (1 - d) >= 1                         = 1
->   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - d) * tableSize))
+> controlConvex          :: Double → Double
+> controlConvex doub
+>   | (1 - doub) >= 1                      = 1
+>   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - doub) * tableSize))
 >
-> controlSwitch d                          = if d < 0.5
+> controlSwitch          :: (Ord a1, Fractional a1, Num a2) ⇒ a1 → a2
+> controlSwitch doub                       = if doub < 0.5
 >                                              then 0
 >                                              else 1
 >
@@ -941,9 +901,9 @@ The use of following functions requires that their input is normalized between 0
 >   ascale               :: Double → Double → Double
 >   ascale                                 = amul
 >   aadd                 :: Double → Double → Double
->   aadd d e                               = d + e
+>   aadd x y                               = x + y
 >   amul                 :: Double → Double → Double
->   amul d e                               = d * e
+>   amul x y                               = x * y
 >   asqrt                :: Double → Double
 >   asqrt                                  = sqrt
 >
@@ -957,9 +917,9 @@ The use of following functions requires that their input is normalized between 0
 >   ascale               :: Double → Complex Double → Complex Double
 >   ascale s                               = amul (s :+ 0)
 >   aadd                 :: Complex Double → Complex Double → Complex Double
->   aadd d e                               = d + e
+>   aadd x y                               = x + y
 >   amul                 :: Complex Double → Complex Double → Complex Double
->   amul d e                               = d * e
+>   amul x y                               = x * y
 >   asqrt                :: Complex Double → Complex Double
 >   asqrt                                  = sqrt
 >
@@ -971,8 +931,8 @@ The use of following functions requires that their input is normalized between 0
 > type Node = Int
 >
 > aEqual                 :: (Eq a, Show a) ⇒ a → a → Bool
-> aEqual a b
->   | a /= b                               = error (show a ++ " and " ++ show b ++ " had to be equal!?")
+> aEqual x y
+>   | x /= y                               = error (show x ++ " and " ++ show y ++ " had to be equal!?")
 >   | otherwise                            = True
 >
 > makeGraph              :: [(Node, [Node])] → Graph
@@ -1008,39 +968,20 @@ Conversion functions and general helpers =======================================
 >     (msg ++ " bad Double = " ++ show y)
 >     y
 >
-> goodChar               :: Char → Bool
-> goodChar c                               = isAscii c && not (isControl c)
->
-> goodName               :: String → Bool
-> goodName                                 = all goodChar
->
-> fixName                :: String → String
-> fixName                                  = map (\c → if goodChar c then c else '_')
->
-> profess                :: Bool → String → a → a
-> profess assertion msg something          = if not assertion
->                                              then error ("Failed assertion -- " ++ msg)
->                                              else something
->
-> professInRange         :: (Eq a, Ord a, Show a) ⇒ (a, a) → a → String → a → a
-> professInRange range val role            = profess
->                                              (val == clip range val)
->                                              (unwords ["out of", role, "range", show range, show val])
->
-> deJust                 :: ∀ a. String → Maybe a → a
-> deJust tag item                          = profess (isJust item) (unwords["expected Just for", tag]) (fromJust item)
->
 > roundBy                :: Double → Double → Double
-> roundBy p10 x                            = fromIntegral (round (p10 * x)) / p10
+> roundBy p10 x                            = fromIntegral rnd / p10
+>   where
+>     rnd                :: Int
+>     rnd                                  = round (p10 * x)
 >
 > sumOfWeightedInts      :: ∀ a. Num a ⇒ [Maybe a] → [a] → a
 > sumOfWeightedInts xs ws                  = sum $ zipWith (\w x → w * fromMaybe 0 x) ws xs
 >       
 > addIntToWord           :: Word → Int → Word
-> addIntToWord w i                         = fromIntegral sum
+> addIntToWord w i                         = fromIntegral (iw + i)
 >   where
->     iw                 :: Int            = fromIntegral w
->     sum                :: Int            = iw + i
+>     iw                 :: Int
+>     iw                                   = fromIntegral w
 >
 > integralize            :: ∀ a b. (Integral a, Num b) ⇒ Maybe (a, a) → Maybe (b, b)
 > integralize mww                          =
@@ -1048,23 +989,9 @@ Conversion functions and general helpers =======================================
 >     Nothing                              → Nothing
 >     Just (w1, w2)                        → if w1 > w2 then Nothing else Just (fromIntegral w1, fromIntegral w2)
 >
-> wrap                   :: (Ord n, Num n) ⇒ n → n → n
-> wrap val bound                           = if val > bound then wrap val (val-bound) else val
->
-> accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
-> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
->
-> clip                   :: Ord n ⇒ (n, n) → n → n
-> clip (lower, upper) val                  = min upper (max lower val)
->
-> deriveRange            :: Integral n ⇒ n → n → [n]
-> walkRange              :: Integral n ⇒ (n, n) → [n]
-> deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]
-> walkRange (x, y)                         = if x > y || y < 0 then [] else [x..y]
->
 > almostEqual            :: Double → Double → Bool
 > almostEqual 0 0                          = True
-> almostEqual a b                          = epsilon > abs ((a - b) / (a + b))
+> almostEqual x y                          = epsilon > abs ((x - y) / (x + y))
 
 Account for microtones specified by SoundFont scale tuning : 0 < x < 100 < 1200
 Note result is incorrect overall when involves multiple root pitches
@@ -1073,151 +1000,11 @@ Note result is incorrect overall when involves multiple root pitches
 > calcMicrotoneRatio rootp p x             = step ** fromIntegral (rootp - p)
 >   where
 >     step               :: Double         = 2 ** (x / 1_200)
-
-Range theory ==========================================================================================================
-
-Model rectilinear sub-space coverage; e.g. find unwanted (sub-)space overlaps. Each space (of nspaces) contains
-exactly ndims (2 in the MIDI case) ranges. If dim is the value of a dimension then its overall range is implicitly
-0..dim-1 -- the associated _specified_ space range carves out a subset thereof.
-
-Say you have ndims=2 dimensions each of 64 extent. (Partially) covering overall 64x64 space are nspaces=3 "zones". 
-
-Zone 1: 32..57 "pitch", 11..47 "velocity"
-Zone 2: 21..40        , 20..21
-Zone 3: 0..1          , 0..1
-
-You see there is some overlap between Zone 1 and Zone 2.
-
-> smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
->                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
-> smashSubspaces tag dims spaces_
->   | traceIf trace_SS False               = undefined
->   | otherwise                            = Smashing tag dims spaces (developSmashStats svector) svector
->   where
->     spaces             :: [(i, [(i, i)])]
->     spaces                               = map (BF.second (zipWith (\dim → fromMaybe (0, dim-1)) dims)) spaces_
->
->     ndims              :: i              = genericLength dims
->     nspaces            :: i              = genericLength spaces
->
->     mag                :: Int            = fromIntegral $ product dims
->
->     svector            :: VU.Vector (i, i)
->     svector                              = foldl' sfolder (VU.replicate mag (0, 0)) spaces
->
->     sfolder            :: VU.Vector (i, i) → (i, [(i, i)]) → VU.Vector (i, i)
->     sfolder smashup (spaceId, rngs)      = VU.accum assignCell smashup (enumAssocs dims spaceId rngs)
->
->     assignCell         :: (i, i) → (i, i) → (i, i)
->     assignCell mfrom mto                 = (fst mto, snd mfrom + 1)
->
->     enumAssocs         ::  [i] → i → [(i, i)] → [(Int, (i, i))]
->     enumAssocs dims spaceId rngs         =
->       profess
->         (0 <= mag && mag <= 65_536 && all (uncurry validRange) (zip dims rngs))
->         (unwords ["enumAssocs: range violation", tag, show mag, show dims, show spaces])
->         (map (, (spaceId, 1)) indices)
->       where
->         indices        :: [Int]
->         indices                          =
->           map (fromIntegral . computeCellIndex dims) (traverse walkRange rngs)
->
->     trace_SS                             = unwords ["smashSubspaces", show (length spaces_), show spaces_]
->
-> validRange             :: ∀ i . (Integral i, Ix i) ⇒ i → (i, i) → Bool
-> validRange dim (r, s)                    = 0 <= dim && r <= s && inZRange r dim && inZRange s dim
->
-> validCoords            :: ∀ i . (Integral i, Ix i, VU.Unbox i) ⇒ [i] → Smashing i → Bool
-> validCoords coords smashup               = and $ zipWith inZRange coords smashup.smashDims
->
-> lookupCellIndex        :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
-> lookupCellIndex coords smashup           = try
->   where
->     try_                                 =
->       profess
->         (validCoords coords smashup)
->         (unwords ["lookupCellIndex", "invalid coords"])
->         (smashup.smashVec VU.! computeCellIndex smashup.smashDims coords)
->     try                                  =
->       if snd try_ > 0
->         then try_
->         else (snd $ minimum (map (measure coords) smashup.smashSpaces), 1)
->
->     measure            :: [i] → (i, [(i, i)]) → (Double, i)
->     measure coords space                 =
->       minimum (map (distance (fst space) coords) (listOutPoints (snd space)))
->
->     distance           :: i → [i] → [i] → (Double, i)
->     distance bix [] []                   = (0, bix)
->     distance bix (x:xs) (y:ys)           = (var + fst (distance bix xs ys), bix)
->       where
->         delta, var     :: Double
->         delta                            = fromIntegral (x - y)
->         var                              = delta * delta
->     distance _ _ _                       =
->       error $ unwords ["distance:", "input coords args have unequal lengths"]
->
-> listOutPoints          :: ∀ i . (Integral i) ⇒ [(i, i)] → [[i]]
-> listOutPoints []                         = [[]]
-> listOutPoints ((r, s) : ranges)          = points1 ++ points2
->   where
->     points1                              = map ([r] ++) (listOutPoints ranges)
->     points2                              = map ([s] ++) (listOutPoints ranges)
->
-> computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → Int
-> computeCellIndex [] []                   = 0
-> computeCellIndex (_:as) (b:bs)           = fromIntegral (b * product as) + computeCellIndex as bs
-> computeCellIndex _ _                     =
->   error $ unwords ["computeCellIndex:", "input args dims and coords have unequal lengths"]
->
-> allCellsEqualTo        :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ Smashing i → Maybe (i, i)
-> allCellsEqualTo smashup                  =
->   let
->     cand                                 = smashup.smashVec VU.! 0
->   in
->     if all (\j → cand == (smashup.smashVec VU.! j)) [0..(VU.length smashup.smashVec - 1)]
->       then Just cand
->       else Nothing
->
-> data Smashing i                          =
->   Smashing {
->     smashTag            :: String
->     , smashDims         :: [i]
->     , smashSpaces       :: [(i, [(i, i)])]
->     , smashStats        :: SmashStats
->     , smashVec          :: VU.Vector (i, i)}
-> instance ∀ i. (Integral i, Num i, Show i) ⇒ Show (Smashing i) where
->   show                 :: Smashing i → String
->   show Smashing{ .. }                    =
->     unwords ["Smashing", show (smashTag, smashStats)]
-> sLength smashup                        = product smashup.smashDims
-> data SmashStats                        =
->   SmashStats {
->     countNothings      :: Int
->   , countSingles       :: Int
->   , countMultiples     :: Int} deriving Show
-
-> seedSmashStats                           = SmashStats 0 0 0
-> developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ VU.Vector (i,i) → SmashStats
-> developSmashStats                        = VU.foldl' sfolder seedSmashStats
->   where
->     sfolder            :: SmashStats → (i, i) → SmashStats
->     sfolder stats@SmashStats{ .. } (_, count)
->       | count == 0                       = stats{countNothings = countNothings + 1}
->       | count == 1                       = stats{countSingles = countSingles + 1}
->       | otherwise                        = stats{countMultiples = countMultiples + 1}
-> fractionEmpty, fractionCovered
->                        :: ∀ i. (Integral i, Show i) ⇒ Smashing i → Rational
-> fractionEmpty smashup                    = fromIntegral (countNothings smashup.smashStats) % fromIntegral (sLength smashup)
-> fractionCovered smashup                  =
->   fromIntegral (countSingles smashup.smashStats + countMultiples smashup.smashStats) % fromIntegral (sLength smashup)
->
-> inZRange d x                             = inRange (0, x - 1) d 
           
 Raises 'a' to the power 'b' using logarithms.
 
 > pow                    :: Floating a ⇒ a → a → a
-> pow a b                                  = exp (log a * b)
+> pow x y                                  = exp (log x * y)
 
 Returns the fractional part of 'x'.
 
@@ -1226,8 +1013,8 @@ Returns the fractional part of 'x'.
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
-> reportScanName         :: FilePath       = "ScanReport'.log"
-> reportTournamentName   :: FilePath       = "TournamentReport'.log"
+> reportTournamentName   :: FilePath
+> reportTournamentName                     = "TournamentReport'.log"
 
 Returns the amplitude ratio
 
@@ -1289,7 +1076,7 @@ Test runner
 > runTests               :: [IO Bool] → IO ()
 > runTests tests                           = do
 >   results                                ← sequence tests
->   let nSuccesses                         = foldl' (\n t → n + if t then 1 else 0) 0 results
+>   let nSuccesses::Int                    = foldl' (\n t → n + if t then 1 else 0) 0 results
 >   putStrLn $ unwords ["results =", show results]
 >   putStrLn $ unwords ["  ", show nSuccesses, "/", show $ length results]
 >
@@ -1314,7 +1101,9 @@ Mapping is used in SoundFont modulator
 >   | Convex
 >   | Switch deriving (Eq, Ord, Show, Enum)
 >
+> defMapping             :: Mapping
 > defMapping                               = Mapping Linear False False False
+> allMappings            :: [Mapping]
 > allMappings                              = [Mapping cont bipolar max2min False
 >                                                   | cont                  ← [Linear, Concave, Convex, Switch]
 >                                                        , bipolar          ← [False, True]
@@ -1335,7 +1124,7 @@ Returns sample point as (normalized) Double
 > samplePoint s16 ms8 ix                   = sample24 (s16 ! ix) (fromIntegral (maybe 0 (! ix) ms8))
 >
 > samplePointInterp      :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Double → Int → Double
-> samplePointInterp s16 ms8 offset ix      = s0 + offset * (s1 - s0)
+> samplePointInterp s16 ms8 offs ix      = s0 + offs * (s1 - s0)
 >   where
 >     (s0, s1)           :: (Double, Double)
 >                                          = (  samplePoint s16 ms8 ix
@@ -1379,109 +1168,19 @@ breakUp returns a list of integers approximating divisions of a floating point r
 > theJ = 0 :+ 1
 >
 > zshow                  :: ∀ a . a → String
-> zshow a                                  = "list"
-
-Emission capability ===================================================================================================
-
-> data Emission                            = 
->   ToFieldL String Int
->   | ToFieldR String Int
->   | Unblocked String
->   | Blanks Int
->   | Empty 
->   | EndOfLine deriving Show
->
-> makeString             :: Emission → String
-> makeString e                             =
->   case e of
->     ToFieldL str sz    → if len > sz then error $ unwords ["overflowL", show sz, show len, show str]
->                                      else fillFieldL sz str
->       where
->         len                              = length str
->     ToFieldR str sz    → if len > sz then error $ unwords ["overflowR", show sz, show len, show str]
->                                      else fillFieldR sz str
->       where
->         len                              = length str
->     Unblocked str      → str
->     Blanks sz          → replicate sz ' '
->     Empty              → ""
->     EndOfLine          → "\n"
->
-> emitLine               :: [Emission] → [Emission]
-> emitLine es                              = singleton literate ++ es ++ singleton EndOfLine
->
-> literate               :: Emission       = ToFieldL ">" 2
->
-> commaOrNot             :: Int → Emission
-> commaOrNot nth                           =
->   if nth == 0
->     then ToFieldL ""  2
->     else ToFieldL "," 2
->
-> parens                 :: [Emission] → [Emission]
-> parens es                                = [Unblocked "("] ++ es ++ [Unblocked ")"]
->
-> bracks                 :: [Emission] → [Emission]
-> bracks es                                = [Unblocked "["] ++ es ++ [Unblocked "]"]
->
-> comma                  :: Emission       = Unblocked ", "
->
-> emitComment            :: [Emission] → [Emission]
-> emitComment es                           = [EndOfLine] ++ es ++ [EndOfLine, EndOfLine]
->
-> emitNextComment        :: [Emission] → [Emission]
-> emitNextComment es                       = es ++ [EndOfLine, EndOfLine]
->
-> emitShowL              :: (Show a) ⇒ a → Int → Emission
-> emitShowL a                              = ToFieldL (show a)
->
-> emitShowR              :: (Show a) ⇒ a → Int → Emission
-> emitShowR a                              = ToFieldR (show a)
->
-> emitDefault            :: (Show a) ⇒ a → Emission
-> emitDefault a                            = Unblocked (show a)
->
-> gmId                   :: (Show a) ⇒ a → Emission
-> gmId i                                   = emitShowL i 22
->
-> reapEmissions          :: [Emission] → String
-> reapEmissions                            = concatMap makeString
->
-> fillFieldL             :: Int → String → String
-> fillFieldL fieldSz str                   = str ++ safeReplicate (length str) fieldSz ' '
->
-> fillFieldR             :: Int → String → String
-> fillFieldR fieldSz str                   = safeReplicate (length str) fieldSz ' ' ++ str
->
-> safeReplicate          :: Int → Int → Char → String
-> safeReplicate sz maxSz                   = replicate (maxSz - sz)
->
-> emitTaggedLine         :: String → String → String → [Emission]
-> emitTaggedLine prolog item epilog        = emitLine [Unblocked prolog, Unblocked item, Unblocked epilog]
->
-> emitPragmaLine lang                      = emitTaggedLine "{-# LANGUAGE " lang " #-}"
-> emitModuleLine mod                       = emitTaggedLine "module " mod " where"
-> emitImportLine imp                       = emitTaggedLine "import " imp ""
->
-> writeFileBySections    :: FilePath → [[Emission]] → IO ()
-> writeFileBySections fp eSections         = do
->   mapM_ (appendFile fp . reapEmissions) eSections
->
-> type Velocity                            = Volume
-> type KeyNumber                           = AbsPitch
+> zshow _                                  = "list"
 
 Configurable parameters ===============================================================================================
 
-> doRender                                 = controlSettingsQqDoRender                   defC
-> diagnosticsEnabled                       = controlSettingsQqDiagnosticsEnabled         defC 
-> reportScan                               = controlSettingsQqReportScan                 defC 
-> reportTourney                            = controlSettingsQqReportTourney              defC 
-> skipGlissandi                            = controlSettingsQqSkipGlissandi              defC
-> replacePerCent                           = controlSettingsQqReplacePerCent             defC
+> doRender, reportTourney, skipGlissandi
+>                        :: Bool
+> replacePerCent         :: Rational
 
 Edit the following ====================================================================================================
 
-> defC                   :: ControlSettings
-> defC                                     = ControlSettings True True True True False 0
+> doRender                                 = True
+> reportTourney                            = True
+> skipGlissandi                            = False
+> replacePerCent                           = 0
 
 The End

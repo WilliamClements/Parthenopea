@@ -19,6 +19,7 @@ March 2, 2024
   
 Testing ===============================================================================================================
 
+> defRecon               :: Recon
 > defRecon                                 =
 >   Recon
 >     A.ContLoop 44100 0 0 0 0
@@ -27,6 +28,7 @@ Testing ========================================================================
 >     0 Nothing Nothing
 >     defModulation defEffects
 >
+> defEffects             :: Effects
 > defEffects                               = Effects 0 0 0
 >
 > driveDriver            :: ∀ p. Clock p ⇒ Signal p () Double
@@ -44,7 +46,8 @@ Testing ========================================================================
 > 
 > testSlw, testAud       :: Double → IO Bool
 >
-> synthesizerTests       :: [IO Bool]      = [testSlw 1, testSlw 10, testAud 1, testAud 10]
+> synthesizerTests       :: [IO Bool]
+> synthesizerTests                         = [testSlw 1, testSlw 10, testAud 1, testAud 10]
 >
 > testSlw nSecs                            = do
 >   let sf :: Signal SlwRate () Double     = driveDriver
@@ -55,6 +58,7 @@ Testing ========================================================================
 >   checkSignal nSecs sf
 >   
 >
+> runSynthesizerTests    :: IO ()
 > runSynthesizerTests                       = runTests synthesizerTests
 
 The End

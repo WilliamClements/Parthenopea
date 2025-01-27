@@ -15,25 +15,22 @@ November 6, 2023
 
 > module Modulation where
 >
+> import Boot
 > import Control.Arrow
-> import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Bits
 > import Data.Complex
 > import Data.List ( foldl', iterate', find )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
-> import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing )
+> import Data.Maybe
 > import Discrete
-> import Euterpea.IO.Audio.Basics ( outA, apToHz )
+> import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns
-> import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
-> import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )
-> import Euterpea.Music ( Volume, AbsPitch, Dur, absPitch, PitchClass(..) )
-> import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA, DeltaT )
-> import HSoM.Examples.Additive ( sineTable, sfTest1 )
+> import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
+> import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
+> import HSoM.Examples.Additive ( sineTable )
 > import Parthenopea
-> import SettingsDefs
   
 Modulator management ==================================================================================================
 
@@ -107,10 +104,10 @@ Modulator management ===========================================================
 >         byModDestType                    = compileMods ssCurrent
 >
 > siftMods               :: [Modulator] → [Modulator]
-> siftMods m8rs                            = ssCurrent 
+> siftMods m8rs                            = final.ssCurrent
 >   where
 >     generations                          = iterate' eliminateDanglingMods (Sifting 0 m8rs [])
->     Sifting{ssCurrent}                   = head $ dropWhile unfinished generations
+>     final                                = head $ dropWhile unfinished generations
 >     unfinished Sifting{ssCurrent, ssPrevious}
 >                                          = ssCurrent /= ssPrevious
 >
@@ -200,7 +197,8 @@ Modulator management ===========================================================
 >                                                               FromLinked       → Nothing
 >                                                               _                → Just x{mrAmountSrc = modSrc})
 >
-> defaultMods            :: [Modulator]    = if useDefaultMods
+> defaultMods            :: [Modulator]
+> defaultMods                              = if useDefaultMods
 >                                              then [ makeDefaultMod 0 ms0 48 960     defModSrc
 >                                                   , makeDefaultMod 1 ms1  8 (-2400) ms2 ] ++ specialDefaultMods
 >                                              else []
@@ -227,11 +225,11 @@ Modulator management ===========================================================
 >       where
 >         modChorus                        =
 >           if chorusAllPercent > 0
->             then [makeDefaultMod 10 ms3 15 (chorusAllPercent*10) defModSrc]
+>             then [makeDefaultMod 10 ms3 15 (fromRational chorusAllPercent*10) defModSrc]
 >             else []
 >         modReverb                        =
 >           if reverbAllPercent > 0
->             then [makeDefaultMod 11 ms3 16 (reverbAllPercent*10) defModSrc]
+>             then [makeDefaultMod 11 ms3 16 (fromRational reverbAllPercent*10) defModSrc]
 >             else []
 >
 > evaluateMods           :: ModDestType → Map ModDestType [Modulator] → NoteOn → Double
@@ -410,11 +408,13 @@ Filters ========================================================================
 
 see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
 
+> indeedAverageInput     :: Bool
 > indeedAverageInput                       = True
+> extraDampFactor        :: Double
 > extraDampFactor                          = 1
 >
 > procSVF1               :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
-> procSVF1 lp@Lowpass{..}                  =
+> procSVF1 lp                              =
 >   proc (x, fc) → do
 >     let f1                               = 2 * sin (theta fc)
 >     rec
@@ -460,7 +460,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >         else c
 >
 > procOnePole            :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procOnePole lp                           =
+> procOnePole _                            =
 >   proc (x, fc) → do
 >     let w0                               = 2 * pi * fc / sr
 >     let a                                =
@@ -477,7 +477,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 > procTwoPoles lp
 >   | traceNot trace_P2P False             = undefined
 >   | otherwise                            =
->   proc (x, fc) → do
+>   proc (x, _) → do
 >     rec
 >       let y                              = m2n2_b0 * x + m2n2_b1 * x' + m2n2_b2 * x'' - m2n2_a1 * y' - m2n2_a2 * y''
 >       y'     ← delay 0                   ⤙ y
@@ -531,9 +531,9 @@ Miscellaneous ==================================================================
 >     osc triangleWaveTable 0              ⤙ freq
 >
 > modVib                 :: ∀ p . Clock p ⇒ Double → Double → Signal p Double Double
-> modVib rate depth                        =
+> modVib rateV depth                        =
 >   proc sIn → do
->     vib    ← osc sineTable 0             ⤙ rate
+>     vib    ← osc sineTable 0             ⤙ rateV
 >     sOut   ← delayLine1 0.2              ⤙ (sIn,0.1+depth*vib)
 >     outA                                 ⤙ sOut
 >
@@ -553,6 +553,7 @@ Miscellaneous ==================================================================
 
 Controller Curves =====================================================================================================
 
+> qStepSize              :: Int
 > qStepSize                                = qTableSize `div` qMidiSize128
 >
 > controlDenormal        :: Mapping → Double → (Double, Double) → Double
@@ -587,14 +588,15 @@ Controller Curves ==============================================================
 >     swapCont cIn                         = case cIn of
 >                                              Concave → Convex
 >                                              Convex  → Concave
->     (left, right)      :: (Continuity, Continuity)
+>                                              _ → error $ unwords ["swapCont"]
+>     (leftC, rightC)    :: (Continuity, Continuity)
 >                                          = if msContinuity == Concave || msContinuity == Convex
 >                                              then if msMax2Min
 >                                                     then (msContinuity, swapCont msContinuity)
 >                                                     else (swapCont msContinuity, msContinuity)
 >                                              else (msContinuity, msContinuity)
->     pingL                                = ping{msBiPolar = False, msContinuity = left}
->     pingR                                = ping{msBiPolar = False, msContinuity = right}
+>     pingL                                = ping{msBiPolar = False, msContinuity = leftC}
+>     pingR                                = ping{msBiPolar = False, msContinuity = rightC}
 >     (addL, addR)                         = if msMax2Min
 >                                              then (0, -1)
 >                                              else (-1, 0)
@@ -618,6 +620,7 @@ Type declarations ==============================================================
 >     xModEnvCo          :: Double
 >   , xModLfoCo          :: Double
 >   , xVibLfoCo          :: Double} deriving (Eq, Show)
+> defModCoefficients     :: ModCoefficients
 > defModCoefficients                       = ModCoefficients 0 0 0
 >
 > data ModTriple                           =
@@ -632,6 +635,7 @@ Type declarations ==============================================================
 >     ToFilterFc         → coFilterFc
 >     ToVolume           → coVolume
 >     _                  → error $ unwords["coAccess: ModTriple only deals with ToPitch, ToFilterFc, and ToVolume"]                         
+> defModTriple           :: ModTriple
 > defModTriple                             = ModTriple 0 0 0
 >
 > data ModSignals                          =
@@ -639,6 +643,7 @@ Type declarations ==============================================================
 >     xModEnvValue       :: Double
 >   , xModLfoValue       :: Double
 >   , xVibLfoValue       :: Double} deriving (Show)
+> defModSignals          :: ModSignals
 > defModSignals                            = ModSignals 0 0 0
 >
 > data LFO                                 =
@@ -658,6 +663,7 @@ Type declarations ==============================================================
 >   , toVolumeCo         :: ModCoefficients
 >   , mmods              :: Map ModDestType [Modulator]} deriving (Eq, Show)
 >
+> defModulation          :: Modulation
 > defModulation                            =
 >   Modulation
 >     (Lowpass ResonanceNone (defKernelSpec useFastFourier)) Nothing Nothing Nothing
@@ -671,6 +677,7 @@ Type declarations ==============================================================
 >   , mrModAmount        :: Double
 >   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
 >    
+> defModulator           :: Modulator
 > defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
 >
 > data ModKey                              =
@@ -700,6 +707,7 @@ Type declarations ==============================================================
 >     msMapping          :: Mapping
 >   , msSource           :: ModSrcSource} deriving (Eq, Ord, Show)
 >
+> defModSrc              :: ModSrc
 > defModSrc                                = ModSrc defMapping FromNoController
 >
 > data Envelope                            =
@@ -712,26 +720,31 @@ Type declarations ==============================================================
 >   , eReleaseT          :: Double
 >   , eModTriple         :: ModTriple} deriving (Eq, Show)
 >
-> useModulators                            = modulationSettingsQqUseModulators              defM
+> useModulators          :: Bool
+> useModulators                            = True
 > -- False to suppress all use of Modulators
-> chorusAllPercent                         = modulationSettingsQqChorusAllPerCent           defM
+> chorusAllPercent       :: Rational
+> chorusAllPercent                         = 0
 > -- force given Chorus level on ALL notes
-> reverbAllPercent                         = modulationSettingsQqReverbAllPerCent           defM
+> reverbAllPercent       :: Rational
+> reverbAllPercent                         = 0
 > -- force given Reverb level on ALL notes
-> useDefaultMods                           = modulationSettingsQqUseDefaultMods             defM
+> useDefaultMods         :: Bool
+> useDefaultMods                           = True
 > -- False to suppress all use of defaul Modulators
-> useLFO                                   = modulationSettingsQqUseLFO                     defM
+> useLFO                 :: Bool
+> useLFO                                   = True
 > -- False to suppress all uses of the low frequency oscillator
-> chorusRate                               = modulationSettingsQqChorusRate                 defM
+> chorusRate             :: Double
+> chorusRate                               = 5.0
 > -- configures chorus param
 > -- suggested default is 5 Hz
-> chorusDepth                              = modulationSettingsQqChorusDepth                defM
+> chorusDepth            :: Double
+> chorusDepth                              = 0.001
 > -- configures chorus param
 > -- suggested default is + or - 1/1000 (of the rate)
-> cascadeConfig                            = modulationSettingsQqCascadeConfig              defM
+> cascadeConfig          :: Int
+> cascadeConfig                            = 0
 > -- number of times to cascade the filter
->
-> defM                   :: ModulationSettings
-> defM                                     = ModulationSettings True 0 0 True True 5.0 0.001 0
 
 The End

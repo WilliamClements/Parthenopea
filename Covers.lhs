@@ -8,11 +8,11 @@ Covers
 William Clements
 January 13, 2023
 
-> module Covers (littleSailor, slot, ssailor, deathlessHorsie, basicLick, packardGoose, yahozna, littleDH) where
+> module Covers (  littleSailor, slot, ssailor, deathlessHorsie, basicLick, packardGoose, yahozna, littleDH
+>                , greenMore, testslot) where
 
+> import Boot
 > import Data.Map (Map)
-> import qualified Data.Map                as Map
-> import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic hiding (grace)
 > import Parthenopea
@@ -20,14 +20,19 @@ January 13, 2023
   
 Saucy Sailor ==========================================================================================================
 
+> ssTempo                :: Dur
 > ssTempo                                  = 1
+> ssTranspose            :: AbsPitch
 > ssTranspose                              = 0
 >
+> ssLead1_, ssLead2_, ssPicked_, ssBass_
+>                        :: BandPart
 > ssLead1_                                 = makePitched Flute                ssTranspose          0         90
 > ssLead2_                                 = makePitched Flute                ssTranspose          0        115
 > ssPicked_                                = makePitched AcousticGuitarNylon  ssTranspose          0         75
 > ssBass_                                  = makePitched ElectricBassPicked   ssTranspose          0        100
 >
+> littleSailor           :: Music (Pitch, Volume)
 > littleSailor =
 >     removeZeros
 >     $ instrument Clarinet
@@ -45,6 +50,7 @@ Saucy Sailor ===================================================================
 >           line [bf 5 en, a 5 en, g 5 hn]
 >       ]
 >
+> ssailor                :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > ssailor dynMap =
 >     removeZeros
 >     $ tempo                              ssTempo
@@ -242,17 +248,22 @@ Saucy Sailor ===================================================================
 
 Yahozna ===============================================================================================================
 
+> yaTempo                :: Dur
 > yaTempo                                  = 4
+> yaTranspose            :: AbsPitch
 > yaTranspose                              = 0
 >
+> yaGuitar, yaBass, yaChoir
+>                        :: (InstrumentName, Velocity)
 > yaGuitar                                 = (ElectricGuitarJazz,  75)
 > yaBass                                   = (ElectricBassPicked,  75)
 > yaChoir                                  = (AltoSax,            110)
 >
+> yahozna                :: Music (Pitch, Volume)
 > yahozna =
 >   removeZeros
->   $ tempo 4
->   $ transpose 0
+>   $ tempo yaTempo
+>   $ transpose yaTranspose
 >   $ keysig C Mixolydian
 >   $          bandPart_ yaGuitar (line [rest dwn, rest dwn] :+: yahoznaGuitar)
 >          :=: bandPart_ yaBass (yahoznaBassIntro :+: yahoznaBass)
@@ -260,42 +271,42 @@ Yahozna ========================================================================
 >   where
 >     bandPart_          :: (InstrumentName, Velocity) → Music Pitch → Music (Pitch, Volume)
 >     bandPart_ (inst, vel) m              = mMap (, vel) (instrument inst m)
-
-> guitarLick 
->   =    line [ c 3 hn,  c 3 qn,  c 3 qn,  c 3 wn]
->    :+: line [ c 3 qn,  c 3 qn,  c 3 qn,  c 3 qn]
-
-> bassIntroLick1
->   =    line [rest dwn, rest hn, ef 2 qn, c 2 qn, ef 2 qn, c 2 qn]
-
-> bassIntroLick2
->   = line [rest dwn, rest hn]
->     :+: addDur sn [ c 3,  b 2, bf 2,  a 2, af 2,  g 2, gf 2,  f 2
+>     guitarLick 
+>       =    line [ c 3 hn,  c 3 qn,  c 3 qn,  c 3 wn]
+>        :+: line [ c 3 qn,  c 3 qn,  c 3 qn,  c 3 qn]
+>
+>     bassIntroLick1
+>       =    line [rest dwn, rest hn, ef 2 qn, c 2 qn, ef 2 qn, c 2 qn]
+>
+>     bassIntroLick2
+>       =     line [rest dwn, rest hn]
+>         :+: addDur sn [ c 3,  b 2, bf 2,  a 2, af 2,  g 2, gf 2,  f 2
 >                   , e 2, ef 2,  d 2, df 2,  c 2,  b 1, bf 1,  a 1]
-
-> bassLick
->   = line [c 2 dhn, c 2 hn, c 2 hn, c 2 qn, bf 1 hn, f 2 hn]
-
-> yahoznaGuitar = 
->    instrument ElectricGuitarJazz
->    $ times 12 (guitarLick :=: transpose 7 guitarLick)
-
-> yahoznaBassIntro = 
->    instrument ElectricBassPicked
->    $ times 3 bassIntroLick1 :+: bassIntroLick2
-
-> yahoznaBass = 
->    instrument ElectricBassPicked
->    $ times 8 bassLick
-
-> choirPart
->   = instrument AltoSax
->     $ times 6 (line [rest dwn, rest dwn])
->     :+: line [g 3 (wn + wn), a 3 wn, a 3 dwn, a 3 hn, bf 3 wn, bf 3 wn]
->     :+: line [rest wn, bf 3 hn,  c 4 hn,  a 3 dwn]
+>
+>     bassLick
+>       = line [c 2 dhn, c 2 hn, c 2 hn, c 2 qn, bf 1 hn, f 2 hn]
+>
+>     yahoznaGuitar = 
+>       instrument ElectricGuitarJazz
+>       $ times 12 (guitarLick :=: transpose 7 guitarLick)
+>
+>     yahoznaBassIntro = 
+>       instrument ElectricBassPicked
+>       $ times 3 bassIntroLick1 :+: bassIntroLick2
+>
+>     yahoznaBass = 
+>       instrument ElectricBassPicked
+>       $ times 8 bassLick
+>
+>     choirPart
+>       = instrument AltoSax
+>         $ times 6 (line [rest dwn, rest dwn])
+>           :+: line [g 3 (wn + wn), a 3 wn, a 3 dwn, a 3 hn, bf 3 wn, bf 3 wn]
+>           :+: line [rest wn, bf 3 hn,  c 4 hn,  a 3 dwn]
 
 Slot ==================================================================================================================
 
+> testslot               :: Music (Pitch, Volume)
 > testslot =
 >    removeZeros
 >    $ tempo 2
@@ -303,88 +314,94 @@ Slot ===========================================================================
 >    $ keysig G Dorian
 >    $ addVolume 110 $ instrument SynthBass1 (line [ f 4 en ] )
 >
+> slotTempo              :: Dur
 > slotTempo                                = 2
+> slotTranspose          :: AbsPitch
 > slotTranspose                            = 0
 >
+> slotLead_, slotStrum_, slotBass_, slotPerc_
+>                        :: BandPart
 > slotLead_                                = makePitched Violin              slotTranspose 0                100
 > slotStrum_                               = makePitched AcousticGuitarNylon slotTranspose 0                100
 > slotBass_                                = makePitched SynthBass1          slotTranspose 0                110
 > slotPerc_                                = makeNonPitched                                                 100
 >
-> slot :: Int → DynMap → Music (Pitch, [NoteAttribute])
-> slot n dynMap =
+> slot                   :: Int → DynMap → Music (Pitch, [NoteAttribute])
+> slot nn dynMap                           =
 >    removeZeros
 >    $ tempo slotTempo
 >    $ keysig G Dorian
->    $ chord [ bandPart slotLead          (vSlotV n)
->            , bandPart slotStrum         (vSlotG n)
->            , bandPart slotBass          (vSlotC n)
->            , bandPart slotPerc          (vSlotP n)]
+>    $ chord [ bandPart slotLead          (vSlotV nn)
+>            , bandPart slotStrum         (vSlotG nn)
+>            , bandPart slotBass          (vSlotC nn)
+>            , bandPart slotPerc          (vSlotP nn)]
 >    where
 >      slotLead                            = replace slotLead_ dynMap
 >      slotStrum                           = replace slotStrum_ dynMap
 >      slotBass                            = replace slotBass_ dynMap
 >      slotPerc                            = replace slotPerc_ dynMap
 >      
-> vSlotV :: Int → Music Pitch
-> vSlotV n
->   = line [ vSlotV01, times n (line [vSlotV02, vSlotV03])]
-> vSlotV01
->   = rest dhn
-> vSlotV02
->   = times 4 (rest dhn)
-> vSlotV03
->   = line [ f 4 en,  g 4 en,  a 4 en,  b 4 en,  c 5 en,  d 5 en
->         ,  c 5 qn,          bf 4 en,  a 4 en, bf 4 en,  f 4 en
->         ,  f 4 en,  c 4 en,  c 4 en,  e 4 en,  f 4 en,  e 4 en
->         ,  f 4 en,  g 4 en,  f 4 qn, rest qn]
+>      vSlotV            :: Int → Music Pitch
+>      vSlotV n                            = line [ vSlotV01, times n (line [vSlotV02, vSlotV03])]
+>      vSlotV01, vSlotV02, vSlotV03
+>                        :: Music Pitch
+>      vSlotV01                            = rest dhn
+>      vSlotV02                            = times 4 (rest dhn)
+>      vSlotV03                            =
+>        line [ f 4 en,  g 4 en,  a 4 en,  b 4 en,  c 5 en,  d 5 en
+>            ,  c 5 qn,          bf 4 en,  a 4 en, bf 4 en,  f 4 en
+>            ,  f 4 en,  c 4 en,  c 4 en,  e 4 en,  f 4 en,  e 4 en
+>            ,  f 4 en,  g 4 en,  f 4 qn, rest qn]
 >
-> vSlotG :: Int → Music Pitch
-> vSlotG n
->   = line [ vSlotG01, times n vSlotG02]
-> vSlotG01
->   = rest dhn
-> vSlotG02
->   = line [ times 4
->            $ triad C (CustomMode "Sus2") (G, 3) dhn
->          , times 2
->            $ triad F Major               (F, 3) (2*dhn)]
+>      vSlotG            :: Int → Music Pitch
+>      vSlotG n                            = line [ vSlotG01, times n vSlotG02]
+>      vSlotG01, vSlotG02
+>                        :: Music Pitch
+>      vSlotG01                            = rest dhn
+>      vSlotG02                            =
+>        line [ times 4 (triad C (CustomMode "Sus2") (G, 3) dhn)
+>             , times 2 (triad F Major               (F, 3) (2*dhn))]
 >
-> vSlotC :: Int → Music Pitch
-> vSlotC n
->   = times n (line [vSlotC01, vSlotC02, vSlotC03])
+>      vSlotC            :: Int → Music Pitch
+>      vSlotC n                            = times n (line [vSlotC01, vSlotC02, vSlotC03])
 >
-> vSlotC01
->   = line [ rest hn, rest en, c 3 en ]
+>      vSlotC01, vSlotC02, vSlotC03
+>                        :: Music Pitch
+>      vSlotC01                            = line [ rest hn, rest en, c 3 en ]
 >
-> vSlotC02
->   = line [ c 2 qn,  c 2 qn,  c 2 qn
->          , d 2 qn,  d 2 qn,  d 2 qn
->          ,ef 2 qn, ef 2 qn, ef 2 qn
->          , e 2 qn,  e 2 qn,  e 2 qn]
-> vSlotC03
->   = line [f 2 hn, rest qn, times 2 (rest dhn)]
+>      vSlotC02                            =
+>        line [ c 2 qn,  c 2 qn,  c 2 qn
+>             , d 2 qn,  d 2 qn,  d 2 qn
+>             ,ef 2 qn, ef 2 qn, ef 2 qn
+>             , e 2 qn,  e 2 qn,  e 2 qn]
+>      vSlotC03                            = line [f 2 hn, rest qn, times 2 (rest dhn)]
 >
-> vSlotP n
->   = times n (line [vSlotP01, vSlotP02, vSlotP03])
+>      vSlotP            :: Int → Music Pitch
+>      vSlotP n                            = times n (line [vSlotP01, vSlotP02, vSlotP03])
 >
-> vSlotP01
->   = line [ rest hn, rest en, perc LowTom en ]
+>      vSlotP01, vSlotP02, vSlotP03
+>                        :: Music Pitch
+>      vSlotP01                            = line [ rest hn, rest en, perc LowTom en ]
 >
-> vSlotP02
->   = times 8 (line [ perc Maracas en, perc Maracas en, perc HighAgogo en ])
+>      vSlotP02                            = times 8 (line [ perc Maracas en, perc Maracas en, perc HighAgogo en ])
 >
-> vSlotP03
->   = line [perc ClosedHiHat hn, rest qn, times 2 (perc OpenHiHat dhn)]
+>      vSlotP03                            = line [perc ClosedHiHat hn, rest qn, times 2 (perc OpenHiHat dhn)]
 
 TC ====================================================================================================================
 
+> tcTranspose            :: AbsPitch
 > tcTranspose                              = 3
+> leadTranspose          :: AbsPitch
 > leadTranspose                            = 0
+> repeatTranspose        :: AbsPitch
 > repeatTranspose                          = 0
+> bassTranspose          :: AbsPitch
 > bassTranspose                            = 0
+> tcTempo                :: Dur
 > tcTempo                                  = 1
 >
+> tcLead_, tcRepeat_, tcBass_, tcPerc_
+>                        :: BandPart
 > tcLead_                                  = makePitched OverdrivenGuitar        tcTranspose leadTranspose  100
 > tcRepeat_                                = makePitched FrenchHorn              tcTranspose repeatTranspose 50
 > tcBass_                                  = makePitched FretlessBass            tcTranspose bassTranspose   85
@@ -1097,12 +1114,17 @@ TC =============================================================================
 
 DH ====================================================================================================================
 
+> littleDH               :: Music (Pitch, Volume)
 > littleDH =
 >   instrument RhodesPiano $  addVolume 98 $ line [b 4 en, t32 [b 4 en, gs 4 sn, b 4 en, gs 5 sn], fs 5 dqn, rest qn]
 >
+> dhTempo                :: Dur
 > dhTempo                                  = 1
+> dhTranspose            :: AbsPitch
 > dhTranspose                              = 3
 >
+> dhVibe_, dhLead_, dhBass_, dhOrgn_, dhSynh_, dhPerc_
+>                        :: BandPart
 > dhVibe_                                  = makePitched Vibraphone            dhTranspose      0         75
 > dhLead_                                  = makePitched Violin                dhTranspose      0        100
 > dhBass_                                  = makePitched ElectricBassPicked    dhTranspose      0         75
@@ -1110,16 +1132,18 @@ DH =============================================================================
 > dhSynh_                                  = makePitched FrenchHorn            dhTranspose      0        100
 > dhPerc_                                  = makeNonPitched                                              100
 >
-> dhMeasuresIntro        :: Int            = 12
-> dhMeasuresB1           :: Int            = 22
-> dhMeasuresA            :: Int            = 30
-> dhMeasuresCs           :: Int            = 42
-> dhMeasuresB2           :: Int            = 18
-> dhMeasuresOutro        :: Int            = 0
->
+> dhMeasuresIntro, dhMeasuresB1, dhMeasuresA, dhMeasuresCs, dhMeasuresB2, dhMeasuresOutro, dhMeasuresAll
+>                        :: Int
+> dhMeasuresIntro                          = 12
+> dhMeasuresB1                             = 22
+> dhMeasuresA                              = 30
+> dhMeasuresCs                             = 42
+> dhMeasuresB2                             = 18
+> dhMeasuresOutro                          = 0
 > 
-> dhMeasuresAll          :: Int            = dhMeasuresIntro + dhMeasuresB1 + dhMeasuresA + dhMeasuresCs + dhMeasuresB2 + dhMeasuresOutro
+> dhMeasuresAll                            = dhMeasuresIntro + dhMeasuresB1 + dhMeasuresA + dhMeasuresCs + dhMeasuresB2 + dhMeasuresOutro
 >
+> deathlessHorsie        :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > deathlessHorsie dynMap =
 >   removeZeros
 >   $ tempo dhTempo
@@ -2235,13 +2259,19 @@ DH =============================================================================
 
 PG ====================================================================================================================
 
+> pgTempo                :: Dur
 > pgTempo                                  = 1
+> pgTranspose            :: AbsPitch
 > pgTranspose                              = 0
 >
+> pgLead_                :: BandPart
 > pgLead_                                  = makePitched ElectricGuitarClean               pgTranspose     0     100
+> pgBass_                :: BandPart
 > pgBass_                                  = makePitched SynthBass1 pgTranspose     0     100
+> pgPerc_                :: BandPart
 > pgPerc_                                  = makeNonPitched                                         100
 >
+> packardGoose           :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > packardGoose dynMap                      =
 >   removeZeros
 >   $ tempo pgTempo
@@ -2538,481 +2568,487 @@ PG =============================================================================
 >                       , perc193_196, perc197_201, perc202_204, perc205_207, perc208_212, perc213_216
 >                       , perc217_220, perc221_224, perc225_228]
 >
-> perc009_012 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
->              , line [percSDqn, rest hn]
->              , line [percCHHqn, percCHHen, percCHHsn, percCHHsn, percCHHen, percCHHsn, percCHHsn]]
->       , line [percCHHen, percCHHsn, percCHHsn
->             , percCHHen, percCHHsn, percCHHsn
->             , percCHHen, percCHHsn, percCHHsn]
->       , chord [ line [percCHHen, percCHHsn, percCHHsn
->                     , percCHHen, percCHHsn, percCHHsn
->                     , percCHHen, percCHHsn, percCHHsn]
->                , line [percBDen, percBDen, rest hn]]
->       , chord [ line [percBDqn, rest en, percBDen, rest qn]
->               , line [percCHHsn, percCHHsn, percCHHsn, percCHHsn
->                     , percCHHen, percCHHsn, percCHHsn
->                     , percCHHen, percCHHsn, percCHHsn]]]
-> perc013_016 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
->              , line [percCHHsn, percCHHsn, percCHHsn, percCHHsn
->                     , percCHHen, percCHHen
->                     , percCHHen, percCHHsn, percCHHsn]]
->       , line [percCHHen, percCHHsn, percCHHsn, percCHHen, percCHHsn, percCHHsn
->             , percCHHsn, percCHHsn, percCHHsn, percCHHsn]
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [percCHHen, percCHHsn, percCHHsn
->                    , percCHHen, percCHHsn, percCHHsn
->                    , percCHHen, percCHHsn, percCHHsn]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [percCHHen, percCHHen
->                     , percCHHen, percCHHsn, percCHHsn
->                     , percCHHen, percCHHsn, percCHHsn]]]
+>     perc009_012 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>                  , line [percSDqn, rest hn]
+>                  , line [percCHHqn, percCHHen, percCHHsn, percCHHsn, percCHHen, percCHHsn, percCHHsn]]
+>           , line [percCHHen, percCHHsn, percCHHsn
+>                 , percCHHen, percCHHsn, percCHHsn
+>                 , percCHHen, percCHHsn, percCHHsn]
+>           , chord [ line [percCHHen, percCHHsn, percCHHsn
+>                         , percCHHen, percCHHsn, percCHHsn
+>                         , percCHHen, percCHHsn, percCHHsn]
+>                    , line [percBDen, percBDen, rest hn]]
+>           , chord [ line [percBDqn, rest en, percBDen, rest qn]
+>                   , line [percCHHsn, percCHHsn, percCHHsn, percCHHsn
+>                         , percCHHen, percCHHsn, percCHHsn
+>                         , percCHHen, percCHHsn, percCHHsn]]]
+>     perc013_016 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>                  , line [percCHHsn, percCHHsn, percCHHsn, percCHHsn
+>                         , percCHHen, percCHHen
+>                         , percCHHen, percCHHsn, percCHHsn]]
+>           , line [percCHHen, percCHHsn, percCHHsn, percCHHen, percCHHsn, percCHHsn
+>                 , percCHHsn, percCHHsn, percCHHsn, percCHHsn]
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCHHen, percCHHsn, percCHHsn
+>                        , percCHHen, percCHHsn, percCHHsn
+>                        , percCHHen, percCHHsn, percCHHsn]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [percCHHen, percCHHen
+>                         , percCHHen, percCHHsn, percCHHsn
+>                         , percCHHen, percCHHsn, percCHHsn]]]
 >
-> perc017_020 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
->              , line [percCHHen, percCHHen, percCHHen, percCHHsn, percCHHsn, percCHHen, percCHHsn, percCHHsn]]
->       , line [percCHHsn, percCHHsn, percCHHsn, percCHHsn
->             , percOHHen, times 6 percOHHsn]
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [times 8 percOHHsn, percCHHen, percCHHen]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [percCHHqn, rest qn, times 4 percCHHsn]]]
+>     perc017_020 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>                  , line [percCHHen, percCHHen, percCHHen, percCHHsn, percCHHsn, percCHHen, percCHHsn, percCHHsn]]
+>           , line [percCHHsn, percCHHsn, percCHHsn, percCHHsn
+>                 , percOHHen, times 6 percOHHsn]
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [times 8 percOHHsn, percCHHen, percCHHen]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [percCHHqn, rest qn, times 4 percCHHsn]]]
 >
-> perc021_024 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest qn], line [times 3 percCHHen, times 6 percCHHsn]]
->       , line [times 12 percCHHsn]
->       , chord [line [percBDen, percBDen, rest hn], line [times 12 percOHHsn]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn], line [times 12 percOHHsn]]]
+>     perc021_024 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest qn], line [times 3 percCHHen, times 6 percCHHsn]]
+>           , line [times 12 percCHHsn]
+>           , chord [line [percBDen, percBDen, rest hn], line [times 12 percOHHsn]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn], line [times 12 percOHHsn]]]
 >
-> perc025_028 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest wn]
->              , line [percOHHqn, percOHHen, percOHHsn, percOHHsn, t32 [times 3 percOHHqn]
->                    , percOHHqn, percOHHen, percOHHen]]
->       , chord [line [percBDen, percBDen, rest hn, percBDqn, rest en, percBDen, rest qn]
->              , line [percCCen, percCCen, percCCqn, perc PedalHiHat qn]]]
+>     perc025_028 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest wn]
+>                  , line [percOHHqn, percOHHen, percOHHsn, percOHHsn, t32 [times 3 percOHHqn]
+>                        , percOHHqn, percOHHen, percOHHen]]
+>           , chord [line [percBDen, percBDen, rest hn, percBDqn, rest en, percBDen, rest qn]
+>                  , line [percCCen, percCCen, percCCqn, perc PedalHiHat qn]]]
 >
-> perc029_032 =
->   line [chord [line [percBDen, percBDen, percBDqn, perc PedalHiHat qn]
->              , line [perc PedalHiHat qn, percLTen, percLTen
->                      , tempo (5/4) (line [perc LowMidTom en, perc HighTom sn, perc LowMidTom en])]]
->       , chord [line [times 3 (perc PedalHiHat qn)], line [percCCqn, times 4 percHTen]]
->       , chord [line [percBDen, percBDen, rest hn], line [perc PedalHiHat qn, rest en, percCHHen, percOHHqn]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [percOHHen, percCHHen, percOHHen, times 3 percCHHen]]]
+>     perc029_032 =
+>       line [chord [line [percBDen, percBDen, percBDqn, perc PedalHiHat qn]
+>                  , line [perc PedalHiHat qn, percLTen, percLTen
+>                          , tempo (5/4) (line [perc LowMidTom en, perc HighTom sn, perc LowMidTom en])]]
+>           , chord [line [times 3 (perc PedalHiHat qn)], line [percCCqn, times 4 percHTen]]
+>           , chord [line [percBDen, percBDen, rest hn], line [perc PedalHiHat qn, rest en, percCHHen, percOHHqn]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [percOHHen, percCHHen, percOHHen, times 3 percCHHen]]]
 >
-> perc033_036 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest qn], line [percCHHqn, perc RideCymbal1 hn]]
->       , line [t32 [percCHHqn, percOHHen], percCHHsn, perc RideCymbal1 den, perc RideCymbal1 qn]
->       , chord [line [percBDen, percBDen, rest hn], line [times 6 percCHHsn]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn], line [times 4 percCHHsn, percRCen, percCHHen]]]
+>     perc033_036 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest qn], line [percCHHqn, perc RideCymbal1 hn]]
+>           , line [t32 [percCHHqn, percOHHen], percCHHsn, perc RideCymbal1 den, perc RideCymbal1 qn]
+>           , chord [line [percBDen, percBDen, rest hn], line [times 6 percCHHsn]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn], line [times 4 percCHHsn, percRCen, percCHHen]]]
 >
-> perc037_040 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
->              , line [percCHHqn, perc RideCymbal1 en, percCHHen, percHTsn, perc HiMidTom den]]
->       , line [percCHHen, percCHHen, t32 [perc HiMidTom qn, percHTqn, rest qn]]
->       , chord [line [percBDen, percBDen, rest hn], line [percCCen, percCCen, rest en, times 3 percCHHen]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn], line [percOHHqn, percCHHqn, percCHHqn]]]
+>     perc037_040 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>                  , line [percCHHqn, perc RideCymbal1 en, percCHHen, percHTsn, perc HiMidTom den]]
+>           , line [percCHHen, percCHHen, t32 [perc HiMidTom qn, percHTqn, rest qn]]
+>           , chord [line [percBDen, percBDen, rest hn], line [percCCen, percCCen, rest en, times 3 percCHHen]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn], line [percOHHqn, percCHHqn, percCHHqn]]]
 >
-> perc041_044 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
->              , line [percCHHqn, perc HiMidTom en, perc HiMidTom en, t32 [percHTqn, perc HiMidTom en]]]
->       , line [rest en
->             , tempo (5/4) (line [perc HiMidTom en, perc HiMidTom den, percHTen, perc HiMidTom den])
->             , rest en]
->       , chord [line [percBDen, percBDen, rest hn], line [percCCqn, times 4 percCHHen]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [percCHHen, percCHHen, percCHHqn, percCHHen, percCHHen]]]
+>     perc041_044 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>                  , line [percCHHqn, perc HiMidTom en, perc HiMidTom en, t32 [percHTqn, perc HiMidTom en]]]
+>           , line [rest en
+>                 , tempo (5/4) (line [perc HiMidTom en, perc HiMidTom den, percHTen, perc HiMidTom den])
+>                 , rest en]
+>           , chord [line [percBDen, percBDen, rest hn], line [percCCqn, times 4 percCHHen]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [percCHHen, percCHHen, percCHHqn, percCHHen, percCHHen]]]
 >
-> perc045_048 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
->              , line [percCHHen, percLTsn, percLTsn, perc LowMidTom qn, rest qn]]
->       , line [rest qn, t32 [percm HighFloorTom [en, en, en]], percm HighFloorTom [en, en]]
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [percCCen, percCCen, rest qn, percCHHen, percCHHen]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [percCHHqn, percCHHqn, percCHHen, percCHHen]]]
+>     perc045_048 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>                  , line [percCHHen, percLTsn, percLTsn, perc LowMidTom qn, rest qn]]
+>           , line [rest qn, t32 [percm HighFloorTom [en, en, en]], percm HighFloorTom [en, en]]
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCCen, percCCen, rest qn, percCHHen, percCHHen]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [percCHHqn, percCHHqn, percCHHen, percCHHen]]]
 >
-> perc049_052 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
->              , line [percCHHen, percCHHen, percCHHqn, rest qn]]
->       , line [rest qn, times 4 (chord [perc HighFloorTom en, percSDen])]
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [percCCen, percCCen, rest qn, percCHHen, percCHHen]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [percm ClosedHiHat [en, en, en, en, en, en]]]]
+>     perc049_052 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>                  , line [percCHHen, percCHHen, percCHHqn, rest qn]]
+>           , line [rest qn, times 4 (chord [perc HighFloorTom en, percSDen])]
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCCen, percCCen, rest qn, percCHHen, percCHHen]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [percm ClosedHiHat [en, en, en, en, en, en]]]]
 >
-> perc053_056 =
->   line [chord [line [percBDen, percBDen
->                    , tempo (6/5) (line [percBDen, percSDen, percSDen, perc HiMidTom en, perc LowMidTom en
->                                       , perc HiMidTom en, percSDen, perc LowMidTom en, perc HiMidTom en
->                                       , perc LowMidTom en, percSDen, rest en])]
->              , line [percCHHqn, tempo (6/5) (line [percOHHqn, percOHHqn, rest wn])]]
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [percCCen, percCCen, rest qn, percOHHen, percOHHen]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [percCHHqn, times 4 percCHHen]]]
+>     perc053_056 =
+>       line [chord [line [percBDen, percBDen
+>                        , tempo (6/5) (line [percBDen, percSDen, percSDen, perc HiMidTom en, perc LowMidTom en
+>                                           , perc HiMidTom en, percSDen, perc LowMidTom en, perc HiMidTom en
+>                                           , perc LowMidTom en, percSDen, rest en])]
+>                  , line [percCHHqn, tempo (6/5) (line [percOHHqn, percOHHqn, rest wn])]]
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCCen, percCCen, rest qn, percOHHen, percOHHen]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [percCHHqn, times 4 percCHHen]]]
 >
-> perc057_060 =
->   line [chord [line [percBDen, percBDen]
->              , percOHHqn]
->       , tempo (6/5) (chord [line [times 11 percBDen,                              rest en]
->                           , line [percm LowTom      [qn, qn, en, qn, qn, en, en], rest en]
->                           , line [percm ClosedHiHat [qn, qn, en, qn, qn, en, en], rest en]])
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [percSDqn, rest en, percm LowTom [en, en, en]]
->              , line [times 3 (perc PedalHiHat qn)]]]
+>     perc057_060 =
+>       line [chord [line [percBDen, percBDen]
+>                  , percOHHqn]
+>           , tempo (6/5) (chord [line [times 11 percBDen,                              rest en]
+>                               , line [percm LowTom      [qn, qn, en, qn, qn, en, en], rest en]
+>                               , line [percm ClosedHiHat [qn, qn, en, qn, qn, en, en], rest en]])
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [percSDqn, rest en, percm LowTom [en, en, en]]
+>                  , line [times 3 (perc PedalHiHat qn)]]]
 >
-> perc061_064 =
->   line [chord [line [percBDen, percBDen]
->              , perc PedalHiHat qn]
->       , tempo (6/5) (chord [line [percBDqn, rest (wn + qn)]
->                           , line [percm AcousticSnare [en, en, sn, sn, en, en, en, sn, sn, en, en, en], rest qn]])
->       , chord [line [percBDen, percBDen, rest dqn, percBDen]
->              , line [percCCen, percCCen, rest qn, percCHHqn]]
->       , chord [line [percBDqn, percSDen, percBDen, rest qn]
->              , line [percSDqn, rest hn]
->              , line [percCHHqn, rest en, percCHHen, rest qn]]]
+>     perc061_064 =
+>       line [chord [line [percBDen, percBDen]
+>                  , perc PedalHiHat qn]
+>           , tempo (6/5) (chord [line [percBDqn, rest (wn + qn)]
+>                               , line [percm AcousticSnare [en, en, sn, sn, en, en, en, sn, sn, en, en, en], rest qn]])
+>           , chord [line [percBDen, percBDen, rest dqn, percBDen]
+>                  , line [percCCen, percCCen, rest qn, percCHHqn]]
+>           , chord [line [percBDqn, percSDen, percBDen, rest qn]
+>                  , line [percSDqn, rest hn]
+>                  , line [percCHHqn, rest en, percCHHen, rest qn]]]
 >
-> perc065_068 =
->   line [tempo (7/4) (chord [line [percBDen, percLTen, percBDen, percLTen, percBDen, percLTen, percLTen
->                                 , percBDen, percLTen, percBDen, percLTen, percBDen, percLTen, percLTen
->                                 , percBDen, percLTen, percBDen, percBDen
->                                 , tempo (4/3) (times 4 percSDsn)]
->                           , line [percm ClosedHiHat [qn, qn, dqn, qn, qn, dqn, qn, qn], rest dqn]])
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
->       , chord [line [percBDqn, percSDen, percBDen, rest qn]
->              , line [percSDqn, rest hn]
->              , line [percCHHqn, rest en, percCHHen, rest qn]]]
+>     perc065_068 =
+>       line [tempo (7/4) (chord [line [percBDen, percLTen, percBDen, percLTen, percBDen, percLTen, percLTen
+>                                     , percBDen, percLTen, percBDen, percLTen, percBDen, percLTen, percLTen
+>                                     , percBDen, percLTen, percBDen, percBDen
+>                                     , tempo (4/3) (times 4 percSDsn)]
+>                               , line [percm ClosedHiHat [qn, qn, dqn, qn, qn, dqn, qn, qn], rest dqn]])
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
+>           , chord [line [percBDqn, percSDen, percBDen, rest qn]
+>                  , line [percSDqn, rest hn]
+>                  , line [percCHHqn, rest en, percCHHen, rest qn]]]
 >
-> perc069_070 =
->   tempo (5/4) (line [perc HighFloorTom en, percBDen, perc HighFloorTom en, percBDen, percBDen, percBDen
->                    , perc HighFloorTom en, percBDen, perc HighFloorTom en, percBDen, percBDen
->                    , perc HighFloorTom en, percBDen, percSDen, percSDen])
+>     perc069_070 =
+>       tempo (5/4) (line [perc HighFloorTom en, percBDen, perc HighFloorTom en, percBDen, percBDen, percBDen
+>                        , perc HighFloorTom en, percBDen, perc HighFloorTom en, percBDen, percBDen
+>                        , perc HighFloorTom en, percBDen, percSDen, percSDen])
 >
-> perc071_072 =
->   line [chord [line [percBDen, percBDen, rest hn]
->              , line [percCHHen, percCHHen, rest qn, perc PedalHiHat qn]]
->       , chord [line [percBDqn, percSDen, percBDen, rest qn]
->              , line [percSDqn, rest hn]
->              , line [percCHHqn, rest en, percCHHen, percOHHqn]]]
+>     perc071_072 =
+>       line [chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCHHen, percCHHen, rest qn, perc PedalHiHat qn]]
+>           , chord [line [percBDqn, percSDen, percBDen, rest qn]
+>                  , line [percSDqn, rest hn]
+>                  , line [percCHHqn, rest en, percCHHen, percOHHqn]]]
 >
-> perc073_076 =
->   line [tempo (7/6) (line [percBDen, percSDen, percSDen, percBDen, percBDen, percBDen, percSDen
->                           , percSDen, percBDen, percBDen, percBDen, percSDen, percSDen, rest en])
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
->       , chord [line [percBDqn, percSDen, percBDen, rest en, percSDen]
->              , line [percCHHqn, rest en, perc ClosedHiHat dqn]]]
+>     perc073_076 =
+>       line [tempo (7/6) (line [percBDen, percSDen, percSDen, percBDen, percBDen, percBDen, percSDen
+>                               , percSDen, percBDen, percBDen, percBDen, percSDen, percSDen, rest en])
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
+>           , chord [line [percBDqn, percSDen, percBDen, rest en, percSDen]
+>                  , line [percCHHqn, rest en, perc ClosedHiHat dqn]]]
 >
-> perc077_080 =
->   line [chord [line [rest qn, t32 [percHTen, percHTen, percLTen, times 3 percBDen]]
->              , line [percCHHqn, percCCqn, rest qn]]
->       , line [perc LowTom den, percOHHsn, times 2 percLTsn, rest dqn]
->       , chord [line [percBDen, percBDen, rest dqn, percBDen]
->              , line [percCCen, percCCen, rest qn, percOHHqn]]
->       , chord [line [percBDqn, percSDen, percBDen, rest qn]
->              , line [percOHHqn, rest en, percOHHen, percOHHqn]]]
+>     perc077_080 =
+>       line [chord [line [rest qn, t32 [percHTen, percHTen, percLTen, times 3 percBDen]]
+>                  , line [percCHHqn, percCCqn, rest qn]]
+>           , line [perc LowTom den, percOHHsn, times 2 percLTsn, rest dqn]
+>           , chord [line [percBDen, percBDen, rest dqn, percBDen]
+>                  , line [percCCen, percCCen, rest qn, percOHHqn]]
+>           , chord [line [percBDqn, percSDen, percBDen, rest qn]
+>                  , line [percOHHqn, rest en, percOHHen, percOHHqn]]]
 >
-> perc081_082 =
->   chord [line [chord [percBDen, percLTen], t32 [percLTsn, percLTsn, percBDsn], percSDen, percHTsn, percHTsn
->              , tempo (5/6) (line [percHTen, percHTen, percBDen, percLTen, percLTen]), percLTqn]
->        , line [perc PedalHiHat qn, rest sn, perc CrashCymbal1 den
->              , tempo (5/6) (line [percCCqn, rest dqn]), percHTqn]]
+>     perc081_082 =
+>       chord [line [chord [percBDen, percLTen], t32 [percLTsn, percLTsn, percBDsn], percSDen, percHTsn, percHTsn
+>                  , tempo (5/6) (line [percHTen, percHTen, percBDen, percLTen, percLTen]), percLTqn]
+>            , line [perc PedalHiHat qn, rest sn, perc CrashCymbal1 den
+>                  , tempo (5/6) (line [percCCqn, rest dqn]), percHTqn]]
 >
-> perc083_084 =
->   chord [line [percBDen, percBDen, rest dqn, percBDen, chord [percBDqn, percSDqn], percSDen, percBDen, rest qn]
->        , line [percCCen, percCCen, rest qn, perc PedalHiHat qn, percOHHqn, percOHHen, percOHHen, percOHHqn]]
+>     perc083_084 =
+>       chord [line [percBDen, percBDen, rest dqn, percBDen, chord [percBDqn, percSDqn], percSDen, percBDen, rest qn]
+>            , line [percCCen, percCCen, rest qn, perc PedalHiHat qn, percOHHqn, percOHHen, percOHHen, percOHHqn]]
 >
-> perc085_088 =
->   line [chord [line [percBDen, percBDen, percBDen, tempo (4/3) (times 4 percHTen)]
->              , line [percOHHqn, rest en, percCCen, rest qn]]
->       , tempo (2/3) (chord [line [times 4 percHTsn, percHTsn, perc HighTom den]
->                           , line [percOHHqn, rest sn, perc OpenHiHat den]])
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
->       , chord [line [chord [percBDqn, percSDqn], percSDqn, rest qn]
->              , line [percOHHqn, rest en, percCHHen, rest qn]]]
+>     perc085_088 =
+>       line [chord [line [percBDen, percBDen, percBDen, tempo (4/3) (times 4 percHTen)]
+>                  , line [percOHHqn, rest en, percCCen, rest qn]]
+>           , tempo (2/3) (chord [line [times 4 percHTsn, percHTsn, perc HighTom den]
+>                               , line [percOHHqn, rest sn, perc OpenHiHat den]])
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
+>           , chord [line [chord [percBDqn, percSDqn], percSDqn, rest qn]
+>                  , line [percOHHqn, rest en, percCHHen, rest qn]]]
 >
-> perc089_092 =
->   line [chord [line [percBDen, percBDen, t32 [rest qn, percBDen], times 3 percSDsn, percBDsn]
->              , line [percCHHqn, percOHHqn, rest qn]]
->       , chord [line [times 4 percLTsn, t32 [percLTen, percBDqn], percBDqn]
->              , line [rest hn, percCHHqn]]
->       , chord [line [percBDen, percBDen, rest dqn, percBDen]
->              , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
->       , chord [line [percSDqn, percSDen, percBDen, rest qn]
->              , line [percCHHqn, rest en, percCHHen, percCHHqn]]]
+>     perc089_092 =
+>       line [chord [line [percBDen, percBDen, t32 [rest qn, percBDen], times 3 percSDsn, percBDsn]
+>                  , line [percCHHqn, percOHHqn, rest qn]]
+>           , chord [line [times 4 percLTsn, t32 [percLTen, percBDqn], percBDqn]
+>                  , line [rest hn, percCHHqn]]
+>           , chord [line [percBDen, percBDen, rest dqn, percBDen]
+>                  , line [percCCen, percCCen, rest qn, perc PedalHiHat qn]]
+>           , chord [line [percSDqn, percSDen, percBDen, rest qn]
+>                  , line [percCHHqn, rest en, percCHHen, percCHHqn]]]
 >
-> perc093_096 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest en, tempo (5/3) (percm LowTom [en, en, en, en, en])
->                    , times 4 percLTen]
->              , line [percCCqn, percCCqn, rest wn]]
->       , line [times 2 (chord [percBDen, percLTen, percCCen]), rest qn, percCHHqn]
->       , chord [line [percBDqn, percSDen, percBDen, rest qn]
->              , line [percOHHqn, rest en, percOHHen, rest qn]]]
+>     perc093_096 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest en, tempo (5/3) (percm LowTom [en, en, en, en, en])
+>                        , times 4 percLTen]
+>                  , line [percCCqn, percCCqn, rest wn]]
+>           , line [times 2 (chord [percBDen, percLTen, percCCen]), rest qn, percCHHqn]
+>           , chord [line [percBDqn, percSDen, percBDen, rest qn]
+>                  , line [percOHHqn, rest en, percOHHen, rest qn]]]
 >
-> perc097_100 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
->              , line [percOHHqn, percCHHqn, perc PedalHiHat qn]]
->       , chord [line [perc LowTom dhn]
->              , line [times 3 (perc PedalHiHat qn)]]
->       , chord [line [percBDen, percBDen, rest dqn, percBDen]
->              , line [chord [percCCen, perc PedalHiHat en], percCCen, rest hn]]
->       , chord [line [percBDqn, percSDen, percBDen, rest qn]
->              , line [percCCqn, rest en, percOHHen, rest qn]]]
+>     perc097_100 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>                  , line [percOHHqn, percCHHqn, perc PedalHiHat qn]]
+>           , chord [line [perc LowTom dhn]
+>                  , line [times 3 (perc PedalHiHat qn)]]
+>           , chord [line [percBDen, percBDen, rest dqn, percBDen]
+>                  , line [chord [percCCen, perc PedalHiHat en], percCCen, rest hn]]
+>           , chord [line [percBDqn, percSDen, percBDen, rest qn]
+>                  , line [percCCqn, rest en, percOHHen, rest qn]]]
 >
-> perc101_104 =
->   line [chord [line [percBDen, percBDen, percBDen, percLTqn, rest en]
->              , line [times 3 (perc PedalHiHat qn)]]
->       , line [times 9 (perc PedalHiHat qn)]]
+>     perc101_104 =
+>       line [chord [line [percBDen, percBDen, percBDen, percLTqn, rest en]
+>                  , line [times 3 (perc PedalHiHat qn)]]
+>           , line [times 9 (perc PedalHiHat qn)]]
 >
-> perc105_108 =
->   line [times 12 (perc PedalHiHat qn)]
+>     perc105_108 =
+>       line [times 12 (perc PedalHiHat qn)]
 >
-> perc109_112 =
->   line [chord [line [percBDen, percBDen, percBDen, rest dqn]
->              , line [times 3 (perc PedalHiHat qn)]
->              , line [percCCen, times 5 percRCen]]
->       , chord [line [times 3 (perc PedalHiHat qn)]
->              , line [times 6 percRCen]]
->       , chord [line [percBDen, percBDen, rest hn, percBDqn, rest en, percBDen, rest qn]
->              , line [times 6 (perc PedalHiHat en)]
->              , line [times 12 percRCen]]]
+>     perc109_112 =
+>       line [chord [line [percBDen, percBDen, percBDen, rest dqn]
+>                  , line [times 3 (perc PedalHiHat qn)]
+>                  , line [percCCen, times 5 percRCen]]
+>           , chord [line [times 3 (perc PedalHiHat qn)]
+>                  , line [times 6 percRCen]]
+>           , chord [line [percBDen, percBDen, rest hn, percBDqn, rest en, percBDen, rest qn]
+>                  , line [times 6 (perc PedalHiHat en)]
+>                  , line [times 12 percRCen]]]
 >
-> perc113_116 =
->   line [line [rest qn, tempo (6/5)
->                         (tempo (5/4) (line [perc LowMidTom en, percHTen, perc LowMidTom en, perc LowMidTom en
->                                           , percBDen, perc LowMidTom en, percHTen, perc LowMidTom en
->                                           , perc LowMidTom en, percBDen, perc LowMidTom en, percHTen
->                                           , perc LowMidTom en, percBDen, percLTen]))]
->       , line [tempo (2/3)
->                 (tempo (5/4) (line [perc LowMidTom sn, percHTsn, percm LowMidTom [sn, sn], percLTsn
->                                  , perc LowMidTom sn, percHTsn, percm LowMidTom [sn, sn], percLTsn
->                                  , percm LowMidTom [sn, sn], percLTsn, perc LowMidTom sn, percLTsn
->                                  , perc LowMidTom sn, percHTsn, perc LowMidTom sn
->                                  , chord [percBDen, percLTen, percCCen]]))]]
+>     perc113_116 =
+>       line [line [rest qn, tempo (6/5)
+>                             (tempo (5/4) (line [perc LowMidTom en, percHTen, perc LowMidTom en, perc LowMidTom en
+>                                               , percBDen, perc LowMidTom en, percHTen, perc LowMidTom en
+>                                               , perc LowMidTom en, percBDen, perc LowMidTom en, percHTen
+>                                               , perc LowMidTom en, percBDen, percLTen]))]
+>           , line [tempo (2/3)
+>                     (tempo (5/4) (line [perc LowMidTom sn, percHTsn, percm LowMidTom [sn, sn], percLTsn
+>                                      , perc LowMidTom sn, percHTsn, percm LowMidTom [sn, sn], percLTsn
+>                                      , percm LowMidTom [sn, sn], percLTsn, perc LowMidTom sn, percLTsn
+>                                      , perc LowMidTom sn, percHTsn, perc LowMidTom sn
+>                                      , chord [percBDen, percLTen, percCCen]]))]]
 >
-> perc117_120 =
->   line [chord [line [percBDen, percBDen, rest hn]
->              , line [percCCen, percCCen, rest hn]]
->       , chord [line [t32 [times 3 percBDqn], percBDqn, percBDen, percBDen, rest hn]
->              , line [t32 [times 3 percSDqn], percSDqn, rest dhn]
->              , line [t32 [times 3 percCCqn], percCCqn, percCCen, percCCen, rest hn]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [percSDqn, rest hn]
->              , line [times 3 percOHHqn]]]
+>     perc117_120 =
+>       line [chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCCen, percCCen, rest hn]]
+>           , chord [line [t32 [times 3 percBDqn], percBDqn, percBDen, percBDen, rest hn]
+>                  , line [t32 [times 3 percSDqn], percSDqn, rest dhn]
+>                  , line [t32 [times 3 percCCqn], percCCqn, percCCen, percCCen, rest hn]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [percSDqn, rest hn]
+>                  , line [times 3 percOHHqn]]]
 >
-> perc121_124 =
->   line [chord [line [times 10 percBDen, t32 [percBDqn, percBDen]]
->              , line [percCHHqn, percOHHqn, percOHHen, percCHHen, percOHHqn, percOHHqn, percCHHqn]]
->       , chord [line [percBDen, percBDen, t32 [percBDqn, percBDqn, rest en, percBDen]
->                    , percBDen, percBDen, rest en, percBDen, t32 [rest en, percBDen, percBDen]]
->              , line [times 6 (perc PedalHiHat qn)]]]
+>     perc121_124 =
+>       line [chord [line [times 10 percBDen, t32 [percBDqn, percBDen]]
+>                  , line [percCHHqn, percOHHqn, percOHHen, percCHHen, percOHHqn, percOHHqn, percCHHqn]]
+>           , chord [line [percBDen, percBDen, t32 [percBDqn, percBDqn, rest en, percBDen]
+>                        , percBDen, percBDen, rest en, percBDen, t32 [rest en, percBDen, percBDen]]
+>                  , line [times 6 (perc PedalHiHat qn)]]]
 >
-> perc125_128 =
->   chord [line [times 12 (line [rest en, percBDsn, percBDsn])]
->        , line [times 12 (perc PedalHiHat qn)]]
+>     perc125_128 =
+>       chord [line [times 12 (line [rest en, percBDsn, percBDsn])]
+>            , line [times 12 (perc PedalHiHat qn)]]
 >
-> perc129_132 =
->   line [chord [line [times 3 (line [rest en, percBDsn, percBDsn])]
->               , line [times 3 (perc PedalHiHat qn)]]
->       , chord [line [percSDqn, perc BassDrum1 den, percBDsn, t32 [percBDqn, percBDen]]
->               , line [percCCqn, percOHHqn, t32 [percOHHqn, percOHHen]]]
->       , chord [line [rest qn, percBDqn, t32 [percBDqn, percBDen]]
->              , line [times 3 percCHHqn]]
->       , chord [line [rest en, percBDen, rest den, percBDsn, percBDqn]
->              , line [percCHHen, percCCen, percCHHen, percCCen, percCHHqn]]]
+>     perc129_132 =
+>       line [chord [line [times 3 (line [rest en, percBDsn, percBDsn])]
+>                   , line [times 3 (perc PedalHiHat qn)]]
+>           , chord [line [percSDqn, perc BassDrum1 den, percBDsn, t32 [percBDqn, percBDen]]
+>                   , line [percCCqn, percOHHqn, t32 [percOHHqn, percOHHen]]]
+>           , chord [line [rest qn, percBDqn, t32 [percBDqn, percBDen]]
+>                  , line [times 3 percCHHqn]]
+>           , chord [line [rest en, percBDen, rest den, percBDsn, percBDqn]
+>                  , line [percCHHen, percCCen, percCHHen, percCCen, percCHHqn]]]
 >
-> perc133_137 =
->   line [chord [line [percBDen, percBDen, percBDqn, percBDen, percBDen
->                    , rest en, percBDen, perc BassDrum1 den, percSDqn]
->              , line [percOHHen, percCCen, percOHHqn, percRCen, percRCqn, percRCen, percRCqn, percRCen, percRCen]]
->       , chord [line [percBDen, percBDen, perc BassDrum1 den, percBDsn, percSDqn, percBDen, percBDen, rest en
->                    , percBDen, percSDen, percBDen, percBDen, percBDen, t32 [percBDqn, percBDen], percSDen, percBDen]
->              , line [percm RideCymbal1 [en, en + den, sn, qn, en, qn, en, en, qn, qn, en, en, en]]]]
+>     perc133_137 =
+>       line [chord [line [percBDen, percBDen, percBDqn, percBDen, percBDen
+>                        , rest en, percBDen, perc BassDrum1 den, percSDqn]
+>                  , line [percOHHen, percCCen, percOHHqn, percRCen, percRCqn, percRCen, percRCqn, percRCen, percRCen]]
+>           , chord [line [percBDen, percBDen, perc BassDrum1 den, percBDsn, percSDqn, percBDen, percBDen, rest en
+>                        , percBDen, percSDen, percBDen, percBDen, percBDen, t32 [percBDqn, percBDen], percSDen, percBDen]
+>                  , line [percm RideCymbal1 [en, en + den, sn, qn, en, qn, en, en, qn, qn, en, en, en]]]]
 >
-> perc138_142 =
->   chord [line [rest en, percBDen, percBDen, percBDsn, percBDsn, percSDen, percBDen
->              , percBDqn, percBDen, percBDsn, percBDsn, percSDen, percBDen
->              , rest en, percBDen, percBDqn, percBDen, percBDen
->              , percBDen, percBDen, times 3 percBDqn, percSDqn, rest en, percSDsn, percSDsn]
->        , line [percm RideCymbal1 [en, qn, en, en, qn, en, qn, en, qn, en, qn], percCCen, perc CrashCymbal1 dqn
->             , times 3 percCCqn, percm PedalHiHat [qn, qn]]]
+>     perc138_142 =
+>       chord [line [rest en, percBDen, percBDen, percBDsn, percBDsn, percSDen, percBDen
+>                  , percBDqn, percBDen, percBDsn, percBDsn, percSDen, percBDen
+>                  , rest en, percBDen, percBDqn, percBDen, percBDen
+>                  , percBDen, percBDen, times 3 percBDqn, percSDqn, rest en, percSDsn, percSDsn]
+>            , line [percm RideCymbal1 [en, qn, en, en, qn, en, qn, en, qn, en, qn], percCCen, perc CrashCymbal1 dqn
+>                 , times 3 percCCqn, percm PedalHiHat [qn, qn]]]
 >
-> perc143_144 =
->   chord [line [percSDqn, percBDqn, percBDqn, percBDqn, percBDen, percBDen, percBDqn]
->        , line [percCHHqn, percCHHqn, percm PedalHiHat [qn, qn, qn, qn]]]
+>     perc143_144 =
+>       chord [line [percSDqn, percBDqn, percBDqn, percBDqn, percBDen, percBDen, percBDqn]
+>            , line [percCHHqn, percCHHqn, percm PedalHiHat [qn, qn, qn, qn]]]
 >
-> perc145_148 =
->   chord [line [percBDqn, rest en, percBDen, percBDqn
->              , tempo (2/3) (line [percBDsn, percSDsn, percBDen, percBDsn, percSDsn, percBDen])
->              , percBDqn, perc BassDrum1 den, percBDsn, percBDen, percSDen, percBDqn, percBDen, percBDen, rest qn]
->        , line [percm CrashCymbal1 [dqn, dqn]
->              , tempo (2/3) (line [rest sn, percCCsn, percCCen, rest sn, percCCsn, percCCen])
->              , percOHHqn, perc OpenHiHat hn, percCCqn, rest en, percCCen, percCCqn]]
+>     perc145_148 =
+>       chord [line [percBDqn, rest en, percBDen, percBDqn
+>                  , tempo (2/3) (line [percBDsn, percSDsn, percBDen, percBDsn, percSDsn, percBDen])
+>                  , percBDqn, perc BassDrum1 den, percBDsn, percBDen, percSDen, percBDqn, percBDen, percBDen, rest qn]
+>            , line [percm CrashCymbal1 [dqn, dqn]
+>                  , tempo (2/3) (line [rest sn, percCCsn, percCCen, rest sn, percCCsn, percCCen])
+>                  , percOHHqn, perc OpenHiHat hn, percCCqn, rest en, percCCen, percCCqn]]
 >
-> perc149_153 =
->   line [chord [line [percBDsn, rest en, percBDsn, rest en, percBDsn, rest den, percBDsn, rest sn]
->              , line [times 12 percLTsn]
->              , line [percm CrashCymbal1 [den, den, qn, en]]]
->       , chord [line [rest en, percBDsn, rest den, percBDsn, rest sn, percBDsn, rest den]
->              , line [times 5 percLTsn, percHTsn, times 2 percLTsn]]
->       , tempo (2/3) (t32 [percBDsn, percHTsn, chord [percLTsn, percCCsn], percHTsn, perc HighFloorTom en
->                        , percBDsn, percHTsn, chord [percLTsn, percCHHsn], percHTsn, percBDen
->                        , percBDsn, chord [percHTsn, percCCsn], percLTsn, percHTsn, percBDen
->                        , percBDsn, chord [percHTsn, percCCsn], percLTsn, percHTsn, percBDen])]
+>     perc149_153 =
+>       line [chord [line [percBDsn, rest en, percBDsn, rest en, percBDsn, rest den, percBDsn, rest sn]
+>                  , line [times 12 percLTsn]
+>                  , line [percm CrashCymbal1 [den, den, qn, en]]]
+>           , chord [line [rest en, percBDsn, rest den, percBDsn, rest sn, percBDsn, rest den]
+>                  , line [times 5 percLTsn, percHTsn, times 2 percLTsn]]
+>           , tempo (2/3) (t32 [percBDsn, percHTsn, chord [percLTsn, percCCsn], percHTsn, perc HighFloorTom en
+>                            , percBDsn, percHTsn, chord [percLTsn, percCHHsn], percHTsn, percBDen
+>                            , percBDsn, chord [percHTsn, percCCsn], percLTsn, percHTsn, percBDen
+>                            , percBDsn, chord [percHTsn, percCCsn], percLTsn, percHTsn, percBDen])]
 >
-> perc154_156 =
->   line [tempo (5/6) (chord [line [times 5 (line [percBDsn, rest den])]
->                           , line [times 5 (line [percCCsn, rest den])]])
->       , t32 [chord [line [times 5 percLTen, percHTen, percLTen, percLTen, percBDen]
->                   , line [perc ClosedHiHat dqn, rest dqn, perc CrashCymbal1 dqn]]]]
+>     perc154_156 =
+>       line [tempo (5/6) (chord [line [times 5 (line [percBDsn, rest den])]
+>                               , line [times 5 (line [percCCsn, rest den])]])
+>           , t32 [chord [line [times 5 percLTen, percHTen, percLTen, percLTen, percBDen]
+>                       , line [perc ClosedHiHat dqn, rest dqn, perc CrashCymbal1 dqn]]]]
 >
-> perc157_160 =
->   line [chord [line [t32 [percLTen, percBDen, percLTen, percLTen, percLTen, percHTen, percSDen, percLTen, percBDen]
->                    , percBDen, percBDen, percHTen, percBDen, t32 [rest en, percBDen, percBDen]]
->              , line [percCHHqn, rest qn, percCCqn, percCCqn, rest qn, percCCqn]]
->       , chord [t32 [times 9 percBDqn]
->              , t32 [times 9 percCCqn]]]
+>     perc157_160 =
+>       line [chord [line [t32 [percLTen, percBDen, percLTen, percLTen, percLTen, percHTen, percSDen, percLTen, percBDen]
+>                        , percBDen, percBDen, percHTen, percBDen, t32 [rest en, percBDen, percBDen]]
+>                  , line [percCHHqn, rest qn, percCCqn, percCCqn, rest qn, percCCqn]]
+>           , chord [t32 [times 9 percBDqn]
+>                  , t32 [times 9 percCCqn]]]
 >
-> perc161_164 =
->   chord [line [percBDen, percBDen, percBDqn, rest dhn, percSDqn, percBDen, percBDen, rest hn
->              , percBDqn, rest qn, percBDen, rest en]
->        , line [percLTen, percLTen, percLTqn, rest (10*qn)]
->        , line [percCCen, percCCen, percCCqn, percOHHqn, times 9 percCHHqn]]
+>     perc161_164 =
+>       chord [line [percBDen, percBDen, percBDqn, rest dhn, percSDqn, percBDen, percBDen, rest hn
+>                  , percBDqn, rest qn, percBDen, rest en]
+>            , line [percLTen, percLTen, percLTqn, rest (10*qn)]
+>            , line [percCCen, percCCen, percCCqn, percOHHqn, times 9 percCHHqn]]
 >
-> perc165_168 =
->   chord [line [percBDen, percBDen, percBDqn, t32 [rest qn, percSDqn, percSDqn], percSDqn, rest qn
->              , percBDen, percBDen, rest hn, percBDqn, percSDen, percBDen, rest qn]
->        , line [percCHHqn, percCHHqn, t32 [percOHHqn, times 2 (chord [percOHHqn, percCCqn])]
->              , chord [percOHHqn, percCCqn], times 4 percOHHqn, times 3 percCHHqn]]
+>     perc165_168 =
+>       chord [line [percBDen, percBDen, percBDqn, t32 [rest qn, percSDqn, percSDqn], percSDqn, rest qn
+>                  , percBDen, percBDen, rest hn, percBDqn, percSDen, percBDen, rest qn]
+>            , line [percCHHqn, percCHHqn, t32 [percOHHqn, times 2 (chord [percOHHqn, percCCqn])]
+>                  , chord [percOHHqn, percCCqn], times 4 percOHHqn, times 3 percCHHqn]]
 >
-> perc169_172 =
->   chord [line [rest qn, roll sn (perc AcousticSnare wn), rest qn, percBDen, percBDen, rest hn, percBDqn, rest hn]
->        , line [percm PedalHiHat [qn, qn, qn, qn, qn, qn], percCCen, percCCen, percm PedalHiHat [qn, qn]
->              , percOHHqn, percOHHqn, percCCqn]]
+>     perc169_172 =
+>       chord [line [rest qn, roll sn (perc AcousticSnare wn), rest qn, percBDen, percBDen, rest hn, percBDqn, rest hn]
+>            , line [percm PedalHiHat [qn, qn, qn, qn, qn, qn], percCCen, percCCen, percm PedalHiHat [qn, qn]
+>                  , percOHHqn, percOHHqn, percCCqn]]
 >
-> perc173_178 =
->   line [line [percCHHqn, rest (hn + dhn)]
->       , chord [line [percBDen, percBDen, rest hn, percBDqn, rest en, percBDen, rest qn
->                    , percBDen, percBDen, percBDqn, rest qn, rest en, percBDen, rest hn]
->              , line [percCHHen, percCHHen, rest hn, percOHHqn, rest en, percCHHen, rest en, percCHHen, percCHHen
->                    , percCHHqn, percCHHqn]]]
+>     perc173_178 =
+>       line [line [percCHHqn, rest (hn + dhn)]
+>           , chord [line [percBDen, percBDen, rest hn, percBDqn, rest en, percBDen, rest qn
+>                        , percBDen, percBDen, percBDqn, rest qn, rest en, percBDen, rest hn]
+>                  , line [percCHHen, percCHHen, rest hn, percOHHqn, rest en, percCHHen, rest en, percCHHen, percCHHen
+>                        , percCHHqn, percCHHqn]]]
 >
-> perc179_184 =
->   line [chord [line [percBDen, percBDen, rest hn] 
->              , line [percCCen, percCCen, percCCqn, rest qn]]
->       , line [percBDqn, rest en, percBDen, rest qn, percBDen, percBDen, percBDqn, rest qn]
->       , line [rest qn, t32 [percHTqn, perc LowMidTom en], rest qn]
->       , chord [line [percBDen, percBDen, rest hn, percBDen, rest (en + hn)]
->              , line [percCCen, percCCen, times 10 percCHHen]]]
+>     perc179_184 =
+>       line [chord [line [percBDen, percBDen, rest hn] 
+>                  , line [percCCen, percCCen, percCCqn, rest qn]]
+>           , line [percBDqn, rest en, percBDen, rest qn, percBDen, percBDen, percBDqn, rest qn]
+>           , line [rest qn, t32 [percHTqn, perc LowMidTom en], rest qn]
+>           , chord [line [percBDen, percBDen, rest hn, percBDen, rest (en + hn)]
+>                  , line [percCCen, percCCen, times 10 percCHHen]]]
 >
-> perc185_188 =
->   line [chord [line [percBDen, percBDen, percBDqn, rest qn]
->              , line [percCHHen, percCHHen, percCHHqn, rest qn]]
->       , line [t32 [perc PedalHiHat en, percCCqn], perc PedalHiHat hn]
->       , line [percCCen, percCCen, perc PedalHiHat hn]
->       , chord [line [rest dqn, percBDen, rest qn]
->              , line [percCHHqn, percCHHqn, rest qn]]]
+>     perc185_188 =
+>       line [chord [line [percBDen, percBDen, percBDqn, rest qn]
+>                  , line [percCHHen, percCHHen, percCHHqn, rest qn]]
+>           , line [t32 [perc PedalHiHat en, percCCqn], perc PedalHiHat hn]
+>           , line [percCCen, percCCen, perc PedalHiHat hn]
+>           , chord [line [rest dqn, percBDen, rest qn]
+>                  , line [percCHHqn, percCHHqn, rest qn]]]
 >
-> perc189_192 =
->   line [line [perc PedalHiHat qn, rest en, percCCen, percCCqn]
->       , chord [line [percLTqn, rest hn]
->              , line [percm PedalHiHat [qn, qn]]]
->       , chord [line [percBDqn, rest en, percBDen]
->              , line [percm PedalHiHat [qn, qn]]]
->       , t32 [chord [line [rest en, percBDen, times 6 percLTen]]]]
+>     perc189_192 =
+>       line [line [perc PedalHiHat qn, rest en, percCCen, percCCqn]
+>           , chord [line [percLTqn, rest hn]
+>                  , line [percm PedalHiHat [qn, qn]]]
+>           , chord [line [percBDqn, rest en, percBDen]
+>                  , line [percm PedalHiHat [qn, qn]]]
+>           , t32 [chord [line [rest en, percBDen, times 6 percLTen]]]]
 >
-> perc193_196 =
->   line [chord [line [percLTqn, t32 [percHTen, percLTen, percSDen], percSDen, percSDen
->                    , t32 [percSDqn, perc HighFloorTom en], rest hn]
->              , line [percm PedalHiHat [qn, qn, qn, qn, qn, en, en]]]]
+>     perc193_196 =
+>       line [chord [line [percLTqn, t32 [percHTen, percLTen, percSDen], percSDen, percSDen
+>                        , t32 [percSDqn, perc HighFloorTom en], rest hn]
+>                  , line [percm PedalHiHat [qn, qn, qn, qn, qn, en, en]]]]
 >
-> perc197_201 =
->   line [line [t32 [times 3 percSDen], tempo (5/4) (line [chord [percBDen, percSDen], times 4 percSDen])]
->       , chord [line [percBDen, percBDen, rest en, percBDen, percBDqn]
->              , line [percCCqn, rest hn]]
->       , chord [line [percSDen, rest en, percBDen, rest en, percBDen]
->              , line [rest qn, percCHHqn, rest en, percSDen]]
->       , tempo (9/12) (line [tempo (5/4) (times 4 (chord [line [percBDsn, percLTsn, percBDsn, percLTsn, percLTsn]
->                                                        , line [percCHHen, perc ClosedHiHat den]]))
->                            , line [rest en]])]
+>     perc197_201 =
+>       line [line [t32 [times 3 percSDen], tempo (5/4) (line [chord [percBDen, percSDen], times 4 percSDen])]
+>           , chord [line [percBDen, percBDen, rest en, percBDen, percBDqn]
+>                  , line [percCCqn, rest hn]]
+>           , chord [line [percSDen, rest en, percBDen, rest en, percBDen]
+>                  , line [rest qn, percCHHqn, rest en, percSDen]]
+>           , tempo (9/12) (line [tempo (5/4) (times 4 (chord [line [percBDsn, percLTsn, percBDsn, percLTsn, percLTsn]
+>                                                            , line [percCHHen, perc ClosedHiHat den]]))
+>                                , line [rest en]])]
 >
-> perc202_204 =
->   line [chord [line [percBDen, percBDen, rest dqn, percBDen]
->              , line [percCCen, percCCen, rest hn]]
->       , line [percSDqn, percSDen, percBDen, rest en, percBDen]
->       , chord [line [rest dqn, percSDsn, percSDsn, percSDen, percBDen]
->              , line [rest en, percCHHsn, percCHHsn, percCHHqn, rest qn]]]
+>     perc202_204 =
+>       line [chord [line [percBDen, percBDen, rest dqn, percBDen]
+>                  , line [percCCen, percCCen, rest hn]]
+>           , line [percSDqn, percSDen, percBDen, rest en, percBDen]
+>           , chord [line [rest dqn, percSDsn, percSDsn, percSDen, percBDen]
+>                  , line [rest en, percCHHsn, percCHHsn, percCHHqn, rest qn]]]
 >
-> perc205_207 =
->   line [chord [line [times 2 (line [rest sn, chord[percBDsn, percSDsn]]), percBDqn, rest qn]
->              , line [percm ClosedHiHat [en, en, qn], rest qn]]
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [percCCen, percCCen, perc CrashCymbal1 hn]]
->       , chord [percBDqn, percCHHqn]
->       , rest hn]
+>     perc205_207 =
+>       line [chord [line [times 2 (line [rest sn, chord[percBDsn, percSDsn]]), percBDqn, rest qn]
+>                  , line [percm ClosedHiHat [en, en, qn], rest qn]]
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCCen, percCCen, perc CrashCymbal1 hn]]
+>           , chord [percBDqn, percCHHqn]
+>           , rest hn]
 >
-> perc208_212 =
->   line [percBDen, percBDen
->       , tempo (5/4) (line [times 2 (chord [line [rest en, percBDen, rest en, percBDen, rest en]
->                                          , line [percCHHqn, percCHHqn, percCHHen]])
->                           , chord [line [rest en, perc BassDrum1 den]
->                                  , line [perc ClosedHiHat (den + en)]]])
->       , chord [line [percBDen, percBDen, rest hn, chord [percBDqn, percSDqn], rest en, percBDen, rest qn]
->              , line [percCCen, percCCen, rest qn, percCHHen, percCHHen, percCHHqn, times 4 percCHHen]]
->       , chord [line [percBDen, percBDen, perc AcousticSnare hn]
->              , line [percCHHqn, rest hn]]]
+>     perc208_212 =
+>       line [percBDen, percBDen
+>           , tempo (5/4) (line [times 2 (chord [line [rest en, percBDen, rest en, percBDen, rest en]
+>                                              , line [percCHHqn, percCHHqn, percCHHen]])
+>                               , chord [line [rest en, perc BassDrum1 den]
+>                                      , line [perc ClosedHiHat (den + en)]]])
+>           , chord [line [percBDen, percBDen, rest hn, chord [percBDqn, percSDqn], rest en, percBDen, rest qn]
+>                  , line [percCCen, percCCen, rest qn, percCHHen, percCHHen, percCHHqn, times 4 percCHHen]]
+>           , chord [line [percBDen, percBDen, perc AcousticSnare hn]
+>                  , line [percCHHqn, rest hn]]]
 >
-> perc213_216 =
->   line [line [perc AcousticSnare dhn]
->       , chord [line [percBDen, percBDen, rest hn]
->                    , line [percCCen, percCCen, perc ClosedHiHat hn]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [percSDqn, rest en, percSDen, rest qn]
->              , line [percOHHqn, rest en, perc OpenHiHat dqn]]
->       , chord [line [percBDen, percBDen, percBDqn, t32 [times 3 percSDen]]
->              , line [times 3 (perc PedalHiHat qn)]]]
+>     perc213_216 =
+>       line [line [perc AcousticSnare dhn]
+>           , chord [line [percBDen, percBDen, rest hn]
+>                        , line [percCCen, percCCen, perc ClosedHiHat hn]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [percSDqn, rest en, percSDen, rest qn]
+>                  , line [percOHHqn, rest en, perc OpenHiHat dqn]]
+>           , chord [line [percBDen, percBDen, percBDqn, t32 [times 3 percSDen]]
+>                  , line [times 3 (perc PedalHiHat qn)]]]
 >
-> perc217_220 =
->   line [chord [t32 [times 7 percSDen, percSDqn]
->              , line [times 3 percCHHqn]]
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [percCCen, percCCen, times 2 (perc PedalHiHat qn)]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [times 3 (perc PedalHiHat qn)]]
->       , chord [line [percBDen, percBDen, percBDqn, rest qn]
->              , line [times 3 (perc PedalHiHat qn)]]]
+>     perc217_220 =
+>       line [chord [t32 [times 7 percSDen, percSDqn]
+>                  , line [times 3 percCHHqn]]
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCCen, percCCen, times 2 (perc PedalHiHat qn)]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [times 3 (perc PedalHiHat qn)]]
+>           , chord [line [percBDen, percBDen, percBDqn, rest qn]
+>                  , line [times 3 (perc PedalHiHat qn)]]]
 >
-> perc221_224 =
->   line [chord [line [t32 [percSDqn, percSDen], percm AcousticSnare [dqn, en]]
->              , line [times 3 percCHHqn]]
->       , chord [line [percBDen, percBDen, rest hn]
->              , line [percCCen, percCCen, percCHHqn, percCHHqn]]
->       , chord [line [percBDqn, rest en, percBDen, rest qn]
->              , line [perc PedalHiHat qn, percCHHqn, percCHHqn]]
->       , chord [line [rest (hn + en), percBDen]
->              , line [times 3 (perc PedalHiHat qn)]]]
+>     perc221_224 =
+>       line [chord [line [t32 [percSDqn, percSDen], percm AcousticSnare [dqn, en]]
+>                  , line [times 3 percCHHqn]]
+>           , chord [line [percBDen, percBDen, rest hn]
+>                  , line [percCCen, percCCen, percCHHqn, percCHHqn]]
+>           , chord [line [percBDqn, rest en, percBDen, rest qn]
+>                  , line [perc PedalHiHat qn, percCHHqn, percCHHqn]]
+>           , chord [line [rest (hn + en), percBDen]
+>                  , line [times 3 (perc PedalHiHat qn)]]]
 >
-> perc225_228 =
->   line [chord [line [percm HighFloorTom [en, sn, sn, en, en, qn]]
->              , line [percm PedalHiHat [qn, qn, qn]]]
->       , chord [line [percBDen, percBDen, rest hn, percBDqn, rest (hn + dhn)]
->              , line [times 6 (perc PedalHiHat qn), rest dhn]]]
+>     perc225_228 =
+>       line [chord [line [percm HighFloorTom [en, sn, sn, en, en, qn]]
+>                  , line [percm PedalHiHat [qn, qn, qn]]]
+>           , chord [line [percBDen, percBDen, rest hn, percBDqn, rest (hn + dhn)]
+>                  , line [times 6 (perc PedalHiHat qn), rest dhn]]]
 
 Hills of Greenmore ====================================================================================================
 
+> hgTempo                :: Dur
 > hgTempo                                  = 1
+> hgTranspose            :: AbsPitch
 > hgTranspose                              = 0
 >
+> hgLead_                :: BandPart
 > hgLead_                                  = makePitched Accordion                         hgTranspose     0     100
+> hgBass_                :: BandPart
 > hgBass_                                  = makePitched SynthBass1                        hgTranspose     0     100
+> hgPerc_                 :: BandPart
 > hgPerc_                                  = makeNonPitched                                                      100
 >
+> greenMore              :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > greenMore dynMap                         =
 >   removeZeros
 >   $ tempo hgTempo

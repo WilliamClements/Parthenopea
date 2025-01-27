@@ -15,25 +15,21 @@ June 17, 2024
 
 > module Discrete where
 >
+> import Boot
 > import qualified Codec.Wav               as W
-> import Control.Arrow
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Complex
-> import Data.Int ( Int8, Int16, Int32 )
-> import Data.List ( foldl', find )
-> import Data.Maybe ( isJust, fromJust, fromMaybe, isNothing )
+> import Data.Int ( Int32 )
+> import Data.List ( foldl' )
 > import Data.MemoTrie
 > import qualified Data.Vector.Unboxed     as VU
-> import qualified Data.Vector             as VB
-> import Debug.Trace ( traceIO, trace )
-> import Euterpea.IO.Audio.Basics ( outA, apToHz )
-> import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..), collapse )
+> import Euterpea.IO.Audio.Basics ( outA )
+> import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
 > import FRP.UISF.AuxFunctions ( delay )
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea
-> import SettingsDefs
   
 Discrete approach =====================================================================================================
 
@@ -49,7 +45,7 @@ Discrete approach ==============================================================
 >     trace_CFR                            = unwords ["computeFR", show ks, show shapes]
 >
 >     kd                                   = calcKernelData ks
->     shapes                               = makeShapes ResponseNormal kd
+>     shapes                               = makeShapes ResponseNormal
 >
 >     -- function's domain corresponds to 0..ksLen-1 
 >     -- there is coverage on whole target buffer
@@ -63,6 +59,7 @@ Discrete approach ==============================================================
 >     tag'                                = if ksFast then "FR!" else "IR!"
 >     vec'                                = VU.fromList ys'
 >
+> memoizedComputeFR      :: KernelSpec → DiscreteSig (Complex Double)
 > memoizedComputeFR = memo computeFR
 >
 > applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
@@ -111,7 +108,7 @@ Discrete approach ==============================================================
 >              , "\ndsigInL:", show dsigInL
 >              , "\ndsigInR:", show dsigInR]
 >
-> fromContinuousSig      :: ∀ p a. (Clock p) ⇒
+> fromContinuousSig      :: ∀ p. (Clock p) ⇒
 >                           String → Double → Signal p () Double → Maybe (DiscreteSig Double)
 > fromContinuousSig tag dur sf             = 
 >   if not (null dlist)
@@ -154,7 +151,7 @@ Discrete approach ==============================================================
 >     finished                             = folded {stVariance = ascale (1/(len-1)) folded.stVariance}
 >
 >     sfolder            ::  ∀ a. (Coeff a) ⇒ DiscreteStats a → a → DiscreteStats a
->     sfolder stats@DiscreteStats{ .. } d  =
+>     sfolder DiscreteStats{ .. } d  =
 >       DiscreteStats
 >         (dsigLength + 1)
 >         (stNumZeros + if aamp d < epsilon then 1 else 0)
@@ -234,7 +231,6 @@ Discrete approach ==============================================================
 >
 >     cdubsIn            :: [Complex Double]
 >     cdubsIn                              = toFrequencyDomain $ VU.toList $ dsigVec dsigIn'
->     len1               :: Int            = length cdubsIn
 >
 >     cdsigIn            :: DiscreteSig (Complex Double)
 >     cdsigIn                              =
@@ -248,8 +244,8 @@ Discrete approach ==============================================================
 >     lens                                 = BF.bimap VU.length VU.length vecs
 >     lensOK                               = uncurry (==) lens
 >
->     product            :: VU.Vector (Complex Double)
->     product                              =
+>     vprod              :: VU.Vector (Complex Double)
+>     vprod                                =
 >       profess
 >         lensOK
 >         (unwords ["multiplicand lengths incompatible", show lens])
@@ -259,7 +255,7 @@ Discrete approach ==============================================================
 >     result                               =
 >       if disableMultiply
 >         then toTimeDomain cdubsIn
->         else toTimeDomain $ VU.toList product
+>         else toTimeDomain $ VU.toList vprod
 >
 >     trace_FCFR                           =
 >       unwords ["fastConvolveFR\n", show cdsigIn
@@ -314,8 +310,8 @@ second, we want to "gain" -120 centibels/octave from the "cutoff"
 >     (unwords ["failure to contain negative frequencies"])
 >     (freakyResponse kd shapes xIn)
 >
-> makeShapes             :: ResponseStrategy → KernelData → [ResponseShape]
-> makeShapes rs KernelData{ .. }           =
+> makeShapes             :: ResponseStrategy → [ResponseShape]
+> makeShapes rs                            =
 >   if ResponseAllPass == rs
 >     then [Block]
 >     else [Block, Bulge, Decline]
@@ -332,14 +328,14 @@ Each driver specifies an xform composed of functions from Double to Double
 
 > freakyResponse         :: KernelData → [ResponseShape] → Double → Complex Double
 > freakyResponse KernelData{ .. } shapes xIn_
->                                          = mkPolar mag phase
+>                                          = mkPolar mag ph
 >   where
 >     mag                                  =
 >       profess
 >         (xIn <= kdNyq)
 >         (unwords ["xIn", show xIn, "out of range (mag)", show fritems])
 >         ((* ynorm) . \x → friCompute x xIn) fritem
->     (phase, xIn)                         = if xIn_ <= kdNyq
+>     (ph, xIn)                         = if xIn_ <= kdNyq
 >                                              then (3*pi/2, xIn_)
 >                                              else (pi/2, kdNyq - xIn_)
 >
@@ -356,14 +352,13 @@ Each driver specifies an xform composed of functions from Double to Double
 >     height                               = 1
 >     
 >     doShape            :: [FrItem] → ResponseShape → [FrItem]
->     doShape fritems Block                = fritems ++ [newI]
+>     doShape oldI Block                   = oldI ++ [newI]
 >       where
 >         newD           :: Double         = kdLeftOfBulge
 >         newI           :: FrItem         = FrItem newD (const height)
 >         
->     doShape fritems Bulge                = fritems ++ iList
+>     doShape oldI Bulge                   = oldI ++ iList
 >       where
->         newD                             = kdRightOfBulge
 >         iList          :: [FrItem]       = if kdStretch == 0 then [] else [newI1, newI2]
 >
 >         newI1, newI2   :: FrItem
@@ -376,7 +371,7 @@ Each driver specifies an xform composed of functions from Double to Double
 >             kdRightOfBulge
 >             (ddLinear2 kdEQ height . finishDown . ddNorm2 kdFc kdRightOfBulge)
 >         
->     doShape fritems Decline              = fritems ++ [newI]
+>     doShape oldI Decline                 = oldI ++ [newI]
 >       where
 >         newD                             = kdNyq
 >         newI                             =
@@ -393,7 +388,9 @@ Each driver specifies an xform composed of functions from Double to Double
 > ddLinear2              :: Double → Double → (Double → Double)
 > ddLinear2 m b xIn                        = b + m * xIn
 >
+> startUp                :: Double → Double
 > startUp                                  = controlConvex
+> finishDown             :: Double → Double
 > finishDown c                             = controlConvex (1 - c)
 
 WAV ===================================================================================================================
@@ -522,6 +519,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >     k1                                   = -2 * mag * cos ph
 >     k2                                   = mag * mag
 >
+> indeedReplaceRadius    :: Bool
 > indeedReplaceRadius                      = False
 >
 > pickZerosAndPoles      :: Double → Double → ([Complex Double], [Complex Double])
@@ -580,24 +578,25 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > instance Show FrItem where
 >   show (FrItem startPoint _)             = unwords ["FrItem", show startPoint]
 >
-> bulgeDiv                                 = discreteSettingsQqBulgeDiv                   defD
-> -- what fraction of cutoff freak affected by nonzero Q (cutoff freak / div)
-> dropoffRate                              = discreteSettingsQqDropoffRate                defD
-> -- how many centibels per octave to reduce magnitude after cutoff freq
-> reverseSignal                            = discreteSettingsQqReverseSignal              defD
-> -- whether to reverse result to move the zeros to the end
-> disableConvo                             = discreteSettingsQqDisableConvo               defD
-> -- if response type is convo, no modulation at all
-> disableMultiply                          = discreteSettingsQqDisableMultiply            defD
-> -- if response type is convo, do domain conversions, but not convolution
-> useFastFourier                           = discreteSettingsQqUseFastFourier             defD
-> -- False to employ convolution in time domain
-> correctDCOffset                          = discreteSettingsQqCorrectDCOffset            defD
-> -- experiment with neutralizing DC offset of a discrete signal
-> chopSignal                               = discreteSettingsQqChopSignal                 defD
-> -- experiment with truncating, rather than padding, buffer, to power of two size
+> bulgeDiv, dropoffRate  :: Double
+> reverseSignal, disableConvo, disableMultiply, useFastFourier, correctDCOffset, chopSignal
+>                        :: Bool
 >
-> defD                   :: DiscreteSettings
-> defD                                     = DiscreteSettings 20 240 True False False True False False
+> -- what fraction of cutoff freak affected by nonzero Q (cutoff freak / div)
+> bulgeDiv                                 = 20
+> dropoffRate                              = 240
+> -- how many centibels per octave to reduce magnitude after cutoff freq
+> reverseSignal                            = True
+> -- whether to reverse result to move the zeros to the end
+> disableConvo                             = False
+> -- if response type is convo, no modulation at all
+> disableMultiply                          = False
+> -- if response type is convo, do domain conversions, but not convolution
+> useFastFourier                           = True
+> -- False to employ convolution in time domain
+> correctDCOffset                          = False
+> -- experiment with neutralizing DC offset of a discrete signal
+> chopSignal                               = False
+> -- experiment with truncating, rather than padding, buffer, to power of two size
 
 The End

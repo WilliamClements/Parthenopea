@@ -12,14 +12,14 @@ May 4, 2023
 > module Rosters where
 >
 > import Baking
+> import Boot
 > import Cecil
-> import Control.Monad ( foldM, join )
+> import Control.Monad ( foldM )
 > import Covers
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Debug.Trace ( traceIO, traceM )
 > import Discrete
-> import DiscreteTest
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
 > import Fanfare
@@ -47,16 +47,16 @@ Rosters support ================================================================
 >           resultModulation               ← runTestsQuietly modulationTests     
 >           resultSynthesizer              ← runTestsQuietly synthesizerTests
 >           let resultDiscrete             = True -- runTestsQuietly discreteTests
->           let resultAll                  =
->                 profess
->                   (and [resultParthenopea, resultSoundFont, resultSynthesizer, resultDiscrete])
+>           putStrLn $ unwords [show
+>                 (profess
+>                   (and [resultParthenopea, resultSoundFont, resultModulation, resultSynthesizer, resultDiscrete])
 >                   (unwords ["one or more unit tests failed"])
->                   True
+>                   True)]
 >           putStrLn "Unit tests completed successfully"
 >           doEverything combineAll
 >         else if doProf
->           then profileSF2s
->           else doEverything sj -- modulationTest003-- cjingles -- pitchSamples 80
+>           then listInstruments
+>           else doEverything sj
 >   return ()
 >
 > playWithWav            :: IO ()
@@ -66,6 +66,7 @@ Rosters support ================================================================
 
 organize exposed music ================================================================================================
 
+> combineAll             :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
 > combineAll = ajingles ++ bjingles ++ cjingles ++ djingles ++ ejingles ++ zjingles
 >
 > ajingles, bjingles
@@ -79,7 +80,7 @@ organize exposed music =========================================================
 >    , ("copper"         , copper 2)
 >    , ("gold"           , gold)
 >    , ("silver"         , silver)
->    , ("deyDumpDum"     , deyDumpDum)]
+>    , ("deyDumpDum"     , deyDumpDum False)]
 > bjingles =
 >    [ ("getCITM"        , getCITM)
 >    , ("slot"           , slot 4)
@@ -110,11 +111,12 @@ organize exposed music =========================================================
 >    , ("packardGoose"   , packardGoose)
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
+> sj                     :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
 > sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("pit"         , pit)]
->       [ ("whelpNarp"   , whelpNarp)]
+>       [ ("getCITM"     , getCITM)]
 >    -- [ ("pa"          , shimSong $ aggrandize littlePendingtonArnt)]
 >    -- [ ("deyDumpDum"  , deyDumpDum)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 26420)]
@@ -125,6 +127,9 @@ organize exposed music =========================================================
 
 a few playthings ... get it? ==========================================================================================
 
+> durS                   :: Rational → Double
+> durS r                                   = 2 * fromRational r
+> 
 > playJingle             :: () → (String, Music (Pitch, [NoteAttribute])) → IO ()
 > playJingle _ (s, m) =
 >    do

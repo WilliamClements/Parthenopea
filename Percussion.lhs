@@ -9,7 +9,6 @@ William Clements
 
 > module Percussion where
 >
-> import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import Parthenopea
 > import System.Random
@@ -17,8 +16,10 @@ William Clements
 perc helpers ==========================================================================================================
 
 > percm :: PercussionSound → [Dur] → Music Pitch
-> percm p ds = line (map (perc p) ds)
+> percm p durs = line (map (perc p) durs)
 >
+> percBDqn, percOHHqn, percCHHqn, percCCqn, percRCqn, percSDqn, percLTqn, percHTqn
+>                        :: Music Pitch
 > percBDqn =  perc BassDrum1     qn
 > percOHHqn = perc OpenHiHat     qn
 > percCHHqn = perc ClosedHiHat   qn
@@ -28,6 +29,8 @@ perc helpers ===================================================================
 > percLTqn =  perc LowTom        qn
 > percHTqn =  perc HighTom       qn
 >
+> percBDen, percOHHen, percCHHen, percCCen, percRCen, percSDen, percLTen, percHTen
+>                        :: Music Pitch
 > percBDen =  perc BassDrum1     en
 > percOHHen = perc OpenHiHat     en
 > percCHHen = perc ClosedHiHat   en
@@ -37,6 +40,8 @@ perc helpers ===================================================================
 > percLTen =  perc LowTom        en
 > percHTen =  perc HighTom       en
 >
+> percBDsn, percOHHsn, percCHHsn, percCCsn, percRCsn, percSDsn, percLTsn, percHTsn
+>                        :: Music Pitch
 > percBDsn =  perc BassDrum1     sn
 > percOHHsn = perc OpenHiHat     sn
 > percCHHsn = perc ClosedHiHat   sn

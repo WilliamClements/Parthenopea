@@ -9,21 +9,28 @@ March 20, 2023
 
 > module SunPyg (sunPyg) where
 >
-> import Euterpea.IO.MIDI.Play
+> import Data.Map (Map)
 > import Euterpea.Music
 > import Parthenopea
 > import Percussion
   
 SunPyg ================================================================================================================
 
+> sunPygTempo            :: Dur
 > sunPygTempo                              = 1
+> sunPygTranspose        :: AbsPitch
 > sunPygTranspose                          = 3
 >
+> sunPygLead_            :: BandPart
 > sunPygLead_                              = makePitched Violin               sunPygTranspose      0        110
+> sunPygChoir_           :: BandPart
 > sunPygChoir_                             = makePitched ChoirAahs            sunPygTranspose      0        110
+> sunPygBass_            :: BandPart
 > sunPygBass_                              = makePitched ElectricBassFingered sunPygTranspose      0         80
+> sunPygPerc_            :: BandPart
 > sunPygPerc_                              = makeNonPitched                                                  75
 >
+> sunPyg                 :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])
 > sunPyg dynMap =
 >   removeZeros
 >   $ tempo sunPygTempo
@@ -56,9 +63,6 @@ SunPyg =========================================================================
 >    vocalLine = line [vocalTacit, vocalActive]
 >    vocalTacit = rest 190
 >    vocalActive = line [v190, v192, v194, v196, v198, v200, v202, v204, v206]
->    vocalsOnly =
->      keysig C Lydian
->      $ bandPart sunPygChoir vocalActive
 >
 >    bassLine = line [rest wn, times 38 (line [c 2 wn, d 2 wn])
 >                            , times  8 (line [a 2 wn, d 2 wn])
@@ -1216,7 +1220,6 @@ SunPyg =========================================================================
 >               , grace (-1) (f 6 qn)]
 >    g158 = line [fs 6 en, rest en, grace (-2) (e 6 dqn), rest en, d 6 qn]
 >    g159 = line [fs 6 en, a 6 en, rest hn, grace (-1) (f 6 qn)]
->    g160 = line [fs 6 en, rest en, grace (-2) (e 6 dqn), rest en, t32 [e 6 en, d 6 en, b 5 en]]
 >   
 >    m161_164 = line [m161, m162, m163, m164]
 >    g161_164 = line [g161, g162, g163, g164]
@@ -1581,8 +1584,6 @@ SunPyg =========================================================================
 >               , g 4 hn, e 4 qn]
 >    g197 = line [a 4 en, b 4 sn, a 4 sn, g 4 hn, fs 4 en, g 4 en]
 >    g198 = line [chord [c 5 dqn, e 5 dqn], chord [fs 4 en, a 4 en], chord [fs 4 dqn, a 4 dqn], rest en]
->    g199 = line [a 6 en, a 6 sn, a 6 sn, a 6 en, t32 [b 6 sn, a 6 sn, g 6 sn]
->               , tempo (5/4) (line [a 6 en, a 6 den]), a 5 en, rest en]
 >    g200 =
 >      t32 [fs 5 qn, g 5 qn, a 5 qn, fs 5 qn, g 5 qn, a 5 qn]
 >   
@@ -1635,18 +1636,5 @@ SunPyg =========================================================================
 >    g205 = line [fs 5 en, g 5 sn, a 5 sn, e 5 hn, d 5 en, e 5 en]
 >    g206 = line [grace (-1) (c 5 dqn), a 4 en, a 4 (hn + dhn), c 5 qn]
 >    g207 = line []
->   
->    shortPig = 
->      removeZeros
->      $ tempo 1
->      $ addVolume 55 m001''
->   
->    m001' = line [percBDen, percOHHen, percOHHen, chord [percOHHen, percBDen]
->                , chord [percOHHen, percLTen], percOHHen, percOHHen
->                , chord [percOHHen, percBDen]]
->   
->    m001'' = line [percBDqn, percCHHqn, percCHHqn, chord [percCHHqn, percBDqn]
->                , chord [percCHHqn, percLTqn], percCHHqn, percCHHqn
->                , chord [percCHHqn, percBDqn]]
 
 The End

@@ -12,19 +12,18 @@ June 22, 2024
 
 > module DiscreteTest where
 >
+> import Boot
 > import Chart
 > import Data.Colour
 > import Data.Colour.Names
 > import Data.Complex
 > import Data.List ( foldl' )
-> import Data.Maybe
-> import Data.Time.Clock ( UTCTime, diffUTCTime, getCurrentTime )
+> import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import qualified Data.Vector.Unboxed     as VU
-> import qualified Data.Vector             as VB
 > import Discrete
-> import Euterpea.IO.Audio.Basics ( outA, apToHz )
-> import Euterpea.IO.Audio.BasicSigFuns ( osc, Table, filterLowPassBW, filterBandPass )
-> import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock (rate), AudRate )
+> import Euterpea.IO.Audio.Basics ( outA )
+> import Euterpea.IO.Audio.BasicSigFuns ( osc, Table )
+> import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock )
 > import HSoM.Examples.Additive ( sineTable )
 > import Modulation
 > import Parthenopea
@@ -34,15 +33,23 @@ Feed chart =====================================================================
 > allFilterTypes         :: [ResonanceType]
 > allFilterTypes                           = [minBound..maxBound]
 >
-> nKews                  :: Int            = 1
-> kews                   :: [Int]          = [240] -- breakUp (0, 480) 0 nKews
-> nCutoffs               :: Int            = 1
-> cutoffs                :: [Int]          = [2_000] -- breakUp (1_000, 2_000) 0 nCutoffs
-> nFreaks                :: Int            = 23
-> freaks                 :: [Int]          = breakUp (25, 22_000) 0 nFreaks
+> nKews                  :: Int
+> nKews                                    = 1
+> kews                   :: [Int]
+> kews                                     = [240] -- breakUp (0, 480) 0 nKews
+> nCutoffs               :: Int
+> nCutoffs                                 = 1
+> cutoffs                :: [Int]
+> cutoffs                                  = [2_000] -- breakUp (1_000, 2_000) 0 nCutoffs
+> nFreaks                :: Int
+> nFreaks                                  = 23
+> freaks                 :: [Int]
+> freaks                                   = breakUp (25, 22_000) 0 nFreaks
 >
+> filterTestDur          :: Double
 > filterTestDur          :: Double         = 1
 >
+> colors                 :: [AlphaColour Double]
 > colors                 :: [AlphaColour Double]
 >                                          =
 >   cycle
@@ -77,7 +84,7 @@ Feed chart =====================================================================
 >         rate                             = amps / octaves
 >
 > measureResponse        :: BenchSpec → Modulation → [(Double, Double)]
-> measureResponse BenchSpec{ .. } m8n@Modulation{ .. }
+> measureResponse BenchSpec{ .. } Modulation{ .. }
 >                                          = map doFk bench_fks
 >   where
 >     Lowpass{ .. }                        = mLowpass
@@ -169,7 +176,7 @@ Feed chart =====================================================================
 >     (if useFastFourier then "freakResponse" else "impulseResponse")
 >     [Section (opaque blue) groutsR, Section (opaque orange) groutsI]
 >   where
->     targetFc, dataLen, sampleRate, middleFreakShow
+>     targetFc, dataLen, sampleRate
 >                        :: Int
 >     freakSpan          :: [Int]
 >
@@ -179,7 +186,6 @@ Feed chart =====================================================================
 >     dataLen                              = 65_536
 >     sampleRate                           = 44_100
 >
->     middleFreakShow                      = 999
 >     freakSpan                            = [10..19_990] -- [middleFreakShow - 900 .. middleFreakShow  + 900]
 >
 >     kspec              :: KernelSpec
@@ -238,8 +244,8 @@ Feed chart =====================================================================
 > testFreaks             :: Int → IO Double
 > testFreaks qIter                         = do
 >   let ks@KernelSpec{ .. }                = testKS{ksQ = qIter}
->   let kd@KernelData{ .. }                = calcKernelData ks
->   let shapes                             = makeShapes ResponseNormal kd
+>   let kd                                 = calcKernelData ks
+>   let shapes                             = makeShapes ResponseNormal
 >   let fun                                = getFreaky kd shapes
 >
 >   let fc                                 = fromAbsoluteCents ksFc
@@ -275,22 +281,21 @@ Feed chart =====================================================================
 >     , bench_q          :: Double
 >     , bench_fks        :: [Double]} deriving Show
 >
+> varyFc                 :: Bool
 > varyFc                                   = False
 >
 > testDecline            :: Double → Double → IO ()
-> testDecline freakStart dropoff           = do
+> testDecline freakStart _                 = do
 >   mapM_ mapfun [freakStart..freakStart + 50]
 >   where
 >     mapfun             :: Double → IO ()
 >     mapfun xIn                           = print (xIn, friCompute xIn)
 >
->     fr                 :: FrItem
->     fr@FrItem{ .. }                      =
+>     FrItem{ .. }                         =
 >       FrItem
 >         (freakStart + 50)
 >         xformDecline
 >       where
->         m = 0
 >         xformDecline   :: Double → Double
 >         xformDecline                     =
 >             tracer "fromCentibels"       . fromCentibels

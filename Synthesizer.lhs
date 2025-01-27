@@ -14,16 +14,14 @@ May 14, 2023
 
 > module Synthesizer where
 >
-> import qualified Codec.SoundFont         as F
+> import Boot
 > import Control.Arrow
-> import Control.Arrow.ArrowP
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
-> import Data.Complex ( Complex(..), magnitude )
 > import Data.Int ( Int8, Int16 )
 > import Data.List ( maximumBy )
-> import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
+> import Data.Maybe
 > import Data.Ord ( comparing )
 > import Data.Word ( Word64 )
 > import Discrete
@@ -31,10 +29,9 @@ May 14, 2023
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
-> import FRP.UISF.AuxFunctions ( constA, DeltaT )
+> import FRP.UISF.AuxFunctions ( constA )
 > import Modulation
 > import Parthenopea
-> import SettingsDefs
 > import qualified SynToolkit              as STK
   
 Signal function-based synth ===========================================================================================
@@ -228,7 +225,7 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p Double Double
-> eutPumpMono reconL noon@NoteOn{noteOnVel, noteOnKey} dur s16 ms8
+> eutPumpMono reconL noon@NoteOn{noteOnVel} _ s16 ms8
 >                                          =
 >   proc pos → do
 >     let pos'           :: Double         = fromIntegral (rEnd - rStart) * pos
@@ -251,7 +248,7 @@ Signal function-based synth ====================================================
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p Double (Double, Double)
-> eutPumpStereo (reconL, reconR) noon@NoteOn{noteOnVel, noteOnKey} dur s16 ms8
+> eutPumpStereo (reconL, reconR) noon@NoteOn{noteOnVel} _ s16 ms8
 >                                          = 
 >   proc pos → do
 >     let pos'           :: Double         = fromIntegral (enL - stL) * pos
@@ -265,7 +262,7 @@ Signal function-based synth ====================================================
 >   where
 >     Recon{rAttenuation = attenL, rStart = stL, rEnd = enL, rM8n = m8nL}
 >                                          = reconL
->     Recon{rAttenuation = attenR, rStart = stR, rEnd = enR, rM8n = m8nR}
+>     Recon{rAttenuation = attenR, rStart = stR, rM8n = m8nR}
 >                                          = reconR
 >     cAttenL                              = fromCentibels (attenL + evaluateMods ToInitAtten (mmods m8nL) noon)
 >     cAttenR                              = fromCentibels (attenR + evaluateMods ToInitAtten (mmods m8nR) noon)
@@ -281,7 +278,7 @@ Signal function-based synth ====================================================
 >     let a2L                              = a1L * aenvL * evaluateModSignals "eutAmplify" m8nL ToVolume modSigL noon
 >     outA ⤙ a2L
 >   where
->     m8nL@Modulation{ .. }                = rM8n
+>     m8nL                                 = rM8n
 
 FFT ===================================================================================================================
 
@@ -320,7 +317,7 @@ Envelopes ======================================================================
 >                           → Maybe Int
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe Envelope
-> deriveEnvelope mDelay mAttack noon nps (mHold, mHoldByKey) (mDecay, mDecayByKey)
+> deriveEnvelope mDelay mAttack noon _ (mHold, mHoldByKey) (mDecay, mDecayByKey)
 >                mSustain mRelease mTriple
 >   | traceNot trace_DE False              = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTriple
@@ -582,19 +579,8 @@ Effects ========================================================================
 >     makeSF             :: Signal p Double Double
 >     makeSF                               = eatFreeVerb $ makeFreeVerb roomSize damp width
 >   
-> fvWetDryMix     = 0.2
-> fvCoefficient   = 0.5
-> fvFixedGain     = 0.015;
-> fvScaleWet      = 3;
-> fvScaleDry      = 2;
-> fvScaleDamp     = 0.4;
-> fvScaleRoom     = 0.28
-> fvOffsetRoom    = 0.7
-> fvCombDelays           :: [Word64] = [1617, 1557, 1491, 1422, 1356, 1277, 1188, 1116]
-> fvAllpassDelays        :: [Word64] = [225, 556, 441, 341]
-> fvPole          = 0.9
->
-> windices               :: [Word]   = [0..7]
+> windices               :: [Word]
+> windices                                 = [0..7]
 >
 > makeFreeVerb           :: Double → Double → Double → STK.FreeVerb
 > makeFreeVerb roomSize damp width
@@ -613,6 +599,18 @@ Effects ========================================================================
 >     initCombDelay    = array (0,7) $ zip windices fvCombDelays
 >     initAllpassDelay = array (0,3) $ zip windices fvAllpassDelays
 >     initCombFilter =   array (0,7) $ zip windices (replicate 8 $ STK.newOnePole 0.9)
+>
+>     fvWetDryMix     = 0.2
+>     fvCoefficient   = 0.5
+>     fvFixedGain     = 0.015;
+>     fvScaleWet      = 3;
+>     fvScaleDry      = 2;
+>     fvScaleDamp     = 0.4;
+>     fvScaleRoom     = 0.28
+>     fvOffsetRoom    = 0.7
+>     fvCombDelays           :: [Word64] = [1617, 1557, 1491, 1422, 1356, 1277, 1188, 1116]
+>     fvAllpassDelays        :: [Word64] = [225, 556, 441, 341]
+>
 >   in
 >     STK.FreeVerb fvWetDryMix
 >                  fvCoefficient
@@ -637,23 +635,7 @@ Effects ========================================================================
 >         , "width",                       show width]
 >   
 > eatFreeVerb            :: ∀ p . Clock p ⇒ STK.FreeVerb → Signal p Double Double
-> eatFreeVerb STK.FreeVerb
->   {   STK.iiWetDryMix      {- 0.2    -}
->     , STK.iiG              {- 0.5    -}
->     , STK.iiGain           {- 0.015  -}
->     , STK.iiRoomSize       {- 0.75   -}
->     , STK.iiDamp           {- 0.25   -}
->     , STK.iiWet1           
->     , STK.iiWet2           
->     , STK.iiDry            
->     , STK.iiWidth          {- 1.0    -}
->     , STK.iiCombDelayL     
->     , STK.iiCombDelayR      
->     , STK.iiCombLPL        
->     , STK.iiCombLPR        
->     , STK.iiAllPassDelayL  
->     , STK.iiAllPassDelayR  } =
->
+> eatFreeVerb STK.FreeVerb{ .. }           =
 >     proc sinL → do
 >       cdL0 ← comb (iiCombDelayL ! 0) (iiCombLPL ! 0) ⤙ sinL
 >       cdL1 ← comb (iiCombDelayL ! 1) (iiCombLPL ! 1) ⤙ sinL
@@ -676,18 +658,18 @@ Effects ========================================================================
 >       outA ⤙ fp4L
 >
 > comb                   :: ∀ p . Clock p ⇒ Word64 → STK.FilterData → Signal p Double Double
-> comb maxDel filter
+> comb maxDel stkFilter
 >   | traceNever trace_C False             = undefined
 >   | otherwise                            =
 >   proc sIn → do
 >     rec
->       sOut ← delayLine secs ⤙ sIn + sOut * STK.jGain filter
+>       sOut ← delayLine secs ⤙ sIn + sOut * STK.jGain stkFilter
 >     outA ⤙ sOut
 >   where
 >     sr                                   = rate (undefined :: p)
 >     secs               :: Double         = fromIntegral maxDel/sr
 >
->     trace_C                              = unwords ["comb delay (samples)=", show maxDel, "filter=", show filter]
+>     trace_C                              = unwords ["comb delay (samples)=", show maxDel, "filter=", show stkFilter]
 > 
 > allpass                :: ∀ p . Clock p ⇒ Word64 → Signal p Double Double
 > allpass maxDel
@@ -726,13 +708,6 @@ Effects ========================================================================
 
 Charting ==============================================================================================================
 
-> vdel     = 1.0
-> vatt     = vdel + 2.0
-> vhold    = vatt + 3.0
-> vdec     = vhold + 1.0
-> vsus     = 5.00000
-> vrel     = vdec + 2.00000
->
 > vals'                  :: [(Double, Double, Double, Double)]
 > vals' = [ (0     , 0      , 0.3   , 0.3)
 >         , (vdel  , 0      , 0.3   , 0.25)
@@ -740,6 +715,13 @@ Charting =======================================================================
 >         , (vhold , 7      , 0.4   , 0.75)
 >         , (vdec  , 7-vsus , 0.3   , 0.10)
 >         , (vrel  , 0      , 0     , 0)]
+>   where
+>     vdel     = 1.0
+>     vatt     = vdel + 2.0
+>     vhold    = vatt + 3.0
+>     vdec     = vhold + 1.0
+>     vsus     = 5.00000
+>     vrel     = vdec + 2.00000
 
 Utility types =========================================================================================================
 
@@ -767,65 +749,25 @@ Utility types ==================================================================
 >     efChorus           :: Double
 >   , efReverb           :: Double
 >   , efPan              :: Double} deriving (Eq, Show)
->
-> data SampleType =
->   SampleTypeMono
->   | SampleTypeRight
->   | SampleTypeLeft
->   | SampleTypeLinked
->   | SampleTypeOggVorbis
->   | SampleTypeRomMono
->   | SampleTypeRomRight
->   | SampleTypeRomLeft
->   | SampleTypeRomLinked deriving (Eq, Show)
->
-> toSampleType           :: Word → SampleType
-> toSampleType hex                         = deJust "toMaybeSampleType" (toMaybeSampleType hex)
->
-> toMaybeSampleType      :: Word → Maybe SampleType
-> toMaybeSampleType n                      =
->   case n of
->     0x0                    → Just SampleTypeMono
->     0x1                    → Just SampleTypeMono
->     0x2                    → Just SampleTypeRight
->     0x4                    → Just SampleTypeLeft
->     0x8                    → Just SampleTypeLinked
->     0x10                   → Just SampleTypeOggVorbis
->     0x8001                 → Just SampleTypeRomMono
->     0x8002                 → Just SampleTypeRomRight
->     0x8004                 → Just SampleTypeRomLeft
->     0x8008                 → Just SampleTypeRomLinked
->     _                      → Nothing
->
-> fromSampleType             :: SampleType → Word
-> fromSampleType stype =
->   case stype of
->     SampleTypeMono         → 0x1
->     SampleTypeRight        → 0x2
->     SampleTypeLeft         → 0x4
->     SampleTypeLinked       → 0x8
->     SampleTypeOggVorbis    → 0x10
->     SampleTypeRomMono      → 0x8001
->     SampleTypeRomRight     → 0x8002
->     SampleTypeRomLeft      → 0x8004
->     SampleTypeRomLinked    → 0x8008
 
 Flags for customization ===============================================================================================
 
-> usePitchCorrection                       = synthSettingsQqUsePitchCorrection         defS
-> useAttenuation                           = synthSettingsQqUseAttenuation             defS
-> useEnvelopes                             = synthSettingsQqUseEnvelopes               defS
-> useLoopSwitching                         = synthSettingsQqUseLoopSwitching           defS
-> useReverb                                = synthSettingsQqUseEffectReverb            defS
-> useChorus                                = synthSettingsQqUseEffectChorus            defS
-> usePan                                   = synthSettingsQqUseEffectPan               defS
-> useDCBlock                               = synthSettingsQqUseEffectDCBlock           defS
-> noStereoNoPan                            = synthSettingsQqNoStereoNoPan              defS
-> normalizingOutput                        = synthSettingsQqNormalizingOutput          defS
+> usePitchCorrection, useAttenuation, useEnvelopes, useLoopSwitching, useReverb, useChorus, usePan, useDCBlock
+>                        :: Bool
+> noStereoNoPan, normalizingOutput
+>                        :: Bool
 
 Turn Knobs Here =======================================================================================================
 
-> defS                   :: SynthSettings
-> defS                                     = SynthSettings True True True True True True True True True True
+> usePitchCorrection                       = True
+> useAttenuation                           = True
+> useEnvelopes                             = True
+> useLoopSwitching                         = True
+> useReverb                                = True
+> useChorus                                = True
+> usePan                                   = True
+> useDCBlock                               = True
+> noStereoNoPan                            = True
+> normalizingOutput                        = True
 
 The End

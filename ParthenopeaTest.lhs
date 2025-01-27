@@ -10,14 +10,16 @@ October 11, 2024
 
 > module ParthenopeaTest where
 >
-> import Data.Maybe
+> import Boot
 > import Parthenopea
   
 Testing ===============================================================================================================
 
+> runParthTests          :: IO ()
 > runParthTests                            = runTests parthTests
 >
-> parthTests             :: [IO Bool]      = [canClaimEntireSpaceWithImpunity
+> parthTests             :: [IO Bool]
+> parthTests                               = [canClaimEntireSpaceWithImpunity
 >                                         ,   canClaimEntireSpaceByDefault
 >                                         ,   lastSpaceWins
 >                                         ,   nothingNothings
@@ -32,6 +34,13 @@ Testing ========================================================================
 >
 > filln                  :: Int → Maybe (Int, Int)
 > filln n                                  = Just (0, n - 1)
+>
+> canClaimEntireSpaceWithImpunity, canClaimEntireSpaceByDefault, lastSpaceWins, nothingNothings
+>                        :: IO Bool
+> theWholeIsEqualToTheSumOfItsParts, spotCheckOverlapCounts, spotCheck3dSpaceCell, spotCheck4dSpaceCell
+>                        :: IO Bool
+> canCountPartialCover, canCountMultiples, workOutNearbyVerticalUncovered, workOutNearbyHorizontalUncovered
+>                        :: IO Bool
 >
 > canClaimEntireSpaceWithImpunity          = do
 >   let smashup          :: Smashing Int   =

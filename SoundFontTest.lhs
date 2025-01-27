@@ -10,15 +10,20 @@ January 7, 2025
 
 > module SoundFontTest where
 >
-> import Data.Maybe
-> import Parthenopea
-> import SoundFont
+> import Boot
+> import Parthenopea (runTests)
   
 Testing ===============================================================================================================
 
+> runBootTests           :: IO ()
 > runBootTests                             = runTests bootTests
 >
-> bootTests              :: [IO Bool]      = [  nonFatalScanIsNotFatal
+> nonFatalScanIsNotFatal, fatalScanIsFatal, rescuedScanIsNotFatal, noNewsIsGoodNews1, noNewsIsGoodNews2
+>                        :: IO Bool
+> fatalrdCorrectlyJudgesFatal, fatalrdCorrectlyJudgesNonFatal, orderIndependence1, orderIndependence2
+>                        :: IO Bool
+> bootTests              :: [IO Bool]
+> bootTests                                = [  nonFatalScanIsNotFatal
 >                                             , fatalScanIsFatal
 >                                             , rescuedScanIsNotFatal
 >                                             , noNewsIsGoodNews1
@@ -49,12 +54,10 @@ Testing ========================================================================
 >   return $ not (cancels [Accepted, NoChange] ss)
 >
 > noNewsIsGoodNews1                        = do
->   let fName                              = "noNewsIsGoodNews1"
 >   let pergm                              = PerGMKey 0 0 Nothing
 >   return $ not (fatalrd [Accepted, NoChange] virginrd pergm)
 >
 > noNewsIsGoodNews2                        = do
->   let fName                              = "noNewsIsGoodNews2"
 >   let pergm                              = PerGMKey 0 0 Nothing
 >   let rd                                 = dispose pergm [] virginrd
 >   return $ not (fatalrd [Accepted, NoChange] rd pergm)

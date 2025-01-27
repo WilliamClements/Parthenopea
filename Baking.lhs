@@ -10,12 +10,18 @@ Baking
 William Clements
 December 16, 2022
 
-> module Baking (bakedJingle) where
+> module Baking (bakedJingle
+>                , measureBakes
+>                , sampleBakes
+>                , bake4Measuring
+>                , bake4Sampling
+>                , bakeOps
+>                , checkMeasureOk) where
 >
+> import Boot
 > import Data.Array.Unboxed
 > import Data.List ( sortOn )
-> import Data.Maybe ( isJust )
-> import Euterpea.IO.MIDI.Play
+> import Debug.Trace
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
 > import Parthenopea
@@ -57,19 +63,27 @@ The progress of the algorithm is expressed in above pair.
 >
 > bake4Consumption       :: Int → Array Int (Music (Pitch, [NoteAttribute]))
 > bake4Consumption seed                    = consumeBakes
->                                            $ zipWith (\a b → b{bIx = a}) [0..]
+>                                            $ zipWith (\x y → y{bIx = x}) [0..]
 >                                            $ sortOn bOnset
 >                                            $ bakeUtility seed
 >
 > bake4Measuring         :: Int → Array Int Int
 > bake4Measuring seed                      = measureBakes
->                                            $ zipWith (\a b → b{bIx = a}) [0..]
+>                                            $ zipWith (\x y → y{bIx = x}) [0..]
 >                                            $ sortOn bOnset
 >                                            $ bakeUtility seed
 >
 > bake4Sampling          :: Int → Array Int Int
 > bake4Sampling seed                       = sampleBakes
 >                                            $ bakeUtility seed
+>
+> bakeOps                :: IO ()
+> bakeOps                                  = do
+>   let vm                                 = bake4Consumption 100
+>   let vi                                 = bake4Measuring 100
+>   traceIO $ show vm
+>   traceIO $ show vi
+>   return ()
 >
 > bakeUtility            :: Int → [Bake]
 > bakeUtility seed                         = map rs2Bake
@@ -122,7 +136,7 @@ The progress of the algorithm is expressed in above pair.
 >       where
 >         chan                             = bIx `mod` numChannels
 >         inst                             = fst bWch
->         range                            = snd bWch
+>         rng                              = snd bWch
 >
 >         durSoFar       :: Double
 >         newDur         :: Double
@@ -133,7 +147,7 @@ The progress of the algorithm is expressed in above pair.
 >         durSoFar                         = fromRational $ dur (ms ! chan)
 >         ss                               = calibrateSection durSoFar urn
 >         newm                             =
->           generateSection bSnd bVol ss inst range bXpose bSweep
+>           generateSection bSnd bVol ss inst rng bXpose bSweep
 >         ms'                              = appendSection ms chan newm
 >         newDur                           = fromRational $ dur (ms' ! chan)
 >
@@ -147,7 +161,7 @@ The progress of the algorithm is expressed in above pair.
 >     appendSection ms chan newm           = ms // [(chan, ms!chan :+: newm)]
 >
 >     calibrateSection   :: Double → Bake → SectionSpec
->     calibrateSection durSoFar urn@Bake{ .. }
+>     calibrateSection durSoFar Bake{ .. }
 >                                          = ((restDur, restTempo), (fillDur, fillTempo))
 >       where
 >         restDur, restTempo, fillDur, fillTempo
@@ -169,14 +183,14 @@ The progress of the algorithm is expressed in above pair.
 >                           → Double
 >                           → Double
 >                           → Music (Pitch, [NoteAttribute])
->     generateSection sound vol ss inst range dXp sweep
+>     generateSection sound vol ss inst rng dXp sweep
 >                                          = theRest :+: (thePercFill :=: theInstFill)
 >       where
->         restDur, restTempo, fillDur, fillTempo
+>         restDur, fillDur, fillTempo
 >                        :: Double
 >         fillBeats      :: Int                 
 >
->         ((restDur, restTempo), (fillDur, fillTempo))
+>         ((restDur, _), (fillDur, fillTempo))
 >                                          = ss
 >         fillBeats                        = round (fillDur * fillTempo * 3.0 / 4.0)
 >
@@ -186,16 +200,15 @@ The progress of the algorithm is expressed in above pair.
 >         thePercFill                      =
 >           makePercFill sound (approx (0.5/fillTempo)) (fractionOf vol 1.25) (approx fillDur)
 >         theInstFill                      =
->           instrument inst $ makeInstFill fillBeats range dXp sweep (fractionOf vol 0.60) 
->         ratDur         :: Rational       = approx fillDur
+>           instrument inst $ makeInstFill fillBeats rng dXp sweep (fractionOf vol 0.60) 
 >
 > makePercFill           :: PercussionSound → Rational → Volume → Dur → Music (Pitch, [NoteAttribute])
-> makePercFill sound beats vol dur         = bandPart (makeNonPitched vol) m
+> makePercFill sound beats vol durP        = bandPart (makeNonPitched vol) m
 >   where
 >     m                                    =
 >       if skipGlissandi
->         then rest dur
->         else roll dur $ perc sound beats
+>         then rest durP
+>         else roll durP $ perc sound beats
 >
 > makeInstFill           :: Int → (AbsPitch, AbsPitch) → Double → Double → Volume → Music (Pitch, [NoteAttribute])
 > makeInstFill beats (lo, hi) dXp bend vol
@@ -221,9 +234,9 @@ The progress of the algorithm is expressed in above pair.
 >         , "avg baked start",             show $ safeAverage sAccumBaked sBaked]
 >
 >     safeAverage        :: Double → Int → Double
->     safeAverage d n
+>     safeAverage dd n
 >       | n == 0                           = 0.0
->       | otherwise                        = d / fromIntegral n
+>       | otherwise                        = dd / fromIntegral n
 >
 > checkUrnOk             :: Bake → Bool
 > checkUrnOk urn
@@ -264,18 +277,18 @@ The progress of the algorithm is expressed in above pair.
 >              , "\nss", show ss, "\nnewDur", show newDur]
 >
 >     quantize           :: Array Int Int → Double → Double → [(Int,  Int)]
->     quantize hst os du                   = [(x, (hst!x) + 1) | x ← [fk..gk]]
+>     quantize hst o du                    = [(x, (hst!x) + 1) | x ← [fk..gk]]
 >       where
 >         fk, gk         :: Int
->         fk                               = histSelect os
->         gk                               = histSelect $ computeEnd os du - 0.000001
+>         fk                               = histSelect o
+>         gk                               = histSelect $ computeEnd o du - 0.000001
 >
 >     histSelect         :: Double → Int
->     histSelect os                        = floor $ os * fromIntegral bakingBins / songLength
+>     histSelect o                         = floor $ o * fromIntegral bakingBins / songLength
 >
 > skipMetrics            :: BakingMetrics → Double → BakingMetrics
-> skipMetrics bm@BakingMetrics{ .. } accum = bm { sSkipped      = sSkipped      + 1
->                                               , sAccumSkipped = sAccumSkipped + accum}
+> skipMetrics bm@BakingMetrics{ .. } accm  = bm { sSkipped      = sSkipped      + 1
+>                                               , sAccumSkipped = sAccumSkipped + accm}
 >
 > rs2Bake                :: [Double] → Bake
 > rs2Bake rs
@@ -304,7 +317,7 @@ The progress of the algorithm is expressed in above pair.
 >       blacklist = [MuteCuica, OpenCuica, LongWhistle, ShortWhistle]
 >
 > computeEnd             :: Double → Double → Double
-> computeEnd onset dur                     = min songLength (onset + dur)
+> computeEnd onset durE                    = min songLength (onset + durE)
   
 Definitions ===========================================================================================================
 
@@ -332,9 +345,11 @@ Definitions ====================================================================
 >     , sAccumSkipped    :: Double
 >     , sHistogram       :: Array Int Int} deriving (Show, Eq, Ord)
 >
+> newBakingMetrics       :: BakingMetrics
 > newBakingMetrics                         = BakingMetrics 0 0 0 0 0 0 (array (0, eb) [(x, 0) | x ← [0..eb]])
 >   where
 >     eb                                   = bakingBins - 1
+> newMusic               :: Array Int (Music (Pitch, [NoteAttribute]))
 > newMusic                                 = array (0, numChannels - 1) [(x, rest 0) | x ← [0..(numChannels - 1)]]
 >
 > songLength, numSections

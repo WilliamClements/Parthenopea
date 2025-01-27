@@ -9,15 +9,18 @@ December 18, 2022
 
 > module Cecil ( cecil, abby, wj, shelby, weHateHer ) where
 >
-> import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import Parthenopea
 
 Cecil's Asleep ========================================================================================================
 
+> cecilTempo             :: Dur
 > cecilTempo                               = 1
+> cecilTranspose         :: AbsPitch
 > cecilTranspose                           = 0
 >
+> cecilAlto_, cecilTenor_, cecilBass_
+>                        :: BandPart
 > cecilAlto_                               = makePitched Violin        cecilTranspose      0        100
 > cecilTenor_                              = makePitched TenorSax      cecilTranspose      0        100
 > cecilBass_                               = makePitched AcousticBass  cecilTranspose      0        100
@@ -56,172 +59,173 @@ Cecil's Asleep =================================================================
 >
 > -- Section I "Cecil's Asleep"
 >
-> rAltoI  = line [rAltoIAB, c 5 sn, rAltoIC, rest sn, cutOutAllOfTheNoise, whatIsGoingOn]
+>       rAltoI  = line [rAltoIAB, c 5 sn, rAltoIC, rest sn, cutOutAllOfTheNoise, whatIsGoingOn]
 >
-> rAltoIAB
->         = line [rAltoIA, rest sn, rAltoIA, rest sn
->               , rAltoIB, c 5  sn, rAltoIA, rest sn
->               , rAltoIA, rest sn, rAltoIA, rest sn
->               , rAltoIB]
+>       rAltoIAB
+>               = line [rAltoIA, rest sn, rAltoIA, rest sn
+>                     , rAltoIB, c 5  sn, rAltoIA, rest sn
+>                     , rAltoIA, rest sn, rAltoIA, rest sn
+>                     , rAltoIB]
 >
-> rAltoIA = tempo 3 (line [bf 4 qn, bf 4 qn, bf 4 qn])
->           :+: line [g 4 den]
-> rAltoIB = tempo 3 (line [bf 4 qn, bf 4 qn, bf 4 qn])
->           :+: line [c 5 den]
-> rAltoIC = tempo 3 (line [ d 5 qn, d 5 qn,  d 5 qn])
->           :+: line [g 4 den]
+>       rAltoIA = tempo 3 (line [bf 4 qn, bf 4 qn, bf 4 qn])
+>                 :+: line [g 4 den]
+>       rAltoIB = tempo 3 (line [bf 4 qn, bf 4 qn, bf 4 qn])
+>                 :+: line [c 5 den]
+>       rAltoIC = tempo 3 (line [ d 5 qn, d 5 qn,  d 5 qn])
+>                 :+: line [g 4 den]
 >
-> cutOutAllOfTheNoise =
->   line [g 4 en, f 4 qn, d 4 qn, c 4 en, bf 3 qn, g 3 hn]
+>       cutOutAllOfTheNoise =
+>         line [g 4 en, f 4 qn, d 4 qn, c 4 en, bf 3 qn, g 3 hn]
 >   
-> whatIsGoingOn =
->   line [bf 4 qn, c 5 qn, d 5 qn, d 4 qn, g 4 hn, rest hn]
+>       whatIsGoingOn =
+>         line [bf 4 qn, c 5 qn, d 5 qn, d 4 qn, g 4 hn, rest hn]
 >
-> rTenrIA = transpose (-12) rAltoIA
-> rTenrIB = transpose (-12) rAltoIB
+>       rTenrIA = transpose (-12) rAltoIA
+>       rTenrIB = transpose (-12) rAltoIB
 >
-> rTenrI  =
->   line [rTenrIA, rest sn, rTenrIA, rest sn, rTenrIB,  c 4 sn, rTenrIA, rest sn
->       , rTenrIA, rest sn, rTenrIA, rest sn, rTenrIB, rest sn, rest (4*wn)]
+>       rTenrI  =
+>         line [rTenrIA, rest sn, rTenrIA, rest sn, rTenrIB,  c 4 sn, rTenrIA, rest sn
+>             , rTenrIA, rest sn, rTenrIA, rest sn, rTenrIB, rest sn, rest (4*wn)]
 >
-> rBassI  = line [  rBassIA,  rBassIB]
+>       rBassI  = line [  rBassIA,  rBassIB]
 >
-> rBassIA = line [  g 2 wn, f 2 qn, ef 2 qn, d 2 hn, f 2 qn, d 2 qn, g 2 wn
+>       rBassIA = line [  g 2 wn, f 2 qn, ef 2 qn, d 2 hn, f 2 qn, d 2 qn, g 2 wn
 >               ,  rest hn]
-> rBassIB = line [transpose (-12) cutOutAllOfTheNoise, g 2 hn,  d 2 hn, g 2 wn]
+>       rBassIB = line [transpose (-12) cutOutAllOfTheNoise, g 2 hn,  d 2 hn, g 2 wn]
 >
 > -- Section II (like Section I until not including "cut out all of the noiae!" etc.
 >
-> rAltoII = line [rAltoIIAB, d 5 sn, rAltoIIC, rAltoIID', rAltoIID'']
+>       rAltoII = line [rAltoIIAB, d 5 sn, rAltoIIC, rAltoIID', rAltoIID'']
 >
-> rAltoIIB  = rAltoIB
-> rAltoIIAB = rAltoIAB
-> rAltoIIC = line [f 5 en, f 5 en, e 5 qn, d 5 wn]
+>       rAltoIIAB = rAltoIAB
+>       rAltoIIC = line [f 5 en, f 5 en, e 5 qn, d 5 wn]
 >
-> r2triad1 = triad  D Major                (A,  3)
-> r2triad2 = triad  B (CustomMode "Dim")   (B,  3)
-> r2triad3 = triad  G Major                (B,  3)
-> r2triad4 = triad  C Major                (C,  4)
-> r2triad5 = triad  F Major                (A,  3)
-> r2triad6 = triad  E Major                (Gs, 3)
-> r2triad7 = triad Bf Major                (Bf, 3)
-> r2triad8 = triad Ef Major                (Bf, 3)
-> r2triad9 = triad  G Minor                (D,  4)
-> r2triadA = triad  A Major                (A,  3)
-> r2triadB = triad  D Minor                (A,  3)
+>       r2triad1 = triad  D Major                (A,  3)
+>       r2triad2 = triad  B (CustomMode "Dim")   (B,  3)
+>       r2triad3 = triad  G Major                (B,  3)
+>       r2triad4 = triad  C Major                (C,  4)
+>       r2triad5 = triad  F Major                (A,  3)
+>       r2triad6 = triad  E Major                (Gs, 3)
+>       r2triad7 = triad Bf Major                (Bf, 3)
+>       r2triad8 = triad Ef Major                (Bf, 3)
+>       r2triadA = triad  A Major                (A,  3)
+>       r2triadB = triad  D Minor                (A,  3)
 >
-> weBetterCall = line [rest en, r2triad1 en, r2triad1 en, r2triad1 en
->                     , r2triad1 dqn, r2triad1 en]
-> thePrincipal  = line [r2triad2 en, r2triad2 en, r2triad2 hn, rest qn] 
-> thePrincipal' = line [r2triad3 en, r2triad3 en, r2triad3 hn, rest qn]
-> rAltoIID'     = line [weBetterCall, thePrincipal] 
-> rAltoIID''    = line [weBetterCall, thePrincipal'] 
+>       weBetterCall = line [rest en, r2triad1 en, r2triad1 en, r2triad1 en
+>                           , r2triad1 dqn, r2triad1 en]
+>       thePrincipal  = line [r2triad2 en, r2triad2 en, r2triad2 hn, rest qn] 
+>       thePrincipal' = line [r2triad3 en, r2triad3 en, r2triad3 hn, rest qn]
+>       rAltoIID'     = line [weBetterCall, thePrincipal] 
+>       rAltoIID''    = line [weBetterCall, thePrincipal'] 
 >
-> rTenrII   = line [rTenrI, rest hn, rest wn]
+>       rTenrII   = line [rTenrI, rest hn, rest wn]
 >
-> rBassII   = line [  rBassIIA,  g 2 wn, rBassIIB]
+>       rBassII   = line [  rBassIIA,  g 2 wn, rBassIIB]
 >
-> rBassIIA  = rBassIA
-> rBassIIB  = line [d 2 wn, g 2 wn, d 2 wn, g 2 wn]
+>       rBassIIA  = rBassIA
+>       rBassIIB  = line [d 2 wn, g 2 wn, d 2 wn, g 2 wn]
 >
 > -- Section III "Cecil comes from a broken home ... so it's all right!"
 >
-> rAltoIII  = line [rAltoIIIA, rAltoIIIB, rAltoIIIC, rAltoIIID
->                 , rAltoIIIE, rAltoIIIF, rAltoIIIG, rAltoIIIH
->                 , rAltoIIII, rAltoIIIJ, rAltoIIIK]
+>       rAltoIII  = line [rAltoIIIA, rAltoIIIB, rAltoIIIC, rAltoIIID
+>                       , rAltoIIIE, rAltoIIIF, rAltoIIIG, rAltoIIIH
+>                       , rAltoIIII, rAltoIIIJ, rAltoIIIK]
 >
 > --                 Ce-      cil    comes     from     a
-> rAltoIIIA = line [ g 4 qn, a 4 qn, b 4 qn,  a 4 en, a 4 en]
+>       rAltoIIIA = line [ g 4 qn, a 4 qn, b 4 qn,  a 4 en, a 4 en]
 >
 > --                 bro-     ken    home -     He
-> rAltoIIIB = line [ g 4 qn, a 4 qn, b 4 dqn, b 4 en]
+>       rAltoIIIB = line [ g 4 qn, a 4 qn, b 4 dqn, b 4 en]
 >
 > --                 has      to      do       all      the
-> rAltoIIIC = line [ a 4 en, a 4 en, b 4 qn,  c 5 qn,  b 4 qn]
+>       rAltoIIIC = line [ a 4 en, a 4 en, b 4 qn,  c 5 qn,  b 4 qn]
 >
 > --                 chores   in       his      home -   he
-> rAltoIIID = line [ a 4 qn, b 4 en, b 4 en,  a 4 dqn, a 4 en]
+>       rAltoIIID = line [ a 4 qn, b 4 en, b 4 en,  a 4 dqn, a 4 en]
 >
 > --                 did      n't     get       to      bed    'til
-> rAltoIIIE = line [ b 4 en, b 4 en, c 5 en,  c 5 en,  d 5 qn, d 5 qn]
+>       rAltoIIIE = line [ b 4 en, b 4 en, c 5 en,  c 5 en,  d 5 qn, d 5 qn]
 >
 > --                twelve    last    night    so       it's
-> rAltoIIIF = line [ e 5 qn, g 4 qn, c 5 qn,  c 5 en,  c 5 en]
+>       rAltoIIIF = line [ e 5 qn, g 4 qn, c 5 qn,  c 5 en,  c 5 en]
 >
 > --                  all     right    
-> rAltoIIIG = line [ d 5 wn, d 5 qn, rest hn]
+>       rAltoIIIG = line [ d 5 wn, d 5 qn, rest hn]
 >
 > --                 for      Ce-     cil      to      sleep
-> rAltoIIIH = line [ d 4 sn, d 4 sn, e 4 sn, fs 4 sn,  g 4 qn, rest qn]
+>       rAltoIIIH = line [ d 4 sn, d 4 sn, e 4 sn, fs 4 sn,  g 4 qn, rest qn]
 >
 > --                  Yes,     it's    all    right
-> rAltoIIII = line [ d 4 qn, d 4 qn, d 5 wn,  d 5 qn, rest qn]
+>       rAltoIIII = line [ d 4 qn, d 4 qn, d 5 wn,  d 5 qn, rest qn]
 >
 > --                  for      Ce-     cil      to
-> rAltoIIIJ = line [ d 5 qn, d 5 qn, cs 5 qn, c 5 qn]
+>       rAltoIIIJ = line [ d 5 qn, d 5 qn, cs 5 qn, c 5 qn]
 >
 > --                 Slee     -ee-    -ee-     -eep             He's       a
-> rAltoIIIK = line [ b 4 wn, b 4 wn, b 4 wn,  e 5 wn, rest qn, e 5 den, f 5 sn]
+>       rAltoIIIK = line [ b 4 wn, b 4 wn, b 4 wn,  e 5 wn, rest qn, e 5 den, f 5 sn]
 > 
-> rTenrIII  = line [rTenrIIIA, rTenrIIIB, rTenrIIIC, rTenrIIID, rTenrIIIE]
+>       rTenrIII  = line [rTenrIIIA, rTenrIIIB, rTenrIIIC, rTenrIIID, rTenrIIIE]
 >
-> rTenrIIIA  = line [r2triad3 wn, r2triad3 wn, r2triad1 wn, r2triad1 wn]
-> rTenrIIIB  = line [r2triad3 wn, r2triad4 wn, r2triad1 wn]
-> rTenrIIIC  = line [r2triad1 qn, rest dhn, rest wn]
-> rTenrIIID  = line [r2triad1 wn, r2triad1 qn, rest qn, r2triad1 wn, r2triad3 wn]
-> rTenrIIIE  = line [r2triad5 wn, r2triad6 wn, r2triad4 wn, r2triad2 hn]
+>       rTenrIIIA  = line [r2triad3 wn, r2triad3 wn, r2triad1 wn, r2triad1 wn]
+>       rTenrIIIB  = line [r2triad3 wn, r2triad4 wn, r2triad1 wn]
+>       rTenrIIIC  = line [r2triad1 qn, rest dhn, rest wn]
+>       rTenrIIID  = line [r2triad1 wn, r2triad1 qn, rest qn, r2triad1 wn, r2triad3 wn]
+>       rTenrIIIE  = line [r2triad5 wn, r2triad6 wn, r2triad4 wn, r2triad2 hn]
 >
-> rBassIII  = line [ rBassIIIA, rBassIIIB, rBassIIIC
->                  , rBassIIID, rBassIIIE, rBassIIIF]
+>       rBassIII  = line [ rBassIIIA, rBassIIIB, rBassIIIC
+>                        , rBassIIID, rBassIIIE, rBassIIIF]
 >
-> rBassIIIA = line [ g 2 hn, d 2 hn,  g 2 hn,  d 2 hn]
-> rBassIIIB = line [ d 2 hn, a 1 hn,  d 2 hn, fs 2 hn]
-> rBassIIIC = line [ g 2 wn, c 2 wn]
-> rBassIIID = line [ d 2 wn, d 2 qn, rest dhn, rest wn, d 2 wn, d 2 qn, rest qn
->                 ,  d 2 qn, d 2 qn, e 2 qn, fs 2 qn]
-> rBassIIIE = line [g 2 wn, f 2 wn, e 2 wn, c 2 wn]
-> rBassIIIF = line [g 2 hn]
+>       rBassIIIA = line [ g 2 hn, d 2 hn,  g 2 hn,  d 2 hn]
+>       rBassIIIB = line [ d 2 hn, a 1 hn,  d 2 hn, fs 2 hn]
+>       rBassIIIC = line [ g 2 wn, c 2 wn]
+>       rBassIIID = line [ d 2 wn, d 2 qn, rest dhn, rest wn, d 2 wn, d 2 qn, rest qn
+>                       ,  d 2 qn, d 2 qn, e 2 qn, fs 2 qn]
+>       rBassIIIE = line [g 2 wn, f 2 wn, e 2 wn, c 2 wn]
+>       rBassIIIF = line [g 2 hn]
 >
 > -- Section IV "He's a Frog!"
 >
-> rAltoIV   = line [rAltoIVA, rAltoIVB, rAltoIVC
->                 , Modify (Phrase [Dyn $ Diminuendo 1.25]) (line [rAltoIVD, rAltoIVE, rAltoIVF])]
+>       rAltoIV   = line [rAltoIVA, rAltoIVB, rAltoIVC
+>                       , Modify (Phrase [Dyn $ Diminuendo 1.25]) (line [rAltoIVD, rAltoIVE, rAltoIVF])]
 >   
 > --                 Frog      Hes     a      Frog     in       the
-> rAltoIVA  = line [g 5 qn,  g 5 den, a 5 sn, g 5 qn, e 5 den, f 5 sn]
+>       rAltoIVA  = line [g 5 qn,  g 5 den, a 5 sn, g 5 qn, e 5 den, f 5 sn]
 > --                 Lit-      tle    for-    est     glade      He's       a
-> rAltoIVB  = line [g 5 den, g 5 sn, a 5 den, a 5 sn, g 5 qn,  g 5 den,  g 5 sn]
+>       rAltoIVB  = line [g 5 den, g 5 sn, a 5 den, a 5 sn, g 5 qn,  g 5 den,  g 5 sn]
 > --                 Frog      Hes     a      Frog     in       the
-> rAltoIVC  = line [f 5 qn,  f 5 den, g 5 sn, f 5 qn, d 5 den, ef 5 sn]
+>       rAltoIVC  = line [f 5 qn,  f 5 den, g 5 sn, f 5 qn, d 5 den, ef 5 sn]
 > --                 Lit-      tle    for-    est     glade      He's       a
-> rAltoIVD  = line [f 5 den, f 5 sn, g 5 den, g 5 sn, f 5 qn,  f 5 den,  f 5 sn]
+>       rAltoIVD  = line [f 5 den, f 5 sn, g 5 den, g 5 sn, f 5 qn,  f 5 den,  f 5 sn]
 > --                 Frog      Hes     a      Frog     He's      a
-> rAltoIVE  = line [e 5 qn,  e 5 den, f 5 sn, e 5 qn, cs 5 den, d 5 sn]
+>       rAltoIVE  = line [e 5 qn,  e 5 den, f 5 sn, e 5 qn, cs 5 den, d 5 sn]
 > --                Frog he's a Frog He's a
-> rAltoIVF  = line [d 5 hn,  c 5 hn, bf 4 hn]
+>       rAltoIVF  = line [d 5 hn,  c 5 hn, bf 4 hn]
 >
-> rTenrIV   = transpose (-12) (line [rTenrIVA, rTenrIVB, rTenrIVC
->                                  , Modify (Phrase [Dyn $ Diminuendo 1.25]) (line [rTenrIVD, rTenrIVE, rTenrIVF])])
+>       rTenrIV   = transpose (-12) (line [rTenrIVA, rTenrIVB, rTenrIVC
+>                                        , Modify (Phrase [Dyn $ Diminuendo 1.25]) (line [rTenrIVD, rTenrIVE, rTenrIVF])])
 >
-> rTenrIVA  = line [r2triad4 qn,  r2triad4 den, r2triad5 sn, r2triad4 qn
->                 , r2triad4 den, r2triad4 sn]
-> rTenrIVB  = line [r2triad4 den, r2triad4 sn,  r2triad5 den, r2triad5 sn
->                 , r2triad4 qn,  r2triad4 den, r2triad4 sn]
-> rTenrIVC  = line [r2triad7 qn,  r2triad7 den, r2triad8 sn, r2triad7 qn
->                 , r2triad7 den, r2triad7 sn]
-> rTenrIVD  = line [r2triad7 den, r2triad7 sn,  r2triad8 den, r2triad8 sn
->                 , r2triad7 qn,  r2triad7 den, r2triad7 sn]
-> rTenrIVE  = line [r2triadA qn,  r2triadA den, r2triadB sn, r2triadA qn
->                 , r2triadA den, r2triadA sn]
-> rTenrIVF  = line [r2triad3 hn,  r2triad5  hn, r2triad8 hn]
+>       rTenrIVA  = line [r2triad4 qn,  r2triad4 den, r2triad5 sn, r2triad4 qn
+>                       , r2triad4 den, r2triad4 sn]
+>       rTenrIVB  = line [r2triad4 den, r2triad4 sn,  r2triad5 den, r2triad5 sn
+>                       , r2triad4 qn,  r2triad4 den, r2triad4 sn]
+>       rTenrIVC  = line [r2triad7 qn,  r2triad7 den, r2triad8 sn, r2triad7 qn
+>                       , r2triad7 den, r2triad7 sn]
+>       rTenrIVD  = line [r2triad7 den, r2triad7 sn,  r2triad8 den, r2triad8 sn
+>                       , r2triad7 qn,  r2triad7 den, r2triad7 sn]
+>       rTenrIVE  = line [r2triadA qn,  r2triadA den, r2triadB sn, r2triadA qn
+>                       , r2triadA den, r2triadA sn]
+>       rTenrIVF  = line [r2triad3 hn,  r2triad5  hn, r2triad8 hn]
 >
-> rBassIV   = rest 0
+>       rBassIV   = rest 0
 
 Abby Cissa ============================================================================================================
 
+> abbyTempo              :: Dur
 > abbyTempo                                = 1
+> abbyTranspose          :: AbsPitch
 > abbyTranspose                            = 0
 >
+> abbyGrand_             :: BandPart
 > abbyGrand_                               = makePitched AcousticGrandPiano abbyTranspose 0 100
 >
 > abby                   :: DynMap → Music (Pitch, [NoteAttribute])
@@ -296,9 +300,13 @@ Abby Cissa =====================================================================
 
 There Goes W.J. =======================================================================================================
 
+> wjTempo                :: Dur
 > wjTempo                                  = 1
+> wjTranspose            :: AbsPitch
 > wjTranspose                              = 0
 >
+> wjAlto_, wjTenor_, wjBass_
+>                        :: BandPart
 > wjAlto_                                  = makePitched AltoSax               wjTranspose 0           100
 > wjTenor_                                 = makePitched ReedOrgan             wjTranspose 0           75
 > wjBass_                                  = makePitched ElectricBassFingered  wjTranspose 0           100
@@ -359,15 +367,17 @@ There Goes W.J. ================================================================
 
 Shelby Parsley ========================================================================================================
 
+> spTranspose            :: AbsPitch
 > spTranspose                              = 0
+> spTempo                :: Dur
 > spTempo                                  = 1
 >
+> spVibes_, spBass_, dihtRhodes_
+>                        :: BandPart
 > spVibes_                                 = makePitched Vibraphone          spTranspose 0  90
 > spBass_                                  = makePitched ElectricBassPicked  spTranspose 0  75
 > dihtRhodes_                              = makePitched RhodesPiano         spTranspose 0  90
 > 
-> spEflat'                                 = triad Ef Major           (Bf, 3)
->
 > shelby                 :: DynMap → Music (Pitch, [NoteAttribute])
 > shelby dynMap                            =
 >   removeZeros
@@ -532,9 +542,12 @@ Section III - shame on you!
 
 We Hate Her ===========================================================================================================
 
+> whhTempo               :: Dur
 > whhTempo                                 = 1
+> whhTranspose           :: AbsPitch
 > whhTranspose                             = 0
 >
+> whhLead_               :: BandPart
 > whhLead_                                 = makePitched Harmonica     whhTranspose        0        100
 >
 > weHateHer              :: DynMap → Music (Pitch, [NoteAttribute])
@@ -548,24 +561,24 @@ We Hate Her ====================================================================
 >
 >    whhLead                               = replace whhLead_ dynMap
 >
-> whhMel :: Music Pitch
+>    whhMel :: Music Pitch
 >    --                      We
-> whhMel = line  [rest dqn, g 4 en
+>    whhMel = line  [rest dqn, g 4 en
 >    --             Hate     Her     We      Hate      Her     We  
->               ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
+>                  ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
 >    --             real-     ly      real-    ly      Hate     Her     We
->               ,   a 4 en, f 4 en, a 4 en,  c 5 en, bf 4 en, g 4 qn, g 4 en
+>                  ,   a 4 en, f 4 en, a 4 en,  c 5 en, bf 4 en, g 4 qn, g 4 en
 >    --             Hate     Her     We      Hate      Her     We  
->               ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
+>                  ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
 >    --             real-     ly      real-    ly      Hate     Her     She
->               ,   a 4 en, f 4 en, a 4 en,  c 5 en, bf 4 en, g 4 qn, g 4 en
+>                  ,   a 4 en, f 4 en, a 4 en,  c 5 en, bf 4 en, g 4 qn, g 4 en
 >    --              gave     us       a       te-      st      It
->               ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
+>                  ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
 >    --              real-     ly    was       a        me-     -ss     We
->               ,   a 4 en, f 4 en, a 4 en,  c 5 en, bf 4 en, g 4 qn, g 4 en
+>                  ,   a 4 en, f 4 en, a 4 en,  c 5 en, bf 4 en, g 4 qn, g 4 en
 >    --             chea-     ted    We      chea-      ted    We
->               ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
+>                  ,  bf 4 en, g 4 qn, g 4 en, bf 4 en,  g 4 qn, g 4 en
 >    --              did-    n't     do      our       best
->               ,   d 4 en, d 4 en, e 4 en, fs 4 en,  g 4 wn]
+>                  ,   d 4 en, d 4 en, e 4 en, fs 4 en,  g 4 wn]
 
 The End

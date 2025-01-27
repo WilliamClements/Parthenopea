@@ -12,7 +12,6 @@ November 24, 2023
 > import Control.Exception
 > import Data.Either
 > import Data.List ( nub, sort, sortOn )
-> import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Ord
 > import Modulation
@@ -51,7 +50,8 @@ struct sfInstModList
 >   , canonicalOrderingWorks
 >                        :: IO Bool
 >
-> modulationTests        :: [IO Bool]      = [vanillaModulatorWillNotBeEliminated
+> modulationTests        :: [IO Bool]
+> modulationTests                          = [vanillaModulatorWillNotBeEliminated
 >                                         ,   unlinkedModulatorWillBeEliminated
 >                                         ,   linkedModulatorWillNotBeEliminated
 >                                         ,   danglingModulatorWillBeEliminated
@@ -63,6 +63,7 @@ struct sfInstModList
 >                                         ,   unsupercededModulatorWillNotBeEliminated
 >                                         ,   canonicalOrderingWorks]
 >
+> runModulationTests     :: IO ()
 > runModulationTests                       = runTests modulationTests
 >
 > vanillaModulatorWillNotBeEliminated      = do
