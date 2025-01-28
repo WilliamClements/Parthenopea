@@ -261,7 +261,7 @@ Instrument categories: instrument, percussion, disqualified
 >   SFBoot {
 >     zFiles             :: Array Word SFFile
 >   , zPreSampleCache    :: Map PreSampleKey PreSample
->   , zPartnerCache      :: Map PreZoneKey PreZone
+>   , zPartnerMap        :: Map PreSampleKey PreSampleKey
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
 >   , zOwners            :: Map PerGMKey [PreZone]
 >   , zJobs              :: Map PerGMKey InstCat}
@@ -374,7 +374,7 @@ executive ======================================================================
 >
 >       tsFinished       ← getCurrentTime
 >       putStrLn ("___bootstrap: " ++ show (diffUTCTime tsFinished tsStarted))
->       return $ (Just boot, pergmsI, pergmsP, rdGen03)
+>       return (Just boot, pergmsI, pergmsP, rdGen03)
 >   where
 >     -- track the complete _qualified_ populations of: samples, instruments, percussion
 >     finishBoot         :: ([InstrumentName], [PercussionSound]) → SFBoot → IO (SFBoot, [PerGMKey], [PerGMKey], ResultDispositions)
@@ -386,8 +386,12 @@ executive ======================================================================
 >                        ← initSamples preboot.zFiles virginrd
 >       (preInstCache_, rdGen02)
 >                        ← initInsts preboot.zFiles rdGen01
+>       let midboot      =
+>             preboot
+>               {  zPreSampleCache               = preSampleCache
+>                , zPartnerMap                   = sPartnerMap}
 >       (preInstCache, pOwners, rdGen03)
->                        ← initZones preboot.zFiles preSampleCache sPartnerMap preInstCache_ rdGen02
+>                        ← initZones midboot preInstCache_ rdGen02
 >
 >       jobs             ← categorize preSampleCache preInstCache pOwners rost
 >       tsCatted         ← getCurrentTime
@@ -405,7 +409,7 @@ executive ======================================================================
 >             zPreSampleCache              = preSampleCache
 >           , zPreInstCache                = preInstCache
 >           , zOwners                      = pOwners
->           , zPartnerCache                = Map.empty
+>           , zPartnerMap                  = Map.empty
 >           , zJobs                        = jobs}
 >       return (boot, pergmsI, pergmsP, rdGen03)
 
@@ -436,14 +440,14 @@ later items, some critical data may thereby be missing. So that entails deletion
 >                        ← formPreInstCache sffiles rd
 >       return (preInstCache, rd')
 >
->     initZones          :: Array Word SFFile
->                           → Map PreSampleKey PreSample → Map PreSampleKey PreSampleKey → Map PerGMKey PreInstrument
+>     initZones          :: SFBoot
+>                           → Map PerGMKey PreInstrument
 >                           → ResultDispositions
 >                           → IO (Map PerGMKey PreInstrument, Map PerGMKey [PreZone], ResultDispositions)
->     initZones sffiles preSampleCache sPartnerMap preInstCache_ rd_
+>     initZones midboot preInstCache_ rd_
 >                        = do
 >       (preInstCache, pOwners, rd)
->                        ← formPreZones sffiles preSampleCache sPartnerMap preInstCache_ rd_
+>                        ← formPreZones midboot preInstCache_ rd_
 >       return (preInstCache, pOwners, rd)
 >
 > writeScanReport        :: SFBoot → ResultDispositions → IO ()
@@ -787,12 +791,11 @@ PreZone administration =========================================================
 > instKey                :: InstZoneScan → PerGMKey
 > instKey zscan                            = PerGMKey zscan.zswFile zscan.zswInst Nothing
 >         
-> formPreZones           :: Array Word SFFile
->                           → Map PreSampleKey PreSample → Map PreSampleKey PreSampleKey → Map PerGMKey PreInstrument
+> formPreZones           :: SFBoot → Map PerGMKey PreInstrument
 >                           → ResultDispositions
 >                           → IO (Map PerGMKey PreInstrument, Map PerGMKey [PreZone], ResultDispositions)
-> formPreZones sffiles preSampleCache sPartnerMap preInstCache rd_
->                                          = CM.foldM formFolder (preInstCache, Map.empty, rd_) sffiles
+> formPreZones midboot preInstCache rd_
+>                                          = CM.foldM formFolder (preInstCache, Map.empty, rd_) midboot.zFiles
 >   where
 >     fName__                              = "formPreZones"
 >
@@ -804,7 +807,7 @@ PreZone administration =========================================================
 >       CM.when diagnosticsEnabled (
 >                 putStrLn (unwords [  fName_
 >                                    , "lengths preS,preZ,preI Before captureFileZones"
->                                    , show (length preSampleCache, length preZs, length preIs)]))
+>                                    , show (length midboot.zPreSampleCache, length preZs, length preIs)]))
 >
 >       (preIs', preZs', rd')              ← captureFileZones sffile rd
 >
@@ -837,7 +840,7 @@ PreZone administration =========================================================
 >         tasks          :: [([InstZoneScan], ResultDispositions) → ([InstZoneScan], ResultDispositions)]
 >         tasks                            = if combinePartials
 >                                              then error "not supported"
->                                              else [groomTask, vetTask]
+>                                              else [groomTask midboot, vetTask midboot]
 >
 >         isInitial, isFinal
 >                        :: FileInstScan
@@ -917,112 +920,129 @@ capture (initial) task =========================================================
 >
 >                 limitsCheckedOk          = adjustedSampleSizeOk pz.pzDigest shdr
 >                 presk                    = PreSampleKey sffile.zWordF si
->                 starget                  = Map.lookup presk preSampleCache
+>                 starget                  = Map.lookup presk midboot.zPreSampleCache
 >                 pres                     = deJust "pres" starget
 
 iterating on InstZoneScan list ========================================================================================
 
->         taskTask fun (zscansIn, rdIn)    = foldl' task ([], rdIn) zscansIn
->           where
->             task (zscans, rd) zscan
->                                          =
->               let
->                 (zscan', rd')            = fun zscan rd
->               in
->                 if fatalrd [Accepted, NoChange] rd (instKey zscan)
->                   then (zscan : zscans, rd)
->                   else (zscan' : zscans, rd')
+> taskTask               :: (InstZoneScan → ResultDispositions → (InstZoneScan, ResultDispositions))
+>                           → ([InstZoneScan], ResultDispositions)
+>                           → ([InstZoneScan], ResultDispositions)
+> taskTask fun (zscansIn, rdIn)            = foldl' task ([], rdIn) zscansIn
+>   where
+>     task (zscans, rd) zscan              =
+>       let
+>         (zscan', rd')                    = fun zscan rd
+>       in
+>         if fatalrd [Accepted, NoChange] rd (instKey zscan)
+>           then (zscan : zscans, rd)
+>           else (zscan' : zscans, rd')
 
 groom task ============================================================================================================
 
->         groomTask (zscans, rd)           =
->           let
->             back                         = makeBack preSampleCache (goodZScans (zscans, rd))
->           in
->             taskTask (groomer back) (zscans, rd)
->
->         groomer        :: Map PreSampleKey [PreZoneKey]
+> groomTask              :: SFBoot
+>                           → ([InstZoneScan], ResultDispositions)
+>                           → ([InstZoneScan], ResultDispositions)
+> groomTask midboot (zscans, rd)           =
+>   let
+>     back                                 = makeBack midboot (goodZScans (zscans, rd))
+>   in
+>     taskTask (groomer back) (zscans, rd)
+>   where
+>     groomer            :: Map PreSampleKey [PreZoneKey]
 >                           → InstZoneScan
 >                           → ResultDispositions
 >                           → (InstZoneScan, ResultDispositions)
->         groomer back zscan rdGroom_
->           | traceNot trace_G False       = undefined
->           | otherwise                    = (zscan{zsPreZones = newPzs}, rd')
->           where
->             fName_                       = unwords [fName__, "groomer"]
->             trace_G                      = unwords [fName_, show (rdScans rdGroom_)]
+>     groomer back zscan rdGroom_
+>       | traceNot trace_G False           = undefined
+>       | otherwise                        = (zscan{zsPreZones = newPzs}, rd')
+>       where
+>         fName                            = "groomer"
+>         trace_G                          = unwords [fName, show (rdScans rdGroom_)]
 >
->             newPzs                       = groomPreZones zscan.zsPreZones
+>         newPzs                           = groomPreZones back zscan.zsPreZones
 >
->             pergm                        = instKey zscan
->             sa                           = ScanAlts pergm fName_ []
->             (_, rd')                     = scanAlts sa alts rdGroom_
->               where           
->                 alts                     = [curate newPzs (not . null) (violated sa NoZones)]
+>         pergm                            = instKey zscan
+>         sa                               = ScanAlts pergm fName []
+>         (_, rd')                         = scanAlts sa alts rdGroom_
+>           where           
+>             alts                         = [curate newPzs (not . null) (violated sa NoZones)]
 >
->             groomPreZones preZones       = pzsStereo ++ pzsMono
->               where
->                 (pzsStereo_, pzsMono)    = partition (isStereoZone preSampleCache) preZones
->                 pzsStereo                = map partnerUp pzsStereo_
+>     groomPreZones back preZones          = pzsStereo ++ pzsMono
+>       where
+>         (pzsStereo_, pzsMono)            = partition (isStereoZone midboot.zPreSampleCache) preZones
+>         pzsStereo                        = map (partnerUp back) pzsStereo_
 >
->             partnerUp pz                 =
->               let
->                 mpartners                =
->                   Map.lookup (PreSampleKey pz.pzWordF (F.sampleLink (effShdr preSampleCache pz))) back 
->               in
->                 pz{pzmkPartners = fromMaybe [] mpartners}
+>     partnerUp back pz                    =
+>       let
+>         mpartners                        =
+>           Map.lookup (PreSampleKey pz.pzWordF (F.sampleLink (effShdr midboot.zPreSampleCache pz))) back 
+>       in
+>         pz{pzmkPartners = fromMaybe [] mpartners}
 
 vet task ============================================================================================================
           remove bad stereo partners from PreZones per instrument, delete instrument if down to zero PreZones
 
->         vetTask (zscans, rd)             =
->           let
->             filePzs                      =
->               foldl' (\x y → x ++ filter (isStereoZone preSampleCache) y.zsPreZones) [] (goodZScans (zscans, rd))
->             mapStereo                    = formPreZoneMap filePzs
->           in
->             taskTask (vetter mapStereo) (zscans, rd)
+> vetTask                :: SFBoot
+>                           → ([InstZoneScan], ResultDispositions)
+>                           → ([InstZoneScan], ResultDispositions)
+> vetTask midboot (zscans, rd)
+>                                          =
+>   let
+>     filePzs                              =
+>       foldl' (\x y → x ++ filter (isStereoZone midboot.zPreSampleCache) y.zsPreZones) [] (goodZScans (zscans, rd))
+>     mapStereo                            = formPreZoneMap filePzs
+>   in
+>     taskTask (vetter midboot mapStereo) (zscans, rd)
 >
->         vetter         :: Map PreZoneKey PreZone
+> vetter                 :: SFBoot
+>                           → Map PreZoneKey PreZone
 >                           → InstZoneScan
 >                           → ResultDispositions
 >                           → (InstZoneScan, ResultDispositions)
->         vetter mapStereo zscan rdVet_    = (zscan{zsPreZones = newPzs}, rd')
+> vetter midboot mapStereo zscan rdVet_    = (zscan{zsPreZones = newPzs}, rd')
+>   where
+>     fName                                = "vetter"
+>
+>     newPzs                               =
+>       let
+>         (pzsStereo, pzsMono)             = partition (isStereoZone midboot.zPreSampleCache) zscan.zsPreZones
+>         vetPreZone     :: PreZone → Maybe PreZone
+>         vetPreZone pz                    =
+>           if null newPartners
+>             then if canDevolveToMono
+>                    then Just $ appendChange pz MakeMono
+>                    else Nothing
+>             else Just pz{pzmkPartners = newPartners}
 >           where
->             fName_                       = unwords[fName__, "vetter"]
+>             newPartners                  = filter (okPartner midboot mapStereo pz) pz.pzmkPartners
+>       in
+>         mapMaybe vetPreZone pzsStereo ++ pzsMono
 >
->             newPzs                       =
->               let
->                 (pzsStereo, pzsMono)     = partition (isStereoZone preSampleCache) zscan.zsPreZones
->                 vetPreZone pz            =
->                   if null newPartners
->                     then if canDevolveToMono
->                            then Just $ appendChange pz MakeMono
->                            else Nothing
->                     else Just pz{pzmkPartners = newPartners}
->                   where
->                     newPartners          = filter (okPartner mapStereo pz) pz.pzmkPartners
->               in
->                 mapMaybe vetPreZone pzsStereo ++ pzsMono
+>     pergm                                = instKey zscan
+>     sa                                   = ScanAlts pergm fName []
+>     (_, rd')                             = scanAlts sa alts rdVet_
+>       where           
+>         alts                             = [curate newPzs (not . null) (violated sa NoZones)]
 >
->             pergm                        = instKey zscan
->             sa                           = ScanAlts pergm fName_ []
->             (_, rd')                     = scanAlts sa alts rdVet_
->               where           
->                 alts                     = [curate newPzs (not . null) (violated sa NoZones)]
+> okPartner              :: SFBoot → Map PreZoneKey PreZone → PreZone → PreZoneKey → Bool
+> okPartner midboot pzMap pz pzk
+>                                          =
+>   case Map.lookup pzk pzMap of
+>     Nothing                              → False
+>     Just pzPartner                       → goodPartners midboot pz pzPartner
 >
->         okPartner pzMap pz pzk           =
->           case Map.lookup pzk pzMap of
->             Nothing                      → False
->             Just pzPartner               → goodPartners pz pzPartner
->
->         goodPartners pzMe pzYou          =
->           let
->             mySPartner                   = PreSampleKey pzMe.pzWordF   (F.sampleLink (effShdr preSampleCache pzMe))
->             yrSPartner                   = PreSampleKey pzYou.pzWordF  (F.sampleLink (effShdr preSampleCache pzYou))
->           in
->             (Just yrSPartner == Map.lookup mySPartner sPartnerMap)
->             && (Just mySPartner == Map.lookup yrSPartner sPartnerMap)
+> goodPartners           :: SFBoot → PreZone → PreZone → Bool
+> goodPartners midboot pzMe pzYou
+>                                          =
+>   let
+>     mySPartner                           =
+>       PreSampleKey pzMe.pzWordF   (F.sampleLink (effShdr midboot.zPreSampleCache pzMe))
+>     yrSPartner                           =
+>       PreSampleKey pzYou.pzWordF  (F.sampleLink (effShdr midboot.zPreSampleCache pzYou))
+>   in
+>     (Just yrSPartner == Map.lookup mySPartner midboot.zPartnerMap)
+>     && (Just mySPartner == Map.lookup yrSPartner midboot.zPartnerMap)
 >
 > smush                  :: [([PreZone], Smashing Word)] → Smashing Word
 > smush pears                              = smashSubspaces allTags dims allSpaces
@@ -1036,11 +1056,12 @@ vet task =======================================================================
 > shorten        :: (Char → Bool) → [Char] → [Char] 
 > shorten qual chars                       = reverse (dropWhile qual (reverse chars))
 >
-> makeBack               :: Map PreSampleKey PreSample → [InstZoneScan] → Map PreSampleKey [PreZoneKey]
-> makeBack preSampleCache zscans           = foldl' Map.union Map.empty (map zscan2back zscans)
+> makeBack               :: SFBoot → [InstZoneScan] → Map PreSampleKey [PreZoneKey]
+> makeBack midboot zscans                  = foldl' Map.union Map.empty (map zscan2back zscans)
 >   where
 >     zscan2back         :: InstZoneScan → Map PreSampleKey [PreZoneKey]
->     zscan2back zscan                     = foldl' backFolder Map.empty (filter (isStereoZone preSampleCache) zscan.zsPreZones)
+>     zscan2back zscan                     =
+>       foldl' backFolder Map.empty (filter (isStereoZone midboot.zPreSampleCache) zscan.zsPreZones)
 >     backFolder         :: Map PreSampleKey [PreZoneKey] → PreZone → Map PreSampleKey [PreZoneKey]
 >     backFolder target pz                 =
 >       Map.insertWith (++) (PreSampleKey pz.pzWordF pz.pzWordS) [extractZoneKey pz] target
