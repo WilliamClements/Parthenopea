@@ -250,7 +250,7 @@ executive ======================================================================
 >                        = do
 >       tsStarted        ← getCurrentTime
 >
->       (zc, rdGen04)    ← formZoneCache boot.zFiles boot.zPreInstCache boot.zJobs rdGen03
+>       (zc, rdGen04)    ← formZoneCache boot rdGen03
 >       owners'          ← reassociateZones zc
 >
 >       tsZoned          ← getCurrentTime
@@ -684,14 +684,12 @@ extract data from SoundFont per instrument =====================================
                                             
 prepare the specified instruments and percussion ======================================================================
 
-> formZoneCache          :: Array Word SFFile
->                           → Map PerGMKey PreInstrument
->                           → Map PerGMKey InstCat
+> formZoneCache          :: SFBoot
 >                           → ResultDispositions
 >                           → IO (Map PerGMKey PerInstrument, ResultDispositions)
-> formZoneCache sffiles preInstCache jobs rd_
+> formZoneCache boot rd_
 >                                          = do
->   return $ Map.foldlWithKey formFolder (Map.empty, rd_) jobs
+>   return $ Map.foldlWithKey formFolder (Map.empty, rd_) boot.zJobs
 >   where
 >     formFolder         :: (Map PerGMKey PerInstrument, ResultDispositions)
 >                           → PerGMKey → InstCat
@@ -703,8 +701,9 @@ prepare the specified instruments and percussion ===============================
 >       | traceIf trace_CPI False          = undefined
 >       | otherwise                        = PerInstrument (zip pzs oList) icd.inSmashup
 >       where
->         sffile                           = sffiles ! pergm.pgkwFile
->         preI                             = deJust "computePerInst PreInstrument" (Map.lookup pergm preInstCache)
+>         sffile                           = boot.zFiles ! pergm.pgkwFile
+>         preI                             =
+>           deJust "computePerInst PreInstrument" (Map.lookup pergm boot.zPreInstCache)
 >
 >         icd            :: InstCatData
 >         bixen          :: [Word]

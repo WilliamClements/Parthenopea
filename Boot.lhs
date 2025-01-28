@@ -231,9 +231,7 @@ Instrument categories: instrument, percussion, disqualified
 >     Nothing                              → "icNothing"
 >     Just (InstCatInst _)                 → "icInst"
 >     Just (InstCatPerc _)                 → "icPerc"
->     Just (InstCatDisq _)                 → "icDisq"
->
->     
+>     Just (InstCatDisq _)                 → "icDisq"  
 > data InstCatData                         =
 >   InstCatData {
 >     inPreZones         :: [PreZone]
