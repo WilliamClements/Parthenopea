@@ -4,11 +4,11 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
-SoundFontTest
+BootTest
 William Clements
 January 7, 2025
 
-> module SoundFontTest where
+> module BootTest where
 >
 > import Boot
 > import Parthenopea (runTests)

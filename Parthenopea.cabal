@@ -62,11 +62,11 @@ library
     exposed-modules: Rosters
     
     -- Modules included in this library but not exported.
-    other-modules:  Baking, Boot, Cecil, Chart,
+    other-modules:  Baking, Boot, BootTest, Cecil, Chart,
                     Covers, Discrete, DiscreteTest, Fanfare,
                     Modulation, ModulationTest, Parthenopea,
                     ParthenopeaTest, Percussion, Scoring,
-                    SoundFont, SoundFontTest,
+                    SoundFont,
                     SunPyg, Synthesizer, SynthesizerTest,
                     SynToolkit
 

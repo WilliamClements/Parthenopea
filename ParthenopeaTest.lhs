@@ -107,7 +107,7 @@ Testing ========================================================================
 >   let smashup          :: Smashing Int   =
 >         smashSubspaces "smashup" [3, 2] [(101, [Just (1, 2), Nothing])
 >                                        , (102, [Nothing, Just (1,1)])]
->   return $ aEqual smashup.smashStats.countMultiples 2
+>   return $ aEqual smashup.smashStats.countMultiples (2::Int)
 >
 > workOutNearbyVerticalUncovered           = do
 >   let smashup          :: Smashing Int   =

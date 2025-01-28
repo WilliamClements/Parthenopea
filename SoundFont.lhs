@@ -509,48 +509,6 @@ tournament starts here =========================================================
 >
 >         akResult                         = fromMaybe 0 (Map.lookup kind fuzzMap)
 >
-> smush                  :: [([PreZone], Smashing Word)] → Smashing Word
-> smush pears                              = smashSubspaces allTags dims allSpaces
->   where
->     allTags            :: String
->     allSpaces          :: [(Word, [Maybe (Word, Word)])]
->     (allTags, allSpaces)                 =
->       foldl' (\(at, ax) (pzs, smashup) → (at ++ smashup.smashTag, ax ++ map extractSpace pzs)) ([], []) pears
->     dims                                 = [fromIntegral qMidiSize128, fromIntegral qMidiSize128]
->
-> shorten        :: (Char → Bool) → [Char] → [Char] 
-> shorten qual chars                       = reverse (dropWhile qual (reverse chars))
->
-> makeBack               :: Map PreSampleKey PreSample → [InstZoneScan] → Map PreSampleKey [PreZoneKey]
-> makeBack preSampleCache zscans           = foldl' Map.union Map.empty (map zscan2back zscans)
->   where
->     zscan2back zscan                     = foldl' backFolder Map.empty (filter (isStereoZone preSampleCache) zscan.zsPreZones)
->     backFolder target pz                 =
->       Map.insertWith (++) (PreSampleKey pz.pzWordF pz.pzWordS) [extractZoneKey pz] target
->
-> markGlobalZone         :: Map PerGMKey PreInstrument → InstZoneScan → Map PerGMKey PreInstrument
-> markGlobalZone preic zscan
->   | traceNot trace_MGZ False             = undefined
->   | otherwise                            =
->   if isNothing zscan.zswGBix || isNothing moldpreI
->     then preic
->     else Map.insert pergm oldpreI{iGlobalKey = Just $ PreZoneKey zscan.zswFile (fromJust zscan.zswGBix)} preic
->   where
->     pergm                                = instKey zscan
->     moldpreI                             = Map.lookup pergm preic
->     oldpreI                              = deJust (unwords["mold", show pergm]) moldpreI
->     trace_MGZ                            = unwords ["markGlobalZone", show zscan.zswGBix, show pergm]
->
-> formZPartnerCache      :: Map PreSampleKey PreSample → Map PerGMKey PerInstrument → Map PreZoneKey PreZone → Map PreZoneKey SFZone
-> formZPartnerCache preSampleCache perIs preZoneCache_
->                                          = Map.mapMaybe chaseIt preZoneCache
->   where
->     preZoneCache                         = Map.filter (isStereoZone preSampleCache) preZoneCache_
->
->     chaseIt            :: PreZone → Maybe SFZone
->     chaseIt pz                           =
->       computeCross perIs preZoneCache pz.pzWordS (extractZoneKey pz)
-> 
 > computeCross           :: Map PerGMKey PerInstrument → Map PreZoneKey PreZone → Word → PreZoneKey → Maybe SFZone
 > computeCross perIs preZs si pzk
 >   | traceAlways trace_CC False           = undefined

@@ -13,6 +13,7 @@ May 4, 2023
 >
 > import Baking
 > import Boot
+> import BootTest
 > import Cecil
 > import Control.Monad ( foldM )
 > import Covers
@@ -27,7 +28,6 @@ May 4, 2023
 > import Parthenopea
 > import ParthenopeaTest
 > import SoundFont
-> import SoundFontTest
 > import SunPyg
 > import SynthesizerTest
 > import System.Environment ( getArgs )

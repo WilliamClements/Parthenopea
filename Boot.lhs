@@ -14,7 +14,106 @@ Boot
 William Clements
 January 21, 2025
 
-> module Boot where
+> module Boot
+>        (  accepted
+>         , accommodate
+>         , adhocFuzz
+>         , allCellsEqualTo
+>         , allKinds
+>         , allowStereoCrossovers
+>         , BootstrapArrays(..)
+>         , bracks
+>         , cancels
+>         , clip
+>         , comma
+>         , commaOrNot
+>         , deJust
+>         , deriveRange
+>         , Disposition(..)
+>         , effShdr
+>         , Emission(..)
+>         , emitDefault
+>         , emitLine
+>         , emitMsgs
+>         , emitComment
+>         , emitNextComment
+>         , emitShowL
+>         , emitShowR
+>         , emptyrd
+>         , epsilon
+>         , equipInstruments
+>         , extractInstKey
+>         , extractZoneKey
+>         , FFMatches(..)
+>         , fillFieldL
+>         , fillFieldR
+>         , fractionCovered
+>         , fractionEmpty
+>         , fromSampleType
+>         , Fuzz
+>         , gmId
+>         , GMKind
+>         , GMPlayable(..)
+>         , Impact(..)
+>         , InstCat(..)
+>         , InstCatData(..)
+>         , is24BitInst
+>         , isConfirmed'
+>         , isStereoInst
+>         , KeyNumber
+>         , listInstruments
+>         , lookupCellIndex
+>         , parens
+>         , PerGMKey(..)
+>         , pitchToPerc
+>         , PreInstrument(..)
+>         , PreSample(..)
+>         , PreSampleKey(..)
+>         , PreZone(..)
+>         , PreZoneKey(..)
+>         , profess
+>         , professInRange
+>         , qMidiSize128
+>         , qMidiSizeSpace
+>         , reapEmissions
+>         , reportScan
+>         , rescued
+>         , ResultDispositions(..)
+>         , SampleArrays(..)
+>         , sampleLoopSizeOk
+>         , sampleSizeMin
+>         , SampleType(..)
+>         , Scan(..)
+>         , ScanAlts(..)
+>         , SFBoot(..)
+>         , SFFile(..)
+>         , SFResource(..)
+>         , SFScorable(..)
+>         , shorten
+>         , showPreZones
+>         , sLength
+>         , Smashing(..)
+>         , SmashStats(..)
+>         , smashSubspaces
+>         , smush
+>         , stands
+>         , stands'
+>         , theE
+>         , toSampleType
+>         , traceAlways
+>         , traceIf
+>         , traceNever
+>         , traceNot
+>         , traceNow
+>         , tracer
+>         , upsilon
+>         , Velocity
+>         , violated
+>         , virginrd
+>         , writeFileBySections
+>         , writeScanReport
+>         , ZoneDigest(..)
+>         ) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
@@ -1761,7 +1860,6 @@ You see there is some overlap between Zone 1 and Zone 2.
 >     countNothings      :: Int
 >   , countSingles       :: Int
 >   , countMultiples     :: Int} deriving Show
-
 > seedSmashStats         :: SmashStats
 > seedSmashStats                           = SmashStats 0 0 0
 >
@@ -1882,15 +1980,6 @@ Emission capability ============================================================
 > safeReplicate          :: Int → Int → Char → String
 > safeReplicate sz maxSz                   = replicate (maxSz - sz)
 >
-> emitTaggedLine         :: String → String → String → [Emission]
-> emitTaggedLine prolog item epilog        = emitLine [Unblocked prolog, Unblocked item, Unblocked epilog]
->
-> emitPragmaLine, emitModuleLine, emitImportLine
->                        :: String → [Emission]
-> emitPragmaLine lang                      = emitTaggedLine "{-# LANGUAGE " lang " #-}"
-> emitModuleLine modu                      = emitTaggedLine "module " modu " where"
-> emitImportLine impo                      = emitTaggedLine "import " impo ""
->
 > writeFileBySections    :: FilePath → [[Emission]] → IO ()
 > writeFileBySections fp eSections         = do
 >   mapM_ (appendFile fp . reapEmissions) eSections
@@ -1980,9 +2069,6 @@ Emission capability ============================================================
 >
 > zshow                  :: ∀ a . a → String
 > zshow _                                  = "list"
->
-> wrap                   :: (Ord n, Num n) ⇒ n → n → n
-> wrap val bound                           = if val > bound then wrap val (val-bound) else val
 >
 > accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
 > accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
