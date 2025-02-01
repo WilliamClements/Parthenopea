@@ -80,7 +80,7 @@ library
         base                       >= 4,
         bytestring                 >= 0.12.1.0,
         Chart                      >= 1.9.4,
-        -- fsnotify failure  Chart-diagrams             >= 1.9.4,
+        Chart-diagrams             >= 1.9.5.1,
         colour                     >= 2.3.6,
         containers                 >= 0.5.5.1,
         data-default-class         >= 0.1.2.0,

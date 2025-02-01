@@ -12,10 +12,9 @@ November 9, 2023
 >
 > import Control.Lens
 > import Data.Colour
-> import Data.Colour.Names
 > import Data.Default.Class
 > import Graphics.Rendering.Chart
-> -- import Graphics.Rendering.Chart.Backend.Diagrams
+> import Graphics.Rendering.Chart.Backend.Diagrams
 
 Chart =================================================================================================================
 
@@ -35,7 +34,7 @@ Chart ==========================================================================
 >     let chart' = toRenderable layout'
 >     let path = concat ["chaP", tag, ".svg"]
 >     putStrLn $ unwords ["rendering", path]
->     -- WOX _ ← renderableToFile def path chart'
+>     _ ← renderableToFile def path chart'
 >     putStrLn $ unwords ["rendered", path]
 >     return ()
 >   where
