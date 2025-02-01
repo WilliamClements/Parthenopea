@@ -346,9 +346,7 @@ Instrument categories: instrument, percussion, disqualified
 >                                          = zd {zdEndLoop = zd.zdEndLoop + i}
 >
 >     inspectGen _ zd                      = zd
-
-executive =============================================================================================================
-
+>
 > data FileWork =
 >   FileWork {
 >     fwPreSampleCache   :: Map PreSampleKey PreSample
@@ -366,6 +364,9 @@ executive ======================================================================
 >              , show (length fwJobs), "=jobs"
 >              , show (length fwZRecs), "=zrecs"
 >              , show fwDispositions]
+> defFileWork            :: FileWork
+> defFileWork                              =
+>   FileWork Map.empty Map.empty Map.empty Map.empty Map.empty [] virginrd
 >
 > data FileIterate =
 >   FileIterate {
@@ -375,10 +376,6 @@ executive ======================================================================
 > preSampleTaskIf, partneringTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf
 >                , groomTaskIf, vetTaskIf, harvestTaskIf, catTaskIf {-, zoneTaskIf -}
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
->
-> defFileWork            :: FileWork
-> defFileWork                              =
->   FileWork Map.empty Map.empty Map.empty Map.empty Map.empty [] virginrd
 >
 > makeFileIterate        :: SFFile → ([InstrumentName], [PercussionSound]) → FileIterate
 > makeFileIterate sffile rost              =
@@ -407,6 +404,9 @@ executive ======================================================================
 >           , zJobs         = fwIn.fwJobs}
 >   return (boot, rdIn)
 >
+
+executive =============================================================================================================
+
 > listInstruments        :: IO ()
 > listInstruments                          = do
 >   (mboot, pergmsI, pergmsP, rdGen03)     ← equipInstruments allKinds
@@ -430,7 +430,7 @@ later items, some critical data may thereby be missing. So that entails deletion
 >   putStrLn $ unwords ["rost", show rost]
 >
 >   -- represent all input SoundFont files in ordered list, thence a vector
->   fps                  ← FP.getDirectoryFiles "." (singleton "*.sf2")
+>   fps                                    ← FP.getDirectoryFiles "." (singleton "*.sf2")
 >   if null fps
 >     then do
 >       putStrLn "no *.sf2 files found"
@@ -471,83 +471,68 @@ later items, some critical data may thereby be missing. So that entails deletion
 >                                                , fiTaskIfs = tail fiIn.fiTaskIfs}
 >         modify fiIn                      = 
 >           let
+>             fwIn                         = fiIn.fiFw
 >             namedFun                     = head fiIn.fiTaskIfs
 >             name                         = fst namedFun
 >             taskIf     :: FileWork → FileWork
 >             taskIf                       = snd namedFun
 >           in
->             taskIf fiIn.fiFw
+>             taskIf fwIn
 >
-> writeScanReport        :: SFBoot → ResultDispositions → IO ()
-> writeScanReport boot rd@ResultDispositions{ .. }
->                        = do
->   CM.when diagnosticsEnabled (putStrLn $ unwords [fName, show rd])
->   tsStarted            ← getCurrentTime
+> openSoundFontFile      :: Word → FilePath → IO SFFile
+> openSoundFontFile wFile filename = do
+>   putStr (unwords [show wFile, filename])
+>   ts1                                    ← getCurrentTime
+>   result                                 ← F.importFile filename
+>   case result of
+>     Left s                               →
+>       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
+>     Right soundFont                      → do
+>       let pdata                          = F.pdta soundFont
+>       let sdata                          = F.sdta soundFont
+>       let boota                          =
+>             BootstrapArrays
+>               (F.insts pdata) (F.ibags pdata)
+>               (F.igens pdata) (F.imods pdata)
+>               (F.shdrs pdata)
+>       let samplea                          =
+>             SampleArrays
+>               (F.smpl  sdata) (F.sm24  sdata)
+>       let sffile                         = SFFile wFile filename boota samplea
+>       let nBits::Word                      =
+>             case samplea.ssM24 of
+>               Nothing                    → 16
+>               Just _                     → 24
+>       ts2                                ← getCurrentTime
+>       CM.when diagnosticsEnabled (
+>         putStrLn $ unwords [
+>                           "openSoundFontFile"
+>                       ,   "insts,bags,gens,mods,shdrs"
+>                       ,   show $ length boota.ssInsts
+>                       ,   show $ length boota.ssIBags
+>                       ,   show $ length boota.ssIGens
+>                       ,   show $ length boota.ssIMods
+>                       ,   show $ length boota.ssShdrs ])
+>       putStrLn (unwords ["(", show nBits, ") loaded in", show (diffUTCTime ts2 ts1)])
+>       return sffile
 >
->   -- output all selections to the report file
->   let esTimeStamp      = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
->   let esSampleScan     = procMap preSampleDispos ++ [EndOfLine]
->   let esInstScan       = procMap preInstDispos ++ [EndOfLine]
->   let esTail           = [EndOfLine, EndOfLine]
->
->   writeFileBySections reportScanName [esTimeStamp, esSampleScan, esInstScan, esTail]
->   tsFinished           ← getCurrentTime
->   putStrLn (unwords ["___report scan results:", show (diffUTCTime tsFinished tsStarted)])
->   traceIO (unwords ["wrote", reportScanName])
->
+> sortByCategory         :: Map PerGMKey InstCat → IO ([PerGMKey], [PerGMKey], [[Scan]])
+> sortByCategory jobs                      = CM.foldM catFolder ([], [], []) (Map.assocs jobs) -- return $ Map.foldlWithKey catFolder ([], []) jobs
 >   where
->     fName              = "writeScanReport"
->
->     procMap            :: ∀ r . (SFResource r, Show r) ⇒ Map r [Scan] → [Emission]
->     procMap sm         = concat $ Map.mapWithKey procr sm
->
->     procr              :: ∀ r . (SFResource r, Show r) ⇒ r → [Scan] → [Emission]
->     procr k ss_        =
+>     catFolder            :: ([PerGMKey], [PerGMKey], [[Scan]]) → (PerGMKey, InstCat) → IO ([PerGMKey], [PerGMKey], [[Scan]])
+>     catFolder (pergmsI, pergmsP, ss) (pergmI_, icat)
+>                                          =
 >       let
->         ss             = if howVerboseScan < (1/2)
->                            then filter (\s → Accepted /= s.sDisposition) ss_
->                            else ss_
+>         pergmI                           = pergmI_{pgkwBag = Nothing}
 >       in
->         if null ss
->           then []
->           else emit boot k ++ [EndOfLine] ++ concatMap procs ss ++ [EndOfLine]
+>         return $
+>         case icat of
+>           InstCatPerc icd                → (pergmsI, pergmsP ++ instrumentPercList pergmI icd.inPercBixen, ss)
+>           InstCatInst _                  → (pergmI : pergmsI, pergmsP, ss)
+>           InstCatDisq scans              → (pergmsI, pergmsP, ss ++ [scans])
 >
->     procs          :: Scan → [Emission]
->     procs scan
->                        =
->       [  emitShowL scan.sDisposition 24
->        , emitShowL scan.sImpact      32
->        , ToFieldL scan.sFunction     52
->        , Unblocked scan.sClue
->        , EndOfLine]
->
-> writeCategorizationReport
->                        :: SFBoot → [PerGMKey] → [PerGMKey] → IO ()
-> writeCategorizationReport boot pergmsI pergmsP
->                        = do
->   tsStarted            ← getCurrentTime
->
->   -- output all selections to the report file
->   let esFiles          = emitFileListC ++ [EndOfLine]
->   let esI              = concatMap (dumpInstrument boot) pergmsI
->   let esP              = concatMap (dumpPercussion boot) pergmsP
->   let esTail           = singleton $ Unblocked "\n\nThe End\n\n"
->   let eol              = singleton EndOfLine
->
->   writeFileBySections reportCategorizationName [esFiles, esI, eol, esFiles, esP, esTail]
->   tsFinished           ← getCurrentTime
->   putStrLn (unwords ["___report categorization results:", show (diffUTCTime tsFinished tsStarted)])
->   traceIO (unwords ["wrote", reportCategorizationName])
->
->   where
->     emitFileListC      = concatMap (uncurry doF) (zip ([0..]::[Word]) (toList boot.zFiles))
->     doF nth sffile     = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
->     dumpInstrument, dumpPercussion
->                        :: SFBoot → PerGMKey → [Emission]
->     dumpInstrument _ pergm
->                        = [Unblocked (show pergm), EndOfLine] 
->     dumpPercussion _ pergm
->                        = [Unblocked (show pergm), EndOfLine] 
+>     instrumentPercList :: PerGMKey → [Word] → [PerGMKey]
+>     instrumentPercList pergmI            = map (\w → pergmI {pgkwBag = Just w})
 
 bootstrapping methods =================================================================================================
 
@@ -692,6 +677,9 @@ bootstrapping methods ==========================================================
 >       sfboota                            = sffile.zBoot
 >       iinst                              = sfboota.ssInsts ! pergm.pgkwInst
 >
+
+task interfaces =======================================================================================================
+
 > formComprehension      :: ∀ r a . SFResource r ⇒ SFFile → (BootstrapArrays → Array Word a) → [r]
 > formComprehension sffile blobfun
 >   | traceNow trace_FC False              = undefined
@@ -780,6 +768,60 @@ bootstrapping methods ==========================================================
 >                , curate' other           isJust              (violated sa MissingStereoPartner)
 >                , curate backLink         isJust              (violated sa BadStereoPartner)]
 
+> {-
+> markGlobalZone         :: Map PerGMKey PreInstrument → InstZoneRecord → Map PerGMKey PreInstrument
+> markGlobalZone preic zrec
+>   | traceNot trace_MGZ False             = undefined
+>   | otherwise                            =
+>   if isNothing zrec.zswGBix || isNothing moldpreI
+>     then preic
+>     else Map.insert pergm oldpreI{iGlobalKey = Just $ PreZoneKey zrec.zswFile (fromJust zrec.zswGBix)} preic
+>   where
+>     pergm                                = instKey zrec
+>     moldpreI                             = Map.lookup pergm preic
+>     oldpreI                              = deJust (unwords["mold", show pergm]) moldpreI
+>     trace_MGZ                            = unwords ["markGlobalZone", show zrec.zswGBix, show pergm]
+> -}
+>
+> preInstTaskIf sffile _ fwIn              =
+>   fwIn{  fwPreInstCache = preInstCache
+>        , fwDispositions = rd'}
+>   where
+>     fName                                = "preInstTaskIf"
+>
+>     pergms                               = formComprehension sffile ssInsts
+>     (preInstCache, rd')                  = foldl' preIFolder (Map.empty, fwIn.fwDispositions) pergms
+>
+>     preIFolder         :: (Map PerGMKey PreInstrument, ResultDispositions)
+>                           → PerGMKey
+>                           → (Map PerGMKey PreInstrument, ResultDispositions)
+>     preIFolder (m, rdIn) pergm@PerGMKey{ .. }
+>                                          =
+>       if iinst.instBagNdx < jinst.instBagNdx
+>         then (m', rd'')
+>         else error $ unwords [fName, "corrupt instBagNdx"]
+>       where
+>         iinst                            = loadInst pergm
+>         jinst                            = loadInst pergm{pgkwInst = pgkwInst + 1}
+>
+>         nm                               = iinst.instName
+>
+>         m'                               =
+>           if cancels [Accepted] ss
+>              then m 
+>              else Map.insert pergm (PreInstrument iinst nm (computeFFMatches nm) Nothing) m
+>
+>         sa                               = ScanAlts pergm fName []
+>         (ss, rd'')                       = scanAlts sa alts rdIn
+>           where
+>             alts                         =
+>               [curate iinst.instName goodName (violated sa CorruptName)]
+>
+>     loadInst           :: PerGMKey → F.Inst
+>     loadInst pergm                       = boota.ssInsts ! pergm.pgkwInst
+>       where
+>         boota                            = sffile.zBoot
+
 PreZone administration ================================================================================================
 
 > goodZRecs              :: [InstZoneRecord] → ResultDispositions → [InstZoneRecord]
@@ -796,8 +838,7 @@ PreZone administration =========================================================
 > makeZRec               :: PerGMKey → InstZoneRecord
 > makeZRec pergm                           = InstZoneRecord pergm.pgkwFile pergm.pgkwInst Nothing []
 > instKey                :: InstZoneRecord → PerGMKey
-> instKey zrec                             = PerGMKey zrec.zswFile zrec.zswInst Nothing
->         
+> instKey zrec                             = PerGMKey zrec.zswFile zrec.zswInst Nothing       
 
 survey task ===========================================================================================================
           instantiate zrecs
@@ -805,10 +846,28 @@ survey task ====================================================================
 > surveyTaskIf _ _ fwIn                    =
 >   fwIn{fwZRecs = map makeZRec (Map.keys fwIn.fwPreInstCache)}
 
+iterating on InstZoneRecord list ======================================================================================
+
+> zrecTask               :: (InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions))
+>                           → SFFile → FileWork → FileWork
+> zrecTask zrecFun _ fwIn                  = fwIn{  fwZRecs = zrecs
+>                                                 , fwDispositions = rd' }
+>   where
+>     rdIn                                 = (tracer "zrecTask" fwIn).fwDispositions
+>     (zrecs, rd')                         = foldl' taskRunner ([], rdIn) fwIn.fwZRecs
+>
+>     taskRunner (zrecsFold, rdFold) zrec        = 
+>       let
+>         (zrec', rd'')                     = zrecFun zrec rdFold
+>       in
+>         if fatalrd [Accepted, NoChange] rdFold (instKey zrec)
+>           then (zrec : zrecsFold, rdFold)
+>           else (zrec': zrecsFold, rd'')
+
 capture task ==========================================================================================================
           for the first time, populate zrec with PreZones
 
-> captureTaskIf sffile _ fwIn              = taskTask capturer sffile fwIn 
+> captureTaskIf sffile _ fwIn              = zrecTask capturer sffile fwIn 
 >   where
 >     capturer           :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     capturer zrec rdIn                   =
@@ -876,58 +935,21 @@ capture task ===================================================================
 >             starget                      = Map.lookup presk fwIn.fwPreSampleCache
 >             pres                         = deJust "pres" starget
 
-harvest task ==========================================================================================================
-          reap owners from zrecs
-
-> harvestTaskIf _ _ fwIn                   = fwIn{fwOwners = getZones fwIn.fwZRecs rdIn}
->   where
->     rdIn                                 = (tracer "harvestTaskIf" fwIn).fwDispositions
->
-> getZones               :: [InstZoneRecord] → ResultDispositions → Map PerGMKey [PreZone]
-> getZones zrecs rdNow
->   | traceIf trace_GZ False               = undefined
->   | otherwise                            = foldl' getFolder Map.empty zrecs
->   where
->     fName                                = "getZones"
->     (good, bad)                          = partition (not . fatalrd [Accepted, NoChange] rdNow . instKey) zrecs
->     trace_GZ                             = unwords[fName, show (length good, length bad)]
->
->     getFolder          :: Map PerGMKey [PreZone] → InstZoneRecord → Map PerGMKey [PreZone]
->     getFolder m i                        =
->       let
->         pergm                            = instKey i
->       in
->         if fatalrd [Accepted, NoChange] rdNow pergm then m else Map.insert pergm i.zsPreZones m
-
-iterating on InstZoneRecord list ======================================================================================
-
-> taskTask               :: (InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions))
->                           → SFFile → FileWork → FileWork
-> taskTask fun _ fwIn                      = fwIn{  fwZRecs = zrecs
->                                                 , fwDispositions = rd' }
->   where
->     rdIn                                 = (tracer "taskTask" fwIn).fwDispositions
->     (zrecs, rd')                         = foldl' task ([], rdIn) fwIn.fwZRecs
->
->     task               :: ([InstZoneRecord], ResultDispositions)
->                           → InstZoneRecord
->                           → ([InstZoneRecord], ResultDispositions)
->     task (zrecsFold, rdFold) zrec            = 
->       let
->         (zrec', rd'')                     = fun zrec rdFold
->       in
->         if fatalrd [Accepted, NoChange] rdFold (instKey zrec)
->           then (zrec : zrecsFold, rdFold)
->           else (zrec': zrecsFold, rd'')
-
 groom task ============================================================================================================
 
-> groomTaskIf sffile _ fwIn
->   | traceNow trace_GTI False             = undefined
->   | otherwise                            = taskTask groomer sffile fwIn 
+> makeBack               :: FileWork → [InstZoneRecord] → Map PreSampleKey [PreZoneKey]
+> makeBack fw zrecs                        = foldl' Map.union Map.empty (map zrec2back zrecs)
+>   where
+>     zrec2back          :: InstZoneRecord → Map PreSampleKey [PreZoneKey]
+>     zrec2back zrec                       =
+>       foldl' backFolder Map.empty (filter (isStereoZone fw.fwPreSampleCache) zrec.zsPreZones)
+>     backFolder         :: Map PreSampleKey [PreZoneKey] → PreZone → Map PreSampleKey [PreZoneKey]
+>     backFolder target pz                 =
+>       Map.insertWith (++) (PreSampleKey pz.pzWordF pz.pzWordS) [extractZoneKey pz] target
+>
+> groomTaskIf sffile _ fwIn                = zrecTask groomer sffile fwIn 
 >   where
 >     fName_                               = "groomTaskIf"
->     trace_GTI                            = unwords [fName_, show fwIn]
 >
 >     back                                 = makeBack fwIn (goodZRecs fwIn.fwZRecs fwIn.fwDispositions)
 >
@@ -964,10 +986,10 @@ groom task =====================================================================
 vet task ============================================================================================================
           remove bad stereo partners from PreZones per instrument, delete instrument if down to zero PreZones
 
-> vetTaskIf sffile _ fwIn                  = taskTask vetter sffile fwIn 
+> vetTaskIf sffile _ fwIn                  = zrecTask vetter sffile fwIn 
 >   where
 >     fName_                               = "vetTaskIf"
->     rdIn                                 = (tracer "vetTaskIf" fwIn).fwDispositions
+>     rdIn                                 = fwIn.fwDispositions
 >     filePzs                              =
 >       foldl' (\x y → x ++ filter (isStereoZone fwIn.fwPreSampleCache) y.zsPreZones) [] (goodZRecs fwIn.fwZRecs rdIn)
 >
@@ -975,7 +997,7 @@ vet task =======================================================================
 >                           → ResultDispositions
 >                           → (InstZoneRecord, ResultDispositions)
 >     vetter zrec rdVet_
->       | traceNow trace_V False           = undefined
+>       | traceNot trace_V False           = undefined
 >       | otherwise                        = (zrec{zsPreZones = newPzs}, rd')
 >       where
 >         fName                            = unwords [fName_, "vetter"]
@@ -1021,137 +1043,28 @@ vet task =======================================================================
 >             (Just yrSPartner == Map.lookup mySPartner fwIn.fwPartnerMap)
 >             && (Just mySPartner == Map.lookup yrSPartner fwIn.fwPartnerMap)
 >
-> smush                  :: [([PreZone], Smashing Word)] → Smashing Word
-> smush pears                              = smashSubspaces allTags dims allSpaces
+
+harvest task ==========================================================================================================
+          reap owners from zrecs
+
+> harvestTaskIf _ _ fwIn                   = fwIn{fwOwners = foldl' harvestFolder Map.empty zrecs}
 >   where
->     allTags            :: String
->     allSpaces          :: [(Word, [Maybe (Word, Word)])]
->     (allTags, allSpaces)                 =
->       foldl' (\(at, ax) (pzs, smashup) → (at ++ smashup.smashTag, ax ++ map extractSpace pzs)) ([], []) pears
->     dims                                 = [fromIntegral qMidiSize128, fromIntegral qMidiSize128]
+>     zrecs                                = fwIn.fwZRecs
+>     rdIn                                 = fwIn.fwDispositions
+>
+>     harvestFolder      :: Map PerGMKey [PreZone] → InstZoneRecord → Map PerGMKey [PreZone]
+>     harvestFolder m zrec                 =
+>       let
+>         pergm                            = instKey zrec
+>         pzs                              = zrec.zsPreZones
+>       in
+>         if fatalrd [Accepted, NoChange] rdIn pergm
+>           then m
+>           else Map.insert pergm pzs m
 >
 > shorten        :: (Char → Bool) → [Char] → [Char] 
 > shorten qual chars                       = reverse (dropWhile qual (reverse chars))
 >
-> makeBack               :: FileWork → [InstZoneRecord] → Map PreSampleKey [PreZoneKey]
-> makeBack fw zrecs                        = foldl' Map.union Map.empty (map zrec2back zrecs)
->   where
->     zrec2back          :: InstZoneRecord → Map PreSampleKey [PreZoneKey]
->     zrec2back zrec                       =
->       foldl' backFolder Map.empty (filter (isStereoZone fw.fwPreSampleCache) zrec.zsPreZones)
->     backFolder         :: Map PreSampleKey [PreZoneKey] → PreZone → Map PreSampleKey [PreZoneKey]
->     backFolder target pz                 =
->       Map.insertWith (++) (PreSampleKey pz.pzWordF pz.pzWordS) [extractZoneKey pz] target
->
-> {-
-> markGlobalZone         :: Map PerGMKey PreInstrument → InstZoneRecord → Map PerGMKey PreInstrument
-> markGlobalZone preic zrec
->   | traceNot trace_MGZ False             = undefined
->   | otherwise                            =
->   if isNothing zrec.zswGBix || isNothing moldpreI
->     then preic
->     else Map.insert pergm oldpreI{iGlobalKey = Just $ PreZoneKey zrec.zswFile (fromJust zrec.zswGBix)} preic
->   where
->     pergm                                = instKey zrec
->     moldpreI                             = Map.lookup pergm preic
->     oldpreI                              = deJust (unwords["mold", show pergm]) moldpreI
->     trace_MGZ                            = unwords ["markGlobalZone", show zrec.zswGBix, show pergm]
-> -}
->
-> preInstTaskIf sffile _ fwIn              =
->   fwIn{  fwPreInstCache = preInstCache
->        , fwDispositions = rd'}
->   where
->     fName                                = "preInstTaskIf"
->
->     pergms                               = formComprehension sffile ssInsts
->     (preInstCache, rd')                  = foldl' preIFolder (Map.empty, fwIn.fwDispositions) pergms
->
->     preIFolder         :: (Map PerGMKey PreInstrument, ResultDispositions)
->                           → PerGMKey
->                           → (Map PerGMKey PreInstrument, ResultDispositions)
->     preIFolder (m, rdIn) pergm@PerGMKey{ .. }
->                                          =
->       if iinst.instBagNdx < jinst.instBagNdx
->         then (m', rd'')
->         else error $ unwords [fName, "corrupt instBagNdx"]
->       where
->         iinst                            = loadInst pergm
->         jinst                            = loadInst pergm{pgkwInst = pgkwInst + 1}
->
->         nm                               = iinst.instName
->
->         m'                               =
->           if cancels [Accepted] ss
->              then m 
->              else Map.insert pergm (PreInstrument iinst nm (computeFFMatches nm) Nothing) m
->
->         sa                               = ScanAlts pergm fName []
->         (ss, rd'')                       = scanAlts sa alts rdIn
->           where
->             alts                         =
->               [curate iinst.instName goodName (violated sa CorruptName)]
->
->     loadInst           :: PerGMKey → F.Inst
->     loadInst pergm                       = boota.ssInsts ! pergm.pgkwInst
->       where
->         boota                            = sffile.zBoot
->
-> sortByCategory         :: Map PerGMKey InstCat → IO ([PerGMKey], [PerGMKey], [[Scan]])
-> sortByCategory jobs                      = CM.foldM catFolder ([], [], []) (Map.assocs jobs) -- return $ Map.foldlWithKey catFolder ([], []) jobs
->   where
->     catFolder            :: ([PerGMKey], [PerGMKey], [[Scan]]) → (PerGMKey, InstCat) → IO ([PerGMKey], [PerGMKey], [[Scan]])
->     catFolder (pergmsI, pergmsP, ss) (pergmI_, icat)
->                                          =
->       let
->         pergmI                           = pergmI_{pgkwBag = Nothing}
->       in
->         return $
->         case icat of
->           InstCatPerc icd                → (pergmsI, pergmsP ++ instrumentPercList pergmI icd.inPercBixen, ss)
->           InstCatInst _                  → (pergmI : pergmsI, pergmsP, ss)
->           InstCatDisq scans              → (pergmsI, pergmsP, ss ++ [scans])
->
->     instrumentPercList :: PerGMKey → [Word] → [PerGMKey]
->     instrumentPercList pergmI            = map (\w → pergmI {pgkwBag = Just w})
->
-> openSoundFontFile      :: Word → FilePath → IO SFFile
-> openSoundFontFile wFile filename = do
->   putStr (unwords [show wFile, filename])
->   ts1                                    ← getCurrentTime
->   result                                 ← F.importFile filename
->   case result of
->     Left s                               →
->       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
->     Right soundFont                      → do
->       let pdata                          = F.pdta soundFont
->       let sdata                          = F.sdta soundFont
->       let boota                          =
->             BootstrapArrays
->               (F.insts pdata) (F.ibags pdata)
->               (F.igens pdata) (F.imods pdata)
->               (F.shdrs pdata)
->       let samplea                          =
->             SampleArrays
->               (F.smpl  sdata) (F.sm24  sdata)
->       let sffile                         = SFFile wFile filename boota samplea
->       let nBits::Word                      =
->             case samplea.ssM24 of
->               Nothing                    → 16
->               Just _                     → 24
->       ts2                                ← getCurrentTime
->       CM.when diagnosticsEnabled (
->         putStrLn $ unwords [
->                           "openSoundFontFile"
->                       ,   "insts,bags,gens,mods,shdrs"
->                       ,   show $ length boota.ssInsts
->                       ,   show $ length boota.ssIBags
->                       ,   show $ length boota.ssIGens
->                       ,   show $ length boota.ssIMods
->                       ,   show $ length boota.ssShdrs ])
->       putStrLn (unwords ["(", show nBits, ") loaded in", show (diffUTCTime ts2 ts1)])
->       return sffile
->     
 > sampleSizeOk           :: (Word, Word) → Bool
 > sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
 > sampleLoopSizeOk       :: (Word, Word, A.SampleMode) → Bool
@@ -1183,10 +1096,9 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > isRightPreZone preSampleCache pz         = SampleTypeRight == toSampleType (effShdr preSampleCache pz).sampleType
 >
 > is24BitInst _ _                          = True -- was isJust $ ssM24 arrays       
- 
-extract data from SoundFont per instrument ============================================================================
-                                            
-prepare the specified instruments and percussion ======================================================================
+
+categorization task ==========================================================================================================
+          reap owners from zrecs
 
 > catTaskIf _ rost fwIn                    = 
 >   fwIn{fwJobs = categorize fwIn.fwPreSampleCache fwIn.fwPreInstCache fwIn.fwOwners rost}
@@ -1439,6 +1351,15 @@ prepare the specified instruments and percussion ===============================
 >
 >     trace_CIS                            = unwords ["computeInstSmashup", showPreZones pzs, show subs]
 >
+> smush                  :: [([PreZone], Smashing Word)] → Smashing Word
+> smush pears                              = smashSubspaces allTags dims allSpaces
+>   where
+>     allTags            :: String
+>     allSpaces          :: [(Word, [Maybe (Word, Word)])]
+>     (allTags, allSpaces)                 =
+>       foldl' (\(at, ax) (pzs, smashup) → (at ++ smashup.smashTag, ax ++ map extractSpace pzs)) ([], []) pears
+>     dims                                 = [fromIntegral qMidiSize128, fromIntegral qMidiSize128]
+>
 > emitMsgs               :: InstrumentName → [(InstrumentName, [String])] → [Emission]
 > emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs
 >   where
@@ -1449,6 +1370,77 @@ prepare the specified instruments and percussion ===============================
 > isPossible                               = 50
 > stands                                   = 150
 > isConfirmed                              = 250
+>
+> writeScanReport        :: SFBoot → ResultDispositions → IO ()
+> writeScanReport boot rd@ResultDispositions{ .. }
+>                        = do
+>   CM.when diagnosticsEnabled (putStrLn $ unwords [fName, show rd])
+>   tsStarted            ← getCurrentTime
+>
+>   -- output all selections to the report file
+>   let esTimeStamp      = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
+>   let esSampleScan     = procMap preSampleDispos ++ [EndOfLine]
+>   let esInstScan       = procMap preInstDispos ++ [EndOfLine]
+>   let esTail           = [EndOfLine, EndOfLine]
+>
+>   writeFileBySections reportScanName [esTimeStamp, esSampleScan, esInstScan, esTail]
+>   tsFinished           ← getCurrentTime
+>   putStrLn (unwords ["___report scan results:", show (diffUTCTime tsFinished tsStarted)])
+>   traceIO (unwords ["wrote", reportScanName])
+>
+>   where
+>     fName              = "writeScanReport"
+>
+>     procMap            :: ∀ r . (SFResource r, Show r) ⇒ Map r [Scan] → [Emission]
+>     procMap sm         = concat $ Map.mapWithKey procr sm
+>
+>     procr              :: ∀ r . (SFResource r, Show r) ⇒ r → [Scan] → [Emission]
+>     procr k ss_        =
+>       let
+>         ss             = if howVerboseScan < (1/2)
+>                            then filter (\s → Accepted /= s.sDisposition) ss_
+>                            else ss_
+>       in
+>         if null ss
+>           then []
+>           else emit boot k ++ [EndOfLine] ++ concatMap procs ss ++ [EndOfLine]
+>
+>     procs          :: Scan → [Emission]
+>     procs scan
+>                        =
+>       [  emitShowL scan.sDisposition 24
+>        , emitShowL scan.sImpact      32
+>        , ToFieldL scan.sFunction     52
+>        , Unblocked scan.sClue
+>        , EndOfLine]
+>
+> writeCategorizationReport
+>                        :: SFBoot → [PerGMKey] → [PerGMKey] → IO ()
+> writeCategorizationReport boot pergmsI pergmsP
+>                        = do
+>   tsStarted            ← getCurrentTime
+>
+>   -- output all selections to the report file
+>   let esFiles          = emitFileListC ++ [EndOfLine]
+>   let esI              = concatMap (dumpInstrument boot) pergmsI
+>   let esP              = concatMap (dumpPercussion boot) pergmsP
+>   let esTail           = singleton $ Unblocked "\n\nThe End\n\n"
+>   let eol              = singleton EndOfLine
+>
+>   writeFileBySections reportCategorizationName [esFiles, esI, eol, esFiles, esP, esTail]
+>   tsFinished           ← getCurrentTime
+>   putStrLn (unwords ["___report categorization results:", show (diffUTCTime tsFinished tsStarted)])
+>   traceIO (unwords ["wrote", reportCategorizationName])
+>
+>   where
+>     emitFileListC      = concatMap (uncurry doF) (zip ([0..]::[Word]) (toList boot.zFiles))
+>     doF nth sffile     = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
+>     dumpInstrument, dumpPercussion
+>                        :: SFBoot → PerGMKey → [Emission]
+>     dumpInstrument _ pergm
+>                        = [Unblocked (show pergm), EndOfLine] 
+>     dumpPercussion _ pergm
+>                        = [Unblocked (show pergm), EndOfLine] 
 
 use "matching as" cache ===============================================================================================
 
