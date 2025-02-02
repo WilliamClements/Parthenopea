@@ -14,12 +14,29 @@ September 12, 2024
 
 > module Scoring where
 >
-> import Boot
 > import Data.Array.Unboxed
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Parthenopea
+> import SoundFont
   
+notes on three kinds of scoring =======================================================================================
+
+In order of when they occur in the overall process:
+
+1. FuzzyFind        - For each *.sf2, we record items into overall roster when their names score high when
+                      fuzzy-matched versus identifying words (e.g. piano) The instrument selections are _profoundly_
+                      affected by fuzziness. But PercussionSound winners go mostly by matching "pitch" with zonal key
+                      range.
+  
+2. artifact grading - Before rendering, we bind the tournament winner (highest grade) to each GM InstrumentName or
+                      PercussionSound. Empirically measured attributes (stereo, number of splits, fuzziness, etc.),
+                      are multiplied against "hard-coded" weights. The products are then summed to make final grade.
+
+3. zone scoring     - While rendering, presented with a note, and a SoundFont Instrument already selected, we choose
+                      zone (by _lowest_ score) that best fits required pitch, velocity, etc. Note that it is zone
+                      scoring that strictly drives _render time_ choice of percussion as well.
+
 Scoring stuff =========================================================================================================
  
 > data SSHint =

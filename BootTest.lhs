@@ -10,7 +10,7 @@ January 7, 2025
 
 > module BootTest where
 >
-> import Boot
+> import SoundFont
 > import Parthenopea (runTests)
   
 Testing ===============================================================================================================

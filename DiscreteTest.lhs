@@ -12,7 +12,6 @@ June 22, 2024
 
 > module DiscreteTest where
 >
-> import Boot
 > import Chart
 > import Data.Colour
 > import Data.Colour.Names
@@ -27,6 +26,7 @@ June 22, 2024
 > import HSoM.Examples.Additive ( sineTable )
 > import Modulation
 > import Parthenopea
+> import SoundFont
 
 Feed chart ============================================================================================================
 

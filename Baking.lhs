@@ -18,7 +18,6 @@ December 16, 2022
 >                , bakeOps
 >                , checkMeasureOk) where
 >
-> import Boot
 > import Data.Array.Unboxed
 > import Data.List ( sortOn )
 > import Debug.Trace
@@ -26,6 +25,7 @@ December 16, 2022
 > import HSoM.Examples.MoreMusic ( roll )
 > import Parthenopea
 > import Scoring
+> import SoundFont
 > import System.Random ( mkStdGen )
   
 Bake ==================================================================================================================

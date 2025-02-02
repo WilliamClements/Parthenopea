@@ -15,7 +15,6 @@ November 6, 2023
 
 > module Modulation where
 >
-> import Boot
 > import Control.Arrow
 > import qualified Data.Bifunctor          as BF
 > import Data.Bits
@@ -31,6 +30,7 @@ November 6, 2023
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
 > import HSoM.Examples.Additive ( sineTable )
 > import Parthenopea
+> import SoundFont
   
 Modulator management ==================================================================================================
 
@@ -224,13 +224,9 @@ Modulator management ===========================================================
 >     specialDefaultMods                   = modChorus ++ modReverb
 >       where
 >         modChorus                        =
->           if chorusAllPercent > 0
->             then [makeDefaultMod 10 ms3 15 (fromRational chorusAllPercent*10) defModSrc]
->             else []
+>           [makeDefaultMod 10 ms3 15 (fromRational chorusAllPercent * 10) defModSrc | chorusAllPercent > 0]
 >         modReverb                        =
->           if reverbAllPercent > 0
->             then [makeDefaultMod 11 ms3 16 (fromRational reverbAllPercent*10) defModSrc]
->             else []
+>           [makeDefaultMod 11 ms3 16 (fromRational reverbAllPercent * 10) defModSrc | reverbAllPercent > 0]
 >
 > evaluateMods           :: ModDestType → Map ModDestType [Modulator] → NoteOn → Double
 > evaluateMods md graph noon@NoteOn{noteOnVel, noteOnKey}

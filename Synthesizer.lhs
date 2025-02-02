@@ -14,7 +14,6 @@ May 14, 2023
 
 > module Synthesizer where
 >
-> import Boot
 > import Control.Arrow
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )
 > import Data.Array.Unboxed
@@ -32,6 +31,7 @@ May 14, 2023
 > import FRP.UISF.AuxFunctions ( constA )
 > import Modulation
 > import Parthenopea
+> import SoundFont
 > import qualified SynToolkit              as STK
   
 Signal function-based synth ===========================================================================================

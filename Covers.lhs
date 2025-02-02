@@ -11,12 +11,12 @@ January 13, 2023
 > module Covers (  littleSailor, slot, ssailor, deathlessHorsie, basicLick, packardGoose, yahozna, littleDH
 >                , greenMore, testslot) where
 
-> import Boot
 > import Data.Map (Map)
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic hiding (grace)
 > import Parthenopea
 > import Percussion
+> import SoundFont
   
 Saucy Sailor ==========================================================================================================
 

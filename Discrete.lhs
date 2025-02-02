@@ -15,7 +15,6 @@ June 17, 2024
 
 > module Discrete where
 >
-> import Boot
 > import qualified Codec.Wav               as W
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
@@ -30,6 +29,7 @@ June 17, 2024
 > import FRP.UISF.AuxFunctions ( delay )
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea
+> import SoundFont
   
 Discrete approach =====================================================================================================
 

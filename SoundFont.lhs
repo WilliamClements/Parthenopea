@@ -1,1140 +1,1378 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
-> {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE DeriveGeneric #-}
 > {-# LANGUAGE LambdaCase #-}
+> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE OverloadedStrings #-}
 > {-# LANGUAGE RecordWildCards #-}
-> {-# LANGUAGE TypeFamilies #-} 
+> {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE TupleSections #-} 
 > {-# LANGUAGE UnicodeSyntax #-}
 
 SoundFont
 William Clements
 April 16, 2023
 
-> module SoundFont where
+> module SoundFont
+>        (  accepted
+>         , accommodate
+>         , adhocFuzz
+>         , adjustedSampleSizeOk
+>         , allCellsEqualTo
+>         , allKinds
+>         , allowStereoCrossovers
+>         , appendChange
+>         , BootstrapArrays(..)
+>         , bracks
+>         , cancels
+>         , checkSmashing
+>         , clip
+>         , combineBoot
+>         , combinerd
+>         , comma
+>         , commaOrNot
+>         , computeFFMatches
+>         , computeInstSmashup
+>         , computePreSample
+>         , curate
+>         , curate'
+>         , deJust
+>         , deriveRange
+>         , dropped
+>         , Disposition(..)
+>         , effShdr
+>         , Emission(..)
+>         , emitDefault
+>         , emitLine
+>         , emitMsgs
+>         , emitComment
+>         , emitNextComment
+>         , emitShowL
+>         , emitShowR
+>         , emptyrd
+>         , epsilon
+>         , evalAgainstGeneric
+>         , extractInstKey
+>         , extractZoneKey
+>         , FFMatches(..)
+>         , fillFieldL
+>         , fillFieldR
+>         , fixBadNames
+>         , formPreZoneMap
+>         , fractionCovered
+>         , fractionEmpty
+>         , fromSampleType
+>         , Fuzz
+>         , getMaybePercList
+>         , gmId
+>         , GMKind
+>         , GMPlayable(..)
+>         , Impact(..)
+>         , InstCat(..)
+>         , InstCatData(..)
+>         , is24BitInst
+>         , isConfirmed
+>         , isConfirmed'
+>         , isPossible
+>         , isPossible'
+>         , isStereoInst
+>         , isStereoZone
+>         , KeyNumber
+>         , lookupCellIndex
+>         , makePreZone
+>         , multipleCompetes
+>         , noChange
+>         , noClue
+>         , notracer
+>         , openSoundFontFile
+>         , parens
+>         , PerGMKey(..)
+>         , pinnedKR
+>         , pitchToPerc
+>         , PreInstrument(..)
+>         , PreSample(..)
+>         , PreSampleKey(..)
+>         , PreZone(..)
+>         , PreZoneKey(..)
+>         , profess
+>         , professInRange
+>         , qMidiSize128
+>         , qMidiSizeSpace
+>         , rdLengths
+>         , reapEmissions
+>         , reportCategorizationName
+>         , reportScan
+>         , rescued
+>         , ResultDispositions(..)
+>         , SampleArrays(..)
+>         , sampleLoopSizeOk
+>         , sampleSizeMin
+>         , sampleSizeOk
+>         , SampleType(..)
+>         , Scan(..)
+>         , scanAlts
+>         , ScanAlts(..)
+>         , seedBoot
+>         , SFBoot(..)
+>         , SFFile(..)
+>         , SFResource(..)
+>         , SFScorable(..)
+>         , ShdrXForm(..)
+>         , showMaybeInstCat
+>         , showPreZones
+>         , sLength
+>         , Smashing(..)
+>         , SmashStats(..)
+>         , smashSubspaces
+>         , smush
+>         , stands
+>         , stands'
+>         , theE
+>         , toMaybeSampleType
+>         , toSampleType
+>         , traceAlways
+>         , traceIf
+>         , traceNever
+>         , traceNot
+>         , traceNow
+>         , tracer
+>         , upsilon
+>         , Velocity
+>         , violated
+>         , virginrd
+>         , writeFileBySections
+>         , writeScanReport
+>         , ZoneDigest(..)
+>         )
+>         where
 >
-> import Boot
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import Control.Monad.Trans.Reader
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
-> import Data.Either
-> import Data.Foldable ( toList )
+> import qualified Data.Bifunctor          as BF
+> import Data.Char
+> import Data.Foldable
+> import Data.Int ( Int8, Int16 )
 > import Data.List hiding (insert)
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe
-> import Data.Ord ( Down(Down) )
-> import Database.MongoDB.Connection
-> import Database.Persist.MongoDB
+> import Data.Ratio ( (%) )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
-> import Debug.Trace ( traceIO )
-> import Discrete
-> import Euterpea.IO.Audio.Basics ( outA )
-> import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
-> import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
-> import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
+> import qualified Data.Vector.Unboxed     as VU
+> import Debug.Trace
+> import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
-> import Modulation
-> import Parthenopea
-> import Scoring
-> import Synthesizer
+> import qualified Text.FuzzyFind          as FF
   
-notes on three kinds of scoring =======================================================================================
-
-In order of when they occur in the overall process:
-
-1. FuzzyFind        - For each *.sf2, we record items into overall roster when their names score high when
-                      fuzzy-matched versus identifying words (e.g. piano) The instrument selections are _profoundly_
-                      affected by fuzziness. But PercussionSound winners go mostly by matching "pitch" with zonal key
-                      range.
-  
-2. artifact grading - Before rendering, we bind the tournament winner (highest grade) to each GM InstrumentName or
-                      PercussionSound. Empirically measured attributes (stereo, number of splits, fuzziness, etc.),
-                      are multiplied against "hard-coded" weights. The products are then summed to make final grade.
-
-3. zone scoring     - While rendering, presented with a note, and a SoundFont Instrument already selected, we choose
-                      zone (by _lowest_ score) that best fits required pitch, velocity, etc. Note that it is zone
-                      scoring that strictly drives _render time_ choice of percussion as well.
-
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
+> data PreSampleKey =
+>   PreSampleKey {
+>     pskwFile           :: Word
+>   , pskwSampleIndex    :: Word} deriving (Eq, Ord, Show)
+>
+> data PreSample =
+>   PreSample {
+>     sName              :: String
+>   , sMatches           :: FFMatches
+>   , psShdr             :: F.Shdr
+>   , psChanges          :: [ShdrXForm]}
+> computePreSample       :: F.Shdr → PreSample
+> computePreSample shdr@F.Shdr{ .. }       = PreSample sampleName (computeFFMatches sampleName) shdr []
+>
+> data PreZoneKey =
+>   PreZoneKey {
+>     pzkwFile           :: Word
+>   , pzkwBag            :: Word} deriving (Eq, Ord, Show)
+>
+> data ShdrXForm =
+>   MakeMono
+>   | MakeLeft PreZoneKey
+>   | MakeRight PreZoneKey
+>   | FixCorruptName deriving Eq
+>
+> data PreZone =
+>   PreZone {
+>     pzWordF            :: Word
+>   , pzWordS            :: Word
+>   , pzWordI            :: Word
+>   , pzWordB            :: Word
+>   , pzDigest           :: ZoneDigest
+>   , pzmkPartners       :: [PreZoneKey]
+>   , pzChanges          :: [ShdrXForm]} deriving Eq
+> instance Show PreZone where
+>   show (PreZone{ .. })                   =
+>     unwords ["PreZone", show (pzWordF, pzWordS, pzWordI, pzWordB), show pzDigest, show pzmkPartners]
+>
+> makePreZone            :: Word → Word → Word → Word → [F.Generator] → PreZone
+> makePreZone wF wS wI wB gens         = PreZone wF wS wI wB (formDigest gens) [] []
+>
+> extractSampleKey       :: PreZone → PreSampleKey
+> extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
+> extractInstKey         :: PreZone → PerGMKey
+> extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
+> extractZoneKey         :: PreZone → PreZoneKey
+> extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordB
+> extractSpace           :: PreZone → (Word, [Maybe (Word, Word)])
+> extractSpace pz                          = (pz.pzWordB, [pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange])
+> effShdr                :: Map PreSampleKey PreSample → PreZone → F.Shdr
+> effShdr psCache pz                       =
+>   foldl' (\s x → (\case
+>                   MakeMono               → s{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
+>                   MakeLeft _             → s{F.sampleType = fromSampleType SampleTypeLeft, F.sampleLink = 0}
+>                   MakeRight _            → s{F.sampleType = fromSampleType SampleTypeRight, F.sampleLink = 0}
+>                   FixCorruptName         → s{F.sampleName = fixName (F.sampleName s)}) x)
+>          (psShdr (deJust "rawShdr" (Map.lookup (extractSampleKey pz) psCache)))
+>          pz.pzChanges
+> appendChange           :: PreZone → ShdrXForm → PreZone
+> appendChange pz@PreZone{ .. } change     = pz{pzChanges = pzChanges ++ singleton change}
+> showPreZones           :: [PreZone] → String
+> showPreZones pzs                         = show $ map pzWordB pzs
 > formPreZoneMap         :: [PreZone] → Map PreZoneKey PreZone
 > formPreZoneMap                           = foldl' (\xs y → Map.insert (extractZoneKey y) y xs) Map.empty
 >
-> data PerGMScored                         =
->   PerGMScored {
->     pArtifactGrade     :: ArtifactGrade
->   , pKind              :: GMKind
->   , pAgainstKindResult :: AgainstKindResult
->   , pPerGMKey          :: PerGMKey
->   , szI                :: String
->   , mszP               :: Maybe String} deriving (Show)
+> data PreInstrument                       =
+>   PreInstrument {
+>     pInst              :: F.Inst
+>   , iName              :: String
+>   , iMatches           :: FFMatches
+>   , iGlobalKey         :: Maybe PreZoneKey}
 >
-> data WinningRecord                       =
->   WinningRecord {
->     pWinningI          :: Map InstrumentName PerGMScored
->   , pWinningP          :: Map PercussionSound PerGMScored} deriving Show
-> seedWinningRecord      :: WinningRecord
-> seedWinningRecord                        = WinningRecord Map.empty Map.empty
+> data PerGMKey                            =
+>   PerGMKey {
+>     pgkwFile           :: Word
+>   , pgkwInst           :: Word
+>   , pgkwBag            :: Maybe Word} deriving (Eq, Ord, Show)
+
+Instrument categories: instrument, percussion, disqualified
+
+> data InstCat                             =
+>        InstCatInst InstCatData
+>      | InstCatPerc InstCatData
+>      | InstCatDisq [Scan]
+> instance Show InstCat where
+>   show icat                              =
+>     unwords ["InstCat", showMaybeInstCat $ Just icat]
+> getMaybePercList       :: Maybe InstCat → Maybe [Word]
+> getMaybePercList                         =
+>   \case
+>     Nothing                              → Nothing
+>     Just (InstCatPerc icd)               → Just icd.inPercBixen
+>     _                                    → Just []
+> showMaybeInstCat       :: Maybe InstCat → String
+> showMaybeInstCat                         =
+>   \case
+>     Nothing                              → "icNothing"
+>     Just (InstCatInst _)                 → "icInst"
+>     Just (InstCatPerc _)                 → "icPerc"
+>     Just (InstCatDisq _)                 → "icDisq"  
+> data InstCatData                         =
+>   InstCatData {
+>     inPreZones         :: [PreZone]
+>   , inSmashup          :: Smashing Word
+>   , inPercBixen        :: [Word]} deriving Show
 >
-> findBySampleIndex      :: [SFZone] → Word → Maybe SFZone
-> findBySampleIndex zones w                =
->   find (\SFZone{zSampleIndex} → zSampleIndex == Just w) zones
+> allKinds               :: ([InstrumentName], [PercussionSound])
+> allKinds                                 =
+>   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>    , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
 >
-> findBySampleIndex'     :: [(a, SFZone)] → Word → Maybe (a, SFZone)
-> findBySampleIndex' zs w                  =
->   find (\(_, SFZone{zSampleIndex}) → zSampleIndex == Just w) zs
->
-> findByBagIndex         :: [PreZone] → Word → Maybe PreZone
-> findByBagIndex pzs w                     = find (\PreZone{pzWordB} → w == pzWordB) pzs
->
-> findByBagIndex'        :: [(PreZone, a)] → Word → Maybe (PreZone, a)
-> findByBagIndex' zs w                     = find (\(pz, _) → w == pz.pzWordB) zs
->
-> data PerInstrument                       =
->   PerInstrument {
->     pZones             :: [(PreZone, SFZone)]
->   , pSmashing          :: Smashing Word}
-> showBags               :: PerInstrument → String
-> showBags perI                            = show (map (pzWordB . fst) perI.pZones)
->
-> data SFRuntime                           =
->   SFRuntime {
->     zPerInstCache      :: Map PerGMKey PerInstrument
->   , zWinningRecord     :: WinningRecord}
->
-> seedRuntime :: SFRuntime
-> seedRuntime                              =
->   SFRuntime Map.empty seedWinningRecord
->
-> data SFZone =
->   SFZone {
->     zStartOffs         :: Maybe Int
->   , zEndOffs           :: Maybe Int
->   , zLoopStartOffs     :: Maybe Int
->   , zLoopEndOffs       :: Maybe Int
->
->   , zStartCoarseOffs   :: Maybe Int
->   , zEndCoarseOffs     :: Maybe Int
->   , zLoopStartCoarseOffs
->                        :: Maybe Int
->   , zLoopEndCoarseOffs :: Maybe Int
->
->   , zInstIndex         :: Maybe Word
->   , zKeyRange          :: Maybe (AbsPitch, AbsPitch)
->   , zVelRange          :: Maybe (Volume, Volume)
->   , zKey               :: Maybe Word
->   , zVel               :: Maybe Word
->   , zInitAtten         :: Maybe Int
->   , zCoarseTune        :: Maybe Int
->   , zFineTune          :: Maybe Int
->   , zSampleIndex       :: Maybe Word
->   , zSampleMode        :: Maybe A.SampleMode
->   , zScaleTuning       :: Maybe Int
->   , zExclusiveClass    :: Maybe Int
->
->   , zDelayVolEnv       :: Maybe Int
->   , zAttackVolEnv      :: Maybe Int
->   , zHoldVolEnv        :: Maybe Int
->   , zDecayVolEnv       :: Maybe Int
->   , zSustainVolEnv     :: Maybe Int 
->   , zReleaseVolEnv     :: Maybe Int
->
->   , zChorus            :: Maybe Int
->   , zReverb            :: Maybe Int
->   , zPan               :: Maybe Int
->
->   , zRootKey           :: Maybe Word
->
->   , zModLfoToPitch     :: Maybe Int
->   , zVibLfoToPitch     :: Maybe Int
->   , zModEnvToPitch     :: Maybe Int
->   , zInitFc            :: Maybe Int
->   , zInitQ             :: Maybe Int
->   , zModLfoToFc        :: Maybe Int
->   , zModEnvToFc        :: Maybe Int
->   , zModLfoToVol       :: Maybe Int
->   , zDelayModLfo       :: Maybe Int
->   , zFreqModLfo        :: Maybe Int
->   , zDelayVibLfo       :: Maybe Int
->   , zFreqVibLfo        :: Maybe Int
->   , zDelayModEnv       :: Maybe Int
->   , zAttackModEnv      :: Maybe Int
->   , zHoldModEnv        :: Maybe Int
->   , zDecayModEnv       :: Maybe Int
->   , zSustainModEnv     :: Maybe Int
->   , zReleaseModEnv     :: Maybe Int
->   , zKeyToModEnvHold   :: Maybe Int
->   , zKeyToModEnvDecay  :: Maybe Int
->   , zKeyToVolEnvHold   :: Maybe Int
->   , zKeyToVolEnvDecay  :: Maybe Int
->
->   , zModulators        :: [Modulator]} deriving (Eq, Show)
->
-> defZone                :: SFZone
-> defZone                                  = SFZone Nothing Nothing Nothing Nothing
->
->                                            Nothing Nothing Nothing Nothing
->
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing
->
->                                            Nothing Nothing Nothing
->     
->                                            Nothing
+> type GMKind                              = Either InstrumentName PercussionSound
 > 
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing
+> class GMPlayable a ⇒ SFScorable a where
+>   splitScore           :: a → [PreZone] → Double
+>   fuzzFactor           :: a → Double
 >
->                                            []
+> instance SFScorable InstrumentName where
+>   splitScore _ pzs                       = fromIntegral (length pzs)
+>   fuzzFactor _                           = 7/8
 >
-> theGrader              :: Grader
-> theGrader                                = Grader ssWeights 500
-
-profiler ==============================================================================================================
-
-> -- (removed...revisit when things settle down)
-> profileSF2s            :: IO ()
-> profileSF2s                              = print $ unwords ["removed"]
-
-executive =============================================================================================================
-
-> doEverything           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
-> doEverything songs     = do
->   putStrLn "everything..."
->   putStrLn ""
+> instance SFScorable PercussionSound where
+>   splitScore _ _                         = 1
+>   fuzzFactor _                           = 3/4
 >
->   rost                 ← qualifyKinds songs
->   putStrLn $ unwords ["rost", show rost]
->   putStrLn ""
+> data SFBoot                              =
+>   SFBoot {
+>     zFiles             :: Array Word SFFile
+>   , zPreSampleCache    :: Map PreSampleKey PreSample
+>   , zPartnerMap        :: Map PreSampleKey PreSampleKey
+>   , zPreInstCache      :: Map PerGMKey PreInstrument
+>   , zOwners            :: Map PerGMKey [PreZone]
+>   , zJobs              :: Map PerGMKey InstCat}
+> instance Show SFBoot where
+>   show (SFBoot{ .. })                    = unwords ["SFBoot", show (length zPreInstCache, length zOwners, length zJobs)]
+> combineBoot            :: SFBoot → SFBoot → SFBoot
+> combineBoot boot1 boot2                  =
+>   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache boot2.zPreSampleCache
+>         , zPartnerMap                    = Map.union boot1.zPartnerMap     boot2.zPartnerMap
+>         , zPreInstCache                  = Map.union boot1.zPreInstCache   boot2.zPreInstCache
+>         , zOwners                        = Map.union boot1.zOwners         boot2.zOwners
+>         , zJobs                          = Map.union boot1.zJobs           boot2.zJobs}
 >
->   tsStarted            ← getCurrentTime
+> seedBoot               :: Array Word SFFile → SFBoot
+> seedBoot vFile                           =
+>   SFBoot vFile Map.empty Map.empty Map.empty Map.empty Map.empty
 >
->   (mboot, pergmsI, pergmsP, rdGen03)
->                        ← equipInstruments rost
+> data SFFile =
+>   SFFile {
+>     zWordF             :: Word
+>   , zFilename          :: FilePath
+>   , zBoot              :: BootstrapArrays
+>   , zSample            :: SampleArrays}
 >
->   if isNothing mboot
->     then do
->       return ()
->     else do
->       let boot         = deJust "mboot" mboot
->       -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->       runt             ← finishRuntime rost boot pergmsI pergmsP rdGen03
+> data BootstrapArrays = 
+>   BootstrapArrays {
+>     ssInsts            :: Array Word F.Inst
+>   , ssIBags            :: Array Word F.Bag
+>   , ssIGens            :: Array Word F.Generator
+>   , ssIMods            :: Array Word F.Mod
+>   , ssShdrs            :: Array Word F.Shdr}
 >
->       CM.when doRender (doRendering boot runt)
+> data SampleArrays = 
+>   SampleArrays {
+>     ssData             :: A.SampleData Int16
+>   , ssM24              :: Maybe (A.SampleData Int8)}
 >
->       tsRendered       ← getCurrentTime
->       putStrLn ("___overall: " ++ show (diffUTCTime tsRendered tsStarted))
+> data ZoneDigest =
+>   ZoneDigest {
+>     zdKeyRange         :: Maybe (Word, Word)
+>   , zdVelRange         :: Maybe (Word, Word)
+>   , zdSampleIndex      :: Maybe Word
+>   , zdStart            :: Int
+>   , zdEnd              :: Int
+>   , zdStartLoop        :: Int
+>   , zdEndLoop          :: Int} deriving (Eq, Show)
+> defDigest              :: ZoneDigest
+> defDigest                                = ZoneDigest Nothing Nothing Nothing 0 0 0 0
+> formDigest             :: [F.Generator] → ZoneDigest
+> formDigest                               = foldr inspectGen defDigest
 >   where
->     -- track the complete _qualified_ populations of: samples, instruments, percussion
->     finishRuntime      ::  ([InstrumentName], [PercussionSound])
->                            → SFBoot
->                            → [PerGMKey] → [PerGMKey]
->                            → ResultDispositions
->                            → IO SFRuntime
->     finishRuntime rost boot pergmsI pergmsP rdGen03
->                        = do
->       tsStarted        ← getCurrentTime
+>     inspectGen         :: F.Generator → ZoneDigest → ZoneDigest 
+>     inspectGen (F.KeyRange i j) zd       = zd {zdKeyRange = Just (i, j)}
+>     inspectGen (F.VelRange i j) zd       = zd {zdVelRange = Just (i, j)}
+>     inspectGen (F.SampleIndex w) zd      = zd {zdSampleIndex = Just w}
 >
->       (zc, rdGen04)    ← formZoneCache boot rdGen03
->       owners'          ← reassociateZones zc
+>     inspectGen (F.StartAddressCoarseOffset i)            zd
+>                                          = zd {zdStart = zd.zdStart + 32_768 * i}
+>     inspectGen (F.StartAddressOffset i)                  zd
+>                                          = zd {zdStart = zd.zdStart + i}
+>     inspectGen (F.EndAddressCoarseOffset i)              zd
+>                                          = zd {zdEnd = zd.zdEnd + 32_768 * i}
+>     inspectGen (F.EndAddressOffset i)                    zd
+>                                          = zd {zdEnd = zd.zdEnd + i}
 >
->       tsZoned          ← getCurrentTime
->       putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsStarted))
+>     inspectGen (F.LoopStartAddressCoarseOffset i)        zd
+>                                          = zd {zdStartLoop = zd.zdStartLoop + 32_768 * i}
+>     inspectGen (F.LoopStartAddressOffset i)              zd
+>                                          = zd {zdStartLoop = zd.zdStartLoop + i}
+>     inspectGen (F.LoopEndAddressCoarseOffset i)          zd
+>                                          = zd {zdEndLoop = zd.zdEndLoop + 32_768 * i}
+>     inspectGen (F.LoopEndAddressOffset i)                zd
+>                                          = zd {zdEndLoop = zd.zdEndLoop + i}
 >
->       CM.when reportScan (writeScanReport boot rdGen04)
->       tsScanned        ← getCurrentTime
->      
->       -- actually conduct the tournament
->       ((wI, sI), (wP, sP))
->                        ← decideWinners boot.zPreSampleCache boot.zPreInstCache owners'
->                                        zc rost pergmsI pergmsP
->       tsDecided        ← getCurrentTime
->       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsScanned))
+>     inspectGen _ zd                      = zd
 >
->       CM.when reportTourney (writeTournamentReport boot.zFiles wI wP)
->       tsReported       ← getCurrentTime
+> openSoundFontFile      :: Word → FilePath → IO SFFile
+> openSoundFontFile wFile filename = do
+>   putStr (unwords [show wFile, filename])
+>   ts1                                    ← getCurrentTime
+>   result                                 ← F.importFile filename
+>   case result of
+>     Left s                               →
+>       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
+>     Right soundFont                      → do
+>       let pdata                          = F.pdta soundFont
+>       let sdata                          = F.sdta soundFont
+>       let boota                          =
+>             BootstrapArrays
+>               (F.insts pdata) (F.ibags pdata)
+>               (F.igens pdata) (F.imods pdata)
+>               (F.shdrs pdata)
+>       let samplea                          =
+>             SampleArrays
+>               (F.smpl  sdata) (F.sm24  sdata)
+>       let sffile                         = SFFile wFile filename boota samplea
+>       let nBits::Word                      =
+>             case samplea.ssM24 of
+>               Nothing                    → 16
+>               Just _                     → 24
+>       ts2                                ← getCurrentTime
+>       CM.when diagnosticsEnabled (
+>         putStrLn $ unwords [
+>                           "openSoundFontFile"
+>                       ,   "insts,bags,gens,mods,shdrs"
+>                       ,   show $ length boota.ssInsts
+>                       ,   show $ length boota.ssIBags
+>                       ,   show $ length boota.ssIGens
+>                       ,   show $ length boota.ssIMods
+>                       ,   show $ length boota.ssShdrs ])
+>       putStrLn (unwords ["(", show nBits, ") loaded in", show (diffUTCTime ts2 ts1)])
+>       return sffile
 >
->       -- print song/orchestration info to user (can be captured by redirecting standard out)
->       mapM_ putStrLn (sI ++ sP)
+
+bootstrapping =========================================================================================================
+
+> data Disposition                         =
+>   Accepted | Violated | Rescued | Dropped | NoChange
+>   deriving (Eq, Show)
 >
->       let wins         = WinningRecord (Map.map head wI) (Map.map head wP)
+> data Impact                              =
+>   Ok | CorruptName
+>      | BadSampleRate | BadSampleType | BadSampleLimits | BadSampleLoopLimits
+>      | MissingStereoPartner | BadStereoPartner
+>      | OrphanedBySample | OrphanedByInst
+>      | Absorbed | NoZones
+>      | CorruptGMRange | Narrow | BadLinkage | IllegalCrossover
+>      | RomBased | UndercoveredRanges | OverCoveredRanges
+>      | Unrecognized | NoPercZones
+>   deriving (Eq, Ord, Show)
 >
->       let runt         = SFRuntime zc wins
+> data Scan                                =
+>   Scan {
+>     sDisposition       :: Disposition
+>   , sImpact            :: Impact
+>   , sFunction          :: String
+>   , sClue              :: String} deriving (Eq, Show)
+> noClue                 :: String
+> noClue                                   = ""
+> curate                 :: ∀ a . Show a ⇒ a → (a → Bool) → (a → [Scan]) → Maybe [Scan]
+> curate thing ok scan                     = if ok thing then Nothing else Just (scan thing)
+> curate'                :: ∀ a . a → (a → Bool) → (a → [Scan]) → Maybe [Scan]
+> curate' thing ok scan                    = if ok thing then Nothing else Just (scan thing)
+>
+> data ScanAlts r                          =
+>   ScanAlts {
+>     saKey              :: r
+>   , saFromName         :: String
+>   , saCallbacks        :: [Scan]}
+>
+> data ScanScan                            =
+>   ScanScan {
+>     s2Scans            :: [Scan]
+>   , s2Alts             :: [Maybe [Scan]]}
+>
+> scanAlts               :: ∀ r . SFResource r ⇒
+>                           ScanAlts r
+>                           → [Maybe [Scan]]
+>                           → ResultDispositions
+>                           → ([Scan], ResultDispositions)
+> scanAlts sa alts rd                      = (ss, dispose sa.saKey ss rd)
+>   where
+>     ss_                                  = (scanScans alts).s2Scans
+>     ss                                   = if null ss_
+>                                              then accepted sa Ok noClue
+>                                              else ss_
+>
+> scanScans              :: [Maybe [Scan]] → ScanScan
+> scanScans alts                           = s2Final
+>   where
+>     s2Final            :: ScanScan
+>     s2Final                              =
+>       head $ dropWhile unfinished (iterate' nextGen (ScanScan [] alts))
+>
+>     unfinished ScanScan{ .. }            = not (cancels [Accepted] s2Scans) && not (null s2Alts)
+>
+>     nextGen s2gen@ScanScan{ .. }         =
+>       s2gen{s2Scans = s2Scans ++ fromMaybe [] (head s2Alts), s2Alts = tail s2Alts}
+>
+> cancels                :: [Disposition] → [Scan] → Bool
+> cancels eds ss_                          = any odd (Map.elems m)
+>   where
+>     ss                                   = filter (\s → s.sDisposition `notElem` eds) ss_
+>
+>     m                  :: Map Impact Int
+>     m                                    = foldl' (\n v → Map.insertWith (+) v 1 n) Map.empty (map sImpact ss)
+>
+> accepted, violated, dropped, rescued, noChange
+>                        :: ∀ r a . (SFResource r) ⇒ ScanAlts r → Impact → a → [Scan]
+> accepted sa impact thing                 = singleton $ Scan Accepted impact sa.saFromName (zshow thing)
+> violated sa impact thing                 = singleton $ Scan Violated impact sa.saFromName (zshow thing)
+> dropped sa impact thing                  = singleton $ Scan Dropped impact sa.saFromName (zshow thing)
+> rescued sa impact  thing                 = singleton $ Scan Rescued impact sa.saFromName (zshow thing)
+> noChange sa impact thing                 = singleton $ Scan NoChange impact sa.saFromName (zshow thing)
+>
+> data ResultDispositions                  =
+>   ResultDispositions {
+>     preSampleDispos    :: Map PreSampleKey     [Scan]
+>   , preInstDispos      :: Map PerGMKey         [Scan]}
+> instance Show ResultDispositions where
+>   show rd@ResultDispositions{ .. }       =
+>     unwords [  "ResultDispositions"
+>              , show (length preSampleDispos, length preInstDispos, rdScans rd)]
+>
+> virginrd               :: ResultDispositions
+> virginrd                                 = ResultDispositions Map.empty Map.empty
+> emptyrd                :: ResultDispositions → Bool
+> emptyrd ResultDispositions{ .. }         = null preSampleDispos && null preInstDispos
+> rdLengths              :: ResultDispositions → (Int, Int)
+> rdLengths ResultDispositions{ .. }       = (length preSampleDispos, length preInstDispos)
+> countScans             :: ∀ k . SFResource k ⇒ Map k [Scan] → Int
+> countScans                               = foldl' (\n ss → n + length ss) 0
+> rdScans                :: ResultDispositions → (Int, Int)
+> rdScans  ResultDispositions{ .. }        = (countScans preSampleDispos, countScans preInstDispos)
+> combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
+> combinerd rd1 rd2                        =
+>   rd1{  preSampleDispos                  = Map.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
+>       , preInstDispos                    = Map.unionWith (++) rd1.preInstDispos   rd2.preInstDispos}
+>
+> class SFResource a where
+>   sfkey                :: Word → Word → a
+>   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
+>   fatalrd              :: [Disposition] → ResultDispositions → a → Bool
+>   emit                 :: SFBoot → a → [Emission]
+>
+> instance SFResource PreSampleKey where
+>   sfkey                                  = PreSampleKey
+>   dispose presk ss rd                    =
+>     rd{preSampleDispos = Map.insertWith (flip (++)) presk ss rd.preSampleDispos}
+>   fatalrd eds rd presk                   = cancels eds $ fromMaybe [] (Map.lookup presk rd.preSampleDispos)
+>   emit boot presk                        =
+>     [  Unblocked (show presk)
+>      , Blanks 5
+>      , Unblocked sffile.zFilename
+>      , Blanks 5
+>      , Unblocked (show shdr.sampleName)]
+>     where
+>       sffile                             = boot.zFiles ! presk.pskwFile
+>       sfboota                            = sffile.zBoot
+>       shdr                               = sfboota.ssShdrs ! presk.pskwSampleIndex
+>
+> instance SFResource PerGMKey where
+>   sfkey wF wI                            = PerGMKey wF wI Nothing
+>   dispose pergm ss rd                    =
+>     rd{preInstDispos = Map.insertWith (++) pergm ss rd.preInstDispos}
+>   fatalrd eds rd pergm                   = cancels eds $ fromMaybe [] (Map.lookup pergm rd.preInstDispos)
+>   emit boot pergm                        =
+>     [  Unblocked (show pergm)
+>      , Blanks 5
+>      , Unblocked (boot.zFiles ! pergm.pgkwFile).zFilename
+>      , Blanks 5
+>      , Unblocked (show iinst.instName)]
+>     where
+>       sffile                             = boot.zFiles ! pergm.pgkwFile
+>       sfboota                            = sffile.zBoot
+>       iinst                              = sfboota.ssInsts ! pergm.pgkwInst
+>
+> sampleSizeOk           :: (Word, Word) → Bool
+> sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
+> sampleLoopSizeOk       :: (Word, Word, A.SampleMode) → Bool
+> sampleLoopSizeOk (stL, enL, smode)       = 
+>   A.NoLoop == smode || (stL >= 0 && enL - stL >= sampleSizeMin && enL - stL < 2 ^ (22::Word))
+>
+> adjustedSampleSizeOk   :: ZoneDigest → F.Shdr → Bool
+> adjustedSampleSizeOk zd shdr             = 0 <= stA && stA <= enA && 0 <= stL && stL <= enL
+>   where
+>     stA                                  = shdr.start     + fromIntegral zd.zdStart
+>     enA                                  = shdr.end       + fromIntegral zd.zdEnd
+>     stL                                  = shdr.startLoop + fromIntegral zd.zdStartLoop
+>     enL                                  = shdr.endLoop   + fromIntegral zd.zdEndLoop
+
+Note that harsher consequences of unacceptable sample header are enforced earlier. Logically, that would be
+sufficient to protect below code from bad data and document the situation. But ... mechanism such as putting
+out diagnostics might cause us to execute this code first. So, being crash-free/minimal in isStereoZone et al.
+
+> isStereoInst, is24BitInst
+>                        :: Map PreSampleKey PreSample → [(PreZone, a)] → Bool
+>
+> isStereoInst preSampleCache zs           = isJust $ find (isStereoZone preSampleCache) (map fst zs)
 >       
->       tsRecond         ← getCurrentTime
->       putStrLn ("___create winning record: " ++ show (diffUTCTime tsRecond tsReported))
->         
->       return runt
+> isStereoZone preSampleCache pz           = isLeftPreZone preSampleCache pz || isRightPreZone preSampleCache pz
 >
->     -- get it on
->     doRendering      :: SFBoot → SFRuntime → IO ()
->     doRendering boot runt
+> isStereoZone, isLeftPreZone, isRightPreZone
+>                        :: Map PreSampleKey PreSample → PreZone → Bool
+> isLeftPreZone preSampleCache pz          = SampleTypeLeft == toSampleType (effShdr preSampleCache pz).sampleType
+> isRightPreZone preSampleCache pz         = SampleTypeRight == toSampleType (effShdr preSampleCache pz).sampleType
+>
+> is24BitInst _ _                          = True -- was isJust $ ssM24 arrays       
+>
+> checkSmashing          :: PerGMKey → Smashing Word → Maybe [Scan]
+> checkSmashing pergm smashup
+>   | not ok1                              = Just $ violated sa UndercoveredRanges noClue
+>   | not ok2                              = Just $ violated sa OverCoveredRanges noClue
+>   | otherwise                            = Nothing
+>   where
+>     fName                                = "checkSmashing"
+>     sa                                   = ScanAlts pergm fName []
+>     ok1                                  = allowOutOfRange || smashup.smashStats.countNothings == 0
+>     ok2                                  = allowOverlappingRanges || smashup.smashStats.countMultiples == 0
+>
+> computeSmashup         :: String → [(Word, [Maybe (Word, Word)])] → Smashing Word
+> computeSmashup tag                       = smashSubspaces tag dims
+>   where
+>     dims                                 = [fromIntegral qMidiSize128, fromIntegral qMidiSize128]
+>
+> computeInstSmashup     :: [PreZone] → Smashing Word
+> computeInstSmashup pzs
+>   | traceNot trace_CIS False             = undefined
+>   | otherwise                            = computeSmashup (unwords["computeInstSmashup"]) subs
+>   where
+>     -- create smashup consisting of 16_384 (128 x 128) Word pairs - adds up to 131_072 bytes
+>     subs               :: [(Word, [Maybe (Word, Word)])]
+>     subs                                 = map extractSpace pzs
+>
+>     trace_CIS                            = unwords ["computeInstSmashup", showPreZones pzs, show subs]
+>
+> smush                  :: [([PreZone], Smashing Word)] → Smashing Word
+> smush pears                              = smashSubspaces allTags dims allSpaces
+>   where
+>     allTags            :: String
+>     allSpaces          :: [(Word, [Maybe (Word, Word)])]
+>     (allTags, allSpaces)                 =
+>       foldl' (\(at, ax) (pzs, smashup) → (at ++ smashup.smashTag, ax ++ map extractSpace pzs)) ([], []) pears
+>     dims                                 = [fromIntegral qMidiSize128, fromIntegral qMidiSize128]
+>
+> emitMsgs               :: InstrumentName → [(InstrumentName, [String])] → [Emission]
+> emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs
+>   where
+>     imsgs              :: [String]       = fromMaybe [] (lookup kind msgs)
+>
+> isPossible, stands, isConfirmed
+>                        :: Double
+> isPossible                               = 50
+> stands                                   = 150
+> isConfirmed                              = 250
+>
+> writeScanReport        :: SFBoot → ResultDispositions → IO ()
+> writeScanReport boot rd@ResultDispositions{ .. }
 >                        = do
->       tsStarted        ← getCurrentTime
->
->       -- readying instrument maps to be accessed from song renderer
->       traceIO          "prepareInstruments"
->       imap             ← prepareInstruments boot runt
->       tsPrepared       ← getCurrentTime
->       putStrLn ("___prepare instruments: " ++ show (diffUTCTime tsPrepared tsStarted))
->
->       -- here's the heart of the coconut
->       mapM_ (uncurry (renderSong runt imap)) songs
->
->       tsRendered       ← getCurrentTime
->       putStrLn ("___render songs: "        ++ show (diffUTCTime tsRendered tsPrepared))
->
-> reassociateZones       :: Map PerGMKey PerInstrument → IO (Map PerGMKey [PreZone])
-> reassociateZones zc    = return $ Map.map (\q → map fst q.pZones) zc
->
-> writeTournamentReport  :: Array Word SFFile
->                           → Map InstrumentName [PerGMScored]
->                           → Map PercussionSound [PerGMScored]
->                           → IO ()
-> writeTournamentReport sffiles pContI pContP
->                        = do
+>   CM.when diagnosticsEnabled (putStrLn $ unwords [fName, show rd])
 >   tsStarted            ← getCurrentTime
 >
 >   -- output all selections to the report file
->   let legend           =
->           emitComment     [   Unblocked "legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]"]
->        ++ emitNextComment [   Unblocked "weights = "
->                             , Unblocked (show ssWeights)] 
->   let esFiles          = emitFileListC ++ [EndOfLine]
->   let esI              = concatMap dumpContestants (Map.toList pContI)
->   let esP              = concatMap dumpContestants (Map.toList pContP)
->   let esQ              = [] -- formerly emitSettingses
->   let esTail           = singleton $ Unblocked "\n\nThe End\n\n"
->   let eol              = singleton EndOfLine
+>   let esTimeStamp      = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
+>   let esSampleScan     = procMap preSampleDispos ++ [EndOfLine]
+>   let esInstScan       = procMap preInstDispos ++ [EndOfLine]
+>   let esTail           = [EndOfLine, EndOfLine]
 >
->   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP, esQ, esTail]
+>   writeFileBySections reportScanName [esTimeStamp, esSampleScan, esInstScan, esTail]
 >   tsFinished           ← getCurrentTime
->   putStrLn ("___report tournament results: " ++ show (diffUTCTime tsFinished tsStarted))
->   traceIO ("wrote " ++ reportTournamentName)
+>   putStrLn (unwords ["___report scan results:", show (diffUTCTime tsFinished tsStarted)])
+>   traceIO (unwords ["wrote", reportScanName])
 >
 >   where
->     emitFileListC      = concatMap (uncurry doF) (zip ([0..]::[Int]) (toList sffiles))
->     doF nth sffile     = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
+>     fName              = "writeScanReport"
+>
+>     procMap            :: ∀ r . (SFResource r, Show r) ⇒ Map r [Scan] → [Emission]
+>     procMap sm         = concat $ Map.mapWithKey procr sm
+>
+>     procr              :: ∀ r . (SFResource r, Show r) ⇒ r → [Scan] → [Emission]
+>     procr k ss_        =
+>       let
+>         ss             = if howVerboseScan < (1/2)
+>                            then filter (\s → Accepted /= s.sDisposition) ss_
+>                            else ss_
+>       in
+>         if null ss
+>           then []
+>           else emit boot k ++ [EndOfLine] ++ concatMap procs ss ++ [EndOfLine]
+>
+>     procs          :: Scan → [Emission]
+>     procs scan
+>                        =
+>       [  emitShowL scan.sDisposition 24
+>        , emitShowL scan.sImpact      32
+>        , ToFieldL scan.sFunction     52
+>        , Unblocked scan.sClue
+>        , EndOfLine]
+>
 
-tournament starts here ================================================================================================
+use "matching as" cache ===============================================================================================
 
-> decideWinners          :: Map PreSampleKey PreSample
->                           → Map PerGMKey PreInstrument
->                           → Map PerGMKey [PreZone]
->                           → Map PerGMKey PerInstrument
->                           → ([InstrumentName], [PercussionSound]) 
->                           → [PerGMKey]
->                           → [PerGMKey]
->                           → IO ((Map InstrumentName [PerGMScored], [String])
->                               , (Map PercussionSound [PerGMScored], [String]))
-> decideWinners preSampleCache preInstCache owners zc rost pergmsI pergmsP
->                                          = do
->   traceIO ("decideWinners" ++ show (length zc))
->   return wiExec
+> data FFMatches =
+>   FFMatches {
+>     ffInput            :: String
+>   , ffInst             :: Map InstrumentName Fuzz
+>   , ffPerc             :: Map PercussionSound Fuzz} deriving Show
 >
+> combineFF              :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ Map a Fuzz → Map a Fuzz → Map a Fuzz
+> combineFF ffpros ffcons                  =
+>   Map.filter (>= 0) (Map.unionWith (+) ffpros (Map.map (* (- conRatio)) ffcons))
+>
+> computeFFMatches       :: String → FFMatches
+> computeFFMatches inp                     = FFMatches inp
+>                                              (combineFF ias ibs)
+>                                              (combineFF pas pbs)
 >   where
->     wiExec             :: (  (Map InstrumentName [PerGMScored], [String])
->                            , (Map PercussionSound [PerGMScored], [String]))
->     wiExec                               = ((wI', sI), (wP', sP))
->       where
->         (wI, sI)                         = foldl' wiFolder (Map.empty, []) pergmsI         
->         wI'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wI
+>     ias = createFuzzMap inp instrumentProFFKeys
+>     ibs = createFuzzMap inp instrumentConFFKeys
 >
->         (wP, sP)                         = foldl' wpFolder (Map.empty, []) pergmsP
->         wP'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wP
->
->     wiFolder           :: (Map InstrumentName [PerGMScored], [String])
->                           → PerGMKey
->                           → (Map InstrumentName [PerGMScored], [String])
->     wiFolder target pergmI@PerGMKey{pgkwFile}
->                                          = foldl' (xaEnterTournament fuzzMap pergmI []) target i2Fuzz'
->       where
->         -- access potentially massive amount of processed information regarding instrument
->         preI                             = deJust (unwords["wiFolder", "preI"]) (Map.lookup pergmI preInstCache)
->         fuzzMap                          = getFuzzMap preI.iMatches
->
->         i2Fuzz         :: Map InstrumentName Fuzz
->         i2Fuzz                           =
->           Map.filterWithKey (\k _ → k `elem` select rost) fuzzMap
->
->         i2Fuzz'         :: [InstrumentName]
->         i2Fuzz'                          =
->           profess
->             (not $ null i2Fuzz)
->             (unwords ["unexpected empty matches for", show pgkwFile, preI.iName]) 
->             (if multipleCompetes
->                then Map.keys i2Fuzz
->                else (singleton . fst) (Map.findMax i2Fuzz))
->     
->     wpFolder           :: (Map PercussionSound [PerGMScored], [String])
->                           → PerGMKey
->                           → (Map PercussionSound [PerGMScored], [String])
->     wpFolder wIn pergmP@PerGMKey{pgkwFile, pgkwBag}
->       | traceIf trace_WP False           = undefined
->       | otherwise                        = xaEnterTournament fuzzMap pergmP [] wIn kind
->       where
->         trace_WP                         =
->           unwords ["wpFolder", show preI.iName, show pergmP, "of", show (length perI.pZones)]
->
->         preI                             =
->           deJust (unwords["wpFolder", "PreInst"]) (Map.lookup (pergmP{pgkwBag = Nothing}) preInstCache)
->         pzs                              = deJust "pzs" (Map.lookup pergmP{pgkwBag = Nothing} owners)
->         perI                             =
->           deJust (unwords["wpFolder", "PerInst"]) (Map.lookup (pergmP{pgkwBag = Nothing}) zc)
->
->         mz             :: Maybe PreZone
->         mz                               = pgkwBag >>= findByBagIndex pzs
->         mkind          :: Maybe PercussionSound
->         mkind                            = mz >>= getAP >>= pitchToPerc
->         kind                             = deJust (unwords["wpFolder", "mkind"]) mkind
->
->         mffm           :: Maybe FFMatches
->         mffm                             =
->           mz >>= (zdSampleIndex . pzDigest)
->              >>= Just . PreSampleKey pgkwFile
->              >>= (`Map.lookup` preSampleCache)
->              >>= Just . sMatches
->         fuzzMap        :: Map PercussionSound Fuzz
->         fuzzMap                          = getFuzzMap $ deJust (unwords ["mffm"]) mffm
->
->         getAP          :: PreZone → Maybe AbsPitch
->         getAP pz                         = pz.pzDigest.zdKeyRange >>= (Just . fromIntegral . fst)
->
->     xaEnterTournament  :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
->                           Map a Fuzz
->                           → PerGMKey
->                           → [SSHint]
->                           → (Map a [PerGMScored], [String])
->                           → a
->                           → (Map a [PerGMScored], [String])
->     xaEnterTournament fuzzMap pergm hints (wins, ss) kind
->       | traceIf trace_XAET False         = undefined
->       | otherwise                        = (Map.insertWith (++) kind [scored] wins, ss)
->       where
->         fName                            = "xaEnterTournament"
->
->         pergm_                           = pergm{pgkwBag = Nothing}
->         preI                             =
->           deJust (unwords[fName, "PreInstrument", show pergm_]) (Map.lookup pergm_ preInstCache)
->         perI                             =
->           deJust (unwords[fName, "PerInstrument", show pergm_]) (Map.lookup pergm_ zc)
->
->         scope_, scope  :: [(PreZone, SFZone)]
->         scope_                           =
->           case pergm.pgkwBag of
->             Nothing                      → perI.pZones
->             Just bagI                    →
->                    maybe
->                      (error $ unwords [fName, "findByBagIndex' returned a Nothing for"
->                                       , show pergm.pgkwFile, preI.iName, show bagI])
->                      singleton
->                      (findByBagIndex' perI.pZones bagI)
->         scope                            =
->           profess
->             (not (null scope_))
->             (unwords[fName, "null scope", preI.iName])
->             scope_
->             
->         mnameZ         :: Maybe String   = pergm.pgkwBag
->                                            >>= findByBagIndex' perI.pZones
->                                            >>= \(q, _) → Just (F.sampleName (effShdr preSampleCache q))
->
->         trace_XAET                       =
->           unwords [fName, preI.iName, fromMaybe "" mnameZ, show kind]
->
->         computeGrade   :: [(PreZone, SFZone)] → ArtifactGrade
->         computeGrade zs                  = gradeEmpiricals theGrader empiricals
->           where
->             empiricals :: [Double]       = [   foldHints hints
->                                              , fromRational $ scoreBool $ isStereoInst preSampleCache zs
->                                              , fromRational $ scoreBool $ is24BitInst preSampleCache zs
->                                              , computeResolution zs
->                                              , fromRational $ scoreBool $ all (zoneConforms preSampleCache) zs
->                                              , fuzz]
->             howgood                      = akResult - stands
->             fuzz       :: Double
->               | howgood > 0.000_001      = max 0 (logBase 2 howgood) * fuzzFactor kind
->               | otherwise                = 0
->   
->         scored         :: PerGMScored    =
->           PerGMScored (computeGrade scope) (toGMKind kind) akResult pergm preI.iName mnameZ
->
->         computeResolution
->                        :: [(PreZone, SFZone)]
->                           → Double
->         computeResolution zs
->           | null zs                      = error $ unwords ["null zs"]
->           | otherwise                    = fromRational m1 * evalSplits kind + fromRational m2 * evalSampleSize
->           where
->             theSplit                     = splitScore kind (map fst zs)
->             evalSplits _
->               | theSplit <= 1            = 1
->               | otherwise                = log (m3 * theSplit)
->             evalSampleSize               = sum (map durScoring zs) / fromIntegral (length zs)
->
->             m1                           = 1/2
->             m2                           = 1/2
->             m3                           = 3 * if isStereoInst preSampleCache zs then 1/2 else 1
->
->         durScoring     :: (PreZone, SFZone) → Double
->         durScoring (pz, zone) = if score < 0.01 then -10 else score
->           where
->             shdr                         = effShdr preSampleCache pz
->             score                        = sampleSize / fromIntegral shdr.sampleRate
->
->             sampleSize :: Double
->             sampleSize                   = fromIntegral $ xEnd - xStart
->               where
->                 xStart                   =
->                   addIntToWord    shdr.start
->                                   (sumOfWeightedInts [zone.zStartOffs, zone.zStartCoarseOffs] qOffsetWeights)
->                 xEnd                     =
->                   addIntToWord    shdr.end
->                                   (sumOfWeightedInts [zone.zEndOffs,   zone.zEndCoarseOffs]   qOffsetWeights)
->
->         akResult                         = fromMaybe 0 (Map.lookup kind fuzzMap)
->
-> computeCross           :: Map PerGMKey PerInstrument → Map PreZoneKey PreZone → Word → PreZoneKey → Maybe SFZone
-> computeCross perIs preZs si pzk
->   | traceAlways trace_CC False           = undefined
->   | otherwise                            =
->   Just pzk
->   >>= (`Map.lookup` preZs)
->   >>= Just . extractInstKey
->   >>= (`Map.lookup` perIs)
->   >>= Just . pZones
->   >>= Just . map snd
->   >>= (`findBySampleIndex` si)
->   where
->     trace_CC                             = unwords ["computeCross", show pzk]
->
-> renderSong             :: ∀ p . Clock p ⇒
->                           SFRuntime
->                           → InstrMap (Stereo p)
->                           → FilePath
->                           → (DynMap → Music (Pitch, [NoteAttribute]))
->                           → IO ()
-> renderSong runt imap name song           =
->   do
->     traceIO ("renderSong " ++ name)
->     ts1                                  ← getCurrentTime
->     ding                                 ← shredMusic (song Map.empty)
->     let dynMap                           = makeDynMap ding
->     CM.unless (null (Map.assocs dynMap)) (traceIO $ unwords ["dynMap", show dynMap])
->     let ks                               = Map.keys ding.shRanges
->     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
->     let (esI, esP)                       = printChoices runt is ding.shMsgs ps
->     let ex                               = [Unblocked name, EndOfLine] ++ concatMap snd esI ++ concatMap snd esP
->     putStr (reapEmissions ex)
->     -- render song only if all OK
->     if all fst esI && all fst esP
->       then do
->         let path                         = name ++ ".wav"
->         putStr path
->         let (durS,s)                        = renderSF (song dynMap) imap
->         traceIO (unwords ["-> outFile*", path, show durS])
->         if normalizingOutput
->           then outFileNorm path durS s
->           else outFile     path durS s
->         traceIO (unwords ["<- outFile*", path, show durS])
->         ts2                              ← getCurrentTime
->         putStrLn (" (dur=" ++ show durS ++ ") written in " ++ show (diffUTCTime ts2 ts1))
->       else
->         putStrLn "skipping..."
->     return ()
->
-> sampleSizeOk           :: (Word, Word) → Bool
-> sampleSizeOk (stW, enW)                  = stW >= 0 && enW - stW >= 0 && enW - stW < 2 ^ (22::Word)
-> sampleLoopSizeOk       :: (Word, Word, A.SampleMode) → Bool
-> sampleLoopSizeOk (stl, enl, smode)       = 
->   A.NoLoop == smode || (stl >= 0 && enl - stl >= sampleSizeMin && enl - stl < 2 ^ (22::Word))
->
-> adjustedSampleSizeOk   :: ZoneDigest → F.Shdr → Bool
-> adjustedSampleSizeOk zd shdr             = 0 <= stW && stW <= enW && 0 <= stlW && stlW <= enlW
->   where
->     stW                                  = shdr.start     + fromIntegral zd.zdStart
->     enW                                  = shdr.end       + fromIntegral zd.zdEnd
->     stlW                                 = shdr.startLoop + fromIntegral zd.zdStartLoop
->     enlW                                 = shdr.endLoop   + fromIntegral zd.zdEndLoop
->
-> zoneConforms :: Map PreSampleKey PreSample → (PreZone, SFZone) → Bool
-> zoneConforms preSampleCache (pz, zone)   = not $ or unsupported
->   where
->     F.Shdr{end, start, endLoop, startLoop}
->                                          = effShdr preSampleCache pz
->
->     unsupported        :: [Bool]
->     unsupported                          =
->       [
->           case zone.zSampleMode of
->             Nothing                      → False
->             Just n                       → n == A.PressLoop
->         , case zone.zInitQ of
->             Nothing                      → False
->             Just n                       → n /= 0
->         , case zone.zScaleTuning of
->             Nothing                      → False
->             Just n                       → n /= 0 -- && n /= 100
->         , case zone.zExclusiveClass of
->             Nothing                      → False
->             Just n                       → n /= 0
->         , end < start
->         , endLoop < startLoop
->       ]
- 
-extract data from SoundFont per instrument ============================================================================
+>     pas = createFuzzMap inp percussionProFFKeys
+>     pbs = createFuzzMap inp percussionConFFKeys
 
-> addGen                 :: SFZone → F.Generator → SFZone
-> addGen iz gen =
->   case gen of
->   F.StartAddressOffset i         → iz {zStartOffs =                Just i}
->   F.EndAddressOffset i           → iz {zEndOffs =                  Just i}
->   F.LoopStartAddressOffset i     → iz {zLoopStartOffs =            Just i}
->   F.LoopEndAddressOffset i       → iz {zLoopEndOffs =              Just i}
+> embed                  :: a → Maybe b → Maybe (a, b)
+> embed kind                               = fmap (kind,)
 >
->   F.StartAddressCoarseOffset i   → iz {zStartCoarseOffs =          Just i}
->   F.EndAddressCoarseOffset i     → iz {zEndCoarseOffs =            Just i}
->   F.LoopStartAddressCoarseOffset i
->                                  → iz {zLoopStartCoarseOffs =      Just i}
->   F.LoopEndAddressCoarseOffset i
->                                  → iz {zLoopEndCoarseOffs =        Just i}
+> genericInstFFKeys      :: [String]
+> genericInstFFKeys                        = singleton "horn" 
 >
->   F.InstIndex w                  → iz {zInstIndex =                Just w}
->   F.KeyRange x y                 → iz {zKeyRange =                 Just (fromIntegral x, fromIntegral y)}
->   F.VelRange x y                 → iz {zVelRange =                 Just (fromIntegral x, fromIntegral y)}
->   F.Key i                        → iz {zKey =                      Just i}
->   F.Vel i                        → iz {zVel =                      Just i}
->   F.InitAtten i                  → iz {zInitAtten =                Just i}
->   F.CoarseTune i                 → iz {zCoarseTune =               Just i}
->   F.FineTune i                   → iz {zFineTune =                 Just i}
->   F.SampleIndex w                → iz {zSampleIndex =              Just w}
->   F.SampleMode m                 → iz {zSampleMode =               Just m}
->   F.ScaleTuning i                → iz {zScaleTuning =              Just i}
->   F.ExclusiveClass i             → iz {zExclusiveClass =           Just i}
+> genericPercFFKeys      :: [String]
+> genericPercFFKeys                        = ["perc", "hat", "kit", "kick"]
 >
->   F.DelayVolEnv i                → iz {zDelayVolEnv =              Just i}
->   F.AttackVolEnv i               → iz {zAttackVolEnv =             Just i}
->   F.HoldVolEnv i                 → iz {zHoldVolEnv =               Just i}
->   F.DecayVolEnv i                → iz {zDecayVolEnv =              Just i}
->   F.SustainVolEnv i              → iz {zSustainVolEnv =            Just i}
->   F.ReleaseVolEnv i              → iz {zReleaseVolEnv =            Just i}
->
->   F.Chorus i                     → iz {zChorus =                   Just i}
->   F.Reverb i                     → iz {zReverb =                   Just i}
->   F.Pan i                        → iz {zPan =                      Just i}
->
->   F.RootKey w                    → iz {zRootKey =                  Just (fromIntegral w)}
->
->   F.ModLfoToPitch i              → iz {zModLfoToPitch =            Just i}
->   F.VibLfoToPitch i              → iz {zVibLfoToPitch =            Just i}
->   F.ModEnvToPitch i              → iz {zModEnvToPitch =            Just i}
->   F.InitFc i                     → iz {zInitFc =                   Just i}
->   F.InitQ i                      → iz {zInitQ =                    Just i}
->   F.ModLfoToFc i                 → iz {zModLfoToFc =               Just i}
->   F.ModEnvToFc i                 → iz {zModEnvToFc =               Just i}
->   F.ModLfoToVol i                → iz {zModLfoToVol =              Just i}
->   F.DelayModLfo i                → iz {zDelayModLfo =              Just i}
->   F.FreqModLfo i                 → iz {zFreqModLfo =               Just i}
->   F.DelayVibLfo i                → iz {zDelayVibLfo =              Just i}
->   F.FreqVibLfo i                 → iz {zFreqVibLfo =               Just i}
->   F.DelayModEnv i                → iz {zDelayModEnv =              Just i}
->   F.AttackModEnv i               → iz {zAttackModEnv =             Just i}
->   F.HoldModEnv i                 → iz {zHoldModEnv =               Just i}
->   F.DecayModEnv i                → iz {zDecayModEnv =              Just i}
->   F.SustainModEnv i              → iz {zSustainModEnv =            Just i}
->   F.ReleaseModEnv i              → iz {zReleaseModEnv =            Just i}
->   F.KeyToModEnvHold i            → iz {zKeyToModEnvHold =          Just i}
->   F.KeyToModEnvDecay i           → iz {zKeyToModEnvDecay =         Just i}
->   F.KeyToVolEnvHold i            → iz {zKeyToVolEnvHold =          Just i}
->   F.KeyToVolEnvDecay i           → iz {zKeyToVolEnvDecay =         Just i}
->   _                              → iz
->
-> addMod                 :: (Word, F.Mod) → SFZone → SFZone
-> addMod (mId, F.Mod{srcOper, destOper, amtSrcOper, amount}) iz@SFZone{zModulators} 
->                                          = maybe iz addModulator makeModulator
+> instrumentConFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
+> instrumentConFFKeys inst                 = embed inst keys
 >   where
->     addModulator       :: Modulator → SFZone
->     addModulator m8r                     = iz{zModulators = m8r : zModulators}
+>    keys = case inst of
+>       AcousticBass              → Just            ["drum", "brass", "bassoon", "tremolo", "elec"]
+>       AcousticGrandPiano        → Just            ["drum", "harp", "upright", "bright", "mellow", "elec"]
+>       ElectricGuitarJazz        → Just            ["drum", "bass"]
+>       AcousticGuitarNylon       → Just            ["drum", "bass"]
+>       AcousticGuitarSteel       → Just            ["drum", "bass"]
+>       Agogo                     → Just            ["hi", "low"]
+>       BrightAcousticPiano       → Just            ["elec", "grand"]
+>       Cello                     → Just            ["tremolo", "strike", "pluck", "stacc"]
+>       Contrabass                → Just $ singleton "tremolo"
+>       ElectricBassFingered      → Just            ["acous", "brass", "bassoon"]
+>       ElectricBassPicked        → Just            ["acous", "brass", "bassoon"]
+>       EnglishHorn               → Just $ singleton "french"
+>       Flute                     → Just $ singleton "pan"
+>       FrenchHorn                → Just $ singleton "english"
+>       FretlessBass              → Just            ["brass", "bassoon"]
+>       GuitarFretNoise           → Just            ["clean", "nylon"]
+>       HonkyTonkPiano            → Just            ["grand", "rhodes"]
+>       OrchestraHit              → Just $ singleton "kit"
+>       RhodesPiano               → Just            ["upright", "grand"]
+>       SlapBass1                 → Just            ["brass", "bassoon"]
+>       SlapBass2                 → Just            ["brass", "bassoon"]
+>       SynthBass1                → Just            ["brass", "bassoon"]
+>       SynthBass2                → Just            ["brass", "bassoon"]
+>       SynthDrum                 → Just            ["bass"]
+>       TelephoneRing             → Just $ singleton "string"
+>       Trumpet                   → Just $ singleton "mute"
+>       Violin                    → Just            ["tremolo", "strike", "pluck", "stacc"]
+>       _                         → Nothing
 >
->     makeModulator      :: Maybe Modulator
->     makeModulator                        = mm'
->       where
->         mm, mm'        :: Maybe Modulator
->         mm                               = unpackModSrc srcOper
->                                            >>= flip addSrc defModulator{mrModId = mId}
->                                            >>= addDest destOper
->                                            >>= addAmount (fromIntegral amount)
->         mm'                              = unpackModSrc amtSrcOper
->                                            >>= addAmtSrc mm
-                                            
-prepare the specified instruments and percussion ======================================================================
+> instrumentProFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
+> instrumentProFFKeys inst                 = embed inst keys
+>   where
+>     keys = case inst of
+>       AcousticGrandPiano        → Just            ["piano", "grand", "concert"]
+>       BrightAcousticPiano       → Just            ["piano", "bright", "brite"]
+>       ElectricGrandPiano        → Just            ["piano", "elec"]
+>       HonkyTonkPiano            → Just            ["honky", "tonk", "piano"]
+>       RhodesPiano               → Just            ["rhodes", "piano"]
+>       ChorusedPiano             → Just            ["chorused", "piano"]
+>       Harpsichord               → Just            ["harpsi", "harpsichord"]
+>       Clavinet                  → Just $ singleton "clav"
+>       Celesta                   → Just $ singleton "celesta"
+>       Glockenspiel              → Just $ singleton "glockenspiel"
+>       MusicBox                  → Just $ singleton "musicbox"
+>       Vibraphone                → Just            ["vibra", "phone"]
+>       Marimba                   → Just $ singleton "marimba"
+>       Xylophone                 → Just $ singleton "xylo"
+>       TubularBells              → Just            ["tubular", "bells"]
+>       Dulcimer                  → Just $ singleton "dulcimer"
+>       HammondOrgan              → Just            ["organ", "hamm"]
+>       PercussiveOrgan           → Just            ["organ", "percuss"]
+>       RockOrgan                 → Just            ["organ", "rock"] 
+>       ChurchOrgan               → Just            ["organ", "church"]
+>       ReedOrgan                 → Just            ["organ", "reed", "accord"]
+>       Accordion                 → Just $ singleton "accord"
+>       Harmonica                 → Just $ singleton "harmonica"
+>       TangoAccordion            → Just            ["accordion", "tango"]
+>       AcousticGuitarNylon       → Just            ["nylon", "guit", "acous"]
+>       AcousticGuitarSteel       → Just            ["steel", "guit", "acous"]
+>       ElectricGuitarJazz        → Just            ["jazz", "guit", "elec"]
+>       ElectricGuitarClean       → Just            ["clean", "guit", "elec"]
+>       ElectricGuitarMuted       → Just            ["mute", "guit", "elec"]
+>       OverdrivenGuitar          → Just            ["over", "driv", "guit"]
+>       DistortionGuitar          → Just            ["dist", "guit", "fuzz"]
+>       GuitarHarmonics           → Just            ["harmonics", "guit"]
+>       AcousticBass              → Just            ["bass", "acous"]
+>       ElectricBassFingered      → Just            ["bass", "finger", "elec"]
+>       ElectricBassPicked        → Just            ["bass", "pick", "elec"]
+>       FretlessBass              → Just            ["fret", "less", "bass"] 
+>       SlapBass1                 → Just            ["bass", "slap", "1"]
+>       SlapBass2                 → Just            ["bass", "slap", "2"]
+>       SynthBass1                → Just            ["bass", "synth", "1"]
+>       SynthBass2                → Just            ["bass", "synth", "2"]
+>       Violin                    → Just $ singleton "violin"
+>       Viola                     → Just $ singleton "viola"
+>       Cello                     → Just $ singleton "cello"
+>       Contrabass                → Just $ singleton "contrabass"
+>       TremoloStrings            → Just            ["tremolo", "string"]
+>       PizzicatoStrings          → Just            ["string", "pizzicato"]
+>       OrchestralHarp            → Just            ["harp", "harp", "orchest", "concert"]
+>       Timpani                   → Just            ["timpani", "timp"]
+>       StringEnsemble1           → Just            ["ensemble", "string", "1"]
+>       StringEnsemble2           → Just            ["ensemble", "string", "2"]
+>       SynthStrings1             → Just            ["synth", "string", "1"]
+>       SynthStrings2             → Just            ["synth", "string", "2"]
+>       ChoirAahs                 → Just            ["choir", "aahs", "chorus"]
+>       VoiceOohs                 → Just            ["voice", "oohs", "chorus"]
+>       SynthVoice                → Just            ["voice", "synth"]
+>       OrchestraHit              → Just            ["orchest", "hit"]
+>       Trumpet                   → Just            ["trumpet", "trump"]
+>       Trombone                  → Just $ singleton "trom"
+>       Tuba                      → Just $ singleton "tuba"
+>       MutedTrumpet              → Just            ["trumpet", "mute"]
+>       FrenchHorn                → Just            ["horn", "french"]
+>       BrassSection              → Just            ["brass", "section"]
+>       SynthBrass1               → Just            ["brass", "synth", "1"]
+>       SynthBrass2               → Just            ["brass", "synth", "2"]
+>       SopranoSax                → Just            ["sax" , "sopr"]
+>       AltoSax                   → Just            ["sax" , "alto"]
+>       TenorSax                  → Just            ["sax" , "tenor"]
+>       BaritoneSax               → Just            ["sax" , "bari"]
+>       Oboe                      → Just $ singleton "oboe"
+>       Bassoon                   → Just $ singleton "bassoon"
+>       EnglishHorn               → Just            ["horn", "english"]
+>       Clarinet                  → Just $ singleton "clarinet"
+>       Piccolo                   → Just $ singleton "piccolo"
+>       Flute                     → Just $ singleton "flute"
+>       Recorder                  → Just $ singleton "recorder"
+>       PanFlute                  → Just $ singleton "panflute"
+>       BlownBottle               → Just            ["bottle", "blown"]
+>       Shakuhachi                → Just $ singleton "shakuhachi"
+>       Whistle                   → Just $ singleton "whistle"
+>       Ocarina                   → Just $ singleton "ocarina"
+>       Lead1Square               → Just $ singleton "lead1square"
+>       Lead2Sawtooth             → Just $ singleton "lead2sawtooth"
+>       Lead3Calliope             → Just $ singleton "lead3calliope"
+>       Lead4Chiff                → Just $ singleton "lead4chiff"
+>       Lead5Charang              → Just $ singleton "lead5charang"
+>       Lead6Voice                → Just $ singleton "lead6voice"
+>       Lead7Fifths               → Just $ singleton "lead7fifths"
+>       Lead8BassLead             → Just $ singleton "lead8basslead"
+>       Pad1NewAge                → Just             ["new", "age"]
+>       Pad2Warm                  → Just $ singleton "pad2warm"
+>       Pad3Polysynth             → Just $ singleton "pad3polysynth"
+>       Pad4Choir                 → Just $ singleton "pad4choir"
+>       Pad5Bowed                 → Just $ singleton "pad5bowed"
+>       Pad6Metallic              → Just $ singleton "pad6metallic"
+>       Pad7Halo                  → Just             ["halo", "pad"]
+>       Pad8Sweep                 → Just             ["sweep", "pad"]
+>       FX1Train                  → Just $ singleton "train"
+>       FX2Soundtrack             → Just $ singleton "soundtrack"
+>       FX3Crystal                → Just $ singleton "crystal"
+>       FX4Atmosphere             → Just $ singleton "atmosphere"
+>       FX5Brightness             → Just $ singleton "brightness"
+>       FX6Goblins                → Just $ singleton "goblins"
+>       FX7Echoes                 → Just $ singleton "echoes"
+>       FX8SciFi                  → Just $ singleton "scifi"
+>       Sitar                     → Just $ singleton "sitar"
+>       Banjo                     → Just $ singleton "banjo"
+>       Shamisen                  → Just $ singleton "shamisen"
+>       Koto                      → Just $ singleton "koto"
+>       Kalimba                   → Just $ singleton "kalimba"
+>       Bagpipe                   → Just $ singleton "bagpipe"
+>       Fiddle                    → Just $ singleton "fiddle"
+>       Shanai                    → Just $ singleton "shanai"
+>       TinkleBell                → Just            ["bell", "tinkle"]
+>       Agogo                     → Just $ singleton "agogo"
+>       SteelDrums                → Just            ["drums", "steel"]
+>       Woodblock                 → Just $ singleton "woodblock"
+>       TaikoDrum                 → Just            ["drum", "taiko"]
+>       MelodicDrum               → Just            ["drum", "melodic"]
+>       SynthDrum                 → Just            ["drum", "synth"]
+>       ReverseCymbal             → Just            ["cymbal", "reverse"]
+>       GuitarFretNoise           → Just            ["fret", "noise", "guit"]
+>       BreathNoise               → Just            ["breath", "noise"]
+>       Seashore                  → Just $ singleton "seashore"
+>       BirdTweet                 → Just            ["bird", "tweet"]
+>       TelephoneRing             → Just            ["tele", "ring"]
+>       Helicopter                → Just $ singleton "helicopter"
+>       Applause                  → Just $ singleton "applause"
+>       Gunshot                   → Just $ singleton "gunshot"
+>       _                         → Nothing
+>
+> percussionConFFKeys    :: PercussionSound → Maybe (PercussionSound, [String])
+> percussionConFFKeys p = embed p keys
+>   where
+>     keys = case p of
+>       AcousticSnare             → Just            ["elec"]
+>       AcousticBassDrum          → Just            ["elec"]
+>       _                         → Nothing
+>
+> percussionProFFKeys    :: PercussionSound → Maybe (PercussionSound, [String])
+> percussionProFFKeys p = embed p keys
+>   where
+>     keys = case p of
+>       AcousticBassDrum          → Just            ["drum", "acous", "bass", "concert"]
+>       BassDrum1                 → Just            ["kick", "drum", "bass"]
+>       SideStick                 → Just            ["side", "stick"]
+>       AcousticSnare             → Just            ["snare", "drum", "acous"]
+>       HandClap                  → Just            ["clap", "hand"]
+>       ElectricSnare             → Just            ["snare", "elec", "drum"]
+>       LowFloorTom               → Just            ["tom", "floor", "low"]
+>       ClosedHiHat               → Just            ["hihat", "close"]
+>       HighFloorTom              → Just            ["tom", "high", "floor"]
+>       PedalHiHat                → Just            ["hihat", "pedal"]
+>       LowTom                    → Just            ["tom", "low"]
+>       OpenHiHat                 → Just            ["hihat", "open"]
+>       LowMidTom                 → Just            ["tom", "mid", "low"]
+>       HiMidTom                  → Just            ["tom", "high", "mid"]
+>       CrashCymbal1              → Just            ["crash", "cymbal", "1"]
+>       HighTom                   → Just            ["tom", "high"]
+>       RideCymbal1               → Just            ["cymbal", "ride", "1"]
+>       ChineseCymbal             → Just            ["cymbal", "chinese"]
+>       RideBell                  → Just            ["bell", "ride"]
+>       Tambourine                → Just            ["tambo"]
+>       SplashCymbal              → Just            ["cymbal", "splash"]
+>       Cowbell                   → Just            ["cowbell"]
+>       CrashCymbal2              → Just            ["crash", "cymbal", "2"]
+>       Vibraslap                 → Just            ["vibraslap"]
+>       RideCymbal2               → Just            ["cymbal", "ride", "2"]
+>       HiBongo                   → Just            ["bongo", "hi"]
+>       LowBongo                  → Just            ["bongo", "low"]
+>       MuteHiConga               → Just            ["conga", "mute", "hi"]
+>       OpenHiConga               → Just            ["conga", "open", "hi"]
+>       LowConga                  → Just            ["conga", "low"]
+>       HighTimbale               → Just            ["timbale", "hi"]
+>       LowTimbale                → Just            ["timbale", "low"]
+>       HighAgogo                 → Just            ["agogo", "hi"]
+>       LowAgogo                  → Just            ["agogo", "low"]
+>       Cabasa                    → Just            ["cabasa"]
+>       Maracas                   → Just            ["maracas"]
+>       ShortWhistle              → Just            ["whistle", "short"]
+>       LongWhistle               → Just            ["whistle", "long"]
+>       ShortGuiro                → Just            ["guiro", "short"]
+>       LongGuiro                 → Just            ["guiro", "long"]
+>       Claves                    → Just            ["claves"]
+>       HiWoodBlock               → Just            ["woodblock", "hi"]
+>       LowWoodBlock              → Just            ["woodblock", "low"]
+>       MuteCuica                 → Just            ["cuica", "mute"]
+>       OpenCuica                 → Just            ["cuica", "open"]
+>       MuteTriangle              → Just            ["triangle", "mute"]
+>       OpenTriangle              → Just            ["triangle", "open"]
+>
+> adhocFuzz              :: String → [String] → [Maybe FF.Alignment]
+> adhocFuzz inp                            = map (`FF.bestMatch` inp)
 
-> formZoneCache          :: SFBoot
->                           → ResultDispositions
->                           → IO (Map PerGMKey PerInstrument, ResultDispositions)
-> formZoneCache boot rd_
->                                          = do
->   return $ Map.foldlWithKey formFolder (Map.empty, rd_) boot.zJobs
+handle "matching as" cache misses =====================================================================================
+
+> createFuzzMap          :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ String → (a → Maybe (a, [String])) → Map a Fuzz
+> createFuzzMap inp getFFKeys              = Map.fromList $ mapMaybe (evalAgainstKindKeys inp) asLooks
 >   where
->     formFolder         :: (Map PerGMKey PerInstrument, ResultDispositions)
->                           → PerGMKey → InstCat
->                           → (Map PerGMKey PerInstrument, ResultDispositions)
->     formFolder (zc, rd) pergm icat       = (Map.insert pergm (computePerInst pergm icat) zc, rd)
+>     -- weed out candidates with no fuzzy keys
+>     asLooks            :: [(a, [String])]
+>     asLooks                              = mapMaybe getFFKeys (select allKinds)
 >
->     computePerInst     :: PerGMKey → InstCat → PerInstrument
->     computePerInst pergm icat
->       | traceIf trace_CPI False          = undefined
->       | otherwise                        = PerInstrument (zip pzs oList) icd.inSmashup
->       where
->         sffile                           = boot.zFiles ! pergm.pgkwFile
->         preI                             =
->           deJust "computePerInst PreInstrument" (Map.lookup pergm boot.zPreInstCache)
->
->         icd            :: InstCatData
->         bixen          :: [Word]
->
->         (icd, bixen)                     =
->           case icat of
->             InstCatPerc x                → (x, x.inPercBixen)
->             InstCatInst x                → (x, map pzWordB x.inPreZones)
->             _                            → error $ unwords ["formZoneCache", "only Inst and Perc are valid here"]
->
->         gZone                            =
->           case preI.iGlobalKey of
->             Nothing                      → defZone
->             Just pzk                     → buildZone sffile defZone pzk.pzkwBag
->         oList                            = map (buildZone sffile gZone) bixen
->
->         pzs                              = filter (\pz → pz.pzWordB `elem` bixen) icd.inPreZones
->
->         trace_CPI                        =
->           unwords ["computePerInst", show pergm.pgkwFile, preI.iName, show (length oList)]
->
-> buildZone              :: SFFile → SFZone → Word → SFZone
-> buildZone sffile fromZone bagIndex
->   | traceIf trace_BZ False               = undefined
->   | otherwise                            = zone
+> evalAgainstKeys        :: String → [String] → Fuzz
+> evalAgainstKeys inp keys                 = sum $ zipWith evalAgainstOne keys weights
 >   where
->     zone                                 = foldr addMod (foldl' addGen fromZone gens) mods
->     boota                                = sffile.zBoot
+>     lFactor        :: Double             = sqrt $ fromIntegral $ length keys
+>     weights        :: [Double]           = [1.9 / lFactor
+>                                           , 1.6 / lFactor
+>                                           , 1.25 / lFactor
+>                                           , 1.17 / lFactor
+>                                           , 1.14 / lFactor]
 >
->     xgeni                                = F.genNdx $ boota.ssIBags!bagIndex
->     ygeni                                = F.genNdx $ boota.ssIBags!(bagIndex + 1)
->     xmodi                                = F.modNdx $ boota.ssIBags!bagIndex
->     ymodi                                = F.modNdx $ boota.ssIBags!(bagIndex + 1)
+>     evalAgainstOne     :: String → Double → Double
+>     evalAgainstOne key weight            = maybe 0 ((* weight) . fromIntegral . FF.score) (FF.bestMatch key inp)
 >
->     gens               :: [F.Generator]  =
+> evalAgainstKindKeys    :: String → (a, [String]) → Maybe (a, Fuzz)
+> evalAgainstKindKeys inp (kind, keys)     = if tot <= 0 then Nothing else Just (kind, tot)
+>   where
+>     tot            :: Double             = evalAgainstKeys inp keys
+>
+> evalAgainstGeneric     :: String → Fuzz
+> evalAgainstGeneric inp                   =
+>   evalAgainstKeys inp genericInstFFKeys - evalAgainstKeys inp genericPercFFKeys
+
+Range theory ==========================================================================================================
+
+Model rectilinear sub-space coverage; e.g. find unwanted (sub-)space overlaps. Each space (of nspaces) contains
+exactly ndims (2 in the MIDI case) ranges. If dim is the value of a dimension then its overall range is implicitly
+0..dim-1 -- the associated _specified_ space range carves out a subset thereof.
+
+Say you have ndims=2 dimensions each of 64 extent. (Partially) covering overall 64x64 space are nspaces=3 "zones". 
+
+Zone 1: 32..57 "pitch", 11..47 "velocity"
+Zone 2: 21..40        , 20..21
+Zone 3: 0..1          , 0..1
+
+You see there is some overlap between Zone 1 and Zone 2.
+
+> smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
+>                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
+> smashSubspaces tag dims spaces_
+>   | traceIf trace_SS False               = undefined
+>   | otherwise                            = Smashing tag dims spaces (developSmashStats svector) svector
+>   where
+>     spaces             :: [(i, [(i, i)])]
+>     spaces                               = map (BF.second (zipWith (\dim → fromMaybe (0, dim-1)) dims)) spaces_
+>
+>     mag                :: Int            = fromIntegral $ product dims
+>
+>     svector            :: VU.Vector (i, i)
+>     svector                              = foldl' sfolder (VU.replicate mag (0, 0)) spaces
+>
+>     sfolder            :: VU.Vector (i, i) → (i, [(i, i)]) → VU.Vector (i, i)
+>     sfolder smashup (spaceId, rngs)      = VU.accum assignCell smashup (enumAssocs dims spaceId rngs)
+>
+>     assignCell         :: (i, i) → (i, i) → (i, i)
+>     assignCell mfrom mto                 = (fst mto, snd mfrom + 1)
+>
+>     enumAssocs         ::  [i] → i → [(i, i)] → [(Int, (i, i))]
+>     enumAssocs dimsA spaceId rngs        =
 >       profess
->         (xgeni <= ygeni)
->         (unwords["SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt (buildZone gens)"])
->         (map (boota.ssIGens !) (deriveRange xgeni ygeni))
->     mods               :: [(Word, F.Mod)]
->                                          =
+>         (0 <= mag && mag <= 65_536 && all (uncurry validRange) (zip dimsA rngs))
+>         (unwords ["enumAssocs: range violation", tag, show mag, show dimsA, show spaces])
+>         (map (, (spaceId, 1)) is)
+>       where
+>         is             :: [Int]
+>         is                               =
+>           map (fromIntegral . computeCellIndex dimsA) (traverse walkRange rngs)
+>
+>     trace_SS                             = unwords ["smashSubspaces", show (length spaces_), show spaces_]
+>
+> validRange             :: ∀ i . (Integral i, Ix i) ⇒ i → (i, i) → Bool
+> validRange dim (r, s)                    = 0 <= dim && r <= s && inZRange r dim && inZRange s dim
+>
+> validCoords            :: ∀ i . (Integral i, Ix i, VU.Unbox i) ⇒ [i] → Smashing i → Bool
+> validCoords coords smashup               = and $ zipWith inZRange coords smashup.smashDims
+>
+> lookupCellIndex        :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
+> lookupCellIndex coords smashup           = try
+>   where
+>     try_                                 =
 >       profess
->         (xmodi <= ymodi)
->         (unwords["SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt (buildZone mods)"])
->         (zip [10_000..] (map (boota.ssIMods !) (deriveRange xmodi ymodi)))
+>         (validCoords coords smashup)
+>         (unwords ["lookupCellIndex", "invalid coords"])
+>         (smashup.smashVec VU.! computeCellIndex smashup.smashDims coords)
+>     try                                  =
+>       if snd try_ > 0
+>         then try_
+>         else (snd $ minimum (map (measure coords) smashup.smashSpaces), 1)
 >
->     trace_BZ                             =
->       unwords ["buildZone", show sffile.zWordF, show bagIndex, show zone.zSampleIndex
->              , show (fromMaybe "" name), show (fromZone == defZone)]
+>     measure            :: [i] → (i, [(i, i)]) → (Double, i)
+>     measure coordsM space                =
+>       minimum (map (distance (fst space) coordsM) (listOutPoints (snd space)))
 >
->     name               :: Maybe String   =
->       zone.zSampleIndex >>= \x → Just (boota.ssShdrs ! x) >>= Just . F.sampleName
-
-define signal functions and instrument maps to support rendering ======================================================
-
-> prepareInstruments     :: SFBoot → SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
-> prepareInstruments boot runt@SFRuntime{zWinningRecord}
->                                          = 
->     return $ (Percussion, assignPercussion)                                                 : imap
->   where
->     WinningRecord{pWinningI, pWinningP}  = zWinningRecord
->     imap                                 = Map.foldrWithKey imapFolder [] pWinningI
->     pmap                                 = Map.foldrWithKey pmapFolder [] pWinningP
->
->     imapFolder kind PerGMScored{pPerGMKey} target
->                                          = (kind, assignInstrument pPerGMKey)                    : target
->
->     pmapFolder kind PerGMScored{pPerGMKey} target
->                                          = (kind, (pgkwFile pPerGMKey, pgkwInst pPerGMKey))      : target
->
->     assignInstrument   :: ∀ p . Clock p ⇒ PerGMKey → Instr (Stereo p)
->     assignInstrument pergm durI pch vol params
->                                          =
->       proc _ → do
->         (zL, zR)                         ← instrumentSF boot runt pergm durI pch vol params ⤙ ()
->         outA                             ⤙ (zL, zR)
->
->     assignPercussion   :: ∀ p . Clock p ⇒ Instr (Stereo p)
->     assignPercussion durP pch vol params
->                                          = assignInstrument pergm durP pch vol params
+>     distance           :: i → [i] → [i] → (Double, i)
+>     distance bix [] []                   = (0, bix)
+>     distance bix (x:xs) (y:ys)           = (var + fst (distance bix xs ys), bix)
 >       where
->         pergm                            = PerGMKey wF wI Nothing
->         (wF, wI)                         =
->           case lookup kind pmap of
->             Nothing    → error ("Percussion does not have " ++ show kind ++ " in the supplied pmap.")
->             Just x     → x
->         kind           :: PercussionSound
->                                          = toEnum (pch - 35)
+>         delta, var     :: Double
+>         delta                            = fromIntegral (x - y)
+>         var                              = delta * delta
+>     distance _ _ _                       =
+>       error $ unwords ["distance:", "input coords args have unequal lengths"]
 >
-> instrumentSF           :: ∀ p . Clock p ⇒
->                           SFBoot
->                           → SFRuntime
->                           → PerGMKey
->                           → Dur
->                           → AbsPitch
->                           → Volume
->                           → [Double]
->                           → Signal p () (Double, Double)
-> instrumentSF boot runt pergm durI pchIn volIn nps
->   | traceNot trace_ISF False             = undefined
->   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rSampleRate
->                                              durI pchOut volOut nps
->                                              samplea.ssData samplea.ssM24
+> listOutPoints          :: ∀ i . (Integral i) ⇒ [(i, i)] → [[i]]
+> listOutPoints []                         = [[]]
+> listOutPoints ((r, s) : ranges)          = points1 ++ points2
 >   where
->     fName_                               = "instrumentSF"
->     noon                                 = NoteOn
->                                              (clip (0, 127) volIn)
->                                              (clip (0, 127) pchIn)
->     pchOut              :: AbsPitch      = maybe noon.noteOnKey (clip (0, 127)) reconX.rForceKey
->     volOut              :: Volume        = maybe noon.noteOnVel (clip (0, 127)) reconX.rForceVel
+>     points1                              = map ([r] ++) (listOutPoints ranges)
+>     points2                              = map ([s] ++) (listOutPoints ranges)
 >
->     sffile                               = boot.zFiles ! pergm.pgkwFile
->     samplea                              = sffile.zSample
+> computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → Int
+> computeCellIndex [] []                   = 0
+> computeCellIndex (_:dims) (rng:rngs)       = fromIntegral (rng * product dims) + computeCellIndex dims rngs
+> computeCellIndex _ _                     =
+>   error $ unwords ["computeCellIndex:", "input args dims and coords have unequal lengths"]
 >
->     preI                                 = deJust (unwords [fName_, "preI"]) (Map.lookup pergm boot.zPreInstCache)
->     perI                                 = deJust (unwords [fName_, "perI"]) (Map.lookup pergm runt.zPerInstCache)
+> allCellsEqualTo        :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ Smashing i → Maybe (i, i)
+> allCellsEqualTo smashup                  =
+>   let
+>     cand                                 = smashup.smashVec VU.! 0
+>   in
+>     if all (\j → cand == (smashup.smashVec VU.! j)) [0..(VU.length smashup.smashVec - 1)]
+>       then Just cand
+>       else Nothing
 >
->     trace_ISF                            =
->       unwords [fName_, show pergm.pgkwFile, show preI.pInst, show (pchIn, volIn), show durI]
+> data Smashing i                          =
+>   Smashing {
+>     smashTag            :: String
+>     , smashDims         :: [i]
+>     , smashSpaces       :: [(i, [(i, i)])]
+>     , smashStats        :: SmashStats
+>     , smashVec          :: VU.Vector (i, i)}
+> instance ∀ i. (Integral i, Num i, Show i) ⇒ Show (Smashing i) where
+>   show Smashing{ .. }                    =
+>     unwords ["Smashing", show (smashTag, smashStats)]
+> sLength                :: ∀ i. (Integral i) ⇒ Smashing i → i
+> sLength smashup                        = product smashup.smashDims
+> data SmashStats                        =
+>   SmashStats {
+>     countNothings      :: Int
+>   , countSingles       :: Int
+>   , countMultiples     :: Int} deriving Show
+> seedSmashStats         :: SmashStats
+> seedSmashStats                           = SmashStats 0 0 0
 >
->     (reconX, mreconX)                    =
->       case setZone of
->         Left zplus                       → (recon zplus noon nps (fromRational durI), Nothing)
->         Right zsPlus                     → reconLR zsPlus noon nps (fromRational durI)
+> developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ VU.Vector (i,i) → SmashStats
+> developSmashStats                        = VU.foldl' sfolder seedSmashStats
+>   where
+>     sfolder            :: SmashStats → (i, i) → SmashStats
+>     sfolder stats@SmashStats{ .. } (_, count)
+>       | count == 0                       = stats{countNothings = countNothings + 1}
+>       | count == 1                       = stats{countSingles = countSingles + 1}
+>       | otherwise                        = stats{countMultiples = countMultiples + 1}
+> fractionEmpty, fractionCovered
+>                        :: ∀ i. (Integral i, Show i) ⇒ Smashing i → Rational
+> fractionEmpty smashup                    = fromIntegral (countNothings smashup.smashStats) % fromIntegral (sLength smashup)
+> fractionCovered smashup                  =
+>   fromIntegral (countSingles smashup.smashStats + countMultiples smashup.smashStats) % fromIntegral (sLength smashup)
+>
+> inZRange               :: (Ix a, Num a) ⇒ a → a → Bool
+> inZRange x y                             = inRange (0, y - 1) x 
 
-zone selection for rendering ==========================================================================================
+apply fuzzyfind to mining instruments + percussion ====================================================================
 
->     setZone            :: Either (SFZone, F.Shdr) ((SFZone, F.Shdr), (SFZone, F.Shdr))
->     setZone                              =
->       case selectZoneConfig selectBestZone of 
->         Left (pzL, zoneL)                → Left (zoneL, shdr pzL)
->         Right ((pzL, zoneL), (pzR, zoneR))
->                                          → Right ((zoneL, shdr pzL), (zoneR, shdr pzR))
+> class GMPlayable a where
+>   toGMKind             :: a → GMKind
+>   select               :: ([InstrumentName], [PercussionSound]) → [a]
+>   getFuzzMap           :: FFMatches → Map a Fuzz
+>
+> instance GMPlayable InstrumentName where
+>   toGMKind                               = Left
+>   select rost                            =
+>     if narrowInstrumentScope
+>       then fst rost
+>       else fst allKinds
+>   getFuzzMap                             = ffInst
+>
+> instance GMPlayable PercussionSound where
+>   toGMKind                               = Right
+>   select rost                            =
+>     if narrowInstrumentScope
+>       then snd rost
+>       else snd allKinds
+>   getFuzzMap                             = ffPerc
+>
+> type Fuzz = Double
+
+Emission capability ===================================================================================================
+
+> data Emission                            = 
+>   ToFieldL String Int
+>   | ToFieldR String Int
+>   | Unblocked String
+>   | Blanks Int
+>   | Empty 
+>   | EndOfLine deriving Show
+>
+> makeString             :: Emission → String
+> makeString em                            =
+>   case em of
+>     ToFieldL str sz    → if len > sz then error $ unwords ["overflowL", show sz, show len, show str]
+>                                      else fillFieldL sz str
 >       where
->         shdr                             = effShdr boot.zPreSampleCache
->
->     selectBestZone     :: (PreZone, SFZone)
->     selectBestZone
->       | traceNot trace_SBZ False         = undefined
->       | otherwise                        =
->       if cnt == 0
->         then error "out of range"
->         else if isNothing foundInInst
->                then error $ unwords[fName, show bagId, "not found in inst", preI.iName, showBags perI]
->                else deJust "foundInInst" foundInInst
+>         len                              = length str
+>     ToFieldR str sz    → if len > sz then error $ unwords ["overflowR", show sz, show len, show str]
+>                                      else fillFieldR sz str
 >       where
->         fName                            = unwords [fName_, "selectBestZone"]
+>         len                              = length str
+>     Unblocked str      → str
+>     Blanks sz          → replicate sz ' '
+>     Empty              → ""
+>     EndOfLine          → "\n"
 >
->         (bagId, cnt)                   = lookupCellIndex (noonAsCoords noon) perI.pSmashing
->         foundInInst                      = findByBagIndex' perI.pZones bagId
+> emitLine               :: [Emission] → [Emission]
+> emitLine ex                              = singleton literate ++ ex ++ singleton EndOfLine
 >
->         trace_SBZ                        = unwords ["selectBestZone", show (bagId, cnt)]
+> commaOrNot             :: Int → Emission
+> commaOrNot nth                           =
+>   if nth == 0
+>     then ToFieldL ""  2
+>     else ToFieldL "," 2
 >
->     selectZoneConfig   :: (PreZone, SFZone) → Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
->     selectZoneConfig z
->        | stype == SampleTypeLeft         = qualify (Right (z, oz))
->        | stype == SampleTypeRight        = qualify (Right (oz, z))
->        | otherwise                       = Left z
->        where
->          qualify       :: Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
->                           → Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
->          qualify eith                    = if isNothing mpartner
->                                              then Left z
->                                              else eith
+> parens                 :: [Emission] → [Emission]
+> parens ex                                = [Unblocked "("] ++ ex ++ [Unblocked ")"]
 >
->          mpartner                        = getStereoPartner z
->          shdr                            = (effShdr boot.zPreSampleCache . fst) z
->          stype                           = toSampleType shdr.sampleType
->          oz                              = deJust "oz" mpartner
+> bracks                 :: [Emission] → [Emission]
+> bracks ex                                = [Unblocked "["] ++ ex ++ [Unblocked "]"]
 >
->     getStereoPartner   :: (PreZone, SFZone) → Maybe (PreZone, SFZone)
->     getStereoPartner z
->       | traceNot trace_GSP False         = undefined
->       | otherwise                        =
->       case toSampleType (F.sampleType shdr) of
->         SampleTypeLeft                   → partner
->         SampleTypeRight                  → partner
->         _                                → error $ unwords [fName, "attempted on non-stereo zone"]
->       where
->         fName                            = unwords [fName_, "getStereoPartner"]
+> comma, literate        :: Emission
+> comma                                    = Unblocked ", "
+> literate                                 = ToFieldL ">" 2
 >
->         shdr                             = (effShdr boot.zPreSampleCache . fst) z
->         partnerKeys                      = (pzmkPartners . fst) z
+> emitComment            :: [Emission] → [Emission]
+> emitComment ex                           = [EndOfLine] ++ ex ++ [EndOfLine, EndOfLine]
 >
->         trace_GSP                        = unwords [fName, showable, showPreZones (singleton $ fst z)]
->         showable                         =
->           case partner of
->             Just (pz, _)                 → show pz.pzWordB
->             Nothing                      → "Nothing" 
+> emitNextComment        :: [Emission] → [Emission]
+> emitNextComment ex                       = ex ++ [EndOfLine, EndOfLine]
 >
->         -- maybe hide this hack of getting zone "directly" under a conditional
->         partner                          =
->           findBySampleIndex' perI.pZones (F.sampleLink shdr) `CM.mplus` getCrossover
+> emitShowL              :: (Show a) ⇒ a → Int → Emission
+> emitShowL item                           = ToFieldL (show item)
 >
->         getCrossover   :: Maybe (PreZone, SFZone)
->         getCrossover                     = if allowStereoCrossovers && not (null cands)
->                                              then Just (head cands)
->                                              else Nothing
->           where
->             cands                        = mapMaybe evalCand partnerKeys
+> emitShowR              :: (Show a) ⇒ a → Int → Emission
+> emitShowR item                           = ToFieldR (show item)
 >
->             evalCand   :: PreZoneKey → Maybe (PreZone, SFZone)
->             evalCand _                   = Nothing -- WOX
-> {-
->               let
->                 pz                       = pzk `Map.lookup` sfrost.zPreZoneCache
->                 zone                     = pzk `Map.lookup` sfrost.zPartnerCache
->               in
->                 if isJust pz && isJust zone
->                   then Just (fromJust pz, fromJust zone)
->                   else Nothing
-> -}
+> emitDefault            :: (Show a) ⇒ a → Emission
+> emitDefault item                         = Unblocked (show item)
+>
+> gmId                   :: (Show a) ⇒ a → Emission
+> gmId i                                   = emitShowL i 22
+>
+> reapEmissions          :: [Emission] → String
+> reapEmissions                            = concatMap makeString
+>
+> fillFieldL             :: Int → String → String
+> fillFieldL fieldSz str                   = str ++ safeReplicate (length str) fieldSz ' '
+>
+> fillFieldR             :: Int → String → String
+> fillFieldR fieldSz str                   = safeReplicate (length str) fieldSz ' ' ++ str
+>
+> safeReplicate          :: Int → Int → Char → String
+> safeReplicate sz maxSz                   = replicate (maxSz - sz)
+>
+> writeFileBySections    :: FilePath → [[Emission]] → IO ()
+> writeFileBySections fp eSections         = do
+>   mapM_ (appendFile fp . reapEmissions) eSections
+>
+> type Velocity                            = Volume
+> type KeyNumber                           = AbsPitch
+>
+> data SampleType =
+>   SampleTypeMono
+>   | SampleTypeRight
+>   | SampleTypeLeft
+>   | SampleTypeLinked
+>   | SampleTypeOggVorbis
+>   | SampleTypeRomMono
+>   | SampleTypeRomRight
+>   | SampleTypeRomLeft
+>   | SampleTypeRomLinked deriving (Eq, Show)
+>
+> toSampleType           :: Word → SampleType
+> toSampleType hex                         = deJust "toMaybeSampleType" (toMaybeSampleType hex)
+>
+> toMaybeSampleType      :: Word → Maybe SampleType
+> toMaybeSampleType n                      =
+>   case n of
+>     0x0                    → Just SampleTypeMono
+>     0x1                    → Just SampleTypeMono
+>     0x2                    → Just SampleTypeRight
+>     0x4                    → Just SampleTypeLeft
+>     0x8                    → Just SampleTypeLinked
+>     0x10                   → Just SampleTypeOggVorbis
+>     0x8001                 → Just SampleTypeRomMono
+>     0x8002                 → Just SampleTypeRomRight
+>     0x8004                 → Just SampleTypeRomLeft
+>     0x8008                 → Just SampleTypeRomLinked
+>     _                      → Nothing
+>
+> fromSampleType             :: SampleType → Word
+> fromSampleType stype =
+>   case stype of
+>     SampleTypeMono         → 0x1
+>     SampleTypeRight        → 0x2
+>     SampleTypeLeft         → 0x4
+>     SampleTypeLinked       → 0x8
+>     SampleTypeOggVorbis    → 0x10
+>     SampleTypeRomMono      → 0x8001
+>     SampleTypeRomRight     → 0x8002
+>     SampleTypeRomLeft      → 0x8004
+>     SampleTypeRomLinked    → 0x8008
+>
+> goodChar               :: Char → Bool
+> goodChar cN                              = isAscii cN && not (isControl cN)
+>
+> fixName                :: String → String
+> fixName                                  = map (\cN → if goodChar cN then cN else '_')
+>
+> profess                :: Bool → String → a → a
+> profess assertion msg something          = if not assertion
+>                                              then error (unwords ["Failed assertion --", msg])
+>                                              else something
+>
+> professInRange         :: (Eq a, Ord a, Show a) ⇒ (a, a) → a → String → a → a
+> professInRange rng val role            = profess
+>                                              (val == clip rng val)
+>                                              (unwords ["out of", role, "range", show rng, show val])
+>
+> deJust                 :: ∀ a. String → Maybe a → a
+> deJust tag item                          = profess (isJust item) (unwords["expected Just for", tag]) (fromJust item)
+>
+> pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Maybe (AbsPitch, AbsPitch)
+> pinnedKR pss (p1, p2)                    = if qualifies then Just (p1, p2) else Nothing                   
+>   where
+>     qualifies                            = (p2 < p1 + 2) && all available [p1 .. p2]
+>     available          :: AbsPitch → Bool
+>     available ap                         = maybe False (`elem` pss) (pitchToPerc ap)
+>
+> pitchToPerc            :: AbsPitch → Maybe PercussionSound
+> pitchToPerc ap                           =
+>   let
+>     ad                                   = ap - 35
+>   in
+>     if ad >= fromEnum AcousticBassDrum && ad <= fromEnum OpenTriangle
+>       then Just (toEnum ad)
+>       else Nothing
+>
+> zshow                  :: ∀ a . a → String
+> zshow _                                  = "list"
+>
+> accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
+> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
+>
+> clip                   :: Ord n ⇒ (n, n) → n → n
+> clip (lower, upper) val                  = min upper (max lower val)
+>
+> deriveRange            :: Integral n ⇒ n → n → [n]
+> walkRange              :: Integral n ⇒ (n, n) → [n]
+> deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]
+> walkRange (x, y)                         = if x > y || y < 0 then [] else [x..y]
+>
+> theE, epsilon, upsilon :: Double
+> theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
+> epsilon                                  = 1e-8               -- a generous little epsilon
+> upsilon                                  = 1e10               -- a scrawny  big    upsilon
+>
+> qMidiSize128           :: Int
+> qMidiSize128                             = 128
+> qMidiSizeSpace         :: Int
+> qMidiSizeSpace                           = qMidiSize128 * qMidiSize128
 
-reconcile zone and sample header ======================================================================================
+Tracing ===============================================================================================================
 
-> reconLR                :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
->                           → NoteOn
->                           → [Double]
->                           → Dur
->                           → (Recon, Maybe Recon)
-> reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon nps durR
->   | traceNever trace_RLR False           = undefined
->   | otherwise                            = (recL, Just recR')
->   where
->     secsScored         :: Double         = fromRational durR
->     recL@Recon{rRootKey = rkL, rPitchCorrection = pcL}
->                                          = recon (zoneL, shdrL) noon nps secsScored
->     recR                                 = recon (zoneR, shdrR) noon nps secsScored
->     recR'                                = recR{
->                                                rRootKey                   = rkL
->                                              , rPitchCorrection           = pcL}
+> traceIf, traceNow, traceAlways, traceNever, traceNot
+>                        :: String → a → a
+> traceIf str expr                         = if diagnosticsEnabled then trace str expr else expr
+> traceNow                                 = trace
+> traceAlways                              = trace
+> traceNever _ expr                        = expr
+> traceNot _ expr                          = expr
 >
->     trace_RLR                            = unwords ["reconLR:\n", show zoneL, "\n", show shdrL]
+> tracer                 :: Show a ⇒ String → a → a
+> tracer str x                             =
+>   if True
+>     then traceNow (unwords [str, "=", show x]) x
+>     else x
 >
-> recon                  :: (SFZone, F.Shdr) → NoteOn → [Double] → Double → Recon
-> recon (zone_, sHdr@F.Shdr{ .. }) noon nps secsScored
->                                          = reconL
->   where
->     zone@SFZone{ .. }                    =
->       (\case
->         Just np                          → applyNoteParameter noon zone_ np secsScored
->         Nothing                          → zone_) (listToMaybe nps)
->     m8n                                  = reconModulation zone sHdr noon nps secsScored
->
->     reconL = Recon {
->     rSampleMode    = fromMaybe           A.NoLoop           zSampleMode
->   , rSampleRate    = fromIntegral        sampleRate
->   , rStart         = addIntToWord        start              (sumOfWeightedInts
->                                                               [zStartOffs,     zStartCoarseOffs]     qOffsetWeights)
->   , rEnd           = addIntToWord        end                (sumOfWeightedInts
->                                                               [zEndOffs,       zEndCoarseOffs]       qOffsetWeights)
->   , rLoopStart     = addIntToWord        startLoop          (sumOfWeightedInts
->                                                               [zLoopStartOffs, zLoopStartCoarseOffs] qOffsetWeights)
->   , rLoopEnd       = addIntToWord        endLoop            (sumOfWeightedInts
->                                                               [zLoopEndOffs,   zLoopEndCoarseOffs]   qOffsetWeights)
->   , rRootKey       = fromIntegral $ fromMaybe
->                                          originalPitch      zRootKey
->   , rForceKey      = fmap                fromIntegral       zKey
->   , rForceVel      = fmap                fromIntegral       zVel
->   , rTuning        = fromMaybe           100                zScaleTuning
->   , rNoteOn        = noon
->   , rAttenuation   = reconAttenuation                       zInitAtten
->   , rVolEnv        = deriveEnvelope                         zDelayVolEnv
->                                                             zAttackVolEnv
->                                                             noon
->                                                             nps
->                                                             (zHoldVolEnv,  zKeyToVolEnvHold)
->                                                             (zDecayVolEnv, zKeyToVolEnvDecay)
->                                                             zSustainVolEnv
->                                                             zReleaseVolEnv
->                                                             Nothing
->   , rPitchCorrection
->                    = if usePitchCorrection
->                        then Just $ reconPitchCorrection     pitchCorrection
->                                                             zCoarseTune
->                                                             zFineTune
->                        else Nothing
->
->   , rM8n           =                                        m8n
->   , rEffects       = deriveEffects                          m8n
->                                                             noon
->                                                             zChorus
->                                                             zReverb
->                                                             zPan}
->
->     reconPitchCorrection
->                        :: Int → Maybe Int → Maybe Int → Double
->     reconPitchCorrection sub mps mpc     = fromMaybe ((fromCents . fromIntegral) sub) (fromCents' mps mpc)
->
->     reconAttenuation   :: Maybe Int → Double
->     reconAttenuation _     {- WOX -}       = if useAttenuation
->                                              then maybe 0 fromIntegral zInitAtten
->                                              else 0.0
->
-> applyNoteParameter     :: NoteOn → SFZone → Double → Double → SFZone
-> applyNoteParameter noon zone bend secs   = zone'
->   where
->     zone'                                =
->       zone{  zModEnvToPitch = (Just . round) (bend * 100)
->            , zDelayModEnv   = Nothing
->            , zAttackModEnv  = Just $ toTimecents secs - 1
->            , zHoldModEnv    = Nothing
->            , zDecayModEnv   = Nothing
->            , zSustainModEnv = Just 0
->            , zKey           = (Just . fromIntegral) noon.noteOnKey
->            , zReleaseModEnv = Nothing}
->
-> reconModulation        :: SFZone → F.Shdr → NoteOn → [Double] → Double → Modulation
-> reconModulation SFZone{ .. } shdr noon nps _
->   | traceIf trace_RM False               = undefined
->   | otherwise                            = resolveMods m8n zModulators defaultMods
->   where
->     trace_RM                             = unwords ["reconModulation", shdr.sampleName, show nModEnv]
->     m8n                :: Modulation     =
->       defModulation{
->         mLowpass                         = Lowpass resonanceType curKernelSpec
->       , mModEnv                          = nModEnv
->       , mModLfo                          = nModLfo
->       , mVibLfo                          = nVibLfo
->       , toPitchCo                        = summarize ToPitch
->       , toFilterFcCo                     = summarize ToFilterFc
->       , toVolumeCo                       = summarize ToVolume}
->
->     curKernelSpec                        =
->       KernelSpec
->         (maybe 13_500 (clip (1_500, 13_500)) zInitFc)
->         (maybe 0      (clip (0,     960))    zInitQ)
->         1 
->         useFastFourier
->         (-1) -- must always be replaced
->
->     resonanceType      :: ResonanceType  = if lowpassFc (mLowpass m8n) < 10_000
->                                              then ResonanceBandpass
->                                              else ResonanceBandpass
->
->     nModEnv            :: Maybe Envelope = deriveEnvelope
->                                              zDelayModEnv
->                                              zAttackModEnv
->                                              noon
->                                              nps
->                                              (zHoldModEnv, zKeyToModEnvHold) 
->                                              (zDecayModEnv, zKeyToModEnvDecay)
->                                              zSustainModEnv
->                                              zReleaseModEnv
->                                              (Just (zModEnvToPitch, zModEnvToFc))
->     nModLfo, nVibLfo   :: Maybe LFO
->     nModLfo                              =
->       deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc zModLfoToVol
->     nVibLfo            :: Maybe LFO      =
->       deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
->
->     summarize          :: ModDestType → ModCoefficients
->     summarize toWhich                    =
->       ModCoefficients
->         (coAccess toWhich $ maybe defModTriple   eModTriple nModEnv)
->         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
->         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
+> notracer               :: Show a ⇒ String → a → a
+> notracer _ x                             = x
 
-emit standard output text detailing what choices we made for rendering GM items =======================================
-
-> printChoices           :: SFRuntime
->                           → [InstrumentName]
->                           → [(InstrumentName, [String])]
->                           → [PercussionSound]
->                           → ([(Bool, [Emission])], [(Bool, [Emission])])
-> printChoices SFRuntime{zWinningRecord} is msgs ps
->                                          = (map (showI zWinningRecord) is, map (showP zWinningRecord) ps)
->   where
->     showI              :: WinningRecord → InstrumentName → (Bool, [Emission])
->     showI WinningRecord{pWinningI} kind
->       | isJust mpergm                    = (True, true kind mpergm ++ emitMsgs kind msgs)
->       | kind == Percussion               = (True, [Blanks 3, gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
->       | otherwise                        = (False, false kind)
->       where
->         mpergm                           = Map.lookup kind pWinningI
+> reportScanName         :: FilePath
+> reportScanName                           = "ScanReport'.log"
+> reportCategorizationName   :: FilePath
+> reportCategorizationName                 = "CategorizationReport'.log"
 >
->     showP               :: WinningRecord → PercussionSound → (Bool, [Emission])
->     showP WinningRecord{pWinningP} kind
->       | isJust mpergm                    = (True, true kind mpergm)
->       | otherwise                        = (False, false kind)
->       where
->         mpergm                           = Map.lookup kind pWinningP
 >
->     true kind mpergm                     =
->       [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM (fromJust mpergm) ++ [EndOfLine]
->     false kind                           =
->       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
->
-> showPerGM              :: PerGMScored → [Emission]
-> showPerGM PerGMScored{szI, mszP, pPerGMKey}
->                                          = [emitShowL pgkwFile 4] ++ [ToFieldL szI 22] ++ showmZ
->   where
->     PerGMKey{pgkwFile}                   = pPerGMKey
->     showmZ                               = maybe [] showZ mszP
->     showZ name                           = [Unblocked name]
->
-> runDBActions  :: ReaderT MongoContext IO () → IO ()
-> runDBActions dbas = 
->   withMongoDBConn "parth" "localhost" (PortNumber 27_017) Nothing 2000 $ \pool →
->     runMongoDBPool master dbas pool
->
-> dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ (a, [PerGMScored]) → [Emission]
-> dumpContestants (kind, contestants)      = prolog ++ ex ++ epilog
->   where
->     prolog, ex, epilog :: [Emission]
->
->     prolog                               = emitLine [emitShowL kind 50]
->     ex                                   = concatMap dumpContestant contestants
->     epilog                               = emitLine []
->
-> dumpContestant         :: PerGMScored → [Emission]
-> dumpContestant PerGMScored{ .. }
->                                          = ex
->   where
->     ArtifactGrade{pEmpiricals, pScore}   = pArtifactGrade
->     PerGMKey{pgkwFile}                   = pPerGMKey
->     showAkr            :: Double         = roundBy 10 pAgainstKindResult
->     (showEmp, n)                         = showEmpiricals pEmpiricals
-> 
->     ex = emitLine [ Blanks 4, emitShowL      pgkwFile                  8
->                             , ToFieldR       szI                      22
->                   , Blanks 4, ToFieldR      (fromMaybe "" mszP)       22
->                   , Blanks 4, emitShowL      pScore                   15
->                             , ToFieldL       showEmp                   n
->                             , emitShowR      showAkr                   8]
->
-> fixBadNames, multipleCompetes, combinePartials, canDevolveToMono
+> fixBadNames, multipleCompetes
 >                        :: Bool
 > fixBadNames                              = True
 > multipleCompetes                         = True
-> combinePartials                          = False
-> canDevolveToMono                         = True
+>
+> allowOutOfRange        :: Bool
+> allowOutOfRange                          = True
+> allowOverlappingRanges :: Bool
+> allowOverlappingRanges                   = True
+> allowStereoCrossovers  :: Bool
+> allowStereoCrossovers                    = False
+> diagnosticsEnabled     :: Bool
+> diagnosticsEnabled                       = True
+> howVerboseScan         :: Double
+> howVerboseScan                           = 3/4
+> narrowInstrumentScope  :: Bool
+> narrowInstrumentScope                    = True
+> reportScan             :: Bool
+> reportScan                               = True
+> sampleSizeMin          :: Word
+> sampleSizeMin                            = 0
+>
+> isPossible', stands', isConfirmed'
+>                        :: Double → Bool
+> isPossible' fuzz                         = fuzz > isPossible
+> stands' fuzz                             = fuzz > stands
+> isConfirmed' fuzz                        = fuzz > isConfirmed
+>
+> conRatio               :: Double
+> conRatio                                 = 3/4
 
 The End

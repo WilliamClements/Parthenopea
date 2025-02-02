@@ -18,7 +18,6 @@ December 12, 2022
 
 > module Parthenopea where
 >
-> import Boot
 > import qualified Codec.Midi              as M
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq (NFData)
@@ -50,6 +49,7 @@ December 12, 2022
 > import Euterpea.Music
 > import GHC.Generics ( Generic ) 
 > import HSoM.Performance ( metro )
+> import SoundFont
 > import System.Random ( Random(randomR), StdGen )
 
 Utilities =============================================================================================================
@@ -1166,9 +1166,6 @@ breakUp returns a list of integers approximating divisions of a floating point r
 >
 > theJ :: Complex Double
 > theJ = 0 :+ 1
->
-> zshow                  :: ∀ a . a → String
-> zshow _                                  = "list"
 
 Configurable parameters ===============================================================================================
 
