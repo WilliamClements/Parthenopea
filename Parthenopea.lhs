@@ -8,7 +8,6 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
-> {-# LANGUAGE TypeFamilies #-} 
 > {-# LANGUAGE TypeOperators #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -27,28 +26,24 @@ December 12, 2022
 > import qualified Data.Bifunctor          as BF
 > import Data.Complex
 > import Data.Either
-> import Data.Graph (Graph)
-> import qualified Data.Graph              as Graph
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List hiding (transpose)
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe
-> import Data.MemoTrie
 > import Data.Ord
 > import Data.Ratio ( approxRational )
 > import qualified Data.Vector.Unboxed     as VU
 > import Data.Word
 > import Euterpea.IO.Audio.Basics ( outA )
-> import Euterpea.IO.Audio.BasicSigFuns ( Table, tableSinesN )
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.IO.MIDI.MidiIO ( unsafeOutputID )
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.IO.MIDI.ToMidi2 ( writeMidi2 )
 > import Euterpea.Music
-> import GHC.Generics ( Generic ) 
 > import HSoM.Performance ( metro )
+> import Modulation
 > import SoundFont
 > import System.Random ( Random(randomR), StdGen )
 
@@ -57,11 +52,6 @@ Utilities ======================================================================
 > hzToAp                 :: Double → AbsPitch
 > hzToAp freak                             =
 >   round $ fromIntegral (absPitch (A,4)) + 12 * (logBase 2 freak - logBase 2 440)
->
-> qOffsetWeights         :: [Int]
-> qOffsetWeights                           = [1, 32_768]
-> freakRange             :: (Double, Double)
-> freakRange                               = (20, 20_000)
 >
 > impM                   :: FilePath → IO ()
 > impM fp                                  = do
@@ -786,42 +776,10 @@ music converter ================================================================
 
 -----------------------------------------------------------------------------------------------------------------------
 
-> data KernelSpec                          =
->   KernelSpec {
->     ksFc               :: Int
->   , ksQ                :: Int
->   , ksSr               :: Int
->   , ksFast             :: Bool
->   , ksLen              :: Int} deriving (Eq, Generic, Ord, Show)
->
-> defKernelSpec          :: Bool → KernelSpec
-> defKernelSpec bFast                      = KernelSpec 13_500 0 44_100 bFast 300
->
-> instance HasTrie KernelSpec where
->   newtype (KernelSpec :->: b)            = KernelSpecTrie { unKernelSpecTrie :: Reg KernelSpec :->: b } 
->   trie                                   = trieGeneric KernelSpecTrie 
->   untrie                                 = untrieGeneric unKernelSpecTrie
->   enumerate                              = enumerateGeneric unKernelSpecTrie
->
 > eutSplit               :: ∀ p . Clock p ⇒ Signal p Double (Double, Double)
 > eutSplit                                 =
 >   proc sIn → do
 >     outA                                 ⤙ (sIn, sIn)
-
-Signals of interest ===================================================================================================
-
-> sawtoothTable          :: Table
-> sawtoothTable                            = tableSinesN 16_384 
->                                                          [      1, 0.5  , 0.3
->                                                            , 0.25, 0.2  , 0.167
->                                                            , 0.14, 0.125, 0.111]
->
-> triangleWaveTable      :: Table
-> triangleWaveTable                        = tableSinesN 16_384 
->                                                          [      1,  0, -0.5,  0,  0.3,   0
->                                                           , -0.25,  0,  0.2,  0, -0.167, 0
->                                                           ,  0.14,  0, -0.125]
->
 
 Sampling ==============================================================================================================
 
@@ -843,44 +801,6 @@ Sampling =======================================================================
 >
 > maxSample              :: ∀ p. (Clock p) ⇒ Double → Signal p () Double → Double
 > maxSample durS sf                        = maximum $ map abs (toSamples durS sf)
-
-Control Functions
-
-The use of following functions requires that their input is normalized between 0 and 1
-(And you can count on the output being likewise normalized!)
-
-> controlLinear          :: Double → Double
-> controlLinear                            = id
->
-> quarterCircleTable     :: Array Int Double
->                                            -- TODO: use Table
-> quarterCircleTable                       = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
->   where
->     calc               :: Int → Double
->     calc i                               = 1 - sqrt (1 - cD*cD)
->       where
->         cD             :: Double         = fromIntegral i / tableSize
->
-> qTableSize             :: Int
-> qTableSize                               = 1024
-> tableSize              :: Double
-> tableSize                                = fromIntegral qTableSize
->
-> controlConcave         :: Double → Double
-> controlConcave doub
->   | doub >= 1                            = 1
->   | otherwise                            = quarterCircleTable ! truncate (doub * tableSize)
->
-> controlConvex          :: Double → Double
-> controlConvex doub
->   | (1 - doub) >= 1                      = 1
->   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - doub) * tableSize))
->
-> controlSwitch          :: (Ord a1, Fractional a1, Num a2) ⇒ a1 → a2
-> controlSwitch doub                       = if doub < 0.5
->                                              then 0
->                                              else 1
->
 >
 > class Coeff a where
 >   azero                :: a
@@ -928,46 +848,13 @@ The use of following functions requires that their input is normalized between 0
 >   rate _                                 = 4.41
 > type SlwSF a b                           = SigFun SlwRate a b
 >
-> type Node = Int
->
 > aEqual                 :: (Eq a, Show a) ⇒ a → a → Bool
 > aEqual x y
 >   | x /= y                               = error (show x ++ " and " ++ show y ++ " had to be equal!?")
 >   | otherwise                            = True
->
-> makeGraph              :: [(Node, [Node])] → Graph
-> makeGraph list                           = 
->   let
->     highestL                             = if null list
->                                              then 0
->                                              else maximum (map fst list)
->     highestR                             = foldl' (\x y → max x (maximum y)) 0 (map snd list)
->     highest                              = max highestL highestR
->     orphans                              = filter (\x → isNothing (lookup x list)) [0..highest]
->     extra                                = map (,[]) orphans
->   in array (0, highest) (list ++ extra)
->
-> -- | Calculates all the nodes that are part of cycles in a graph.
-> cyclicNodes :: Graph → [Node]
-> cyclicNodes graph                        = (map fst . filter isCyclicAssoc . assocs) graph
->   where
->     isCyclicAssoc                        = uncurry (reachableFromAny graph)
->
-> -- | In the specified graph, can the specified node be reached, starting out
-> -- from any of the specified vertices?
-> reachableFromAny :: Graph → Node → [Node] → Bool
-> reachableFromAny graph node =
->   elem node . concatMap (Graph.reachable graph)
 
 Conversion functions and general helpers ==============================================================================
 
-> checkForNan            :: Double → String → Double
-> checkForNan y msg                        =
->   profess
->     (not $ isNaN y || isInfinite y || isDenormalized y || abs y > 200_000)
->     (msg ++ " bad Double = " ++ show y)
->     y
->
 > roundBy                :: Double → Double → Double
 > roundBy p10 x                            = fromIntegral rnd / p10
 >   where
@@ -993,53 +880,6 @@ Conversion functions and general helpers =======================================
 > almostEqual 0 0                          = True
 > almostEqual x y                          = epsilon > abs ((x - y) / (x + y))
 
-Account for microtones specified by SoundFont scale tuning : 0 < x < 100 < 1200
-Note result is incorrect overall when involves multiple root pitches
-
-> calcMicrotoneRatio     :: AbsPitch → AbsPitch → Double → Double
-> calcMicrotoneRatio rootp p x             = step ** fromIntegral (rootp - p)
->   where
->     step               :: Double         = 2 ** (x / 1_200)
-          
-Raises 'a' to the power 'b' using logarithms.
-
-> pow                    :: Floating a ⇒ a → a → a
-> pow x y                                  = exp (log x * y)
-
-Returns the fractional part of 'x'.
-
-> frac                   :: RealFrac r ⇒ r → r
-> frac                                     = snd . properFraction
-
-Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
-
-> reportTournamentName   :: FilePath
-> reportTournamentName                     = "TournamentReport'.log"
-
-Returns the amplitude ratio
-
-> fromCentibels          :: Double → Double
-> fromCentibels centibels                  = pow 10 (centibels/1000)
->
-> toCentibels            :: Double → Double
-> toCentibels ratio                        = logBase 10 (ratio * 1000)
-
-Returns the elapsed time in seconds
-
-> fromTimecents          :: Maybe Int → Double
-> fromTimecents mtimecents                 = pow 2 (maybe (- 12_000) fromIntegral mtimecents / 1_200)
->
-> fromTimecents'         :: Maybe Int → Maybe Int → KeyNumber → Double
-> fromTimecents' mtimecents mfact key      = pow 2 (base + inc)
->   where
->     base               :: Double         =
->       maybe (-12_000) fromIntegral mtimecents / 1_200
->     inc                :: Double         =
->       maybe 0 fromIntegral mfact * fromIntegral (60 - key) / fromIntegral qMidiSize128 / 1_200
->
-> toTimecents            :: Double → Int
-> toTimecents secs                         = round $ logBase 2 secs * 1_200
-
 Returns the amplitude ratio (based on input 10ths of a percent) 
 
 > fromTithe              :: Maybe Int → Bool → Double
@@ -1049,27 +889,6 @@ Returns the amplitude ratio (based on input 10ths of a percent)
 >     else (1000 - jS) / 1000
 >   where
 >     jS                 :: Double         = maybe 0 (fromIntegral . clip (0, 1000)) iS
-
-Returns the frequency ratio
-
-> fromCents              :: Double → Double
-> fromCents cents                          = pow 2 (cents/12/100)
->
-> fromCents'             :: Maybe Int → Maybe Int → Maybe Double
-> fromCents' mcoarse mfine
->   | isNothing mcoarse && isNothing mfine = Nothing
->   | otherwise                            = Just $ fromCents $ coarse * 100 + fine
->   where
->     coarse = maybe 0 fromIntegral mcoarse
->     fine   = maybe 0 fromIntegral mfine
-
-Returns the frequency
-
-> fromAbsoluteCents      :: Int → Double
-> fromAbsoluteCents acents                 = 8.176 * fromCents (fromIntegral acents)
->
-> toAbsoluteCents        :: Double → Int
-> toAbsoluteCents freq                     = round $ 100 * 12 * logBase 2 (freq / 8.176)
 
 Test runner
 
@@ -1085,29 +904,6 @@ Test runner
 >   results                                ← sequence tests
 >   let nSuccesses                         = foldl' (\n t → n + if t then 1 else 0) 0 results
 >   return (nSuccesses == length results)
-
-Mapping is used in SoundFont modulator
-
-> data Mapping =
->   Mapping {
->     msContinuity     :: Continuity
->   , msBiPolar        :: Bool  
->   , msMax2Min        :: Bool
->   , msCCBit          :: Bool} deriving (Eq, Ord, Show)
->
-> data Continuity =
->     Linear
->   | Concave
->   | Convex
->   | Switch deriving (Eq, Ord, Show, Enum)
->
-> defMapping             :: Mapping
-> defMapping                               = Mapping Linear False False False
-> allMappings            :: [Mapping]
-> allMappings                              = [Mapping cont bipolar max2min False
->                                                   | cont                  ← [Linear, Concave, Convex, Switch]
->                                                        , bipolar          ← [False, True]
->                                                              , max2min    ← [False, True]]                                          
 
 Returns sample point as (normalized) Double
 

@@ -145,13 +145,6 @@ Utilities ======================================================================
 >                , "is="
 >                , show (length is)]
 >
-> type AgainstKindResult                   = Double
-> 
-> data ArtifactGrade =
->   ArtifactGrade {
->     pScore             :: Int
->   , pEmpiricals        :: [Double]} deriving (Show)
->
 > data Grader =
 >   Grader {
 >     gorWeights         :: [Double]

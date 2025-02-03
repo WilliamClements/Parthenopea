@@ -12,7 +12,6 @@ May 4, 2023
 > module Rosters where
 >
 > import Baking
-> import Boot
 > import BootTest
 > import Cecil
 > import Control.Monad ( foldM )
@@ -56,7 +55,7 @@ Rosters support ================================================================
 >           putStrLn "Unit tests completed successfully"
 >           doEverything combineAll
 >         else if doProf
->           then listInstruments
+>           then error "listInstruments"
 >           else doEverything sj
 >   return ()
 >

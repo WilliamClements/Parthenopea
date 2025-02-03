@@ -63,7 +63,9 @@ library
     
     -- Modules included in this library but not exported.
     other-modules:  Baking, Boot, BootTest, Cecil, Chart,
-                    Covers, Discrete, DiscreteTest, Fanfare,
+                    Covers,
+                    Parthenopea.Debug,
+                    Discrete, DiscreteTest, Fanfare,
                     Modulation, ModulationTest, Parthenopea,
                     ParthenopeaTest, Percussion, Scoring,
                     Runtime, SoundFont,

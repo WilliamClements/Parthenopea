@@ -23,7 +23,7 @@ April 16, 2023
 >         , allKinds
 >         , allowStereoCrossovers
 >         , appendChange
->         , BootstrapArrays(..)
+>         , ArtifactGrade(..)
 >         , bracks
 >         , cancels
 >         , checkSmashing
@@ -37,6 +37,8 @@ April 16, 2023
 >         , computePreSample
 >         , curate
 >         , curate'
+>         , dasBoot
+>         , defZone
 >         , deJust
 >         , deriveRange
 >         , dropped
@@ -51,11 +53,11 @@ April 16, 2023
 >         , emitShowL
 >         , emitShowR
 >         , emptyrd
->         , epsilon
 >         , evalAgainstGeneric
 >         , extractInstKey
 >         , extractZoneKey
 >         , FFMatches(..)
+>         , FileArrays(..)
 >         , fillFieldL
 >         , fillFieldR
 >         , fixBadNames
@@ -84,10 +86,11 @@ April 16, 2023
 >         , multipleCompetes
 >         , noChange
 >         , noClue
->         , notracer
 >         , openSoundFontFile
 >         , parens
 >         , PerGMKey(..)
+>         , PerGMScored(..)
+>         , PerInstrument(..)
 >         , pinnedKR
 >         , pitchToPerc
 >         , PreInstrument(..)
@@ -97,12 +100,11 @@ April 16, 2023
 >         , PreZoneKey(..)
 >         , profess
 >         , professInRange
->         , qMidiSize128
->         , qMidiSizeSpace
 >         , rdLengths
 >         , reapEmissions
 >         , reportCategorizationName
 >         , reportScan
+>         , reportTournamentName
 >         , rescued
 >         , ResultDispositions(..)
 >         , SampleArrays(..)
@@ -113,12 +115,15 @@ April 16, 2023
 >         , Scan(..)
 >         , scanAlts
 >         , ScanAlts(..)
->         , seedBoot
+>         , seedWinningRecord
 >         , SFBoot(..)
 >         , SFFile(..)
 >         , SFResource(..)
+>         , SFRuntime(..)
+>         , SFZone(..)
 >         , SFScorable(..)
 >         , ShdrXForm(..)
+>         , showBags
 >         , showMaybeInstCat
 >         , showPreZones
 >         , sLength
@@ -128,7 +133,6 @@ April 16, 2023
 >         , smush
 >         , stands
 >         , stands'
->         , theE
 >         , toMaybeSampleType
 >         , toSampleType
 >         , traceAlways
@@ -137,10 +141,10 @@ April 16, 2023
 >         , traceNot
 >         , traceNow
 >         , tracer
->         , upsilon
 >         , Velocity
 >         , violated
 >         , virginrd
+>         , WinningRecord(..)
 >         , writeFileBySections
 >         , writeScanReport
 >         , ZoneDigest(..)
@@ -165,6 +169,8 @@ April 16, 2023
 > import Debug.Trace
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
+> import Modulation
+> import Parthenopea.Debug
 > import qualified Text.FuzzyFind          as FF
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
@@ -241,6 +247,125 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , iMatches           :: FFMatches
 >   , iGlobalKey         :: Maybe PreZoneKey}
 >
+> data PerInstrument                       =
+>   PerInstrument {
+>     pZones             :: [(PreZone, SFZone)]
+>   , pSmashing          :: Smashing Word}
+> showBags               :: PerInstrument → String
+> showBags perI                            = show (map (pzWordB . fst) perI.pZones)
+>
+> type AgainstKindResult                   = Double
+> 
+> data ArtifactGrade =
+>   ArtifactGrade {
+>     pScore             :: Int
+>   , pEmpiricals        :: [Double]} deriving (Show)
+>
+> data PerGMScored                         =
+>   PerGMScored {
+>     pArtifactGrade     :: ArtifactGrade
+>   , pKind              :: GMKind
+>   , pAgainstKindResult :: AgainstKindResult
+>   , pPerGMKey          :: PerGMKey
+>   , szI                :: String
+>   , mszP               :: Maybe String} deriving (Show)
+>
+> data WinningRecord                       =
+>   WinningRecord {
+>     pWinningI          :: Map InstrumentName PerGMScored
+>   , pWinningP          :: Map PercussionSound PerGMScored} deriving Show
+> seedWinningRecord      :: WinningRecord
+> seedWinningRecord                        = WinningRecord Map.empty Map.empty
+>
+> data SFZone =
+>   SFZone {
+>     zStartOffs         :: Maybe Int
+>   , zEndOffs           :: Maybe Int
+>   , zLoopStartOffs     :: Maybe Int
+>   , zLoopEndOffs       :: Maybe Int
+>
+>   , zStartCoarseOffs   :: Maybe Int
+>   , zEndCoarseOffs     :: Maybe Int
+>   , zLoopStartCoarseOffs
+>                        :: Maybe Int
+>   , zLoopEndCoarseOffs :: Maybe Int
+>
+>   , zInstIndex         :: Maybe Word
+>   , zKeyRange          :: Maybe (AbsPitch, AbsPitch)
+>   , zVelRange          :: Maybe (Volume, Volume)
+>   , zKey               :: Maybe Word
+>   , zVel               :: Maybe Word
+>   , zInitAtten         :: Maybe Int
+>   , zCoarseTune        :: Maybe Int
+>   , zFineTune          :: Maybe Int
+>   , zSampleIndex       :: Maybe Word
+>   , zSampleMode        :: Maybe A.SampleMode
+>   , zScaleTuning       :: Maybe Int
+>   , zExclusiveClass    :: Maybe Int
+>
+>   , zDelayVolEnv       :: Maybe Int
+>   , zAttackVolEnv      :: Maybe Int
+>   , zHoldVolEnv        :: Maybe Int
+>   , zDecayVolEnv       :: Maybe Int
+>   , zSustainVolEnv     :: Maybe Int 
+>   , zReleaseVolEnv     :: Maybe Int
+>
+>   , zChorus            :: Maybe Int
+>   , zReverb            :: Maybe Int
+>   , zPan               :: Maybe Int
+>
+>   , zRootKey           :: Maybe Word
+>
+>   , zModLfoToPitch     :: Maybe Int
+>   , zVibLfoToPitch     :: Maybe Int
+>   , zModEnvToPitch     :: Maybe Int
+>   , zInitFc            :: Maybe Int
+>   , zInitQ             :: Maybe Int
+>   , zModLfoToFc        :: Maybe Int
+>   , zModEnvToFc        :: Maybe Int
+>   , zModLfoToVol       :: Maybe Int
+>   , zDelayModLfo       :: Maybe Int
+>   , zFreqModLfo        :: Maybe Int
+>   , zDelayVibLfo       :: Maybe Int
+>   , zFreqVibLfo        :: Maybe Int
+>   , zDelayModEnv       :: Maybe Int
+>   , zAttackModEnv      :: Maybe Int
+>   , zHoldModEnv        :: Maybe Int
+>   , zDecayModEnv       :: Maybe Int
+>   , zSustainModEnv     :: Maybe Int
+>   , zReleaseModEnv     :: Maybe Int
+>   , zKeyToModEnvHold   :: Maybe Int
+>   , zKeyToModEnvDecay  :: Maybe Int
+>   , zKeyToVolEnvHold   :: Maybe Int
+>   , zKeyToVolEnvDecay  :: Maybe Int
+>
+>   , zModulators        :: [Modulator]} deriving (Eq, Show)
+>
+> defZone                :: SFZone
+> defZone                                  = SFZone Nothing Nothing Nothing Nothing
+>
+>                                            Nothing Nothing Nothing Nothing
+>
+>                                            Nothing Nothing Nothing Nothing
+>                                            Nothing Nothing Nothing Nothing
+>                                            Nothing Nothing Nothing Nothing
+>
+>                                            Nothing Nothing Nothing Nothing
+>                                            Nothing Nothing
+>
+>                                            Nothing Nothing Nothing
+>     
+>                                            Nothing
+> 
+>                                            Nothing Nothing Nothing Nothing
+>                                            Nothing Nothing Nothing Nothing
+>                                            Nothing Nothing Nothing Nothing
+>                                            Nothing Nothing Nothing Nothing
+>                                            Nothing Nothing Nothing Nothing
+>                                            Nothing Nothing
+>
+>                                            []
+>
 > data PerGMKey                            =
 >   PerGMKey {
 >     pgkwFile           :: Word
@@ -296,14 +421,17 @@ Instrument categories: instrument, percussion, disqualified
 >
 > data SFBoot                              =
 >   SFBoot {
->     zFiles             :: Array Word SFFile
->   , zPreSampleCache    :: Map PreSampleKey PreSample
+>     zPreSampleCache    :: Map PreSampleKey PreSample
 >   , zPartnerMap        :: Map PreSampleKey PreSampleKey
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
 >   , zOwners            :: Map PerGMKey [PreZone]
 >   , zJobs              :: Map PerGMKey InstCat}
 > instance Show SFBoot where
->   show (SFBoot{ .. })                    = unwords ["SFBoot", show (length zPreInstCache, length zOwners, length zJobs)]
+>   show (SFBoot{ .. })                  =
+>     unwords [  "SFBoot"
+>              , show (length zPreSampleCache, length zPartnerMap, length zPreInstCache)
+>              , show (length zOwners), "=owners"
+>              , show (length zJobs), "=jobs"]
 > combineBoot            :: SFBoot → SFBoot → SFBoot
 > combineBoot boot1 boot2                  =
 >   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache boot2.zPreSampleCache
@@ -312,19 +440,26 @@ Instrument categories: instrument, percussion, disqualified
 >         , zOwners                        = Map.union boot1.zOwners         boot2.zOwners
 >         , zJobs                          = Map.union boot1.zJobs           boot2.zJobs}
 >
-> seedBoot               :: Array Word SFFile → SFBoot
-> seedBoot vFile                           =
->   SFBoot vFile Map.empty Map.empty Map.empty Map.empty Map.empty
+> dasBoot                :: SFBoot
+> dasBoot                                  =
+>   SFBoot Map.empty Map.empty Map.empty Map.empty Map.empty
+>
+> data SFRuntime                           =
+>   SFRuntime {
+>     zFiles             :: Array Word SFFile
+>   , zBoot              :: SFBoot
+>   , zPerInstCache      :: Map PerGMKey PerInstrument
+>   , zWinningRecord     :: WinningRecord}
 >
 > data SFFile =
 >   SFFile {
 >     zWordF             :: Word
 >   , zFilename          :: FilePath
->   , zBoot              :: BootstrapArrays
+>   , zFileArrays        :: FileArrays
 >   , zSample            :: SampleArrays}
 >
-> data BootstrapArrays = 
->   BootstrapArrays {
+> data FileArrays = 
+>   FileArrays {
 >     ssInsts            :: Array Word F.Inst
 >   , ssIBags            :: Array Word F.Bag
 >   , ssIGens            :: Array Word F.Generator
@@ -387,7 +522,7 @@ Instrument categories: instrument, percussion, disqualified
 >       let pdata                          = F.pdta soundFont
 >       let sdata                          = F.sdta soundFont
 >       let boota                          =
->             BootstrapArrays
+>             FileArrays
 >               (F.insts pdata) (F.ibags pdata)
 >               (F.igens pdata) (F.imods pdata)
 >               (F.shdrs pdata)
@@ -522,22 +657,22 @@ bootstrapping ==================================================================
 >   sfkey                :: Word → Word → a
 >   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
 >   fatalrd              :: [Disposition] → ResultDispositions → a → Bool
->   emit                 :: SFBoot → a → [Emission]
+>   emit                 :: SFRuntime → a → [Emission]
 >
 > instance SFResource PreSampleKey where
 >   sfkey                                  = PreSampleKey
 >   dispose presk ss rd                    =
 >     rd{preSampleDispos = Map.insertWith (flip (++)) presk ss rd.preSampleDispos}
 >   fatalrd eds rd presk                   = cancels eds $ fromMaybe [] (Map.lookup presk rd.preSampleDispos)
->   emit boot presk                        =
+>   emit runt presk                 =
 >     [  Unblocked (show presk)
 >      , Blanks 5
 >      , Unblocked sffile.zFilename
 >      , Blanks 5
 >      , Unblocked (show shdr.sampleName)]
 >     where
->       sffile                             = boot.zFiles ! presk.pskwFile
->       sfboota                            = sffile.zBoot
+>       sffile                             = runt.zFiles ! presk.pskwFile
+>       sfboota                            = sffile.zFileArrays
 >       shdr                               = sfboota.ssShdrs ! presk.pskwSampleIndex
 >
 > instance SFResource PerGMKey where
@@ -545,15 +680,15 @@ bootstrapping ==================================================================
 >   dispose pergm ss rd                    =
 >     rd{preInstDispos = Map.insertWith (++) pergm ss rd.preInstDispos}
 >   fatalrd eds rd pergm                   = cancels eds $ fromMaybe [] (Map.lookup pergm rd.preInstDispos)
->   emit boot pergm                        =
+>   emit runt pergm                        =
 >     [  Unblocked (show pergm)
 >      , Blanks 5
->      , Unblocked (boot.zFiles ! pergm.pgkwFile).zFilename
+>      , Unblocked sffile.zFilename
 >      , Blanks 5
 >      , Unblocked (show iinst.instName)]
 >     where
->       sffile                             = boot.zFiles ! pergm.pgkwFile
->       sfboota                            = sffile.zBoot
+>       sffile                             = runt.zFiles ! pergm.pgkwFile
+>       sfboota                            = sffile.zFileArrays
 >       iinst                              = sfboota.ssInsts ! pergm.pgkwInst
 >
 > sampleSizeOk           :: (Word, Word) → Bool
@@ -635,8 +770,8 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > stands                                   = 150
 > isConfirmed                              = 250
 >
-> writeScanReport        :: SFBoot → ResultDispositions → IO ()
-> writeScanReport boot rd@ResultDispositions{ .. }
+> writeScanReport        :: SFRuntime → ResultDispositions → IO ()
+> writeScanReport runt rd@ResultDispositions{ .. }
 >                        = do
 >   CM.when diagnosticsEnabled (putStrLn $ unwords [fName, show rd])
 >   tsStarted            ← getCurrentTime
@@ -667,7 +802,7 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >       in
 >         if null ss
 >           then []
->           else emit boot k ++ [EndOfLine] ++ concatMap procs ss ++ [EndOfLine]
+>           else emit runt k ++ [EndOfLine] ++ concatMap procs ss ++ [EndOfLine]
 >
 >     procs          :: Scan → [Emission]
 >     procs scan
@@ -1215,9 +1350,6 @@ Emission capability ============================================================
 > writeFileBySections fp eSections         = do
 >   mapM_ (appendFile fp . reapEmissions) eSections
 >
-> type Velocity                            = Volume
-> type KeyNumber                           = AbsPitch
->
 > data SampleType =
 >   SampleTypeMono
 >   | SampleTypeRight
@@ -1266,19 +1398,6 @@ Emission capability ============================================================
 > fixName                :: String → String
 > fixName                                  = map (\cN → if goodChar cN then cN else '_')
 >
-> profess                :: Bool → String → a → a
-> profess assertion msg something          = if not assertion
->                                              then error (unwords ["Failed assertion --", msg])
->                                              else something
->
-> professInRange         :: (Eq a, Ord a, Show a) ⇒ (a, a) → a → String → a → a
-> professInRange rng val role            = profess
->                                              (val == clip rng val)
->                                              (unwords ["out of", role, "range", show rng, show val])
->
-> deJust                 :: ∀ a. String → Maybe a → a
-> deJust tag item                          = profess (isJust item) (unwords["expected Just for", tag]) (fromJust item)
->
 > pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Maybe (AbsPitch, AbsPitch)
 > pinnedKR pss (p1, p2)                    = if qualifies then Just (p1, p2) else Nothing                   
 >   where
@@ -1298,51 +1417,19 @@ Emission capability ============================================================
 > zshow                  :: ∀ a . a → String
 > zshow _                                  = "list"
 >
-> accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
-> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
->
-> clip                   :: Ord n ⇒ (n, n) → n → n
-> clip (lower, upper) val                  = min upper (max lower val)
->
 > deriveRange            :: Integral n ⇒ n → n → [n]
 > walkRange              :: Integral n ⇒ (n, n) → [n]
 > deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]
 > walkRange (x, y)                         = if x > y || y < 0 then [] else [x..y]
->
-> theE, epsilon, upsilon :: Double
-> theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
-> epsilon                                  = 1e-8               -- a generous little epsilon
-> upsilon                                  = 1e10               -- a scrawny  big    upsilon
->
-> qMidiSize128           :: Int
-> qMidiSize128                             = 128
-> qMidiSizeSpace         :: Int
-> qMidiSizeSpace                           = qMidiSize128 * qMidiSize128
 
-Tracing ===============================================================================================================
+Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
-> traceIf, traceNow, traceAlways, traceNever, traceNot
->                        :: String → a → a
-> traceIf str expr                         = if diagnosticsEnabled then trace str expr else expr
-> traceNow                                 = trace
-> traceAlways                              = trace
-> traceNever _ expr                        = expr
-> traceNot _ expr                          = expr
->
-> tracer                 :: Show a ⇒ String → a → a
-> tracer str x                             =
->   if True
->     then traceNow (unwords [str, "=", show x]) x
->     else x
->
-> notracer               :: Show a ⇒ String → a → a
-> notracer _ x                             = x
-
-> reportScanName         :: FilePath
-> reportScanName                           = "ScanReport'.log"
 > reportCategorizationName   :: FilePath
 > reportCategorizationName                 = "CategorizationReport'.log"
->
+> reportScanName         :: FilePath
+> reportScanName                           = "ScanReport'.log"
+> reportTournamentName   :: FilePath
+> reportTournamentName                     = "TournamentReport'.log"
 >
 > fixBadNames, multipleCompetes
 >                        :: Bool
@@ -1355,8 +1442,6 @@ Tracing ========================================================================
 > allowOverlappingRanges                   = True
 > allowStereoCrossovers  :: Bool
 > allowStereoCrossovers                    = False
-> diagnosticsEnabled     :: Bool
-> diagnosticsEnabled                       = True
 > howVerboseScan         :: Double
 > howVerboseScan                           = 3/4
 > narrowInstrumentScope  :: Bool

@@ -7,33 +7,120 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE TypeFamilies #-} 
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Modulation
 William Clements
 November 6, 2023
 
-> module Modulation where
+> module Modulation
+>        ( addAmount
+>         , addAmtSrc
+>         , addResonance
+>         , addSrc
+>         , addDest
+>         , allMappings
+>         , calcMicrotoneRatio
+>         , cascadeConfig
+>         , checkForNan
+>         , chorusAllPercent
+>         , chorusDepth
+>         , chorusRate
+>         , coAccess
+>         , compileMods
+>         , Continuity(..)
+>         , controlConcave
+>         , controlConvex
+>         , controlLinear
+>         , controlSwitch
+>         , defaultMods
+>         , defMapping
+>         , defModSrc
+>         , defModTriple
+>         , defModulation
+>         , defModulator
+>         , deriveLFO
+>         , deriveModTriple
+>         , doLFO
+>         , Envelope(..)
+>         , evaluateMods
+>         , evaluateModSignals
+>         , epsilon
+>         , frac
+>         , freakRange
+>         , fromAbsoluteCents
+>         , fromCentibels
+>         , fromCents
+>         , fromCents'
+>         , fromTimecents
+>         , fromTimecents'
+>         , KernelSpec(..)
+>         , KeyNumber
+>         , LFO(..)
+>         , Lowpass(..)
+>         , lowpassFc
+>         , lowpassQ
+>         , Mapping(..)
+>         , ModCoefficients(..)
+>         , ModDestType(..)
+>         , ModSignals(..)
+>         , ModSrc(..)
+>         , ModSrcSource(..)
+>         , ModTriple(..)
+>         , Modulation(..)
+>         , Modulator(..)
+>         , noonAsCoords
+>         , NoteOn(..)
+>         , pow
+>         , procFilter
+>         , qMidiSize128
+>         , qMidiSizeSpace
+>         , qOffsetWeights
+>         , resolveMods
+>         , ResonanceType(..)
+>         , reverbAllPercent
+>         , sawtoothTable
+>         , theE
+>         , toAbsoluteCents
+>         , toCentibels
+>         , toTimecents
+>         , triangleWaveTable
+>         , unpackModSrc
+>         , upsilon
+>         , useDefaultMods
+>         , useFastFourier
+>         , useModulators
+>         , useLFO
+>         , Velocity
+>         )
+>         where
 >
 > import Control.Arrow
+> import Data.Array.Unboxed
 > import qualified Data.Bifunctor          as BF
 > import Data.Bits
 > import Data.Complex
+> import Data.Graph (Graph)
+> import qualified Data.Graph              as Graph
 > import Data.List ( foldl', iterate', find )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe
-> import Discrete
+> import Data.MemoTrie
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
+> import Euterpea.Music (Volume, AbsPitch)
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
+> import GHC.Generics ( Generic ) 
 > import HSoM.Examples.Additive ( sineTable )
-> import Parthenopea
-> import SoundFont
+> import Parthenopea.Debug
   
 Modulator management ==================================================================================================
 
+> type Node = Int
+>
 > resolveMods            :: Modulation → [Modulator] → [Modulator] → Modulation
 > resolveMods m8n m8rs dm8rs               = m8n{mmods = compileMods checked}
 >   where
@@ -47,8 +134,8 @@ Modulator management ===========================================================
 > groomMods m8rs                           = Map.elems uniqued
 >   where
 >     uniqued                              = foldl' ufolder Map.empty m8rs
->     ufolder accum m8r@Modulator{mrModSrc, mrModDest, mrAmountSrc}
->                                          = Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r accum
+>     ufolder uniquer m8r@Modulator{mrModSrc, mrModDest, mrAmountSrc}
+>                                          = Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r uniquer
 >
 > freeOfCycles           :: [Modulator] → Bool
 > freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
@@ -64,6 +151,30 @@ Modulator management ===========================================================
 >         (error $ unwords ["only ToLink forms a ModDestType to be turned into a Node"])
 >         fromIntegral
 >         (outGoing mdt)
+>
+> makeGraph              :: [(Node, [Node])] → Graph
+> makeGraph list                           = 
+>   let
+>     highestL                             = if null list
+>                                              then 0
+>                                              else maximum (map fst list)
+>     highestR                             = foldl' (\x y → max x (maximum y)) 0 (map snd list)
+>     highest                              = max highestL highestR
+>     orphans                              = filter (\x → isNothing (lookup x list)) [0..highest]
+>     extra                                = map (,[]) orphans
+>   in array (0, highest) (list ++ extra)
+>
+> -- | Calculates all the nodes that are part of cycles in a graph.
+> cyclicNodes :: Graph → [Node]
+> cyclicNodes graph                        = (map fst . filter isCyclicAssoc . assocs) graph
+>   where
+>     isCyclicAssoc                        = uncurry (reachableFromAny graph)
+>
+> -- | In the specified graph, can the specified node be reached, starting out
+> -- from any of the specified vertices?
+> reachableFromAny :: Graph → Node → [Node] → Bool
+> reachableFromAny graph node =
+>   elem node . concatMap (Graph.reachable graph)
 >
 > outGoing               :: ModDestType → Maybe Word
 > outGoing                                 =
@@ -604,6 +715,98 @@ Controller Curves ==============================================================
 
 Type declarations =====================================================================================================
 
+> data ResonanceType                       =
+>   ResonanceNone
+>   | ResonanceConvo 
+>   | ResonanceLowpass
+>   | ResonanceBandpass
+>   | ResonanceSVF1
+>   | ResonanceSVF2
+>   | ResonanceOnePole
+>   | ResonanceTwoPoles deriving (Eq, Bounded, Enum, Show)
+>
+> data KernelSpec                          =
+>   KernelSpec {
+>     ksFc               :: Int
+>   , ksQ                :: Int
+>   , ksSr               :: Int
+>   , ksFast             :: Bool
+>   , ksLen              :: Int} deriving (Eq, Generic, Ord, Show)
+>
+> defKernelSpec          :: Bool → KernelSpec
+> defKernelSpec bFast                      = KernelSpec 13_500 0 44_100 bFast 300
+>
+> instance HasTrie KernelSpec where
+>   newtype (KernelSpec :->: b)            = KernelSpecTrie { unKernelSpecTrie :: Reg KernelSpec :->: b } 
+>   trie                                   = trieGeneric KernelSpecTrie 
+>   untrie                                 = untrieGeneric unKernelSpecTrie
+>   enumerate                              = enumerateGeneric unKernelSpecTrie
+>
+> data Lowpass                             =
+>   Lowpass {
+>     lowpassType        :: ResonanceType
+>   , lowpassKs          :: KernelSpec
+>   } deriving (Eq, Show)
+> lowpassFc, lowpassQ    :: Lowpass → Double
+> lowpassFc lp                             = fromAbsoluteCents lp.lowpassKs.ksFc -- (ksFc $ lowpassKs lp)
+> lowpassQ lp                              = fromIntegral      (ksQ  $ lowpassKs lp)
+>
+> data CoeffsM2N2                          =
+>   CoeffsM2N2 {
+>     m2n2_b0            :: Double
+>   , m2n2_b1            :: Double
+>   , m2n2_b2            :: Double
+>   , m2n2_a1            :: Double
+>   , m2n2_a2            :: Double} deriving (Eq, Show)
+>
+> extractCoefficients    :: Complex Double → (Double, Double)
+> extractCoefficients porz                 = (k1, k2)
+>   where
+>     mag                                  = magnitude porz
+>     ph                                   = phase porz
+>
+>     k1                                   = -2 * mag * cos ph
+>     k2                                   = mag * mag
+>
+> buildSystemM2N2        :: ([Complex Double], [Complex Double]) → CoeffsM2N2
+> buildSystemM2N2 (zeros, poles)
+>   | traceNot trace_BSM2N2 False          = undefined
+>   | otherwise                            =
+>   let
+>     (z0, p0)                             =
+>       profess
+>         (length zeros == 2 && length poles == 2)
+>         "only 2x2 systems are supported in ResonanceTwoPoles"
+>         (head zeros, head poles)
+>     (b1, b2)                         = extractCoefficients z0
+>     (a1, a2)                         = extractCoefficients p0
+>     b0                               = (1 + a1 + a2) / 4
+>   in
+>     CoeffsM2N2 b0 b1 b2 a1 a2
+>   where
+>     trace_BSM2N2                         = unwords ["buildSystemM2N2\n", show zeros, "\n", show poles]
+>
+
+r is the resonance radius, w0 is the angle of the poles and b0 is the gain factor
+
+> indeedReplaceRadius    :: Bool
+> indeedReplaceRadius                      = False
+>
+> pickZerosAndPoles      :: Double → Double → ([Complex Double], [Complex Double])
+> pickZerosAndPoles initFc normQ           = (zeros, poles)
+>   where
+>     zeros, poles       :: [Complex Double]
+>     zeros                                = [cis pi, cis pi]
+>     poles                                = [p, conjugate p]
+>     -- two identical zeros
+>     -- two poles that are complex conjugates
+>     p                                    =
+>       mkPolar
+>         (if indeedReplaceRadius
+>            then 1 - normQ * sin (pi * initFc)
+>            else normQ)
+>         (2 * pi * initFc)
+>     
 > data NoteOn                              =
 >   NoteOn {
 >     noteOnVel          :: Velocity
@@ -658,6 +861,30 @@ Type declarations ==============================================================
 >   , toFilterFcCo       :: ModCoefficients
 >   , toVolumeCo         :: ModCoefficients
 >   , mmods              :: Map ModDestType [Modulator]} deriving (Eq, Show)
+>
+
+Mapping is used in SoundFont modulator
+
+> data Mapping =
+>   Mapping {
+>     msContinuity     :: Continuity
+>   , msBiPolar        :: Bool  
+>   , msMax2Min        :: Bool
+>   , msCCBit          :: Bool} deriving (Eq, Ord, Show)
+>
+> data Continuity =
+>     Linear
+>   | Concave
+>   | Convex
+>   | Switch deriving (Eq, Ord, Show, Enum)
+>
+> defMapping             :: Mapping
+> defMapping                               = Mapping Linear False False False
+> allMappings            :: [Mapping]
+> allMappings                              = [Mapping cont bipolar max2min False
+>                                                   | cont                  ← [Linear, Concave, Convex, Switch]
+>                                                        , bipolar          ← [False, True]
+>                                                              , max2min    ← [False, True]]                                          
 >
 > defModulation          :: Modulation
 > defModulation                            =
@@ -716,6 +943,144 @@ Type declarations ==============================================================
 >   , eReleaseT          :: Double
 >   , eModTriple         :: ModTriple} deriving (Eq, Show)
 >
+> type Velocity                            = Volume
+> type KeyNumber                           = AbsPitch
+
+Returns the frequency
+
+> fromAbsoluteCents      :: Int → Double
+> fromAbsoluteCents acents                 = 8.176 * fromCents (fromIntegral acents)
+>
+> toAbsoluteCents        :: Double → Int
+> toAbsoluteCents freq                     = round $ 100 * 12 * logBase 2 (freq / 8.176)
+
+Returns the elapsed time in seconds
+
+> fromTimecents          :: Maybe Int → Double
+> fromTimecents mtimecents                 = pow 2 (maybe (- 12_000) fromIntegral mtimecents / 1_200)
+>
+> fromTimecents'         :: Maybe Int → Maybe Int → KeyNumber → Double
+> fromTimecents' mtimecents mfact key      = pow 2 (base + inc)
+>   where
+>     base               :: Double         =
+>       maybe (-12_000) fromIntegral mtimecents / 1_200
+>     inc                :: Double         =
+>       maybe 0 fromIntegral mfact * fromIntegral (60 - key) / fromIntegral qMidiSize128 / 1_200
+>
+> toTimecents            :: Double → Int
+> toTimecents secs                         = round $ logBase 2 secs * 1_200
+
+Returns the frequency ratio
+
+> fromCents              :: Double → Double
+> fromCents cents                          = pow 2 (cents/12/100)
+>
+> fromCents'             :: Maybe Int → Maybe Int → Maybe Double
+> fromCents' mcoarse mfine
+>   | isNothing mcoarse && isNothing mfine = Nothing
+>   | otherwise                            = Just $ fromCents $ coarse * 100 + fine
+>   where
+>     coarse = maybe 0 fromIntegral mcoarse
+>     fine   = maybe 0 fromIntegral mfine
+>
+> qOffsetWeights         :: [Int]
+> qOffsetWeights                           = [1, 32_768]
+> freakRange             :: (Double, Double)
+> freakRange                               = (20, 20_000)
+>
+> checkForNan            :: Double → String → Double
+> checkForNan y msg                        =
+>   profess
+>     (not $ isNaN y || isInfinite y || isDenormalized y || abs y > 200_000)
+>     (msg ++ " bad Double = " ++ show y)
+>     y
+
+Returns the amplitude ratio
+
+> fromCentibels          :: Double → Double
+> fromCentibels centibels                  = pow 10 (centibels/1000)
+>
+> toCentibels            :: Double → Double
+> toCentibels ratio                        = logBase 10 (ratio * 1000)
+>
+> theE, epsilon, upsilon :: Double
+> theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
+> epsilon                                  = 1e-8               -- a generous little epsilon
+> upsilon                                  = 1e10               -- a scrawny  big    upsilon
+
+Control Functions
+
+The use of following functions requires that their input is normalized between 0 and 1
+(And you can count on the output being likewise normalized!)
+
+> controlLinear          :: Double → Double
+> controlLinear                            = id
+>
+> quarterCircleTable     :: Array Int Double
+>                                            -- TODO: use Table
+> quarterCircleTable                       = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
+>   where
+>     calc               :: Int → Double
+>     calc i                               = 1 - sqrt (1 - cD*cD)
+>       where
+>         cD             :: Double         = fromIntegral i / tableSize
+>
+> qTableSize             :: Int
+> qTableSize                               = 1024
+> tableSize              :: Double
+> tableSize                                = fromIntegral qTableSize
+> qMidiSize128           :: Int
+> qMidiSize128                             = 128
+> qMidiSizeSpace         :: Int
+> qMidiSizeSpace                           = qMidiSize128 * qMidiSize128
+>
+> controlConcave         :: Double → Double
+> controlConcave doub
+>   | doub >= 1                            = 1
+>   | otherwise                            = quarterCircleTable ! truncate (doub * tableSize)
+>
+> controlConvex          :: Double → Double
+> controlConvex doub
+>   | (1 - doub) >= 1                      = 1
+>   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - doub) * tableSize))
+>
+> controlSwitch          :: (Ord a1, Fractional a1, Num a2) ⇒ a1 → a2
+> controlSwitch doub                       = if doub < 0.5
+>                                              then 0
+>                                              else 1
+
+Account for microtones specified by SoundFont scale tuning : 0 < x < 100 < 1200
+Note result is incorrect overall when involves multiple root pitches
+
+> calcMicrotoneRatio     :: AbsPitch → AbsPitch → Double → Double
+> calcMicrotoneRatio rootp p x             = step ** fromIntegral (rootp - p)
+>   where
+>     step               :: Double         = 2 ** (x / 1_200)
+          
+Raises 'a' to the power 'b' using logarithms.
+
+> pow                    :: Floating a ⇒ a → a → a
+> pow x y                                  = exp (log x * y)
+
+Returns the fractional part of 'x'.
+
+> frac                   :: RealFrac r ⇒ r → r
+> frac                                     = snd . properFraction
+
+Signals of interest ===================================================================================================
+
+> sawtoothTable          :: Table
+> sawtoothTable                            = tableSinesN 16_384 
+>                                                          [      1, 0.5  , 0.3
+>                                                            , 0.25, 0.2  , 0.167
+>                                                            , 0.14, 0.125, 0.111]
+>
+> triangleWaveTable      :: Table
+> triangleWaveTable                        = tableSinesN 16_384 
+>                                                          [      1,  0, -0.5,  0,  0.3,   0
+>                                                           , -0.25,  0,  0.2,  0, -0.167, 0
+>                                                           ,  0.14,  0, -0.125]
+>
 > useModulators          :: Bool
 > useModulators                            = True
 > -- False to suppress all use of Modulators
@@ -742,5 +1107,8 @@ Type declarations ==============================================================
 > cascadeConfig          :: Int
 > cascadeConfig                            = 0
 > -- number of times to cascade the filter
+> useFastFourier         :: Bool
+> useFastFourier                           = True
+> -- False to employ convolution in time domain
 
 The End

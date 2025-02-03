@@ -38,7 +38,6 @@ February 1, 2025
 > import Database.Persist.MongoDB
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import Debug.Trace ( traceIO )
-> import Discrete
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
@@ -52,22 +51,6 @@ February 1, 2025
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
-> data PerGMScored                         =
->   PerGMScored {
->     pArtifactGrade     :: ArtifactGrade
->   , pKind              :: GMKind
->   , pAgainstKindResult :: AgainstKindResult
->   , pPerGMKey          :: PerGMKey
->   , szI                :: String
->   , mszP               :: Maybe String} deriving (Show)
->
-> data WinningRecord                       =
->   WinningRecord {
->     pWinningI          :: Map InstrumentName PerGMScored
->   , pWinningP          :: Map PercussionSound PerGMScored} deriving Show
-> seedWinningRecord      :: WinningRecord
-> seedWinningRecord                        = WinningRecord Map.empty Map.empty
->
 > findBySampleIndex      :: [SFZone] → Word → Maybe SFZone
 > findBySampleIndex zones w                =
 >   find (\SFZone{zSampleIndex} → zSampleIndex == Just w) zones
@@ -81,111 +64,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > findByBagIndex'        :: [(PreZone, a)] → Word → Maybe (PreZone, a)
 > findByBagIndex' zs w                     = find (\(pz, _) → w == pz.pzWordB) zs
->
-> data PerInstrument                       =
->   PerInstrument {
->     pZones             :: [(PreZone, SFZone)]
->   , pSmashing          :: Smashing Word}
-> showBags               :: PerInstrument → String
-> showBags perI                            = show (map (pzWordB . fst) perI.pZones)
->
-> data SFRuntime                           =
->   SFRuntime {
->     zPerInstCache      :: Map PerGMKey PerInstrument
->   , zWinningRecord     :: WinningRecord}
->
-> seedRuntime :: SFRuntime
-> seedRuntime                              =
->   SFRuntime Map.empty seedWinningRecord
->
-> data SFZone =
->   SFZone {
->     zStartOffs         :: Maybe Int
->   , zEndOffs           :: Maybe Int
->   , zLoopStartOffs     :: Maybe Int
->   , zLoopEndOffs       :: Maybe Int
->
->   , zStartCoarseOffs   :: Maybe Int
->   , zEndCoarseOffs     :: Maybe Int
->   , zLoopStartCoarseOffs
->                        :: Maybe Int
->   , zLoopEndCoarseOffs :: Maybe Int
->
->   , zInstIndex         :: Maybe Word
->   , zKeyRange          :: Maybe (AbsPitch, AbsPitch)
->   , zVelRange          :: Maybe (Volume, Volume)
->   , zKey               :: Maybe Word
->   , zVel               :: Maybe Word
->   , zInitAtten         :: Maybe Int
->   , zCoarseTune        :: Maybe Int
->   , zFineTune          :: Maybe Int
->   , zSampleIndex       :: Maybe Word
->   , zSampleMode        :: Maybe A.SampleMode
->   , zScaleTuning       :: Maybe Int
->   , zExclusiveClass    :: Maybe Int
->
->   , zDelayVolEnv       :: Maybe Int
->   , zAttackVolEnv      :: Maybe Int
->   , zHoldVolEnv        :: Maybe Int
->   , zDecayVolEnv       :: Maybe Int
->   , zSustainVolEnv     :: Maybe Int 
->   , zReleaseVolEnv     :: Maybe Int
->
->   , zChorus            :: Maybe Int
->   , zReverb            :: Maybe Int
->   , zPan               :: Maybe Int
->
->   , zRootKey           :: Maybe Word
->
->   , zModLfoToPitch     :: Maybe Int
->   , zVibLfoToPitch     :: Maybe Int
->   , zModEnvToPitch     :: Maybe Int
->   , zInitFc            :: Maybe Int
->   , zInitQ             :: Maybe Int
->   , zModLfoToFc        :: Maybe Int
->   , zModEnvToFc        :: Maybe Int
->   , zModLfoToVol       :: Maybe Int
->   , zDelayModLfo       :: Maybe Int
->   , zFreqModLfo        :: Maybe Int
->   , zDelayVibLfo       :: Maybe Int
->   , zFreqVibLfo        :: Maybe Int
->   , zDelayModEnv       :: Maybe Int
->   , zAttackModEnv      :: Maybe Int
->   , zHoldModEnv        :: Maybe Int
->   , zDecayModEnv       :: Maybe Int
->   , zSustainModEnv     :: Maybe Int
->   , zReleaseModEnv     :: Maybe Int
->   , zKeyToModEnvHold   :: Maybe Int
->   , zKeyToModEnvDecay  :: Maybe Int
->   , zKeyToVolEnvHold   :: Maybe Int
->   , zKeyToVolEnvDecay  :: Maybe Int
->
->   , zModulators        :: [Modulator]} deriving (Eq, Show)
->
-> defZone                :: SFZone
-> defZone                                  = SFZone Nothing Nothing Nothing Nothing
->
->                                            Nothing Nothing Nothing Nothing
->
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing
->
->                                            Nothing Nothing Nothing
->     
->                                            Nothing
-> 
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing
->
->                                            []
 >
 > theGrader              :: Grader
 > theGrader                                = Grader ssWeights 500
@@ -209,49 +87,49 @@ executive ======================================================================
 >
 >   tsStarted            ← getCurrentTime
 >
->   (mboot, pergmsI, pergmsP, rdGen03)
+>   (mrunt, pergmsI, pergmsP, rdGen03)
 >                        ← equipInstruments rost
 >
->   if isNothing mboot
+>   if isNothing mrunt
 >     then do
 >       return ()
 >     else do
->       let boot         = deJust "mboot" mboot
+>       let prerunt      = deJust "mboot" mrunt
 >       -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->       runt             ← finishRuntime rost boot pergmsI pergmsP rdGen03
+>       runt             ← finishRuntime rost prerunt pergmsI pergmsP rdGen03
 >
->       CM.when doRender (doRendering boot runt)
+>       CM.when doRender (doRendering runt)
 >
 >       tsRendered       ← getCurrentTime
 >       putStrLn ("___overall: " ++ show (diffUTCTime tsRendered tsStarted))
 >   where
 >     -- track the complete _qualified_ populations of: samples, instruments, percussion
 >     finishRuntime      ::  ([InstrumentName], [PercussionSound])
->                            → SFBoot
+>                            → SFRuntime
 >                            → [PerGMKey] → [PerGMKey]
 >                            → ResultDispositions
 >                            → IO SFRuntime
->     finishRuntime rost boot pergmsI pergmsP rdGen03
+>     finishRuntime rost prerunt@SFRuntime{ .. } pergmsI pergmsP rdGen03
 >                        = do
 >       tsStarted        ← getCurrentTime
 >
->       (zc, rdGen04)    ← formZoneCache boot rdGen03
+>       (zc, rdGen04)    ← formZoneCache prerunt rdGen03
 >       owners'          ← reassociateZones zc
 >
 >       tsZoned          ← getCurrentTime
 >       putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsStarted))
 >
->       CM.when reportScan (writeScanReport boot rdGen04)
+>       CM.when reportScan (writeScanReport prerunt rdGen04)
 >       tsScanned        ← getCurrentTime
 >      
 >       -- actually conduct the tournament
 >       ((wI, sI), (wP, sP))
->                        ← decideWinners boot.zPreSampleCache boot.zPreInstCache owners'
+>                        ← decideWinners zBoot.zPreSampleCache zBoot.zPreInstCache owners'
 >                                        zc rost pergmsI pergmsP
 >       tsDecided        ← getCurrentTime
 >       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsScanned))
 >
->       CM.when reportTourney (writeTournamentReport boot.zFiles wI wP)
+>       CM.when reportTourney (writeTournamentReport prerunt.zFiles wI wP)
 >       tsReported       ← getCurrentTime
 >
 >       -- print song/orchestration info to user (can be captured by redirecting standard out)
@@ -259,22 +137,22 @@ executive ======================================================================
 >
 >       let wins         = WinningRecord (Map.map head wI) (Map.map head wP)
 >
->       let runt         = SFRuntime zc wins
->       
 >       tsRecond         ← getCurrentTime
 >       putStrLn ("___create winning record: " ++ show (diffUTCTime tsRecond tsReported))
 >         
->       return runt
+>       return prerunt{
+>         zWinningRecord = wins
+>         , zPerInstCache = zc}
 >
 >     -- get it on
->     doRendering      :: SFBoot → SFRuntime → IO ()
->     doRendering boot runt
+>     doRendering      :: SFRuntime → IO ()
+>     doRendering runt
 >                        = do
 >       tsStarted        ← getCurrentTime
 >
 >       -- readying instrument maps to be accessed from song renderer
 >       traceIO          "prepareInstruments"
->       imap             ← prepareInstruments boot runt
+>       imap             ← prepareInstruments runt
 >       tsPrepared       ← getCurrentTime
 >       putStrLn ("___prepare instruments: " ++ show (diffUTCTime tsPrepared tsStarted))
 >
@@ -655,12 +533,12 @@ extract data from SoundFont per instrument =====================================
                                             
 prepare the specified instruments and percussion ======================================================================
 
-> formZoneCache          :: SFBoot
+> formZoneCache          :: SFRuntime
 >                           → ResultDispositions
 >                           → IO (Map PerGMKey PerInstrument, ResultDispositions)
-> formZoneCache boot rd_
+> formZoneCache SFRuntime{ .. } rd_
 >                                          = do
->   return $ Map.foldlWithKey formFolder (Map.empty, rd_) boot.zJobs
+>   return $ Map.foldlWithKey formFolder (Map.empty, rd_) zBoot.zJobs
 >   where
 >     formFolder         :: (Map PerGMKey PerInstrument, ResultDispositions)
 >                           → PerGMKey → InstCat
@@ -672,9 +550,9 @@ prepare the specified instruments and percussion ===============================
 >       | traceIf trace_CPI False          = undefined
 >       | otherwise                        = PerInstrument (zip pzs oList) icd.inSmashup
 >       where
->         sffile                           = boot.zFiles ! pergm.pgkwFile
+>         sffile                           = zFiles ! pergm.pgkwFile
 >         preI                             =
->           deJust "computePerInst PreInstrument" (Map.lookup pergm boot.zPreInstCache)
+>           deJust "computePerInst PreInstrument" (Map.lookup pergm zBoot.zPreInstCache)
 >
 >         icd            :: InstCatData
 >         bixen          :: [Word]
@@ -702,7 +580,7 @@ prepare the specified instruments and percussion ===============================
 >   | otherwise                            = zone
 >   where
 >     zone                                 = foldr addMod (foldl' addGen fromZone gens) mods
->     boota                                = sffile.zBoot
+>     boota                                = sffile.zFileArrays
 >
 >     xgeni                                = F.genNdx $ boota.ssIBags!bagIndex
 >     ygeni                                = F.genNdx $ boota.ssIBags!(bagIndex + 1)
@@ -730,10 +608,10 @@ prepare the specified instruments and percussion ===============================
 
 define signal functions and instrument maps to support rendering ======================================================
 
-> prepareInstruments     :: SFBoot → SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
-> prepareInstruments boot runt@SFRuntime{zWinningRecord}
+> prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
+> prepareInstruments runt@SFRuntime{zWinningRecord}
 >                                          = 
->     return $ (Percussion, assignPercussion)                                                 : imap
+>     return $ (Percussion, assignPercussion)                                                      : imap
 >   where
 >     WinningRecord{pWinningI, pWinningP}  = zWinningRecord
 >     imap                                 = Map.foldrWithKey imapFolder [] pWinningI
@@ -749,7 +627,7 @@ define signal functions and instrument maps to support rendering ===============
 >     assignInstrument pergm durI pch vol params
 >                                          =
 >       proc _ → do
->         (zL, zR)                         ← instrumentSF boot runt pergm durI pch vol params ⤙ ()
+>         (zL, zR)                         ← instrumentSF runt pergm durI pch vol params ⤙ ()
 >         outA                             ⤙ (zL, zR)
 >
 >     assignPercussion   :: ∀ p . Clock p ⇒ Instr (Stereo p)
@@ -765,15 +643,14 @@ define signal functions and instrument maps to support rendering ===============
 >                                          = toEnum (pch - 35)
 >
 > instrumentSF           :: ∀ p . Clock p ⇒
->                           SFBoot
->                           → SFRuntime
+>                           SFRuntime
 >                           → PerGMKey
 >                           → Dur
 >                           → AbsPitch
 >                           → Volume
 >                           → [Double]
 >                           → Signal p () (Double, Double)
-> instrumentSF boot runt pergm durI pchIn volIn nps
+> instrumentSF SFRuntime{ .. } pergm durI pchIn volIn nps
 >   | traceNot trace_ISF False             = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rSampleRate
 >                                              durI pchOut volOut nps
@@ -786,11 +663,11 @@ define signal functions and instrument maps to support rendering ===============
 >     pchOut              :: AbsPitch      = maybe noon.noteOnKey (clip (0, 127)) reconX.rForceKey
 >     volOut              :: Volume        = maybe noon.noteOnVel (clip (0, 127)) reconX.rForceVel
 >
->     sffile                               = boot.zFiles ! pergm.pgkwFile
+>     sffile                               = zFiles ! pergm.pgkwFile
 >     samplea                              = sffile.zSample
 >
->     preI                                 = deJust (unwords [fName_, "preI"]) (Map.lookup pergm boot.zPreInstCache)
->     perI                                 = deJust (unwords [fName_, "perI"]) (Map.lookup pergm runt.zPerInstCache)
+>     preI                                 = deJust (unwords [fName_, "preI"]) (Map.lookup pergm zBoot.zPreInstCache)
+>     perI                                 = deJust (unwords [fName_, "perI"]) (Map.lookup pergm zPerInstCache)
 >
 >     trace_ISF                            =
 >       unwords [fName_, show pergm.pgkwFile, show preI.pInst, show (pchIn, volIn), show durI]
@@ -809,7 +686,7 @@ zone selection for rendering ===================================================
 >         Right ((pzL, zoneL), (pzR, zoneR))
 >                                          → Right ((zoneL, shdr pzL), (zoneR, shdr pzR))
 >       where
->         shdr                             = effShdr boot.zPreSampleCache
+>         shdr                             = effShdr zBoot.zPreSampleCache
 >
 >     selectBestZone     :: (PreZone, SFZone)
 >     selectBestZone
@@ -841,7 +718,7 @@ zone selection for rendering ===================================================
 >                                              else eith
 >
 >          mpartner                        = getStereoPartner z
->          shdr                            = (effShdr boot.zPreSampleCache . fst) z
+>          shdr                            = (effShdr zBoot.zPreSampleCache . fst) z
 >          stype                           = toSampleType shdr.sampleType
 >          oz                              = deJust "oz" mpartner
 >
@@ -856,7 +733,7 @@ zone selection for rendering ===================================================
 >       where
 >         fName                            = unwords [fName_, "getStereoPartner"]
 >
->         shdr                             = (effShdr boot.zPreSampleCache . fst) z
+>         shdr                             = (effShdr zBoot.zPreSampleCache . fst) z
 >         partnerKeys                      = (pzmkPartners . fst) z
 >
 >         trace_GSP                        = unwords [fName, showable, showPreZones (singleton $ fst z)]
