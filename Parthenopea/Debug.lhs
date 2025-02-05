@@ -74,6 +74,6 @@ Tracing ========================================================================
 > notracer _ x                             = x
 >
 > diagnosticsEnabled     :: Bool
-> diagnosticsEnabled                       = True
+> diagnosticsEnabled                       = False
 
 The End

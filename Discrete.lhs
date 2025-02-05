@@ -30,7 +30,7 @@ June 17, 2024
 > import Modulation
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea
-> import SoundFont
+> import Parthenopea.Debug
   
 Discrete approach =====================================================================================================
 

@@ -26,7 +26,7 @@ June 22, 2024
 > import HSoM.Examples.Additive ( sineTable )
 > import Modulation
 > import Parthenopea
-> import SoundFont
+> import Parthenopea.Debug
 
 Feed chart ============================================================================================================
 

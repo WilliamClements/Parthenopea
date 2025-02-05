@@ -38,6 +38,8 @@ April 16, 2023
 >         , curate
 >         , curate'
 >         , dasBoot
+>         , dead
+>         , deadrd
 >         , defZone
 >         , deJust
 >         , deriveRange
@@ -60,6 +62,7 @@ April 16, 2023
 >         , FileArrays(..)
 >         , fillFieldL
 >         , fillFieldR
+>         , finishScans
 >         , fixBadNames
 >         , formPreZoneMap
 >         , fractionCovered
@@ -83,6 +86,7 @@ April 16, 2023
 >         , KeyNumber
 >         , lookupCellIndex
 >         , makePreZone
+>         , modified
 >         , multipleCompetes
 >         , noChange
 >         , noClue
@@ -113,8 +117,6 @@ April 16, 2023
 >         , sampleSizeOk
 >         , SampleType(..)
 >         , Scan(..)
->         , scanAlts
->         , ScanAlts(..)
 >         , seedWinningRecord
 >         , SFBoot(..)
 >         , SFFile(..)
@@ -139,8 +141,6 @@ April 16, 2023
 >         , traceIf
 >         , traceNever
 >         , traceNot
->         , traceNow
->         , tracer
 >         , Velocity
 >         , violated
 >         , virginrd
@@ -246,6 +246,9 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , iName              :: String
 >   , iMatches           :: FFMatches
 >   , iGlobalKey         :: Maybe PreZoneKey}
+> instance Show PreInstrument where
+>   show (PreInstrument{ .. })                   =
+>     unwords ["PreInstrument", show iName]
 >
 > data PerInstrument                       =
 >   PerInstrument {
@@ -510,6 +513,9 @@ Instrument categories: instrument, percussion, disqualified
 >
 >     inspectGen _ zd                      = zd
 >
+
+bootstrapping =========================================================================================================
+
 > openSoundFontFile      :: Word → FilePath → IO SFFile
 > openSoundFontFile wFile filename = do
 >   putStr (unwords [show wFile, filename])
@@ -547,11 +553,8 @@ Instrument categories: instrument, percussion, disqualified
 >       putStrLn (unwords ["(", show nBits, ") loaded in", show (diffUTCTime ts2 ts1)])
 >       return sffile
 >
-
-bootstrapping =========================================================================================================
-
 > data Disposition                         =
->   Accepted | Violated | Rescued | Dropped | NoChange
+>   Accepted | Modified | Violated | Rescued | Dropped | NoChange
 >   deriving (Eq, Show)
 >
 > data Impact                              =
@@ -562,7 +565,7 @@ bootstrapping ==================================================================
 >      | Absorbed | NoZones
 >      | CorruptGMRange | Narrow | BadLinkage | IllegalCrossover
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
->      | Unrecognized | NoPercZones
+>      | Unrecognized | NoPercZones | Harvested | CatIsPerc | CatIsInst | Disqualified
 >   deriving (Eq, Ord, Show)
 >
 > data Scan                                =
@@ -578,58 +581,35 @@ bootstrapping ==================================================================
 > curate'                :: ∀ a . a → (a → Bool) → (a → [Scan]) → Maybe [Scan]
 > curate' thing ok scan                    = if ok thing then Nothing else Just (scan thing)
 >
-> data ScanAlts r                          =
->   ScanAlts {
->     saKey              :: r
->   , saFromName         :: String
->   , saCallbacks        :: [Scan]}
->
-> data ScanScan                            =
->   ScanScan {
->     s2Scans            :: [Scan]
->   , s2Alts             :: [Maybe [Scan]]}
->
-> scanAlts               :: ∀ r . SFResource r ⇒
->                           ScanAlts r
->                           → [Maybe [Scan]]
->                           → ResultDispositions
->                           → ([Scan], ResultDispositions)
-> scanAlts sa alts rd                      = (ss, dispose sa.saKey ss rd)
+> dead, cancels          :: [Scan] → Bool
+> dead ss_                                 = any odd (Map.elems m)
 >   where
->     ss_                                  = (scanScans alts).s2Scans
->     ss                                   = if null ss_
->                                              then accepted sa Ok noClue
->                                              else ss_
->
-> scanScans              :: [Maybe [Scan]] → ScanScan
-> scanScans alts                           = s2Final
->   where
->     s2Final            :: ScanScan
->     s2Final                              =
->       head $ dropWhile unfinished (iterate' nextGen (ScanScan [] alts))
->
->     unfinished ScanScan{ .. }            = not (cancels [Accepted] s2Scans) && not (null s2Alts)
->
->     nextGen s2gen@ScanScan{ .. }         =
->       s2gen{s2Scans = s2Scans ++ fromMaybe [] (head s2Alts), s2Alts = tail s2Alts}
->
-> cancels                :: [Disposition] → [Scan] → Bool
-> cancels eds ss_                          = any odd (Map.elems m)
->   where
->     ss                                   = filter (\s → s.sDisposition `notElem` eds) ss_
+>                                            -- given list is filtered down to the three Dispositions there
+>                                            -- we compute counts per distinct Impact...dead if any counts are odd
+>     deadset                              = [Violated, Dropped, Rescued]
+>     ss                                   = filter (\s → s.sDisposition `elem` deadset) ss_
 >
 >     m                  :: Map Impact Int
 >     m                                    = foldl' (\n v → Map.insertWith (+) v 1 n) Map.empty (map sImpact ss)
 >
-> accepted, violated, dropped, rescued, noChange
->                        :: ∀ r a . (SFResource r) ⇒ ScanAlts r → Impact → a → [Scan]
-> accepted sa impact thing                 = singleton $ Scan Accepted impact sa.saFromName (zshow thing)
-> violated sa impact thing                 = singleton $ Scan Violated impact sa.saFromName (zshow thing)
-> dropped sa impact thing                  = singleton $ Scan Dropped impact sa.saFromName (zshow thing)
-> rescued sa impact  thing                 = singleton $ Scan Rescued impact sa.saFromName (zshow thing)
-> noChange sa impact thing                 = singleton $ Scan NoChange impact sa.saFromName (zshow thing)
+> cancels                                  = any (\s → s.sDisposition `elem` cancelset)
+>   where
+>                                            -- cancelled if (not dead and) any of the following appear
+>     cancelset                            = [Violated, Dropped, Rescued, NoChange, Modified]
 >
-> data ResultDispositions                  =
+> accepted, violated, dropped, rescued, noChange, modified
+>                        :: ∀ r . (SFResource r) ⇒ r → Impact → [Scan]
+> accepted key impact                      = singleton $ Scan Accepted impact "FromName" (zshow key)
+> violated key impact                      = singleton $ Scan Violated impact "FromName" (zshow key)
+> dropped key impact                       = singleton $ Scan Dropped impact "FromName" (zshow key)
+> rescued key impact                       = singleton $ Scan Rescued impact "FromName" (zshow key)
+> noChange key impact                      = singleton $ Scan NoChange impact "FromName" (zshow key)
+> modified key impact                      = singleton $ Scan Modified impact "FromName" (zshow key)
+>
+> finishScans            :: String → String → [Scan] → [Scan]
+> finishScans function clue                = map (\x → x{  sFunction = function, sClue = clue})
+>
+> data ResultDispositions               =
 >   ResultDispositions {
 >     preSampleDispos    :: Map PreSampleKey     [Scan]
 >   , preInstDispos      :: Map PerGMKey         [Scan]}
@@ -637,6 +617,9 @@ bootstrapping ==================================================================
 >   show rd@ResultDispositions{ .. }       =
 >     unwords [  "ResultDispositions"
 >              , show (length preSampleDispos, length preInstDispos, rdScans rd)]
+>
+> deadrd                 :: ∀ k . SFResource k ⇒ k → ResultDispositions → Bool
+> deadrd k rd                              = dead (inspect k rd)
 >
 > virginrd               :: ResultDispositions
 > virginrd                                 = ResultDispositions Map.empty Map.empty
@@ -655,15 +638,15 @@ bootstrapping ==================================================================
 >
 > class SFResource a where
 >   sfkey                :: Word → Word → a
+>   inspect              :: a → ResultDispositions → [Scan]
 >   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
->   fatalrd              :: [Disposition] → ResultDispositions → a → Bool
 >   emit                 :: SFRuntime → a → [Emission]
 >
 > instance SFResource PreSampleKey where
 >   sfkey                                  = PreSampleKey
+>   inspect presk rd                       = fromMaybe [] (Map.lookup presk rd.preSampleDispos)
 >   dispose presk ss rd                    =
 >     rd{preSampleDispos = Map.insertWith (flip (++)) presk ss rd.preSampleDispos}
->   fatalrd eds rd presk                   = cancels eds $ fromMaybe [] (Map.lookup presk rd.preSampleDispos)
 >   emit runt presk                 =
 >     [  Unblocked (show presk)
 >      , Blanks 5
@@ -677,9 +660,9 @@ bootstrapping ==================================================================
 >
 > instance SFResource PerGMKey where
 >   sfkey wF wI                            = PerGMKey wF wI Nothing
+>   inspect pergm rd                       = fromMaybe [] (Map.lookup pergm rd.preInstDispos)
 >   dispose pergm ss rd                    =
 >     rd{preInstDispos = Map.insertWith (++) pergm ss rd.preInstDispos}
->   fatalrd eds rd pergm                   = cancels eds $ fromMaybe [] (Map.lookup pergm rd.preInstDispos)
 >   emit runt pergm                        =
 >     [  Unblocked (show pergm)
 >      , Blanks 5
@@ -725,12 +708,11 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >
 > checkSmashing          :: PerGMKey → Smashing Word → Maybe [Scan]
 > checkSmashing pergm smashup
->   | not ok1                              = Just $ violated sa UndercoveredRanges noClue
->   | not ok2                              = Just $ violated sa OverCoveredRanges noClue
+>   | not ok1                              = Just $ violated pergm UndercoveredRanges
+>   | not ok2                              = Just $ violated pergm OverCoveredRanges 
 >   | otherwise                            = Nothing
 >   where
->     fName                                = "checkSmashing"
->     sa                                   = ScanAlts pergm fName []
+>     fName                                = "checkSmashing" -- WOX
 >     ok1                                  = allowOutOfRange || smashup.smashStats.countNothings == 0
 >     ok2                                  = allowOverlappingRanges || smashup.smashStats.countMultiples == 0
 >

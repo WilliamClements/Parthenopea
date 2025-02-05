@@ -700,7 +700,7 @@ zone selection for rendering ===================================================
 >       where
 >         fName                            = unwords [fName_, "selectBestZone"]
 >
->         (bagId, cnt)                   = lookupCellIndex (noonAsCoords noon) perI.pSmashing
+>         (bagId, cnt)                     = lookupCellIndex (noonAsCoords noon) perI.pSmashing
 >         foundInInst                      = findByBagIndex' perI.pZones bagId
 >
 >         trace_SBZ                        = unwords ["selectBestZone", show (bagId, cnt)]

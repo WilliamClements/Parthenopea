@@ -12,6 +12,7 @@ May 4, 2023
 > module Rosters where
 >
 > import Baking
+> import Boot
 > import BootTest
 > import Cecil
 > import Control.Monad ( foldM )
@@ -43,19 +44,19 @@ Rosters support ================================================================
 >   _ ← if playAll
 >         then do
 >           resultParthenopea              ← runTestsQuietly parthTests
->           resultSoundFont                ← runTestsQuietly bootTests
+>           resultBoot                     ← runTestsQuietly bootTests
 >           resultModulation               ← runTestsQuietly modulationTests     
 >           resultSynthesizer              ← runTestsQuietly synthesizerTests
 >           let resultDiscrete             = True -- runTestsQuietly discreteTests
 >           putStrLn $ unwords [show
 >                 (profess
->                   (and [resultParthenopea, resultSoundFont, resultModulation, resultSynthesizer, resultDiscrete])
+>                   (and [resultParthenopea, resultBoot, resultModulation, resultSynthesizer, resultDiscrete])
 >                   (unwords ["one or more unit tests failed"])
 >                   True)]
 >           putStrLn "Unit tests completed successfully"
 >           doEverything combineAll
 >         else if doProf
->           then error "listInstruments"
+>           then listInstruments
 >           else doEverything sj
 >   return ()
 >
@@ -112,13 +113,13 @@ organize exposed music =========================================================
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
 > sj                     :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
-> sj = ejingles
+> sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("pit"         , pit)]
 >    -- [ ("getCITM"     , getCITM)]
 >    -- [ ("pa"          , shimSong $ aggrandize littlePendingtonArnt)]
->    -- [ ("deyDumpDum"  , deyDumpDum)]
+>       [ ("deyDumpDum"  , deyDumpDum False)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 26420)]
 >    -- [ ("slot_1"      , slot 1)]
 >    -- [ ("theFanfare"  , theFanfare False)]
