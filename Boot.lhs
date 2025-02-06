@@ -68,7 +68,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     fiFw               :: FileWork
 >   , fiTaskIfs          :: [(String, FileWork → FileWork)]}
 >
-> preSampleTaskIf, partneringTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf
+> preSampleTaskIf, partneringTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, pregroomTaskIf
 >                , groomTaskIf, vetTaskIf, reorgTaskIf, harvestTaskIf, catTaskIf {-, zoneTaskIf -}
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
 >
@@ -81,6 +81,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >      , ("preInst",    preInstTaskIf      sffile rost)
 >      , ("survey",     surveyTaskIf       sffile rost)
 >      , ("capture",    captureTaskIf      sffile rost)
+>      , ("pregroom",   pregroomTaskIf     sffile rost)
 >      , ("groom",      groomTaskIf        sffile rost)
 >      , ("vet",        vetTaskIf          sffile rost)
 >      , ("reorg",      reorgTaskIf        sffile rost) 
@@ -182,7 +183,7 @@ later items, some critical data may thereby be missing. So that entails deletion
 >         case icat of
 >           InstCatPerc icd                → (pergmsI, pergmsP ++ instrumentPercList pergmI icd.inPercBixen)
 >           InstCatInst _                  → (pergmI : pergmsI, pergmsP)
->           InstCatDisq _                  → (pergmsI, pergmsP)
+>           InstCatDisq _ _                → (pergmsI, pergmsP)
 >
 >     instrumentPercList :: PerGMKey → [Word] → [PerGMKey]
 >     instrumentPercList pergmI            = map (\w → pergmI {pgkwBag = Just w})
@@ -276,11 +277,12 @@ assess declared stereo pairs ===================================================
 >         stype                            = toSampleType shdr.sampleType
 >         stereo                           = SampleTypeLeft == stype || SampleTypeRight == stype
 >         rd''                             = dispose k (finishScans fName clue ss_) rdFold
+>         clueOther                        = show otherKey.pskwSampleIndex
 >         (ss_, clue)
->           | not stereo                   = (noChange k Ok, "mono")
->           | isNothing other              = (violated k MissingStereoPartner, show (isJust other))
->           | isNothing backLink           = (violated k BadStereoPartner, show (isJust backLink))
->           | otherwise                    = (modified k Ok, "partnered")
+>           | not stereo                   = (noChange k Ok,                   "mono")
+>           | isNothing other              = (violated k MissingStereoPartner, show clueOther)
+>           | isNothing backLink           = (violated k BadStereoPartner,     show clueOther)
+>           | otherwise                    = (modified k Ok,                   show clueOther)
 >         ss                               = finishScans fName clue ss_
 
 access and critique all Instrument "records" in the file ==============================================================
@@ -366,7 +368,7 @@ iterating on InstZoneRecord list ===============================================
 > zrecTask               :: (InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions))
 >                           → SFFile → FileWork → FileWork
 > zrecTask zrecFun _ fwIn@FileWork{ .. }
->   | traceIf trace_ZT False              = undefined
+>   | traceIf trace_ZT False               = undefined
 >   | otherwise                            = fwIn{  fwZRecs = zrecs
 >                                                 , fwDispositions = rd' }
 >   where
@@ -377,11 +379,14 @@ iterating on InstZoneRecord list ===============================================
 >
 >     taskRunner (zrecsFold, rdFold) zrec  = 
 >       let
->         (zrec', rd'')                     = zrecFun zrec rdFold
+>         (zrec', rd'')                    = zrecFun zrec rdFold
 >       in
 >         if deadrd (instKey zrec) rdFold 
 >           then (zrec : zrecsFold, rdFold)
 >           else (zrec': zrecsFold, rd'')
+>
+> zrecCompute              :: FileWork → (a → InstZoneRecord → a) → a → a
+> zrecCompute FileWork{ .. } folder seed   = foldl' folder seed (goodZRecs fwZRecs fwDispositions)
 
 capture task ==========================================================================================================
           for the first time, populate zrec with PreZones
@@ -454,13 +459,30 @@ capture task ===================================================================
 >             starget                      = Map.lookup presk fwBoot.zPreSampleCache
 >             pres                         = deJust "pres" starget
 
+pregroom task =========================================================================================================
+
+> pregroomTaskIf _ _ fwIn                  = fwIn{fwBoot = fwIn.fwBoot{zTempBackMap = back}} 
+>   where
+>     back               :: Map PreSampleKey [PreZoneKey]
+>     back                                 = zrecCompute fwIn pregroomer Map.empty
+>
+>     pregroomer         :: Map PreSampleKey [PreZoneKey] → InstZoneRecord → Map PreSampleKey [PreZoneKey]
+>     pregroomer m zrec                    = Map.union m m'
+>       where
+>         m'                               = 
+>           foldl' pzFolder Map.empty (filter (isStereoZone fwIn.fwBoot.zPreSampleCache) zrec.zsPreZones)
+>         pzFolder target pz               =
+>           Map.insertWith (++) (PreSampleKey pz.pzWordF pz.pzWordS) [extractZoneKey pz] target
+
 groom task ============================================================================================================
 
-> groomTaskIf sffile _ fwIn@FileWork{ .. } = zrecTask groomer sffile fwIn 
+> groomTaskIf sffile _ fwIn@FileWork{ .. } = fwTask{fwBoot = fwBoot{zTempBackMap = Map.empty}}
 >   where
 >     fName_                               = "groomTaskIf"
 >
->     back                                 = makeBack fwIn (goodZRecs fwZRecs fwDispositions)
+>     back                                 = fwBoot.zTempBackMap
+>
+>     fwTask                               = zrecTask groomer sffile fwIn
 >
 >     groomer            :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     groomer zrec rdGroom_
@@ -491,16 +513,6 @@ groom task =====================================================================
 >           Map.lookup (PreSampleKey pz.pzWordF (F.sampleLink (effShdr fwBoot.zPreSampleCache pz))) back 
 >       in
 >         pz{pzmkPartners = fromMaybe [] mpartners}
->
-> makeBack               :: FileWork → [InstZoneRecord] → Map PreSampleKey [PreZoneKey]
-> makeBack FileWork{ .. } zrecs            = foldl' Map.union Map.empty (map zrec2back zrecs)
->   where
->     zrec2back          :: InstZoneRecord → Map PreSampleKey [PreZoneKey]
->     zrec2back zrec                       =
->       foldl' backFolder Map.empty (filter (isStereoZone fwBoot.zPreSampleCache) zrec.zsPreZones)
->     backFolder         :: Map PreSampleKey [PreZoneKey] → PreZone → Map PreSampleKey [PreZoneKey]
->     backFolder target pz                 =
->       Map.insertWith (++) (PreSampleKey pz.pzWordF pz.pzWordS) [extractZoneKey pz] target
 
 vet task ============================================================================================================
           remove bad stereo partners from PreZones per instrument, delete instrument if down to zero PreZones
@@ -514,6 +526,7 @@ vet task =======================================================================
 >         (\x y → x ++ filter (isStereoZone fwBoot.zPreSampleCache) y.zsPreZones)
 >         []
 >         (goodZRecs fwZRecs fwDispositions)
+>     mapStereo                            = formPreZoneMap filePzs
 >
 >     vetter             :: InstZoneRecord
 >                           → ResultDispositions
@@ -525,7 +538,6 @@ vet task =======================================================================
 >         fName                            = unwords [fName_, "vetter"]
 >         trace_V                          = unwords [fName, show rdVet_]
 >
->         mapStereo                        = formPreZoneMap filePzs
 >         newPzs                           =
 >           let
 >             (pzsStereo, pzsMono)         = partition (isStereoZone fwBoot.zPreSampleCache) zrec.zsPreZones
@@ -543,11 +555,13 @@ vet task =======================================================================
 >             mapMaybe vetPreZone pzsStereo ++ pzsMono
 >
 >         pergm                            = instKey zrec
+>         netChange                        = length zrec.zsPreZones - length newPzs
 >         rd'                              = dispose pergm ss rdVet_
 >
 >         (ss_, clue)
->           | null newPzs                  = (violated pergm NoZones, "null")
->           | otherwise                    = (noChange pergm Ok, "mono?")
+>           | null newPzs                  = (violated pergm NoZones, "newPzs")
+>           | netChange /= 0               = (modified pergm Ok, show netChange) 
+>           | otherwise                    = (noChange pergm Ok, show (length newPzs))
 >         ss                               = finishScans fName clue ss_
 >
 >         okPartner      :: PreZone → PreZoneKey → Bool
@@ -587,8 +601,8 @@ harvest task ===================================================================
 >   where
 >     fName                                = "harvestTaskIf"
 >
->     (owners, rd')                        = foldl' harvestFolder (Map.empty, fwDispositions) fwZRecs
->
+>     (owners, rd')                        = zrecCompute fwIn harvestFolder (Map.empty, fwDispositions) 
+
 >     harvestFolder      :: (Map PerGMKey [PreZone], ResultDispositions)
 >                           → InstZoneRecord
 >                           → (Map PerGMKey [PreZone], ResultDispositions)
@@ -596,10 +610,13 @@ harvest task ===================================================================
 >       let
 >         pergm                            = instKey zrec
 >         pzs                              = zrec.zsPreZones
+>         rdFold'                          = dispose pergm [Scan Accepted Harvested fName noClue] rdFold
+>         (owns, dispos)
+>           | deadrd pergm rdFold          = error "dead instrument cannot participate"
+>           | deadrd pergm rdFold'         = error "harvest action cannot kill"
+>           | otherwise                    = (Map.insert pergm pzs m, rdFold')
 >       in
->         if deadrd pergm rdFold
->           then (m, rdFold)
->           else (Map.insert pergm pzs m, dispose pergm [Scan Accepted Harvested fName "test"] rdFold)
+>         (owns, dispos)
 
 categorization task ===================================================================================================
           assign each instrument to one of the three categories
@@ -621,9 +638,9 @@ categorization task ============================================================
 >         pergmI                           = pergmI_{pgkwBag = Nothing}
 >       in
 >         case icat of
->           InstCatPerc _                  → dispose pergmI [Scan Modified CatIsPerc fName "clue"] rdFold
->           InstCatInst _                  → dispose pergmI [Scan Modified CatIsInst fName "clue"] rdFold
->           InstCatDisq _                  → dispose pergmI [Scan Dropped Disqualified fName "clue"] rdFold
+>           InstCatPerc _                  → dispose pergmI [Scan Modified CatIsPerc fName noClue] rdFold
+>           InstCatInst _                  → dispose pergmI [Scan Modified CatIsInst fName noClue] rdFold
+>           InstCatDisq why _              → dispose pergmI [Scan Dropped Disqualified fName why] rdFold
 >
 > categorize             :: SFBoot → ([InstrumentName], [PercussionSound]) → Map PerGMKey InstCat
 > categorize SFBoot{ .. } rost             = Map.mapWithKey categorizeInst zPreInstCache
@@ -656,15 +673,15 @@ categorization task ============================================================
 >                        :: Maybe InstCat
 >         icatAllKinds                     = foldl' CM.mplus Nothing (provideAlts Nothing allKinds)
 >         icatRost                         = foldl' CM.mplus Nothing (provideAlts icatAllKinds rost)
->         icatNarrow                       = Just (InstCatDisq (dropped pergm Narrow)) -- WOX
+>         icatNarrow                       = Just (InstCatDisq "narrow" (dropped pergm Narrow))
 >         icat                             =
 >           case (icatAllKinds, icatRost) of
 >             (Just (InstCatInst _), Just (InstCatInst _))
 >                                          → icatRost
 >             (Just (InstCatPerc _), Just (InstCatPerc _))
 >                                          → icatRost
->             (Just (InstCatDisq _), _)    → icatAllKinds
->             (_                   , Just (InstCatDisq _))
+>             (Just (InstCatDisq _ _), _)  → icatAllKinds
+>             (_                   , Just (InstCatDisq _ _))
 >                                          → icatRost
 >             _                            → icatNarrow
 >
@@ -678,13 +695,15 @@ categorization task ============================================================
 >         checkGMRange mrng                =
 >           mrng >>= \(j, k) → if (0 <= j) && j <= k && k < fromIntegral qMidiSize128
 >                                then Nothing
->                                else Just $ InstCatDisq (violated pergm CorruptGMRange) -- WOX  (show mrng))
+>                                else Just $ InstCatDisq (show mrng) (violated pergm CorruptGMRange)
 >
 >         hasRom pz                        = F.sampleType (effShdr zPreSampleCache pz) >= 0x8000
 >                                          
 >         checkLinkage   :: Maybe InstCat
 >         checkLinkage                     =
->           if isSafe sList || requiredZoneLinkage < 1 then Nothing else Just $ InstCatDisq (violated pergm BadLinkage) -- WOX  noClue)
+>           if isSafe sList || requiredZoneLinkage < 1
+>             then Nothing
+>             else Just $ InstCatDisq noClue (violated pergm BadLinkage)
 >           where
 >             sList      :: [(Int, Int)]
 >             sList                        = map (\z → (extractIndex z, extractLink z)) pzsLocal
@@ -712,7 +731,9 @@ categorization task ============================================================
 >
 >         rejectCrosses  :: Maybe InstCat
 >         rejectCrosses                 =
->           if any hasCross pzs then Just $ InstCatDisq (violated pergm IllegalCrossover) {- noClue) -} else Nothing
+>           if any hasCross pzs
+>             then Just $ InstCatDisq noClue (violated pergm IllegalCrossover)
+>             else Nothing
 >
 >         hasCross       :: PreZone → Bool
 >         hasCross pz                      =
@@ -748,10 +769,12 @@ categorization task ============================================================
 >
 >             structuralAlts               =
 >               [if isNothing mpzs || null (fromJust mpzs)
->                  then Just $ InstCatDisq (violated pergm NoZones) -- WOX  noClue)
+>                  then Just $ InstCatDisq noClue (violated pergm NoZones)
 >                  else Nothing
 >               , corrupt
->               , if any hasRom pzs then Just $ InstCatDisq (violated pergm RomBased) {- noClue) -} else Nothing
+>               , if any hasRom pzs
+>                   then Just (InstCatDisq noClue (violated pergm RomBased))
+>                   else Nothing
 >               , if allowStereoCrossovers
 >                   then Nothing
 >                   else rejectCrosses
@@ -772,12 +795,12 @@ categorization task ============================================================
 >                   , maybeSettle stands      catInst                  ffInst'
 >
 >                   , maybeSettle stands      (catPerc wZones)         ffPerc'
->                   , maybeSettle stands      (catDisq (dropped pergm Narrow)) {- noClue)) -}     preI.iMatches.ffInst
+>                   , maybeSettle stands      (catDisq noClue (dropped pergm Narrow)) preI.iMatches.ffInst
 >
 >                   , maybeNailAsPerc 0.3
 >                   , if genericScore > 0 then Just catInst            else Nothing
 >                   , if genericScore < 0 then Just (catPerc wZones)   else Nothing
->                   , Just $ catDisq (dropped pergm Unrecognized) {- noClue) -}
+>                   , Just $ catDisq noClue (dropped pergm Unrecognized)
 >                 ]
 >               where
 >                 uZones :: [Word]         = fromMaybe wZones (getMaybePercList seed)
@@ -790,17 +813,17 @@ categorization task ============================================================
 >                     then
 >                       (if 0.05 < howLaden wZones
 >                          then Just (catPerc wZones)
->                          else Just (catDisq (violated pergm NoPercZones))) {- noClue))) -}
+>                          else Just (catDisq noClue (violated pergm NoPercZones)))
 >                     else Nothing
 >
 >                 trace_FA = unwords [fName_, preI.iName, show frost, show (length uZones, length wZones)]
 >
 >             catInst      :: InstCat      =
 >               if null pzs
->                 then InstCatDisq (violated pergm NoZones) -- WOX  noClue)
+>                 then InstCatDisq noClue (violated pergm NoZones)
 >                 else (case checkSmashing pergm smashup of
 >                        Nothing           → InstCatInst icd
->                        Just reason       → InstCatDisq reason)
+>                        Just scans        → InstCatDisq "smashing" scans)
 >               where
 >                 smashup                  = computeInstSmashup pzs
 >                 icd                      = InstCatData pzs smashup []
@@ -810,10 +833,10 @@ categorization task ============================================================
 >               | traceNot trace_CP False  = undefined
 >               | otherwise                =
 >               if null pzs || null ws || (null . init) ws
->                 then InstCatDisq (dropped pergm Narrow)
+>                 then InstCatDisq "narrow" (dropped pergm Narrow)
 >                 else (case check of
 >                        Nothing           → InstCatPerc icd
->                        Just reason       → InstCatDisq reason)
+>                        Just scans        → InstCatDisq "smashing" scans)
 >               where
 >                 fName                    = unwords[fName_, "catPerc"]
 >                 trace_CP                 = unwords [fName, show (length ws, length pzs)]
@@ -823,7 +846,7 @@ categorization task ============================================================
 >                 icd                      = InstCatData pzs' smashup ws
 >                 check                    = checkSmashing pergm smashup
 >
->             catDisq    :: [Scan] → InstCat
+>             catDisq    :: String → [Scan] → InstCat
 >             catDisq                      = InstCatDisq
 >
 >         qualPercZone   :: ([InstrumentName], [PercussionSound]) → PreZone → Maybe Word

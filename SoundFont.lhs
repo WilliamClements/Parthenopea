@@ -35,8 +35,6 @@ April 16, 2023
 >         , computeFFMatches
 >         , computeInstSmashup
 >         , computePreSample
->         , curate
->         , curate'
 >         , dasBoot
 >         , dead
 >         , deadrd
@@ -380,7 +378,7 @@ Instrument categories: instrument, percussion, disqualified
 > data InstCat                             =
 >        InstCatInst InstCatData
 >      | InstCatPerc InstCatData
->      | InstCatDisq [Scan]
+>      | InstCatDisq String [Scan]
 > instance Show InstCat where
 >   show icat                              =
 >     unwords ["InstCat", showMaybeInstCat $ Just icat]
@@ -396,7 +394,7 @@ Instrument categories: instrument, percussion, disqualified
 >     Nothing                              → "icNothing"
 >     Just (InstCatInst _)                 → "icInst"
 >     Just (InstCatPerc _)                 → "icPerc"
->     Just (InstCatDisq _)                 → "icDisq"  
+>     Just (InstCatDisq why _)             → unwords ["icDisq", why]
 > data InstCatData                         =
 >   InstCatData {
 >     inPreZones         :: [PreZone]
@@ -427,6 +425,7 @@ Instrument categories: instrument, percussion, disqualified
 >     zPreSampleCache    :: Map PreSampleKey PreSample
 >   , zPartnerMap        :: Map PreSampleKey PreSampleKey
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
+>   , zTempBackMap       :: Map PreSampleKey [PreZoneKey]
 >   , zOwners            :: Map PerGMKey [PreZone]
 >   , zJobs              :: Map PerGMKey InstCat}
 > instance Show SFBoot where
@@ -440,12 +439,13 @@ Instrument categories: instrument, percussion, disqualified
 >   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache boot2.zPreSampleCache
 >         , zPartnerMap                    = Map.union boot1.zPartnerMap     boot2.zPartnerMap
 >         , zPreInstCache                  = Map.union boot1.zPreInstCache   boot2.zPreInstCache
+>         , zTempBackMap                   = Map.union boot1.zTempBackMap    boot2.zTempBackMap
 >         , zOwners                        = Map.union boot1.zOwners         boot2.zOwners
 >         , zJobs                          = Map.union boot1.zJobs           boot2.zJobs}
 >
 > dasBoot                :: SFBoot
 > dasBoot                                  =
->   SFBoot Map.empty Map.empty Map.empty Map.empty Map.empty
+>   SFBoot Map.empty Map.empty Map.empty Map.empty Map.empty Map.empty
 >
 > data SFRuntime                           =
 >   SFRuntime {
@@ -576,26 +576,29 @@ bootstrapping ==================================================================
 >   , sClue              :: String} deriving (Eq, Show)
 > noClue                 :: String
 > noClue                                   = ""
-> curate                 :: ∀ a . Show a ⇒ a → (a → Bool) → (a → [Scan]) → Maybe [Scan]
-> curate thing ok scan                     = if ok thing then Nothing else Just (scan thing)
-> curate'                :: ∀ a . a → (a → Bool) → (a → [Scan]) → Maybe [Scan]
-> curate' thing ok scan                    = if ok thing then Nothing else Just (scan thing)
+>
+> cancelset, deadset, elideset
+>                        :: [Disposition]
+>                                            -- cancelled if (not dead and) any of the following appear
+> cancelset                                = [Violated, Dropped, Rescued, NoChange, Modified]
+>                                            -- a given list is filtered down to the three Dispositions
+>                                            -- then we count "membership" per distinct Impact
+>                                            -- ...dead if any counts are odd
+> deadset                                  = [Violated, Dropped, Rescued]
+>                                            -- the following only optionally appear in scan report
+> elideset                                 = if howVerboseScan < (1/2)
+>                                              then [Accepted, NoChange]
+>                                              else []
 >
 > dead, cancels          :: [Scan] → Bool
 > dead ss_                                 = any odd (Map.elems m)
 >   where
->                                            -- given list is filtered down to the three Dispositions there
->                                            -- we compute counts per distinct Impact...dead if any counts are odd
->     deadset                              = [Violated, Dropped, Rescued]
 >     ss                                   = filter (\s → s.sDisposition `elem` deadset) ss_
 >
 >     m                  :: Map Impact Int
 >     m                                    = foldl' (\n v → Map.insertWith (+) v 1 n) Map.empty (map sImpact ss)
 >
 > cancels                                  = any (\s → s.sDisposition `elem` cancelset)
->   where
->                                            -- cancelled if (not dead and) any of the following appear
->     cancelset                            = [Violated, Dropped, Rescued, NoChange, Modified]
 >
 > accepted, violated, dropped, rescued, noChange, modified
 >                        :: ∀ r . (SFResource r) ⇒ r → Impact → [Scan]
@@ -778,9 +781,7 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >     procr              :: ∀ r . (SFResource r, Show r) ⇒ r → [Scan] → [Emission]
 >     procr k ss_        =
 >       let
->         ss             = if howVerboseScan < (1/2)
->                            then filter (\s → Accepted /= s.sDisposition) ss_
->                            else ss_
+>         ss             = filter (\s → s.sDisposition `notElem` elideset) ss_
 >       in
 >         if null ss
 >           then []
