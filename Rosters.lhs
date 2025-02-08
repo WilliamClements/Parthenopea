@@ -26,6 +26,7 @@ May 4, 2023
 > import Fanfare
 > import ModulationTest
 > import Parthenopea
+> import Parthenopea.Debug
 > import ParthenopeaTest
 > import Runtime
 > import SoundFont

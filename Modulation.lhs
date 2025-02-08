@@ -28,6 +28,7 @@ November 6, 2023
 >         , chorusDepth
 >         , chorusRate
 >         , coAccess
+>         , Coeff(..)
 >         , compileMods
 >         , Continuity(..)
 >         , controlConcave
@@ -36,6 +37,7 @@ November 6, 2023
 >         , controlSwitch
 >         , defaultMods
 >         , defMapping
+>         , defModSignals
 >         , defModSrc
 >         , defModTriple
 >         , defModulation
@@ -43,6 +45,7 @@ November 6, 2023
 >         , deriveLFO
 >         , deriveModTriple
 >         , doLFO
+>         , echo
 >         , Envelope(..)
 >         , evaluateMods
 >         , evaluateModSignals
@@ -70,6 +73,7 @@ November 6, 2023
 >         , ModTriple(..)
 >         , Modulation(..)
 >         , Modulator(..)
+>         , modVib
 >         , noonAsCoords
 >         , NoteOn(..)
 >         , pow
@@ -77,9 +81,11 @@ November 6, 2023
 >         , qMidiSize128
 >         , qMidiSizeSpace
 >         , qOffsetWeights
+>         , qStepSize
 >         , resolveMods
 >         , ResonanceType(..)
 >         , reverbAllPercent
+>         , sawtooth
 >         , sawtoothTable
 >         , theE
 >         , toAbsoluteCents
@@ -173,8 +179,7 @@ Modulator management ===========================================================
 > -- | In the specified graph, can the specified node be reached, starting out
 > -- from any of the specified vertices?
 > reachableFromAny :: Graph → Node → [Node] → Bool
-> reachableFromAny graph node =
->   elem node . concatMap (Graph.reachable graph)
+> reachableFromAny graph node              = elem node . concatMap (Graph.reachable graph)
 >
 > outGoing               :: ModDestType → Maybe Word
 > outGoing                                 =
@@ -225,8 +230,7 @@ Modulator management ===========================================================
 > compileMods            :: [Modulator] → Map ModDestType [Modulator]
 > compileMods                              = foldl' mfolder Map.empty
 >   where
->     mfolder accum m8r@Modulator{mrModDest}
->                                          = Map.insertWith (++) mrModDest [m8r] accum
+>     mfolder m m8r                        = Map.insertWith (++) m8r.mrModDest [m8r] m
 >
 > renumberMods           :: [Modulator] → [Modulator]
 > renumberMods m8rs                        = map renumber m8rs
@@ -1066,6 +1070,47 @@ Returns the fractional part of 'x'.
 
 > frac                   :: RealFrac r ⇒ r → r
 > frac                                     = snd . properFraction
+>
+> class Coeff a where
+>   azero                :: a
+>   acomplex             :: a → Complex Double
+>   aamp                 :: a → Double
+>   ascale               :: Double → a → a
+>   aadd                 :: a → a → a
+>   amul                 :: a → a → a
+>   asqrt                :: a → a
+>
+> instance Coeff Double where
+>   azero                :: Double
+>   azero                                  = 0
+>   acomplex             :: Double → Complex Double
+>   acomplex                               = (:+ 0)
+>   aamp                 :: Double → Double
+>   aamp                                   = abs
+>   ascale               :: Double → Double → Double
+>   ascale                                 = amul
+>   aadd                 :: Double → Double → Double
+>   aadd x y                               = x + y
+>   amul                 :: Double → Double → Double
+>   amul x y                               = x * y
+>   asqrt                :: Double → Double
+>   asqrt                                  = sqrt
+>
+> instance Coeff (Complex Double) where
+>   azero                :: Complex Double
+>   azero                                  = 0
+>   acomplex             :: Complex Double → Complex Double
+>   acomplex                               = id
+>   aamp                 :: Complex Double → Double
+>   aamp                                   = magnitude
+>   ascale               :: Double → Complex Double → Complex Double
+>   ascale s                               = amul (s :+ 0)
+>   aadd                 :: Complex Double → Complex Double → Complex Double
+>   aadd x y                               = x + y
+>   amul                 :: Complex Double → Complex Double → Complex Double
+>   amul x y                               = x * y
+>   asqrt                :: Complex Double → Complex Double
+>   asqrt                                  = sqrt
 
 Signals of interest ===================================================================================================
 

@@ -44,6 +44,7 @@ December 12, 2022
 > import Euterpea.Music
 > import HSoM.Performance ( metro )
 > import Modulation
+> import Parthenopea.Debug
 > import SoundFont
 > import System.Random ( Random(randomR), StdGen )
 
@@ -801,47 +802,6 @@ Sampling =======================================================================
 >
 > maxSample              :: ∀ p. (Clock p) ⇒ Double → Signal p () Double → Double
 > maxSample durS sf                        = maximum $ map abs (toSamples durS sf)
->
-> class Coeff a where
->   azero                :: a
->   acomplex             :: a → Complex Double
->   aamp                 :: a → Double
->   ascale               :: Double → a → a
->   aadd                 :: a → a → a
->   amul                 :: a → a → a
->   asqrt                :: a → a
->
-> instance Coeff Double where
->   azero                :: Double
->   azero                                  = 0
->   acomplex             :: Double → Complex Double
->   acomplex                               = (:+ 0)
->   aamp                 :: Double → Double
->   aamp                                   = abs
->   ascale               :: Double → Double → Double
->   ascale                                 = amul
->   aadd                 :: Double → Double → Double
->   aadd x y                               = x + y
->   amul                 :: Double → Double → Double
->   amul x y                               = x * y
->   asqrt                :: Double → Double
->   asqrt                                  = sqrt
->
-> instance Coeff (Complex Double) where
->   azero                :: Complex Double
->   azero                                  = 0
->   acomplex             :: Complex Double → Complex Double
->   acomplex                               = id
->   aamp                 :: Complex Double → Double
->   aamp                                   = magnitude
->   ascale               :: Double → Complex Double → Complex Double
->   ascale s                               = amul (s :+ 0)
->   aadd                 :: Complex Double → Complex Double → Complex Double
->   aadd x y                               = x + y
->   amul                 :: Complex Double → Complex Double → Complex Double
->   amul x y                               = x * y
->   asqrt                :: Complex Double → Complex Double
->   asqrt                                  = sqrt
 >
 > data SlwRate
 > instance Clock SlwRate where

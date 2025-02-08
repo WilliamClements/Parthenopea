@@ -602,11 +602,11 @@ To build the map
 
  2. build fragsets by grouping similarly named instruments
 
- 3. groups them, yielding [[(String, Word)]], shrinks that to [[Word]]
+ 3. drop the strings, continue with the vhosen structure
 
  4. expands to [(Word, [Word])]
 
- 5. filters that list via qualifySet
+ 5. filters that list via qualifyAbsorptionGroup
 
 > prereorg1TaskIf sffile _ fwIn
 >   | traceNow trace_PR1T False            = undefined
@@ -663,10 +663,10 @@ To build the map
 >     qualifyAbsorptionGroup
 >                         :: (Word, [Word]) → Bool
 >     qualifyAbsorptionGroup (leadI, memberIs)
->       | traceNow trace_QAG False         = undefined
+>       | traceIf trace_QAG False          = undefined
 >       | otherwise                        = answer
 >       where
->         fName                            = unwords ["qualifySet"]
+>         fName                            = unwords ["qualifyAbsorptionGroup"]
 >
 >         pergms                           = map (\wI → PerGMKey sffile.zWordF wI Nothing) memberIs
 >         smashups                         = map smash pergms
@@ -686,7 +686,7 @@ To build the map
 >                  , show "...."
 >                  , show answer, show (fracAll / fracOne)]
 
-prereorg2TaskIf builds hMap, called zTempHoldMap when persisted
+prereorg2TaskIf builds hMap, called zTempHoldMap when persisted =======================================================
 
 > prereorg2TaskIf _ _ fwIn
 >   | traceNow trace_PR2T False            = undefined
@@ -741,7 +741,7 @@ reorg task =====================================================================
           where indicated, make one instrument out of many
 
 > reorgTaskIf sffile _ fwIn
->   | traceNow trace_RTIF False            = undefined
+>   | traceNot trace_RTIF False            = undefined
 >   | otherwise                            =
 >   fwTask{fwBoot = fwBoot{zTempWordMap = Map.empty
 >                        , zTempHoldMap = Map.empty
@@ -757,7 +757,7 @@ reorg task =====================================================================
 >
 >     reorger            :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     reorger zrec rdFold
->       | traceNow trace_G False           = undefined
+>       | traceNot trace_G False           = undefined
 >       | otherwise                        = (zrec', rdFold')
 >       where
 >         fName_                           = unwords [fName__, "reorger"]

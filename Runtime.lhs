@@ -45,6 +45,7 @@ February 1, 2025
 > import Euterpea.Music
 > import Modulation
 > import Parthenopea
+> import Parthenopea.Debug
 > import Scoring
 > import SoundFont
 > import Synthesizer

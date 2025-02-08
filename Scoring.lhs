@@ -18,6 +18,7 @@ September 12, 2024
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Parthenopea
+> import Parthenopea.Debug
 > import SoundFont
   
 notes on three kinds of scoring =======================================================================================

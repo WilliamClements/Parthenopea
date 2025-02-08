@@ -24,6 +24,7 @@ December 16, 2022
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
 > import Parthenopea
+> import Parthenopea.Debug
 > import Scoring
 > import SoundFont
 > import System.Random ( mkStdGen )

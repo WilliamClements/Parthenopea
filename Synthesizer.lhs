@@ -30,8 +30,8 @@ May 14, 2023
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import FRP.UISF.AuxFunctions ( constA )
 > import Modulation
+> import Parthenopea.Debug
 > import Parthenopea
-> import SoundFont
 > import qualified SynToolkit              as STK
   
 Signal function-based synth ===========================================================================================

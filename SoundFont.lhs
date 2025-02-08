@@ -16,7 +16,6 @@ April 16, 2023
 
 > module SoundFont
 >        (  accepted
->         , accommodate
 >         , adhocFuzz
 >         , adjustedSampleSizeOk
 >         , allCellsEqualTo
@@ -27,7 +26,6 @@ April 16, 2023
 >         , bracks
 >         , cancels
 >         , checkSmashing
->         , clip
 >         , combineBoot
 >         , combinerd
 >         , comma
@@ -39,7 +37,6 @@ April 16, 2023
 >         , dead
 >         , deadrd
 >         , defZone
->         , deJust
 >         , deriveRange
 >         , dropped
 >         , Disposition(..)
@@ -100,8 +97,6 @@ April 16, 2023
 >         , PreSampleKey(..)
 >         , PreZone(..)
 >         , PreZoneKey(..)
->         , profess
->         , professInRange
 >         , rdLengths
 >         , reapEmissions
 >         , reportCategorizationName
@@ -135,10 +130,6 @@ April 16, 2023
 >         , stands'
 >         , toMaybeSampleType
 >         , toSampleType
->         , traceAlways
->         , traceIf
->         , traceNever
->         , traceNot
 >         , Velocity
 >         , violated
 >         , virginrd
@@ -499,8 +490,8 @@ Instrument categories: instrument, percussion, disqualified
 > formDigest                               = foldr inspectGen defDigest
 >   where
 >     inspectGen         :: F.Generator → ZoneDigest → ZoneDigest 
->     inspectGen (F.KeyRange i j) zd       = zd {zdKeyRange = Just (i, j)}
->     inspectGen (F.VelRange i j) zd       = zd {zdVelRange = Just (i, j)}
+>     inspectGen (F.KeyRange i j) zd       = zd {zdKeyRange = assertRange i j}
+>     inspectGen (F.VelRange i j) zd       = zd {zdVelRange = assertRange i j}
 >     inspectGen (F.SampleIndex w) zd      = zd {zdSampleIndex = Just w}
 >
 >     inspectGen (F.StartAddressCoarseOffset i)            zd
@@ -522,6 +513,11 @@ Instrument categories: instrument, percussion, disqualified
 >                                          = zd {zdEndLoop = zd.zdEndLoop + i}
 >
 >     inspectGen _ zd                      = zd
+>
+>     assertRange x y                      = profess
+>                                              (x <= y)
+>                                              "inverted range"
+>                                              Just (x, y)
 >
 
 bootstrapping =========================================================================================================
@@ -725,7 +721,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >   | not ok2                              = Just $ violated pergm OverCoveredRanges 
 >   | otherwise                            = Nothing
 >   where
->     fName                                = "checkSmashing" -- WOX
 >     ok1                                  = allowOutOfRange || smashup.smashStats.countNothings == 0
 >     ok2                                  = allowOverlappingRanges || smashup.smashStats.countMultiples == 0
 >
