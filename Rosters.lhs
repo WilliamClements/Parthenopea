@@ -27,8 +27,8 @@ May 4, 2023
 > import ModulationTest
 > import Parthenopea.Siren
 > import Parthenopea.Debug
-> import ParthenopeaTest
 > import Runtime
+> import SmashingTest
 > import SoundFont
 > import SunPyg
 > import SynthesizerTest
@@ -44,7 +44,7 @@ Rosters support ================================================================
 >
 >   _ ← if playAll
 >         then do
->           resultParthenopea              ← runTestsQuietly parthTests
+>           resultParthenopea              ← runTestsQuietly smashingTests
 >           resultBoot                     ← runTestsQuietly bootTests
 >           resultModulation               ← runTestsQuietly modulationTests     
 >           resultSynthesizer              ← runTestsQuietly synthesizerTests

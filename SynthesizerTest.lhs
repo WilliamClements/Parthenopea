@@ -14,6 +14,7 @@ March 2, 2024
 > import Euterpea.IO.Audio.Basics
 > import Euterpea.IO.Audio.Types
 > import Modulation
+> import Parthenopea.Debug
 > import Parthenopea.Siren
 > import Synthesizer ( eutDriver, Effects(Effects), Recon(Recon) )
   

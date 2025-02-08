@@ -16,12 +16,15 @@ February 2, 2025
 
 > module Parthenopea.Debug
 >        (  accommodate
+>         , aEqual
 >         , clip
 >         , deJust
 >         , diagnosticsEnabled
 >         , notracer
 >         , profess
 >         , professInRange
+>         , runTests
+>         , runTestsQuietly
 >         , traceAlways
 >         , traceIf
 >         , traceNever
@@ -31,6 +34,7 @@ February 2, 2025
 >         )
 >         where
 >
+> import Data.List ( foldl' )
 > import Data.Maybe
 > import Debug.Trace
 >
@@ -72,7 +76,30 @@ Tracing ========================================================================
 >
 > notracer               :: Show a ⇒ String → a → a
 > notracer _ x                             = x
+
+Test runner ===========================================================================================================
+
+> aEqual                 :: (Eq a, Show a) ⇒ a → a → Bool
+> aEqual x y
+>   | x /= y                               = error (show x ++ " and " ++ show y ++ " had to be equal!?")
+>   | otherwise                            = True
 >
+> runTests               :: [IO Bool] → IO ()
+> runTests tests                           = do
+>   results                                ← sequence tests
+>   let nSuccesses::Int                    = foldl' (\n t → n + if t then 1 else 0) 0 results
+>   putStrLn $ unwords ["results =", show results]
+>   putStrLn $ unwords ["  ", show nSuccesses, "/", show $ length results]
+>
+> runTestsQuietly        :: [IO Bool] → IO Bool
+> runTestsQuietly tests                    = do
+>   results                                ← sequence tests
+>   let nSuccesses                         = foldl' (\n t → n + if t then 1 else 0) 0 results
+>   return (nSuccesses == length results)
+>
+
+Debugging Flags =======================================================================================================
+
 > diagnosticsEnabled     :: Bool
 > diagnosticsEnabled                       = False
 

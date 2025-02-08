@@ -67,8 +67,8 @@ library
                     Parthenopea.Debug,
                     Discrete, DiscreteTest, Fanfare,
                     Modulation, ModulationTest, Parthenopea.Siren,
-                    ParthenopeaTest, Percussion, Scoring,
-                    Runtime, SoundFont,
+                    Percussion, Scoring,
+                    Runtime, SmashingTest, SoundFont,
                     SunPyg, Synthesizer, SynthesizerTest,
                     SynToolkit
 

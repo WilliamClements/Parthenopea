@@ -11,7 +11,7 @@ January 7, 2025
 > module BootTest where
 >
 > import SoundFont
-> import Parthenopea.Siren (runTests)
+> import Parthenopea.Debug (runTests)
   
 Testing ===============================================================================================================
 

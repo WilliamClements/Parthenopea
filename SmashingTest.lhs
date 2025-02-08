@@ -4,22 +4,22 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
-ParthenopeaTest
+SmashingTest
 William Clements
 October 11, 2024
 
-> module ParthenopeaTest where
+> module SmashingTest where
 >
-> import Parthenopea.Siren
+> import Parthenopea.Debug
 > import SoundFont
   
 Testing ===============================================================================================================
 
-> runParthTests          :: IO ()
-> runParthTests                            = runTests parthTests
+> runSmashingTests          :: IO ()
+> runSmashingTests                            = runTests smashingTests
 >
-> parthTests             :: [IO Bool]
-> parthTests                               = [canClaimEntireSpaceWithImpunity
+> smashingTests             :: [IO Bool]
+> smashingTests                               = [canClaimEntireSpaceWithImpunity
 >                                         ,   canClaimEntireSpaceByDefault
 >                                         ,   lastSpaceWins
 >                                         ,   nothingNothings

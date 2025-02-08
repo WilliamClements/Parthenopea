@@ -807,11 +807,6 @@ Sampling =======================================================================
 > instance Clock SlwRate where
 >   rate _                                 = 4.41
 > type SlwSF a b                           = SigFun SlwRate a b
->
-> aEqual                 :: (Eq a, Show a) ⇒ a → a → Bool
-> aEqual x y
->   | x /= y                               = error (show x ++ " and " ++ show y ++ " had to be equal!?")
->   | otherwise                            = True
 
 Conversion functions and general helpers ==============================================================================
 
@@ -849,21 +844,6 @@ Returns the amplitude ratio (based on input 10ths of a percent)
 >     else (1000 - jS) / 1000
 >   where
 >     jS                 :: Double         = maybe 0 (fromIntegral . clip (0, 1000)) iS
-
-Test runner
-
-> runTests               :: [IO Bool] → IO ()
-> runTests tests                           = do
->   results                                ← sequence tests
->   let nSuccesses::Int                    = foldl' (\n t → n + if t then 1 else 0) 0 results
->   putStrLn $ unwords ["results =", show results]
->   putStrLn $ unwords ["  ", show nSuccesses, "/", show $ length results]
->
-> runTestsQuietly        :: [IO Bool] → IO Bool
-> runTestsQuietly tests                    = do
->   results                                ← sequence tests
->   let nSuccesses                         = foldl' (\n t → n + if t then 1 else 0) 0 results
->   return (nSuccesses == length results)
 
 Returns sample point as (normalized) Double
 
