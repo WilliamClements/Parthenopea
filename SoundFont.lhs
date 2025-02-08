@@ -425,7 +425,11 @@ Instrument categories: instrument, percussion, disqualified
 >     zPreSampleCache    :: Map PreSampleKey PreSample
 >   , zPartnerMap        :: Map PreSampleKey PreSampleKey
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
+>
+>   , zTempWordMap       :: Map Word Word
 >   , zTempBackMap       :: Map PreSampleKey [PreZoneKey]
+>   , zTempHoldMap       :: Map Word [PreZone]
+>
 >   , zOwners            :: Map PerGMKey [PreZone]
 >   , zJobs              :: Map PerGMKey InstCat}
 > instance Show SFBoot where
@@ -439,14 +443,20 @@ Instrument categories: instrument, percussion, disqualified
 >   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache boot2.zPreSampleCache
 >         , zPartnerMap                    = Map.union boot1.zPartnerMap     boot2.zPartnerMap
 >         , zPreInstCache                  = Map.union boot1.zPreInstCache   boot2.zPreInstCache
+>
+>         , zTempWordMap                   = Map.union boot1.zTempWordMap    boot2.zTempWordMap
 >         , zTempBackMap                   = Map.union boot1.zTempBackMap    boot2.zTempBackMap
+>         , zTempHoldMap                   = Map.union boot1.zTempHoldMap    boot2.zTempHoldMap
+>
 >         , zOwners                        = Map.union boot1.zOwners         boot2.zOwners
 >         , zJobs                          = Map.union boot1.zJobs           boot2.zJobs}
 >
 > dasBoot                :: SFBoot
 > dasBoot                                  =
->   SFBoot Map.empty Map.empty Map.empty Map.empty Map.empty Map.empty
->
+>   SFBoot
+>     Map.empty Map.empty Map.empty
+>     Map.empty Map.empty Map.empty
+>     Map.empty Map.empty
 > data SFRuntime                           =
 >   SFRuntime {
 >     zFiles             :: Array Word SFFile
@@ -562,7 +572,7 @@ bootstrapping ==================================================================
 >      | BadSampleRate | BadSampleType | BadSampleLimits | BadSampleLoopLimits
 >      | MissingStereoPartner | BadStereoPartner
 >      | OrphanedBySample | OrphanedByInst
->      | Absorbed | NoZones
+>      | Absorbing | Absorbed | NoZones
 >      | CorruptGMRange | Narrow | BadLinkage | IllegalCrossover
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
 >      | Unrecognized | NoPercZones | Harvested | CatIsPerc | CatIsInst | Disqualified
@@ -1107,7 +1117,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 > smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
 >                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
 > smashSubspaces tag dims spaces_
->   | traceIf trace_SS False               = undefined
+>   | traceNot trace_SS False              = undefined
 >   | otherwise                            = Smashing tag dims spaces (developSmashStats svector) svector
 >   where
 >     spaces             :: [(i, [(i, i)])]
