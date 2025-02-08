@@ -31,7 +31,7 @@ May 14, 2023
 > import FRP.UISF.AuxFunctions ( constA )
 > import Modulation
 > import Parthenopea.Debug
-> import Parthenopea
+> import Parthenopea.Siren
 > import qualified SynToolkit              as STK
   
 Signal function-based synth ===========================================================================================

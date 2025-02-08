@@ -11,7 +11,7 @@ March 20, 2023
 >
 > import Data.Map (Map)
 > import Euterpea.Music
-> import Parthenopea
+> import Parthenopea.Siren
 > import Percussion
   
 SunPyg ================================================================================================================

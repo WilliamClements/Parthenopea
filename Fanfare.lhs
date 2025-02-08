@@ -12,7 +12,7 @@ November 11, 2022
 > import Data.Map (Map)
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
-> import Parthenopea
+> import Parthenopea.Siren
 > import Percussion
   
   "triads"

@@ -66,7 +66,7 @@ library
                     Covers,
                     Parthenopea.Debug,
                     Discrete, DiscreteTest, Fanfare,
-                    Modulation, ModulationTest, Parthenopea,
+                    Modulation, ModulationTest, Parthenopea.Siren,
                     ParthenopeaTest, Percussion, Scoring,
                     Runtime, SoundFont,
                     SunPyg, Synthesizer, SynthesizerTest,

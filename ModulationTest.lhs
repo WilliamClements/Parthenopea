@@ -15,7 +15,7 @@ November 24, 2023
 > import qualified Data.Map                as Map
 > import Data.Ord
 > import Modulation
-> import Parthenopea
+> import Parthenopea.Siren
 
 Testing ===============================================================================================================
 

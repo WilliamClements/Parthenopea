@@ -10,7 +10,7 @@ December 18, 2022
 > module Cecil ( cecil, abby, wj, shelby, weHateHer ) where
 >
 > import Euterpea.Music
-> import Parthenopea
+> import Parthenopea.Siren
 
 Cecil's Asleep ========================================================================================================
 

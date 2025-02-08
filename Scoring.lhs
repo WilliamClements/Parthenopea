@@ -17,7 +17,7 @@ September 12, 2024
 > import Data.Array.Unboxed
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
-> import Parthenopea
+> import Parthenopea.Siren
 > import Parthenopea.Debug
 > import SoundFont
   

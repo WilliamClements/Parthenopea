@@ -23,7 +23,7 @@ December 16, 2022
 > import Debug.Trace
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
-> import Parthenopea
+> import Parthenopea.Siren
 > import Parthenopea.Debug
 > import Scoring
 > import SoundFont

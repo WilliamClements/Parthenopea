@@ -10,7 +10,7 @@ William Clements
 > module Percussion where
 >
 > import Euterpea.Music
-> import Parthenopea
+> import Parthenopea.Siren
 > import System.Random
 
 perc helpers ==========================================================================================================

@@ -44,7 +44,7 @@ February 1, 2025
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
 > import Euterpea.Music
 > import Modulation
-> import Parthenopea
+> import Parthenopea.Siren
 > import Parthenopea.Debug
 > import Scoring
 > import SoundFont

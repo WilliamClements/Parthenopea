@@ -29,7 +29,7 @@ June 17, 2024
 > import FRP.UISF.AuxFunctions ( delay )
 > import Modulation
 > import Numeric.FFT ( fft, ifft )
-> import Parthenopea
+> import Parthenopea.Siren
 > import Parthenopea.Debug
   
 Discrete approach =====================================================================================================

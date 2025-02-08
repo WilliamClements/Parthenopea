@@ -10,7 +10,7 @@ October 11, 2024
 
 > module ParthenopeaTest where
 >
-> import Parthenopea
+> import Parthenopea.Siren
 > import SoundFont
   
 Testing ===============================================================================================================

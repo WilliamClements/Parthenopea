@@ -25,7 +25,7 @@ May 4, 2023
 > import Euterpea.Music
 > import Fanfare
 > import ModulationTest
-> import Parthenopea
+> import Parthenopea.Siren
 > import Parthenopea.Debug
 > import ParthenopeaTest
 > import Runtime

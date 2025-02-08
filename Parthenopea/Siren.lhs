@@ -11,11 +11,11 @@
 > {-# LANGUAGE TypeOperators #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
-Parthenopea
+Siren
 William Clements
 December 12, 2022
 
-> module Parthenopea where
+> module Parthenopea.Siren where
 >
 > import qualified Codec.Midi              as M
 > import Control.Arrow.ArrowP
@@ -95,7 +95,7 @@ Utilities ======================================================================
 > dim amt                                  = phrase [Dyn (Diminuendo amt)]
 >
 > capture                :: Music (Pitch, [NoteAttribute]) → IO()
-> capture                                  = writeMidi2 "Parthenopea.mid"
+> capture                                  = writeMidi2 "Siren.mid"
 >
 > fractionOf             :: Int → Double → Int
 > fractionOf x doub                        = min 127 $ round $ doub * fromIntegral x
