@@ -5,7 +5,8 @@ Fanfare
 William Clements
 November 11, 2022
 
-> module Fanfare (  theFanfare, kit, pit, dit, rattan, bill, roger, waypostpurple, deyDumpDum, getCITM, gold, silver
+> module Parthenopea.Tunes.Fanfare (
+>                   theFanfare, kit, pit, dit, rattan, bill, roger, waypostpurple, deyDumpDum, getCITM, gold, silver
 >                 , littleCITM, whelpNarp, alice, bob, copper, dadadada, snake, littlePendingtonArnt, pendingtonArnt
 >                 , littleWay, pan ) where
 >

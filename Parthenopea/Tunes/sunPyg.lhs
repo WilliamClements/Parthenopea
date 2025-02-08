@@ -7,7 +7,7 @@ SunPyg
 William Clements
 March 20, 2023
 
-> module SunPyg (sunPyg) where
+> module Parthenopea.Tunes.SunPyg (sunPyg) where
 >
 > import Data.Map (Map)
 > import Euterpea.Music

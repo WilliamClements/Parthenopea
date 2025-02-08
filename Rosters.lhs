@@ -14,23 +14,23 @@ May 4, 2023
 > import Baking
 > import Boot
 > import BootTest
-> import Cecil
 > import Control.Monad ( foldM )
-> import Covers
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Debug.Trace ( traceIO, traceM )
 > import Discrete
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
-> import Fanfare
 > import ModulationTest
-> import Parthenopea.Siren
 > import Parthenopea.Debug
+> import Parthenopea.Siren
+> import Parthenopea.Tunes.Cecil
+> import Parthenopea.Tunes.Covers
+> import Parthenopea.Tunes.Fanfare
+> import Parthenopea.Tunes.SunPyg
 > import Runtime
 > import SmashingTest
 > import SoundFont
-> import SunPyg
 > import SynthesizerTest
 > import System.Environment ( getArgs )
 

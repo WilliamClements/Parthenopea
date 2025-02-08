@@ -8,7 +8,8 @@ Covers
 William Clements
 January 13, 2023
 
-> module Covers (  littleSailor, slot, ssailor, deathlessHorsie, basicLick, packardGoose, yahozna, littleDH
+> module Parthenopea.Tunes.Covers (
+>                littleSailor, slot, ssailor, deathlessHorsie, basicLick, packardGoose, yahozna, littleDH
 >                , greenMore, testslot) where
 
 > import Data.Map (Map)
