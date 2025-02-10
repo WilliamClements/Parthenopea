@@ -44,6 +44,7 @@ November 6, 2023
 >         , defModulator
 >         , deriveLFO
 >         , deriveModTriple
+>         , deriveRange
 >         , doLFO
 >         , echo
 >         , Envelope(..)
@@ -99,6 +100,7 @@ November 6, 2023
 >         , useModulators
 >         , useLFO
 >         , Velocity
+>         , walkRange
 >         )
 >         where
 >
@@ -1125,6 +1127,11 @@ Signals of interest ============================================================
 >                                                          [      1,  0, -0.5,  0,  0.3,   0
 >                                                           , -0.25,  0,  0.2,  0, -0.167, 0
 >                                                           ,  0.14,  0, -0.125]
+>
+> deriveRange            :: Integral n ⇒ n → n → [n]
+> deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]
+> walkRange              :: Integral n ⇒ (n, n) → [n]
+> walkRange (x, y)                         = if x > y || y < 0 then [] else [x..y]
 >
 > useModulators          :: Bool
 > useModulators                            = True

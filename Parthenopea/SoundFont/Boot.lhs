@@ -42,6 +42,7 @@ January 21, 2025
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.Repro.Smashing
 > import Parthenopea.SoundFont.SFSpec
 > import qualified System.FilePattern.Directory
 >                                          as FP
