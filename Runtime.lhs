@@ -114,19 +114,16 @@ executive ======================================================================
 >                        = do
 >       tsStarted        ← getCurrentTime
 >
->       (zc, rdGen04)    ← formZoneCache prerunt rdGen03
->       owners'          ← reassociateZones zc
->
 >       tsZoned          ← getCurrentTime
 >       putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsStarted))
 >
->       CM.when reportScan (writeScanReport prerunt rdGen04)
+>       CM.when reportScan (writeScanReport prerunt rdGen03)
 >       tsScanned        ← getCurrentTime
 >      
 >       -- actually conduct the tournament
 >       ((wI, sI), (wP, sP))
->                        ← decideWinners zBoot.zPreSampleCache zBoot.zPreInstCache owners'
->                                        zc rost pergmsI pergmsP
+>                        ← decideWinners zBoot.zPreSampleCache zBoot.zPreInstCache zBoot.zOwners
+>                                        zBoot.zPerInstCache rost pergmsI pergmsP
 >       tsDecided        ← getCurrentTime
 >       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsScanned))
 >
@@ -142,8 +139,7 @@ executive ======================================================================
 >       putStrLn ("___create winning record: " ++ show (diffUTCTime tsRecond tsReported))
 >         
 >       return prerunt{
->         zWinningRecord = wins
->         , zPerInstCache = zc}
+>         zWinningRecord = wins}
 >
 >     -- get it on
 >     doRendering      :: SFRuntime → IO ()
@@ -162,9 +158,6 @@ executive ======================================================================
 >
 >       tsRendered       ← getCurrentTime
 >       putStrLn ("___render songs: "        ++ show (diffUTCTime tsRendered tsPrepared))
->
-> reassociateZones       :: Map PerGMKey PerInstrument → IO (Map PerGMKey [PreZone])
-> reassociateZones zc    = return $ Map.map (\q → map fst q.pZones) zc
 >
 > writeTournamentReport  :: Array Word SFFile
 >                           → Map InstrumentName [PerGMScored]
@@ -447,166 +440,6 @@ tournament starts here =========================================================
 >         , endLoop < startLoop
 >       ]
  
-extract data from SoundFont per instrument ============================================================================
-
-> addGen                 :: SFZone → F.Generator → SFZone
-> addGen iz gen =
->   case gen of
->   F.StartAddressOffset i         → iz {zStartOffs =                Just i}
->   F.EndAddressOffset i           → iz {zEndOffs =                  Just i}
->   F.LoopStartAddressOffset i     → iz {zLoopStartOffs =            Just i}
->   F.LoopEndAddressOffset i       → iz {zLoopEndOffs =              Just i}
->
->   F.StartAddressCoarseOffset i   → iz {zStartCoarseOffs =          Just i}
->   F.EndAddressCoarseOffset i     → iz {zEndCoarseOffs =            Just i}
->   F.LoopStartAddressCoarseOffset i
->                                  → iz {zLoopStartCoarseOffs =      Just i}
->   F.LoopEndAddressCoarseOffset i
->                                  → iz {zLoopEndCoarseOffs =        Just i}
->
->   F.InstIndex w                  → iz {zInstIndex =                Just w}
->   F.KeyRange x y                 → iz {zKeyRange =                 Just (fromIntegral x, fromIntegral y)}
->   F.VelRange x y                 → iz {zVelRange =                 Just (fromIntegral x, fromIntegral y)}
->   F.Key i                        → iz {zKey =                      Just i}
->   F.Vel i                        → iz {zVel =                      Just i}
->   F.InitAtten i                  → iz {zInitAtten =                Just i}
->   F.CoarseTune i                 → iz {zCoarseTune =               Just i}
->   F.FineTune i                   → iz {zFineTune =                 Just i}
->   F.SampleIndex w                → iz {zSampleIndex =              Just w}
->   F.SampleMode m                 → iz {zSampleMode =               Just m}
->   F.ScaleTuning i                → iz {zScaleTuning =              Just i}
->   F.ExclusiveClass i             → iz {zExclusiveClass =           Just i}
->
->   F.DelayVolEnv i                → iz {zDelayVolEnv =              Just i}
->   F.AttackVolEnv i               → iz {zAttackVolEnv =             Just i}
->   F.HoldVolEnv i                 → iz {zHoldVolEnv =               Just i}
->   F.DecayVolEnv i                → iz {zDecayVolEnv =              Just i}
->   F.SustainVolEnv i              → iz {zSustainVolEnv =            Just i}
->   F.ReleaseVolEnv i              → iz {zReleaseVolEnv =            Just i}
->
->   F.Chorus i                     → iz {zChorus =                   Just i}
->   F.Reverb i                     → iz {zReverb =                   Just i}
->   F.Pan i                        → iz {zPan =                      Just i}
->
->   F.RootKey w                    → iz {zRootKey =                  Just (fromIntegral w)}
->
->   F.ModLfoToPitch i              → iz {zModLfoToPitch =            Just i}
->   F.VibLfoToPitch i              → iz {zVibLfoToPitch =            Just i}
->   F.ModEnvToPitch i              → iz {zModEnvToPitch =            Just i}
->   F.InitFc i                     → iz {zInitFc =                   Just i}
->   F.InitQ i                      → iz {zInitQ =                    Just i}
->   F.ModLfoToFc i                 → iz {zModLfoToFc =               Just i}
->   F.ModEnvToFc i                 → iz {zModEnvToFc =               Just i}
->   F.ModLfoToVol i                → iz {zModLfoToVol =              Just i}
->   F.DelayModLfo i                → iz {zDelayModLfo =              Just i}
->   F.FreqModLfo i                 → iz {zFreqModLfo =               Just i}
->   F.DelayVibLfo i                → iz {zDelayVibLfo =              Just i}
->   F.FreqVibLfo i                 → iz {zFreqVibLfo =               Just i}
->   F.DelayModEnv i                → iz {zDelayModEnv =              Just i}
->   F.AttackModEnv i               → iz {zAttackModEnv =             Just i}
->   F.HoldModEnv i                 → iz {zHoldModEnv =               Just i}
->   F.DecayModEnv i                → iz {zDecayModEnv =              Just i}
->   F.SustainModEnv i              → iz {zSustainModEnv =            Just i}
->   F.ReleaseModEnv i              → iz {zReleaseModEnv =            Just i}
->   F.KeyToModEnvHold i            → iz {zKeyToModEnvHold =          Just i}
->   F.KeyToModEnvDecay i           → iz {zKeyToModEnvDecay =         Just i}
->   F.KeyToVolEnvHold i            → iz {zKeyToVolEnvHold =          Just i}
->   F.KeyToVolEnvDecay i           → iz {zKeyToVolEnvDecay =         Just i}
->   _                              → iz
->
-> addMod                 :: (Word, F.Mod) → SFZone → SFZone
-> addMod (mId, F.Mod{srcOper, destOper, amtSrcOper, amount}) iz@SFZone{zModulators} 
->                                          = maybe iz addModulator makeModulator
->   where
->     addModulator       :: Modulator → SFZone
->     addModulator m8r                     = iz{zModulators = m8r : zModulators}
->
->     makeModulator      :: Maybe Modulator
->     makeModulator                        = mm'
->       where
->         mm, mm'        :: Maybe Modulator
->         mm                               = unpackModSrc srcOper
->                                            >>= flip addSrc defModulator{mrModId = mId}
->                                            >>= addDest destOper
->                                            >>= addAmount (fromIntegral amount)
->         mm'                              = unpackModSrc amtSrcOper
->                                            >>= addAmtSrc mm
-                                            
-prepare the specified instruments and percussion ======================================================================
-
-> formZoneCache          :: SFRuntime
->                           → ResultDispositions
->                           → IO (Map PerGMKey PerInstrument, ResultDispositions)
-> formZoneCache SFRuntime{ .. } rd_
->                                          = do
->   return $ Map.foldlWithKey formFolder (Map.empty, rd_) zBoot.zJobs
->   where
->     formFolder         :: (Map PerGMKey PerInstrument, ResultDispositions)
->                           → PerGMKey → InstCat
->                           → (Map PerGMKey PerInstrument, ResultDispositions)
->     formFolder (zc, rd) pergm icat       = (Map.insert pergm (computePerInst pergm icat) zc, rd)
->
->     computePerInst     :: PerGMKey → InstCat → PerInstrument
->     computePerInst pergm icat
->       | traceIf trace_CPI False          = undefined
->       | otherwise                        = PerInstrument (zip pzs oList) icd.inSmashup
->       where
->         sffile                           = zFiles ! pergm.pgkwFile
->         preI                             =
->           deJust "computePerInst PreInstrument" (Map.lookup pergm zBoot.zPreInstCache)
->
->         icd            :: InstCatData
->         bixen          :: [Word]
->
->         (icd, bixen)                     =
->           case icat of
->             InstCatPerc x                → (x, x.inPercBixen)
->             InstCatInst x                → (x, map pzWordB x.inPreZones)
->             _                            → error $ unwords ["formZoneCache", "only Inst and Perc are valid here"]
->
->         gZone                            =
->           case preI.iGlobalKey of
->             Nothing                      → defZone
->             Just pzk                     → buildZone sffile defZone pzk.pzkwBag
->         oList                            = map (buildZone sffile gZone) bixen
->
->         pzs                              = filter (\pz → pz.pzWordB `elem` bixen) icd.inPreZones
->
->         trace_CPI                        =
->           unwords ["computePerInst", show pergm.pgkwFile, preI.iName, show (length oList)]
->
-> buildZone              :: SFFile → SFZone → Word → SFZone
-> buildZone sffile fromZone bagIndex
->   | traceIf trace_BZ False               = undefined
->   | otherwise                            = zone
->   where
->     zone                                 = foldr addMod (foldl' addGen fromZone gens) mods
->     boota                                = sffile.zFileArrays
->
->     xgeni                                = F.genNdx $ boota.ssIBags!bagIndex
->     ygeni                                = F.genNdx $ boota.ssIBags!(bagIndex + 1)
->     xmodi                                = F.modNdx $ boota.ssIBags!bagIndex
->     ymodi                                = F.modNdx $ boota.ssIBags!(bagIndex + 1)
->
->     gens               :: [F.Generator]  =
->       profess
->         (xgeni <= ygeni)
->         (unwords["SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt (buildZone gens)"])
->         (map (boota.ssIGens !) (deriveRange xgeni ygeni))
->     mods               :: [(Word, F.Mod)]
->                                          =
->       profess
->         (xmodi <= ymodi)
->         (unwords["SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt (buildZone mods)"])
->         (zip [10_000..] (map (boota.ssIMods !) (deriveRange xmodi ymodi)))
->
->     trace_BZ                             =
->       unwords ["buildZone", show sffile.zWordF, show bagIndex, show zone.zSampleIndex
->              , show (fromMaybe "" name), show (fromZone == defZone)]
->
->     name               :: Maybe String   =
->       zone.zSampleIndex >>= \x → Just (boota.ssShdrs ! x) >>= Just . F.sampleName
-
 define signal functions and instrument maps to support rendering ======================================================
 
 > prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
@@ -668,7 +501,7 @@ define signal functions and instrument maps to support rendering ===============
 >     samplea                              = sffile.zSample
 >
 >     preI                                 = deJust (unwords [fName_, "preI"]) (Map.lookup pergm zBoot.zPreInstCache)
->     perI                                 = deJust (unwords [fName_, "perI"]) (Map.lookup pergm zPerInstCache)
+>     perI                                 = deJust (unwords [fName_, "perI"]) (Map.lookup pergm zBoot.zPerInstCache)
 >
 >     trace_ISF                            =
 >       unwords [fName_, show pergm.pgkwFile, show preI.pInst, show (pchIn, volIn), show durI]

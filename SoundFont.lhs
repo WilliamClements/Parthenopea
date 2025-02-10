@@ -203,7 +203,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     unwords ["PreZone", show (pzWordF, pzWordS, pzWordI, pzWordB), show pzDigest, show pzmkPartners]
 >
 > makePreZone            :: Word → Word → Word → Word → [F.Generator] → PreZone
-> makePreZone wF wS wI wB gens         = PreZone wF wS wI wB (formDigest gens) [] []
+> makePreZone wF wS wI wB gens             = PreZone wF wS wI wB (formDigest gens) [] []
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
@@ -422,13 +422,15 @@ Instrument categories: instrument, percussion, disqualified
 >   , zTempHoldMap       :: Map Word [PreZone]
 >
 >   , zOwners            :: Map PerGMKey [PreZone]
->   , zJobs              :: Map PerGMKey InstCat}
+>   , zJobs              :: Map PerGMKey InstCat
+>   , zPerInstCache      :: Map PerGMKey PerInstrument}
 > instance Show SFBoot where
 >   show (SFBoot{ .. })                  =
 >     unwords [  "SFBoot"
 >              , show (length zPreSampleCache, length zPartnerMap, length zPreInstCache)
 >              , show (length zOwners), "=owners"
->              , show (length zJobs), "=jobs"]
+>              , show (length zJobs), "=jobs"
+>              , show (length zPerInstCache), "=perI"]
 > combineBoot            :: SFBoot → SFBoot → SFBoot
 > combineBoot boot1 boot2                  =
 >   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache boot2.zPreSampleCache
@@ -440,19 +442,19 @@ Instrument categories: instrument, percussion, disqualified
 >         , zTempHoldMap                   = Map.union boot1.zTempHoldMap    boot2.zTempHoldMap
 >
 >         , zOwners                        = Map.union boot1.zOwners         boot2.zOwners
->         , zJobs                          = Map.union boot1.zJobs           boot2.zJobs}
+>         , zJobs                          = Map.union boot1.zJobs           boot2.zJobs
+>         , zPerInstCache                  = Map.union boot1.zPerInstCache   boot2.zPerInstCache}
 >
 > dasBoot                :: SFBoot
 > dasBoot                                  =
 >   SFBoot
 >     Map.empty Map.empty Map.empty
 >     Map.empty Map.empty Map.empty
->     Map.empty Map.empty
+>     Map.empty Map.empty Map.empty
 > data SFRuntime                           =
 >   SFRuntime {
 >     zFiles             :: Array Word SFFile
 >   , zBoot              :: SFBoot
->   , zPerInstCache      :: Map PerGMKey PerInstrument
 >   , zWinningRecord     :: WinningRecord}
 >
 > data SFFile =
@@ -490,8 +492,8 @@ Instrument categories: instrument, percussion, disqualified
 > formDigest                               = foldr inspectGen defDigest
 >   where
 >     inspectGen         :: F.Generator → ZoneDigest → ZoneDigest 
->     inspectGen (F.KeyRange i j) zd       = zd {zdKeyRange = assertRange i j}
->     inspectGen (F.VelRange i j) zd       = zd {zdVelRange = assertRange i j}
+>     inspectGen (F.KeyRange i j) zd       = zd {zdKeyRange = normalizeRange i j}
+>     inspectGen (F.VelRange i j) zd       = zd {zdVelRange = normalizeRange i j}
 >     inspectGen (F.SampleIndex w) zd      = zd {zdSampleIndex = Just w}
 >
 >     inspectGen (F.StartAddressCoarseOffset i)            zd
@@ -514,10 +516,9 @@ Instrument categories: instrument, percussion, disqualified
 >
 >     inspectGen _ zd                      = zd
 >
->     assertRange x y                      = profess
->                                              (x <= y)
->                                              "inverted range"
->                                              Just (x, y)
+>     normalizeRange x y                   = if x > y
+>                                              then Just (y, x)
+>                                              else Just (x, y)
 >
 
 bootstrapping =========================================================================================================
@@ -567,6 +568,7 @@ bootstrapping ==================================================================
 >   Ok | CorruptName
 >      | BadSampleRate | BadSampleType | BadSampleLimits | BadSampleLoopLimits
 >      | MissingStereoPartner | BadStereoPartner
+>      | Groomed
 >      | OrphanedBySample | OrphanedByInst
 >      | Absorbing | Absorbed | NoZones
 >      | CorruptGMRange | Narrow | BadLinkage | IllegalCrossover
