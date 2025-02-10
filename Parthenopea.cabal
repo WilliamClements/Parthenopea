@@ -59,10 +59,10 @@ library
     import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules: Rosters
+    exposed-modules: Parthenopea.Music.Rosters
     
     -- Modules included in this library but not exported.
-    other-modules:  Baking, Parthenopea.Repro.Chart,
+    other-modules:  Parthenopea.Music.Baking, Parthenopea.Repro.Chart,
                     Parthenopea.Repro.Discrete, Parthenopea.Repro.DiscreteTest,
                     Parthenopea.Repro.SmashingTest,
                     Parthenopea.Debug, Parthenopea.Siren,
@@ -77,7 +77,7 @@ library
                     Parthenopea.Tunes.Covers,
                     Parthenopea.Tunes.Fanfare,
                     Parthenopea.Tunes.SunPyg,
-                    Percussion
+                    Parthenopea.Music.Percussion
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

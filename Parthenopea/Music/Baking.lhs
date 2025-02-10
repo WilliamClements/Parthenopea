@@ -10,7 +10,7 @@ Baking
 William Clements
 December 16, 2022
 
-> module Baking (bakedJingle
+> module Parthenopea.Music.Baking (bakedJingle
 >                , measureBakes
 >                , sampleBakes
 >                , bake4Measuring

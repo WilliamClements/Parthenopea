@@ -7,7 +7,7 @@ Percussion
 William Clements
 23-Jan-2023
 
-> module Percussion where
+> module Parthenopea.Music.Percussion where
 >
 > import Euterpea.Music
 > import Parthenopea.Siren

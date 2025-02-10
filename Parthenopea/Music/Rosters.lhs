@@ -9,9 +9,8 @@ Rosters
 William Clements
 May 4, 2023
 
-> module Rosters where
+> module Parthenopea.Music.Rosters where
 >
-> import Baking
 > import Control.Monad ( foldM )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
@@ -19,6 +18,7 @@ May 4, 2023
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
 > import Parthenopea.Debug
+> import Parthenopea.Music.Baking
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.ModulationTest
 > import Parthenopea.Repro.SmashingTest

@@ -14,7 +14,7 @@ November 11, 2022
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic ( roll )
 > import Parthenopea.Siren
-> import Percussion
+> import Parthenopea.Music.Percussion
   
   "triads"
 
