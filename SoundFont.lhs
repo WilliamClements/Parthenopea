@@ -158,8 +158,8 @@ April 16, 2023
 > import Debug.Trace
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
-> import Modulation
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Modulation
 > import qualified Text.FuzzyFind          as FF
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================

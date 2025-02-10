@@ -43,8 +43,8 @@ December 12, 2022
 > import Euterpea.IO.MIDI.ToMidi2 ( writeMidi2 )
 > import Euterpea.Music
 > import HSoM.Performance ( metro )
-> import Modulation
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Modulation
 > import SoundFont
 > import System.Random ( Random(randomR), StdGen )
 

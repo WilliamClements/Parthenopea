@@ -40,8 +40,8 @@ January 21, 2025
 > import Debug.Trace ( traceIO )
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
-> import Modulation
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Modulation
 > import SoundFont
 > import qualified System.FilePattern.Directory
 >                                          as FP

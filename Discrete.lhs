@@ -27,10 +27,10 @@ June 17, 2024
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
 > import FRP.UISF.AuxFunctions ( delay )
-> import Modulation
 > import Numeric.FFT ( fft, ifft )
-> import Parthenopea.Siren
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Modulation
+> import Parthenopea.Siren
   
 Discrete approach =====================================================================================================
 

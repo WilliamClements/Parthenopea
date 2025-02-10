@@ -12,7 +12,7 @@ Synthesizer
 William Clements
 May 14, 2023
 
-> module Synthesizer where
+> module Parthenopea.Repro.Synthesizer where
 >
 > import Control.Arrow
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )
@@ -23,13 +23,13 @@ May 14, 2023
 > import Data.Maybe
 > import Data.Ord ( comparing )
 > import Data.Word ( Word64 )
-> import Discrete
+> import Discrete ( applyConvolutionMono, applyConvolutionStereo )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import FRP.UISF.AuxFunctions ( constA )
-> import Modulation
+> import Parthenopea.Repro.Modulation
 > import Parthenopea.Debug
 > import Parthenopea.Siren
 > import qualified SynToolkit              as STK

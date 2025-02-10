@@ -7,14 +7,14 @@ ModulationTest
 William Clements
 November 24, 2023
 
-> module ModulationTest ( modulationTests, runModulationTests ) where
+> module Parthenopea.Repro.ModulationTest ( modulationTests, runModulationTests ) where
 >
 > import Control.Exception
 > import Data.Either
 > import Data.List ( nub, sort, sortOn )
 > import qualified Data.Map                as Map
 > import Data.Ord
-> import Modulation
+> import Parthenopea.Repro.Modulation
 > import Parthenopea.Debug
 
 Testing ===============================================================================================================

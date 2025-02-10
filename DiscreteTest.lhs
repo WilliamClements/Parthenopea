@@ -24,7 +24,7 @@ June 22, 2024
 > import Euterpea.IO.Audio.BasicSigFuns ( osc, Table )
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock )
 > import HSoM.Examples.Additive ( sineTable )
-> import Modulation
+> import Parthenopea.Repro.Modulation
 > import Parthenopea.Siren
 > import Parthenopea.Debug
 

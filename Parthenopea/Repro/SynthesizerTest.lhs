@@ -8,15 +8,15 @@ SynthesizerTest
 William Clements
 March 2, 2024
 
-> module SynthesizerTest ( runSynthesizerTests, synthesizerTests ) where
+> module Parthenopea.Repro.SynthesizerTest ( runSynthesizerTests, synthesizerTests ) where
 >
 > import qualified Data.Audio              as A
 > import Euterpea.IO.Audio.Basics
 > import Euterpea.IO.Audio.Types
-> import Modulation
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Modulation
 > import Parthenopea.Siren
-> import Synthesizer ( eutDriver, Effects(Effects), Recon(Recon) )
+> import Parthenopea.Repro.Synthesizer ( eutDriver, Effects(Effects), Recon(Recon) )
   
 Testing ===============================================================================================================
 

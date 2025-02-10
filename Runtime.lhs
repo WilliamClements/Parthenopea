@@ -43,12 +43,12 @@ February 1, 2025
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
 > import Euterpea.Music
-> import Modulation
+> import Parthenopea.Repro.Modulation
 > import Parthenopea.Siren
 > import Parthenopea.Debug
 > import Scoring
 > import SoundFont
-> import Synthesizer
+> import Parthenopea.Repro.Synthesizer
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 

@@ -14,7 +14,7 @@ Modulation
 William Clements
 November 6, 2023
 
-> module Modulation
+> module Parthenopea.Repro.Modulation
 >        ( addAmount
 >         , addAmtSrc
 >         , addResonance

@@ -21,8 +21,9 @@ May 4, 2023
 > import Discrete
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
-> import ModulationTest
 > import Parthenopea.Debug
+> import Parthenopea.Repro.ModulationTest
+> import Parthenopea.Repro.SynthesizerTest
 > import Parthenopea.Siren
 > import Parthenopea.Tunes.Cecil
 > import Parthenopea.Tunes.Covers
@@ -31,7 +32,6 @@ May 4, 2023
 > import Runtime
 > import SmashingTest
 > import SoundFont
-> import SynthesizerTest
 > import System.Environment ( getArgs )
 
 Rosters support =======================================================================================================
