@@ -14,7 +14,7 @@ Boot
 William Clements
 January 21, 2025
 
-> module Boot
+> module Parthenopea.SoundFont.Boot
 >        (  equipInstruments
 >         , extractInstKey
 >         , extractZoneKey
@@ -42,7 +42,7 @@ January 21, 2025
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Modulation
-> import SoundFont
+> import Parthenopea.SoundFont.SFSpec
 > import qualified System.FilePattern.Directory
 >                                          as FP
   

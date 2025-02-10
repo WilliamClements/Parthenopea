@@ -25,8 +25,8 @@ December 16, 2022
 > import HSoM.Examples.MoreMusic ( roll )
 > import Parthenopea.Siren
 > import Parthenopea.Debug
-> import Scoring
-> import SoundFont
+> import Parthenopea.SoundFont.Scoring
+> import Parthenopea.SoundFont.SFSpec
 > import System.Random ( mkStdGen )
   
 Bake ==================================================================================================================

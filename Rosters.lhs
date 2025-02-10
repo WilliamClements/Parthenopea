@@ -12,8 +12,6 @@ May 4, 2023
 > module Rosters where
 >
 > import Baking
-> import Boot
-> import BootTest
 > import Control.Monad ( foldM )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
@@ -29,9 +27,11 @@ May 4, 2023
 > import Parthenopea.Tunes.Covers
 > import Parthenopea.Tunes.Fanfare
 > import Parthenopea.Tunes.SunPyg
-> import Runtime
+> import Parthenopea.SoundFont.Boot
+> import Parthenopea.SoundFont.BootTest
+> import Parthenopea.SoundFont.Runtime
+> import Parthenopea.SoundFont.SFSpec
 > import SmashingTest
-> import SoundFont
 > import System.Environment ( getArgs )
 
 Rosters support =======================================================================================================

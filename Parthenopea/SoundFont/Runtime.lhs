@@ -15,13 +15,12 @@ Runtime
 William Clements
 February 1, 2025
 
-> module Runtime
+> module Parthenopea.SoundFont.Runtime
 >        (  computeCross
 >         , doEverything
 >         )
 >         where
 >
-> import Boot
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
 > import Control.Monad.Trans.Reader
@@ -43,12 +42,13 @@ February 1, 2025
 > import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
 > import Euterpea.Music
-> import Parthenopea.Repro.Modulation
-> import Parthenopea.Siren
 > import Parthenopea.Debug
-> import Scoring
-> import SoundFont
+> import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Synthesizer
+> import Parthenopea.Siren
+> import Parthenopea.SoundFont.Boot
+> import Parthenopea.SoundFont.Scoring
+> import Parthenopea.SoundFont.SFSpec
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 

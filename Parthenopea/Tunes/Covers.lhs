@@ -15,9 +15,9 @@ January 13, 2023
 > import Data.Map (Map)
 > import Euterpea.Music
 > import HSoM.Examples.MoreMusic hiding (grace)
-> import Parthenopea.Siren
 > import Percussion
-> import SoundFont
+> import Parthenopea.Siren
+> import Parthenopea.SoundFont.SFSpec
   
 Saucy Sailor ==========================================================================================================
 

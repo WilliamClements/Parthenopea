@@ -62,17 +62,19 @@ library
     exposed-modules: Rosters
     
     -- Modules included in this library but not exported.
-    other-modules:  Baking, Boot, BootTest, Chart,
+    other-modules:  Baking, Chart,
                     Discrete, DiscreteTest,
                     Parthenopea.Debug, Parthenopea.Siren,
                     Parthenopea.Repro.Modulation, Parthenopea.Repro.ModulationTest,
                     Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest,
+                    Parthenopea.SoundFont.Boot, Parthenopea.SoundFont.BootTest,
+                    Parthenopea.SoundFont.Runtime, Parthenopea.SoundFont.SFSpec,
                     Parthenopea.Tunes.Cecil,
                     Parthenopea.Tunes.Covers,
                     Parthenopea.Tunes.Fanfare,
                     Parthenopea.Tunes.SunPyg,
-                    Percussion, Scoring,
-                    Runtime, SmashingTest, SoundFont,
+                    Percussion,
+                    SmashingTest,
                     SynToolkit
 
     -- LANGUAGE extensions used by modules in this package.

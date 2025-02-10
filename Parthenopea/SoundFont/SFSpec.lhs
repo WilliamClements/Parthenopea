@@ -14,7 +14,7 @@ SoundFont
 William Clements
 April 16, 2023
 
-> module SoundFont
+> module Parthenopea.SoundFont.SFSpec
 >        (  accepted
 >         , adhocFuzz
 >         , adjustedSampleSizeOk

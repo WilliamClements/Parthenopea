@@ -45,7 +45,7 @@ December 12, 2022
 > import HSoM.Performance ( metro )
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Modulation
-> import SoundFont
+> import Parthenopea.SoundFont.SFSpec
 > import System.Random ( Random(randomR), StdGen )
 
 Utilities =============================================================================================================

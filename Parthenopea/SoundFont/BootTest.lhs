@@ -8,10 +8,10 @@ BootTest
 William Clements
 January 7, 2025
 
-> module BootTest where
+> module Parthenopea.SoundFont.BootTest where
 >
-> import SoundFont
 > import Parthenopea.Debug (runTests)
+> import Parthenopea.SoundFont.SFSpec
   
 Testing ===============================================================================================================
 

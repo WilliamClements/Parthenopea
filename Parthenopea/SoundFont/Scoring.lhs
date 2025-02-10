@@ -12,14 +12,14 @@ Scoring
 William Clements
 September 12, 2024
 
-> module Scoring where
+> module Parthenopea.SoundFont.Scoring where
 >
 > import Data.Array.Unboxed
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
-> import Parthenopea.Siren
 > import Parthenopea.Debug
-> import SoundFont
+> import Parthenopea.Siren
+> import Parthenopea.SoundFont.SFSpec
   
 notes on three kinds of scoring =======================================================================================
 

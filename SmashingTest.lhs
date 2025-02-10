@@ -11,7 +11,7 @@ October 11, 2024
 > module SmashingTest where
 >
 > import Parthenopea.Debug
-> import SoundFont
+> import Parthenopea.SoundFont.SFSpec
   
 Testing ===============================================================================================================
 
