@@ -29,9 +29,9 @@ May 14, 2023
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import FRP.UISF.AuxFunctions ( constA )
 > import Parthenopea.Debug
+> import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Discrete ( applyConvolutionMono, applyConvolutionStereo )
 > import Parthenopea.Repro.Modulation
-> import Parthenopea.Siren
 > import qualified Parthenopea.Repro.SynToolkit
 >                                          as STK
   

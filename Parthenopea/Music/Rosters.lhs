@@ -19,11 +19,11 @@ May 4, 2023
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Baking
+> import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.ModulationTest
 > import Parthenopea.Repro.SmashingTest
 > import Parthenopea.Repro.SynthesizerTest
-> import Parthenopea.Siren
 > import Parthenopea.SoundFont.Boot
 > import Parthenopea.SoundFont.BootTest
 > import Parthenopea.SoundFont.Runtime

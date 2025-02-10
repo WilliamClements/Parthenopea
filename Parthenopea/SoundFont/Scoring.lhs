@@ -18,7 +18,7 @@ September 12, 2024
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Parthenopea.Debug
-> import Parthenopea.Siren
+> import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.SFSpec
   
 notes on three kinds of scoring =======================================================================================

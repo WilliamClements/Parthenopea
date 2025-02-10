@@ -29,8 +29,8 @@ June 17, 2024
 > import FRP.UISF.AuxFunctions ( delay )
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea.Debug
+> import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Modulation
-> import Parthenopea.Siren
   
 Discrete approach =====================================================================================================
 

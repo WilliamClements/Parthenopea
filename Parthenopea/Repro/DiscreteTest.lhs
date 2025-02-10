@@ -23,10 +23,10 @@ June 22, 2024
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock )
 > import HSoM.Examples.Additive ( sineTable )
 > import Parthenopea.Debug
+> import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Chart
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
-> import Parthenopea.Siren
 
 Feed chart ============================================================================================================
 
