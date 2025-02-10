@@ -8,7 +8,7 @@ Chart
 William Clements
 November 9, 2023
 
-> module Chart ( Section( .. ), chartPoints, table2vals ) where
+> module Parthenopea.Repro.Chart ( Section( .. ), chartPoints, table2vals ) where
 >
 > import Control.Lens
 > import Data.Colour

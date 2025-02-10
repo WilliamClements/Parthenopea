@@ -32,7 +32,8 @@ May 14, 2023
 > import Parthenopea.Repro.Discrete ( applyConvolutionMono, applyConvolutionStereo )
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Siren
-> import qualified SynToolkit              as STK
+> import qualified Parthenopea.Repro.SynToolkit
+>                                          as STK
   
 Signal function-based synth ===========================================================================================
 

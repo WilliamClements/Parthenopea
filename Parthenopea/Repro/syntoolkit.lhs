@@ -12,7 +12,7 @@
 
 Port (C++ to Haskell) of STK (called here Syntoolkit)
 
-> module SynToolkit where
+> module Parthenopea.Repro.SynToolkit where
 >
 > import Data.Array.Unboxed
 > import Data.Int

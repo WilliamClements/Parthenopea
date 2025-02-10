@@ -12,7 +12,6 @@ June 22, 2024
 
 > module Parthenopea.Repro.DiscreteTest where
 >
-> import Chart
 > import Data.Colour
 > import Data.Colour.Names
 > import Data.Complex
@@ -24,6 +23,7 @@ June 22, 2024
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock )
 > import HSoM.Examples.Additive ( sineTable )
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Chart
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Siren
