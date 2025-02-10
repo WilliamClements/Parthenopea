@@ -63,18 +63,19 @@ library
     
     -- Modules included in this library but not exported.
     other-modules:  Baking, Chart,
-                    Discrete, DiscreteTest,
+                    Parthenopea.Repro.Discrete, Parthenopea.Repro.DiscreteTest,
+                    Parthenopea.Repro.SmashingTest,
                     Parthenopea.Debug, Parthenopea.Siren,
                     Parthenopea.Repro.Modulation, Parthenopea.Repro.ModulationTest,
                     Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest,
                     Parthenopea.SoundFont.Boot, Parthenopea.SoundFont.BootTest,
-                    Parthenopea.SoundFont.Runtime, Parthenopea.SoundFont.SFSpec,
+                    Parthenopea.SoundFont.Runtime,
+                    Parthenopea.SoundFont.Scoring, Parthenopea.SoundFont.SFSpec,
                     Parthenopea.Tunes.Cecil,
                     Parthenopea.Tunes.Covers,
                     Parthenopea.Tunes.Fanfare,
                     Parthenopea.Tunes.SunPyg,
                     Percussion,
-                    SmashingTest,
                     SynToolkit
 
     -- LANGUAGE extensions used by modules in this package.

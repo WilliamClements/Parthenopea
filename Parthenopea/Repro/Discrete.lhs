@@ -13,7 +13,7 @@ Discrete
 William Clements
 June 17, 2024
 
-> module Discrete where
+> module Parthenopea.Repro.Discrete where
 >
 > import qualified Codec.Wav               as W
 > import Data.Array.Unboxed

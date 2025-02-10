@@ -8,7 +8,7 @@ SmashingTest
 William Clements
 October 11, 2024
 
-> module SmashingTest where
+> module Parthenopea.Repro.SmashingTest where
 >
 > import Parthenopea.Debug
 > import Parthenopea.SoundFont.SFSpec

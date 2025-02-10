@@ -23,14 +23,14 @@ May 14, 2023
 > import Data.Maybe
 > import Data.Ord ( comparing )
 > import Data.Word ( Word64 )
-> import Discrete ( applyConvolutionMono, applyConvolutionStereo )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import FRP.UISF.AuxFunctions ( constA )
-> import Parthenopea.Repro.Modulation
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Discrete ( applyConvolutionMono, applyConvolutionStereo )
+> import Parthenopea.Repro.Modulation
 > import Parthenopea.Siren
 > import qualified SynToolkit              as STK
   

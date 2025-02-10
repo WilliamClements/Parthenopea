@@ -10,7 +10,7 @@ DiscreteTest
 William Clements
 June 22, 2024
 
-> module DiscreteTest where
+> module Parthenopea.Repro.DiscreteTest where
 >
 > import Chart
 > import Data.Colour
@@ -19,14 +19,14 @@ June 22, 2024
 > import Data.List ( foldl' )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import qualified Data.Vector.Unboxed     as VU
-> import Discrete
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns ( osc, Table )
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock )
 > import HSoM.Examples.Additive ( sineTable )
+> import Parthenopea.Debug
+> import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Siren
-> import Parthenopea.Debug
 
 Feed chart ============================================================================================================
 

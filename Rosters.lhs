@@ -16,22 +16,22 @@ May 4, 2023
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Debug.Trace ( traceIO, traceM )
-> import Discrete
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.ModulationTest
+> import Parthenopea.Repro.SmashingTest
 > import Parthenopea.Repro.SynthesizerTest
 > import Parthenopea.Siren
-> import Parthenopea.Tunes.Cecil
-> import Parthenopea.Tunes.Covers
-> import Parthenopea.Tunes.Fanfare
-> import Parthenopea.Tunes.SunPyg
 > import Parthenopea.SoundFont.Boot
 > import Parthenopea.SoundFont.BootTest
 > import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
-> import SmashingTest
+> import Parthenopea.Tunes.Cecil
+> import Parthenopea.Tunes.Covers
+> import Parthenopea.Tunes.Fanfare
+> import Parthenopea.Tunes.SunPyg
 > import System.Environment ( getArgs )
 
 Rosters support =======================================================================================================
