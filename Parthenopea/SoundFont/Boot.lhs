@@ -1079,16 +1079,20 @@ zone task ======================================================================
           generate the PerInstrument map
 
 > zoneTaskIf sffile _ fwIn@FileWork{ .. }       =
->   fwIn{fwBoot = fwBoot{zPerInstCache = formZoneCache}}
+>   fwIn{  fwBoot = fwBoot{zPerInstCache = fst formZoneCache}
+>        , fwDispositions = snd formZoneCache}
 >   where
->     formZoneCache      :: Map PerGMKey PerInstrument
+>     formZoneCache      :: (Map PerGMKey PerInstrument, ResultDispositions)
 >     formZoneCache                        = 
->       Map.foldlWithKey formFolder Map.empty fwBoot.zJobs
+>       Map.foldlWithKey formFolder (Map.empty, fwDispositions) fwBoot.zJobs
 >       where
->         formFolder     :: Map PerGMKey PerInstrument
+>         fName                            = unwords ["zoneTaskIf", "formZoneCache", "formFolder"]
+>         formFolder     :: (Map PerGMKey PerInstrument, ResultDispositions)
 >                           → PerGMKey → InstCat
->                           → Map PerGMKey PerInstrument
->         formFolder zc pergm icat         = Map.insert pergm (computePerInst pergm icat) zc
+>                           → (Map PerGMKey PerInstrument, ResultDispositions)
+>         formFolder (zc, rdFold) pergm icat
+>                                          =
+>           (Map.insert pergm (computePerInst pergm icat) zc, dispose pergm [Scan Accepted Ok fName noClue] rdFold)
 >
 >         computePerInst :: PerGMKey → InstCat → PerInstrument
 >         computePerInst pergm icat

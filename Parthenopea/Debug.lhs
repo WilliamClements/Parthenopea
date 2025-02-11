@@ -56,7 +56,6 @@ February 2, 2025
 >
 > deJust                 :: ∀ a. String → Maybe a → a
 > deJust tag item                          = profess (isJust item) (unwords["expected Just for", tag]) (fromJust item)
->
   
 Tracing ===============================================================================================================
 
