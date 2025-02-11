@@ -23,7 +23,6 @@ February 1, 2025
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import Control.Monad.Trans.Reader
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Either
@@ -33,8 +32,6 @@ February 1, 2025
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ord ( Down(Down) )
-> import Database.MongoDB.Connection
-> import Database.Persist.MongoDB
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import Debug.Trace ( traceIO )
 > import Euterpea.IO.Audio.Basics ( outA )
@@ -43,6 +40,7 @@ February 1, 2025
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
 > import Euterpea.Music
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Synthesizer
 > import Parthenopea.Music.Siren
@@ -68,12 +66,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > theGrader              :: Grader
 > theGrader                                = Grader ssWeights 500
-
-profiler ==============================================================================================================
-
-> -- (removed...revisit when things settle down)
-> profileSF2s            :: IO ()
-> profileSF2s                              = print $ unwords ["removed"]
 
 executive =============================================================================================================
 
@@ -781,11 +773,6 @@ emit standard output text detailing what choices we made for rendering GM items 
 >     PerGMKey{pgkwFile}                   = pPerGMKey
 >     showmZ                               = maybe [] showZ mszP
 >     showZ name                           = [Unblocked name]
->
-> runDBActions  :: ReaderT MongoContext IO () → IO ()
-> runDBActions dbas = 
->   withMongoDBConn "parth" "localhost" (PortNumber 27_017) Nothing 2000 $ \pool →
->     runMongoDBPool master dbas pool
 >
 > dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ (a, [PerGMScored]) → [Emission]
 > dumpContestants (kind, contestants)      = prolog ++ ex ++ epilog

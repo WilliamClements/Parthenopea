@@ -50,7 +50,7 @@ February 2, 2025
 >                                              else something
 >
 > professInRange         :: (Eq a, Ord a, Show a) ⇒ (a, a) → a → String → a → a
-> professInRange rng val role            = profess
+> professInRange rng val role              = profess
 >                                              (val == clip rng val)
 >                                              (unwords ["out of", role, "range", show rng, show val])
 >

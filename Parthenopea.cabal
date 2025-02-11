@@ -66,6 +66,7 @@ library
                     Parthenopea.Repro.Discrete, Parthenopea.Repro.DiscreteTest,
                     Parthenopea.Repro.SmashingTest,
                     Parthenopea.Debug, Parthenopea.Music.Siren,
+                    Parthenopea.Repro.Emission,
                     Parthenopea.Repro.Modulation, Parthenopea.Repro.ModulationTest,
                     Parthenopea.Repro.Smashing, 
                     Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest,

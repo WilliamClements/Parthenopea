@@ -16,11 +16,7 @@ January 21, 2025
 
 > module Parthenopea.SoundFont.Boot
 >        (  equipInstruments
->         , extractInstKey
->         , extractZoneKey
 >         , listInstruments
->         , shorten
->         , sLength
 >         , writeCategorizationReport
 >         )
 >         where
@@ -41,6 +37,7 @@ January 21, 2025
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.SoundFont.SFSpec
@@ -172,7 +169,7 @@ later items, some critical data may thereby be missing. So that entails deletion
 >         nextGen fiIn                     = fiIn{ fiFw = modify fiIn
 >                                                , fiTaskIfs = tail fiIn.fiTaskIfs}
 >         modify fiIn
->           | traceAlways trace_M False    = undefined
+>           | traceIf trace_M False    = undefined
 >           | otherwise                    = snd namedFun fwIn
 >           where
 >             fName                        = "ingestFile modify"
