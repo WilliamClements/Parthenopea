@@ -16,7 +16,6 @@ April 16, 2023
 
 > module Parthenopea.SoundFont.SFSpec
 >        (  accepted
->         , adhocFuzz
 >         , adjustedSampleSizeOk
 >         , allKinds
 >         , allowStereoCrossovers
@@ -29,7 +28,6 @@ April 16, 2023
 >         , combinerd
 >         , comma
 >         , commaOrNot
->         , computeFFMatches
 >         , computeInstSmashup
 >         , computePreSample
 >         , dasBoot
@@ -41,10 +39,8 @@ April 16, 2023
 >         , effShdr
 >         , emitMsgs
 >         , emptyrd
->         , evalAgainstGeneric
 >         , extractInstKey
 >         , extractZoneKey
->         , FFMatches(..)
 >         , FileArrays(..)
 >         , finishScans
 >         , fixBadNames
@@ -54,15 +50,10 @@ April 16, 2023
 >         , getMaybePercList
 >         , gmId
 >         , GMKind
->         , GMPlayable(..)
 >         , Impact(..)
 >         , InstCat(..)
 >         , InstCatData(..)
 >         , is24BitInst
->         , isConfirmed
->         , isConfirmed'
->         , isPossible
->         , isPossible'
 >         , isStereoInst
 >         , isStereoZone
 >         , KeyNumber
@@ -102,14 +93,11 @@ April 16, 2023
 >         , SFResource(..)
 >         , SFRuntime(..)
 >         , SFZone(..)
->         , SFScorable(..)
 >         , ShdrXForm(..)
 >         , showBags
 >         , showMaybeInstCat
 >         , showPreZones
 >         , smush
->         , stands
->         , stands'
 >         , toMaybeSampleType
 >         , toSampleType
 >         , Velocity
@@ -141,7 +129,6 @@ April 16, 2023
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Modulation
-> import qualified Text.FuzzyFind          as FF
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
@@ -153,11 +140,10 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data PreSample =
 >   PreSample {
 >     sName              :: String
->   , sMatches           :: FFMatches
 >   , psShdr             :: F.Shdr
 >   , psChanges          :: [ShdrXForm]}
 > computePreSample       :: F.Shdr → PreSample
-> computePreSample shdr@F.Shdr{ .. }       = PreSample sampleName (computeFFMatches sampleName) shdr []
+> computePreSample shdr@F.Shdr{ .. }       = PreSample sampleName shdr []
 >
 > data PreZoneKey =
 >   PreZoneKey {
@@ -214,7 +200,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   PreInstrument {
 >     pInst              :: F.Inst
 >   , iName              :: String
->   , iMatches           :: FFMatches
 >   , iGlobalKey         :: Maybe PreZoneKey}
 > instance Show PreInstrument where
 >   show (PreInstrument{ .. })                   =
@@ -380,24 +365,12 @@ Instrument categories: instrument, percussion, disqualified
 >
 > type GMKind                              = Either InstrumentName PercussionSound
 > 
-> class GMPlayable a ⇒ SFScorable a where
->   splitScore           :: a → [PreZone] → Double
->   fuzzFactor           :: a → Double
->
-> instance SFScorable InstrumentName where
->   splitScore _ pzs                       = fromIntegral (length pzs)
->   fuzzFactor _                           = 7/8
->
-> instance SFScorable PercussionSound where
->   splitScore _ _                         = 1
->   fuzzFactor _                           = 3/4
->
 > data SFBoot                              =
 >   SFBoot {
 >     zPreSampleCache    :: Map PreSampleKey PreSample
->   , zPartnerMap        :: Map PreSampleKey PreSampleKey
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
 >
+>   , zTempPartnerMap    :: Map PreSampleKey PreSampleKey
 >   , zTempWordMap       :: Map Word Word
 >   , zTempBackMap       :: Map PreSampleKey [PreZoneKey]
 >   , zTempHoldMap       :: Map Word [PreZone]
@@ -408,29 +381,31 @@ Instrument categories: instrument, percussion, disqualified
 > instance Show SFBoot where
 >   show (SFBoot{ .. })                  =
 >     unwords [  "SFBoot"
->              , show (length zPreSampleCache, length zPartnerMap, length zPreInstCache)
+>              , show (length zPreSampleCache), "=samples"
+>              , show (length zPreInstCache), "=insts"
+>
 >              , show (length zOwners), "=owners"
 >              , show (length zJobs), "=jobs"
 >              , show (length zPerInstCache), "=perI"]
 > combineBoot            :: SFBoot → SFBoot → SFBoot
 > combineBoot boot1 boot2                  =
->   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache boot2.zPreSampleCache
->         , zPartnerMap                    = Map.union boot1.zPartnerMap     boot2.zPartnerMap
->         , zPreInstCache                  = Map.union boot1.zPreInstCache   boot2.zPreInstCache
+>   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache   boot2.zPreSampleCache
+>         , zPreInstCache                  = Map.union boot1.zPreInstCache     boot2.zPreInstCache
 >
->         , zTempWordMap                   = Map.union boot1.zTempWordMap    boot2.zTempWordMap
->         , zTempBackMap                   = Map.union boot1.zTempBackMap    boot2.zTempBackMap
->         , zTempHoldMap                   = Map.union boot1.zTempHoldMap    boot2.zTempHoldMap
+>         , zTempPartnerMap                = Map.union boot1.zTempPartnerMap   boot2.zTempPartnerMap
+>         , zTempWordMap                   = Map.union boot1.zTempWordMap      boot2.zTempWordMap
+>         , zTempBackMap                   = Map.union boot1.zTempBackMap      boot2.zTempBackMap
+>         , zTempHoldMap                   = Map.union boot1.zTempHoldMap      boot2.zTempHoldMap
 >
->         , zOwners                        = Map.union boot1.zOwners         boot2.zOwners
->         , zJobs                          = Map.union boot1.zJobs           boot2.zJobs
->         , zPerInstCache                  = Map.union boot1.zPerInstCache   boot2.zPerInstCache}
+>         , zOwners                        = Map.union boot1.zOwners           boot2.zOwners
+>         , zJobs                          = Map.union boot1.zJobs             boot2.zJobs
+>         , zPerInstCache                  = Map.union boot1.zPerInstCache     boot2.zPerInstCache}
 >
 > dasBoot                :: SFBoot
 > dasBoot                                  =
 >   SFBoot
->     Map.empty Map.empty Map.empty
->     Map.empty Map.empty Map.empty
+>     Map.empty Map.empty
+>     Map.empty Map.empty Map.empty Map.empty
 >     Map.empty Map.empty Map.empty
 > data SFRuntime                           =
 >   SFRuntime {
@@ -498,7 +473,7 @@ Instrument categories: instrument, percussion, disqualified
 >     inspectGen _ zd                      = zd
 >
 >     normalizeRange x y                   = if x > y
->                                              then Just (y, x)
+>                                              then Just (y, x) -- WOX
 >                                              else Just (x, y)
 >
 
@@ -732,12 +707,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >   where
 >     imsgs              :: [String]       = fromMaybe [] (lookup kind msgs)
 >
-> isPossible, stands, isConfirmed
->                        :: Double
-> isPossible                               = 50
-> stands                                   = 150
-> isConfirmed                              = 250
->
 > writeScanReport        :: SFRuntime → ResultDispositions → IO ()
 > writeScanReport runt rd@ResultDispositions{ .. }
 >                        = do
@@ -778,323 +747,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >        , ToFieldL scan.sFunction     52
 >        , Unblocked scan.sClue
 >        , EndOfLine]
->
-
-use "matching as" cache ===============================================================================================
-
-> data FFMatches =
->   FFMatches {
->     ffInput            :: String
->   , ffInst             :: Map InstrumentName Fuzz
->   , ffPerc             :: Map PercussionSound Fuzz} deriving Show
->
-> combineFF              :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ Map a Fuzz → Map a Fuzz → Map a Fuzz
-> combineFF ffpros ffcons                  =
->   Map.filter (>= 0) (Map.unionWith (+) ffpros (Map.map (* (- conRatio)) ffcons))
->
-> computeFFMatches       :: String → FFMatches
-> computeFFMatches inp                     = FFMatches inp
->                                              (combineFF ias ibs)
->                                              (combineFF pas pbs)
->   where
->     ias = createFuzzMap inp instrumentProFFKeys
->     ibs = createFuzzMap inp instrumentConFFKeys
->
->     pas = createFuzzMap inp percussionProFFKeys
->     pbs = createFuzzMap inp percussionConFFKeys
-
-> embed                  :: a → Maybe b → Maybe (a, b)
-> embed kind                               = fmap (kind,)
->
-> genericInstFFKeys      :: [String]
-> genericInstFFKeys                        = singleton "horn" 
->
-> genericPercFFKeys      :: [String]
-> genericPercFFKeys                        = ["perc", "hat", "kit", "kick"]
->
-> instrumentConFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
-> instrumentConFFKeys inst                 = embed inst keys
->   where
->    keys = case inst of
->       AcousticBass              → Just            ["drum", "brass", "bassoon", "tremolo", "elec"]
->       AcousticGrandPiano        → Just            ["drum", "harp", "upright", "bright", "mellow", "elec"]
->       ElectricGuitarJazz        → Just            ["drum", "bass"]
->       AcousticGuitarNylon       → Just            ["drum", "bass"]
->       AcousticGuitarSteel       → Just            ["drum", "bass"]
->       Agogo                     → Just            ["hi", "low"]
->       BrightAcousticPiano       → Just            ["elec", "grand"]
->       Cello                     → Just            ["tremolo", "strike", "pluck", "stacc"]
->       Contrabass                → Just $ singleton "tremolo"
->       ElectricBassFingered      → Just            ["acous", "brass", "bassoon"]
->       ElectricBassPicked        → Just            ["acous", "brass", "bassoon"]
->       EnglishHorn               → Just $ singleton "french"
->       Flute                     → Just $ singleton "pan"
->       FrenchHorn                → Just $ singleton "english"
->       FretlessBass              → Just            ["brass", "bassoon"]
->       GuitarFretNoise           → Just            ["clean", "nylon"]
->       HonkyTonkPiano            → Just            ["grand", "rhodes"]
->       OrchestraHit              → Just $ singleton "kit"
->       RhodesPiano               → Just            ["upright", "grand"]
->       SlapBass1                 → Just            ["brass", "bassoon"]
->       SlapBass2                 → Just            ["brass", "bassoon"]
->       SynthBass1                → Just            ["brass", "bassoon"]
->       SynthBass2                → Just            ["brass", "bassoon"]
->       SynthDrum                 → Just            ["bass"]
->       TelephoneRing             → Just $ singleton "string"
->       Trumpet                   → Just $ singleton "mute"
->       Violin                    → Just            ["tremolo", "strike", "pluck", "stacc"]
->       _                         → Nothing
->
-> instrumentProFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
-> instrumentProFFKeys inst                 = embed inst keys
->   where
->     keys = case inst of
->       AcousticGrandPiano        → Just            ["piano", "grand", "concert"]
->       BrightAcousticPiano       → Just            ["piano", "bright", "brite"]
->       ElectricGrandPiano        → Just            ["piano", "elec"]
->       HonkyTonkPiano            → Just            ["honky", "tonk", "piano"]
->       RhodesPiano               → Just            ["rhodes", "piano"]
->       ChorusedPiano             → Just            ["chorused", "piano"]
->       Harpsichord               → Just            ["harpsi", "harpsichord"]
->       Clavinet                  → Just $ singleton "clav"
->       Celesta                   → Just $ singleton "celesta"
->       Glockenspiel              → Just $ singleton "glockenspiel"
->       MusicBox                  → Just $ singleton "musicbox"
->       Vibraphone                → Just            ["vibra", "phone"]
->       Marimba                   → Just $ singleton "marimba"
->       Xylophone                 → Just $ singleton "xylo"
->       TubularBells              → Just            ["tubular", "bells"]
->       Dulcimer                  → Just $ singleton "dulcimer"
->       HammondOrgan              → Just            ["organ", "hamm"]
->       PercussiveOrgan           → Just            ["organ", "percuss"]
->       RockOrgan                 → Just            ["organ", "rock"] 
->       ChurchOrgan               → Just            ["organ", "church"]
->       ReedOrgan                 → Just            ["organ", "reed", "accord"]
->       Accordion                 → Just $ singleton "accord"
->       Harmonica                 → Just $ singleton "harmonica"
->       TangoAccordion            → Just            ["accordion", "tango"]
->       AcousticGuitarNylon       → Just            ["nylon", "guit", "acous"]
->       AcousticGuitarSteel       → Just            ["steel", "guit", "acous"]
->       ElectricGuitarJazz        → Just            ["jazz", "guit", "elec"]
->       ElectricGuitarClean       → Just            ["clean", "guit", "elec"]
->       ElectricGuitarMuted       → Just            ["mute", "guit", "elec"]
->       OverdrivenGuitar          → Just            ["over", "driv", "guit"]
->       DistortionGuitar          → Just            ["dist", "guit", "fuzz"]
->       GuitarHarmonics           → Just            ["harmonics", "guit"]
->       AcousticBass              → Just            ["bass", "acous"]
->       ElectricBassFingered      → Just            ["bass", "finger", "elec"]
->       ElectricBassPicked        → Just            ["bass", "pick", "elec"]
->       FretlessBass              → Just            ["fret", "less", "bass"] 
->       SlapBass1                 → Just            ["bass", "slap", "1"]
->       SlapBass2                 → Just            ["bass", "slap", "2"]
->       SynthBass1                → Just            ["bass", "synth", "1"]
->       SynthBass2                → Just            ["bass", "synth", "2"]
->       Violin                    → Just $ singleton "violin"
->       Viola                     → Just $ singleton "viola"
->       Cello                     → Just $ singleton "cello"
->       Contrabass                → Just $ singleton "contrabass"
->       TremoloStrings            → Just            ["tremolo", "string"]
->       PizzicatoStrings          → Just            ["string", "pizzicato"]
->       OrchestralHarp            → Just            ["harp", "harp", "orchest", "concert"]
->       Timpani                   → Just            ["timpani", "timp"]
->       StringEnsemble1           → Just            ["ensemble", "string", "1"]
->       StringEnsemble2           → Just            ["ensemble", "string", "2"]
->       SynthStrings1             → Just            ["synth", "string", "1"]
->       SynthStrings2             → Just            ["synth", "string", "2"]
->       ChoirAahs                 → Just            ["choir", "aahs", "chorus"]
->       VoiceOohs                 → Just            ["voice", "oohs", "chorus"]
->       SynthVoice                → Just            ["voice", "synth"]
->       OrchestraHit              → Just            ["orchest", "hit"]
->       Trumpet                   → Just            ["trumpet", "trump"]
->       Trombone                  → Just $ singleton "trom"
->       Tuba                      → Just $ singleton "tuba"
->       MutedTrumpet              → Just            ["trumpet", "mute"]
->       FrenchHorn                → Just            ["horn", "french"]
->       BrassSection              → Just            ["brass", "section"]
->       SynthBrass1               → Just            ["brass", "synth", "1"]
->       SynthBrass2               → Just            ["brass", "synth", "2"]
->       SopranoSax                → Just            ["sax" , "sopr"]
->       AltoSax                   → Just            ["sax" , "alto"]
->       TenorSax                  → Just            ["sax" , "tenor"]
->       BaritoneSax               → Just            ["sax" , "bari"]
->       Oboe                      → Just $ singleton "oboe"
->       Bassoon                   → Just $ singleton "bassoon"
->       EnglishHorn               → Just            ["horn", "english"]
->       Clarinet                  → Just $ singleton "clarinet"
->       Piccolo                   → Just $ singleton "piccolo"
->       Flute                     → Just $ singleton "flute"
->       Recorder                  → Just $ singleton "recorder"
->       PanFlute                  → Just $ singleton "panflute"
->       BlownBottle               → Just            ["bottle", "blown"]
->       Shakuhachi                → Just $ singleton "shakuhachi"
->       Whistle                   → Just $ singleton "whistle"
->       Ocarina                   → Just $ singleton "ocarina"
->       Lead1Square               → Just $ singleton "lead1square"
->       Lead2Sawtooth             → Just $ singleton "lead2sawtooth"
->       Lead3Calliope             → Just $ singleton "lead3calliope"
->       Lead4Chiff                → Just $ singleton "lead4chiff"
->       Lead5Charang              → Just $ singleton "lead5charang"
->       Lead6Voice                → Just $ singleton "lead6voice"
->       Lead7Fifths               → Just $ singleton "lead7fifths"
->       Lead8BassLead             → Just $ singleton "lead8basslead"
->       Pad1NewAge                → Just             ["new", "age"]
->       Pad2Warm                  → Just $ singleton "pad2warm"
->       Pad3Polysynth             → Just $ singleton "pad3polysynth"
->       Pad4Choir                 → Just $ singleton "pad4choir"
->       Pad5Bowed                 → Just $ singleton "pad5bowed"
->       Pad6Metallic              → Just $ singleton "pad6metallic"
->       Pad7Halo                  → Just             ["halo", "pad"]
->       Pad8Sweep                 → Just             ["sweep", "pad"]
->       FX1Train                  → Just $ singleton "train"
->       FX2Soundtrack             → Just $ singleton "soundtrack"
->       FX3Crystal                → Just $ singleton "crystal"
->       FX4Atmosphere             → Just $ singleton "atmosphere"
->       FX5Brightness             → Just $ singleton "brightness"
->       FX6Goblins                → Just $ singleton "goblins"
->       FX7Echoes                 → Just $ singleton "echoes"
->       FX8SciFi                  → Just $ singleton "scifi"
->       Sitar                     → Just $ singleton "sitar"
->       Banjo                     → Just $ singleton "banjo"
->       Shamisen                  → Just $ singleton "shamisen"
->       Koto                      → Just $ singleton "koto"
->       Kalimba                   → Just $ singleton "kalimba"
->       Bagpipe                   → Just $ singleton "bagpipe"
->       Fiddle                    → Just $ singleton "fiddle"
->       Shanai                    → Just $ singleton "shanai"
->       TinkleBell                → Just            ["bell", "tinkle"]
->       Agogo                     → Just $ singleton "agogo"
->       SteelDrums                → Just            ["drums", "steel"]
->       Woodblock                 → Just $ singleton "woodblock"
->       TaikoDrum                 → Just            ["drum", "taiko"]
->       MelodicDrum               → Just            ["drum", "melodic"]
->       SynthDrum                 → Just            ["drum", "synth"]
->       ReverseCymbal             → Just            ["cymbal", "reverse"]
->       GuitarFretNoise           → Just            ["fret", "noise", "guit"]
->       BreathNoise               → Just            ["breath", "noise"]
->       Seashore                  → Just $ singleton "seashore"
->       BirdTweet                 → Just            ["bird", "tweet"]
->       TelephoneRing             → Just            ["tele", "ring"]
->       Helicopter                → Just $ singleton "helicopter"
->       Applause                  → Just $ singleton "applause"
->       Gunshot                   → Just $ singleton "gunshot"
->       _                         → Nothing
->
-> percussionConFFKeys    :: PercussionSound → Maybe (PercussionSound, [String])
-> percussionConFFKeys p = embed p keys
->   where
->     keys = case p of
->       AcousticSnare             → Just            ["elec"]
->       AcousticBassDrum          → Just            ["elec"]
->       _                         → Nothing
->
-> percussionProFFKeys    :: PercussionSound → Maybe (PercussionSound, [String])
-> percussionProFFKeys p = embed p keys
->   where
->     keys = case p of
->       AcousticBassDrum          → Just            ["drum", "acous", "bass", "concert"]
->       BassDrum1                 → Just            ["kick", "drum", "bass"]
->       SideStick                 → Just            ["side", "stick"]
->       AcousticSnare             → Just            ["snare", "drum", "acous"]
->       HandClap                  → Just            ["clap", "hand"]
->       ElectricSnare             → Just            ["snare", "elec", "drum"]
->       LowFloorTom               → Just            ["tom", "floor", "low"]
->       ClosedHiHat               → Just            ["hihat", "close"]
->       HighFloorTom              → Just            ["tom", "high", "floor"]
->       PedalHiHat                → Just            ["hihat", "pedal"]
->       LowTom                    → Just            ["tom", "low"]
->       OpenHiHat                 → Just            ["hihat", "open"]
->       LowMidTom                 → Just            ["tom", "mid", "low"]
->       HiMidTom                  → Just            ["tom", "high", "mid"]
->       CrashCymbal1              → Just            ["crash", "cymbal", "1"]
->       HighTom                   → Just            ["tom", "high"]
->       RideCymbal1               → Just            ["cymbal", "ride", "1"]
->       ChineseCymbal             → Just            ["cymbal", "chinese"]
->       RideBell                  → Just            ["bell", "ride"]
->       Tambourine                → Just            ["tambo"]
->       SplashCymbal              → Just            ["cymbal", "splash"]
->       Cowbell                   → Just            ["cowbell"]
->       CrashCymbal2              → Just            ["crash", "cymbal", "2"]
->       Vibraslap                 → Just            ["vibraslap"]
->       RideCymbal2               → Just            ["cymbal", "ride", "2"]
->       HiBongo                   → Just            ["bongo", "hi"]
->       LowBongo                  → Just            ["bongo", "low"]
->       MuteHiConga               → Just            ["conga", "mute", "hi"]
->       OpenHiConga               → Just            ["conga", "open", "hi"]
->       LowConga                  → Just            ["conga", "low"]
->       HighTimbale               → Just            ["timbale", "hi"]
->       LowTimbale                → Just            ["timbale", "low"]
->       HighAgogo                 → Just            ["agogo", "hi"]
->       LowAgogo                  → Just            ["agogo", "low"]
->       Cabasa                    → Just            ["cabasa"]
->       Maracas                   → Just            ["maracas"]
->       ShortWhistle              → Just            ["whistle", "short"]
->       LongWhistle               → Just            ["whistle", "long"]
->       ShortGuiro                → Just            ["guiro", "short"]
->       LongGuiro                 → Just            ["guiro", "long"]
->       Claves                    → Just            ["claves"]
->       HiWoodBlock               → Just            ["woodblock", "hi"]
->       LowWoodBlock              → Just            ["woodblock", "low"]
->       MuteCuica                 → Just            ["cuica", "mute"]
->       OpenCuica                 → Just            ["cuica", "open"]
->       MuteTriangle              → Just            ["triangle", "mute"]
->       OpenTriangle              → Just            ["triangle", "open"]
->
-> adhocFuzz              :: String → [String] → [Maybe FF.Alignment]
-> adhocFuzz inp                            = map (`FF.bestMatch` inp)
-
-handle "matching as" cache misses =====================================================================================
-
-> createFuzzMap          :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ String → (a → Maybe (a, [String])) → Map a Fuzz
-> createFuzzMap inp getFFKeys              = Map.fromList $ mapMaybe (evalAgainstKindKeys inp) asLooks
->   where
->     -- weed out candidates with no fuzzy keys
->     asLooks            :: [(a, [String])]
->     asLooks                              = mapMaybe getFFKeys (select allKinds)
->
-> evalAgainstKeys        :: String → [String] → Fuzz
-> evalAgainstKeys inp keys                 = sum $ zipWith evalAgainstOne keys weights
->   where
->     lFactor        :: Double             = sqrt $ fromIntegral $ length keys
->     weights        :: [Double]           = [1.9 / lFactor
->                                           , 1.6 / lFactor
->                                           , 1.25 / lFactor
->                                           , 1.17 / lFactor
->                                           , 1.14 / lFactor]
->
->     evalAgainstOne     :: String → Double → Double
->     evalAgainstOne key weight            = maybe 0 ((* weight) . fromIntegral . FF.score) (FF.bestMatch key inp)
->
-> evalAgainstKindKeys    :: String → (a, [String]) → Maybe (a, Fuzz)
-> evalAgainstKindKeys inp (kind, keys)     = if tot <= 0 then Nothing else Just (kind, tot)
->   where
->     tot            :: Double             = evalAgainstKeys inp keys
->
-> evalAgainstGeneric     :: String → Fuzz
-> evalAgainstGeneric inp                   =
->   evalAgainstKeys inp genericInstFFKeys - evalAgainstKeys inp genericPercFFKeys
-
-apply fuzzyfind to mining instruments + percussion ====================================================================
-
-> class GMPlayable a where
->   toGMKind             :: a → GMKind
->   select               :: ([InstrumentName], [PercussionSound]) → [a]
->   getFuzzMap           :: FFMatches → Map a Fuzz
->
-> instance GMPlayable InstrumentName where
->   toGMKind                               = Left
->   select rost                            =
->     if narrowInstrumentScope
->       then fst rost
->       else fst allKinds
->   getFuzzMap                             = ffInst
->
-> instance GMPlayable PercussionSound where
->   toGMKind                               = Right
->   select rost                            =
->     if narrowInstrumentScope
->       then snd rost
->       else snd allKinds
->   getFuzzMap                             = ffPerc
 >
 > type Fuzz = Double
 >
@@ -1191,20 +843,9 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > allowStereoCrossovers                    = False
 > howVerboseScan         :: Double
 > howVerboseScan                           = 3/4
-> narrowInstrumentScope  :: Bool
-> narrowInstrumentScope                    = True
 > reportScan             :: Bool
 > reportScan                               = True
 > sampleSizeMin          :: Word
 > sampleSizeMin                            = 0
->
-> isPossible', stands', isConfirmed'
->                        :: Double → Bool
-> isPossible' fuzz                         = fuzz > isPossible
-> stands' fuzz                             = fuzz > stands
-> isConfirmed' fuzz                        = fuzz > isConfirmed
->
-> conRatio               :: Double
-> conRatio                                 = 3/4
 
 The End

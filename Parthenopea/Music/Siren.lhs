@@ -42,7 +42,6 @@ December 12, 2022
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.IO.MIDI.ToMidi2 ( writeMidi2 )
 > import Euterpea.Music
-> import HSoM.Performance ( metro )
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.SFSpec
@@ -741,6 +740,35 @@ tournament among instruments in various soundfont files ========================
 >      , mcInst = AcousticGrandPiano
 >      , mcDur = metro 120 qn
 >      , mcVol = 100}
+>
+> metro              :: Int -> Dur -> DurT
+> metro setting durM  = 60 / (fromIntegral setting * durM)
+>
+> trill :: Int -> Dur -> Music Pitch -> Music Pitch
+> trill i sDur (Prim (Note tDur p)) =
+>    if sDur >= tDur  then note tDur p
+>                     else  note sDur p :+: 
+>                           trill  (negate i) sDur 
+>                                  (note (tDur-sDur) (trans i p))
+> trill i d (Modify (Tempo r) m)  = tempo r (trill i (d*r) m)
+> trill i d (Modify c m)          = Modify c (trill i d m)
+> trill _ _ _                     = 
+>       error "trill: input must be a single note."
+> {-# LINE 702 "MoreMusic.lhs" #-}
+> trill' :: Int -> Dur -> Music Pitch -> Music Pitch
+> trill' i sDur m = trill (negate i) sDur (transpose i m)
+>
+> trilln :: Int -> Int -> Music Pitch -> Music Pitch
+> trilln i nTimes m = trill i (dur m / fromIntegral nTimes) m
+>
+> trilln' :: Int -> Int -> Music Pitch -> Music Pitch
+> trilln' i nTimes m = trilln (negate i) nTimes (transpose i m)
+>
+> roll  :: Dur -> Music Pitch -> Music Pitch
+> rolln :: Int -> Music Pitch -> Music Pitch
+>
+> roll  dur    m = trill  0 dur m
+> rolln nTimes m = trilln 0 nTimes m
 >
 > extractTimes           :: Performance → [Double]
 > extractTimes                             = map (fromRational . eTime)

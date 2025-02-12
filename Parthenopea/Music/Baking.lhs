@@ -22,7 +22,6 @@ December 16, 2022
 > import Data.List ( sortOn )
 > import Debug.Trace
 > import Euterpea.Music
-> import HSoM.Examples.MoreMusic ( roll )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.Scoring

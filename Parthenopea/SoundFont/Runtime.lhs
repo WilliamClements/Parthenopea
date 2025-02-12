@@ -80,16 +80,17 @@ executive ======================================================================
 >
 >   tsStarted            ← getCurrentTime
 >
->   (mrunt, pergmsI, pergmsP, rdGen03)
+>   (mrunt, mmatches, pergmsI, pergmsP, rdGen03)
 >                        ← equipInstruments rost
 >
 >   if isNothing mrunt
 >     then do
 >       return ()
->     else do
->       let prerunt      = deJust "mboot" mrunt
+>     else do 
+>       let prerunt      = deJust "mrunt" mrunt
+>       let matches      = deJust "mmatches" mmatches
 >       -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->       runt             ← finishRuntime rost prerunt pergmsI pergmsP rdGen03
+>       runt             ← finishRuntime matches rost prerunt pergmsI pergmsP rdGen03
 >
 >       CM.when doRender (doRendering runt)
 >
@@ -97,12 +98,13 @@ executive ======================================================================
 >       putStrLn ("___overall: " ++ show (diffUTCTime tsRendered tsStarted))
 >   where
 >     -- track the complete _qualified_ populations of: samples, instruments, percussion
->     finishRuntime      ::  ([InstrumentName], [PercussionSound])
+>     finishRuntime      ::  Matches
+>                            → ([InstrumentName], [PercussionSound])
 >                            → SFRuntime
 >                            → [PerGMKey] → [PerGMKey]
 >                            → ResultDispositions
 >                            → IO SFRuntime
->     finishRuntime rost prerunt@SFRuntime{ .. } pergmsI pergmsP rdGen03
+>     finishRuntime matches rost prerunt@SFRuntime{ .. } pergmsI pergmsP rdGen03
 >                        = do
 >       tsStarted        ← getCurrentTime
 >
@@ -115,7 +117,7 @@ executive ======================================================================
 >       -- actually conduct the tournament
 >       ((wI, sI), (wP, sP))
 >                        ← decideWinners zBoot.zPreSampleCache zBoot.zPreInstCache zBoot.zOwners
->                                        zBoot.zPerInstCache rost pergmsI pergmsP
+>                                        zBoot.zPerInstCache matches rost pergmsI pergmsP
 >       tsDecided        ← getCurrentTime
 >       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsScanned))
 >
@@ -186,12 +188,13 @@ tournament starts here =========================================================
 >                           → Map PerGMKey PreInstrument
 >                           → Map PerGMKey [PreZone]
 >                           → Map PerGMKey PerInstrument
+>                           → Matches
 >                           → ([InstrumentName], [PercussionSound]) 
 >                           → [PerGMKey]
 >                           → [PerGMKey]
 >                           → IO ((Map InstrumentName [PerGMScored], [String])
 >                               , (Map PercussionSound [PerGMScored], [String]))
-> decideWinners preSampleCache preInstCache owners zc rost pergmsI pergmsP
+> decideWinners preSampleCache preInstCache owners zc matches rost pergmsI pergmsP
 >                                          = do
 >   traceIO ("decideWinners" ++ show (length zc))
 >   return wiExec
@@ -215,7 +218,8 @@ tournament starts here =========================================================
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
 >         preI                             = deJust (unwords["wiFolder", "preI"]) (Map.lookup pergmI preInstCache)
->         fuzzMap                          = getFuzzMap preI.iMatches
+>         iMatches                         = deJust "mIMatches" (Map.lookup pergmI matches.mIMatches)
+>         fuzzMap                          = getFuzzMap iMatches
 >
 >         i2Fuzz         :: Map InstrumentName Fuzz
 >         i2Fuzz                           =
@@ -256,8 +260,7 @@ tournament starts here =========================================================
 >         mffm                             =
 >           mz >>= (zdSampleIndex . pzDigest)
 >              >>= Just . PreSampleKey pgkwFile
->              >>= (`Map.lookup` preSampleCache)
->              >>= Just . sMatches
+>              >>= (`Map.lookup` matches.mSMatches)
 >         fuzzMap        :: Map PercussionSound Fuzz
 >         fuzzMap                          = getFuzzMap $ deJust (unwords ["mffm"]) mffm
 >
@@ -549,7 +552,7 @@ zone selection for rendering ===================================================
 >          oz                              = deJust "oz" mpartner
 >
 >     getStereoPartner   :: (PreZone, SFZone) → Maybe (PreZone, SFZone)
->     getStereoPartner z
+>     getStereoPartner (pz, _)
 >       | traceNot trace_GSP False         = undefined
 >       | otherwise                        =
 >       case toSampleType (F.sampleType shdr) of
@@ -559,13 +562,13 @@ zone selection for rendering ===================================================
 >       where
 >         fName                            = unwords [fName_, "getStereoPartner"]
 >
->         shdr                             = (effShdr zBoot.zPreSampleCache . fst) z
->         partnerKeys                      = (pzmkPartners . fst) z
+>         shdr                             = effShdr zBoot.zPreSampleCache pz
+>         partnerKeys                      = pzmkPartners pz
 >
->         trace_GSP                        = unwords [fName, showable, showPreZones (singleton $ fst z)]
+>         trace_GSP                        = unwords [fName, showable, showPreZones (singleton pz)]
 >         showable                         =
 >           case partner of
->             Just (pz, _)                 → show pz.pzWordB
+>             Just (pzc, _)                → show pzc.pzWordB
 >             Nothing                      → "Nothing" 
 >
 >         -- maybe hide this hack of getting zone "directly" under a conditional

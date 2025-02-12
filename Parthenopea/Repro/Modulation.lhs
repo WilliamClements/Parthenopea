@@ -88,6 +88,7 @@ November 6, 2023
 >         , reverbAllPercent
 >         , sawtooth
 >         , sawtoothTable
+>         , sineTable
 >         , theE
 >         , toAbsoluteCents
 >         , toCentibels
@@ -122,7 +123,6 @@ November 6, 2023
 > import Euterpea.Music (Volume, AbsPitch)
 > import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
 > import GHC.Generics ( Generic ) 
-> import HSoM.Examples.Additive ( sineTable )
 > import Parthenopea.Debug
   
 Modulator management ==================================================================================================
@@ -1127,6 +1127,9 @@ Signals of interest ============================================================
 >                                                          [      1,  0, -0.5,  0,  0.3,   0
 >                                                           , -0.25,  0,  0.2,  0, -0.167, 0
 >                                                           ,  0.14,  0, -0.125]
+>
+> sineTable :: Table
+> sineTable = tableSinesN 4096 [1]
 >
 > deriveRange            :: Integral n ⇒ n → n → [n]
 > deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]

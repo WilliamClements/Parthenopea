@@ -114,7 +114,7 @@ organize exposed music =========================================================
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
 > sj                     :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
-> sj =
+> sj = ejingles
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("pit"         , pit)]
@@ -122,7 +122,7 @@ organize exposed music =========================================================
 >    -- [ ("pa"          , pendingtonArnt 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum False)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 2610)]
->       [ ("slot_1"      , slot 1)]
+>    -- [ ("slot_1"      , slot 1)]
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("rattan"      , rattan)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
