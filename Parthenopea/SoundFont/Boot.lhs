@@ -69,7 +69,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     fiFw               :: FileWork
 >   , fiTaskIfs          :: [(String, FileWork → FileWork)]}
 >
-> preSampleTaskIf, partneringTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, pregroomTaskIf
+> preSampleTaskIf, partneringTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf
 >                , groomTaskIf, vetTaskIf, prereorg1TaskIf, prereorg2TaskIf, reorgTaskIf
 >                , harvestTaskIf, shavingTaskIf, matchTaskIf, catTaskIf, sortTaskIf, zoneTaskIf, reownTaskIf
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
@@ -83,7 +83,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >      , ("preInst",    preInstTaskIf      sffile rost)
 >      , ("survey",     surveyTaskIf       sffile rost)
 >      , ("capture",    captureTaskIf      sffile rost)
->      , ("pregroom",   pregroomTaskIf     sffile rost)
 >      , ("groom",      groomTaskIf        sffile rost)
 >      , ("vet",        vetTaskIf          sffile rost)
 >      , ("harvest 1",  harvestTaskIf      sffile rost)
@@ -233,7 +232,7 @@ task interface support =========================================================
 >         (deriveRange stF enF)
 
 pre-sample task =======================================================================================================
-           critique all Sample records in the file
+          critique all Sample records in the file
 
 > preSampleTaskIf sffile _ fwIn            = foldl' formFolder fwIn (formComprehension sffile ssShdrs)
 >   where
@@ -266,7 +265,7 @@ pre-sample task ================================================================
 >         rd' = dispose presk ss fwDispositions
 
 partnering task =======================================================================================================
-           assess declared stereo pairs
+          assess declared stereo pairs
 
 > partneringTaskIf sffile _ fwIn@FileWork{ .. }
 >                                          = fwIn{  fwBoot = fwBoot{zPreSampleCache = preSampleCache'
@@ -313,7 +312,7 @@ partnering task ================================================================
 >         ss                               = finishScans fName clue ss_
 
 pre-instance task =====================================================================================================
-access and critique all Instrument "records" in the file 
+          access and critique all Instrument "records" in the file 
 
 > preInstTaskIf sffile _ fwIn@FileWork{ .. }
 >                                          =
@@ -391,7 +390,7 @@ PreZone administration =========================================================
 > instKey zrec                             = PerGMKey zrec.zswFile zrec.zswInst Nothing       
 
 survey task ===========================================================================================================
-           instantiate zrecs
+          instantiate zrecs
 
 > surveyTaskIf _ _ fwIn@FileWork{ .. }     =
 >   fwIn{fwZRecs = map makeZRec (Map.keys fwBoot.zPreInstCache)}
@@ -414,11 +413,10 @@ iterating on InstZoneRecord list ===============================================
 >           else (zrec': zrecsFold, rdFold')
 >
 > zrecCompute              :: FileWork → (a → InstZoneRecord → a) → a → a
-> zrecCompute FileWork{ .. } userFolder seed
->                                          = foldl' userFolder seed (goodZRecs fwZRecs fwDispositions)
+> zrecCompute FileWork{ .. } userFun seed  = foldl' userFun seed (goodZRecs fwZRecs fwDispositions)
 
 capture task ==========================================================================================================
-           for the first time, populate zrec with PreZones
+          for the first time, populate zrec with PreZones
 
 > captureTaskIf sffile _ fwIn@FileWork{ .. }
 >                                          = zrecTask capturer sffile fwIn 
@@ -480,7 +478,7 @@ capture task ===================================================================
 >                                              (unwords [fName, "SoundFont file corrupt (gens)"])
 >                                              (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
 >             pz                           = makePreZone sffile.zWordF si wIn bix gens
->             si                           = deJust "produce si" pz.pzDigest.zdSampleIndex
+>             si                           = deJust fName pz.pzDigest.zdSampleIndex
 >             shdr                         = sffile.zFileArrays.ssShdrs ! si
 >
 >             limitsCheckedOk              = adjustedSampleSizeOk pz.pzDigest shdr
@@ -488,12 +486,12 @@ capture task ===================================================================
 >             starget                      = Map.lookup presk fwBoot.zPreSampleCache
 >             pres                         = deJust "pres" starget
 
-pregroom task =========================================================================================================
-           prepares back map giving which PreZones came from which Sample
+groom task ============================================================================================================
 
-> pregroomTaskIf _ _ fwIn                  = fwIn{fwBoot = fwIn.fwBoot{zTempBackMap = back}} 
+> groomTaskIf sffile _ fwIn@FileWork{ .. } = zrecTask groomer sffile fwIn
 >   where
->     back               :: Map PreSampleKey [PreZoneKey]
+>     fName_                               = "groomTaskIf"
+>
 >     back                                 = zrecCompute fwIn pregroomer Map.empty
 >
 >     pregroomer m zrec                    = Map.union m m'
@@ -503,16 +501,6 @@ pregroom task ==================================================================
 >
 >     pzFolder target pz                   =
 >       Map.insertWith (++) (PreSampleKey pz.pzWordF pz.pzWordS) [extractZoneKey pz] target
-
-groom task ============================================================================================================
-
-> groomTaskIf sffile _ fwIn@FileWork{ .. } = fwTask{fwBoot = fwBoot{zTempBackMap = Map.empty}}
->   where
->     fName_                               = "groomTaskIf"
->
->     back                                 = fwBoot.zTempBackMap
->
->     fwTask                               = zrecTask groomer sffile fwIn
 >
 >     groomer            :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     groomer zrec rdFold
@@ -1014,7 +1002,7 @@ categorization task ============================================================
 >                   , maybeSettle stands      (catPerc wZones)         ffPerc'
 >                   , maybeSettle stands      (catDisq noClue (dropped pergm Narrow)) iMatches.ffInst
 >
->                   , maybeNailAsPerc 0.3
+>                   , maybeNailAsPerc 0.4
 >                   , if genericScore > 0 then Just catInst            else Nothing
 >                   , if genericScore < 0 then Just (catPerc wZones)   else Nothing
 >                   , Just $ catDisq noClue (dropped pergm Unrecognized)
@@ -1026,11 +1014,14 @@ categorization task ============================================================
 >                 maybeNailAsPerc
 >                        :: Double → Maybe InstCat
 >                 maybeNailAsPerc fr       =
->                   if fr < howLaden uZones
+>                   let
+>                     uFrac                = howLaden uZones
+>                     wFrac                = howLaden wZones
+>                   in if fr < uFrac
 >                     then
->                       (if 0.05 < howLaden wZones
+>                       (if 0.2 < wFrac
 >                          then Just (catPerc wZones)
->                          else Just (catDisq noClue (violated pergm NoPercZones)))
+>                          else Just (catDisq (show (uFrac, wFrac)) (violated pergm NoPercZones)))
 >                     else Nothing
 >
 >                 trace_FA = unwords [fName_, preI.iName, show frost, show (length uZones, length wZones)]
