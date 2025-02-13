@@ -371,8 +371,6 @@ Instrument categories: instrument, percussion, disqualified
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
 >
 >   , zTempPartnerMap    :: Map PreSampleKey PreSampleKey
->   , zTempWordMap       :: Map Word Word
->   , zTempHoldMap       :: Map Word [PreZone]
 >
 >   , zOwners            :: Map PerGMKey [PreZone]
 >   , zJobs              :: Map PerGMKey InstCat
@@ -392,8 +390,6 @@ Instrument categories: instrument, percussion, disqualified
 >         , zPreInstCache                  = Map.union boot1.zPreInstCache     boot2.zPreInstCache
 >
 >         , zTempPartnerMap                = Map.union boot1.zTempPartnerMap   boot2.zTempPartnerMap
->         , zTempWordMap                   = Map.union boot1.zTempWordMap      boot2.zTempWordMap
->         , zTempHoldMap                   = Map.union boot1.zTempHoldMap      boot2.zTempHoldMap
 >
 >         , zOwners                        = Map.union boot1.zOwners           boot2.zOwners
 >         , zJobs                          = Map.union boot1.zJobs             boot2.zJobs
@@ -403,7 +399,7 @@ Instrument categories: instrument, percussion, disqualified
 > dasBoot                                  =
 >   SFBoot
 >     Map.empty Map.empty
->     Map.empty Map.empty Map.empty
+>     Map.empty
 >     Map.empty Map.empty Map.empty
 > data SFRuntime                           =
 >   SFRuntime {
