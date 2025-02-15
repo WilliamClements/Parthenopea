@@ -178,6 +178,35 @@ Scoring stuff ==================================================================
 >                           
 > qqHints                :: Map HintId HintBody
 > qqHints                                  = Map.fromList myHints
+>
+> data SFRuntime                           =
+>   SFRuntime {
+>     zFiles             :: Array Word SFFile
+>   , zBoot              :: SFBoot
+>   , zWinningRecord     :: WinningRecord}
+>
+> type AgainstKindResult                   = Double
+> 
+> data ArtifactGrade =
+>   ArtifactGrade {
+>     pScore             :: Int
+>   , pEmpiricals        :: [Double]} deriving (Show)
+>
+> data PerGMScored                         =
+>   PerGMScored {
+>     pArtifactGrade     :: ArtifactGrade
+>   , pKind              :: GMKind
+>   , pAgainstKindResult :: AgainstKindResult
+>   , pPerGMKey          :: PerGMKey
+>   , szI                :: String
+>   , mszP               :: Maybe String} deriving (Show)
+>
+> data WinningRecord                       =
+>   WinningRecord {
+>     pWinningI          :: Map InstrumentName PerGMScored
+>   , pWinningP          :: Map PercussionSound PerGMScored} deriving Show
+> seedWinningRecord      :: WinningRecord
+> seedWinningRecord                        = WinningRecord Map.empty Map.empty
 
 Utilities =============================================================================================================
 

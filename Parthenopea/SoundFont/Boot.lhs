@@ -16,7 +16,6 @@ January 21, 2025
 
 > module Parthenopea.SoundFont.Boot
 >        (  equipInstruments
->         , listInstruments
 >         , writeCategorizationReport
 >         , Matches(..)
 >         )
@@ -131,17 +130,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 
 
 executive =============================================================================================================
-
-> listInstruments        :: IO ()
-> listInstruments                          = do
->   (mrunt, _, pergmsI, pergmsP, rdGen03)  ← equipInstruments allKinds
->   if isJust mrunt
->     then do
->       let runt                           = deJust "mrunt" mrunt
->       writeCategorizationReport runt pergmsI pergmsP
->       CM.when reportScan (writeScanReport runt rdGen03)
->     else do
->       return ()
 
 To support extracting from flawed SoundFont files, we - up front - withdraw unrecoverable items from
 their respective collections. The withdrawn items are ignored by all later phases. When constructing those

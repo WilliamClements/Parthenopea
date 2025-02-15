@@ -24,7 +24,6 @@ May 4, 2023
 > import Parthenopea.Repro.ModulationTest
 > import Parthenopea.Repro.SmashingTest
 > import Parthenopea.Repro.SynthesizerTest
-> import Parthenopea.SoundFont.Boot
 > import Parthenopea.SoundFont.BootTest
 > import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
@@ -119,8 +118,8 @@ organize exposed music =========================================================
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
 >    -- [ ("pit"         , pit)]
 >    -- [ ("getCITM"     , getCITM)]
->    -- [ ("pa"          , pendingtonArnt 1)]
->       [ ("deyDumpDum"  , deyDumpDum False)]
+>       [ ("pa"          , pendingtonArnt 1)]
+>    -- [ ("deyDumpDum"  , deyDumpDum False)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 2610)]
 >    -- [ ("slot_1"      , slot 1)]
 >    -- [ ("theFanfare"  , theFanfare False)]

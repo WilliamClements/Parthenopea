@@ -20,7 +20,6 @@ April 16, 2023
 >         , allKinds
 >         , allowStereoCrossovers
 >         , appendChange
->         , ArtifactGrade(..)
 >         , bracks
 >         , cancels
 >         , checkSmashing
@@ -37,6 +36,7 @@ April 16, 2023
 >         , dropped
 >         , Disposition(..)
 >         , effShdr
+>         , elideset
 >         , emitMsgs
 >         , emptyrd
 >         , extractInstKey
@@ -70,7 +70,6 @@ April 16, 2023
 >         , openSoundFontFile
 >         , parens
 >         , PerGMKey(..)
->         , PerGMScored(..)
 >         , PerInstrument(..)
 >         , pinnedKR
 >         , pitchToPerc
@@ -82,6 +81,7 @@ April 16, 2023
 >         , rdLengths
 >         , reportCategorizationName
 >         , reportScan
+>         , reportScanName
 >         , reportTournamentName
 >         , rescued
 >         , ResultDispositions(..)
@@ -91,11 +91,9 @@ April 16, 2023
 >         , sampleSizeOk
 >         , SampleType(..)
 >         , Scan(..)
->         , seedWinningRecord
 >         , SFBoot(..)
 >         , SFFile(..)
 >         , SFResource(..)
->         , SFRuntime(..)
 >         , SFZone(..)
 >         , ShdrXForm(..)
 >         , showBags
@@ -108,9 +106,7 @@ April 16, 2023
 >         , violated
 >         , virginrd
 >         , wasRescued
->         , WinningRecord(..)
 >         , writeFileBySections
->         , writeScanReport
 >         , ZoneDigest(..)
 >         )
 >         where
@@ -127,7 +123,6 @@ April 16, 2023
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
-> import Debug.Trace
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
 > import Parthenopea.Debug
@@ -206,7 +201,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , iGlobalKey         :: Maybe PreZoneKey
 >   , iChanges           :: [InstXForm]}
 > instance Show PreInstrument where
->   show (PreInstrument{ .. })                   =
+>   show (PreInstrument{ .. })             =
 >     unwords ["PreInstrument", show iName]
 >
 > data InstXForm =
@@ -218,29 +213,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , pSmashing          :: Smashing Word}
 > showBags               :: PerInstrument → String
 > showBags perI                            = show (map (pzWordB . fst) perI.pZones)
->
-> type AgainstKindResult                   = Double
-> 
-> data ArtifactGrade =
->   ArtifactGrade {
->     pScore             :: Int
->   , pEmpiricals        :: [Double]} deriving (Show)
->
-> data PerGMScored                         =
->   PerGMScored {
->     pArtifactGrade     :: ArtifactGrade
->   , pKind              :: GMKind
->   , pAgainstKindResult :: AgainstKindResult
->   , pPerGMKey          :: PerGMKey
->   , szI                :: String
->   , mszP               :: Maybe String} deriving (Show)
->
-> data WinningRecord                       =
->   WinningRecord {
->     pWinningI          :: Map InstrumentName PerGMScored
->   , pWinningP          :: Map PercussionSound PerGMScored} deriving Show
-> seedWinningRecord      :: WinningRecord
-> seedWinningRecord                        = WinningRecord Map.empty Map.empty
 >
 > data SFZone =
 >   SFZone {
@@ -406,11 +378,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     Map.empty Map.empty
 >     Map.empty
 >     Map.empty Map.empty Map.empty
-> data SFRuntime                           =
->   SFRuntime {
->     zFiles             :: Array Word SFFile
->   , zBoot              :: SFBoot
->   , zWinningRecord     :: WinningRecord}
 >
 > data SFFile =
 >   SFFile {
@@ -615,41 +582,26 @@ bootstrapping ==================================================================
 >
 > class SFResource a where
 >   sfkey                :: Word → Word → a
+>   wfile                :: a → Word
+>   kname                :: a → SFBoot → String
 >   inspect              :: a → ResultDispositions → [Scan]
 >   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
->   emit                 :: SFRuntime → a → [Emission]
 >
 > instance SFResource PreSampleKey where
 >   sfkey                                  = PreSampleKey
+>   wfile k                                = k.pskwFile
+>   kname k boot                           = (boot.zPreSampleCache Map.! k).sName
 >   inspect presk rd                       = fromMaybe [] (Map.lookup presk rd.preSampleDispos)
 >   dispose presk ss rd                    =
 >     rd{preSampleDispos = Map.insertWith (flip (++)) presk ss rd.preSampleDispos}
->   emit runt presk                 =
->     [  Unblocked (show presk)
->      , Blanks 5
->      , Unblocked sffile.zFilename
->      , Blanks 5
->      , Unblocked (show shdr.sampleName)]
->     where
->       sffile                             = runt.zFiles ! presk.pskwFile
->       sfboota                            = sffile.zFileArrays
->       shdr                               = sfboota.ssShdrs ! presk.pskwSampleIndex
 >
 > instance SFResource PerGMKey where
 >   sfkey wF wI                            = PerGMKey wF wI Nothing
+>   wfile k                                = k.pgkwFile
+>   kname k boot                           = (boot.zPreInstCache Map.! k).iName
 >   inspect pergm rd                       = fromMaybe [] (Map.lookup pergm rd.preInstDispos)
 >   dispose pergm ss rd                    =
 >     rd{preInstDispos = Map.insertWith (++) pergm ss rd.preInstDispos}
->   emit runt pergm                        =
->     [  Unblocked (show pergm)
->      , Blanks 5
->      , Unblocked sffile.zFilename
->      , Blanks 5
->      , Unblocked (show iinst.instName)]
->     where
->       sffile                             = runt.zFiles ! pergm.pgkwFile
->       sfboota                            = sffile.zFileArrays
->       iinst                              = sfboota.ssInsts ! pergm.pgkwInst
 >
 > sampleSizeOk           :: (Word, Word) → Bool
 > sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
@@ -716,47 +668,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs
 >   where
 >     imsgs              :: [String]       = fromMaybe [] (lookup kind msgs)
->
-> writeScanReport        :: SFRuntime → ResultDispositions → IO ()
-> writeScanReport runt rd@ResultDispositions{ .. }
->                        = do
->   CM.when diagnosticsEnabled (putStrLn $ unwords [fName, show rd])
->   tsStarted            ← getCurrentTime
->
->   -- output all selections to the report file
->   let esTimeStamp      = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
->   let esSampleScan     = procMap preSampleDispos ++ [EndOfLine]
->   let esInstScan       = procMap preInstDispos ++ [EndOfLine]
->   let esTail           = [EndOfLine, EndOfLine]
->
->   writeFileBySections reportScanName [esTimeStamp, esSampleScan, esInstScan, esTail]
->   tsFinished           ← getCurrentTime
->   putStrLn (unwords ["___report scan results:", show (diffUTCTime tsFinished tsStarted)])
->   traceIO (unwords ["wrote", reportScanName])
->
->   where
->     fName              = "writeScanReport"
->
->     procMap            :: ∀ r . (SFResource r, Show r) ⇒ Map r [Scan] → [Emission]
->     procMap sm         = concat $ Map.mapWithKey procr sm
->
->     procr              :: ∀ r . (SFResource r, Show r) ⇒ r → [Scan] → [Emission]
->     procr k ss_        =
->       let
->         ss             = filter (\s → s.sDisposition `notElem` elideset) ss_
->       in
->         if null ss
->           then []
->           else emit runt k ++ [EndOfLine] ++ concatMap procs ss ++ [EndOfLine]
->
->     procs          :: Scan → [Emission]
->     procs scan
->                        =
->       [  emitShowL scan.sDisposition 24
->        , emitShowL scan.sImpact      32
->        , ToFieldL scan.sFunction     52
->        , Unblocked scan.sClue
->        , EndOfLine]
 >
 > type Fuzz = Double
 >
