@@ -281,10 +281,8 @@ tournament starts here =========================================================
 >         fName                            = "xaEnterTournament"
 >
 >         pergm_                           = pergm{pgkwBag = Nothing}
->         preI                             =
->           deJust (unwords[fName, "PreInstrument", show pergm_]) (Map.lookup pergm_ preInstCache)
->         perI                             =
->           deJust (unwords[fName, "PerInstrument", show pergm_]) (Map.lookup pergm_ zc)
+>         preI                             = preInstCache Map.! pergm_
+>         perI                             = zc           Map.! pergm_
 >
 >         scope_, scope  :: [(PreZone, SFZone)]
 >         scope_                           =

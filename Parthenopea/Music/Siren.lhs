@@ -723,6 +723,7 @@ examine song for instrument and percussion usage ===============================
 >                                              else "!"
 
 tournament among instruments in various soundfont files ===============================================================
+          some code _copied_ from HSoM and Euterpea - if you feel strongly, I'll do it the right way with exports
 
 > hist         :: (Ix a, Integral b) ⇒ (a,a) → [a] → Array a b
 > hist bnds is = accumArray (+) 0 bnds [(i, 1) | i ← is, inRange bnds i]
@@ -754,7 +755,7 @@ tournament among instruments in various soundfont files ========================
 > trill i d (Modify c m)          = Modify c (trill i d m)
 > trill _ _ _                     = 
 >       error "trill: input must be a single note."
-> {-# LINE 702 "MoreMusic.lhs" #-}
+>
 > trill' :: Int -> Dur -> Music Pitch -> Music Pitch
 > trill' i sDur m = trill (negate i) sDur (transpose i m)
 >
@@ -767,7 +768,7 @@ tournament among instruments in various soundfont files ========================
 > roll  :: Dur -> Music Pitch -> Music Pitch
 > rolln :: Int -> Music Pitch -> Music Pitch
 >
-> roll  dur    m = trill  0 dur m
+> roll  sDur   m = trill  0 sDur m
 > rolln nTimes m = trilln 0 nTimes m
 >
 > extractTimes           :: Performance → [Double]

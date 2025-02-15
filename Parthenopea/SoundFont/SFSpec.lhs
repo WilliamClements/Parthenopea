@@ -29,21 +29,23 @@ April 16, 2023
 >         , comma
 >         , commaOrNot
 >         , computeInstSmashup
->         , computePreSample
 >         , dasBoot
 >         , dead
 >         , deadrd
 >         , defZone
+>         , doAbsorption
 >         , dropped
 >         , Disposition(..)
 >         , effShdr
 >         , emitMsgs
 >         , emptyrd
 >         , extractInstKey
+>         , extractSampleKey
 >         , extractZoneKey
 >         , FileArrays(..)
 >         , finishScans
 >         , fixBadNames
+>         , fixName
 >         , formPreZoneMap
 >         , fromSampleType
 >         , Fuzz
@@ -53,12 +55,14 @@ April 16, 2023
 >         , Impact(..)
 >         , InstCat(..)
 >         , InstCatData(..)
+>         , InstXForm(..)
 >         , is24BitInst
 >         , isStereoInst
 >         , isStereoZone
 >         , KeyNumber
 >         , lookupCellIndex
 >         , makePreZone
+>         , badButMaybeFix
 >         , modified
 >         , multipleCompetes
 >         , noChange
@@ -103,6 +107,7 @@ April 16, 2023
 >         , Velocity
 >         , violated
 >         , virginrd
+>         , wasRescued
 >         , WinningRecord(..)
 >         , writeFileBySections
 >         , writeScanReport
@@ -142,8 +147,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     sName              :: String
 >   , psShdr             :: F.Shdr
 >   , psChanges          :: [ShdrXForm]}
-> computePreSample       :: F.Shdr → PreSample
-> computePreSample shdr@F.Shdr{ .. }       = PreSample sampleName shdr []
 >
 > data PreZoneKey =
 >   PreZoneKey {
@@ -154,7 +157,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   MakeMono
 >   | MakeLeft PreZoneKey
 >   | MakeRight PreZoneKey
->   | FixCorruptName deriving Eq
+>   | FixCorruptShdrName deriving Eq
 >
 > data PreZone =
 >   PreZone {
@@ -186,7 +189,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >                   MakeMono               → s{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
 >                   MakeLeft _             → s{F.sampleType = fromSampleType SampleTypeLeft, F.sampleLink = 0}
 >                   MakeRight _            → s{F.sampleType = fromSampleType SampleTypeRight, F.sampleLink = 0}
->                   FixCorruptName         → s{F.sampleName = fixName (F.sampleName s)}) x)
+>                   FixCorruptShdrName         → s{F.sampleName = fixName (F.sampleName s)}) x)
 >          (psShdr (deJust "rawShdr" (Map.lookup (extractSampleKey pz) psCache)))
 >          pz.pzChanges
 > appendChange           :: PreZone → ShdrXForm → PreZone
@@ -200,10 +203,14 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   PreInstrument {
 >     pInst              :: F.Inst
 >   , iName              :: String
->   , iGlobalKey         :: Maybe PreZoneKey}
+>   , iGlobalKey         :: Maybe PreZoneKey
+>   , iChanges           :: [InstXForm]}
 > instance Show PreInstrument where
 >   show (PreInstrument{ .. })                   =
 >     unwords ["PreInstrument", show iName]
+>
+> data InstXForm =
+>   FixCorruptInstName deriving Eq
 >
 > data PerInstrument                       =
 >   PerInstrument {
@@ -329,9 +336,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     pgkwFile           :: Word
 >   , pgkwInst           :: Word
 >   , pgkwBag            :: Maybe Word} deriving (Eq, Ord, Show)
-
-Instrument categories: instrument, percussion, disqualified
-
+>
 > data InstCat                             =
 >        InstCatInst InstCatData
 >      | InstCatPerc InstCatData
@@ -524,6 +529,7 @@ bootstrapping ==================================================================
 >      | CorruptGMRange | Narrow | BadLinkage | IllegalCrossover
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
 >      | Unrecognized | NoPercZones | Harvested | CatIsPerc | CatIsInst | Disqualified
+>      | Adopted
 >   deriving (Eq, Ord, Show)
 >
 > data Scan                                =
@@ -548,7 +554,8 @@ bootstrapping ==================================================================
 >                                              then [Accepted, NoChange]
 >                                              else []
 >
-> dead, cancels          :: [Scan] → Bool
+> dead, cancels, wasRescued
+>                        :: [Scan] → Bool
 > dead ss_                                 = any odd (Map.elems m)
 >   where
 >     ss                                   = filter (\s → s.sDisposition `elem` deadset) ss_
@@ -557,6 +564,7 @@ bootstrapping ==================================================================
 >     m                                    = foldl' (\n v → Map.insertWith (+) v 1 n) Map.empty (map sImpact ss)
 >
 > cancels                                  = any (\s → s.sDisposition `elem` cancelset)
+> wasRescued                               = any (\s → s.sDisposition == Rescued)
 >
 > accepted, violated, dropped, rescued, noChange, modified
 >                        :: ∀ r . (SFResource r) ⇒ r → Impact → [Scan]
@@ -566,6 +574,14 @@ bootstrapping ==================================================================
 > rescued key impact                       = singleton $ Scan Rescued impact "FromName" (zshow key)
 > noChange key impact                      = singleton $ Scan NoChange impact "FromName" (zshow key)
 > modified key impact                      = singleton $ Scan Modified impact "FromName" (zshow key)
+>
+> badButMaybeFix         :: ∀ a. (Show a) ⇒ Bool → Impact → String → a → a → [Scan]
+> badButMaybeFix doFix imp fName bad good  = if doFix
+>                                              then [viol, resc]
+>                                              else [viol]
+>   where
+>     viol                                 = Scan Violated imp fName (show bad)
+>     resc                                 = Scan Rescued imp fName (show good)
 >
 > finishScans            :: String → String → [Scan] → [Scan]
 > finishScans function clue                = map (\x → x{  sFunction = function, sClue = clue})
@@ -824,9 +840,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportTournamentName   :: FilePath
 > reportTournamentName                     = "TournamentReport'.log"
 >
-> fixBadNames, multipleCompetes
->                        :: Bool
-> fixBadNames                              = True
+> multipleCompetes       :: Bool
 > multipleCompetes                         = True
 >
 > allowOutOfRange        :: Bool
@@ -835,6 +849,10 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > allowOverlappingRanges                   = True
 > allowStereoCrossovers  :: Bool
 > allowStereoCrossovers                    = False
+> doAbsorption           :: Bool
+> doAbsorption                             = True
+> fixBadNames            :: Bool
+> fixBadNames                              = True
 > howVerboseScan         :: Double
 > howVerboseScan                           = 3/4
 > reportScan             :: Bool
