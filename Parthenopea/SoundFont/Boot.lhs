@@ -164,7 +164,9 @@ later items, some critical data may thereby be missing. So that entails deletion
 >       putStrLn ("___booted: " ++ show (diffUTCTime tsBooted tsLoaded))
 >
 >       (pergmsI, pergmsP)                 ← enumGMs bootAll.zJobs
->       putStrLn $ unwords ["length pergmsI, pergmsP", show (length pergmsI, length pergmsP)]
+>       CM.when
+>         diagnosticsEnabled
+>         (putStrLn $ unwords ["length pergmsI, pergmsP", show (length pergmsI, length pergmsP)])
 >
 >       tsFinished                         ← getCurrentTime
 >       putStrLn ("___sorted: " ++ show (diffUTCTime tsFinished tsBooted))

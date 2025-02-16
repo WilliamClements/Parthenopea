@@ -79,7 +79,6 @@ April 16, 2023
 >         , PreZone(..)
 >         , PreZoneKey(..)
 >         , rdLengths
->         , reportCategorizationName
 >         , reportScan
 >         , reportScanName
 >         , reportTournamentName
@@ -751,8 +750,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
-> reportCategorizationName   :: FilePath
-> reportCategorizationName                 = "CategorizationReport'.log"
 > reportScanName         :: FilePath
 > reportScanName                           = "ScanReport'.log"
 > reportTournamentName   :: FilePath
@@ -772,7 +769,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > fixBadNames            :: Bool
 > fixBadNames                              = True
 > howVerboseScan         :: Double
-> howVerboseScan                           = 3/4
+> howVerboseScan                           = 1/4
 > reportScan             :: Bool
 > reportScan                               = True
 > sampleSizeMin          :: Word
