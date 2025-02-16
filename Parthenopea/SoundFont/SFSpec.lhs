@@ -498,7 +498,7 @@ bootstrapping ==================================================================
 >      | CorruptGMRange | Narrow | BadLinkage | IllegalCrossover
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
 >      | Unrecognized | NoPercZones | Harvested | CatIsPerc | CatIsInst | Disqualified
->      | Adopted
+>      | Adopted | GlobalZone
 >   deriving (Eq, Ord, Show)
 >
 > data Scan                                =

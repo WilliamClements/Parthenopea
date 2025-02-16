@@ -129,16 +129,16 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 
 executive =============================================================================================================
 
-To support extracting from flawed SoundFont files, we - up front - withdraw unrecoverable items from
-their respective collections. The withdrawn items are ignored by all later phases. When constructing those
-later items, some critical data may thereby be missing. So that entails deletion-recovery also.
+To support extracting from flawed SoundFont files, we - up front - withdraw unrecoverable items from their
+respective collections. The withdrawn items may be critical to some instruments. So that entails further deletion
+and recovery.
 
 > equipInstruments       :: ([InstrumentName], [PercussionSound])
 >                           → IO (Maybe SFRuntime, Maybe Matches, [PerGMKey], [PerGMKey], ResultDispositions)
 > equipInstruments rost                    = do
->   tsStarted                              ← getCurrentTime
->
 >   putStrLn $ unwords ["rost\n", show rost]
+>
+>   tsStarted                              ← getCurrentTime
 >
 >   -- represent all input SoundFont files in ordered list, thence a vector
 >   fps                                    ← FP.getDirectoryFiles "." (singleton "*.sf2")
@@ -435,7 +435,7 @@ capture task ===================================================================
 >         (zrec{zsPreZones = newPzs, zsGlobalKey = globalKey}, rdOut)
 >
 >     captureZones       :: PerGMKey → ResultDispositions → ([PreZone], ResultDispositions, Maybe PreZoneKey)
->     captureZones pergm rdIn              = (pzsRemaining, rd'', globalKey)
+>     captureZones pergm rdCap             = (pzsRemaining, rdCap'', globalKey)
 >       where
 >         fName_                           = unwords["captureZones"]
 >
@@ -443,7 +443,7 @@ capture task ===================================================================
 >           | null pzsRemaining            = (violated pergm NoZones, "null")
 >           | otherwise                    = (accepted pergm Ok, show (length pzsRemaining))
 >         ss                               = finishScans fName_ clue ss_ 
->         rd'                              = dispose pergm ss rdIn
+>         rdCap'                           = dispose pergm ss rdCap
 >         results                          = map captureZone (deriveRange ibagi jbagi)
 >
 >         ibagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! wIn)
@@ -451,35 +451,27 @@ capture task ===================================================================
 >
 >         wIn                              = pgkwInst pergm
 >
->         globalKey                        = if head results == Right "global zone"
+>         globalKey                        = if head results == Right (Accepted, GlobalZone)
 >                                              then Just $ PreZoneKey sffile.zWordF ibagi
 >                                              else Nothing
 >
 >         pzsRemaining                     = lefts results
->         rd''                             =
->           foldl'
->             sampleFolder
->             rd'
->             pzsRemaining
+>         rdCap''                          = foldl' sampleFolder rdCap' pzsRemaining
 >
 >         sampleFolder   :: ResultDispositions → PreZone → ResultDispositions
 >         sampleFolder rdFold pz           =
 >           dispose (extractSampleKey pz) [Scan Modified Adopted fName_ (show pergm.pgkwInst)] rdFold
 >             
->         captureZone    :: Word → Either PreZone String
+>         captureZone    :: Word → Either PreZone (Disposition, Impact)
 >         captureZone bix                  = zTry
 >           where
 >             fName                        = unwords [fName_, "captureZone"]
 >                 
 >             zTry
-> {-
->                   | isNothing starget        =
->                     (  zscan, Map.singleton (instKey zscan) (violate OrphanedBySample  fName ""))
-> -}
+>                                          -- TODO: corrupt adjusted limits?
 >               | isNothing pz.pzDigest.zdSampleIndex
->                                          = Right "global zone"
->               | isNothing starget        = Right (unwords [fName, "orphaned by sample"])
->               | not limitsCheckedOk      = Right (unwords [fName, "problem", "corrupt adjusted limits"]) 
+>                                          = Right (Accepted, GlobalZone)
+>               | isNothing starget        = Right (Dropped, OrphanedBySample)
 >               | otherwise                = Left pz{pzChanges = pres.psChanges}
 >
 >             xgeni                        = F.genNdx $ sffile.zFileArrays.ssIBags ! bix
@@ -492,9 +484,6 @@ capture task ===================================================================
 >                                              (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
 >             pz                           = makePreZone sffile.zWordF si wIn bix gens
 >             si                           = deJust fName pz.pzDigest.zdSampleIndex
->             shdr                         = sffile.zFileArrays.ssShdrs ! si
->
->             limitsCheckedOk              = adjustedSampleSizeOk pz.pzDigest shdr
 >             presk                        = PreSampleKey sffile.zWordF si
 >             starget                      = Map.lookup presk fwBoot.zPreSampleCache
 >             pres                         = deJust "pres" starget
