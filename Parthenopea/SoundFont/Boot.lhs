@@ -811,6 +811,15 @@ categorization task ============================================================
 >         mpzs                             = Map.lookup pergm fwBoot.zOwners
 >         pzs                              = deJust (unwords[fName__, "owners"]) mpzs
 >
+>         canBePercZ     :: PreZone → Bool
+>         canBePercZ x                     =
+>           case x.pzDigest.zdKeyRange of
+>             Just rng                     →    inRange rng ((fromIntegral . fst) percPitchRange)
+>                                            && inRange rng ((fromIntegral . snd) percPitchRange)
+>             Nothing                      → True
+>         canBePercI     :: [PreZone] → Bool
+>         canBePercI                       = all canBePercZ
+>
 >         -- Put the Instrument, of either category, through a gauntlet of checks.
 >         -- This diverges, and then we have qualInstZone and qualPercZone 
 >
@@ -965,7 +974,7 @@ categorization task ============================================================
 >                   let
 >                     uFrac                = howLaden uZones
 >                     wFrac                = howLaden wZones
->                   in if fr < uFrac
+>                   in if canBePercI pzs && fr < uFrac
 >                     then
 >                       (if 0.2 < wFrac
 >                          then Just (catPerc wZones)

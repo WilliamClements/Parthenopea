@@ -69,6 +69,7 @@ April 16, 2023
 >         , noClue
 >         , openSoundFontFile
 >         , parens
+>         , percPitchRange
 >         , PerGMKey(..)
 >         , PerInstrument(..)
 >         , pinnedKR
@@ -339,6 +340,9 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
 >    , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
 >
+> percPitchRange         :: (AbsPitch, AbsPitch)
+> percPitchRange                           = (fromEnum AcousticBassDrum + 35, fromEnum OpenTriangle + 35)
+>
 > type GMKind                              = Either InstrumentName PercussionSound
 > 
 > data SFBoot                              =
@@ -443,7 +447,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     normalizeRange x y                   = if x > y
 >                                              then Just (y, x) -- WOX
 >                                              else Just (x, y)
->
 
 bootstrapping =========================================================================================================
 
@@ -655,11 +658,13 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >   | traceNot trace_CIS False             = undefined
 >   | otherwise                            = computeSmashup (unwords["computeInstSmashup"]) subs
 >   where
+>     fName                                = "computeInstSmashup"
+>
 >     -- create smashup consisting of 16_384 (128 x 128) Word pairs - adds up to 131_072 bytes
 >     subs               :: [(Word, [Maybe (Word, Word)])]
 >     subs                                 = map extractSpace pzs
 >
->     trace_CIS                            = unwords ["computeInstSmashup", showPreZones pzs, show subs]
+>     trace_CIS                            = unwords [fName, showPreZones pzs, show subs]
 >
 > smush                  :: [([PreZone], Smashing Word)] → Smashing Word
 > smush pears                              = smashSubspaces allTags dims allSpaces
