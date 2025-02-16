@@ -184,7 +184,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >                   MakeMono               → s{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
 >                   MakeLeft _             → s{F.sampleType = fromSampleType SampleTypeLeft, F.sampleLink = 0}
 >                   MakeRight _            → s{F.sampleType = fromSampleType SampleTypeRight, F.sampleLink = 0}
->                   FixCorruptShdrName         → s{F.sampleName = fixName (F.sampleName s)}) x)
+>                   FixCorruptShdrName     → s{F.sampleName = fixName (F.sampleName s)}) x)
 >          (psShdr (deJust "rawShdr" (Map.lookup (extractSampleKey pz) psCache)))
 >          pz.pzChanges
 > appendChange           :: PreZone → ShdrXForm → PreZone
@@ -414,9 +414,12 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > formDigest                               = foldr inspectGen defDigest
 >   where
 >     inspectGen         :: F.Generator → ZoneDigest → ZoneDigest 
->     inspectGen (F.KeyRange i j) zd       = zd {zdKeyRange = normalizeRange i j}
->     inspectGen (F.VelRange i j) zd       = zd {zdVelRange = normalizeRange i j}
->     inspectGen (F.SampleIndex w) zd      = zd {zdSampleIndex = Just w}
+>     inspectGen (F.KeyRange i j)                          zd
+>                                          = zd {zdKeyRange = normalizeRange i j}
+>     inspectGen (F.VelRange i j)                          zd
+>                                          = zd {zdVelRange = normalizeRange i j}
+>     inspectGen (F.SampleIndex w)                         zd
+>                                          = zd {zdSampleIndex = Just w}
 >
 >     inspectGen (F.StartAddressCoarseOffset i)            zd
 >                                          = zd {zdStart = zd.zdStart + 32_768 * i}
@@ -508,7 +511,7 @@ bootstrapping ==================================================================
 > noClue                 :: String
 > noClue                                   = ""
 >
-> cancelset, deadset, elideset
+> cancelset, deadset, elideset, rescueset
 >                        :: [Disposition]
 >                                            -- cancelled if (not dead and) any of the following appear
 > cancelset                                = [Violated, Dropped, Rescued, NoChange, Modified]
@@ -520,6 +523,7 @@ bootstrapping ==================================================================
 > elideset                                 = if howVerboseScan < (1/2)
 >                                              then [Accepted, NoChange]
 >                                              else []
+> rescueset                                = [Rescued]
 >
 > dead, cancels, wasRescued
 >                        :: [Scan] → Bool
@@ -531,7 +535,7 @@ bootstrapping ==================================================================
 >     m                                    = foldl' (\n v → Map.insertWith (+) v 1 n) Map.empty (map sImpact ss)
 >
 > cancels                                  = any (\s → s.sDisposition `elem` cancelset)
-> wasRescued                               = any (\s → s.sDisposition == Rescued)
+> wasRescued                               = any (\s → s.sDisposition `elem` rescueset)
 >
 > accepted, violated, dropped, rescued, noChange, modified
 >                        :: ∀ r . (SFResource r) ⇒ r → Impact → [Scan]
@@ -583,14 +587,16 @@ bootstrapping ==================================================================
 > class SFResource a where
 >   sfkey                :: Word → Word → a
 >   wfile                :: a → Word
->   kname                :: a → SFBoot → String
+>   wblob                :: a → Word
+>   kname                :: a → SFFile → String
 >   inspect              :: a → ResultDispositions → [Scan]
 >   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
 >
 > instance SFResource PreSampleKey where
 >   sfkey                                  = PreSampleKey
 >   wfile k                                = k.pskwFile
->   kname k boot                           = (boot.zPreSampleCache Map.! k).sName
+>   wblob k                                = k.pskwSampleIndex
+>   kname k sffile                         = (ssShdrs sffile.zFileArrays ! wblob k).sampleName
 >   inspect presk rd                       = fromMaybe [] (Map.lookup presk rd.preSampleDispos)
 >   dispose presk ss rd                    =
 >     rd{preSampleDispos = Map.insertWith (flip (++)) presk ss rd.preSampleDispos}
@@ -598,7 +604,8 @@ bootstrapping ==================================================================
 > instance SFResource PerGMKey where
 >   sfkey wF wI                            = PerGMKey wF wI Nothing
 >   wfile k                                = k.pgkwFile
->   kname k boot                           = (boot.zPreInstCache Map.! k).iName
+>   wblob k                                = k.pgkwInst
+>   kname k sffile                         = (ssInsts sffile.zFileArrays ! wblob k).instName
 >   inspect pergm rd                       = fromMaybe [] (Map.lookup pergm rd.preInstDispos)
 >   dispose pergm ss rd                    =
 >     rd{preInstDispos = Map.insertWith (++) pergm ss rd.preInstDispos}

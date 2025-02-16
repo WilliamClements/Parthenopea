@@ -167,54 +167,50 @@ executive ======================================================================
 >
 > writeScanReport        :: SFRuntime → ResultDispositions → IO ()
 > writeScanReport runt rd@ResultDispositions{ .. }
->                        = do
+>                                          = do
 >   CM.when diagnosticsEnabled (putStrLn $ unwords [fName, show rd])
->   tsStarted            ← getCurrentTime
+>   tsStarted                              ← getCurrentTime
 >
 >   -- output all selections to the report file
->   let esTimeStamp      = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
->   let esSampleScan     = procMap preSampleDispos ++ [EndOfLine]
->   let esInstScan       = procMap preInstDispos ++ [EndOfLine]
->   let esTail           = [EndOfLine, EndOfLine]
+>   let esTimeStamp                        = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
+>   let esSampleScan                       = procMap preSampleDispos ++ [EndOfLine]
+>   let esInstScan                         = procMap preInstDispos ++ [EndOfLine]
+>   let esTail                             = [EndOfLine, EndOfLine]
 >
 >   writeFileBySections reportScanName [esTimeStamp, esSampleScan, esInstScan, esTail]
->   tsFinished           ← getCurrentTime
+>   tsFinished                             ← getCurrentTime
 >   putStrLn (unwords ["___report scan results:", show (diffUTCTime tsFinished tsStarted)])
 >   traceIO (unwords ["wrote", reportScanName])
 >
 >   where
->     fName              = "writeScanReport"
+>     fName                                = "writeScanReport"
 >
 >     procMap            :: ∀ r . (SFResource r, Show r) ⇒ Map r [Scan] → [Emission]
->     procMap sm         = concat $ Map.mapWithKey procr sm
+>     procMap sm                           = concat $ Map.mapWithKey procr sm
 >
 >     procr              :: ∀ r . (SFResource r, Show r) ⇒ r → [Scan] → [Emission]
->     procr k ss_        =
->       let
->         ss             = filter (\s → s.sDisposition `notElem` elideset) ss_
->       in
->         if null ss
->           then []
->           else emit k runt.zBoot ++ [EndOfLine] ++ concatMap procs ss ++ [EndOfLine]
->
->     procs          :: Scan → [Emission]
->     procs scan
->                        =
->       [  emitShowL scan.sDisposition 24
->        , emitShowL scan.sImpact      32
->        , ToFieldL scan.sFunction     52
->        , Unblocked scan.sClue
->        , EndOfLine]
->
->     emit               :: ∀ r . (SFResource r, Show r) ⇒ r → SFBoot → [Emission]
->     emit k boot                              = 
->       [  Unblocked (show k)
->        , Blanks 5
->        , Unblocked sffile.zFilename
->        , Blanks 5
->        , Unblocked (show (kname k boot))]
+>     procr k ss_                          = if null ss
+>                                              then []
+>                                              else emit ++ [EndOfLine] ++ concatMap procs ss ++ [EndOfLine]
 >       where
->         sffile                             = runt.zFiles ! wfile k
+>         ss                               = filter (\s → s.sDisposition `notElem` elideset) ss_
+>         sffile                           = runt.zFiles ! wfile k
+>
+>         procs          :: Scan → [Emission]
+>         procs scan                       =
+>           [  emitShowL scan.sDisposition 24
+>            , emitShowL scan.sImpact      32
+>            , ToFieldL scan.sFunction     52
+>            , Unblocked scan.sClue
+>            , EndOfLine]
+>
+>         emit           :: [Emission]
+>         emit                             = 
+>           [  Unblocked (show k)
+>            , Blanks 5
+>            , Unblocked sffile.zFilename
+>            , Blanks 5
+>            , Unblocked (show (kname k sffile))]
 >
 > writeTournamentReport  :: Array Word SFFile
 >                           → Map InstrumentName [PerGMScored]
