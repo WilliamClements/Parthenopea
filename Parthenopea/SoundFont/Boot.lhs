@@ -16,7 +16,6 @@ January 21, 2025
 
 > module Parthenopea.SoundFont.Boot
 >        (  equipInstruments
->         , writeCategorizationReport
 >         , Matches(..)
 >         )
 >         where
@@ -33,11 +32,9 @@ January 21, 2025
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
-> import Debug.Trace ( traceIO )
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.SoundFont.Scoring
@@ -71,7 +68,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   show (FileIterate{ .. })               =
 >     unwords ["FileIterate", show fiFw]
 >
-> preSampleTaskIf, partnerTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf
+> preSampleTaskIf, partnerTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, markTaskIf
 >                , groomTaskIf, vetTaskIf, harvestTaskIf, deharvestTaskIf, reorgTaskIf
 >                , shaveTaskIf, matchTaskIf, catTaskIf, encatTaskIf, zoneTaskIf, reownTaskIf
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
@@ -84,7 +81,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >      , ("partner",    partner)
 >      , ("preInst",    preInst)
 >      , ("survey",     survey)
->      , ("capture",    capture)
+>      , ("capture",    mark . capture)
 >      , ("groom",      groom)
 >      , ("vet",        vet)
 >      , ("reorg",      deharvest . reorg . harvest) 
@@ -96,7 +93,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   where
 >     harvest                              = harvestTaskIf      sffile rost
 >     deharvest                            = deharvestTaskIf    sffile rost
->     reown                                = reownTaskIf        sffile rost 
+>     reown                                = reownTaskIf        sffile rost
+>     mark                                 = markTaskIf         sffile rost
 >
 >     preSample                            = preSampleTaskIf    sffile rost
 >     partner                              = partnerTaskIf      sffile rost
@@ -140,7 +138,7 @@ later items, some critical data may thereby be missing. So that entails deletion
 > equipInstruments rost                    = do
 >   tsStarted                              ← getCurrentTime
 >
->   putStrLn $ unwords ["rost", show rost]
+>   putStrLn $ unwords ["rost\n", show rost]
 >
 >   -- represent all input SoundFont files in ordered list, thence a vector
 >   fps                                    ← FP.getDirectoryFiles "." (singleton "*.sf2")
@@ -379,13 +377,14 @@ PreZone administration =========================================================
 >     zswFile            :: Word
 >   , zswInst            :: Word
 >   , zsInstCat          :: Maybe InstCat
+>   , zsGlobalKey        :: Maybe PreZoneKey
 >   , zsPreZones         :: [PreZone]}
 > instance Show InstZoneRecord where
 >   show (InstZoneRecord{ .. })            = unwords ["InstZoneRecord", show zswFile, show zswInst, showMaybeInstCat zsInstCat]
 > makeZRec               :: PerGMKey → InstZoneRecord
 > makeZRec pergm
 >   | traceNot trace_MZR False             = undefined
->   | otherwise                            = InstZoneRecord pergm.pgkwFile pergm.pgkwInst Nothing []
+>   | otherwise                            = InstZoneRecord pergm.pgkwFile pergm.pgkwInst Nothing Nothing []
 >   where
 >     fName                                = "makeZRec"
 >     trace_MZR                            = unwords [fName, show pergm]
@@ -428,13 +427,13 @@ capture task ===================================================================
 >     capturer           :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     capturer zrec rdIn                   =
 >       let
->         (newPzs, rdFold)                 = captureZones pergm rdIn
+>         (newPzs, rdOut, globalKey)       = captureZones pergm rdIn
 >         pergm                            = instKey zrec
 >       in
->         (zrec{zsPreZones = newPzs}, rdFold)
+>         (zrec{zsPreZones = newPzs, zsGlobalKey = globalKey}, rdOut)
 >
->     captureZones       :: PerGMKey → ResultDispositions → ([PreZone], ResultDispositions)
->     captureZones pergm rdIn              = (pzsRemaining, rd'')
+>     captureZones       :: PerGMKey → ResultDispositions → ([PreZone], ResultDispositions, Maybe PreZoneKey)
+>     captureZones pergm rdIn              = (pzsRemaining, rd'', globalKey)
 >       where
 >         fName_                           = unwords["captureZones"]
 >
@@ -450,11 +449,10 @@ capture task ===================================================================
 >
 >         wIn                              = pgkwInst pergm
 >
-> {-
->             mGBKey                       = if head results == Right "global zone"
->                                              then Just ibagi
+>         globalKey                        = if head results == Right "global zone"
+>                                              then Just $ PreZoneKey sffile.zWordF ibagi
 >                                              else Nothing
-> -}
+>
 >         pzsRemaining                     = lefts results
 >         rd''                             =
 >           foldl'
@@ -498,6 +496,19 @@ capture task ===================================================================
 >             presk                        = PreSampleKey sffile.zWordF si
 >             starget                      = Map.lookup presk fwBoot.zPreSampleCache
 >             pres                         = deJust "pres" starget
+
+mark task =============================================================================================================
+          copy global zone markers from zrecs to preInstCache
+
+> markTaskIf _ _ fwIn@FileWork{ .. }       = fwIn{fwBoot = fwBoot{zPreInstCache = preInstCache'}}
+>   where
+>     preInstCache'                        = foldl' markFolder fwBoot.zPreInstCache (goodZRecs fwZRecs fwDispositions)
+>     markFolder preInstCache zrec         =
+>       let
+>         pergm                            = instKey zrec
+>         preI                             = preInstCache Map.! pergm
+>       in
+>         Map.insert pergm (preI{iGlobalKey = zrec.zsGlobalKey}) preInstCache
 
 groom task ============================================================================================================
 
@@ -760,7 +771,7 @@ harvest task ===================================================================
 >
 > deharvestTaskIf _ _ fwIn@FileWork{ .. }  = fwIn{fwBoot = fwBoot{zOwners = Map.empty}}
 
-shaving task ==========================================================================================================
+shave task ============================================================================================================
           remove dropped or violated instruments from the preInstCache
 
 > shaveTaskIf _ _ fwIn@FileWork{ .. }      = fwIn{fwBoot = fwBoot{zPreInstCache = preInstCache}}
@@ -805,8 +816,7 @@ categorization task ============================================================
 >         trace_CI                         =
 >           unwords [fName__, preI.iName, show (pergm.pgkwFile, pergm.pgkwInst)]
 >
->         preI                             =
->           deJust (unwords [fName__, "PreInstrument"]) (Map.lookup pergm fwBoot.zPreInstCache)
+>         preI                             = fwBoot.zPreInstCache Map.! pergm
 >         mpzs                             = Map.lookup pergm fwBoot.zOwners
 >         pzs                              = deJust (unwords[fName__, "owners"]) mpzs
 >
@@ -1211,34 +1221,6 @@ reown task =====================================================================
 >                        , zJobs = foldl' (\m z → Map.insert (instKey z) (deJust "job" z.zsInstCat) m)
 >                                         Map.empty
 >                                         (goodZRecs fwZRecs fwDispositions)}}                                       
->
-> writeCategorizationReport
->                        :: SFRuntime → [PerGMKey] → [PerGMKey] → IO ()
-> writeCategorizationReport runt pergmsI pergmsP
->                        = do
->   tsStarted            ← getCurrentTime
->
->   -- output all selections to the report file
->   let esFiles          = emitFileListC ++ [EndOfLine]
->   let esI              = concatMap (dumpInstrument runt) pergmsI
->   let esP              = concatMap (dumpPercussion runt) pergmsP
->   let esTail           = singleton $ Unblocked "\n\nThe End\n\n"
->   let eol              = singleton EndOfLine
->
->   writeFileBySections reportCategorizationName [esFiles, esI, eol, esFiles, esP, esTail]
->   tsFinished           ← getCurrentTime
->   putStrLn (unwords ["___report categorization results:", show (diffUTCTime tsFinished tsStarted)])
->   traceIO (unwords ["wrote", reportCategorizationName])
->
->   where
->     emitFileListC      = concatMap (uncurry doF) (zip ([0..]::[Word]) (toList runt.zFiles))
->     doF nth sffile     = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
->     dumpInstrument, dumpPercussion
->                        :: SFRuntime → PerGMKey → [Emission]
->     dumpInstrument _ pergm
->                        = [Unblocked (show pergm), EndOfLine] 
->     dumpPercussion _ pergm
->                        = [Unblocked (show pergm), EndOfLine] 
 >
 > goodChar               :: Char → Bool
 > goodChar cN                              = isAscii cN && not (isControl cN)

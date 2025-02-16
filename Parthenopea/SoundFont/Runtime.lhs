@@ -17,7 +17,7 @@ February 1, 2025
 
 > module Parthenopea.SoundFont.Runtime
 >        (  computeCross
->         , doEverything
+>         , bootNRender
 >         , listInstruments
 >         )
 >         where
@@ -70,17 +70,10 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 
 executive =============================================================================================================
 
-> doEverything           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
-> doEverything songs     = do
->   putStrLn "everything..."
->   putStrLn ""
->
+> bootNRender            :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
+> bootNRender songs      = do
 >   rost                 ← qualifyKinds songs
->   putStrLn $ unwords ["rost", show rost]
->   putStrLn ""
->
 >   tsStarted            ← getCurrentTime
->
 >   (mrunt, mmatches, pergmsI, pergmsP, rdGen03)
 >                        ← equipInstruments rost
 >
@@ -156,11 +149,10 @@ executive ======================================================================
 >
 > listInstruments        :: IO ()
 > listInstruments                          = do
->   (mrunt, _, pergmsI, pergmsP, rdGen03)  ← equipInstruments allKinds
+>   (mrunt, _, _, _, rdGen03)  ← equipInstruments allKinds
 >   if isJust mrunt
 >     then do
 >       let runt                           = deJust "mrunt" mrunt
->       writeCategorizationReport runt pergmsI pergmsP
 >       CM.when reportScan (writeScanReport runt rdGen03)
 >     else do
 >       return ()
@@ -300,14 +292,15 @@ tournament starts here =========================================================
 >       | traceIf trace_WP False           = undefined
 >       | otherwise                        = xaEnterTournament fuzzMap pergmP [] wIn kind
 >       where
+>         fName                            = "wpFolder"
 >         trace_WP                         =
->           unwords ["wpFolder", show preI.iName, show pergmP, "of", show (length perI.pZones)]
+>           unwords [fName, show preI.iName, show pergmP, "of", show (length perI.pZones)]
 >
->         preI                             =
->           deJust (unwords["wpFolder", "PreInst"]) (Map.lookup (pergmP{pgkwBag = Nothing}) preInstCache)
->         pzs                              = deJust "pzs" (Map.lookup pergmP{pgkwBag = Nothing} owners)
->         perI                             =
->           deJust (unwords["wpFolder", "PerInst"]) (Map.lookup (pergmP{pgkwBag = Nothing}) zc)
+>         pergm                            = pergmP{pgkwBag = Nothing}
+>
+>         preI                             = preInstCache Map.! pergm
+>         pzs                              = owners       Map.! pergm
+>         perI                             = zc           Map.! pergm
 >
 >         mz             :: Maybe PreZone
 >         mz                               = pgkwBag >>= findByBagIndex pzs
@@ -552,8 +545,8 @@ define signal functions and instrument maps to support rendering ===============
 >     sffile                               = zFiles ! pergm.pgkwFile
 >     samplea                              = sffile.zSample
 >
->     preI                                 = deJust (unwords [fName_, "preI"]) (Map.lookup pergm zBoot.zPreInstCache)
->     perI                                 = deJust (unwords [fName_, "perI"]) (Map.lookup pergm zBoot.zPerInstCache)
+>     preI                                 = zBoot.zPreInstCache Map.! pergm
+>     perI                                 = zBoot.zPerInstCache Map.! pergm
 >
 >     trace_ISF                            =
 >       unwords [fName_, show pergm.pgkwFile, show preI.pInst, show (pchIn, volIn), show durI]
@@ -844,8 +837,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >     epilog                               = emitLine []
 >
 > dumpContestant         :: PerGMScored → [Emission]
-> dumpContestant PerGMScored{ .. }
->                                          = ex
+> dumpContestant PerGMScored{ .. }         = ex
 >   where
 >     ArtifactGrade{pEmpiricals, pScore}   = pArtifactGrade
 >     PerGMKey{pgkwFile}                   = pPerGMKey

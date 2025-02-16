@@ -54,10 +54,10 @@ Rosters support ================================================================
 >                   (unwords ["one or more unit tests failed"])
 >                   True)]
 >           putStrLn "Unit tests completed successfully"
->           doEverything combineAll
+>           bootNRender combineAll
 >         else if doProf
 >           then listInstruments
->           else doEverything sj
+>           else bootNRender sj
 >   return ()
 >
 > playWithWav            :: IO ()
