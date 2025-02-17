@@ -148,10 +148,15 @@ Modulator management ===========================================================
 > freeOfCycles           :: [Modulator] → Bool
 > freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
 >   where
->     nodeList           :: [(ModDestType, [Modulator])]
->                                          = filter (isJust . outGoing . fst) (Map.assocs (compileMods m8rs))
+>     nodeList           :: Map ModDestType [Modulator]
+>     nodeList                             = Map.filterWithKey fun (compileMods m8rs)
+>       where
+>         fun            :: ModDestType → [Modulator] → Bool
+>         fun mdest _                      = (isJust . outGoing) mdest
+>
 >     edgeList           :: [(Node, [Node])]
->                                          = map (BF.bimap nodeFrom (map (fromIntegral . mrModId))) nodeList
+>                                          =
+>       map (BF.bimap nodeFrom (map (fromIntegral . mrModId))) (Map.toList nodeList)
 >
 >     nodeFrom           :: ModDestType → Node
 >     nodeFrom mdt                         =

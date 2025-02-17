@@ -44,8 +44,17 @@ December 12, 2022
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Modulation
-> import Parthenopea.SoundFont.SFSpec
 > import System.Random ( Random(randomR), StdGen )
+
+> allKinds               :: ([InstrumentName], [PercussionSound])
+> allKinds                                 =
+>   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>    , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
+>
+> percPitchRange         :: (AbsPitch, AbsPitch)
+> percPitchRange                           = (fromEnum AcousticBassDrum + 35, fromEnum OpenTriangle + 35)
+>
+> type GMKind                              = Either InstrumentName PercussionSound
 
 Utilities =============================================================================================================
 

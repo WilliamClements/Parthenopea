@@ -26,7 +26,6 @@ May 4, 2023
 > import Parthenopea.Repro.SynthesizerTest
 > import Parthenopea.SoundFont.BootTest
 > import Parthenopea.SoundFont.Runtime
-> import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.Tunes.Cecil
 > import Parthenopea.Tunes.Covers
 > import Parthenopea.Tunes.Fanfare

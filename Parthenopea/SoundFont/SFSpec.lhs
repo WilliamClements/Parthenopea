@@ -17,7 +17,6 @@ April 16, 2023
 > module Parthenopea.SoundFont.SFSpec
 >        (  accepted
 >         , adjustedSampleSizeOk
->         , allKinds
 >         , allowStereoCrossovers
 >         , appendChange
 >         , bracks
@@ -51,7 +50,6 @@ April 16, 2023
 >         , Fuzz
 >         , getMaybePercList
 >         , gmId
->         , GMKind
 >         , Impact(..)
 >         , InstCat(..)
 >         , InstCatData(..)
@@ -69,7 +67,6 @@ April 16, 2023
 >         , noClue
 >         , openSoundFontFile
 >         , parens
->         , percPitchRange
 >         , PerGMKey(..)
 >         , PerInstrument(..)
 >         , pinnedKR
@@ -335,16 +332,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , inSmashup          :: Smashing Word
 >   , inPercBixen        :: [Word]} deriving Show
 >
-> allKinds               :: ([InstrumentName], [PercussionSound])
-> allKinds                                 =
->   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
->    , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
->
-> percPitchRange         :: (AbsPitch, AbsPitch)
-> percPitchRange                           = (fromEnum AcousticBassDrum + 35, fromEnum OpenTriangle + 35)
->
-> type GMKind                              = Either InstrumentName PercussionSound
-> 
 > data SFBoot                              =
 >   SFBoot {
 >     zPreSampleCache    :: Map PreSampleKey PreSample

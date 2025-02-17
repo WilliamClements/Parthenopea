@@ -35,6 +35,7 @@ January 21, 2025
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
 > import Parthenopea.Debug
+> import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.SoundFont.Scoring
@@ -194,15 +195,14 @@ and recovery.
 >             userFun                      = snd duo
 >
 > enumGMs                :: Map PerGMKey InstCat → IO ([PerGMKey], [PerGMKey])
-> enumGMs jobs                             = CM.foldM enumFolder ([], []) (Map.assocs jobs)
+> enumGMs jobs                             = return $ Map.foldlWithKey enumFolder ([], []) jobs
 >   where
->     enumFolder         :: ([PerGMKey], [PerGMKey]) → (PerGMKey, InstCat) → IO ([PerGMKey], [PerGMKey])
->     enumFolder (pergmsI, pergmsP) (pergmI_, icat)
+>     enumFolder         :: ([PerGMKey], [PerGMKey]) → PerGMKey → InstCat → ([PerGMKey], [PerGMKey])
+>     enumFolder (pergmsI, pergmsP) pergmI_ icat
 >                                          =
 >       let
 >         pergmI                           = pergmI_{pgkwBag = Nothing}
 >       in
->         return $
 >         case icat of
 >           InstCatPerc icd                → (pergmsI, pergmsP ++ instrumentPercList pergmI icd.inPercBixen)
 >           InstCatInst _                  → (pergmI : pergmsI, pergmsP)
@@ -214,14 +214,11 @@ and recovery.
 task interface support ================================================================================================
 
 > formComprehension      :: ∀ r a . SFResource r ⇒ SFFile → (FileArrays → Array Word a) → [r]
-> formComprehension sffile blobfun
->   | traceNot trace_FC False              = undefined
->   | otherwise                            = map (sfkey sffile.zWordF) bRange
+> formComprehension sffile blobfun         = map (sfkey sffile.zWordF) bRange
 >   where
 >     fName                                = "formComprehension"
->     trace_FC                             = unwords [fName, show bRange]
 >
->     (stF, enF)         :: (Word, Word)   = bounds $ blobfun sffile.zFileArrays
+>     (stF, enF)                           = bounds $ blobfun sffile.zFileArrays
 >     bRange                               =
 >       profess
 >         ((stF == 0) && (stF <= enF) && (enF < 2_147_483_648))
@@ -278,11 +275,12 @@ partnering task ================================================================
 >     fName_                               = "partnerTaskIf"
 >
 >     (preSampleCache', partnerMap, rd')   =
->       foldl' partneringFolder (Map.empty, Map.empty, fwDispositions) (Map.assocs fwBoot.zPreSampleCache)
->     partneringFolder   :: (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, ResultDispositions)
->                           → (PreSampleKey, PreSample)
+>       Map.foldlWithKey partnerFolder (Map.empty, Map.empty, fwDispositions) fwBoot.zPreSampleCache
+>     partnerFolder      :: (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, ResultDispositions)
+>                           → PreSampleKey
+>                           → PreSample
 >                           → (Map PreSampleKey PreSample, Map PreSampleKey PreSampleKey, ResultDispositions)
->     partneringFolder (target, sPartnerMap, rdFold) (k, v)
+>     partnerFolder (target, sPartnerMap, rdFold) k v
 >       | dead ss                          = (target,                sPartnerMap,                  rd'')
 >       | cancels ss                       = (Map.insert k v target, sPartnerMap,                  rd'') 
 >       | otherwise                        = (Map.insert k v target, makePartner (Just otherKey),  rd'')
@@ -382,14 +380,10 @@ PreZone administration =========================================================
 >   , zsGlobalKey        :: Maybe PreZoneKey
 >   , zsPreZones         :: [PreZone]}
 > instance Show InstZoneRecord where
->   show (InstZoneRecord{ .. })            = unwords ["InstZoneRecord", show zswFile, show zswInst, showMaybeInstCat zsInstCat]
+>   show (InstZoneRecord{ .. })            =
+>     unwords ["InstZoneRecord", show zswFile, show zswInst, showMaybeInstCat zsInstCat]
 > makeZRec               :: PerGMKey → InstZoneRecord
-> makeZRec pergm
->   | traceNot trace_MZR False             = undefined
->   | otherwise                            = InstZoneRecord pergm.pgkwFile pergm.pgkwInst Nothing Nothing []
->   where
->     fName                                = "makeZRec"
->     trace_MZR                            = unwords [fName, show pergm]
+> makeZRec pergm                           = InstZoneRecord pergm.pgkwFile pergm.pgkwInst Nothing Nothing []
 >
 > instKey                :: InstZoneRecord → PerGMKey
 > instKey zrec                             = PerGMKey zrec.zswFile zrec.zswInst Nothing       
@@ -403,8 +397,8 @@ survey task ====================================================================
 iterating on InstZoneRecord list ======================================================================================
 
 > zrecTask               :: (InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions))
->                           → SFFile → FileWork → FileWork
-> zrecTask userFun _ fwIn@FileWork{ .. }   = fwIn{  fwZRecs = zrecs
+>                           → FileWork → FileWork
+> zrecTask userFun fwIn@FileWork{ .. }     = fwIn{  fwZRecs = zrecs
 >                                                 , fwDispositions = rd' }
 >   where
 >     (zrecs, rd')                         = foldl' taskRunner ([], fwDispositions) fwZRecs
@@ -424,7 +418,7 @@ capture task ===================================================================
           for the first time, populate zrec with PreZones
 
 > captureTaskIf sffile _ fwIn@FileWork{ .. }
->                                          = zrecTask capturer sffile fwIn 
+>                                          = zrecTask capturer fwIn 
 >   where
 >     capturer           :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     capturer zrec rdIn                   =
@@ -503,7 +497,7 @@ mark task ======================================================================
 
 groom task ============================================================================================================
 
-> groomTaskIf sffile _ fwIn@FileWork{ .. } = zrecTask groomer sffile fwIn
+> groomTaskIf _ _ fwIn@FileWork{ .. }      = zrecTask groomer fwIn
 >   where
 >     fName_                               = "groomTaskIf"
 >
@@ -547,11 +541,11 @@ groom task =====================================================================
 vet task ==============================================================================================================
           remove bad stereo partners from PreZones per instrument, delete instrument if down to zero PreZones
 
-> vetTaskIf sffile _ fwIn@FileWork{ .. }   = fwTask
+> vetTaskIf _ _ fwIn@FileWork{ .. }        = fwTask
 >   where
 >     fName_                               = "vetTaskIf"
 >
->     fwTask                               = zrecTask vetter sffile fwIn 
+>     fwTask                               = zrecTask vetter fwIn 
 >     filePzs                              =
 >       foldl'
 >         (\x y → x ++ filter (isStereoZone fwBoot.zPreSampleCache) y.zsPreZones)
@@ -721,7 +715,7 @@ To build the map
 >   where
 >     fName_                               = "reorgTaskIf"
 >
->     fwTask@FileWork{ .. }                = zrecTask reorger sffile fwIn
+>     fwTask@FileWork{ .. }                = zrecTask reorger fwIn
 >
 >     aMap                                 = buildAbsorptionMap sffile rost fwIn
 >     hMap                                 = buildHoldMap sffile rost fwIn aMap
@@ -785,18 +779,12 @@ match task =====================================================================
 categorization task ===================================================================================================
           assign each instrument to one of the three categories
 
-> catTaskIf sffile rost fwIn@FileWork{ .. }
->                                          = zrecTask catter sffile fwIn
+> catTaskIf _ rost fwIn@FileWork{ .. }     = zrecTask catter fwIn
 >   where
 >     fName___                             = "catTaskIf"
 >
 >     catter             :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
->     catter zrec rdFold
->       | traceNot trace_C False           = undefined
->       | otherwise                        = (zrec{zsInstCat = Just (categorizeInst (instKey zrec))}, rdFold)
->       where
->         fName__                          = unwords [fName___, "catter"]
->         trace_C                          = unwords [fName__, show zrec]
+>     catter zrec rdFold                   = (zrec{zsInstCat = Just (categorizeInst (instKey zrec))}, rdFold)
 >
 >     categorizeInst     :: PerGMKey → InstCat
 >     categorizeInst pergm
@@ -1032,7 +1020,7 @@ categorization task ============================================================
 sort task =============================================================================================================
           react to categorization now present in the zrecs
 
-> encatTaskIf sffile _                     = zrecTask sorter sffile
+> encatTaskIf _ _                          = zrecTask sorter
 >   where
 >     fName_                               = "encatTaskIf"
 >
@@ -1210,7 +1198,6 @@ zone task ======================================================================
 >                                            >>= addAmount (fromIntegral amount)
 >         mm'                              = unpackModSrc amtSrcOper
 >                                            >>= addAmtSrc mm
->
 
 reown task ============================================================================================================
           generate the owners map from PerInstrument map, and the jobs map from the zrec list
