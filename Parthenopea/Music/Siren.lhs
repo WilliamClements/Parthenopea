@@ -731,15 +731,9 @@ examine song for instrument and percussion usage ===============================
 >                                              then "."
 >                                              else "!"
 
-tournament among instruments in various soundfont files ===============================================================
+music-related utilities ===============================================================================================
           some code _copied_ from HSoM and Euterpea - if you feel strongly, I'll do it the right way with exports
 
-> hist                   :: (Ix a, Integral b) ⇒ (a,a) → [a] → Array a b
-> hist bnds is                             = accumArray (+) 0 bnds [(i, 1) | i ← is, inRange bnds i]
->
-> defBins                :: Int
-> defBins                                  = 32
->
 > collectMEvents         :: ToMusic1 a ⇒ Music a → Performance
 > collectMEvents m                         = fst (musicToMEvents defaultContext (toMusic1 m))
 >

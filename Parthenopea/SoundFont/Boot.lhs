@@ -15,7 +15,8 @@ William Clements
 January 21, 2025
 
 > module Parthenopea.SoundFont.Boot
->        (  equipInstruments
+>        (  allowStereoCrossovers
+>         , equipInstruments
 >         , Matches(..)
 >         )
 >         where
@@ -23,6 +24,7 @@ January 21, 2025
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
 > import Data.Array.Unboxed
+> import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Char
 > import Data.Either
@@ -115,17 +117,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > reduceFileIterate fiIn                   = do
 >   let FileWork{ .. }                     = fiIn.fiFw
 >   return (fwBoot, fwDispositions, fwMatches)
->
-> data Matches                             =
->   Matches {
->     mSMatches          :: Map PreSampleKey FFMatches
->   , mIMatches          :: Map PerGMKey FFMatches}
-> defMatches             :: Matches
-> defMatches                               = Matches Map.empty Map.empty
-> combineMatches         :: Matches → Matches → Matches
-> combineMatches m1 m2                     =
->   m1{  mSMatches                         = Map.union m1.mSMatches    m2.mSMatches
->      , mIMatches                         = Map.union m1.mIMatches    m2.mIMatches}
 
 executive =============================================================================================================
 
@@ -246,6 +237,40 @@ and recovery.
 >
 >     instrumentPercList :: PerGMKey → [Word] → [PerGMKey]
 >     instrumentPercList pergmI            = map (\w → pergmI {pgkwBag = Just w})
+>
+> checkSmashing          :: PerGMKey → Smashing Word → Maybe [Scan]
+> checkSmashing pergm smashup
+>   | not ok1                              = Just $ violated pergm UndercoveredRanges
+>   | not ok2                              = Just $ violated pergm OverCoveredRanges 
+>   | otherwise                            = Nothing
+>   where
+>     ok1                                  = allowOutOfRange || smashup.smashStats.countNothings == 0
+>     ok2                                  = allowOverlappingRanges || smashup.smashStats.countMultiples == 0
+>
+> computeInstSmashup     :: [PreZone] → Smashing Word
+> computeInstSmashup pzs
+>   | traceNot trace_CIS False             = undefined
+>   | otherwise                            = computeSmashup fName subs
+>   where
+>     fName                                = "computeInstSmashup"
+>
+>     -- create smashup consisting of 16_384 (128 x 128) Word pairs - adds up to 131_072 bytes
+>     subs               :: [(Word, [Maybe (Word, Word)])]
+>     subs                                 = map extractSpace pzs
+>
+>     trace_CIS                            = unwords [fName, showPreZones pzs, show subs]
+>
+> smush                  :: [([PreZone], Smashing Word)] → Smashing Word
+> smush pears                              = smashSubspaces allTags dims allSpaces
+>   where
+>     allTags            :: String
+>     allSpaces          :: [(Word, [Maybe (Word, Word)])]
+>     (allTags, allSpaces)                 =
+>       foldl' (\(at, ax) (pzs, smashup) → (at ++ smashup.smashTag, ax ++ map extractSpace pzs)) ([], []) pears
+>     dims                                 = [fromIntegral qMidiSize128, fromIntegral qMidiSize128]
+>
+> extractSpace           :: PreZone → (Word, [Maybe (Word, Word)])
+> extractSpace pz                          = (pz.pzWordB, [pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange])
 
 task interface support ================================================================================================
 
@@ -1244,6 +1269,20 @@ reown task =====================================================================
 >                                         Map.empty
 >                                         (goodZRecs fwZRecs fwDispositions)}}                                       
 >
+> sampleSizeOk           :: (Word, Word) → Bool
+> sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
+> sampleLoopSizeOk       :: (Word, Word, A.SampleMode) → Bool
+> sampleLoopSizeOk (stL, enL, smode)       = 
+>   A.NoLoop == smode || (stL >= 0 && enL - stL >= sampleSizeMin && enL - stL < 2 ^ (22::Word))
+>
+> adjustedSampleSizeOk   :: ZoneDigest → F.Shdr → Bool
+> adjustedSampleSizeOk zd shdr             = 0 <= stA && stA <= enA && 0 <= stL && stL <= enL
+>   where
+>     stA                                  = shdr.start     + fromIntegral zd.zdStart
+>     enA                                  = shdr.end       + fromIntegral zd.zdEnd
+>     stL                                  = shdr.startLoop + fromIntegral zd.zdStartLoop
+>     enL                                  = shdr.endLoop   + fromIntegral zd.zdEndLoop
+>
 > goodChar               :: Char → Bool
 > goodChar cN                              = isAscii cN && not (isControl cN)
 >
@@ -1261,5 +1300,18 @@ reown task =====================================================================
 > canDevolveToMono                         = True
 > requiredZoneLinkage    :: Double
 > requiredZoneLinkage                      = 0
+>
+> allowOutOfRange        :: Bool
+> allowOutOfRange                          = True
+> allowOverlappingRanges :: Bool
+> allowOverlappingRanges                   = True
+> allowStereoCrossovers  :: Bool
+> allowStereoCrossovers                    = False
+> doAbsorption           :: Bool
+> doAbsorption                             = True
+> fixBadNames            :: Bool
+> fixBadNames                              = True
+> sampleSizeMin          :: Word
+> sampleSizeMin                            = 0
 
 The End

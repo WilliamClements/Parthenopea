@@ -2,7 +2,6 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
 > {-# LANGUAGE LambdaCase #-}
-> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
@@ -10,25 +9,20 @@
 > {-# LANGUAGE TupleSections #-} 
 > {-# LANGUAGE UnicodeSyntax #-}
 
-SoundFont
+SFSpec
 William Clements
 April 16, 2023
 
 > module Parthenopea.SoundFont.SFSpec
 >        (  accepted
->         , adjustedSampleSizeOk
->         , allowStereoCrossovers
 >         , appendChange
 >         , cancels
->         , checkSmashing
 >         , combineBoot
 >         , combinerd
->         , computeInstSmashup
 >         , dasBoot
 >         , dead
 >         , deadrd
 >         , defZone
->         , doAbsorption
 >         , dropped
 >         , Disposition(..)
 >         , effShdr
@@ -39,12 +33,14 @@ April 16, 2023
 >         , extractSampleKey
 >         , extractZoneKey
 >         , FileArrays(..)
+>         , findByBagIndex
+>         , findByBagIndex'
+>         , findBySampleIndex
+>         , findBySampleIndex'
 >         , finishScans
->         , fixBadNames
 >         , fixName
 >         , formPreZoneMap
 >         , fromSampleType
->         , Fuzz
 >         , getMaybePercList
 >         , Impact(..)
 >         , InstCat(..)
@@ -69,15 +65,11 @@ April 16, 2023
 >         , PreZone(..)
 >         , PreZoneKey(..)
 >         , rdLengths
->         , reportScan
 >         , reportScanName
 >         , reportTournamentName
 >         , rescued
 >         , ResultDispositions(..)
 >         , SampleArrays(..)
->         , sampleLoopSizeOk
->         , sampleSizeMin
->         , sampleSizeOk
 >         , SampleType(..)
 >         , Scan(..)
 >         , SFBoot(..)
@@ -88,7 +80,6 @@ April 16, 2023
 >         , showBags
 >         , showMaybeInstCat
 >         , showPreZones
->         , smush
 >         , toMaybeSampleType
 >         , toSampleType
 >         , Velocity
@@ -109,9 +100,8 @@ April 16, 2023
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
-> import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
-> import Parthenopea.Debug ( deJust, traceNot )
+> import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Modulation
@@ -162,8 +152,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
 > extractZoneKey         :: PreZone → PreZoneKey
 > extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordB
-> extractSpace           :: PreZone → (Word, [Maybe (Word, Word)])
-> extractSpace pz                          = (pz.pzWordB, [pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange])
 > effShdr                :: Map PreSampleKey PreSample → PreZone → F.Shdr
 > effShdr psCache pz                       =
 >   foldl' (\s x → (\case
@@ -423,6 +411,18 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     normalizeRange x y                   = if x > y
 >                                              then Just (y, x) -- WOX
 >                                              else Just (x, y)
+>
+> findBySampleIndex      :: [SFZone] → Word → Maybe SFZone
+> findBySampleIndex zs w                   = find (\z → z.zSampleIndex == Just w) zs
+>
+> findBySampleIndex'     :: [(a, SFZone)] → Word → Maybe (a, SFZone)
+> findBySampleIndex' zs w                  = find (\(_, z) → z.zSampleIndex == Just w) zs
+>
+> findByBagIndex         :: [PreZone] → Word → Maybe PreZone
+> findByBagIndex pzs w                     = find (\pz → w == pz.pzWordB) pzs
+>
+> findByBagIndex'        :: [(PreZone, a)] → Word → Maybe (PreZone, a)
+> findByBagIndex' zs w                     = find (\(pz, _) → w == pz.pzWordB) zs
 
 bootstrapping =========================================================================================================
 
@@ -550,20 +550,6 @@ bootstrapping ==================================================================
 >   inspect pergm rd                       = fromMaybe [] (Map.lookup pergm rd.preInstDispos)
 >   dispose pergm ss rd                    =
 >     rd{preInstDispos = Map.insertWith (++) pergm ss rd.preInstDispos}
->
-> sampleSizeOk           :: (Word, Word) → Bool
-> sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
-> sampleLoopSizeOk       :: (Word, Word, A.SampleMode) → Bool
-> sampleLoopSizeOk (stL, enL, smode)       = 
->   A.NoLoop == smode || (stL >= 0 && enL - stL >= sampleSizeMin && enL - stL < 2 ^ (22::Word))
->
-> adjustedSampleSizeOk   :: ZoneDigest → F.Shdr → Bool
-> adjustedSampleSizeOk zd shdr             = 0 <= stA && stA <= enA && 0 <= stL && stL <= enL
->   where
->     stA                                  = shdr.start     + fromIntegral zd.zdStart
->     enA                                  = shdr.end       + fromIntegral zd.zdEnd
->     stL                                  = shdr.startLoop + fromIntegral zd.zdStartLoop
->     enL                                  = shdr.endLoop   + fromIntegral zd.zdEndLoop
 
 Note that harsher consequences of unacceptable sample header are enforced earlier. Logically, that would be
 sufficient to protect below code from bad data and document the situation. But ... mechanism such as putting
@@ -583,43 +569,10 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >
 > is24BitInst _ _                          = True -- was isJust $ ssM24 arrays       
 >
-> checkSmashing          :: PerGMKey → Smashing Word → Maybe [Scan]
-> checkSmashing pergm smashup
->   | not ok1                              = Just $ violated pergm UndercoveredRanges
->   | not ok2                              = Just $ violated pergm OverCoveredRanges 
->   | otherwise                            = Nothing
->   where
->     ok1                                  = allowOutOfRange || smashup.smashStats.countNothings == 0
->     ok2                                  = allowOverlappingRanges || smashup.smashStats.countMultiples == 0
->
-> computeInstSmashup     :: [PreZone] → Smashing Word
-> computeInstSmashup pzs
->   | traceNot trace_CIS False             = undefined
->   | otherwise                            = computeSmashup (unwords["computeInstSmashup"]) subs
->   where
->     fName                                = "computeInstSmashup"
->
->     -- create smashup consisting of 16_384 (128 x 128) Word pairs - adds up to 131_072 bytes
->     subs               :: [(Word, [Maybe (Word, Word)])]
->     subs                                 = map extractSpace pzs
->
->     trace_CIS                            = unwords [fName, showPreZones pzs, show subs]
->
-> smush                  :: [([PreZone], Smashing Word)] → Smashing Word
-> smush pears                              = smashSubspaces allTags dims allSpaces
->   where
->     allTags            :: String
->     allSpaces          :: [(Word, [Maybe (Word, Word)])]
->     (allTags, allSpaces)                 =
->       foldl' (\(at, ax) (pzs, smashup) → (at ++ smashup.smashTag, ax ++ map extractSpace pzs)) ([], []) pears
->     dims                                 = [fromIntegral qMidiSize128, fromIntegral qMidiSize128]
->
 > emitMsgs               :: InstrumentName → [(InstrumentName, [String])] → [Emission]
 > emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs
 >   where
 >     imsgs              :: [String]       = fromMaybe [] (lookup kind msgs)
->
-> type Fuzz = Double
 >
 > data SampleType =
 >   SampleTypeMono
@@ -682,21 +635,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > multipleCompetes       :: Bool
 > multipleCompetes                         = True
 >
-> allowOutOfRange        :: Bool
-> allowOutOfRange                          = True
-> allowOverlappingRanges :: Bool
-> allowOverlappingRanges                   = True
-> allowStereoCrossovers  :: Bool
-> allowStereoCrossovers                    = False
-> doAbsorption           :: Bool
-> doAbsorption                             = True
-> fixBadNames            :: Bool
-> fixBadNames                              = True
 > howVerboseScan         :: Double
 > howVerboseScan                           = 1/4
-> reportScan             :: Bool
-> reportScan                               = True
-> sampleSizeMin          :: Word
-> sampleSizeMin                            = 0
 
 The End

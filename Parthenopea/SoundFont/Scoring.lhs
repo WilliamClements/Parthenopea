@@ -14,11 +14,15 @@ September 12, 2024
 
 > module Parthenopea.SoundFont.Scoring where
 >
+> import qualified Codec.SoundFont         as F
 > import Data.Array.Unboxed
+> import qualified Data.Audio              as A
 > import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
+> import Data.Ord ( Down(Down) )
+> import Debug.Trace ( traceIO )
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
@@ -43,6 +47,8 @@ In order of when they occur in the overall process:
                       zone (by _lowest_ score) that best fits required pitch, velocity, etc. Note that it is zone
                       scoring that strictly drives _render time_ choice of percussion as well.
 
+> type Fuzz = Double
+>
 > data FFMatches =
 >   FFMatches {
 >     ffInput            :: String
@@ -133,7 +139,32 @@ use "matching as" cache ========================================================
 >
 >     pas = createFuzzMap inp percussionProFFKeys
 >     pbs = createFuzzMap inp percussionConFFKeys
-
+>
+> zoneConforms :: Map PreSampleKey PreSample → (PreZone, SFZone) → Bool
+> zoneConforms preSampleCache (pz, zone)   = not $ or unsupported
+>   where
+>     F.Shdr{end, start, endLoop, startLoop}
+>                                          = effShdr preSampleCache pz
+>
+>     unsupported        :: [Bool]
+>     unsupported                          =
+>       [
+>           case zone.zSampleMode of
+>             Nothing                      → False
+>             Just n                       → n == A.PressLoop
+>         , case zone.zInitQ of
+>             Nothing                      → False
+>             Just n                       → n /= 0
+>         , case zone.zScaleTuning of
+>             Nothing                      → False
+>             Just n                       → n /= 0 -- && n /= 100
+>         , case zone.zExclusiveClass of
+>             Nothing                      → False
+>             Just n                       → n /= 0
+>         , end < start
+>         , endLoop < startLoop
+>       ]
+ 
 Scoring stuff =========================================================================================================
  
 > data SSHint =
@@ -207,6 +238,198 @@ Scoring stuff ==================================================================
 >   , pWinningP          :: Map PercussionSound PerGMScored} deriving Show
 > seedWinningRecord      :: WinningRecord
 > seedWinningRecord                        = WinningRecord Map.empty Map.empty
+>
+> data Matches                             =
+>   Matches {
+>     mSMatches          :: Map PreSampleKey FFMatches
+>   , mIMatches          :: Map PerGMKey FFMatches}
+> defMatches             :: Matches
+> defMatches                               = Matches Map.empty Map.empty
+> combineMatches         :: Matches → Matches → Matches
+> combineMatches m1 m2                     =
+>   m1{  mSMatches                         = Map.union m1.mSMatches    m2.mSMatches
+>      , mIMatches                         = Map.union m1.mIMatches    m2.mIMatches}
+>
+> qOffsetWeights         :: [Int]
+> qOffsetWeights                           = [1, 32_768]
+
+tournament starts here ================================================================================================
+
+> decideWinners          :: Map PreSampleKey PreSample
+>                           → Map PerGMKey PreInstrument
+>                           → Map PerGMKey [PreZone]
+>                           → Map PerGMKey PerInstrument
+>                           → Matches
+>                           → ([InstrumentName], [PercussionSound]) 
+>                           → [PerGMKey]
+>                           → [PerGMKey]
+>                           → IO ((Map InstrumentName [PerGMScored], [String])
+>                               , (Map PercussionSound [PerGMScored], [String]))
+> decideWinners preSampleCache preInstCache owners zc matches rost pergmsI pergmsP
+>                                          = do
+>   traceIO ("decideWinners" ++ show (length zc))
+>   return wiExec
+>
+>   where
+>     wiExec             :: (  (Map InstrumentName [PerGMScored], [String])
+>                            , (Map PercussionSound [PerGMScored], [String]))
+>     wiExec                               = ((wI', sI), (wP', sP))
+>       where
+>         (wI, sI)                         = foldl' wiFolder (Map.empty, []) pergmsI         
+>         wI'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wI
+>
+>         (wP, sP)                         = foldl' wpFolder (Map.empty, []) pergmsP
+>         wP'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wP
+>
+>     wiFolder           :: (Map InstrumentName [PerGMScored], [String])
+>                           → PerGMKey
+>                           → (Map InstrumentName [PerGMScored], [String])
+>     wiFolder target pergmI@PerGMKey{pgkwFile}
+>                                          = foldl' (xaEnterTournament fuzzMap pergmI []) target i2Fuzz'
+>       where
+>         -- access potentially massive amount of processed information regarding instrument
+>         preI                             = deJust (unwords["wiFolder", "preI"]) (Map.lookup pergmI preInstCache)
+>         iMatches                         = deJust "mIMatches" (Map.lookup pergmI matches.mIMatches)
+>         fuzzMap                          = getFuzzMap iMatches
+>
+>         i2Fuzz         :: Map InstrumentName Fuzz
+>         i2Fuzz                           =
+>           Map.filterWithKey (\k _ → k `elem` select rost) fuzzMap
+>
+>         i2Fuzz'         :: [InstrumentName]
+>         i2Fuzz'                          =
+>           profess
+>             (not $ null i2Fuzz)
+>             (unwords ["unexpected empty matches for", show pgkwFile, preI.iName]) 
+>             (if multipleCompetes
+>                then Map.keys i2Fuzz
+>                else (singleton . fst) (Map.findMax i2Fuzz))
+>     
+>     wpFolder           :: (Map PercussionSound [PerGMScored], [String])
+>                           → PerGMKey
+>                           → (Map PercussionSound [PerGMScored], [String])
+>     wpFolder wIn pergmP@PerGMKey{pgkwFile, pgkwBag}
+>       | traceIf trace_WP False           = undefined
+>       | otherwise                        = xaEnterTournament fuzzMap pergmP [] wIn kind
+>       where
+>         fName                            = "wpFolder"
+>         trace_WP                         =
+>           unwords [fName, show preI.iName, show pergmP, "of", show (length perI.pZones)]
+>
+>         pergm                            = pergmP{pgkwBag = Nothing}
+>
+>         preI                             = preInstCache Map.! pergm
+>         pzs                              = owners       Map.! pergm
+>         perI                             = zc           Map.! pergm
+>
+>         mz             :: Maybe PreZone
+>         mz                               = pgkwBag >>= findByBagIndex pzs
+>         mkind          :: Maybe PercussionSound
+>         mkind                            = mz >>= getAP >>= pitchToPerc
+>         kind                             = deJust (unwords["wpFolder", "mkind"]) mkind
+>
+>         mffm           :: Maybe FFMatches
+>         mffm                             =
+>           mz >>= (zdSampleIndex . pzDigest)
+>              >>= Just . PreSampleKey pgkwFile
+>              >>= (`Map.lookup` matches.mSMatches)
+>         fuzzMap        :: Map PercussionSound Fuzz
+>         fuzzMap                          = getFuzzMap $ deJust (unwords ["mffm"]) mffm
+>
+>         getAP          :: PreZone → Maybe AbsPitch
+>         getAP pz                         = pz.pzDigest.zdKeyRange >>= (Just . fromIntegral . fst)
+>
+>     xaEnterTournament  :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
+>                           Map a Fuzz
+>                           → PerGMKey
+>                           → [SSHint]
+>                           → (Map a [PerGMScored], [String])
+>                           → a
+>                           → (Map a [PerGMScored], [String])
+>     xaEnterTournament fuzzMap pergm hints (wins, ss) kind
+>       | traceIf trace_XAET False         = undefined
+>       | otherwise                        = (Map.insertWith (++) kind [scored] wins, ss)
+>       where
+>         fName                            = "xaEnterTournament"
+>
+>         pergm_                           = pergm{pgkwBag = Nothing}
+>         preI                             = preInstCache Map.! pergm_
+>         perI                             = zc           Map.! pergm_
+>
+>         scope_, scope  :: [(PreZone, SFZone)]
+>         scope_                           =
+>           case pergm.pgkwBag of
+>             Nothing                      → perI.pZones
+>             Just bagI                    →
+>                    maybe
+>                      (error $ unwords [fName, "findByBagIndex' returned a Nothing for"
+>                                       , show pergm.pgkwFile, preI.iName, show bagI])
+>                      singleton
+>                      (findByBagIndex' perI.pZones bagI)
+>         scope                            =
+>           profess
+>             (not (null scope_))
+>             (unwords[fName, "null scope", preI.iName])
+>             scope_
+>             
+>         mnameZ         :: Maybe String   = pergm.pgkwBag
+>                                            >>= findByBagIndex' perI.pZones
+>                                            >>= \(q, _) → Just (F.sampleName (effShdr preSampleCache q))
+>
+>         trace_XAET                       =
+>           unwords [fName, preI.iName, fromMaybe "" mnameZ, show kind]
+>
+>         computeGrade   :: [(PreZone, SFZone)] → ArtifactGrade
+>         computeGrade zs                  = gradeEmpiricals (Grader ssWeights 500) empiricals
+>           where
+>             empiricals :: [Double]       = [   foldHints hints
+>                                              , fromRational $ scoreBool $ isStereoInst preSampleCache zs
+>                                              , fromRational $ scoreBool $ is24BitInst preSampleCache zs
+>                                              , computeResolution zs
+>                                              , fromRational $ scoreBool $ all (zoneConforms preSampleCache) zs
+>                                              , fuzz]
+>             howgood                      = akResult - stands
+>             fuzz       :: Double
+>               | howgood > 0.000_001      = max 0 (logBase 2 howgood) * fuzzFactor kind
+>               | otherwise                = 0
+>   
+>         scored         :: PerGMScored    =
+>           PerGMScored (computeGrade scope) (toGMKind kind) akResult pergm preI.iName mnameZ
+>
+>         computeResolution
+>                        :: [(PreZone, SFZone)]
+>                           → Double
+>         computeResolution zs
+>           | null zs                      = error $ unwords ["null zs"]
+>           | otherwise                    = fromRational m1 * evalSplits kind + fromRational m2 * evalSampleSize
+>           where
+>             theSplit                     = splitScore kind (map fst zs)
+>             evalSplits _
+>               | theSplit <= 1            = 1
+>               | otherwise                = log (m3 * theSplit)
+>             evalSampleSize               = sum (map durScoring zs) / fromIntegral (length zs)
+>
+>             m1                           = 1/2
+>             m2                           = 1/2
+>             m3                           = 3 * if isStereoInst preSampleCache zs then 1/2 else 1
+>
+>         durScoring     :: (PreZone, SFZone) → Double
+>         durScoring (pz, zone) = if score < 0.01 then -10 else score
+>           where
+>             shdr                         = effShdr preSampleCache pz
+>             score                        = sampleSize / fromIntegral shdr.sampleRate
+>
+>             sampleSize :: Double
+>             sampleSize                   = fromIntegral $ xEnd - xStart
+>               where
+>                 xStart                   =
+>                   addIntToWord    shdr.start
+>                                   (sumOfWeightedInts [zone.zStartOffs, zone.zStartCoarseOffs] qOffsetWeights)
+>                 xEnd                     =
+>                   addIntToWord    shdr.end
+>                                   (sumOfWeightedInts [zone.zEndOffs,   zone.zEndCoarseOffs]   qOffsetWeights)
+>
+>         akResult                         = fromMaybe 0 (Map.lookup kind fuzzMap)
 
 Utilities =============================================================================================================
 
@@ -282,6 +505,9 @@ Utilities ======================================================================
 >                , show (length ts)
 >                , "is="
 >                , show (length is)]
+>
+> hist                   :: (Ix a, Integral b) ⇒ (a,a) → [a] → Array a b
+> hist bnds is                             = accumArray (+) 0 bnds [(i, 1) | i ← is, inRange bnds i]
 >
 > data Grader =
 >   Grader {

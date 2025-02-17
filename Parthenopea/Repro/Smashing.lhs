@@ -175,3 +175,5 @@ You see there is some overlap between Zone 1 and Zone 2.
 > computeSmashup tag                       = smashSubspaces tag dims
 >   where
 >     dims                                 = [fromIntegral qMidiSize128, fromIntegral qMidiSize128]
+
+The End

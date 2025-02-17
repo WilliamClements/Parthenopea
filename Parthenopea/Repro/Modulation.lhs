@@ -81,7 +81,6 @@ November 6, 2023
 >         , procFilter
 >         , qMidiSize128
 >         , qMidiSizeSpace
->         , qOffsetWeights
 >         , qStepSize
 >         , resolveMods
 >         , ResonanceType(..)
@@ -991,8 +990,6 @@ Returns the frequency ratio
 >     coarse = maybe 0 fromIntegral mcoarse
 >     fine   = maybe 0 fromIntegral mfine
 >
-> qOffsetWeights         :: [Int]
-> qOffsetWeights                           = [1, 32_768]
 > freakRange             :: (Double, Double)
 > freakRange                               = (20, 20_000)
 >
