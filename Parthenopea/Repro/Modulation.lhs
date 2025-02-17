@@ -149,10 +149,7 @@ Modulator management ===========================================================
 > freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
 >   where
 >     nodeList           :: Map ModDestType [Modulator]
->     nodeList                             = Map.filterWithKey fun (compileMods m8rs)
->       where
->         fun            :: ModDestType → [Modulator] → Bool
->         fun mdest _                      = (isJust . outGoing) mdest
+>     nodeList                             = Map.filterWithKey (\k _ → (isJust . outGoing) k) (compileMods m8rs)
 >
 >     edgeList           :: [(Node, [Node])]
 >                                          =

@@ -102,8 +102,8 @@ Utilities ======================================================================
 > dim                    :: Rational → Music a → Music a
 > dim amt                                  = phrase [Dyn (Diminuendo amt)]
 >
-> capture                :: Music (Pitch, [NoteAttribute]) → IO()
-> capture                                  = writeMidi2 "Siren.mid"
+> captureMidi            :: Music (Pitch, [NoteAttribute]) → IO()
+> captureMidi                              = writeMidi2 "Siren.mid"
 >
 > fractionOf             :: Int → Double → Int
 > fractionOf x doub                        = min 127 $ round $ doub * fromIntegral x
@@ -734,11 +734,11 @@ examine song for instrument and percussion usage ===============================
 tournament among instruments in various soundfont files ===============================================================
           some code _copied_ from HSoM and Euterpea - if you feel strongly, I'll do it the right way with exports
 
-> hist         :: (Ix a, Integral b) ⇒ (a,a) → [a] → Array a b
-> hist bnds is = accumArray (+) 0 bnds [(i, 1) | i ← is, inRange bnds i]
+> hist                   :: (Ix a, Integral b) ⇒ (a,a) → [a] → Array a b
+> hist bnds is                             = accumArray (+) 0 bnds [(i, 1) | i ← is, inRange bnds i]
 >
-> defBins      :: Int
-> defBins = 32
+> defBins                :: Int
+> defBins                                  = 32
 >
 > collectMEvents         :: ToMusic1 a ⇒ Music a → Performance
 > collectMEvents m                         = fst (musicToMEvents defaultContext (toMusic1 m))
@@ -751,40 +751,56 @@ tournament among instruments in various soundfont files ========================
 >      , mcDur = metro 120 qn
 >      , mcVol = 100}
 >
-> metro              :: Int -> Dur -> DurT
-> metro setting durM  = 60 / (fromIntegral setting * durM)
+> metro                  :: Int → Dur → DurT
+> metro setting durM                       = 60 / (fromIntegral setting * durM)
 >
-> trill :: Int -> Dur -> Music Pitch -> Music Pitch
-> trill i sDur (Prim (Note tDur p)) =
+> trill                  :: Int → Dur → Music Pitch → Music Pitch
+> trill i sDur (Prim (Note tDur p))        =
 >    if sDur >= tDur  then note tDur p
 >                     else  note sDur p :+: 
 >                           trill  (negate i) sDur 
 >                                  (note (tDur-sDur) (trans i p))
-> trill i d (Modify (Tempo r) m)  = tempo r (trill i (d*r) m)
-> trill i d (Modify c m)          = Modify c (trill i d m)
-> trill _ _ _                     = 
+> trill i dDur (Modify (Tempo r) m)        = tempo r (trill i (dDur*r) m)
+> trill i dDur (Modify cont m)             = Modify cont (trill i dDur m)
+> trill _ _ _                              = 
 >       error "trill: input must be a single note."
 >
-> trill' :: Int -> Dur -> Music Pitch -> Music Pitch
-> trill' i sDur m = trill (negate i) sDur (transpose i m)
+> trill'                 :: Int → Dur → Music Pitch → Music Pitch
+> trill' i sDur m                          = trill (negate i) sDur (transpose i m)
 >
-> trilln :: Int -> Int -> Music Pitch -> Music Pitch
-> trilln i nTimes m = trill i (dur m / fromIntegral nTimes) m
+> trilln                 :: Int → Int → Music Pitch → Music Pitch
+> trilln i nTimes m                        = trill i (dur m / fromIntegral nTimes) m
 >
-> trilln' :: Int -> Int -> Music Pitch -> Music Pitch
-> trilln' i nTimes m = trilln (negate i) nTimes (transpose i m)
+> trilln'                :: Int → Int → Music Pitch → Music Pitch
+> trilln' i nTimes m                       = trilln (negate i) nTimes (transpose i m)
 >
-> roll  :: Dur -> Music Pitch -> Music Pitch
-> rolln :: Int -> Music Pitch -> Music Pitch
+> roll                   :: Dur → Music Pitch → Music Pitch
+> rolln                  :: Int → Music Pitch → Music Pitch
 >
-> roll  sDur   m = trill  0 sDur m
-> rolln nTimes m = trilln 0 nTimes m
+> roll                                     = trill  0
+> rolln                                    = trilln 0
 >
 > extractTimes           :: Performance → [Double]
 > extractTimes                             = map (fromRational . eTime)
 >
 > percussionLimit        :: Double
 > percussionLimit                          = fromIntegral $ fromEnum OpenTriangle
+>
+> pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Maybe (AbsPitch, AbsPitch)
+> pinnedKR pss (p1, p2)                    = if qualifies then Just (p1, p2) else Nothing                   
+>   where
+>     qualifies                            = (p2 < p1 + 2) && all available [p1 .. p2]
+>     available          :: AbsPitch → Bool
+>     available ap                         = maybe False (`elem` pss) (pitchToPerc ap)
+>
+> pitchToPerc            :: AbsPitch → Maybe PercussionSound
+> pitchToPerc ap                           =
+>   let
+>     ad                                   = ap - 35
+>   in
+>     if ad >= fromEnum AcousticBassDrum && ad <= fromEnum OpenTriangle
+>       then Just (toEnum ad)
+>       else Nothing
 
 snippets to be used with "lake" =======================================================================================
 

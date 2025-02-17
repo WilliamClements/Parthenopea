@@ -16,21 +16,21 @@ October 11, 2024
 Testing ===============================================================================================================
 
 > runSmashingTests          :: IO ()
-> runSmashingTests                            = runTests smashingTests
+> runSmashingTests                         = runTests smashingTests
 >
 > smashingTests             :: [IO Bool]
-> smashingTests                               = [canClaimEntireSpaceWithImpunity
->                                         ,   canClaimEntireSpaceByDefault
->                                         ,   lastSpaceWins
->                                         ,   nothingNothings
->                                         ,   theWholeIsEqualToTheSumOfItsParts
->                                         ,   spotCheckOverlapCounts
->                                         ,   spotCheck3dSpaceCell
->                                         ,   spotCheck4dSpaceCell
->                                         ,   canCountPartialCover
->                                         ,   canCountMultiples
->                                         ,   workOutNearbyVerticalUncovered
->                                         ,   workOutNearbyHorizontalUncovered ]
+> smashingTests                            = [canClaimEntireSpaceWithImpunity
+>                                          ,  canClaimEntireSpaceByDefault
+>                                          ,  lastSpaceWins
+>                                          ,  nothingNothings
+>                                          ,  theWholeIsEqualToTheSumOfItsParts
+>                                          ,  spotCheckOverlapCounts
+>                                          ,  spotCheck3dSpaceCell
+>                                          ,  spotCheck4dSpaceCell
+>                                          ,  canCountPartialCover
+>                                          ,  canCountMultiples
+>                                          ,  workOutNearbyVerticalUncovered
+>                                          ,  workOutNearbyHorizontalUncovered]
 >
 > filln                  :: Int → Maybe (Int, Int)
 > filln n                                  = Just (0, n - 1)
@@ -54,8 +54,8 @@ Testing ========================================================================
 >
 > lastSpaceWins                            = do
 >   let smashup          :: Smashing Int   =
->         smashSubspaces "smashup" [3, 2]  [(201, [filln 3, filln 2])
->                                         , (202, [filln 3, filln 2])]
+>         smashSubspaces "smashup" [3, 2] [(201, [filln 3, filln 2])
+>                                        , (202, [filln 3, filln 2])]
 >   return $ aEqual (allCellsEqualTo smashup) (Just (202, 2))
 >
 > nothingNothings                          = do
@@ -65,8 +65,8 @@ Testing ========================================================================
 >
 > theWholeIsEqualToTheSumOfItsParts        = do
 >   let smashup          :: Smashing Int   =
->         smashSubspaces "smashup" [4, 8]  [(101, [Nothing, Just (0, 5)])
->                                         , (102, [Nothing, Just (6, 7)])]
+>         smashSubspaces "smashup" [4, 8] [(101, [Nothing, Just (0, 5)])
+>                                        , (102, [Nothing, Just (6, 7)])]
 >   return $ aEqual smashup.smashStats.countSingles 32
 >
 > spotCheckOverlapCounts                   = do

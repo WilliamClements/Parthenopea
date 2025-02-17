@@ -232,6 +232,10 @@ executive ======================================================================
 >   where
 >     emitFileListC      = concatMap (uncurry doF) (zip ([0..]::[Int]) (toList sffiles))
 >     doF nth sffile     = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
+>
+> writeFileBySections    :: FilePath → [[Emission]] → IO ()
+> writeFileBySections fp eSections         = do
+>   mapM_ (appendFile fp . reapEmissions) eSections
 
 tournament starts here ================================================================================================
 
@@ -603,7 +607,7 @@ zone selection for rendering ===================================================
 >
 >     getStereoPartner   :: (PreZone, SFZone) → Maybe (PreZone, SFZone)
 >     getStereoPartner (pz, _)
->       | traceNot trace_GSP False         = undefined
+>       | traceNow trace_GSP False         = undefined
 >       | otherwise                        =
 >       case toSampleType (F.sampleType shdr) of
 >         SampleTypeLeft                   → partner

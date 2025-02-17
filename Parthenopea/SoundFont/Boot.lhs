@@ -127,7 +127,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   m1{  mSMatches                         = Map.union m1.mSMatches    m2.mSMatches
 >      , mIMatches                         = Map.union m1.mIMatches    m2.mIMatches}
 
-
 executive =============================================================================================================
 
 To support extracting from flawed SoundFont files, we - up front - withdraw unrecoverable items from their
@@ -194,6 +193,43 @@ and recovery.
 >             name                         = fst duo
 >             userFun                      = snd duo
 >
+> openSoundFontFile      :: Word → FilePath → IO SFFile
+> openSoundFontFile wFile filename = do
+>   putStr (unwords [show wFile, filename])
+>   ts1                                    ← getCurrentTime
+>   result                                 ← F.importFile filename
+>   case result of
+>     Left s                               →
+>       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
+>     Right soundFont                      → do
+>       let pdata                          = F.pdta soundFont
+>       let sdata                          = F.sdta soundFont
+>       let boota                          =
+>             FileArrays
+>               (F.insts pdata) (F.ibags pdata)
+>               (F.igens pdata) (F.imods pdata)
+>               (F.shdrs pdata)
+>       let samplea                          =
+>             SampleArrays
+>               (F.smpl  sdata) (F.sm24  sdata)
+>       let sffile                         = SFFile wFile filename boota samplea
+>       let nBits::Word                      =
+>             case samplea.ssM24 of
+>               Nothing                    → 16
+>               Just _                     → 24
+>       ts2                                ← getCurrentTime
+>       CM.when diagnosticsEnabled (
+>         putStrLn $ unwords [
+>                           "openSoundFontFile"
+>                       ,   "insts,bags,gens,mods,shdrs"
+>                       ,   show $ length boota.ssInsts
+>                       ,   show $ length boota.ssIBags
+>                       ,   show $ length boota.ssIGens
+>                       ,   show $ length boota.ssIMods
+>                       ,   show $ length boota.ssShdrs ])
+>       putStrLn (unwords ["(", show nBits, ") loaded in", show (diffUTCTime ts2 ts1)])
+>       return sffile
+>
 > enumGMs                :: Map PerGMKey InstCat → IO ([PerGMKey], [PerGMKey])
 > enumGMs jobs                             = return $ Map.foldlWithKey enumFolder ([], []) jobs
 >   where
@@ -222,7 +258,7 @@ task interface support =========================================================
 >     bRange                               =
 >       profess
 >         ((stF == 0) && (stF <= enF) && (enF < 2_147_483_648))
->         (error $ unwords [fName, "corrupt blob"])
+>         (error $ unwords [fName, "corrupt blob indexing"])
 >         (deriveRange stF enF)
 
 pre-sample task =======================================================================================================
@@ -285,7 +321,7 @@ partnering task ================================================================
 >       | cancels ss                       = (Map.insert k v target, sPartnerMap,                  rd'') 
 >       | otherwise                        = (Map.insert k v target, makePartner (Just otherKey),  rd'')
 >       where
->         fName                            = unwords [fName_, "partneringFolder"]
+>         fName                            = unwords [fName_, "partnerFolder"]
 >
 >         makePartner                      =
 >           \case
@@ -541,16 +577,15 @@ groom task =====================================================================
 vet task ==============================================================================================================
           remove bad stereo partners from PreZones per instrument, delete instrument if down to zero PreZones
 
-> vetTaskIf _ _ fwIn@FileWork{ .. }        = fwTask
+> vetTaskIf _ _ fwIn@FileWork{ .. }        = zrecTask vetter fwIn 
 >   where
 >     fName_                               = "vetTaskIf"
 >
->     fwTask                               = zrecTask vetter fwIn 
->     filePzs                              =
->       foldl'
->         (\x y → x ++ filter (isStereoZone fwBoot.zPreSampleCache) y.zsPreZones)
->         []
->         (goodZRecs fwZRecs fwDispositions)
+>     filePzs                              = foldl' pzFolder [] (goodZRecs fwZRecs fwDispositions)
+>
+>     pzFolder           :: [PreZone] → InstZoneRecord → [PreZone]
+>     pzFolder pzs zrec                    = pzs ++ filter (isStereoZone fwBoot.zPreSampleCache) zrec.zsPreZones
+>
 >     mapStereo                            = formPreZoneMap filePzs
 >
 >     vetter             :: InstZoneRecord

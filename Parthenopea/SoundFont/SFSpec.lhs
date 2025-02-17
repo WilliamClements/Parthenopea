@@ -19,13 +19,10 @@ April 16, 2023
 >         , adjustedSampleSizeOk
 >         , allowStereoCrossovers
 >         , appendChange
->         , bracks
 >         , cancels
 >         , checkSmashing
 >         , combineBoot
 >         , combinerd
->         , comma
->         , commaOrNot
 >         , computeInstSmashup
 >         , dasBoot
 >         , dead
@@ -49,7 +46,6 @@ April 16, 2023
 >         , fromSampleType
 >         , Fuzz
 >         , getMaybePercList
->         , gmId
 >         , Impact(..)
 >         , InstCat(..)
 >         , InstCatData(..)
@@ -65,12 +61,8 @@ April 16, 2023
 >         , multipleCompetes
 >         , noChange
 >         , noClue
->         , openSoundFontFile
->         , parens
 >         , PerGMKey(..)
 >         , PerInstrument(..)
->         , pinnedKR
->         , pitchToPerc
 >         , PreInstrument(..)
 >         , PreSample(..)
 >         , PreSampleKey(..)
@@ -103,26 +95,23 @@ April 16, 2023
 >         , violated
 >         , virginrd
 >         , wasRescued
->         , writeFileBySections
 >         , ZoneDigest(..)
 >         )
 >         where
 >
 > import qualified Codec.SoundFont         as F
-> import qualified Control.Monad           as CM
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Char
 > import Data.Foldable
 > import Data.Int ( Int8, Int16 )
-> import Data.List hiding (insert)
-> import Data.Map (Map)
+> import Data.List
+> import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
-> import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
-> import Parthenopea.Debug
+> import Parthenopea.Debug ( deJust, traceNot )
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Modulation
@@ -437,43 +426,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 
 bootstrapping =========================================================================================================
 
-> openSoundFontFile      :: Word → FilePath → IO SFFile
-> openSoundFontFile wFile filename = do
->   putStr (unwords [show wFile, filename])
->   ts1                                    ← getCurrentTime
->   result                                 ← F.importFile filename
->   case result of
->     Left s                               →
->       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
->     Right soundFont                      → do
->       let pdata                          = F.pdta soundFont
->       let sdata                          = F.sdta soundFont
->       let boota                          =
->             FileArrays
->               (F.insts pdata) (F.ibags pdata)
->               (F.igens pdata) (F.imods pdata)
->               (F.shdrs pdata)
->       let samplea                          =
->             SampleArrays
->               (F.smpl  sdata) (F.sm24  sdata)
->       let sffile                         = SFFile wFile filename boota samplea
->       let nBits::Word                      =
->             case samplea.ssM24 of
->               Nothing                    → 16
->               Just _                     → 24
->       ts2                                ← getCurrentTime
->       CM.when diagnosticsEnabled (
->         putStrLn $ unwords [
->                           "openSoundFontFile"
->                       ,   "insts,bags,gens,mods,shdrs"
->                       ,   show $ length boota.ssInsts
->                       ,   show $ length boota.ssIBags
->                       ,   show $ length boota.ssIGens
->                       ,   show $ length boota.ssIMods
->                       ,   show $ length boota.ssShdrs ])
->       putStrLn (unwords ["(", show nBits, ") loaded in", show (diffUTCTime ts2 ts1)])
->       return sffile
->
 > data Disposition                         =
 >   Accepted | Modified | Violated | Rescued | Dropped | NoChange
 >   deriving (Eq, Show)
@@ -669,10 +621,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >
 > type Fuzz = Double
 >
-> writeFileBySections    :: FilePath → [[Emission]] → IO ()
-> writeFileBySections fp eSections         = do
->   mapM_ (appendFile fp . reapEmissions) eSections
->
 > data SampleType =
 >   SampleTypeMono
 >   | SampleTypeRight
@@ -720,22 +668,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >
 > fixName                :: String → String
 > fixName                                  = map (\cN → if goodChar cN then cN else '_')
->
-> pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Maybe (AbsPitch, AbsPitch)
-> pinnedKR pss (p1, p2)                    = if qualifies then Just (p1, p2) else Nothing                   
->   where
->     qualifies                            = (p2 < p1 + 2) && all available [p1 .. p2]
->     available          :: AbsPitch → Bool
->     available ap                         = maybe False (`elem` pss) (pitchToPerc ap)
->
-> pitchToPerc            :: AbsPitch → Maybe PercussionSound
-> pitchToPerc ap                           =
->   let
->     ad                                   = ap - 35
->   in
->     if ad >= fromEnum AcousticBassDrum && ad <= fromEnum OpenTriangle
->       then Just (toEnum ad)
->       else Nothing
 >
 > zshow                  :: ∀ a . a → String
 > zshow _                                  = "list"
