@@ -29,8 +29,10 @@ February 1, 2025
 > import Data.Foldable ( toList )
 > import Data.List hiding (insert)
 > import Data.Map (Map)
+> import Data.Map.Strict (insertWith)
 > import qualified Data.Map                as Map
 > import Data.Maybe
+> import Data.Ord ( Down(Down) )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import Debug.Trace ( traceIO )
 > import Euterpea.IO.Audio.Basics ( outA )
@@ -134,11 +136,18 @@ executive ======================================================================
 >
 >   -- output all selections to the report file
 >   let esTimeStamp                        = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
+>   let esSampleSummary                    = summarize preSampleDispos ++ [EndOfLine]
+>   let esInstSummary                      = summarize preInstDispos ++ [EndOfLine]
 >   let esSampleScan                       = procMap preSampleDispos ++ [EndOfLine]
 >   let esInstScan                         = procMap preInstDispos ++ [EndOfLine]
 >   let esTail                             = [EndOfLine, EndOfLine]
 >
->   writeFileBySections reportScanName [esTimeStamp, esSampleScan, esInstScan, esTail]
+>   writeFileBySections
+>     reportScanName
+>     ([esTimeStamp, esSampleSummary, esInstSummary]
+>      ++ if howVerboseScan < (1/3) then [] else [esSampleScan, esInstScan]
+>      ++ [esTail])
+>
 >   tsFinished                             ← getCurrentTime
 >   putStrLn (unwords ["___report scan results:", show (diffUTCTime tsFinished tsStarted)])
 >   traceIO (unwords ["wrote", reportScanName])
@@ -146,6 +155,24 @@ executive ======================================================================
 >   where
 >     fName                                = "writeScanReport"
 >
+>     summarize          :: ∀ r . (SFResource r) ⇒ Map r [Scan] → [Emission]
+>     summarize sm                         =
+>       let
+>         histo          :: [((Disposition, Impact, String), Int)]
+>         histo                            =
+>           sortOn (Down . snd) $ Map.toList $ Map.foldr (\ss → insertWith (+) (autopsy ss) 1) Map.empty sm
+>
+>         emitHisto      :: ((Disposition, Impact, String), Int) → [Emission]
+>         emitHisto ((dispo, impact, function), count)
+>                                          =
+>           [  emitShowL   count        16
+>            , emitShowL   dispo        24
+>            , emitShowL   impact       32
+>            , ToFieldL    function     52
+>            , EndOfLine]
+>       in
+>         concatMap emitHisto histo
+>         
 >     procMap            :: ∀ r . (SFResource r, Show r) ⇒ Map r [Scan] → [Emission]
 >     procMap sm                           = concat $ Map.mapWithKey procr sm
 >

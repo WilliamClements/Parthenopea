@@ -609,12 +609,9 @@ vet task =======================================================================
 >     vetter             :: InstZoneRecord
 >                           → ResultDispositions
 >                           → (InstZoneRecord, ResultDispositions)
->     vetter zrec rdVet_
->       | traceNot trace_V False           = undefined
->       | otherwise                        = (zrec{zsPreZones = newPzs}, dispose pergm ss rdVet_)
+>     vetter zrec rdVet_                   = (zrec{zsPreZones = newPzs}, dispose pergm ss rdVet_)
 >       where
 >         fName                            = unwords [fName_, "vetter"]
->         trace_V                          = unwords [fName, show rdVet_]
 >
 >         newPzs                           =
 >           let

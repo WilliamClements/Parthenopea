@@ -16,6 +16,8 @@ April 16, 2023
 > module Parthenopea.SoundFont.SFSpec
 >        (  accepted
 >         , appendChange
+>         , autopsy
+>         , badButMaybeFix
 >         , cancels
 >         , combineBoot
 >         , combinerd
@@ -42,6 +44,7 @@ April 16, 2023
 >         , formPreZoneMap
 >         , fromSampleType
 >         , getMaybePercList
+>         , howVerboseScan
 >         , Impact(..)
 >         , InstCat(..)
 >         , InstCatData(..)
@@ -52,11 +55,11 @@ April 16, 2023
 >         , KeyNumber
 >         , lookupCellIndex
 >         , makePreZone
->         , badButMaybeFix
 >         , modified
 >         , multipleCompetes
 >         , noChange
 >         , noClue
+>         , notDead
 >         , PerGMKey(..)
 >         , PerInstrument(..)
 >         , PreInstrument(..)
@@ -428,7 +431,7 @@ bootstrapping ==================================================================
 
 > data Disposition                         =
 >   Accepted | Modified | Violated | Rescued | Dropped | NoChange
->   deriving (Eq, Show)
+>   deriving (Eq, Ord, Show)
 >
 > data Impact                              =
 >   Ok | CorruptName
@@ -452,6 +455,18 @@ bootstrapping ==================================================================
 > noClue                 :: String
 > noClue                                   = ""
 >
+> autopsy                :: [Scan] → (Disposition, Impact, String)
+> autopsy ss_                              = maybe notDead getTriple mkiller    
+>   where
+>     mii                :: Map Impact Int
+>     mii                                  = foldl' (\n v → Map.insertWith (+) v 1 n) Map.empty (map sImpact ss)
+>
+>     ss                                   = filter (\s → s.sDisposition `elem` deadset) ss_
+>     mkiller                              = find (odd . snd) (Map.assocs mii)
+>
+>     getTriple          :: (Impact, Int) → (Disposition, Impact, String)
+>     getTriple (impact, _)                = striple $ fromJust $ find (\s → s.sImpact == impact) ss
+>
 > cancelset, deadset, elideset, rescueset
 >                        :: [Disposition]
 >                                            -- cancelled if (not dead and) any of the following appear
@@ -466,14 +481,15 @@ bootstrapping ==================================================================
 >                                              else []
 > rescueset                                = [Rescued]
 >
+> notDead                :: (Disposition, Impact, String)
+> notDead                                  = (Accepted, Ok, "")
+>
+> striple                :: Scan → (Disposition, Impact, String)
+> striple s                                = (s.sDisposition, s.sImpact, s.sFunction)
+>
 > dead, cancels, wasRescued
 >                        :: [Scan] → Bool
-> dead ss_                                 = any odd (Map.elems m)
->   where
->     ss                                   = filter (\s → s.sDisposition `elem` deadset) ss_
->
->     m                  :: Map Impact Int
->     m                                    = foldl' (\n v → Map.insertWith (+) v 1 n) Map.empty (map sImpact ss)
+> dead ss                                  = notDead /= autopsy ss
 >
 > cancels                                  = any (\s → s.sDisposition `elem` cancelset)
 > wasRescued                               = any (\s → s.sDisposition `elem` rescueset)
