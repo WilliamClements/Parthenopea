@@ -44,7 +44,8 @@ April 16, 2023
 >         , formPreZoneMap
 >         , fromSampleType
 >         , getMaybePercList
->         , howVerboseScan
+>         , howVerboseScanReport
+>         , howVerboseTournamentReport
 >         , Impact(..)
 >         , InstCat(..)
 >         , InstCatData(..)
@@ -56,7 +57,6 @@ April 16, 2023
 >         , lookupCellIndex
 >         , makePreZone
 >         , modified
->         , multipleCompetes
 >         , noChange
 >         , noClue
 >         , notDead
@@ -476,7 +476,7 @@ bootstrapping ==================================================================
 >                                            -- ...dead if any counts are odd
 > deadset                                  = [Violated, Dropped, Rescued]
 >                                            -- the following only optionally appear in scan report
-> elideset                                 = if howVerboseScan < (1/2)
+> elideset                                 = if howVerboseScanReport < (1/2)
 >                                              then [Accepted, NoChange]
 >                                              else []
 > rescueset                                = [Rescued]
@@ -648,10 +648,11 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportTournamentName   :: FilePath
 > reportTournamentName                     = "TournamentReport'.log"
 >
-> multipleCompetes       :: Bool
-> multipleCompetes                         = True
+> howVerboseScanReport   :: Rational
+> howVerboseScanReport                     = 1/4
 >
-> howVerboseScan         :: Double
-> howVerboseScan                           = 1/4
+> howVerboseTournamentReport
+>                        :: Rational
+> howVerboseTournamentReport               = 1/4
 
 The End

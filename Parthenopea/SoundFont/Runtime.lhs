@@ -87,7 +87,7 @@ executive ======================================================================
 >       tsZoned                            ← getCurrentTime
 >       putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsStarted))
 >
->       CM.when reportScan (writeScanReport prerunt rdGen03)
+>       CM.when (howVerboseScanReport > (1/10)) (writeScanReport prerunt rdGen03)
 >       tsScanned                          ← getCurrentTime
 >      
 >       -- actually conduct the tournament
@@ -97,7 +97,7 @@ executive ======================================================================
 >       tsDecided                          ← getCurrentTime
 >       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsScanned))
 >
->       CM.when reportTourney (writeTournamentReport prerunt.zFiles wI wP)
+>       CM.when (howVerboseTournamentReport > (1/10)) (writeTournamentReport prerunt.zFiles wI wP)
 >       tsReported                         ← getCurrentTime
 >
 >       -- print song/orchestration info to user (can be captured by redirecting standard out)
@@ -145,7 +145,7 @@ executive ======================================================================
 >   writeFileBySections
 >     reportScanName
 >     ([esTimeStamp, esSampleSummary, esInstSummary]
->      ++ if howVerboseScan < (1/3) then [] else [esSampleScan, esInstScan]
+>      ++ if howVerboseScanReport < (1/3) then [] else [esSampleScan, esInstScan]
 >      ++ [esTail])
 >
 >   tsFinished                             ← getCurrentTime
@@ -585,8 +585,5 @@ reconcile zone and sample header ===============================================
 >         (coAccess toWhich $ maybe defModTriple   eModTriple nModEnv)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
->
-> reportScan             :: Bool
-> reportScan                               = True
 
 The End

@@ -890,6 +890,9 @@ Edit the following =============================================================
 > weighConformance                         = 3
 > weighFuzziness                           = 3
 >
+> multipleCompetes       :: Bool
+> multipleCompetes                         = True
+>
 > conRatio               :: Double
 > conRatio                                 = 3/4
 > narrowInstrumentScope  :: Bool

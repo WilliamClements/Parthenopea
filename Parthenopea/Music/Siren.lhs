@@ -953,14 +953,13 @@ breakUp returns a list of integers approximating divisions of a floating point r
 
 Configurable parameters ===============================================================================================
 
-> doRender, reportTourney, skipGlissandi
+> doRender, skipGlissandi
 >                        :: Bool
 > replacePerCent         :: Rational
 
 Edit the following ====================================================================================================
 
 > doRender                                 = True
-> reportTourney                            = True
 > skipGlissandi                            = False
 > replacePerCent                           = 0
 
