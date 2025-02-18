@@ -18,7 +18,6 @@ February 1, 2025
 > module Parthenopea.SoundFont.Runtime
 >        (  computeCross
 >         , bootNRender
->         , listInstruments
 >         )
 >         where
 >
@@ -126,16 +125,6 @@ executive ======================================================================
 >
 >       tsRendered                         ← getCurrentTime
 >       putStrLn ("___render songs: "        ++ show (diffUTCTime tsRendered tsPrepared))
->
-> listInstruments        :: IO ()
-> listInstruments                          = do
->   (mrunt, _, _, _, rdGen03)  ← equipInstruments allKinds
->   if isJust mrunt
->     then do
->       let runt                           = deJust "mrunt" mrunt
->       CM.when reportScan (writeScanReport runt rdGen03)
->     else do
->       return ()
 >
 > writeScanReport        :: SFRuntime → ResultDispositions → IO ()
 > writeScanReport runt rd@ResultDispositions{ .. }

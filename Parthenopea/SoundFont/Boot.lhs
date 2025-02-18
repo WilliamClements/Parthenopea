@@ -14,12 +14,7 @@ Boot
 William Clements
 January 21, 2025
 
-> module Parthenopea.SoundFont.Boot
->        (  allowStereoCrossovers
->         , equipInstruments
->         , Matches(..)
->         )
->         where
+> module Parthenopea.SoundFont.Boot ( equipInstruments ) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
@@ -1303,8 +1298,6 @@ reown task =====================================================================
 > allowOutOfRange                          = True
 > allowOverlappingRanges :: Bool
 > allowOverlappingRanges                   = True
-> allowStereoCrossovers  :: Bool
-> allowStereoCrossovers                    = False
 > doAbsorption           :: Bool
 > doAbsorption                             = True
 > fixBadNames            :: Bool

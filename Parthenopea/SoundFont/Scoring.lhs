@@ -215,6 +215,9 @@ Scoring stuff ==================================================================
 >     zFiles             :: Array Word SFFile
 >   , zBoot              :: SFBoot
 >   , zWinningRecord     :: WinningRecord}
+> instance Show SFRuntime where
+>   show (SFRuntime{ .. })                  =
+>     unwords ["SFRuntime", show zBoot, show zWinningRecord]
 >
 > type AgainstKindResult                   = Double
 > 
@@ -891,5 +894,7 @@ Edit the following =============================================================
 > conRatio                                 = 3/4
 > narrowInstrumentScope  :: Bool
 > narrowInstrumentScope                    = True
+> allowStereoCrossovers  :: Bool
+> allowStereoCrossovers                    = False
 
 The End

@@ -14,6 +14,7 @@ May 4, 2023
 > import Control.Monad ( foldM )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
+> import Data.Maybe
 > import Debug.Trace ( traceIO, traceM )
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
@@ -24,6 +25,7 @@ May 4, 2023
 > import Parthenopea.Repro.ModulationTest
 > import Parthenopea.Repro.SmashingTest
 > import Parthenopea.Repro.SynthesizerTest
+> import Parthenopea.SoundFont.Boot
 > import Parthenopea.SoundFont.BootTest
 > import Parthenopea.SoundFont.Runtime
 > import Parthenopea.Tunes.Cecil
@@ -177,5 +179,15 @@ a few playthings ... get it? ===================================================
 >   $ instrument Glockenspiel
 >     (line [gUnitAtVolume  40, rest hn, gUnitAtVolume  60, rest hn, gUnitAtVolume 80, rest hn
 >          , gUnitAtVolume 100, rest hn, gUnitAtVolume 120])
+>
+> listInstruments        :: IO ()
+> listInstruments                          = do
+>   (mrunt, _, _, _, _)  ← equipInstruments allKinds
+>   if isJust mrunt
+>     then do
+>       print (fromJust mrunt)
+>     else do
+>       return ()
+>
 
 The End
