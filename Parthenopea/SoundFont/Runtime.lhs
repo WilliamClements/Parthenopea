@@ -51,25 +51,25 @@ February 1, 2025
 executive =============================================================================================================
 
 > bootNRender            :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
-> bootNRender songs      = do
->   tsStarted            ← getCurrentTime
+> bootNRender songs                        = do
+>   tsStarted                              ← getCurrentTime
 >
->   rost                 ← qualifyKinds songs
+>   rost                                   ← qualifyKinds songs
 >   (mrunt, mmatches, pergmsI, pergmsP, rdGen03)
->                        ← equipInstruments rost
+>                                          ← equipInstruments rost
 >
 >   if isNothing mrunt
 >     then do
 >       return ()
 >     else do 
->       let prerunt      = deJust "mrunt" mrunt
->       let matches      = deJust "mmatches" mmatches
+>       let prerunt                        = deJust "mrunt" mrunt
+>       let matches                        = deJust "mmatches" mmatches
 >       -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->       runt             ← finishRuntime matches rost prerunt pergmsI pergmsP rdGen03
+>       runt                               ← finishRuntime matches rost prerunt pergmsI pergmsP rdGen03
 >
 >       CM.when doRender (doRendering runt)
 >
->       tsRendered       ← getCurrentTime
+>       tsRendered                         ← getCurrentTime
 >       putStrLn ("___overall: " ++ show (diffUTCTime tsRendered tsStarted))
 >   where
 >     -- track the complete _qualified_ populations of: samples, instruments, percussion
@@ -80,52 +80,51 @@ executive ======================================================================
 >                            → ResultDispositions
 >                            → IO SFRuntime
 >     finishRuntime matches rost prerunt@SFRuntime{ .. } pergmsI pergmsP rdGen03
->                        = do
->       tsStarted        ← getCurrentTime
+>                                          = do
+>       tsStarted                          ← getCurrentTime
 >
->       tsZoned          ← getCurrentTime
+>       tsZoned                            ← getCurrentTime
 >       putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsStarted))
 >
 >       CM.when reportScan (writeScanReport prerunt rdGen03)
->       tsScanned        ← getCurrentTime
+>       tsScanned                          ← getCurrentTime
 >      
 >       -- actually conduct the tournament
 >       ((wI, sI), (wP, sP))
->                        ← decideWinners zBoot.zPreSampleCache zBoot.zPreInstCache zBoot.zOwners
->                                        zBoot.zPerInstCache matches rost pergmsI pergmsP
->       tsDecided        ← getCurrentTime
+>                                          ← decideWinners zBoot.zPreSampleCache zBoot.zPreInstCache zBoot.zOwners
+>                                                          zBoot.zPerInstCache matches rost pergmsI pergmsP
+>       tsDecided                          ← getCurrentTime
 >       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsScanned))
 >
 >       CM.when reportTourney (writeTournamentReport prerunt.zFiles wI wP)
->       tsReported       ← getCurrentTime
+>       tsReported                         ← getCurrentTime
 >
 >       -- print song/orchestration info to user (can be captured by redirecting standard out)
 >       mapM_ putStrLn (sI ++ sP)
 >
->       let wins         = WinningRecord (Map.map head wI) (Map.map head wP)
+>       let wins                           = WinningRecord (Map.map head wI) (Map.map head wP)
 >
->       tsRecond         ← getCurrentTime
+>       tsRecond                           ← getCurrentTime
 >       putStrLn ("___create winning record: " ++ show (diffUTCTime tsRecond tsReported))
 >         
->       return prerunt{
->         zWinningRecord = wins}
+>       return prerunt{zWinningRecord = wins}
 >
 >     -- get it on
->     doRendering      :: SFRuntime → IO ()
+>     doRendering        :: SFRuntime → IO ()
 >     doRendering runt
->                        = do
->       tsStarted        ← getCurrentTime
+>                                          = do
+>       tsStarted                          ← getCurrentTime
 >
 >       -- readying instrument maps to be accessed from song renderer
->       traceIO          "prepareInstruments"
->       imap             ← prepareInstruments runt
->       tsPrepared       ← getCurrentTime
+>       traceIO                            "prepareInstruments"
+>       imap                               ← prepareInstruments runt
+>       tsPrepared                         ← getCurrentTime
 >       putStrLn ("___prepare instruments: " ++ show (diffUTCTime tsPrepared tsStarted))
 >
 >       -- here's the heart of the coconut
 >       mapM_ (uncurry (renderSong runt imap)) songs
 >
->       tsRendered       ← getCurrentTime
+>       tsRendered                         ← getCurrentTime
 >       putStrLn ("___render songs: "        ++ show (diffUTCTime tsRendered tsPrepared))
 >
 > listInstruments        :: IO ()
@@ -570,68 +569,6 @@ reconcile zone and sample header ===============================================
 >         (coAccess toWhich $ maybe defModTriple   eModTriple nModEnv)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
-
-emit standard output text detailing what choices we made for rendering GM items =======================================
-
-> printChoices           :: SFRuntime
->                           → [InstrumentName]
->                           → [(InstrumentName, [String])]
->                           → [PercussionSound]
->                           → ([(Bool, [Emission])], [(Bool, [Emission])])
-> printChoices SFRuntime{zWinningRecord} is msgs ps
->                                          = (map (showI zWinningRecord) is, map (showP zWinningRecord) ps)
->   where
->     showI              :: WinningRecord → InstrumentName → (Bool, [Emission])
->     showI WinningRecord{pWinningI} kind
->       | isJust mpergm                    = (True, true kind mpergm ++ emitMsgs kind msgs)
->       | kind == Percussion               = (True, [Blanks 3, gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
->       | otherwise                        = (False, false kind)
->       where
->         mpergm                           = Map.lookup kind pWinningI
->
->     showP               :: WinningRecord → PercussionSound → (Bool, [Emission])
->     showP WinningRecord{pWinningP} kind
->       | isJust mpergm                    = (True, true kind mpergm)
->       | otherwise                        = (False, false kind)
->       where
->         mpergm                           = Map.lookup kind pWinningP
->
->     true kind mpergm                     =
->       [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM (fromJust mpergm) ++ [EndOfLine]
->     false kind                           =
->       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
->
-> showPerGM              :: PerGMScored → [Emission]
-> showPerGM PerGMScored{szI, mszP, pPerGMKey}
->                                          = [emitShowL pgkwFile 4] ++ [ToFieldL szI 22] ++ showmZ
->   where
->     PerGMKey{pgkwFile}                   = pPerGMKey
->     showmZ                               = maybe [] showZ mszP
->     showZ name                           = [Unblocked name]
->
-> dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ (a, [PerGMScored]) → [Emission]
-> dumpContestants (kind, contestants)      = prolog ++ ex ++ epilog
->   where
->     prolog, ex, epilog :: [Emission]
->
->     prolog                               = emitLine [emitShowL kind 50]
->     ex                                   = concatMap dumpContestant contestants
->     epilog                               = emitLine []
->
-> dumpContestant         :: PerGMScored → [Emission]
-> dumpContestant PerGMScored{ .. }         = ex
->   where
->     ArtifactGrade{pEmpiricals, pScore}   = pArtifactGrade
->     PerGMKey{pgkwFile}                   = pPerGMKey
->     showAkr            :: Double         = roundBy 10 pAgainstKindResult
->     (showEmp, n)                         = showEmpiricals pEmpiricals
-> 
->     ex = emitLine [ Blanks 4, emitShowL      pgkwFile                  8
->                             , ToFieldR       szI                      22
->                   , Blanks 4, ToFieldR      (fromMaybe "" mszP)       22
->                   , Blanks 4, emitShowL      pScore                   15
->                             , ToFieldL       showEmp                   n
->                             , emitShowR      showAkr                   8]
 >
 > reportScan             :: Bool
 > reportScan                               = True

@@ -501,10 +501,8 @@ capture task ===================================================================
 >         rdCap'                           = dispose pergm ss rdCap
 >         results                          = map captureZone (deriveRange ibagi jbagi)
 >
->         ibagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! wIn)
->         jbagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! (wIn+1))
->
->         wIn                              = pgkwInst pergm
+>         ibagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! pgkwInst pergm)
+>         jbagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! (pgkwInst pergm+1))
 >
 >         globalKey                        = if head results == Right (Accepted, GlobalZone)
 >                                              then Just $ PreZoneKey sffile.zWordF ibagi
@@ -537,7 +535,7 @@ capture task ===================================================================
 >                                              (xgeni <= ygeni)
 >                                              (unwords [fName, "SoundFont file corrupt (gens)"])
 >                                              (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
->             pz                           = makePreZone sffile.zWordF si wIn bix gens
+>             pz                           = makePreZone sffile.zWordF si (pgkwInst pergm) bix gens
 >             si                           = deJust fName pz.pzDigest.zdSampleIndex
 >             presk                        = PreSampleKey sffile.zWordF si
 >             starget                      = Map.lookup presk fwBoot.zPreSampleCache

@@ -431,6 +431,68 @@ tournament starts here =========================================================
 >
 >         akResult                         = fromMaybe 0 (Map.lookup kind fuzzMap)
 
+emit standard output text detailing what choices we made for rendering GM items =======================================
+
+> printChoices           :: SFRuntime
+>                           → [InstrumentName]
+>                           → [(InstrumentName, [String])]
+>                           → [PercussionSound]
+>                           → ([(Bool, [Emission])], [(Bool, [Emission])])
+> printChoices SFRuntime{zWinningRecord} is msgs ps
+>                                          = (map (showI zWinningRecord) is, map (showP zWinningRecord) ps)
+>   where
+>     showI              :: WinningRecord → InstrumentName → (Bool, [Emission])
+>     showI WinningRecord{pWinningI} kind
+>       | isJust mpergm                    = (True, true kind mpergm ++ emitMsgs kind msgs)
+>       | kind == Percussion               = (True, [Blanks 3, gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
+>       | otherwise                        = (False, false kind)
+>       where
+>         mpergm                           = Map.lookup kind pWinningI
+>
+>     showP               :: WinningRecord → PercussionSound → (Bool, [Emission])
+>     showP WinningRecord{pWinningP} kind
+>       | isJust mpergm                    = (True, true kind mpergm)
+>       | otherwise                        = (False, false kind)
+>       where
+>         mpergm                           = Map.lookup kind pWinningP
+>
+>     true kind mpergm                     =
+>       [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM (fromJust mpergm) ++ [EndOfLine]
+>     false kind                           =
+>       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
+>
+> showPerGM              :: PerGMScored → [Emission]
+> showPerGM PerGMScored{szI, mszP, pPerGMKey}
+>                                          = [emitShowL pgkwFile 4] ++ [ToFieldL szI 22] ++ showmZ
+>   where
+>     PerGMKey{pgkwFile}                   = pPerGMKey
+>     showmZ                               = maybe [] showZ mszP
+>     showZ name                           = [Unblocked name]
+>
+> dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ (a, [PerGMScored]) → [Emission]
+> dumpContestants (kind, contestants)      = prolog ++ ex ++ epilog
+>   where
+>     prolog, ex, epilog :: [Emission]
+>
+>     prolog                               = emitLine [emitShowL kind 50]
+>     ex                                   = concatMap dumpContestant contestants
+>     epilog                               = emitLine []
+>
+> dumpContestant         :: PerGMScored → [Emission]
+> dumpContestant PerGMScored{ .. }         = ex
+>   where
+>     ArtifactGrade{pEmpiricals, pScore}   = pArtifactGrade
+>     PerGMKey{pgkwFile}                   = pPerGMKey
+>     showAkr            :: Double         = roundBy 10 pAgainstKindResult
+>     (showEmp, n)                         = showEmpiricals pEmpiricals
+> 
+>     ex = emitLine [ Blanks 4, emitShowL      pgkwFile                  8
+>                             , ToFieldR       szI                      22
+>                   , Blanks 4, ToFieldR      (fromMaybe "" mszP)       22
+>                   , Blanks 4, emitShowL      pScore                   15
+>                             , ToFieldL       showEmp                   n
+>                             , emitShowR      showAkr                   8]
+
 Utilities =============================================================================================================
 
 > isPossible, stands, isConfirmed
