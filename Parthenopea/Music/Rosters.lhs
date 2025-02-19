@@ -185,8 +185,8 @@ a few playthings ... get it? ===================================================
 >   mbundle                                ← equipInstruments allKinds
 >   if isJust mbundle
 >     then do
->       let (mrunt, _, _, _, _)            = fromJust mbundle
->       print (fromJust mrunt)
+>       let (runt, _, _, _, _)             = fromJust mbundle
+>       print runt
 >     else do
 >       return ()
 >
