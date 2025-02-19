@@ -120,7 +120,7 @@ respective collections. The withdrawn items may be critical to some instruments.
 and recovery.
 
 > equipInstruments       :: ([InstrumentName], [PercussionSound])
->                           → IO (Maybe SFRuntime, Maybe Matches, [PerGMKey], [PerGMKey], ResultDispositions)
+>                           → IO (Maybe (SFRuntime, Matches, [PerGMKey], [PerGMKey], ResultDispositions))
 > equipInstruments rost                    = do
 >   putStrLn $ unwords ["rost\n", show rost]
 >
@@ -131,7 +131,7 @@ and recovery.
 >   if null fps
 >     then do
 >       putStrLn "no *.sf2 files found"
->       return (Nothing, Nothing, [], [], virginrd)
+>       return Nothing
 >     else do
 >       let nfiles                         = length fps
 >       let boundsF::(Word, Word)          = (0, fromIntegral (nfiles - 1))
@@ -157,7 +157,7 @@ and recovery.
 >       tsFinished                         ← getCurrentTime
 >       putStrLn ("___sorted: " ++ show (diffUTCTime tsFinished tsBooted))
 >
->       return (Just runt, Just matchesAll, pergmsI, pergmsP, rdGen03 )
+>       return (Just (runt, matchesAll, pergmsI, pergmsP, rdGen03))
 >   where
 >     bootFolder         :: (SFBoot, ResultDispositions, Matches)
 >                           → SFFile

@@ -56,17 +56,15 @@ executive ======================================================================
 >   tsStarted                              ← getCurrentTime
 >
 >   rost                                   ← qualifyKinds songs
->   (mrunt, mmatches, pergmsI, pergmsP, rdGen03)
->                                          ← equipInstruments rost
+>   mbundle                                ← equipInstruments rost
 >
->   if isNothing mrunt
+>   if isNothing mbundle
 >     then do
 >       return ()
 >     else do 
->       let prerunt                        = deJust "mrunt" mrunt
->       let matches                        = deJust "mmatches" mmatches
->       -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->       runt                               ← finishRuntime matches rost prerunt pergmsI pergmsP rdGen03
+>       let (prerunt, matches, pergmsI, pergmsP, rd)
+>                                          = fromJust mbundle
+>       runt                               ← finishRuntime matches rost prerunt pergmsI pergmsP rd
 >
 >       CM.when doRender (doRendering runt)
 >

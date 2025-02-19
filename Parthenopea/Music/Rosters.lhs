@@ -182,9 +182,10 @@ a few playthings ... get it? ===================================================
 >
 > listInstruments        :: IO ()
 > listInstruments                          = do
->   (mrunt, _, _, _, _)  ← equipInstruments allKinds
->   if isJust mrunt
+>   mbundle                                ← equipInstruments allKinds
+>   if isJust mbundle
 >     then do
+>       let (mrunt, _, _, _, _)            = fromJust mbundle
 >       print (fromJust mrunt)
 >     else do
 >       return ()
