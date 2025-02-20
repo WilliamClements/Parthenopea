@@ -48,9 +48,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 
 > smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
 >                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
-> smashSubspaces tag dims spaces_
->   | traceNot trace_SS False              = undefined
->   | otherwise                            = Smashing tag dims spaces (developSmashStats svector) svector
+> smashSubspaces tag dims spaces_          = Smashing tag dims spaces (developSmashStats svector) svector
 >   where
 >     spaces             :: [(i, [(i, i)])]
 >     spaces                               = map (BF.second (zipWith (\dim → fromMaybe (0, dim-1)) dims)) spaces_
@@ -68,16 +66,15 @@ You see there is some overlap between Zone 1 and Zone 2.
 >
 >     enumAssocs         ::  [i] → i → [(i, i)] → [(Int, (i, i))]
 >     enumAssocs dimsA spaceId rngs        =
->       profess
->         (0 <= mag && mag <= 65_536 && all (uncurry validRange) (zip dimsA rngs))
->         (unwords ["enumAssocs: range violation", tag, show mag, show dimsA, show spaces])
->         (map (, (spaceId, 1)) is)
->       where
+>       let
 >         is             :: [Int]
 >         is                               =
 >           map (fromIntegral . computeCellIndex dimsA) (traverse walkRange rngs)
->
->     trace_SS                             = unwords ["smashSubspaces", show (length spaces_), show spaces_]
+>       in
+>         profess
+>           (0 <= mag && mag <= 65_536 && all (uncurry validRange) (zip dimsA rngs))
+>           (unwords ["enumAssocs: range violation", tag, show mag, show dimsA, show spaces])
+>           (map (, (spaceId, 1)) is)
 >
 > validRange             :: ∀ i . (Integral i, Ix i) ⇒ i → (i, i) → Bool
 > validRange dim (r, s)                    = 0 <= dim && r <= s && inZRange r dim && inZRange s dim

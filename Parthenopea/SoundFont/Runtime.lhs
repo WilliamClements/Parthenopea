@@ -78,7 +78,7 @@ executive ======================================================================
 >                            → [PerGMKey] → [PerGMKey]
 >                            → ResultDispositions
 >                            → IO SFRuntime
->     finishRuntime matches rost prerunt@SFRuntime{ .. } pergmsI pergmsP rdGen03
+>     finishRuntime matches rost prerunt pergmsI pergmsP rdGen03
 >                                          = do
 >       tsStarted                          ← getCurrentTime
 >
@@ -89,9 +89,7 @@ executive ======================================================================
 >       tsScanned                          ← getCurrentTime
 >      
 >       -- actually conduct the tournament
->       ((wI, sI), (wP, sP))
->                                          ← decideWinners zBoot.zPreSampleCache zBoot.zPreInstCache zBoot.zOwners
->                                                          zBoot.zPerInstCache matches rost pergmsI pergmsP
+>       ((wI, sI), (wP, sP))               ← decideWinners prerunt matches rost pergmsI pergmsP
 >       tsDecided                          ← getCurrentTime
 >       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsScanned))
 >
@@ -248,7 +246,7 @@ executive ======================================================================
 > renderSong             :: ∀ p . Clock p ⇒
 >                           SFRuntime
 >                           → InstrMap (Stereo p)
->                           → FilePath
+>                           → String
 >                           → (DynMap → Music (Pitch, [NoteAttribute]))
 >                           → IO ()
 > renderSong runt imap name song           =

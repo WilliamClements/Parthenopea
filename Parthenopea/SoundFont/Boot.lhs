@@ -283,7 +283,7 @@ pre-sample task ================================================================
 >
 >     formFolder         :: FileWork → PreSampleKey → FileWork
 >     formFolder fwForm@FileWork{ .. } presk
->                                          = fwForm{ fwBoot = fwBoot', fwDispositions = rd'}
+>                                          = fwForm{ fwBoot = fwBoot', fwDispositions = dispose presk ss fwDispositions}
 >       where
 >         fName                            = unwords [fName_, "formFolder"]
 >
@@ -310,8 +310,6 @@ pre-sample task ================================================================
 >         (ss, changes, name)              = if wasRescued CorruptName ss_
 >                                              then (ss_, singleton FixCorruptShdrName, good)
 >                                              else (finishScans fName clue ss_, [], bad)
->
->         rd' = dispose presk ss fwDispositions
 
 partnering task =======================================================================================================
           assess declared stereo pairs
@@ -338,7 +336,7 @@ partnering task ================================================================
 >         fName                            = unwords [fName_, "partnerFolder"]
 >
 >         (ss_, clue)
->           | not stereo                   = (noChange k Ok,                   "mono")
+>           | not stereo                   = (noChange k Ok,                     "mono")
 >           | isNothing other || isNothing backLink
 >                                          = (handleProblem,            "nonconformant")
 >           | otherwise                    = (modified k Ok,                   "stereo")
@@ -466,7 +464,7 @@ iterating on InstZoneRecord list ===============================================
 >           then (zrec : zrecsFold, rdFold)
 >           else (zrec': zrecsFold, rdFold')
 >
-> zrecCompute              :: FileWork → (a → InstZoneRecord → a) → a → a
+> zrecCompute              :: ∀ a . FileWork → (a → InstZoneRecord → a) → a → a
 > zrecCompute FileWork{ .. } userFun seed  = foldl' userFun seed (goodZRecs fwZRecs fwDispositions)
 
 capture task ==========================================================================================================
@@ -515,11 +513,11 @@ capture task ===================================================================
 >             dispose (extractSampleKey pz) [Scan Modified impact fName_ (show pergm.pgkwInst)] rdFold
 >             
 >         captureZone    :: Word → Either PreZone (Disposition, Impact)
->         captureZone bix                  = zTry
+>         captureZone bix                  = eith
 >           where
 >             fName                        = unwords [fName_, "captureZone"]
 >                 
->             zTry
+>             eith
 >                                          -- TODO: corrupt adjusted limits?
 >               | isNothing pz.pzDigest.zdSampleIndex
 >                                          = Right (Accepted, GlobalZone)
@@ -1095,15 +1093,16 @@ sort task ======================================================================
 zone task =============================================================================================================
           generate the PerInstrument map
 
-> zoneTaskIf sffile _ fwIn@FileWork{ .. }       =
+> zoneTaskIf sffile _ fwIn@FileWork{ .. }  =
 >   fwIn{  fwBoot = fwBoot{zPerInstCache = fst formZoneCache}
 >        , fwDispositions = snd formZoneCache}
 >   where
+>     fName                                = unwords ["zoneTaskIf", "formZoneCache", "computePerInst"]
+>
 >     formZoneCache      :: (Map PerGMKey PerInstrument, ResultDispositions)
 >     formZoneCache                        = 
 >       Map.foldlWithKey formFolder (Map.empty, fwDispositions) fwBoot.zJobs
 >       where
->         fName                            = unwords ["zoneTaskIf", "formZoneCache", "formFolder"]
 >         formFolder     :: (Map PerGMKey PerInstrument, ResultDispositions)
 >                           → PerGMKey → InstCat
 >                           → (Map PerGMKey PerInstrument, ResultDispositions)
@@ -1125,7 +1124,7 @@ zone task ======================================================================
 >               case icat of
 >                 InstCatPerc x            → (x, x.inPercBixen)
 >                 InstCatInst x            → (x, map pzWordB x.inPreZones)
->                 _                        → error $ unwords ["formZoneCache", "only Inst and Perc are valid here"]
+>                 _                        → error $ unwords [fName, "only Inst and Perc are valid here"]
 >
 >             gZone                        =
 >               case preI.iGlobalKey of
@@ -1136,7 +1135,7 @@ zone task ======================================================================
 >             pzs                          = filter (\pz → pz.pzWordB `elem` bixen) icd.inPreZones
 >
 >             trace_CPI=
->               unwords ["computePerInst", show pergm.pgkwFile, preI.iName, show (length oList)]
+>               unwords [fName, show pergm.pgkwFile, preI.iName, show (length oList)]
 >
 > buildZone              :: SFFile → SFZone → Word → SFZone
 > buildZone sffile fromZone bagIndex

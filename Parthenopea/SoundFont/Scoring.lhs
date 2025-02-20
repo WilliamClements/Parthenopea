@@ -258,22 +258,23 @@ Scoring stuff ==================================================================
 
 tournament starts here ================================================================================================
 
-> decideWinners          :: Map PreSampleKey PreSample
->                           → Map PerGMKey PreInstrument
->                           → Map PerGMKey [PreZone]
->                           → Map PerGMKey PerInstrument
+> decideWinners          :: SFRuntime
 >                           → Matches
 >                           → ([InstrumentName], [PercussionSound]) 
 >                           → [PerGMKey]
 >                           → [PerGMKey]
 >                           → IO ((Map InstrumentName [PerGMScored], [String])
 >                               , (Map PercussionSound [PerGMScored], [String]))
-> decideWinners preSampleCache preInstCache owners zc matches rost pergmsI pergmsP
+> decideWinners SFRuntime{ .. } matches rost pergmsI pergmsP
 >                                          = do
->   traceIO ("decideWinners" ++ show (length zc))
+>   traceIO $ unwords [fName_, show (length zPerInstCache)]
 >   return wiExec
 >
 >   where
+>     fName_                                = "decideWinners"
+>
+>     SFBoot{ .. }                          = zBoot
+>
 >     wiExec             :: (  (Map InstrumentName [PerGMScored], [String])
 >                            , (Map PercussionSound [PerGMScored], [String]))
 >     wiExec                               = ((wI', sI), (wP', sP))
@@ -291,7 +292,7 @@ tournament starts here =========================================================
 >                                          = foldl' (xaEnterTournament fuzzMap pergmI []) target i2Fuzz'
 >       where
 >         -- access potentially massive amount of processed information regarding instrument
->         preI                             = deJust (unwords["wiFolder", "preI"]) (Map.lookup pergmI preInstCache)
+>         preI                             = deJust (unwords[fName_, "preI"]) (Map.lookup pergmI zPreInstCache)
 >         iMatches                         = deJust "mIMatches" (Map.lookup pergmI matches.mIMatches)
 >         fuzzMap                          = getFuzzMap iMatches
 >
@@ -315,15 +316,14 @@ tournament starts here =========================================================
 >       | traceIf trace_WP False           = undefined
 >       | otherwise                        = xaEnterTournament fuzzMap pergmP [] wIn kind
 >       where
->         fName                            = "wpFolder"
 >         trace_WP                         =
->           unwords [fName, show preI.iName, show pergmP, "of", show (length perI.pZones)]
+>           unwords [fName_, show preI.iName, show pergmP, "of", show (length perI.pZones)]
 >
 >         pergm                            = pergmP{pgkwBag = Nothing}
 >
->         preI                             = preInstCache Map.! pergm
->         pzs                              = owners       Map.! pergm
->         perI                             = zc           Map.! pergm
+>         preI                             = zPreInstCache Map.! pergm
+>         pzs                              = zOwners       Map.! pergm
+>         perI                             = zPerInstCache Map.! pergm
 >
 >         mz             :: Maybe PreZone
 >         mz                               = pgkwBag >>= findByBagIndex pzs
@@ -353,11 +353,11 @@ tournament starts here =========================================================
 >       | traceIf trace_XAET False         = undefined
 >       | otherwise                        = (Map.insertWith (++) kind [scored] wins, ss)
 >       where
->         fName                            = "xaEnterTournament"
+>         fName                            = unwords [fName, "xaEnterTournament"]
 >
 >         pergm_                           = pergm{pgkwBag = Nothing}
->         preI                             = preInstCache Map.! pergm_
->         perI                             = zc           Map.! pergm_
+>         preI                             = zPreInstCache Map.! pergm_
+>         perI                             = zPerInstCache Map.! pergm_
 >
 >         scope_, scope  :: [(PreZone, SFZone)]
 >         scope_                           =
@@ -377,7 +377,7 @@ tournament starts here =========================================================
 >             
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
 >                                            >>= findByBagIndex' perI.pZones
->                                            >>= \(q, _) → Just (F.sampleName (effShdr preSampleCache q))
+>                                            >>= \(q, _) → Just (F.sampleName (effShdr zPreSampleCache q))
 >
 >         trace_XAET                       =
 >           unwords [fName, preI.iName, fromMaybe "" mnameZ, show kind]
@@ -386,10 +386,10 @@ tournament starts here =========================================================
 >         computeGrade zs                  = gradeEmpiricals (Grader ssWeights 500) empiricals
 >           where
 >             empiricals :: [Double]       = [   foldHints hints
->                                              , fromRational $ scoreBool $ isStereoInst preSampleCache zs
->                                              , fromRational $ scoreBool $ is24BitInst preSampleCache zs
+>                                              , fromRational $ scoreBool $ isStereoInst zPreSampleCache zs
+>                                              , fromRational $ scoreBool $ is24BitInst zPreSampleCache zs
 >                                              , computeResolution zs
->                                              , fromRational $ scoreBool $ all (zoneConforms preSampleCache) zs
+>                                              , fromRational $ scoreBool $ all (zoneConforms zPreSampleCache) zs
 >                                              , fuzz]
 >             howgood                      = akResult - stands
 >             fuzz       :: Double
@@ -414,12 +414,12 @@ tournament starts here =========================================================
 >
 >             m1                           = 1/2
 >             m2                           = 1/2
->             m3                           = 3 * if isStereoInst preSampleCache zs then 1/2 else 1
+>             m3                           = 3 * if isStereoInst zPreSampleCache zs then 1/2 else 1
 >
 >         durScoring     :: (PreZone, SFZone) → Double
 >         durScoring (pz, zone) = if score < 0.01 then -10 else score
 >           where
->             shdr                         = effShdr preSampleCache pz
+>             shdr                         = effShdr zPreSampleCache pz
 >             score                        = sampleSize / fromIntegral shdr.sampleRate
 >
 >             sampleSize :: Double
