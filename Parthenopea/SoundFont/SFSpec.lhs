@@ -15,10 +15,10 @@ April 16, 2023
 
 > module Parthenopea.SoundFont.SFSpec
 >        (  accepted
->         , appendChange
+>         , changePreZone
 >         , autopsy
 >         , badButMaybeFix
->         , cancels
+>         , changePreSample
 >         , combineBoot
 >         , combinerd
 >         , dasBoot
@@ -89,6 +89,7 @@ April 16, 2023
 >         , violated
 >         , virginrd
 >         , wasRescued
+>         , wasSwitchedToMono
 >         , ZoneDigest(..)
 >         )
 >         where
@@ -131,7 +132,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   MakeMono
 >   | MakeLeft PreZoneKey
 >   | MakeRight PreZoneKey
->   | FixCorruptShdrName deriving Eq
+>   | FixCorruptShdrName deriving (Eq, Show)
 >
 > data PreZone =
 >   PreZone {
@@ -164,8 +165,19 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >                   FixCorruptShdrName     → s{F.sampleName = fixName (F.sampleName s)}) x)
 >          (psShdr (deJust "rawShdr" (Map.lookup (extractSampleKey pz) psCache)))
 >          pz.pzChanges
-> appendChange           :: PreZone → ShdrXForm → PreZone
-> appendChange pz@PreZone{ .. } change     = pz{pzChanges = pzChanges ++ singleton change}
+> changePreSample        :: PreSample → ShdrXForm → PreSample
+> changePreSample ps@PreSample{ .. } ch    = ps{psChanges = psChanges ++ singleton ch}
+> changePreZone          :: PreZone → ShdrXForm → PreZone
+> changePreZone pz@PreZone{ .. } ch        = pz{pzChanges = pzChanges ++ singleton ch}
+> wasSwitchedToMono      :: Map PreSampleKey PreSample → PreZone → Bool
+> wasSwitchedToMono preSampleCache pz
+>   | traceIf trace_WSSTM False            = undefined
+>   | otherwise                            = MakeMono `elem` preSample.psChanges
+>   where
+>     fName                                = "wasSwitchedToMono"
+>     trace_WSSTM                          = unwords [fName, show preSample.psChanges]
+>
+>     preSample                            = preSampleCache Map.! extractSampleKey pz
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
 > formPreZoneMap         :: [PreZone] → Map PreZoneKey PreZone
@@ -443,7 +455,7 @@ bootstrapping ==================================================================
 >      | CorruptGMRange | Narrow | BadLinkage | IllegalCrossover
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
 >      | Unrecognized | NoPercZones | Harvested | CatIsPerc | CatIsInst | Disqualified
->      | Adopted | GlobalZone
+>      | Adopted | AdoptedAsMono | GlobalZone
 >   deriving (Eq, Ord, Show)
 >
 > data Scan                                =
@@ -467,10 +479,8 @@ bootstrapping ==================================================================
 >     getTriple          :: (Impact, Int) → (Disposition, Impact, String)
 >     getTriple (impact, _)                = striple $ fromJust $ find (\s → s.sImpact == impact) ss
 >
-> cancelset, deadset, elideset, rescueset
+> deadset, elideset, rescueset
 >                        :: [Disposition]
->                                            -- cancelled if (not dead and) any of the following appear
-> cancelset                                = [Violated, Dropped, Rescued, NoChange, Modified]
 >                                            -- a given list is filtered down to the three Dispositions
 >                                            -- then we count "membership" per distinct Impact
 >                                            -- ...dead if any counts are odd
@@ -487,12 +497,11 @@ bootstrapping ==================================================================
 > striple                :: Scan → (Disposition, Impact, String)
 > striple s                                = (s.sDisposition, s.sImpact, s.sFunction)
 >
-> dead, cancels, wasRescued
->                        :: [Scan] → Bool
+> dead                   :: [Scan] → Bool
 > dead ss                                  = notDead /= autopsy ss
 >
-> cancels                                  = any (\s → s.sDisposition `elem` cancelset)
-> wasRescued                               = any (\s → s.sDisposition `elem` rescueset)
+> wasRescued             :: Impact → [Scan] → Bool
+> wasRescued impact                        = any (\s → s.sDisposition `elem` rescueset && s.sImpact == impact)
 >
 > accepted, violated, dropped, rescued, noChange, modified
 >                        :: ∀ r . (SFResource r) ⇒ r → Impact → [Scan]
@@ -649,10 +658,10 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportTournamentName                     = "TournamentReport'.log"
 >
 > howVerboseScanReport   :: Rational
-> howVerboseScanReport                     = 1/4
+> howVerboseScanReport                     = 3/4
 >
 > howVerboseTournamentReport
 >                        :: Rational
-> howVerboseTournamentReport               = 1/4
+> howVerboseTournamentReport               = 3/4
 
 The End

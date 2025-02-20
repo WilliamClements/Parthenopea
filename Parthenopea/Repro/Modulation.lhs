@@ -30,6 +30,7 @@ November 6, 2023
 >         , coAccess
 >         , Coeff(..)
 >         , compileMods
+>         , constA
 >         , Continuity(..)
 >         , controlConcave
 >         , controlConvex
@@ -104,7 +105,8 @@ November 6, 2023
 >         )
 >         where
 >
-> import Control.Arrow
+> import Control.Arrow ( Arrow(arr), (>>>) )
+> import Control.Arrow.Operations
 > import Data.Array.Unboxed
 > import qualified Data.Bifunctor          as BF
 > import Data.Bits
@@ -120,10 +122,12 @@ November 6, 2023
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
 > import Euterpea.Music (Volume, AbsPitch)
-> import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
 > import GHC.Generics ( Generic ) 
 > import Parthenopea.Debug
-  
+>
+> constA                 :: Arrow a ⇒ c → a b c
+> constA                                   = arr . const
+
 Modulator management ==================================================================================================
 
 > type Node = Int

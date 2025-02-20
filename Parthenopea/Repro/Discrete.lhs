@@ -16,6 +16,7 @@ June 17, 2024
 > module Parthenopea.Repro.Discrete where
 >
 > import qualified Codec.Wav               as W
+> import Control.Arrow.Operations
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
@@ -26,7 +27,6 @@ June 17, 2024
 > import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
-> import FRP.UISF.AuxFunctions ( delay )
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren

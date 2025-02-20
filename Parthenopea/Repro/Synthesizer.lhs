@@ -27,7 +27,6 @@ May 14, 2023
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
-> import FRP.UISF.AuxFunctions ( constA )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Discrete ( applyConvolutionMono, applyConvolutionStereo )

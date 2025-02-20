@@ -325,7 +325,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → [Double]
 >                           → Signal p () (Double, Double)
 > instrumentSF SFRuntime{ .. } pergm durI pchIn volIn nps
->   | traceNot trace_ISF False             = undefined
+>   | traceIf trace_ISF False              = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rSampleRate
 >                                              durI pchOut volOut nps
 >                                              samplea.ssData samplea.ssM24
@@ -364,7 +364,7 @@ zone selection for rendering ===================================================
 >
 >     selectBestZone     :: (PreZone, SFZone)
 >     selectBestZone
->       | traceNot trace_SBZ False         = undefined
+>       | traceIf trace_SBZ False          = undefined
 >       | otherwise                        =
 >       if cnt == 0
 >         then error "out of range"
@@ -398,7 +398,7 @@ zone selection for rendering ===================================================
 >
 >     getStereoPartner   :: (PreZone, SFZone) → Maybe (PreZone, SFZone)
 >     getStereoPartner (pz, _)
->       | traceNow trace_GSP False         = undefined
+>       | traceIf trace_GSP False          = undefined
 >       | otherwise                        =
 >       case toSampleType (F.sampleType shdr) of
 >         SampleTypeLeft                   → partner
@@ -447,7 +447,7 @@ reconcile zone and sample header ===============================================
 >                           → Dur
 >                           → (Recon, Maybe Recon)
 > reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon nps durR
->   | traceNever trace_RLR False           = undefined
+>   | traceIf trace_RLR False              = undefined
 >   | otherwise                            = (recL, Just recR')
 >   where
 >     secsScored         :: Double         = fromRational durR
