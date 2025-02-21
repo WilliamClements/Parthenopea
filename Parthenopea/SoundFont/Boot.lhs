@@ -1038,8 +1038,8 @@ categorization task ============================================================
 >             catPerc ws
 >               | traceNot trace_CP False  = undefined
 >               | otherwise                =
->               if null pzs || null ws || (null . init) ws
->                 then InstCatDisq "narrow" (dropped pergm Narrow)
+>               if null pzs || null ws
+>                 then InstCatDisq "catPerc" (dropped pergm NoZones)
 >                 else (case check of
 >                        Nothing           → InstCatPerc icd
 >                        Just scans        → InstCatDisq "smashing" scans)

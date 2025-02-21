@@ -17,7 +17,6 @@ February 10, 2025
 >         , fractionCovered
 >         , fractionEmpty
 >         , lookupCellIndex
->         , sLength
 >         , Smashing(..)
 >         , SmashStats(..)
 >         , smashSubspaces
@@ -141,8 +140,6 @@ You see there is some overlap between Zone 1 and Zone 2.
 > instance ∀ i. (Integral i, Num i, Show i) ⇒ Show (Smashing i) where
 >   show Smashing{ .. }                    =
 >     unwords ["Smashing", show (smashTag, smashStats)]
-> sLength                :: ∀ i. (Integral i) ⇒ Smashing i → i
-> sLength smashup                        = product smashup.smashDims
 > data SmashStats                        =
 >   SmashStats {
 >     countNothings      :: Int
@@ -161,9 +158,9 @@ You see there is some overlap between Zone 1 and Zone 2.
 >       | otherwise                        = stats{countMultiples = countMultiples + 1}
 > fractionEmpty, fractionCovered
 >                        :: ∀ i. (Integral i, Show i) ⇒ Smashing i → Rational
-> fractionEmpty smashup                    = fromIntegral (countNothings smashup.smashStats) % fromIntegral (sLength smashup)
+> fractionEmpty smashup                    = fromIntegral (countNothings smashup.smashStats) % fromIntegral (product smashup.smashDims)
 > fractionCovered smashup                  =
->   fromIntegral (countSingles smashup.smashStats + countMultiples smashup.smashStats) % fromIntegral (sLength smashup)
+>   fromIntegral (countSingles smashup.smashStats + countMultiples smashup.smashStats) % fromIntegral (product smashup.smashDims)
 >
 > inZRange               :: (Ix a, Num a) ⇒ a → a → Bool
 > inZRange x y                             = inRange (0, y - 1) x 

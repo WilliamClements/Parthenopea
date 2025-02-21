@@ -171,7 +171,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > changePreZone pz@PreZone{ .. } ch        = pz{pzChanges = pzChanges ++ singleton ch}
 > wasSwitchedToMono      :: Map PreSampleKey PreSample → PreZone → Bool
 > wasSwitchedToMono preSampleCache pz
->   | traceIf trace_WSSTM False            = undefined
+>   | traceNever trace_WSSTM False         = undefined
 >   | otherwise                            = MakeMono `elem` preSample.psChanges
 >   where
 >     fName                                = "wasSwitchedToMono"

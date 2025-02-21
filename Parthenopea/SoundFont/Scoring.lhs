@@ -353,7 +353,7 @@ tournament starts here =========================================================
 >       | traceIf trace_XAET False         = undefined
 >       | otherwise                        = (Map.insertWith (++) kind [scored] wins, ss)
 >       where
->         fName                            = unwords [fName, "xaEnterTournament"]
+>         fName                            = unwords [fName_, "xaEnterTournament"]
 >
 >         pergm_                           = pergm{pgkwBag = Nothing}
 >         preI                             = zPreInstCache Map.! pergm_

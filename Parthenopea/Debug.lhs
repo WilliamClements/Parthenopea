@@ -63,13 +63,13 @@ Tracing ========================================================================
 >                        :: String → a → a
 > traceIf str expr                         = if diagnosticsEnabled then trace str expr else expr
 > traceNow                                 = trace
-> traceAlways                              = trace
+> traceAlways                              = if diagnosticsLevel > 0 then traceNow else traceNot
 > traceNever _ expr                        = expr
 > traceNot _ expr                          = expr
 >
 > tracer                 :: Show a ⇒ String → a → a
 > tracer str x                             =
->   if True
+>   if diagnosticsLevel > 0
 >     then traceNow (unwords [str, "=", show x]) x
 >     else x
 >
@@ -99,7 +99,10 @@ Test runner ====================================================================
 
 Debugging Flags =======================================================================================================
 
+> diagnosticsLevel       :: Rational
+> diagnosticsLevel                         = 1/4
+> 
 > diagnosticsEnabled     :: Bool
-> diagnosticsEnabled                       = False
+> diagnosticsEnabled                       = diagnosticsLevel > 1/2
 
 The End
