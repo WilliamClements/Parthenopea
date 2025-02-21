@@ -15,7 +15,8 @@ William Clements
 November 6, 2023
 
 > module Parthenopea.Repro.Modulation
->        ( addAmount
+>        ( accommodate
+>         , addAmount
 >         , addAmtSrc
 >         , addResonance
 >         , addSrc
@@ -27,6 +28,7 @@ November 6, 2023
 >         , chorusAllPercent
 >         , chorusDepth
 >         , chorusRate
+>         , clip
 >         , coAccess
 >         , Coeff(..)
 >         , compileMods
@@ -956,6 +958,13 @@ Mapping is used in SoundFont modulator
 >
 > type Velocity                            = Volume
 > type KeyNumber                           = AbsPitch
+>
+> accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
+> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
+>
+> clip                   :: Ord n ⇒ (n, n) → n → n
+> clip (lower, upper) val                  = min upper (max lower val)
+>
 
 Returns the frequency
 

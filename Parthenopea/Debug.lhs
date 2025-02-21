@@ -15,14 +15,11 @@ William Clements
 February 2, 2025
 
 > module Parthenopea.Debug
->        (  accommodate
->         , aEqual
->         , clip
+>        (  aEqual
 >         , deJust
 >         , diagnosticsEnabled
 >         , notracer
 >         , profess
->         , professInRange
 >         , runTests
 >         , runTestsQuietly
 >         , traceAlways
@@ -38,21 +35,10 @@ February 2, 2025
 > import Data.Maybe
 > import Debug.Trace
 >
-> accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
-> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
->
-> clip                   :: Ord n ⇒ (n, n) → n → n
-> clip (lower, upper) val                  = min upper (max lower val)
->
 > profess                :: Bool → String → a → a
 > profess assertion msg something          = if not assertion
 >                                              then error (unwords ["Failed assertion --", msg])
 >                                              else something
->
-> professInRange         :: (Eq a, Ord a, Show a) ⇒ (a, a) → a → String → a → a
-> professInRange rng val role              = profess
->                                              (val == clip rng val)
->                                              (unwords ["out of", role, "range", show rng, show val])
 >
 > deJust                 :: ∀ a. String → Maybe a → a
 > deJust tag item                          = profess (isJust item) (unwords["expected Just for", tag]) (fromJust item)

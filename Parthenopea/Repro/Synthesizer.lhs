@@ -524,14 +524,10 @@ Effects ========================================================================
 >     then makeSF
 >     else delay 0                                            
 >   where
->     crate                                = professInRange
->                                              (0.1, 100)
->                                              crate_
+>     crate                                = profess (crate_ == clip (0.1, 100) crate_)
 >                                              "chorus rate"
 >                                              crate_
->     cdepth                               = professInRange
->                                              (0.0001, 1.1)
->                                              cdepth_
+>     cdepth                               = profess (cdepth_ == clip (0.0001, 1.1) cdepth_)
 >                                              "chorus depth"
 >                                              cdepth_
 >
