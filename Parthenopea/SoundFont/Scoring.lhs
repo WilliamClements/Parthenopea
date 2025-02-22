@@ -290,8 +290,13 @@ tournament starts here =========================================================
 >                           → PerGMKey
 >                           → (Map InstrumentName [PerGMScored], [String])
 >     wiFolder target pergmI@PerGMKey{pgkwFile}
->                                          = foldl' (xaEnterTournament fuzzMap pergmI []) target i2Fuzz'
+>       | traceIf trace_WI False           = undefined
+>       | otherwise                        = foldl' (xaEnterTournament fuzzMap pergmI []) target i2Fuzz'
 >       where
+>         fName                            = unwords [fName_, "wiFolder"]
+>         trace_WI                         =
+>           unwords [fName, show preI.iName, show pergmI, show fuzzMap, show i2Fuzz, show (Map.keys i2Fuzz)]
+>
 >         -- access potentially massive amount of processed information regarding instrument
 >         preI                             = deJust (unwords[fName_, "preI"]) (Map.lookup pergmI zPreInstCache)
 >         iMatches                         = deJust "mIMatches" (Map.lookup pergmI matches.mIMatches)
@@ -304,7 +309,7 @@ tournament starts here =========================================================
 >         i2Fuzz'         :: [InstrumentName]
 >         i2Fuzz'                          =
 >           profess
->             (not $ null i2Fuzz)
+>             (not $ Map.null i2Fuzz)
 >             (unwords ["unexpected empty matches for", show pgkwFile, preI.iName]) 
 >             (if multipleCompetes
 >                then Map.keys i2Fuzz
@@ -317,8 +322,9 @@ tournament starts here =========================================================
 >       | traceIf trace_WP False           = undefined
 >       | otherwise                        = xaEnterTournament fuzzMap pergmP [] wIn kind
 >       where
+>         fName                            = unwords [fName_, "wPFolder"]
 >         trace_WP                         =
->           unwords [fName_, show preI.iName, show pergmP, "of", show (length perI.pZones)]
+>           unwords [fName, show preI.iName, show pergmP, "of", show (length perI.pZones)]
 >
 >         pergm                            = pergmP{pgkwBag = Nothing}
 >
@@ -355,6 +361,8 @@ tournament starts here =========================================================
 >       | otherwise                        = (Map.insertWith (++) kind [scored] wins, ss)
 >       where
 >         fName                            = unwords [fName_, "xaEnterTournament"]
+>         trace_XAET                       =
+>           unwords [fName, preI.iName, fromMaybe "" mnameZ, show kind]
 >
 >         pergm_                           = pergm{pgkwBag = Nothing}
 >         preI                             = zPreInstCache Map.! pergm_
@@ -379,9 +387,6 @@ tournament starts here =========================================================
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
 >                                            >>= findByBagIndex' perI.pZones
 >                                            >>= \(q, _) → Just (F.sampleName (effShdr zPreSampleCache q))
->
->         trace_XAET                       =
->           unwords [fName, preI.iName, fromMaybe "" mnameZ, show kind]
 >
 >         computeGrade   :: [(PreZone, SFZone)] → ArtifactGrade
 >         computeGrade zs                  = gradeEmpiricals (Grader ssWeights 500) empiricals

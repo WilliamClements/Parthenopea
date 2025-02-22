@@ -948,8 +948,6 @@ categorization task ============================================================
 >
 >         maybeSettle    :: (Foldable t, Show (t Fuzz)) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
 >         maybeSettle thresh ic keys       = find (> thresh) keys >> Just ic
->
->         genericScore                     = evalAgainstGeneric preI.iName
 
    "now", sequence through the alternatives, categorizing encountered instruments as follows:
    a. Just InstCatInst           an inst bearing one inst, or
@@ -1001,8 +999,6 @@ categorization task ============================================================
 >                   , maybeSettle stands      (catDisq noClue (dropped pergm Narrow)) iMatches.ffInst
 >
 >                   , maybeNailAsPerc 0.4
->                   , if genericScore > 0 then Just catInst            else Nothing
->                   , if genericScore < 0 then Just (catPerc wZones)   else Nothing
 >                   , Just $ catDisq noClue (dropped pergm Unrecognized)
 >                 ]
 >               where
