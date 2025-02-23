@@ -18,6 +18,10 @@ April 16, 2023
 >         , changePreZone
 >         , autopsy
 >         , badButMaybeFix
+>         , ChangeEar(..)
+>         , ChangeEarItem(..)
+>         , ChangeName(..)
+>         , ChangeNameItem(..)
 >         , changePreSample
 >         , combineBoot
 >         , combinerd
@@ -27,7 +31,7 @@ April 16, 2023
 >         , defZone
 >         , dropped
 >         , Disposition(..)
->         , effShdr
+>         , effPZShdr
 >         , elideset
 >         , emitMsgs
 >         , emptyrd
@@ -49,7 +53,6 @@ April 16, 2023
 >         , Impact(..)
 >         , InstCat(..)
 >         , InstCatData(..)
->         , InstXForm(..)
 >         , is24BitInst
 >         , isStereoInst
 >         , isStereoZone
@@ -63,7 +66,7 @@ April 16, 2023
 >         , PerGMKey(..)
 >         , PerInstrument(..)
 >         , PreInstrument(..)
->         , PreSample(..)
+>         , PreSample
 >         , PreSampleKey(..)
 >         , PreZone(..)
 >         , PreZoneKey(..)
@@ -79,7 +82,6 @@ April 16, 2023
 >         , SFFile(..)
 >         , SFResource(..)
 >         , SFZone(..)
->         , ShdrXForm(..)
 >         , showBags
 >         , showMaybeInstCat
 >         , showPreZones
@@ -110,29 +112,34 @@ April 16, 2023
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Modulation
   
-importing sampled sound (from SoundFont (*.sf2) files) ================================================================
+implementing SoundFont spec ===========================================================================================
 
+> data ChangeNameItem = FixCorruptName deriving Eq
+>
+> data ChangeName a =
+>   ChangeName {
+>     cnSource           :: a
+>   , cnChanges          :: [ChangeNameItem]
+>   , cnName             :: String}
+>
+> data ChangeEarItem = MakeMono deriving Eq
+>
+> data ChangeEar a =
+>   ChangeEar {
+>     ceSource           :: a
+>   , ceChanges          :: [ChangeEarItem]} deriving Eq
+>
 > data PreSampleKey =
 >   PreSampleKey {
 >     pskwFile           :: Word
 >   , pskwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
-> data PreSample =
->   PreSample {
->     sName              :: String
->   , psShdr             :: F.Shdr
->   , psChanges          :: [ShdrXForm]}
+> type PreSample = ChangeName F.Shdr
 >
 > data PreZoneKey =
 >   PreZoneKey {
 >     pzkwFile           :: Word
 >   , pzkwBag            :: Word} deriving (Eq, Ord, Show)
->
-> data ShdrXForm =
->   MakeMono
->   | MakeLeft PreZoneKey
->   | MakeRight PreZoneKey
->   | FixCorruptShdrName deriving (Eq, Show)
 >
 > data PreZone =
 >   PreZone {
@@ -142,13 +149,13 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , pzWordB            :: Word
 >   , pzDigest           :: ZoneDigest
 >   , pzmkPartners       :: [PreZoneKey]
->   , pzChanges          :: [ShdrXForm]} deriving Eq
+>   , pzChanges          :: ChangeEar F.Shdr} deriving Eq
 > instance Show PreZone where
 >   show (PreZone{ .. })                   =
 >     unwords ["PreZone", show (pzWordF, pzWordS, pzWordI, pzWordB), show pzDigest, show pzmkPartners]
 >
-> makePreZone            :: Word → Word → Word → Word → [F.Generator] → PreZone
-> makePreZone wF wS wI wB gens             = PreZone wF wS wI wB (formDigest gens) [] []
+> makePreZone            :: Word → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
+> makePreZone wF wS wI wB gens shdr        = PreZone wF wS wI wB (formDigest gens) [] (ChangeEar shdr [])
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
@@ -156,28 +163,17 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
 > extractZoneKey         :: PreZone → PreZoneKey
 > extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordB
-> effShdr                :: Map PreSampleKey PreSample → PreZone → F.Shdr
-> effShdr psCache pz                       =
->   foldl' (\s x → (\case
->                   MakeMono               → s{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
->                   MakeLeft _             → s{F.sampleType = fromSampleType SampleTypeLeft, F.sampleLink = 0}
->                   MakeRight _            → s{F.sampleType = fromSampleType SampleTypeRight, F.sampleLink = 0}
->                   FixCorruptShdrName     → s{F.sampleName = fixName (F.sampleName s)}) x)
->          (psShdr (deJust "rawShdr" (Map.lookup (extractSampleKey pz) psCache)))
->          pz.pzChanges
-> changePreSample        :: PreSample → ShdrXForm → PreSample
-> changePreSample ps@PreSample{ .. } ch    = ps{psChanges = psChanges ++ singleton ch}
-> changePreZone          :: PreZone → ShdrXForm → PreZone
-> changePreZone pz@PreZone{ .. } ch        = pz{pzChanges = pzChanges ++ singleton ch}
-> wasSwitchedToMono      :: Map PreSampleKey PreSample → PreZone → Bool
-> wasSwitchedToMono preSampleCache pz
->   | traceNever trace_WSSTM False         = undefined
->   | otherwise                            = MakeMono `elem` preSample.psChanges
->   where
->     fName                                = "wasSwitchedToMono"
->     trace_WSSTM                          = unwords [fName, show preSample.psChanges]
->
->     preSample                            = preSampleCache Map.! extractSampleKey pz
+> changePreSample        :: PreSample → PreSample
+> changePreSample ps@ChangeName{ .. }      = ps{cnChanges = [FixCorruptName], cnName = fixName cnName}
+> effPZShdr              :: PreZone → F.Shdr
+> effPZShdr PreZone{ .. }                  =
+>   if MakeMono `elem` pzChanges.ceChanges
+>     then pzChanges.ceSource{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
+>     else pzChanges.ceSource
+> changePreZone          :: PreZone → PreZone
+> changePreZone pz@PreZone{ .. }           = pz{pzChanges = pzChanges{ceChanges = MakeMono : pzChanges.ceChanges}}
+> wasSwitchedToMono      :: PreZone → Bool
+> wasSwitchedToMono PreZone{ .. }          = MakeMono `elem` pzChanges.ceChanges
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
 > formPreZoneMap         :: [PreZone] → Map PreZoneKey PreZone
@@ -185,16 +181,11 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > data PreInstrument                       =
 >   PreInstrument {
->     pInst              :: F.Inst
->   , iName              :: String
->   , iGlobalKey         :: Maybe PreZoneKey
->   , iChanges           :: [InstXForm]}
+>     piChanges          :: ChangeName F.Inst
+>   , iGlobalKey         :: Maybe PreZoneKey}
 > instance Show PreInstrument where
 >   show (PreInstrument{ .. })             =
->     unwords ["PreInstrument", show iName]
->
-> data InstXForm =
->   FixCorruptInstName deriving Eq
+>     unwords ["PreInstrument", show piChanges.cnName]
 >
 > data PerInstrument                       =
 >   PerInstrument {
@@ -581,18 +572,18 @@ sufficient to protect below code from bad data and document the situation. But .
 out diagnostics might cause us to execute this code first. So, being crash-free/minimal in isStereoZone et al.
 
 > isStereoInst, is24BitInst
->                        :: Map PreSampleKey PreSample → [(PreZone, a)] → Bool
+>                        :: [(PreZone, a)] → Bool
 >
-> isStereoInst preSampleCache zs           = isJust $ find (isStereoZone preSampleCache) (map fst zs)
+> isStereoInst zs                          = isJust $ find isStereoZone (map fst zs)
 >       
-> isStereoZone preSampleCache pz           = isLeftPreZone preSampleCache pz || isRightPreZone preSampleCache pz
+> isStereoZone pz                          = isLeftPreZone pz || isRightPreZone pz
 >
 > isStereoZone, isLeftPreZone, isRightPreZone
->                        :: Map PreSampleKey PreSample → PreZone → Bool
-> isLeftPreZone preSampleCache pz          = SampleTypeLeft == toSampleType (effShdr preSampleCache pz).sampleType
-> isRightPreZone preSampleCache pz         = SampleTypeRight == toSampleType (effShdr preSampleCache pz).sampleType
+>                        :: PreZone → Bool
+> isLeftPreZone pz                         = SampleTypeLeft == toSampleType (effPZShdr pz).sampleType
+> isRightPreZone pz                        = SampleTypeRight == toSampleType (effPZShdr pz).sampleType
 >
-> is24BitInst _ _                          = True -- was isJust $ ssM24 arrays       
+> is24BitInst _                            = True -- was isJust $ ssM24 arrays       
 >
 > emitMsgs               :: InstrumentName → [(InstrumentName, [String])] → [Emission]
 > emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs

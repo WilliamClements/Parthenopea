@@ -291,7 +291,7 @@ pre-sample task ================================================================
 >           if dead ss
 >             then fwBoot
 >             else fwBoot{zPreSampleCache = Map.insert presk ps fwBoot.zPreSampleCache}
->         ps                               = PreSample name shdr changes
+>         ps                               = ChangeName shdr changes name
 >         shdr                             = sffile.zFileArrays.ssShdrs ! presk.pskwSampleIndex
 >
 >         bad                              = shdr.sampleName
@@ -308,7 +308,7 @@ pre-sample task ================================================================
 >           | otherwise                    = (accepted presk Ok, show presk.pskwSampleIndex)
 >
 >         (ss, changes, name)              = if wasRescued CorruptName ss_
->                                              then (ss_, singleton FixCorruptShdrName, good)
+>                                              then (ss_, singleton FixCorruptName, good)
 >                                              else (finishScans fName clue ss_, [], bad)
 
 partnering task =======================================================================================================
@@ -358,7 +358,7 @@ partnering task ================================================================
 >         handleProblem  :: [Scan]
 >         handleProblem                    = badButMaybeFix canDevolveToMono BadStereoPartner fName noClue noClue
 >
->         v'                               = changePreSample v MakeMono
+>         v'                               = changePreSample v
 >
 >         makePartner                      =
 >           \case
@@ -398,7 +398,7 @@ pre-instance task ==============================================================
 >         m'                               =
 >           if dead ss
 >              then m 
->              else Map.insert pergm (PreInstrument iinst finalName Nothing changes) m
+>              else Map.insert pergm (PreInstrument (ChangeName iinst changes finalName) Nothing) m
 >
 >         (ss_, clue)
 >           | iinst.instBagNdx == jinst.instBagNdx
@@ -407,7 +407,7 @@ pre-instance task ==============================================================
 >           | otherwise                    = (accepted pergm Ok, show pergm.pgkwInst)
 >
 >         ss                               = if wasRescued CorruptName ss_ then ss_ else finishScans fName clue ss_
->         changes                          = if wasRescued CorruptName ss_ then singleton FixCorruptInstName else []
+>         changes                          = if wasRescued CorruptName ss_ then singleton FixCorruptName else []
 >         finalName                        = if wasRescued CorruptName ss_ then good else bad
 >
 >         rd''                             = dispose pergm ss rdFold   
@@ -506,7 +506,7 @@ capture task ===================================================================
 >         sampleFolder   :: ResultDispositions → PreZone → ResultDispositions
 >         sampleFolder rdFold pz           =
 >           let
->             impact                       = if wasSwitchedToMono fwBoot.zPreSampleCache pz
+>             impact                       = if wasSwitchedToMono pz
 >                                              then AdoptedAsMono
 >                                              else Adopted
 >           in
@@ -522,7 +522,7 @@ capture task ===================================================================
 >               | isNothing pz.pzDigest.zdSampleIndex
 >                                          = Right (Accepted, GlobalZone)
 >               | isNothing starget        = Right (Dropped, OrphanedBySample)
->               | otherwise                = Left pz{pzChanges = pres.psChanges}
+>               | otherwise                = Left pz{pzChanges = ChangeEar pres.cnSource []}
 >
 >             xgeni                        = F.genNdx $ sffile.zFileArrays.ssIBags ! bix
 >             ygeni                        = F.genNdx $ sffile.zFileArrays.ssIBags ! (bix + 1)
@@ -532,7 +532,7 @@ capture task ===================================================================
 >                                              (xgeni <= ygeni)
 >                                              (unwords [fName, "SoundFont file corrupt (gens)"])
 >                                              (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
->             pz                           = makePreZone sffile.zWordF si (pgkwInst pergm) bix gens
+>             pz                           = makePreZone sffile.zWordF si (pgkwInst pergm) bix gens pres.cnSource
 >             si                           = deJust fName pz.pzDigest.zdSampleIndex
 >             presk                        = PreSampleKey sffile.zWordF si
 >             starget                      = Map.lookup presk fwBoot.zPreSampleCache
@@ -553,7 +553,7 @@ mark task ======================================================================
 
 groom task ============================================================================================================
 
-> groomTaskIf _ _ fwIn@FileWork{ .. }      = zrecTask groomer fwIn
+> groomTaskIf _ _ fwIn                     = zrecTask groomer fwIn
 >   where
 >     fName_                               = "groomTaskIf"
 >
@@ -563,7 +563,7 @@ groom task =====================================================================
 >     backFolder m zrec                    = Map.union m m'
 >       where
 >         m'                               = 
->           foldl' pzFolder Map.empty (filter (isStereoZone fwBoot.zPreSampleCache) zrec.zsPreZones)
+>           foldl' pzFolder Map.empty (filter isStereoZone zrec.zsPreZones)
 >
 >     pzFolder target pz                   =
 >       Map.insertWith (++) (PreSampleKey pz.pzWordF pz.pzWordS) [extractZoneKey pz] target
@@ -578,7 +578,7 @@ groom task =====================================================================
 >         fName                            = unwords [fName_, "groomer"]
 >         trace_G                          = unwords [fName, show rdFold]
 >
->         (pzsStereo_, pzsMono)            = partition (isStereoZone fwBoot.zPreSampleCache) zrec.zsPreZones
+>         (pzsStereo_, pzsMono)            = partition isStereoZone zrec.zsPreZones
 >         pzsStereo                        = map partnerUp pzsStereo_
 >         newPzs                           = pzsStereo ++ pzsMono
 >         pergm                            = instKey zrec
@@ -591,7 +591,7 @@ groom task =====================================================================
 >     partnerUp pz                         =
 >       let
 >         mpartners                        =
->           Map.lookup (PreSampleKey pz.pzWordF (F.sampleLink (effShdr fwBoot.zPreSampleCache pz))) back 
+>           Map.lookup (PreSampleKey pz.pzWordF (F.sampleLink (effPZShdr pz))) back 
 >       in
 >         pz{pzmkPartners = fromMaybe [] mpartners}
 
@@ -605,7 +605,7 @@ vet task =======================================================================
 >     filePzs                              = foldl' pzFolder [] (goodZRecs fwZRecs fwDispositions)
 >
 >     pzFolder           :: [PreZone] → InstZoneRecord → [PreZone]
->     pzFolder pzs zrec                    = pzs ++ filter (isStereoZone fwBoot.zPreSampleCache) zrec.zsPreZones
+>     pzFolder pzs zrec                    = pzs ++ filter isStereoZone zrec.zsPreZones
 >
 >     mapStereo                            = formPreZoneMap filePzs
 >
@@ -618,13 +618,13 @@ vet task =======================================================================
 >
 >         newPzs                           =
 >           let
->             (pzsStereo, pzsMono)         = partition (isStereoZone fwBoot.zPreSampleCache) zrec.zsPreZones
+>             (pzsStereo, pzsMono)         = partition isStereoZone zrec.zsPreZones
 >
 >             vetPreZone :: PreZone → Maybe PreZone
 >             vetPreZone pz                =
 >               if null newPartners
 >                 then if canDevolveToMono
->                        then Just $ changePreZone pz MakeMono
+>                        then Just $ changePreZone pz
 >                        else Nothing
 >                 else Just pz{pzmkPartners = newPartners}
 >               where
@@ -651,9 +651,9 @@ vet task =======================================================================
 >         goodPartners pzMe pzYou          =
 >           let
 >             mySPartner                   =
->               PreSampleKey pzMe.pzWordF   (F.sampleLink (effShdr fwBoot.zPreSampleCache pzMe))
+>               PreSampleKey pzMe.pzWordF   (F.sampleLink (effPZShdr pzMe))
 >             yrSPartner                   =
->               PreSampleKey pzYou.pzWordF  (F.sampleLink (effShdr fwBoot.zPreSampleCache pzYou))
+>               PreSampleKey pzYou.pzWordF  (F.sampleLink (effPZShdr pzYou))
 >           in
 >             (Just yrSPartner == Map.lookup mySPartner fwBoot.zTempPartnerMap)
 >             && (Just mySPartner == Map.lookup yrSPartner fwBoot.zTempPartnerMap)
@@ -699,8 +699,9 @@ To build the map
 >     enFrag zrec                          =
 >       let
 >         preI                             = fwBoot.zPreInstCache Map.! instKey zrec
+>         iName                            = preI.piChanges.cnName
 >       in
->         (preI.iName, zrec.zswInst)
+>         (iName, zrec.zswInst)
 >
 >     deFrag             :: (String, Word) → Maybe (String, Word)
 >     deFrag (str, w)                     =
@@ -825,9 +826,9 @@ match task =====================================================================
 > matchTaskIf _ _ fwIn@FileWork{ .. }      = fwIn{fwMatches = Matches sMatches iMatches}
 >   where
 >     sMatches                             =
->       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.sName) m) Map.empty fwBoot.zPreSampleCache
+>       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.cnName) m) Map.empty fwBoot.zPreSampleCache
 >     iMatches                             =
->       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.iName) m) Map.empty fwBoot.zPreInstCache
+>       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.piChanges.cnName) m) Map.empty fwBoot.zPreInstCache
 
 categorization task ===================================================================================================
           assign each instrument to one of the three categories
@@ -846,9 +847,10 @@ categorization task ============================================================
 >       where
 >         fName__                          = unwords [fName___, "categorizeInst"]
 >         trace_CI                         =
->           unwords [fName__, preI.iName, show (pergm.pgkwFile, pergm.pgkwInst)]
+>           unwords [fName__, iName, show (pergm.pgkwFile, pergm.pgkwInst)]
 >
 >         preI                             = fwBoot.zPreInstCache Map.! pergm
+>         iName                            = preI.piChanges.cnName
 >         mpzs                             = Map.lookup pergm fwBoot.zOwners
 >         pzs                              = deJust (unwords[fName__, "owners"]) mpzs
 >
@@ -865,7 +867,7 @@ categorization task ============================================================
 >         -- This diverges, and then we have qualInstZone and qualPercZone 
 >
 >         pzsLocal                         = filter isLocal pzs
->         isLocal pz                       = not (isStereoZone fwBoot.zPreSampleCache pz) && not (hasCross pz)
+>         isLocal pz                       = not (isStereoZone pz) && not (hasCross pz)
 >                                            
 >         -- Determine which category will belong to the Instrument, based on its performance for
 >         -- 1. all kinds
@@ -899,7 +901,7 @@ categorization task ============================================================
 >                                then Nothing
 >                                else Just $ InstCatDisq (show mrng) (violated pergm CorruptGMRange)
 >
->         hasRom pz                        = F.sampleType (effShdr fwBoot.zPreSampleCache pz) >= 0x8000
+>         hasRom pz                        = F.sampleType (effPZShdr pz) >= 0x8000
 >                                          
 >         checkLinkage   :: Maybe InstCat
 >         checkLinkage                     =
@@ -929,7 +931,7 @@ categorization task ============================================================
 >         extractIndex, extractLink
 >                        :: PreZone → Int
 >         extractIndex pz                  = fromIntegral $ deJust "extractIndex" pz.pzDigest.zdSampleIndex
->         extractLink pz                   = fromIntegral $ F.sampleLink (effShdr fwBoot.zPreSampleCache pz)
+>         extractLink pz                   = fromIntegral $ F.sampleLink (effPZShdr pz)
 >
 >         rejectCrosses  :: Maybe InstCat
 >         rejectCrosses                 =
@@ -939,7 +941,7 @@ categorization task ============================================================
 >
 >         hasCross       :: PreZone → Bool
 >         hasCross pz                      =
->           isStereoZone fwBoot.zPreSampleCache pz && notElem (extractLink pz) (map extractLink pzs)
+>           isStereoZone pz && notElem (extractLink pz) (map extractLink pzs)
 >
 >         howLaden       :: [Word] → Double
 >         howLaden ws
@@ -1018,7 +1020,7 @@ categorization task ============================================================
 >                          else Just (catDisq (show (uFrac, wFrac)) (violated pergm NoPercZones)))
 >                     else Nothing
 >
->                 trace_FA = unwords [fName_, preI.iName, show frost, show (length uZones, length wZones)]
+>                 trace_FA = unwords [fName_, iName, show frost, show (length uZones, length wZones)]
 >
 >             catInst      :: InstCat      =
 >               if null pzs
@@ -1112,6 +1114,7 @@ zone task ======================================================================
 >           | otherwise                    = PerInstrument (zip pzs oList) icd.inSmashup
 >           where
 >             preI                         = fwBoot.zPreInstCache Map.! pergm
+>             iName                        = preI.piChanges.cnName
 >
 >             icd        :: InstCatData
 >             bixen      :: [Word]
@@ -1131,7 +1134,7 @@ zone task ======================================================================
 >             pzs                          = filter (\pz → pz.pzWordB `elem` bixen) icd.inPreZones
 >
 >             trace_CPI=
->               unwords [fName, show pergm.pgkwFile, preI.iName, show (length oList)]
+>               unwords [fName, show pergm.pgkwFile, iName, show (length oList)]
 >
 > buildZone              :: SFFile → SFZone → Word → SFZone
 > buildZone sffile fromZone bagIndex

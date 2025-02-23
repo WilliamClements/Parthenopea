@@ -141,11 +141,11 @@ use "matching as" cache ========================================================
 >     pas = createFuzzMap inp percussionProFFKeys
 >     pbs = createFuzzMap inp percussionConFFKeys
 >
-> zoneConforms :: Map PreSampleKey PreSample → (PreZone, SFZone) → Bool
-> zoneConforms preSampleCache (pz, zone)   = not $ or unsupported
+> zoneConforms :: (PreZone, SFZone) → Bool
+> zoneConforms (pz, zone)   = not $ or unsupported
 >   where
 >     F.Shdr{end, start, endLoop, startLoop}
->                                          = effShdr preSampleCache pz
+>                                          = effPZShdr pz
 >
 >     unsupported        :: [Bool]
 >     unsupported                          =
@@ -295,10 +295,11 @@ tournament starts here =========================================================
 >       where
 >         fName                            = unwords [fName_, "wiFolder"]
 >         trace_WI                         =
->           unwords [fName, show preI.iName, show pergmI, show fuzzMap, show i2Fuzz, show (Map.keys i2Fuzz)]
+>           unwords [fName, show iName, show pergmI, show fuzzMap, show i2Fuzz, show (Map.keys i2Fuzz)]
 >
 >         -- access potentially massive amount of processed information regarding instrument
 >         preI                             = deJust (unwords[fName_, "preI"]) (Map.lookup pergmI zPreInstCache)
+>         iName                            = preI.piChanges.cnName
 >         iMatches                         = deJust "mIMatches" (Map.lookup pergmI matches.mIMatches)
 >         fuzzMap                          = getFuzzMap iMatches
 >
@@ -310,7 +311,7 @@ tournament starts here =========================================================
 >         i2Fuzz'                          =
 >           profess
 >             (not $ Map.null i2Fuzz)
->             (unwords ["unexpected empty matches for", show pgkwFile, preI.iName]) 
+>             (unwords ["unexpected empty matches for", show pgkwFile, iName]) 
 >             (if multipleCompetes
 >                then Map.keys i2Fuzz
 >                else (singleton . fst) (Map.findMax i2Fuzz))
@@ -324,11 +325,12 @@ tournament starts here =========================================================
 >       where
 >         fName                            = unwords [fName_, "wPFolder"]
 >         trace_WP                         =
->           unwords [fName, show preI.iName, show pergmP, "of", show (length perI.pZones)]
+>           unwords [fName, show iName, show pergmP, "of", show (length perI.pZones)]
 >
 >         pergm                            = pergmP{pgkwBag = Nothing}
 >
 >         preI                             = zPreInstCache Map.! pergm
+>         iName                            = preI.piChanges.cnName
 >         pzs                              = zOwners       Map.! pergm
 >         perI                             = zPerInstCache Map.! pergm
 >
@@ -362,10 +364,11 @@ tournament starts here =========================================================
 >       where
 >         fName                            = unwords [fName_, "xaEnterTournament"]
 >         trace_XAET                       =
->           unwords [fName, preI.iName, fromMaybe "" mnameZ, show kind]
+>           unwords [fName, iName, fromMaybe "" mnameZ, show kind]
 >
 >         pergm_                           = pergm{pgkwBag = Nothing}
 >         preI                             = zPreInstCache Map.! pergm_
+>         iName                            = preI.piChanges.cnName
 >         perI                             = zPerInstCache Map.! pergm_
 >
 >         scope_, scope  :: [(PreZone, SFZone)]
@@ -375,27 +378,27 @@ tournament starts here =========================================================
 >             Just bagI                    →
 >                    maybe
 >                      (error $ unwords [fName, "findByBagIndex' returned a Nothing for"
->                                       , show pergm.pgkwFile, preI.iName, show bagI])
+>                                       , show pergm.pgkwFile, iName, show bagI])
 >                      singleton
 >                      (findByBagIndex' perI.pZones bagI)
 >         scope                            =
 >           profess
 >             (not (null scope_))
->             (unwords[fName, "null scope", preI.iName])
+>             (unwords[fName, "null scope", iName])
 >             scope_
 >             
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
 >                                            >>= findByBagIndex' perI.pZones
->                                            >>= \(q, _) → Just (F.sampleName (effShdr zPreSampleCache q))
+>                                            >>= \(q, _) → Just (F.sampleName (effPZShdr q))
 >
 >         computeGrade   :: [(PreZone, SFZone)] → ArtifactGrade
 >         computeGrade zs                  = gradeEmpiricals (Grader ssWeights 500) empiricals
 >           where
 >             empiricals :: [Double]       = [   foldHints hints
->                                              , fromRational $ scoreBool $ isStereoInst zPreSampleCache zs
->                                              , fromRational $ scoreBool $ is24BitInst zPreSampleCache zs
+>                                              , fromRational $ scoreBool $ isStereoInst zs
+>                                              , fromRational $ scoreBool $ is24BitInst zs
 >                                              , computeResolution zs
->                                              , fromRational $ scoreBool $ all (zoneConforms zPreSampleCache) zs
+>                                              , fromRational $ scoreBool $ all zoneConforms zs
 >                                              , fuzz]
 >             howgood                      = akResult - stands
 >             fuzz       :: Double
@@ -403,7 +406,7 @@ tournament starts here =========================================================
 >               | otherwise                = 0
 >   
 >         scored         :: PerGMScored    =
->           PerGMScored (computeGrade scope) (toGMKind kind) akResult pergm preI.iName mnameZ
+>           PerGMScored (computeGrade scope) (toGMKind kind) akResult pergm iName mnameZ
 >
 >         computeResolution
 >                        :: [(PreZone, SFZone)]
@@ -420,12 +423,12 @@ tournament starts here =========================================================
 >
 >             m1                           = 1/2
 >             m2                           = 1/2
->             m3                           = 3 * if isStereoInst zPreSampleCache zs then 1/2 else 1
+>             m3                           = 3 * if isStereoInst zs then 1/2 else 1
 >
 >         durScoring     :: (PreZone, SFZone) → Double
 >         durScoring (pz, zone) = if score < 0.01 then -10 else score
 >           where
->             shdr                         = effShdr zPreSampleCache pz
+>             shdr                         = effPZShdr pz
 >             score                        = sampleSize / fromIntegral shdr.sampleRate
 >
 >             sampleSize :: Double

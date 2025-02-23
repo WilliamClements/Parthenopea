@@ -339,10 +339,11 @@ define signal functions and instrument maps to support rendering ===============
 >     samplea                              = sffile.zSample
 >
 >     preI                                 = zBoot.zPreInstCache Map.! pergm
+>     iName                                = preI.piChanges.cnName
 >     perI                                 = zBoot.zPerInstCache Map.! pergm
 >
 >     trace_ISF                            =
->       unwords [fName_, show pergm.pgkwFile, show preI.pInst, show (pchIn, volIn), show durI]
+>       unwords [fName_, show pergm.pgkwFile, show preI.piChanges.cnSource, show (pchIn, volIn), show durI]
 >
 >     (reconX, mreconX)                    =
 >       case setZone of
@@ -354,11 +355,9 @@ zone selection for rendering ===================================================
 >     setZone            :: Either (SFZone, F.Shdr) ((SFZone, F.Shdr), (SFZone, F.Shdr))
 >     setZone                              =
 >       case selectZoneConfig selectBestZone of 
->         Left (pzL, zoneL)                → Left (zoneL, shdr pzL)
+>         Left (pzL, zoneL)                → Left (zoneL, effPZShdr pzL)
 >         Right ((pzL, zoneL), (pzR, zoneR))
->                                          → Right ((zoneL, shdr pzL), (zoneR, shdr pzR))
->       where
->         shdr                             = effShdr zBoot.zPreSampleCache
+>                                          → Right ((zoneL, effPZShdr pzL), (zoneR, effPZShdr pzR))
 >
 >     selectBestZone     :: (PreZone, SFZone)
 >     selectBestZone
@@ -367,7 +366,7 @@ zone selection for rendering ===================================================
 >       if cnt == 0
 >         then error "out of range"
 >         else if isNothing foundInInst
->                then error $ unwords[fName, show bagId, "not found in inst", preI.iName, showBags perI]
+>                then error $ unwords[fName, show bagId, "not found in inst", iName, showBags perI]
 >                else deJust "foundInInst" foundInInst
 >       where
 >         fName                            = unwords [fName_, "selectBestZone"]
@@ -390,7 +389,7 @@ zone selection for rendering ===================================================
 >                                              else eith
 >
 >          mpartner                        = getStereoPartner z
->          shdr                            = (effShdr zBoot.zPreSampleCache . fst) z
+>          shdr                            = (effPZShdr . fst) z
 >          stype                           = toSampleType shdr.sampleType
 >          oz                              = deJust "oz" mpartner
 >
@@ -405,7 +404,7 @@ zone selection for rendering ===================================================
 >       where
 >         fName                            = unwords [fName_, "getStereoPartner"]
 >
->         shdr                             = effShdr zBoot.zPreSampleCache pz
+>         shdr                             = effPZShdr pz
 >         partnerKeys                      = pzmkPartners pz
 >
 >         trace_GSP                        = unwords [fName, showable, showPreZones (singleton pz)]
