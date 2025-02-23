@@ -31,6 +31,7 @@ April 16, 2023
 >         , defZone
 >         , dropped
 >         , Disposition(..)
+>         , effPSShdr
 >         , effPZShdr
 >         , elideset
 >         , emitMsgs
@@ -135,6 +136,13 @@ implementing SoundFont spec ====================================================
 >   , pskwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
 > type PreSample = ChangeName F.Shdr
+> effPSShdr              :: PreSample → F.Shdr
+> effPSShdr ps                             =
+>   let
+>     raw                                  = ps.cnSource
+>     name                                 = ps.cnName
+>   in
+>     raw{F.sampleName = name}
 >
 > data PreZoneKey =
 >   PreZoneKey {

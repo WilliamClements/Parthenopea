@@ -521,8 +521,8 @@ capture task ===================================================================
 >                                          -- TODO: corrupt adjusted limits?
 >               | isNothing pz.pzDigest.zdSampleIndex
 >                                          = Right (Accepted, GlobalZone)
->               | isNothing starget        = Right (Dropped, OrphanedBySample)
->               | otherwise                = Left pz{pzChanges = ChangeEar pres.cnSource []}
+>               | isNothing mpres          = Right (Dropped, OrphanedBySample)
+>               | otherwise                = Left pz{pzChanges = ChangeEar (effPSShdr pres) []}
 >
 >             xgeni                        = F.genNdx $ sffile.zFileArrays.ssIBags ! bix
 >             ygeni                        = F.genNdx $ sffile.zFileArrays.ssIBags ! (bix + 1)
@@ -535,8 +535,8 @@ capture task ===================================================================
 >             pz                           = makePreZone sffile.zWordF si (pgkwInst pergm) bix gens pres.cnSource
 >             si                           = deJust fName pz.pzDigest.zdSampleIndex
 >             presk                        = PreSampleKey sffile.zWordF si
->             starget                      = Map.lookup presk fwBoot.zPreSampleCache
->             pres                         = deJust "pres" starget
+>             mpres                        = presk `Map.lookup` fwBoot.zPreSampleCache
+>             pres                         = deJust fName mpres
 
 mark task =============================================================================================================
           copy global zone markers from zrecs to preInstCache
@@ -1128,19 +1128,23 @@ zone task ======================================================================
 >             gZone                        =
 >               case preI.iGlobalKey of
 >                 Nothing                  → defZone
->                 Just pzk                 → buildZone sffile defZone pzk.pzkwBag
->             oList                        = map (buildZone sffile gZone) bixen
+>                 Just pzk                 → buildZone sffile defZone Nothing pzk.pzkwBag
+>             oList                        = map (\pz → buildZone sffile gZone (Just pz) pz.pzWordB) pzs
 >
 >             pzs                          = filter (\pz → pz.pzWordB `elem` bixen) icd.inPreZones
 >
 >             trace_CPI=
 >               unwords [fName, show pergm.pgkwFile, iName, show (length oList)]
 >
-> buildZone              :: SFFile → SFZone → Word → SFZone
-> buildZone sffile fromZone bagIndex
+> buildZone              :: SFFile → SFZone → Maybe PreZone → Word → SFZone
+> buildZone sffile fromZone mpz bagIndex
 >   | traceIf trace_BZ False               = undefined
 >   | otherwise                            = zone
 >   where
+>     zName                                 =
+>       case mpz of
+>         Nothing                          → "<global>"
+>         Just pz                          → (effPZShdr pz).sampleName
 >     zone                                 = foldr addMod (foldl' addGen fromZone gens) mods
 >     boota                                = sffile.zFileArrays
 >
@@ -1163,11 +1167,7 @@ zone task ======================================================================
 >         (zip [10_000..] (map (boota.ssIMods !) (deriveRange xmodi ymodi)))
 >
 >     trace_BZ                             =
->       unwords ["buildZone", show sffile.zWordF, show bagIndex, show zone.zSampleIndex
->              , show (fromMaybe "" name), show (fromZone == defZone)]
->
->     name               :: Maybe String   =
->       zone.zSampleIndex >>= \x → Just (boota.ssShdrs ! x) >>= Just . F.sampleName
+>       unwords ["buildZone", show sffile.zWordF, show bagIndex, show zName, show (fromZone == defZone)]
 >
 > addGen                 :: SFZone → F.Generator → SFZone
 > addGen iz gen =
