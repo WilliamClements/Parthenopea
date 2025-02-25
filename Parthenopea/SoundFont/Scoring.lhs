@@ -141,8 +141,8 @@ use "matching as" cache ========================================================
 >     pas = createFuzzMap inp percussionProFFKeys
 >     pbs = createFuzzMap inp percussionConFFKeys
 >
-> zoneConforms :: (PreZone, SFZone) → Bool
-> zoneConforms (pz, zone)   = not $ or unsupported
+> zoneConforms           :: (PreZone, SFZone) → Bool
+> zoneConforms (pz, zone)                  = not $ or unsupported
 >   where
 >     F.Shdr{end, start, endLoop, startLoop}
 >                                          = effPZShdr pz
@@ -165,7 +165,27 @@ use "matching as" cache ========================================================
 >         , end < start
 >         , endLoop < startLoop
 >       ]
- 
+>
+> fuzzString             :: String → [Char] → [Char] → [String]
+> fuzzString source mychs otherchs         =
+>   let
+>     table                                = Map.fromList $ zip mychs otherchs
+>
+>     is                                   =
+>       mapMaybe (\i → if (source !! i) `elem` mychs then Just i else Nothing) (deriveRange 0 (length source))
+>
+>     generate i                           = front ++ back'
+>       where
+>         (front, back)                    = splitAt i source
+>         back'                            = (table Map.! head back) : tail back
+>   in
+>     map generate is
+>
+> fuzzToTheRight, fuzzToTheLeft
+>                        :: String → [String]
+> fuzzToTheRight s                         = fuzzString s "Ll" "Rr"
+> fuzzToTheLeft s                          = fuzzString s "Rr" "Ll"
+
 Scoring stuff =========================================================================================================
  
 > data SSHint =

@@ -15,6 +15,7 @@ ghc -package random -package mtl -package stm -package HCodecs -package arrows -
 cabal v2-install --allow-newer HSoM
 cabal v2-build
 
+:set -fbreak-on-exception
 writeMidiA "baked.mid"   p1PMap p1Con $ bakedJingle 673635
 
 /c/Users/Billy/AppData/Roaming/ghc/x86_64-mingw32-9.2.5/environments/.ghc.environment.x86_64-mingw32-9.2.5

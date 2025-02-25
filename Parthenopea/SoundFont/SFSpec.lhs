@@ -55,8 +55,11 @@ April 16, 2023
 >         , InstCat(..)
 >         , InstCatData(..)
 >         , is24BitInst
+>         , isLeftPreZone
+>         , isRightPreZone
 >         , isStereoInst
 >         , isStereoZone
+>         , isUnpartnered
 >         , KeyNumber
 >         , lookupCellIndex
 >         , makePreZone
@@ -91,6 +94,7 @@ April 16, 2023
 >         , Velocity
 >         , violated
 >         , virginrd
+>         , wasDeferred
 >         , wasRescued
 >         , wasSwitchedToMono
 >         , ZoneDigest(..)
@@ -101,6 +105,7 @@ April 16, 2023
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Char
+> import Data.Either
 > import Data.Foldable
 > import Data.Int ( Int8, Int16 )
 > import Data.List
@@ -156,14 +161,14 @@ implementing SoundFont spec ====================================================
 >   , pzWordI            :: Word
 >   , pzWordB            :: Word
 >   , pzDigest           :: ZoneDigest
->   , pzmkPartners       :: [PreZoneKey]
+>   , pzmkPartners       :: Either PreZoneKey [PreZoneKey]
 >   , pzChanges          :: ChangeEar F.Shdr} deriving Eq
 > instance Show PreZone where
 >   show (PreZone{ .. })                   =
 >     unwords ["PreZone", show (pzWordF, pzWordS, pzWordI, pzWordB), show pzDigest, show pzmkPartners]
 >
 > makePreZone            :: Word → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
-> makePreZone wF wS wI wB gens shdr        = PreZone wF wS wI wB (formDigest gens) [] (ChangeEar shdr [])
+> makePreZone wF wS wI wB gens shdr        = PreZone wF wS wI wB (formDigest gens) (Right []) (ChangeEar shdr [])
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
@@ -328,7 +333,7 @@ implementing SoundFont spec ====================================================
 >     zPreSampleCache    :: Map PreSampleKey PreSample
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
 >
->   , zTempPartnerMap    :: Map PreSampleKey PreSampleKey
+>   , zPartnerMap        :: Map PreZoneKey PreZone
 >
 >   , zOwners            :: Map PerGMKey [PreZone]
 >   , zJobs              :: Map PerGMKey InstCat
@@ -347,7 +352,7 @@ implementing SoundFont spec ====================================================
 >   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache   boot2.zPreSampleCache
 >         , zPreInstCache                  = Map.union boot1.zPreInstCache     boot2.zPreInstCache
 >
->         , zTempPartnerMap                = Map.union boot1.zTempPartnerMap   boot2.zTempPartnerMap
+>         , zPartnerMap                    = Map.union boot1.zPartnerMap       boot2.zPartnerMap
 >
 >         , zOwners                        = Map.union boot1.zOwners           boot2.zOwners
 >         , zJobs                          = Map.union boot1.zJobs             boot2.zJobs
@@ -445,9 +450,10 @@ bootstrapping ==================================================================
 >   deriving (Eq, Ord, Show)
 >
 > data Impact                              =
->   Ok | CorruptName
+>   Ok | Deferred
+>      | CorruptName
 >      | BadSampleRate | BadSampleType | BadSampleLimits | BadSampleLoopLimits
->      | MissingStereoPartner | BadStereoPartner
+>      | BadStereoPartner
 >      | Groomed
 >      | OrphanedBySample | OrphanedByInst
 >      | Absorbing | Absorbed | NoZones
@@ -478,6 +484,9 @@ bootstrapping ==================================================================
 >     getTriple          :: (Impact, Int) → (Disposition, Impact, String)
 >     getTriple (impact, _)                = striple $ fromJust $ find (\s → s.sImpact == impact) ss
 >
+> deferredset            :: [Impact]
+> deferredset                              = [Deferred]
+>
 > deadset, elideset, rescueset
 >                        :: [Disposition]
 >                                            -- a given list is filtered down to the three Dispositions
@@ -498,6 +507,9 @@ bootstrapping ==================================================================
 >
 > dead                   :: [Scan] → Bool
 > dead ss                                  = notDead /= autopsy ss
+>
+> wasDeferred             :: [Scan] → Bool
+> wasDeferred                              = any (\s → s.sImpact `elem` deferredset)
 >
 > wasRescued             :: Impact → [Scan] → Bool
 > wasRescued impact                        = any (\s → s.sDisposition `elem` rescueset && s.sImpact == impact)
@@ -585,8 +597,9 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > isStereoInst zs                          = isJust $ find isStereoZone (map fst zs)
 >       
 > isStereoZone pz                          = isLeftPreZone pz || isRightPreZone pz
+> isUnpartnered pz                         = isRight pz.pzmkPartners
 >
-> isStereoZone, isLeftPreZone, isRightPreZone
+> isStereoZone, isLeftPreZone, isRightPreZone, isUnpartnered
 >                        :: PreZone → Bool
 > isLeftPreZone pz                         = SampleTypeLeft == toSampleType (effPZShdr pz).sampleType
 > isRightPreZone pz                        = SampleTypeRight == toSampleType (effPZShdr pz).sampleType

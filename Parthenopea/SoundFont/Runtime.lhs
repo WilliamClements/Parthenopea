@@ -405,7 +405,7 @@ zone selection for rendering ===================================================
 >         fName                            = unwords [fName_, "getStereoPartner"]
 >
 >         shdr                             = effPZShdr pz
->         partnerKeys                      = pzmkPartners pz
+>         partnerKey                       = fromLeft (error "corrupt partner") pz.pzmkPartners
 >
 >         trace_GSP                        = unwords [fName, showable, showPreZones (singleton pz)]
 >         showable                         =
@@ -418,23 +418,13 @@ zone selection for rendering ===================================================
 >           findBySampleIndex' perI.pZones (F.sampleLink shdr) `CM.mplus` getCrossover
 >
 >         getCrossover   :: Maybe (PreZone, SFZone)
->         getCrossover                     = if allowStereoCrossovers && not (null cands)
->                                              then Just (head cands)
->                                              else Nothing
+>         getCrossover                     = if allowStereoCrossovers
+>                                              then findByBagIndex' perIP.pZones pzP.pzWordB
+>                                              else error "corrupt partner"
 >           where
->             cands                        = mapMaybe evalCand partnerKeys
->
->             evalCand   :: PreZoneKey → Maybe (PreZone, SFZone)
->             evalCand _                   = Nothing -- WOX
-> {-
->               let
->                 pz                       = pzk `Map.lookup` sfrost.zPreZoneCache
->                 zone                     = pzk `Map.lookup` sfrost.zPartnerCache
->               in
->                 if isJust pz && isJust zone
->                   then Just (fromJust pz, fromJust zone)
->                   else Nothing
-> -}
+>             pzP                          = deJust fName (partnerKey `Map.lookup` zBoot.zPartnerMap)
+>             pergmP                       = extractInstKey pzP
+>             perIP                        = deJust fName (pergmP `Map.lookup` zBoot.zPerInstCache)
 
 reconcile zone and sample header ======================================================================================
 
