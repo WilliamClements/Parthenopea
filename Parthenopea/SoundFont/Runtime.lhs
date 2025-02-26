@@ -405,7 +405,7 @@ zone selection for rendering ===================================================
 >         fName                            = unwords [fName_, "getStereoPartner"]
 >
 >         shdr                             = effPZShdr pz
->         partnerKey                       = fromLeft (error "corrupt partner") pz.pzmkPartners
+>         partnerKey                       = fromLeft (error $ unwords [fName, "Unpartnered"]) pz.pzmkPartners
 >
 >         trace_GSP                        = unwords [fName, showable, showPreZones (singleton pz)]
 >         showable                         =
@@ -413,17 +413,16 @@ zone selection for rendering ===================================================
 >             Just (pzc, _)                → show pzc.pzWordB
 >             Nothing                      → "Nothing" 
 >
->         -- maybe hide this hack of getting zone "directly" under a conditional
 >         partner                          =
 >           findBySampleIndex' perI.pZones (F.sampleLink shdr) `CM.mplus` getCrossover
 >
 >         getCrossover   :: Maybe (PreZone, SFZone)
->         getCrossover                     = if allowStereoCrossovers
+>         getCrossover                     = if allowSpecifiedCrossovers || allowInferredCrossovers
 >                                              then findByBagIndex' perIP.pZones pzP.pzWordB
 >                                              else error "corrupt partner"
 >           where
 >             pzP                          = deJust fName (partnerKey `Map.lookup` zBoot.zPartnerMap)
->             pergmP                       = extractInstKey pzP
+>             pergmP                       = tracer "pergmP" $ extractInstKey pzP
 >             perIP                        = deJust fName (pergmP `Map.lookup` zBoot.zPerInstCache)
 
 reconcile zone and sample header ======================================================================================

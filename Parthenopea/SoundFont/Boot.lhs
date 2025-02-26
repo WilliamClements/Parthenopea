@@ -28,6 +28,7 @@ January 21, 2025
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
+> import Debug.Trace
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
 > import Parthenopea.Debug
@@ -67,7 +68,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     unwords ["FileIterate", show fiFw]
 >
 > preSampleTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, markTaskIf
->                , partnerTaskIf, harvestTaskIf, deharvestTaskIf, reorgTaskIf
+>                , prePartnerTaskIf, partner1TaskIf, partner2TaskIf, partner3TaskIf, postPartnerTaskIf
+>                , reorgTaskIf
 >                , shaveTaskIf, matchTaskIf, catTaskIf, encatTaskIf, zoneTaskIf, reownTaskIf
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
 >
@@ -79,21 +81,25 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >      , ("preInst",    preInst)
 >      , ("survey",     survey)
 >      , ("capture",    mark . capture)
->      , ("partner",    partner)
->      , ("reorg",      deharvest . reorg . harvest) 
->      , ("shave",      shave . harvest)
+>      , ("partner1",   partner1 . prePartner)
+>      , ("partner2",   partner2)
+>      , ("partner3",   postPartner . partner3)
+>      , ("reorg",      reorg) 
+>      , ("shave",      shave)
 >      , ("match",      match)
 >      , ("cat",        cat)
 >      , ("encat",      reown . encat)
 >      , ("zone",       reown . zone)]
 >   where
->     harvest                              = harvestTaskIf      sffile rost
->     deharvest                            = deharvestTaskIf    sffile rost
 >     reown                                = reownTaskIf        sffile rost
 >     mark                                 = markTaskIf         sffile rost
+>     prePartner                           = prePartnerTaskIf   sffile rost
+>     postPartner                          = postPartnerTaskIf  sffile rost
 >
 >     preSample                            = preSampleTaskIf    sffile rost
->     partner                              = partnerTaskIf      sffile rost
+>     partner1                             = partner1TaskIf     sffile rost
+>     partner2                             = partner2TaskIf     sffile rost
+>     partner3                             = partner3TaskIf     sffile rost
 >     preInst                              = preInstTaskIf      sffile rost
 >     survey                               = surveyTaskIf       sffile rost
 >     capture                              = captureTaskIf      sffile rost
@@ -137,6 +143,7 @@ and recovery.
 >
 >       -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
 >       let (bootAll, rdGen03, matchesAll) = foldl' bootFolder (dasBoot, virginrd, defMatches) vFiles
+>       CM.when diagnosticsEnabled (traceIO $ show bootAll)
 >       let runt                           = SFRuntime vFiles bootAll seedWinningRecord
 >
 >       tsBooted                           ← getCurrentTime
@@ -398,13 +405,13 @@ iterating on InstZoneRecord list ===============================================
 >   where
 >     (workedOn, rd')                      = foldl' taskRunner ([], fwDispositions) (goodZRecs fwDispositions fwZRecs)
 >
->     taskRunner (zrecsFold, rdFold) zrec  = 
+>     taskRunner (zrecs, rdFold) zrec  = 
 >       let
 >         (zrec', rdFold')                 = userFun zrec rdFold
 >       in
->         if deadrd (instKey zrec) rdFold 
->           then (zrec : zrecsFold, rdFold)
->           else (zrec': zrecsFold, rdFold')
+>         if deadrd (instKey zrec) rdFold' 
+>           then (zrec : zrecs, rdFold')
+>           else (zrec': zrecs, rdFold')
 >
 > zrecCompute            :: ∀ a . FileWork → (a → InstZoneRecord → a) → a → a
 > zrecCompute FileWork{ .. } userFun seed  = foldl' userFun seed (goodZRecs fwDispositions fwZRecs)
@@ -513,26 +520,14 @@ mark task ======================================================================
 >       in
 >         Map.insert pergm (preI{iGlobalKey = zrec.zsGlobalKey}) preInstCache
 
-partnering task =======================================================================================================
-          prepare for all possible stereo pairs
+pre-partnering task ===================================================================================================
+          set up (full stereo) partner and back maps
 
-> partnerTaskIf _ _ fwIn@FileWork{ .. }    = fwOut3{fwBackMap = back}
+> prePartnerTaskIf _ _ fwIn
+>                                          = fwIn{fwBackMap = backMap}
 >   where
->     fwOut1                               = zrecTask partnerer1 fwIn
->     fwOut2                               = zrecTask partnerer2 fwOut1
->     fwOut3                               = if allowStereoCrossovers
->                                              then zrecTask partnerer3 fwOut2
->                                              else fwOut2
->
->     mapStereo                            =
->       let
->         filePzs                          =
->           foldl' (\pzs zrec → pzs ++ filter isStereoZone zrec.zsPreZones) [] (goodZRecs fwDispositions fwZRecs)
->       in
->         formPreZoneMap filePzs
->
->     back               :: Map PreSampleKey [PreZoneKey]
->     back                                 = zrecCompute fwIn backFolder Map.empty
+>     backMap            :: Map PreSampleKey [PreZoneKey]
+>     backMap                              = zrecCompute fwIn backFolder Map.empty
 >
 >     backFolder m zrec                    = Map.union m m'
 >       where
@@ -542,6 +537,15 @@ partnering task ================================================================
 >     pzFolder target pz                   =
 >       Map.insertWith (++) (PreSampleKey pz.pzWordF pz.pzWordS) [extractZoneKey pz] target
 >
+
+partnering 1 task =====================================================================================================
+          prepare for all possible stereo pairs
+
+> partner1TaskIf _ _ fwIn@FileWork{ .. }   = fwOut
+>   where
+>     fwOut                                = zrecTask partnerer1 fwIn
+>     backMap                              = fwBackMap
+>
 >     partnerer1         :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     partnerer1 zrec@InstZoneRecord{ .. } rdFold
 >                                          = (zrec', rd')
@@ -549,6 +553,7 @@ partnering task ================================================================
 >         (pzs, rd')                       = zoneTask (const True) partnerUp zsPreZones rdFold
 >         zrec'                            = zrec{zsPreZones = pzs}
 >
+>     partnerUp          :: PreZone → ResultDispositions → (Maybe PreZone, ResultDispositions)
 >     partnerUp pz rdFold                  = (Just $ pz{pzmkPartners = partners}, rd')
 >       where
 >         fName                            = "partnerUp"
@@ -556,13 +561,24 @@ partnering task ================================================================
 >         mySampleKey                      = extractSampleKey pz
 >         myZoneKey                        = extractZoneKey pz
 >         mySampleLink                     = mySampleKey{pskwSampleIndex = F.sampleLink (effPZShdr pz)}
+>         myPartners                       = fromMaybe [] (Map.lookup mySampleLink backMap)        
 >
 >         (partners, rd')                  =
 >           if isStereoZone pz
->             then (Right $ fromMaybe [] (Map.lookup mySampleLink back)
->                 , rdFold)
->             else (Left myZoneKey
->                 , dispose mySampleKey [Scan NoChange Ok fName "mono"] rdFold)
+>             then (Right myPartners, rdFold)
+>             else (Left myZoneKey, dispose mySampleKey [Scan NoChange Ok fName "mono"] rdFold)
+
+partnering 2 task =====================================================================================================
+          take care of valid partners (and specified crossovers if applicable)
+
+> partner2TaskIf _ _ fwIn@FileWork{ .. }   = zrecTask partnerer2 fwIn
+>   where
+>     partnerMap                           =
+>       let
+>         filePzs                          =
+>           foldl' (\pzs zrec → pzs ++ filter isStereoZone zrec.zsPreZones) [] (goodZRecs fwDispositions fwZRecs)
+>       in
+>         formPreZoneMap filePzs
 >
 >     partnerer2         :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     partnerer2 zrec@InstZoneRecord{ .. } rdFold
@@ -582,13 +598,13 @@ partnering task ================================================================
 >         (partners, rd')                  =
 >           case mpartner of
 >             Just pzk                     →
->               (Left pzk,        dispose mySampleKey [Scan Modified Ok fName (status pzk)]    rdFold)
+>               (Left pzk,        dispose mySampleKey [Scan Modified Paired fName (status pzk)]    rdFold)
 >             Nothing                      →
->               (pz.pzmkPartners, dispose mySampleKey [Scan Modified Ok fName "nonconforming"] rdFold)
+>               (pz.pzmkPartners, dispose mySampleKey [Scan NoChange Unpaired fName "nonconforming"] rdFold)
 >
->         status pzk                           =
+>         status pzk                       =
 >           let
->             pzOther                      = mapStereo Map.! pzk
+>             pzOther                      = partnerMap Map.! pzk
 >             otherInstKey                 = extractInstKey pzOther
 >           in
 >             if myInstKey == otherInstKey
@@ -597,14 +613,22 @@ partnering task ================================================================
 >
 >         perfect pzk                      =
 >           let
->             pzOther                      = mapStereo Map.! pzk
+>             pzOther                      = partnerMap Map.! pzk
 >             otherInstKey                 = extractInstKey pzOther
 >             found                        =
->               find (\x → x == myZoneKey && (allowStereoCrossovers || myInstKey == otherInstKey))
+>               find (\x → x == myZoneKey && (allowSpecifiedCrossovers || myInstKey == otherInstKey))
 >                    (fromRight [] pzOther.pzmkPartners)
 >           in
 >             isJust found
 >
+
+partnering 3 task =====================================================================================================
+          inferring crossovers ... stay tuned for 4 = devolving to mono as a last resort
+
+> partner3TaskIf _ _ fwIn                  = if allowInferredCrossovers
+>                                              then zrecTask partnerer3 fwIn
+>                                              else fwIn
+>   where
 >     partnerer3         :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     partnerer3 zrec@InstZoneRecord{ .. } rdFold
 >                                          = (zrec', rd')
@@ -613,13 +637,13 @@ partnering task ================================================================
 >         zrec'                            = zrec{zsPreZones = pzs}
 >
 >         pLeft, pRight  :: Map String PreZoneKey
->         (pLeft, pRight)                  = zrecCompute fwOut2 sideways1 (Map.empty, Map.empty)
+>         (pLeft, pRight)                  = zrecCompute fwIn sideways1 (Map.empty, Map.empty)
 >
 >         sideways1 (m1, m2) zrecFold      = foldl' sideways2 (m1, m2) zrecFold.zsPreZones
 >         sideways2 (m1, m2) pz
 >           | isUnpartnered pz             = if isLeftPreZone pz
->                                              then (Map.insert mySampleName myZoneKey m1, m2)
->                                              else (m1, Map.insert mySampleName myZoneKey m2)
+>                                              then (m1, Map.insert mySampleName myZoneKey m2)
+>                                              else (Map.insert mySampleName myZoneKey m1, m2)
 >           | otherwise                    = (m1, m2)
 >           where
 >             mySampleName                 = (effPZShdr pz).sampleName
@@ -627,6 +651,8 @@ partnering task ================================================================
 >
 >         partnerSideways pz rdPartner     =
 >           let
+>             fName                        = "partnerSideways"
+>
 >             mySampleKey                  = extractSampleKey pz
 >             mySampleName                 = (effPZShdr pz).sampleName
 >             myZoneKey                    = extractZoneKey pz
@@ -643,12 +669,28 @@ partnering task ================================================================
 >               case found of
 >                 Just (_, pzk)            →
 >                   ( Left pzk
->                   , dispose mySampleKey [Scan Modified Ok "partnerSideways" "crossed"] rdPartner)
+>                   , dispose mySampleKey [Scan Modified Ok fName "crossed"] rdPartner)
 >                 Nothing                  →
 >                   ( Left myZoneKey
->                   , dispose mySampleKey [Scan Violated BadStereoPartner "partnerSideways" noClue] rdPartner)        
+>                   , dispose mySampleKey [Scan Violated BadStereoPartner fName noClue] rdPartner)        
 >           in
 >             (Just pz{pzmkPartners = partners}, rdPartner')
+
+post-partnering task ==================================================================================================
+          replace full partner map with partial (crossovers only), delete back map
+
+> postPartnerTaskIf _ _ fwIn@FileWork { .. }
+>                                          = fwIn{fwBoot = fwBoot{zPartnerMap = partnerMap}
+>                                               , fwBackMap = Map.empty}
+>   where
+>     partnerMap                           =
+>       let
+>         filePzs                          =
+>           foldl' (\pzs zrec → pzs ++ filter (isStereoCrossoverZone fwBoot.zPartnerMap) zrec.zsPreZones)
+>                  []
+>                  (goodZRecs fwDispositions fwZRecs)
+>       in
+>         formPreZoneMap filePzs
 
 reorg task ============================================================================================================
           where indicated, make one instrument out of many
@@ -657,19 +699,24 @@ Overview: the member instruments of a qualified group will be absorbed into the 
 zones, in effect. The mapping (member → lead) (Word → Word) is turned into the absorption map (aMap).
 
 To build the map
- 1. collects all instrument names
+ 1. collect all instrument names
 
  2. build fragsets by grouping similar names
 
  3. drop the strings, retaining member → lead structure
 
- 4. filters any proposed absorptions through qualifyAbsorptionGroup
+ 4. filter any proposed absorptions through qualifyAbsorptionGroup
 
 > buildAbsorptionMap     :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → Map Word Word
-> buildAbsorptionMap sffile _ FileWork{ .. }
+> buildAbsorptionMap sffile _ fwIn@FileWork{ .. }
 >                                          = foldl' fold1Fun Map.empty dissected
 >   where
 >     zrecs                                = goodZRecs fwDispositions fwZRecs
+>
+>     owners                               = zrecCompute fwIn harvestFolder Map.empty 
+>
+>     harvestFolder      :: Map PerGMKey [PreZone] → InstZoneRecord → Map PerGMKey [PreZone]
+>     harvestFolder m zrec                 = Map.insert (instKey zrec) zrec.zsPreZones m
 >
 >     fold1Fun           :: Map Word Word → (Word, [Word]) → Map Word Word
 >     fold1Fun mIn (wLead, wMembers)       = foldl' fold2Fun mIn wMembers
@@ -717,7 +764,7 @@ To build the map
 >
 >         pergms                           = map (\wI → PerGMKey sffile.zWordF wI Nothing) memberIs
 >         smashups                         = map smash pergms
->         pzLoads                          = map (\p → fwBoot.zOwners Map.! p) pergms
+>         pzLoads                          = map (owners Map.!) pergms
 >
 >         fracOne        :: Rational
 >         fracOne                          = 100 * fromRational ((maximum . map fractionCovered) smashups)
@@ -726,7 +773,7 @@ To build the map
 >         fracAll                          = 100 * fromRational (fractionCovered smashAll)
 >         answer                           = fracAll / fracOne > 1.25
 >
->         smash pergm                      = computeInstSmashup $ fwBoot.zOwners Map.! pergm
+>         smash pergm                      = computeInstSmashup $ owners Map.! pergm
 >
 >         trace_QAG                        =
 >           unwords [fName, show leadI, show (fracOne, fracAll)
@@ -756,11 +803,11 @@ To build the map
 >
 >             upd target                   = Map.insertWith (++) target rebased iHold
 >
-> reorgTaskIf sffile rost fwIn             = fwTask{fwBoot = fwBoot{zOwners = Map.empty}}
+> reorgTaskIf sffile rost fwIn             = fwTask
 >   where
 >     fName_                               = "reorgTaskIf"
 >
->     fwTask@FileWork{ .. }                = zrecTask reorger fwIn
+>     fwTask                               = zrecTask reorger fwIn
 >
 >     aMap                                 = buildAbsorptionMap sffile rost fwIn
 >     hMap                                 = buildHoldMap sffile rost fwIn aMap
@@ -788,18 +835,6 @@ To build the map
 >
 > shorten        :: (Char → Bool) → [Char] → [Char] 
 > shorten qual chars                       = reverse (dropWhile qual (reverse chars))
-
-harvest task ==========================================================================================================
-          reap owners from zrecs
-
-> harvestTaskIf _ _ fwIn@FileWork{ .. }    = fwIn{fwBoot = fwBoot{zOwners = owners}}
->   where
->     owners                               = zrecCompute fwIn harvestFolder Map.empty 
->
->     harvestFolder      :: Map PerGMKey [PreZone] → InstZoneRecord → Map PerGMKey [PreZone]
->     harvestFolder m zrec                 = Map.insert (instKey zrec) zrec.zsPreZones m
->
-> deharvestTaskIf _ _ fwIn@FileWork{ .. }  = fwIn{fwBoot = fwBoot{zOwners = Map.empty}}
 
 shave task ============================================================================================================
           remove dropped or violated instruments from the preInstCache
@@ -829,10 +864,10 @@ categorization task ============================================================
 >     fName___                             = "catTaskIf"
 >
 >     catter             :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
->     catter zrec rdFold                   = (zrec{zsInstCat = Just (categorizeInst (instKey zrec))}, rdFold)
+>     catter zrec rdFold                   = (zrec{zsInstCat = Just (categorizeInst zrec)}, rdFold)
 >
->     categorizeInst     :: PerGMKey → InstCat
->     categorizeInst pergm
+>     categorizeInst     :: InstZoneRecord → InstCat
+>     categorizeInst zrec
 >       | traceIf trace_CI False           = undefined
 >       | otherwise                        = deJust (unwords[fName__, "icat"]) icat
 >       where
@@ -840,10 +875,10 @@ categorization task ============================================================
 >         trace_CI                         =
 >           unwords [fName__, iName, show (pergm.pgkwFile, pergm.pgkwInst)]
 >
+>         pergm                            = instKey zrec
 >         preI                             = fwBoot.zPreInstCache Map.! pergm
 >         iName                            = preI.piChanges.cnName
->         mpzs                             = Map.lookup pergm fwBoot.zOwners
->         pzs                              = deJust (unwords[fName__, "owners"]) mpzs
+>         pzs                              = zrec.zsPreZones
 >
 >         canBePercZ     :: PreZone → Bool
 >         canBePercZ x                     =
@@ -961,14 +996,14 @@ categorization task ============================================================
 >               unwords [fName_, showMaybeInstCat seed, show (length pzs), show (BF.bimap length length srost)]
 >
 >             structuralAlts               =
->               [if isNothing mpzs || null (fromJust mpzs)
+>               [if null pzs
 >                  then Just $ InstCatDisq noClue (violated pergm NoZones)
 >                  else Nothing
 >               , corrupt
 >               , if any hasRom pzs
 >                   then Just (InstCatDisq noClue (violated pergm RomBased))
 >                   else Nothing
->               , if allowStereoCrossovers
+>               , if allowSpecifiedCrossovers || allowInferredCrossovers
 >                   then Nothing
 >                   else rejectCrosses
 >               , checkLinkage]
@@ -1244,14 +1279,13 @@ zone task ======================================================================
 >                                            >>= addAmtSrc mm
 
 reown task ============================================================================================================
-          generate the owners map from PerInstrument map, and the jobs map from the zrec list
+          generate the jobs map from the zrec list
 
 > reownTaskIf _ _ fwIn@FileWork{ .. } 
 >                         =
->   fwIn{fwBoot = fwBoot{  zOwners = Map.map (\q → map fst q.pZones) fwBoot.zPerInstCache
->                        , zJobs = foldl' (\m z → Map.insert (instKey z) (deJust "job" z.zsInstCat) m)
->                                         Map.empty
->                                         (goodZRecs fwDispositions fwZRecs)}}                                       
+>   fwIn{fwBoot = fwBoot{zJobs = foldl' (\m z → Map.insert (instKey z) (deJust "job" z.zsInstCat) m)
+>                                       Map.empty
+>                                       (goodZRecs fwDispositions fwZRecs)}}                                       
 >
 > sampleSizeOk           :: (Word, Word) → Bool
 > sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)

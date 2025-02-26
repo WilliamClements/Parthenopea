@@ -58,6 +58,7 @@ April 16, 2023
 >         , isLeftPreZone
 >         , isRightPreZone
 >         , isStereoInst
+>         , isStereoCrossoverZone
 >         , isStereoZone
 >         , isUnpartnered
 >         , KeyNumber
@@ -94,7 +95,6 @@ April 16, 2023
 >         , Velocity
 >         , violated
 >         , virginrd
->         , wasDeferred
 >         , wasRescued
 >         , wasSwitchedToMono
 >         , ZoneDigest(..)
@@ -335,7 +335,6 @@ implementing SoundFont spec ====================================================
 >
 >   , zPartnerMap        :: Map PreZoneKey PreZone
 >
->   , zOwners            :: Map PerGMKey [PreZone]
 >   , zJobs              :: Map PerGMKey InstCat
 >   , zPerInstCache      :: Map PerGMKey PerInstrument}
 > instance Show SFBoot where
@@ -344,7 +343,8 @@ implementing SoundFont spec ====================================================
 >              , show (length zPreSampleCache), "=samples"
 >              , show (length zPreInstCache), "=insts"
 >
->              , show (length zOwners), "=owners"
+>              , show (length zPartnerMap), "=pards"
+>
 >              , show (length zJobs), "=jobs"
 >              , show (length zPerInstCache), "=perI"]
 > combineBoot            :: SFBoot → SFBoot → SFBoot
@@ -354,7 +354,6 @@ implementing SoundFont spec ====================================================
 >
 >         , zPartnerMap                    = Map.union boot1.zPartnerMap       boot2.zPartnerMap
 >
->         , zOwners                        = Map.union boot1.zOwners           boot2.zOwners
 >         , zJobs                          = Map.union boot1.zJobs             boot2.zJobs
 >         , zPerInstCache                  = Map.union boot1.zPerInstCache     boot2.zPerInstCache}
 >
@@ -363,16 +362,16 @@ implementing SoundFont spec ====================================================
 >   SFBoot
 >     Map.empty Map.empty
 >     Map.empty
->     Map.empty Map.empty Map.empty
+>     Map.empty Map.empty
 >
-> data SFFile =
+> data SFFile                              =
 >   SFFile {
 >     zWordF             :: Word
 >   , zFilename          :: FilePath
 >   , zFileArrays        :: FileArrays
 >   , zSample            :: SampleArrays}
 >
-> data FileArrays = 
+> data FileArrays                          = 
 >   FileArrays {
 >     ssInsts            :: Array Word F.Inst
 >   , ssIBags            :: Array Word F.Bag
@@ -380,12 +379,12 @@ implementing SoundFont spec ====================================================
 >   , ssIMods            :: Array Word F.Mod
 >   , ssShdrs            :: Array Word F.Shdr}
 >
-> data SampleArrays = 
+> data SampleArrays                        = 
 >   SampleArrays {
 >     ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
 >
-> data ZoneDigest =
+> data ZoneDigest                          =
 >   ZoneDigest {
 >     zdKeyRange         :: Maybe (Word, Word)
 >   , zdVelRange         :: Maybe (Word, Word)
@@ -450,11 +449,10 @@ bootstrapping ==================================================================
 >   deriving (Eq, Ord, Show)
 >
 > data Impact                              =
->   Ok | Deferred
->      | CorruptName
+>   Ok | CorruptName
 >      | BadSampleRate | BadSampleType | BadSampleLimits | BadSampleLoopLimits
 >      | BadStereoPartner
->      | Groomed
+>      | Paired | Unpaired
 >      | OrphanedBySample | OrphanedByInst
 >      | Absorbing | Absorbed | NoZones
 >      | CorruptGMRange | Narrow | BadLinkage | IllegalCrossover
@@ -484,9 +482,6 @@ bootstrapping ==================================================================
 >     getTriple          :: (Impact, Int) → (Disposition, Impact, String)
 >     getTriple (impact, _)                = striple $ fromJust $ find (\s → s.sImpact == impact) ss
 >
-> deferredset            :: [Impact]
-> deferredset                              = [Deferred]
->
 > deadset, elideset, rescueset
 >                        :: [Disposition]
 >                                            -- a given list is filtered down to the three Dispositions
@@ -507,9 +502,6 @@ bootstrapping ==================================================================
 >
 > dead                   :: [Scan] → Bool
 > dead ss                                  = notDead /= autopsy ss
->
-> wasDeferred             :: [Scan] → Bool
-> wasDeferred                              = any (\s → s.sImpact `elem` deferredset)
 >
 > wasRescued             :: Impact → [Scan] → Bool
 > wasRescued impact                        = any (\s → s.sDisposition `elem` rescueset && s.sImpact == impact)
@@ -597,6 +589,23 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > isStereoInst zs                          = isJust $ find isStereoZone (map fst zs)
 >       
 > isStereoZone pz                          = isLeftPreZone pz || isRightPreZone pz
+>
+> isStereoCrossoverZone  :: Map PreZoneKey PreZone → PreZone → Bool
+> isStereoCrossoverZone partnerMap pz@PreZone{ .. }
+>                                          = isStereoZone pz && isCrossover
+>   where
+>     fName                                = "isStereoCrossoverZone"
+>
+>     motherPz                             =
+>       case pzmkPartners of
+>         Left pzk                         → Map.lookup pzk partnerMap
+>         Right _                          → error $ unwords [fName, "PreZone in Unpartnered state"]
+>
+>     isCrossover                          =
+>       case motherPz of
+>         Just otherPz                     → extractInstKey pz /= extractInstKey otherPz
+>         Nothing                          → False
+>
 > isUnpartnered pz                         = isRight pz.pzmkPartners
 >
 > isStereoZone, isLeftPreZone, isRightPreZone, isUnpartnered

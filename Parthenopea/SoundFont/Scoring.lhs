@@ -351,8 +351,8 @@ tournament starts here =========================================================
 >
 >         preI                             = zPreInstCache Map.! pergm
 >         iName                            = preI.piChanges.cnName
->         pzs                              = zOwners       Map.! pergm
 >         perI                             = zPerInstCache Map.! pergm
+>         pzs                              = map fst perI.pZones
 >
 >         mz             :: Maybe PreZone
 >         mz                               = pgkwBag >>= findByBagIndex pzs
@@ -926,7 +926,9 @@ Edit the following =============================================================
 > conRatio                                 = 3/4
 > narrowInstrumentScope  :: Bool
 > narrowInstrumentScope                    = True
-> allowStereoCrossovers  :: Bool
-> allowStereoCrossovers                    = False
+> allowSpecifiedCrossovers, allowInferredCrossovers
+>                        :: Bool
+> allowSpecifiedCrossovers                 = True
+> allowInferredCrossovers                 = True
 
 The End
