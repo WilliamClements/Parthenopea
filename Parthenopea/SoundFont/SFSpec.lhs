@@ -400,9 +400,9 @@ implementing SoundFont spec ====================================================
 >   where
 >     inspectGen         :: F.Generator → ZoneDigest → ZoneDigest 
 >     inspectGen (F.KeyRange i j)                          zd
->                                          = zd {zdKeyRange = normalizeRange i j}
+>                                          = zd {zdKeyRange = Just(i, j)}
 >     inspectGen (F.VelRange i j)                          zd
->                                          = zd {zdVelRange = normalizeRange i j}
+>                                          = zd {zdVelRange = Just(i, j)}
 >     inspectGen (F.SampleIndex w)                         zd
 >                                          = zd {zdSampleIndex = Just w}
 >
@@ -425,10 +425,6 @@ implementing SoundFont spec ====================================================
 >                                          = zd {zdEndLoop = zd.zdEndLoop + i}
 >
 >     inspectGen _ zd                      = zd
->
->     normalizeRange x y                   = if x > y
->                                              then Just (y, x) -- WOX
->                                              else Just (x, y)
 >
 > findBySampleIndex      :: [SFZone] → Word → Maybe SFZone
 > findBySampleIndex zs w                   = find (\z → z.zSampleIndex == Just w) zs
@@ -455,9 +451,9 @@ bootstrapping ==================================================================
 >      | Paired | Unpaired
 >      | OrphanedBySample | OrphanedByInst
 >      | Absorbing | Absorbed | NoZones
->      | CorruptGMRange | Narrow | BadLinkage | IllegalCrossover
+>      | CorruptGMRange | Narrow | BadLinkage
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
->      | Unrecognized | NoPercZones | Harvested | CatIsPerc | CatIsInst | Disqualified
+>      | Unrecognized | NoPercZones | CatIsPerc | CatIsInst
 >      | Adopted | AdoptedAsMono | GlobalZone
 >   deriving (Eq, Ord, Show)
 >

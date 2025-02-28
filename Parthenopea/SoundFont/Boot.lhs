@@ -514,7 +514,7 @@ capture task ===================================================================
 >       let
 >         zoneOk pz                        = okGMRange pz.pzDigest.zdKeyRange && okGMRange pz.pzDigest.zdVelRange
 >
->         okGMRange      :: (Num a, Ord a, Show a) ⇒ Maybe (a, a) → Bool
+>         okGMRange      :: (Num a, Ord a) ⇒ Maybe (a, a) → Bool
 >         okGMRange mrng                   =
 >           case mrng of
 >             Just (j, k)                  → (0 <= j) && j <= k && k < fromIntegral qMidiSize128
@@ -1135,7 +1135,7 @@ zone task ======================================================================
 >   | traceIf trace_BZ False               = undefined
 >   | otherwise                            = zone
 >   where
->     zName                                 =
+>     zName                                =
 >       case mpz of
 >         Nothing                          → "<global>"
 >         Just pz                          → (effPZShdr pz).sampleName
