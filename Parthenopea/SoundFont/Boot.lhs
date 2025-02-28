@@ -451,14 +451,14 @@ capture task ===================================================================
 >         (zrec{zsPreZones = newPzs, zsGlobalKey = globalKey}, rdOut)
 >
 >     captureZones       :: PerGMKey → ResultDispositions → ([PreZone], ResultDispositions, Maybe PreZoneKey)
->     captureZones pergm rdCap             = (pzsRemaining, rdCap'', globalKey)
+>     captureZones pergm rdCap             = (pzs, rdCap'', globalKey)
 >       where
 >         fName_                           = unwords["captureZones"]
 >
 >         results                          = map captureZone (deriveRange ibagi jbagi)
 >
->         pzsRemaining                     = lefts results
->         rdCap''                          = foldl' sampleFolder rdCap' pzsRemaining
+>         pzs                              = lefts results
+>         rdCap''                          = foldl' sampleFolder rdCap' pzs
 >         globalKey                        = if head results == Right (Accepted, GlobalZone)
 >                                              then Just $ PreZoneKey sffile.zWordF ibagi
 >                                              else Nothing
@@ -467,8 +467,11 @@ capture task ===================================================================
 >         jbagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! (pgkwInst pergm+1))
 >
 >         (ss_, clue)
->           | null pzsRemaining            = (violated pergm NoZones, "null")
->           | otherwise                    = (accepted pergm Ok, show (length pzsRemaining))
+>           | null pzs                     = (violated pergm NoZones, noClue)
+>           | illegalRange pzs             = (violated pergm CorruptGMRange, noClue)
+>           | illegalLinkage pzs           = (violated pergm BadLinkage, noClue)
+>           | any hasRom pzs               = (violated pergm RomBased, noClue)
+>           | otherwise                    = (accepted pergm Ok, show (length pzs))
 >         ss                               = finishScans fName_ clue ss_ 
 >         rdCap'                           = dispose pergm ss rdCap
 >
@@ -506,6 +509,48 @@ capture task ===================================================================
 >             presk                        = PreSampleKey sffile.zWordF si
 >             mpres                        = presk `Map.lookup` fwBoot.zPreSampleCache
 >             pres                         = deJust fName mpres
+>
+>     illegalRange pzs                     =
+>       let
+>         zoneOk pz                        = okGMRange pz.pzDigest.zdKeyRange && okGMRange pz.pzDigest.zdVelRange
+>
+>         okGMRange      :: (Num a, Ord a, Show a) ⇒ Maybe (a, a) → Bool
+>         okGMRange mrng                   =
+>           case mrng of
+>             Just (j, k)                  → (0 <= j) && j <= k && k < fromIntegral qMidiSize128
+>             Nothing                      → True
+>       in
+>         not $ all zoneOk pzs
+>
+>     illegalLinkage pzs                   =
+>       let
+>         sList          :: [(Int, Int)]
+>         sList                            = map (\z → (extractIndex z, extractLink z)) pzs
+>
+>         isSafe         :: ∀ a . (Eq a, Ord a, Show a) ⇒ [(a,a)] → Bool
+>         isSafe pairs                     = closed && allPaired
+>           where
+>             uniquer    :: Map a a
+>             uniquer                      =
+>               foldl' (\target (k, t) → Map.insert k t target) Map.empty pairs
+>
+>             closed                       = all (\x → isJust (Map.lookup x uniquer)) uniquer
+>             allPaired                    = all (paired uniquer) uniquer
+>
+>             paired     :: Map a a → a → Bool
+>             paired target x              = x == z
+>               where
+>                 y                        = target Map.! x
+>                 z                        = target Map.! y
+>       in
+>         requiredZoneLinkage >= 1 && not (isSafe sList)
+>
+>     extractIndex, extractLink
+>                        :: PreZone → Int
+>     extractIndex pz                      = fromIntegral $ deJust "extractIndex" pz.pzDigest.zdSampleIndex
+>     extractLink pz                       = fromIntegral $ F.sampleLink (effPZShdr pz)
+>
+>     hasRom pz                            = F.sampleType (effPZShdr pz) >= 0x8000
 
 mark task =============================================================================================================
           copy global zone markers from zrecs to preInstCache
@@ -883,13 +928,7 @@ categorization task ============================================================
 >             Nothing                      → True
 >         canBePercI     :: [PreZone] → Bool
 >         canBePercI                       = all canBePercZ
->
->         -- Put the Instrument, of either category, through a gauntlet of checks.
->         -- This diverges, and then we have qualInstZone and qualPercZone 
->
->         pzsLocal                         = filter isLocal pzs
->         isLocal pz                       = not (isStereoZone pz) && not (hasCross pz)
->                                            
+>      
 >         -- Determine which category will belong to the Instrument, based on its performance for
 >         -- 1. all kinds
 >         -- 2. "rost" subset, could be same as 1.
@@ -910,60 +949,6 @@ categorization task ============================================================
 >                                          → icatRost
 >             _                            → icatNarrow
 >
->         corrupt                          = foldl' byZone Nothing pzs
->           where
->             byZone     :: Maybe InstCat → PreZone → Maybe InstCat
->             byZone target prez           =
->               foldl' CM.mplus target [checkGMRange prez.pzDigest.zdKeyRange, checkGMRange prez.pzDigest.zdVelRange]
->
->         checkGMRange   :: (Num a, Ord a, Show a) ⇒ Maybe (a, a) → Maybe InstCat
->         checkGMRange mrng                =
->           mrng >>= \(j, k) → if (0 <= j) && j <= k && k < fromIntegral qMidiSize128
->                                then Nothing
->                                else Just $ InstCatDisq (show mrng) (violated pergm CorruptGMRange)
->
->         hasRom pz                        = F.sampleType (effPZShdr pz) >= 0x8000
->                                          
->         checkLinkage   :: Maybe InstCat
->         checkLinkage                     =
->           if isSafe sList || requiredZoneLinkage < 1
->             then Nothing
->             else Just $ InstCatDisq noClue (violated pergm BadLinkage)
->           where
->             sList      :: [(Int, Int)]
->             sList                        = map (\z → (extractIndex z, extractLink z)) pzsLocal
->
->         isSafe         :: ∀ a . (Eq a, Ord a, Show a) ⇒ [(a,a)] → Bool
->         isSafe pairs                     = closed && allPaired
->           where
->             uniquer    :: Map a a
->             uniquer                      =
->               foldl' (\target (k, t) → Map.insert k t target) Map.empty pairs
->
->             closed                       = all (\x → isJust (Map.lookup x uniquer)) uniquer
->             allPaired                    = all (paired uniquer) uniquer
->
->         paired         :: ∀ a . (Eq a, Ord a, Show a) ⇒ Map a a → a → Bool
->         paired target x                  = x == z
->           where
->             y                            = target Map.! x
->             z                            = target Map.! y
->
->         extractIndex, extractLink
->                        :: PreZone → Int
->         extractIndex pz                  = fromIntegral $ deJust "extractIndex" pz.pzDigest.zdSampleIndex
->         extractLink pz                   = fromIntegral $ F.sampleLink (effPZShdr pz)
->
->         rejectCrosses  :: Maybe InstCat
->         rejectCrosses                 =
->           if any hasCross pzs
->             then Just $ InstCatDisq noClue (violated pergm IllegalCrossover)
->             else Nothing
->
->         hasCross       :: PreZone → Bool
->         hasCross pz                      =
->           isStereoZone pz && notElem (extractLink pz) (map extractLink pzs)
->
 >         howLaden       :: [Word] → Double
 >         howLaden ws
 >           | null pzs                     = 0
@@ -983,25 +968,13 @@ categorization task ============================================================
 >           | traceNot trace_PA False      = undefined
 >           | otherwise                    =
 >           if isNothing seed
->             then structuralAlts ++ functionalAlts allKinds
+>             then functionalAlts allKinds
 >             else functionalAlts srost
 >           where
 >             fName_                       = unwords [fName__, "provideAlts"]
 >             trace_PA                     =
 >               unwords [fName_, showMaybeInstCat seed, show (length pzs), show (BF.bimap length length srost)]
 >
->             structuralAlts               =
->               [if null pzs
->                  then Just $ InstCatDisq noClue (violated pergm NoZones)
->                  else Nothing
->               , corrupt
->               , if any hasRom pzs
->                   then Just (InstCatDisq noClue (violated pergm RomBased))
->                   else Nothing
->               , if allowSpecifiedCrossovers || allowInferredCrossovers
->                   then Nothing
->                   else rejectCrosses
->               , checkLinkage]
 >             functionalAlts frost
 >               | traceNot trace_FA False  = undefined
 >               | otherwise                =
