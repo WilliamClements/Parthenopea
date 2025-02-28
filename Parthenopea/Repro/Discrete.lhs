@@ -36,7 +36,7 @@ Discrete approach ==============================================================
 
 > computeFR          :: KernelSpec → DiscreteSig (Complex Double)
 > computeFR ks@KernelSpec{ .. }
->   | traceNow trace_CFR False             = undefined
+>   | traceNot trace_CFR False             = undefined
 >   | otherwise                            =
 >   profess
 >     ((ksLen > 0) && not (null ys'))
@@ -65,7 +65,7 @@ Discrete approach ==============================================================
 >
 > applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
 > applyConvolutionMono lowP secsToPlay sIn
->   | traceNow trace_AC False              = undefined
+>   | traceNot trace_AC False              = undefined
 >   | otherwise                            = sig 
 >   where
 >     dsigIn             :: Maybe (DiscreteSig Double)
@@ -174,7 +174,7 @@ Discrete approach ==============================================================
 >
 > slowConvolveIR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > slowConvolveIR dsigIn Lowpass{ .. }
->   | traceNow trace_SCIR False            = undefined
+>   | traceNot trace_SCIR False            = undefined
 >   | otherwise                            =
 >   profess
 >     (ok x1 && ok x2 && ok x3 && sane dsigOut)
@@ -210,7 +210,7 @@ Discrete approach ==============================================================
 >
 > fastConvolveFR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > fastConvolveFR dsigIn Lowpass{ .. }
->   | traceNow trace_FCFR False            = undefined
+>   | traceNot trace_FCFR False            = undefined
 >   | otherwise                            =
 >   profess
 >     (sane dsigOut')

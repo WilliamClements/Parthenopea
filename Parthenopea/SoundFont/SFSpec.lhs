@@ -15,7 +15,6 @@ April 16, 2023
 
 > module Parthenopea.SoundFont.SFSpec
 >        (  accepted
->         , changePreZone
 >         , autopsy
 >         , badButMaybeFix
 >         , ChangeEar(..)
@@ -63,6 +62,7 @@ April 16, 2023
 >         , isUnpartnered
 >         , KeyNumber
 >         , lookupCellIndex
+>         , makeMono
 >         , makePreZone
 >         , modified
 >         , noChange
@@ -183,8 +183,8 @@ implementing SoundFont spec ====================================================
 >   if MakeMono `elem` pzChanges.ceChanges
 >     then pzChanges.ceSource{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
 >     else pzChanges.ceSource
-> changePreZone          :: PreZone → PreZone
-> changePreZone pz@PreZone{ .. }           = pz{pzChanges = pzChanges{ceChanges = MakeMono : pzChanges.ceChanges}}
+> makeMono               :: PreZone → PreZone
+> makeMono pz@PreZone{ .. }                = pz{pzChanges = pzChanges{ceChanges = MakeMono : pzChanges.ceChanges}}
 > wasSwitchedToMono      :: PreZone → Bool
 > wasSwitchedToMono PreZone{ .. }          = MakeMono `elem` pzChanges.ceChanges
 > showPreZones           :: [PreZone] → String
@@ -451,7 +451,7 @@ bootstrapping ==================================================================
 > data Impact                              =
 >   Ok | CorruptName
 >      | BadSampleRate | BadSampleType | BadSampleLimits | BadSampleLoopLimits
->      | BadStereoPartner
+>      | DevolveToMono | BadStereoPartner
 >      | Paired | Unpaired
 >      | OrphanedBySample | OrphanedByInst
 >      | Absorbing | Absorbed | NoZones
@@ -679,7 +679,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportTournamentName                     = "TournamentReport'.log"
 >
 > howVerboseScanReport   :: Rational
-> howVerboseScanReport                     = 3/4
+> howVerboseScanReport                     = 1/4
 >
 > howVerboseTournamentReport
 >                        :: Rational

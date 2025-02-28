@@ -925,10 +925,10 @@ Edit the following =============================================================
 > conRatio               :: Double
 > conRatio                                 = 3/4
 > narrowInstrumentScope  :: Bool
-> narrowInstrumentScope                    = True
+> narrowInstrumentScope                    = False
 > allowSpecifiedCrossovers, allowInferredCrossovers
 >                        :: Bool
 > allowSpecifiedCrossovers                 = True
-> allowInferredCrossovers                 = True
+> allowInferredCrossovers                  = True
 
 The End

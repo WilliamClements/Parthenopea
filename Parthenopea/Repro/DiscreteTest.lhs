@@ -297,10 +297,10 @@ Feed chart =====================================================================
 >       where
 >         xformDecline   :: Double → Double
 >         xformDecline                     =
->             tracer "fromCentibels"       . fromCentibels
->           . tracer "ddLinear2"           . ddLinear2 (-dropoffRate) 0 -- hcent
->           . tracer "delta"               . flip (-) (logBase 2 freakStart)
->           . tracer "logBase 2"           . logBase 2
->           . tracer "xIn"
+>             notracer "fromCentibels"     . fromCentibels
+>           . notracer "ddLinear2"         . ddLinear2 (-dropoffRate) 0 -- hcent
+>           . notracer "delta"             . flip (-) (logBase 2 freakStart)
+>           . notracer "logBase 2"         . logBase 2
+>           . notracer "xIn"
 
 The End
