@@ -122,7 +122,7 @@ respective collections. The withdrawn items may be critical to some instruments.
 and recovery.
 
 > equipInstruments       :: ([InstrumentName], [PercussionSound])
->                           → IO (Maybe (SFRuntime, Matches, [PerGMKey], [PerGMKey], ResultDispositions))
+>                           → IO (Maybe (SFRuntime, Matches, ResultDispositions))
 > equipInstruments rost                    = do
 >   putStrLn $ unwords ["rost\n", show rost]
 >
@@ -149,12 +149,7 @@ and recovery.
 >       tsBooted                           ← getCurrentTime
 >       putStrLn ("___booted: " ++ show (diffUTCTime tsBooted tsLoaded))
 >
->       (pergmsI, pergmsP)                 ← enumGMs bootAll.zJobs
->
->       tsFinished                         ← getCurrentTime
->       putStrLn ("___GMs enumerated: " ++ show (diffUTCTime tsFinished tsBooted))
->
->       return (Just (runt, matchesAll, pergmsI, pergmsP, rdGen03))
+>       return (Just (runt, matchesAll, rdGen03))
 >   where
 >     bootFolder         :: (SFBoot, ResultDispositions, Matches) → SFFile → (SFBoot, ResultDispositions, Matches)
 >     bootFolder (bootIn, rdIn, matchesIn) sffile
@@ -168,7 +163,7 @@ and recovery.
 >     ingestFile sffile                    =
 >       let
 >         unfinished fiIn                  = not (null fiIn.fiTaskIfs)
->         nextGen fiIn@FileIterate{ .. }   = tracer name fiIn{ fiFw = userFun fiFw, fiTaskIfs = tail fiTaskIfs}
+>         nextGen fiIn@FileIterate{ .. }   = notracer name fiIn{ fiFw = userFun fiFw, fiTaskIfs = tail fiTaskIfs}
 >           where
 >             duo                          = head fiTaskIfs
 >             name                         = fst duo
@@ -212,23 +207,6 @@ and recovery.
 >                       ,   show $ length boota.ssShdrs ])
 >       putStrLn (unwords ["(", show nBits, ") loaded in", show (diffUTCTime ts2 ts1)])
 >       return sffile
->
-> enumGMs                :: Map PerGMKey InstCat → IO ([PerGMKey], [PerGMKey])
-> enumGMs jobs                             = return $ Map.foldlWithKey enumFolder ([], []) jobs
->   where
->     enumFolder         :: ([PerGMKey], [PerGMKey]) → PerGMKey → InstCat → ([PerGMKey], [PerGMKey])
->     enumFolder (pergmsI, pergmsP) pergmI_ icat
->                                          =
->       let
->         pergmI                           = pergmI_{pgkwBag = Nothing}
->       in
->         case icat of
->           InstCatPerc icd                → (pergmsI, pergmsP ++ instrumentPercList pergmI icd.inPercBixen)
->           InstCatInst _                  → (pergmI : pergmsI, pergmsP)
->           InstCatDisq _ _                → (pergmsI, pergmsP)
->
->     instrumentPercList :: PerGMKey → [Word] → [PerGMKey]
->     instrumentPercList pergmI            = map (\w → pergmI {pgkwBag = Just w})
 >
 > checkSmashing          :: PerGMKey → Smashing Word → Maybe [Scan]
 > checkSmashing pergm smashup

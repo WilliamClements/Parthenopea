@@ -62,9 +62,8 @@ executive ======================================================================
 >     then do
 >       return ()
 >     else do 
->       let (prerunt, matches, pergmsI, pergmsP, rd)
->                                          = fromJust mbundle
->       runt                               ← finishRuntime matches rost prerunt pergmsI pergmsP rd
+>       let (prerunt, matches, rd)         = fromJust mbundle
+>       runt                               ← finishRuntime matches rost prerunt rd
 >
 >       CM.when doRender (doRendering runt)
 >
@@ -75,10 +74,9 @@ executive ======================================================================
 >     finishRuntime      ::  Matches
 >                            → ([InstrumentName], [PercussionSound])
 >                            → SFRuntime
->                            → [PerGMKey] → [PerGMKey]
 >                            → ResultDispositions
 >                            → IO SFRuntime
->     finishRuntime matches rost prerunt pergmsI pergmsP rdGen03
+>     finishRuntime matches rost prerunt rdGen03
 >                                          = do
 >       tsStarted                          ← getCurrentTime
 >
@@ -89,15 +87,12 @@ executive ======================================================================
 >       tsScanned                          ← getCurrentTime
 >      
 >       -- actually conduct the tournament
->       ((wI, sI), (wP, sP))               ← decideWinners prerunt matches rost pergmsI pergmsP
+>       (wI, wP)                           ← decideWinners prerunt matches rost
 >       tsDecided                          ← getCurrentTime
 >       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsScanned))
 >
 >       CM.when (howVerboseTournamentReport > (1/10)) (writeTournamentReport prerunt.zFiles wI wP)
 >       tsReported                         ← getCurrentTime
->
->       -- print song/orchestration info to user (can be captured by redirecting standard out)
->       mapM_ putStrLn (sI ++ sP)
 >
 >       let wins                           = WinningRecord (Map.map head wI) (Map.map head wP)
 >
@@ -407,7 +402,7 @@ zone selection for rendering ===================================================
 >         shdr                             = effPZShdr pz
 >         partnerKey                       = fromLeft (error $ unwords [fName, "Unpartnered"]) pz.pzmkPartners
 >
->         trace_GSP                        = unwords [fName, showable, showPreZones (singleton pz)]
+>         trace_GSP                        = unwords [fName, showable]
 >         showable                         =
 >           case partner of
 >             Just (pzc, _)                → show pzc.pzWordB
@@ -421,8 +416,8 @@ zone selection for rendering ===================================================
 >                                              then findByBagIndex' perIP.pZones pzP.pzWordB
 >                                              else error "corrupt partner"
 >           where
->             pzP                          = deJust fName (partnerKey `Map.lookup` zBoot.zPartnerMap)
->             pergmP                       = tracer "pergmP" $ extractInstKey pzP
+>             pzP                          = deJust "pzP" (partnerKey `Map.lookup` zBoot.zPartnerMap)
+>             pergmP                       = extractInstKey pzP
 >             perIP                        = deJust fName (pergmP `Map.lookup` zBoot.zPerInstCache)
 
 reconcile zone and sample header ======================================================================================

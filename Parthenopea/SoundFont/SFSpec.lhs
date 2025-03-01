@@ -675,7 +675,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportTournamentName                     = "TournamentReport'.log"
 >
 > howVerboseScanReport   :: Rational
-> howVerboseScanReport                     = 1/4
+> howVerboseScanReport                     = 3/4
 >
 > howVerboseTournamentReport
 >                        :: Rational

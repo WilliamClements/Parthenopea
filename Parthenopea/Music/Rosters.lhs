@@ -120,9 +120,9 @@ organize exposed music =========================================================
 >    -- [ ("pit"         , pit)]
 >    -- [ ("getCITM"     , getCITM)]
 >    -- [ ("pa"          , pendingtonArnt 1)]
->       [ ("deyDumpDum"  , deyDumpDum False)]
+>    -- [ ("deyDumpDum"  , deyDumpDum False)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 2610)]
->    -- [ ("slot_1"      , slot 1)]
+>       [ ("slot_1"      , slot 1)]
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("rattan"      , rattan)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
@@ -185,7 +185,7 @@ a few playthings ... get it? ===================================================
 >   mbundle                                ← equipInstruments allKinds
 >   if isJust mbundle
 >     then do
->       let (runt, _, _, _, _)             = fromJust mbundle
+>       let (runt, _, _)                   = fromJust mbundle
 >       print runt
 >     else do
 >       return ()
