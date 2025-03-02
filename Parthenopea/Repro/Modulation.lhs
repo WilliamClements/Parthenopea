@@ -56,6 +56,8 @@ November 6, 2023
 >         , epsilon
 >         , frac
 >         , freakRange
+>         , FreeVerb(..)
+>         , FilterData(..)
 >         , fromAbsoluteCents
 >         , fromCentibels
 >         , fromCents
@@ -78,6 +80,7 @@ November 6, 2023
 >         , Modulation(..)
 >         , Modulator(..)
 >         , modVib
+>         , newOnePole
 >         , noonAsCoords
 >         , NoteOn(..)
 >         , pow
@@ -120,6 +123,7 @@ November 6, 2023
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.MemoTrie
+> import Data.Word
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
@@ -956,6 +960,48 @@ Mapping is used in SoundFont modulator
 >   , eReleaseT          :: Double
 >   , eModTriple         :: ModTriple} deriving (Eq, Show)
 >
+> data FreeVerb =
+>   FreeVerb
+>   {
+>       iiWetDryMix      :: Double
+>     , iiG              :: Double
+>     , iiGain           :: Double
+>     , iiRoomSize       :: Double
+>     , iiDamp           :: Double
+>     , iiWet1           :: Double
+>     , iiWet2           :: Double
+>     , iiDry            :: Double
+>     , iiWidth          :: Double
+>     , iiCombDelayL     :: Array Word Word64
+>     , iiCombDelayR     :: Array Word Word64
+>     , iiCombLPL        :: Array Word FilterData
+>     , iiCombLPR        :: Array Word FilterData
+>     , iiAllPassDelayL  :: Array Word Word64
+>     , iiAllPassDelayR  :: Array Word Word64
+>   } deriving (Show, Eq, Ord)
+>
+> data FilterData =
+>   FilterData
+>   {
+>       jGain            :: Double
+>     , jChannelsIn      :: Word64
+>     , jB               :: [Double]
+>     , jA               :: [Double]
+>   } deriving (Show, Eq, Ord)
+>
+> newOnePole             :: Double → FilterData
+> newOnePole pole =
+>   let
+>     b0 = if pole > 0
+>          then 1 - pole
+>          else 1 + pole
+>     a0 = 1
+>     a1 = (-pole)
+>   in
+>     FilterData 1
+>                2
+>                [b0]
+>                [a0, a1]
 > type Velocity                            = Volume
 > type KeyNumber                           = AbsPitch
 >

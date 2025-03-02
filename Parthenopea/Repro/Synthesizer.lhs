@@ -31,8 +31,6 @@ May 14, 2023
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Discrete ( applyConvolutionMono, applyConvolutionStereo )
 > import Parthenopea.Repro.Modulation
-> import qualified Parthenopea.Repro.SynToolkit
->                                          as STK
   
 Signal function-based synth ===========================================================================================
 
@@ -578,7 +576,7 @@ Effects ========================================================================
 > windices               :: [Word]
 > windices                                 = [0..7]
 >
-> makeFreeVerb           :: Double → Double → Double → STK.FreeVerb
+> makeFreeVerb           :: Double → Double → Double → FreeVerb
 > makeFreeVerb roomSize damp width
 >   | traceIf trace_MFV False = undefined
 >   | otherwise =
@@ -591,10 +589,10 @@ Effects ========================================================================
 >     wet2 = wet' * (1 - width) / 2
 >     initCombDelay, initAllpassDelay
 >                        :: Array Word Word64
->     initCombFilter     :: Array Word STK.FilterData
+>     initCombFilter     :: Array Word FilterData
 >     initCombDelay    = array (0,7) $ zip windices fvCombDelays
 >     initAllpassDelay = array (0,3) $ zip windices fvAllpassDelays
->     initCombFilter =   array (0,7) $ zip windices (replicate 8 $ STK.newOnePole 0.9)
+>     initCombFilter =   array (0,7) $ zip windices (replicate 8 $ newOnePole 0.9)
 >
 >     fvWetDryMix     = 0.2
 >     fvCoefficient   = 0.5
@@ -608,7 +606,7 @@ Effects ========================================================================
 >     fvAllpassDelays        :: [Word64] = [225, 556, 441, 341]
 >
 >   in
->     STK.FreeVerb fvWetDryMix
+>     FreeVerb fvWetDryMix
 >                  fvCoefficient
 >                  fvFixedGain
 >                  (roomSize * fvScaleRoom + fvOffsetRoom)
@@ -630,8 +628,8 @@ Effects ========================================================================
 >         , "damp",                        show damp
 >         , "width",                       show width]
 >   
-> eatFreeVerb            :: ∀ p . Clock p ⇒ STK.FreeVerb → Signal p Double Double
-> eatFreeVerb STK.FreeVerb{ .. }           =
+> eatFreeVerb            :: ∀ p . Clock p ⇒ FreeVerb → Signal p Double Double
+> eatFreeVerb FreeVerb{ .. }           =
 >     proc sinL → do
 >       cdL0 ← comb (iiCombDelayL ! 0) (iiCombLPL ! 0) ⤙ sinL
 >       cdL1 ← comb (iiCombDelayL ! 1) (iiCombLPL ! 1) ⤙ sinL
@@ -653,13 +651,13 @@ Effects ========================================================================
 >             
 >       outA ⤙ fp4L
 >
-> comb                   :: ∀ p . Clock p ⇒ Word64 → STK.FilterData → Signal p Double Double
+> comb                   :: ∀ p . Clock p ⇒ Word64 → FilterData → Signal p Double Double
 > comb maxDel stkFilter
 >   | traceNever trace_C False             = undefined
 >   | otherwise                            =
 >   proc sIn → do
 >     rec
->       sOut ← delayLine secs ⤙ sIn + sOut * STK.jGain stkFilter
+>       sOut ← delayLine secs ⤙ sIn + sOut * jGain stkFilter
 >     outA ⤙ sOut
 >   where
 >     sr                                   = rate (undefined :: p)
