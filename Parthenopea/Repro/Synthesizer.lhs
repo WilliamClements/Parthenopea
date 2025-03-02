@@ -16,13 +16,11 @@ May 14, 2023
 >
 > import Control.Arrow
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )
-> import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Int ( Int8, Int16 )
 > import Data.List ( maximumBy )
 > import Data.Maybe
 > import Data.Ord ( comparing )
-> import Data.Word ( Word64 )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )
@@ -573,111 +571,6 @@ Effects ========================================================================
 >     makeSF             :: Signal p Double Double
 >     makeSF                               = eatFreeVerb $ makeFreeVerb roomSize damp width
 >   
-> windices               :: [Word]
-> windices                                 = [0..7]
->
-> makeFreeVerb           :: Double → Double → Double → FreeVerb
-> makeFreeVerb roomSize damp width
->   | traceIf trace_MFV False = undefined
->   | otherwise =
->   let
->     wet = fvScaleWet * fvWetDryMix
->     dry = fvScaleDry * (1 - fvWetDryMix)
->     wet' = wet / (wet + dry)
->     dry' = dry / (wet + dry)
->     wet1 = wet' * (width/2 + 0.5)
->     wet2 = wet' * (1 - width) / 2
->     initCombDelay, initAllpassDelay
->                        :: Array Word Word64
->     initCombFilter     :: Array Word FilterData
->     initCombDelay    = array (0,7) $ zip windices fvCombDelays
->     initAllpassDelay = array (0,3) $ zip windices fvAllpassDelays
->     initCombFilter =   array (0,7) $ zip windices (replicate 8 $ newOnePole 0.9)
->
->     fvWetDryMix     = 0.2
->     fvCoefficient   = 0.5
->     fvFixedGain     = 0.015;
->     fvScaleWet      = 3;
->     fvScaleDry      = 2;
->     fvScaleDamp     = 0.4;
->     fvScaleRoom     = 0.28
->     fvOffsetRoom    = 0.7
->     fvCombDelays           :: [Word64] = [1617, 1557, 1491, 1422, 1356, 1277, 1188, 1116]
->     fvAllpassDelays        :: [Word64] = [225, 556, 441, 341]
->
->   in
->     FreeVerb fvWetDryMix
->                  fvCoefficient
->                  fvFixedGain
->                  (roomSize * fvScaleRoom + fvOffsetRoom)
->                  (damp * fvScaleDamp)
->                  wet1
->                  wet2
->                  dry'
->                  width
->                  initCombDelay
->                  initCombDelay
->                  initCombFilter
->                  initCombFilter
->                  initAllpassDelay
->                  initAllpassDelay
->   where
->     trace_MFV =
->       unwords [
->           "makeFreeVerb roomSize",       show roomSize
->         , "damp",                        show damp
->         , "width",                       show width]
->   
-> eatFreeVerb            :: ∀ p . Clock p ⇒ FreeVerb → Signal p Double Double
-> eatFreeVerb FreeVerb{ .. }           =
->     proc sinL → do
->       cdL0 ← comb (iiCombDelayL ! 0) (iiCombLPL ! 0) ⤙ sinL
->       cdL1 ← comb (iiCombDelayL ! 1) (iiCombLPL ! 1) ⤙ sinL
->       cdL2 ← comb (iiCombDelayL ! 2) (iiCombLPL ! 2) ⤙ sinL
->       cdL3 ← comb (iiCombDelayL ! 3) (iiCombLPL ! 3) ⤙ sinL
->       cdL4 ← comb (iiCombDelayL ! 4) (iiCombLPL ! 4) ⤙ sinL
->       cdL5 ← comb (iiCombDelayL ! 5) (iiCombLPL ! 5) ⤙ sinL
->       cdL6 ← comb (iiCombDelayL ! 6) (iiCombLPL ! 6) ⤙ sinL
->       cdL7 ← comb (iiCombDelayL ! 7) (iiCombLPL ! 7) ⤙ sinL
->
->       let sumL = cdL0+cdL1+cdL2+cdL3+cdL4+cdL5+cdL6+cdL7
->
->       let fp0L = sumL/8
->
->       fp1L ← allpass (iiAllPassDelayL ! 0) ⤙ fp0L
->       fp2L ← allpass (iiAllPassDelayL ! 1) ⤙ fp1L
->       fp3L ← allpass (iiAllPassDelayL ! 2) ⤙ fp2L
->       fp4L ← allpass (iiAllPassDelayL ! 3) ⤙ fp3L
->             
->       outA ⤙ fp4L
->
-> comb                   :: ∀ p . Clock p ⇒ Word64 → FilterData → Signal p Double Double
-> comb maxDel stkFilter
->   | traceNever trace_C False             = undefined
->   | otherwise                            =
->   proc sIn → do
->     rec
->       sOut ← delayLine secs ⤙ sIn + sOut * jGain stkFilter
->     outA ⤙ sOut
->   where
->     sr                                   = rate (undefined :: p)
->     secs               :: Double         = fromIntegral maxDel/sr
->
->     trace_C                              = unwords ["comb delay (samples)=", show maxDel, "filter=", show stkFilter]
-> 
-> allpass                :: ∀ p . Clock p ⇒ Word64 → Signal p Double Double
-> allpass maxDel
->   | traceNever trace_AP False            = undefined
->   | otherwise                            =
->   proc sIn → do
->     sOut ← delayLine secs ⤙ sIn
->     outA ⤙ sOut
->   where
->     sr                                   = rate (undefined :: p)
->     secs               :: Double         = fromIntegral maxDel/sr
->
->     trace_AP                             = unwords ["allpass delay (samples)=", show maxDel]
-> 
 > doPan                  :: (Double, Double) → (Double, Double) → (Double, Double)
 > doPan (azimuthL, azimuthR) (sinL, sinR)
 >   | traceNever trace_DP False            = undefined
