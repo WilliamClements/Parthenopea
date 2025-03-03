@@ -85,9 +85,9 @@ handle "matching as" cache misses ==============================================
 >   where
 >     tot            :: Double             = evalAgainstKeys inp keys
 >
-> evalAgainstGeneric     :: String → Fuzz
-> evalAgainstGeneric inp                   =
->   evalAgainstKeys inp genericInstFFKeys - evalAgainstKeys inp genericPercFFKeys
+> evalGenericPerc     :: String → Fuzz
+> evalGenericPerc inp                      =
+>   maximum (map (evalAgainstKeys inp . singleton) genericPercFFKeys)
 
 apply fuzzyfind to mining instruments + percussion ====================================================================
 
@@ -644,7 +644,7 @@ Utilities ======================================================================
 > genericInstFFKeys                        = singleton "horn" 
 >
 > genericPercFFKeys      :: [String]
-> genericPercFFKeys                        = ["perc", "hat", "kit", "kick"]
+> genericPercFFKeys                        = ["kit", "kick", "drum", "perc", "hat"]
 >
 > instrumentConFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
 > instrumentConFFKeys inst                 = embed inst keys
@@ -941,6 +941,6 @@ Edit the following =============================================================
 > allowSpecifiedCrossovers, allowInferredCrossovers
 >                        :: Bool
 > allowSpecifiedCrossovers                 = True
-> allowInferredCrossovers                  = True
+> allowInferredCrossovers                  = False
 
 The End

@@ -52,7 +52,11 @@ executive ======================================================================
 >   tsStarted                              ← getCurrentTime
 >
 >   rost                                   ← qualifyKinds songs
->   mbundle                                ← equipInstruments rost
+>   mbundle                                ← if narrowInstrumentScope && allowInferredCrossovers
+>                                              then do
+>                                                putStrLn "narrowInstrumentScope & allowInferredCrossovers cannot be used together"
+>                                                return Nothing
+>                                              else equipInstruments rost
 >   if isNothing mbundle
 >     then do
 >       return ()
@@ -260,11 +264,10 @@ executive ======================================================================
 define signal functions and instrument maps to support rendering ======================================================
 
 > prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
-> prepareInstruments runt@SFRuntime{zWinningRecord}
->                                          = 
+> prepareInstruments runt                  = 
 >     return $ (Percussion, assignPercussion)                                                      : imap
 >   where
->     WinningRecord{pWinningI, pWinningP}  = zWinningRecord
+>     WinningRecord{pWinningI, pWinningP}  = runt.zWinningRecord
 >     imap                                 = Map.foldrWithKey imapFolder [] pWinningI
 >     pmap                                 = Map.foldrWithKey pmapFolder [] pWinningP
 >

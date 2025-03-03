@@ -189,9 +189,9 @@ implementing SoundFont spec ====================================================
 > wasSwitchedToMono PreZone{ .. }          = MakeMono `elem` pzChanges.ceChanges
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
->
 > inSameInstrument       :: PreZoneKey → PreZoneKey → Bool
 > inSameInstrument pzka pzkb               = pzka.pzkwInst == pzkb.pzkwInst
+>
 > data PreInstrument                       =
 >   PreInstrument {
 >     piChanges          :: ChangeName F.Inst

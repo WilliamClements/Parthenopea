@@ -850,6 +850,8 @@ categorization task ============================================================
 >       where
 >         pergm                            = instKey zrec
 >         pzs                              = zrec.zsPreZones
+>         preI                             = fwBoot.zPreInstCache Map.! pergm
+>         iName                            = preI.piChanges.cnName
 
       Determine which category will belong to the Instrument, based on its performance for
       1. all kinds
@@ -895,6 +897,7 @@ categorization task ============================================================
 >                   , maybeSettle stands      (catDisq noClue (dropped pergm Narrow)) iMatches.ffInst
 >
 >                   , maybeNailAsPerc 0.4
+>                   , maybeSettle stands      (catPerc wZones)         [evalGenericPerc iName]
 >                   , Just $ catDisq noClue (dropped pergm Unrecognized)
 >                 ]
 >               where
@@ -986,7 +989,7 @@ zone task ======================================================================
 > zoneTaskIf sffile _ fwIn@FileWork{ .. }  = fwIn{  fwBoot = fwBoot{zPerInstCache = fst formZoneCache}
 >                                                 , fwDispositions = snd formZoneCache}
 >   where
->     fName                                = unwords ["zoneTaskIf", "formZoneCache", "computePerInst"]
+>     fName                                = "computePerInst"
 >
 >     formZoneCache      :: (Map PerGMKey PerInstrument, ResultDispositions)
 >     formZoneCache                        = Map.foldlWithKey perFolder (Map.empty, fwDispositions) fwBoot.zJobs
@@ -999,12 +1002,9 @@ zone task ======================================================================
 >           (Map.insert pergm (computePerInst pergm icat) zc, dispose pergm [Scan Accepted Ok fName noClue] rdFold)
 >
 >         computePerInst :: PerGMKey → InstCat → PerInstrument
->         computePerInst pergm icat
->           | traceIf trace_CPI False      = undefined
->           | otherwise                    = PerInstrument (zip pzs oList) icd.inSmashup
+>         computePerInst pergm icat        = PerInstrument (zip pzs oList) icd.inSmashup
 >           where
 >             preI                         = fwBoot.zPreInstCache Map.! pergm
->             iName                        = preI.piChanges.cnName
 >
 >             icd        :: InstCatData
 >             bixen      :: [Word]
@@ -1022,9 +1022,6 @@ zone task ======================================================================
 >             oList                        = map (\pz → buildZone sffile gZone (Just pz) pz.pzWordB) pzs
 >
 >             pzs                          = filter (\pz → pz.pzWordB `elem` bixen) icd.inPreZones
->
->             trace_CPI=
->               unwords [fName, show pergm.pgkwFile, iName, show (length oList)]
 >
 > buildZone              :: SFFile → SFZone → Maybe PreZone → Word → SFZone
 > buildZone sffile fromZone mpz bagIndex
