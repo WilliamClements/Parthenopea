@@ -124,7 +124,7 @@ and recovery.
 > equipInstruments       :: ([InstrumentName], [PercussionSound])
 >                           → IO (Maybe (SFRuntime, Matches, ResultDispositions))
 > equipInstruments rost                    = do
->   putStrLn $ unwords ["rost\n", show rost]
+>   putStrLn $ unwords ["\n", fName, "rost", show rost, "\n"]
 >
 >   tsStarted                              ← getCurrentTime
 >
@@ -151,7 +151,8 @@ and recovery.
 >
 >       return (Just (runt, matchesAll, rdGen03))
 >   where
->     bootFolder         :: (SFBoot, ResultDispositions, Matches) → SFFile → (SFBoot, ResultDispositions, Matches)
+>     fName = "equipInstruments"
+>
 >     bootFolder (bootIn, rdIn, matchesIn) sffile
 >                                          = 
 >       let
@@ -159,15 +160,12 @@ and recovery.
 >       in
 >         (combineBoot bootIn bootOut, combinerd rdIn rdOut, combineMatches matchesIn matchesOut)
 >
->     ingestFile         :: SFFile → FileIterate
 >     ingestFile sffile                    =
 >       let
 >         unfinished fiIn                  = not (null fiIn.fiTaskIfs)
->         nextGen fiIn@FileIterate{ .. }   = notracer name fiIn{ fiFw = userFun fiFw, fiTaskIfs = tail fiTaskIfs}
+>         nextGen fiIn@FileIterate{ .. }   = tracer name fiIn{ fiFw = userFun fiFw, fiTaskIfs = tail fiTaskIfs}
 >           where
->             duo                          = head fiTaskIfs
->             name                         = fst duo
->             userFun                      = snd duo
+>             (name, userFun)              = head fiTaskIfs
 >       in
 >         head $ dropWhile unfinished (iterate nextGen (makeFileIterate sffile rost))
 >
@@ -187,9 +185,7 @@ and recovery.
 >               (F.insts pdata) (F.ibags pdata)
 >               (F.igens pdata) (F.imods pdata)
 >               (F.shdrs pdata)
->       let samplea                          =
->             SampleArrays
->               (F.smpl  sdata) (F.sm24  sdata)
+>       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
 >       let sffile                         = SFFile wFile filename boota samplea
 >       let nBits::Word                      =
 >             case samplea.ssM24 of
@@ -197,14 +193,12 @@ and recovery.
 >               Just _                     → 24
 >       ts2                                ← getCurrentTime
 >       CM.when diagnosticsEnabled (
->         putStrLn $ unwords [
->                           "openSoundFontFile"
->                       ,   "insts,bags,gens,mods,shdrs"
->                       ,   show $ length boota.ssInsts
->                       ,   show $ length boota.ssIBags
->                       ,   show $ length boota.ssIGens
->                       ,   show $ length boota.ssIMods
->                       ,   show $ length boota.ssShdrs ])
+>         putStr $ unwords ["lengths insts,bags,gens,mods,shdrs:"
+>                         , show $ length boota.ssInsts
+>                         , show $ length boota.ssIBags
+>                         , show $ length boota.ssIGens
+>                         , show $ length boota.ssIMods
+>                         , show $ length boota.ssShdrs ])
 >       putStrLn (unwords ["(", show nBits, ") loaded in", show (diffUTCTime ts2 ts1)])
 >       return sffile
 >
@@ -224,7 +218,7 @@ and recovery.
 >   where
 >     fName                                = "computeInstSmashup"
 >
->     -- create smashup consisting of 16_384 (128 x 128) Word pairs - adds up to 131_072 bytes
+>     -- create smashup consisting of 16_384 (128 x 128) word pairs - (131_072 bytes)
 >     subs               :: [(Word, [Maybe (Word, Word)])]
 >     subs                                 = map extractSpace pzs
 >
@@ -259,15 +253,13 @@ support sample and instance ====================================================
 pre-sample task =======================================================================================================
           critique all Sample records in the file
 
-> preSampleTaskIf sffile _ fwIn            = foldl' formFolder fwIn (formComprehension sffile ssShdrs)
+> preSampleTaskIf sffile _ fwIn            = foldl' sampleFolder fwIn (formComprehension sffile ssShdrs)
 >   where
->     fName_                               = "preSampleTaskIf"
->
->     formFolder         :: FileWork → PreSampleKey → FileWork
->     formFolder fwForm@FileWork{ .. } presk
+>     sampleFolder       :: FileWork → PreSampleKey → FileWork
+>     sampleFolder fwForm@FileWork{ .. } presk
 >                                          = fwForm{ fwBoot = fwBoot', fwDispositions = dispose presk ss fwDispositions}
 >       where
->         fName                            = unwords [fName_, "formFolder"]
+>         fName                            = "sampleFolder"
 >
 >         fwBoot'                          =
 >           if dead ss
@@ -276,8 +268,8 @@ pre-sample task ================================================================
 >         ps                               = ChangeName shdr changes name
 >         shdr                             = sffile.zFileArrays.ssShdrs ! presk.pskwSampleIndex
 >
->         bad                              = shdr.sampleName
->         good                             = fixName bad
+>         raw                              = shdr.sampleName
+>         good                             = fixName raw
 >
 >         (ss_, clue)                      
 >           | not (goodSampleRate shdr.sampleRate)
@@ -286,12 +278,12 @@ pre-sample task ================================================================
 >                                          = (violated presk BadSampleType, show shdr.sampleType)
 >           | not (sampleSizeOk (shdr.start, shdr.end))
 >                                          = (violated presk BadSampleLimits, show (shdr.start, shdr.end))
->           | not (goodName bad)           = (badButMaybeFix fixBadNames CorruptName fName bad good, noClue)
+>           | not (goodName raw)           = (badButMaybeFix fixBadNames CorruptName fName raw good, noClue)
 >           | otherwise                    = (accepted presk Ok, show presk.pskwSampleIndex)
 >
 >         (ss, changes, name)              = if wasRescued CorruptName ss_
 >                                              then (ss_, singleton FixCorruptName, good)
->                                              else (finishScans fName clue ss_, [], bad)
+>                                              else (finishScans fName clue ss_, [], raw)
 
 pre-instance task =====================================================================================================
           access and critique all Instrument "records" in the file 
@@ -301,8 +293,6 @@ pre-instance task ==============================================================
 >   fwIn{  fwBoot = fwBoot{zPreInstCache = preInstCache}
 >        , fwDispositions = rdFinal}
 >   where
->     fName_                               = "preInstTaskIf"
->
 >     pergms                               = formComprehension sffile ssInsts
 >     (preInstCache, rdFinal)              = foldl' preIFolder (Map.empty, fwDispositions) pergms
 >
@@ -315,13 +305,13 @@ pre-instance task ==============================================================
 >         then (m', rd'')
 >         else error $ unwords [fName, "corrupt instBagNdx"]
 >       where
->         fName                            = unwords [fName_, "preIFolder"]
+>         fName                            = "preIFolder"
 >
 >         iinst                            = loadInst pergm
 >         jinst                            = loadInst pergm{pgkwInst = pgkwInst + 1}
 >
->         bad                              = iinst.instName
->         good                             = fixName bad
+>         raw                              = iinst.instName
+>         good                             = fixName raw
 >
 >         m'                               =
 >           if dead ss
@@ -331,12 +321,12 @@ pre-instance task ==============================================================
 >         (ss_, clue)
 >           | iinst.instBagNdx == jinst.instBagNdx
 >                                          = (violated pergm NoZones, show iinst.instName)
->           | not (goodName bad)           = (badButMaybeFix fixBadNames CorruptName fName bad good, noClue)
+>           | not (goodName raw)           = (badButMaybeFix fixBadNames CorruptName fName raw good, noClue)
 >           | otherwise                    = (accepted pergm Ok, show pergm.pgkwInst)
 >
 >         ss                               = if wasRescued CorruptName ss_ then ss_ else finishScans fName clue ss_
 >         changes                          = if wasRescued CorruptName ss_ then singleton FixCorruptName else []
->         finalName                        = if wasRescued CorruptName ss_ then good else bad
+>         finalName                        = if wasRescued CorruptName ss_ then good else raw
 >
 >         rd''                             = dispose pergm ss rdFold   
 >
@@ -398,13 +388,8 @@ iterating on InstZoneRecord list ===============================================
 >                           → (PreZone → ResultDispositions → (Maybe PreZone, ResultDispositions))
 >                           → [PreZone] → ResultDispositions
 >                           → ([PreZone], ResultDispositions)
-> zoneTask zfilter zxform pzs rdIn
->   | traceNot trace_ZT False              = undefined
->   | otherwise                            = (catMaybes mworkedOn ++ ignore, rd')
+> zoneTask zfilter zxform pzs rdIn         = (catMaybes mworkedOn ++ ignore, rd')
 >   where
->     fName                                = "zoneTask"
->     trace_ZT                             = unwords[fName, show $ length pzs, show $ length workOn]
->
 >     (workOn, ignore)                     = partition zfilter pzs
 >    
 >     mworkedOn          :: [Maybe PreZone]
@@ -438,7 +423,7 @@ capture task ===================================================================
 >         pzs                              = lefts results
 >         rdCap''                          = foldl' sampleFolder rdCap' pzs
 >         globalKey                        = if head results == Right (Accepted, GlobalZone)
->                                              then Just $ PreZoneKey sffile.zWordF ibagi
+>                                              then Just $ PreZoneKey sffile.zWordF pergm.pgkwInst ibagi
 >                                              else Nothing
 >
 >         ibagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! pgkwInst pergm)
@@ -546,10 +531,8 @@ mark task ======================================================================
 partnering 1 task =====================================================================================================
           prepare for all possible stereo pairs
 
-> partner1TaskIf _ _ fwIn                  = fwOut
+> partner1TaskIf _ _ fwIn                  = zrecTask partnerer1 fwIn
 >   where
->     fwOut                                = zrecTask partnerer1 fwIn
->
 >     backMap            :: Map PreSampleKey [PreZoneKey]
 >     backMap                              = zrecCompute fwIn backFolder Map.empty
 >
@@ -559,7 +542,7 @@ partnering 1 task ==============================================================
 >           foldl' pzFolder Map.empty (filter isStereoZone zrec.zsPreZones)
 >
 >     pzFolder target pz                   =
->       Map.insertWith (++) (PreSampleKey pz.pzWordF pz.pzWordS) [extractZoneKey pz] target
+>       Map.insertWith (++) (extractSampleKey pz) [extractZoneKey pz] target
 >
 >     partnerer1         :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     partnerer1 zrec@InstZoneRecord{ .. } rdFold
@@ -580,17 +563,28 @@ partnering 1 task ==============================================================
 >
 >         (partners, rd')                  =
 >           if isStereoZone pz
->             then (Right myPartners, rdFold)
->             else (Left myZoneKey, dispose mySampleKey [Scan NoChange Ok fName "mono"] rdFold)
+>             then (Right myPartners, dispose mySampleKey [Scan Modified Ok fName "stereo"] rdFold)
+>             else (Left myZoneKey,   dispose mySampleKey [Scan NoChange Ok fName "mono"]   rdFold)
 
 partnering 2 task =====================================================================================================
           take care of valid partners (and specified crossovers if applicable)
-          save full (stereo) partnerMap which will later be used to make partial map
+          save full (stereo) partner map which will later be used to make partial map
 
-> partner2TaskIf _ _ fwIn@FileWork{ .. }   = (zrecTask partnerer2 fwIn){fwBoot = fwBoot{zPartnerMap = partnerMap}}
+> partner2TaskIf _ _ fwIn@FileWork{ .. }   = zrecTask partnerer2 fwIn
 >   where
->     partnerMap                           = formFullPartnerMap fwIn 
->
+>     partnerMap         :: Map PreZoneKey [PreZoneKey]
+>     partnerMap                           = foldl' pFolder Map.empty (goodZRecs fwDispositions fwZRecs)
+>       where
+>         pFolder        :: Map PreZoneKey [PreZoneKey] → InstZoneRecord → Map PreZoneKey [PreZoneKey]
+>         pFolder m zrec                   =
+>           let
+>             zFolder    :: Map PreZoneKey [PreZoneKey] → PreZone → Map PreZoneKey [PreZoneKey]
+>             zFolder m' pz                = if isStereoZone pz
+>                                              then Map.insert (extractZoneKey pz) (fromRight [] pz.pzmkPartners) m'
+>                                              else m'
+>           in
+>             foldl' zFolder m zrec.zsPreZones
+>     
 >     partnerer2         :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     partnerer2 zrec@InstZoneRecord{ .. } rdFold
 >                                          = (zrec', rd')
@@ -609,26 +603,16 @@ partnering 2 task ==============================================================
 >         (partners, rd')                  =
 >           case mpartner of
 >             Just pzk                     →
->               (Left pzk,        dispose mySampleKey [Scan Modified Paired fName (status pzk)]    rdFold)
+>               (Left pzk,        dispose mySampleKey [Scan Modified Paired fName noClue]    rdFold)
 >             Nothing                      →
 >               (pz.pzmkPartners, dispose mySampleKey [Scan NoChange Unpaired fName "nonconforming"] rdFold)
 >
->         status pzk                       =
->           let
->             pzOther                      = partnerMap Map.! pzk
->             otherInstKey                 = extractInstKey pzOther
->           in
->             if myInstKey == otherInstKey
->               then "stereo" 
->               else "crossover"
->
 >         perfect pzk                      =
 >           let
->             pzOther                      = partnerMap Map.! pzk
->             otherInstKey                 = extractInstKey pzOther
+>             otherInstKey                 = PerGMKey pzk.pzkwFile pzk.pzkwInst Nothing
 >             found                        =
 >               find (\x → x == myZoneKey && (allowSpecifiedCrossovers || myInstKey == otherInstKey))
->                    (fromRight [] pzOther.pzmkPartners)
+>                    (partnerMap Map.! pzk)
 >           in
 >             isJust found
 >
@@ -677,11 +661,9 @@ partnering 3 task ==============================================================
 >             (partners, rdPartner')       =
 >               case try of
 >                 Just (_, pzk)            →
->                   ( Left pzk
->                   , dispose mySampleKey [Scan Modified Paired fName "crossed over"] rdPartner)
+>                   ( Left pzk,        dispose mySampleKey [Scan Modified Paired   fName "+crossover"]     rdPartner)
 >                 Nothing                  →
->                   ( pz.pzmkPartners
->                   , dispose mySampleKey [Scan NoChange Unpaired fName "no suitable pard"] rdPartner)        
+>                   ( pz.pzmkPartners, dispose mySampleKey [Scan NoChange Unpaired fName "no crossover"]   rdPartner)        
 
 partnering 4 task =====================================================================================================
           devolving to mono as a last resort
@@ -705,10 +687,8 @@ partnering 4 task ==============================================================
 >
 >         (pz', rd')                       =
 >           if canDevolveToMono
->             then ( makeMono pz
->                  , dispose mySampleKey [Scan Modified DevolveToMono fName "not fixed per se"] rdFold)
->             else ( pz
->                  , dispose mySampleKey [Scan Violated BadStereoPartner fName noClue] rdFold)
+>             then ( makeMono pz, dispose mySampleKey [Scan Modified DevolveToMono    fName noClue] rdFold)
+>             else ( pz,          dispose mySampleKey [Scan Violated BadStereoPartner fName noClue] rdFold)
 
 reorg task ============================================================================================================
           where indicated, make one instrument out of many
@@ -725,17 +705,10 @@ To build the map
 
  4. filter any proposed absorptions through qualifyAbsorptionGroup
 
-> buildAbsorptionMap     :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → Map Word Word
-> buildAbsorptionMap sffile _ fwIn@FileWork{ .. }
+> buildAbsorptionMap     :: SFFile → FileWork → Map Word Word
+> buildAbsorptionMap sffile fwIn@FileWork{ .. }
 >                                          = foldl' fold1Fun Map.empty dissected
 >   where
->     zrecs                                = goodZRecs fwDispositions fwZRecs
->
->     owners                               = zrecCompute fwIn harvestFolder Map.empty 
->
->     harvestFolder      :: Map PerGMKey [PreZone] → InstZoneRecord → Map PerGMKey [PreZone]
->     harvestFolder m zrec                 = Map.insert (instKey zrec) zrec.zsPreZones m
->
 >     fold1Fun           :: Map Word Word → (Word, [Word]) → Map Word Word
 >     fold1Fun mIn (wLead, wMembers)       = foldl' fold2Fun mIn wMembers
 >       where
@@ -743,9 +716,9 @@ To build the map
 >         fold2Fun m' wMember              = Map.insert wMember wLead m'
 >
 >     dissected          :: [(Word, [Word])]
->     dissected                            = tracer "dissected" (filter qualifyAbsorptionGroup groupedC)
+>     dissected                            = filter (qualify . snd) groupedC
 >       where
->         frags                            = map enFrag zrecs
+>         frags                            = map enFrag (goodZRecs fwDispositions fwZRecs)
 >         fragsets                         = sort $ mapMaybe deFrag frags
 >         groupedA                         = filter (\x → 1 < length x) (groupBy (\x y → fst x == fst y) fragsets)
 >         groupedB                         = map (map snd) groupedA
@@ -772,34 +745,25 @@ To build the map
 >           then Just (str'', w)
 >           else Nothing
 >
->     qualifyAbsorptionGroup
->                         :: (Word, [Word]) → Bool
->     qualifyAbsorptionGroup (leadI, memberIs)
->       | traceIf trace_QAG False          = undefined
->       | otherwise                        = answer
+>     owners                               = zrecCompute fwIn ownerFolder Map.empty 
+>     ownerFolder m zrec                   = Map.insert (instKey zrec) zrec.zsPreZones m
+>
+>     qualify            :: [Word] → Bool
+>     qualify memberIs                     = fracAll / fracOne > 1.25
 >       where
->         fName                            = unwords ["qualifyAbsorptionGroup"]
+>         fracAll, fracOne :: Rational
 >
->         pergms                           = map (\wI → PerGMKey sffile.zWordF wI Nothing) memberIs
->         smashups                         = map smash pergms
->         pzLoads                          = map (owners Map.!) pergms
->
->         fracOne        :: Rational
+>         fracAll                          = 100 * fromRational (fractionCovered $ smush $ zip pzLoads smashups)
 >         fracOne                          = 100 * fromRational ((maximum . map fractionCovered) smashups)
 >
->         smashAll                         = smush (zip pzLoads smashups)
->         fracAll                          = 100 * fromRational (fractionCovered smashAll)
->         answer                           = fracAll / fracOne > 1.25
->
+>         smashups                         = map smash pergms
 >         smash pergm                      = computeInstSmashup $ owners Map.! pergm
 >
->         trace_QAG                        =
->           unwords [fName, show leadI, show (fracOne, fracAll)
->                  , show "...."
->                  , show answer, show (fracAll / fracOne)]
+>         pergms                           = map (\wI → PerGMKey sffile.zWordF wI Nothing) memberIs
+>         pzLoads                          = map (owners Map.!) pergms
 >
-> buildHoldMap           :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → Map Word Word → Map Word [PreZone]
-> buildHoldMap _ _ FileWork{ .. } aMap     = foldl' makeHolds Map.empty zrecs
+> buildHoldMap           :: FileWork → Map Word Word → Map Word [PreZone]
+> buildHoldMap FileWork{ .. } aMap         = foldl' makeHolds Map.empty zrecs
 >   where
 >     zrecs                                = goodZRecs fwDispositions fwZRecs
 >
@@ -821,19 +785,15 @@ To build the map
 >
 >             upd target                   = Map.insertWith (++) target rebased iHold
 >
-> reorgTaskIf sffile rost fwIn             = fwTask
+> reorgTaskIf sffile _ fwIn                = zrecTask reorger fwIn
 >   where
->     fName_                               = "reorgTaskIf"
->
->     fwTask                               = zrecTask reorger fwIn
->
->     aMap                                 = buildAbsorptionMap sffile rost fwIn
->     hMap                                 = buildHoldMap sffile rost fwIn aMap
+>     aMap                                 = buildAbsorptionMap sffile fwIn
+>     hMap                                 = buildHoldMap fwIn aMap
 >
 >     reorger            :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     reorger zrec rdFold                  = (zrec', rdFold')
 >       where
->         fName                            = unwords [fName_, "reorger"]
+>         fName                            = "reorger"
 >
 >         aprobe                           = Map.lookup zrec.zswInst aMap
 >         hprobe                           = Map.lookup zrec.zswInst hMap
@@ -870,47 +830,31 @@ match task =====================================================================
 > matchTaskIf _ _ fwIn@FileWork{ .. }      = fwIn{fwMatches = Matches sMatches iMatches}
 >   where
 >     sMatches                             =
->       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.cnName) m) Map.empty fwBoot.zPreSampleCache
+>       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.cnName) m)           Map.empty fwBoot.zPreSampleCache
 >     iMatches                             =
 >       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.piChanges.cnName) m) Map.empty fwBoot.zPreInstCache
 
 categorization task ===================================================================================================
           assign each instrument to one of the three categories
+          a. Just InstCatInst              an inst bearing one inst, or
+          b. Just InstCatPerc              an inst bearing one or more percs, or
+          c. Just InstCatDisq              an inst disqualified from tournaments, or
+          d. Nothing                       undecided
 
 > catTaskIf _ rost fwIn@FileWork{ .. }     = zrecTask catter fwIn
 >   where
->     fName___                             = "catTaskIf"
->
->     catter             :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     catter zrec rdFold                   = (zrec{zsInstCat = Just (categorizeInst zrec)}, rdFold)
 >
 >     categorizeInst     :: InstZoneRecord → InstCat
->     categorizeInst zrec
->       | traceIf trace_CI False           = undefined
->       | otherwise                        = deJust (unwords[fName__, "icat"]) icat
+>     categorizeInst zrec                  = fromJust icat
 >       where
->         fName__                          = unwords [fName___, "categorizeInst"]
->         trace_CI                         =
->           unwords [fName__, iName, show (pergm.pgkwFile, pergm.pgkwInst)]
->
 >         pergm                            = instKey zrec
->         preI                             = fwBoot.zPreInstCache Map.! pergm
->         iName                            = preI.piChanges.cnName
 >         pzs                              = zrec.zsPreZones
->
->         canBePercZ     :: PreZone → Bool
->         canBePercZ x                     =
->           case x.pzDigest.zdKeyRange of
->             Just rng                     →    inRange rng ((fromIntegral . fst) percPitchRange)
->                                            && inRange rng ((fromIntegral . snd) percPitchRange)
->             Nothing                      → True
->         canBePercI     :: [PreZone] → Bool
->         canBePercI                       = all canBePercZ
->      
->         -- Determine which category will belong to the Instrument, based on its performance for
->         -- 1. all kinds
->         -- 2. "rost" subset, could be same as 1.
->
+
+      Determine which category will belong to the Instrument, based on its performance for
+      1. all kinds
+      2. "rost" subset, could be same as 1.
+
 >         icatAllKinds, icatRost, icatNarrow, icat
 >                        :: Maybe InstCat
 >         icatAllKinds                     = foldl' CM.mplus Nothing (provideAlts Nothing allKinds)
@@ -927,35 +871,13 @@ categorization task ============================================================
 >                                          → icatRost
 >             _                            → icatNarrow
 >
->         howLaden       :: [Word] → Double
->         howLaden ws
->           | null pzs                     = 0
->           | otherwise                    = (fromIntegral . length) ws / (fromIntegral . length) pzs
->
->         maybeSettle    :: (Foldable t, Show (t Fuzz)) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
->         maybeSettle thresh ic keys       = find (> thresh) keys >> Just ic
-
-   "now", sequence through the alternatives, categorizing encountered instruments as follows:
-   a. Just InstCatInst           an inst bearing one inst, or
-   b. Just InstCatPerc           an inst bearing one or more percs, or
-   c. Just InstCatDisq           an inst disqualified from tournaments, or
-   d. Nothing                    undecided
-
 >         provideAlts    :: Maybe InstCat → ([InstrumentName], [PercussionSound]) → [Maybe InstCat]
->         provideAlts seed srost
->           | traceNot trace_PA False      = undefined
->           | otherwise                    =
+>         provideAlts seed rost'           =
 >           if isNothing seed
 >             then functionalAlts allKinds
->             else functionalAlts srost
+>             else functionalAlts rost'
 >           where
->             fName_                       = unwords [fName__, "provideAlts"]
->             trace_PA                     =
->               unwords [fName_, showMaybeInstCat seed, show (length pzs), show (BF.bimap length length srost)]
->
->             functionalAlts frost
->               | traceNot trace_FA False  = undefined
->               | otherwise                =
+>             functionalAlts frost         =
 >               let
 >                 iMatches                 = fromJust $ Map.lookup pergm fwMatches.mIMatches
 >                 ffInst'                  =
@@ -992,7 +914,23 @@ categorization task ============================================================
 >                          else Just (catDisq (show (uFrac, wFrac)) (violated pergm NoPercZones)))
 >                     else Nothing
 >
->                 trace_FA = unwords [fName_, iName, show frost, show (length uZones, length wZones)]
+>             maybeSettle
+>                        :: (Foldable t, Show (t Fuzz)) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
+>             maybeSettle thresh ic keys   = find (> thresh) keys >> Just ic
+>
+>             canBePercI :: [PreZone] → Bool
+>             canBePercI                   = all canBePercZ
+>             canBePercZ :: PreZone → Bool
+>             canBePercZ x                 =
+>               case x.pzDigest.zdKeyRange of
+>                 Just rng                 →    inRange rng ((fromIntegral . fst) percPitchRange)
+>                                            && inRange rng ((fromIntegral . snd) percPitchRange)
+>                 Nothing                  → True
+>      
+>             howLaden   :: [Word] → Double
+>             howLaden ws
+>               | null pzs                 = 0
+>               | otherwise                = (fromIntegral . length) ws / (fromIntegral . length) pzs
 >
 >             catInst      :: InstCat      =
 >               if null pzs
@@ -1005,18 +943,13 @@ categorization task ============================================================
 >                 icd                      = InstCatData pzs smashup []
 >
 >             catPerc      :: [Word] → InstCat
->             catPerc ws
->               | traceNot trace_CP False  = undefined
->               | otherwise                =
+>             catPerc ws                   =
 >               if null pzs || null ws
 >                 then InstCatDisq "catPerc" (dropped pergm NoZones)
 >                 else (case check of
 >                        Nothing           → InstCatPerc icd
 >                        Just scans        → InstCatDisq "smashing" scans)
 >               where
->                 fName                    = unwords[fName_, "catPerc"]
->                 trace_CP                 = unwords [fName, show (length ws, length pzs)]
->
 >                 pzs'                     = filter (\x → x.pzWordB `elem` ws) pzs
 >                 smashup                  = computeInstSmashup pzs'
 >                 icd                      = InstCatData pzs' smashup ws
@@ -1026,31 +959,18 @@ categorization task ============================================================
 >             catDisq                      = InstCatDisq
 >
 >         qualPercZone   :: ([InstrumentName], [PercussionSound]) → PreZone → Maybe Word
->         qualPercZone qrost prez
->           | traceNot trace_QPZ False     = undefined
->           | otherwise                    = result
+>         qualPercZone rost' prez           = mrange >>= pinnedKR (select rost') >> Just prez.pzWordB
 >           where
->             mrange                       =
->               notracer
->                 "mrange" (prez.pzDigest.zdKeyRange >>= (Just . BF.bimap fromIntegral fromIntegral))
->             result                       =
->               mrange
->               >>= pinnedKR (select qrost)
->               >> Just prez.pzWordB
->
->             trace_QPZ                    = unwords ["qualPercZone", show prez.pzWordB, show result]
+>             mrange                       = prez.pzDigest.zdKeyRange >>= (Just . BF.bimap fromIntegral fromIntegral)
 
 encat task ============================================================================================================
           react to categorization now present in the zrecs
 
 > encatTaskIf _ _                          = zrecTask encatter
 >   where
->     fName_                               = "encatTaskIf"
->
->     encatter           :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     encatter zrec rdFold                 =
 >       let
->         fName                            = unwords [fName_, "encatter"]
+>         fName                            = "encatter"
 >
 >         pergm                            = instKey zrec
 >         icat                             = deJust fName zrec.zsInstCat
@@ -1063,20 +983,18 @@ encat task =====================================================================
 zone task =============================================================================================================
           generate the PerInstrument map from jobs map
 
-> zoneTaskIf sffile _ fwIn@FileWork{ .. }  =
->   fwIn{  fwBoot = fwBoot{zPerInstCache = fst formZoneCache}
->        , fwDispositions = snd formZoneCache}
+> zoneTaskIf sffile _ fwIn@FileWork{ .. }  = fwIn{  fwBoot = fwBoot{zPerInstCache = fst formZoneCache}
+>                                                 , fwDispositions = snd formZoneCache}
 >   where
 >     fName                                = unwords ["zoneTaskIf", "formZoneCache", "computePerInst"]
 >
 >     formZoneCache      :: (Map PerGMKey PerInstrument, ResultDispositions)
->     formZoneCache                        = 
->       Map.foldlWithKey formFolder (Map.empty, fwDispositions) fwBoot.zJobs
+>     formZoneCache                        = Map.foldlWithKey perFolder (Map.empty, fwDispositions) fwBoot.zJobs
 >       where
->         formFolder     :: (Map PerGMKey PerInstrument, ResultDispositions)
+>         perFolder      :: (Map PerGMKey PerInstrument, ResultDispositions)
 >                           → PerGMKey → InstCat
 >                           → (Map PerGMKey PerInstrument, ResultDispositions)
->         formFolder (zc, rdFold) pergm icat
+>         perFolder (zc, rdFold) pergm icat
 >                                          =
 >           (Map.insert pergm (computePerInst pergm icat) zc, dispose pergm [Scan Accepted Ok fName noClue] rdFold)
 >
@@ -1227,33 +1145,27 @@ zone task ======================================================================
 rejobs task ===========================================================================================================
           generate the jobs map, from the zrec list
 
-> rejobsTaskIf _ _ fwIn@FileWork{ .. }     =
->   fwIn{fwBoot = fwBoot{zJobs = zrecCompute fwIn foldJob Map.empty}}
->     where
->       foldJob          :: Map PerGMKey InstCat → InstZoneRecord → Map PerGMKey InstCat
->       foldJob m zrec                     = Map.insert (instKey zrec) (deJust "InstCat" zrec.zsInstCat) m
+> rejobsTaskIf _ _ fwIn@FileWork{ .. }     = fwIn{fwBoot = fwBoot{zJobs = zrecCompute fwIn foldJob Map.empty}}
+>   where
+>     foldJob m zrec                       = Map.insert (instKey zrec) (deJust "InstCat" zrec.zsInstCat) m
 
 repartner task ========================================================================================================
           generate partial partner map with and for crossovers only, from the full map and zrec list
 
-> formPartnerMap         :: FileWork → (PreZone → Bool) → Map PreZoneKey PreZone
-> formPartnerMap FileWork{ .. } pzFun      = 
->   let
->     filePzs                              =
->       foldl' (\pzs zrec → pzs ++ filter pzFun zrec.zsPreZones)
->              []
->              (goodZRecs fwDispositions fwZRecs)
->   in
->     formPreZoneMap filePzs
->
-> formFullPartnerMap, formPartialPartnerMap
->                        :: FileWork -> Map PreZoneKey PreZone
-> formFullPartnerMap fw                    = formPartnerMap fw isStereoZone
-> formPartialPartnerMap fw                 = formPartnerMap fw (isStereoCrossoverZone fw.fwBoot.zPartnerMap)
->
-> repartnerTaskIf _ _ fwIn@FileWork{ .. }  = fwIn{fwBoot = fwBoot{zPartnerMap = partnerMap}}
+> repartnerTaskIf _ _ fwIn@FileWork{ .. }  = fwIn{fwBoot = fwBoot{zPartnerMap = zrecCompute fwIn foldPard Map.empty}}
 >   where
->     partnerMap                           = formPartialPartnerMap fwIn
+>     foldPard        :: Map PreZoneKey PreZoneKey → InstZoneRecord → Map PreZoneKey PreZoneKey
+>     foldPard m zrec                      =
+>       let
+>         zFolder    :: Map PreZoneKey PreZoneKey → PreZone → Map PreZoneKey PreZoneKey
+>         zFolder m' pz                    = if isStereoZone pz && not (inSameInstrument myPzk otherPzk)
+>                                              then Map.insert (extractZoneKey pz) otherPzk m'
+>                                              else m'
+>           where
+>             myPzk                        = extractZoneKey pz
+>             otherPzk                     = fromLeft (PreZoneKey 0 0 0) pz.pzmkPartners
+>       in
+>         foldl' zFolder m zrec.zsPreZones
 >
 > sampleSizeOk           :: (Word, Word) → Bool
 > sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)

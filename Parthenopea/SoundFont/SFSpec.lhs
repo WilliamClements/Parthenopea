@@ -45,19 +45,18 @@ April 16, 2023
 >         , findBySampleIndex'
 >         , finishScans
 >         , fixName
->         , formPreZoneMap
 >         , fromSampleType
 >         , getMaybePercList
 >         , howVerboseScanReport
 >         , howVerboseTournamentReport
 >         , Impact(..)
+>         , inSameInstrument
 >         , InstCat(..)
 >         , InstCatData(..)
 >         , is24BitInst
 >         , isLeftPreZone
 >         , isRightPreZone
 >         , isStereoInst
->         , isStereoCrossoverZone
 >         , isStereoZone
 >         , isUnpartnered
 >         , KeyNumber
@@ -152,6 +151,7 @@ implementing SoundFont spec ====================================================
 > data PreZoneKey =
 >   PreZoneKey {
 >     pzkwFile           :: Word
+>   , pzkwInst           :: Word
 >   , pzkwBag            :: Word} deriving (Eq, Ord, Show)
 >
 > data PreZone =
@@ -175,7 +175,7 @@ implementing SoundFont spec ====================================================
 > extractInstKey         :: PreZone → PerGMKey
 > extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
 > extractZoneKey         :: PreZone → PreZoneKey
-> extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordB
+> extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB
 > changePreSample        :: PreSample → PreSample
 > changePreSample ps@ChangeName{ .. }      = ps{cnChanges = [FixCorruptName], cnName = fixName cnName}
 > effPZShdr              :: PreZone → F.Shdr
@@ -189,9 +189,9 @@ implementing SoundFont spec ====================================================
 > wasSwitchedToMono PreZone{ .. }          = MakeMono `elem` pzChanges.ceChanges
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
-> formPreZoneMap         :: [PreZone] → Map PreZoneKey PreZone
-> formPreZoneMap                           = foldl' (\xs y → Map.insert (extractZoneKey y) y xs) Map.empty
 >
+> inSameInstrument       :: PreZoneKey → PreZoneKey → Bool
+> inSameInstrument pzka pzkb               = pzka.pzkwInst == pzkb.pzkwInst
 > data PreInstrument                       =
 >   PreInstrument {
 >     piChanges          :: ChangeName F.Inst
@@ -333,12 +333,18 @@ implementing SoundFont spec ====================================================
 >     zPreSampleCache    :: Map PreSampleKey PreSample
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
 >
->   , zPartnerMap        :: Map PreZoneKey PreZone
+>   , zPartnerMap        :: Map PreZoneKey PreZoneKey
 >
 >   , zJobs              :: Map PerGMKey InstCat
 >   , zPerInstCache      :: Map PerGMKey PerInstrument}
+> dasBoot                :: SFBoot
+> dasBoot                                  =
+>   SFBoot
+>     Map.empty Map.empty
+>     Map.empty
+>     Map.empty Map.empty
 > instance Show SFBoot where
->   show (SFBoot{ .. })                  =
+>   show (SFBoot{ .. })                    =
 >     unwords [  "SFBoot"
 >              , show (length zPreSampleCache), "=samples"
 >              , show (length zPreInstCache), "=insts"
@@ -356,13 +362,6 @@ implementing SoundFont spec ====================================================
 >
 >         , zJobs                          = Map.union boot1.zJobs             boot2.zJobs
 >         , zPerInstCache                  = Map.union boot1.zPerInstCache     boot2.zPerInstCache}
->
-> dasBoot                :: SFBoot
-> dasBoot                                  =
->   SFBoot
->     Map.empty Map.empty
->     Map.empty
->     Map.empty Map.empty
 >
 > data SFFile                              =
 >   SFFile {
@@ -529,7 +528,7 @@ bootstrapping ==================================================================
 > instance Show ResultDispositions where
 >   show rd@ResultDispositions{ .. }       =
 >     unwords [  "ResultDispositions"
->              , show (length preSampleDispos, length preInstDispos, rdScans rd)]
+>              , show (length preSampleDispos, length preInstDispos, rdCountScans rd)]
 >
 > deadrd                 :: ∀ k . SFResource k ⇒ k → ResultDispositions → Bool
 > deadrd k rd                              = dead (inspect k rd)
@@ -541,9 +540,9 @@ bootstrapping ==================================================================
 > rdLengths              :: ResultDispositions → (Int, Int)
 > rdLengths ResultDispositions{ .. }       = (length preSampleDispos, length preInstDispos)
 > countScans             :: ∀ k . SFResource k ⇒ Map k [Scan] → Int
-> countScans                               = foldl' (\n ss → n + length ss) 0
-> rdScans                :: ResultDispositions → (Int, Int)
-> rdScans  ResultDispositions{ .. }        = (countScans preSampleDispos, countScans preInstDispos)
+> countScans                               = Map.foldl' (\n ss → n + length ss) 0
+> rdCountScans           :: ResultDispositions → (Int, Int)
+> rdCountScans  ResultDispositions{ .. }   = (countScans preSampleDispos, countScans preInstDispos)
 > combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
 > combinerd rd1 rd2                        =
 >   rd1{  preSampleDispos                  = Map.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
@@ -585,22 +584,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > isStereoInst zs                          = isJust $ find isStereoZone (map fst zs)
 >       
 > isStereoZone pz                          = isLeftPreZone pz || isRightPreZone pz
->
-> isStereoCrossoverZone  :: Map PreZoneKey PreZone → PreZone → Bool
-> isStereoCrossoverZone partnerMap pz@PreZone{ .. }
->                                          = isStereoZone pz && isCrossover
->   where
->     fName                                = "isStereoCrossoverZone"
->
->     motherPz                             =
->       case pzmkPartners of
->         Left pzk                         → Map.lookup pzk partnerMap
->         Right _                          → error $ unwords [fName, "PreZone in Unpartnered state"]
->
->     isCrossover                          =
->       case motherPz of
->         Just otherPz                     → extractInstKey pz /= extractInstKey otherPz
->         Nothing                          → False
 >
 > isUnpartnered pz                         = isRight pz.pzmkPartners
 >

@@ -15,11 +15,7 @@ Runtime
 William Clements
 February 1, 2025
 
-> module Parthenopea.SoundFont.Runtime
->        (  computeCross
->         , bootNRender
->         )
->         where
+> module Parthenopea.SoundFont.Runtime ( bootNRender ) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
@@ -57,7 +53,6 @@ executive ======================================================================
 >
 >   rost                                   ← qualifyKinds songs
 >   mbundle                                ← equipInstruments rost
->
 >   if isNothing mbundle
 >     then do
 >       return ()
@@ -65,11 +60,14 @@ executive ======================================================================
 >       let (prerunt, matches, rd)         = fromJust mbundle
 >       runt                               ← finishRuntime matches rost prerunt rd
 >
->       CM.when doRender (doRendering runt)
+>       CM.when diagnosticsEnabled         (putStrLn $ unwords [fName, show runt])
+>       CM.when doRender                   (doRendering runt)
 >
 >       tsRendered                         ← getCurrentTime
 >       putStrLn ("___overall: " ++ show (diffUTCTime tsRendered tsStarted))
 >   where
+>     fName                                = "bootNRender"
+>
 >     -- track the complete _qualified_ populations of: samples, instruments, percussion
 >     finishRuntime      ::  Matches
 >                            → ([InstrumentName], [PercussionSound])
@@ -224,20 +222,6 @@ executive ======================================================================
 > writeFileBySections fp eSections         = do
 >   mapM_ (appendFile fp . reapEmissions) eSections
 >
-> computeCross           :: Map PerGMKey PerInstrument → Map PreZoneKey PreZone → Word → PreZoneKey → Maybe SFZone
-> computeCross perIs preZs si pzk
->   | traceAlways trace_CC False           = undefined
->   | otherwise                            =
->   Just pzk
->   >>= (`Map.lookup` preZs)
->   >>= Just . extractInstKey
->   >>= (`Map.lookup` perIs)
->   >>= Just . pZones
->   >>= Just . map snd
->   >>= (`findBySampleIndex` si)
->   where
->     trace_CC                             = unwords ["computeCross", show pzk]
->
 > renderSong             :: ∀ p . Clock p ⇒
 >                           SFRuntime
 >                           → InstrMap (Stereo p)
@@ -389,9 +373,7 @@ zone selection for rendering ===================================================
 >          oz                              = deJust "oz" mpartner
 >
 >     getStereoPartner   :: (PreZone, SFZone) → Maybe (PreZone, SFZone)
->     getStereoPartner (pz, _)
->       | traceIf trace_GSP False          = undefined
->       | otherwise                        =
+>     getStereoPartner (pz, _)             =
 >       case toSampleType (F.sampleType shdr) of
 >         SampleTypeLeft                   → partner
 >         SampleTypeRight                  → partner
@@ -402,22 +384,16 @@ zone selection for rendering ===================================================
 >         shdr                             = effPZShdr pz
 >         partnerKey                       = fromLeft (error $ unwords [fName, "Unpartnered"]) pz.pzmkPartners
 >
->         trace_GSP                        = unwords [fName, showable]
->         showable                         =
->           case partner of
->             Just (pzc, _)                → show pzc.pzWordB
->             Nothing                      → "Nothing" 
->
 >         partner                          =
 >           findBySampleIndex' perI.pZones (F.sampleLink shdr) `CM.mplus` getCrossover
 >
 >         getCrossover   :: Maybe (PreZone, SFZone)
 >         getCrossover                     = if allowSpecifiedCrossovers || allowInferredCrossovers
->                                              then findByBagIndex' perIP.pZones pzP.pzWordB
+>                                              then findByBagIndex' perIP.pZones pzkP.pzkwBag
 >                                              else error "corrupt partner"
 >           where
->             pzP                          = deJust "pzP" (partnerKey `Map.lookup` zBoot.zPartnerMap)
->             pergmP                       = extractInstKey pzP
+>             pzkP                         = zBoot.zPartnerMap Map.! partnerKey
+>             pergmP                       = PerGMKey pzkP.pzkwFile pzkP.pzkwInst Nothing
 >             perIP                        = deJust fName (pergmP `Map.lookup` zBoot.zPerInstCache)
 
 reconcile zone and sample header ======================================================================================
