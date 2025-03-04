@@ -44,11 +44,11 @@ Testing ========================================================================
 >                                             , otherFuzzingLeft]
 >
 > nonFatalScanIsNotFatal                   = do
->   let ss                                 = accepted (PerGMKey 0 0 Nothing) Ok
+>   let ss                                 = [Scan Accepted Ok "nonFatalScanIsNotFatal" noClue]
 >   return $ not $ dead ss
 >
 > fatalScanIsFatal                         = do
->   let ss                                 = violated (PerGMKey 0 0 Nothing) NoZones
+>   let ss                                 = [Scan Violated NoZones "fatalScanIsFatal" noClue]
 >   return $ dead ss
 >
 > rescuedScanIsNotFatal                    = do
@@ -96,12 +96,12 @@ Testing ========================================================================
 > fuzzLeftOnePerR                              = do
 >   return $ aEqual 3 (length (fuzzToTheLeft "lRLrr"))
 > tryFuzzingRight                          = do
->   return $ aEqual True ("stereoR(32)" `elem` (fuzzToTheRight "stereoL(32)"))
+>   return $ aEqual True ("stereoR(32)" `elem` fuzzToTheRight "stereoL(32)")
 > tryFuzzingLeft                          = do
->   return $ aEqual True ("channelL" `elem` (fuzzToTheLeft "channelR"))
+>   return $ aEqual True ("channelL" `elem` fuzzToTheLeft "channelR")
 > otherFuzzingRight                       = do
->   return $ aEqual True ("channelR" `elem` (fuzzToTheRight "channelL"))
+>   return $ aEqual True ("channelR" `elem` fuzzToTheRight "channelL")
 > otherFuzzingLeft                          = do
->   return $ aEqual True ("stereoL(32)" `elem` (fuzzToTheLeft "stereoR(32)"))
+>   return $ aEqual True ("stereoL(32)" `elem` fuzzToTheLeft "stereoR(32)")
 
 The End

@@ -19,6 +19,7 @@ January 21, 2025
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
 > import Data.Array.Unboxed
+> import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Char
 > import Data.Either
@@ -68,7 +69,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > preSampleTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, markTaskIf
 >                , partner1TaskIf, partner2TaskIf, partner3TaskIf, partner4TaskIf, reorgTaskIf
->                , shaveTaskIf, matchTaskIf, catTaskIf, encatTaskIf
+>                , shaveTaskIf, matchTaskIf, catTaskIf
 >                , rejobsTaskIf, zoneTaskIf, repartnerTaskIf
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
 >
@@ -87,8 +88,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >      , ("reorg",      reorg) 
 >      , ("shave",      shave)
 >      , ("match",      match)
->      , ("cat",        cat)
->      , ("encat",      rejobs . encat)
+>      , ("cat",        rejobs . cat)
 >      , ("zone",       repartner . zone)]
 >   where
 >     mark                                 = markTaskIf         sffile rost
@@ -107,7 +107,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     shave                                = shaveTaskIf        sffile rost
 >     match                                = matchTaskIf        sffile rost
 >     cat                                  = catTaskIf          sffile rost
->     encat                                = encatTaskIf        sffile rost
 >     zone                                 = zoneTaskIf         sffile rost
 >
 > reduceFileIterate      :: FileIterate → (SFBoot, ResultDispositions, Matches)
@@ -202,10 +201,10 @@ and recovery.
 >       putStrLn (unwords ["(", show nBits, ") loaded in", show (diffUTCTime ts2 ts1)])
 >       return sffile
 >
-> checkSmashing          :: PerGMKey → Smashing Word → Maybe [Scan]
-> checkSmashing pergm smashup
->   | not ok1                              = Just $ violated pergm UndercoveredRanges
->   | not ok2                              = Just $ violated pergm OverCoveredRanges 
+> checkSmashing          :: Smashing Word → Maybe Impact
+> checkSmashing smashup
+>   | not ok1                              = Just UndercoveredRanges
+>   | not ok2                              = Just OverCoveredRanges
 >   | otherwise                            = Nothing
 >   where
 >     ok1                                  = allowOutOfRange || smashup.smashStats.countNothings == 0
@@ -271,19 +270,19 @@ pre-sample task ================================================================
 >         raw                              = shdr.sampleName
 >         good                             = fixName raw
 >
->         (ss_, clue)                      
+>         ss_
 >           | not (goodSampleRate shdr.sampleRate)
->                                          = (violated presk BadSampleRate, show shdr.sampleRate)
+>                                          = [Scan Violated BadSampleRate fName (show shdr.sampleRate)]
 >           | isNothing (toMaybeSampleType shdr.sampleType)
->                                          = (violated presk BadSampleType, show shdr.sampleType)
+>                                          = [Scan Violated BadSampleType fName (show shdr.sampleType)]
 >           | not (sampleSizeOk (shdr.start, shdr.end))
->                                          = (violated presk BadSampleLimits, show (shdr.start, shdr.end))
->           | not (goodName raw)           = (badButMaybeFix fixBadNames CorruptName fName raw good, noClue)
->           | otherwise                    = (accepted presk Ok, show presk.pskwSampleIndex)
+>                                          = [Scan Violated BadSampleLimits fName (show (shdr.start, shdr.end))]
+>           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
+>           | otherwise                    = [Scan Accepted Ok fName (show presk.pskwSampleIndex)]
 >
 >         (ss, changes, name)              = if wasRescued CorruptName ss_
 >                                              then (ss_, singleton FixCorruptName, good)
->                                              else (finishScans fName clue ss_, [], raw)
+>                                              else (ss_, [],                       raw)
 
 pre-instance task =====================================================================================================
           access and critique all Instrument "records" in the file 
@@ -318,15 +317,14 @@ pre-instance task ==============================================================
 >              then m 
 >              else Map.insert pergm (PreInstrument (ChangeName iinst changes finalName) Nothing) m
 >
->         (ss_, clue)
+>         ss
 >           | iinst.instBagNdx == jinst.instBagNdx
->                                          = (violated pergm NoZones, show iinst.instName)
->           | not (goodName raw)           = (badButMaybeFix fixBadNames CorruptName fName raw good, noClue)
->           | otherwise                    = (accepted pergm Ok, show pergm.pgkwInst)
+>                                          = [Scan Violated NoZones fName (show iinst.instName)]
+>           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
+>           | otherwise                    = [Scan Accepted Ok fName (show pergm.pgkwInst)]
 >
->         ss                               = if wasRescued CorruptName ss_ then ss_ else finishScans fName clue ss_
->         changes                          = if wasRescued CorruptName ss_ then singleton FixCorruptName else []
->         finalName                        = if wasRescued CorruptName ss_ then good else raw
+>         changes                          = if wasRescued CorruptName ss then singleton FixCorruptName else []
+>         finalName                        = if wasRescued CorruptName ss then good else raw
 >
 >         rd''                             = dispose pergm ss rdFold   
 >
@@ -355,7 +353,6 @@ PreZone administration =========================================================
 >     unwords ["InstZoneRecord", show (zswFile, zswInst), showMaybeInstCat zsInstCat, show zsGlobalKey]
 > makeZRec               :: PerGMKey → InstZoneRecord
 > makeZRec pergm                           = InstZoneRecord pergm.pgkwFile pergm.pgkwInst Nothing Nothing []
->
 > instKey                :: InstZoneRecord → PerGMKey
 > instKey zrec                             = PerGMKey zrec.zswFile zrec.zswInst Nothing       
 
@@ -409,43 +406,46 @@ capture task ===================================================================
 >     capturer           :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     capturer zrec rdIn                   =
 >       let
->         (newPzs, rdOut, globalKey)       = captureZones (instKey zrec) rdIn
+>         (newPzs, rdOut, mglobalKey)      = captureZones (instKey zrec) rdIn
 >       in
->         (zrec{zsPreZones = newPzs, zsGlobalKey = globalKey}, rdOut)
+>         (zrec{zsPreZones = newPzs, zsGlobalKey = mglobalKey}, rdOut)
 >
 >     captureZones       :: PerGMKey → ResultDispositions → ([PreZone], ResultDispositions, Maybe PreZoneKey)
 >     captureZones pergm rdCap             = (pzs, rdCap'', globalKey)
 >       where
 >         fName_                           = unwords["captureZones"]
 >
+>         preI                             = fwBoot.zPreInstCache Map.! pergm
+>         iName                            = preI.piChanges.cnName
 >         results                          = map captureZone (deriveRange ibagi jbagi)
 >
 >         pzs                              = lefts results
->         rdCap''                          = foldl' sampleFolder rdCap' pzs
+>         rdCap''                          = foldl' capFolder rdCap' pzs
 >         globalKey                        = if head results == Right (Accepted, GlobalZone)
 >                                              then Just $ PreZoneKey sffile.zWordF pergm.pgkwInst ibagi
 >                                              else Nothing
 >
 >         ibagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! pgkwInst pergm)
->         jbagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! (pgkwInst pergm+1))
+>         jbagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! (pgkwInst pergm + 1))
 >
->         (ss_, clue)
->           | null pzs                     = (violated pergm NoZones, noClue)
->           | illegalRange pzs             = (violated pergm CorruptGMRange, noClue)
->           | illegalLinkage pzs           = (violated pergm BadLinkage, noClue)
->           | any hasRom pzs               = (violated pergm RomBased, noClue)
->           | otherwise                    = (accepted pergm Ok, show (length pzs))
->         ss                               = finishScans fName_ clue ss_ 
+>         ss
+>           | null pzs                     = [Scan Violated NoZones         fName_ noClue]
+>           | illegalRange pzs             = [Scan Violated CorruptGMRange  fName_ noClue]
+>           | illegalLinkage pzs           = [Scan Violated BadLinkage      fName_ noClue]
+>           | any hasRom pzs               = [Scan Violated RomBased        fName_ noClue]
+>           | not (all adjustedSampleSizeOk pzs)
+>                                          = [Scan Violated BadSampleLimits fName_ noClue]
+>           | otherwise                    = [Scan Accepted Adopted fName_ (show iName)]
 >         rdCap'                           = dispose pergm ss rdCap
 >
->         sampleFolder   :: ResultDispositions → PreZone → ResultDispositions
->         sampleFolder rdFold pz           =
+>         capFolder      :: ResultDispositions → PreZone → ResultDispositions
+>         capFolder rdFold pz              =
 >           let
 >             impact                       = if wasSwitchedToMono pz
 >                                              then AdoptedAsMono
 >                                              else Adopted
 >           in
->             dispose (extractSampleKey pz) [Scan Modified impact fName_ (show pergm.pgkwInst)] rdFold
+>             dispose (extractSampleKey pz) [Scan Modified impact fName_ (show iName)] rdFold
 >             
 >         captureZone    :: Word → Either PreZone (Disposition, Impact)
 >         captureZone bix                  = eith
@@ -802,8 +802,8 @@ To build the map
 >         hresult                          = deJust "hprobe" hprobe
 >
 >         pergm                            = instKey zrec
->         scansIng                         = finishScans fName noClue (modified pergm Absorbing)
->         scansEd                          = finishScans fName noClue (dropped pergm Absorbed)
+>         scansIng                         = [Scan Modified Absorbing fName noClue]
+>         scansEd                          = [Scan Dropped Absorbed   fName noClue]
 >
 >         (zrec', rdFold')
 >           | not doAbsorption             = (zrec,                       rdFold)
@@ -843,79 +843,81 @@ categorization task ============================================================
 
 > catTaskIf _ rost fwIn@FileWork{ .. }     = zrecTask catter fwIn
 >   where
->     catter zrec rdFold                   = (zrec{zsInstCat = Just (categorizeInst zrec)}, rdFold)
->
->     categorizeInst     :: InstZoneRecord → InstCat
->     categorizeInst zrec                  = fromJust icat
+>     catter zrec rdFold                   = (zrec{zsInstCat = icat}, dispose (instKey zrec) ss rdFold)
 >       where
+>         (icat, ss)                       = categorizeInst zrec
+>
+>     categorizeInst     :: InstZoneRecord → (Maybe InstCat, [Scan])
+>     categorizeInst zrec                  = (icat', ss')
+>       where
+>         fName                            = "categorizeInst"
+>
 >         pergm                            = instKey zrec
 >         pzs                              = zrec.zsPreZones
 >         preI                             = fwBoot.zPreInstCache Map.! pergm
 >         iName                            = preI.piChanges.cnName
 
-      Determine which category will belong to the Instrument, based on its performance for
+      Determine which category will belong to the Instrument, based on its performance for both
       1. all kinds
       2. "rost" subset, could be same as 1.
 
->         icatAllKinds, icatRost, icatNarrow, icat
+>         icatAllKinds, icatRost, icatNarrow, icat'
 >                        :: Maybe InstCat
 >         icatAllKinds                     = foldl' CM.mplus Nothing (provideAlts Nothing allKinds)
->         icatRost                         = foldl' CM.mplus Nothing (provideAlts icatAllKinds rost)
->         icatNarrow                       = Just (InstCatDisq "narrow" (dropped pergm Narrow))
->         icat                             =
+>         icatRost                         = if rost == allKinds
+>                                              then icatAllKinds
+>                                              else foldl' CM.mplus Nothing (provideAlts icatAllKinds rost)
+>         icatNarrow                       = Just (InstCatDisq Narrow noClue)
+>         (icat', ss')                     =
 >           case (icatAllKinds, icatRost) of
->             (Just (InstCatInst _), Just (InstCatInst _))
->                                          → icatRost
->             (Just (InstCatPerc _), Just (InstCatPerc _))
->                                          → icatRost
->             (Just (InstCatDisq _ _), _)  → icatAllKinds
->             (_                   , Just (InstCatDisq _ _))
->                                          → icatRost
->             _                            → icatNarrow
+>             (Just (InstCatInst _)   , Just (InstCatInst _))
+>                                          → (icatRost, [Scan Modified CatIsInst fName noClue])
+>             (Just (InstCatPerc _)   , Just (InstCatPerc _))
+>                                          → (icatRost, [Scan Modified CatIsPerc fName noClue])
+>             (Just (InstCatDisq imp why), _)
+>                                          → (icatAllKinds, [Scan Dropped imp fName why])
+>             (_                      , Just (InstCatDisq imp why))
+>                                          → (icatRost, [Scan Dropped imp fName why])
+>             _                            → (icatNarrow, [Scan Dropped Narrow fName noClue])
 >
 >         provideAlts    :: Maybe InstCat → ([InstrumentName], [PercussionSound]) → [Maybe InstCat]
->         provideAlts seed rost'           =
->           if isNothing seed
->             then functionalAlts allKinds
->             else functionalAlts rost'
+>         provideAlts seed rostAlts            =
+>           let
+>             iMatches                     = fromJust $ Map.lookup pergm fwMatches.mIMatches
+>             ffInst'                      =
+>               Map.filterWithKey (\k v → k `elem` select rostAlts && isPossible' v) iMatches.ffInst
+>             ffPerc'                  =
+>               Map.filterWithKey (\k v → k `elem` select rostAlts && isPossible' v) iMatches.ffPerc
+>           in
+>             [ 
+>                 maybeSettle isConfirmed catInst                  ffInst'
+>               , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
+>               , maybeNailAsPerc 0.6 
+>               , maybeSettle stands      catInst                  ffInst'
+>
+>               , maybeSettle stands      (catPerc wZones)         ffPerc'
+>               , maybeSettle stands      (catDisq Narrow noClue)  iMatches.ffInst
+>
+>               , maybeNailAsPerc 0.4
+>               , maybeSettle stands      (catPerc wZones)         [evalGenericPerc iName]
+>               , Just $ catDisq Unrecognized noClue
+>             ]
 >           where
->             functionalAlts frost         =
+>             uZones :: [Word]         = fromMaybe wZones (getMaybePercList seed)
+>             wZones :: [Word]         = mapMaybe (qualPercZone rostAlts) pzs
+>
+>             maybeNailAsPerc
+>                    :: Double → Maybe InstCat
+>             maybeNailAsPerc fr       =
 >               let
->                 iMatches                 = fromJust $ Map.lookup pergm fwMatches.mIMatches
->                 ffInst'                  =
->                   Map.filterWithKey (\k v → k `elem` select frost && isPossible' v) iMatches.ffInst
->                 ffPerc'                  =
->                   Map.filterWithKey (\k v → k `elem` select frost && isPossible' v) iMatches.ffPerc
->               in
->                 [ 
->                     maybeSettle isConfirmed catInst                  ffInst'
->                   , maybeSettle isConfirmed (catPerc wZones)         ffPerc'
->                   , maybeNailAsPerc 0.6 
->                   , maybeSettle stands      catInst                  ffInst'
->
->                   , maybeSettle stands      (catPerc wZones)         ffPerc'
->                   , maybeSettle stands      (catDisq noClue (dropped pergm Narrow)) iMatches.ffInst
->
->                   , maybeNailAsPerc 0.4
->                   , maybeSettle stands      (catPerc wZones)         [evalGenericPerc iName]
->                   , Just $ catDisq noClue (dropped pergm Unrecognized)
->                 ]
->               where
->                 uZones :: [Word]         = fromMaybe wZones (getMaybePercList seed)
->                 wZones :: [Word]         = mapMaybe (qualPercZone frost) pzs
->
->                 maybeNailAsPerc
->                        :: Double → Maybe InstCat
->                 maybeNailAsPerc fr       =
->                   let
->                     uFrac                = howLaden uZones
->                     wFrac                = howLaden wZones
->                   in if canBePercI pzs && fr < uFrac
->                     then
->                       (if 0.2 < wFrac
->                          then Just (catPerc wZones)
->                          else Just (catDisq (show (uFrac, wFrac)) (violated pergm NoPercZones)))
->                     else Nothing
+>                 uFrac                = howLaden uZones
+>                 wFrac                = howLaden wZones
+>               in if canBePercI pzs && fr < uFrac
+>                 then
+>                   (if 0.2 < wFrac
+>                      then Just (catPerc wZones)
+>                      else Just (catDisq NoPercZones (show (uFrac, wFrac))))
+>                 else Nothing
 >
 >             maybeSettle
 >                        :: (Foldable t, Show (t Fuzz)) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
@@ -937,10 +939,10 @@ categorization task ============================================================
 >
 >             catInst      :: InstCat      =
 >               if null pzs
->                 then InstCatDisq noClue (violated pergm NoZones)
->                 else (case checkSmashing pergm smashup of
+>                 then InstCatDisq NoZones noClue
+>                 else (case checkSmashing smashup of
 >                        Nothing           → InstCatInst icd
->                        Just scans        → InstCatDisq "smashing" scans)
+>                        Just imp          → InstCatDisq imp noClue)
 >               where
 >                 smashup                  = computeInstSmashup pzs
 >                 icd                      = InstCatData pzs smashup []
@@ -948,40 +950,22 @@ categorization task ============================================================
 >             catPerc      :: [Word] → InstCat
 >             catPerc ws                   =
 >               if null pzs || null ws
->                 then InstCatDisq "catPerc" (dropped pergm NoZones)
->                 else (case check of
+>                 then InstCatDisq NoZones "catPerc"
+>                 else (case checkSmashing smashup of
 >                        Nothing           → InstCatPerc icd
->                        Just scans        → InstCatDisq "smashing" scans)
+>                        Just imp          → InstCatDisq imp noClue)
 >               where
 >                 pzs'                     = filter (\x → x.pzWordB `elem` ws) pzs
 >                 smashup                  = computeInstSmashup pzs'
 >                 icd                      = InstCatData pzs' smashup ws
->                 check                    = checkSmashing pergm smashup
 >
->             catDisq    :: String → [Scan] → InstCat
+>             catDisq    :: Impact → String → InstCat
 >             catDisq                      = InstCatDisq
 >
 >         qualPercZone   :: ([InstrumentName], [PercussionSound]) → PreZone → Maybe Word
->         qualPercZone rost' prez           = mrange >>= pinnedKR (select rost') >> Just prez.pzWordB
+>         qualPercZone rost' prez          = mrange >>= pinnedKR (select rost') >> Just prez.pzWordB
 >           where
 >             mrange                       = prez.pzDigest.zdKeyRange >>= (Just . BF.bimap fromIntegral fromIntegral)
-
-encat task ============================================================================================================
-          react to categorization now present in the zrecs
-
-> encatTaskIf _ _                          = zrecTask encatter
->   where
->     encatter zrec rdFold                 =
->       let
->         fName                            = "encatter"
->
->         pergm                            = instKey zrec
->         icat                             = deJust fName zrec.zsInstCat
->       in
->         case icat of
->           InstCatPerc _                  → (zrec, dispose pergm [Scan Modified CatIsPerc fName noClue] rdFold)
->           InstCatInst _                  → (zrec, dispose pergm [Scan Modified CatIsInst fName noClue] rdFold)
->           InstCatDisq why ss             → (zrec, dispose pergm (finishScans fName why ss)             rdFold)
 
 zone task =============================================================================================================
           generate the PerInstrument map from jobs map
@@ -1171,15 +1155,20 @@ repartner task =================================================================
 > sampleLoopSizeOk       :: (Word, Word, A.SampleMode) → Bool
 > sampleLoopSizeOk (stL, enL, smode)       = 
 >   A.NoLoop == smode || (stL >= 0 && enL - stL >= sampleSizeMin && enL - stL < 2 ^ (22::Word))
+> -}
 >
-> adjustedSampleSizeOk   :: ZoneDigest → F.Shdr → Bool
-> adjustedSampleSizeOk zd shdr             = 0 <= stA && stA <= enA && 0 <= stL && stL <= enL
+> adjustedSampleSizeOk   :: PreZone → Bool
+> adjustedSampleSizeOk pz                  = 0 <= stA && stA <= enA && 0 <= stL && stL <= enL
+>                                                     && enA - stA < 2  ^ (22::Word)
+>                                                     && (zd.zdSampleMode == Just A.NoLoop || enL - stL < 2  ^ (22::Word))
 >   where
 >     stA                                  = shdr.start     + fromIntegral zd.zdStart
 >     enA                                  = shdr.end       + fromIntegral zd.zdEnd
 >     stL                                  = shdr.startLoop + fromIntegral zd.zdStartLoop
 >     enL                                  = shdr.endLoop   + fromIntegral zd.zdEndLoop
-> -}
+>
+>     shdr                                 = effPZShdr pz
+>     zd                                   = pz.pzDigest
 >
 > goodChar               :: Char → Bool
 > goodChar cN                              = isAscii cN && not (isControl cN)

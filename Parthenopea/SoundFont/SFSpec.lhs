@@ -14,8 +14,7 @@ William Clements
 April 16, 2023
 
 > module Parthenopea.SoundFont.SFSpec
->        (  accepted
->         , autopsy
+>        (  autopsy
 >         , badButMaybeFix
 >         , ChangeEar(..)
 >         , ChangeEarItem(..)
@@ -28,7 +27,6 @@ April 16, 2023
 >         , dead
 >         , deadrd
 >         , defZone
->         , dropped
 >         , Disposition(..)
 >         , effPSShdr
 >         , effPZShdr
@@ -43,7 +41,6 @@ April 16, 2023
 >         , findByBagIndex'
 >         , findBySampleIndex
 >         , findBySampleIndex'
->         , finishScans
 >         , fixName
 >         , fromSampleType
 >         , getMaybePercList
@@ -63,8 +60,6 @@ April 16, 2023
 >         , lookupCellIndex
 >         , makeMono
 >         , makePreZone
->         , modified
->         , noChange
 >         , noClue
 >         , notDead
 >         , PerGMKey(..)
@@ -77,7 +72,6 @@ April 16, 2023
 >         , rdLengths
 >         , reportScanName
 >         , reportTournamentName
->         , rescued
 >         , ResultDispositions(..)
 >         , SampleArrays(..)
 >         , SampleType(..)
@@ -92,7 +86,6 @@ April 16, 2023
 >         , toMaybeSampleType
 >         , toSampleType
 >         , Velocity
->         , violated
 >         , virginrd
 >         , wasRescued
 >         , wasSwitchedToMono
@@ -107,7 +100,6 @@ April 16, 2023
 > import Data.Either
 > import Data.Foldable
 > import Data.Int ( Int8, Int16 )
-> import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
@@ -305,7 +297,7 @@ implementing SoundFont spec ====================================================
 > data InstCat                             =
 >        InstCatInst InstCatData
 >      | InstCatPerc InstCatData
->      | InstCatDisq String [Scan]
+>      | InstCatDisq Impact String
 > instance Show InstCat where
 >   show icat                              =
 >     unwords ["InstCat", showMaybeInstCat $ Just icat]
@@ -321,7 +313,7 @@ implementing SoundFont spec ====================================================
 >     Nothing                              → "icNothing"
 >     Just (InstCatInst _)                 → "icInst"
 >     Just (InstCatPerc _)                 → "icPerc"
->     Just (InstCatDisq why _)             → unwords ["icDisq", why]
+>     Just (InstCatDisq imp why)           → unwords ["icDisq", show imp, why]
 > data InstCatData                         =
 >   InstCatData {
 >     inPreZones         :: [PreZone]
@@ -388,12 +380,13 @@ implementing SoundFont spec ====================================================
 >     zdKeyRange         :: Maybe (Word, Word)
 >   , zdVelRange         :: Maybe (Word, Word)
 >   , zdSampleIndex      :: Maybe Word
+>   , zdSampleMode       :: Maybe A.SampleMode
 >   , zdStart            :: Int
 >   , zdEnd              :: Int
 >   , zdStartLoop        :: Int
 >   , zdEndLoop          :: Int} deriving (Eq, Show)
 > defDigest              :: ZoneDigest
-> defDigest                                = ZoneDigest Nothing Nothing Nothing 0 0 0 0
+> defDigest                                = ZoneDigest Nothing Nothing Nothing Nothing 0 0 0 0
 > formDigest             :: [F.Generator] → ZoneDigest
 > formDigest                               = foldr inspectGen defDigest
 >   where
@@ -404,6 +397,8 @@ implementing SoundFont spec ====================================================
 >                                          = zd {zdVelRange = Just(i, j)}
 >     inspectGen (F.SampleIndex w)                         zd
 >                                          = zd {zdSampleIndex = Just w}
+>     inspectGen (F.SampleMode m)                         zd
+>                                          = zd {zdSampleMode = Just m}
 >
 >     inspectGen (F.StartAddressCoarseOffset i)            zd
 >                                          = zd {zdStart = zd.zdStart + 32_768 * i}
@@ -452,7 +447,7 @@ bootstrapping ==================================================================
 >      | Absorbing | Absorbed | NoZones
 >      | CorruptGMRange | Narrow | BadLinkage
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
->      | Unrecognized | NoPercZones | CatIsPerc | CatIsInst
+>      | Disqualified | Unrecognized | NoPercZones | CatIsPerc | CatIsInst
 >      | Adopted | AdoptedAsMono | GlobalZone
 >   deriving (Eq, Ord, Show)
 >
@@ -501,15 +496,6 @@ bootstrapping ==================================================================
 > wasRescued             :: Impact → [Scan] → Bool
 > wasRescued impact                        = any (\s → s.sDisposition `elem` rescueset && s.sImpact == impact)
 >
-> accepted, violated, dropped, rescued, noChange, modified
->                        :: ∀ r . (SFResource r) ⇒ r → Impact → [Scan]
-> accepted key impact                      = singleton $ Scan Accepted impact "FromName" (zshow key)
-> violated key impact                      = singleton $ Scan Violated impact "FromName" (zshow key)
-> dropped key impact                       = singleton $ Scan Dropped impact "FromName" (zshow key)
-> rescued key impact                       = singleton $ Scan Rescued impact "FromName" (zshow key)
-> noChange key impact                      = singleton $ Scan NoChange impact "FromName" (zshow key)
-> modified key impact                      = singleton $ Scan Modified impact "FromName" (zshow key)
->
 > badButMaybeFix         :: ∀ a. (Show a) ⇒ Bool → Impact → String → a → a → [Scan]
 > badButMaybeFix doFix imp fName bad good  = if doFix
 >                                              then [viol, resc]
@@ -517,9 +503,6 @@ bootstrapping ==================================================================
 >   where
 >     viol                                 = Scan Violated imp fName (show bad)
 >     resc                                 = Scan Rescued imp fName (show good)
->
-> finishScans            :: String → String → [Scan] → [Scan]
-> finishScans function clue                = map (\x → x{  sFunction = function, sClue = clue})
 >
 > data ResultDispositions               =
 >   ResultDispositions {
@@ -646,9 +629,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >
 > fixName                :: String → String
 > fixName                                  = map (\cN → if goodChar cN then cN else '_')
->
-> zshow                  :: ∀ a . a → String
-> zshow _                                  = "list"
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 

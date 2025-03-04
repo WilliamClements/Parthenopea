@@ -62,19 +62,17 @@ library
     exposed-modules: Parthenopea.Music.Rosters
     
     -- Modules included in this library but not exported.
-    other-modules:  Parthenopea.Debug, Parthenopea.Music.Baking,
-                    Parthenopea.Music.Percussion, Parthenopea.Music.Siren,
+    other-modules:  Parthenopea.Debug,
+    
+                    Parthenopea.Music.Baking, Parthenopea.Music.Percussion, Parthenopea.Music.Siren,
 
-                    Parthenopea.Repro.Chart, Parthenopea.Repro.Discrete,
-                    Parthenopea.Repro.DiscreteTest,
-                    Parthenopea.Repro.Emission,
-                    Parthenopea.Repro.Modulation, Parthenopea.Repro.ModulationTest,
+                    Parthenopea.Repro.Chart, Parthenopea.Repro.Discrete, Parthenopea.Repro.DiscreteTest,
+                    Parthenopea.Repro.Emission, Parthenopea.Repro.Modulation, Parthenopea.Repro.ModulationTest,
                     Parthenopea.Repro.Smashing, Parthenopea.Repro.SmashingTest,
                     Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest,
 
                     Parthenopea.SoundFont.Boot, Parthenopea.SoundFont.BootTest,
-                    Parthenopea.SoundFont.Runtime, Parthenopea.SoundFont.Scoring,
-                    Parthenopea.SoundFont.SFSpec,
+                    Parthenopea.SoundFont.Runtime, Parthenopea.SoundFont.Scoring, Parthenopea.SoundFont.SFSpec,
                     
                     Parthenopea.Tunes.Cecil, Parthenopea.Tunes.Covers,
                     Parthenopea.Tunes.Fanfare, Parthenopea.Tunes.SunPyg

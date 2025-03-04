@@ -238,7 +238,7 @@ Scoring stuff ==================================================================
 >   , zWinningRecord     :: WinningRecord}
 > instance Show SFRuntime where
 >   show (SFRuntime{ .. })                  =
->     unwords ["SFRuntime", show zBoot, show zWinningRecord]
+>     unwords ["SFRuntime", show zBoot, show (length zWinningRecord.pWinningI, length zWinningRecord.pWinningP)]
 >
 > type AgainstKindResult                   = Double
 > 
@@ -259,7 +259,7 @@ Scoring stuff ==================================================================
 > data WinningRecord                       =
 >   WinningRecord {
 >     pWinningI          :: Map InstrumentName PerGMScored
->   , pWinningP          :: Map PercussionSound PerGMScored} deriving Show
+>   , pWinningP          :: Map PercussionSound PerGMScored}
 > seedWinningRecord      :: WinningRecord
 > seedWinningRecord                        = WinningRecord Map.empty Map.empty
 >
@@ -315,7 +315,8 @@ tournament starts here =========================================================
 >         iName                            = preI.piChanges.cnName
 >         perI                             = deJust (unwords[fName_, "perI"]) (Map.lookup pergmI_ zPerInstCache)
 >
->         InstCatData{ .. }                = 
+>         icatData       :: InstCatData
+>         icatData                         =
 >           case icat of
 >             InstCatPerc x                → x
 >             InstCatInst x                → x
@@ -353,7 +354,7 @@ tournament starts here =========================================================
 >           let
 >             pzs                          = map fst perI.pZones
 >
->             pergmsP                      = instrumentPercList pergmI_ inPercBixen
+>             pergmsP                      = instrumentPercList pergmI_ icatData.inPercBixen
 >
 >             pFolder    :: Map PercussionSound [PerGMScored]
 >                           → PerGMKey
@@ -937,10 +938,10 @@ Edit the following =============================================================
 > conRatio               :: Double
 > conRatio                                 = 3/4
 > narrowInstrumentScope  :: Bool
-> narrowInstrumentScope                    = True
+> narrowInstrumentScope                    = False
 > allowSpecifiedCrossovers, allowInferredCrossovers
 >                        :: Bool
 > allowSpecifiedCrossovers                 = True
-> allowInferredCrossovers                  = False
+> allowInferredCrossovers                  = True
 
 The End
