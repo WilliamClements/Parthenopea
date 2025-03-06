@@ -599,13 +599,14 @@ partnering 2 task ==============================================================
 >         mySampleKey                      = extractSampleKey pz
 >         myZoneKey                        = extractZoneKey pz
 >         myInstKey                        = extractInstKey pz
+>
 >         mpartner                         = find perfect (fromRight [] pz.pzmkPartners)
 >         (partners, rd')                  =
 >           case mpartner of
 >             Just pzk                     →
->               (Left pzk,        dispose mySampleKey [Scan Modified Paired fName noClue]    rdFold)
+>               (Left pzk,        dispose mySampleKey [Scan Modified Paired fName (show pzk)] rdFold)
 >             Nothing                      →
->               (pz.pzmkPartners, dispose mySampleKey [Scan NoChange Unpaired fName "nonconforming"] rdFold)
+>               (pz.pzmkPartners, dispose mySampleKey [Scan NoChange Unpaired fName "nonconforming"]  rdFold)
 >
 >         perfect pzk                      =
 >           let
@@ -1150,12 +1151,6 @@ repartner task =================================================================
 >
 > sampleSizeOk           :: (Word, Word) → Bool
 > sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
->
-> {-
-> sampleLoopSizeOk       :: (Word, Word, A.SampleMode) → Bool
-> sampleLoopSizeOk (stL, enL, smode)       = 
->   A.NoLoop == smode || (stL >= 0 && enL - stL >= sampleSizeMin && enL - stL < 2 ^ (22::Word))
-> -}
 >
 > adjustedSampleSizeOk   :: PreZone → Bool
 > adjustedSampleSizeOk pz                  = 0 <= stA && stA <= enA && 0 <= stL && stL <= enL

@@ -896,14 +896,11 @@ Returns the amplitude ratio (based on input 10ths of a percent)
 Returns sample point as (normalized) Double
 
 > sample24               :: Int16 → Word8 → Double
-> sample24 i16 w8                          = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 8_388_608.0
+> sample24 i16 w8                          = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 1_048_576 -- 8_388_608.0
 >   where
 >     f8to32             :: Word8 → Int32  = fromIntegral
 >     f16to32            :: Int16 → Int32  = fromIntegral
 >      
-> sample16               :: Int16 → Double
-> sample16 i16                             = fromIntegral i16 / 32_768.0
->
 > samplePoint            :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Int → Double
 > samplePoint s16 ms8 ix                   = sample24 (s16 ! ix) (fromIntegral (maybe 0 (! ix) ms8))
 >

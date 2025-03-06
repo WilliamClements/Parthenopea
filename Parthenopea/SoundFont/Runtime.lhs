@@ -517,9 +517,7 @@ reconcile zone and sample header ===============================================
 >         useFastFourier
 >         (-1) -- must always be replaced
 >
->     resonanceType      :: ResonanceType  = if lowpassFc (mLowpass m8n) < 10_000
->                                              then ResonanceBandpass
->                                              else ResonanceBandpass
+>     resonanceType      :: ResonanceType  = ResonanceBandpass
 >
 >     nModEnv            :: Maybe Envelope = deriveEnvelope
 >                                              zDelayModEnv

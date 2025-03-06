@@ -43,7 +43,8 @@ Discrete approach ==============================================================
 >     (unwords ["computeFR bad input", show ksLen, show ys'])
 >     (fromRawVector tag' vec')
 >   where
->     trace_CFR                            = unwords ["computeFR", show ks, show shapes]
+>     fName                                = "computeFR"
+>     trace_CFR                            = unwords [fName, show ks, show shapes]
 >
 >     kd                                   = calcKernelData ks
 >     shapes                               = makeShapes ResponseNormal
@@ -222,7 +223,7 @@ Discrete approach ==============================================================
 >                                              else dsigIn
 >     dsigOut'                             = if correctDCOffset
 >                                              then subtractDCOffset dsigOut
->                                              else dsigOut
+>                                              else tracer "dsigOut" dsigOut
 >     dsigOut                              =
 >       fromRawVector
 >         (unwords["toTime.product(", fst tags, "&", snd tags, ")"])
@@ -336,16 +337,15 @@ Each driver specifies an xform composed of functions from Double to Double
 >         (xIn <= kdNyq)
 >         (unwords ["xIn", show xIn, "out of range (mag)", show fritems])
 >         ((* ynorm) . \x → friCompute x xIn) fritem
->     (ph, xIn)                         = if xIn_ <= kdNyq
+>     (ph, xIn)                            = if xIn_ <= kdNyq
 >                                              then (3*pi/2, xIn_)
 >                                              else (pi/2, kdNyq - xIn_)
 >
 >     fritem                               =
->       profess
->         (not $ null fritems')
->         (unwords ["xIn", show xIn, "out of range (FrItem)", show fritems])
->         (head fritems')
->     fritems'                             = dropWhile ((xIn <) . friTrans) fritems
+>       if null fritems'
+>         then head fritems
+>         else head fritems'
+>     fritems'                             = dropWhile ((xIn <) . friTrans) (tracer "goo" fritems)
 >     fritems                              = foldl' doShape [] shapes
 >
 >     ynorm, height              :: Double
