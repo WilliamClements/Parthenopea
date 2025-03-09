@@ -518,7 +518,6 @@ reconcile zone and sample header ===============================================
 >         (-1) -- must always be replaced
 >
 >     resonanceType      :: ResonanceType  = ResonanceBandpass
->
 >     nModEnv            :: Maybe Envelope = deriveEnvelope
 >                                              zDelayModEnv
 >                                              zAttackModEnv

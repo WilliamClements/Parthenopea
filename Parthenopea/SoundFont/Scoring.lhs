@@ -507,8 +507,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
 >
 > showPerGM              :: PerGMScored → [Emission]
-> showPerGM PerGMScored{szI, mszP, pPerGMKey}
->                                          = [emitShowL pgkwFile 4] ++ [ToFieldL szI 22] ++ showmZ
+> showPerGM PerGMScored{..}                = [emitShowL pgkwFile 4] ++ [ToFieldL szI 22] ++ showmZ
 >   where
 >     PerGMKey{pgkwFile}                   = pPerGMKey
 >     showmZ                               = maybe [] showZ mszP

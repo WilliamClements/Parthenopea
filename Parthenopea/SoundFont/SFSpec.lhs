@@ -443,11 +443,12 @@ bootstrapping ==================================================================
 >      | BadSampleRate | BadSampleType | BadSampleLimits | BadSampleLoopLimits
 >      | DevolveToMono | BadStereoPartner
 >      | Paired | Unpaired
->      | OrphanedBySample | OrphanedByInst
+>      | OrphanedBySample | OrphanedByInst | ToZoneCache
 >      | Absorbing | Absorbed | NoZones
 >      | CorruptGMRange | Narrow | BadLinkage
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
->      | Disqualified | Unrecognized | NoPercZones | CatIsPerc | CatIsInst
+>      | Disqualified | Unrecognized | NoPercZones
+>      | CatIsPerc | CatIsInst
 >      | Adopted | AdoptedAsMono | GlobalZone
 >   deriving (Eq, Ord, Show)
 >

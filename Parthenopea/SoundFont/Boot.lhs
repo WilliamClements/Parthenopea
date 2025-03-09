@@ -56,8 +56,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >              , show (length fwZRecs), "=zrecs"
 >              , show fwDispositions]
 > defFileWork            :: FileWork
-> defFileWork                              =
->   FileWork dasBoot [] defMatches virginrd
+> defFileWork                              = FileWork dasBoot [] defMatches virginrd
 >
 > data FileIterate =
 >   FileIterate {
@@ -603,10 +602,12 @@ partnering 2 task ==============================================================
 >         mpartner                         = find perfect (fromRight [] pz.pzmkPartners)
 >         (partners, rd')                  =
 >           case mpartner of
->             Just pzk                     →
->               (Left pzk,        dispose mySampleKey [Scan Modified Paired fName (show pzk)] rdFold)
+>             Just pzk@PreZoneKey{ .. }    →
+>               (Left pzk,         dispose mySampleKey
+>                                          [Scan Modified Paired fName (show (pzkwFile, pzkwInst, pzkwBag))]
+>                                          rdFold)
 >             Nothing                      →
->               (pz.pzmkPartners, dispose mySampleKey [Scan NoChange Unpaired fName "nonconforming"]  rdFold)
+>               (pz.pzmkPartners,  dispose mySampleKey [Scan NoChange Unpaired fName "nonconforming"]  rdFold)
 >
 >         perfect pzk                      =
 >           let
@@ -978,35 +979,35 @@ zone task ======================================================================
 >
 >     formZoneCache      :: (Map PerGMKey PerInstrument, ResultDispositions)
 >     formZoneCache                        = Map.foldlWithKey perFolder (Map.empty, fwDispositions) fwBoot.zJobs
->       where
->         perFolder      :: (Map PerGMKey PerInstrument, ResultDispositions)
+>
+>     perFolder          :: (Map PerGMKey PerInstrument, ResultDispositions)
 >                           → PerGMKey → InstCat
 >                           → (Map PerGMKey PerInstrument, ResultDispositions)
->         perFolder (zc, rdFold) pergm icat
->                                          =
->           (Map.insert pergm (computePerInst pergm icat) zc, dispose pergm [Scan Accepted Ok fName noClue] rdFold)
+>     perFolder (zc, rdFold) pergm icat    =
+>             ( Map.insert pergm (computePerInst pergm icat) zc
+>             , dispose pergm [Scan Accepted ToZoneCache fName noClue] rdFold)
 >
->         computePerInst :: PerGMKey → InstCat → PerInstrument
->         computePerInst pergm icat        = PerInstrument (zip pzs oList) icd.inSmashup
->           where
->             preI                         = fwBoot.zPreInstCache Map.! pergm
+>     computePerInst     :: PerGMKey → InstCat → PerInstrument
+>     computePerInst pergm icat            = PerInstrument (zip pzs oList) icd.inSmashup
+>       where
+>         preI                             = fwBoot.zPreInstCache Map.! pergm
 >
->             icd        :: InstCatData
->             bixen      :: [Word]
+>         icd            :: InstCatData
+>         bixen          :: [Word]
 >
->             (icd, bixen)                 =
->               case icat of
->                 InstCatPerc x            → (x, x.inPercBixen)
->                 InstCatInst x            → (x, map pzWordB x.inPreZones)
->                 _                        → error $ unwords [fName, "only Inst and Perc are valid here"]
+>         (icd, bixen)                     =
+>           case icat of
+>             InstCatPerc x                → (x, x.inPercBixen)
+>             InstCatInst x                → (x, map pzWordB x.inPreZones)
+>             _                            → error $ unwords [fName, "only Inst and Perc are valid here"]
 >
->             gZone                        =
->               case preI.iGlobalKey of
->                 Nothing                  → defZone
->                 Just pzk                 → buildZone sffile defZone Nothing pzk.pzkwBag
->             oList                        = map (\pz → buildZone sffile gZone (Just pz) pz.pzWordB) pzs
+>         gZone                            =
+>           case preI.iGlobalKey of
+>             Nothing                      → defZone
+>             Just pzk                     → buildZone sffile defZone Nothing pzk.pzkwBag
+>         oList                            = map (\pz → buildZone sffile gZone (Just pz) pz.pzWordB) pzs
 >
->             pzs                          = filter (\pz → pz.pzWordB `elem` bixen) icd.inPreZones
+>         pzs                              = filter (\pz → pz.pzWordB `elem` bixen) icd.inPreZones
 >
 > buildZone              :: SFFile → SFZone → Maybe PreZone → Word → SFZone
 > buildZone sffile fromZone mpz bagIndex
@@ -1107,7 +1108,7 @@ zone task ======================================================================
 >   _                              → iz
 >
 > addMod                 :: (Word, F.Mod) → SFZone → SFZone
-> addMod (mId, F.Mod{srcOper, destOper, amtSrcOper, amount}) iz@SFZone{zModulators} 
+> addMod (mId, F.Mod{..}) iz@SFZone{zModulators} 
 >                                          = maybe iz addModulator makeModulator
 >   where
 >     addModulator       :: Modulator → SFZone
@@ -1132,14 +1133,14 @@ rejobs task ====================================================================
 >     foldJob m zrec                       = Map.insert (instKey zrec) (deJust "InstCat" zrec.zsInstCat) m
 
 repartner task ========================================================================================================
-          generate partial partner map with and for crossovers only, from the full map and zrec list
+          generate partial partner map with and for crossovers only, from the zrec list
 
 > repartnerTaskIf _ _ fwIn@FileWork{ .. }  = fwIn{fwBoot = fwBoot{zPartnerMap = zrecCompute fwIn foldPard Map.empty}}
 >   where
->     foldPard        :: Map PreZoneKey PreZoneKey → InstZoneRecord → Map PreZoneKey PreZoneKey
+>     foldPard           :: Map PreZoneKey PreZoneKey → InstZoneRecord → Map PreZoneKey PreZoneKey
 >     foldPard m zrec                      =
 >       let
->         zFolder    :: Map PreZoneKey PreZoneKey → PreZone → Map PreZoneKey PreZoneKey
+>         zFolder        :: Map PreZoneKey PreZoneKey → PreZone → Map PreZoneKey PreZoneKey
 >         zFolder m' pz                    = if isStereoZone pz && not (inSameInstrument myPzk otherPzk)
 >                                              then Map.insert (extractZoneKey pz) otherPzk m'
 >                                              else m'

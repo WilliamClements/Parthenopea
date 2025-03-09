@@ -179,9 +179,11 @@ Discrete approach ==============================================================
 >   | otherwise                            =
 >   profess
 >     (ok x1 && ok x2 && ok x3 && sane dsigOut)
->     (unwords ["slowConvolveIR-- problem with 1,2, or 3"])
+>     (unwords [fName, "- problem with 1,2, or 3"])
 >     dsigOut
 >   where
+>     fName                                = "slowConvolveIR"
+>
 >     cdsigIn            :: DiscreteSig (Complex Double)
 >     cdsigIn                              =
 >       fromRawVector ("widen " ++ dsigTag dsigIn) $ VU.map (:+ 0) (dsigVec dsigIn)
@@ -200,12 +202,12 @@ Discrete approach ==============================================================
 >
 >     x3                                   =
 >       VU.fromList [ sum [ x1 VU.! k * x2 VU.! (n-k) | k ← [max 0 (n-m2)..min n m1] ] | n ← [0..m3] ]
->     dsigOut                              = fromRawVector "slowConvolveIR" (VU.map realPart x3)
+>     dsigOut                              = fromRawVector fName (VU.map realPart x3)
 >
 >     ok vec                               = VU.length vec > 0
 >
 >     trace_SCIR                           =
->       unwords ["slowConvolveIR\n", show dsigIn
+>       unwords [fName, "\n", show dsigIn
 >              , "\n X \n", show cdsigIR
 >              , "\n = \n", show dsigOut]
 >
@@ -218,12 +220,14 @@ Discrete approach ==============================================================
 >     (unwords ["fastConvolveFR-- insane result"])
 >     dsigOut'
 >   where
+>     fName                                = "fastConvolveFR"
+>
 >     dsigIn'                              = if correctDCOffset
 >                                              then subtractDCOffset dsigIn
 >                                              else dsigIn
 >     dsigOut'                             = if correctDCOffset
 >                                              then subtractDCOffset dsigOut
->                                              else tracer "dsigOut" dsigOut
+>                                              else dsigOut
 >     dsigOut                              =
 >       fromRawVector
 >         (unwords["toTime.product(", fst tags, "&", snd tags, ")"])
@@ -260,9 +264,9 @@ Discrete approach ==============================================================
 >         else toTimeDomain $ VU.toList vprod
 >
 >     trace_FCFR                           =
->       unwords ["fastConvolveFR\n", show cdsigIn
->                                  , show cdsigFR
->                                  , show dsigOut]
+>       unwords [fName, "\n", show cdsigIn
+>                           , show cdsigFR
+>                           , show dsigOut]
 >
 > toFrequencyDomain      :: ∀ a. Coeff a ⇒ [a] → [Complex Double]
 > toFrequencyDomain                        = doFft fft
