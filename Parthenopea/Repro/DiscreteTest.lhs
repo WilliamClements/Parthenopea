@@ -21,7 +21,7 @@ June 22, 2024
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns ( osc, Table )
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock )
-> import Parthenopea.Debug
+> import Parthenopea.Debug(tracer, notracer, traceNot)
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Chart
 > import Parthenopea.Repro.Discrete
@@ -35,11 +35,16 @@ Feed chart =====================================================================
 > nKews                  :: Int
 > nKews                                    = 1
 > kews                   :: [Int]
-> kews                                     = [240] -- breakUp (0, 480) 0 nKews
+> kews                                     = [0] -- breakUp (0, 480) 0 nKews
 > nCutoffs               :: Int
-> nCutoffs                                 = 1
+> nCutoffs                                 = 3
 > cutoffs                :: [Int]
-> cutoffs                                  = [2_000] -- breakUp (1_000, 2_000) 0 nCutoffs
+> cutoffs                                  = [200, 1_500, 15_353]
+>                                            -- 9_370, 9_373, 9_3274]
+    
+>                                           -- [9_300, 9_371, 9_380, 9_200, 9_300, 9_365]
+>                                           -- [9_350, 9_360, 9_380, 9_400]
+> -- cutoffs                                  = [9_350, 9_400, 9_425, 9_500]
 > nFreaks                :: Int
 > nFreaks                                  = 23
 > freaks                 :: [Int]
@@ -52,17 +57,17 @@ Feed chart =====================================================================
 > colors                 :: [AlphaColour Double]
 >                                          =
 >   cycle
->     [  opaque blue
->     ,  opaque orange
->     ,  opaque green
->     ,  opaque red
->     ,  opaque purple]
+>     [  blue `withOpacity` 2
+>     ,  orange `withOpacity` 2
+>     ,  green `withOpacity` 2
+>     ,  red  `withOpacity` 2
+>     ,  purple `withOpacity` 2]
 >
 > bench, porch           :: IO ()
 > bench                                    =
->   benchFilters measureResponse [ResonanceConvo] cutoffs kews freaks
+>   benchFilters measureResponse [ResonanceSVF1] cutoffs kews freaks
 > porch                                    =
->   benchFilters measureResponse [ResonanceTwoPoles] cutoffs kews freaks
+>   benchFilters measureResponse [ResonanceBandpass] cutoffs kews freaks
 >
 > checkGrouts            ::  [(Double, Double)] → IO String
 > checkGrouts grouts                       = do
@@ -153,6 +158,7 @@ Feed chart =====================================================================
 >               putStrLn $ unwords ["doFcs", show fcs]
 >               ts1                        ← getCurrentTime
 >               let sects                  = zipWith Section colors (map calc fcs)
+>               print sects
 >               chartPoints (concat [show currentRt, "_q", show currentQ]) sects
 >               ts2                        ← getCurrentTime 
 >               putStrLn $ unwords ["doFcs elapsed=: ", show (diffUTCTime ts2 ts1)]
@@ -163,7 +169,7 @@ Feed chart =====================================================================
 >                     bs@BenchSpec{ .. }   = BenchSpec currentRt filterTestDur currentFc currentQ ranges_fks
 >                     ks                   = KernelSpec
 >                                              (toAbsoluteCents bench_fc)
->                                              (round (960 * currentQ))
+>                                              (round currentQ)
 >                                              44_100
 >                                              useFastFourier
 >                                              256
@@ -281,7 +287,7 @@ Feed chart =====================================================================
 >     , bench_fks        :: [Double]} deriving Show
 >
 > varyFc                 :: Bool
-> varyFc                                   = False
+> varyFc                                   = True
 >
 > testDecline            :: Double → Double → IO ()
 > testDecline freakStart _                 = do

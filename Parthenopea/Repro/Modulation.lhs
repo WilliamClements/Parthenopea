@@ -542,7 +542,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 > procSVF1               :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
 > procSVF1 lp                              =
 >   proc (x, fc) → do
->     let f1                               = 2 * sin (theta fc)
+>     let f1                               = {- 2 * -} sin (theta fc)
 >     rec
 >       let yL                             = f1 * yB + yL'
 >       let xuse                           = maybeAverageInput x x'

@@ -349,7 +349,7 @@ Each driver specifies an xform composed of functions from Double to Double
 >       if null fritems'
 >         then head fritems
 >         else head fritems'
->     fritems'                             = dropWhile ((xIn <) . friTrans) (tracer "goo" fritems)
+>     fritems'                             = dropWhile ((xIn <) . friTrans) (notracer "goo" fritems)
 >     fritems                              = foldl' doShape [] shapes
 >
 >     ynorm, height              :: Double
