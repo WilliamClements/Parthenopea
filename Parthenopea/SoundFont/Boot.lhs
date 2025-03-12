@@ -437,7 +437,6 @@ capture task ===================================================================
 >           | otherwise                    = [Scan Accepted Adopted fName_ (show iName)]
 >         rdCap'                           = dispose pergm ss rdCap
 >
->         capFolder      :: ResultDispositions → PreZone → ResultDispositions
 >         capFolder rdFold pz              =
 >           let
 >             impact                       = if wasSwitchedToMono pz
@@ -452,7 +451,6 @@ capture task ===================================================================
 >             fName                        = unwords [fName_, "captureZone"]
 >                 
 >             eith
->                                          -- TODO: corrupt adjusted limits?
 >               | isNothing pz.pzDigest.zdSampleIndex
 >                                          = Right (Accepted, GlobalZone)
 >               | isNothing mpres          = Right (Dropped, OrphanedBySample)
@@ -540,8 +538,8 @@ partnering 1 task ==============================================================
 >         m'                               = 
 >           foldl' pzFolder Map.empty (filter isStereoZone zrec.zsPreZones)
 >
->     pzFolder target pz                   =
->       Map.insertWith (++) (extractSampleKey pz) [extractZoneKey pz] target
+>     pzFolder m pz                        =
+>       Map.insertWith (++) (extractSampleKey pz) [extractZoneKey pz] m
 >
 >     partnerer1         :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     partnerer1 zrec@InstZoneRecord{ .. } rdFold
@@ -555,10 +553,11 @@ partnering 1 task ==============================================================
 >       where
 >         fName                            = "partnerUp"
 >
+>         myPartners                       = fromMaybe [] (Map.lookup mySampleLink backMap)        
+>
 >         mySampleKey                      = extractSampleKey pz
 >         myZoneKey                        = extractZoneKey pz
 >         mySampleLink                     = mySampleKey{pskwSampleIndex = F.sampleLink (effPZShdr pz)}
->         myPartners                       = fromMaybe [] (Map.lookup mySampleLink backMap)        
 >
 >         (partners, rd')                  =
 >           if isStereoZone pz
@@ -596,10 +595,10 @@ partnering 2 task ==============================================================
 >         fName                            = "partnerDown"
 >
 >         mySampleKey                      = extractSampleKey pz
->         myZoneKey                        = extractZoneKey pz
->         myInstKey                        = extractInstKey pz
+>         myZoneKey                        = tracer "myZoneKey" $ extractZoneKey pz
+>         myInstKey                        = tracer "myInstKey" $ extractInstKey pz
 >
->         mpartner                         = find perfect (fromRight [] pz.pzmkPartners)
+>         mpartner                         = find perfect (tracer "mpartner" (fromRight [] pz.pzmkPartners))
 >         (partners, rd')                  =
 >           case mpartner of
 >             Just pzk@PreZoneKey{ .. }    →
@@ -609,15 +608,15 @@ partnering 2 task ==============================================================
 >             Nothing                      →
 >               (pz.pzmkPartners,  dispose mySampleKey [Scan NoChange Unpaired fName "nonconforming"]  rdFold)
 >
->         perfect pzk                      =
->           let
->             otherInstKey                 = PerGMKey pzk.pzkwFile pzk.pzkwInst Nothing
+>         perfect pzk
+>           | isNothing $ Map.lookup pzk partnerMap
+>                                          = False
+>           | otherwise                    = isJust found
+>           where
+>             otherInstKey                 = tracer "otherInstKey" $ PerGMKey pzk.pzkwFile pzk.pzkwInst Nothing
 >             found                        =
 >               find (\x → x == myZoneKey && (allowSpecifiedCrossovers || myInstKey == otherInstKey))
 >                    (partnerMap Map.! pzk)
->           in
->             isJust found
->
 
 partnering 3 task =====================================================================================================
           inferring crossovers

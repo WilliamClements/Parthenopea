@@ -273,12 +273,8 @@ which makes for a cleaner sound on some synthesizers:
 >     notes              :: [Music Pitch]  = [note (durS * 9 / (reach * 10)) (pitch x) | x ← gliss]
 >
 > extendModeToInfinity   :: Bool → AbsPitch → [AbsPitch] → [(AbsPitch, Int)]
-> extendModeToInfinity desc start templ8
->   | traceIf trace_EMTI False             = undefined
->   | otherwise                            = iterate' doNext (start, 0)
+> extendModeToInfinity desc start templ8   = iterate' doNext (start, 0)
 >   where
->     fName                                = "extendModeToInfinity"
->
 >     nT                                   = length templ8
 >     doNext             :: (AbsPitch, Int) → (AbsPitch, Int)
 >     doNext (ap, ix)                      = (ap + delta, ix')
@@ -289,8 +285,6 @@ which makes for a cleaner sound on some synthesizers:
 >           | otherwise                    = (ix + 1, 0)
 >  
 >         delta                            = templ8 !! ix' - templ8 !! ix  + offs
->
->     trace_EMTI                           = unwords [fName, show start, show templ8]
 >
 > descendFrom            :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
 > descendFrom bp p pc mode                 = squeezeAPSequence (takeWhile (>= bottom) limited)

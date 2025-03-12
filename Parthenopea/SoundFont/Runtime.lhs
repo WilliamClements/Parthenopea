@@ -343,20 +343,15 @@ zone selection for rendering ===================================================
 >
 >     selectBestZone     :: (PreZone, SFZone)
 >     selectBestZone
->       | traceIf trace_SBZ False          = undefined
->       | otherwise                        =
->       if cnt == 0
->         then error "out of range"
->         else if isNothing foundInInst
->                then error $ unwords[fName, show bagId, "not found in inst", iName, showBags perI]
->                else deJust "foundInInst" foundInInst
+>       | cnt == 0                         = error "out of range"
+>       | otherwise                        = if isNothing foundInInst
+>                                              then error $ unwords[fName, show bagId, "not found in inst", iName, showBags perI]
+>                                              else deJust "foundInInst" foundInInst
 >       where
 >         fName                            = unwords [fName_, "selectBestZone"]
 >
->         (bagId, cnt)                     = lookupCellIndex (noonAsCoords noon) perI.pSmashing
+>         (bagId, cnt)                     = tracer "lookupCellIndex" $ lookupCellIndex (noonAsCoords noon) perI.pSmashing
 >         foundInInst                      = findByBagIndex' perI.pZones bagId
->
->         trace_SBZ                        = unwords ["selectBestZone", show (bagId, cnt)]
 >
 >     selectZoneConfig   :: (PreZone, SFZone) → Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
 >     selectZoneConfig z
