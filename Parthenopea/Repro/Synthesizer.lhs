@@ -12,18 +12,33 @@ Synthesizer
 William Clements
 May 14, 2023
 
-> module Parthenopea.Repro.Synthesizer where
+> module Parthenopea.Repro.Synthesizer
+>        ( deriveEffects
+>        , deriveEnvelope
+>        , Effects(..)
+>        , eutDriver
+>        , eutSynthesize
+>        , Recon(..)
+>        , usePitchCorrection
+>        , useAttenuation
+>        , useEnvelopes
+>        , useLoopSwitching
+>        , useReverb
+>        , useChorus
+>        , usePan
+>        , useDCBlock
+>        , noStereoNoPan
+>        , normalizingOutput
+>        ) where
 >
 > import Control.Arrow
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )
 > import qualified Data.Audio              as A
 > import Data.Int ( Int8, Int16 )
-> import Data.List ( maximumBy )
 > import Data.Maybe
-> import Data.Ord ( comparing )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
-> import Euterpea.IO.Audio.Types ( Signal, AudioSample, Clock(..) )
+> import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
@@ -276,26 +291,6 @@ Signal function-based synth ====================================================
 >   where
 >     m8nL                                 = rM8n
 
-FFT ===================================================================================================================
-
-> findOutliers           :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → IO ()
-> findOutliers secs sig                    = putStrLn $ findOutliersString secs sig
->
-> findOutliersString     :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → String
-> findOutliersString secs sig              = "findOutliers " ++ show secs
->                                         ++ "..."           ++ show (abs x)
->                                         ++ " ... "         ++ show y
->                                         ++ " / "           ++ show h
->                                         ++ " = "           ++ show z
->   where
->     ss                                   = toSampleDubs (secs + 0.5) sig
->     pers               :: Double         = secs / fromIntegral (length ss)
->     ts                                   = map ((*pers) . fromIntegral) [0..(length ss - 1)]
->     timedPoints                          = zip ts ss 
->     (x, y)                               = maximumBy (comparing (abs . snd)) timedPoints
->     h                  :: Double         = fromIntegral $ length timedPoints
->     z                  :: Double         = secs * abs x / h
-
 Envelopes =============================================================================================================
 
 > data Segments =
@@ -475,8 +470,7 @@ Effects ========================================================================
 >   where
 >     cho                                                  = r.rEffects.efChorus
 >     rev                                                  = r.rEffects.efReverb
->     pan                                                  = r.rEffects.efPan
->     
+>     pan                                                  = r.rEffects.efPan 
 >
 > eutEffectsStereo       :: ∀ p . Clock p ⇒ (Recon, Recon) → Signal p (Double, Double) (Double, Double)
 > eutEffectsStereo (Recon{rEffects = effL}, Recon{rEffects = effR})
@@ -592,23 +586,6 @@ Effects ========================================================================
 >     xn_l ← delay 0 ⤙ xn
 >     yn_l ← delay 0 ⤙ yn
 >   outA ⤙ yn
-
-Charting ==============================================================================================================
-
-> vals'                  :: [(Double, Double, Double, Double)]
-> vals' = [ (0     , 0      , 0.3   , 0.3)
->         , (vdel  , 0      , 0.3   , 0.25)
->         , (vatt  , 7      , 0.5   , 0.5)
->         , (vhold , 7      , 0.4   , 0.75)
->         , (vdec  , 7-vsus , 0.3   , 0.10)
->         , (vrel  , 0      , 0     , 0)]
->   where
->     vdel     = 1.0
->     vatt     = vdel + 2.0
->     vhold    = vatt + 3.0
->     vdec     = vhold + 1.0
->     vsus     = 5.00000
->     vrel     = vdec + 2.00000
 
 Utility types =========================================================================================================
 

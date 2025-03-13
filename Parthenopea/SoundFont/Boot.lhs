@@ -161,7 +161,7 @@ and recovery.
 >     ingestFile sffile                    =
 >       let
 >         unfinished fiIn                  = not (null fiIn.fiTaskIfs)
->         nextGen fiIn@FileIterate{ .. }   = tracer name fiIn{ fiFw = userFun fiFw, fiTaskIfs = tail fiTaskIfs}
+>         nextGen fiIn@FileIterate{ .. }   = notracer name fiIn{ fiFw = userFun fiFw, fiTaskIfs = tail fiTaskIfs}
 >           where
 >             (name, userFun)              = head fiTaskIfs
 >       in
@@ -532,14 +532,11 @@ partnering 1 task ==============================================================
 >   where
 >     backMap            :: Map PreSampleKey [PreZoneKey]
 >     backMap                              = zrecCompute fwIn backFolder Map.empty
->
 >     backFolder m zrec                    = Map.union m m'
 >       where
->         m'                               = 
->           foldl' pzFolder Map.empty (filter isStereoZone zrec.zsPreZones)
+>         m'                               = foldl' pzFolder Map.empty (filter isStereoZone zrec.zsPreZones)
 >
->     pzFolder m pz                        =
->       Map.insertWith (++) (extractSampleKey pz) [extractZoneKey pz] m
+>     pzFolder m pz                        = Map.insertWith (++) (extractSampleKey pz) [extractZoneKey pz] m
 >
 >     partnerer1         :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     partnerer1 zrec@InstZoneRecord{ .. } rdFold
@@ -577,9 +574,10 @@ partnering 2 task ==============================================================
 >         pFolder m zrec                   =
 >           let
 >             zFolder    :: Map PreZoneKey [PreZoneKey] → PreZone → Map PreZoneKey [PreZoneKey]
->             zFolder m' pz                = if isStereoZone pz
->                                              then Map.insert (extractZoneKey pz) (fromRight [] pz.pzmkPartners) m'
->                                              else m'
+>             zFolder m' pz                =
+>               if isStereoZone pz
+>                 then Map.insert (extractZoneKey pz) (fromRight [] pz.pzmkPartners) m'
+>                 else m'
 >           in
 >             foldl' zFolder m zrec.zsPreZones
 >     
@@ -595,10 +593,10 @@ partnering 2 task ==============================================================
 >         fName                            = "partnerDown"
 >
 >         mySampleKey                      = extractSampleKey pz
->         myZoneKey                        = tracer "myZoneKey" $ extractZoneKey pz
->         myInstKey                        = tracer "myInstKey" $ extractInstKey pz
+>         myZoneKey                        = extractZoneKey pz
+>         myInstKey                        = extractInstKey pz
 >
->         mpartner                         = find perfect (tracer "mpartner" (fromRight [] pz.pzmkPartners))
+>         mpartner                         = find perfect (fromRight [] pz.pzmkPartners)
 >         (partners, rd')                  =
 >           case mpartner of
 >             Just pzk@PreZoneKey{ .. }    →
@@ -613,7 +611,7 @@ partnering 2 task ==============================================================
 >                                          = False
 >           | otherwise                    = isJust found
 >           where
->             otherInstKey                 = tracer "otherInstKey" $ PerGMKey pzk.pzkwFile pzk.pzkwInst Nothing
+>             otherInstKey                 = PerGMKey pzk.pzkwFile pzk.pzkwInst Nothing
 >             found                        =
 >               find (\x → x == myZoneKey && (allowSpecifiedCrossovers || myInstKey == otherInstKey))
 >                    (partnerMap Map.! pzk)
@@ -823,7 +821,6 @@ shave task =====================================================================
 >     preInstCache                         =
 >       foldl' shaveFolder fwBoot.zPreInstCache (badZRecs fwDispositions fwZRecs)
 >     shaveFolder m zrec                   = Map.delete (instKey zrec) m
-
 
 match task ============================================================================================================
           track all fuzzy matches

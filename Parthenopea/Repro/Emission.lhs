@@ -31,8 +31,10 @@ November 9, 2023
 
 Emission capability ===================================================================================================
 
+Quick & dirty way to format strings into tabular form
+
 > data Emission                            = 
->   ToFieldL String Int
+>     ToFieldL String Int
 >   | ToFieldR String Int
 >   | Unblocked String
 >   | Blanks Int
@@ -103,3 +105,5 @@ Emission capability ============================================================
 >
 > safeReplicate          :: Int → Int → Char → String
 > safeReplicate sz maxSz                   = replicate (maxSz - sz)
+
+The End

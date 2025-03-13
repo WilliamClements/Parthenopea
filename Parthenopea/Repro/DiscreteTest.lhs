@@ -21,7 +21,7 @@ June 22, 2024
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns ( osc, Table )
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock )
-> import Parthenopea.Debug(tracer, notracer, traceNot)
+> import Parthenopea.Debug(notracer, traceNot)
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Chart
 > import Parthenopea.Repro.Discrete

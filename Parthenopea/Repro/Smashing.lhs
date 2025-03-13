@@ -33,7 +33,7 @@ February 10, 2025
 
 Range theory ==========================================================================================================
 
-Model rectilinear sub-space coverage; e.g. find unwanted (sub-)space overlaps. Each space (of nspaces) contains
+Utilities for working with input range specifications. Each space (of nspaces) contains
 exactly ndims (2 in the MIDI case) ranges. If dim is the value of a dimension then its overall range is implicitly
 0..dim-1 -- the associated _specified_ space range carves out a subset thereof.
 

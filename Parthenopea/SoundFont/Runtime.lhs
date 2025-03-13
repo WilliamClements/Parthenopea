@@ -350,7 +350,7 @@ zone selection for rendering ===================================================
 >       where
 >         fName                            = unwords [fName_, "selectBestZone"]
 >
->         (bagId, cnt)                     = tracer "lookupCellIndex" $ lookupCellIndex (noonAsCoords noon) perI.pSmashing
+>         (bagId, cnt)                     = lookupCellIndex (noonAsCoords noon) perI.pSmashing
 >         foundInInst                      = findByBagIndex' perI.pZones bagId
 >
 >     selectZoneConfig   :: (PreZone, SFZone) → Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
