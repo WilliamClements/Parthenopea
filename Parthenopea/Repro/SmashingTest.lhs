@@ -59,8 +59,7 @@ Testing ========================================================================
 >   return $ aEqual (allCellsEqualTo smashup) (Just (202, 2))
 >
 > nothingNothings                          = do
->   let smashup          :: Smashing Int   =
->         smashSubspaces "smashup" [3,2] []
+>   let smashup          :: Smashing Int   = smashSubspaces "smashup" [3,2] []
 >   return $ aEqual smashup.smashStats.countNothings 6
 >
 > theWholeIsEqualToTheSumOfItsParts        = do
@@ -107,7 +106,7 @@ Testing ========================================================================
 >   let smashup          :: Smashing Int   =
 >         smashSubspaces "smashup" [3, 2] [(101, [Just (1, 2), Nothing])
 >                                        , (102, [Nothing, Just (1,1)])]
->   return $ aEqual smashup.smashStats.countMultiples (2::Int)
+>   return $ aEqual smashup.smashStats.countMultiples 2
 >
 > workOutNearbyVerticalUncovered           = do
 >   let smashup          :: Smashing Int   =

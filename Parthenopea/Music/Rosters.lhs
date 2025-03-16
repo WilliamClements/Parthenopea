@@ -117,14 +117,14 @@ organize exposed music =========================================================
 > sj =
 >    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
 >    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
->    -- [ ("pit"         , pit)]
+>       [ ("pit"         , pit)]
 >    -- [ ("getCITM"     , getCITM)]
 >    -- [ ("pa"          , pendingtonArnt 1)]
->       [ ("deyDumpDum"  , deyDumpDum False)]
+>    -- [ ("deyDumpDum"  , deyDumpDum False)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 2610)]
 >    -- [ ("slot_1"      , slot 1)]
 >    -- [ ("theFanfare"  , theFanfare False)]
->    -- [ ("alice"      , alice)]
+>    -- [ ("alice"       , alice)]
 >    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
 
 a few playthings ... get it? ==========================================================================================

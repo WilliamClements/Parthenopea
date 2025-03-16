@@ -24,6 +24,7 @@ November 9, 2023
 >         , gmId
 >         , parens
 >         , reapEmissions
+>         , writeFileBySections
 >         )
 >         where
 >
@@ -105,5 +106,9 @@ Quick & dirty way to format strings into tabular form
 >
 > safeReplicate          :: Int → Int → Char → String
 > safeReplicate sz maxSz                   = replicate (maxSz - sz)
+>
+> writeFileBySections    :: FilePath → [[Emission]] → IO ()
+> writeFileBySections fp eSections         = do
+>   mapM_ (appendFile fp . reapEmissions) eSections
 
 The End
