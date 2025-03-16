@@ -349,7 +349,7 @@ Each driver specifies an xform composed of functions from Double to Double
 >       if null fritems'
 >         then head fritems
 >         else head fritems'
->     fritems'                             = dropWhile ((xIn <) . friTrans) (notracer "goo" fritems)
+>     fritems'                             = dropWhile ((xIn <) . friTrans) fritems
 >     fritems                              = foldl' doShape [] shapes
 >
 >     ynorm, height              :: Double
@@ -426,7 +426,6 @@ Type declarations ==============================================================
 >   , kdEQ               :: Double         -- effective Q (centibels)
 >   , kdNyq              :: Double         -- half-length of the FR (or IR)
 >   , kdStretch          :: Double         -- bandwidth of center frequency (range)
->   , kdSpread           :: Int            -- bandwidth of show-able range
 >   , kdLeftOfBulge      :: Double
 >   , kdRightOfBulge     :: Double
 >   } deriving Show
@@ -438,7 +437,6 @@ Type declarations ==============================================================
 >     effectiveQ
 >     (fromIntegral ksLen / 2)
 >     stretch
->     (round $ stretch * 2)
 >     (fc - stretch / 2)
 >     (fc + stretch / 2)
 >   where

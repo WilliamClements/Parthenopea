@@ -78,8 +78,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     defFileWork 
 >     [  ("preSample",  preSample)
 >      , ("preInst",    preInst)
->      , ("survey",     survey)
->      , ("capture",    mark . capture)
+>      , ("capture",    mark . capture . survey)
 >      , ("partner1",   partner1)
 >      , ("reorg",      reorg) 
 >      , ("partner2",   partner2)
@@ -419,7 +418,6 @@ capture task ===================================================================
 >         results                          = map captureZone (deriveRange ibagi jbagi)
 >
 >         pzs                              = lefts results
->         rdCap''                          = foldl' capFolder rdCap' pzs
 >         globalKey                        = if head results == Right (Accepted, GlobalZone)
 >                                              then Just $ PreZoneKey sffile.zWordF pergm.pgkwInst ibagi
 >                                              else Nothing
@@ -436,6 +434,7 @@ capture task ===================================================================
 >                                          = [Scan Violated BadSampleLimits fName_ noClue]
 >           | otherwise                    = [Scan Accepted Adopted fName_ (show iName)]
 >         rdCap'                           = dispose pergm ss rdCap
+>         rdCap''                          = foldl' capFolder rdCap' pzs
 >
 >         capFolder rdFold pz              =
 >           let
@@ -750,8 +749,8 @@ To build the map
 >     qualify            :: [Word] → Bool
 >     qualify memberIs                     = fracAll / fracOne > 1.25
 >       where
->         fracAll, fracOne :: Rational
->
+>         fracAll, fracOne
+>                        :: Rational
 >         fracAll                          = 100 * fromRational (fractionCovered $ smush $ zip pzLoads smashups)
 >         fracOne                          = 100 * fromRational ((maximum . map fractionCovered) smashups)
 >
@@ -855,7 +854,7 @@ categorization task ============================================================
 >         preI                             = fwBoot.zPreInstCache Map.! pergm
 >         iName                            = preI.piChanges.cnName
 
-      Determine which category will belong to the Instrument, based on its performance for both
+      Determine which category will belong to the Instrument, based on its "provideAlts" performance for both
       1. all kinds
       2. "rost" subset, could be same as 1.
 
@@ -879,7 +878,7 @@ categorization task ============================================================
 >             _                            → (icatNarrow, [Scan Dropped Narrow fName noClue])
 >
 >         provideAlts    :: Maybe InstCat → ([InstrumentName], [PercussionSound]) → [Maybe InstCat]
->         provideAlts seed rostAlts            =
+>         provideAlts seed rostAlts        =
 >           let
 >             iMatches                     = fromJust $ Map.lookup pergm fwMatches.mIMatches
 >             ffInst'                      =
@@ -1138,7 +1137,7 @@ repartner task =================================================================
 >       let
 >         zFolder        :: Map PreZoneKey PreZoneKey → PreZone → Map PreZoneKey PreZoneKey
 >         zFolder m' pz                    = if isStereoZone pz && not (inSameInstrument myPzk otherPzk)
->                                              then Map.insert (extractZoneKey pz) otherPzk m'
+>                                              then Map.insert myPzk otherPzk m'
 >                                              else m'
 >           where
 >             myPzk                        = extractZoneKey pz

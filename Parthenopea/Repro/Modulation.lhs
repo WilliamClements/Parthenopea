@@ -89,7 +89,6 @@ November 6, 2023
 >         , procFilter
 >         , qMidiSize128
 >         , qMidiSizeSpace
->         , qStepSize
 >         , resolveMods
 >         , ResonanceType(..)
 >         , reverbAllPercent
@@ -263,9 +262,7 @@ Modulator management ===========================================================
 >                                                   o                  → o) mrModDest}
 >
 > unpackModSrc           :: Word → Maybe ModSrc
-> unpackModSrc wIn
->   | traceNever trace_UMS False           = undefined
->   | otherwise                            = mmapping
+> unpackModSrc wIn                         = mmapping
 >                                              >>= addMapping 
 >                                              >>= addSource
 >   where
@@ -297,8 +294,6 @@ Modulator management ===========================================================
 >                    3      → Just from{msSource = FromNoteOnKey}
 >                    127    → Just from{msSource = FromLinked}
 >                    _      → Nothing
->
->     trace_UMS                            = unwords [show cont, show bipolar, show max2Min, show ccBit, show src]
 >
 > addSrc                 :: ModSrc → Modulator → Maybe Modulator
 > addSrc modSrc from                       = Just from{mrModSrc = modSrc}
@@ -364,8 +359,7 @@ Modulator management ===========================================================
 >   where
 >     evaluateMod        :: Modulator → Double
 >     evaluateMod Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
->       | traceNever trace_EM False        = undefined
->       | otherwise                        = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
+>                                          = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
 >       where
 >         getValue ModSrc{msSource, msMapping}
 >           | useModulators                =
@@ -375,13 +369,6 @@ Modulator management ===========================================================
 >                 FromNoteOnKey            → evaluateNoteOn noteOnKey msMapping
 >                 FromLinked               → evaluateMods (ToLink mrModId) graph noon
 >           | otherwise                    = 0
->
->         trace_EM                         =
->           unwords["evaluateMod"
->                 , show md
->                 , show (getValue mrModSrc)
->                 , show mrModAmount
->                 , show (getValue mrAmountSrc)]
 >
 > evaluateNoteOn         :: Int → Mapping → Double
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
@@ -679,9 +666,6 @@ Miscellaneous ==================================================================
 
 Controller Curves =====================================================================================================
 
-> qStepSize              :: Int
-> qStepSize                                = qTableSize `div` qMidiSize128
->
 > controlDenormal        :: Mapping → Double → (Double, Double) → Double
 > controlDenormal ping@Mapping{msBiPolar} dIn (lo, hi)
 >                                          = if msBiPolar

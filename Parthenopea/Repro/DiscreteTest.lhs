@@ -223,15 +223,12 @@ Feed chart =====================================================================
 >
 > createFilterTest       :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
 > createFilterTest waveTable lp@Lowpass{ .. } freq
->   | traceNot trace_CFT False             = undefined
->   | otherwise                            =
+>                                          =
 >   proc () → do
->     a1 ← osc waveTable 0 ⤙ freq
->     a2 ← filtersf ⤙ (a1, fc)
->     outA ⤙ a2 * 100 / fromIntegral qMidiSize128
+>     a1 ← osc waveTable 0                 ⤙ freq
+>     a2 ← filtersf                        ⤙ (a1, fc)
+>     outA                                 ⤙ a2 * 100 / fromIntegral qMidiSize128
 >   where
->     trace_CFT                            = unwords ["createFilterTest", show fc, show freq]
->
 >     KernelSpec{ .. }                     = lowpassKs
 >     fc                                   = fromAbsoluteCents ksFc                     
 >
