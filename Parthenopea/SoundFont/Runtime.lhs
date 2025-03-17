@@ -52,9 +52,10 @@ executive ======================================================================
 >   tsStarted                              ← getCurrentTime
 >
 >   rost                                   ← qualifyKinds songs
->   mbundle                                ← if narrowInstrumentScope && allowInferredCrossovers
+>   mbundle                                ← if narrowInstrumentScope
+>                                               && (allowSpecifiedCrossovers || allowInferredCrossovers)
 >                                              then do
->                                                putStrLn "narrowInstrumentScope & allowInferredCrossovers cannot be used together"
+>                                                putStrLn "narrowInstrumentScope & crossovers cannot be used together"
 >                                                return Nothing
 >                                              else equipInstruments rost
 >   if isNothing mbundle

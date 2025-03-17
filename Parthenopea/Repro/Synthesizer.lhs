@@ -174,8 +174,7 @@ Signal function-based synth ====================================================
 >                           → Bool
 >                           → Signal p () Double
 > eutDriver secsScored reconL@Recon{ .. } secsToPlay idelta looping
->   | traceNot trace_eD False              = undefined
->   | otherwise                            = if looping
+>                                          = if looping
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
 >   where
@@ -195,12 +194,6 @@ Signal function-based synth ====================================================
 >     (lst, len)         :: (Double, Double)
 >                                          = normalizeLooping reconL
 >
->     trace_eD                             = unwords ["eutDriver"
->                                                   , "secsScored",     show secsScored
->                                                   , "secsToPlay",     show secsToPlay
->                                                   , "idelta",         show idelta
->                                                   , "lst, len",       show (lst, len)]
->
 > normalizeLooping       :: Recon → (Double, Double)
 > normalizeLooping Recon{ .. }             = ((loopst - fullst) / denom, (loopen - fullst) / denom)
 >   where
@@ -210,8 +203,7 @@ Signal function-based synth ====================================================
 >
 > eutModSignals          :: ∀ p. Clock p ⇒ Double → Double → Modulation → ModDestType → Signal p () ModSignals
 > eutModSignals secsScored secsToPlay m8nL md
->   | traceNot trace_EMS False             = undefined
->   | otherwise                            =
+>                                          =
 >   proc _ → do
 >     aL1 ← doEnvelope  kModEnvL secsScored secsToPlay ⤙ ()
 >     aL2 ← doLFO       kModLfoL                       ⤙ ()
@@ -226,8 +218,6 @@ Signal function-based synth ====================================================
 >       ToVolume                           → ( Nothing, m8nL.mModLfo, Nothing)
 >       _                                  →
 >         error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in doModSigMaybes, not", show md]
->
->     trace_EMS                            = unwords ["eutModSignals", show md]
 >
 > eutPumpMono            :: ∀ p . Clock p ⇒
 >                           Recon
@@ -427,11 +417,7 @@ Effects ========================================================================
 
 > deriveEffects          :: Modulation → NoteOn → Maybe Int → Maybe Int → Maybe Int → Effects
 > deriveEffects Modulation{ .. } noon mChorus mReverb mPan
->   | traceNot trace_DE False              = undefined
->   | otherwise                            = Effects
->                                              (dChorus / 1000)
->                                              (dReverb / 1000)
->                                              (dPan / 1000)
+>                                          = Effects (dChorus / 1000) (dReverb / 1000) (dPan / 1000)
 >   where
 >     dChorus            :: Double         =
 >       if useChorus
@@ -445,9 +431,6 @@ Effects ========================================================================
 >       if usePan
 >         then maybe 0 (fromIntegral . clip (-500, 500)) mPan
 >         else 0
->
->     trace_DE                             =
->       unwords ["deriveEffects", show (mChorus, mReverb, mPan), show (dChorus, dReverb, dPan)]
 >
 > eutEffectsMono       :: ∀ p . Clock p ⇒ Recon → Signal p Double Double
 > eutEffectsMono r                                         =

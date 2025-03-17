@@ -110,8 +110,7 @@ Discrete approach ==============================================================
 >              , "\ndsigInL:", show dsigInL
 >              , "\ndsigInR:", show dsigInR]
 >
-> fromContinuousSig      :: ∀ p. (Clock p) ⇒
->                           String → Double → Signal p () Double → Maybe (DiscreteSig Double)
+> fromContinuousSig      :: ∀ p. (Clock p) ⇒ String → Double → Signal p () Double → Maybe (DiscreteSig Double)
 > fromContinuousSig tag dur sf             = 
 >   if not (null dlist)
 >     then Just $ fromRawVector tag (VU.fromList dlist)
@@ -121,21 +120,21 @@ Discrete approach ==============================================================
 >     dlist                                = toSamples dur sf
 >
 > toContinuousSig         :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒ DiscreteSig a → Signal p () a
-> toContinuousSig dsL                    =
->   proc ()                              → do
+> toContinuousSig dsL                      =
+>   proc ()                                → do
 >     rec
->       ii' ← delay 0                    ⤙ ii
->       let ii                           = ii' + 1
->     outA                               ⤙ dsL.dsigVec VU.! (ii' `mod` dsL.dsigStats.dsigLength)
+>       ii' ← delay 0                      ⤙ ii
+>       let ii                             = ii' + 1
+>     outA                                 ⤙ dsL.dsigVec VU.! (ii' `mod` dsL.dsigStats.dsigLength)
 >
 > toContinuousSig'        :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒ DiscreteSig a → DiscreteSig a → Signal p () (a, a)
 > toContinuousSig' dsL dsR                 =
->   proc ()                              → do
+>   proc ()                                → do
 >     rec
->       ii' ← delay 0                    ⤙ ii
->       let ii                           = ii' + 1
->     outA                               ⤙ (  dsL.dsigVec VU.! (ii' `mod` dsL.dsigStats.dsigLength)
->                                            , dsR.dsigVec VU.! (ii' `mod` dsR.dsigStats.dsigLength))
+>       ii' ← delay 0                      ⤙ ii
+>       let ii                             = ii' + 1
+>     outA                                 ⤙ (  dsL.dsigVec VU.! (ii' `mod` dsL.dsigStats.dsigLength)
+>                                              , dsR.dsigVec VU.! (ii' `mod` dsR.dsigStats.dsigLength))
 >
 > fromRawVector          :: (Coeff a, VU.Unbox a) ⇒ String → VU.Vector a → DiscreteSig a
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec

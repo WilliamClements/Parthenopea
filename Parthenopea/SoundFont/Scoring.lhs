@@ -620,12 +620,8 @@ Utilities ======================================================================
 >     gorWeights         :: [Double]
 >   , gorScalar          :: Double} 
 > gradeEmpiricals        :: Grader → [Double] → ArtifactGrade
-> gradeEmpiricals grader emps
->   | traceNot trace_GE False              = undefined
->   | otherwise                            = ArtifactGrade (consume (grader.gorScalar * lincombo)) emps
+> gradeEmpiricals grader emps              = ArtifactGrade (consume (grader.gorScalar * lincombo)) emps
 >   where
->     trace_GE                             =
->       unwords["gradeEmpiricals", "emps", show emps, "lincombo", show lincombo]
 >     wSize                                = length grader.gorWeights
 >     eSize                                = length emps
 >     lincombo           :: Double         =

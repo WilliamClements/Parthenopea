@@ -374,9 +374,7 @@ Modulator management ===========================================================
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
 > evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
-> evaluateModSignals tag m8n md msig noon
->  | traceNever trace_EMS False            = undefined
->  | otherwise                             = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
+> evaluateModSignals tag m8n md msig noon  = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    fName                                 = "evaluateModSignals"
 >
@@ -399,17 +397,6 @@ Modulator management ===========================================================
 >    xmodLfo                               = msig.xModLfoValue * mco.xModLfoCo
 >    xvibLfo                               = msig.xVibLfoValue * mco.xVibLfoCo
 >    xmods                                 = evaluateMods md m8n.mmods noon
->
->    trace_EMS                             =
->      unwords ["evaluateModSignals: "
->             , show tag,     " + "
->             , show xmodEnv, " + "
->             , show xmodLfo, " + "
->             , show xvibLfo, " + "
->             , show xmods,   " = "
->             , show (xmodEnv + xmodLfo + xvibLfo + xmods), " => "
->             , show (fromCents (xmodEnv + xmodLfo + xvibLfo + xmods))]
->
 
 Filters ===============================================================================================================
 
@@ -420,7 +407,7 @@ Filters ========================================================================
 >     ResonanceConvo                       → Nothing
 >     _                                    → Just cascadeConfig
 >
-> addResonance           :: Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
+> addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
 > addResonance noon m8n@Modulation{mLowpass}
 >                                          =
 >   case cascadeCount lowpassType of
@@ -446,16 +433,12 @@ Filters ========================================================================
 >           let sOut                       = resonate sIn fc pickled
 >           outA                           ⤙ (sOut, msig)
 >
->     final
->       | traceNot trace_MSF False         = undefined
->       | otherwise                        =
+>     final                                =
 >         proc (sIn, msig)                 → do
 >           let fc                         = modulateFc msig
 >           pickled ← procFilter mLowpass  ⤙ (sIn, fc)
 >           let sOut                       = resonate sIn fc pickled
 >           outA                           ⤙ sOut
->     trace_MSF                            =
->       unwords ["addResonance (fc, q)", show (lowpassFc mLowpass, lowpassQ mLowpass)]
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
@@ -864,7 +847,6 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , toFilterFcCo       :: ModCoefficients
 >   , toVolumeCo         :: ModCoefficients
 >   , mmods              :: Map ModDestType [Modulator]} deriving (Eq, Show)
->
 
 Mapping is used in SoundFont modulator
 
