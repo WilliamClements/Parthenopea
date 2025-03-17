@@ -20,7 +20,6 @@ April 16, 2023
 >         , ChangeEarItem(..)
 >         , ChangeName(..)
 >         , ChangeNameItem(..)
->         , changePreSample
 >         , combineBoot
 >         , combinerd
 >         , dasBoot
@@ -57,7 +56,6 @@ April 16, 2023
 >         , isStereoZone
 >         , isUnpartnered
 >         , KeyNumber
->         , lookupCellIndex
 >         , makeMono
 >         , makePreZone
 >         , noClue
@@ -168,8 +166,6 @@ implementing SoundFont spec ====================================================
 > extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
 > extractZoneKey         :: PreZone → PreZoneKey
 > extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB
-> changePreSample        :: PreSample → PreSample
-> changePreSample ps@ChangeName{ .. }      = ps{cnChanges = [FixCorruptName], cnName = fixName cnName}
 > effPZShdr              :: PreZone → F.Shdr
 > effPZShdr PreZone{ .. }                  =
 >   if MakeMono `elem` pzChanges.ceChanges

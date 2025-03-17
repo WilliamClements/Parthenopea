@@ -39,6 +39,7 @@ February 1, 2025
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Synthesizer
 > import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.Boot

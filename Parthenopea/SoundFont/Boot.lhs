@@ -422,8 +422,9 @@ capture task ===================================================================
 >                                              then Just $ PreZoneKey sffile.zWordF pergm.pgkwInst ibagi
 >                                              else Nothing
 >
->         ibagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! pgkwInst pergm)
->         jbagi                            = F.instBagNdx (sffile.zFileArrays.ssInsts ! (pgkwInst pergm + 1))
+>         iinsts                           = sffile.zFileArrays.ssInsts
+>         ibagi                            = F.instBagNdx (iinsts ! pgkwInst pergm)
+>         jbagi                            = F.instBagNdx (iinsts ! (pgkwInst pergm + 1))
 >
 >         ss
 >           | null pzs                     = [Scan Violated NoZones         fName_ noClue]
@@ -455,8 +456,9 @@ capture task ===================================================================
 >               | isNothing mpres          = Right (Dropped, OrphanedBySample)
 >               | otherwise                = Left pz{pzChanges = ChangeEar (effPSShdr pres) []}
 >
->             xgeni                        = F.genNdx $ sffile.zFileArrays.ssIBags ! bix
->             ygeni                        = F.genNdx $ sffile.zFileArrays.ssIBags ! (bix + 1)
+>             ibags                        = sffile.zFileArrays.ssIBags
+>             xgeni                        = F.genNdx $ ibags ! bix
+>             ygeni                        = F.genNdx $ ibags ! (bix + 1)
 >             gens   :: [F.Generator]
 >             gens                         = profess
 >                                              (xgeni <= ygeni)
