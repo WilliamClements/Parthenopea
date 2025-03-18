@@ -133,14 +133,16 @@ executive ======================================================================
 >   let esTimeStamp                        = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
 >   let esSampleSummary                    = summarize preSampleDispos ++ [EndOfLine]
 >   let esInstSummary                      = summarize preInstDispos ++ [EndOfLine]
+>   let esPreZoneSummary                   = summarize preZoneDispos ++ [EndOfLine]
 >   let esSampleScan                       = procMap preSampleDispos ++ [EndOfLine]
 >   let esInstScan                         = procMap preInstDispos ++ [EndOfLine]
+>   let esPreZoneScan                      = procMap preZoneDispos ++ [EndOfLine]
 >   let esTail                             = [EndOfLine, EndOfLine]
 >
 >   writeFileBySections
 >     reportScanName
->     ([esTimeStamp, esSampleSummary, esInstSummary]
->      ++ if howVerboseScanReport < (1/3) then [] else [esSampleScan, esInstScan]
+>     ([esTimeStamp, esSampleSummary, esInstSummary, esPreZoneSummary]
+>      ++ if howVerboseScanReport < (1/3) then [] else [esSampleScan, esInstScan, esPreZoneScan]
 >      ++ [esTail])
 >
 >   tsFinished                             ← getCurrentTime
@@ -341,7 +343,7 @@ zone selection for rendering ===================================================
 >
 >     selectBestZone     :: (PreZone, SFZone)
 >     selectBestZone
->       | cnt == 0                         = error "out of range"
+>       | cnt <= 0                         = error "out of range"
 >       | otherwise                        = if isNothing foundInInst
 >                                              then error $ unwords[fName, show bagId, "not found in inst", iName, showBags perI]
 >                                              else deJust "foundInInst" foundInInst

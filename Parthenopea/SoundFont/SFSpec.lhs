@@ -504,19 +504,20 @@ bootstrapping ==================================================================
 > data ResultDispositions               =
 >   ResultDispositions {
 >     preSampleDispos    :: Map PreSampleKey     [Scan]
->   , preInstDispos      :: Map PerGMKey         [Scan]}
+>   , preInstDispos      :: Map PerGMKey         [Scan]
+>   , preZoneDispos      :: Map PreZoneKey       [Scan]}
 > instance Show ResultDispositions where
 >   show rd@ResultDispositions{ .. }       =
 >     unwords [  "ResultDispositions"
->              , show (length preSampleDispos, length preInstDispos, rdCountScans rd)]
+>              , show (length preSampleDispos, length preInstDispos, length preZoneDispos, rdCountScans rd)]
 >
 > deadrd                 :: ∀ k . SFResource k ⇒ k → ResultDispositions → Bool
 > deadrd k rd                              = dead (inspect k rd)
 >
 > virginrd               :: ResultDispositions
-> virginrd                                 = ResultDispositions Map.empty Map.empty
+> virginrd                                 = ResultDispositions Map.empty Map.empty Map.empty
 > emptyrd                :: ResultDispositions → Bool
-> emptyrd ResultDispositions{ .. }         = null preSampleDispos && null preInstDispos
+> emptyrd ResultDispositions{ .. }         = null preSampleDispos && null preInstDispos && null preZoneDispos
 > rdLengths              :: ResultDispositions → (Int, Int)
 > rdLengths ResultDispositions{ .. }       = (length preSampleDispos, length preInstDispos)
 > countScans             :: ∀ k . SFResource k ⇒ Map k [Scan] → Int
@@ -526,7 +527,8 @@ bootstrapping ==================================================================
 > combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
 > combinerd rd1 rd2                        =
 >   rd1{  preSampleDispos                  = Map.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
->       , preInstDispos                    = Map.unionWith (++) rd1.preInstDispos   rd2.preInstDispos}
+>       , preInstDispos                    = Map.unionWith (++) rd1.preInstDispos   rd2.preInstDispos
+>       , preZoneDispos                    = Map.unionWith (++) rd1.preZoneDispos   rd2.preZoneDispos}
 >
 > class SFResource a where
 >   sfkey                :: Word → Word → a
@@ -553,6 +555,15 @@ bootstrapping ==================================================================
 >   inspect pergm rd                       = fromMaybe [] (Map.lookup pergm rd.preInstDispos)
 >   dispose pergm ss rd                    =
 >     rd{preInstDispos = Map.insertWith (++) pergm ss rd.preInstDispos}
+>
+> instance SFResource PreZoneKey where
+>   sfkey _ _                              = error "sfkey not supported for PreZoneKey"
+>   wfile k                                = k.pzkwFile
+>   wblob k                                = k.pzkwInst
+>   kname k sffile                         = (ssInsts sffile.zFileArrays ! wblob k).instName
+>   inspect prezk rd                       = fromMaybe [] (Map.lookup prezk rd.preZoneDispos)
+>   dispose prezk ss rd                    =
+>     rd{preZoneDispos = Map.insertWith (flip (++)) prezk ss rd.preZoneDispos}
 
 Note that harsher consequences of unacceptable sample header are enforced earlier. Logically, that would be
 sufficient to protect below code from bad data and document the situation. But ... mechanism such as putting

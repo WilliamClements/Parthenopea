@@ -551,20 +551,20 @@ partnering 1 task ==============================================================
 >       where
 >         fName                            = "partnerUp"
 >
->         myPartners                       = fromMaybe [] (Map.lookup mySampleLink backMap)        
+>         myPartners                       = fromMaybe [] (Map.lookup yrSampleKey backMap)       
 >
 >         mySampleKey                      = extractSampleKey pz
 >         myZoneKey                        = extractZoneKey pz
->         mySampleLink                     = mySampleKey{pskwSampleIndex = F.sampleLink (effPZShdr pz)}
+>         yrSampleKey                      = mySampleKey{pskwSampleIndex = F.sampleLink (effPZShdr pz)}
 >
 >         (partners, rd')                  =
 >           if isStereoZone pz
->             then (Right myPartners, dispose mySampleKey [Scan Modified Ok fName "stereo"] rdFold)
->             else (Left myZoneKey,   dispose mySampleKey [Scan NoChange Ok fName "mono"]   rdFold)
+>             then (Right myPartners, dispose myZoneKey [Scan Modified Ok fName "stereo"] rdFold)
+>             else (Left myZoneKey,   dispose myZoneKey [Scan NoChange Ok fName "mono"]   rdFold)
 
 partnering 2 task =====================================================================================================
           take care of valid partners (and specified crossovers if applicable)
-          save full (stereo) partner map which will later be used to make partial map
+          use full partner map to find and vet
 
 > partner2TaskIf _ _ fwIn@FileWork{ .. }   = zrecTask partnerer2 fwIn
 >   where
@@ -577,45 +577,52 @@ partnering 2 task ==============================================================
 >             zFolder    :: Map PreZoneKey [PreZoneKey] → PreZone → Map PreZoneKey [PreZoneKey]
 >             zFolder m' pz                =
 >               if isStereoZone pz
->                 then Map.insert (extractZoneKey pz) (fromRight [] pz.pzmkPartners) m'
+>                 then Map.insertWith (++) (extractZoneKey pz) (fromRight [] pz.pzmkPartners) m'
 >                 else m'
 >           in
 >             foldl' zFolder m zrec.zsPreZones
 >     
 >     partnerer2         :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
->     partnerer2 zrec@InstZoneRecord{ .. } rdFold
->                                          = (zrec', rd')
+>     partnerer2 zrec@InstZoneRecord{ .. } rdIn
+>       | traceNow trace_P2 False          = undefined
+>       | otherwise                        = (zrec', rd')
 >       where
->         (pzs, rd')                       = zoneTask isUnpartnered partnerDown zsPreZones rdFold
->         zrec'                            = zrec{zsPreZones = pzs}
+>         fName                            = "partnerer2"
+>         trace_P2                         = unwords [fName, show counts]
 >
->     partnerDown pz rdFold                = (Just $ pz{pzmkPartners = partners}, rd')
+>         (pzs, rd')                       = zoneTask isUnpartnered partnerDown zsPreZones rdIn
+>         zrec'                            = zrec{zsPreZones = pzs}
+>         counts         :: [Int]          = map length (Map.elems partnerMap)
+>
+>     partnerDown pz rdFold                = (Just $ pz{pzmkPartners = partners}, rdFold')
 >       where
 >         fName                            = "partnerDown"
 >
->         mySampleKey                      = extractSampleKey pz
->         myZoneKey                        = extractZoneKey pz
->         myInstKey                        = extractInstKey pz
+>         myZoneKey                        = tracer "zk" $ extractZoneKey pz
+>         myInstKey                        = tracer "ik" $ extractInstKey pz
 >
->         mpartner                         = find perfect (fromRight [] pz.pzmkPartners)
->         (partners, rd')                  =
+>         pzks                             = fromRight [] pz.pzmkPartners
+>
+>         mpartner                         = tracer "mpartner" $ find (perfect True) pzks `CM.mplus` find (perfect False) pzks
+>         (partners, rdFold')              =
 >           case mpartner of
 >             Just pzk@PreZoneKey{ .. }    →
->               (Left pzk,         dispose mySampleKey
+>               (Left pzk,         dispose myZoneKey
 >                                          [Scan Modified Paired fName (show (pzkwFile, pzkwInst, pzkwBag))]
 >                                          rdFold)
 >             Nothing                      →
->               (pz.pzmkPartners,  dispose mySampleKey [Scan NoChange Unpaired fName "nonconforming"]  rdFold)
+>               (pz.pzmkPartners,  dispose myZoneKey [Scan NoChange Unpaired fName "nonconforming"]  rdFold)
 >
->         perfect pzk
->           | isNothing $ Map.lookup pzk partnerMap
->                                          = False
->           | otherwise                    = isJust found
+>         perfect nocross pzk
+>           | null otherZoneKeys           = False
+>           | otherwise                    = found
 >           where
+>             otherZoneKeys                = tracer "otherZoneKeys" $ fromMaybe [] (Map.lookup pzk partnerMap)
 >             otherInstKey                 = PerGMKey pzk.pzkwFile pzk.pzkwInst Nothing
->             found                        =
->               find (\x → x == myZoneKey && (allowSpecifiedCrossovers || myInstKey == otherInstKey))
->                    (partnerMap Map.! pzk)
+>             found                        = tracer "found" $
+>               if nocross
+>                 then myZoneKey `elem` otherZoneKeys && (myInstKey == otherInstKey)
+>                 else myZoneKey `elem` otherZoneKeys && allowSpecifiedCrossovers
 
 partnering 3 task =====================================================================================================
           inferring crossovers
@@ -648,22 +655,22 @@ partnering 3 task ==============================================================
 >           where
 >             fName                        = "partnerSideways"
 >
->             mySampleKey                  = extractSampleKey pz
 >             mySampleName                 = (effPZShdr pz).sampleName
+>             myZoneKey                    = extractZoneKey pz
 >
 >             try1, try2 :: Maybe (String, PreZoneKey)
 >             try1                         =
 >               find (\(k, _) → isJust (find (== k) (fuzzToTheRight mySampleName))) (Map.assocs pLeft)
 >             try2                         =
->               find (\(k, _) → isJust (find (== k) (fuzzToTheLeft mySampleName))) (Map.assocs pRight)
+>               find (\(k, _) → isJust (find (== k) (fuzzToTheLeft mySampleName)))  (Map.assocs pRight)
 >             try                          = try1 `CM.mplus` try2
 >
 >             (partners, rdPartner')       =
 >               case try of
 >                 Just (_, pzk)            →
->                   ( Left pzk,        dispose mySampleKey [Scan Modified Paired   fName "+crossover"]     rdPartner)
+>                   ( Left pzk,        dispose myZoneKey [Scan Modified Paired   fName "+crossover"]     rdPartner)
 >                 Nothing                  →
->                   ( pz.pzmkPartners, dispose mySampleKey [Scan NoChange Unpaired fName "no crossover"]   rdPartner)        
+>                   ( pz.pzmkPartners, dispose myZoneKey [Scan NoChange Unpaired fName "no crossover"]   rdPartner)        
 
 partnering 4 task =====================================================================================================
           devolving to mono as a last resort
@@ -682,13 +689,12 @@ partnering 4 task ==============================================================
 >       where
 >         fName                            = "littlePartner"
 >
->         mySampleKey                      = extractSampleKey pz
 >         myZoneKey                        = extractZoneKey pz
 >
 >         (pz', rd')                       =
 >           if canDevolveToMono
->             then ( makeMono pz, dispose mySampleKey [Scan Modified DevolveToMono    fName noClue] rdFold)
->             else ( pz,          dispose mySampleKey [Scan Violated BadStereoPartner fName noClue] rdFold)
+>             then ( makeMono pz, dispose myZoneKey [Scan Modified DevolveToMono    fName noClue] rdFold)
+>             else ( pz,          dispose myZoneKey [Scan Violated BadStereoPartner fName noClue] rdFold)
 
 reorg task ============================================================================================================
           where indicated, make one instrument out of many
@@ -763,10 +769,8 @@ To build the map
 >         pzLoads                          = map (owners Map.!) pergms
 >
 > buildHoldMap           :: FileWork → Map Word Word → Map Word [PreZone]
-> buildHoldMap FileWork{ .. } aMap         = foldl' makeHolds Map.empty zrecs
+> buildHoldMap FileWork{ .. } aMap         = foldl' makeHolds Map.empty (goodZRecs fwDispositions fwZRecs)
 >   where
->     zrecs                                = goodZRecs fwDispositions fwZRecs
->
 >     makeHolds          :: Map Word [PreZone] → InstZoneRecord → Map Word [PreZone]
 >     makeHolds iHold zrec                 =
 >       if deadrd (instKey zrec) fwDispositions then iHold else exert
