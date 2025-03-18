@@ -598,12 +598,12 @@ partnering 2 task ==============================================================
 >       where
 >         fName                            = "partnerDown"
 >
->         myZoneKey                        = tracer "zk" $ extractZoneKey pz
->         myInstKey                        = tracer "ik" $ extractInstKey pz
+>         myZoneKey                        = extractZoneKey pz
+>         myInstKey                        = extractInstKey pz
 >
 >         pzks                             = fromRight [] pz.pzmkPartners
 >
->         mpartner                         = tracer "mpartner" $ find (perfect True) pzks `CM.mplus` find (perfect False) pzks
+>         mpartner                         = find (perfect True) pzks `CM.mplus` find (perfect False) pzks
 >         (partners, rdFold')              =
 >           case mpartner of
 >             Just pzk@PreZoneKey{ .. }    →
