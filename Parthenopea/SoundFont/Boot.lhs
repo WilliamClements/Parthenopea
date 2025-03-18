@@ -588,11 +588,11 @@ partnering 2 task ==============================================================
 >       | otherwise                        = (zrec', rd')
 >       where
 >         fName                            = "partnerer2"
+>         counts                           = map length (Map.elems partnerMap)
 >         trace_P2                         = unwords [fName, show counts]
 >
 >         (pzs, rd')                       = zoneTask isUnpartnered partnerDown zsPreZones rdIn
 >         zrec'                            = zrec{zsPreZones = pzs}
->         counts         :: [Int]          = map length (Map.elems partnerMap)
 >
 >     partnerDown pz rdFold                = (Just $ pz{pzmkPartners = partners}, rdFold')
 >       where
@@ -615,14 +615,14 @@ partnering 2 task ==============================================================
 >
 >         perfect nocross pzk
 >           | null otherZoneKeys           = False
->           | otherwise                    = found
+>           | otherwise                    = (myZoneKey `elem` otherZoneKeys) && permitted
 >           where
->             otherZoneKeys                = tracer "otherZoneKeys" $ fromMaybe [] (Map.lookup pzk partnerMap)
+>             otherZoneKeys                = fromMaybe [] (Map.lookup pzk partnerMap)
 >             otherInstKey                 = PerGMKey pzk.pzkwFile pzk.pzkwInst Nothing
->             found                        = tracer "found" $
+>             permitted                    = 
 >               if nocross
->                 then myZoneKey `elem` otherZoneKeys && (myInstKey == otherInstKey)
->                 else myZoneKey `elem` otherZoneKeys && allowSpecifiedCrossovers
+>                 then myInstKey == otherInstKey
+>                 else allowSpecifiedCrossovers
 
 partnering 3 task =====================================================================================================
           inferring crossovers
