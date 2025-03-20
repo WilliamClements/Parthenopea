@@ -30,7 +30,8 @@ Testing ========================================================================
 >                                          ,  canCountPartialCover
 >                                          ,  canCountMultiples
 >                                          ,  workOutNearbyVerticalUncovered
->                                          ,  workOutNearbyHorizontalUncovered]
+>                                          ,  workOutNearbyHorizontalUncovered
+>                                          ,  leftAndRightAddUpToUnity]
 >
 > filln                  :: Int → Maybe (Int, Int)
 > filln n                                  = Just (0, n - 1)
@@ -40,6 +41,8 @@ Testing ========================================================================
 > theWholeIsEqualToTheSumOfItsParts, spotCheckOverlapCounts, spotCheck3dSpaceCell, spotCheck4dSpaceCell
 >                        :: IO Bool
 > canCountPartialCover, canCountMultiples, workOutNearbyVerticalUncovered, workOutNearbyHorizontalUncovered
+>                        :: IO Bool
+> leftAndRightAddUpToUnity
 >                        :: IO Bool
 >
 > canClaimEntireSpaceWithImpunity          = do
@@ -127,5 +130,34 @@ Testing ========================================================================
 >   let aat                                = lookupCellIndex western smashup
 >   let bat                                = lookupCellIndex eastern smashup
 >   return $ aEqual (aat, bat) ((101, 1), (102, 1))
+>
+> leftAndRightAddUpToUnity                 = do
+>   let dims                               = [2, 4, 7]
+>
+>   let count1                             = product (tail dims)
+>   let count2                             = product (tail dims)
+>   let count                              = product dims
+>   let checkStats1                        = SmashStats count1 count1   0
+>   let checkStats2                        = SmashStats count2 count2   0
+>   let checkStats                         = SmashStats 0      count    0
+>
+>   let space1                             = [(101, [Just (0, 0), Nothing, Just (0, 6)])]
+>   let space2                             = [(102, [Just (1, 1), Nothing, Just (0, 6)])]
+>   let smashup1         :: Smashing Int   = smashSubspaces "smashup1" dims space1
+>   let smashup2         :: Smashing Int   = smashSubspaces "smashup2" dims space2
+>   let smashup          :: Smashing Int   = smashSubspaces "smashup"  dims (space1 ++ space2)
+>
+>   let check1                             = aEqual smashup1.smashStats checkStats1
+>   let check2                             = aEqual smashup2.smashStats checkStats2
+>   let check                              = aEqual smashup.smashStats  checkStats
+>   let checks                             = check1 && check2 && check
+>
+>   let coords1                            = [0, 2, 5]
+>   let coords2                            = [1, 1, 3]
+>   let spot1                              = aEqual (lookupCellIndex coords1 smashup) (101, 1)
+>   let spot2                              = aEqual (lookupCellIndex coords2 smashup) (102, 1)
+>   let spots                              = spot1 && spot2
+>
+>   return $ checks && spots
 
 The End

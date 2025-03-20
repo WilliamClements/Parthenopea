@@ -14,6 +14,8 @@ February 10, 2025
 > module Parthenopea.Repro.Smashing
 >        (  allCellsEqualTo
 >         , computeSmashup
+>         , computeStereoSmashup
+>         , findApprox
 >         , fractionCovered
 >         , fractionEmpty
 >         , lookupCellIndex
@@ -24,7 +26,7 @@ February 10, 2025
 >
 > import qualified Data.Bifunctor          as BF
 > import Data.Ix
-> import Data.List ( foldl' )
+> import Data.List
 > import Data.Maybe
 > import Data.Ratio ( (%) )
 > import qualified Data.Vector.Unboxed     as VU
@@ -32,6 +34,38 @@ February 10, 2025
 > import Parthenopea.Repro.Modulation
 
 Range theory ==========================================================================================================
+
+> data Smashing i                          =
+>   Smashing {
+>     smashTag            :: String
+>     , smashDims         :: [i]
+>     , smashSpaces       :: [(i, [(i, i)])]
+>     , smashStats        :: SmashStats
+>     , smashVec          :: VU.Vector (i, i)}
+> instance ∀ i. Show i ⇒ Show (Smashing i) where
+>   show Smashing{ .. }                    =
+>     unwords ["Smashing", show (smashTag, smashStats)]
+> data SmashStats                          =
+>   SmashStats {
+>     countNothings      :: Int
+>   , countSingles       :: Int
+>   , countMultiples     :: Int} deriving (Eq, Show)
+> seedSmashStats         :: SmashStats
+> seedSmashStats                           = SmashStats 0 0 0
+>
+> developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ VU.Vector (i,i) → SmashStats
+> developSmashStats                        = VU.foldl' sfolder seedSmashStats
+>   where
+>     sfolder            :: SmashStats → (i, i) → SmashStats
+>     sfolder stats@SmashStats{ .. } (_, count)
+>       | count == 0                       = stats{countNothings = countNothings + 1}
+>       | count == 1                       = stats{countSingles = countSingles + 1}
+>       | otherwise                        = stats{countMultiples = countMultiples + 1}
+> fractionEmpty, fractionCovered
+>                        :: ∀ i. (Integral i, Show i) ⇒ Smashing i → Rational
+> fractionEmpty smashup                    = fromIntegral (countNothings smashup.smashStats) % fromIntegral (product smashup.smashDims)
+> fractionCovered smashup                  =
+>   fromIntegral (countSingles smashup.smashStats + countMultiples smashup.smashStats) % fromIntegral (product smashup.smashDims)
 
 Utilities for working with input range specifications. Each space (of nspaces) contains
 exactly ndims (2 in the MIDI case) ranges. If dim is the value of a dimension then its overall range is implicitly
@@ -130,38 +164,6 @@ You see there is some overlap between Zone 1 and Zone 2.
 >       then Just cand
 >       else Nothing
 >
-> data Smashing i                          =
->   Smashing {
->     smashTag            :: String
->     , smashDims         :: [i]
->     , smashSpaces       :: [(i, [(i, i)])]
->     , smashStats        :: SmashStats
->     , smashVec          :: VU.Vector (i, i)}
-> instance ∀ i. (Integral i, Num i, Show i) ⇒ Show (Smashing i) where
->   show Smashing{ .. }                    =
->     unwords ["Smashing", show (smashTag, smashStats)]
-> data SmashStats                        =
->   SmashStats {
->     countNothings      :: Int
->   , countSingles       :: Int
->   , countMultiples     :: Int} deriving Show
-> seedSmashStats         :: SmashStats
-> seedSmashStats                           = SmashStats 0 0 0
->
-> developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ VU.Vector (i,i) → SmashStats
-> developSmashStats                        = VU.foldl' sfolder seedSmashStats
->   where
->     sfolder            :: SmashStats → (i, i) → SmashStats
->     sfolder stats@SmashStats{ .. } (_, count)
->       | count == 0                       = stats{countNothings = countNothings + 1}
->       | count == 1                       = stats{countSingles = countSingles + 1}
->       | otherwise                        = stats{countMultiples = countMultiples + 1}
-> fractionEmpty, fractionCovered
->                        :: ∀ i. (Integral i, Show i) ⇒ Smashing i → Rational
-> fractionEmpty smashup                    = fromIntegral (countNothings smashup.smashStats) % fromIntegral (product smashup.smashDims)
-> fractionCovered smashup                  =
->   fromIntegral (countSingles smashup.smashStats + countMultiples smashup.smashStats) % fromIntegral (product smashup.smashDims)
->
 > inZRange               :: (Ix a, Num a) ⇒ a → a → Bool
 > inZRange x y                             = inRange (0, y - 1) x 
 >
@@ -169,5 +171,27 @@ You see there is some overlap between Zone 1 and Zone 2.
 > computeSmashup tag                       = smashSubspaces tag dims
 >   where
 >     dims                                 = [fromIntegral qMidiSize128, fromIntegral qMidiSize128]
+>
+> computeStereoSmashup   :: String → [(Word, Double, [Maybe (Word, Word)])] → Smashing Word
+> computeStereoSmashup tag cspaces         = smashSubspaces tag dims (map channelize cspaces)
+>   where
+>     dims                                 = [2::Word, fromIntegral qMidiSize128, fromIntegral qMidiSize128]
+>
+> channelize             :: (Word, Double, [Maybe (Word, Word)]) → (Word, [Maybe (Word, Word)])
+> channelize (spaceId, pan, cspaces)       =
+>   let
+>     m                                    = interpretPan pan
+>     spaces                               = m : cspaces 
+>   in
+>     (spaceId, spaces)
+>
+> interpretPan           :: ∀ i. (Ix i, Num i) ⇒ Double → Maybe (i, i)
+> interpretPan pan
+>   | abs pan < epsilon                    = Nothing
+>   | pan < 0                              = Just (0, 0)
+>   | otherwise                            = Just (1, 1)
+>     
+> findApprox             :: [Double] → Double → Maybe Int
+> findApprox table dIn                     = find (\x → epsilon > abs ((table !! x) - dIn)) [0 .. length table - 1]
 
 The End
