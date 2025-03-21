@@ -128,7 +128,7 @@ use "matching as" cache ========================================================
 
 > combineFF              :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ Map a Fuzz → Map a Fuzz → Map a Fuzz
 > combineFF ffpros ffcons                  =
->   Map.filter (>= 0) (Map.unionWith (+) ffpros (Map.map (* (- conRatio)) ffcons))
+>   Map.filter (>= 0) (Map.unionWith (+) ffpros (Map.map (* (- fromRational conRatio)) ffcons))
 >
 > computeFFMatches       :: String → FFMatches
 > computeFFMatches inp                     = FFMatches inp
@@ -930,8 +930,10 @@ Edit the following =============================================================
 > multipleCompetes       :: Bool
 > multipleCompetes                         = True
 >
-> conRatio               :: Double
+> conRatio, absorbRatio  :: Rational
 > conRatio                                 = 3/4
+> absorbRatio                              = 7/10
+>
 > narrowInstrumentScope  :: Bool
 > narrowInstrumentScope                    = False
 > allowSpecifiedCrossovers, allowInferredCrossovers

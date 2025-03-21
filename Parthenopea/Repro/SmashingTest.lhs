@@ -10,6 +10,7 @@ October 11, 2024
 
 > module Parthenopea.Repro.SmashingTest where
 >
+> import Data.List
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Smashing
   
@@ -134,18 +135,18 @@ Testing ========================================================================
 > leftAndRightAddUpToUnity                 = do
 >   let dims                               = [2, 4, 7]
 >
+>   let space1                             = singleton (101, [Just (0, 0), Nothing, Just (0, 6)])
+>   let space2                             = singleton (102, [Just (1, 1), Nothing, Just (0, 6)])
+>   let smashup1         :: Smashing Int   = smashSubspaces "smashup1" dims space1
+>   let smashup2         :: Smashing Int   = smashSubspaces "smashup2" dims space2
+>   let smashup          :: Smashing Int   = smashSubspaces "smashup"  dims (space1 ++ space2)
+>
 >   let count1                             = product (tail dims)
 >   let count2                             = product (tail dims)
 >   let count                              = product dims
 >   let checkStats1                        = SmashStats count1 count1   0
 >   let checkStats2                        = SmashStats count2 count2   0
 >   let checkStats                         = SmashStats 0      count    0
->
->   let space1                             = [(101, [Just (0, 0), Nothing, Just (0, 6)])]
->   let space2                             = [(102, [Just (1, 1), Nothing, Just (0, 6)])]
->   let smashup1         :: Smashing Int   = smashSubspaces "smashup1" dims space1
->   let smashup2         :: Smashing Int   = smashSubspaces "smashup2" dims space2
->   let smashup          :: Smashing Int   = smashSubspaces "smashup"  dims (space1 ++ space2)
 >
 >   let check1                             = aEqual smashup1.smashStats checkStats1
 >   let check2                             = aEqual smashup2.smashStats checkStats2

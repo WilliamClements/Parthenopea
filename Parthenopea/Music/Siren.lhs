@@ -306,7 +306,7 @@ which makes for a cleaner sound on some synthesizers:
 
 ranges ================================================================================================================
 
->   -- calibrate (0,1) to (lo,up) e.g. (24,92)
+>   -- calibrate (0,1) to a desired range e.g. (24,92)
 > denorm                 :: Double → (Double, Double) → Double
 > denorm r (lo, up)                        = lo + r * (up-lo)
 >

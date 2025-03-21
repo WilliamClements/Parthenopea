@@ -43,6 +43,7 @@ April 16, 2023
 >         , fixName
 >         , fromSampleType
 >         , getMaybePercList
+>         , howClose
 >         , howVerboseScanReport
 >         , howVerboseTournamentReport
 >         , Impact(..)
@@ -98,9 +99,11 @@ April 16, 2023
 > import Data.Either
 > import Data.Foldable
 > import Data.Int ( Int8, Int16 )
+> import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
+> import Data.Ratio ( (%) )
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
@@ -589,6 +592,15 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs
 >   where
 >     imsgs              :: [String]       = fromMaybe [] (lookup kind msgs)
+>
+> howClose               :: ∀ j . (Eq j) ⇒ [j] → [j] → Rational
+> howClose j0 j1                           =
+>   let
+>     commonPrefix                         = takeWhile (uncurry (==)) (zip j0 j1)
+>   in
+>     if null j0
+>       then error "howClose first argument cannot be empty"
+>       else genericLength commonPrefix % genericLength j0
 >
 > data SampleType =
 >   SampleTypeMono
