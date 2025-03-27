@@ -82,11 +82,6 @@ executive ======================================================================
 >                            → IO SFRuntime
 >     finishRuntime matches rost prerunt rdGen03
 >                                          = do
->       tsStarted                          ← getCurrentTime
->
->       tsZoned                            ← getCurrentTime
->       putStrLn ("___cache zones: " ++ show (diffUTCTime tsZoned tsStarted))
->
 >       CM.when (howVerboseScanReport > (1/10)) (writeScanReport prerunt rdGen03)
 >       tsScanned                          ← getCurrentTime
 >      
@@ -223,7 +218,9 @@ executive ======================================================================
 >   traceIO ("wrote " ++ reportTournamentName)
 >
 >   where
->     emitFileListC      = concatMap (uncurry doF) (zip ([0..]::[Int]) (toList sffiles))
+>     nfs                :: [(Int, SFFile)]
+>     nfs                = zip [0..] (toList sffiles)
+>     emitFileListC      = concatMap (uncurry doF) nfs
 >     doF nth sffile     = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
 >
 > renderSong             :: ∀ p . Clock p ⇒

@@ -1145,14 +1145,6 @@ Returns the amplitude ratio
 > theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
 > epsilon                                  = 1e-8               -- a generous little epsilon
 > upsilon                                  = 1e10               -- a scrawny  big    upsilon
-
-Control Functions
-
-The use of following functions requires that their input is normalized between 0 and 1
-(And you can count on the output being likewise normalized!)
-
-> controlLinear          :: Double → Double
-> controlLinear                            = id
 >
 > quarterCircleTable     :: Array Int Double
 >                                            -- TODO: use Table
@@ -1171,18 +1163,23 @@ The use of following functions requires that their input is normalized between 0
 > qMidiSize128                             = 128
 > qMidiSizeSpace         :: Int
 > qMidiSizeSpace                           = qMidiSize128 * qMidiSize128
+
+Control Functions
+
+The use of following functions requires that their input is normalized between 0 and 1
+(And you can count on the output being likewise normalized!)
+
+> controlLinear, controlConcave, controlConvex
+>                        :: Double → Double
+> controlSwitch          :: (Ord a1, Fractional a1, Num a2) ⇒ a1 → a2
 >
-> controlConcave         :: Double → Double
+> controlLinear                            = id
 > controlConcave doub
 >   | doub >= 1                            = 1
 >   | otherwise                            = quarterCircleTable ! truncate (doub * tableSize)
->
-> controlConvex          :: Double → Double
 > controlConvex doub
 >   | (1 - doub) >= 1                      = 1
 >   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - doub) * tableSize))
->
-> controlSwitch          :: (Ord a1, Fractional a1, Num a2) ⇒ a1 → a2
 > controlSwitch doub                       = if doub < 0.5
 >                                              then 0
 >                                              else 1

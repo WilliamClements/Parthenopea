@@ -367,7 +367,7 @@ survey task ====================================================================
 > surveyTaskIf _ _ fwIn@FileWork{ .. }     =
 >   fwIn{fwZRecs = map makeZRec (Map.keys fwBoot.zPreInstCache)}
 
-iterating on InstZoneRecord list ======================================================================================
+iterating InstZoneRecord list =========================================================================================
 
 > zrecTask               :: (InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions))
 >                           → FileWork → FileWork
@@ -375,13 +375,11 @@ iterating on InstZoneRecord list ===============================================
 >   where
 >     (workedOn, rd')                      = foldl' taskRunner ([], fwDispositions) (goodZRecs fwDispositions fwZRecs)
 >
->     taskRunner (zrecs, rdFold) zrec      = 
+>     taskRunner (zrecs, rdFold) zrec      =
 >       let
 >         (zrec', rdFold')                 = userFun zrec rdFold
 >       in
->         if deadrd (instKey zrec) rdFold' 
->           then (zrec : zrecs, rdFold')
->           else (zrec': zrecs, rdFold')
+>         (zrec': zrecs, rdFold')
 >
 > zrecCompute            :: ∀ a . FileWork → (a → InstZoneRecord → a) → a → a
 > zrecCompute FileWork{ .. } userFun seed  = foldl' userFun seed (goodZRecs fwDispositions fwZRecs)
@@ -706,7 +704,9 @@ To build the map
 
  3. drop the strings, retaining member → lead structure
 
- 4. filter any proposed absorptions through qualify
+ 4. filter any proposed absorptions via #5 qualify
+
+ 5. implement a suitability calculation 
 
 > reorgTaskIf sffile _ fwIn@FileWork{ .. }
 >                                          = zrecTask reorger fwIn
@@ -773,7 +773,11 @@ To build the map
 >     hMap                                 = foldl' makeHolds Map.empty (goodZRecs fwDispositions fwZRecs)
 >
 >     reorger            :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
->     reorger zrec rdFold                  = (zrec', rdFold')
+>     reorger zrec rdFold
+>       | not doAbsorption                 = (zrec,                       rdFold)
+>       | isNothing aprobe                 = (zrec,                       rdFold)
+>       | aresult == zrec.zswInst          = (zrec{zsPreZones = hresult}, dispose pergm scansIng rdFold)
+>       | otherwise                        = (zrec,                       dispose pergm scansEd rdFold)
 >       where
 >         fName                            = "reorger"
 >
@@ -786,12 +790,6 @@ To build the map
 >         pergm                            = instKey zrec
 >         scansIng                         = [Scan Modified Absorbing fName noClue]
 >         scansEd                          = [Scan Dropped Absorbed   fName noClue]
->
->         (zrec', rdFold')
->           | not doAbsorption             = (zrec,                       rdFold)
->           | isNothing aprobe             = (zrec,                       rdFold)
->           | aresult == zrec.zswInst      = (zrec{zsPreZones = hresult}, dispose pergm scansIng rdFold)
->           | otherwise                    = (zrec,                       dispose pergm scansEd rdFold)
 
 shave task ============================================================================================================
           remove dropped or violated instruments from the preInstCache

@@ -35,14 +35,14 @@ notes on three kinds of scoring ================================================
 
 In order of when they occur in the overall process:
 
-1. FuzzyFind        - For each *.sf2, we record items into overall roster when their names score high when
-                      fuzzy-matched versus identifying words (e.g. piano) The instrument selections are _profoundly_
-                      affected by fuzziness. But PercussionSound winners go mostly by matching "pitch" with zonal key
-                      range.
+1. FuzzyFind        - For each *.sf2, we record items when their names score high fuzzy-matched versus identifying
+                      words (e.g. piano) and low fuzzy-matched versus contra-keywords. This becomes principal criterion
+                      for instrument selection = pairing the GM ids like Flute with SoundFont instruments. Percussion
+                      winners go mostly by matching "pitch" with zonal key range.
   
 2. artifact grading - Before rendering, we bind the tournament winner (highest grade) to each GM InstrumentName or
-                      PercussionSound. Empirically measured attributes (stereo, number of splits, fuzziness, etc.),
-                      are multiplied against "hard-coded" weights. The products are then summed to make final grade.
+                      PercussionSound. Empirically measured attributes (stereo, number of splits, fuzziness, etc.)
+                      are weighted and summed.
 
 3. zone scoring     - While rendering, presented with a note, and a SoundFont Instrument already selected, we choose
                       zone (by _lowest_ score) that best fits required pitch, velocity, etc. Note that it is zone
@@ -70,8 +70,8 @@ handle "matching as" cache misses ==============================================
 > evalAgainstKeys        :: String → [String] → Fuzz
 > evalAgainstKeys inp keys                 = sum $ zipWith evalAgainstOne keys weights
 >   where
->     lFactor        :: Double             = sqrt $ fromIntegral $ length keys
->     weights        :: [Double]           = [1.9 / lFactor
+>     lFactor            :: Double         = sqrt $ fromIntegral $ length keys
+>     weights            :: [Double]       = [1.9 / lFactor
 >                                           , 1.6 / lFactor
 >                                           , 1.25 / lFactor
 >                                           , 1.17 / lFactor
@@ -83,9 +83,9 @@ handle "matching as" cache misses ==============================================
 > evalAgainstKindKeys    :: String → (a, [String]) → Maybe (a, Fuzz)
 > evalAgainstKindKeys inp (kind, keys)     = if tot <= 0 then Nothing else Just (kind, tot)
 >   where
->     tot            :: Double             = evalAgainstKeys inp keys
+>     tot                :: Double         = evalAgainstKeys inp keys
 >
-> evalGenericPerc     :: String → Fuzz
+> evalGenericPerc        :: String → Fuzz
 > evalGenericPerc inp                      =
 >   maximum (map (evalAgainstKeys inp . singleton) genericPercFFKeys)
 
@@ -172,7 +172,7 @@ use "matching as" cache ========================================================
 >     table                                = Map.fromList $ zip mychs otherchs
 >
 >     is                                   =
->       mapMaybe (\i → if (source !! i) `elem` mychs then Just i else Nothing) (deriveRange 0 (length source))
+>       filter (\i → (source !! i) `elem` mychs) (deriveRange 0 (length source))
 >
 >     generate i                           = front ++ back'
 >       where
