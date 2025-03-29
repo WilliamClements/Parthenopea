@@ -234,12 +234,13 @@ Signal function-based synth ====================================================
 >     let offset         :: Double         = pos' - fromIntegral ix
 >
 >     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral rStart + ix)
->     outA                                 ⤙ a1L * ampL
+>     outA                                 ⤙ notracer "a1L" a1L * ampL
 >
 >   where
 >     Recon{ .. }                          = reconL
+>     Modulation{ .. }                     = rM8n
 >     cAttenL            :: Double         =
->       fromCentibels (rAttenuation + evaluateMods ToInitAtten (mmods rM8n) noon)
+>       fromCentibels (rAttenuation + evaluateMods ToInitAtten mModsMap noon)
 >     ampL                                 = fromIntegral noteOnVel / 100 / cAttenL
 >
 > eutPumpStereo         :: ∀ p . Clock p ⇒
@@ -256,8 +257,8 @@ Signal function-based synth ====================================================
 >     let ix             :: Int            = truncate pos' -- WOX should be round?
 >     let offset         :: Double         = pos' - fromIntegral ix
 >
->     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral stL + ix) 
->     let a1R                              = samplePointInterp s16 ms8 offset (fromIntegral stR + ix)
+>     let a1L                              = notracer "a1L" $ samplePointInterp s16 ms8 offset (fromIntegral stL + ix) 
+>     let a1R                              = notracer "a1R" $ samplePointInterp s16 ms8 offset (fromIntegral stR + ix)
 >     outA ⤙ (a1L * ampL, a1R * ampR)
 >
 >   where
@@ -265,8 +266,10 @@ Signal function-based synth ====================================================
 >                                          = reconL
 >     Recon{rAttenuation = attenR, rStart = stR, rM8n = m8nR}
 >                                          = reconR
->     cAttenL                              = fromCentibels (attenL + evaluateMods ToInitAtten (mmods m8nL) noon)
->     cAttenR                              = fromCentibels (attenR + evaluateMods ToInitAtten (mmods m8nR) noon)
+>     Modulation{mModsMap = mmodsL}        = m8nL
+>     Modulation{mModsMap = mmodsR}        = m8nR
+>     cAttenL                              = fromCentibels (attenL + evaluateMods ToInitAtten mmodsL noon)
+>     cAttenR                              = fromCentibels (attenR + evaluateMods ToInitAtten mmodsR noon)
 >     ampL                                 = fromIntegral noteOnVel / 100 / cAttenL
 >     ampR                                 = fromIntegral noteOnVel / 100 / cAttenR
 >
@@ -275,11 +278,9 @@ Signal function-based synth ====================================================
 >                                          =
 >   proc a1L → do
 >     aenvL                                ← doEnvelope rVolEnv secsScored secsToPlay ⤙ ()
->     modSigL                              ← eutModSignals secsScored secsToPlay m8nL ToVolume ⤙ ()
->     let a2L                              = a1L * aenvL * evaluateModSignals "eutAmplify" m8nL ToVolume modSigL noon
+>     modSigL                              ← eutModSignals secsScored secsToPlay rM8n ToVolume ⤙ ()
+>     let a2L                              = notracer "a1" a1L * notracer "aenv" aenvL * evaluateModSignals "eutAmplify" rM8n ToVolume modSigL noon
 >     outA ⤙ a2L
->   where
->     m8nL                                 = rM8n
 
 Envelopes =============================================================================================================
 
@@ -421,11 +422,11 @@ Effects ========================================================================
 >   where
 >     dChorus            :: Double         =
 >       if useChorus
->         then maybe 0 (fromIntegral . clip (0, 1000)) mChorus + evaluateMods ToChorus mmods noon
+>         then maybe 0 (fromIntegral . clip (0, 1000)) mChorus + evaluateMods ToChorus mModsMap noon
 >         else 0
 >     dReverb            :: Double         =
 >       if useReverb
->         then maybe 0 (fromIntegral . clip (0, 1000)) mReverb + evaluateMods ToReverb mmods noon
+>         then maybe 0 (fromIntegral . clip (0, 1000)) mReverb + evaluateMods ToReverb mModsMap noon
 >         else 0
 >     dPan               :: Double         =
 >       if usePan

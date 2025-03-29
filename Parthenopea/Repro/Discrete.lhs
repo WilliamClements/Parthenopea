@@ -476,11 +476,11 @@ Type declarations ==============================================================
 > sane                   :: (Coeff a) ⇒ DiscreteSig a → Bool
 > sane dsig                                =
 >   profess
->     (maxAmp < upsilon)
->     (unwords ["insanely large amplitude", show maxAmp])
+>     (stMaxAmp < upsilon)
+>     (unwords ["insanely large amplitude", show stMaxAmp])
 >     True
 >   where
->     maxAmp                               = dsig.dsigStats.stMaxAmp
+>     DiscreteStats{ .. }                  = dsig.dsigStats
 >
 > subtractDCOffset       :: DiscreteSig Double → DiscreteSig Double
 > subtractDCOffset dIn                     =

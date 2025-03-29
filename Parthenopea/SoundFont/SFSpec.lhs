@@ -378,6 +378,7 @@ implementing SoundFont spec ====================================================
 >   ZoneDigest {
 >     zdKeyRange         :: Maybe (Word, Word)
 >   , zdVelRange         :: Maybe (Word, Word)
+>   , zdPan              :: Maybe Int
 >   , zdSampleIndex      :: Maybe Word
 >   , zdSampleMode       :: Maybe A.SampleMode
 >   , zdStart            :: Int
@@ -385,7 +386,7 @@ implementing SoundFont spec ====================================================
 >   , zdStartLoop        :: Int
 >   , zdEndLoop          :: Int} deriving (Eq, Show)
 > defDigest              :: ZoneDigest
-> defDigest                                = ZoneDigest Nothing Nothing Nothing Nothing 0 0 0 0
+> defDigest                                = ZoneDigest Nothing Nothing Nothing Nothing Nothing 0 0 0 0
 > formDigest             :: [F.Generator] → ZoneDigest
 > formDigest                               = foldr inspectGen defDigest
 >   where
@@ -394,6 +395,8 @@ implementing SoundFont spec ====================================================
 >                                          = zd {zdKeyRange = Just(i, j)}
 >     inspectGen (F.VelRange i j)                          zd
 >                                          = zd {zdVelRange = Just(i, j)}
+>     inspectGen (F.Pan i)                                 zd
+>                                          = zd {zdPan = Just i}
 >     inspectGen (F.SampleIndex w)                         zd
 >                                          = zd {zdSampleIndex = Just w}
 >     inspectGen (F.SampleMode m)                         zd

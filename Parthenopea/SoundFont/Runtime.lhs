@@ -235,7 +235,7 @@ executive ======================================================================
 >     ts1                                  ← getCurrentTime
 >     ding                                 ← shredMusic (song Map.empty)
 >     let dynMap                           = makeDynMap ding
->     CM.unless (null (Map.assocs dynMap)) (traceIO $ unwords ["dynMap", show dynMap])
+>     CM.unless (null dynMap)              (traceIO $ unwords ["dynMap", show dynMap])
 >     let ks                               = Map.keys ding.shRanges
 >     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
 >     let (esI, esP)                       = printChoices runt is ding.shMsgs ps
@@ -308,6 +308,9 @@ define signal functions and instrument maps to support rendering ===============
 >                                              samplea.ssData samplea.ssM24
 >   where
 >     fName_                               = "instrumentSF"
+>
+>     SFBoot{ .. }                         = zBoot
+>
 >     noon                                 = NoteOn
 >                                              (clip (0, 127) volIn)
 >                                              (clip (0, 127) pchIn)
@@ -317,9 +320,9 @@ define signal functions and instrument maps to support rendering ===============
 >     sffile                               = zFiles ! pergm.pgkwFile
 >     samplea                              = sffile.zSample
 >
->     preI                                 = zBoot.zPreInstCache Map.! pergm
+>     preI                                 = zPreInstCache Map.! pergm
 >     iName                                = preI.piChanges.cnName
->     perI                                 = zBoot.zPerInstCache Map.! pergm
+>     perI                                 = zPerInstCache Map.! pergm
 >
 >     trace_ISF                            =
 >       unwords [fName_, show pergm.pgkwFile, show preI.piChanges.cnSource, show (pchIn, volIn), show durI]
@@ -387,9 +390,9 @@ zone selection for rendering ===================================================
 >                                              then findByBagIndex' perIP.pZones pzkP.pzkwBag
 >                                              else error "corrupt partner"
 >           where
->             pzkP                         = zBoot.zPartnerMap Map.! partnerKey
+>             pzkP                         = zPartnerMap Map.! partnerKey
 >             pergmP                       = PerGMKey pzkP.pzkwFile pzkP.pzkwInst Nothing
->             perIP                        = deJust fName (pergmP `Map.lookup` zBoot.zPerInstCache)
+>             perIP                        = deJust fName (pergmP `Map.lookup` zPerInstCache)
 
 reconcile zone and sample header ======================================================================================
 

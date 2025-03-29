@@ -140,7 +140,7 @@ Modulator management ===========================================================
 > type Node = Int
 >
 > resolveMods            :: Modulation → [Modulator] → [Modulator] → Modulation
-> resolveMods m8n m8rs dm8rs               = m8n{mmods = compileMods checked}
+> resolveMods m8n m8rs dm8rs               = m8n{mModsMap = compileMods checked}
 >   where
 >     sifted                               = renumberMods $ siftMods $ groomMods (dm8rs ++ m8rs)
 >     checked                              = profess
@@ -152,8 +152,7 @@ Modulator management ===========================================================
 > groomMods m8rs                           = Map.elems uniqued
 >   where
 >     uniqued                              = foldl' ufolder Map.empty m8rs
->     ufolder uniquer m8r@Modulator{mrModSrc, mrModDest, mrAmountSrc}
->                                          = Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r uniquer
+>     ufolder uniquer m8r@Modulator{ .. }  = Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r uniquer
 >
 > freeOfCycles           :: [Modulator] → Bool
 > freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
@@ -358,9 +357,8 @@ Modulator management ===========================================================
 >                                          = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
 >   where
 >     evaluateMod        :: Modulator → Double
->     evaluateMod Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
->                                          = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
->       where
+>     evaluateMod Modulator{ .. }          =
+>       let
 >         getValue ModSrc{msSource, msMapping}
 >           | useModulators                =
 >               case msSource of
@@ -368,7 +366,9 @@ Modulator management ===========================================================
 >                 FromNoteOnVel            → evaluateNoteOn noteOnVel msMapping
 >                 FromNoteOnKey            → evaluateNoteOn noteOnKey msMapping
 >                 FromLinked               → evaluateMods (ToLink mrModId) graph noon
->           | otherwise                    = 0
+>           | otherwise                    = 1
+>       in
+>         getValue mrModSrc * mrModAmount * getValue mrAmountSrc
 >
 > evaluateNoteOn         :: Int → Mapping → Double
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
@@ -391,12 +391,12 @@ Modulator management ===========================================================
 >        ToFilterFc                        → m8n.toFilterFcCo
 >        ToVolume                          → m8n.toVolumeCo
 >        _                                 → error $
->          unwords [fName, "only ToPitch, ToFilterFc, and ToVolume supported", show tag, show md]
+>          unwords [fName, "only ToPitch, ToFilterFc, and ToVolume supported", tag, show md]
 >
 >    xmodEnv                               = msig.xModEnvValue * mco.xModEnvCo
 >    xmodLfo                               = msig.xModLfoValue * mco.xModLfoCo
 >    xvibLfo                               = msig.xVibLfoValue * mco.xVibLfoCo
->    xmods                                 = evaluateMods md m8n.mmods noon
+>    xmods                                 = evaluateMods md m8n.mModsMap noon
 
 Filters ===============================================================================================================
 
@@ -846,7 +846,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , toPitchCo          :: ModCoefficients
 >   , toFilterFcCo       :: ModCoefficients
 >   , toVolumeCo         :: ModCoefficients
->   , mmods              :: Map ModDestType [Modulator]} deriving (Eq, Show)
+>   , mModsMap           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 
 Mapping is used in SoundFont modulator
 
@@ -1145,6 +1145,14 @@ Returns the amplitude ratio
 > theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
 > epsilon                                  = 1e-8               -- a generous little epsilon
 > upsilon                                  = 1e10               -- a scrawny  big    upsilon
+
+Control Functions
+
+The use of following functions requires that their input is normalized between 0 and 1
+(And you can count on the output being likewise normalized!)
+
+> controlLinear          :: Double → Double
+> controlLinear                            = id
 >
 > quarterCircleTable     :: Array Int Double
 >                                            -- TODO: use Table
@@ -1163,23 +1171,18 @@ Returns the amplitude ratio
 > qMidiSize128                             = 128
 > qMidiSizeSpace         :: Int
 > qMidiSizeSpace                           = qMidiSize128 * qMidiSize128
-
-Control Functions
-
-The use of following functions requires that their input is normalized between 0 and 1
-(And you can count on the output being likewise normalized!)
-
-> controlLinear, controlConcave, controlConvex
->                        :: Double → Double
-> controlSwitch          :: (Ord a1, Fractional a1, Num a2) ⇒ a1 → a2
 >
-> controlLinear                            = id
+> controlConcave         :: Double → Double
 > controlConcave doub
 >   | doub >= 1                            = 1
 >   | otherwise                            = quarterCircleTable ! truncate (doub * tableSize)
+>
+> controlConvex          :: Double → Double
 > controlConvex doub
 >   | (1 - doub) >= 1                      = 1
 >   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - doub) * tableSize))
+>
+> controlSwitch          :: (Ord a1, Fractional a1, Num a2) ⇒ a1 → a2
 > controlSwitch doub                       = if doub < 0.5
 >                                              then 0
 >                                              else 1

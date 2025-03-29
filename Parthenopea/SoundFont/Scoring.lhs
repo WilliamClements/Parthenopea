@@ -296,7 +296,7 @@ tournament starts here =========================================================
 >     wiExec             :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiExec                               = (wI', wP')
 >       where
->         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) zBoot.zJobs         
+>         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) zJobs         
 >         wI'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wI
 >         wP'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wP
 >
