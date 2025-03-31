@@ -14,102 +14,7 @@ Modulation
 William Clements
 November 6, 2023
 
-> module Parthenopea.Repro.Modulation
->        ( accommodate
->         , addAmount
->         , addAmtSrc
->         , addResonance
->         , addSrc
->         , addDest
->         , allMappings
->         , calcMicrotoneRatio
->         , cascadeConfig
->         , checkForNan
->         , chorusAllPercent
->         , chorusDepth
->         , chorusRate
->         , clip
->         , coAccess
->         , Coeff(..)
->         , compileMods
->         , constA
->         , Continuity(..)
->         , controlConcave
->         , controlConvex
->         , controlLinear
->         , controlSwitch
->         , defaultMods
->         , defMapping
->         , defModSignals
->         , defModSrc
->         , defModTriple
->         , defModulation
->         , defModulator
->         , deriveLFO
->         , deriveModTriple
->         , deriveRange
->         , doLFO
->         , eatFreeVerb
->         , echo
->         , Envelope(..)
->         , evaluateMods
->         , evaluateModSignals
->         , epsilon
->         , frac
->         , freakRange
->         , FreeVerb(..)
->         , FilterData(..)
->         , fromAbsoluteCents
->         , fromCentibels
->         , fromCents
->         , fromCents'
->         , fromTimecents
->         , fromTimecents'
->         , KernelSpec(..)
->         , KeyNumber
->         , LFO(..)
->         , Lowpass(..)
->         , lowpassFc
->         , lowpassQ
->         , makeFreeVerb
->         , Mapping(..)
->         , ModCoefficients(..)
->         , ModDestType(..)
->         , ModSignals(..)
->         , ModSrc(..)
->         , ModSrcSource(..)
->         , ModTriple(..)
->         , Modulation(..)
->         , Modulator(..)
->         , modVib
->         , newOnePole
->         , noonAsCoords
->         , NoteOn(..)
->         , pow
->         , procFilter
->         , qMidiSize128
->         , qMidiSizeSpace
->         , resolveMods
->         , ResonanceType(..)
->         , reverbAllPercent
->         , sawtooth
->         , sawtoothTable
->         , sineTable
->         , theE
->         , toAbsoluteCents
->         , toCentibels
->         , toTimecents
->         , triangleWaveTable
->         , unpackModSrc
->         , upsilon
->         , useDefaultMods
->         , useFastFourier
->         , useModulators
->         , useLFO
->         , Velocity
->         , walkRange
->         )
->         where
+> module Parthenopea.Repro.Modulation where
 >
 > import Control.Arrow ( Arrow(arr), (>>>) )
 > import Control.Arrow.Operations
@@ -128,9 +33,10 @@ November 6, 2023
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
-> import Euterpea.Music (Volume, AbsPitch)
+> import Euterpea.Music ( AbsPitch )
 > import GHC.Generics ( Generic ) 
 > import Parthenopea.Debug
+> import Parthenopea.SoundFont.SFSpec
 >
 > constA                 :: Arrow a ⇒ c → a b c
 > constA                                   = arr . const
@@ -847,76 +753,11 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , toFilterFcCo       :: ModCoefficients
 >   , toVolumeCo         :: ModCoefficients
 >   , mModsMap           :: Map ModDestType [Modulator]} deriving (Eq, Show)
-
-Mapping is used in SoundFont modulator
-
-> data Mapping =
->   Mapping {
->     msContinuity     :: Continuity
->   , msBiPolar        :: Bool  
->   , msMax2Min        :: Bool
->   , msCCBit          :: Bool} deriving (Eq, Ord, Show)
->
-> data Continuity =
->     Linear
->   | Concave
->   | Convex
->   | Switch deriving (Eq, Ord, Show, Enum)
->
-> defMapping             :: Mapping
-> defMapping                               = Mapping Linear False False False
-> allMappings            :: [Mapping]
-> allMappings                              = [Mapping cont bipolar max2min False
->                                                   | cont                  ← [Linear, Concave, Convex, Switch]
->                                                        , bipolar          ← [False, True]
->                                                              , max2min    ← [False, True]]                                          
->
 > defModulation          :: Modulation
 > defModulation                            =
 >   Modulation
 >     (Lowpass ResonanceNone (defKernelSpec useFastFourier)) Nothing Nothing Nothing
 >     defModCoefficients defModCoefficients defModCoefficients Map.empty
->
-> data Modulator                           =
->   Modulator {
->     mrModId            :: Word
->   , mrModSrc           :: ModSrc
->   , mrModDest          :: ModDestType
->   , mrModAmount        :: Double
->   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
->    
-> defModulator           :: Modulator
-> defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
->
-> data ModKey                              =
->   ModKey {
->     krSrc              :: ModSrc
->   , krDest             :: ModDestType
->   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
->
-> data ModDestType                         =
->     NoDestination
->   | ToPitch
->   | ToFilterFc
->   | ToVolume
->   | ToInitAtten
->   | ToChorus
->   | ToReverb
->   | ToLink Word deriving (Eq, Ord, Show)
->
-> data ModSrcSource                        =
->     FromNoController
->   | FromNoteOnVel
->   | FromNoteOnKey
->   | FromLinked deriving (Eq, Ord, Show)
->
-> data ModSrc                              =
->   ModSrc {
->     msMapping          :: Mapping
->   , msSource           :: ModSrcSource} deriving (Eq, Ord, Show)
->
-> defModSrc              :: ModSrc
-> defModSrc                                = ModSrc defMapping FromNoController
 >
 > data Envelope                            =
 >   Envelope {
@@ -1076,9 +917,6 @@ Mapping is used in SoundFont modulator
 >
 >     trace_AP                             = unwords ["allpass delay (samples)=", show maxDel]
 > 
-> type Velocity                            = Volume
-> type KeyNumber                           = AbsPitch
->
 > accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
 > accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
 >
@@ -1141,10 +979,58 @@ Returns the amplitude ratio
 > toCentibels            :: Double → Double
 > toCentibels ratio                        = logBase 10 (ratio * 1000)
 >
+
+Returns the amplitude ratio (based on input 10ths of a percent) 
+
+> fromTithe              :: Maybe Int → Bool → Double
+> fromTithe iS isVol                       =
+>   if isVol
+>     then 1 / fromCentibels jS
+>     else (1000 - jS) / 1000
+>   where
+>     jS                 :: Double         = maybe 0 (fromIntegral . clip (0, 1000)) iS
+>
 > theE, epsilon, upsilon :: Double
 > theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
 > epsilon                                  = 1e-8               -- a generous little epsilon
 > upsilon                                  = 1e10               -- a scrawny  big    upsilon
+>    
+> theE' :: Complex Double
+> theE' = theE :+ 0
+>
+> theJ :: Complex Double
+> theJ = 0 :+ 1
+
+sampleUp returns power of 2 greater than OR EQUAL TO the input value (result at least 2**14)
+sampleDown returns power of 2 less than OR EQUAL TO the input value (input enforced <= 2**31)
+breakUp returns a list of integers approximating divisions of a floating point range
+
+> sampleUp               :: Int → Int
+> sampleUp i                               =
+>   if i <= 0
+>     then error "out of range for sampleUp"
+>     else max 16_384 (head $ dropWhile (< i) (iterate' (* 2) 1))
+>
+> sampleDown             :: Int → Int
+> sampleDown i                             =
+>   if i <= 0 || i > 2_147_483_648
+>     then error "out of range for sampleDown"
+>     else head $ dropWhile (> i) (iterate' (`div` 2) 2_147_483_648)
+>
+> breakUp :: (Double, Double) → Double → Int → [Int]
+> breakUp (xmin, xmax) base nDivs =
+>   let
+>     (ymin, ymax) =
+>       if base == 0
+>         then (xmin, xmax)
+>         else (logBase base xmin, logBase base xmax)
+>     delta = (ymax - ymin) / fromIntegral nDivs
+>     oper =
+>       if base == 0
+>         then id
+>         else pow base
+>   in
+>     map (round . oper . (+ ymin) . (* delta) . fromIntegral) ([0..nDivs] :: [Int])
 
 Control Functions
 
@@ -1265,8 +1151,6 @@ Signals of interest ============================================================
 >
 > deriveRange            :: Integral n ⇒ n → n → [n]
 > deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]
-> walkRange              :: Integral n ⇒ (n, n) → [n]
-> walkRange (x, y)                         = if x > y || y < 0 then [] else [x..y]
 >
 > useModulators          :: Bool
 > useModulators                            = True

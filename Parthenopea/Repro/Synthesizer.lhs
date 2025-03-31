@@ -44,6 +44,7 @@ May 14, 2023
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Discrete ( applyConvolutionMono, applyConvolutionStereo )
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.SoundFont.SFSpec
   
 Signal function-based synth ===========================================================================================
 
@@ -68,6 +69,9 @@ Signal function-based synth ====================================================
 >            then pumpStereoConvoPath
 >            else pumpStereoPath
 >   where
+>     fName                                = "eutSynthesize"
+>     trace_eS                             = unwords [fName, show (secsSample, secsScored, secsToPlay, looping, nps)] 
+>
 >     noon@NoteOn{ .. }                    = NoteOn vol pch
 >     reconR                               = fromJust mreconR
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
@@ -148,11 +152,6 @@ Signal function-based synth ====================================================
 >         mL                               ← eutAmplify secsScored reconL noon secsToPlay ⤙ tL
 >         mR                               ← eutAmplify secsScored reconR noon secsToPlay ⤙ tR
 >         outA ⤙ (mL, mR)
->
->     trace_eS                             =
->       unwords [
->             "eutSynthesize"
->           , show (dur, noon), show (numSamples, secsSample, secsScored, secsToPlay, looping), show nps] 
 >
 > eutModulate            :: ∀ p . Clock p ⇒
 >                           Double
@@ -371,10 +370,13 @@ Create a straight-line envelope generator with following phases:
    release  
 
 > computeSegments        :: Double → Double → Envelope → Segments
-> computeSegments secsScored secsToUse_ Envelope{ .. }
+> computeSegments secsScored secsToPlay Envelope{ .. }
 >   | traceNot trace_CS False              = undefined
 >   | otherwise                            = Segments amps deltaTs
 >   where
+>     fName                                = "computeSegments"
+>     trace_CS                             = unwords [fName, show (amps, deltaTs)]
+>     
 >     amps               :: [Double]       = [0,       0,       1,       1,     fSusLevel, fSusLevel,      0,      0]
 >     deltaTs            :: [Double]       = [  fDelayT, fAttackT, fHoldT,  fDecayT, fSustainT, fReleaseT,   fPostT]
 >
@@ -383,15 +385,15 @@ Create a straight-line envelope generator with following phases:
 >     minDeltaT          :: Double         = fromTimecents Nothing
 >     lump                                 = min 0.1 (10 * minDeltaT)
 >     secsToUse          :: Double         =
->       profess (secsToUse_ > 7 * minDeltaT)
->         (unwords["computeSegments", show (secsScored, secsToUse_), "..time too short for envelope"])
->         secsToUse_
+>       profess (secsToPlay > 7 * minDeltaT)
+>         (unwords[fName, show (secsScored, secsToPlay), "..time too short for envelope"])
+>         secsToPlay
 >
->     reserve_                             = eDelayT + eAttackT + eHoldT + eDecayT
->     reserveOk                            = secsToUse - reserve_ > lump
->     reserve                              = if reserveOk
->                                              then reserve_
->                                              else 4 * minDeltaT
+>     reserve
+>       | secsToUse - rsum > lump          = rsum
+>       | otherwise                        = 4 * minDeltaT
+>       where
+>         rsum                             = eDelayT + eAttackT + eHoldT + eDecayT
 >
 >     -- pin down onset of Release phase
 >     lump, fReleaseT, rp  :: Double
@@ -411,8 +413,6 @@ Create a straight-line envelope generator with following phases:
 >     fSustainT                            =
 >       max minDeltaT (secsToUse - (fReleaseT + fDelayT + fAttackT + fHoldT + fDecayT + minDeltaT))
 >     fPostT                               = (2*minDeltaT) + secsScored - secsToUse
->
->     trace_CS                             = unwords ["computeSegments", show (amps, deltaTs)]
 
 Effects ===============================================================================================================
 

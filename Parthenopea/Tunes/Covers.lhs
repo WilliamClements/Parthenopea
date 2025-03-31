@@ -16,7 +16,6 @@ January 13, 2023
 > import Euterpea.Music
 > import Parthenopea.Music.Percussion
 > import Parthenopea.Music.Siren
-> import Parthenopea.SoundFont.SFSpec
   
 Saucy Sailor ==========================================================================================================
 

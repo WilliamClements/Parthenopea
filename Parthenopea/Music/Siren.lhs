@@ -24,7 +24,6 @@ December 12, 2022
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Complex
 > import Data.Either
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List hiding (transpose)
@@ -43,9 +42,11 @@ December 12, 2022
 > import Euterpea.IO.MIDI.ToMidi2 ( writeMidi2 )
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Repro.Modulation
 > import System.Random ( Random(randomR), StdGen )
 
+> type Velocity                            = Volume
+> type KeyNumber                           = AbsPitch
+>
 > allKinds               :: ([InstrumentName], [PercussionSound])
 > allKinds                                 =
 >   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
@@ -656,7 +657,7 @@ examine song for instrument and percussion usage ===============================
 >   let
 >     p                                    = mev.ePitch
 >   in
->     if p == clip rng p
+>     if inRange rng p
 >       then []
 >       else singleton (name, singleton $ unwords ["...", show p, "out of range", show rng])
 >
@@ -872,20 +873,6 @@ Conversion functions and general helpers =======================================
 >   case mww of
 >     Nothing                              → Nothing
 >     Just (w1, w2)                        → if w1 > w2 then Nothing else Just (fromIntegral w1, fromIntegral w2)
->
-> almostEqual            :: Double → Double → Bool
-> almostEqual 0 0                          = True
-> almostEqual x y                          = epsilon > abs ((x - y) / (x + y))
-
-Returns the amplitude ratio (based on input 10ths of a percent) 
-
-> fromTithe              :: Maybe Int → Bool → Double
-> fromTithe iS isVol                       =
->   if isVol
->     then 1 / fromCentibels jS
->     else (1000 - jS) / 1000
->   where
->     jS                 :: Double         = maybe 0 (fromIntegral . clip (0, 1000)) iS
 
 Returns sample point as (normalized) Double
 
@@ -904,43 +891,6 @@ Returns sample point as (normalized) Double
 >     (s0, s1)           :: (Double, Double)
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
-
-sampleUp returns power of 2 greater than OR EQUAL TO the input value (result at least 2**14)
-sampleDown returns power of 2 less than OR EQUAL TO the input value (input enforced <= 2**31)
-breakUp returns a list of integers approximating divisions of a floating point range
-
-> sampleUp               :: Int → Int
-> sampleUp i                               =
->   if i <= 0
->     then error "out of range for sampleUp"
->     else max 16_384 (head $ dropWhile (< i) (iterate' (* 2) 1))
->
-> sampleDown             :: Int → Int
-> sampleDown i                             =
->   if i <= 0 || i > 2_147_483_648
->     then error "out of range for sampleDown"
->     else head $ dropWhile (> i) (iterate' (`div` 2) 2_147_483_648)
->
-> breakUp :: (Double, Double) → Double → Int → [Int]
-> breakUp (xmin, xmax) base nDivs =
->   let
->     (ymin, ymax) =
->       if base == 0
->         then (xmin, xmax)
->         else (logBase base xmin, logBase base xmax)
->     delta = (ymax - ymin) / fromIntegral nDivs
->     oper =
->       if base == 0
->         then id
->         else pow base
->   in
->     map (round . oper . (+ ymin) . (* delta) . fromIntegral) ([0..nDivs] :: [Int])
->    
-> theE' :: Complex Double
-> theE' = theE :+ 0
->
-> theJ :: Complex Double
-> theJ = 0 :+ 1
 
 Configurable parameters ===============================================================================================
 

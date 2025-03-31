@@ -13,84 +13,7 @@ SFSpec
 William Clements
 April 16, 2023
 
-> module Parthenopea.SoundFont.SFSpec
->        (  autopsy
->         , badButMaybeFix
->         , ChangeEar(..)
->         , ChangeEarItem(..)
->         , ChangeName(..)
->         , ChangeNameItem(..)
->         , combineBoot
->         , combinerd
->         , dasBoot
->         , dead
->         , deadrd
->         , defZone
->         , Disposition(..)
->         , effPSShdr
->         , effPZShdr
->         , elideset
->         , emitMsgs
->         , emptyrd
->         , extractInstKey
->         , extractSampleKey
->         , extractZoneKey
->         , FileArrays(..)
->         , findByBagIndex
->         , findByBagIndex'
->         , findBySampleIndex
->         , findBySampleIndex'
->         , fixName
->         , fromSampleType
->         , getMaybePercList
->         , howClose
->         , howVerboseScanReport
->         , howVerboseTournamentReport
->         , Impact(..)
->         , inSameInstrument
->         , InstCat(..)
->         , InstCatData(..)
->         , is24BitInst
->         , isLeftPreZone
->         , isRightPreZone
->         , isStereoInst
->         , isStereoZone
->         , isUnpartnered
->         , KeyNumber
->         , makeMono
->         , makePreZone
->         , noClue
->         , notDead
->         , PerGMKey(..)
->         , PerInstrument(..)
->         , PreInstrument(..)
->         , PreSample
->         , PreSampleKey(..)
->         , PreZone(..)
->         , PreZoneKey(..)
->         , rdLengths
->         , reportScanName
->         , reportTournamentName
->         , ResultDispositions(..)
->         , SampleArrays(..)
->         , SampleType(..)
->         , Scan(..)
->         , SFBoot(..)
->         , SFFile(..)
->         , SFResource(..)
->         , SFZone(..)
->         , showBags
->         , showMaybeInstCat
->         , showPreZones
->         , toMaybeSampleType
->         , toSampleType
->         , Velocity
->         , virginrd
->         , wasRescued
->         , wasSwitchedToMono
->         , ZoneDigest(..)
->         )
->         where
+> module Parthenopea.SoundFont.SFSpec where
 >
 > import qualified Codec.SoundFont         as F
 > import Data.Array.Unboxed
@@ -108,7 +31,6 @@ April 16, 2023
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
-> import Parthenopea.Repro.Modulation
   
 implementing SoundFont spec ===========================================================================================
 
@@ -647,11 +569,93 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >     SampleTypeRomLeft      → 0x8004
 >     SampleTypeRomLinked    → 0x8008
 >
+> data Modulator                           =
+>   Modulator {
+>     mrModId            :: Word
+>   , mrModSrc           :: ModSrc
+>   , mrModDest          :: ModDestType
+>   , mrModAmount        :: Double
+>   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
+>    
+> defModulator           :: Modulator
+> defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
+
+"A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
+--SoundFont spec
+
+struct sfInstModList
+{
+  SFModulator sfModSrcOper;
+  SFGenerator sfModDestOper;
+  SHORT modAmount;
+  SFModulator sfModAmtSrcOper;
+  SFTransform sfModTransOper;
+};
+
+> data ModKey                              =
+>   ModKey {
+>     krSrc              :: ModSrc
+>   , krDest             :: ModDestType
+>   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
+>
+> data ModDestType                         =
+>     NoDestination
+>   | ToPitch
+>   | ToFilterFc
+>   | ToVolume
+>   | ToInitAtten
+>   | ToChorus
+>   | ToReverb
+>   | ToLink Word deriving (Eq, Ord, Show)
+>
+> data ModSrcSource                        =
+>     FromNoController
+>   | FromNoteOnVel
+>   | FromNoteOnKey
+>   | FromLinked deriving (Eq, Ord, Show)
+>
+> data ModSrc                              =
+>   ModSrc {
+>     msMapping          :: Mapping
+>   , msSource           :: ModSrcSource} deriving (Eq, Ord, Show)
+>
+> defModSrc              :: ModSrc
+> defModSrc                                = ModSrc defMapping FromNoController
+>
 > goodChar               :: Char → Bool
 > goodChar cN                              = isAscii cN && not (isControl cN)
 >
+> goodName               :: String → Bool
+> goodName                                 = all goodChar
+>
 > fixName                :: String → String
 > fixName                                  = map (\cN → if goodChar cN then cN else '_')
+>
+> type Velocity                            = Volume
+> type KeyNumber                           = AbsPitch
+
+Mapping is used in SoundFont modulator
+
+> data Mapping =
+>   Mapping {
+>     msContinuity     :: Continuity
+>   , msBiPolar        :: Bool  
+>   , msMax2Min        :: Bool
+>   , msCCBit          :: Bool} deriving (Eq, Ord, Show)
+>
+> data Continuity =
+>     Linear
+>   | Concave
+>   | Convex
+>   | Switch deriving (Eq, Ord, Show, Enum)
+>
+> defMapping             :: Mapping
+> defMapping                               = Mapping Linear False False False
+> allMappings            :: [Mapping]
+> allMappings                              = [Mapping cont bipolar max2min False
+>                                                   | cont                  ← [Linear, Concave, Convex, Switch]
+>                                                        , bipolar          ← [False, True]
+>                                                              , max2min    ← [False, True]]                                          
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 

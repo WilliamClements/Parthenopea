@@ -21,7 +21,6 @@ January 21, 2025
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Char
 > import Data.Either
 > import Data.Foldable
 > import Data.List hiding (insert)
@@ -926,11 +925,13 @@ categorization task ============================================================
 >             catPerc      :: [Word] → InstCat
 >             catPerc ws                   =
 >               if null pzs || null ws
->                 then InstCatDisq NoZones "catPerc"
+>                 then InstCatDisq NoZones fNameCatPerc
 >                 else (case checkSmashing smashup of
 >                        Nothing           → InstCatPerc icd
 >                        Just imp          → InstCatDisq imp noClue)
 >               where
+>                 fNameCatPerc             = "catPerc"
+>
 >                 pzs'                     = filter (\x → x.pzWordB `elem` ws) pzs
 >                 smashup                  = computeInstSmashup pzs'
 >                 icd                      = InstCatData pzs' smashup ws
@@ -1139,12 +1140,6 @@ repartner task =================================================================
 >
 >     shdr                                 = effPZShdr pz
 >     zd                                   = pz.pzDigest
->
-> goodChar               :: Char → Bool
-> goodChar cN                              = isAscii cN && not (isControl cN)
->
-> goodName               :: String → Bool
-> goodName                                 = all goodChar
 >
 > goodSampleRate         :: Word → Bool
 > goodSampleRate x                         = x == clip (n64, n2 ^ n20) x

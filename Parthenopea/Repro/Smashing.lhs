@@ -11,18 +11,7 @@ Smashing
 William Clements
 February 10, 2025
 
-> module Parthenopea.Repro.Smashing
->        (  allCellsEqualTo
->         , computeSmashup
->         , computeStereoSmashup
->         , findApprox
->         , fractionCovered
->         , fractionEmpty
->         , lookupCellIndex
->         , Smashing(..)
->         , SmashStats(..)
->         , smashSubspaces
->         ) where
+> module Parthenopea.Repro.Smashing where
 >
 > import qualified Data.Bifunctor          as BF
 > import Data.Ix
@@ -31,7 +20,6 @@ February 10, 2025
 > import Data.Ratio ( (%) )
 > import qualified Data.Vector.Unboxed     as VU
 > import Parthenopea.Debug
-> import Parthenopea.Repro.Modulation
 
 Range theory ==========================================================================================================
 
@@ -43,8 +31,7 @@ Range theory ===================================================================
 >     , smashStats        :: SmashStats
 >     , smashVec          :: VU.Vector (i, i)}
 > instance ∀ i. Show i ⇒ Show (Smashing i) where
->   show Smashing{ .. }                    =
->     unwords ["Smashing", show (smashTag, smashStats)]
+>   show Smashing{ .. }                    = unwords ["Smashing", show (smashTag, smashStats)]
 > data SmashStats                          =
 >   SmashStats {
 >     countNothings      :: Int
@@ -97,7 +84,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >     assignCell         :: (i, i) → (i, i) → (i, i)
 >     assignCell mfrom mto                 = (fst mto, snd mfrom + 1)
 >
->     enumAssocs         ::  [i] → i → [(i, i)] → [(Int, (i, i))]
+>     enumAssocs         :: [i] → i → [(i, i)] → [(Int, (i, i))]
 >     enumAssocs dimsA spaceId rngs        =
 >       let
 >         is             :: [Int]
@@ -108,6 +95,9 @@ You see there is some overlap between Zone 1 and Zone 2.
 >           (0 <= mag && mag <= 65_536 && all (uncurry validRange) (zip dimsA rngs))
 >           (unwords ["enumAssocs: range violation", tag, show mag, show dimsA, show spaces])
 >           (map (, (spaceId, 1)) is)
+>
+> walkRange              :: Integral n ⇒ (n, n) → [n]
+> walkRange (x, y)                         = if x > y || y < 0 then [] else [x..y]
 >
 > validRange             :: ∀ i . (Integral i, Ix i) ⇒ i → (i, i) → Bool
 > validRange dim (r, s)                    = 0 <= dim && r <= s && inZRange r dim && inZRange s dim
@@ -151,7 +141,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >
 > computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → Int
 > computeCellIndex [] []                   = 0
-> computeCellIndex (_:dims) (rng:rngs)       = fromIntegral (rng * product dims) + computeCellIndex dims rngs
+> computeCellIndex (_:dims) (rng:rngs)     = fromIntegral (rng * product dims) + computeCellIndex dims rngs
 > computeCellIndex _ _                     =
 >   error $ unwords ["computeCellIndex:", "input args dims and coords have unequal lengths"]
 >
@@ -170,12 +160,12 @@ You see there is some overlap between Zone 1 and Zone 2.
 > computeSmashup         :: String → [(Word, [Maybe (Word, Word)])] → Smashing Word
 > computeSmashup tag                       = smashSubspaces tag dims
 >   where
->     dims                                 = [fromIntegral qMidiSize128, fromIntegral qMidiSize128]
+>     dims                                 = [128::Word, 128::Word]
 >
 > computeStereoSmashup   :: String → [(Word, Double, [Maybe (Word, Word)])] → Smashing Word
 > computeStereoSmashup tag cspaces         = smashSubspaces tag dims (map channelize cspaces)
 >   where
->     dims                                 = [2::Word, fromIntegral qMidiSize128, fromIntegral qMidiSize128]
+>     dims                                 = [2::Word, 128::Word, 128::Word]
 >
 > channelize             :: (Word, Double, [Maybe (Word, Word)]) → (Word, [Maybe (Word, Word)])
 > channelize (spaceId, pan, cspaces)       =
@@ -187,11 +177,8 @@ You see there is some overlap between Zone 1 and Zone 2.
 >
 > interpretPan           :: ∀ i. (Ix i, Num i) ⇒ Double → Maybe (i, i)
 > interpretPan pan
->   | abs pan < epsilon                    = Nothing
+>   | abs pan < 0.001                      = Nothing
 >   | pan < 0                              = Just (0, 0)
 >   | otherwise                            = Just (1, 1)
->     
-> findApprox             :: [Double] → Double → Maybe Int
-> findApprox table dIn                     = find (\x → epsilon > abs ((table !! x) - dIn)) [0 .. length table - 1]
 
 The End

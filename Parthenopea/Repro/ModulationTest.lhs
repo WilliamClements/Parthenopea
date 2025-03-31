@@ -14,22 +14,11 @@ November 24, 2023
 > import Data.List ( nub, sort, sortOn )
 > import qualified Data.Map                as Map
 > import Data.Ord
-> import Parthenopea.Repro.Modulation
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Modulation
+> import Parthenopea.SoundFont.SFSpec
 
 Testing ===============================================================================================================
-
-"A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
---SoundFont spec
-
-struct sfInstModList
-{
-  SFModulator sfModSrcOper;
-  SFGenerator sfModDestOper;
-  SHORT modAmount;
-  SFModulator sfModAmtSrcOper;
-  SFTransform sfModTransOper;
-};
 
 > countSurvivingMods     :: [Modulator] → IO Int
 > countSurvivingMods m8rs                  = do

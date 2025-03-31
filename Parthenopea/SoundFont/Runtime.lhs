@@ -402,8 +402,7 @@ reconcile zone and sample header ===============================================
 >                           → Dur
 >                           → (Recon, Maybe Recon)
 > reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon nps durR
->   | traceIf trace_RLR False              = undefined
->   | otherwise                            = (recL, Just recR')
+>                                          = (recL, Just recR')
 >   where
 >     secsScored         :: Double         = fromRational durR
 >     recL@Recon{rRootKey = rkL, rPitchCorrection = pcL}
@@ -412,8 +411,6 @@ reconcile zone and sample header ===============================================
 >     recR'                                = recR{
 >                                                rRootKey                   = rkL
 >                                              , rPitchCorrection           = pcL}
->
->     trace_RLR                            = unwords ["reconLR:\n", show zoneL, "\n", show shdrL]
 >
 > recon                  :: (SFZone, F.Shdr) → NoteOn → [Double] → Double → Recon
 > recon (zone_, sHdr@F.Shdr{ .. }) noon nps secsScored
@@ -493,7 +490,9 @@ reconcile zone and sample header ===============================================
 >   | traceIf trace_RM False               = undefined
 >   | otherwise                            = resolveMods m8n zModulators defaultMods
 >   where
->     trace_RM                             = unwords ["reconModulation", shdr.sampleName, show nModEnv]
+>     fName                                = "reconModulation"
+>     trace_RM                             = unwords [fName, shdr.sampleName, show nModEnv]
+>
 >     m8n                :: Modulation     =
 >       defModulation{
 >         mLowpass                         = Lowpass resonanceType curKernelSpec
