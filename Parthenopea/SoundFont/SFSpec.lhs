@@ -67,7 +67,8 @@ implementing SoundFont spec ====================================================
 >   PreZoneKey {
 >     pzkwFile           :: Word
 >   , pzkwInst           :: Word
->   , pzkwBag            :: Word} deriving (Eq, Ord, Show)
+>   , pzkwBag            :: Word
+>   , pzkwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
 > data PreZone =
 >   PreZone {
@@ -90,7 +91,7 @@ implementing SoundFont spec ====================================================
 > extractInstKey         :: PreZone → PerGMKey
 > extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
 > extractZoneKey         :: PreZone → PreZoneKey
-> extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB
+> extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
 > effPZShdr              :: PreZone → F.Shdr
 > effPZShdr PreZone{ .. }                  =
 >   if MakeMono `elem` pzChanges.ceChanges
@@ -489,6 +490,7 @@ bootstrapping ==================================================================
 >   wfile k                                = k.pzkwFile
 >   wblob k                                = k.pzkwInst
 >   kname k sffile                         = (ssInsts sffile.zFileArrays ! wblob k).instName
+>                                            ++ kname (PreSampleKey k.pzkwFile k.pzkwSampleIndex) sffile
 >   inspect prezk rd                       = fromMaybe [] (Map.lookup prezk rd.preZoneDispos)
 >   dispose prezk ss rd                    =
 >     rd{preZoneDispos = Map.insertWith (flip (++)) prezk ss rd.preZoneDispos}

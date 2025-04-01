@@ -9,12 +9,12 @@ November 24, 2023
 
 > module Parthenopea.Repro.ModulationTest ( modulationTests, runModulationTests ) where
 >
-> import Control.Exception
-> import Data.Either
+> import Control.Exception ( try, ErrorCall )
+> import Data.Either ( isLeft )
 > import Data.List ( nub, sort, sortOn )
 > import qualified Data.Map                as Map
-> import Data.Ord
-> import Parthenopea.Debug
+> import Data.Ord ( Down(Down) )
+> import Parthenopea.Debug ( aEqual, runTests )
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.SFSpec
 

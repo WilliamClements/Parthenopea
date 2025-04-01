@@ -426,7 +426,7 @@ capture task ===================================================================
 >
 >         pzs                              = lefts results
 >         globalKey                        = if head results == Right (Accepted, GlobalZone)
->                                              then Just $ PreZoneKey sffile.zWordF pergm.pgkwInst ibagi
+>                                              then Just $ PreZoneKey sffile.zWordF pergm.pgkwInst ibagi 0
 >                                              else Nothing
 >
 >         iinsts                           = sffile.zFileArrays.ssInsts
@@ -1121,7 +1121,7 @@ repartner task =================================================================
 >                                              else m'
 >           where
 >             myPzk                        = extractZoneKey pz
->             otherPzk                     = fromLeft (PreZoneKey 0 0 0) pz.pzmkPartners
+>             otherPzk                     = fromLeft (PreZoneKey 0 0 0 0) pz.pzmkPartners
 >       in
 >         foldl' zFolder m zrec.zsPreZones
 >

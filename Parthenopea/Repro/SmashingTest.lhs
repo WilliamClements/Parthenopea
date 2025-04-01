@@ -10,8 +10,8 @@ October 11, 2024
 
 > module Parthenopea.Repro.SmashingTest where
 >
-> import Data.List
-> import Parthenopea.Debug
+> import Data.List ( singleton )
+> import Parthenopea.Debug ( aEqual, runTests )
 > import Parthenopea.Repro.Smashing
   
 Testing ===============================================================================================================

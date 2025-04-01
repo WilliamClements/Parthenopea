@@ -12,7 +12,7 @@ January 7, 2025
 >
 > import Parthenopea.Debug (runTests, aEqual)
 > import Parthenopea.SoundFont.SFSpec
-> import Parthenopea.SoundFont.Scoring
+> import Parthenopea.SoundFont.Scoring ( fuzzToTheRight, fuzzToTheLeft )
 
 Testing ===============================================================================================================
 

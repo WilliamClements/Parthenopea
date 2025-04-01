@@ -18,17 +18,20 @@ May 14, 2023
 >        , Effects(..)
 >        , eutDriver
 >        , eutSynthesize
->        , Recon(..)
->        , usePitchCorrection
->        , useAttenuation
->        , useEnvelopes
->        , useLoopSwitching
->        , useReverb
->        , useChorus
->        , usePan
->        , useDCBlock
+>        , minDeltaT
+>        , minUseful
 >        , noStereoNoPan
 >        , normalizingOutput
+>        , Recon(..)
+>        , TimeFrame(..)
+>        , useAttenuation
+>        , useChorus
+>        , useDCBlock
+>        , useEnvelopes
+>        , useLoopSwitching
+>        , usePan
+>        , usePitchCorrection
+>        , useReverb
 >        ) where
 >
 > import Control.Arrow
@@ -70,21 +73,23 @@ Signal function-based synth ====================================================
 >            else pumpStereoPath
 >   where
 >     fName                                = "eutSynthesize"
->     trace_eS                             = unwords [fName, show (secsSample, secsScored, secsToPlay, looping, nps)] 
+>     trace_eS                             = unwords [fName, show (secsSampled, secsScored, secsToPlay, looping, nps)] 
 >
 >     noon@NoteOn{ .. }                    = NoteOn vol pch
 >     reconR                               = fromJust mreconR
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
 >
 >     numSamples         :: Double         = fromIntegral (reconL.rEnd - reconL.rStart)
->     secsSample                           = numSamples * freqRatio / sr
+>     secsSampled                          = numSamples * freqRatio / sr
 >     secsScored                           = 1 * fromRational dur
->     looping            :: Bool           = secsScored > secsSample
+>     looping            :: Bool           = secsScored > secsSampled
 >                                            && (reconL.rSampleMode /= A.NoLoop)
 >                                            && useLoopSwitching
 >     secsToPlay         :: Double         = if looping
 >                                              then secsScored
->                                              else min secsSample secsScored
+>                                              else min secsSampled secsScored
+>     timeFrame                            = TimeFrame secsSampled secsScored secsToPlay looping
+>
 >     freqRatio          :: Double         =
 >       case reconL.rTuning of
 >       0                                  → 1
@@ -104,24 +109,24 @@ Signal function-based synth ====================================================
 >     pumpMonoConvoPath                    =
 >       modulated
 >       >>> eutEffectsMono           reconL
->       >>> eutAmplify               secsScored reconL noon secsToPlay
+>       >>> eutAmplify               timeFrame reconL noon
 >       where
 >         pumped, modulated
 >                        :: Signal p () Double
 >         pumped                           =
->           eutDriver                secsScored reconL secsToPlay delta looping
+>           eutDriver                timeFrame reconL delta
 >           >>> eutPumpMono          reconL noon dur s16 ms8
->         modulated                            =
+>         modulated                        =
 >           applyConvolutionMono     m8nL.mLowpass secsScored pumped
 >
 >     pumpMonoPath                         =
->       eutDriver                    secsScored reconL secsToPlay delta looping
+>       eutDriver                    timeFrame reconL delta
 >       >>> eutPumpMono              reconL noon dur s16 ms8
->       >>> eutModulate              secsScored secsToPlay m8nL noon
+>       >>> eutModulate              timeFrame m8nL noon
 >       >>> eutEffectsMono           reconL
->       >>> eutAmplify               secsScored reconL noon secsToPlay
+>       >>> eutAmplify               timeFrame reconL noon
 >
->     pumpStereoConvoPath                    =
+>     pumpStereoConvoPath                  =
 >       modulated
 >       >>> modulateStereo
 >       >>> ampStereo
@@ -129,51 +134,40 @@ Signal function-based synth ====================================================
 >         pumped, modulated
 >                        :: Signal p () (Double, Double)
 >         pumped                           =
->           eutDriver                secsScored reconL secsToPlay delta looping
+>           eutDriver                timeFrame reconL delta
 >           >>> eutPumpStereo        (reconL, reconR) noon dur s16 ms8
 >         modulated                        =
 >           applyConvolutionStereo   (m8nL.mLowpass, m8nR.mLowpass) secsScored pumped
 >
 >     pumpStereoPath                       = 
->       eutDriver                    secsScored reconL secsToPlay delta looping
+>       eutDriver                    timeFrame reconL delta
 >         >>> eutPumpStereo          (reconL, reconR) noon dur s16 ms8
 >         >>> modulateStereo
 >         >>> ampStereo
 >
 >     modulateStereo                       =
 >       proc (sL, sR) → do
->         mL                               ← eutModulate secsScored secsToPlay m8nL noon ⤙ sL
->         mR                               ← eutModulate secsScored secsToPlay m8nR noon ⤙ sR
+>         mL                               ← eutModulate timeFrame m8nL noon ⤙ sL
+>         mR                               ← eutModulate timeFrame m8nR noon ⤙ sR
 >         outA ⤙ (mL, mR)
 >
 >     ampStereo                            =
 >       proc (sL, sR) → do
 >         (tL, tR)                         ← eutEffectsStereo (reconL, reconR) ⤙ (sL, sR)
->         mL                               ← eutAmplify secsScored reconL noon secsToPlay ⤙ tL
->         mR                               ← eutAmplify secsScored reconR noon secsToPlay ⤙ tR
+>         mL                               ← eutAmplify timeFrame reconL noon ⤙ tL
+>         mR                               ← eutAmplify timeFrame reconR noon ⤙ tR
 >         outA ⤙ (mL, mR)
 >
-> eutModulate            :: ∀ p . Clock p ⇒
->                           Double
->                           → Double
->                           → Modulation
->                           → NoteOn
->                           → Signal p Double Double
-> eutModulate secsScored secsToPlay m8nL noon =
+> eutModulate            :: ∀ p . Clock p ⇒ TimeFrame → Modulation → NoteOn → Signal p Double Double
+> eutModulate timeFrame m8nL noon =
 >   proc a1L → do
->     modSigL                            ← eutModSignals secsScored secsToPlay m8nL ToFilterFc ⤙ ()
+>     modSigL                            ← eutModSignals timeFrame m8nL ToFilterFc ⤙ ()
 >     a2L   ← addResonance noon m8nL     ⤙ (a1L, modSigL)
 >     outA                               ⤙ a2L
 >
-> eutDriver              :: ∀ p . Clock p ⇒
->                           Double
->                           → Recon
->                           → Double
->                           → Double
->                           → Bool
->                           → Signal p () Double
-> eutDriver secsScored reconL@Recon{ .. } secsToPlay idelta looping
->                                          = if looping
+> eutDriver              :: ∀ p . Clock p ⇒ TimeFrame → Recon → Double → Signal p () Double
+> eutDriver timeFrame reconL@Recon{ .. } idelta
+>                                          = if timeFrame.tfLooping
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
 >   where
@@ -183,7 +177,7 @@ Signal function-based synth ====================================================
 >     calcNotLooping next                  = if next > 1      then frac next     else next
 >
 >     procDriver calcPhase                 = proc () → do
->       modSig                             ← eutModSignals secsScored secsToPlay rM8n ToPitch ⤙ ()
+>       modSig                             ← eutModSignals timeFrame rM8n ToPitch ⤙ ()
 >       let delta                          = idelta * evaluateModSignals "procDriver" rM8n ToPitch modSig rNoteOn
 >       rec
 >         let phase                        = calcPhase next
@@ -200,11 +194,11 @@ Signal function-based synth ====================================================
 >     (loopst, loopen)                     = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
 >     denom              :: Double         = fullen - fullst
 >
-> eutModSignals          :: ∀ p. Clock p ⇒ Double → Double → Modulation → ModDestType → Signal p () ModSignals
-> eutModSignals secsScored secsToPlay m8nL md
+> eutModSignals          :: ∀ p. Clock p ⇒ TimeFrame → Modulation → ModDestType → Signal p () ModSignals
+> eutModSignals timeFrame m8nL md
 >                                          =
 >   proc _ → do
->     aL1 ← doEnvelope  kModEnvL secsScored secsToPlay ⤙ ()
+>     aL1 ← doEnvelope  timeFrame kModEnvL             ⤙ ()
 >     aL2 ← doLFO       kModLfoL                       ⤙ ()
 >     aL3 ← doLFO       kVibLfoL                       ⤙ ()
 >     outA                                             ⤙ ModSignals aL1 aL2 aL3
@@ -272,13 +266,14 @@ Signal function-based synth ====================================================
 >     ampL                                 = fromIntegral noteOnVel / 100 / cAttenL
 >     ampR                                 = fromIntegral noteOnVel / 100 / cAttenR
 >
-> eutAmplify             :: ∀ p . Clock p ⇒ Double → Recon → NoteOn → Double → Signal p Double Double
-> eutAmplify secsScored Recon{ .. } noon secsToPlay
+> eutAmplify             :: ∀ p . Clock p ⇒ TimeFrame → Recon → NoteOn → Signal p Double Double
+> eutAmplify timeFrame Recon{ .. } noon
 >                                          =
 >   proc a1L → do
->     aenvL                                ← doEnvelope rVolEnv secsScored secsToPlay ⤙ ()
->     modSigL                              ← eutModSignals secsScored secsToPlay rM8n ToVolume ⤙ ()
->     let a2L                              = notracer "a1" a1L * notracer "aenv" aenvL * evaluateModSignals "eutAmplify" rM8n ToVolume modSigL noon
+>     aenvL                                ← doEnvelope timeFrame rVolEnv ⤙ ()
+>     modSigL                              ← eutModSignals timeFrame rM8n ToVolume ⤙ ()
+>     let a2L                              =
+>           notracer "a1" a1L * notracer "aenv" aenvL * evaluateModSignals "eutAmplify" rM8n ToVolume modSigL noon
 >     outA ⤙ a2L
 
 Envelopes =============================================================================================================
@@ -305,7 +300,6 @@ Envelopes ======================================================================
 >                                              then Just env
 >                                              else Nothing
 >   where
->     minDeltaT          :: Double         = fromTimecents Nothing
 >     dHold              :: Double         = max minDeltaT (fromTimecents' mHold  mHoldByKey  noon.noteOnKey)
 >     dDecay             :: Double         = max minDeltaT (fromTimecents' mDecay mDecayByKey noon.noteOnKey)
 >
@@ -337,13 +331,14 @@ Envelopes ======================================================================
 >                       , "\nmRelease=", show mRelease, "(", show (fromTimecents mRelease), ")"]
 >         else unwords ["deriveEnvelope (none)"]
 >
-> doEnvelope             :: ∀ p . Clock p ⇒ Maybe Envelope → Double → Double → Signal p () Double
-> doEnvelope menv secsScored secsToPlay    = maybe (constA 1) makeSF menv
+> doEnvelope             :: ∀ p . Clock p ⇒ TimeFrame → Maybe Envelope → Signal p () Double
+> doEnvelope timeFrame menv
+>                                          = maybe (constA 1) makeSF menv
 >   where
 >     makeSF             :: Envelope → Signal p () Double
 >     makeSF env                           =
 >       let
->         segs                             = computeSegments secsScored secsToPlay env
+>         segs                             = computeSegments timeFrame env
 >       in envLineSeg segs.sAmps segs.sDeltaTs
 
 Implement the SoundFont envelope model with specified:
@@ -369,8 +364,8 @@ Create a straight-line envelope generator with following phases:
    sustain
    release  
 
-> computeSegments        :: Double → Double → Envelope → Segments
-> computeSegments secsScored secsToPlay Envelope{ .. }
+> computeSegments        :: TimeFrame → Envelope → Segments
+> computeSegments TimeFrame{ .. } Envelope{ .. }
 >   | traceNot trace_CS False              = undefined
 >   | otherwise                            = Segments amps deltaTs
 >   where
@@ -382,12 +377,11 @@ Create a straight-line envelope generator with following phases:
 >
 >     fSusLevel          :: Double         = clip (0, 1) eSustainLevel
 >
->     minDeltaT          :: Double         = fromTimecents Nothing
 >     lump                                 = min 0.1 (10 * minDeltaT)
 >     secsToUse          :: Double         =
->       profess (secsToPlay > 7 * minDeltaT)
->         (unwords[fName, show (secsScored, secsToPlay), "..time too short for envelope"])
->         secsToPlay
+>       profess (tfSecsToPlay > 7 * minDeltaT)
+>         (unwords[fName, show (tfSecsScored, tfSecsToPlay), "..time too short for envelope"])
+>         tfSecsToPlay
 >
 >     reserve
 >       | secsToUse - rsum > lump          = rsum
@@ -412,7 +406,11 @@ Create a straight-line envelope generator with following phases:
 >       clip (minDeltaT, max minDeltaT $ rp - (fDelayT + fAttackT + fHoldT))       eDecayT
 >     fSustainT                            =
 >       max minDeltaT (secsToUse - (fReleaseT + fDelayT + fAttackT + fHoldT + fDecayT + minDeltaT))
->     fPostT                               = (2*minDeltaT) + secsScored - secsToUse
+>     fPostT                               = (2*minDeltaT) + tfSecsScored - secsToUse
+>
+> minDeltaT, minUseful   :: Double
+> minDeltaT                                = fromTimecents Nothing
+> minUseful                                = 1/5
 
 Effects ===============================================================================================================
 
@@ -597,6 +595,13 @@ Utility types ==================================================================
 >     efChorus           :: Double
 >   , efReverb           :: Double
 >   , efPan              :: Double} deriving (Eq, Show)
+>
+> data TimeFrame =
+>   TimeFrame {
+>     tfSecsSampled      :: Double
+>   , tfSecsScored       :: Double
+>   , tfSecsToPlay       :: Double
+>   , tfLooping          :: Bool} deriving Show
 
 Flags for customization ===============================================================================================
 

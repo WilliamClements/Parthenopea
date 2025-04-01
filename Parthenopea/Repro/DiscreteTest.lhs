@@ -12,9 +12,9 @@ June 22, 2024
 
 > module Parthenopea.Repro.DiscreteTest where
 >
-> import Data.Colour
-> import Data.Colour.Names
-> import Data.Complex
+> import Data.Colour ( opaque, withOpacity, AlphaColour )
+> import Data.Colour.Names ( blue, green, orange, purple, red )
+> import Data.Complex ( imagPart, realPart, Complex )
 > import Data.List ( foldl' )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import qualified Data.Vector.Unboxed     as VU
@@ -22,8 +22,8 @@ June 22, 2024
 > import Euterpea.IO.Audio.BasicSigFuns ( osc, Table )
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock )
 > import Parthenopea.Debug(notracer, traceNot)
-> import Parthenopea.Music.Siren
-> import Parthenopea.Repro.Chart
+> import Parthenopea.Music.Siren ( maxSample )
+> import Parthenopea.Repro.Chart ( Section(Section), chartPoints )
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
 
