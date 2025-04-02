@@ -310,7 +310,6 @@ Filters ========================================================================
 > cascadeCount resonType                   =
 >   case resonType of
 >     ResonanceNone                        → Nothing
->     ResonanceConvo                       → Nothing
 >     _                                    → Just cascadeConfig
 >
 > addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
@@ -373,40 +372,7 @@ Filters ========================================================================
 >   case lowpassType of
 >     ResonanceNone                        → error $ unwords ["procFilter:"
 >                                                           , "should not reach makeSF if ResonanceNone"]
->     ResonanceLowpass                     → procLowpass lp
->     ResonanceBandpass                    → procBandpass lp
->     ResonanceSVF1                        → procSVF1 lp
->     ResonanceSVF2                        → procSVF2 lp
->     ResonanceOnePole                     → procOnePole lp
->     ResonanceTwoPoles                    → procTwoPoles lp
->     ResonanceConvo                       → error $ unwords ["procFilter:"
->                                                           , "should not reach makeSF if ResonanceConvo"]
->
-> procLowpass            :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procLowpass _                            =
->   proc (x, fc) → do
->     y ← filterLowPassBW                  ⤙ (x, fc)
->     outA                                 ⤙ y
->
-> procBandpass           :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procBandpass lp                          =
->   proc (x, fc) → do
->     y1 ← filterLowPassBW                 ⤙ (x, fc)
->     y2 ← filterBandPass 2                ⤙ (x, fc, lowpassQ lp / 3)
->     let y'                               = traceBandpass y1 y2
->     outA                                 ⤙ y'
->   where
->     lowpassWeight                        = 0.50
->     bandpassWeight                       = 0.75
->
->     traceBandpass      :: Double → Double → Double
->     traceBandpass y1 y2
->       | traceNever trace_BP False        = undefined
->       | otherwise                        = y'
->       where
->         y'                               = y1*lowpassWeight + y2*bandpassWeight
->         trace_BP                         = unwords ["traceBandPass", show y1, show y2]
->
+>     ResonanceSVF                         → procSVF lp
 
 see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
 
@@ -415,8 +381,8 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 > extraDampFactor        :: Double
 > extraDampFactor                          = 1
 >
-> procSVF1               :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
-> procSVF1 lp                              =
+> procSVF                :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
+> procSVF lp                               =
 >   proc (x, fc) → do
 >     let f1                               = {- 2 * -} sin (theta fc)
 >     rec
@@ -437,61 +403,6 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       if indeedAverageInput
 >         then (c + c') / 2
 >         else c
->
-> procSVF2               :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
-> procSVF2 lp                              =
->   proc (x, fc) → do
->     let f1                               = 2 * sin (theta fc)
->     rec
->       let yL                             = f1 * yB' + yL'
->       let xuse                           = maybeAverageInput x x'
->       let yH                             = xuse - yL - damp * yB'
->       let yB                             = f1 * yH + yB'
->
->       x' ← delay 0                       ⤙ x
->       yL' ← delay 0                      ⤙ yL
->       yB' ← delay 0                      ⤙ yB
->     outA                                 ⤙ yL
->   where
->     damp                                 = extraDampFactor / fromCentibels (lowpassQ lp)
->     theta c                              = pi * c / rate (undefined :: p)
->
->     maybeAverageInput c c'               =
->       if indeedAverageInput
->         then (c + c') / 2
->         else c
->
-> procOnePole            :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procOnePole _                            =
->   proc (x, fc) → do
->     let w0                               = 2 * pi * fc / sr
->     let a                                =
->           realPart $ ( theE :+ 0) ** (0 :+ (-w0))
->     let c                                = 1 - a
->     rec
->       y'     ← delay 0                   ⤙ y
->       let y                              = c * x + (1 - c) * y'
->     outA                                 ⤙ y
->   where
->     sr                                   = rate (undefined :: p)
->
-> procTwoPoles           :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procTwoPoles lp
->   | traceNot trace_P2P False             = undefined
->   | otherwise                            =
->   proc (x, _) → do
->     rec
->       let y                              = m2n2_b0 * x + m2n2_b1 * x' + m2n2_b2 * x'' - m2n2_a1 * y' - m2n2_a2 * y''
->       y'     ← delay 0                   ⤙ y
->       y''    ← delay 0                   ⤙ y' 
->       x'     ← delay 0                   ⤙ x
->       x''    ← delay 0                   ⤙ x'
->     outA                                 ⤙ y
->   where
->     cs@CoeffsM2N2{ .. }                  =
->       buildSystemM2N2 $ pickZerosAndPoles (2 * pi * lowpassFc lp) (lowpassQ lp / 960)
->
->     trace_P2P                            = unwords ["procTwoPoles", show cs]
 
 Miscellaneous =========================================================================================================
 
@@ -609,13 +520,7 @@ Type declarations ==============================================================
 
 > data ResonanceType                       =
 >   ResonanceNone
->   | ResonanceConvo 
->   | ResonanceLowpass
->   | ResonanceBandpass
->   | ResonanceSVF1
->   | ResonanceSVF2
->   | ResonanceOnePole
->   | ResonanceTwoPoles deriving (Eq, Bounded, Enum, Show)
+>   | ResonanceSVF deriving (Eq, Bounded, Enum, Show)
 >
 > data KernelSpec                          =
 >   KernelSpec {
@@ -657,7 +562,7 @@ Type declarations ==============================================================
 >     mag                                  = magnitude porz
 >     ph                                   = phase porz
 >
->     k1                                   = -2 * mag * cos ph
+>     k1                                   = - (2 * mag * cos ph)
 >     k2                                   = mag * mag
 >
 > buildSystemM2N2        :: ([Complex Double], [Complex Double]) → CoeffsM2N2

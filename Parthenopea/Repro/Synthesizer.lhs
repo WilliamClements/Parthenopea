@@ -45,7 +45,6 @@ May 14, 2023
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
-> import Parthenopea.Repro.Discrete ( applyConvolutionMono, applyConvolutionStereo )
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.SFSpec
   
@@ -65,12 +64,8 @@ Signal function-based synth ====================================================
 >   | traceNot trace_eS False              = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
->     then if ResonanceConvo == m8nL.mLowpass.lowpassType
->            then eutSplit <<< pumpMonoConvoPath
->            else eutSplit <<< pumpMonoPath
->     else if ResonanceConvo == m8nL.mLowpass.lowpassType
->            then pumpStereoConvoPath
->            else pumpStereoPath
+>     then eutSplit <<< pumpMonoPath 
+>     else pumpStereoPath
 >   where
 >     fName                                = "eutSynthesize"
 >     trace_eS                             = unwords [fName, show (secsSampled, secsScored, secsToPlay, looping, nps)] 
@@ -99,25 +94,10 @@ Signal function-based synth ====================================================
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
 >     delta              :: Double         = 1 / (numSamples * freqFactor)
 >
->     pumpMonoPath, pumpMonoConvoPath
->                        :: Signal p () Double
->     pumpStereoPath, pumpStereoConvoPath
->                        :: Signal p () (Double, Double)
+>     pumpMonoPath       :: Signal p () Double
+>     pumpStereoPath     :: Signal p () (Double, Double)
 >     modulateStereo, ampStereo
 >                        :: Signal p (Double, Double) (Double, Double)
->
->     pumpMonoConvoPath                    =
->       modulated
->       >>> eutEffectsMono           reconL
->       >>> eutAmplify               timeFrame reconL noon
->       where
->         pumped, modulated
->                        :: Signal p () Double
->         pumped                           =
->           eutDriver                timeFrame reconL delta
->           >>> eutPumpMono          reconL noon dur s16 ms8
->         modulated                        =
->           applyConvolutionMono     m8nL.mLowpass secsScored pumped
 >
 >     pumpMonoPath                         =
 >       eutDriver                    timeFrame reconL delta
@@ -125,19 +105,6 @@ Signal function-based synth ====================================================
 >       >>> eutModulate              timeFrame m8nL noon
 >       >>> eutEffectsMono           reconL
 >       >>> eutAmplify               timeFrame reconL noon
->
->     pumpStereoConvoPath                  =
->       modulated
->       >>> modulateStereo
->       >>> ampStereo
->       where
->         pumped, modulated
->                        :: Signal p () (Double, Double)
->         pumped                           =
->           eutDriver                timeFrame reconL delta
->           >>> eutPumpStereo        (reconL, reconR) noon dur s16 ms8
->         modulated                        =
->           applyConvolutionStereo   (m8nL.mLowpass, m8nR.mLowpass) secsScored pumped
 >
 >     pumpStereoPath                       = 
 >       eutDriver                    timeFrame reconL delta
@@ -332,8 +299,7 @@ Envelopes ======================================================================
 >         else unwords ["deriveEnvelope (none)"]
 >
 > doEnvelope             :: ∀ p . Clock p ⇒ TimeFrame → Maybe Envelope → Signal p () Double
-> doEnvelope timeFrame menv
->                                          = maybe (constA 1) makeSF menv
+> doEnvelope timeFrame                     = maybe (constA 1) makeSF
 >   where
 >     makeSF             :: Envelope → Signal p () Double
 >     makeSF env                           =

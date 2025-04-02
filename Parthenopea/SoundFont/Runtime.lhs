@@ -511,7 +511,7 @@ reconcile zone and sample header ===============================================
 >         useFastFourier
 >         (-1) -- must always be replaced
 >
->     resonanceType      :: ResonanceType  = ResonanceSVF1
+>     resonanceType      :: ResonanceType  = ResonanceSVF
 >     nModEnv            :: Maybe Envelope = deriveEnvelope
 >                                              zDelayModEnv
 >                                              zAttackModEnv

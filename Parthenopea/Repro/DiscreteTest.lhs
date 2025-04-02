@@ -65,9 +65,9 @@ Feed chart =====================================================================
 >
 > bench, porch           :: IO ()
 > bench                                    =
->   benchFilters measureResponse [ResonanceSVF1] cutoffs kews freaks
+>   benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
 > porch                                    =
->   benchFilters measureResponse [ResonanceBandpass] cutoffs kews freaks
+>   benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
 >
 > checkGrouts            ::  [(Double, Double)] → IO String
 > checkGrouts grouts                       = do
@@ -91,16 +91,11 @@ Feed chart =====================================================================
 > measureResponse BenchSpec{ .. } Modulation{ .. }
 >                                          = map doFk bench_fks
 >   where
->     Lowpass{ .. }                        = mLowpass
->
 >     doFk               :: Double → (Double, Double)
 >     doFk fk                              = (fk, maxSample filterTestDur sf)
 >       where
 >         sf             :: AudSF () Double
->         sf                               =
->           if ResonanceConvo == lowpassType
->             then createConvoTest sineTable mLowpass fk
->             else createFilterTest sineTable mLowpass fk
+>         sf                               = createFilterTest sineTable mLowpass fk
 > 
 > benchFilters           :: (BenchSpec → Modulation → [(Double, Double)]) → [ResonanceType] → [Int] → [Int] → [Int] → IO ()
 > benchFilters fun rts fcs qs fks          = doFilters fun bRanges
@@ -206,8 +201,8 @@ Feed chart =====================================================================
 >     vecR                                 = VU.map realPart (dsigVec cdsigFr)
 >     vecI                                 = VU.map imagPart (dsigVec cdsigFr)
 >     groutsR, groutsI   :: [(Double, Double)]
->     groutsR                              = [(fromIntegral i, - vecR VU.! i) | i ← freakSpan]
->     groutsI                              = [(fromIntegral i, - vecI VU.! i) | i ← freakSpan]
+>     groutsR                              = [(fromIntegral i, - (vecR VU.! i)) | i ← freakSpan]
+>     groutsI                              = [(fromIntegral i, - (vecI VU.! i)) | i ← freakSpan]
 >     
 > createConvoTest        :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
 > createConvoTest waveTable lp@Lowpass{ .. } freq
