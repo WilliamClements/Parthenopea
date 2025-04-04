@@ -234,8 +234,7 @@ Signal function-based synth ====================================================
 >     ampR                                 = fromIntegral noteOnVel / 100 / cAttenR
 >
 > eutAmplify             :: ∀ p . Clock p ⇒ TimeFrame → Recon → NoteOn → Signal p Double Double
-> eutAmplify timeFrame Recon{ .. } noon
->                                          =
+> eutAmplify timeFrame Recon{ .. } noon    =
 >   proc a1L → do
 >     aenvL                                ← doEnvelope timeFrame rVolEnv ⤙ ()
 >     modSigL                              ← eutModSignals timeFrame rM8n ToVolume ⤙ ()
@@ -338,41 +337,40 @@ Create a straight-line envelope generator with following phases:
 >     fName                                = "computeSegments"
 >     trace_CS                             = unwords [fName, show (amps, deltaTs)]
 >     
->     amps               :: [Double]       = [0,       0,       1,       1,     fSusLevel, fSusLevel,      0,      0]
->     deltaTs            :: [Double]       = [  fDelayT, fAttackT, fHoldT,  fDecayT, fSustainT, fReleaseT,   fPostT]
+>     amps               :: [Double]       = [0,       0,       1,       1,     fSusLevel, fSusLevel,      0,     0]
+>     deltaTsReal        :: [Double]       = [  fDelayT, fAttackT, fHoldT,  fDecayT, fSustainT, fReleaseT,    1]
+>
+>     deltaTsMin                           = [minDeltaT, minDeltaT, minDeltaT, minDeltaT, minDeltaT, minDeltaT, 1]
+>
+>     deltaTs                              =
+>       if rSum < secsToUse
+>         then deltaTsMin
+>         else deltaTsReal
 >
 >     fSusLevel          :: Double         = clip (0, 1) eSustainLevel
 >
->     lump                                 = min 0.1 (10 * minDeltaT)
 >     secsToUse          :: Double         =
 >       profess (tfSecsToPlay > 7 * minDeltaT)
 >         (unwords[fName, show (tfSecsScored, tfSecsToPlay), "..time too short for envelope"])
 >         tfSecsToPlay
 >
->     reserve
->       | secsToUse - rsum > lump          = rsum
->       | otherwise                        = 4 * minDeltaT
->       where
->         rsum                             = eDelayT + eAttackT + eHoldT + eDecayT
+>     fDelayT                              = max eDelayT minDeltaT
+>     fAttackT                             = max eAttackT minDeltaT
+>     fHoldT                               = max eHoldT minDeltaT
+>     fDecayT                              = max eDecayT minDeltaT
+>     fSustainT_                           = minUseful
+>     fReleaseT_                           = minUseful
 >
->     -- pin down onset of Release phase
->     lump, fReleaseT, rp  :: Double
->     fReleaseT                            = if secsToUse - (reserve + eReleaseT) > lump
->                                              then eReleaseT
->                                              else secsToUse - reserve
->     rp = secsToUse - (fReleaseT + lump)
+>     rSum                                 = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT_ + fReleaseT_
+>     rLeft                                = secsToUse - rSum 
 >
->     fDelayT                              =
->       clip (minDeltaT, max minDeltaT rp)                                         eDelayT
->     fAttackT                             =
->       clip (minDeltaT, max minDeltaT $ rp - fDelayT)                             eAttackT
->     fHoldT                               =
->       clip (minDeltaT, max minDeltaT $ rp - (fDelayT + fAttackT))                eHoldT
->     fDecayT                              =
->       clip (minDeltaT, max minDeltaT $ rp - (fDelayT + fAttackT + fHoldT))       eDecayT
->     fSustainT                            =
->       max minDeltaT (secsToUse - (fReleaseT + fDelayT + fAttackT + fHoldT + fDecayT + minDeltaT))
->     fPostT                               = (2*minDeltaT) + tfSecsScored - secsToUse
+>     (fSustainT, fReleaseT)               =
+>       if favorSustain
+>         then (fSustainT_ + rLeft, fReleaseT_)
+>         else (fSustainT_        , fReleaseT_ + rLeft)
+>
+>     favorSustain                         = 0.5 > fReleaseT_ / tfSecsSampled
+>
 >
 > minDeltaT, minUseful   :: Double
 > minDeltaT                                = fromTimecents Nothing

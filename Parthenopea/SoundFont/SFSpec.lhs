@@ -529,6 +529,20 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >       then error "howClose first argument cannot be empty"
 >       else genericLength commonPrefix % genericLength j0
 >
+> goodChar               :: Char → Bool
+> goodChar cN                              = isAscii cN && not (isControl cN)
+>
+> goodName               :: String → Bool
+> goodName name                            = not (null name) && all goodChar name
+>
+> fixName                :: String → String
+> fixName name
+>   | null name                            = "<noname>"
+>   | otherwise                            = map (\cN → if goodChar cN then cN else '_') name
+>
+> type Velocity                            = Volume
+> type KeyNumber                           = AbsPitch
+>
 > data SampleType =
 >   SampleTypeMono
 >   | SampleTypeRight
@@ -570,17 +584,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >     SampleTypeRomRight     → 0x8002
 >     SampleTypeRomLeft      → 0x8004
 >     SampleTypeRomLinked    → 0x8008
->
-> data Modulator                           =
->   Modulator {
->     mrModId            :: Word
->   , mrModSrc           :: ModSrc
->   , mrModDest          :: ModDestType
->   , mrModAmount        :: Double
->   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
->    
-> defModulator           :: Modulator
-> defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
 
 "A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
 --SoundFont spec
@@ -594,6 +597,17 @@ struct sfInstModList
   SFTransform sfModTransOper;
 };
 
+> data Modulator                           =
+>   Modulator {
+>     mrModId            :: Word
+>   , mrModSrc           :: ModSrc
+>   , mrModDest          :: ModDestType
+>   , mrModAmount        :: Double
+>   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
+>    
+> defModulator           :: Modulator
+> defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
+>
 > data ModKey                              =
 >   ModKey {
 >     krSrc              :: ModSrc
@@ -624,20 +638,6 @@ struct sfInstModList
 > defModSrc              :: ModSrc
 > defModSrc                                = ModSrc defMapping FromNoController
 >
-> goodChar               :: Char → Bool
-> goodChar cN                              = isAscii cN && not (isControl cN)
->
-> goodName               :: String → Bool
-> goodName                                 = all goodChar
->
-> fixName                :: String → String
-> fixName                                  = map (\cN → if goodChar cN then cN else '_')
->
-> type Velocity                            = Volume
-> type KeyNumber                           = AbsPitch
-
-Mapping is used in SoundFont modulator
-
 > data Mapping =
 >   Mapping {
 >     msContinuity     :: Continuity
@@ -667,7 +667,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportTournamentName                     = "TournamentReport'.log"
 >
 > howVerboseScanReport   :: Rational
-> howVerboseScanReport                     = 3/4
+> howVerboseScanReport                     = 2/3
 >
 > howVerboseTournamentReport
 >                        :: Rational
