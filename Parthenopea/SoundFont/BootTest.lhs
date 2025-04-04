@@ -68,7 +68,7 @@ Testing ========================================================================
 >   return $ not $ deadrd pergm rd
 >
 > correctlyJudgesDispoFatal               = do
->   let fName                              = "correctlyJudgesDispoNonFatal"
+>   let fName                              = "correctlyJudgesDispoFatal"
 >   let pergm                              = PerGMKey 0 0 Nothing
 >   let rd                                 = dispose pergm [Scan Violated NoZones fName "test"] virginrd
 >   return $ deadrd pergm rd

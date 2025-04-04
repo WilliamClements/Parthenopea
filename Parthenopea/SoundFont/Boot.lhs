@@ -832,7 +832,7 @@ categorization task ============================================================
 >         preI                             = fwBoot.zPreInstCache Map.! pergm
 >         iName                            = preI.piChanges.cnName
 
-      Determine which category will belong to the Instrument, based on its "provideAlts" performance for both
+      Categorization based on Instrument's "provideAlts" results for:
       1. all kinds
       2. "rost" subset, could be same as 1.
 
@@ -944,7 +944,7 @@ categorization task ============================================================
 >           where
 >             mrange                       = prez.pzDigest.zdKeyRange >>= (Just . BF.bimap fromIntegral fromIntegral)
 
-zone task =============================================================================================================
+build zone task =======================================================================================================
           generate the PerInstrument map from jobs map
 
 > zoneTaskIf sffile _ fwIn@FileWork{ .. }  = fwIn{  fwBoot = fwBoot{zPerInstCache = fst formZoneCache}

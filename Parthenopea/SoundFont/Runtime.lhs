@@ -42,7 +42,7 @@ February 1, 2025
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Synthesizer
 > import Parthenopea.Music.Siren
-> import Parthenopea.SoundFont.Boot
+> import Parthenopea.SoundFont.Boot ( equipInstruments )
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
 

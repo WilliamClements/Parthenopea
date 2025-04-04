@@ -175,7 +175,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >   in
 >     (spaceId, spaces)
 >
-> interpretPan           :: ∀ i. (Ix i, Num i) ⇒ Double → Maybe (i, i)
+> interpretPan           :: ∀ i. (Num i) ⇒ Double → Maybe (i, i)
 > interpretPan pan
 >   | abs pan < 0.001                      = Nothing
 >   | pan < 0                              = Just (0, 0)

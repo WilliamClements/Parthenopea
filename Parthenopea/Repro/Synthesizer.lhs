@@ -337,22 +337,19 @@ Create a straight-line envelope generator with following phases:
 >     fName                                = "computeSegments"
 >     trace_CS                             = unwords [fName, show (amps, deltaTs)]
 >     
->     amps               :: [Double]       = [0,       0,       1,       1,     fSusLevel, fSusLevel,      0,     0]
->     deltaTsReal        :: [Double]       = [  fDelayT, fAttackT, fHoldT,  fDecayT, fSustainT, fReleaseT,    1]
+>     amps, deltaTs, deltaTsSolved, deltaTsMin
+>                        :: [Double]
+>     amps                                 = [0,       0,       1,       1,     fSusLevel, fSusLevel,      0,     0]
+>     deltaTsSolved                        = [  fDelayT, fAttackT, fHoldT,  fDecayT, fSustainT, fReleaseT,    1]
 >
 >     deltaTsMin                           = [minDeltaT, minDeltaT, minDeltaT, minDeltaT, minDeltaT, minDeltaT, 1]
 >
 >     deltaTs                              =
->       if rSum < secsToUse
+>       if rSum < tfSecsToPlay
 >         then deltaTsMin
->         else deltaTsReal
+>         else deltaTsSolved
 >
 >     fSusLevel          :: Double         = clip (0, 1) eSustainLevel
->
->     secsToUse          :: Double         =
->       profess (tfSecsToPlay > 7 * minDeltaT)
->         (unwords[fName, show (tfSecsScored, tfSecsToPlay), "..time too short for envelope"])
->         tfSecsToPlay
 >
 >     fDelayT                              = max eDelayT minDeltaT
 >     fAttackT                             = max eAttackT minDeltaT
@@ -362,15 +359,12 @@ Create a straight-line envelope generator with following phases:
 >     fReleaseT_                           = minUseful
 >
 >     rSum                                 = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT_ + fReleaseT_
->     rLeft                                = secsToUse - rSum 
+>     rLeft                                = tfSecsToPlay - rSum 
 >
 >     (fSustainT, fReleaseT)               =
->       if favorSustain
+>       if 0.5 > fReleaseT_ / tfSecsSampled
 >         then (fSustainT_ + rLeft, fReleaseT_)
 >         else (fSustainT_        , fReleaseT_ + rLeft)
->
->     favorSustain                         = 0.5 > fReleaseT_ / tfSecsSampled
->
 >
 > minDeltaT, minUseful   :: Double
 > minDeltaT                                = fromTimecents Nothing

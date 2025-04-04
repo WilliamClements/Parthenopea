@@ -22,12 +22,12 @@ May 4, 2023
 > import Parthenopea.Music.Baking
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Discrete
-> import Parthenopea.Repro.ModulationTest
-> import Parthenopea.Repro.SmashingTest
-> import Parthenopea.Repro.SynthesizerTest
-> import Parthenopea.SoundFont.Boot
-> import Parthenopea.SoundFont.BootTest
-> import Parthenopea.SoundFont.Runtime
+> import Parthenopea.Repro.ModulationTest ( modulationTests )
+> import Parthenopea.Repro.SmashingTest ( smashingTests )
+> import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
+> import Parthenopea.SoundFont.Boot ( equipInstruments )
+> import Parthenopea.SoundFont.BootTest ( bootTests )
+> import Parthenopea.SoundFont.Runtime ( bootNRender )
 > import Parthenopea.Tunes.Cecil
 > import Parthenopea.Tunes.Covers
 > import Parthenopea.Tunes.Fanfare
