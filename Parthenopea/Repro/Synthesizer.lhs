@@ -345,16 +345,16 @@ Create a straight-line envelope generator with following phases:
 >     deltaTsMin                           = [minDeltaT, minDeltaT, minDeltaT, minDeltaT, minDeltaT, minDeltaT, 1]
 >
 >     deltaTs                              =
->       if rSum < tfSecsToPlay
+>       if rSum > tfSecsToPlay
 >         then deltaTsMin
 >         else deltaTsSolved
 >
 >     fSusLevel          :: Double         = clip (0, 1) eSustainLevel
 >
->     fDelayT                              = max eDelayT minDeltaT
->     fAttackT                             = max eAttackT minDeltaT
->     fHoldT                               = max eHoldT minDeltaT
->     fDecayT                              = max eDecayT minDeltaT
+>     fDelayT                              = max eDelayT   minDeltaT
+>     fAttackT                             = max eAttackT  minDeltaT
+>     fHoldT                               = max eHoldT    minDeltaT
+>     fDecayT                              = max eDecayT   minDeltaT
 >     fSustainT_                           = minUseful
 >     fReleaseT_                           = minUseful
 >
@@ -362,7 +362,7 @@ Create a straight-line envelope generator with following phases:
 >     rLeft                                = tfSecsToPlay - rSum 
 >
 >     (fSustainT, fReleaseT)               =
->       if 0.5 > fReleaseT_ / tfSecsSampled
+>       if (1/3) < fReleaseT_ / tfSecsSampled
 >         then (fSustainT_ + rLeft, fReleaseT_)
 >         else (fSustainT_        , fReleaseT_ + rLeft)
 >
