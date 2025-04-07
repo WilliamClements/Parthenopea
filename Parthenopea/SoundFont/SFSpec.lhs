@@ -383,20 +383,11 @@ bootstrapping ==================================================================
 >   , sImpact            :: Impact
 >   , sFunction          :: String
 >   , sClue              :: String} deriving (Eq, Show)
+> getTriple              :: Scan → (Disposition, Impact, String)
+> getTriple s                              = (s.sDisposition, s.sImpact, s.sFunction)
+>
 > noClue                 :: String
 > noClue                                   = ""
->
-> autopsy                :: [Scan] → (Disposition, Impact, String)
-> autopsy ss_                              = maybe notDead getTriple mkiller    
->   where
->     mii                :: Map Impact Int
->     mii                                  = foldl' (\n v → Map.insertWith (+) v 1 n) Map.empty (map sImpact ss)
->
->     ss                                   = filter (\s → s.sDisposition `elem` deadset) ss_
->     mkiller                              = find (odd . snd) (Map.assocs mii)
->
->     getTriple          :: (Impact, Int) → (Disposition, Impact, String)
->     getTriple (impact, _)                = striple $ fromJust $ find (\s → s.sImpact == impact) ss
 >
 > deadset, elideset, rescueset
 >                        :: [Disposition]
@@ -410,14 +401,17 @@ bootstrapping ==================================================================
 >                                              else []
 > rescueset                                = [Rescued]
 >
-> notDead                :: (Disposition, Impact, String)
-> notDead                                  = (Accepted, Ok, "")
->
-> striple                :: Scan → (Disposition, Impact, String)
-> striple s                                = (s.sDisposition, s.sImpact, s.sFunction)
+> surveyDispositions     :: [Disposition] → [Scan] → Map Impact Int
+> surveyDispositions dns                   = foldr survFold Map.empty
+>   where
+>     survFold           ::  Scan → Map Impact Int → Map Impact Int
+>     survFold s m
+>       | s.sDisposition `elem` dns        = Map.insertWith (+) s.sImpact 1 m
+>       | otherwise                        = m
 >
 > dead                   :: [Scan] → Bool
-> dead ss                                  = notDead /= autopsy ss
+> dead ss                                  =
+>   surveyDispositions [Violated, Dropped] ss /= surveyDispositions [Rescued] ss
 >
 > wasRescued             :: Impact → [Scan] → Bool
 > wasRescued impact                        = any (\s → s.sDisposition `elem` rescueset && s.sImpact == impact)
@@ -442,7 +436,6 @@ bootstrapping ==================================================================
 >
 > deadrd                 :: ∀ k . SFResource k ⇒ k → ResultDispositions → Bool
 > deadrd k rd                              = dead (inspect k rd)
->
 > virginrd               :: ResultDispositions
 > virginrd                                 = ResultDispositions Map.empty Map.empty Map.empty
 > emptyrd                :: ResultDispositions → Bool

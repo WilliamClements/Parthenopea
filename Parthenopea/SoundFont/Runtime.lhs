@@ -25,7 +25,6 @@ February 1, 2025
 > import Data.Foldable ( toList )
 > import Data.List hiding (insert)
 > import Data.Map (Map)
-> import Data.Map.Strict (insertWith)
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ord ( Down(Down) )
@@ -150,9 +149,13 @@ executive ======================================================================
 >     summarize          :: ∀ r . (SFResource r) ⇒ Map r [Scan] → [Emission]
 >     summarize sm                         =
 >       let
->         histo          :: [((Disposition, Impact, String), Int)]
->         histo                            =
->           sortOn (Down . snd) $ Map.toList $ Map.foldr (\ss → insertWith (+) (autopsy ss) 1) Map.empty sm
+>         hs             :: [((Disposition, Impact, String), Int)]
+>         hs                               = sortOn (Down . snd) $ Map.toList $ Map.foldr histoFold Map.empty sm
+>
+>         histoFold      :: [Scan] → Map (Disposition, Impact, String) Int → Map (Disposition, Impact, String) Int 
+>         histoFold ss mfold               = foldr (\dispo m → Map.insertWith (+) dispo 1 m) mfold ts
+>           where
+>             ts                           = map getTriple (filter (\s → s.sDisposition `elem` deadset) ss) 
 >
 >         emitHisto      :: ((Disposition, Impact, String), Int) → [Emission]
 >         emitHisto ((dispo, impact, function), count)
@@ -163,7 +166,7 @@ executive ======================================================================
 >            , ToFieldL    function     52
 >            , EndOfLine]
 >       in
->         concatMap emitHisto histo
+>         concatMap emitHisto hs
 >         
 >     procMap            :: ∀ r . (SFResource r, Show r) ⇒ Map r [Scan] → [Emission]
 >     procMap sm                           = concat $ Map.mapWithKey procr sm
