@@ -369,7 +369,7 @@ Create a straight-line envelope generator with following phases:
 >         FEnvelope{ .. }                  = fiEnv
 >         rSum                             = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + fReleaseT 
 >       in
->         fFirst || (rSum < tfSecsToPlay)
+>         fFirst || (rSum <= tfSecsToPlay)
 >     nextGen fi@FIterate{ .. }            = fi{fiFuns = tail fiFuns, fiEnv = head fiFuns fiEnv}
 >
 >     tryFirst, tryDecay, tryHold, tryAttack, tryDelayT
@@ -384,11 +384,14 @@ Create a straight-line envelope generator with following phases:
 >       where
 >         rSum                             = fDelayT + fAttackT + fHoldT + fDecayT
 >         rLeft                            = tfSecsToPlay - rSum
+>         rDivvy                           = clip (0, 1) (eReleaseT / tfSecsSampled)
+>         rSus                             = rLeft * (1 - rDivvy)
+>         rRel                             = rLeft * rDivvy
 >         (adjSustainT, adjReleaseT)
 >           | rLeft < 0                    = (minDeltaT, minUseful)
 >           | (1/3) > fReleaseT / tfSecsSampled
 >                                          = (fSustainT + rLeft, fReleaseT)
->           | otherwise                    = (fSustainT, fReleaseT + rLeft)
+>           | otherwise                    = (fSustainT + rSus, fReleaseT + rRel)
 >     tryDecay   fEnvIn                    = fEnvIn{fDecayT   = minDeltaT}
 >     tryHold    fEnvIn                    = fEnvIn{fHoldT    = minDeltaT}
 >     tryAttack  fEnvIn                    = fEnvIn{fAttackT  = minDeltaT}
@@ -396,7 +399,7 @@ Create a straight-line envelope generator with following phases:
 >
 > minDeltaT, minUseful   :: Double
 > minDeltaT                                = fromTimecents Nothing
-> minUseful                                = 1/5
+> minUseful                                = 1/10
 
 Effects ===============================================================================================================
 

@@ -106,16 +106,16 @@ You see there is some overlap between Zone 1 and Zone 2.
 > validCoords coords smashup               = and $ zipWith inZRange coords smashup.smashDims
 >
 > lookupCellIndex        :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
-> lookupCellIndex coords smashup           = try
+> lookupCellIndex coords smashup           = cell
 >   where
->     try_                                 =
+>     cell_                                =
 >       profess
 >         (validCoords coords smashup)
 >         (unwords ["lookupCellIndex", "invalid coords"])
 >         (smashup.smashVec VU.! computeCellIndex smashup.smashDims coords)
->     try                                  =
->       if snd try_ > 0
->         then try_
+>     cell                                 =
+>       if snd cell_ > 0
+>         then cell_
 >         else (snd $ minimum (map (measure coords) smashup.smashSpaces), 1)
 >
 >     measure            :: [i] → (i, [(i, i)]) → (Double, i)

@@ -456,7 +456,7 @@ bootstrapping ==================================================================
 >   sfkey                :: Word → Word → a
 >   wfile                :: a → Word
 >   wblob                :: a → Word
->   kname                :: a → SFFile → String
+>   kname                :: a → SFFile → [Emission]
 >   inspect              :: a → ResultDispositions → [Scan]
 >   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
 >
@@ -464,7 +464,7 @@ bootstrapping ==================================================================
 >   sfkey                                  = PreSampleKey
 >   wfile k                                = k.pskwFile
 >   wblob k                                = k.pskwSampleIndex
->   kname k sffile                         = (ssShdrs sffile.zFileArrays ! wblob k).sampleName
+>   kname k sffile                         = [Unblocked (show (ssShdrs sffile.zFileArrays ! wblob k).sampleName)]
 >   inspect presk rd                       = fromMaybe [] (Map.lookup presk rd.preSampleDispos)
 >   dispose presk ss rd                    =
 >     rd{preSampleDispos = Map.insertWith (flip (++)) presk ss rd.preSampleDispos}
@@ -473,7 +473,7 @@ bootstrapping ==================================================================
 >   sfkey wF wI                            = PerGMKey wF wI Nothing
 >   wfile k                                = k.pgkwFile
 >   wblob k                                = k.pgkwInst
->   kname k sffile                         = (ssInsts sffile.zFileArrays ! wblob k).instName
+>   kname k sffile                         = [Unblocked (show (ssInsts sffile.zFileArrays ! wblob k).instName)]
 >   inspect pergm rd                       = fromMaybe [] (Map.lookup pergm rd.preInstDispos)
 >   dispose pergm ss rd                    =
 >     rd{preInstDispos = Map.insertWith (++) pergm ss rd.preInstDispos}
@@ -482,7 +482,8 @@ bootstrapping ==================================================================
 >   sfkey _ _                              = error "sfkey not supported for PreZoneKey"
 >   wfile k                                = k.pzkwFile
 >   wblob k                                = k.pzkwInst
->   kname k sffile                         = (ssInsts sffile.zFileArrays ! wblob k).instName
+>   kname k sffile                         =    kname (PerGMKey k.pzkwFile k.pzkwInst Nothing) sffile
+>                                            ++ [comma]
 >                                            ++ kname (PreSampleKey k.pzkwFile k.pzkwSampleIndex) sffile
 >   inspect prezk rd                       = fromMaybe [] (Map.lookup prezk rd.preZoneDispos)
 >   dispose prezk ss rd                    =

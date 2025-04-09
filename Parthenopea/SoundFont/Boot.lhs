@@ -533,14 +533,15 @@ mark task ======================================================================
 >         Map.insert pergm (preI{iGlobalKey = zrec.zsGlobalKey}) preInstCache
 
 partnering 1 task =====================================================================================================
-          prepare for all possible stereo pairs
+          find possible stereo pairs based on PreSample/PreZone correspondence
 
 > partner1TaskIf _ _ fwIn                  = zrecTask partnerer1 fwIn
 >   where
 >     backMap            :: Map PreSampleKey [PreZoneKey]
 >     backMap                              = zrecCompute fwIn backFolder Map.empty
->     backFolder q zrec                    = Map.union q (zoneCompute isStereoZone pzFolder zrec Map.empty)
->     pzFolder qFold pz                    = Map.insertWith (++) (extractSampleKey pz) [extractZoneKey pz] qFold
+>       where
+>         backFolder q zrec                = Map.union q (zoneCompute isStereoZone pzFolder zrec Map.empty)
+>         pzFolder qFold pz                = Map.insertWith (++) (extractSampleKey pz) [extractZoneKey pz] qFold
 >
 >     partnerer1         :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     partnerer1 zrec@InstZoneRecord{ .. } rdFold
@@ -573,12 +574,13 @@ partnering 2 task ==============================================================
 >   where
 >     partnerMap         :: Map PreZoneKey [PreZoneKey]
 >     partnerMap                           = zrecCompute fwIn pFolder Map.empty
->     pFolder m zrec                       = zoneCompute isStereoZone zFolder zrec m
->     zFolder m' pz                        = Map.insertWith (++) (extractZoneKey pz) (fromRight [] pz.pzmkPartners) m'
+>       where
+>         pFolder m zrec                   = zoneCompute isStereoZone zFolder zrec m
+>         zFolder m' pz                    = Map.insertWith (++) (extractZoneKey pz) (fromRight [] pz.pzmkPartners) m'
 >         
 >     partnerer2         :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     partnerer2 zrec@InstZoneRecord{ .. } rdIn
->       | traceNever trace_P2 False          = undefined
+>       | traceNever trace_P2 False        = undefined
 >       | otherwise                        = (zrec', rd')
 >       where
 >         fName                            = "partnerer2"

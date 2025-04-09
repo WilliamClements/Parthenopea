@@ -192,8 +192,8 @@ executive ======================================================================
 >           [  Unblocked (show k)
 >            , Blanks 5
 >            , Unblocked sffile.zFilename
->            , Blanks 5
->            , Unblocked (show (kname k sffile))]
+>            , Blanks 5]
+>           ++ kname k sffile
 >
 > writeTournamentReport  :: Array Word SFFile
 >                           → Map InstrumentName [PerGMScored]
