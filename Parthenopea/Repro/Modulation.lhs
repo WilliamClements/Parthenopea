@@ -370,25 +370,20 @@ Filters ========================================================================
 > procFilter             :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
 > procFilter lp@Lowpass{lowpassType}       =
 >   case lowpassType of
->     ResonanceNone                        → error $ unwords ["procFilter:"
->                                                           , "should not reach makeSF if ResonanceNone"]
+>     ResonanceNone                        → error $ unwords ["should not reach procFilter if ResonanceNone"]
 >     ResonanceSVF                         → procSVF lp
 
-see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
+State Variable Filter =================================================================================================
 
-> indeedAverageInput     :: Bool
-> indeedAverageInput                       = True
-> extraDampFactor        :: Double
-> extraDampFactor                          = 1
->
+see source https://karmafx.net/docs/karmafx_digitalfilters.pdf
+
 > procSVF                :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
 > procSVF lp                               =
 >   proc (x, fc) → do
->     let f1                               = {- 2 * -} sin (theta fc)
+>     let f1                               = fudge * sin (theta fc)
 >     rec
 >       let yL                             = f1 * yB + yL'
->       let xuse                           = maybeAverageInput x x'
->       let yH                             = xuse - yL' - damp * yB'
+>       let yH                             = (x + x') / 2 - yL' - damp * yB'
 >       let yB                             = f1 * yH + yB'
 >
 >       x' ← delay 0                       ⤙ x
@@ -396,13 +391,9 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       yB' ← delay 0                      ⤙ yB
 >     outA                                 ⤙ yL
 >   where
->     damp                                 = extraDampFactor / fromCentibels (lowpassQ lp)
+>     damp                                 = 1 / fromCentibels (lowpassQ lp)
 >     theta c                              = pi * c / rate (undefined :: p)
->
->     maybeAverageInput c c'               =
->       if indeedAverageInput
->         then (c + c') / 2
->         else c
+>     fudge                                = 1.0
 
 Miscellaneous =========================================================================================================
 
@@ -520,7 +511,7 @@ Type declarations ==============================================================
 
 > data ResonanceType                       =
 >   ResonanceNone
->   | ResonanceSVF deriving (Eq, Bounded, Enum, Show)
+>   | ResonanceSVF deriving (Bounded, Enum, Eq, Show)
 >
 > data KernelSpec                          =
 >   KernelSpec {

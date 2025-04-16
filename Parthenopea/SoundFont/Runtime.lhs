@@ -155,7 +155,7 @@ executive ======================================================================
 >         histoFold      :: [Scan] → Map (Disposition, Impact, String) Int → Map (Disposition, Impact, String) Int 
 >         histoFold ss mfold               = foldr (\dispo m → Map.insertWith (+) dispo 1 m) mfold ts
 >           where
->             ts                           = map getTriple (filter (\s → s.sDisposition `elem` deadset) ss) 
+>             ts                           = map getTriple ss
 >
 >         emitHisto      :: ((Disposition, Impact, String), Int) → [Emission]
 >         emitHisto ((dispo, impact, function), count)
@@ -311,6 +311,8 @@ define signal functions and instrument maps to support rendering ===============
 >                                              samplea.ssData samplea.ssM24
 >   where
 >     fName_                               = "instrumentSF"
+>     trace_ISF                            =
+>       unwords [fName_, show pergm.pgkwFile, show preI.piChanges.cnSource, show (pchIn, volIn), show durI]
 >
 >     SFBoot{ .. }                         = zBoot
 >
@@ -326,9 +328,6 @@ define signal functions and instrument maps to support rendering ===============
 >     preI                                 = zPreInstCache Map.! pergm
 >     iName                                = preI.piChanges.cnName
 >     perI                                 = zPerInstCache Map.! pergm
->
->     trace_ISF                            =
->       unwords [fName_, show pergm.pgkwFile, show preI.piChanges.cnSource, show (pchIn, volIn), show durI]
 >
 >     (reconX, mreconX)                    =
 >       case setZone of

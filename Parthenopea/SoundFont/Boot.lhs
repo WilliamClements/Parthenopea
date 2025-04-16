@@ -693,7 +693,7 @@ partnering 4 task ==============================================================
 >             else ( pz,          dispose myZoneKey [Scan Violated BadStereoPartner fName noClue] rdFold)
 
 reorg task ============================================================================================================
-          where indicated, make one instrument out of many
+          where appropriate, make one instrument out of many
 
 Overview: the member instruments of a qualified group will be absorbed into the lead (member). She takes all of their 
 zones, in effect. The mapping (member → lead) (Word → Word) is turned into the absorption map (aMap).
@@ -947,7 +947,7 @@ categorization task ============================================================
 >             mrange                       = prez.pzDigest.zdKeyRange >>= (Just . BF.bimap fromIntegral fromIntegral)
 
 build zone task =======================================================================================================
-          generate the PerInstrument map from jobs map
+          generate the PerInstrument map (aka zone cache) from jobs map
 
 > zoneTaskIf sffile _ fwIn@FileWork{ .. }  = fwIn{  fwBoot = fwBoot{zPerInstCache = fst formZoneCache}
 >                                                 , fwDispositions = snd formZoneCache}
@@ -955,14 +955,14 @@ build zone task ================================================================
 >     fName                                = "computePerInst"
 >
 >     formZoneCache      :: (Map PerGMKey PerInstrument, ResultDispositions)
->     formZoneCache                        = Map.foldlWithKey perFolder (Map.empty, fwDispositions) fwBoot.zJobs
+>     formZoneCache                        = Map.foldlWithKey zcFolder (Map.empty, fwDispositions) fwBoot.zJobs
 >
->     perFolder          :: (Map PerGMKey PerInstrument, ResultDispositions)
+>     zcFolder           :: (Map PerGMKey PerInstrument, ResultDispositions)
 >                           → PerGMKey → InstCat
 >                           → (Map PerGMKey PerInstrument, ResultDispositions)
->     perFolder (zc, rdFold) pergm icat    =
+>     zcFolder (zc, rdFold) pergm icat     =
 >             ( Map.insert pergm (computePerInst pergm icat) zc
->             , dispose pergm [Scan Accepted ToZoneCache fName noClue] rdFold)
+>             , dispose pergm [Scan Accepted ToZoneCache fName (show icat)] rdFold)
 >
 >     computePerInst     :: PerGMKey → InstCat → PerInstrument
 >     computePerInst pergm icat            = PerInstrument (zip pzs oList) icd.inSmashup
