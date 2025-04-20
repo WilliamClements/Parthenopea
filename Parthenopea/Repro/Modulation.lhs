@@ -36,6 +36,7 @@ November 6, 2023
 > import Euterpea.Music ( AbsPitch )
 > import GHC.Generics ( Generic ) 
 > import Parthenopea.Debug
+> import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.SFSpec
 >
 > constA                 :: Arrow a ⇒ c → a b c
@@ -949,10 +950,6 @@ The use of following functions requires that their input is normalized between 0
 > qTableSize                               = 1024
 > tableSize              :: Double
 > tableSize                                = fromIntegral qTableSize
-> qMidiSize128           :: Int
-> qMidiSize128                             = 128
-> qMidiSizeSpace         :: Int
-> qMidiSizeSpace                           = qMidiSize128 * qMidiSize128
 >
 > controlConcave         :: Double → Double
 > controlConcave doub

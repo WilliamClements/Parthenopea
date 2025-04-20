@@ -31,6 +31,7 @@ January 21, 2025
 > import Debug.Trace
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
+> import Numeric ( showHex )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Modulation
@@ -433,14 +434,42 @@ capture task ===================================================================
 >         ibagi                            = F.instBagNdx (iinsts ! pgkwInst pergm)
 >         jbagi                            = F.instBagNdx (iinsts ! (pgkwInst pergm + 1))
 >
->         ss
->           | null pzs                     = [Scan Violated NoZones         fName_ noClue]
->           | illegalRange pzs             = [Scan Violated CorruptGMRange  fName_ noClue]
->           | illegalLinkage pzs           = [Scan Violated BadLinkage      fName_ noClue]
->           | any hasRom pzs               = [Scan Violated RomBased        fName_ noClue]
->           | not (all adjustedSampleSizeOk pzs)
->                                          = [Scan Violated BadSampleLimits fName_ noClue]
->           | otherwise                    = [Scan Accepted Adopted fName_ (show iName)]
+>         noZones, illegalRange, hasRoms, illegalLimits, yesAdopt
+>                        :: Maybe [Scan] 
+>         ss = fromJust 
+>              $ noZones `CM.mplus` illegalRange
+>                        `CM.mplus` hasRoms
+>                        `CM.mplus` illegalLimits
+>                        `CM.mplus` yesAdopt
+>         noZones
+>           | null pzs                     = Just [Scan Violated NoZones fName_ noClue]
+>           | otherwise                    = Nothing
+>         illegalRange
+>           | isJust mpz                   = Just [Scan Violated CorruptGMRange  fName_ clue]
+>           | otherwise                    = Nothing
+>           where
+>             mpz                          = find zoneBad pzs
+>
+>             zoneBad pz                   = not (okGMRanges pz.pzDigest)
+>             clue                         = showBad $ fromJust mpz
+>         hasRoms
+>           | isJust mpz                   = Just [Scan Violated RomBased fName_ clue]
+>           | otherwise                    = Nothing
+>           where
+>             mpz                          = find zoneRom pzs
+>
+>             stype pz                     = F.sampleType (effPZShdr pz)
+>             zoneRom pz                   = stype pz >= 0x8000
+>             pzBad                        = fromJust mpz
+>             clue                         = showHex (stype pzBad) []
+>         illegalLimits
+>           | isJust result                = Just [Scan Violated BadSampleLimits fName_ (fromJust result)]
+>           | otherwise                    = Nothing
+>           where
+>             tested                       = map illegalSampleSize pzs
+>             result                       = foldr CM.mplus Nothing tested
+>         yesAdopt                         = Just [Scan Accepted Adopted fName_ iName]
+>
 >         rdCap'                           = dispose pergm ss rdCap
 >         (pzs', rdCap'')                  = zoneTask (const True) capFolder pzs rdCap'
 >
@@ -476,48 +505,6 @@ capture task ===================================================================
 >             presk                        = PreSampleKey sffile.zWordF si
 >             mpres                        = presk `Map.lookup` fwBoot.zPreSampleCache
 >             pres                         = deJust fName mpres
->
->     illegalRange pzs                     =
->       let
->         zoneOk pz                        = okGMRange pz.pzDigest.zdKeyRange && okGMRange pz.pzDigest.zdVelRange
->
->         okGMRange      :: (Num a, Ord a) ⇒ Maybe (a, a) → Bool
->         okGMRange mrng                   =
->           case mrng of
->             Just (j, k)                  → (0 <= j) && j <= k && k < fromIntegral qMidiSize128
->             Nothing                      → True
->       in
->         not $ all zoneOk pzs
->
->     illegalLinkage pzs                   =
->       let
->         sList          :: [(Int, Int)]
->         sList                            = map (\z → (extractIndex z, extractLink z)) pzs
->
->         isSafe         :: ∀ a . (Eq a, Ord a, Show a) ⇒ [(a,a)] → Bool
->         isSafe pairs                     = closed && allPaired
->           where
->             uniquer    :: Map a a
->             uniquer                      =
->               foldl' (\target (k, t) → Map.insert k t target) Map.empty pairs
->
->             closed                       = all (\x → isJust (Map.lookup x uniquer)) uniquer
->             allPaired                    = all (paired uniquer) uniquer
->
->             paired     :: Map a a → a → Bool
->             paired target x              = x == z
->               where
->                 y                        = target Map.! x
->                 z                        = target Map.! y
->       in
->         requiredZoneLinkage >= 1 && not (isSafe sList)
->
->     extractIndex, extractLink
->                        :: PreZone → Int
->     extractIndex pz                      = fromIntegral $ deJust "extractIndex" pz.pzDigest.zdSampleIndex
->     extractLink pz                       = fromIntegral $ F.sampleLink (effPZShdr pz)
->
->     hasRom pz                            = F.sampleType (effPZShdr pz) >= 0x8000
 
 mark task =============================================================================================================
           copy global zone markers from zrecs to preInstCache
@@ -840,10 +827,10 @@ categorization task ============================================================
 
 >         icatAllKinds, icatRost, icatNarrow, icat'
 >                        :: Maybe InstCat
->         icatAllKinds                     = foldl' CM.mplus Nothing (provideAlts Nothing allKinds)
+>         icatAllKinds                     = foldr CM.mplus Nothing (provideAlts Nothing allKinds)
 >         icatRost                         = if rost == allKinds
 >                                              then icatAllKinds
->                                              else foldl' CM.mplus Nothing (provideAlts icatAllKinds rost)
+>                                              else foldr CM.mplus Nothing (provideAlts icatAllKinds rost)
 >         icatNarrow                       = Just (InstCatDisq Narrow noClue)
 >         (icat', ss')                     =
 >           case (icatAllKinds, icatRost) of
@@ -1130,15 +1117,21 @@ repartner task =================================================================
 > sampleSizeOk           :: (Word, Word) → Bool
 > sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
 >
-> adjustedSampleSizeOk   :: PreZone → Bool
-> adjustedSampleSizeOk pz                  = 0 <= stA && stA <= enA && 0 <= stL && stL <= enL
->                                                     && enA - stA < 2  ^ (22::Word)
->                                                     && (zd.zdSampleMode == Just A.NoLoop || enL - stL < 2  ^ (22::Word))
+> illegalSampleSize      :: PreZone → Maybe String
+> illegalSampleSize pz                     =
+>   if ok
+>     then Nothing
+>     else Just $ unwords [showHex stA [], showHex enA [], showHex stL [], showHex enL [], show zd.zdSampleMode]
 >   where
 >     stA                                  = shdr.start     + fromIntegral zd.zdStart
 >     enA                                  = shdr.end       + fromIntegral zd.zdEnd
 >     stL                                  = shdr.startLoop + fromIntegral zd.zdStartLoop
 >     enL                                  = shdr.endLoop   + fromIntegral zd.zdEndLoop
+>
+>     ok                                   =
+>       0 <= stA && stA <= enA && 0 <= stL && stL <= enL
+>       && enA - stA < 2  ^ (22::Word)
+>       && (zd.zdSampleMode == Just A.NoLoop || enL - stL < 2 ^ (22::Word))
 >
 >     shdr                                 = effPZShdr pz
 >     zd                                   = pz.pzDigest
@@ -1152,8 +1145,6 @@ repartner task =================================================================
 >     n20                                  = 20
 > canDevolveToMono       :: Bool
 > canDevolveToMono                         = True
-> requiredZoneLinkage    :: Double
-> requiredZoneLinkage                      = 0
 >
 > allowOutOfRange        :: Bool
 > allowOutOfRange                          = True

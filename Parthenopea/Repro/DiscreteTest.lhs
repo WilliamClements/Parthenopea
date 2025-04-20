@@ -22,11 +22,11 @@ June 22, 2024
 > import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns ( osc, Table, envExpon )
-> import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
+> import Euterpea.IO.Audio.IO ( outFile )
 > import Euterpea.IO.Audio.Render ( Instr )
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock, Mono, AudRate )
 > import Parthenopea.Debug(notracer, traceNot)
-> import Parthenopea.Music.Siren ( maxSample )
+> import Parthenopea.Music.Siren ( maxSample, qMidiSize128 )
 > import Parthenopea.Repro.Chart ( Section(Section), chartPoints )
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation

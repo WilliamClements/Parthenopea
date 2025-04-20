@@ -891,6 +891,11 @@ Returns sample point as (normalized) Double
 >     (s0, s1)           :: (Double, Double)
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
+>
+> qMidiSize128           :: Int
+> qMidiSize128                             = 128
+> qMidiSizeSpace         :: Int
+> qMidiSizeSpace                           = qMidiSize128 * qMidiSize128
 
 Configurable parameters ===============================================================================================
 

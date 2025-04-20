@@ -82,6 +82,12 @@ implementing SoundFont spec ====================================================
 > instance Show PreZone where
 >   show (PreZone{ .. })                   =
 >     unwords ["PreZone", show (pzWordF, pzWordS, pzWordI, pzWordB), show pzDigest, show pzmkPartners]
+> showBad                :: PreZone -> String
+> showBad PreZone{ .. }                    =
+>   let
+>     ZoneDigest{ .. }                     = pzDigest
+>   in
+>     show (pzWordB, (zdKeyRange, zdVelRange))
 >
 > makePreZone            :: Word → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
 > makePreZone wF wS wI wB gens shdr        = PreZone wF wS wI wB (formDigest gens) (Right []) (ChangeEar shdr [])
@@ -344,6 +350,16 @@ implementing SoundFont spec ====================================================
 >                                          = zd {zdEndLoop = zd.zdEndLoop + i}
 >
 >     inspectGen _ zd                      = zd
+> okGMRanges             :: ZoneDigest → Bool
+> okGMRanges ZoneDigest{ .. }              =
+>   let
+>     okGMRange          :: (Num a, Ord a) ⇒ Maybe (a, a) → Bool
+>     okGMRange mrng                       =
+>       case mrng of
+>         Just (j, k)                      → (0 <= j) && j <= k && k < 128
+>         Nothing                          → True
+>   in
+>     okGMRange zdKeyRange && okGMRange zdVelRange 
 >
 > findBySampleIndex      :: [SFZone] → Word → Maybe SFZone
 > findBySampleIndex zs w                   = find (\z → z.zSampleIndex == Just w) zs
@@ -365,14 +381,14 @@ bootstrapping ==================================================================
 >
 > data Impact                              =
 >   Ok | CorruptName
->      | BadSampleRate | BadSampleType | BadSampleLimits | BadSampleLoopLimits
+>      | BadSampleRate | BadSampleType | BadSampleLimits
 >      | DevolveToMono | BadStereoPartner
 >      | Paired | Unpaired
 >      | OrphanedBySample | OrphanedByInst | ToZoneCache
 >      | Absorbing | Absorbed | NoZones
->      | CorruptGMRange | Narrow | BadLinkage
+>      | CorruptGMRange | Narrow
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
->      | Disqualified | Unrecognized | NoPercZones
+>      | Unrecognized | NoPercZones
 >      | CatIsPerc | CatIsInst
 >      | Adopted | AdoptedAsMono | GlobalZone
 >   deriving (Eq, Ord, Show)
@@ -397,7 +413,7 @@ bootstrapping ==================================================================
 > deadset                                  = [Violated, Dropped, Rescued]
 >                                            -- the following only optionally appear in scan report
 > elideset                                 = if howVerboseScanReport < (1/2)
->                                              then [Accepted, NoChange]
+>                                              then [Accepted, Modified, NoChange]
 >                                              else []
 > rescueset                                = [Rescued]
 >
@@ -533,9 +549,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > fixName name
 >   | null name                            = "<noname>"
 >   | otherwise                            = map (\cN → if goodChar cN then cN else '_') name
->
-> type Velocity                            = Volume
-> type KeyNumber                           = AbsPitch
 >
 > data SampleType =
 >   SampleTypeMono
