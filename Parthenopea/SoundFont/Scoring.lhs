@@ -451,8 +451,8 @@ tournament starts here =========================================================
 >               | otherwise                = log (m3 * theSplit)
 >             evalSampleSize               = sum (map durScoring zs) / fromIntegral (length zs)
 >
->             m1                           = 1/2
->             m2                           = 1/2
+>             m1                           = 2/3
+>             m2                           = 1/3
 >             m3                           = 3 * if isStereoInst zs then 1/2 else 1
 >
 >         durScoring     :: (PreZone, SFZone) → Double
