@@ -373,6 +373,7 @@ Filters ========================================================================
 >   case lowpassType of
 >     ResonanceNone                        → error $ unwords ["should not reach procFilter if ResonanceNone"]
 >     ResonanceSVF                         → procSVF lp
+>     ResonanceChamberlin                  → procChamberlin lp
 
 State Variable Filter =================================================================================================
 
@@ -395,6 +396,26 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf
 >     damp                                 = 1 / fromCentibels (lowpassQ lp)
 >     theta c                              = pi * c / rate (undefined :: p)
 >     fudge                                = 1.0
+
+see source https://ccrma.stanford.edu/~jos/svf/svf.pdf
+
+> procChamberlin         :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
+> procChamberlin _                         =
+>   proc (x, fc) → do
+>     let wcT                              = fudge * sin (theta fc)
+>     rec
+>       let yL                             = tracer "yL" $ wcT * p2 + yL'
+>
+>       let p0                             = (x - yL') - sqrt 2
+>       let p1                             = p0 * wcT + p2'
+>       let p2                             = p1 * wcT + yL'
+>
+>       yL' ← delay 0                      ⤙ yL
+>       p2' ← delay 0                      ⤙ p2
+>     outA                                 ⤙ yL
+>   where
+>     theta c                              = pi * c / rate (undefined :: p)
+>     fudge                                = 1 -- WOX 1 / fromCentibels (lowpassQ lp)
 
 Miscellaneous =========================================================================================================
 
@@ -512,7 +533,8 @@ Type declarations ==============================================================
 
 > data ResonanceType                       =
 >   ResonanceNone
->   | ResonanceSVF deriving (Bounded, Enum, Eq, Show)
+>   | ResonanceSVF
+>   | ResonanceChamberlin deriving (Bounded, Enum, Eq, Show)
 >
 > data KernelSpec                          =
 >   KernelSpec {

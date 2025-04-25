@@ -439,8 +439,7 @@ tournament starts here =========================================================
 >           PerGMScored (computeGrade scope) (toGMKind kind) akResult pergm iName mnameZ
 >
 >         computeResolution
->                        :: [(PreZone, SFZone)]
->                           → Double
+>                        :: [(PreZone, SFZone)] → Double
 >         computeResolution zs
 >           | null zs                      = error $ unwords ["null zs"]
 >           | otherwise                    = fromRational m1 * evalSplits kind + fromRational m2 * evalSampleSize

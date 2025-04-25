@@ -61,7 +61,7 @@ Signal function-based synth ====================================================
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
 > eutSynthesize (reconL, mreconR) sr dur pch vol nps s16 ms8
->   | traceNot trace_eS False              = undefined
+>   | traceIf trace_eS False              = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
 >     then eutSplit <<< pumpMonoPath 
@@ -162,8 +162,7 @@ Signal function-based synth ====================================================
 >     denom              :: Double         = fullen - fullst
 >
 > eutModSignals          :: ∀ p. Clock p ⇒ TimeFrame → Modulation → ModDestType → Signal p () ModSignals
-> eutModSignals timeFrame m8nL md
->                                          =
+> eutModSignals timeFrame m8nL md          =
 >   proc _ → do
 >     aL1 ← doEnvelope  timeFrame kModEnvL             ⤙ ()
 >     aL2 ← doLFO       kModLfoL                       ⤙ ()
@@ -327,12 +326,22 @@ Create a straight-line envelope generator with following phases:
 > data FEnvelope                           =
 >   FEnvelope {
 >     fFirst             :: Bool
+>   , fFavorDecay        :: Bool
+>   , fOrigDecayT        :: Double
+>   , fOrigReleaseT      :: Double
 >   , fDelayT            :: Double
 >   , fAttackT           :: Double
 >   , fHoldT             :: Double
 >   , fDecayT            :: Double
 >   , fSustainT          :: Double
 >   , fReleaseT          :: Double} deriving Show
+> makeFEnvelope          :: Double → Double → Double → Double → Double → FEnvelope
+> makeFEnvelope delayT attackT holdT decayT releaseT
+>                                          =
+>   let
+>     favorDecay                           = decayT >= releaseT
+>   in
+>     FEnvelope True favorDecay decayT releaseT delayT attackT holdT decayT minUseful releaseT                      
 >
 > data FIterate                            =
 >   FIterate {
@@ -340,51 +349,57 @@ Create a straight-line envelope generator with following phases:
 >   , fiEnv              :: FEnvelope}
 >          
 > computeSegments        :: TimeFrame → Envelope → Segments
-> computeSegments TimeFrame{ .. } Envelope{ .. }
->   | traceNot trace_CS False              = undefined
+> computeSegments timeFrame Envelope{ .. }
+>   | traceIf trace_CS False              = undefined
 >   | otherwise                            = Segments amps deltaTs
 >   where
 >     fName                                = "computeSegments"
 >     trace_CS                             = unwords [fName, show (amps, deltaTs)]
 >
 >     amps                                 = [0,       0,       1,       1,     fSusLevel,  fSusLevel,      0,     0]
->       where
->         fSusLevel                        = clip (0, 1) eSustainLevel
->
 >     deltaTs                              = [  fDelayT, fAttackT, fHoldT, fDecayT, fSustainT,   fReleaseT,    1]
->       where
->         FEnvelope{ .. }                  = final.fiEnv
 >
->     final                                = head $ dropWhile unfinished (iterate nextGen (FIterate funs finit))
 >     finit                                =
->       FEnvelope True
->                 (max eDelayT   minDeltaT)
->                 (max eAttackT  minDeltaT)
->                 (max eHoldT    minDeltaT)
->                 (max eDecayT   minDeltaT)
->                 minUseful minUseful
+>       makeFEnvelope
+>         (max eDelayT   minDeltaT)
+>         (max eAttackT  minDeltaT)
+>         (max eHoldT    minDeltaT)
+>         (max eDecayT   minDeltaT)
+>         (max eReleaseT minDeltaT)
 >
+>     FEnvelope{ .. }                      = refineEnvelope timeFrame finit
+>     fSusLevel                            = clip (0, 1) eSustainLevel
+>
+> refineEnvelope             :: TimeFrame → FEnvelope → FEnvelope
+> refineEnvelope TimeFrame{ .. } fEnvIn    = result.fiEnv
+>   where
+>     result                               = head $ dropWhile unfinished (iterate nextGen (FIterate funs fEnvIn))
 >     unfinished FIterate{ .. }            =
 >       let
->         FEnvelope{ .. }                  = fiEnv
->         rSum                             = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + fReleaseT 
+>         FEnvelope{ .. }                  = tracer "FIterate" fiEnv
+>         rAll                             = tracer "rAll" $ fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + fReleaseT 
 >       in
->         fFirst || (rSum <= tfSecsToPlay)
+>         fFirst || (not (null fiFuns) && (rAll >= tfSecsToPlay))
 >     nextGen fi@FIterate{ .. }            = fi{fiFuns = tail fiFuns, fiEnv = head fiFuns fiEnv}
 >
 >     tryFirst, tryDecay, tryHold, tryAttack, tryDelayT
->                        :: FEnvelope → FEnvelope
+>                    :: FEnvelope → FEnvelope
 >     funs                                 = [tryFirst, tryDecay, tryHold, tryAttack, tryDelayT]
+>
+>     tryDecay   fEnvIn'                   = fEnvIn'{fDecayT   = minDeltaT}
+>     tryHold    fEnvIn'                   = fEnvIn'{fHoldT    = minDeltaT}
+>     tryAttack  fEnvIn'                   = fEnvIn'{fAttackT  = minDeltaT}
+>     tryDelayT  fEnvIn'                   = fEnvIn'{fDelayT   = minDeltaT}
 >                                          
->     tryFirst   fEnvIn@FEnvelope{ .. }    =
->       fEnvIn{
+>     tryFirst fEnvIn'@FEnvelope{ .. }    =
+>       fEnvIn'{
 >         fFirst = False
 >       , fSustainT = adjSustainT
 >       , fReleaseT = adjReleaseT}
 >       where
->         rSum                             = fDelayT + fAttackT + fHoldT + fDecayT
+>         rSum                             = tracer "rSum" $ fDelayT + fAttackT + fHoldT + fDecayT
 >         rLeft                            = tfSecsToPlay - rSum
->         rDivvy                           = clip (0, 1) (eReleaseT / tfSecsSampled)
+>         rDivvy                           = tracer "rDivvy" $ clip (0, 1) (fOrigReleaseT / tfSecsSampled)
 >         rSus                             = rLeft * (1 - rDivvy)
 >         rRel                             = rLeft * rDivvy
 >         (adjSustainT, adjReleaseT)
@@ -392,14 +407,10 @@ Create a straight-line envelope generator with following phases:
 >           | (1/3) > fReleaseT / tfSecsSampled
 >                                          = (fSustainT + rLeft, fReleaseT)
 >           | otherwise                    = (fSustainT + rSus, fReleaseT + rRel)
->     tryDecay   fEnvIn                    = fEnvIn{fDecayT   = minDeltaT}
->     tryHold    fEnvIn                    = fEnvIn{fHoldT    = minDeltaT}
->     tryAttack  fEnvIn                    = fEnvIn{fAttackT  = minDeltaT}
->     tryDelayT  fEnvIn                    = fEnvIn{fDelayT   = minDeltaT}
 >
 > minDeltaT, minUseful   :: Double
 > minDeltaT                                = fromTimecents Nothing
-> minUseful                                = 1/10
+> minUseful                                = 1/20
 
 Effects ===============================================================================================================
 

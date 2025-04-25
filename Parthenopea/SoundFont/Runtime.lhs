@@ -44,7 +44,7 @@ February 1, 2025
 > import Parthenopea.SoundFont.Boot ( equipInstruments )
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
-
+  
 executive =============================================================================================================
 
 > bootNRender            :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
