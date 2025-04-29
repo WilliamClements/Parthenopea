@@ -934,10 +934,10 @@ Edit the following =============================================================
 > absorbRatio                              = 7/10
 >
 > narrowInstrumentScope  :: Bool
-> narrowInstrumentScope                    = False
+> narrowInstrumentScope                    = True
 > allowSpecifiedCrossovers, allowInferredCrossovers
 >                        :: Bool
-> allowSpecifiedCrossovers                 = True
-> allowInferredCrossovers                  = True
+> allowSpecifiedCrossovers                 = False
+> allowInferredCrossovers                  = False
 
 The End

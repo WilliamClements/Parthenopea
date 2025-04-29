@@ -665,7 +665,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > data Modulation                          =
 >   Modulation {
 >     mLowpass           :: Lowpass
->   , mModEnv            :: Maybe Envelope
+>   , mModEnv            :: Maybe FEnvelope
 >   , mModLfo            :: Maybe LFO
 >   , mVibLfo            :: Maybe LFO
 >   , toPitchCo          :: ModCoefficients
@@ -678,16 +678,27 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >     (Lowpass ResonanceNone (defKernelSpec useFastFourier)) Nothing Nothing Nothing
 >     defModCoefficients defModCoefficients defModCoefficients Map.empty
 >
-> data Envelope                            =
->   Envelope {
->     eDelayT            :: Double
->   , eAttackT           :: Double
->   , eHoldT             :: Double
->   , eDecayT            :: Double
->   , eSustainLevel      :: Double
->   , eReleaseT          :: Double
->   , eModTriple         :: ModTriple} deriving (Eq, Show)
+> data TimeFrame =
+>   TimeFrame {
+>     tfSecsSampled      :: Double
+>   , tfSecsScored       :: Double
+>   , tfSecsToPlay       :: Double
+>   , tfLooping          :: Bool} deriving (Eq, Show)
+> data FEnvelope                           =
+>   FEnvelope {
+>     fTargetT           :: Double
+>   , fSustainLevel      :: Double
+>   , fModTriple         :: ModTriple
 >
+>   , fDelayT            :: Double
+>   , fAttackT           :: Double
+>   , fHoldT             :: Double
+>   , fDecayT            :: Double
+>   , fSustainT          :: Double
+>   , fReleaseT          :: Double} deriving (Eq, Show)
+> feSum                  :: FEnvelope → Double
+> feSum FEnvelope{ .. }                    
+>                                          = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + fReleaseT
 > data FreeVerb =
 >   FreeVerb
 >   {
@@ -866,6 +877,15 @@ Returns the elapsed time in seconds
 >
 > toTimecents            :: Double → Int
 > toTimecents secs                         = round $ logBase 2 secs * 1_200
+>
+> tcclip                 :: Int → Maybe Int
+> tcclip i                                 = Just $ clip (-12_000, 5_000) i
+>
+> ticlip                 :: Int → Maybe Int
+> ticlip i                                 = Just $ clip (0, 1_000) i
+>
+> tdclip                 :: Int → Maybe Int
+> tdclip i                                 = Just $ clip (0, 1_440) i
 
 Returns the frequency ratio
 

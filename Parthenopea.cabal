@@ -70,6 +70,7 @@ library
                     Parthenopea.Repro.Emission, Parthenopea.Repro.Modulation, Parthenopea.Repro.ModulationTest,
                     Parthenopea.Repro.Smashing, Parthenopea.Repro.SmashingTest,
                     Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest,
+                    Parthenopea.Repro.Envelopes,
 
                     Parthenopea.SoundFont.Boot, Parthenopea.SoundFont.BootTest,
                     Parthenopea.SoundFont.Runtime, Parthenopea.SoundFont.Scoring, Parthenopea.SoundFont.SFSpec,

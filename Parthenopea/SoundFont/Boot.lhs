@@ -192,7 +192,7 @@ and recovery.
 >               Just _                     → 24
 >       ts2                                ← getCurrentTime
 >       CM.when diagnosticsEnabled (
->         putStr $ unwords ["lengths insts,bags,gens,mods,shdrs:"
+>         putStr $ unwords [" ... lengths insts,bags,gens,mods,shdrs:"
 >                         , show $ length boota.ssInsts
 >                         , show $ length boota.ssIBags
 >                         , show $ length boota.ssIGens
@@ -1034,12 +1034,12 @@ build zone task ================================================================
 >   F.ScaleTuning i                → iz {zScaleTuning =              Just i}
 >   F.ExclusiveClass i             → iz {zExclusiveClass =           Just i}
 >
->   F.DelayVolEnv i                → iz {zDelayVolEnv =              Just i}
->   F.AttackVolEnv i               → iz {zAttackVolEnv =             Just i}
->   F.HoldVolEnv i                 → iz {zHoldVolEnv =               Just i}
->   F.DecayVolEnv i                → iz {zDecayVolEnv =              Just i}
->   F.SustainVolEnv i              → iz {zSustainVolEnv =            Just i}
->   F.ReleaseVolEnv i              → iz {zReleaseVolEnv =            Just i}
+>   F.DelayVolEnv i                → iz {zDelayVolEnv =              tcclip i}
+>   F.AttackVolEnv i               → iz {zAttackVolEnv =             tcclip i}
+>   F.HoldVolEnv i                 → iz {zHoldVolEnv =               tcclip i}
+>   F.DecayVolEnv i                → iz {zDecayVolEnv =              tcclip i}
+>   F.SustainVolEnv i              → iz {zSustainVolEnv =            tdclip i}
+>   F.ReleaseVolEnv i              → iz {zReleaseVolEnv =            tcclip i}
 >
 >   F.Chorus i                     → iz {zChorus =                   Just i}
 >   F.Reverb i                     → iz {zReverb =                   Just i}
@@ -1059,12 +1059,12 @@ build zone task ================================================================
 >   F.FreqModLfo i                 → iz {zFreqModLfo =               Just i}
 >   F.DelayVibLfo i                → iz {zDelayVibLfo =              Just i}
 >   F.FreqVibLfo i                 → iz {zFreqVibLfo =               Just i}
->   F.DelayModEnv i                → iz {zDelayModEnv =              Just i}
->   F.AttackModEnv i               → iz {zAttackModEnv =             Just i}
->   F.HoldModEnv i                 → iz {zHoldModEnv =               Just i}
->   F.DecayModEnv i                → iz {zDecayModEnv =              Just i}
->   F.SustainModEnv i              → iz {zSustainModEnv =            Just i}
->   F.ReleaseModEnv i              → iz {zReleaseModEnv =            Just i}
+>   F.DelayModEnv i                → iz {zDelayModEnv =              tcclip i}
+>   F.AttackModEnv i               → iz {zAttackModEnv =             tcclip i}
+>   F.HoldModEnv i                 → iz {zHoldModEnv =               tcclip i}
+>   F.DecayModEnv i                → iz {zDecayModEnv =              tcclip i}
+>   F.SustainModEnv i              → iz {zSustainModEnv =            ticlip i}
+>   F.ReleaseModEnv i              → iz {zReleaseModEnv =            tcclip i}
 >   F.KeyToModEnvHold i            → iz {zKeyToModEnvHold =          Just i}
 >   F.KeyToModEnvDecay i           → iz {zKeyToModEnvDecay =         Just i}
 >   F.KeyToVolEnvHold i            → iz {zKeyToVolEnvHold =          Just i}

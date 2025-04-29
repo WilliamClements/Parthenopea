@@ -37,6 +37,7 @@ February 1, 2025
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
+> import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Synthesizer
@@ -422,7 +423,7 @@ reconcile zone and sample header ===============================================
 >       (\case
 >         Just np                          → applyNoteParameter noon zone_ np secsScored
 >         Nothing                          → zone_) (listToMaybe nps)
->     m8n                                  = reconModulation zone sHdr noon nps secsScored
+>     m8n                                  = reconModulation zone sHdr noon
 >
 >     reconL = Recon {
 >     rSampleMode    = fromMaybe           A.NoLoop           zSampleMode
@@ -445,7 +446,6 @@ reconcile zone and sample header ===============================================
 >   , rVolEnv        = deriveEnvelope                         zDelayVolEnv
 >                                                             zAttackVolEnv
 >                                                             noon
->                                                             nps
 >                                                             (zHoldVolEnv,  zKeyToVolEnvHold)
 >                                                             (zDecayVolEnv, zKeyToVolEnvDecay)
 >                                                             zSustainVolEnv
@@ -487,13 +487,13 @@ reconcile zone and sample header ===============================================
 >            , zKey           = (Just . fromIntegral) noon.noteOnKey
 >            , zReleaseModEnv = Nothing}
 >
-> reconModulation        :: SFZone → F.Shdr → NoteOn → [Double] → Double → Modulation
-> reconModulation SFZone{ .. } shdr noon nps _
+> reconModulation        :: SFZone → F.Shdr → NoteOn → Modulation
+> reconModulation SFZone{ .. } shdr noon
 >   | traceIf trace_RM False               = undefined
 >   | otherwise                            = resolveMods m8n zModulators defaultMods
 >   where
->     fName                                = "reconModulation"
->     trace_RM                             = unwords [fName, shdr.sampleName, show nModEnv]
+>     fName                                = "recon"
+>     trace_RM                             = unwords [fName, show resonanceType, shdr.sampleName]
 >
 >     m8n                :: Modulation     =
 >       defModulation{
@@ -514,11 +514,11 @@ reconcile zone and sample header ===============================================
 >         (-1) -- must always be replaced
 >
 >     resonanceType      :: ResonanceType  = ResonanceSVF
->     nModEnv            :: Maybe Envelope = deriveEnvelope
+>     nModEnv            :: Maybe FEnvelope
+>     nModEnv                              = deriveEnvelope
 >                                              zDelayModEnv
 >                                              zAttackModEnv
 >                                              noon
->                                              nps
 >                                              (zHoldModEnv, zKeyToModEnvHold) 
 >                                              (zDecayModEnv, zKeyToModEnvDecay)
 >                                              zSustainModEnv
@@ -533,7 +533,7 @@ reconcile zone and sample header ===============================================
 >     summarize          :: ModDestType → ModCoefficients
 >     summarize toWhich                    =
 >       ModCoefficients
->         (coAccess toWhich $ maybe defModTriple   eModTriple nModEnv)
+>         (coAccess toWhich $ maybe defModTriple fModTriple   nModEnv)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
 

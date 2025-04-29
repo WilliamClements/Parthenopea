@@ -14,12 +14,9 @@ May 14, 2023
 
 > module Parthenopea.Repro.Synthesizer
 >        ( deriveEffects
->        , deriveEnvelope
 >        , Effects(..)
 >        , eutDriver
 >        , eutSynthesize
->        , minDeltaT
->        , minUseful
 >        , noStereoNoPan
 >        , normalizingOutput
 >        , Recon(..)
@@ -27,7 +24,6 @@ May 14, 2023
 >        , useAttenuation
 >        , useChorus
 >        , useDCBlock
->        , useEnvelopes
 >        , useLoopSwitching
 >        , usePan
 >        , usePitchCorrection
@@ -45,6 +41,7 @@ May 14, 2023
 > import Euterpea.Music ( Volume, AbsPitch, Dur )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
+> import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.SFSpec
   
@@ -83,7 +80,12 @@ Signal function-based synth ====================================================
 >     secsToPlay         :: Double         = if looping
 >                                              then secsScored
 >                                              else min secsSampled secsScored
->     timeFrame                            = TimeFrame secsSampled secsScored secsToPlay looping
+>     timeFrame                            =
+>       TimeFrame
+>         secsSampled
+>         secsScored
+>         secsToPlay
+>         looping
 >
 >     freqRatio          :: Double         =
 >       case reconL.rTuning of
@@ -162,7 +164,8 @@ Signal function-based synth ====================================================
 >     denom              :: Double         = fullen - fullst
 >
 > eutModSignals          :: ∀ p. Clock p ⇒ TimeFrame → Modulation → ModDestType → Signal p () ModSignals
-> eutModSignals timeFrame m8nL md          =
+> eutModSignals timeFrame Modulation{ .. } md
+>                                          =
 >   proc _ → do
 >     aL1 ← doEnvelope  timeFrame kModEnvL             ⤙ ()
 >     aL2 ← doLFO       kModLfoL                       ⤙ ()
@@ -172,9 +175,9 @@ Signal function-based synth ====================================================
 >     (kModEnvL, kModLfoL, kVibLfoL)       = doModSigMaybes 
 >
 >     doModSigMaybes                       = case md of
->       ToPitch                            → ( m8nL.mModEnv, m8nL.mModLfo, m8nL.mVibLfo)
->       ToFilterFc                         → ( m8nL.mModEnv, m8nL.mModLfo, Nothing)
->       ToVolume                           → ( Nothing, m8nL.mModLfo, Nothing)
+>       ToPitch                            → ( mModEnv, mModLfo, mVibLfo)
+>       ToFilterFc                         → ( mModEnv, mModLfo, Nothing)
+>       ToVolume                           → ( Nothing, mModLfo, Nothing)
 >       _                                  →
 >         error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in doModSigMaybes, not", show md]
 >
@@ -240,177 +243,6 @@ Signal function-based synth ====================================================
 >     let a2L                              =
 >           notracer "a1" a1L * notracer "aenv" aenvL * evaluateModSignals "eutAmplify" rM8n ToVolume modSigL noon
 >     outA ⤙ a2L
-
-Envelopes =============================================================================================================
-
-> data Segments =
->   Segments {
->     sAmps              :: [Double]
->   , sDeltaTs           :: [Double]} deriving Show
->
-> deriveEnvelope         :: Maybe Int
->                           → Maybe Int
->                           → NoteOn
->                           → [Double]
->                           → (Maybe Int, Maybe Int)
->                           → (Maybe Int, Maybe Int)
->                           → Maybe Int
->                           → Maybe Int
->                           → Maybe (Maybe Int, Maybe Int)
->                           → Maybe Envelope
-> deriveEnvelope mDelay mAttack noon _ (mHold, mHoldByKey) (mDecay, mDecayByKey)
->                mSustain mRelease mTriple
->   | traceNot trace_DE False              = undefined
->   | otherwise                            = if useEnvelopes && doUse mTriple
->                                              then Just env
->                                              else Nothing
->   where
->     fName                                = "deriveEnvelope"
->     trace_DE                             =
->       if useEnvelopes
->         then unwords [fName, if isJust mTriple then "modEnv" else "volEnv", show env]
->         else unwords ["deriveEnvelope (none)"]
->
->     dHold              :: Double         = max minDeltaT (fromTimecents' mHold  mHoldByKey  noon.noteOnKey)
->     dDecay             :: Double         = max minDeltaT (fromTimecents' mDecay mDecayByKey noon.noteOnKey)
->
->     env                                  =
->       Envelope (fromTimecents mDelay) (fromTimecents mAttack)                          dHold
->                dDecay                 (fromTithe mSustain (isNothing mTriple))         (fromTimecents mRelease)
->                (makeModTriple mTriple)
->
->     doUse              :: Maybe (Maybe Int, Maybe Int) → Bool
->     doUse                                =
->       \case
->         Nothing                          → True
->         Just (xToPitch, xToFilterFc)     → isJust xToPitch || isJust xToFilterFc
->
->     makeModTriple      :: Maybe (Maybe Int, Maybe Int) → ModTriple
->     makeModTriple                        =
->       \case
->         Nothing                          → defModTriple
->         Just target                      → uncurry deriveModTriple target Nothing
->
-> doEnvelope             :: ∀ p . Clock p ⇒ TimeFrame → Maybe Envelope → Signal p () Double
-> doEnvelope timeFrame                     = maybe (constA 1) makeSF
->   where
->     makeSF             :: Envelope → Signal p () Double
->     makeSF env                           =
->       let
->         segs                             = computeSegments timeFrame env
->       in envLineSeg segs.sAmps segs.sDeltaTs
-
-Implement the SoundFont envelope model with specified:
-  1. delay time                      0 → 0
-  2. attack time                     0 → 1
-  3. hold time                       1 → 1
-  4. decay time                      1 → sus
-  5. sustain attenuation level        ---
-  6. release time                  sus → 0
-          ______
-         /      \
-        /        \_____   5
-       /               \
-      /                 \
-  ___/                   \
-   1    2    3  4      6
-
-Create a straight-line envelope generator with following phases:
- - delay - ~zero most of the time
-   attack
-   hold
-   decay
-   sustain
-   release  
-
-> data FEnvelope                           =
->   FEnvelope {
->     fFirst             :: Bool
->   , fFavorDecay        :: Bool
->   , fOrigDecayT        :: Double
->   , fOrigReleaseT      :: Double
->   , fDelayT            :: Double
->   , fAttackT           :: Double
->   , fHoldT             :: Double
->   , fDecayT            :: Double
->   , fSustainT          :: Double
->   , fReleaseT          :: Double} deriving Show
-> makeFEnvelope          :: Double → Double → Double → Double → Double → FEnvelope
-> makeFEnvelope delayT attackT holdT decayT releaseT
->                                          =
->   let
->     favorDecay                           = decayT >= releaseT
->   in
->     FEnvelope True favorDecay decayT releaseT delayT attackT holdT decayT minUseful releaseT                      
->
-> data FIterate                            =
->   FIterate {
->     fiFuns             :: [FEnvelope → FEnvelope]
->   , fiEnv              :: FEnvelope}
->          
-> computeSegments        :: TimeFrame → Envelope → Segments
-> computeSegments timeFrame Envelope{ .. }
->   | traceIf trace_CS False              = undefined
->   | otherwise                            = Segments amps deltaTs
->   where
->     fName                                = "computeSegments"
->     trace_CS                             = unwords [fName, show (amps, deltaTs)]
->
->     amps                                 = [0,       0,       1,       1,     fSusLevel,  fSusLevel,      0,     0]
->     deltaTs                              = [  fDelayT, fAttackT, fHoldT, fDecayT, fSustainT,   fReleaseT,    1]
->
->     finit                                =
->       makeFEnvelope
->         (max eDelayT   minDeltaT)
->         (max eAttackT  minDeltaT)
->         (max eHoldT    minDeltaT)
->         (max eDecayT   minDeltaT)
->         (max eReleaseT minDeltaT)
->
->     FEnvelope{ .. }                      = refineEnvelope timeFrame finit
->     fSusLevel                            = clip (0, 1) eSustainLevel
->
-> refineEnvelope             :: TimeFrame → FEnvelope → FEnvelope
-> refineEnvelope TimeFrame{ .. } fEnvIn    = result.fiEnv
->   where
->     result                               = head $ dropWhile unfinished (iterate nextGen (FIterate funs fEnvIn))
->     unfinished FIterate{ .. }            =
->       let
->         FEnvelope{ .. }                  = tracer "FIterate" fiEnv
->         rAll                             = tracer "rAll" $ fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + fReleaseT 
->       in
->         fFirst || (not (null fiFuns) && (rAll >= tfSecsToPlay))
->     nextGen fi@FIterate{ .. }            = fi{fiFuns = tail fiFuns, fiEnv = head fiFuns fiEnv}
->
->     tryFirst, tryDecay, tryHold, tryAttack, tryDelayT
->                    :: FEnvelope → FEnvelope
->     funs                                 = [tryFirst, tryDecay, tryHold, tryAttack, tryDelayT]
->
->     tryDecay   fEnvIn'                   = fEnvIn'{fDecayT   = minDeltaT}
->     tryHold    fEnvIn'                   = fEnvIn'{fHoldT    = minDeltaT}
->     tryAttack  fEnvIn'                   = fEnvIn'{fAttackT  = minDeltaT}
->     tryDelayT  fEnvIn'                   = fEnvIn'{fDelayT   = minDeltaT}
->                                          
->     tryFirst fEnvIn'@FEnvelope{ .. }    =
->       fEnvIn'{
->         fFirst = False
->       , fSustainT = adjSustainT
->       , fReleaseT = adjReleaseT}
->       where
->         rSum                             = tracer "rSum" $ fDelayT + fAttackT + fHoldT + fDecayT
->         rLeft                            = tfSecsToPlay - rSum
->         rDivvy                           = tracer "rDivvy" $ clip (0, 1) (fOrigReleaseT / tfSecsSampled)
->         rSus                             = rLeft * (1 - rDivvy)
->         rRel                             = rLeft * rDivvy
->         (adjSustainT, adjReleaseT)
->           | rLeft < 0                    = (minDeltaT, minUseful)
->           | (1/3) > fReleaseT / tfSecsSampled
->                                          = (fSustainT + rLeft, fReleaseT)
->           | otherwise                    = (fSustainT + rSus, fReleaseT + rRel)
->
-> minDeltaT, minUseful   :: Double
-> minDeltaT                                = fromTimecents Nothing
-> minUseful                                = 1/20
 
 Effects ===============================================================================================================
 
@@ -585,7 +417,7 @@ Utility types ==================================================================
 >   , rTuning            :: Int
 >   , rNoteOn            :: NoteOn
 >   , rAttenuation       :: Double
->   , rVolEnv            :: Maybe Envelope
+>   , rVolEnv            :: Maybe FEnvelope
 >   , rPitchCorrection   :: Maybe Double
 >   , rM8n               :: Modulation
 >   , rEffects           :: Effects} deriving (Eq, Show)
@@ -595,17 +427,10 @@ Utility types ==================================================================
 >     efChorus           :: Double
 >   , efReverb           :: Double
 >   , efPan              :: Double} deriving (Eq, Show)
->
-> data TimeFrame =
->   TimeFrame {
->     tfSecsSampled      :: Double
->   , tfSecsScored       :: Double
->   , tfSecsToPlay       :: Double
->   , tfLooping          :: Bool} deriving Show
 
 Flags for customization ===============================================================================================
 
-> usePitchCorrection, useAttenuation, useEnvelopes, useLoopSwitching, useReverb, useChorus, usePan, useDCBlock
+> usePitchCorrection, useAttenuation, useLoopSwitching, useReverb, useChorus, usePan, useDCBlock
 >                        :: Bool
 > noStereoNoPan, normalizingOutput
 >                        :: Bool
@@ -614,7 +439,6 @@ Turn Knobs Here ================================================================
 
 > usePitchCorrection                       = True
 > useAttenuation                           = True
-> useEnvelopes                             = True
 > useLoopSwitching                         = True
 > useReverb                                = True
 > useChorus                                = True

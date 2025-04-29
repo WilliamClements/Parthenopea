@@ -115,17 +115,16 @@ organize exposed music =========================================================
 >
 > sj                     :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
 > sj =
->    -- [ ("waypostpurple"   , waypostpurple)]
->       [ ("snake"       , snake)]
->    -- [ ("copper"      , copper 1)]
+>    [ ("gold"        , gold)]
+>    -- [ ("slot"        , slot 1)]
 >    -- [ ("getCITM"     , getCITM)]
 >    -- [ ("pa"          , pendingtonArnt 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum False)]
->    -- [ ("baked"       , shimSong $ bakedJingle 235310)]
+>    -- [ ("baked"       , shimSong $ bakedJingle 2310)]
 >    -- [ ("bob_1"       , bob 1)]
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("pit"         , pit)]
->    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
+>    -- [ ("wj"          , wj)]
 
 a few playthings ... get it? ==========================================================================================
 

@@ -678,6 +678,6 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >
 > howVerboseTournamentReport
 >                        :: Rational
-> howVerboseTournamentReport               = 1/4
+> howVerboseTournamentReport               = 3/4
 
 The End
