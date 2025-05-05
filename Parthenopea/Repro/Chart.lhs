@@ -11,8 +11,8 @@ November 9, 2023
 > module Parthenopea.Repro.Chart ( Section( .. ), chartPoints, table2vals ) where
 >
 > import Control.Lens
-> import Data.Colour
 > import Data.Default.Class
+> import Diagrams.Prelude
 > import Graphics.Rendering.Chart
 > import Graphics.Rendering.Chart.Backend.Diagrams
 
