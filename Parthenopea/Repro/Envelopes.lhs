@@ -288,11 +288,8 @@ discern design intent governing input Generator values, then implement something
 >         Nothing                          → True
 >         Just (xToPitch, xToFilterFc)     → isJust xToPitch || isJust xToFilterFc
 >
->     makeModTriple      :: Maybe (Maybe Int, Maybe Int) → ModTriple
->     makeModTriple                        =
->       \case
->         Nothing                          → defModTriple
->         Just target                      → uncurry deriveModTriple target Nothing
+>     makeModTriple      :: Maybe (Maybe Int, Maybe Int) → Maybe ModTriple
+>     makeModTriple                        = maybe Nothing (\(mi0, mi1) → Just $ deriveModTriple mi0 mi1 Nothing) 
 >
 > vetEnvelope            :: FEnvelope → Segments → Bool
 > vetEnvelope env@FEnvelope{ .. } segs
@@ -303,7 +300,8 @@ discern design intent governing input Generator values, then implement something
 >   | abs (b - c) > 0.01                   = error $ unwords [fName, "doesn't add up #2", show (a, b, c)]
 >   | abs prolog > epsilon                 = error $ unwords [fName, "non-zero prolog"]
 >   | abs epilog > epsilon                 = error $ unwords [fName, "non-zero epilog"]
->   | dipix < (k `div` 2)                  = error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show k]
+>   | isNothing fModTriple && dipix < (k `div` 2)
+>                                          = error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show k]
 >   | otherwise                            = True
 >   where
 >     fName                                = "vetEnvelope"

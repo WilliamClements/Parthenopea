@@ -117,9 +117,9 @@ organize exposed music =========================================================
 > sj =
 >    -- [ ("gold"        , gold)]
 >    -- [ ("slot"        , slot 1)]
->    -- [ ("getCITM"     , getCITM)]
+>       [ ("alice"       , alice)]
 >    -- [ ("pa"          , pendingtonArnt 1)]
->       [ ("deyDumpDum"  , deyDumpDum False)]
+>    -- [ ("deyDumpDum"  , deyDumpDum False)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 2310)]
 >    -- [ ("bob_1"       , bob 1)]
 >    -- [ ("theFanfare"  , theFanfare False)]

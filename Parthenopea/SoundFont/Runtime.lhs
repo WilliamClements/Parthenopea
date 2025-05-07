@@ -531,7 +531,7 @@ reconcile zone and sample header ===============================================
 >     summarize          :: ModDestType → ModCoefficients
 >     summarize toWhich                    =
 >       ModCoefficients
->         (coAccess toWhich $ maybe defModTriple fModTriple   nModEnv)
+>         (coAccess toWhich $ maybe defModTriple (fromJust . fModTriple) nModEnv)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
 

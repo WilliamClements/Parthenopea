@@ -688,7 +688,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   FEnvelope {
 >     fTargetT           :: Double
 >   , fSustainLevel      :: Double
->   , fModTriple         :: ModTriple
+>   , fModTriple         :: Maybe ModTriple
 >
 >   , fDelayT            :: Double
 >   , fAttackT           :: Double
@@ -940,7 +940,7 @@ Returns the amplitude ratio (based on input 10ths of a percent)
 >     then 1 / fromCentibels jS
 >     else (1000 - jS) / 1000
 >   where
->     jS                 :: Double         = maybe 0 (fromIntegral . clip (0, 1000)) iS
+>     jS                 :: Double         = maybe 0 fromIntegral iS
 >
 > theE, epsilon, upsilon :: Double
 > theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
