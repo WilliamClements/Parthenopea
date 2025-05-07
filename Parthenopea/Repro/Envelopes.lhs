@@ -103,7 +103,10 @@ discern design intent governing input Generator values, then implement something
 > evaluateCase           :: FEnvelope → FCase
 > evaluateCase FEnvelope{ .. } 
 >                                          =
->   FCase ((fDelayT + fAttackT + fHoldT) >= fTargetT) (fDecayT >= (7/10) * fTargetT) (fReleaseT >= (7/10) * fTargetT)
+>   FCase
+>     ((fDelayT + fAttackT + fHoldT) >= (9/10) * fTargetT)
+>     (fDecayT >= (7/10) * fTargetT)
+>     (fReleaseT >= (7/10) * fTargetT)
 >
 > refineEnvelope         :: FEnvelope → FEnvelope
 > refineEnvelope fEnvIn                    = result.fiEnvWork
@@ -232,7 +235,7 @@ discern design intent governing input Generator values, then implement something
 >     fName                                = "decayTooLong"
 >     trace_DARTL                          = unwords[fName, show (remaining, work)]
 >
->     work                                 = iterIn.fiEnvWork{fReleaseT = minDeltaT, fDecayT = minDeltaT}
+>     work                                 = iterIn.fiEnvWork{fDecayT = minDeltaT, fReleaseT = minDeltaT}
 >     remaining                            = work.fTargetT - feSum work
 >
 >     bigdecay                             = 5 * iterIn.fiEnvOrig.fDecayT
