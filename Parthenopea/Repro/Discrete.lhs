@@ -16,6 +16,7 @@ June 17, 2024
 > module Parthenopea.Repro.Discrete where
 >
 > import qualified Codec.Wav               as W
+> import Control.Arrow.Operations
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
@@ -26,7 +27,6 @@ June 17, 2024
 > import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
-> import FRP.UISF.AuxFunctions ( delay )
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
@@ -36,14 +36,15 @@ Discrete approach ==============================================================
 
 > computeFR          :: KernelSpec → DiscreteSig (Complex Double)
 > computeFR ks@KernelSpec{ .. }
->   | traceNow trace_CFR False             = undefined
+>   | traceNot trace_CFR False             = undefined
 >   | otherwise                            =
 >   profess
 >     ((ksLen > 0) && not (null ys'))
 >     (unwords ["computeFR bad input", show ksLen, show ys'])
 >     (fromRawVector tag' vec')
 >   where
->     trace_CFR                            = unwords ["computeFR", show ks, show shapes]
+>     fName                                = "computeFR"
+>     trace_CFR                            = unwords [fName, show ks, show shapes]
 >
 >     kd                                   = calcKernelData ks
 >     shapes                               = makeShapes ResponseNormal
@@ -65,7 +66,7 @@ Discrete approach ==============================================================
 >
 > applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
 > applyConvolutionMono lowP secsToPlay sIn
->   | traceNow trace_AC False              = undefined
+>   | traceNot trace_AC False              = undefined
 >   | otherwise                            = sig 
 >   where
 >     dsigIn             :: Maybe (DiscreteSig Double)
@@ -109,8 +110,7 @@ Discrete approach ==============================================================
 >              , "\ndsigInL:", show dsigInL
 >              , "\ndsigInR:", show dsigInR]
 >
-> fromContinuousSig      :: ∀ p. (Clock p) ⇒
->                           String → Double → Signal p () Double → Maybe (DiscreteSig Double)
+> fromContinuousSig      :: ∀ p. (Clock p) ⇒ String → Double → Signal p () Double → Maybe (DiscreteSig Double)
 > fromContinuousSig tag dur sf             = 
 >   if not (null dlist)
 >     then Just $ fromRawVector tag (VU.fromList dlist)
@@ -120,21 +120,21 @@ Discrete approach ==============================================================
 >     dlist                                = toSamples dur sf
 >
 > toContinuousSig         :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒ DiscreteSig a → Signal p () a
-> toContinuousSig dsL                    =
->   proc ()                              → do
+> toContinuousSig dsL                      =
+>   proc ()                                → do
 >     rec
->       ii' ← delay 0                    ⤙ ii
->       let ii                           = ii' + 1
->     outA                               ⤙ dsL.dsigVec VU.! (ii' `mod` dsL.dsigStats.dsigLength)
+>       ii' ← delay 0                      ⤙ ii
+>       let ii                             = ii' + 1
+>     outA                                 ⤙ dsL.dsigVec VU.! (ii' `mod` dsL.dsigStats.dsigLength)
 >
 > toContinuousSig'        :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒ DiscreteSig a → DiscreteSig a → Signal p () (a, a)
 > toContinuousSig' dsL dsR                 =
->   proc ()                              → do
+>   proc ()                                → do
 >     rec
->       ii' ← delay 0                    ⤙ ii
->       let ii                           = ii' + 1
->     outA                               ⤙ (  dsL.dsigVec VU.! (ii' `mod` dsL.dsigStats.dsigLength)
->                                            , dsR.dsigVec VU.! (ii' `mod` dsR.dsigStats.dsigLength))
+>       ii' ← delay 0                      ⤙ ii
+>       let ii                             = ii' + 1
+>     outA                                 ⤙ (  dsL.dsigVec VU.! (ii' `mod` dsL.dsigStats.dsigLength)
+>                                              , dsR.dsigVec VU.! (ii' `mod` dsR.dsigStats.dsigLength))
 >
 > fromRawVector          :: (Coeff a, VU.Unbox a) ⇒ String → VU.Vector a → DiscreteSig a
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
@@ -174,13 +174,15 @@ Discrete approach ==============================================================
 >
 > slowConvolveIR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > slowConvolveIR dsigIn Lowpass{ .. }
->   | traceNow trace_SCIR False            = undefined
+>   | traceNot trace_SCIR False            = undefined
 >   | otherwise                            =
 >   profess
 >     (ok x1 && ok x2 && ok x3 && sane dsigOut)
->     (unwords ["slowConvolveIR-- problem with 1,2, or 3"])
+>     (unwords [fName, "- problem with 1,2, or 3"])
 >     dsigOut
 >   where
+>     fName                                = "slowConvolveIR"
+>
 >     cdsigIn            :: DiscreteSig (Complex Double)
 >     cdsigIn                              =
 >       fromRawVector ("widen " ++ dsigTag dsigIn) $ VU.map (:+ 0) (dsigVec dsigIn)
@@ -199,24 +201,26 @@ Discrete approach ==============================================================
 >
 >     x3                                   =
 >       VU.fromList [ sum [ x1 VU.! k * x2 VU.! (n-k) | k ← [max 0 (n-m2)..min n m1] ] | n ← [0..m3] ]
->     dsigOut                              = fromRawVector "slowConvolveIR" (VU.map realPart x3)
+>     dsigOut                              = fromRawVector fName (VU.map realPart x3)
 >
 >     ok vec                               = VU.length vec > 0
 >
 >     trace_SCIR                           =
->       unwords ["slowConvolveIR\n", show dsigIn
+>       unwords [fName, "\n", show dsigIn
 >              , "\n X \n", show cdsigIR
 >              , "\n = \n", show dsigOut]
 >
 > fastConvolveFR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > fastConvolveFR dsigIn Lowpass{ .. }
->   | traceNow trace_FCFR False            = undefined
+>   | traceNot trace_FCFR False            = undefined
 >   | otherwise                            =
 >   profess
 >     (sane dsigOut')
 >     (unwords ["fastConvolveFR-- insane result"])
 >     dsigOut'
 >   where
+>     fName                                = "fastConvolveFR"
+>
 >     dsigIn'                              = if correctDCOffset
 >                                              then subtractDCOffset dsigIn
 >                                              else dsigIn
@@ -259,9 +263,9 @@ Discrete approach ==============================================================
 >         else toTimeDomain $ VU.toList vprod
 >
 >     trace_FCFR                           =
->       unwords ["fastConvolveFR\n", show cdsigIn
->                                  , show cdsigFR
->                                  , show dsigOut]
+>       unwords [fName, "\n", show cdsigIn
+>                           , show cdsigFR
+>                           , show dsigOut]
 >
 > toFrequencyDomain      :: ∀ a. Coeff a ⇒ [a] → [Complex Double]
 > toFrequencyDomain                        = doFft fft
@@ -336,15 +340,14 @@ Each driver specifies an xform composed of functions from Double to Double
 >         (xIn <= kdNyq)
 >         (unwords ["xIn", show xIn, "out of range (mag)", show fritems])
 >         ((* ynorm) . \x → friCompute x xIn) fritem
->     (ph, xIn)                         = if xIn_ <= kdNyq
+>     (ph, xIn)                            = if xIn_ <= kdNyq
 >                                              then (3*pi/2, xIn_)
 >                                              else (pi/2, kdNyq - xIn_)
 >
 >     fritem                               =
->       profess
->         (not $ null fritems')
->         (unwords ["xIn", show xIn, "out of range (FrItem)", show fritems])
->         (head fritems')
+>       if null fritems'
+>         then head fritems
+>         else head fritems'
 >     fritems'                             = dropWhile ((xIn <) . friTrans) fritems
 >     fritems                              = foldl' doShape [] shapes
 >
@@ -422,7 +425,6 @@ Type declarations ==============================================================
 >   , kdEQ               :: Double         -- effective Q (centibels)
 >   , kdNyq              :: Double         -- half-length of the FR (or IR)
 >   , kdStretch          :: Double         -- bandwidth of center frequency (range)
->   , kdSpread           :: Int            -- bandwidth of show-able range
 >   , kdLeftOfBulge      :: Double
 >   , kdRightOfBulge     :: Double
 >   } deriving Show
@@ -434,7 +436,6 @@ Type declarations ==============================================================
 >     effectiveQ
 >     (fromIntegral ksLen / 2)
 >     stretch
->     (round $ stretch * 2)
 >     (fc - stretch / 2)
 >     (fc + stretch / 2)
 >   where
@@ -475,11 +476,11 @@ Type declarations ==============================================================
 > sane                   :: (Coeff a) ⇒ DiscreteSig a → Bool
 > sane dsig                                =
 >   profess
->     (maxAmp < upsilon)
->     (unwords ["insanely large amplitude", show maxAmp])
+>     (stMaxAmp < upsilon)
+>     (unwords ["insanely large amplitude", show stMaxAmp])
 >     True
 >   where
->     maxAmp                               = dsig.dsigStats.stMaxAmp
+>     DiscreteStats{ .. }                  = dsig.dsigStats
 >
 > subtractDCOffset       :: DiscreteSig Double → DiscreteSig Double
 > subtractDCOffset dIn                     =

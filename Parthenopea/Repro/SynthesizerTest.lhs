@@ -11,12 +11,12 @@ March 2, 2024
 > module Parthenopea.Repro.SynthesizerTest ( runSynthesizerTests, synthesizerTests ) where
 >
 > import qualified Data.Audio              as A
-> import Euterpea.IO.Audio.Basics
-> import Euterpea.IO.Audio.Types
-> import Parthenopea.Debug
-> import Parthenopea.Music.Siren
-> import Parthenopea.Repro.Modulation
-> import Parthenopea.Repro.Synthesizer ( eutDriver, Effects(Effects), Recon(Recon) )
+> import Euterpea.IO.Audio.Basics ( outA )
+> import Euterpea.IO.Audio.Types ( Clock(..), AudRate, Signal )
+> import Parthenopea.Debug ( aEqual, runTests )
+> import Parthenopea.Music.Siren ( SlwRate, toSampleDubs )
+> import Parthenopea.Repro.Modulation ( NoteOn(NoteOn), defModulation )
+> import Parthenopea.Repro.Synthesizer ( eutDriver, Effects(Effects), Recon(Recon), TimeFrame(..) )
   
 Testing ===============================================================================================================
 
@@ -34,7 +34,7 @@ Testing ========================================================================
 >
 > driveDriver            :: ∀ p. Clock p ⇒ Signal p () Double
 > driveDriver                              = proc _ → do
->   x                                      ← eutDriver 1 defRecon 1 0.1 True  ⤙ ()
+>   x                                      ← eutDriver (TimeFrame 2 1 1 True) defRecon 0.1 ⤙ ()
 >   outA                                                                                 ⤙ x
 > 
 > checkSignal            :: ∀ p. Clock p ⇒ Double → Signal p () Double → IO Bool

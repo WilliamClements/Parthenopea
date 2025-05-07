@@ -585,7 +585,7 @@ Whelp Narp =====================================================================
 > wnLead_, wnStrings_, wnBass_, wnPerc_
 >                        :: BandPart
 > wnLead_                                  = makePitched    AltoSax              wnTranspose 0 90
-> wnStrings_                               = makePitched    Bagpipe              wnTranspose 0 90
+> wnStrings_                               = makePitched    AcousticGuitarNylon  wnTranspose 0 90
 > wnBass_                                  = makePitched    ElectricBassPicked   wnTranspose 0 80
 > wnPerc_                                  = makeNonPitched                                    100
 >
@@ -816,7 +816,7 @@ Way Pos' T' Purple =============================================================
 >                        :: BandPart
 > wayposLead_                              = makePitched    Clarinet       wayposTranspose 0 100
 > wayposStrum_                             = makePitched    OrchestralHarp wayposTranspose 0 100
-> wayposBass_                              = makePitched    Bassoon        wayposTranspose 0  50
+> wayposBass_                              = makePitched    SynthBass1     wayposTranspose 0  50
 > wayposPerc_                              = makeNonPitched                                  100
 >
 > waypostpurple          :: Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute])

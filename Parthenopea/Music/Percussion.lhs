@@ -15,8 +15,8 @@ William Clements
 
 perc helpers ==========================================================================================================
 
-> percm :: PercussionSound → [Dur] → Music Pitch
-> percm p durs = line (map (perc p) durs)
+> percm                  :: PercussionSound → [Dur] → Music Pitch
+> percm p durs                             = line (map (perc p) durs)
 >
 > percBDqn, percOHHqn, percCHHqn, percCCqn, percRCqn, percSDqn, percLTqn, percHTqn
 >                        :: Music Pitch

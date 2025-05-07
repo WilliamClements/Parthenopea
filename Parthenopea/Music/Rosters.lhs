@@ -22,12 +22,12 @@ May 4, 2023
 > import Parthenopea.Music.Baking
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Discrete
-> import Parthenopea.Repro.ModulationTest
-> import Parthenopea.Repro.SmashingTest
-> import Parthenopea.Repro.SynthesizerTest
-> import Parthenopea.SoundFont.Boot
-> import Parthenopea.SoundFont.BootTest
-> import Parthenopea.SoundFont.Runtime
+> import Parthenopea.Repro.ModulationTest ( modulationTests )
+> import Parthenopea.Repro.SmashingTest ( smashingTests )
+> import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
+> import Parthenopea.SoundFont.Boot ( equipInstruments )
+> import Parthenopea.SoundFont.BootTest ( bootTests )
+> import Parthenopea.SoundFont.Runtime ( bootNRender )
 > import Parthenopea.Tunes.Cecil
 > import Parthenopea.Tunes.Covers
 > import Parthenopea.Tunes.Fanfare
@@ -115,17 +115,16 @@ organize exposed music =========================================================
 >
 > sj                     :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
 > sj =
->    -- [ ("testslot"    , shimSong $ aggrandize testslot)]
->    -- [ ("littleDH"    , shimSong $ aggrandize littleDH)]
->    -- [ ("pit"         , pit)]
->    -- [ ("getCITM"     , getCITM)]
+>    -- [ ("gold"        , gold)]
+>    -- [ ("slot"        , slot 1)]
+>       [ ("alice"       , alice)]
 >    -- [ ("pa"          , pendingtonArnt 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum False)]
->    -- [ ("baked"       , shimSong $ bakedJingle 2610)]
->       [ ("slot_1"      , slot 1)]
+>    -- [ ("baked"       , shimSong $ bakedJingle 2310)]
+>    -- [ ("bob_1"       , bob 1)]
 >    -- [ ("theFanfare"  , theFanfare False)]
->    -- [ ("rattan"      , rattan)]
->    -- [ ("littleSailor", shimSong $ aggrandize littleSailor)]
+>    -- [ ("pit"         , pit)]
+>    -- [ ("wj"          , wj)]
 
 a few playthings ... get it? ==========================================================================================
 
@@ -185,10 +184,9 @@ a few playthings ... get it? ===================================================
 >   mbundle                                ← equipInstruments allKinds
 >   if isJust mbundle
 >     then do
->       let (runt, _, _, _, _)             = fromJust mbundle
+>       let (runt, _, _)                   = fromJust mbundle
 >       print runt
 >     else do
 >       return ()
->
 
 The End

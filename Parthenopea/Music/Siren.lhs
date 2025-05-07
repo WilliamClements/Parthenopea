@@ -24,7 +24,6 @@ December 12, 2022
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Complex
 > import Data.Either
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List hiding (transpose)
@@ -43,9 +42,11 @@ December 12, 2022
 > import Euterpea.IO.MIDI.ToMidi2 ( writeMidi2 )
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Repro.Modulation
 > import System.Random ( Random(randomR), StdGen )
 
+> type Velocity                            = Volume
+> type KeyNumber                           = AbsPitch
+>
 > allKinds               :: ([InstrumentName], [PercussionSound])
 > allKinds                                 =
 >   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
@@ -273,12 +274,8 @@ which makes for a cleaner sound on some synthesizers:
 >     notes              :: [Music Pitch]  = [note (durS * 9 / (reach * 10)) (pitch x) | x ← gliss]
 >
 > extendModeToInfinity   :: Bool → AbsPitch → [AbsPitch] → [(AbsPitch, Int)]
-> extendModeToInfinity desc start templ8
->   | traceIf trace_EMTI False             = undefined
->   | otherwise                            = iterate' doNext (start, 0)
+> extendModeToInfinity desc start templ8   = iterate' doNext (start, 0)
 >   where
->     fName                                = "extendModeToInfinity"
->
 >     nT                                   = length templ8
 >     doNext             :: (AbsPitch, Int) → (AbsPitch, Int)
 >     doNext (ap, ix)                      = (ap + delta, ix')
@@ -289,8 +286,6 @@ which makes for a cleaner sound on some synthesizers:
 >           | otherwise                    = (ix + 1, 0)
 >  
 >         delta                            = templ8 !! ix' - templ8 !! ix  + offs
->
->     trace_EMTI                           = unwords [fName, show start, show templ8]
 >
 > descendFrom            :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
 > descendFrom bp p pc mode                 = squeezeAPSequence (takeWhile (>= bottom) limited)
@@ -312,7 +307,7 @@ which makes for a cleaner sound on some synthesizers:
 
 ranges ================================================================================================================
 
->   -- calibrate (0,1) to (lo,up) e.g. (24,92)
+>   -- calibrate (0,1) to a desired range e.g. (24,92)
 > denorm                 :: Double → (Double, Double) → Double
 > denorm r (lo, up)                        = lo + r * (up-lo)
 >
@@ -662,7 +657,7 @@ examine song for instrument and percussion usage ===============================
 >   let
 >     p                                    = mev.ePitch
 >   in
->     if p == clip rng p
+>     if inRange rng p
 >       then []
 >       else singleton (name, singleton $ unwords ["...", show p, "out of range", show rng])
 >
@@ -863,47 +858,15 @@ Conversion functions and general helpers =======================================
 >   where
 >     rnd                :: Int
 >     rnd                                  = round (p10 * x)
->
-> sumOfWeightedInts      :: ∀ a. Num a ⇒ [Maybe a] → [a] → a
-> sumOfWeightedInts xs ws                  = sum $ zipWith (\w x → w * fromMaybe 0 x) ws xs
->       
-> addIntToWord           :: Word → Int → Word
-> addIntToWord w i                         = fromIntegral (iw + i)
->   where
->     iw                 :: Int
->     iw                                   = fromIntegral w
->
-> integralize            :: ∀ a b. (Integral a, Num b) ⇒ Maybe (a, a) → Maybe (b, b)
-> integralize mww                          =
->   case mww of
->     Nothing                              → Nothing
->     Just (w1, w2)                        → if w1 > w2 then Nothing else Just (fromIntegral w1, fromIntegral w2)
->
-> almostEqual            :: Double → Double → Bool
-> almostEqual 0 0                          = True
-> almostEqual x y                          = epsilon > abs ((x - y) / (x + y))
-
-Returns the amplitude ratio (based on input 10ths of a percent) 
-
-> fromTithe              :: Maybe Int → Bool → Double
-> fromTithe iS isVol                       =
->   if isVol
->     then 1 / fromCentibels jS
->     else (1000 - jS) / 1000
->   where
->     jS                 :: Double         = maybe 0 (fromIntegral . clip (0, 1000)) iS
 
 Returns sample point as (normalized) Double
 
 > sample24               :: Int16 → Word8 → Double
-> sample24 i16 w8                          = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 8_388_608.0
+> sample24 i16 w8                          = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 8_388_608.0 -- 1_048_576
 >   where
 >     f8to32             :: Word8 → Int32  = fromIntegral
 >     f16to32            :: Int16 → Int32  = fromIntegral
 >      
-> sample16               :: Int16 → Double
-> sample16 i16                             = fromIntegral i16 / 32_768.0
->
 > samplePoint            :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Int → Double
 > samplePoint s16 ms8 ix                   = sample24 (s16 ! ix) (fromIntegral (maybe 0 (! ix) ms8))
 >
@@ -913,43 +876,11 @@ Returns sample point as (normalized) Double
 >     (s0, s1)           :: (Double, Double)
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
-
-sampleUp returns power of 2 greater than OR EQUAL TO the input value (result at least 2**14)
-sampleDown returns power of 2 less than OR EQUAL TO the input value (input enforced <= 2**31)
-breakUp returns a list of integers approximating divisions of a floating point range
-
-> sampleUp               :: Int → Int
-> sampleUp i                               =
->   if i <= 0
->     then error "out of range for sampleUp"
->     else max 16_384 (head $ dropWhile (< i) (iterate' (* 2) 1))
 >
-> sampleDown             :: Int → Int
-> sampleDown i                             =
->   if i <= 0 || i > 2_147_483_648
->     then error "out of range for sampleDown"
->     else head $ dropWhile (> i) (iterate' (`div` 2) 2_147_483_648)
->
-> breakUp :: (Double, Double) → Double → Int → [Int]
-> breakUp (xmin, xmax) base nDivs =
->   let
->     (ymin, ymax) =
->       if base == 0
->         then (xmin, xmax)
->         else (logBase base xmin, logBase base xmax)
->     delta = (ymax - ymin) / fromIntegral nDivs
->     oper =
->       if base == 0
->         then id
->         else pow base
->   in
->     map (round . oper . (+ ymin) . (* delta) . fromIntegral) ([0..nDivs] :: [Int])
->    
-> theE' :: Complex Double
-> theE' = theE :+ 0
->
-> theJ :: Complex Double
-> theJ = 0 :+ 1
+> qMidiSize128           :: Int
+> qMidiSize128                             = 128
+> qMidiSizeSpace         :: Int
+> qMidiSizeSpace                           = qMidiSize128 * qMidiSize128
 
 Configurable parameters ===============================================================================================
 

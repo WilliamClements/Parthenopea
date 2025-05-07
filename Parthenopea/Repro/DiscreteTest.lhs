@@ -3,6 +3,7 @@
 >
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE NumericUnderscores #-}
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -12,18 +13,20 @@ June 22, 2024
 
 > module Parthenopea.Repro.DiscreteTest where
 >
-> import Data.Colour
-> import Data.Colour.Names
-> import Data.Complex
+> import Control.Arrow
+> import Data.Complex ( imagPart, realPart, Complex )
 > import Data.List ( foldl' )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import qualified Data.Vector.Unboxed     as VU
-> import Euterpea.IO.Audio.Basics ( outA )
-> import Euterpea.IO.Audio.BasicSigFuns ( osc, Table )
-> import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock )
-> import Parthenopea.Debug
-> import Parthenopea.Music.Siren
-> import Parthenopea.Repro.Chart
+> import Diagrams.Prelude hiding ( fc )
+> import Euterpea.IO.Audio.Basics ( outA, apToHz )
+> import Euterpea.IO.Audio.BasicSigFuns ( osc, Table, envExpon )
+> import Euterpea.IO.Audio.IO ( outFile )
+> import Euterpea.IO.Audio.Render ( Instr )
+> import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock, Mono, AudRate )
+> import Parthenopea.Debug(notracer, traceNot)
+> import Parthenopea.Music.Siren ( maxSample, qMidiSize128 )
+> import Parthenopea.Repro.Chart ( Section(Section), chartPoints )
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
 
@@ -33,13 +36,18 @@ Feed chart =====================================================================
 > allFilterTypes                           = [minBound..maxBound]
 >
 > nKews                  :: Int
-> nKews                                    = 1
+> nKews                                    = 4
 > kews                   :: [Int]
-> kews                                     = [240] -- breakUp (0, 480) 0 nKews
+> kews                                     = [0, 120, 240, 480] -- breakUp (0, 480) 0 nKews
 > nCutoffs               :: Int
-> nCutoffs                                 = 1
+> nCutoffs                                 = 4
 > cutoffs                :: [Int]
-> cutoffs                                  = [2_000] -- breakUp (1_000, 2_000) 0 nCutoffs
+> cutoffs                                  = [2_000, 4_000, 8_000, 15_353]
+>                                            -- 9_370, 9_373, 9_3274]
+    
+>                                           -- [9_300, 9_371, 9_380, 9_200, 9_300, 9_365]
+>                                           -- [9_350, 9_360, 9_380, 9_400]
+> -- cutoffs                                  = [9_350, 9_400, 9_425, 9_500]
 > nFreaks                :: Int
 > nFreaks                                  = 23
 > freaks                 :: [Int]
@@ -52,17 +60,17 @@ Feed chart =====================================================================
 > colors                 :: [AlphaColour Double]
 >                                          =
 >   cycle
->     [  opaque blue
->     ,  opaque orange
->     ,  opaque green
->     ,  opaque red
->     ,  opaque purple]
+>     [  blue `withOpacity` 2
+>     ,  orange `withOpacity` 2
+>     ,  green `withOpacity` 2
+>     ,  red  `withOpacity` 2
+>     ,  purple `withOpacity` 2]
 >
 > bench, porch           :: IO ()
 > bench                                    =
->   benchFilters measureResponse [ResonanceConvo] cutoffs kews freaks
+>   benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
 > porch                                    =
->   benchFilters measureResponse [ResonanceTwoPoles] cutoffs kews freaks
+>   benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
 >
 > checkGrouts            ::  [(Double, Double)] → IO String
 > checkGrouts grouts                       = do
@@ -86,16 +94,11 @@ Feed chart =====================================================================
 > measureResponse BenchSpec{ .. } Modulation{ .. }
 >                                          = map doFk bench_fks
 >   where
->     Lowpass{ .. }                        = mLowpass
->
 >     doFk               :: Double → (Double, Double)
 >     doFk fk                              = (fk, maxSample filterTestDur sf)
 >       where
 >         sf             :: AudSF () Double
->         sf                               =
->           if ResonanceConvo == lowpassType
->             then createConvoTest sineTable mLowpass fk
->             else createFilterTest sineTable mLowpass fk
+>         sf                               = createFilterTest sineTable mLowpass fk
 > 
 > benchFilters           :: (BenchSpec → Modulation → [(Double, Double)]) → [ResonanceType] → [Int] → [Int] → [Int] → IO ()
 > benchFilters fun rts fcs qs fks          = doFilters fun bRanges
@@ -153,6 +156,7 @@ Feed chart =====================================================================
 >               putStrLn $ unwords ["doFcs", show fcs]
 >               ts1                        ← getCurrentTime
 >               let sects                  = zipWith Section colors (map calc fcs)
+>               print sects
 >               chartPoints (concat [show currentRt, "_q", show currentQ]) sects
 >               ts2                        ← getCurrentTime 
 >               putStrLn $ unwords ["doFcs elapsed=: ", show (diffUTCTime ts2 ts1)]
@@ -163,7 +167,7 @@ Feed chart =====================================================================
 >                     bs@BenchSpec{ .. }   = BenchSpec currentRt filterTestDur currentFc currentQ ranges_fks
 >                     ks                   = KernelSpec
 >                                              (toAbsoluteCents bench_fc)
->                                              (round (960 * currentQ))
+>                                              (round currentQ)
 >                                              44_100
 >                                              useFastFourier
 >                                              256
@@ -200,8 +204,8 @@ Feed chart =====================================================================
 >     vecR                                 = VU.map realPart (dsigVec cdsigFr)
 >     vecI                                 = VU.map imagPart (dsigVec cdsigFr)
 >     groutsR, groutsI   :: [(Double, Double)]
->     groutsR                              = [(fromIntegral i, - vecR VU.! i) | i ← freakSpan]
->     groutsI                              = [(fromIntegral i, - vecI VU.! i) | i ← freakSpan]
+>     groutsR                              = [(fromIntegral i, - (vecR VU.! i)) | i ← freakSpan]
+>     groutsI                              = [(fromIntegral i, - (vecI VU.! i)) | i ← freakSpan]
 >     
 > createConvoTest        :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
 > createConvoTest waveTable lp@Lowpass{ .. } freq
@@ -217,20 +221,36 @@ Feed chart =====================================================================
 >
 > createFilterTest       :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
 > createFilterTest waveTable lp@Lowpass{ .. } freq
->   | traceNot trace_CFT False             = undefined
->   | otherwise                            =
+>                                          =
 >   proc () → do
->     a1 ← osc waveTable 0 ⤙ freq
->     a2 ← filtersf ⤙ (a1, fc)
->     outA ⤙ a2 * 100 / fromIntegral qMidiSize128
+>     a1 ← osc waveTable 0                 ⤙ freq
+>     a2 ← filtersf                        ⤙ (a1, fc)
+>     outA                                 ⤙ a2 * 100 / fromIntegral qMidiSize128
 >   where
->     trace_CFT                            = unwords ["createFilterTest", show fc, show freq]
->
->     KernelSpec{ .. }                     = lowpassKs
->     fc                                   = fromAbsoluteCents ksFc                     
+>     fc                                   = fromAbsoluteCents lowpassKs.ksFc                     
 >
 >     filtersf                             = procFilter lp
 >
+> env1                   :: AudSF () Double
+> env1                                     = envExpon 20 10 10_000
+>
+> sfTest1                :: AudSF (Double,Double) Double → Instr (Mono AudRate)
+>                        -- AudSF (Double,Double) Double → 
+>                        -- Dur → AbsPitch → Volume → [Double] → AudSF () Double
+> sfTest1 sf _ ap vol _                    =
+>   let f = apToHz ap
+>       v = fromIntegral vol / 100
+>   in proc () → do
+>        a1 <- osc sineTable 0 <<< env1 -< () 
+>        a2 <- sf -< (a1,f)
+>        outA -< a2*v
+>
+> tsvf                   :: IO ()
+> tsvf                                     = outFile "low.wav" 10 $ sfTest1 (procSVF lp) 10 72 80 []
+>   where
+>     lp                                   = Lowpass ResonanceSVF ks
+>     ks                                   = (defKernelSpec True) {ksFc = 1000}
+>            
 > testKS                 :: KernelSpec
 > testKS                                   =
 >   KernelSpec
@@ -297,10 +317,10 @@ Feed chart =====================================================================
 >       where
 >         xformDecline   :: Double → Double
 >         xformDecline                     =
->             tracer "fromCentibels"       . fromCentibels
->           . tracer "ddLinear2"           . ddLinear2 (-dropoffRate) 0 -- hcent
->           . tracer "delta"               . flip (-) (logBase 2 freakStart)
->           . tracer "logBase 2"           . logBase 2
->           . tracer "xIn"
+>             notracer "fromCentibels"     . fromCentibels
+>           . notracer "ddLinear2"         . ddLinear2 (-dropoffRate) 0 -- hcent
+>           . notracer "delta"             . flip (-) (logBase 2 freakStart)
+>           . notracer "logBase 2"         . logBase 2
+>           . notracer "xIn"
 
 The End

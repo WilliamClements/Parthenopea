@@ -13,125 +13,62 @@ SFSpec
 William Clements
 April 16, 2023
 
-> module Parthenopea.SoundFont.SFSpec
->        (  accepted
->         , appendChange
->         , autopsy
->         , badButMaybeFix
->         , cancels
->         , combineBoot
->         , combinerd
->         , dasBoot
->         , dead
->         , deadrd
->         , defZone
->         , dropped
->         , Disposition(..)
->         , effShdr
->         , elideset
->         , emitMsgs
->         , emptyrd
->         , extractInstKey
->         , extractSampleKey
->         , extractZoneKey
->         , FileArrays(..)
->         , findByBagIndex
->         , findByBagIndex'
->         , findBySampleIndex
->         , findBySampleIndex'
->         , finishScans
->         , fixName
->         , formPreZoneMap
->         , fromSampleType
->         , getMaybePercList
->         , howVerboseScanReport
->         , howVerboseTournamentReport
->         , Impact(..)
->         , InstCat(..)
->         , InstCatData(..)
->         , InstXForm(..)
->         , is24BitInst
->         , isStereoInst
->         , isStereoZone
->         , KeyNumber
->         , lookupCellIndex
->         , makePreZone
->         , modified
->         , noChange
->         , noClue
->         , notDead
->         , PerGMKey(..)
->         , PerInstrument(..)
->         , PreInstrument(..)
->         , PreSample(..)
->         , PreSampleKey(..)
->         , PreZone(..)
->         , PreZoneKey(..)
->         , rdLengths
->         , reportScanName
->         , reportTournamentName
->         , rescued
->         , ResultDispositions(..)
->         , SampleArrays(..)
->         , SampleType(..)
->         , Scan(..)
->         , SFBoot(..)
->         , SFFile(..)
->         , SFResource(..)
->         , SFZone(..)
->         , ShdrXForm(..)
->         , showBags
->         , showMaybeInstCat
->         , showPreZones
->         , toMaybeSampleType
->         , toSampleType
->         , Velocity
->         , violated
->         , virginrd
->         , wasRescued
->         , ZoneDigest(..)
->         )
->         where
+> module Parthenopea.SoundFont.SFSpec where
 >
 > import qualified Codec.SoundFont         as F
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Char
+> import Data.Either
 > import Data.Foldable
 > import Data.Int ( Int8, Int16 )
 > import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
+> import Data.Ratio ( (%) )
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
-> import Parthenopea.Repro.Modulation
   
-importing sampled sound (from SoundFont (*.sf2) files) ================================================================
+implementing SoundFont spec ===========================================================================================
 
+> data ChangeNameItem = FixCorruptName deriving Eq
+>
+> data ChangeName a =
+>   ChangeName {
+>     cnSource           :: a
+>   , cnChanges          :: [ChangeNameItem]
+>   , cnName             :: String}
+>
+> data ChangeEarItem = MakeMono deriving Eq
+>
+> data ChangeEar a =
+>   ChangeEar {
+>     ceSource           :: a
+>   , ceChanges          :: [ChangeEarItem]} deriving Eq
+>
 > data PreSampleKey =
 >   PreSampleKey {
 >     pskwFile           :: Word
 >   , pskwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
-> data PreSample =
->   PreSample {
->     sName              :: String
->   , psShdr             :: F.Shdr
->   , psChanges          :: [ShdrXForm]}
+> type PreSample = ChangeName F.Shdr
+> effPSShdr              :: PreSample → F.Shdr
+> effPSShdr ps                             =
+>   let
+>     raw                                  = ps.cnSource
+>     name                                 = ps.cnName
+>   in
+>     raw{F.sampleName = name}
 >
 > data PreZoneKey =
 >   PreZoneKey {
 >     pzkwFile           :: Word
->   , pzkwBag            :: Word} deriving (Eq, Ord, Show)
->
-> data ShdrXForm =
->   MakeMono
->   | MakeLeft PreZoneKey
->   | MakeRight PreZoneKey
->   | FixCorruptShdrName deriving Eq
+>   , pzkwInst           :: Word
+>   , pzkwBag            :: Word
+>   , pzkwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
 > data PreZone =
 >   PreZone {
@@ -140,49 +77,53 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , pzWordI            :: Word
 >   , pzWordB            :: Word
 >   , pzDigest           :: ZoneDigest
->   , pzmkPartners       :: [PreZoneKey]
->   , pzChanges          :: [ShdrXForm]} deriving Eq
+>   , pzmkPartners       :: Either PreZoneKey [PreZoneKey]
+>   , pzChanges          :: ChangeEar F.Shdr} deriving Eq
 > instance Show PreZone where
->   show (PreZone{ .. })                   =
+>   show (PreZone{ .. })
+>                                          =
 >     unwords ["PreZone", show (pzWordF, pzWordS, pzWordI, pzWordB), show pzDigest, show pzmkPartners]
+> showBad                :: PreZone -> String
+> showBad PreZone{ .. }
+>                                          =
+>   let
+>     ZoneDigest{ .. }
+>                                          = pzDigest
+>   in
+>     show (pzWordB, (zdKeyRange, zdVelRange))
 >
-> makePreZone            :: Word → Word → Word → Word → [F.Generator] → PreZone
-> makePreZone wF wS wI wB gens             = PreZone wF wS wI wB (formDigest gens) [] []
+> makePreZone            :: Word → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
+> makePreZone wF wS wI wB gens shdr        =
+>   PreZone wF wS wI wB (formDigest gens) (Right []) (ChangeEar shdr [])
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
 > extractInstKey         :: PreZone → PerGMKey
 > extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
 > extractZoneKey         :: PreZone → PreZoneKey
-> extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordB
-> effShdr                :: Map PreSampleKey PreSample → PreZone → F.Shdr
-> effShdr psCache pz                       =
->   foldl' (\s x → (\case
->                   MakeMono               → s{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
->                   MakeLeft _             → s{F.sampleType = fromSampleType SampleTypeLeft, F.sampleLink = 0}
->                   MakeRight _            → s{F.sampleType = fromSampleType SampleTypeRight, F.sampleLink = 0}
->                   FixCorruptShdrName     → s{F.sampleName = fixName (F.sampleName s)}) x)
->          (psShdr (deJust "rawShdr" (Map.lookup (extractSampleKey pz) psCache)))
->          pz.pzChanges
-> appendChange           :: PreZone → ShdrXForm → PreZone
-> appendChange pz@PreZone{ .. } change     = pz{pzChanges = pzChanges ++ singleton change}
+> extractZoneKey pz                        =
+>   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
+> effPZShdr              :: PreZone → F.Shdr
+> effPZShdr PreZone{pzChanges}             =
+>   if MakeMono `elem` pzChanges.ceChanges
+>     then pzChanges.ceSource{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
+>     else pzChanges.ceSource
+> makeMono               :: PreZone → PreZone
+> makeMono pz@PreZone{pzChanges}           = pz{pzChanges = pzChanges{ceChanges = MakeMono : pzChanges.ceChanges}}
+> wasSwitchedToMono      :: PreZone → Bool
+> wasSwitchedToMono PreZone{pzChanges}     = MakeMono `elem` pzChanges.ceChanges
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
-> formPreZoneMap         :: [PreZone] → Map PreZoneKey PreZone
-> formPreZoneMap                           = foldl' (\xs y → Map.insert (extractZoneKey y) y xs) Map.empty
+> inSameInstrument       :: PreZoneKey → PreZoneKey → Bool
+> inSameInstrument pzka pzkb               = pzka.pzkwInst == pzkb.pzkwInst
 >
 > data PreInstrument                       =
 >   PreInstrument {
->     pInst              :: F.Inst
->   , iName              :: String
->   , iGlobalKey         :: Maybe PreZoneKey
->   , iChanges           :: [InstXForm]}
+>     piChanges          :: ChangeName F.Inst
+>   , iGlobalKey         :: Maybe PreZoneKey}
 > instance Show PreInstrument where
 >   show (PreInstrument{ .. })             =
->     unwords ["PreInstrument", show iName]
->
-> data InstXForm =
->   FixCorruptInstName deriving Eq
+>     unwords ["PreInstrument", show piChanges.cnName]
 >
 > data PerInstrument                       =
 >   PerInstrument {
@@ -193,20 +134,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > data SFZone =
 >   SFZone {
->     zStartOffs         :: Maybe Int
->   , zEndOffs           :: Maybe Int
->   , zLoopStartOffs     :: Maybe Int
->   , zLoopEndOffs       :: Maybe Int
->
->   , zStartCoarseOffs   :: Maybe Int
->   , zEndCoarseOffs     :: Maybe Int
->   , zLoopStartCoarseOffs
->                        :: Maybe Int
->   , zLoopEndCoarseOffs :: Maybe Int
->
->   , zInstIndex         :: Maybe Word
->   , zKeyRange          :: Maybe (AbsPitch, AbsPitch)
->   , zVelRange          :: Maybe (Volume, Volume)
+>   zInstIndex         :: Maybe Word
 >   , zKey               :: Maybe Word
 >   , zVel               :: Maybe Word
 >   , zInitAtten         :: Maybe Int
@@ -215,7 +143,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , zSampleIndex       :: Maybe Word
 >   , zSampleMode        :: Maybe A.SampleMode
 >   , zScaleTuning       :: Maybe Int
->   , zExclusiveClass    :: Maybe Int
+>   , zExclusiveClass    :: Maybe Word
 >
 >   , zDelayVolEnv       :: Maybe Int
 >   , zAttackVolEnv      :: Maybe Int
@@ -256,11 +184,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , zModulators        :: [Modulator]} deriving (Eq, Show)
 >
 > defZone                :: SFZone
-> defZone                                  = SFZone Nothing Nothing Nothing Nothing
->
->                                            Nothing Nothing Nothing Nothing
->
->                                            Nothing Nothing Nothing Nothing
+> defZone                                  = SFZone 
+>                                            Nothing Nothing
 >                                            Nothing Nothing Nothing Nothing
 >                                            Nothing Nothing Nothing Nothing
 >
@@ -289,7 +214,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > data InstCat                             =
 >        InstCatInst InstCatData
 >      | InstCatPerc InstCatData
->      | InstCatDisq String [Scan]
+>      | InstCatDisq Impact String
 > instance Show InstCat where
 >   show icat                              =
 >     unwords ["InstCat", showMaybeInstCat $ Just icat]
@@ -305,7 +230,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     Nothing                              → "icNothing"
 >     Just (InstCatInst _)                 → "icInst"
 >     Just (InstCatPerc _)                 → "icPerc"
->     Just (InstCatDisq why _)             → unwords ["icDisq", why]
+>     Just (InstCatDisq imp why)           → unwords ["icDisq", show imp, why]
 > data InstCatData                         =
 >   InstCatData {
 >     inPreZones         :: [PreZone]
@@ -317,18 +242,24 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     zPreSampleCache    :: Map PreSampleKey PreSample
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
 >
->   , zTempPartnerMap    :: Map PreSampleKey PreSampleKey
+>   , zPartnerMap        :: Map PreZoneKey PreZoneKey
 >
->   , zOwners            :: Map PerGMKey [PreZone]
 >   , zJobs              :: Map PerGMKey InstCat
 >   , zPerInstCache      :: Map PerGMKey PerInstrument}
+> dasBoot                :: SFBoot
+> dasBoot                                  =
+>   SFBoot
+>     Map.empty Map.empty
+>     Map.empty
+>     Map.empty Map.empty
 > instance Show SFBoot where
->   show (SFBoot{ .. })                  =
+>   show (SFBoot{ .. })                    =
 >     unwords [  "SFBoot"
 >              , show (length zPreSampleCache), "=samples"
 >              , show (length zPreInstCache), "=insts"
 >
->              , show (length zOwners), "=owners"
+>              , show (length zPartnerMap), "=pards"
+>
 >              , show (length zJobs), "=jobs"
 >              , show (length zPerInstCache), "=perI"]
 > combineBoot            :: SFBoot → SFBoot → SFBoot
@@ -336,27 +267,19 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache   boot2.zPreSampleCache
 >         , zPreInstCache                  = Map.union boot1.zPreInstCache     boot2.zPreInstCache
 >
->         , zTempPartnerMap                = Map.union boot1.zTempPartnerMap   boot2.zTempPartnerMap
+>         , zPartnerMap                    = Map.union boot1.zPartnerMap       boot2.zPartnerMap
 >
->         , zOwners                        = Map.union boot1.zOwners           boot2.zOwners
 >         , zJobs                          = Map.union boot1.zJobs             boot2.zJobs
 >         , zPerInstCache                  = Map.union boot1.zPerInstCache     boot2.zPerInstCache}
 >
-> dasBoot                :: SFBoot
-> dasBoot                                  =
->   SFBoot
->     Map.empty Map.empty
->     Map.empty
->     Map.empty Map.empty Map.empty
->
-> data SFFile =
+> data SFFile                              =
 >   SFFile {
 >     zWordF             :: Word
 >   , zFilename          :: FilePath
 >   , zFileArrays        :: FileArrays
 >   , zSample            :: SampleArrays}
 >
-> data FileArrays = 
+> data FileArrays                          = 
 >   FileArrays {
 >     ssInsts            :: Array Word F.Inst
 >   , ssIBags            :: Array Word F.Bag
@@ -364,32 +287,38 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , ssIMods            :: Array Word F.Mod
 >   , ssShdrs            :: Array Word F.Shdr}
 >
-> data SampleArrays = 
+> data SampleArrays                        = 
 >   SampleArrays {
 >     ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
 >
-> data ZoneDigest =
+> data ZoneDigest                          =
 >   ZoneDigest {
 >     zdKeyRange         :: Maybe (Word, Word)
 >   , zdVelRange         :: Maybe (Word, Word)
+>   , zdPan              :: Maybe Int
 >   , zdSampleIndex      :: Maybe Word
+>   , zdSampleMode       :: Maybe A.SampleMode
 >   , zdStart            :: Int
 >   , zdEnd              :: Int
 >   , zdStartLoop        :: Int
 >   , zdEndLoop          :: Int} deriving (Eq, Show)
 > defDigest              :: ZoneDigest
-> defDigest                                = ZoneDigest Nothing Nothing Nothing 0 0 0 0
+> defDigest                                = ZoneDigest Nothing Nothing Nothing Nothing Nothing 0 0 0 0
 > formDigest             :: [F.Generator] → ZoneDigest
 > formDigest                               = foldr inspectGen defDigest
 >   where
 >     inspectGen         :: F.Generator → ZoneDigest → ZoneDigest 
 >     inspectGen (F.KeyRange i j)                          zd
->                                          = zd {zdKeyRange = normalizeRange i j}
+>                                          = zd {zdKeyRange = Just(i, j)}
 >     inspectGen (F.VelRange i j)                          zd
->                                          = zd {zdVelRange = normalizeRange i j}
+>                                          = zd {zdVelRange = Just(i, j)}
+>     inspectGen (F.Pan i)                                 zd
+>                                          = zd {zdPan = Just i}
 >     inspectGen (F.SampleIndex w)                         zd
 >                                          = zd {zdSampleIndex = Just w}
+>     inspectGen (F.SampleMode m)                         zd
+>                                          = zd {zdSampleMode = Just m}
 >
 >     inspectGen (F.StartAddressCoarseOffset i)            zd
 >                                          = zd {zdStart = zd.zdStart + 32_768 * i}
@@ -410,10 +339,16 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >                                          = zd {zdEndLoop = zd.zdEndLoop + i}
 >
 >     inspectGen _ zd                      = zd
->
->     normalizeRange x y                   = if x > y
->                                              then Just (y, x) -- WOX
->                                              else Just (x, y)
+> okGMRanges             :: ZoneDigest → Bool
+> okGMRanges ZoneDigest{ .. }              =
+>   let
+>     okGMRange          :: (Num a, Ord a) ⇒ Maybe (a, a) → Bool
+>     okGMRange mrng                       =
+>       case mrng of
+>         Just (j, k)                      → (0 <= j) && j <= k && k < 128
+>         Nothing                          → True
+>   in
+>     okGMRange zdKeyRange && okGMRange zdVelRange 
 >
 > findBySampleIndex      :: [SFZone] → Word → Maybe SFZone
 > findBySampleIndex zs w                   = find (\z → z.zSampleIndex == Just w) zs
@@ -435,15 +370,16 @@ bootstrapping ==================================================================
 >
 > data Impact                              =
 >   Ok | CorruptName
->      | BadSampleRate | BadSampleType | BadSampleLimits | BadSampleLoopLimits
->      | MissingStereoPartner | BadStereoPartner
->      | Groomed
->      | OrphanedBySample | OrphanedByInst
+>      | BadSampleRate | BadSampleType | BadSampleLimits
+>      | DevolveToMono | BadStereoPartner
+>      | Paired | Unpaired
+>      | OrphanedBySample | OrphanedByInst | ToZoneCache
 >      | Absorbing | Absorbed | NoZones
->      | CorruptGMRange | Narrow | BadLinkage | IllegalCrossover
+>      | CorruptGMRange | Narrow
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
->      | Unrecognized | NoPercZones | Harvested | CatIsPerc | CatIsInst | Disqualified
->      | Adopted | GlobalZone
+>      | Unrecognized | NoPercZones
+>      | CatIsPerc | CatIsInst
+>      | Adopted | AdoptedAsMono | GlobalZone
 >   deriving (Eq, Ord, Show)
 >
 > data Scan                                =
@@ -452,56 +388,38 @@ bootstrapping ==================================================================
 >   , sImpact            :: Impact
 >   , sFunction          :: String
 >   , sClue              :: String} deriving (Eq, Show)
+> getTriple              :: Scan → (Disposition, Impact, String)
+> getTriple s                              = (s.sDisposition, s.sImpact, s.sFunction)
+>
 > noClue                 :: String
 > noClue                                   = ""
 >
-> autopsy                :: [Scan] → (Disposition, Impact, String)
-> autopsy ss_                              = maybe notDead getTriple mkiller    
->   where
->     mii                :: Map Impact Int
->     mii                                  = foldl' (\n v → Map.insertWith (+) v 1 n) Map.empty (map sImpact ss)
->
->     ss                                   = filter (\s → s.sDisposition `elem` deadset) ss_
->     mkiller                              = find (odd . snd) (Map.assocs mii)
->
->     getTriple          :: (Impact, Int) → (Disposition, Impact, String)
->     getTriple (impact, _)                = striple $ fromJust $ find (\s → s.sImpact == impact) ss
->
-> cancelset, deadset, elideset, rescueset
+> deadset, elideset, rescueset
 >                        :: [Disposition]
->                                            -- cancelled if (not dead and) any of the following appear
-> cancelset                                = [Violated, Dropped, Rescued, NoChange, Modified]
 >                                            -- a given list is filtered down to the three Dispositions
 >                                            -- then we count "membership" per distinct Impact
 >                                            -- ...dead if any counts are odd
 > deadset                                  = [Violated, Dropped, Rescued]
 >                                            -- the following only optionally appear in scan report
 > elideset                                 = if howVerboseScanReport < (1/2)
->                                              then [Accepted, NoChange]
+>                                              then [Accepted, Modified, NoChange]
 >                                              else []
 > rescueset                                = [Rescued]
 >
-> notDead                :: (Disposition, Impact, String)
-> notDead                                  = (Accepted, Ok, "")
+> surveyDispositions     :: [Disposition] → [Scan] → Map Impact Int
+> surveyDispositions dns                   = foldr survFold Map.empty
+>   where
+>     survFold           ::  Scan → Map Impact Int → Map Impact Int
+>     survFold s m
+>       | s.sDisposition `elem` dns        = Map.insertWith (+) s.sImpact 1 m
+>       | otherwise                        = m
 >
-> striple                :: Scan → (Disposition, Impact, String)
-> striple s                                = (s.sDisposition, s.sImpact, s.sFunction)
+> dead                   :: [Scan] → Bool
+> dead ss                                  =
+>   surveyDispositions [Violated, Dropped] ss /= surveyDispositions [Rescued] ss
 >
-> dead, cancels, wasRescued
->                        :: [Scan] → Bool
-> dead ss                                  = notDead /= autopsy ss
->
-> cancels                                  = any (\s → s.sDisposition `elem` cancelset)
-> wasRescued                               = any (\s → s.sDisposition `elem` rescueset)
->
-> accepted, violated, dropped, rescued, noChange, modified
->                        :: ∀ r . (SFResource r) ⇒ r → Impact → [Scan]
-> accepted key impact                      = singleton $ Scan Accepted impact "FromName" (zshow key)
-> violated key impact                      = singleton $ Scan Violated impact "FromName" (zshow key)
-> dropped key impact                       = singleton $ Scan Dropped impact "FromName" (zshow key)
-> rescued key impact                       = singleton $ Scan Rescued impact "FromName" (zshow key)
-> noChange key impact                      = singleton $ Scan NoChange impact "FromName" (zshow key)
-> modified key impact                      = singleton $ Scan Modified impact "FromName" (zshow key)
+> wasRescued             :: Impact → [Scan] → Bool
+> wasRescued impact                        = any (\s → s.sDisposition `elem` rescueset && s.sImpact == impact)
 >
 > badButMaybeFix         :: ∀ a. (Show a) ⇒ Bool → Impact → String → a → a → [Scan]
 > badButMaybeFix doFix imp fName bad good  = if doFix
@@ -511,41 +429,39 @@ bootstrapping ==================================================================
 >     viol                                 = Scan Violated imp fName (show bad)
 >     resc                                 = Scan Rescued imp fName (show good)
 >
-> finishScans            :: String → String → [Scan] → [Scan]
-> finishScans function clue                = map (\x → x{  sFunction = function, sClue = clue})
->
 > data ResultDispositions               =
 >   ResultDispositions {
 >     preSampleDispos    :: Map PreSampleKey     [Scan]
->   , preInstDispos      :: Map PerGMKey         [Scan]}
+>   , preInstDispos      :: Map PerGMKey         [Scan]
+>   , preZoneDispos      :: Map PreZoneKey       [Scan]}
 > instance Show ResultDispositions where
 >   show rd@ResultDispositions{ .. }       =
 >     unwords [  "ResultDispositions"
->              , show (length preSampleDispos, length preInstDispos, rdScans rd)]
+>              , show (length preSampleDispos, length preInstDispos, length preZoneDispos, rdCountScans rd)]
 >
 > deadrd                 :: ∀ k . SFResource k ⇒ k → ResultDispositions → Bool
 > deadrd k rd                              = dead (inspect k rd)
->
 > virginrd               :: ResultDispositions
-> virginrd                                 = ResultDispositions Map.empty Map.empty
+> virginrd                                 = ResultDispositions Map.empty Map.empty Map.empty
 > emptyrd                :: ResultDispositions → Bool
-> emptyrd ResultDispositions{ .. }         = null preSampleDispos && null preInstDispos
+> emptyrd ResultDispositions{ .. }         = null preSampleDispos && null preInstDispos && null preZoneDispos
 > rdLengths              :: ResultDispositions → (Int, Int)
 > rdLengths ResultDispositions{ .. }       = (length preSampleDispos, length preInstDispos)
 > countScans             :: ∀ k . SFResource k ⇒ Map k [Scan] → Int
-> countScans                               = foldl' (\n ss → n + length ss) 0
-> rdScans                :: ResultDispositions → (Int, Int)
-> rdScans  ResultDispositions{ .. }        = (countScans preSampleDispos, countScans preInstDispos)
+> countScans                               = Map.foldl' (\n ss → n + length ss) 0
+> rdCountScans           :: ResultDispositions → (Int, Int)
+> rdCountScans  ResultDispositions{ .. }   = (countScans preSampleDispos, countScans preInstDispos)
 > combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
 > combinerd rd1 rd2                        =
 >   rd1{  preSampleDispos                  = Map.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
->       , preInstDispos                    = Map.unionWith (++) rd1.preInstDispos   rd2.preInstDispos}
+>       , preInstDispos                    = Map.unionWith (++) rd1.preInstDispos   rd2.preInstDispos
+>       , preZoneDispos                    = Map.unionWith (++) rd1.preZoneDispos   rd2.preZoneDispos}
 >
 > class SFResource a where
 >   sfkey                :: Word → Word → a
 >   wfile                :: a → Word
 >   wblob                :: a → Word
->   kname                :: a → SFFile → String
+>   kname                :: a → SFFile → [Emission]
 >   inspect              :: a → ResultDispositions → [Scan]
 >   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
 >
@@ -553,7 +469,7 @@ bootstrapping ==================================================================
 >   sfkey                                  = PreSampleKey
 >   wfile k                                = k.pskwFile
 >   wblob k                                = k.pskwSampleIndex
->   kname k sffile                         = (ssShdrs sffile.zFileArrays ! wblob k).sampleName
+>   kname k sffile                         = [Unblocked (show (ssShdrs sffile.zFileArrays ! wblob k).sampleName)]
 >   inspect presk rd                       = fromMaybe [] (Map.lookup presk rd.preSampleDispos)
 >   dispose presk ss rd                    =
 >     rd{preSampleDispos = Map.insertWith (flip (++)) presk ss rd.preSampleDispos}
@@ -562,33 +478,66 @@ bootstrapping ==================================================================
 >   sfkey wF wI                            = PerGMKey wF wI Nothing
 >   wfile k                                = k.pgkwFile
 >   wblob k                                = k.pgkwInst
->   kname k sffile                         = (ssInsts sffile.zFileArrays ! wblob k).instName
+>   kname k sffile                         = [Unblocked (show (ssInsts sffile.zFileArrays ! wblob k).instName)]
 >   inspect pergm rd                       = fromMaybe [] (Map.lookup pergm rd.preInstDispos)
 >   dispose pergm ss rd                    =
 >     rd{preInstDispos = Map.insertWith (++) pergm ss rd.preInstDispos}
+>
+> instance SFResource PreZoneKey where
+>   sfkey _ _                              = error "sfkey not supported for PreZoneKey"
+>   wfile k                                = k.pzkwFile
+>   wblob k                                = k.pzkwInst
+>   kname k sffile                         =    kname (PerGMKey k.pzkwFile k.pzkwInst Nothing) sffile
+>                                            ++ [comma]
+>                                            ++ kname (PreSampleKey k.pzkwFile k.pzkwSampleIndex) sffile
+>   inspect prezk rd                       = fromMaybe [] (Map.lookup prezk rd.preZoneDispos)
+>   dispose prezk ss rd                    =
+>     rd{preZoneDispos = Map.insertWith (flip (++)) prezk ss rd.preZoneDispos}
 
 Note that harsher consequences of unacceptable sample header are enforced earlier. Logically, that would be
 sufficient to protect below code from bad data and document the situation. But ... mechanism such as putting
 out diagnostics might cause us to execute this code first. So, being crash-free/minimal in isStereoZone et al.
 
 > isStereoInst, is24BitInst
->                        :: Map PreSampleKey PreSample → [(PreZone, a)] → Bool
+>                        :: [(PreZone, a)] → Bool
 >
-> isStereoInst preSampleCache zs           = isJust $ find (isStereoZone preSampleCache) (map fst zs)
+> isStereoInst zs                          = isJust $ find isStereoZone (map fst zs)
 >       
-> isStereoZone preSampleCache pz           = isLeftPreZone preSampleCache pz || isRightPreZone preSampleCache pz
+> isStereoZone pz                          = isLeftPreZone pz || isRightPreZone pz
 >
-> isStereoZone, isLeftPreZone, isRightPreZone
->                        :: Map PreSampleKey PreSample → PreZone → Bool
-> isLeftPreZone preSampleCache pz          = SampleTypeLeft == toSampleType (effShdr preSampleCache pz).sampleType
-> isRightPreZone preSampleCache pz         = SampleTypeRight == toSampleType (effShdr preSampleCache pz).sampleType
+> isUnpartnered pz                         = isRight pz.pzmkPartners
 >
-> is24BitInst _ _                          = True -- was isJust $ ssM24 arrays       
+> isStereoZone, isLeftPreZone, isRightPreZone, isUnpartnered
+>                        :: PreZone → Bool
+> isLeftPreZone pz                         = SampleTypeLeft == toSampleType (effPZShdr pz).sampleType
+> isRightPreZone pz                        = SampleTypeRight == toSampleType (effPZShdr pz).sampleType
+>
+> is24BitInst _                            = True -- was isJust $ ssM24 arrays       
 >
 > emitMsgs               :: InstrumentName → [(InstrumentName, [String])] → [Emission]
 > emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs
 >   where
 >     imsgs              :: [String]       = fromMaybe [] (lookup kind msgs)
+>
+> howClose               :: ∀ j . (Eq j) ⇒ [j] → [j] → Rational
+> howClose j0 j1                           =
+>   let
+>     commonPrefix                         = takeWhile (uncurry (==)) (zip j0 j1)
+>   in
+>     if null j0
+>       then error "howClose first argument cannot be empty"
+>       else genericLength commonPrefix % genericLength j0
+>
+> goodChar               :: Char → Bool
+> goodChar cN                              = isAscii cN && not (isControl cN)
+>
+> goodName               :: String → Bool
+> goodName name                            = not (null name) && all goodChar name
+>
+> fixName                :: String → String
+> fixName name
+>   | null name                            = "<noname>"
+>   | otherwise                            = map (\cN → if goodChar cN then cN else '_') name
 >
 > data SampleType =
 >   SampleTypeMono
@@ -631,15 +580,80 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >     SampleTypeRomRight     → 0x8002
 >     SampleTypeRomLeft      → 0x8004
 >     SampleTypeRomLinked    → 0x8008
+
+"A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
+--SoundFont spec
+
+struct sfInstModList
+{
+  SFModulator sfModSrcOper;
+  SFGenerator sfModDestOper;
+  SHORT modAmount;
+  SFModulator sfModAmtSrcOper;
+  SFTransform sfModTransOper;
+};
+
+> data Modulator                           =
+>   Modulator {
+>     mrModId            :: Word
+>   , mrModSrc           :: ModSrc
+>   , mrModDest          :: ModDestType
+>   , mrModAmount        :: Double
+>   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
+>    
+> defModulator           :: Modulator
+> defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
 >
-> goodChar               :: Char → Bool
-> goodChar cN                              = isAscii cN && not (isControl cN)
+> data ModKey                              =
+>   ModKey {
+>     krSrc              :: ModSrc
+>   , krDest             :: ModDestType
+>   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
 >
-> fixName                :: String → String
-> fixName                                  = map (\cN → if goodChar cN then cN else '_')
+> data ModDestType                         =
+>     NoDestination
+>   | ToPitch
+>   | ToFilterFc
+>   | ToVolume
+>   | ToInitAtten
+>   | ToChorus
+>   | ToReverb
+>   | ToLink Word deriving (Eq, Ord, Show)
 >
-> zshow                  :: ∀ a . a → String
-> zshow _                                  = "list"
+> data ModSrcSource                        =
+>     FromNoController
+>   | FromNoteOnVel
+>   | FromNoteOnKey
+>   | FromLinked deriving (Eq, Ord, Show)
+>
+> data ModSrc                              =
+>   ModSrc {
+>     msMapping          :: Mapping
+>   , msSource           :: ModSrcSource} deriving (Eq, Ord, Show)
+>
+> defModSrc              :: ModSrc
+> defModSrc                                = ModSrc defMapping FromNoController
+>
+> data Mapping =
+>   Mapping {
+>     msContinuity     :: Continuity
+>   , msBiPolar        :: Bool  
+>   , msMax2Min        :: Bool
+>   , msCCBit          :: Bool} deriving (Eq, Ord, Show)
+>
+> data Continuity =
+>     Linear
+>   | Concave
+>   | Convex
+>   | Switch deriving (Eq, Ord, Show, Enum)
+>
+> defMapping             :: Mapping
+> defMapping                               = Mapping Linear False False False
+> allMappings            :: [Mapping]
+> allMappings                              = [Mapping cont bipolar max2min False
+>                                                   | cont                  ← [Linear, Concave, Convex, Switch]
+>                                                        , bipolar          ← [False, True]
+>                                                              , max2min    ← [False, True]]                                          
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
@@ -649,10 +663,10 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportTournamentName                     = "TournamentReport'.log"
 >
 > howVerboseScanReport   :: Rational
-> howVerboseScanReport                     = 1/4
+> howVerboseScanReport                     = 2/3
 >
 > howVerboseTournamentReport
 >                        :: Rational
-> howVerboseTournamentReport               = 1/4
+> howVerboseTournamentReport               = 3/4
 
 The End

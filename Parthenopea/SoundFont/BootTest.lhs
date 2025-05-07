@@ -10,9 +10,10 @@ January 7, 2025
 
 > module Parthenopea.SoundFont.BootTest where
 >
-> import Parthenopea.Debug (runTests)
+> import Parthenopea.Debug (runTests, aEqual)
 > import Parthenopea.SoundFont.SFSpec
-  
+> import Parthenopea.SoundFont.Scoring ( fuzzToTheRight, fuzzToTheLeft )
+
 Testing ===============================================================================================================
 
 > runBootTests           :: IO ()
@@ -22,6 +23,9 @@ Testing ========================================================================
 >                        :: IO Bool
 > correctlyJudgesDispoFatal, correctlyJudgesDispoNonFatal, orderIndependence1, orderIndependence2
 >                        :: IO Bool
+> fuzzRightOnePerL, fuzzLeftOnePerR, tryFuzzingRight, tryFuzzingLeft, otherFuzzingRight, otherFuzzingLeft
+>                        :: IO Bool
+>
 > bootTests              :: [IO Bool]
 > bootTests                                = [  nonFatalScanIsNotFatal
 >                                             , fatalScanIsFatal
@@ -31,14 +35,20 @@ Testing ========================================================================
 >                                             , correctlyJudgesDispoFatal
 >                                             , correctlyJudgesDispoNonFatal
 >                                             , orderIndependence1
->                                             , orderIndependence2 ]
+>                                             , orderIndependence2
+>                                             , fuzzRightOnePerL
+>                                             , fuzzLeftOnePerR
+>                                             , tryFuzzingRight
+>                                             , tryFuzzingLeft
+>                                             , otherFuzzingRight
+>                                             , otherFuzzingLeft]
 >
 > nonFatalScanIsNotFatal                   = do
->   let ss                                 = accepted (PerGMKey 0 0 Nothing) Ok
+>   let ss                                 = [Scan Accepted Ok "nonFatalScanIsNotFatal" noClue]
 >   return $ not $ dead ss
 >
 > fatalScanIsFatal                         = do
->   let ss                                 = violated (PerGMKey 0 0 Nothing) NoZones
+>   let ss                                 = [Scan Violated NoZones "fatalScanIsFatal" noClue]
 >   return $ dead ss
 >
 > rescuedScanIsNotFatal                    = do
@@ -58,13 +68,13 @@ Testing ========================================================================
 >   return $ not $ deadrd pergm rd
 >
 > correctlyJudgesDispoFatal               = do
->   let fName                              = "fatalrdCorrectlyJudgesFatal"
+>   let fName                              = "correctlyJudgesDispoFatal"
 >   let pergm                              = PerGMKey 0 0 Nothing
 >   let rd                                 = dispose pergm [Scan Violated NoZones fName "test"] virginrd
 >   return $ deadrd pergm rd
 >
 > correctlyJudgesDispoNonFatal            = do
->   let fName                              = "fatalrdCorrectlyJudgesNonFatal"
+>   let fName                              = "correctlyJudgesDispoNonFatal"
 >   let pergm                              = PerGMKey 0 0 Nothing
 >   let rd                                 = dispose pergm [Scan Accepted Ok fName "test"] virginrd
 >   return $ not $ deadrd pergm rd
@@ -80,5 +90,18 @@ Testing ========================================================================
 >   let order1                             = [Scan Violated NoZones fName "test",  Scan Rescued NoZones fName "test"]
 >   let order2                             = [Scan Rescued NoZones fName "test",   Scan Violated NoZones fName "test"]
 >   return $ not (dead order1) && not (dead order2)
+>
+> fuzzRightOnePerL                              = do
+>   return $ aEqual 2 (length (fuzzToTheRight "lRLrr"))
+> fuzzLeftOnePerR                              = do
+>   return $ aEqual 3 (length (fuzzToTheLeft "lRLrr"))
+> tryFuzzingRight                          = do
+>   return $ aEqual True ("stereoR(32)" `elem` fuzzToTheRight "stereoL(32)")
+> tryFuzzingLeft                          = do
+>   return $ aEqual True ("channelL" `elem` fuzzToTheLeft "channelR")
+> otherFuzzingRight                       = do
+>   return $ aEqual True ("channelR" `elem` fuzzToTheRight "channelL")
+> otherFuzzingLeft                          = do
+>   return $ aEqual True ("stereoL(32)" `elem` fuzzToTheLeft "stereoR(32)")
 
 The End

@@ -14,97 +14,10 @@ Modulation
 William Clements
 November 6, 2023
 
-> module Parthenopea.Repro.Modulation
->        ( addAmount
->         , addAmtSrc
->         , addResonance
->         , addSrc
->         , addDest
->         , allMappings
->         , calcMicrotoneRatio
->         , cascadeConfig
->         , checkForNan
->         , chorusAllPercent
->         , chorusDepth
->         , chorusRate
->         , coAccess
->         , Coeff(..)
->         , compileMods
->         , Continuity(..)
->         , controlConcave
->         , controlConvex
->         , controlLinear
->         , controlSwitch
->         , defaultMods
->         , defMapping
->         , defModSignals
->         , defModSrc
->         , defModTriple
->         , defModulation
->         , defModulator
->         , deriveLFO
->         , deriveModTriple
->         , deriveRange
->         , doLFO
->         , echo
->         , Envelope(..)
->         , evaluateMods
->         , evaluateModSignals
->         , epsilon
->         , frac
->         , freakRange
->         , fromAbsoluteCents
->         , fromCentibels
->         , fromCents
->         , fromCents'
->         , fromTimecents
->         , fromTimecents'
->         , KernelSpec(..)
->         , KeyNumber
->         , LFO(..)
->         , Lowpass(..)
->         , lowpassFc
->         , lowpassQ
->         , Mapping(..)
->         , ModCoefficients(..)
->         , ModDestType(..)
->         , ModSignals(..)
->         , ModSrc(..)
->         , ModSrcSource(..)
->         , ModTriple(..)
->         , Modulation(..)
->         , Modulator(..)
->         , modVib
->         , noonAsCoords
->         , NoteOn(..)
->         , pow
->         , procFilter
->         , qMidiSize128
->         , qMidiSizeSpace
->         , qStepSize
->         , resolveMods
->         , ResonanceType(..)
->         , reverbAllPercent
->         , sawtooth
->         , sawtoothTable
->         , sineTable
->         , theE
->         , toAbsoluteCents
->         , toCentibels
->         , toTimecents
->         , triangleWaveTable
->         , unpackModSrc
->         , upsilon
->         , useDefaultMods
->         , useFastFourier
->         , useModulators
->         , useLFO
->         , Velocity
->         , walkRange
->         )
->         where
+> module Parthenopea.Repro.Modulation where
 >
-> import Control.Arrow
+> import Control.Arrow ( Arrow(arr), (>>>) )
+> import Control.Arrow.Operations
 > import Data.Array.Unboxed
 > import qualified Data.Bifunctor          as BF
 > import Data.Bits
@@ -116,20 +29,25 @@ November 6, 2023
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.MemoTrie
+> import Data.Word
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
-> import Euterpea.Music (Volume, AbsPitch)
-> import FRP.UISF.AuxFunctions ( ArrowCircuit(delay), constA )
+> import Euterpea.Music ( AbsPitch )
 > import GHC.Generics ( Generic ) 
 > import Parthenopea.Debug
-  
+> import Parthenopea.Music.Siren
+> import Parthenopea.SoundFont.SFSpec
+>
+> constA                 :: Arrow a ⇒ c → a b c
+> constA                                   = arr . const
+
 Modulator management ==================================================================================================
 
 > type Node = Int
 >
 > resolveMods            :: Modulation → [Modulator] → [Modulator] → Modulation
-> resolveMods m8n m8rs dm8rs               = m8n{mmods = compileMods checked}
+> resolveMods m8n m8rs dm8rs               = m8n{mModsMap = compileMods checked}
 >   where
 >     sifted                               = renumberMods $ siftMods $ groomMods (dm8rs ++ m8rs)
 >     checked                              = profess
@@ -141,8 +59,7 @@ Modulator management ===========================================================
 > groomMods m8rs                           = Map.elems uniqued
 >   where
 >     uniqued                              = foldl' ufolder Map.empty m8rs
->     ufolder uniquer m8r@Modulator{mrModSrc, mrModDest, mrAmountSrc}
->                                          = Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r uniquer
+>     ufolder uniquer m8r@Modulator{ .. }  = Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r uniquer
 >
 > freeOfCycles           :: [Modulator] → Bool
 > freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
@@ -251,9 +168,7 @@ Modulator management ===========================================================
 >                                                   o                  → o) mrModDest}
 >
 > unpackModSrc           :: Word → Maybe ModSrc
-> unpackModSrc wIn
->   | traceNever trace_UMS False           = undefined
->   | otherwise                            = mmapping
+> unpackModSrc wIn                         = mmapping
 >                                              >>= addMapping 
 >                                              >>= addSource
 >   where
@@ -285,8 +200,6 @@ Modulator management ===========================================================
 >                    3      → Just from{msSource = FromNoteOnKey}
 >                    127    → Just from{msSource = FromLinked}
 >                    _      → Nothing
->
->     trace_UMS                            = unwords [show cont, show bipolar, show max2Min, show ccBit, show src]
 >
 > addSrc                 :: ModSrc → Modulator → Maybe Modulator
 > addSrc modSrc from                       = Just from{mrModSrc = modSrc}
@@ -351,10 +264,8 @@ Modulator management ===========================================================
 >                                          = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
 >   where
 >     evaluateMod        :: Modulator → Double
->     evaluateMod Modulator{mrModId, mrModSrc, mrModAmount, mrAmountSrc}
->       | traceNever trace_EM False        = undefined
->       | otherwise                        = getValue mrModSrc * mrModAmount * getValue mrAmountSrc
->       where
+>     evaluateMod Modulator{ .. }          =
+>       let
 >         getValue ModSrc{msSource, msMapping}
 >           | useModulators                =
 >               case msSource of
@@ -362,22 +273,15 @@ Modulator management ===========================================================
 >                 FromNoteOnVel            → evaluateNoteOn noteOnVel msMapping
 >                 FromNoteOnKey            → evaluateNoteOn noteOnKey msMapping
 >                 FromLinked               → evaluateMods (ToLink mrModId) graph noon
->           | otherwise                    = 0
->
->         trace_EM                         =
->           unwords["evaluateMod"
->                 , show md
->                 , show (getValue mrModSrc)
->                 , show mrModAmount
->                 , show (getValue mrAmountSrc)]
+>           | otherwise                    = 1
+>       in
+>         getValue mrModSrc * mrModAmount * getValue mrAmountSrc
 >
 > evaluateNoteOn         :: Int → Mapping → Double
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
 >
 > evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
-> evaluateModSignals tag m8n md msig noon
->  | traceNever trace_EMS False            = undefined
->  | otherwise                             = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
+> evaluateModSignals tag m8n md msig noon  = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    fName                                 = "evaluateModSignals"
 >
@@ -394,23 +298,12 @@ Modulator management ===========================================================
 >        ToFilterFc                        → m8n.toFilterFcCo
 >        ToVolume                          → m8n.toVolumeCo
 >        _                                 → error $
->          unwords [fName, "only ToPitch, ToFilterFc, and ToVolume supported", show tag, show md]
+>          unwords [fName, "only ToPitch, ToFilterFc, and ToVolume supported", tag, show md]
 >
 >    xmodEnv                               = msig.xModEnvValue * mco.xModEnvCo
 >    xmodLfo                               = msig.xModLfoValue * mco.xModLfoCo
 >    xvibLfo                               = msig.xVibLfoValue * mco.xVibLfoCo
->    xmods                                 = evaluateMods md m8n.mmods noon
->
->    trace_EMS                             =
->      unwords ["evaluateModSignals: "
->             , show tag,     " + "
->             , show xmodEnv, " + "
->             , show xmodLfo, " + "
->             , show xvibLfo, " + "
->             , show xmods,   " = "
->             , show (xmodEnv + xmodLfo + xvibLfo + xmods), " => "
->             , show (fromCents (xmodEnv + xmodLfo + xvibLfo + xmods))]
->
+>    xmods                                 = evaluateMods md m8n.mModsMap noon
 
 Filters ===============================================================================================================
 
@@ -418,10 +311,9 @@ Filters ========================================================================
 > cascadeCount resonType                   =
 >   case resonType of
 >     ResonanceNone                        → Nothing
->     ResonanceConvo                       → Nothing
 >     _                                    → Just cascadeConfig
 >
-> addResonance           :: Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
+> addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
 > addResonance noon m8n@Modulation{mLowpass}
 >                                          =
 >   case cascadeCount lowpassType of
@@ -447,16 +339,12 @@ Filters ========================================================================
 >           let sOut                       = resonate sIn fc pickled
 >           outA                           ⤙ (sOut, msig)
 >
->     final
->       | traceNot trace_MSF False         = undefined
->       | otherwise                        =
+>     final                                =
 >         proc (sIn, msig)                 → do
 >           let fc                         = modulateFc msig
 >           pickled ← procFilter mLowpass  ⤙ (sIn, fc)
 >           let sOut                       = resonate sIn fc pickled
 >           outA                           ⤙ sOut
->     trace_MSF                            =
->       unwords ["addResonance (fc, q)", show (lowpassFc mLowpass, lowpassQ mLowpass)]
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
@@ -483,58 +371,21 @@ Filters ========================================================================
 > procFilter             :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
 > procFilter lp@Lowpass{lowpassType}       =
 >   case lowpassType of
->     ResonanceNone                        → error $ unwords ["procFilter:"
->                                                           , "should not reach makeSF if ResonanceNone"]
->     ResonanceLowpass                     → procLowpass lp
->     ResonanceBandpass                    → procBandpass lp
->     ResonanceSVF1                        → procSVF1 lp
->     ResonanceSVF2                        → procSVF2 lp
->     ResonanceOnePole                     → procOnePole lp
->     ResonanceTwoPoles                    → procTwoPoles lp
->     ResonanceConvo                       → error $ unwords ["procFilter:"
->                                                           , "should not reach makeSF if ResonanceConvo"]
->
-> procLowpass            :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procLowpass _                            =
->   proc (x, fc) → do
->     y ← filterLowPassBW                  ⤙ (x, fc)
->     outA                                 ⤙ y
->
-> procBandpass           :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procBandpass lp                          =
->   proc (x, fc) → do
->     y1 ← filterLowPassBW                 ⤙ (x, fc)
->     y2 ← filterBandPass 2                ⤙ (x, fc, lowpassQ lp / 3)
->     let y'                               = traceBandpass y1 y2
->     outA                                 ⤙ y'
->   where
->     lowpassWeight                        = 0.50
->     bandpassWeight                       = 0.75
->
->     traceBandpass      :: Double → Double → Double
->     traceBandpass y1 y2
->       | traceNever trace_BP False        = undefined
->       | otherwise                        = y'
->       where
->         y'                               = y1*lowpassWeight + y2*bandpassWeight
->         trace_BP                         = unwords ["traceBandPass", show y1, show y2]
->
+>     ResonanceNone                        → error $ unwords ["should not reach procFilter if ResonanceNone"]
+>     ResonanceSVF                         → procSVF lp
+>     ResonanceChamberlin                  → procChamberlin lp
 
-see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch case
+State Variable Filter =================================================================================================
 
-> indeedAverageInput     :: Bool
-> indeedAverageInput                       = True
-> extraDampFactor        :: Double
-> extraDampFactor                          = 1
->
-> procSVF1               :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
-> procSVF1 lp                              =
+see source https://karmafx.net/docs/karmafx_digitalfilters.pdf
+
+> procSVF                :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
+> procSVF lp                               =
 >   proc (x, fc) → do
->     let f1                               = 2 * sin (theta fc)
+>     let f1                               = fudge * sin (theta fc)
 >     rec
 >       let yL                             = f1 * yB + yL'
->       let xuse                           = maybeAverageInput x x'
->       let yH                             = xuse - yL' - damp * yB'
+>       let yH                             = (x + x') / 2 - yL' - damp * yB'
 >       let yB                             = f1 * yH + yB'
 >
 >       x' ← delay 0                       ⤙ x
@@ -542,68 +393,29 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf for the Notch cas
 >       yB' ← delay 0                      ⤙ yB
 >     outA                                 ⤙ yL
 >   where
->     damp                                 = extraDampFactor / fromCentibels (lowpassQ lp)
+>     damp                                 = 1 / fromCentibels (lowpassQ lp)
 >     theta c                              = pi * c / rate (undefined :: p)
->
->     maybeAverageInput c c'               =
->       if indeedAverageInput
->         then (c + c') / 2
->         else c
->
-> procSVF2               :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
-> procSVF2 lp                              =
+>     fudge                                = 1.0
+
+see source https://ccrma.stanford.edu/~jos/svf/svf.pdf
+
+> procChamberlin         :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double,Double) Double
+> procChamberlin _                         =
 >   proc (x, fc) → do
->     let f1                               = 2 * sin (theta fc)
+>     let wcT                              = fudge * sin (theta fc)
 >     rec
->       let yL                             = f1 * yB' + yL'
->       let xuse                           = maybeAverageInput x x'
->       let yH                             = xuse - yL - damp * yB'
->       let yB                             = f1 * yH + yB'
+>       let yL                             = tracer "yL" $ wcT * p2 + yL'
 >
->       x' ← delay 0                       ⤙ x
+>       let p0                             = (x - yL') - sqrt 2
+>       let p1                             = p0 * wcT + p2'
+>       let p2                             = p1 * wcT + yL'
+>
 >       yL' ← delay 0                      ⤙ yL
->       yB' ← delay 0                      ⤙ yB
+>       p2' ← delay 0                      ⤙ p2
 >     outA                                 ⤙ yL
 >   where
->     damp                                 = extraDampFactor / fromCentibels (lowpassQ lp)
 >     theta c                              = pi * c / rate (undefined :: p)
->
->     maybeAverageInput c c'               =
->       if indeedAverageInput
->         then (c + c') / 2
->         else c
->
-> procOnePole            :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procOnePole _                            =
->   proc (x, fc) → do
->     let w0                               = 2 * pi * fc / sr
->     let a                                =
->           realPart $ ( theE :+ 0) ** (0 :+ (-w0))
->     let c                                = 1 - a
->     rec
->       y'     ← delay 0                   ⤙ y
->       let y                              = c * x + (1 - c) * y'
->     outA                                 ⤙ y
->   where
->     sr                                   = rate (undefined :: p)
->
-> procTwoPoles           :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
-> procTwoPoles lp
->   | traceNot trace_P2P False             = undefined
->   | otherwise                            =
->   proc (x, _) → do
->     rec
->       let y                              = m2n2_b0 * x + m2n2_b1 * x' + m2n2_b2 * x'' - m2n2_a1 * y' - m2n2_a2 * y''
->       y'     ← delay 0                   ⤙ y
->       y''    ← delay 0                   ⤙ y' 
->       x'     ← delay 0                   ⤙ x
->       x''    ← delay 0                   ⤙ x'
->     outA                                 ⤙ y
->   where
->     cs@CoeffsM2N2{ .. }                  =
->       buildSystemM2N2 $ pickZerosAndPoles (2 * pi * lowpassFc lp) (lowpassQ lp / 960)
->
->     trace_P2P                            = unwords ["procTwoPoles", show cs]
+>     fudge                                = 1 -- WOX 1 / fromCentibels (lowpassQ lp)
 
 Miscellaneous =========================================================================================================
 
@@ -667,9 +479,6 @@ Miscellaneous ==================================================================
 
 Controller Curves =====================================================================================================
 
-> qStepSize              :: Int
-> qStepSize                                = qTableSize `div` qMidiSize128
->
 > controlDenormal        :: Mapping → Double → (Double, Double) → Double
 > controlDenormal ping@Mapping{msBiPolar} dIn (lo, hi)
 >                                          = if msBiPolar
@@ -724,13 +533,8 @@ Type declarations ==============================================================
 
 > data ResonanceType                       =
 >   ResonanceNone
->   | ResonanceConvo 
->   | ResonanceLowpass
->   | ResonanceBandpass
->   | ResonanceSVF1
->   | ResonanceSVF2
->   | ResonanceOnePole
->   | ResonanceTwoPoles deriving (Eq, Bounded, Enum, Show)
+>   | ResonanceSVF
+>   | ResonanceChamberlin deriving (Bounded, Enum, Eq, Show)
 >
 > data KernelSpec                          =
 >   KernelSpec {
@@ -772,7 +576,7 @@ Type declarations ==============================================================
 >     mag                                  = magnitude porz
 >     ph                                   = phase porz
 >
->     k1                                   = -2 * mag * cos ph
+>     k1                                   = - (2 * mag * cos ph)
 >     k2                                   = mag * mag
 >
 > buildSystemM2N2        :: ([Complex Double], [Complex Double]) → CoeffsM2N2
@@ -861,97 +665,194 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > data Modulation                          =
 >   Modulation {
 >     mLowpass           :: Lowpass
->   , mModEnv            :: Maybe Envelope
+>   , mModEnv            :: Maybe FEnvelope
 >   , mModLfo            :: Maybe LFO
 >   , mVibLfo            :: Maybe LFO
 >   , toPitchCo          :: ModCoefficients
 >   , toFilterFcCo       :: ModCoefficients
 >   , toVolumeCo         :: ModCoefficients
->   , mmods              :: Map ModDestType [Modulator]} deriving (Eq, Show)
->
-
-Mapping is used in SoundFont modulator
-
-> data Mapping =
->   Mapping {
->     msContinuity     :: Continuity
->   , msBiPolar        :: Bool  
->   , msMax2Min        :: Bool
->   , msCCBit          :: Bool} deriving (Eq, Ord, Show)
->
-> data Continuity =
->     Linear
->   | Concave
->   | Convex
->   | Switch deriving (Eq, Ord, Show, Enum)
->
-> defMapping             :: Mapping
-> defMapping                               = Mapping Linear False False False
-> allMappings            :: [Mapping]
-> allMappings                              = [Mapping cont bipolar max2min False
->                                                   | cont                  ← [Linear, Concave, Convex, Switch]
->                                                        , bipolar          ← [False, True]
->                                                              , max2min    ← [False, True]]                                          
->
+>   , mModsMap           :: Map ModDestType [Modulator]} deriving (Eq, Show)
 > defModulation          :: Modulation
 > defModulation                            =
 >   Modulation
 >     (Lowpass ResonanceNone (defKernelSpec useFastFourier)) Nothing Nothing Nothing
 >     defModCoefficients defModCoefficients defModCoefficients Map.empty
 >
-> data Modulator                           =
->   Modulator {
->     mrModId            :: Word
->   , mrModSrc           :: ModSrc
->   , mrModDest          :: ModDestType
->   , mrModAmount        :: Double
->   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
->    
-> defModulator           :: Modulator
-> defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
+> data TimeFrame =
+>   TimeFrame {
+>     tfSecsSampled      :: Double
+>   , tfSecsScored       :: Double
+>   , tfSecsToPlay       :: Double
+>   , tfLooping          :: Bool} deriving (Eq, Show)
+> data FEnvelope                           =
+>   FEnvelope {
+>     fTargetT           :: Double
+>   , fSustainLevel      :: Double
+>   , fModTriple         :: Maybe ModTriple
 >
-> data ModKey                              =
->   ModKey {
->     krSrc              :: ModSrc
->   , krDest             :: ModDestType
->   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
+>   , fDelayT            :: Double
+>   , fAttackT           :: Double
+>   , fHoldT             :: Double
+>   , fDecayT            :: Double
+>   , fSustainT          :: Double
+>   , fReleaseT          :: Double} deriving (Eq, Show)
+> feSum                  :: FEnvelope → Double
+> feSum FEnvelope{ .. }                    
+>                                          = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + fReleaseT
+> data FreeVerb =
+>   FreeVerb
+>   {
+>       iiWetDryMix      :: Double
+>     , iiG              :: Double
+>     , iiGain           :: Double
+>     , iiRoomSize       :: Double
+>     , iiDamp           :: Double
+>     , iiWet1           :: Double
+>     , iiWet2           :: Double
+>     , iiDry            :: Double
+>     , iiWidth          :: Double
+>     , iiCombDelayL     :: Array Word Word64
+>     , iiCombDelayR     :: Array Word Word64
+>     , iiCombLPL        :: Array Word FilterData
+>     , iiCombLPR        :: Array Word FilterData
+>     , iiAllPassDelayL  :: Array Word Word64
+>     , iiAllPassDelayR  :: Array Word Word64
+>   } deriving (Show, Eq, Ord)
 >
-> data ModDestType                         =
->     NoDestination
->   | ToPitch
->   | ToFilterFc
->   | ToVolume
->   | ToInitAtten
->   | ToChorus
->   | ToReverb
->   | ToLink Word deriving (Eq, Ord, Show)
+> data FilterData =
+>   FilterData
+>   {
+>       jGain            :: Double
+>     , jChannelsIn      :: Word64
+>     , jB               :: [Double]
+>     , jA               :: [Double]
+>   } deriving (Show, Eq, Ord)
 >
-> data ModSrcSource                        =
->     FromNoController
->   | FromNoteOnVel
->   | FromNoteOnKey
->   | FromLinked deriving (Eq, Ord, Show)
+> newOnePole             :: Double → FilterData
+> newOnePole pole =
+>   let
+>     b0 = if pole > 0
+>          then 1 - pole
+>          else 1 + pole
+>     a0 = 1
+>     a1 = (-pole)
+>   in
+>     FilterData 1
+>                2
+>                [b0]
+>                [a0, a1]
 >
-> data ModSrc                              =
->   ModSrc {
->     msMapping          :: Mapping
->   , msSource           :: ModSrcSource} deriving (Eq, Ord, Show)
+> windices               :: [Word]
+> windices                                 = [0..7]
 >
-> defModSrc              :: ModSrc
-> defModSrc                                = ModSrc defMapping FromNoController
+> makeFreeVerb           :: Double → Double → Double → FreeVerb
+> makeFreeVerb roomSize damp width
+>   | traceIf trace_MFV False = undefined
+>   | otherwise =
+>   let
+>     wet = fvScaleWet * fvWetDryMix
+>     dry = fvScaleDry * (1 - fvWetDryMix)
+>     wet' = wet / (wet + dry)
+>     dry' = dry / (wet + dry)
+>     wet1 = wet' * (width/2 + 0.5)
+>     wet2 = wet' * (1 - width) / 2
+>     initCombDelay, initAllpassDelay
+>                        :: Array Word Word64
+>     initCombFilter     :: Array Word FilterData
+>     initCombDelay    = array (0,7) $ zip windices fvCombDelays
+>     initAllpassDelay = array (0,3) $ zip windices fvAllpassDelays
+>     initCombFilter =   array (0,7) $ zip windices (replicate 8 $ newOnePole 0.9)
 >
-> data Envelope                            =
->   Envelope {
->     eDelayT            :: Double
->   , eAttackT           :: Double
->   , eHoldT             :: Double
->   , eDecayT            :: Double
->   , eSustainLevel      :: Double
->   , eReleaseT          :: Double
->   , eModTriple         :: ModTriple} deriving (Eq, Show)
+>     fvWetDryMix     = 0.2
+>     fvCoefficient   = 0.5
+>     fvFixedGain     = 0.015;
+>     fvScaleWet      = 3;
+>     fvScaleDry      = 2;
+>     fvScaleDamp     = 0.4;
+>     fvScaleRoom     = 0.28
+>     fvOffsetRoom    = 0.7
+>     fvCombDelays           :: [Word64] = [1617, 1557, 1491, 1422, 1356, 1277, 1188, 1116]
+>     fvAllpassDelays        :: [Word64] = [225, 556, 441, 341]
 >
-> type Velocity                            = Volume
-> type KeyNumber                           = AbsPitch
+>   in
+>     FreeVerb fvWetDryMix
+>                  fvCoefficient
+>                  fvFixedGain
+>                  (roomSize * fvScaleRoom + fvOffsetRoom)
+>                  (damp * fvScaleDamp)
+>                  wet1
+>                  wet2
+>                  dry'
+>                  width
+>                  initCombDelay
+>                  initCombDelay
+>                  initCombFilter
+>                  initCombFilter
+>                  initAllpassDelay
+>                  initAllpassDelay
+>   where
+>     trace_MFV =
+>       unwords [
+>           "makeFreeVerb roomSize",       show roomSize
+>         , "damp",                        show damp
+>         , "width",                       show width]
+>   
+> eatFreeVerb            :: ∀ p . Clock p ⇒ FreeVerb → Signal p Double Double
+> eatFreeVerb FreeVerb{ .. }           =
+>     proc sinL → do
+>       cdL0 ← comb (iiCombDelayL ! 0) (iiCombLPL ! 0) ⤙ sinL
+>       cdL1 ← comb (iiCombDelayL ! 1) (iiCombLPL ! 1) ⤙ sinL
+>       cdL2 ← comb (iiCombDelayL ! 2) (iiCombLPL ! 2) ⤙ sinL
+>       cdL3 ← comb (iiCombDelayL ! 3) (iiCombLPL ! 3) ⤙ sinL
+>       cdL4 ← comb (iiCombDelayL ! 4) (iiCombLPL ! 4) ⤙ sinL
+>       cdL5 ← comb (iiCombDelayL ! 5) (iiCombLPL ! 5) ⤙ sinL
+>       cdL6 ← comb (iiCombDelayL ! 6) (iiCombLPL ! 6) ⤙ sinL
+>       cdL7 ← comb (iiCombDelayL ! 7) (iiCombLPL ! 7) ⤙ sinL
+>
+>       let sumL = cdL0+cdL1+cdL2+cdL3+cdL4+cdL5+cdL6+cdL7
+>
+>       let fp0L = sumL/8
+>
+>       fp1L ← allpass (iiAllPassDelayL ! 0) ⤙ fp0L
+>       fp2L ← allpass (iiAllPassDelayL ! 1) ⤙ fp1L
+>       fp3L ← allpass (iiAllPassDelayL ! 2) ⤙ fp2L
+>       fp4L ← allpass (iiAllPassDelayL ! 3) ⤙ fp3L
+>             
+>       outA ⤙ fp4L
+>
+> comb                   :: ∀ p . Clock p ⇒ Word64 → FilterData → Signal p Double Double
+> comb maxDel stkFilter
+>   | traceNever trace_C False             = undefined
+>   | otherwise                            =
+>   proc sIn → do
+>     rec
+>       sOut ← delayLine secs ⤙ sIn + sOut * jGain stkFilter
+>     outA ⤙ sOut
+>   where
+>     sr                                   = rate (undefined :: p)
+>     secs               :: Double         = fromIntegral maxDel/sr
+>
+>     trace_C                              = unwords ["comb delay (samples)=", show maxDel, "filter=", show stkFilter]
+> 
+> allpass                :: ∀ p . Clock p ⇒ Word64 → Signal p Double Double
+> allpass maxDel
+>   | traceNever trace_AP False            = undefined
+>   | otherwise                            =
+>   proc sIn → do
+>     sOut ← delayLine secs ⤙ sIn
+>     outA ⤙ sOut
+>   where
+>     sr                                   = rate (undefined :: p)
+>     secs               :: Double         = fromIntegral maxDel/sr
+>
+>     trace_AP                             = unwords ["allpass delay (samples)=", show maxDel]
+> 
+> accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
+> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
+>
+> clip                   :: Ord n ⇒ (n, n) → n → n
+> clip (lower, upper) val                  = min upper (max lower val)
+>
 
 Returns the frequency
 
@@ -976,6 +877,28 @@ Returns the elapsed time in seconds
 >
 > toTimecents            :: Double → Int
 > toTimecents secs                         = round $ logBase 2 secs * 1_200
+>
+> teclip, tfclip, tqclip, tvclip, ticlip, tpclip, tcclip, tbclip, taclip, tkclip, tdclip,
+>   t1clip, t2clip, t3clip
+>                        :: Int → Maybe Int
+> tmclip, tnclip         :: Word → Maybe Word
+>
+> teclip i                                 = Just $ clip (-12_000, 12_000) i
+> tfclip i                                 = Just $ clip (1_500, 13_500) i
+> tqclip i                                 = Just $ clip (0, 960) i
+> tvclip i                                 = Just $ clip (-960, 960) i
+> ticlip i                                 = Just $ clip (0, 1_000) i
+> tpclip i                                 = Just $ clip (-500, 500) i
+> tcclip i                                 = Just $ clip (-12_000, 5_000) i
+> tbclip i                                 = Just $ clip (-12_000, 8_000) i
+> taclip i                                 = Just $ clip (-16_000, 4_500) i
+> tkclip i                                 = Just $ clip (-1_200, 1_200) i
+> tdclip i                                 = Just $ clip (0, 1_440) i
+> tmclip w                                 = Just $ clip (0, 127) w
+> tnclip i                                 = Just $ clip (1, 127) i
+> t1clip i                                 = Just $ clip (-120, 120) i
+> t2clip i                                 = Just $ clip (-99, 99) i
+> t3clip i                                 = Just $ clip (0, 1_200) i
 
 Returns the frequency ratio
 
@@ -1008,10 +931,58 @@ Returns the amplitude ratio
 > toCentibels            :: Double → Double
 > toCentibels ratio                        = logBase 10 (ratio * 1000)
 >
+
+Returns the amplitude ratio (based on input 10ths of a percent) 
+
+> fromTithe              :: Maybe Int → Bool → Double
+> fromTithe iS isVol                       =
+>   if isVol
+>     then 1 / fromCentibels jS
+>     else (1000 - jS) / 1000
+>   where
+>     jS                 :: Double         = maybe 0 fromIntegral iS
+>
 > theE, epsilon, upsilon :: Double
 > theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
 > epsilon                                  = 1e-8               -- a generous little epsilon
 > upsilon                                  = 1e10               -- a scrawny  big    upsilon
+>    
+> theE' :: Complex Double
+> theE' = theE :+ 0
+>
+> theJ :: Complex Double
+> theJ = 0 :+ 1
+
+sampleUp returns power of 2 greater than OR EQUAL TO the input value (result at least 2**14)
+sampleDown returns power of 2 less than OR EQUAL TO the input value (input enforced <= 2**31)
+breakUp returns a list of integers approximating divisions of a floating point range
+
+> sampleUp               :: Int → Int
+> sampleUp i                               =
+>   if i <= 0
+>     then error "out of range for sampleUp"
+>     else max 16_384 (head $ dropWhile (< i) (iterate' (* 2) 1))
+>
+> sampleDown             :: Int → Int
+> sampleDown i                             =
+>   if i <= 0 || i > 2_147_483_648
+>     then error "out of range for sampleDown"
+>     else head $ dropWhile (> i) (iterate' (`div` 2) 2_147_483_648)
+>
+> breakUp :: (Double, Double) → Double → Int → [Int]
+> breakUp (xmin, xmax) base nDivs =
+>   let
+>     (ymin, ymax) =
+>       if base == 0
+>         then (xmin, xmax)
+>         else (logBase base xmin, logBase base xmax)
+>     delta = (ymax - ymin) / fromIntegral nDivs
+>     oper =
+>       if base == 0
+>         then id
+>         else pow base
+>   in
+>     map (round . oper . (+ ymin) . (* delta) . fromIntegral) ([0..nDivs] :: [Int])
 
 Control Functions
 
@@ -1034,10 +1005,6 @@ The use of following functions requires that their input is normalized between 0
 > qTableSize                               = 1024
 > tableSize              :: Double
 > tableSize                                = fromIntegral qTableSize
-> qMidiSize128           :: Int
-> qMidiSize128                             = 128
-> qMidiSizeSpace         :: Int
-> qMidiSizeSpace                           = qMidiSize128 * qMidiSize128
 >
 > controlConcave         :: Double → Double
 > controlConcave doub
@@ -1132,8 +1099,6 @@ Signals of interest ============================================================
 >
 > deriveRange            :: Integral n ⇒ n → n → [n]
 > deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]
-> walkRange              :: Integral n ⇒ (n, n) → [n]
-> walkRange (x, y)                         = if x > y || y < 0 then [] else [x..y]
 >
 > useModulators          :: Bool
 > useModulators                            = True

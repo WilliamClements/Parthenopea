@@ -9,32 +9,21 @@ November 24, 2023
 
 > module Parthenopea.Repro.ModulationTest ( modulationTests, runModulationTests ) where
 >
-> import Control.Exception
-> import Data.Either
+> import Control.Exception ( try, ErrorCall )
+> import Data.Either ( isLeft )
 > import Data.List ( nub, sort, sortOn )
 > import qualified Data.Map                as Map
-> import Data.Ord
+> import Data.Ord ( Down(Down) )
+> import Parthenopea.Debug ( aEqual, runTests )
 > import Parthenopea.Repro.Modulation
-> import Parthenopea.Debug
+> import Parthenopea.SoundFont.SFSpec
 
 Testing ===============================================================================================================
-
-"A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
---SoundFont spec
-
-struct sfInstModList
-{
-  SFModulator sfModSrcOper;
-  SFGenerator sfModDestOper;
-  SHORT modAmount;
-  SFModulator sfModAmtSrcOper;
-  SFTransform sfModTransOper;
-};
 
 > countSurvivingMods     :: [Modulator] → IO Int
 > countSurvivingMods m8rs                  = do
 >   let !count                             =
->         sum $ map length $ Map.elems $ mmods $ resolveMods defModulation m8rs []
+>         sum $ map length $ Map.elems $ mModsMap $ resolveMods defModulation m8rs []
 >   return count
 >
 > vanillaModulatorWillNotBeEliminated
