@@ -332,17 +332,17 @@ define signal functions and instrument maps to support rendering ===============
 >
 >     (reconX, mreconX)                    =
 >       case setZone of
->         Left zplus                       → (recon zplus noon nps (fromRational durI), Nothing)
+>         Left (pz, sfz, shdr)             → (recon (pz, sfz, shdr) noon nps (fromRational durI), Nothing)
 >         Right zsPlus                     → reconLR zsPlus noon nps (fromRational durI)
 
 zone selection for rendering ==========================================================================================
 
->     setZone            :: Either (SFZone, F.Shdr) ((SFZone, F.Shdr), (SFZone, F.Shdr))
+>     setZone            :: Either (PreZone, SFZone, F.Shdr) ((PreZone, SFZone, F.Shdr), (PreZone, SFZone, F.Shdr))
 >     setZone                              =
 >       case selectZoneConfig selectBestZone of 
->         Left (pzL, zoneL)                → Left (zoneL, effPZShdr pzL)
+>         Left (pzL, zoneL)                → Left (pzL, zoneL, effPZShdr pzL)
 >         Right ((pzL, zoneL), (pzR, zoneR))
->                                          → Right ((zoneL, effPZShdr pzL), (zoneR, effPZShdr pzR))
+>                                          → Right ((pzL, zoneL, effPZShdr pzL), (pzR, zoneR, effPZShdr pzR))
 >
 >     selectBestZone     :: (PreZone, SFZone)
 >     selectBestZone
@@ -399,27 +399,29 @@ zone selection for rendering ===================================================
 
 reconcile zone and sample header ======================================================================================
 
-> reconLR                :: ((SFZone, F.Shdr), (SFZone, F.Shdr))
+> reconLR                :: ((PreZone, SFZone, F.Shdr), (PreZone, SFZone, F.Shdr))
 >                           → NoteOn
 >                           → [Double]
 >                           → Dur
 >                           → (Recon, Maybe Recon)
-> reconLR ((zoneL, shdrL), (zoneR, shdrR)) noon nps durR
+> reconLR ((pzL, zoneL, shdrL), (pzR, zoneR, shdrR)) noon nps durR
 >                                          = (recL, Just recR')
 >   where
 >     secsScored         :: Double         = fromRational durR
 >     recL@Recon{rRootKey = rkL, rPitchCorrection = pcL}
->                                          = recon (zoneL, shdrL) noon nps secsScored
->     recR                                 = recon (zoneR, shdrR) noon nps secsScored
+>                                          = recon (pzL, zoneL, shdrL) noon nps secsScored
+>     recR                                 = recon (pzR, zoneR, shdrR) noon nps secsScored
 >     recR'                                = recR{
 >                                                rRootKey                   = rkL
 >                                              , rPitchCorrection           = pcL}
 >
-> recon                  :: (SFZone, F.Shdr) → NoteOn → [Double] → Double → Recon
-> recon (zone_, sHdr@F.Shdr{ .. }) noon nps secsScored
+> recon                  :: (PreZone, SFZone, F.Shdr) → NoteOn → [Double] → Double → Recon
+> recon (pz, zone_, sHdr@F.Shdr{ .. }) noon nps secsScored
 >                                          = reconL
 >   where
->     zone@SFZone{ .. }                    =
+>     zd                                   = pz.pzDigest
+>     zone@SFZone{ .. }
+>                                          =
 >       (\case
 >         Just np                          → applyNoteParameter noon zone_ np secsScored
 >         Nothing                          → zone_) (listToMaybe nps)
@@ -428,14 +430,10 @@ reconcile zone and sample header ===============================================
 >     reconL = Recon {
 >     rSampleMode    = fromMaybe           A.NoLoop           zSampleMode
 >   , rSampleRate    = fromIntegral        sampleRate
->   , rStart         = addIntToWord        start              (sumOfWeightedInts
->                                                               [zStartOffs,     zStartCoarseOffs]     qOffsetWeights)
->   , rEnd           = addIntToWord        end                (sumOfWeightedInts
->                                                               [zEndOffs,       zEndCoarseOffs]       qOffsetWeights)
->   , rLoopStart     = addIntToWord        startLoop          (sumOfWeightedInts
->                                                               [zLoopStartOffs, zLoopStartCoarseOffs] qOffsetWeights)
->   , rLoopEnd       = addIntToWord        endLoop            (sumOfWeightedInts
->                                                               [zLoopEndOffs,   zLoopEndCoarseOffs]   qOffsetWeights)
+>   , rStart         = (+)                 start              (fromIntegral zd.zdStart)
+>   , rEnd           = (+)                 end                (fromIntegral zd.zdEnd)
+>   , rLoopStart     = (+)                 startLoop          (fromIntegral zd.zdStartLoop)
+>   , rLoopEnd       = (+)                 endLoop            (fromIntegral zd.zdEndLoop)
 >   , rRootKey       = fromIntegral $ fromMaybe
 >                                          originalPitch      zRootKey
 >   , rForceKey      = fmap                fromIntegral       zKey
@@ -507,8 +505,8 @@ reconcile zone and sample header ===============================================
 >
 >     curKernelSpec                        =
 >       KernelSpec
->         (maybe 13_500 (clip (1_500, 13_500)) zInitFc)
->         (maybe 0      (clip (0,     960))    zInitQ)
+>         (fromMaybe 13_500 zInitFc)
+>         (fromMaybe 0 zInitQ)
 >         1 
 >         useFastFourier
 >         (-1) -- must always be replaced

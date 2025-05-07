@@ -858,21 +858,6 @@ Conversion functions and general helpers =======================================
 >   where
 >     rnd                :: Int
 >     rnd                                  = round (p10 * x)
->
-> sumOfWeightedInts      :: ∀ a. Num a ⇒ [Maybe a] → [a] → a
-> sumOfWeightedInts xs ws                  = sum $ zipWith (\w x → w * fromMaybe 0 x) ws xs
->       
-> addIntToWord           :: Word → Int → Word
-> addIntToWord w i                         = fromIntegral (iw + i)
->   where
->     iw                 :: Int
->     iw                                   = fromIntegral w
->
-> integralize            :: ∀ a b. (Integral a, Num b) ⇒ Maybe (a, a) → Maybe (b, b)
-> integralize mww                          =
->   case mww of
->     Nothing                              → Nothing
->     Just (w1, w2)                        → if w1 > w2 then Nothing else Just (fromIntegral w1, fromIntegral w2)
 
 Returns sample point as (normalized) Double
 

@@ -68,7 +68,8 @@ You see there is some overlap between Zone 1 and Zone 2.
 
 > smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
 >                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
-> smashSubspaces tag dims spaces_          = Smashing tag dims spaces (developSmashStats svector) svector
+> smashSubspaces tag dims spaces_          =
+>   Smashing tag dims spaces (developSmashStats svector) svector
 >   where
 >     spaces             :: [(i, [(i, i)])]
 >     spaces                               = map (BF.second (zipWith (\dim → fromMaybe (0, dim-1)) dims)) spaces_

@@ -16,3 +16,4 @@ regex-base/
 *.autosave
 .mscbackup/
 *.midi
+*.ghci

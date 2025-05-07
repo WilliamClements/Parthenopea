@@ -1009,66 +1009,52 @@ build zone task ================================================================
 > addGen                 :: SFZone → F.Generator → SFZone
 > addGen iz gen =
 >   case gen of
->   F.StartAddressOffset i         → iz {zStartOffs =                Just i}
->   F.EndAddressOffset i           → iz {zEndOffs =                  Just i}
->   F.LoopStartAddressOffset i     → iz {zLoopStartOffs =            Just i}
->   F.LoopEndAddressOffset i       → iz {zLoopEndOffs =              Just i}
->
->   F.StartAddressCoarseOffset i   → iz {zStartCoarseOffs =          Just i}
->   F.EndAddressCoarseOffset i     → iz {zEndCoarseOffs =            Just i}
->   F.LoopStartAddressCoarseOffset i
->                                  → iz {zLoopStartCoarseOffs =      Just i}
->   F.LoopEndAddressCoarseOffset i
->                                  → iz {zLoopEndCoarseOffs =        Just i}
->
 >   F.InstIndex w                  → iz {zInstIndex =                Just w}
->   F.KeyRange x y                 → iz {zKeyRange =                 Just (fromIntegral x, fromIntegral y)}
->   F.VelRange x y                 → iz {zVelRange =                 Just (fromIntegral x, fromIntegral y)}
->   F.Key i                        → iz {zKey =                      Just i}
->   F.Vel i                        → iz {zVel =                      Just i}
->   F.InitAtten i                  → iz {zInitAtten =                Just i}
->   F.CoarseTune i                 → iz {zCoarseTune =               Just i}
->   F.FineTune i                   → iz {zFineTune =                 Just i}
+>   F.Key w                        → iz {zKey =                      tmclip w}
+>   F.Vel w                        → iz {zVel =                      tnclip w}
+>   F.InitAtten i                  → iz {zInitAtten =                tdclip i}
+>   F.CoarseTune i                 → iz {zCoarseTune =               t1clip i}
+>   F.FineTune i                   → iz {zFineTune =                 t2clip i}
 >   F.SampleIndex w                → iz {zSampleIndex =              Just w}
 >   F.SampleMode m                 → iz {zSampleMode =               Just m}
->   F.ScaleTuning i                → iz {zScaleTuning =              Just i}
->   F.ExclusiveClass i             → iz {zExclusiveClass =           Just i}
+>   F.ScaleTuning i                → iz {zScaleTuning =              t3clip i}
+>   F.ExclusiveClass i             → iz {zExclusiveClass =           (tnclip . fromIntegral) i}
 >
 >   F.DelayVolEnv i                → iz {zDelayVolEnv =              tcclip i}
 >   F.AttackVolEnv i               → iz {zAttackVolEnv =             tcclip i}
 >   F.HoldVolEnv i                 → iz {zHoldVolEnv =               tcclip i}
 >   F.DecayVolEnv i                → iz {zDecayVolEnv =              tcclip i}
 >   F.SustainVolEnv i              → iz {zSustainVolEnv =            tdclip i}
->   F.ReleaseVolEnv i              → iz {zReleaseVolEnv =            tcclip i}
+>   F.ReleaseVolEnv i              → iz {zReleaseVolEnv =            tbclip i}
 >
->   F.Chorus i                     → iz {zChorus =                   Just i}
->   F.Reverb i                     → iz {zReverb =                   Just i}
->   F.Pan i                        → iz {zPan =                      Just i}
+>   F.Chorus i                     → iz {zChorus =                   ticlip i}
+>   F.Reverb i                     → iz {zReverb =                   ticlip i}
+>   F.Pan i                        → iz {zPan =                      tpclip i}
 >
->   F.RootKey w                    → iz {zRootKey =                  Just (fromIntegral w)}
+>   F.RootKey w                    → iz {zRootKey =                  tmclip w}
 >
->   F.ModLfoToPitch i              → iz {zModLfoToPitch =            Just i}
->   F.VibLfoToPitch i              → iz {zVibLfoToPitch =            Just i}
->   F.ModEnvToPitch i              → iz {zModEnvToPitch =            Just i}
->   F.InitFc i                     → iz {zInitFc =                   Just i}
->   F.InitQ i                      → iz {zInitQ =                    Just i}
->   F.ModLfoToFc i                 → iz {zModLfoToFc =               Just i}
->   F.ModEnvToFc i                 → iz {zModEnvToFc =               Just i}
->   F.ModLfoToVol i                → iz {zModLfoToVol =              Just i}
->   F.DelayModLfo i                → iz {zDelayModLfo =              Just i}
->   F.FreqModLfo i                 → iz {zFreqModLfo =               Just i}
->   F.DelayVibLfo i                → iz {zDelayVibLfo =              Just i}
->   F.FreqVibLfo i                 → iz {zFreqVibLfo =               Just i}
+>   F.ModLfoToPitch i              → iz {zModLfoToPitch =            teclip i}
+>   F.VibLfoToPitch i              → iz {zVibLfoToPitch =            teclip i}
+>   F.ModEnvToPitch i              → iz {zModEnvToPitch =            teclip i}
+>   F.InitFc i                     → iz {zInitFc =                   tfclip i}
+>   F.InitQ i                      → iz {zInitQ =                    tqclip i}
+>   F.ModLfoToFc i                 → iz {zModLfoToFc =               teclip i}
+>   F.ModEnvToFc i                 → iz {zModEnvToFc =               teclip i}
+>   F.ModLfoToVol i                → iz {zModLfoToVol =              tvclip i}
+>   F.DelayModLfo i                → iz {zDelayModLfo =              tcclip i}
+>   F.FreqModLfo i                 → iz {zFreqModLfo =               taclip i}
+>   F.DelayVibLfo i                → iz {zDelayVibLfo =              tcclip i}
+>   F.FreqVibLfo i                 → iz {zFreqVibLfo =               taclip i}
 >   F.DelayModEnv i                → iz {zDelayModEnv =              tcclip i}
->   F.AttackModEnv i               → iz {zAttackModEnv =             tcclip i}
+>   F.AttackModEnv i               → iz {zAttackModEnv =             tbclip i}
 >   F.HoldModEnv i                 → iz {zHoldModEnv =               tcclip i}
->   F.DecayModEnv i                → iz {zDecayModEnv =              tcclip i}
+>   F.DecayModEnv i                → iz {zDecayModEnv =              tbclip i}
 >   F.SustainModEnv i              → iz {zSustainModEnv =            ticlip i}
->   F.ReleaseModEnv i              → iz {zReleaseModEnv =            tcclip i}
->   F.KeyToModEnvHold i            → iz {zKeyToModEnvHold =          Just i}
->   F.KeyToModEnvDecay i           → iz {zKeyToModEnvDecay =         Just i}
->   F.KeyToVolEnvHold i            → iz {zKeyToVolEnvHold =          Just i}
->   F.KeyToVolEnvDecay i           → iz {zKeyToVolEnvDecay =         Just i}
+>   F.ReleaseModEnv i              → iz {zReleaseModEnv =            tbclip i}
+>   F.KeyToModEnvHold i            → iz {zKeyToModEnvHold =          tkclip i}
+>   F.KeyToModEnvDecay i           → iz {zKeyToModEnvDecay =         tkclip i}
+>   F.KeyToVolEnvHold i            → iz {zKeyToVolEnvHold =          tkclip i}
+>   F.KeyToVolEnvDecay i           → iz {zKeyToVolEnvDecay =         tkclip i}
 >   _                              → iz
 >
 > addMod                 :: (Word, F.Mod) → SFZone → SFZone

@@ -75,13 +75,14 @@ Create a straight-line envelope generator with following phases:
 >     fName                                = "computeSegments"
 >     trace_CS                             = unwords [fName, show (feSum r, amps, deltaTs)]
 >
+>     r                                    = refineEnvelope envRaw{fTargetT = tf.tfSecsScored}
+>
 >     amps, deltaTs      :: [Double]
 >     amps                                 =
 >             [0,            0,             1,          1,       fSusLevel,     fSusLevel,      0,       0]
 >     deltaTs                              =
 >             [   r.fDelayT,    r.fAttackT,    r.fHoldT,    r.fDecayT,   r.fSustainT,   r.fReleaseT,  1]
 >
->     r                                    = refineEnvelope envRaw{fTargetT = tf.tfSecsScored}
 >     segs                                 = Segments amps deltaTs
 >
 >     fSusLevel                            = clip (0, 1) r.fSustainLevel
@@ -101,10 +102,10 @@ discern design intent governing input Generator values, then implement something
 >   , fcRelease          :: Bool} deriving (Eq, Ord, Show)
 > evaluateCase           :: FEnvelope → FCase
 > evaluateCase FEnvelope{ .. } 
->                                          = tracer "evaluateCase" $
+>                                          =
 >   FCase ((fDelayT + fAttackT + fHoldT) >= fTargetT) (fDecayT >= (7/10) * fTargetT) (fReleaseT >= (7/10) * fTargetT)
 >
-> refineEnvelope             :: FEnvelope → FEnvelope
+> refineEnvelope         :: FEnvelope → FEnvelope
 > refineEnvelope fEnvIn                    = result.fiEnvWork
 >   where
 >     result                               = head $ dropWhile unfinished $ iterate nextGen fiInit
@@ -233,7 +234,8 @@ discern design intent governing input Generator values, then implement something
 >
 >     work                                 = iterIn.fiEnvWork{fReleaseT = minDeltaT, fDecayT = minDeltaT}
 >     remaining                            = work.fTargetT - feSum work
->     bigdecay                             = iterIn.fiEnvOrig.fDecayT
+>
+>     bigdecay                             = 5 * iterIn.fiEnvOrig.fDecayT
 >     bigrel                               = iterIn.fiEnvOrig.fReleaseT
 >     bigboth                              = bigdecay + bigrel
 >

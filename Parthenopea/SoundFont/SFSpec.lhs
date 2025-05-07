@@ -80,33 +80,38 @@ implementing SoundFont spec ====================================================
 >   , pzmkPartners       :: Either PreZoneKey [PreZoneKey]
 >   , pzChanges          :: ChangeEar F.Shdr} deriving Eq
 > instance Show PreZone where
->   show (PreZone{ .. })                   =
+>   show (PreZone{ .. })
+>                                          =
 >     unwords ["PreZone", show (pzWordF, pzWordS, pzWordI, pzWordB), show pzDigest, show pzmkPartners]
 > showBad                :: PreZone -> String
-> showBad PreZone{ .. }                    =
+> showBad PreZone{ .. }
+>                                          =
 >   let
->     ZoneDigest{ .. }                     = pzDigest
+>     ZoneDigest{ .. }
+>                                          = pzDigest
 >   in
 >     show (pzWordB, (zdKeyRange, zdVelRange))
 >
 > makePreZone            :: Word → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
-> makePreZone wF wS wI wB gens shdr        = PreZone wF wS wI wB (formDigest gens) (Right []) (ChangeEar shdr [])
+> makePreZone wF wS wI wB gens shdr        =
+>   PreZone wF wS wI wB (formDigest gens) (Right []) (ChangeEar shdr [])
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
 > extractInstKey         :: PreZone → PerGMKey
 > extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
 > extractZoneKey         :: PreZone → PreZoneKey
-> extractZoneKey pz                        = PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
+> extractZoneKey pz                        =
+>   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
 > effPZShdr              :: PreZone → F.Shdr
-> effPZShdr PreZone{ .. }                  =
+> effPZShdr PreZone{pzChanges}             =
 >   if MakeMono `elem` pzChanges.ceChanges
 >     then pzChanges.ceSource{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
 >     else pzChanges.ceSource
 > makeMono               :: PreZone → PreZone
-> makeMono pz@PreZone{ .. }                = pz{pzChanges = pzChanges{ceChanges = MakeMono : pzChanges.ceChanges}}
+> makeMono pz@PreZone{pzChanges}           = pz{pzChanges = pzChanges{ceChanges = MakeMono : pzChanges.ceChanges}}
 > wasSwitchedToMono      :: PreZone → Bool
-> wasSwitchedToMono PreZone{ .. }          = MakeMono `elem` pzChanges.ceChanges
+> wasSwitchedToMono PreZone{pzChanges}     = MakeMono `elem` pzChanges.ceChanges
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
 > inSameInstrument       :: PreZoneKey → PreZoneKey → Bool
@@ -129,20 +134,7 @@ implementing SoundFont spec ====================================================
 >
 > data SFZone =
 >   SFZone {
->     zStartOffs         :: Maybe Int
->   , zEndOffs           :: Maybe Int
->   , zLoopStartOffs     :: Maybe Int
->   , zLoopEndOffs       :: Maybe Int
->
->   , zStartCoarseOffs   :: Maybe Int
->   , zEndCoarseOffs     :: Maybe Int
->   , zLoopStartCoarseOffs
->                        :: Maybe Int
->   , zLoopEndCoarseOffs :: Maybe Int
->
->   , zInstIndex         :: Maybe Word
->   , zKeyRange          :: Maybe (AbsPitch, AbsPitch)
->   , zVelRange          :: Maybe (Volume, Volume)
+>   zInstIndex         :: Maybe Word
 >   , zKey               :: Maybe Word
 >   , zVel               :: Maybe Word
 >   , zInitAtten         :: Maybe Int
@@ -151,7 +143,7 @@ implementing SoundFont spec ====================================================
 >   , zSampleIndex       :: Maybe Word
 >   , zSampleMode        :: Maybe A.SampleMode
 >   , zScaleTuning       :: Maybe Int
->   , zExclusiveClass    :: Maybe Int
+>   , zExclusiveClass    :: Maybe Word
 >
 >   , zDelayVolEnv       :: Maybe Int
 >   , zAttackVolEnv      :: Maybe Int
@@ -192,11 +184,8 @@ implementing SoundFont spec ====================================================
 >   , zModulators        :: [Modulator]} deriving (Eq, Show)
 >
 > defZone                :: SFZone
-> defZone                                  = SFZone Nothing Nothing Nothing Nothing
->
->                                            Nothing Nothing Nothing Nothing
->
->                                            Nothing Nothing Nothing Nothing
+> defZone                                  = SFZone 
+>                                            Nothing Nothing
 >                                            Nothing Nothing Nothing Nothing
 >                                            Nothing Nothing Nothing Nothing
 >

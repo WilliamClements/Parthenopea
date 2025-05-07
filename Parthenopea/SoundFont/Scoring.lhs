@@ -448,27 +448,24 @@ tournament starts here =========================================================
 >             evalSplits _
 >               | theSplit <= 1            = 1
 >               | otherwise                = log (m3 * theSplit)
->             evalSampleSize               = sum (map durScoring zs) / fromIntegral (length zs)
+>             evalSampleSize               = sum (map (durScoring . fst) zs) / fromIntegral (length zs)
 >
 >             m1                           = 2/3
 >             m2                           = 1/3
 >             m3                           = 3 * if isStereoInst zs then 1/2 else 1
 >
->         durScoring     :: (PreZone, SFZone) → Double
->         durScoring (pz, zone) = if score < 0.01 then -10 else score
+>         durScoring     :: PreZone → Double
+>         durScoring pz                    = if score < 0.01 then -10 else score
 >           where
 >             shdr                         = effPZShdr pz
+>             zd                           = pz.pzDigest
 >             score                        = sampleSize / fromIntegral shdr.sampleRate
 >
 >             sampleSize :: Double
 >             sampleSize                   = fromIntegral $ xEnd - xStart
 >               where
->                 xStart                   =
->                   addIntToWord    shdr.start
->                                   (sumOfWeightedInts [zone.zStartOffs, zone.zStartCoarseOffs] qOffsetWeights)
->                 xEnd                     =
->                   addIntToWord    shdr.end
->                                   (sumOfWeightedInts [zone.zEndOffs,   zone.zEndCoarseOffs]   qOffsetWeights)
+>                 xStart :: Word           = shdr.start + fromIntegral zd.zdStart
+>                 xEnd   :: Word           = shdr.end + fromIntegral zd.zdEnd
 >
 >         akResult                         = fromMaybe 0 (Map.lookup kind fuzzMap)
 >
