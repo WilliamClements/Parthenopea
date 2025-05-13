@@ -81,9 +81,10 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >      , ("capture",    mark . capture . survey)
 >      , ("smash",      smash)
 >      , ("reorg",      reorg) 
->      , ("shave",      shave)
+>      , ("shave1",     shave)
 >      , ("match",      match)
 >      , ("cat",        cat)
+>      , ("shave2",     shave)
 >      , ("zone",       zone)]
 >   where
 >     mark                                 = markTaskIf         sffile rost
@@ -298,9 +299,6 @@ PreZone administration =========================================================
 > goodZRecs              :: ResultDispositions → [InstZoneRecord] → [InstZoneRecord]
 > goodZRecs rdNow                          = filter (\x → not (deadrd (instKey x) rdNow))
 >
-> badZRecs               :: ResultDispositions → [InstZoneRecord] → [InstZoneRecord]
-> badZRecs rdNow                           = filter (\x → deadrd (instKey x) rdNow)
->
 > data InstZoneRecord                      =
 >   InstZoneRecord {
 >     zswFile            :: Word
@@ -360,7 +358,7 @@ survey task ====================================================================
 > surveyTaskIf _ _ fwIn@FileWork{fwBoot}   = fwIn{fwZRecs = map makeZRec (Map.keys fwBoot.zPreInstCache)}
 
 capture task ==========================================================================================================
-          populate zrec with PreZones
+          populate zrecs with PreZones
 
 > captureTaskIf sffile _ fwIn@FileWork{ .. }
 >                                          = zrecTask capturer fwIn 
@@ -586,12 +584,14 @@ To build the map
 shave task ============================================================================================================
           remove dropped or violated instruments from the preInstCache
 
-> shaveTaskIf _ _ fwIn@FileWork{fwBoot, fwZRecs, fwDispositions}      
+> shaveTaskIf _ _ fwIn@FileWork{fwBoot}      
 >                                          = fwIn{fwBoot = fwBoot{zPreInstCache = preInstCache}}
 >   where
+>     validPergms        :: [PerGMKey]
+>     validPergms                          = zrecCompute fwIn (\x y → instKey y : x) []
+>
 >     preInstCache                         =
->       foldl' shaveFolder fwBoot.zPreInstCache (badZRecs fwDispositions fwZRecs)
->     shaveFolder m zrec                   = Map.delete (instKey zrec) m
+>       Map.filterWithKey (\ x _ → x `elem` validPergms) fwBoot.zPreInstCache
 
 match task ============================================================================================================
           track all fuzzy matches
@@ -610,7 +610,7 @@ categorization task ============================================================
           c. Just InstCatDisq              an inst disqualified from tournaments, or
           d. Nothing                       undecided
 
-> catTaskIf _ rost fwIn@FileWork{ .. }     
+> catTaskIf _ rost fwIn@FileWork{fwBoot, fwMatches}     
 >                                          = zrecTask catter fwIn
 >   where
 >     catter zrec rdFold                   = (zrec{zsInstCat = icat}, dispose (instKey zrec) ss rdFold)

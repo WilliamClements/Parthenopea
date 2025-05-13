@@ -78,10 +78,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >     svector                              = foldl' sfolder (VU.replicate mag (0, 0)) spaces
 >
 >     sfolder            :: VU.Vector (i, i) → (i, [(i, i)]) → VU.Vector (i, i)
->     sfolder vec (spaceId, rngs)          = VU.accum assignCell vec (enumAssocs dims spaceId rngs)
->
->     assignCell         :: (i, i) → (i, i) → (i, i)
->     assignCell mfrom mto                 = (fst mto, snd mfrom + 1)
+>     sfolder vec (spaceId, rngs)          = VU.accum smashCell vec (enumAssocs dims spaceId rngs)
 >
 >     enumAssocs         :: [i] → i → [(i, i)] → [(Int, (i, i))]
 >     enumAssocs dimsA spaceId rngs        =
@@ -109,16 +106,16 @@ You see there is some overlap between Zone 1 and Zone 2.
 >
 >     svector                              = VU.zipWith smashCell s1.smashVec s2.smashVec
 >
->     smashCell       :: (i, i) → (i, i) → (i, i)
->     smashCell (spaceId1, cnt1) (spaceId2, cnt2)
->       | cnt2 == 0                        = (spaceId1, cnt1)
->       | otherwise                        = (spaceId2, cnt1 + cnt2)
->
 >     dims                                 =
 >       profess
 >         (s1.smashDims == s2.smashDims)
 >         (unwords [fName, "dims mismatch?!?"])
 >         s1.smashDims
+>
+> smashCell              :: ∀ i . (Integral i) ⇒ (i, i) → (i, i) → (i, i)
+> smashCell (spaceId1, cnt1) (spaceId2, cnt2)
+>   | cnt2 == 0                            = (spaceId1, cnt1)
+>   | otherwise                            = (spaceId2, cnt1 + cnt2)
 >
 > walkRange              :: Integral n ⇒ (n, n) → [n]
 > walkRange (x, y)                         = if x > y || y < 0 then [] else [x..y]

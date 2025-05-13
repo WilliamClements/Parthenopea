@@ -120,8 +120,6 @@ implementing SoundFont spec ====================================================
 > wasSwitchedToMono PreZone{pzChanges}     = MakeMono `elem` pzChanges.ceChanges
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
-> inSameInstrument       :: PreZoneKey → PreZoneKey → Bool
-> inSameInstrument pzka pzkb               = pzka.pzkwInst == pzkb.pzkwInst
 >
 > data PreInstrument                       =
 >   PreInstrument {
@@ -467,7 +465,7 @@ bootstrapping ==================================================================
 >   kname k sffile                         = [Unblocked (show (ssInsts sffile.zFileArrays ! wblob k).instName)]
 >   inspect pergm rd                       = fromMaybe [] (Map.lookup pergm rd.preInstDispos)
 >   dispose pergm ss rd                    =
->     rd{preInstDispos = Map.insertWith (++) pergm ss rd.preInstDispos}
+>     rd{preInstDispos = Map.insertWith (flip (++)) pergm ss rd.preInstDispos}
 >
 > instance SFResource PreZoneKey where
 >   sfkey _ _                              = error "sfkey not supported for PreZoneKey"
