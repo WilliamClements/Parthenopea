@@ -2,13 +2,10 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE DeriveGeneric #-}
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE OverloadedStrings #-}
 > {-# LANGUAGE RecordWildCards #-}
-> {-# LANGUAGE TypeFamilies #-} 
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Runtime
@@ -53,12 +50,7 @@ executive ======================================================================
 >   tsStarted                              ← getCurrentTime
 >
 >   rost                                   ← qualifyKinds songs
->   mbundle                                ← if narrowInstrumentScope
->                                               && (allowSpecifiedCrossovers || allowInferredCrossovers)
->                                              then do
->                                                putStrLn "narrowInstrumentScope & crossovers cannot be used together"
->                                                return Nothing
->                                              else equipInstruments rost
+>   mbundle                                ← equipInstruments rost
 >   if isNothing mbundle
 >     then do
 >       return ()
@@ -224,8 +216,8 @@ executive ======================================================================
 >   where
 >     nfs                :: [(Int, SFFile)]
 >     nfs                = zip [0..] (toList sffiles)
->     emitFileListC      = concatMap (uncurry doF) nfs
->     doF nth sffile     = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
+>     emitFileListC      = concatMap doF nfs
+>     doF (nth, sffile)  = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
 >
 > renderSong             :: ∀ p . Clock p ⇒
 >                           SFRuntime
@@ -327,7 +319,6 @@ define signal functions and instrument maps to support rendering ===============
 >     samplea                              = sffile.zSample
 >
 >     preI                                 = zPreInstCache Map.! pergm
->     iName                                = preI.piChanges.cnName
 >     perI                                 = zPerInstCache Map.! pergm
 >
 >     (reconX, mreconX)                    =
@@ -339,63 +330,26 @@ zone selection for rendering ===================================================
 
 >     setZone            :: Either (PreZone, SFZone, F.Shdr) ((PreZone, SFZone, F.Shdr), (PreZone, SFZone, F.Shdr))
 >     setZone                              =
->       case selectZoneConfig selectBestZone of 
+>       case doFlyEye of 
 >         Left (pzL, zoneL)                → Left (pzL, zoneL, effPZShdr pzL)
 >         Right ((pzL, zoneL), (pzR, zoneR))
 >                                          → Right ((pzL, zoneL, effPZShdr pzL), (pzR, zoneR, effPZShdr pzR))
 >
->     selectBestZone     :: (PreZone, SFZone)
->     selectBestZone
->       | cnt <= 0                         = error "out of range"
->       | otherwise                        = if isNothing foundInInst
->                                              then error $ unwords[fName, show bagId, "not found in inst", iName, showBags perI]
->                                              else deJust "foundInInst" foundInInst
+>     doFlyEye           :: Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
+>     doFlyEye
+>       | cntL <= 0 || cntR <= 0           = error $ unwords [fName, "out of range"]
+>       | isNothing foundL || isNothing foundR
+>                                          = error $ unwords [fName, "zone not present"] 
+>       | foundL == foundR                 = (Left . fromJust) foundL
+>       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where
->         fName                            = unwords [fName_, "selectBestZone"]
+>         fName                            = unwords [fName_, "doFlyEye"]
 >
->         (bagId, cnt)                     = lookupCellIndex (noonAsCoords noon) perI.pSmashing
->         foundInInst                      = findByBagIndex' perI.pZones bagId
->
->     selectZoneConfig   :: (PreZone, SFZone) → Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
->     selectZoneConfig z
->        | stype == SampleTypeLeft         = qualify (Right (z, oz))
->        | stype == SampleTypeRight        = qualify (Right (oz, z))
->        | otherwise                       = Left z
->        where
->          qualify       :: Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
->                           → Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
->          qualify eith                    = if isNothing mpartner
->                                              then Left z
->                                              else eith
->
->          mpartner                        = getStereoPartner z
->          shdr                            = (effPZShdr . fst) z
->          stype                           = toSampleType shdr.sampleType
->          oz                              = deJust "oz" mpartner
->
->     getStereoPartner   :: (PreZone, SFZone) → Maybe (PreZone, SFZone)
->     getStereoPartner (pz, _)             =
->       case toSampleType (F.sampleType shdr) of
->         SampleTypeLeft                   → partner
->         SampleTypeRight                  → partner
->         _                                → error $ unwords [fName, "attempted on non-stereo zone"]
->       where
->         fName                            = unwords [fName_, "getStereoPartner"]
->
->         shdr                             = effPZShdr pz
->         partnerKey                       = fromLeft (error $ unwords [fName, "Unpartnered"]) pz.pzmkPartners
->
->         partner                          =
->           findBySampleIndex' perI.pZones (F.sampleLink shdr) `CM.mplus` getCrossover
->
->         getCrossover   :: Maybe (PreZone, SFZone)
->         getCrossover                     = if allowSpecifiedCrossovers || allowInferredCrossovers
->                                              then findByBagIndex' perIP.pZones pzkP.pzkwBag
->                                              else error "corrupt partner"
->           where
->             pzkP                         = zPartnerMap Map.! partnerKey
->             pergmP                       = PerGMKey pzkP.pzkwFile pzkP.pzkwInst Nothing
->             perIP                        = deJust fName (pergmP `Map.lookup` zPerInstCache)
+>         (index1, index2)                 = noonAsCoords noon
+>         ((bagIdL, cntL), (bagIdR, cntR))                   =
+>           (lookupCellIndex index1 perI.pSmashing, lookupCellIndex index2 perI.pSmashing)
+>         foundL                           = findByBagIndex' perI.pZones bagIdL
+>         foundR                           = findByBagIndex' perI.pZones bagIdR
 
 reconcile zone and sample header ======================================================================================
 

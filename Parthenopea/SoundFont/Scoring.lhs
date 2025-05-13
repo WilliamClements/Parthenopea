@@ -291,42 +291,31 @@ tournament starts here =========================================================
 >   where
 >     fName_                               = "decideWinners"
 >
->     SFBoot{ .. }                         = zBoot
+>     SFBoot{ .. }                         
+>                                          = zBoot
 >
 >     wiExec             :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiExec                               = (wI', wP')
 >       where
->         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) zJobs         
+>         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) zPerInstCache         
 >         wI'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wI
 >         wP'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wP
 >
 >     wiFolder           :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->                           → PerGMKey → InstCat
+>                           → PerGMKey → PerInstrument
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->     wiFolder (wI, wP) pergmI_@PerGMKey{pgkwFile} icat
->       | traceIf trace_WI False           = undefined
->       | otherwise                        = result
+>     wiFolder (wI, wP) pergmI_@PerGMKey{pgkwFile} perI
+>                                          = result
 >       where
 >         fName                            = unwords [fName_, "wiFolder"]
->         trace_WI                         = unwords [fName, show iName]
->
->         -- access potentially massive amount of processed information regarding instrument
->         preI                             = deJust (unwords[fName_, "preI"]) (Map.lookup pergmI_ zPreInstCache)
->         iName                            = preI.piChanges.cnName
->         perI                             = deJust (unwords[fName_, "perI"]) (Map.lookup pergmI_ zPerInstCache)
 >
 >         icatData       :: InstCatData
->         icatData                         =
->           case icat of
->             InstCatPerc x                → x
->             InstCatInst x                → x
->             _                            → error $ unwords [fName, "only Inst and Perc are valid here"]
->
 >         result         :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->         result                           =
->           case icat of
->             InstCatPerc _                → decidePerc
->             InstCatInst _                → decideInst
+>
+>         (icatData, result)               =
+>           case perI.pInstCat of
+>             InstCatPerc x                → (x, decidePerc)
+>             InstCatInst x                → (x, decideInst)
 >             _                            → error $ unwords [fName, "only Inst and Perc are valid here"]
 >
 >         decideInst     :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
@@ -342,7 +331,7 @@ tournament starts here =========================================================
 >             i2Fuzz'                      =
 >               profess
 >                 (not $ Map.null i2Fuzz)
->                 (unwords ["unexpected empty matches for", show pgkwFile, iName]) 
+>                 (unwords [fName, "unexpected empty matches"]) 
 >                 (if multipleCompetes
 >                    then Map.keys i2Fuzz
 >                    else (singleton . fst) (Map.findMax i2Fuzz))

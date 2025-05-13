@@ -300,7 +300,7 @@ discern design intent governing input Generator values, then implement something
 >   | abs (b - c) > 0.01                   = error $ unwords [fName, "doesn't add up #2", show (a, b, c)]
 >   | abs prolog > epsilon                 = error $ unwords [fName, "non-zero prolog"]
 >   | abs epilog > epsilon                 = error $ unwords [fName, "non-zero epilog"]
->   | isNothing fModTriple && dipix < (k `div` 2)
+>   | isNothing fModTriple && dipix < (k `div` 5)
 >                                          = error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show k]
 >   | otherwise                            = True
 >   where

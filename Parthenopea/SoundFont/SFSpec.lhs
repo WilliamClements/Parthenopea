@@ -19,7 +19,6 @@ April 16, 2023
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Char
-> import Data.Either
 > import Data.Foldable
 > import Data.Int ( Int8, Int16 )
 > import Data.List
@@ -36,7 +35,7 @@ implementing SoundFont spec ====================================================
 
 > data ChangeNameItem = FixCorruptName deriving Eq
 >
-> data ChangeName a =
+> data ChangeName a                        =
 >   ChangeName {
 >     cnSource           :: a
 >   , cnChanges          :: [ChangeNameItem]
@@ -44,17 +43,17 @@ implementing SoundFont spec ====================================================
 >
 > data ChangeEarItem = MakeMono deriving Eq
 >
-> data ChangeEar a =
+> data ChangeEar a                         =
 >   ChangeEar {
 >     ceSource           :: a
 >   , ceChanges          :: [ChangeEarItem]} deriving Eq
 >
-> data PreSampleKey =
+> data PreSampleKey                        =
 >   PreSampleKey {
 >     pskwFile           :: Word
 >   , pskwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
-> type PreSample = ChangeName F.Shdr
+> type PreSample                           = ChangeName F.Shdr
 > effPSShdr              :: PreSample → F.Shdr
 > effPSShdr ps                             =
 >   let
@@ -63,26 +62,25 @@ implementing SoundFont spec ====================================================
 >   in
 >     raw{F.sampleName = name}
 >
-> data PreZoneKey =
+> data PreZoneKey                          =
 >   PreZoneKey {
 >     pzkwFile           :: Word
 >   , pzkwInst           :: Word
 >   , pzkwBag            :: Word
 >   , pzkwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
-> data PreZone =
+> data PreZone                             =
 >   PreZone {
 >     pzWordF            :: Word
 >   , pzWordS            :: Word
 >   , pzWordI            :: Word
 >   , pzWordB            :: Word
 >   , pzDigest           :: ZoneDigest
->   , pzmkPartners       :: Either PreZoneKey [PreZoneKey]
 >   , pzChanges          :: ChangeEar F.Shdr} deriving Eq
 > instance Show PreZone where
 >   show (PreZone{ .. })
 >                                          =
->     unwords ["PreZone", show (pzWordF, pzWordS, pzWordI, pzWordB), show pzDigest, show pzmkPartners]
+>     unwords ["PreZone", show (pzWordF, pzWordS, pzWordI, pzWordB), show pzDigest]
 > showBad                :: PreZone -> String
 > showBad PreZone{ .. }
 >                                          =
@@ -94,7 +92,7 @@ implementing SoundFont spec ====================================================
 >
 > makePreZone            :: Word → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
 > makePreZone wF wS wI wB gens shdr        =
->   PreZone wF wS wI wB (formDigest gens) (Right []) (ChangeEar shdr [])
+>   PreZone wF wS wI wB (formDigest gens) (ChangeEar shdr [])
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
@@ -103,6 +101,14 @@ implementing SoundFont spec ====================================================
 > extractZoneKey         :: PreZone → PreZoneKey
 > extractZoneKey pz                        =
 >   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
+> extractSpace           :: PreZone → (Word, [Maybe (Word, Word)])
+> extractSpace pz@PreZone{pzWordB, pzDigest}  
+>                                          = (pzWordB, [pzDigest.zdKeyRange, pzDigest.zdVelRange, Just chans])
+>   where
+>     chans
+>       | isLeftPreZone pz                 = (0, 0)
+>       | isRightPreZone pz                = (1, 1)
+>       | otherwise                        = (0, 1)
 > effPZShdr              :: PreZone → F.Shdr
 > effPZShdr PreZone{pzChanges}             =
 >   if MakeMono `elem` pzChanges.ceChanges
@@ -128,6 +134,7 @@ implementing SoundFont spec ====================================================
 > data PerInstrument                       =
 >   PerInstrument {
 >     pZones             :: [(PreZone, SFZone)]
+>   , pInstCat           :: InstCat
 >   , pSmashing          :: Smashing Word}
 > showBags               :: PerInstrument → String
 > showBags perI                            = show (map (pzWordB . fst) perI.pZones)
@@ -234,42 +241,22 @@ implementing SoundFont spec ====================================================
 > data InstCatData                         =
 >   InstCatData {
 >     inPreZones         :: [PreZone]
->   , inSmashup          :: Smashing Word
 >   , inPercBixen        :: [Word]} deriving Show
 >
 > data SFBoot                              =
 >   SFBoot {
 >     zPreSampleCache    :: Map PreSampleKey PreSample
 >   , zPreInstCache      :: Map PerGMKey PreInstrument
->
->   , zPartnerMap        :: Map PreZoneKey PreZoneKey
->
->   , zJobs              :: Map PerGMKey InstCat
 >   , zPerInstCache      :: Map PerGMKey PerInstrument}
 > dasBoot                :: SFBoot
-> dasBoot                                  =
->   SFBoot
->     Map.empty Map.empty
->     Map.empty
->     Map.empty Map.empty
+> dasBoot                                  = SFBoot Map.empty Map.empty Map.empty
 > instance Show SFBoot where
 >   show (SFBoot{ .. })                    =
->     unwords [  "SFBoot"
->              , show (length zPreSampleCache), "=samples"
->              , show (length zPreInstCache), "=insts"
->
->              , show (length zPartnerMap), "=pards"
->
->              , show (length zJobs), "=jobs"
->              , show (length zPerInstCache), "=perI"]
+>     unwords [ "SFBoot", show (length zPreSampleCache), show (length zPreInstCache), show (length zPerInstCache)]
 > combineBoot            :: SFBoot → SFBoot → SFBoot
 > combineBoot boot1 boot2                  =
 >   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache   boot2.zPreSampleCache
 >         , zPreInstCache                  = Map.union boot1.zPreInstCache     boot2.zPreInstCache
->
->         , zPartnerMap                    = Map.union boot1.zPartnerMap       boot2.zPartnerMap
->
->         , zJobs                          = Map.union boot1.zJobs             boot2.zJobs
 >         , zPerInstCache                  = Map.union boot1.zPerInstCache     boot2.zPerInstCache}
 >
 > data SFFile                              =
@@ -505,9 +492,7 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >       
 > isStereoZone pz                          = isLeftPreZone pz || isRightPreZone pz
 >
-> isUnpartnered pz                         = isRight pz.pzmkPartners
->
-> isStereoZone, isLeftPreZone, isRightPreZone, isUnpartnered
+> isStereoZone, isLeftPreZone, isRightPreZone
 >                        :: PreZone → Bool
 > isLeftPreZone pz                         = SampleTypeLeft == toSampleType (effPZShdr pz).sampleType
 > isRightPreZone pz                        = SampleTypeRight == toSampleType (effPZShdr pz).sampleType
@@ -520,13 +505,11 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >     imsgs              :: [String]       = fromMaybe [] (lookup kind msgs)
 >
 > howClose               :: ∀ j . (Eq j) ⇒ [j] → [j] → Rational
-> howClose j0 j1                           =
->   let
->     commonPrefix                         = takeWhile (uncurry (==)) (zip j0 j1)
->   in
->     if null j0
->       then error "howClose first argument cannot be empty"
->       else genericLength commonPrefix % genericLength j0
+> howClose js0 js1
+>   | null js0 || null js1                 = 0
+>   | otherwise                            = genericLength commonPrefix % genericLength js0
+>   where
+>     commonPrefix                         = takeWhile (uncurry (==)) (zip js0 js1)
 >
 > goodChar               :: Char → Bool
 > goodChar cN                              = isAscii cN && not (isControl cN)

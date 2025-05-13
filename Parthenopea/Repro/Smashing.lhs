@@ -17,7 +17,6 @@ February 10, 2025
 > import Data.Ix
 > import Data.List
 > import Data.Maybe
-> import Data.Ratio ( (%) )
 > import qualified Data.Vector.Unboxed     as VU
 > import Parthenopea.Debug
 
@@ -31,7 +30,7 @@ Range theory ===================================================================
 >     , smashStats        :: SmashStats
 >     , smashVec          :: VU.Vector (i, i)}
 > instance ∀ i. Show i ⇒ Show (Smashing i) where
->   show Smashing{ .. }                    = unwords ["Smashing", show (smashTag, smashStats)]
+>   show Smashing{smashTag, smashStats}    = unwords ["Smashing", show (smashTag, smashStats)]
 > data SmashStats                          =
 >   SmashStats {
 >     countNothings      :: Int
@@ -48,11 +47,6 @@ Range theory ===================================================================
 >       | count == 0                       = stats{countNothings = countNothings + 1}
 >       | count == 1                       = stats{countSingles = countSingles + 1}
 >       | otherwise                        = stats{countMultiples = countMultiples + 1}
-> fractionEmpty, fractionCovered
->                        :: ∀ i. (Integral i, Show i) ⇒ Smashing i → Rational
-> fractionEmpty smashup                    = fromIntegral (countNothings smashup.smashStats) % fromIntegral (product smashup.smashDims)
-> fractionCovered smashup                  =
->   fromIntegral (countSingles smashup.smashStats + countMultiples smashup.smashStats) % fromIntegral (product smashup.smashDims)
 
 Utilities for working with input range specifications. Each space (of nspaces) contains
 exactly ndims (2 in the MIDI case) ranges. If dim is the value of a dimension then its overall range is implicitly
@@ -96,6 +90,33 @@ You see there is some overlap between Zone 1 and Zone 2.
 >           (0 <= mag && mag <= 65_536 && all (uncurry validRange) (zip dimsA rngs))
 >           (unwords ["enumAssocs: range violation", tag, show mag, show dimsA, show spaces])
 >           (map (, (spaceId, 1)) is)
+>
+> smashSmashings         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
+>                           Smashing i → Smashing i → Smashing i
+> smashSmashings s1 s2                     =
+>   Smashing
+>     (s1.smashTag ++ s2.smashTag)
+>     dims
+>     (s1.smashSpaces ++ s2.smashSpaces)
+>     (developSmashStats svector)
+>     svector
+>   where
+>     fName                                = "smashSmashings"
+>
+>     svector                              = VU.zipWith smashCell s1.smashVec s2.smashVec
+>
+>     smashCell       :: (i, i) → (i, i) → (i, i)
+>     smashCell (spaceId1, cnt1) (spaceId2, cnt2)
+>                                          =
+>       if cnt1 == 0
+>         then (spaceId2, cnt2)
+>         else (spaceId1, cnt1 + cnt2)
+>
+>     dims                                 =
+>       profess
+>         (s1.smashDims == s2.smashDims)
+>         (unwords [fName, "dims mismatch??"])
+>         s1.smashDims
 >
 > walkRange              :: Integral n ⇒ (n, n) → [n]
 > walkRange (x, y)                         = if x > y || y < 0 then [] else [x..y]
@@ -161,25 +182,6 @@ You see there is some overlap between Zone 1 and Zone 2.
 > computeSmashup         :: String → [(Word, [Maybe (Word, Word)])] → Smashing Word
 > computeSmashup tag                       = smashSubspaces tag dims
 >   where
->     dims                                 = [128::Word, 128::Word]
->
-> computeStereoSmashup   :: String → [(Word, Double, [Maybe (Word, Word)])] → Smashing Word
-> computeStereoSmashup tag cspaces         = smashSubspaces tag dims (map channelize cspaces)
->   where
->     dims                                 = [2::Word, 128::Word, 128::Word]
->
-> channelize             :: (Word, Double, [Maybe (Word, Word)]) → (Word, [Maybe (Word, Word)])
-> channelize (spaceId, pan, cspaces)       =
->   let
->     m                                    = interpretPan pan
->     spaces                               = m : cspaces 
->   in
->     (spaceId, spaces)
->
-> interpretPan           :: ∀ i. (Num i) ⇒ Double → Maybe (i, i)
-> interpretPan pan
->   | abs pan < 0.001                      = Nothing
->   | pan < 0                              = Just (0, 0)
->   | otherwise                            = Just (1, 1)
+>     dims                                 = [128::Word, 128::Word, 2::Word]
 
 The End

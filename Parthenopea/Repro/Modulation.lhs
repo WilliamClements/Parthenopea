@@ -622,8 +622,10 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   NoteOn {
 >     noteOnVel          :: Velocity
 >   , noteOnKey          :: KeyNumber} deriving (Eq, Ord, Show)
-> noonAsCoords           :: NoteOn → [Word]
-> noonAsCoords NoteOn{ .. }                =  [fromIntegral noteOnKey, fromIntegral noteOnVel]
+> noonAsCoords           :: NoteOn → ([Word], [Word])
+> noonAsCoords noon                        =
+>   (  [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 0]
+>    , [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 1])
 >
 > data ModCoefficients                     =
 >   ModCoefficients {

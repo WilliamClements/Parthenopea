@@ -44,14 +44,14 @@ Rosters support ================================================================
 >
 >   _ ← if playAll
 >         then do
->           resultParthenopea              ← runTestsQuietly smashingTests
+>           resultSmashing              ← runTestsQuietly smashingTests
 >           resultBoot                     ← runTestsQuietly bootTests
 >           resultModulation               ← runTestsQuietly modulationTests     
 >           resultSynthesizer              ← runTestsQuietly synthesizerTests
 >           let resultDiscrete             = True -- runTestsQuietly discreteTests
 >           putStrLn $ unwords [show
 >                 (profess
->                   (and [resultParthenopea, resultBoot, resultModulation, resultSynthesizer, resultDiscrete])
+>                   (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer, resultDiscrete])
 >                   (unwords ["one or more unit tests failed"])
 >                   True)]
 >           putStrLn "Unit tests completed successfully"
@@ -117,13 +117,13 @@ organize exposed music =========================================================
 > sj =
 >    -- [ ("gold"        , gold)]
 >    -- [ ("slot"        , slot 1)]
->       [ ("alice"       , alice)]
+>    -- [ ("alice"       , alice)]
 >    -- [ ("pa"          , pendingtonArnt 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum False)]
->    -- [ ("baked"       , shimSong $ bakedJingle 2310)]
+>    -- [ ("baked"       , shimSong $ bakedJingle 42310)]
 >    -- [ ("bob_1"       , bob 1)]
 >    -- [ ("theFanfare"  , theFanfare False)]
->    -- [ ("pit"         , pit)]
+>       [ ("kit"         , kit)]
 >    -- [ ("wj"          , wj)]
 
 a few playthings ... get it? ==========================================================================================

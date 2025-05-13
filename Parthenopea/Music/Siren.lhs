@@ -276,16 +276,18 @@ which makes for a cleaner sound on some synthesizers:
 > extendModeToInfinity   :: Bool → AbsPitch → [AbsPitch] → [(AbsPitch, Int)]
 > extendModeToInfinity desc start templ8   = iterate' doNext (start, 0)
 >   where
->     nT                                   = length templ8
 >     doNext             :: (AbsPitch, Int) → (AbsPitch, Int)
->     doNext (ap, ix)                      = (ap + delta, ix')
->       where  
+>     doNext (ap, ix)                      =
+>       let  
 >         (ix', offs)
 >           | desc                         = if ix == 0 then (nT - 1, -12) else (ix - 1, 0)
 >           | ix + 1 == nT                 = (0, 12)
 >           | otherwise                    = (ix + 1, 0)
 >  
+>         nT                               = length templ8
 >         delta                            = templ8 !! ix' - templ8 !! ix  + offs
+>       in
+>         (ap + delta, ix')
 >
 > descendFrom            :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
 > descendFrom bp p pc mode                 = squeezeAPSequence (takeWhile (>= bottom) limited)
