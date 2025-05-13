@@ -356,12 +356,12 @@ bootstrapping ==================================================================
 >   deriving (Eq, Ord, Show)
 >
 > data Impact                              =
->   Ok | CorruptName
+>   Ok | NoZones | CorruptName
 >      | BadSampleRate | BadSampleType | BadSampleLimits
 >      | DevolveToMono | BadStereoPartner
 >      | Paired | Unpaired
 >      | OrphanedBySample | OrphanedByInst | ToZoneCache
->      | Absorbing | Absorbed | NoZones
+>      | Absorbing | Absorbed | NoAbsorption
 >      | CorruptGMRange | Narrow
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
 >      | Unrecognized | NoPercZones
@@ -382,8 +382,7 @@ bootstrapping ==================================================================
 > noClue                                   = ""
 >
 > deadset, elideset, rescueset
->                        :: [Disposition]
->                                            -- a given list is filtered down to the three Dispositions
+>                        :: [Disposition]    -- a given list is filtered down to the three Dispositions
 >                                            -- then we count "membership" per distinct Impact
 >                                            -- ...dead if any counts are odd
 > deadset                                  = [Violated, Dropped, Rescued]

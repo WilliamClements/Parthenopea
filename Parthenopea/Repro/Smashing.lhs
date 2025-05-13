@@ -39,6 +39,10 @@ Range theory ===================================================================
 > seedSmashStats         :: SmashStats
 > seedSmashStats                           = SmashStats 0 0 0
 >
+> seedSmashing           :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ Smashing i
+> seedSmashing                             =
+>   Smashing "" [] [] seedSmashStats VU.empty
+>
 > developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ VU.Vector (i,i) → SmashStats
 > developSmashStats                        = VU.foldl' sfolder seedSmashStats
 >   where
@@ -49,7 +53,7 @@ Range theory ===================================================================
 >       | otherwise                        = stats{countMultiples = countMultiples + 1}
 
 Utilities for working with input range specifications. Each space (of nspaces) contains
-exactly ndims (2 in the MIDI case) ranges. If dim is the value of a dimension then its overall range is implicitly
+exactly ndims (3 in the MIDI case) ranges. If dim is the value of a dimension then its overall range is implicitly
 0..dim-1 -- the associated _specified_ space range carves out a subset thereof.
 
 Say you have ndims=2 dimensions each of 64 extent. (Partially) covering overall 64x64 space are nspaces=3 "zones". 
@@ -74,7 +78,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >     svector                              = foldl' sfolder (VU.replicate mag (0, 0)) spaces
 >
 >     sfolder            :: VU.Vector (i, i) → (i, [(i, i)]) → VU.Vector (i, i)
->     sfolder smashup (spaceId, rngs)      = VU.accum assignCell smashup (enumAssocs dims spaceId rngs)
+>     sfolder vec (spaceId, rngs)          = VU.accum assignCell vec (enumAssocs dims spaceId rngs)
 >
 >     assignCell         :: (i, i) → (i, i) → (i, i)
 >     assignCell mfrom mto                 = (fst mto, snd mfrom + 1)
@@ -84,7 +88,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >       let
 >         is             :: [Int]
 >         is                               =
->           map (fromIntegral . computeCellIndex dimsA) (traverse walkRange rngs)
+>           map (computeCellIndex dimsA) (traverse walkRange rngs)
 >       in
 >         profess
 >           (0 <= mag && mag <= 65_536 && all (uncurry validRange) (zip dimsA rngs))
@@ -107,15 +111,13 @@ You see there is some overlap between Zone 1 and Zone 2.
 >
 >     smashCell       :: (i, i) → (i, i) → (i, i)
 >     smashCell (spaceId1, cnt1) (spaceId2, cnt2)
->                                          =
->       if cnt1 == 0
->         then (spaceId2, cnt2)
->         else (spaceId1, cnt1 + cnt2)
+>       | cnt2 == 0                        = (spaceId1, cnt1)
+>       | otherwise                        = (spaceId2, cnt1 + cnt2)
 >
 >     dims                                 =
 >       profess
 >         (s1.smashDims == s2.smashDims)
->         (unwords [fName, "dims mismatch??"])
+>         (unwords [fName, "dims mismatch?!?"])
 >         s1.smashDims
 >
 > walkRange              :: Integral n ⇒ (n, n) → [n]
@@ -178,10 +180,5 @@ You see there is some overlap between Zone 1 and Zone 2.
 >
 > inZRange               :: (Ix a, Num a) ⇒ a → a → Bool
 > inZRange x y                             = inRange (0, y - 1) x 
->
-> computeSmashup         :: String → [(Word, [Maybe (Word, Word)])] → Smashing Word
-> computeSmashup tag                       = smashSubspaces tag dims
->   where
->     dims                                 = [128::Word, 128::Word, 2::Word]
 
 The End

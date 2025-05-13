@@ -485,17 +485,7 @@ smash task =====================================================================
 >     smasher zrec rdFold                  = (zrec{zsSmashup = Just (computeInstSmashup zrec.zsPreZones)}, rdFold)
 >
 > computeInstSmashup     :: [PreZone] → Smashing Word
-> computeInstSmashup pzs
->   | traceIf trace_CIS False              = undefined
->   | otherwise                            = computeSmashup fName subs
->   where
->     fName                                = "computeInstSmashup"
->
->     -- create smashup consisting of 32_768 (128 x 128 x 2) word pairs - (262_144 bytes)
->     subs               :: [(Word, [Maybe (Word, Word)])]
->     subs                                 = map extractSpace pzs
->
->     trace_CIS                            = unwords [fName, showPreZones pzs, show subs]
+> computeInstSmashup pzs                   = smashSubspaces "c" [128, 128, 2] (map extractSpace pzs)
 
 reorg task ============================================================================================================
           where appropriate, make one instrument out of many
@@ -526,42 +516,44 @@ To build the map
 >       in
 >         sort $ zrecCompute fwIn extractFolder []
 >     
->     towners            :: Map Word ([PreZone], Smashing Word)
->     towners                              =
+>     townersMap         :: Map Word ([PreZone], Smashing Word)
+>     townersMap                           =
 >       let
->         townerFolder m zrec              = Map.insert zrec.zswInst (zrec.zsPreZones, fromJust zrec.zsSmashup) m
+>         tFolder m zrec                   = Map.insert zrec.zswInst (zrec.zsPreZones, fromJust zrec.zsSmashup) m
 >       in
->         zrecCompute fwIn townerFolder Map.empty 
+>         zrecCompute fwIn tFolder Map.empty 
 >     
 >     grouped                              = groupBy (\x y → absorbRatio < howClose (fst x) (fst y)) instNames
 >     filteredByGroupSize                  = filter (\x → 1 < length x) grouped
 >     stringsDropped                       = map (map snd) filteredByGroupSize
 >     headed                               = Map.fromList $ map (\q → (head q, q)) stringsDropped
 >
->     hMap                                 =
->       let
->         qualify            :: Word → [Word] → Maybe ([PreZone], Smashing Word)
+>     hMap               :: Map Word ([PreZone], Smashing Word)
+>     dMap               :: Map Word SmashStats
+>     (hMap, dMap)                         = Map.mapEitherWithKey qualify headed
+>       where
+>         qualify        :: Word → [Word] → Either ([PreZone], Smashing Word) SmashStats
 >         qualify lead memberIs
 >           | 0 == countMultiples osmashup.smashStats
->                                          = Just (rebased, osmashup)
->           | otherwise                    = Nothing
+>                                          = Left (rebased, osmashup)
+>           | otherwise                    = Right osmashup.smashStats
 >           where
->             resources                    = map (towners Map.!) memberIs
+>             towners                      = map (townersMap Map.!) memberIs
 >
->             combined                     = concatMap fst resources
+>             combined                     = concatMap fst towners
 >             rebased                      = map rebase combined where rebase pz = pz{pzWordI = lead}
 >
->             smashups                     = map snd resources
+>             smashups                     = map snd towners
 >             osmashup                     = foldl' smashSmashings (head smashups) (tail smashups)
->       in Map.mapMaybeWithKey qualify headed
->
->     ready                                = Map.filterWithKey (\x _ → Map.member x hMap) headed
+>     
+>     ready              :: Map Word [Word]
+>     ready                                = Map.mapWithKey (\k _ → headed Map.! k) hMap
 >
 >     aMap               :: Map Word Word
->     aMap                                 = foldl' fold1Fun Map.empty (Map.toList ready)
+>     aMap                                 = Map.foldlWithKey fold1Fun Map.empty ready
 >       where
->         fold1Fun       :: Map Word Word → (Word, [Word]) → Map Word Word
->         fold1Fun qIn (wLead, wMembers)   = foldl' fold2Fun qIn wMembers
+>         fold1Fun       :: Map Word Word → Word → [Word] → Map Word Word
+>         fold1Fun qIn wLead               = foldl' fold2Fun qIn
 >           where
 >             fold2Fun   :: Map Word Word → Word → Map Word Word
 >             fold2Fun qFold wMember       = Map.insert wMember wLead qFold
@@ -569,25 +561,27 @@ To build the map
 >     reorger            :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     reorger zrec rdFold
 >       | not doAbsorption                 = (zrec,                       rdFold)
+>       | isJust dprobe                    = (zrec,                       dispose pergm scansBlocked rdFold)
 >       | isNothing aprobe                 = (zrec,                       rdFold)
->       | party == zrec.zswInst          =
->           (zrec{zsPreZones = hpzs, zsSmashup = Just hsmash}
->           , dispose pergm scansIng rdFold)
->       | otherwise                        =
->           (zrec{zsPreZones = []}
->           , dispose pergm scansEd rdFold)
+>       | party == zrec.zswInst            = (zrec{zsPreZones = hpzs, zsSmashup = Just hsmash},
+>                                                                         dispose pergm scansIng rdFold)
+>       | otherwise                        = (zrec{zsPreZones = []},      dispose pergm scansEd rdFold)
 >       where
 >         fName                            = "reorger"
 >
+>         pergm                            = instKey zrec
+>
+>         dprobe                           = Map.lookup zrec.zswInst dMap
 >         aprobe                           = Map.lookup zrec.zswInst aMap
 >         hprobe                           = Map.lookup zrec.zswInst hMap
 >
+>         failed                           = deJust "dprobe" dprobe
 >         party                            = deJust "aprobe" aprobe
 >         (hpzs, hsmash)                   = deJust "hprobe" hprobe
 >
->         pergm                            = instKey zrec
 >         scansIng                         = [Scan Modified Absorbing fName noClue]
 >         scansEd                          = [Scan Dropped Absorbed   fName noClue]
+>         scansBlocked                     = [Scan NoChange NoAbsorption fName (show failed)]
 
 shave task ============================================================================================================
           remove dropped or violated instruments from the preInstCache
