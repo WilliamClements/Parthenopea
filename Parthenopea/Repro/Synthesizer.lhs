@@ -67,7 +67,7 @@ Signal function-based synth ====================================================
 >     fName                                = "eutSynthesize"
 >     trace_eS                             = unwords [fName, show (secsSampled, secsScored, secsToPlay, looping, nps)] 
 >
->     noon@NoteOn{ .. }                    = NoteOn vol pch
+>     noon                                 = NoteOn vol pch
 >     reconR                               = fromJust mreconR
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
 >
@@ -90,8 +90,8 @@ Signal function-based synth ====================================================
 >     freqRatio          :: Double         =
 >       case reconL.rTuning of
 >       0                                  → 1
->       100                                → apToHz reconL.rRootKey / apToHz noteOnKey
->       _                                  → calcMicrotoneRatio reconL.rRootKey noteOnKey (fromIntegral reconL.rTuning)
+>       100                                → apToHz reconL.rRootKey / apToHz noon.noteOnKey
+>       _                                  → calcMicrotoneRatio reconL.rRootKey noon.noteOnKey (fromIntegral reconL.rTuning)
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
 >     delta              :: Double         = 1 / (numSamples * freqFactor)
@@ -252,15 +252,15 @@ Effects ========================================================================
 >   where
 >     dChorus            :: Double         =
 >       if useChorus
->         then maybe 0 (fromIntegral . clip (0, 1000)) mChorus + evaluateMods ToChorus mModsMap noon
+>         then maybe 0 fromIntegral mChorus + evaluateMods ToChorus mModsMap noon
 >         else 0
 >     dReverb            :: Double         =
 >       if useReverb
->         then maybe 0 (fromIntegral . clip (0, 1000)) mReverb + evaluateMods ToReverb mModsMap noon
+>         then maybe 0 fromIntegral mReverb + evaluateMods ToReverb mModsMap noon
 >         else 0
 >     dPan               :: Double         =
 >       if usePan
->         then maybe 0 (fromIntegral . clip (-500, 500)) mPan
+>         then maybe 0 fromIntegral mPan
 >         else 0
 >
 > eutEffectsMono       :: ∀ p . Clock p ⇒ Recon → Signal p Double Double

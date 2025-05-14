@@ -242,7 +242,7 @@ executive ======================================================================
 >       then do
 >         let path                         = name ++ ".wav"
 >         putStr path
->         let (durS,s)                        = renderSF (song dynMap) imap
+>         let (durS,s)                     = renderSF (song dynMap) imap
 >         traceIO (unwords ["-> outFile*", path, show durS])
 >         if normalizingOutput
 >           then outFileNorm path durS s
@@ -297,27 +297,25 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Volume
 >                           → [Double]
 >                           → Signal p () (Double, Double)
-> instrumentSF SFRuntime{ .. } pergm durI pchIn volIn nps
+> instrumentSF SFRuntime{zFiles, zBoot} pergm durI pchIn volIn nps
 >   | traceIf trace_ISF False              = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rSampleRate
 >                                              durI pchOut volOut nps
->                                              samplea.ssData samplea.ssM24
+>                                              zSample.ssData zSample.ssM24
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
 >       unwords [fName_, show pergm.pgkwFile, show preI.piChanges.cnSource, show (pchIn, volIn), show durI]
 >
->     SFBoot{ .. }                         = zBoot
->
 >     noon                                 = NoteOn
 >                                              (clip (0, 127) volIn)
 >                                              (clip (0, 127) pchIn)
->     pchOut              :: AbsPitch      = maybe noon.noteOnKey (clip (0, 127)) reconX.rForceKey
->     volOut              :: Volume        = maybe noon.noteOnVel (clip (0, 127)) reconX.rForceVel
+>     pchOut              :: AbsPitch      = fromMaybe noon.noteOnKey reconX.rForceKey
+>     volOut              :: Volume        = fromMaybe noon.noteOnVel reconX.rForceVel
 >
->     sffile                               = zFiles ! pergm.pgkwFile
->     samplea                              = sffile.zSample
+>     SFFile{zSample}                      = zFiles ! pergm.pgkwFile
 >
+>     SFBoot{zPreInstCache, zPerInstCache} = zBoot
 >     preI                                 = zPreInstCache Map.! pergm
 >     perI                                 = zPerInstCache Map.! pergm
 >
@@ -337,7 +335,8 @@ zone selection for rendering ===================================================
 >
 >     doFlyEye           :: Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
 >     doFlyEye
->       | cntL <= 0 || cntR <= 0           = error $ unwords [fName, "out of range"]
+>       | bagIdL <= 0 || cntL <= 0 || bagIdR <= 0 || cntR <= 0
+>                                          = error $ unwords [fName, "cell is nonsense"]
 >       | isNothing foundL || isNothing foundR
 >                                          = error $ unwords [fName, "zone not present"] 
 >       | foundL == foundR                 = (Left . fromJust) foundL
@@ -346,7 +345,7 @@ zone selection for rendering ===================================================
 >         fName                            = unwords [fName_, "doFlyEye"]
 >
 >         (index1, index2)                 = noonAsCoords noon
->         ((bagIdL, cntL), (bagIdR, cntR))                   =
+>         ((bagIdL, cntL), (bagIdR, cntR)) =
 >           (lookupCellIndex index1 perI.pSmashing, lookupCellIndex index2 perI.pSmashing)
 >         foundL                           = findByBagIndex' perI.pZones bagIdL
 >         foundR                           = findByBagIndex' perI.pZones bagIdR

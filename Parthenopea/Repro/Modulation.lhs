@@ -433,7 +433,7 @@ Miscellaneous ==================================================================
 >   | otherwise                            =
 >       if useLFO && anyJust
 >         then Just $ LFO (fromTimecents del)
->                         (fromAbsoluteCents $ maybe 0 (clip (-16_000, 4_500)) mfreq)
+>                         (fromAbsoluteCents $ fromMaybe 0 mfreq)
 >                         (deriveModTriple toPitch toFilterFc toVolume)
 >         else Nothing
 >   where
@@ -897,7 +897,7 @@ Returns the elapsed time in seconds
 > tkclip i                                 = Just $ clip (-1_200, 1_200) i
 > tdclip i                                 = Just $ clip (0, 1_440) i
 > tmclip w                                 = Just $ clip (0, 127) w
-> tnclip i                                 = Just $ clip (1, 127) i
+> tnclip w                                 = Just $ clip (1, 127) w
 > t1clip i                                 = Just $ clip (-120, 120) i
 > t2clip i                                 = Just $ clip (-99, 99) i
 > t3clip i                                 = Just $ clip (0, 1_200) i

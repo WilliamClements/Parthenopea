@@ -630,7 +630,7 @@ examine song for instrument and percussion usage ===============================
 >   return $ shRanges ding
 >
 > critiqueMusic          :: Shredding → Shredding
-> critiqueMusic Shredding{ .. }            = Shredding shRanges (concatMap critiqueShred (Map.assocs shRanges))
+> critiqueMusic Shredding{shRanges}        = Shredding shRanges (concatMap critiqueShred (Map.assocs shRanges))
 >
 > combineShreds          :: Shred → Shred → Shred
 > combineShreds s1 s2                      =
@@ -731,9 +731,6 @@ examine song for instrument and percussion usage ===============================
 music-related utilities ===============================================================================================
           some code _copied_ from HSoM and Euterpea - if you feel strongly, I'll do it the right way with exports
 
-> collectMEvents         :: ToMusic1 a ⇒ Music a → Performance
-> collectMEvents m                         = fst (musicToMEvents defaultContext (toMusic1 m))
->
 > defaultContext         :: MContext
 > defaultContext                           =
 >   MContext
