@@ -688,7 +688,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , tfLooping          :: Bool} deriving (Eq, Show)
 > data FEnvelope                           =
 >   FEnvelope {
->     fTargetT           :: Double
+>     fTargetT           :: Maybe (Double, Double)
 >   , fSustainLevel      :: Double
 >   , fModTriple         :: Maybe ModTriple
 >
@@ -696,11 +696,17 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , fAttackT           :: Double
 >   , fHoldT             :: Double
 >   , fDecayT            :: Double
->   , fSustainT          :: Double
->   , fReleaseT          :: Double} deriving (Eq, Show)
+>   , fSustainT          :: Double} deriving (Eq, Show)
 > feSum                  :: FEnvelope → Double
 > feSum FEnvelope{ .. }                    
->                                          = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + fReleaseT
+>                                          = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + releaseT
+>   where
+>     (_, releaseT)                        = fromJust fTargetT
+> feRemaining            :: FEnvelope → Double
+> feRemaining work@FEnvelope{fTargetT}
+>                                          = targetT - feSum work
+>   where
+>     (targetT, _)                         = fromJust fTargetT
 > data FreeVerb =
 >   FreeVerb
 >   {

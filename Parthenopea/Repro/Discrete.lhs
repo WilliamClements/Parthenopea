@@ -26,7 +26,7 @@ June 17, 2024
 > import Data.MemoTrie
 > import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.Basics ( outA )
-> import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
+> import Euterpea.IO.Audio.Types ( Signal, Clock(..) , AudioSample(..))
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
@@ -110,14 +110,16 @@ Discrete approach ==============================================================
 >              , "\ndsigInL:", show dsigInL
 >              , "\ndsigInR:", show dsigInR]
 >
-> fromContinuousSig      :: ∀ p. (Clock p) ⇒ String → Double → Signal p () Double → Maybe (DiscreteSig Double)
-> fromContinuousSig tag dur sf             = 
->   if not (null dlist)
->     then Just $ fromRawVector tag (VU.fromList dlist)
->     else Nothing
->   where
->     dlist              :: [Double]
+> fromContinuousSig      :: ∀ p a. (Clock p, Coeff a, VU.Unbox a, AudioSample a) ⇒
+>                           String → Double → Signal p () a → Maybe (DiscreteSig a)
+> fromContinuousSig tag dur sf             =
+>   let
+>     dlist              :: [a]
 >     dlist                                = toSamples dur sf
+>   in
+>     if not (null dlist)
+>       then Just $ fromRawVector tag (VU.fromList dlist)
+>       else Nothing
 >
 > toContinuousSig         :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒ DiscreteSig a → Signal p () a
 > toContinuousSig dsL                      =
@@ -165,7 +167,7 @@ Discrete approach ==============================================================
 >                        :: ∀ a. (Coeff a, VU.Unbox a) ⇒ VU.Vector a → FrequencyResponseStats
 > measureFrequencyResponse                 = VU.foldl' sfolder defFrequencyResponseStats
 >   where
->     sfolder            ::  FrequencyResponseStats → a → FrequencyResponseStats
+>     sfolder            :: FrequencyResponseStats → a → FrequencyResponseStats
 >     sfolder FrequencyResponseStats{ .. } d
 >                                          =
 >       FrequencyResponseStats

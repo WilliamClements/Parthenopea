@@ -400,7 +400,6 @@ reconcile zone and sample header ===============================================
 >                                                             (zHoldVolEnv,  zKeyToVolEnvHold)
 >                                                             (zDecayVolEnv, zKeyToVolEnvDecay)
 >                                                             zSustainVolEnv
->                                                             zReleaseVolEnv
 >                                                             Nothing
 >   , rPitchCorrection
 >                    = if usePitchCorrection
@@ -473,7 +472,6 @@ reconcile zone and sample header ===============================================
 >                                              (zHoldModEnv, zKeyToModEnvHold) 
 >                                              (zDecayModEnv, zKeyToModEnvDecay)
 >                                              zSustainModEnv
->                                              zReleaseModEnv
 >                                              (Just (zModEnvToPitch, zModEnvToFc))
 >     nModLfo, nVibLfo   :: Maybe LFO
 >     nModLfo                              =

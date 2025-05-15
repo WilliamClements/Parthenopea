@@ -380,9 +380,10 @@ capture task ===================================================================
 >         results                          = map captureZone (deriveRange ibagi jbagi)
 >
 >         pzs                              = lefts results
->         globalKey                        = if head results == Right (Accepted, GlobalZone)
->                                              then Just $ PreZoneKey sffile.zWordF pergm.pgkwInst ibagi 0
->                                              else Nothing
+>         globalKey                        =
+>           if head results == Right (Accepted, GlobalZone)
+>             then Just $ PreZoneKey sffile.zWordF pergm.pgkwInst ibagi 0
+>             else Nothing
 >
 >         iinsts                           = sffile.zFileArrays.ssInsts
 >         ibagi                            = F.instBagNdx (iinsts ! pgkwInst pergm)
@@ -507,10 +508,9 @@ To build the map
 >     instNames          :: [(String, Word)]
 >     instNames                            =
 >       let
->         extractFolder ns zrec            = (iName, zrec.zswInst) : ns
+>         extractFolder ns zrec            = (preI.piChanges.cnName, zrec.zswInst) : ns
 >           where
 >             preI                         = fwIn.fwBoot.zPreInstCache Map.! instKey zrec
->             iName                        = preI.piChanges.cnName
 >       in
 >         sort $ zrecCompute fwIn extractFolder []
 >     
@@ -532,7 +532,7 @@ To build the map
 >       where
 >         qualify        :: Word → [Word] → Either ([PreZone], Smashing Word) SmashStats
 >         qualify lead memberIs
->           | 0 == countMultiples osmashup.smashStats
+>           | 0 == osmashup.smashStats.countMultiples
 >                                          = Left (rebased, osmashup)
 >           | otherwise                    = Right osmashup.smashStats
 >           where
@@ -568,10 +568,11 @@ To build the map
 >         fName                            = "reorger"
 >
 >         pergm                            = instKey zrec
+>         wInst                            = zrec.zswInst
 >
->         dprobe                           = Map.lookup zrec.zswInst dMap
->         aprobe                           = Map.lookup zrec.zswInst aMap
->         hprobe                           = Map.lookup zrec.zswInst hMap
+>         dprobe                           = Map.lookup wInst dMap
+>         aprobe                           = Map.lookup wInst aMap
+>         hprobe                           = Map.lookup wInst hMap
 >
 >         failed                           = deJust "dprobe" dprobe
 >         party                            = deJust "aprobe" aprobe

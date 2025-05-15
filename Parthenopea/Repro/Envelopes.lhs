@@ -25,7 +25,7 @@ Apr 26, 2025
 > import Data.Maybe ( isJust, isNothing, fromJust, fromMaybe )
 > import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
-> import Euterpea.IO.Audio.Types ( AudSF, Clock(..), Signal)
+> import Euterpea.IO.Audio.Types ( AudSF, AudRate, Clock(..), Signal)
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
@@ -73,15 +73,20 @@ Create a straight-line envelope generator with following phases:
 >     else error $ unwords[fName, "bad envelope"] 
 >   where
 >     fName                                = "computeSegments"
->     trace_CS                             = unwords [fName, show (feSum r, amps, deltaTs)]
+>     trace_CS                             = unwords [fName, show (tf.tfSecsScored, amps, deltaTs)]
 >
->     r                                    = refineEnvelope envRaw{fTargetT = tf.tfSecsScored}
+>     releaseT
+>       | tf.tfSecsScored < 2 * minUseful  = minDeltaT
+>       | otherwise                        = minUseful
+>           
+>     r                                    =
+>       refineEnvelope envRaw{fTargetT = Just (tf.tfSecsScored, releaseT)}
 >
 >     amps, deltaTs      :: [Double]
 >     amps                                 =
 >             [0,            0,             1,          1,       fSusLevel,     fSusLevel,      0,       0]
 >     deltaTs                              =
->             [   r.fDelayT,    r.fAttackT,    r.fHoldT,    r.fDecayT,   r.fSustainT,   r.fReleaseT,  1]
+>             [   r.fDelayT,    r.fAttackT,    r.fHoldT,    r.fDecayT,   r.fSustainT,   releaseT,  1]
 >
 >     segs                                 = Segments amps deltaTs
 >
@@ -92,21 +97,21 @@ discern design intent governing input Generator values, then implement something
 > data FIterate                            =
 >   FIterate {
 >     fiFun              :: FIterate → FIterate
->   , fiEnvOrig          :: FEnvelope
 >   , fiEnvWork          :: FEnvelope
 >   , fiDone             :: Bool}
 > data FCase                               =
 >   FCase {
 >     fcDAH              :: Bool
->   , fcDecay            :: Bool
->   , fcRelease          :: Bool} deriving (Eq, Ord, Show)
+>   , fcDecay            :: Bool} deriving (Eq, Ord, Show)
 > evaluateCase           :: FEnvelope → FCase
 > evaluateCase FEnvelope{ .. } 
 >                                          =
->   FCase
->     ((fDelayT + fAttackT + fHoldT) >= (9/10) * fTargetT)
->     (fDecayT >= (7/10) * fTargetT)
->     (fReleaseT >= (7/10) * fTargetT)
+>   let
+>     (targetT, _)                         = fromJust fTargetT
+>   in
+>     FCase
+>       ((fDelayT + fAttackT + fHoldT) >= (9/10) * targetT)
+>       (fDecayT >= (7/10) * targetT)
 >
 > refineEnvelope         :: FEnvelope → FEnvelope
 > refineEnvelope fEnvIn                    = result.fiEnvWork
@@ -119,18 +124,14 @@ discern design intent governing input Generator values, then implement something
 >     caseActions        :: Map FCase (FIterate → FIterate)
 >     caseActions                          =
 >       Map.fromList [
->           (FCase False False False, faceValue)
->         , (FCase False False True, releaseTooLong)
->         , (FCase False True False, decayTooLong)
->         , (FCase False True True, decayTooLong)
+>           (FCase False False, faceValue)
+>         , (FCase False True, decayTooLong)
 >
->         , (FCase True False False, dahTooLong)
->         , (FCase True False True, dahTooLong)
->         , (FCase True True False, dahTooLong)
->         , (FCase True True True,  dahTooLong)]
+>         , (FCase True False, dahTooLong)
+>         , (FCase True True, dahTooLong)]
 >
 >     fiInit                               =
->       FIterate (caseActions Map.! evaluateCase fEnvIn) fEnvIn fEnvIn False
+>       FIterate (caseActions Map.! evaluateCase fEnvIn) fEnvIn False
 > 
 > feFinish               :: FIterate → FEnvelope → FIterate
 > feFinish iterIn workee                   = iterIn{fiEnvWork = workee, fiDone = True}
@@ -138,40 +139,31 @@ discern design intent governing input Generator values, then implement something
 > feContinue             :: FIterate → FEnvelope → (FIterate → FIterate) → FIterate
 > feContinue iterIn workee fun             = iterIn{fiFun = fun, fiEnvWork = workee}
 >
-> faceValue, dahTooLong, releaseTooLong, decayTooLong
+> faceValue, dahTooLong, decayTooLong
 >                        :: FIterate → FIterate
-> reduceRelease, reduceSustain, reduceDecay, reduceHold, reduceAttack, reduceDelay
+> reduceSustain, reduceDecay, reduceHold, reduceAttack, reduceDelay
 >                        :: FIterate → FIterate
 >
 > faceValue iterIn
 >   | traceIf trace_FV False               = undefined
->   | remaining < minDeltaT                = feContinue iterIn work reduceRelease
+>   | remaining < minDeltaT                = feContinue iterIn work reduceSustain
 >   | otherwise                            = feFinish iterIn work{fSustainT = max minDeltaT remaining}
 >   where
 >     fName                                = "faceValue"
 >     trace_FV                             = unwords[fName, show (remaining, work)]
 >
 >     work                                 = iterIn.fiEnvWork
->     remaining                            = work.fTargetT - feSum work
+>     remaining                            = feRemaining work
 >
 > dahTooLong iterIn                        = feContinue iterIn work reduceHold
 >   where
 >     work                                 =
->       iterIn.fiEnvWork{fDecayT = minDeltaT, fSustainT = minDeltaT, fReleaseT = minDeltaT}
->
-> reduceRelease iterIn                     =
->   let
->     work                                 = iterIn.fiEnvWork{fReleaseT = minDeltaT}
->     remaining                            = work.fTargetT - feSum work
->   in
->     if remaining < minDeltaT
->       then feContinue iterIn work reduceSustain
->       else feFinish iterIn work{fReleaseT = max minDeltaT remaining}
+>       iterIn.fiEnvWork{fDecayT = minDeltaT, fSustainT = minDeltaT}
 >
 > reduceSustain iterIn                     =
 >   let
 >     work                                 = iterIn.fiEnvWork{fSustainT = minDeltaT}
->     remaining                            = work.fTargetT - feSum work
+>     remaining                            = feRemaining work
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceDecay
@@ -180,7 +172,7 @@ discern design intent governing input Generator values, then implement something
 > reduceDecay iterIn                       =
 >   let
 >     work                                 = iterIn.fiEnvWork{fDecayT = minDeltaT}
->     remaining                            = work.fTargetT - feSum work
+>     remaining                            = feRemaining work
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceHold
@@ -189,7 +181,7 @@ discern design intent governing input Generator values, then implement something
 > reduceHold iterIn                        = 
 >   let
 >     work                                 = iterIn.fiEnvWork{fHoldT = minDeltaT}
->     remaining                            = work.fTargetT - feSum work
+>     remaining                            = feRemaining work
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceAttack
@@ -198,7 +190,7 @@ discern design intent governing input Generator values, then implement something
 > reduceAttack iterIn                      =
 >   let
 >     work                                 = iterIn.fiEnvWork{fAttackT = minDeltaT}
->     remaining                            = work.fTargetT - feSum work
+>     remaining                            = feRemaining work
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceDelay
@@ -207,43 +199,20 @@ discern design intent governing input Generator values, then implement something
 > reduceDelay iterIn                       =
 >   let
 >     work                                 = iterIn.fiEnvWork{fDelayT = minDeltaT}
->     remaining                            = work.fTargetT - feSum work
+>     remaining                            = feRemaining work
 >   in
 >     feFinish iterIn work{fDelayT = max minDeltaT remaining}
->
-> releaseTooLong iterIn
->   | traceIf trace_RTL False              = undefined
->   | remaining < minDeltaT                = feContinue iterIn work reduceSustain
->   | otherwise                            = feFinish iterIn work{fSustainT = remaining - offset, fReleaseT = offset}
->   where
->     fName                                = "releaseTooLong"
->     trace_RTL                            = unwords[fName, show (remaining, work)]
->
->     work                                 = iterIn.fiEnvWork{fReleaseT = minDeltaT}
->     remaining                            = work.fTargetT - feSum work
->     bigrel                               = iterIn.fiEnvOrig.fReleaseT
->
->     offset                               = if remaining - bigrel > minDeltaT
->                                              then bigrel
->                                              else minDeltaT
 >
 > decayTooLong iterIn
 >   | traceIf trace_DARTL False            = undefined
 >   | remaining < 0                        = error $ unwords [fName, "illegal envelope"]
->   | otherwise                            = feFinish iterIn work{fDecayT = decay, fReleaseT = release}
+>   | otherwise                            = feFinish iterIn work{fDecayT = remaining}
 >   where
 >     fName                                = "decayTooLong"
 >     trace_DARTL                          = unwords[fName, show (remaining, work)]
 >
->     work                                 = iterIn.fiEnvWork{fDecayT = minDeltaT, fReleaseT = minDeltaT}
->     remaining                            = work.fTargetT - feSum work
->
->     bigdecay                             = 5 * iterIn.fiEnvOrig.fDecayT
->     bigrel                               = iterIn.fiEnvOrig.fReleaseT
->     bigboth                              = bigdecay + bigrel
->
->     decay                                = remaining * bigdecay / bigboth
->     release                              = remaining * bigrel / bigboth
+>     work                                 = iterIn.fiEnvWork{fDecayT = minDeltaT}
+>     remaining                            = feRemaining work
 >
 > deriveEnvelope         :: Maybe Int
 >                           → Maybe Int
@@ -251,11 +220,10 @@ discern design intent governing input Generator values, then implement something
 >                           → (Maybe Int, Maybe Int)
 >                           → (Maybe Int, Maybe Int)
 >                           → Maybe Int
->                           → Maybe Int
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe FEnvelope
 > deriveEnvelope mDelay mAttack noon (mHold, mHoldByKey) (mDecay, mDecayByKey)
->                mSustain mRelease mTriple
+>                mSustain mTriple
 >   | traceIf trace_DE False               = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTriple
 >                                              then Just env
@@ -272,7 +240,7 @@ discern design intent governing input Generator values, then implement something
 >
 >     env                                  =
 >       FEnvelope
->         0
+>         Nothing
 >         (fromTithe mSustain (isNothing mTriple))
 >         (makeModTriple mTriple)
 >         (fromTimecents mDelay)
@@ -280,7 +248,6 @@ discern design intent governing input Generator values, then implement something
 >         dHold
 >         dDecay
 >         minDeltaT
->         (fromTimecents mRelease)
 >
 >     doUse              :: Maybe (Maybe Int, Maybe Int) → Bool
 >     doUse                                =
@@ -294,47 +261,59 @@ discern design intent governing input Generator values, then implement something
 > vetEnvelope            :: FEnvelope → Segments → Bool
 > vetEnvelope env@FEnvelope{ .. } segs
 >   | traceIf trace_GE False               = undefined
->   | isJust mnAmp                         = error $ unwords [fName, "negative amp",      show $ fromJust mnAmp]
->   | isJust mnDeltaT                      = error $ unwords [fName, "negative delta T",  show $ fromJust mnDeltaT]
+>   | isJust mnAmp                         = error $ unwords [fName, "negative amp",      show segs]
+>   | isJust mnDeltaT                      = error $ unwords [fName, "negative delta T",  show segs]
 >   | abs (a - b) > 0.01                   = error $ unwords [fName, "doesn't add up #1", show (a, b, c)]
 >   | abs (b - c) > 0.01                   = error $ unwords [fName, "doesn't add up #2", show (a, b, c)]
->   | abs prolog > epsilon                 = error $ unwords [fName, "non-zero prolog"]
->   | abs epilog > epsilon                 = error $ unwords [fName, "non-zero epilog"]
+>   | abs prolog > epsilon                 = error $ unwords [fName, "non-zero prolog"  , show prologlist]
+>   | abs epilog > epsilon                 = error $ unwords [fName, "non-zero epilog"  , show epiloglist]
 >   | isNothing fModTriple && dipix < (k `div` 5)
->                                          = error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show k]
+>                                          =
+>     error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show k]
 >   | otherwise                            = True
 >   where
 >     fName                                = "vetEnvelope"
->     trace_GE                             = unwords [dsigTag, show dsigStats]
+>     trace_GE                             =
+>       unwords [fName, show numSamples, show (prologlist, midloglist, epiloglist)]
+>
+>     (targetT, _)                         = deJust "evaluateCase" fTargetT
 >
 >     esignal            :: AudSF () Double
 >     esignal                              = envLineSeg segs.sAmps segs.sDeltaTs 
 >     DiscreteSig{ .. }
->                                          = fromJust $ fromContinuousSig fName fTargetT esignal
+>                                          = fromJust $ fromContinuousSig fName targetT esignal
 >
 >     mnAmp, mnDeltaT    :: Maybe Double
 >     mnAmp                                = find (< 0) segs.sAmps
 >     mnDeltaT                             = find (< 0) segs.sDeltaTs
 >
->     (a, b, c)                            = (feSum env, fTargetT, foldl' (+) (-1) segs.sDeltaTs)
+>     a                                    = feSum env
+>     b                                    = targetT
+>     c                                    = foldl' (+) (-1) segs.sDeltaTs
 >
 >     biteSize                             = 16
 >     dipThresh                            = 1/10
 >
 >     k                                    = VU.length dsigVec
->     prolog                               = 
->       VU.foldl (+) 0 (VU.slice 0              biteSize dsigVec) / fromIntegral biteSize
->     epilog                               =
->       VU.foldl (+) 0 (VU.slice (k - biteSize) biteSize dsigVec) / fromIntegral biteSize
 >
->     slotsPerSec                          = fromIntegral k / fTargetT
+>     prologlist                           = VU.toList $ VU.slice 0              biteSize dsigVec
+>     midloglist                           = VU.toList $ VU.slice (k `div` 2)    biteSize dsigVec
+>     epiloglist                           = VU.toList $ VU.slice (k - biteSize) biteSize dsigVec
+>
+>     prolog                               = sum (map abs prologlist)
+>     epilog                               = sum (map abs epiloglist)
+>
+>     sr                                   = rate (undefined :: AudRate) --     (undefined :: p)
+>     numSamples                           = targetT * sr
+>
+>     slotsPerSec                          = fromIntegral k / targetT
 >     skipSize                             = round $ (fDelayT + fAttackT) * slotsPerSec
 >     afterAttack                          = VU.slice skipSize (k - skipSize) dsigVec
 >     dipix                                = skipSize + fromMaybe k (VU.findIndex (< dipThresh) afterAttack)
 >
 > minDeltaT, minUseful   :: Double
 > minDeltaT                                = fromTimecents Nothing
-> minUseful                                = 1/20
+> minUseful                                = 1/100
 >
 > data Segments =
 >   Segments {
