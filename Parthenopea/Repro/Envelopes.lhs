@@ -25,7 +25,7 @@ Apr 26, 2025
 > import Data.Maybe ( isJust, isNothing, fromJust, fromMaybe )
 > import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
-> import Euterpea.IO.Audio.Types ( AudSF, AudRate, Clock(..), Signal)
+> import Euterpea.IO.Audio.Types ( AudRate, AudSF, Clock(..), CtrRate, CtrSF, Signal)
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
@@ -79,7 +79,7 @@ Create a straight-line envelope generator with following phases:
 >       | tf.tfSecsScored < 2 * minUseful  = minDeltaT
 >       | otherwise                        = minUseful
 >           
->     r                                    =
+>     r                  :: FEnvelope      =
 >       refineEnvelope envRaw{fTargetT = Just (tf.tfSecsScored, releaseT)}
 >
 >     amps, deltaTs      :: [Double]
@@ -259,57 +259,65 @@ discern design intent governing input Generator values, then implement something
 >     makeModTriple                        = maybe Nothing (\(mi0, mi1) → Just $ deriveModTriple mi0 mi1 Nothing) 
 >
 > vetEnvelope            :: FEnvelope → Segments → Bool
-> vetEnvelope env@FEnvelope{ .. } segs
+> vetEnvelope env segs
 >   | traceIf trace_GE False               = undefined
->   | isJust mnAmp                         = error $ unwords [fName, "negative amp",      show segs]
->   | isJust mnDeltaT                      = error $ unwords [fName, "negative delta T",  show segs]
+>   | badAmp || badDeltaT                  = error $ unwords [fName, "negative amp or deltaT", show segs]
 >   | abs (a - b) > 0.01                   = error $ unwords [fName, "doesn't add up #1", show (a, b, c)]
 >   | abs (b - c) > 0.01                   = error $ unwords [fName, "doesn't add up #2", show (a, b, c)]
 >   | abs prolog > epsilon                 = error $ unwords [fName, "non-zero prolog"  , show prologlist]
 >   | abs epilog > epsilon                 = error $ unwords [fName, "non-zero epilog"  , show epiloglist]
->   | isNothing fModTriple && dipix < (k `div` 5)
+>   | isNothing env.fModTriple && dipix < (kSig `div` 5)
 >                                          =
->     error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show k]
+>     error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show (kSig, kVec)]
 >   | otherwise                            = True
 >   where
 >     fName                                = "vetEnvelope"
 >     trace_GE                             =
->       unwords [fName, show numSamples, show (prologlist, midloglist, epiloglist)]
+>       unwords [fName, show numSamples, show (prologlist, midloglist, epiloglist), show dsigStats]
 >
->     (targetT, _)                         = deJust "evaluateCase" fTargetT
+>     (targetT, _)                         = deJust fName env.fTargetT
 >
->     esignal            :: AudSF () Double
->     esignal                              = envLineSeg segs.sAmps segs.sDeltaTs 
->     DiscreteSig{ .. }
->                                          = fromJust $ fromContinuousSig fName targetT esignal
+>     asignal            :: AudSF () Double
+>     asignal                              = envLineSeg segs.sAmps segs.sDeltaTs 
+>     csignal            :: CtrSF () Double
+>     csignal                              = envLineSeg segs.sAmps segs.sDeltaTs 
+>     
+>     (sr, DiscreteSig{ .. })
+>                                          = 
+>       if useCtrRateForVetEnvelope
+>         then (rate (undefined :: CtrRate), fromJust $ fromContinuousSig fName (targetT + minUseful) csignal)
+>         else (rate (undefined :: AudRate), fromJust $ fromContinuousSig fName (targetT + minUseful) asignal)
 >
->     mnAmp, mnDeltaT    :: Maybe Double
->     mnAmp                                = find (< 0) segs.sAmps
->     mnDeltaT                             = find (< 0) segs.sDeltaTs
+>     badAmp, badDeltaT  :: Bool
+>     badAmp                               = isJust $ find (< 0) segs.sAmps
+>     badDeltaT                            = isJust $ find (< 0) segs.sDeltaTs
 >
 >     a                                    = feSum env
 >     b                                    = targetT
 >     c                                    = foldl' (+) (-1) segs.sDeltaTs
 >
->     biteSize                             = 16
->     dipThresh                            = 1/10
+>     checkSize                            = truncate $ minDeltaT * sr / 2
+>     showSize                             = 2 * checkSize
+>     dipThresh          :: Double         = 1/10
 >
->     k                                    = VU.length dsigVec
+>     kVec, kSig         :: Int
+>     kVec                                 = VU.length dsigVec
+>     kSig                                 = truncate $ sr * targetT
 >
->     prologlist                           = VU.toList $ VU.slice 0              biteSize dsigVec
->     midloglist                           = VU.toList $ VU.slice (k `div` 2)    biteSize dsigVec
->     epiloglist                           = VU.toList $ VU.slice (k - biteSize) biteSize dsigVec
+>     prologlist, midloglist, epiloglist
+>                        :: [Double]
+>     prologlist                           = VU.toList $ VU.slice 0                  checkSize dsigVec
+>     midloglist                           = VU.toList $ VU.slice (kSig `div` 2)     showSize dsigVec
+>     epiloglist                           = VU.toList $ VU.slice (kSig - checkSize) checkSize dsigVec
 >
 >     prolog                               = sum (map abs prologlist)
 >     epilog                               = sum (map abs epiloglist)
 >
->     sr                                   = rate (undefined :: AudRate) --     (undefined :: p)
 >     numSamples                           = targetT * sr
 >
->     slotsPerSec                          = fromIntegral k / targetT
->     skipSize                             = round $ (fDelayT + fAttackT) * slotsPerSec
->     afterAttack                          = VU.slice skipSize (k - skipSize) dsigVec
->     dipix                                = skipSize + fromMaybe k (VU.findIndex (< dipThresh) afterAttack)
+>     skipSize                             = round $ (env.fDelayT + env.fAttackT) * sr
+>     afterAttack                          = VU.slice skipSize (kSig - skipSize) dsigVec
+>     dipix                                = skipSize + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
 >
 > minDeltaT, minUseful   :: Double
 > minDeltaT                                = fromTimecents Nothing
@@ -322,5 +330,9 @@ discern design intent governing input Generator values, then implement something
 >
 > useEnvelopes           :: Bool
 > useEnvelopes                             = True
+>
+> useCtrRateForVetEnvelope
+>                        :: Bool
+> useCtrRateForVetEnvelope                 = False
 
 The End

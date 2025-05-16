@@ -115,9 +115,9 @@ organize exposed music =========================================================
 >
 > sj                     :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
 > sj =
->       [ ("waypostpuple", waypostpurple)]
+>    -- [ ("weHateHer"   , weHateHer)]
 >    -- [ ("slot"        , slot 1)]
->    -- [ ("alice"       , alice)]
+>       [ ("alice"       , alice)]
 >    -- [ ("pa"          , pendingtonArnt 1)]
 >    -- [ ("deyDumpDum"  , deyDumpDum False)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 42310)]
