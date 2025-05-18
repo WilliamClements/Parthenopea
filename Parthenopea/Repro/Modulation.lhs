@@ -680,15 +680,18 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >     (Lowpass ResonanceNone (defKernelSpec useFastFourier)) Nothing Nothing Nothing
 >     defModCoefficients defModCoefficients defModCoefficients Map.empty
 >
-> data TimeFrame =
+> data TimeFrame                           =
 >   TimeFrame {
 >     tfSecsSampled      :: Double
 >   , tfSecsScored       :: Double
 >   , tfSecsToPlay       :: Double
 >   , tfLooping          :: Bool} deriving (Eq, Show)
+> defTimeFrame :: TimeFrame
+> defTimeFrame                             =
+>   TimeFrame 1 (1/2) (1/2) False
 > data FEnvelope                           =
 >   FEnvelope {
->     fTargetT           :: Maybe (Double, Double)
+>     fTargetT           :: Maybe (Double, Double, Double)
 >   , fSustainLevel      :: Double
 >   , fModTriple         :: Maybe ModTriple
 >
@@ -697,16 +700,6 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , fHoldT             :: Double
 >   , fDecayT            :: Double
 >   , fSustainT          :: Double} deriving (Eq, Show)
-> feSum                  :: FEnvelope → Double
-> feSum FEnvelope{ .. }                    
->                                          = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + releaseT
->   where
->     (_, releaseT)                        = fromJust fTargetT
-> feRemaining            :: FEnvelope → Double
-> feRemaining work@FEnvelope{fTargetT}
->                                          = targetT - feSum work
->   where
->     (targetT, _)                         = fromJust fTargetT
 > data FreeVerb =
 >   FreeVerb
 >   {

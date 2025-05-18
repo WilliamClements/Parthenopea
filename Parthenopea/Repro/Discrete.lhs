@@ -25,11 +25,13 @@ June 17, 2024
 > import Data.List ( foldl' )
 > import Data.MemoTrie
 > import qualified Data.Vector.Unboxed     as VU
+> import Diagrams.Prelude hiding ( fc )
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) , AudioSample(..))
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
+> import Parthenopea.Repro.Chart ( Section(Section), chartPoints )
 > import Parthenopea.Repro.Modulation
   
 Discrete approach =====================================================================================================
@@ -112,14 +114,18 @@ Discrete approach ==============================================================
 >
 > fromContinuousSig      :: ∀ p a. (Clock p, Coeff a, VU.Unbox a, AudioSample a) ⇒
 >                           String → Double → Signal p () a → Maybe (DiscreteSig a)
-> fromContinuousSig tag dur sf             =
->   let
->     dlist              :: [a]
->     dlist                                = toSamples dur sf
->   in
+> fromContinuousSig tag dur sf
+>   | traceNot trace_FCS False             = undefined
+>   | otherwise                            =
 >     if not (null dlist)
 >       then Just $ fromRawVector tag (VU.fromList dlist)
 >       else Nothing
+>   where
+>     fName                                = "fromContinuousSig"
+>     trace_FCS                            = unwords [fName, show $ length dlist]
+>
+>     dlist              :: [a]
+>     dlist                                = toSamples dur sf
 >
 > toContinuousSig         :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒ DiscreteSig a → Signal p () a
 > toContinuousSig dsL                      =
@@ -150,8 +156,8 @@ Discrete approach ==============================================================
 >         (unwords ["measureDiscreteSig: discrete signal cannot be empty"])
 >         (fromIntegral $ VU.length vec )
 >
->     folded                               = VU.foldl' sfolder defDiscreteStats vec
->     finished                             = folded {stVariance = ascale (1/(len-1)) folded.stVariance}
+>     sfolded                              = VU.foldl' sfolder defDiscreteStats vec
+>     finished                             = sfolded {stVariance = ascale (1/(len-1)) sfolded.stVariance}
 >
 >     sfolder            ::  ∀ a. (Coeff a) ⇒ DiscreteStats a → a → DiscreteStats a
 >     sfolder DiscreteStats{ .. } d  =
@@ -248,14 +254,13 @@ Discrete approach ==============================================================
 >
 >     tags                                 = (dsigTag cdsigIn, dsigTag cdsigFR)
 >     vecs                                 = (dsigVec cdsigIn, dsigVec cdsigFR)
->     lens                                 = BF.bimap VU.length VU.length vecs
->     lensOK                               = uncurry (==) lens
+>     counts                               = BF.bimap VU.length VU.length vecs
 >
 >     vprod              :: VU.Vector (Complex Double)
 >     vprod                                =
 >       profess
->         lensOK
->         (unwords ["multiplicand lengths incompatible", show lens])
+>         (uncurry (==) counts)
+>         (unwords ["multiplicand lengths incompatible", show counts])
 >         uncurry (VU.zipWith (*)) vecs
 >
 >     result             :: [Complex Double]
@@ -285,13 +290,13 @@ Discrete approach ==============================================================
 >     cds                                  = map acomplex as ++ replicate (newLen - inLen) 0
 >
 > interpVal              :: Double → Array Int Double → Int → Double
-> interpVal fact vSource ixAt          =
+> interpVal fact vSource ixIn          =
 >   profess
 >     (ix0 < (snd . bounds) vSource)
 >     (unwords ["out of range (interpVal)"])
 >     (dFirst + (dSecond - dFirst) * (dixAt - fromIntegral ix0))
 >   where
->     dixAt              :: Double         = fromIntegral ixAt / fact
+>     dixAt              :: Double         = fromIntegral ixIn / fact
 >     ix0                :: Int            = truncate dixAt
 >     dFirst             :: Double         = vSource ! ix0
 >     dSecond            :: Double         = if ix0 == (snd . bounds) vSource
@@ -353,15 +358,15 @@ Each driver specifies an xform composed of functions from Double to Double
 >     fritems'                             = dropWhile ((xIn <) . friTrans) fritems
 >     fritems                              = foldl' doShape [] shapes
 >
->     ynorm, height              :: Double
+>     ynorm, h                   :: Double
 >     ynorm                                = 1 / (1 + kdEQ)
->     height                               = 1
+>     h                                    = 1
 >     
 >     doShape            :: [FrItem] → ResponseShape → [FrItem]
 >     doShape oldI Block                   = oldI ++ [newI]
 >       where
 >         newD           :: Double         = kdLeftOfBulge
->         newI           :: FrItem         = FrItem newD (const height)
+>         newI           :: FrItem         = FrItem newD (const h)
 >         
 >     doShape oldI Bulge                   = oldI ++ iList
 >       where
@@ -371,11 +376,11 @@ Each driver specifies an xform composed of functions from Double to Double
 >         newI1                            =
 >           FrItem
 >             kdFc
->             (ddLinear2 kdEQ height . startUp . ddNorm2 kdLeftOfBulge kdFc)
+>             (ddLinear2 kdEQ h . startUp . ddNorm2 kdLeftOfBulge kdFc)
 >         newI2                            =
 >           FrItem
 >             kdRightOfBulge
->             (ddLinear2 kdEQ height . finishDown . ddNorm2 kdFc kdRightOfBulge)
+>             (ddLinear2 kdEQ h . finishDown . ddNorm2 kdFc kdRightOfBulge)
 >         
 >     doShape oldI Decline                 = oldI ++ [newI]
 >       where
@@ -384,7 +389,7 @@ Each driver specifies an xform composed of functions from Double to Double
 >           FrItem
 >             newD
 >             (fromCentibels
->              . ddLinear2 (-dropoffRate) (toCentibels height)
+>              . ddLinear2 (-dropoffRate) (toCentibels h)
 >              . flip (-) (logBase 2 kdFc)
 >              . logBase 2)
 >          
@@ -437,16 +442,16 @@ Type declarations ==============================================================
 >     fc
 >     effectiveQ
 >     (fromIntegral ksLen / 2)
->     stretch
->     (fc - stretch / 2)
->     (fc + stretch / 2)
+>     kStretch
+>     (fc - kStretch / 2)
+>     (fc + kStretch / 2)
 >   where
->     fc, effectiveQ, stretch, fudge4
+>     fc, effectiveQ, kStretch, fudge4
 >                        :: Double
 >     fudge4                               = 4
 >     fc                                   = fromAbsoluteCents ksFc
 >     effectiveQ                           = fromCentibels (fromIntegral ksQ) / fudge4
->     stretch                              = if ksQ == 0 then 0 else fc / bulgeDiv
+>     kStretch                             = if ksQ == 0 then 0 else fc / bulgeDiv
 >
 > data DiscreteStats a                     =
 >   DiscreteStats {
@@ -482,7 +487,16 @@ Type declarations ==============================================================
 >     (unwords ["insanely large amplitude", show stMaxAmp])
 >     True
 >   where
->     DiscreteStats{ .. }                  = dsig.dsigStats
+>     DiscreteStats{ .. }                  
+>                                          = dsig.dsigStats
+> chartDiscreteSig       :: DiscreteSig Double → String → IO ()
+> chartDiscreteSig dsig tag        =
+>   chartPoints tag [sec]
+>   where
+>     sec                                  = Section (opaque blue) (zip list2 list1)
+>     list1, list2       :: [Double]
+>     list1                                = VU.toList dsig.dsigVec
+>     list2                                = map fromIntegral [0::Int ..]
 >
 > subtractDCOffset       :: DiscreteSig Double → DiscreteSig Double
 > subtractDCOffset dIn                     =

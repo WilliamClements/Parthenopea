@@ -13,11 +13,15 @@ William Clements
 Apr 26, 2025
 
 > module Parthenopea.Repro.Envelopes(
->          deriveEnvelope
+>          computeSegments
+>        , defaultEnvelope
+>        , deriveEnvelope
 >        , doEnvelope
 >        , minDeltaT
 >        , minUseful
->        , TimeFrame(..)) where
+>        , Segments(..)
+>        , TimeFrame(..)
+>        , vetEnvelope) where
 >
 > import Data.Foldable ( Foldable(foldl'), find )
 > import Data.Map (Map)
@@ -61,16 +65,17 @@ Create a straight-line envelope generator with following phases:
 >     makeSF             :: FEnvelope → Signal p () Double
 >     makeSF env                           =
 >       let
->         segs                             = computeSegments timeFrame env
->       in envLineSeg segs.sAmps segs.sDeltaTs
+>         (_, segs)                       = computeSegments timeFrame env
+>       in
+>         envLineSeg segs.sAmps segs.sDeltaTs
 >
-> computeSegments        :: TimeFrame → FEnvelope → Segments
+> computeSegments        :: TimeFrame → FEnvelope → (FEnvelope, Segments)
 > computeSegments tf envRaw
 >   | traceIf trace_CS False               = undefined
 >   | otherwise                            =
 >   if vetEnvelope r segs
->     then segs
->     else error $ unwords[fName, "bad envelope"] 
+>     then (r, segs)
+>     else error $ unwords [fName, "unexpected"]
 >   where
 >     fName                                = "computeSegments"
 >     trace_CS                             = unwords [fName, show (tf.tfSecsScored, amps, deltaTs)]
@@ -80,7 +85,7 @@ Create a straight-line envelope generator with following phases:
 >       | otherwise                        = minUseful
 >           
 >     r                  :: FEnvelope      =
->       refineEnvelope envRaw{fTargetT = Just (tf.tfSecsScored, releaseT)}
+>       refineEnvelope envRaw{fTargetT = Just (tf.tfSecsScored, releaseT, releaseT)}
 >
 >     amps, deltaTs      :: [Double]
 >     amps                                 =
@@ -94,6 +99,15 @@ Create a straight-line envelope generator with following phases:
 
 discern design intent governing input Generator values, then implement something ======================================
 
+> feSum, feRemaining     :: FEnvelope → Double
+> feSum FEnvelope{ .. }                    
+>                                          = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + releaseT + postT
+>   where
+>     (_, releaseT, postT)                 = fromJust fTargetT
+> feRemaining work@FEnvelope{fTargetT}     = targetT - feSum work
+>   where
+>     (targetT, _, _)                      = fromJust fTargetT
+>
 > data FIterate                            =
 >   FIterate {
 >     fiFun              :: FIterate → FIterate
@@ -107,7 +121,7 @@ discern design intent governing input Generator values, then implement something
 > evaluateCase FEnvelope{ .. } 
 >                                          =
 >   let
->     (targetT, _)                         = fromJust fTargetT
+>     (targetT, _, _)                      = fromJust fTargetT
 >   in
 >     FCase
 >       ((fDelayT + fAttackT + fHoldT) >= (9/10) * targetT)
@@ -147,7 +161,7 @@ discern design intent governing input Generator values, then implement something
 > faceValue iterIn
 >   | traceIf trace_FV False               = undefined
 >   | remaining < minDeltaT                = feContinue iterIn work reduceSustain
->   | otherwise                            = feFinish iterIn work{fSustainT = max minDeltaT remaining}
+>   | otherwise                            = feFinish iterIn work{fSustainT = max minDeltaT remaining + work.fSustainT}
 >   where
 >     fName                                = "faceValue"
 >     trace_FV                             = unwords[fName, show (remaining, work)]
@@ -258,12 +272,15 @@ discern design intent governing input Generator values, then implement something
 >     makeModTriple      :: Maybe (Maybe Int, Maybe Int) → Maybe ModTriple
 >     makeModTriple                        = maybe Nothing (\(mi0, mi1) → Just $ deriveModTriple mi0 mi1 Nothing) 
 >
-> vetEnvelope            :: FEnvelope → Segments → Bool
-> vetEnvelope env segs
->   | traceIf trace_GE False               = undefined
->   | badAmp || badDeltaT                  = error $ unwords [fName, "negative amp or deltaT", show segs]
->   | abs (a - b) > 0.01                   = error $ unwords [fName, "doesn't add up #1", show (a, b, c)]
->   | abs (b - c) > 0.01                   = error $ unwords [fName, "doesn't add up #2", show (a, b, c)]
+> maybeCheckDiscreteSig  :: FEnvelope → Segments → Bool
+> maybeCheckDiscreteSig env segs           =
+>   case rateForVetEnvelope of
+>     Nothing                              → True
+>     Just clockRate                       → checkDiscreteSig clockRate env segs
+>
+> checkDiscreteSig       :: Double → FEnvelope → Segments → Bool
+> checkDiscreteSig clockRate env segs
+>   | traceIf trace_CDS False              = undefined
 >   | abs prolog > epsilon                 = error $ unwords [fName, "non-zero prolog"  , show prologlist]
 >   | abs epilog > epsilon                 = error $ unwords [fName, "non-zero epilog"  , show epiloglist]
 >   | isNothing env.fModTriple && dipix < (kSig `div` 5)
@@ -271,38 +288,32 @@ discern design intent governing input Generator values, then implement something
 >     error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show (kSig, kVec)]
 >   | otherwise                            = True
 >   where
->     fName                                = "vetEnvelope"
->     trace_GE                             =
->       unwords [fName, show numSamples, show (prologlist, midloglist, epiloglist), show dsigStats]
->
->     (targetT, _)                         = deJust fName env.fTargetT
+>     fName                                = "checkDiscreteSig"
+>     trace_CDS                            =
+>       unwords [fName, show numSamples, show (prologlist, midloglist, epiloglist), show dsigStats, show (kSig, kVec)
+>              , show (postList1, postList2)]
 >
 >     asignal            :: AudSF () Double
 >     asignal                              = envLineSeg segs.sAmps segs.sDeltaTs 
 >     csignal            :: CtrSF () Double
 >     csignal                              = envLineSeg segs.sAmps segs.sDeltaTs 
 >     
->     (sr, DiscreteSig{ .. })
->                                          = 
->       if useCtrRateForVetEnvelope
->         then (rate (undefined :: CtrRate), fromJust $ fromContinuousSig fName (targetT + minUseful) csignal)
->         else (rate (undefined :: AudRate), fromJust $ fromContinuousSig fName (targetT + minUseful) asignal)
+>     (targetT, _, _)                      = deJust fName env.fTargetT
 >
->     badAmp, badDeltaT  :: Bool
->     badAmp                               = isJust $ find (< 0) segs.sAmps
->     badDeltaT                            = isJust $ find (< 0) segs.sDeltaTs
+>     DiscreteSig{ .. }
+>       | abs clockRate - rate (undefined :: AudRate) < epsilon
+>                                          = fromJust $ fromContinuousSig fName (targetT + minUseful) csignal
+>       | abs clockRate - rate (undefined :: CtrRate) < epsilon
+>                                          = fromJust $ fromContinuousSig fName (targetT + minUseful) asignal
+>       | otherwise                        = error $ unwords [fName, "clockRate not supported"]
 >
->     a                                    = feSum env
->     b                                    = targetT
->     c                                    = foldl' (+) (-1) segs.sDeltaTs
->
->     checkSize                            = truncate $ minDeltaT * sr / 2
+>     checkSize                            = truncate $ minDeltaT * clockRate / 2
 >     showSize                             = 2 * checkSize
 >     dipThresh          :: Double         = 1/10
 >
 >     kVec, kSig         :: Int
 >     kVec                                 = VU.length dsigVec
->     kSig                                 = truncate $ sr * targetT
+>     kSig                                 = truncate $ clockRate * targetT
 >
 >     prologlist, midloglist, epiloglist
 >                        :: [Double]
@@ -310,18 +321,55 @@ discern design intent governing input Generator values, then implement something
 >     midloglist                           = VU.toList $ VU.slice (kSig `div` 2)     showSize dsigVec
 >     epiloglist                           = VU.toList $ VU.slice (kSig - checkSize) checkSize dsigVec
 >
+>     postList1                            = VU.toList $ VU.slice kSig               checkSize dsigVec
+>     postList2                            = VU.toList $ VU.slice (kSig + checkSize) checkSize dsigVec
+>
 >     prolog                               = sum (map abs prologlist)
 >     epilog                               = sum (map abs epiloglist)
 >
->     numSamples                           = targetT * sr
+>     numSamples                           = targetT * clockRate
 >
->     skipSize                             = round $ (env.fDelayT + env.fAttackT) * sr
+>     skipSize                             = round $ (env.fDelayT + env.fAttackT) * clockRate
 >     afterAttack                          = VU.slice skipSize (kSig - skipSize) dsigVec
 >     dipix                                = skipSize + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
+>       
+> vetEnvelope            :: FEnvelope → Segments → Bool
+> vetEnvelope env segs
+>   | traceIf trace_VE False               = undefined
+>   | badAmp || badDeltaT                  = error $ unwords [fName, "negative amp or deltaT", show segs]
+>   | abs (a - b) > 0.01                   = error $ unwords [fName, "doesn't add up #1", show (a, b, c)]
+>   | abs (b - c) > 0.01                   = error $ unwords [fName, "doesn't add up #2", show (a, b, c)]
+>   | otherwise                            = maybeCheckDiscreteSig env segs
+>   where
+>     fName                                = "vetEnvelope"
+>     trace_VE                             =
+>       unwords [fName, show (a,b, c)]
+>
+>     (targetT, _, postT)                  = deJust fName env.fTargetT
+>
+>     badAmp, badDeltaT  :: Bool
+>     badAmp                               = isJust $ find (< 0) segs.sAmps
+>     badDeltaT                            = isJust $ find (< 0) segs.sDeltaTs
+>
+>     a                                    = feSum env
+>     b                                    = targetT
+>     c                                    = foldl' (+) (postT - 1) segs.sDeltaTs
 >
 > minDeltaT, minUseful   :: Double
 > minDeltaT                                = fromTimecents Nothing
-> minUseful                                = 1/100
+> minUseful                                = 1/82
+>
+> defaultEnvelope       :: FEnvelope
+> defaultEnvelope                          = 
+>   FEnvelope
+>     Nothing
+>     1.0
+>     Nothing
+>     minDeltaT
+>     minDeltaT
+>     minDeltaT
+>     minDeltaT
+>     minDeltaT
 >
 > data Segments =
 >   Segments {
@@ -331,8 +379,7 @@ discern design intent governing input Generator values, then implement something
 > useEnvelopes           :: Bool
 > useEnvelopes                             = True
 >
-> useCtrRateForVetEnvelope
->                        :: Bool
-> useCtrRateForVetEnvelope                 = False
+> rateForVetEnvelope     :: Maybe Double
+> rateForVetEnvelope                 = Just $ rate (undefined :: CtrRate)
 
 The End

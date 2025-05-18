@@ -423,7 +423,7 @@ capture task ===================================================================
 >           where
 >             tested                       = map illegalSampleSize pzs
 >             result                       = foldr CM.mplus Nothing tested
->         yesAdopt                         = Just [Scan Accepted Adopted fName_ iName]
+>         yesAdopt                         = Just [Scan Modified Adopted fName_ iName]
 >
 >         rdCap'                           = dispose pergm ss rdCap
 >         (pzs', rdCap'')                  = zoneTask (const True) capFolder pzs rdCap'
