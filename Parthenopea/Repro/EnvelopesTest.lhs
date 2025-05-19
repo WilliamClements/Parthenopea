@@ -13,35 +13,35 @@ June 22, 2024
 
 > module Parthenopea.Repro.EnvelopesTest where
 >
-> import Euterpea.IO.Audio.Types ( AudRate, CtrRate, rate)
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
 >
-> audRateWorksForDefaultEnvelope
->   , ctrRateWorksForDefaultEnvelope
+> ctrRateWorksForDefaultEnvelope
+>  , audRateWorksForDefaultEnvelope
 >                        :: IO Bool
 >
 > envelopesTests        :: [IO Bool]
-> envelopesTests                           = [ audRateWorksForDefaultEnvelope
->                                            , ctrRateWorksForDefaultEnvelope]
+> envelopesTests                           = [ ctrRateWorksForDefaultEnvelope
+>                                            , audRateWorksForDefaultEnvelope]
 >
 > runEnvelopesTests     :: IO ()
 > runEnvelopesTests                        = runTests envelopesTests
 >
-> audRateWorksForDefaultEnvelope           = do
->   -- chartDiscreteSig VU.empty "mommy"
->   return didOk 
->   where
->     (r, segs)                            = proposeSegments defTimeFrame de1Envelope
->     didOk                                = vetAsDiscreteSig (rate (undefined :: AudRate)) r segs
->
 > ctrRateWorksForDefaultEnvelope           = do
->   -- chartDiscreteSig dsig "poppy"
->   return didOk 
+>   chartDiscreteSig dsig "ctrRateWorks"
+>   return True 
 >   where
 >     (r, segs)                            = proposeSegments defTimeFrame de1Envelope
->     didOk                                = vetAsDiscreteSig (rate (undefined :: CtrRate)) r segs
+>     dsig                                 = deJust "ctrRateWorksForDefaultEnvelope" $ vetAsDiscreteSig ctrRate r segs
+>
+> audRateWorksForDefaultEnvelope           = do
+>   chartDiscreteSig dsig "audRateWorks"
+>   return True 
+>   where
+>     (r, segs)                            = proposeSegments defTimeFrame de1Envelope
+>     dsig                                 = deJust "audRateWorksForDefaultEnvelope" $ vetAsDiscreteSig audRate r segs
 >
 > defTimeFrame :: TimeFrame
 > defTimeFrame                             =

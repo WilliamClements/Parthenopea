@@ -13,7 +13,9 @@ William Clements
 Apr 26, 2025
 
 > module Parthenopea.Repro.Envelopes(
->          defaultEnvelope
+>          audRate
+>        , ctrRate
+>        , defaultEnvelope
 >        , deriveEnvelope
 >        , doEnvelope
 >        , minDeltaT
@@ -278,20 +280,20 @@ discern design intent governing input Generator values, then implement something
 > maybeVetAsDiscreteSig env segs           =
 >   case rateForVetEnvelope of
 >     Nothing                              → True
->     Just clockRate                       → vetAsDiscreteSig clockRate env segs
+>     Just clockRate                       → isJust $ vetAsDiscreteSig clockRate env segs
 >
-> vetAsDiscreteSig       :: Double → FEnvelope → Segments → Bool
+> vetAsDiscreteSig       :: Double → FEnvelope → Segments → Maybe (DiscreteSig Double)
 > vetAsDiscreteSig clockRate env segs
->   | traceNot trace_CDS False             = undefined
+>   | traceNot trace_VADS False            = undefined
 >   | abs prolog > epsilon                 = error $ unwords [fName, "non-zero prolog"  , show prologlist]
 >   | abs epilog > epsilon                 = error $ unwords [fName, "non-zero epilog"  , show epiloglist]
 >   | isNothing env.fModTriple && dipix < (kSig `div` 5)
 >                                          =
 >     error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show (kSig, kVec)]
->   | otherwise                            = True
+>   | otherwise                            = Just dsig
 >   where
 >     fName                                = "vetAsDiscreteSig"
->     trace_CDS                            =
+>     trace_VADS                           =
 >       unwords [fName, show clockRate, show numSamples
 >              , show (prologlist, midloglist, epiloglist)
 >              , show (postList1, postList2), show dsigStats, show (kSig, kVec)]
@@ -299,18 +301,18 @@ discern design intent governing input Generator values, then implement something
 >     csignal            :: CtrSF () Double
 >     csignal                              =
 >       proc () → do
->         aud ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
->         outA ⤙ aud
+>         ctr ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
+>         outA ⤙ ctr
 >
 >     asignal            :: AudSF () Double
 >     asignal                              =
 >       proc () -> do
->         ctr ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
->         outA ⤙ ctr
+>         aud ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
+>         outA ⤙ aud
 >
 >     (targetT, _, _)                      = deJust fName env.fTargetT
 >
->     DiscreteSig{ .. }
+>     dsig@DiscreteSig{ .. }
 >       | abs (clockRate - ctrRate) < epsilon
 >                                          = fromJust $ fromContinuousSig fName (targetT + minUseful) csignal
 >       | abs (clockRate - audRate) < epsilon
@@ -394,6 +396,6 @@ discern design intent governing input Generator values, then implement something
 > audRate                                  = rate (undefined :: AudRate)
 >
 > rateForVetEnvelope     :: Maybe Double
-> rateForVetEnvelope                       = Just $ rate (undefined :: CtrRate)
+> rateForVetEnvelope                       = Just ctrRate
 
 The End
