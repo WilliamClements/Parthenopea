@@ -686,9 +686,6 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , tfSecsScored       :: Double
 >   , tfSecsToPlay       :: Double
 >   , tfLooping          :: Bool} deriving (Eq, Show)
-> defTimeFrame :: TimeFrame
-> defTimeFrame                             =
->   TimeFrame 1 (1/2) (1/2) False
 > data FEnvelope                           =
 >   FEnvelope {
 >     fTargetT           :: Maybe (Double, Double, Double)

@@ -585,8 +585,7 @@ To build the map
 shave task ============================================================================================================
           remove dropped or violated instruments from the preInstCache
 
-> shaveTaskIf _ _ fwIn@FileWork{fwBoot}      
->                                          = fwIn{fwBoot = fwBoot{zPreInstCache = preInstCache}}
+> shaveTaskIf _ _ fwIn@FileWork{fwBoot}    = fwIn{fwBoot = fwBoot{zPreInstCache = preInstCache}}
 >   where
 >     validPergms        :: [PerGMKey]
 >     validPergms                          = zrecCompute fwIn (\x y → instKey y : x) []

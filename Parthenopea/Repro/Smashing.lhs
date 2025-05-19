@@ -92,7 +92,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >           (unwords ["enumAssocs: range violation", tag, show mag, show dimsA, show spaces])
 >           (map (, (spaceId, 1)) is)
 >
-> smashSmashings         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
+> smashSmashings         :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒
 >                           Smashing i → Smashing i → Smashing i
 > smashSmashings s1 s2                     =
 >   Smashing

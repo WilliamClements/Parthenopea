@@ -13,10 +13,8 @@ June 22, 2024
 
 > module Parthenopea.Repro.EnvelopesTest where
 >
-> import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.Types ( AudRate, CtrRate, rate)
 > import Parthenopea.Debug
-> import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
 >
@@ -33,17 +31,22 @@ June 22, 2024
 >
 > audRateWorksForDefaultEnvelope           = do
 >   -- chartDiscreteSig VU.empty "mommy"
->   return True 
+>   return didOk 
 >   where
->     (r, segs)                            = computeSegments defTimeFrame de1Envelope
->     dsig                                 = vetEnvelope r segs
+>     (r, segs)                            = proposeSegments defTimeFrame de1Envelope
+>     didOk                                = vetAsDiscreteSig (rate (undefined :: AudRate)) r segs
 >
 > ctrRateWorksForDefaultEnvelope           = do
 >   -- chartDiscreteSig dsig "poppy"
->   return True 
+>   return didOk 
 >   where
->     (r, segs)                            = computeSegments defTimeFrame de1Envelope
->     dsig                                 = vetEnvelope r segs
+>     (r, segs)                            = proposeSegments defTimeFrame de1Envelope
+>     didOk                                = vetAsDiscreteSig (rate (undefined :: CtrRate)) r segs
+>
+> defTimeFrame :: TimeFrame
+> defTimeFrame                             =
+>   TimeFrame 1 (1/2) (1/2) False
+>
 > de1Envelope            :: FEnvelope
 > de1Envelope                              = 
 >   FEnvelope

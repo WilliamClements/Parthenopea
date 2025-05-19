@@ -22,6 +22,7 @@ May 4, 2023
 > import Parthenopea.Music.Baking
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Discrete
+> import Parthenopea.Repro.EnvelopesTest
 > import Parthenopea.Repro.ModulationTest ( modulationTests )
 > import Parthenopea.Repro.SmashingTest ( smashingTests )
 > import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
@@ -44,14 +45,16 @@ Rosters support ================================================================
 >
 >   _ ← if playAll
 >         then do
->           resultSmashing              ← runTestsQuietly smashingTests
+>           resultSmashing                 ← runTestsQuietly smashingTests
 >           resultBoot                     ← runTestsQuietly bootTests
 >           resultModulation               ← runTestsQuietly modulationTests     
 >           resultSynthesizer              ← runTestsQuietly synthesizerTests
+>           resultEnvelopes                ← runTestsQuietly envelopesTests
 >           let resultDiscrete             = True -- runTestsQuietly discreteTests
 >           putStrLn $ unwords [show
 >                 (profess
->                   (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer, resultDiscrete])
+>                   (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer
+>                       , resultEnvelopes, resultDiscrete])
 >                   (unwords ["one or more unit tests failed"])
 >                   True)]
 >           putStrLn "Unit tests completed successfully"
@@ -114,8 +117,8 @@ organize exposed music =========================================================
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
 > sj                     :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
-> sj = djingles ++ ejingles
->    -- [ ("weHateHer"   , weHateHer)]
+> sj =
+>       [ ("weHateHer"   , weHateHer)]
 >    -- [ ("slot"        , slot 1)]
 >    -- [ ("alice"       , alice)]
 >    -- [ ("pa"          , pendingtonArnt 1)]

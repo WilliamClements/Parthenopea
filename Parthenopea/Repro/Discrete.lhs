@@ -122,7 +122,7 @@ Discrete approach ==============================================================
 >       else Nothing
 >   where
 >     fName                                = "fromContinuousSig"
->     trace_FCS                            = unwords [fName, show $ length dlist]
+>     trace_FCS                            = unwords [fName, show $ rate (undefined::p), show $ length dlist]
 >
 >     dlist              :: [a]
 >     dlist                                = toSamples dur sf
