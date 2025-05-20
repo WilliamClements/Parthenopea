@@ -691,7 +691,12 @@ categorization task ============================================================
 >
 >             maybeSettle
 >                        :: (Foldable t, Show (t Fuzz)) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
->             maybeSettle thresh ic keys   = find (> thresh) keys >> Just ic
+>             maybeSettle thresh ic keys
+>               | traceNot trace_MS False  = undefined
+>               | otherwise                = find (> thresh) keys >> Just ic
+>               where
+>                 fName2                   = "maybeSettle"
+>                 trace_MS                 = unwords [fName2, show keys]
 >
 >             canBePercI :: [PreZone] → Bool
 >             canBePercI                   = all canBePercZ

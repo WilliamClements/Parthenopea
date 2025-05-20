@@ -656,6 +656,7 @@ Utilities ======================================================================
 >       SynthBass2                → Just            ["brass", "bassoon"]
 >       SynthDrum                 → Just            ["bass"]
 >       TelephoneRing             → Just $ singleton "string"
+>       Trombone                  → Just            ["elec", "tom"]
 >       Trumpet                   → Just $ singleton "mute"
 >       Violin                    → Just            ["tremolo", "strike", "pluck", "stacc"]
 >       _                         → Nothing

@@ -27,7 +27,8 @@ June 17, 2024
 > import qualified Data.Vector.Unboxed     as VU
 > import Diagrams.Prelude hiding ( fc )
 > import Euterpea.IO.Audio.Basics ( outA )
-> import Euterpea.IO.Audio.Types ( Signal, Clock(..) , AudioSample(..))
+> import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
+> import Euterpea.IO.Audio.Types ( AudSF, AudioSample(..), Clock(..), CtrSF, Signal)
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
@@ -147,6 +148,43 @@ Discrete approach ==============================================================
 > fromRawVector          :: (Coeff a, VU.Unbox a) ⇒ String → VU.Vector a → DiscreteSig a
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
 >
+> discretizeEnvelope     :: Double → FEnvelope → Segments → DiscreteSig Double
+> discretizeEnvelope clockRate env segs
+>   | traceNow trace_DE False              = undefined
+>   | otherwise                            =
+>   if howMany < 5 && howNegative > -0.2
+>     then dsig
+>     else error $ unwords [fName, "too many negative values", show (howMany, howNegative)]
+>   where
+>     fName                                = "discretizeEnvelope"
+>     trace_DE                             = unwords [fName, show (howMany, howNegative), show dsig]
+>
+>     dsig@DiscreteSig{ .. }
+>       | abs (clockRate - ctrRate) < epsilon
+>                                          = deJust fName $ fromContinuousSig fName (targetT + minUseful) csignal
+>       | abs (clockRate - audRate) < epsilon
+>                                          = deJust fName $ fromContinuousSig fName (targetT + minUseful) asignal
+>       | otherwise                        = error $ unwords [fName, show clockRate, "clockRate not supported"]
+>
+>     (targetT, _, _)                      = deJust fName env.fTargetT
+>
+>     nindices                             = VU.findIndices (< 0) dsigVec
+>     nvalues                              = VU.map (dsigVec VU.!) nindices
+>     howMany                              = VU.length nindices
+>     howNegative                          = VU.sum nvalues
+>
+>     csignal            :: CtrSF () Double
+>     csignal                              =
+>       proc () → do
+>         ctr ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
+>         outA ⤙ ctr
+>
+>     asignal            :: AudSF () Double
+>     asignal                              =
+>       proc () -> do
+>         aud ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
+>         outA ⤙ aud
+>
 > measureDiscreteSig     :: (Coeff a, VU.Unbox a) ⇒ VU.Vector a → DiscreteStats a
 > measureDiscreteSig vec                   = finished
 >   where
@@ -164,10 +202,10 @@ Discrete approach ==============================================================
 >       DiscreteStats
 >         (dsigLength + 1)
 >         (stNumZeros + if aamp d < epsilon then 1 else 0)
->         (stNZ16th   + if aamp d < epsilon && dsigLength < 512 then 1 else 0)
->         (aadd stDCOffset         d)
->         (aadd stVariance         (amul d d))
->         (max  stMaxAmp           (aamp d))
+>         (stNZ16th + if aamp d < epsilon && dsigLength < 512 then 1 else 0)
+>         (aadd stDCOffset d)
+>         (aadd stVariance (amul d d))
+>         (max stMaxAmp (aamp d))
 >
 > measureFrequencyResponse
 >                        :: ∀ a. (Coeff a, VU.Unbox a) ⇒ VU.Vector a → FrequencyResponseStats
@@ -489,13 +527,13 @@ Type declarations ==============================================================
 >   where
 >     DiscreteStats{ .. }                  
 >                                          = dsig.dsigStats
-> chartDiscreteSig       :: DiscreteSig Double → String → IO ()
-> chartDiscreteSig dsig tag        =
+> chartDiscreteSig       :: Int → DiscreteSig Double → String → IO ()
+> chartDiscreteSig nPoints dsig tag        =
 >   chartPoints tag [sec]
 >   where
 >     sec                                  = Section (opaque blue) (zip list2 list1)
 >     list1, list2       :: [Double]
->     list1                                = VU.toList dsig.dsigVec
+>     list1                                = take nPoints (VU.toList dsig.dsigVec)
 >     list2                                = map fromIntegral [0::Int ..]
 >
 > subtractDCOffset       :: DiscreteSig Double → DiscreteSig Double

@@ -32,7 +32,7 @@ November 6, 2023
 > import Data.Word
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns
-> import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
+> import Euterpea.IO.Audio.Types ( AudRate, Clock(..), CtrRate, Signal )
 > import Euterpea.Music ( AbsPitch )
 > import GHC.Generics ( Generic ) 
 > import Parthenopea.Debug
@@ -697,6 +697,19 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , fHoldT             :: Double
 >   , fDecayT            :: Double
 >   , fSustainT          :: Double} deriving (Eq, Show)
+> data Segments                            =
+>   Segments {
+>     sAmps              :: [Double]
+>   , sDeltaTs           :: [Double]} deriving Show
+>
+> minDeltaT, minUseful   :: Double
+> minDeltaT                                = fromTimecents Nothing
+> minUseful                                = 1/82
+>
+> ctrRate, audRate       :: Double
+> ctrRate                                  = rate (undefined :: CtrRate)
+> audRate                                  = rate (undefined :: AudRate)
+>
 > data FreeVerb =
 >   FreeVerb
 >   {

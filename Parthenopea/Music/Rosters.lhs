@@ -117,8 +117,8 @@ organize exposed music =========================================================
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
 > sj                     :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
-> sj = ajingles ++ bjingles ++ cjingles
->    -- [ ("weHateHer"   , weHateHer)]
+> sj =
+>       [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("slot"        , slot 1)]
 >    -- [ ("alice"       , alice)]
 >    -- [ ("pa"          , pendingtonArnt 1)]
