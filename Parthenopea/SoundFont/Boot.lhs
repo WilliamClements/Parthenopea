@@ -536,6 +536,7 @@ To build the map
 >         qualify lead memberIs
 >           | 0 == osmashup.smashStats.countMultiples
 >                                          = Left (rebased, osmashup)
+>           | memberHasVelocityRanges      = Left (rebased, osmashup)
 >           | otherwise                    = Right osmashup.smashStats
 >           where
 >             towners                      = map (townersMap Map.!) memberIs
@@ -545,7 +546,10 @@ To build the map
 >
 >             smashups                     = map snd towners
 >             osmashup                     = foldl' smashSmashings (head smashups) (tail smashups)
->     
+>
+>             memberHasVelocityRanges      = isJust $ find zoneHasVelocityRange (map fst towners)
+>
+>             zoneHasVelocityRange pzs     = isJust $ find (\pz → isJust pz.pzDigest.zdVelRange) pzs   
 >     ready              :: Map Word [Word]
 >     ready                                = Map.mapWithKey (\k _ → headed Map.! k) hMap
 >
