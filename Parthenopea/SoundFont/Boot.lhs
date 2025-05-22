@@ -69,7 +69,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     unwords ["FileIterate", show fiFw]
 >
 > preSampleTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, markTaskIf, smashTaskIf, reorgTaskIf
->                , shaveTaskIf, matchTaskIf, catTaskIf, zoneTaskIf
+>                , shaveTaskIf, matchTaskIf, catTaskIf, perITaskIf
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
 >
 > makeFileIterate        :: SFFile → ([InstrumentName], [PercussionSound]) → FileIterate
@@ -85,7 +85,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >      , ("match",      match)
 >      , ("cat",        cat)
 >      , ("shave2",     shave)
->      , ("zone",       zone)]
+>      , ("perI",       perI)]
 >   where
 >     mark                                 = markTaskIf         sffile rost
 >
@@ -98,7 +98,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     shave                                = shaveTaskIf        sffile rost
 >     match                                = matchTaskIf        sffile rost
 >     cat                                  = catTaskIf          sffile rost
->     zone                                 = zoneTaskIf         sffile rost
+>     perI                                 = perITaskIf         sffile rost
 >
 > reduceFileIterate      :: FileIterate → (SFBoot, ResultDispositions, Matches)
 > reduceFileIterate fiIn                   = (fwBoot, fwDispositions, fwMatches)
@@ -440,12 +440,14 @@ capture task ===================================================================
 >             
 >         captureZone    :: Word → Either PreZone (Disposition, Impact)
 >         captureZone bix
+>           | traceNot trace_CZ False      = undefined
 >           | isNothing pz.pzDigest.zdSampleIndex
 >                                          = Right (Accepted, GlobalZone)
 >           | isNothing mpres              = Right (Dropped, OrphanedBySample)
 >           | otherwise                    = Left pz{pzChanges = ChangeEar (effPSShdr pres) []}
 >           where
->             fName                        = unwords [fName_, "captureZone"]
+>             fName                        = unwords ["captureZone"]
+>             trace_CZ                     = unwords [fName, show pz]
 >                 
 >             ibags                        = sffile.zFileArrays.ssIBags
 >             xgeni                        = F.genNdx $ ibags ! bix
@@ -457,10 +459,10 @@ capture task ===================================================================
 >                                              (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
 >
 >             pz                           = makePreZone sffile.zWordF si (pgkwInst pergm) bix gens pres.cnSource
->             si                           = deJust fName pz.pzDigest.zdSampleIndex
+>             si                           = deJust (unwords [fName, "si"]) pz.pzDigest.zdSampleIndex
 >             presk                        = PreSampleKey sffile.zWordF si
 >             mpres                        = presk `Map.lookup` fwBoot.zPreSampleCache
->             pres                         = deJust fName mpres
+>             pres                         = deJust (unwords [fName, "pres"]) mpres
 
 mark task =============================================================================================================
           copy global zone markers from zrecs to preInstCache
@@ -741,7 +743,7 @@ categorization task ============================================================
 build zone task =======================================================================================================
           generate the PerInstrument map (aka zone cache)
 
-> zoneTaskIf sffile _ fwIn@FileWork{fwBoot, fwDispositions}  
+> perITaskIf sffile _ fwIn@FileWork{fwBoot, fwDispositions}  
 >                                          = fwIn{  fwBoot = fwBoot{zPerInstCache = fst formZoneCache}
 >                                                 , fwDispositions = snd formZoneCache}
 >   where
@@ -758,9 +760,17 @@ build zone task ================================================================
 >         pergm                            = instKey zrec
 >         icat                             = fromJust zrec.zsInstCat
 >         smashup                          = fromJust zrec.zsSmashup
+>         perI                             = computePerInst pergm icat smashup
+>         pzs                              = map fst perI.pZones
+>         (_, rdz)                         = zoneTask (const True) blessZone pzs rdFold
+>         blessZone      :: PreZone → ResultDispositions → (Maybe PreZone, ResultDispositions)
+>         blessZone pz rdIn                = (Just pz, dispose
+>                                              (extractZoneKey pz)
+>                                              [Scan Accepted ToZoneCache fName (show pz.pzWordB)]
+>                                              rdIn)
 >       in
->         (   Map.insert pergm (computePerInst pergm icat smashup) zc
->           , dispose pergm [Scan Accepted ToZoneCache fName (show icat)] rdFold)
+>         (   Map.insert pergm perI zc
+>           , dispose pergm [Scan Accepted ToZoneCache fName (show icat)] rdz)
 >
 >     computePerInst     :: PerGMKey → InstCat → Smashing Word → PerInstrument
 >     computePerInst pergm icat smashup    = PerInstrument (zip pzs oList) icat smashup

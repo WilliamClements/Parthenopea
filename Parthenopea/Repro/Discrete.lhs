@@ -150,7 +150,7 @@ Discrete approach ==============================================================
 >
 > discretizeEnvelope     :: Double → FEnvelope → Segments → DiscreteSig Double
 > discretizeEnvelope clockRate env segs
->   | traceNow trace_DE False              = undefined
+>   | traceNot trace_DE False              = undefined
 >   | otherwise                            =
 >   if howMany < 5 && howNegative > -0.2
 >     then dsig

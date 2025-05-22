@@ -78,19 +78,25 @@ You see there is some overlap between Zone 1 and Zone 2.
 >     svector                              = foldl' sfolder (VU.replicate mag (0, 0)) spaces
 >
 >     sfolder            :: VU.Vector (i, i) → (i, [(i, i)]) → VU.Vector (i, i)
->     sfolder vec (spaceId, rngs)          = VU.accum smashCell vec (enumAssocs dims spaceId rngs)
->
->     enumAssocs         :: [i] → i → [(i, i)] → [(Int, (i, i))]
->     enumAssocs dimsA spaceId rngs        =
+>     sfolder vec (spaceId, rngs)          =
 >       let
->         is             :: [Int]
->         is                               =
->           map (computeCellIndex dimsA) (traverse walkRange rngs)
+>         enumAssocs     :: [(Int, (i, i))]
+>         enumAssocs
+>           | traceNot trace_EA False      = undefined
+>           | otherwise                    =
+>             profess
+>               (0 <= mag && mag <= 32_768 && all (uncurry validRange) (zip dims rngs))
+>               (unwords ["enumAssocs: range violation", tag, show mag, show dims, show spaces])
+>               (map (, (spaceId, 1)) is)
+>           where
+>             fName                        = "enumAssocs"
+>             trace_EA                     = unwords [fName, tag, show mag, show dims, show spaces]
+>
+>             is         :: [Int]
+>             is                           =
+>               map (computeCellIndex dims) (traverse walkRange rngs)
 >       in
->         profess
->           (0 <= mag && mag <= 65_536 && all (uncurry validRange) (zip dimsA rngs))
->           (unwords ["enumAssocs: range violation", tag, show mag, show dimsA, show spaces])
->           (map (, (spaceId, 1)) is)
+>          VU.accum smashCell vec enumAssocs
 >
 > smashSmashings         :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒
 >                           Smashing i → Smashing i → Smashing i

@@ -118,7 +118,7 @@ organize exposed music =========================================================
 >
 > sj                     :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
 > sj =
->       [ ("theFanfare"  , theFanfare False)]
+>    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("slot"        , slot 1)]
 >    -- [ ("alice"       , alice)]
 >    -- [ ("pa"          , pendingtonArnt 1)]
@@ -126,7 +126,7 @@ organize exposed music =========================================================
 >    -- [ ("baked"       , shimSong $ bakedJingle 42310)]
 >    -- [ ("bob_1"       , bob 1)]
 >    -- [ ("theFanfare"  , theFanfare False)]
->    -- [ ("kit"         , kit)]
+>       [ ("pit"         , pit)]
 >    -- [ ("wj"          , wj)]
 
 a few playthings ... get it? ==========================================================================================

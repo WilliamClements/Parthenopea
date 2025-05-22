@@ -280,7 +280,7 @@ discern design intent governing input Generator values, then implement something
 >
 > vetAsDiscreteSig       :: Double → FEnvelope → Segments → Maybe (DiscreteSig Double)
 > vetAsDiscreteSig clockRate env segs
->   | traceNow trace_VADS False            = undefined
+>   | traceNot trace_VADS False            = undefined
 >   | sum prologlist > epsilon             = error $ unwords [fName, "non-zero prolog", show prologlist]
 >   | sum epiloglist > epsilon             = error $ unwords [fName, "non-zero epilog", show epiloglist]
 >   | isNothing env.fModTriple && dipix < (kSig `div` 5)
@@ -291,8 +291,7 @@ discern design intent governing input Generator values, then implement something
 >     fName                                = "vetAsDiscreteSig"
 >     trace_VADS                           =
 >       unwords [fName, show clockRate, show numSamples, show (kSig, kVec)
->              , show (prologlist, epiloglist)
->              , show dsigStats]
+>              , show (prologlist, epiloglist)]
 >
 >     dsig@DiscreteSig{ .. }
 >                                          = discretizeEnvelope clockRate env segs
@@ -318,7 +317,7 @@ discern design intent governing input Generator values, then implement something
 >       
 > vetEnvelope            :: FEnvelope → Segments → Bool
 > vetEnvelope env segs
->   | traceNow trace_VE False              = undefined
+>   | traceNot trace_VE False              = undefined
 >   | badAmp || badDeltaT                  = error $ unwords [fName, "negative amp or deltaT", show segs]
 >   | abs (a - b) > 0.01                   = error $ unwords [fName, "doesn't add up #1", show (a, b, c)]
 >   | abs (b - c) > 0.01                   = error $ unwords [fName, "doesn't add up #2", show (a, b, c)]
