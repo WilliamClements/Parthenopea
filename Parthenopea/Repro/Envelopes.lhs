@@ -283,7 +283,7 @@ discern design intent governing input Generator values, then implement something
 >   | traceNot trace_VADS False            = undefined
 >   | sum prologlist > epsilon             = error $ unwords [fName, "non-zero prolog", show prologlist]
 >   | sum epiloglist > epsilon             = error $ unwords [fName, "non-zero epilog", show epiloglist]
->   | isNothing env.fModTriple && dipix < (kSig `div` 5)
+>   | isNothing env.fModTriple && dipix < (kSig' `div` 5)
 >                                          =
 >     error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show (kSig, kVec)]
 >   | otherwise                            = Just dsig
@@ -314,7 +314,7 @@ discern design intent governing input Generator values, then implement something
 >
 >     skipSize                             = round $ (env.fDelayT + env.fAttackT) * clockRate
 >     afterAttack                          = VU.slice skipSize (kSig - skipSize) dsigVec
->     dipix                                = skipSize + fromMaybe kSig' (VU.findIndex (< dipThresh) afterAttack)
+>     dipix                                = skipSize + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
 >       
 > vetEnvelope            :: FEnvelope → Segments → Bool
 > vetEnvelope env segs

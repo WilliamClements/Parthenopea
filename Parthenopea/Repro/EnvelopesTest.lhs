@@ -142,8 +142,8 @@ June 22, 2024
 > de3TimeFrame                             =
 >   TimeFrame
 >     1.2
->     3.0 -- 4.5
->     3.0 -- 4.5
+>     4.5
+>     4.5
 >     True
 
 The End
