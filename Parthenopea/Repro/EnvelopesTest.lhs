@@ -18,22 +18,26 @@ June 22, 2024
 > import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
 >
-> ctrRateWorksForDefaultEnvelope
->  , audRateWorksForDefaultEnvelope
->  , ctrRateWorksForOddEnvelope
->  , audRateWorksForOddEnvelope
+> ctrRateWorksForde1Envelope
+>   , audRateWorksForde1Envelope
+>   , ctrRateWorksForde2Envelope
+>   , audRateWorksForde2Envelope
+>   , ctrRateWorksForde3Envelope
+>   , audRateWorksForde3Envelope
 >                        :: IO Bool
 >
 > envelopesTests        :: [IO Bool]
-> envelopesTests                           = [ ctrRateWorksForDefaultEnvelope
->                                            , audRateWorksForDefaultEnvelope
->                                            , ctrRateWorksForOddEnvelope
->                                            , audRateWorksForOddEnvelope]
+> envelopesTests                           = [ ctrRateWorksForde1Envelope
+>                                            , audRateWorksForde1Envelope
+>                                            , ctrRateWorksForde2Envelope
+>                                            , audRateWorksForde2Envelope
+>                                            , ctrRateWorksForde3Envelope
+>                                            , audRateWorksForde3Envelope]
 >
 > runEnvelopesTests     :: IO ()
 > runEnvelopesTests                        = runTests envelopesTests
 >
-> ctrRateWorksForDefaultEnvelope           = do
+> ctrRateWorksForde1Envelope               = do
 >   print r
 >   print segs
 >   chartDiscreteSig nPoints dsig "ctrRateWorks"
@@ -43,7 +47,7 @@ June 22, 2024
 >     dsig                                 = deJust "ctrRateWorksForDefaultEnvelope" $ vetAsDiscreteSig ctrRate r segs
 >     nPoints            :: Int            = round $ ctrRate * defTimeFrame.tfSecsScored
 >
-> audRateWorksForDefaultEnvelope           = do
+> audRateWorksForde1Envelope               = do
 >   print r
 >   print segs
 >   chartDiscreteSig nPoints dsig "audRateWorks"
@@ -53,7 +57,7 @@ June 22, 2024
 >     dsig                                 = deJust "audRateWorksForDefaultEnvelope" $ vetAsDiscreteSig audRate r segs
 >     nPoints            :: Int            = round $ audRate * defTimeFrame.tfSecsScored
 >
-> ctrRateWorksForOddEnvelope           = do
+> ctrRateWorksForde2Envelope               = do
 >   print r
 >   print segs
 >   print dsig
@@ -64,7 +68,7 @@ June 22, 2024
 >     dsig                                 = deJust "ctrRateWorksForOddEnvelope" $ vetAsDiscreteSig ctrRate r segs
 >     nPoints            :: Int            = round $ ctrRate * defTimeFrame.tfSecsScored
 >
-> audRateWorksForOddEnvelope           = do
+> audRateWorksForde2Envelope               = do
 >   print r
 >   print segs
 >   print dsig
@@ -75,12 +79,36 @@ June 22, 2024
 >     dsig                                 = deJust "audRateWorksForOddEnvelope" $ vetAsDiscreteSig audRate r segs
 >     nPoints            :: Int            = round $ audRate * defTimeFrame.tfSecsScored
 >
+> ctrRateWorksForde3Envelope               = do
+>   print r
+>   print segs
+>   print dsig
+>   chartDiscreteSig nPoints dsig "ctrde3"
+>   return True 
+>   where
+>     (r, segs)                            = proposeSegments de3TimeFrame de3Envelope
+>     dsig                                 = deJust "ctrRateWorksForOddEnvelope" $ vetAsDiscreteSig audRate r segs
+>     nPoints            :: Int            = round $ ctrRate * defTimeFrame.tfSecsScored
+>
+> audRateWorksForde3Envelope               = do
+>   print r
+>   print segs
+>   print dsig
+>   chartDiscreteSig nPoints dsig "audde3"
+>   return True 
+>   where
+>     (r, segs)                            = proposeSegments de3TimeFrame de3Envelope
+>     dsig                                 = deJust "audRateWorksForOddEnvelope" $ vetAsDiscreteSig audRate r segs
+>     nPoints            :: Int            = round $ audRate * defTimeFrame.tfSecsScored
+>
 > defTimeFrame :: TimeFrame
 > defTimeFrame                             =
 >   TimeFrame 1 (1/2) (1/2) False
 >
-> de1Envelope, de2Envelope
+> de1Envelope, de2Envelope, de3Envelope
 >                        :: FEnvelope
+> de3TimeFrame           :: TimeFrame
+>
 > de1Envelope                              = 
 >   FEnvelope
 >     Nothing
@@ -101,5 +129,21 @@ June 22, 2024
 >     0.2
 >     10.0
 >     0.2
+> de3Envelope                              =
+>   FEnvelope
+>     Nothing
+>     0.09
+>     Nothing
+>     minDeltaT
+>     minDeltaT
+>     minDeltaT
+>     0.8
+>     minDeltaT
+> de3TimeFrame                             =
+>   TimeFrame
+>     1.2
+>     3.0 -- 4.5
+>     3.0 -- 4.5
+>     True
 
 The End

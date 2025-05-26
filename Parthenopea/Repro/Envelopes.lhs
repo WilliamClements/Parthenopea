@@ -63,10 +63,10 @@ Create a straight-line envelope generator with following phases:
 > doEnvelope timeFrame                     = maybe (constA 1) makeSF
 >   where
 >     makeSF             :: FEnvelope → Signal p () Double
->     makeSF envIn                           =
+>     makeSF envIn                         =
 >       let
->         (envNow, segs)                  = proposeSegments timeFrame envIn
->         ok                              = vetEnvelope envNow segs
+>         (envNow, segs)                   = proposeSegments timeFrame envIn
+>         ok                               = vetEnvelope envNow segs
 >       in
 >         if ok
 >           then envLineSeg segs.sAmps segs.sDeltaTs
@@ -74,7 +74,7 @@ Create a straight-line envelope generator with following phases:
 >
 > proposeSegments        :: TimeFrame → FEnvelope → (FEnvelope, Segments)
 > proposeSegments tf envRaw
->   | traceIf trace_PS False               = undefined
+>   | traceNot trace_PS False              = undefined
 >   | otherwise                            = (r, segs)
 >   where
 >     fName                                = "proposeSegments"
@@ -159,7 +159,7 @@ discern design intent governing input Generator values, then implement something
 >                        :: FIterate → FIterate
 >
 > faceValue iterIn
->   | traceIf trace_FV False               = undefined
+>   | traceNot trace_FV False              = undefined
 >   | remaining < minDeltaT                = feContinue iterIn work reduceSustain
 >   | otherwise                            = feFinish iterIn work{fSustainT = max minDeltaT remaining + work.fSustainT}
 >   where
@@ -218,7 +218,7 @@ discern design intent governing input Generator values, then implement something
 >     feFinish iterIn work{fDelayT = max minDeltaT remaining}
 >
 > decayTooLong iterIn
->   | traceIf trace_DARTL False            = undefined
+>   | traceNot trace_DARTL False            = undefined
 >   | remaining < 0                        = feContinue iterIn work dahTooLong
 >   | otherwise                            = feFinish iterIn work{fDecayT = max minDeltaT remaining}
 >   where
@@ -238,7 +238,7 @@ discern design intent governing input Generator values, then implement something
 >                           → Maybe FEnvelope
 > deriveEnvelope mDelay mAttack noon (mHold, mHoldByKey) (mDecay, mDecayByKey)
 >                mSustain mTriple
->   | traceIf trace_DE False               = undefined
+>   | traceNot trace_DE False               = undefined
 >   | otherwise                            = if useEnvelopes && doUse mTriple
 >                                              then Just env
 >                                              else Nothing
@@ -300,9 +300,10 @@ discern design intent governing input Generator values, then implement something
 >     checkSize                            = truncate $ minDeltaT * clockRate
 >     dipThresh          :: Double         = 1/10
 >
->     kVec, kSig         :: Int
+>     kVec, kSig, kSig'  :: Int
 >     kVec                                 = VU.length dsigVec
 >     kSig                                 = truncate $ clockRate * targetT
+>     kSig'                                = truncate $ clockRate * min targetT 0.5
 >
 >     prologlist, epiloglist
 >                        :: [Double]
@@ -313,7 +314,7 @@ discern design intent governing input Generator values, then implement something
 >
 >     skipSize                             = round $ (env.fDelayT + env.fAttackT) * clockRate
 >     afterAttack                          = VU.slice skipSize (kSig - skipSize) dsigVec
->     dipix                                = skipSize + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
+>     dipix                                = skipSize + fromMaybe kSig' (VU.findIndex (< dipThresh) afterAttack)
 >       
 > vetEnvelope            :: FEnvelope → Segments → Bool
 > vetEnvelope env segs

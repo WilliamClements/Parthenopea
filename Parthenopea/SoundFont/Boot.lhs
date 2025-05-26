@@ -371,7 +371,7 @@ capture task ===================================================================
 >         (zrec{zsPreZones = newPzs, zsGlobalKey = mglobalKey}, rdOut)
 >
 >     captureZones       :: PerGMKey → ResultDispositions → ([PreZone], ResultDispositions, Maybe PreZoneKey)
->     captureZones pergm rdCap             = (pzs', rdCap'', globalKey)
+>     captureZones pergm rdCap__           = (pzs', rdCap'', globalKey)
 >       where
 >         fName_                           = unwords["captureZones"]
 >
@@ -425,7 +425,7 @@ capture task ===================================================================
 >             result                       = foldr CM.mplus Nothing tested
 >         yesAdopt                         = Just [Scan Modified Adopted fName_ iName]
 >
->         rdCap'                           = dispose pergm ss rdCap
+>         rdCap'                           = dispose pergm ss rdCap__
 >         (pzs', rdCap'')                  = zoneTask (const True) capFolder pzs rdCap'
 >
 >         capFolder      :: PreZone → ResultDispositions → (Maybe PreZone, ResultDispositions)
@@ -547,9 +547,13 @@ To build the map
 >             smashups                     = map snd towners
 >             osmashup                     = foldl' smashSmashings (head smashups) (tail smashups)
 >
->             memberHasVelocityRanges      = isJust $ find zoneHasVelocityRange (map fst towners)
+>             memberHasVelocityRanges      = isJust $ find zonesHaveVelocityRange (map fst towners)
+>             zonesHaveVelocityRange pzs   = isJust $ find zoneHasVelocityRange pzs   
+>             zoneHasVelocityRange pz      =
+>               case pz.pzDigest.zdVelRange of
+>                 Just rng                 → rng /= (0, 127)
+>                 Nothing                  → False
 >
->             zoneHasVelocityRange pzs     = isJust $ find (\pz → isJust pz.pzDigest.zdVelRange) pzs   
 >     ready              :: Map Word [Word]
 >     ready                                = Map.mapWithKey (\k _ → headed Map.! k) hMap
 >
@@ -585,7 +589,7 @@ To build the map
 >         (hpzs, hsmash)                   = deJust "hprobe" hprobe
 >
 >         scansIng                         = [Scan Modified Absorbing fName noClue]
->         scansEd                          = [Scan Dropped Absorbed   fName noClue]
+>         scansEd                          = [Scan Dropped Absorbed   fName (show party)]
 >         scansBlocked                     = [Scan NoChange NoAbsorption fName (show failed)]
 
 shave task ============================================================================================================

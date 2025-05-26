@@ -142,7 +142,8 @@ Modulator management ===========================================================
 > siftMods               :: [Modulator] → [Modulator]
 > siftMods m8rs                            = final.ssCurrent
 >   where
->     generations                          = iterate' eliminateDanglingMods (Sifting 0 m8rs [])
+>     generations                          =
+>       iterate' eliminateDanglingMods (Sifting 0 m8rs [])
 >     final                                = head $ dropWhile unfinished generations
 >     unfinished Sifting{ssCurrent, ssPrevious}
 >                                          = ssCurrent /= ssPrevious
@@ -177,11 +178,14 @@ Modulator management ===========================================================
 >                                              >>= addBiPolar
 >                                              >>= addMax2Min
 >                                              >>= addCCBit
->     cont               :: Int            = fromIntegral   (wIn `shift` (-10))    `mod` 64
->     bipolar            :: Int            = fromIntegral   (wIn `shift` (-9))     `mod` 2
->     max2Min            :: Int            = fromIntegral   (wIn `shift` (-8))     `mod` 2
->     ccBit              :: Int            = fromIntegral   (wIn `shift` (-7))     `mod` 2
->     src                :: Int            = fromIntegral   wIn                    `mod` 128
+>
+>     cont, bipolar, max2Min, ccBit, src
+>                        :: Int
+>     cont                                 = fromIntegral   (wIn `shift` (-10))    `mod` 64
+>     bipolar                              = fromIntegral   (wIn `shift` (-9))     `mod` 2
+>     max2Min                              = fromIntegral   (wIn `shift` (-8))     `mod` 2
+>     ccBit                                = fromIntegral   (wIn `shift` (-7))     `mod` 2
+>     src                                  = fromIntegral   wIn                    `mod` 128
 >
 >     addContinuity from                   = if cont < 16    then Just from{msContinuity = toEnum cont}
 >                                                            else Nothing
@@ -223,7 +227,7 @@ Modulator management ===========================================================
 > addAmtSrc mm8r amtSrc@ModSrc{msSource}   = mm8r >>=     (\x → case msSource of
 >                                                               FromLinked       → Nothing
 >                                                               _                → Just x{mrAmountSrc = amtSrc})
-> addAmtSrc'              :: ModSrc → Modulator → Maybe Modulator
+> addAmtSrc'             :: ModSrc → Modulator → Maybe Modulator
 > addAmtSrc' modSrc@ModSrc{msSource} m8r   = Just m8r >>= (\x → case msSource of
 >                                                               FromLinked       → Nothing
 >                                                               _                → Just x{mrAmountSrc = modSrc})
@@ -234,7 +238,7 @@ Modulator management ===========================================================
 >                                                   , makeDefaultMod 1 ms1  8 (-2400) ms2 ] ++ specialDefaultMods
 >                                              else []
 >  -- all three of these are negative unipolar, continuity varying                                                            
->   where                                                 --    cont    bipolar  neg  CC
+>   where
 >     ms0                                  = ModSrc   (Mapping Concave   False  True False) FromNoteOnVel
 >     ms1                                  = ModSrc   (Mapping Linear    False  True False) FromNoteOnVel
 >  -- some implementations do not include the amount source below in the second default modulator
@@ -336,37 +340,18 @@ Filters ========================================================================
 >         proc (sIn, msig)                 → do
 >           let fc                         = modulateFc msig
 >           pickled ← procFilter mLowpass  ⤙ (sIn, fc)
->           let sOut                       = resonate sIn fc pickled
+>           let sOut                       = pickled
 >           outA                           ⤙ (sOut, msig)
 >
 >     final                                =
 >         proc (sIn, msig)                 → do
 >           let fc                         = modulateFc msig
 >           pickled ← procFilter mLowpass  ⤙ (sIn, fc)
->           let sOut                       = resonate sIn fc pickled
->           outA                           ⤙ sOut
+>           outA                           ⤙ pickled
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
->       clip freakRange
->            (lowpassFc mLowpass * evaluateModSignals
->                           "modulateFc"
->                           m8n
->                           ToFilterFc
->                           msig
->                           noon)
->
->     resonate           :: Double → Double → Double → Double
->     resonate x fc y
->       | traceNot trace_R False           = undefined
->       | otherwise                        = y
->       where
->         y'                               = checkForNan y "resonate y"
->         trace_R                          =
->           unwords [
->               "resonate\nsIn"    , show (checkForNan  x "resonate x")
->             , "\nfc"             , show (checkForNan fc "resonate fc")
->             , "\nsOut"           , show y']
+>       clip freakRange (lowpassFc mLowpass * evaluateModSignals "modulateFc" m8n ToFilterFc msig noon)
 >
 > procFilter             :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
 > procFilter lp@Lowpass{lowpassType}       =
@@ -863,7 +848,6 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >
 > clip                   :: Ord n ⇒ (n, n) → n → n
 > clip (lower, upper) val                  = min upper (max lower val)
->
 
 Returns the frequency
 

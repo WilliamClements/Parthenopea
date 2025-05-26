@@ -121,12 +121,12 @@ organize exposed music =========================================================
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("slot"        , slot 1)]
 >    -- [ ("alice"       , alice)]
->    -- [ ("pa"          , pendingtonArnt 1)]
+>    -- [ ("littlePendingtonArnt"          , shimSong $ aggrandize littlePendingtonArnt)]
 >    -- [ ("deyDumpDum"  , deyDumpDum False)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 42310)]
->    -- [ ("bob_1"       , bob 1)]
+>       [ ("deathlessHorsie"       , deathlessHorsie)]
 >    -- [ ("theFanfare"  , theFanfare False)]
->       [ ("pit"         , pit)]
+>    -- [ ("pit"         , pit)]
 >    -- [ ("wj"          , wj)]
 
 a few playthings ... get it? ==========================================================================================

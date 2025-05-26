@@ -360,7 +360,7 @@ bootstrapping ==================================================================
 >      | Paired | Unpaired
 >      | OrphanedBySample | OrphanedByInst | ToZoneCache
 >      | Absorbing | Absorbed | NoAbsorption
->      | CorruptGMRange | Narrow
+>      | CorruptGMRange | Narrow | BadSampleLooping
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
 >      | Unrecognized | NoPercZones
 >      | CatIsPerc | CatIsInst
