@@ -81,7 +81,7 @@ Create a straight-line envelope generator with following phases:
 >     trace_PS                             = unwords [fName, show (tf.tfSecsScored, amps, deltaTs)]
 >
 >     releaseT
->       | tf.tfSecsScored < 2 * minUseful  = minDeltaT
+>       | tf.tfSecsScored < 2 * minUseful  = minUseful / 4
 >       | otherwise                        = minUseful
 >           
 >     r                  :: FEnvelope      =
@@ -104,9 +104,9 @@ discern design intent governing input Generator values, then implement something
 >                                          = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + releaseT + postT
 >   where
 >     (_, releaseT, postT)                 = fromJust fTargetT
-> feRemaining work@FEnvelope{fTargetT}     = targetT - feSum work
+> feRemaining work                         = targetT - feSum work
 >   where
->     (targetT, _, _)                      = fromJust fTargetT
+>     (targetT, _, _)                      = fromJust work.fTargetT
 >
 > data FIterate                            =
 >   FIterate {
@@ -146,12 +146,34 @@ discern design intent governing input Generator values, then implement something
 >
 >     fiInit                               =
 >       FIterate (caseActions Map.! evaluateCase fEnvIn) fEnvIn False
-> 
+>
+> feCheckFinal           :: FIterate → FIterate
+> feCheckFinal iterIn                      =
+>   profess
+>     (abs (theSum - targetT) < epsilon)
+>     (unwords ["feCheckFinal failure: sum, target", show (theSum, targetT)])
+>     iterIn
+>   where
+>     theSum                               = feSum iterIn.fiEnvWork
+>     (targetT, _, _)                      = fromJust iterIn.fiEnvWork.fTargetT
+>
 > feFinish               :: FIterate → FEnvelope → FIterate
-> feFinish iterIn workee                   = iterIn{fiEnvWork = workee, fiDone = True}
+> feFinish iterIn workee
+>   | traceNot trace_FEF False             = undefined
+>   | otherwise                            = feCheckFinal iterIn'
+>   where
+>     fName                                = "feFinish"
+>     trace_FEF                            = unwords [fName, show workee]
+>
+>     iterIn'                              = iterIn{fiEnvWork = workee, fiDone = True}
 >
 > feContinue             :: FIterate → FEnvelope → (FIterate → FIterate) → FIterate
-> feContinue iterIn workee fun             = iterIn{fiFun = fun, fiEnvWork = workee}
+> feContinue iterIn workee fun
+>   | traceNot trace_FEC False             = undefined
+>   | otherwise                            = iterIn{fiFun = fun, fiEnvWork = workee}
+>   where
+>     fName                                = "feContinue"
+>     trace_FEC                            = unwords [fName, show workee]
 >
 > faceValue, dahTooLong, decayTooLong
 >                        :: FIterate → FIterate
@@ -161,7 +183,7 @@ discern design intent governing input Generator values, then implement something
 > faceValue iterIn
 >   | traceNot trace_FV False              = undefined
 >   | remaining < minDeltaT                = feContinue iterIn work reduceSustain
->   | otherwise                            = feFinish iterIn work{fSustainT = max minDeltaT remaining + work.fSustainT}
+>   | otherwise                            = feFinish iterIn work{fSustainT = remaining + work.fSustainT}
 >   where
 >     fName                                = "faceValue"
 >     trace_FV                             = unwords[fName, show (remaining, work)]
@@ -181,7 +203,7 @@ discern design intent governing input Generator values, then implement something
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceDecay
->       else feFinish iterIn work{fSustainT = remaining}
+>       else feFinish iterIn work{fSustainT = remaining + work.fSustainT}
 >
 > reduceDecay iterIn                       =
 >   let
@@ -190,7 +212,7 @@ discern design intent governing input Generator values, then implement something
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceHold
->       else feFinish iterIn work{fDecayT = remaining}
+>       else feFinish iterIn work{fDecayT = remaining + work.fDecayT}
 >
 > reduceHold iterIn                        = 
 >   let
@@ -199,7 +221,7 @@ discern design intent governing input Generator values, then implement something
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceAttack
->       else feFinish iterIn work{fHoldT = remaining}
+>       else feFinish iterIn work{fHoldT = remaining + work.fHoldT}
 >
 > reduceAttack iterIn                      =
 >   let
@@ -208,19 +230,19 @@ discern design intent governing input Generator values, then implement something
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceDelay
->       else feFinish iterIn work{fAttackT = remaining}
+>       else feFinish iterIn work{fAttackT = remaining + work.fAttackT}
 >
 > reduceDelay iterIn                       =
 >   let
 >     work                                 = iterIn.fiEnvWork{fDelayT = minDeltaT}
 >     remaining                            = feRemaining work
 >   in
->     feFinish iterIn work{fDelayT = max minDeltaT remaining}
+>     feFinish iterIn work{fDelayT = remaining + work.fDelayT}
 >
 > decayTooLong iterIn
 >   | traceNot trace_DARTL False            = undefined
 >   | remaining < 0                        = feContinue iterIn work dahTooLong
->   | otherwise                            = feFinish iterIn work{fDecayT = max minDeltaT remaining}
+>   | otherwise                            = feFinish iterIn work{fDecayT = remaining + work.fDecayT}
 >   where
 >     fName                                = "decayTooLong"
 >     trace_DARTL                          = unwords[fName, show (remaining, work)]
@@ -276,7 +298,12 @@ discern design intent governing input Generator values, then implement something
 > maybeVetAsDiscreteSig env segs           =
 >   case rateForVetEnvelope of
 >     Nothing                              → True
->     Just clockRate                       → isJust $ vetAsDiscreteSig clockRate env segs
+>     Just clockRate                       → timeSkip || isJust (vetAsDiscreteSig clockRate env segs)
+>   where
+>     fName                                = "maybeVetAsDiscreteSig"
+>
+>     (secs, _, _)                         = deJust fName env.fTargetT
+>     timeSkip                             = secs /= clip (1/32, 2) secs
 >
 > vetAsDiscreteSig       :: Double → FEnvelope → Segments → Maybe (DiscreteSig Double)
 > vetAsDiscreteSig clockRate env segs
@@ -290,8 +317,7 @@ discern design intent governing input Generator values, then implement something
 >   where
 >     fName                                = "vetAsDiscreteSig"
 >     trace_VADS                           =
->       unwords [fName, show clockRate, show numSamples, show (kSig, kVec)
->              , show (prologlist, epiloglist)]
+>       unwords [fName, show clockRate, show numSamples, show (kSig, kVec), show (prologlist, epiloglist)]
 >
 >     dsig@DiscreteSig{ .. }
 >                                          = discretizeEnvelope clockRate env segs
@@ -325,8 +351,7 @@ discern design intent governing input Generator values, then implement something
 >   | otherwise                            = maybeVetAsDiscreteSig env segs
 >   where
 >     fName                                = "vetEnvelope"
->     trace_VE                             =
->       unwords [fName, show (a,b, c)]
+>     trace_VE                             = unwords [fName, show (a,b,c)]
 >
 >     (targetT, _, postT)                  = deJust fName env.fTargetT
 >
