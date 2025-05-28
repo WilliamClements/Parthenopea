@@ -80,10 +80,6 @@ Create a straight-line envelope generator with following phases:
 >     fName                                = "proposeSegments"
 >     trace_PS                             = unwords [fName, show (tf.tfSecsScored, amps, deltaTs)]
 >
->     releaseT
->       | tf.tfSecsScored < 2 * minUseful  = minUseful / 4
->       | otherwise                        = minUseful
->           
 >     r                  :: FEnvelope      =
 >       refineEnvelope envRaw{fTargetT = Just (tf.tfSecsScored, releaseT, releaseT)}
 >
@@ -95,6 +91,15 @@ Create a straight-line envelope generator with following phases:
 >
 >     segs                                 = Segments amps deltaTs
 >
+>     releaseT
+>       | tf.tfSecsScored < (7 * minDeltaT)
+>                                          = error $ unwords ["Note too short:", show tf.tfSecsScored]
+>       | tf.tfSecsScored < (7 * minDeltaT) + minUseful
+>                                          = minDeltaT
+>       | tf.tfSecsScored < (7 * minDeltaT + 2 * minUseful)
+>                                          = minUseful / 4
+>       | otherwise                        = minUseful
+>           
 >     fSusLevel                            = clip (0, 1) r.fSustainLevel
 
 discern design intent governing input Generator values, then implement something ======================================
