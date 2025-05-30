@@ -22,6 +22,16 @@ February 10, 2025
 
 Range theory ==========================================================================================================
 
+"Write once, read many" characterizes a cache. A "smashing" caches values that are results of looking up through
+multiple range specifications. When you have an Instrument and a NoteOn, you need to pinpoint which Zone to use to
+play the note. The smashing for this purposes covers all possible NoteOns, producing required Zone identifier for each.
+
+Midi Pitch and Velocity both given by zero-based integers 0..127. In addition, left or right channel given by number
+between zero and one. We use a flat vector indexed by the three component values.
+
+This source file implements a generalization of that setup. We must know all the "subspaces" (range specifications) up
+front which we "smash" together to populate the flat vector.
+          
 > data Smashing i                          =
 >   Smashing {
 >     smashTag            :: String
@@ -52,9 +62,8 @@ Range theory ===================================================================
 >       | count == 1                       = stats{countSingles = countSingles + 1}
 >       | otherwise                        = stats{countMultiples = countMultiples + 1}
 
-Utilities for working with input range specifications. Each space (of nspaces) contains
-exactly ndims (3 in the MIDI case) ranges. If dim is the value of a dimension then its overall range is implicitly
-0..dim-1 -- the associated _specified_ space range carves out a subset thereof.
+Each space (of nspaces) contains exactly ndims (3 in the Midi case) ranges. If dim is the value of a dimension then
+the associated range is implicitly 0..dim-1 -- the specifications each carve out a subset thereof.
 
 Say you have ndims=2 dimensions each of 64 extent. (Partially) covering overall 64x64 space are nspaces=3 "zones". 
 
@@ -97,7 +106,9 @@ You see there is some overlap between Zone 1 and Zone 2.
 >               map (computeCellIndex dims) (traverse walkRange rngs)
 >       in
 >          VU.accum smashCell vec enumAssocs
->
+
+We smash smashings together in the Midi case in order to merge multiple Instruments into one
+
 > smashSmashings         :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒
 >                           Smashing i → Smashing i → Smashing i
 > smashSmashings s1 s2                     =

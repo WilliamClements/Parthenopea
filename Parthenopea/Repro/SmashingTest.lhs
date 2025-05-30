@@ -16,6 +16,8 @@ October 11, 2024
   
 Smashing-related tests ================================================================================================
 
+Includes a four-dimensional example.
+
 > runSmashingTests          :: IO ()
 > runSmashingTests                         = runTests smashingTests
 >

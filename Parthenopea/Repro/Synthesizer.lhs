@@ -47,6 +47,8 @@ May 14, 2023
   
 Signal function-based synth ===========================================================================================
 
+Euterpea provides call back mechanism for rendering. Each Midi note, fully specified, comes here to be synthesized.
+
 > eutSynthesize          :: ∀ p . Clock p ⇒
 >                           (Recon, Maybe Recon)
 >                           → Double
