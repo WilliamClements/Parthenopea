@@ -18,7 +18,9 @@ June 22, 2024
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
->
+
+Envelopes-related tests ===============================================================================================
+
 > ctrRateWorksForde1Envelope
 >   , audRateWorksForde1Envelope
 >   , ctrRateWorksForde2Envelope
@@ -41,17 +43,21 @@ June 22, 2024
 > runEnvelopesTests                        = runTests envelopesTests
 >
 > munch                 :: String → TimeFrame → FEnvelope → Double → IO Bool
-> munch tag tf de clockRate                = do
+> munch tag tf fe clockRate                = do
 >   print segs
->   print exact
->   chartDiscreteSig clockRate nPoints dsig tag
->   return True 
+>   print secs
+>   case mdsig of
+>     Nothing                              → return False
+>     Just dsig                            →
+>       do
+>         chartDiscreteSig clockRate nPoints dsig tag
+>         return True
 >   where
->     (r, segs)                            = proposeSegments tf de
->     (_, _, postT)                        = deJust "munch 1" r.fTargetT
->     exact                                = foldl' (+) (postT - 1) segs.sDeltaTs
+>     (r, segs)                            = proposeSegments tf fe
+>     (_, _, postT)                        = deJust "munch" r.fTargetT
+>     secs                                 = foldl' (+) (postT - 1) segs.sDeltaTs
 >     
->     dsig                                 = deJust "munch 2" $ vetAsDiscreteSig clockRate r segs
+>     mdsig                                = vetAsDiscreteSig clockRate r segs
 >     nPoints            :: Int            = round $ clockRate * (tf.tfSecsScored + 0.5)
 >
 > ctrRateWorksForde1Envelope               = munch "ctrde1" defTimeFrame de1Envelope ctrRate
@@ -64,7 +70,7 @@ June 22, 2024
 >
 > ctrRateWorksForLongNoteEnvelope          = munch "ctrLongNote" eLongNoteTimeFrame eLongNoteEnvelope ctrRate
 >
-> audRateWorksForShortNoteEnvelope         = munch "audLongNote" eShortNoteTimeFrame eShortNoteEnvelope audRate
+> audRateWorksForShortNoteEnvelope         = munch "audShortNote" eShortNoteTimeFrame eShortNoteEnvelope audRate
 >
 > ctrRateWorksForShortNoteEnvelope         = munch "ctrShortNote" eShortNoteTimeFrame eShortNoteEnvelope ctrRate
 >

@@ -10,11 +10,10 @@ January 7, 2025
 
 > module Parthenopea.SoundFont.BootTest where
 >
-> import Parthenopea.Debug (runTests, aEqual)
+> import Parthenopea.Debug (runTests)
 > import Parthenopea.SoundFont.SFSpec
-> import Parthenopea.SoundFont.Scoring ( fuzzToTheRight, fuzzToTheLeft )
 
-Testing ===============================================================================================================
+Boot-related tests ====================================================================================================
 
 > runBootTests           :: IO ()
 > runBootTests                             = runTests bootTests
@@ -22,8 +21,6 @@ Testing ========================================================================
 > nonFatalScanIsNotFatal, fatalScanIsFatal, rescuedScanIsNotFatal, noNewsIsGoodNews1, noNewsIsGoodNews2
 >                        :: IO Bool
 > correctlyJudgesDispoFatal, correctlyJudgesDispoNonFatal, orderIndependence1, orderIndependence2
->                        :: IO Bool
-> fuzzRightOnePerL, fuzzLeftOnePerR, tryFuzzingRight, tryFuzzingLeft, otherFuzzingRight, otherFuzzingLeft
 >                        :: IO Bool
 >
 > bootTests              :: [IO Bool]
@@ -35,13 +32,7 @@ Testing ========================================================================
 >                                             , correctlyJudgesDispoFatal
 >                                             , correctlyJudgesDispoNonFatal
 >                                             , orderIndependence1
->                                             , orderIndependence2
->                                             , fuzzRightOnePerL
->                                             , fuzzLeftOnePerR
->                                             , tryFuzzingRight
->                                             , tryFuzzingLeft
->                                             , otherFuzzingRight
->                                             , otherFuzzingLeft]
+>                                             , orderIndependence2]
 >
 > nonFatalScanIsNotFatal                   = do
 >   let ss                                 = [Scan Accepted Ok "nonFatalScanIsNotFatal" noClue]
@@ -53,8 +44,8 @@ Testing ========================================================================
 >
 > rescuedScanIsNotFatal                    = do
 >   let fName                              = "rescuedScanIsNotFatal"
->   let viol                               = Scan Violated NoZones fName "test"
->   let resc                               = Scan Rescued  NoZones fName "test"
+>   let viol                               = Scan Violated NoZones fName noClue
+>   let resc                               = Scan Rescued  NoZones fName noClue
 >   let ss                                 = [viol, resc]
 >   return $ not $ dead ss
 >
@@ -70,38 +61,25 @@ Testing ========================================================================
 > correctlyJudgesDispoFatal               = do
 >   let fName                              = "correctlyJudgesDispoFatal"
 >   let pergm                              = PerGMKey 0 0 Nothing
->   let rd                                 = dispose pergm [Scan Violated NoZones fName "test"] virginrd
+>   let rd                                 = dispose pergm [Scan Violated NoZones fName noClue] virginrd
 >   return $ deadrd pergm rd
 >
 > correctlyJudgesDispoNonFatal            = do
 >   let fName                              = "correctlyJudgesDispoNonFatal"
 >   let pergm                              = PerGMKey 0 0 Nothing
->   let rd                                 = dispose pergm [Scan Accepted Ok fName "test"] virginrd
+>   let rd                                 = dispose pergm [Scan Accepted Ok fName noClue] virginrd
 >   return $ not $ deadrd pergm rd
 >
 > orderIndependence1                       = do
 >   let fName                              = "orderIndependence1"
->   let order1                             = [Scan Accepted Ok      fName "test",  Scan Violated NoZones fName "test"]
->   let order2                             = [Scan Violated NoZones fName "test",  Scan Accepted Ok fName "test"]
+>   let order1                             = [Scan Accepted Ok      fName noClue,  Scan Violated NoZones fName noClue]
+>   let order2                             = [Scan Violated NoZones fName noClue,  Scan Accepted Ok fName noClue]
 >   return $ dead order1 && dead order2
 >
 > orderIndependence2                       = do
 >   let fName                              = "orderIndependence2"
->   let order1                             = [Scan Violated NoZones fName "test",  Scan Rescued NoZones fName "test"]
->   let order2                             = [Scan Rescued NoZones fName "test",   Scan Violated NoZones fName "test"]
+>   let order1                             = [Scan Violated NoZones fName noClue,  Scan Rescued NoZones fName noClue]
+>   let order2                             = [Scan Rescued NoZones fName noClue,   Scan Violated NoZones fName noClue]
 >   return $ not (dead order1) && not (dead order2)
->
-> fuzzRightOnePerL                              = do
->   return $ aEqual 2 (length (fuzzToTheRight "lRLrr"))
-> fuzzLeftOnePerR                              = do
->   return $ aEqual 3 (length (fuzzToTheLeft "lRLrr"))
-> tryFuzzingRight                          = do
->   return $ aEqual True ("stereoR(32)" `elem` fuzzToTheRight "stereoL(32)")
-> tryFuzzingLeft                          = do
->   return $ aEqual True ("channelL" `elem` fuzzToTheLeft "channelR")
-> otherFuzzingRight                       = do
->   return $ aEqual True ("channelR" `elem` fuzzToTheRight "channelL")
-> otherFuzzingLeft                          = do
->   return $ aEqual True ("stereoL(32)" `elem` fuzzToTheLeft "stereoR(32)")
 
 The End

@@ -45,11 +45,11 @@ Rosters support ================================================================
 >
 >   _ ← if playAll
 >         then do
->           resultSmashing                 ← runTestsQuietly smashingTests
 >           resultBoot                     ← runTestsQuietly bootTests
->           resultModulation               ← runTestsQuietly modulationTests     
->           resultSynthesizer              ← runTestsQuietly synthesizerTests
 >           resultEnvelopes                ← runTestsQuietly envelopesTests
+>           resultModulation               ← runTestsQuietly modulationTests     
+>           resultSmashing                 ← runTestsQuietly smashingTests
+>           resultSynthesizer              ← runTestsQuietly synthesizerTests
 >           let resultDiscrete             = True -- runTestsQuietly discreteTests
 >           putStrLn $ unwords [show
 >                 (profess
@@ -117,14 +117,14 @@ organize exposed music =========================================================
 >    , ("yahozna"        , shimSong $ aggrandize yahozna)]
 >
 > sj                     :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
-> sj =
+> sj = bjingles ++ ejingles
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("slot"        , slot 1)]
 >    -- [ ("alice"       , alice)]
 >    -- [ ("littlePendingtonArnt"          , shimSong $ aggrandize littlePendingtonArnt)]
 >    -- [ ("deyDumpDum"  , deyDumpDum False)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 42310)]
->       [ ("deathlessHorsie"       , deathlessHorsie)]
+>    -- [ ("sunPyg"      , sunPyg)]
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("pit"         , pit)]
 >    -- [ ("wj"          , wj)]

@@ -18,7 +18,7 @@ March 2, 2024
 > import Parthenopea.Repro.Modulation ( NoteOn(NoteOn), defModulation )
 > import Parthenopea.Repro.Synthesizer ( eutDriver, Effects(Effects), Recon(Recon), TimeFrame(..) )
   
-Testing ===============================================================================================================
+Synthesizer-related tests =============================================================================================
 
 > defRecon               :: Recon
 > defRecon                                 =

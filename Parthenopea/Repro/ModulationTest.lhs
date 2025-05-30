@@ -18,7 +18,7 @@ November 24, 2023
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.SFSpec
 
-Testing ===============================================================================================================
+Modulation-related tests ==============================================================================================
 
 > countSurvivingMods     :: [Modulator] → IO Int
 > countSurvivingMods m8rs                  = do

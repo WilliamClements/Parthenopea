@@ -165,26 +165,6 @@ use "matching as" cache ========================================================
 >         , end < start
 >         , endLoop < startLoop
 >       ]
->
-> fuzzString             :: String → [Char] → [Char] → [String]
-> fuzzString source mychs otherchs         =
->   let
->     table                                = Map.fromList $ zip mychs otherchs
->
->     is                                   =
->       filter (\i → (source !! i) `elem` mychs) (deriveRange 0 (length source))
->
->     generate i                           = front ++ back'
->       where
->         (front, back)                    = splitAt i source
->         back'                            = (table Map.! head back) : tail back
->   in
->     map generate is
->
-> fuzzToTheRight, fuzzToTheLeft
->                        :: String → [String]
-> fuzzToTheRight s                         = fuzzString s "Ll" "Rr"
-> fuzzToTheLeft s                          = fuzzString s "Rr" "Ll"
 
 Scoring stuff =========================================================================================================
  
@@ -280,10 +260,10 @@ Scoring stuff ==================================================================
 tournament starts here ================================================================================================
 
 > decideWinners          :: SFRuntime
->                           → Matches
 >                           → ([InstrumentName], [PercussionSound]) 
+>                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
-> decideWinners SFRuntime{ .. } matches rost
+> decideWinners SFRuntime{ .. } rost matches
 >                                          = do
 >   traceIO $ unwords [fName_, show (length zPerInstCache)]
 >   return wiExec

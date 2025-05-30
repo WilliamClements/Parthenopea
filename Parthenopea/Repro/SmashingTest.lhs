@@ -14,7 +14,7 @@ October 11, 2024
 > import Parthenopea.Debug ( aEqual, runTests )
 > import Parthenopea.Repro.Smashing
   
-Testing ===============================================================================================================
+Smashing-related tests ================================================================================================
 
 > runSmashingTests          :: IO ()
 > runSmashingTests                         = runTests smashingTests

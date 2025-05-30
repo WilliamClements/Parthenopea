@@ -56,7 +56,7 @@ executive ======================================================================
 >       return ()
 >     else do 
 >       let (prerunt, matches, rd)         = fromJust mbundle
->       runt                               ← finishRuntime matches rost prerunt rd
+>       runt                               ← finishRuntime prerunt rost matches rd
 >
 >       CM.when diagnosticsEnabled         (putStrLn $ unwords [fName, show runt])
 >       CM.when doRender                   (doRendering runt)
@@ -67,18 +67,18 @@ executive ======================================================================
 >     fName                                = "bootNRender"
 >
 >     -- track the complete _qualified_ populations of: samples, instruments, percussion
->     finishRuntime      ::  Matches
+>     finishRuntime      ::  SFRuntime
 >                            → ([InstrumentName], [PercussionSound])
->                            → SFRuntime
+>                            → Matches
 >                            → ResultDispositions
 >                            → IO SFRuntime
->     finishRuntime matches rost prerunt rdGen03
+>     finishRuntime prerunt rost matches rd
 >                                          = do
->       CM.when (howVerboseScanReport > (1/10)) (writeScanReport prerunt rdGen03)
+>       CM.when (howVerboseScanReport > (1/10)) (writeScanReport prerunt rd)
 >       tsScanned                          ← getCurrentTime
 >      
 >       -- actually conduct the tournament
->       (wI, wP)                           ← decideWinners prerunt matches rost
+>       (wI, wP)                           ← decideWinners prerunt rost matches 
 >       tsDecided                          ← getCurrentTime
 >       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsScanned))
 >
@@ -105,7 +105,7 @@ executive ======================================================================
 >       putStrLn ("___prepare instruments: " ++ show (diffUTCTime tsPrepared tsStarted))
 >
 >       -- here's the heart of the coconut
->       mapM_ (uncurry (renderSong runt imap)) songs
+>       mapM_ (renderSong runt imap) songs
 >
 >       tsRendered                         ← getCurrentTime
 >       putStrLn ("___render songs: "        ++ show (diffUTCTime tsRendered tsPrepared))
@@ -222,10 +222,9 @@ executive ======================================================================
 > renderSong             :: ∀ p . Clock p ⇒
 >                           SFRuntime
 >                           → InstrMap (Stereo p)
->                           → String
->                           → (DynMap → Music (Pitch, [NoteAttribute]))
+>                           → (String, DynMap → Music (Pitch, [NoteAttribute]))
 >                           → IO ()
-> renderSong runt imap name song           =
+> renderSong runt imap (name, song)           =
 >   do
 >     traceIO ("renderSong " ++ name)
 >     ts1                                  ← getCurrentTime

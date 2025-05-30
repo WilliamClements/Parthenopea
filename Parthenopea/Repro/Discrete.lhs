@@ -528,13 +528,13 @@ Type declarations ==============================================================
 >     DiscreteStats{ .. }                  
 >                                          = dsig.dsigStats
 > chartDiscreteSig       :: Double → Int → DiscreteSig Double → String → IO ()
-> chartDiscreteSig clockRate nPoints dsig tag        =
->   chartPoints tag [sec]
+> chartDiscreteSig clockRate nPoints dsig tag
+>                                          = chartPoints tag [sec]
 >   where
->     sec                                  = Section (opaque blue) (zip list2 list1)
->     list1, list2       :: [Double]
->     list1                                = take nPoints (VU.toList dsig.dsigVec)
->     list2                                = map ((/ clockRate) . fromIntegral) [0::Int ..]
+>     sec                                  = Section (opaque blue) (zip xs ys)
+>     xs, ys             :: [Double]
+>     xs                                   = map ((/ clockRate) . fromIntegral) [0::Int ..]
+>     ys                                   = take nPoints (VU.toList dsig.dsigVec)
 >
 > subtractDCOffset       :: DiscreteSig Double → DiscreteSig Double
 > subtractDCOffset dIn                     =

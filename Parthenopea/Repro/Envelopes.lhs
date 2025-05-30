@@ -322,7 +322,7 @@ discern design intent governing input Generator values, then implement something
 >   where
 >     fName                                = "vetAsDiscreteSig"
 >     trace_VADS                           =
->       unwords [fName, show clockRate, show numSamples, show (kSig, kVec), show (prologlist, epiloglist)]
+>       unwords [fName, show clockRate, show (kSig, kVec), show (prologlist, epiloglist)]
 >
 >     dsig@DiscreteSig{ .. }
 >                                          = discretizeEnvelope clockRate env segs
@@ -341,8 +341,6 @@ discern design intent governing input Generator values, then implement something
 >     prologlist                           = VU.toList $ VU.force $ VU.slice 0                  checkSize dsigVec
 >     epiloglist                           = VU.toList $ VU.force $ VU.slice (kSig - checkSize) checkSize dsigVec
 >
->     numSamples                           = targetT * clockRate
->
 >     skipSize                             = round $ (env.fDelayT + env.fAttackT) * clockRate
 >     afterAttack                          = VU.slice skipSize (kSig - skipSize) dsigVec
 >     dipix                                = skipSize + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
@@ -351,8 +349,8 @@ discern design intent governing input Generator values, then implement something
 > vetEnvelope env segs
 >   | traceNot trace_VE False              = undefined
 >   | badAmp || badDeltaT                  = error $ unwords [fName, "negative amp or deltaT", show segs]
->   | abs (a - b) > 0.01                   = error $ unwords [fName, "doesn't add up #1", show (a, b, c)]
->   | abs (b - c) > 0.01                   = error $ unwords [fName, "doesn't add up #2", show (a, b, c)]
+>   | abs (a - b) > 0.01 || abs (b - c) > 0.01
+>                                          = error $ unwords [fName, "doesn't add up", show (a, b, c)]
 >   | otherwise                            = maybeVetAsDiscreteSig env segs
 >   where
 >     fName                                = "vetEnvelope"
