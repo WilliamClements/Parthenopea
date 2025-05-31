@@ -27,7 +27,7 @@ multiple range specifications. When you have an Instrument and a NoteOn, you nee
 play the note. The smashing for this purposes covers all possible NoteOns, producing required Zone identifier for each.
 
 Midi Pitch and Velocity both given by zero-based integers 0..127. In addition, left or right channel given by number
-between zero and one. We use a flat vector indexed by the three component values.
+between zero and one. We use a flat vector and index it by the three component values.
 
 This source file implements a generalization of that setup. We must know all the "subspaces" (range specifications) up
 front which we "smash" together to populate the flat vector.
@@ -107,7 +107,10 @@ You see there is some overlap between Zone 1 and Zone 2.
 >       in
 >          VU.accum smashCell vec enumAssocs
 
-We smash smashings together in the Midi case in order to merge multiple Instruments into one
+Smashing smashings ====================================================================================================
+
+We smash smashings together in the Midi case to merge multiple Instruments into one. The function smashCell acts as a
+zipper to carry out the you-know-what.
 
 > smashSmashings         :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒
 >                           Smashing i → Smashing i → Smashing i

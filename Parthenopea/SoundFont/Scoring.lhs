@@ -253,9 +253,6 @@ Scoring stuff ==================================================================
 > combineMatches m1 m2                     =
 >   m1{  mSMatches                         = Map.union m1.mSMatches    m2.mSMatches
 >      , mIMatches                         = Map.union m1.mIMatches    m2.mIMatches}
->
-> qOffsetWeights         :: [Int]
-> qOffsetWeights                           = [1, 32_768]
 
 tournament starts here ================================================================================================
 

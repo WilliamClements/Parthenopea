@@ -299,6 +299,12 @@ discern design intent governing input Generator values, then implement something
 >     makeModTriple      :: Maybe (Maybe Int, Maybe Int) → Maybe ModTriple
 >     makeModTriple                        = maybe Nothing (\(mi0, mi1) → Just $ deriveModTriple mi0 mi1 Nothing) 
 >
+
+Emphasis on vetting ===================================================================================================
+
+Performance of the envelope "proposal", which has just been developed, is checked for a few conditions which are not
+obvious from listening to produced audio. For example, there should always be zeros at the beginning and end.
+
 > maybeVetAsDiscreteSig  :: FEnvelope → Segments → Bool
 > maybeVetAsDiscreteSig env segs           =
 >   case rateForVetEnvelope of

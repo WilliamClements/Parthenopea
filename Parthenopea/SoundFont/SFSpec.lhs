@@ -325,15 +325,14 @@ implementing SoundFont spec ====================================================
 >
 >     inspectGen _ zd                      = zd
 > okGMRanges             :: ZoneDigest → Bool
-> okGMRanges ZoneDigest{ .. }              =
->   let
+> okGMRanges ZoneDigest{zdKeyRange, zdVelRange}
+>                                          = okGMRange zdKeyRange && okGMRange zdVelRange
+>   where
 >     okGMRange          :: (Num a, Ord a) ⇒ Maybe (a, a) → Bool
 >     okGMRange mrng                       =
 >       case mrng of
 >         Just (j, k)                      → (0 <= j) && j <= k && k < 128
 >         Nothing                          → True
->   in
->     okGMRange zdKeyRange && okGMRange zdVelRange 
 >
 > findBySampleIndex      :: [SFZone] → Word → Maybe SFZone
 > findBySampleIndex zs w                   = find (\z → z.zSampleIndex == Just w) zs
