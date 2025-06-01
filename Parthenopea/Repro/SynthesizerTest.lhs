@@ -8,12 +8,12 @@ SynthesizerTest
 William Clements
 March 2, 2024
 
-> module Parthenopea.Repro.SynthesizerTest ( runSynthesizerTests, synthesizerTests ) where
+> module Parthenopea.Repro.SynthesizerTest ( synthesizerTests ) where
 >
 > import qualified Data.Audio              as A
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( Clock(..), AudRate, Signal )
-> import Parthenopea.Debug ( aEqual, runTests )
+> import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Music.Siren ( SlwRate, toSampleDubs )
 > import Parthenopea.Repro.Modulation ( NoteOn(NoteOn), defModulation )
 > import Parthenopea.Repro.Synthesizer ( eutDriver, Effects(Effects), Recon(Recon), TimeFrame(..) )
@@ -57,9 +57,5 @@ Synthesizer-related tests ======================================================
 > testAud nSecs                            = do
 >   let sf :: Signal AudRate () Double     = driveDriver
 >   checkSignal nSecs sf
->   
->
-> runSynthesizerTests    :: IO ()
-> runSynthesizerTests                       = runTests synthesizerTests
 
 The End

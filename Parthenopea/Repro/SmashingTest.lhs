@@ -8,19 +8,16 @@ SmashingTest
 William Clements
 October 11, 2024
 
-> module Parthenopea.Repro.SmashingTest where
+> module Parthenopea.Repro.SmashingTest ( smashingTests ) where
 >
 > import Data.List ( singleton )
-> import Parthenopea.Debug ( aEqual, runTests )
+> import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Repro.Smashing
   
 Smashing-related tests ================================================================================================
 
 Includes a four-dimensional example.
 
-> runSmashingTests          :: IO ()
-> runSmashingTests                         = runTests smashingTests
->
 > smashingTests             :: [IO Bool]
 > smashingTests                            = [canClaimEntireSpaceWithImpunity
 >                                          ,  canClaimEntireSpaceByDefault

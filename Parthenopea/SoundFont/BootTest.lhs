@@ -10,14 +10,10 @@ January 7, 2025
 
 > module Parthenopea.SoundFont.BootTest where
 >
-> import Parthenopea.Debug (runTests)
 > import Parthenopea.SoundFont.SFSpec
 
 Boot-related tests ====================================================================================================
 
-> runBootTests           :: IO ()
-> runBootTests                             = runTests bootTests
->
 > nonFatalScanIsNotFatal, fatalScanIsFatal, rescuedScanIsNotFatal, noNewsIsGoodNews1, noNewsIsGoodNews2
 >                        :: IO Bool
 > correctlyJudgesDispoFatal, correctlyJudgesDispoNonFatal, orderIndependence1, orderIndependence2

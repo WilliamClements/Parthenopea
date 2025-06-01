@@ -7,14 +7,14 @@ ModulationTest
 William Clements
 November 24, 2023
 
-> module Parthenopea.Repro.ModulationTest ( modulationTests, runModulationTests ) where
+> module Parthenopea.Repro.ModulationTest ( modulationTests ) where
 >
 > import Control.Exception ( try, ErrorCall )
 > import Data.Either ( isLeft )
 > import Data.List ( nub, sort, sortOn )
 > import qualified Data.Map                as Map
 > import Data.Ord ( Down(Down) )
-> import Parthenopea.Debug ( aEqual, runTests )
+> import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.SFSpec
 
@@ -51,9 +51,6 @@ Modulation-related tests =======================================================
 >                                         ,   supercededModulatorWillBeEliminated
 >                                         ,   unsupercededModulatorWillNotBeEliminated
 >                                         ,   canonicalOrderingWorks]
->
-> runModulationTests     :: IO ()
-> runModulationTests                       = runTests modulationTests
 >
 > vanillaModulatorWillNotBeEliminated      = do
 >   let m8r                                = defModulator{

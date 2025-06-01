@@ -102,7 +102,9 @@ Create a straight-line envelope generator with following phases:
 >           
 >     fSusLevel                            = clip (0, 1) r.fSustainLevel
 
-discern design intent governing input Generator values, then implement something ======================================
+stepwise refinement from specified envelope parameters ================================================================
+
+There is design intent hidden in input envelope values that are too large to make sense. 
 
 > feSum, feRemaining     :: FEnvelope → Double
 > feSum FEnvelope{ .. }                    
@@ -302,8 +304,8 @@ discern design intent governing input Generator values, then implement something
 
 Emphasis on vetting ===================================================================================================
 
-Performance of the envelope "proposal", which has just been developed, is checked for a few conditions which are not
-obvious from listening to produced audio. For example, there should always be zeros at the beginning and end.
+Viability of the envelope "proposal" is evaluated in real time via a few conditions which are not obvious from
+listening to produced audio. For example, there should always be zeros at the beginning and end of the note.
 
 > maybeVetAsDiscreteSig  :: FEnvelope → Segments → Bool
 > maybeVetAsDiscreteSig env segs           =
@@ -330,25 +332,24 @@ obvious from listening to produced audio. For example, there should always be ze
 >     trace_VADS                           =
 >       unwords [fName, show clockRate, show (kSig, kVec), show (prologlist, epiloglist)]
 >
->     dsig@DiscreteSig{ .. }
->                                          = discretizeEnvelope clockRate env segs
+>     dsig                                 = discretizeEnvelope clockRate env segs
 >     (targetT, _, _)                      = deJust fName env.fTargetT
 >
 >     checkSize                            = truncate $ minDeltaT * clockRate
 >     dipThresh          :: Double         = 1/10
 >
 >     kVec, kSig, kSig'  :: Int
->     kVec                                 = VU.length dsigVec
+>     kVec                                 = VU.length dsig.dsigVec
 >     kSig                                 = truncate $ clockRate * targetT
 >     kSig'                                = truncate $ clockRate * min targetT 0.5
 >
 >     prologlist, epiloglist
 >                        :: [Double]
->     prologlist                           = VU.toList $ VU.force $ VU.slice 0                  checkSize dsigVec
->     epiloglist                           = VU.toList $ VU.force $ VU.slice (kSig - checkSize) checkSize dsigVec
+>     prologlist                           = VU.toList $ VU.force $ VU.slice 0                  checkSize dsig.dsigVec
+>     epiloglist                           = VU.toList $ VU.force $ VU.slice (kSig - checkSize) checkSize dsig.dsigVec
 >
 >     skipSize                             = round $ (env.fDelayT + env.fAttackT) * clockRate
->     afterAttack                          = VU.slice skipSize (kSig - skipSize) dsigVec
+>     afterAttack                          = VU.slice skipSize (kSig - skipSize) dsig.dsigVec
 >     dipix                                = skipSize + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
 >       
 > vetEnvelope            :: FEnvelope → Segments → Bool

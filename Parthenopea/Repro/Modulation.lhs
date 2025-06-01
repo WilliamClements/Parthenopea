@@ -42,7 +42,9 @@ November 6, 2023
 > constA                 :: Arrow a ⇒ c → a b c
 > constA                                   = arr . const
 
-Modulator management ==================================================================================================
+Modulator management is complex considering small impact ==============================================================
+
+Nonetheless, trying hard here for 100 percent correctness and support, even with high numbers of mods.
 
 > type Node = Int
 >
@@ -59,7 +61,9 @@ Modulator management ===========================================================
 > groomMods m8rs                           = Map.elems uniqued
 >   where
 >     uniqued                              = foldl' ufolder Map.empty m8rs
->     ufolder uniquer m8r@Modulator{ .. }  = Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r uniquer
+>     ufolder uniquer m8r@Modulator{ .. }  
+>                                          =
+>       Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r uniquer
 >
 > freeOfCycles           :: [Modulator] → Bool
 > freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
@@ -309,7 +313,7 @@ Modulator management ===========================================================
 >    xvibLfo                               = msig.xVibLfoValue * mco.xVibLfoCo
 >    xmods                                 = evaluateMods md m8n.mModsMap noon
 
-Filters ===============================================================================================================
+Filters are complex AND have a large impact ===========================================================================
 
 > cascadeCount           :: ResonanceType → Maybe Int
 > cascadeCount resonType                   =

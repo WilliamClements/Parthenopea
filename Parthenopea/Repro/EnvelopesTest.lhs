@@ -11,7 +11,7 @@ EnvelopesTest
 William Clements
 June 22, 2024
 
-> module Parthenopea.Repro.EnvelopesTest where
+> module Parthenopea.Repro.EnvelopesTest ( envelopesTests ) where
 >
 > import Data.Foldable
 > import Parthenopea.Debug
@@ -38,9 +38,6 @@ Envelopes-related tests ========================================================
 >                                            , ctrRateWorksForLongNoteEnvelope
 >                                            , audRateWorksForShortNoteEnvelope
 >                                            , ctrRateWorksForShortNoteEnvelope]
->
-> runEnvelopesTests     :: IO ()
-> runEnvelopesTests                        = runTests envelopesTests
 >
 > munch                 :: String → TimeFrame → FEnvelope → Double → IO Bool
 > munch tag tf fe clockRate                = do
