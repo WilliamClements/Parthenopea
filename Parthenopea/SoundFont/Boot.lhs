@@ -492,7 +492,7 @@ reorg task =====================================================================
           where appropriate, make one instrument out of many
 
 Overview: the member instruments of a qualified group will be absorbed into the lead (member). She takes all of their 
-zones, in effect. The mapping (member → lead) (Word → Word) is turned into the absorption map (aMap).
+zones, in effect. The mapping (member → lead) :: (Word → Word) is turned into the absorption map (aMap).
 
 To build the map
  1. collect all instrument names
@@ -526,6 +526,7 @@ To build the map
 >     grouped                              = groupBy (\x y → absorbRatio < howClose (fst x) (fst y)) instNames
 >     filteredByGroupSize                  = filter (\x → 1 < length x) grouped
 >     stringsDropped                       = map (map snd) filteredByGroupSize
+>     headed, ready        :: Map Word [Word]
 >     headed                               = Map.fromList $ map (\q → (head q, q)) stringsDropped
 >
 >     hMap               :: Map Word ([PreZone], Smashing Word)
@@ -533,7 +534,7 @@ To build the map
 >     (hMap, dMap)                         = Map.mapEitherWithKey qualify headed
 >       where
 >         qualify        :: Word → [Word] → Either ([PreZone], Smashing Word) SmashStats
->         qualify lead memberIs
+>         qualify leadI memberIs
 >           | 0 == osmashup.smashStats.countMultiples
 >                                          = Left (rebased, osmashup)
 >           | memberHasVelocityRanges      = Left (rebased, osmashup)
@@ -542,7 +543,7 @@ To build the map
 >             towners                      = map (townersMap Map.!) memberIs
 >
 >             combined                     = concatMap fst towners
->             rebased                      = map rebase combined where rebase pz = pz{pzWordI = lead}
+>             rebased                      = map rebase combined where rebase pz = pz{pzWordI = leadI}
 >
 >             smashups                     = map snd towners
 >             osmashup                     = foldl' smashSmashings (head smashups) (tail smashups)
@@ -554,7 +555,6 @@ To build the map
 >                 Just rng                 → rng /= (0, 127)
 >                 Nothing                  → False
 >
->     ready              :: Map Word [Word]
 >     ready                                = Map.mapWithKey (\k _ → headed Map.! k) hMap
 >
 >     aMap               :: Map Word Word
@@ -584,13 +584,16 @@ To build the map
 >         aprobe                           = Map.lookup wInst aMap
 >         hprobe                           = Map.lookup wInst hMap
 >
->         failed                           = deJust "dprobe" dprobe
+>         disqualified                     = deJust "dprobe" dprobe
 >         party                            = deJust "aprobe" aprobe
 >         (hpzs, hsmash)                   = deJust "hprobe" hprobe
 >
->         scansIng                         = [Scan Modified Absorbing fName noClue]
->         scansEd                          = [Scan Dropped Absorbed   fName (show party)]
->         scansBlocked                     = [Scan NoChange NoAbsorption fName (show failed)]
+>         scansIng                         =
+>           [Scan Modified Absorbing fName noClue]
+>         scansEd                          =
+>           [Scan Dropped Absorbed   fName (show party)]
+>         scansBlocked                     =
+>           [Scan NoChange NoAbsorption fName (show disqualified)]
 
 shave task ============================================================================================================
           remove dropped or violated instruments from the preInstCache

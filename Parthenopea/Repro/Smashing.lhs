@@ -19,18 +19,21 @@ February 10, 2025
 > import Data.Maybe
 > import qualified Data.Vector.Unboxed     as VU
 > import Parthenopea.Debug
-
+  
 Range theory ==========================================================================================================
 
-"Write once, read many" characterizes a cache. A "smashing" caches values that are results of looking up through
-multiple range specifications. When you have an Instrument and a NoteOn, you need to pinpoint which Zone to use to
-play the note. The smashing for this purposes covers all possible NoteOns, producing required Zone identifier for each.
+"Write once, read many" characterizes a cache. A "smashing" caches values that identify the winner of a game. Later 
+executed code will require those identities fast. There is no upper limit on the number of times these queries will be
+issued.
 
-Midi Pitch and Velocity both given by zero-based integers 0..127. In addition, left or right channel given by number
-between zero and one. We use a flat vector and index it by the three component values.
+When you have an Instrument and a NoteOn, the "game" pinpoints which Zone to use to play the note. The smashing for
+this purposes is 128 x 128 x 2 covering all possible NoteOns, and Left/Right.
 
-This source file implements a generalization of that setup. We must know all the "subspaces" (range specifications) up
-front which we "smash" together to populate the flat vector.
+The winning Zone is indicated to drive the particular note synthesis. We use a flat vector for the cache and index it
+by the three component values.
+
+This source file implements a generalization of that setup. See computeInstSmashup. We must know all the "subspaces"
+(range specifications) up front which we "smash" together to populate the flat vector.
           
 > data Smashing i                          =
 >   Smashing {
@@ -73,7 +76,7 @@ Zone 3: 0..1          , 0..1
 
 You see there is some overlap between Zone 1 and Zone 2.
 
-> smashSubspaces         :: ∀ i . (Integral i, Ix i, Num i, Show i, VU.Unbox i) ⇒
+> smashSubspaces         :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒
 >                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
 > smashSubspaces tag dims spaces_          =
 >   Smashing tag dims spaces (developSmashStats svector) svector

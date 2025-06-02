@@ -104,7 +104,8 @@ Create a straight-line envelope generator with following phases:
 
 stepwise refinement from specified envelope parameters ================================================================
 
-There is design intent hidden in input envelope values that are too large to make sense. 
+There is design intent hidden in input envelope values that are too large to make sense. Some synthesizer must 
+interpret them somehow.
 
 > feSum, feRemaining     :: FEnvelope → Double
 > feSum FEnvelope{ .. }                    
