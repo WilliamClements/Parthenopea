@@ -1,7 +1,0 @@
-packages: ./
-          ../eut/v2/Euterpea2/
-          ../eut/hsom/HSoM/
-          ../MusicRepos/UISF/UISF
-          ../MusicRepos/fuzzyfind/fuzzyfind
-jobs: $ncpus
-package parthenopea

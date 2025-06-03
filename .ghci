@@ -1,2 +1,0 @@
-:set -XMultiParamTypeClasses -XScopedTypeVariables -cpp
-:set -iA:B:C
