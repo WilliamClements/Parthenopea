@@ -421,7 +421,7 @@ tournament starts here =========================================================
 >             m3                           = 3 * if isStereoInst zs then 1/2 else 1
 >
 >         durScoring     :: PreZone → Double
->         durScoring pz                    = if score < 0.01 then -10 else score
+>         durScoring pz                    = if score < 0.01 then -10 else 1
 >           where
 >             shdr                         = effPZShdr pz
 >             zd                           = pz.pzDigest

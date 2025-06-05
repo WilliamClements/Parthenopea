@@ -2,7 +2,6 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE InstanceSigs #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
@@ -23,7 +22,7 @@ June 17, 2024
 > import Data.Complex
 > import Data.Int ( Int32 )
 > import Data.List ( foldl' )
-> import Data.MemoTrie
+> import Data.MemoTrie ( memo )
 > import qualified Data.Vector.Unboxed     as VU
 > import Diagrams.Prelude hiding ( fc )
 > import Euterpea.IO.Audio.Basics ( outA )
@@ -38,12 +37,12 @@ June 17, 2024
 Discrete approach =====================================================================================================
 
 > computeFR          :: KernelSpec → DiscreteSig (Complex Double)
-> computeFR ks@KernelSpec{ .. }
+> computeFR ks
 >   | traceNot trace_CFR False             = undefined
 >   | otherwise                            =
 >   profess
->     ((ksLen > 0) && not (null ys'))
->     (unwords ["computeFR bad input", show ksLen, show ys'])
+>     ((ks.ksLen > 0) && not (null ys'))
+>     (unwords ["computeFR bad input", show ks.ksLen, show ys'])
 >     (fromRawVector tag' vec')
 >   where
 >     fName                                = "computeFR"
@@ -56,12 +55,12 @@ Discrete approach ==============================================================
 >     -- there is coverage on whole target buffer
 >     -- but internally, freaks above nyq will go as negative
 >     ys, ys'            :: [Complex Double]
->     ys                                   = map (getFreaky kd shapes . fromIntegral) ([0..ksLen - 1]::[Int])
+>     ys                                   = map (getFreaky kd shapes . fromIntegral) ([0..ks.ksLen - 1]::[Int])
 >
 >     -- capture the Frequency Response; store the magnitudes (amplification/attenuation per freak)
 >     -- slow path then runs it through fft to create Impulse Response
->     ys'                                 = if ksFast then ys    else toTimeDomain ys
->     tag'                                = if ksFast then "FR!" else "IR!"
+>     ys'                                 = if ks.ksFast then ys    else toTimeDomain ys
+>     tag'                                = if ks.ksFast then "FR!" else "IR!"
 >     vec'                                = VU.fromList ys'
 >
 > memoizedComputeFR      :: KernelSpec → DiscreteSig (Complex Double)

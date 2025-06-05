@@ -59,15 +59,15 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL, mreconR) sr dur pch vol nps s16 ms8
->   | traceIf trace_eS False              = undefined
+> eutSynthesize (reconL, mreconR) sr dur pch vol _ s16 ms8
+>   | traceIf trace_eS False               = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
 >     then eutSplit <<< pumpMonoPath 
 >     else pumpStereoPath
 >   where
 >     fName                                = "eutSynthesize"
->     trace_eS                             = unwords [fName, show (secsSampled, secsScored, secsToPlay, looping, nps)] 
+>     trace_eS                             = unwords [fName, show timeFrame] 
 >
 >     noon                                 = NoteOn vol pch
 >     reconR                               = fromJust mreconR
