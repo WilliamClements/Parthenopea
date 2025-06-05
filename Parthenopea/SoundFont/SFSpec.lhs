@@ -26,14 +26,14 @@ April 16, 2023
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ratio ( (%) )
-> import Euterpea.Music
+> import Euterpea.Music ( InstrumentName )
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
   
 implementing SoundFont spec ===========================================================================================
 
-> data ChangeNameItem = FixCorruptName deriving Eq
+> data ChangeNameItem                      = FixCorruptName deriving Eq
 >
 > data ChangeName a                        =
 >   ChangeName {
@@ -412,13 +412,14 @@ bootstrapping ==================================================================
 >     viol                                 = Scan Violated imp fName (show bad)
 >     resc                                 = Scan Rescued imp fName (show good)
 >
-> data ResultDispositions               =
+> data ResultDispositions                  =
 >   ResultDispositions {
 >     preSampleDispos    :: Map PreSampleKey     [Scan]
 >   , preInstDispos      :: Map PerGMKey         [Scan]
 >   , preZoneDispos      :: Map PreZoneKey       [Scan]}
 > instance Show ResultDispositions where
->   show rd@ResultDispositions{ .. }       =
+>   show rd@ResultDispositions{ .. }
+>                                          =
 >     unwords [  "ResultDispositions"
 >              , show (length preSampleDispos, length preInstDispos, length preZoneDispos, rdCountScans rd)]
 >
@@ -427,13 +428,16 @@ bootstrapping ==================================================================
 > virginrd               :: ResultDispositions
 > virginrd                                 = ResultDispositions Map.empty Map.empty Map.empty
 > emptyrd                :: ResultDispositions → Bool
-> emptyrd ResultDispositions{ .. }         = null preSampleDispos && null preInstDispos && null preZoneDispos
+> emptyrd ResultDispositions{ .. }         
+>                                          = null preSampleDispos && null preInstDispos && null preZoneDispos
 > rdLengths              :: ResultDispositions → (Int, Int)
-> rdLengths ResultDispositions{ .. }       = (length preSampleDispos, length preInstDispos)
+> rdLengths ResultDispositions{ .. }       
+>                                          = (length preSampleDispos, length preInstDispos)
 > countScans             :: ∀ k . SFResource k ⇒ Map k [Scan] → Int
 > countScans                               = Map.foldl' (\n ss → n + length ss) 0
 > rdCountScans           :: ResultDispositions → (Int, Int)
-> rdCountScans  ResultDispositions{ .. }   = (countScans preSampleDispos, countScans preInstDispos)
+> rdCountScans  ResultDispositions{ .. }   
+>                                          = (countScans preSampleDispos, countScans preInstDispos)
 > combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
 > combinerd rd1 rd2                        =
 >   rd1{  preSampleDispos                  = Map.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
@@ -503,7 +507,7 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > howClose               :: ∀ j . (Eq j) ⇒ [j] → [j] → Rational
 > howClose js0 js1
 >   | null js0 || null js1                 = 0
->   | otherwise                            = genericLength commonPrefix % genericLength js0
+>   | otherwise                            = genericLength commonPrefix % genericLength js1
 >   where
 >     commonPrefix                         = takeWhile (uncurry (==)) (zip js0 js1)
 >

@@ -1,13 +1,10 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
-> {-# LANGUAGE LambdaCase #-}
-> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
-> {-# LANGUAGE TupleSections #-} 
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Boot
@@ -523,7 +520,7 @@ To build the map
 >       in
 >         zrecCompute fwIn tFolder Map.empty 
 >     
->     grouped                              = groupBy (\x y → absorbRatio < howClose (fst x) (fst y)) instNames
+>     grouped                              = tracer "grouped" $ groupBy (\x y → absorbRatio < howClose (fst x) (fst y)) instNames
 >     filteredByGroupSize                  = filter (\x → 1 < length x) grouped
 >     stringsDropped                       = map (map snd) filteredByGroupSize
 >     headed, ready        :: Map Word [Word]
