@@ -17,4 +17,3 @@ regex-base/
 .mscbackup/
 *.midi
 *.ghci
-cabal.project

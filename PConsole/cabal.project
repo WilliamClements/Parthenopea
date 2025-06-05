@@ -1,0 +1,5 @@
+packages: ./
+          ../../Parthenopea
+          ../../eut/v2/Euterpea2/        
+jobs: $ncpus
+package m
