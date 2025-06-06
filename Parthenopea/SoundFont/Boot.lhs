@@ -520,7 +520,7 @@ To build the map
 >       in
 >         zrecCompute fwIn tFolder Map.empty 
 >     
->     grouped                              = tracer "grouped" $ groupBy (\x y → absorbRatio < howClose (fst x) (fst y)) instNames
+>     grouped                              = groupBy (\x y → absorbRatio < howClose (fst x) (fst y)) instNames
 >     filteredByGroupSize                  = filter (\x → 1 < length x) grouped
 >     stringsDropped                       = map (map snd) filteredByGroupSize
 >     headed, ready        :: Map Word [Word]

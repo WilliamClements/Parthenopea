@@ -73,8 +73,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     reconR                               = fromJust mreconR
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
 >
->     numSamples         :: Double         = fromIntegral (reconL.rEnd - reconL.rStart)
->     secsSampled                          = numSamples * freqRatio / sr
+>     numPoints          :: Double         = fromIntegral (reconL.rEnd - reconL.rStart)
+>     secsSampled                          = numPoints * freqRatio / sr
 >     secsScored                           = 1 * fromRational dur
 >     looping            :: Bool           = secsScored > secsSampled
 >                                            && (reconL.rSampleMode /= A.NoLoop)
@@ -96,7 +96,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >       _                                  → calcMicrotoneRatio reconL.rRootKey noon.noteOnKey (fromIntegral reconL.rTuning)
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
->     delta              :: Double         = 1 / (numSamples * freqFactor)
+>     delta              :: Double         = 1 / (numPoints * freqFactor)
 >
 >     pumpMonoPath       :: Signal p () Double
 >     pumpStereoPath     :: Signal p () (Double, Double)
