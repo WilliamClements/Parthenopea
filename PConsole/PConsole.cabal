@@ -52,7 +52,9 @@ executable PConsole
     main-is:        Main.lhs
     
     -- Modules included in this executable, other than Main.
-    -- other-modules:
+    other-modules:  PConsole.Tunes.Cecil, PConsole.Tunes.Covers,
+                    PConsole.Tunes.Fanfare, PConsole.Tunes.SunPyg
+
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

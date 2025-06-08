@@ -64,9 +64,6 @@ library
 
                     Parthenopea.SoundFont.Boot, Parthenopea.SoundFont.BootTest,
                     Parthenopea.SoundFont.Runtime, Parthenopea.SoundFont.Scoring, Parthenopea.SoundFont.SFSpec,
-                    
-                    Parthenopea.Tunes.Cecil, Parthenopea.Tunes.Covers,
-                    Parthenopea.Tunes.Fanfare, Parthenopea.Tunes.SunPyg
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
