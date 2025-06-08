@@ -1,6 +1,6 @@
 > module Main where
 >
-> import Parthenopea.Music.Rosters
+> import PConsole.Tunes.Rosters
 >
 > main                   :: IO ()
 > main                                     = do

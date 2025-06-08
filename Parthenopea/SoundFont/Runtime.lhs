@@ -35,11 +35,16 @@ February 1, 2025
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Envelopes
+> import Parthenopea.Repro.EnvelopesTest
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.Repro.ModulationTest
 > import Parthenopea.Repro.Smashing
+> import Parthenopea.Repro.SmashingTest
 > import Parthenopea.Repro.Synthesizer
+> import Parthenopea.Repro.SynthesizerTest
 > import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.Boot ( equipInstruments )
+> import Parthenopea.SoundFont.BootTest
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
   
@@ -48,6 +53,23 @@ executive ======================================================================
 > bootNRender            :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
 > bootNRender songs                        = do
 >   tsStarted                              ← getCurrentTime
+>   if length songs > 8
+>     then do
+>       resultBoot                     ← runTestsQuietly bootTests
+>       resultEnvelopes                ← runTestsQuietly envelopesTests
+>       resultModulation               ← runTestsQuietly modulationTests     
+>       resultSmashing                 ← runTestsQuietly smashingTests
+>       resultSynthesizer              ← runTestsQuietly synthesizerTests
+>       let resultDiscrete             = True -- runTestsQuietly discreteTests
+>       putStrLn $ unwords [show
+>          (profess
+>            (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer
+>                , resultEnvelopes, resultDiscrete])
+>            (unwords ["one or more unit tests failed"])
+>            True)]
+>       putStrLn "Unit tests completed successfully"
+>     else do
+>       return ()
 >
 >   rost                                   ← qualifyKinds songs
 >   mbundle                                ← equipInstruments rost

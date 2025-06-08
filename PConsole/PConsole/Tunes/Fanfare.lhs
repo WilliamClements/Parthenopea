@@ -5,7 +5,7 @@ Fanfare
 William Clements
 November 11, 2022
 
-> module Parthenopea.Tunes.Fanfare (
+> module PConsole.Tunes.Fanfare (
 >                   theFanfare, kit, pit, dit, rattan, bill, roger, waypostpurple, deyDumpDum, getCITM, gold, silver
 >                 , littleCITM, whelpNarp, alice, bob, copper, dadadada, snake, littlePendingtonArnt, pendingtonArnt
 >                 , littleWay, pan ) where

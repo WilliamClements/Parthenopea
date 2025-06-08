@@ -8,7 +8,7 @@ Covers
 William Clements
 January 13, 2023
 
-> module Parthenopea.Tunes.Covers (
+> module PConsole.Tunes.Covers (
 >                littleSailor, slot, ssailor, deathlessHorsie, basicLick, packardGoose, yahozna, littleDH
 >                , greenMore, testslot) where
 

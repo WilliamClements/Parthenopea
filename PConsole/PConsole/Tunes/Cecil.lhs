@@ -7,7 +7,7 @@ Cecil
 William Clements
 December 18, 2022
 
-> module Parthenopea.Tunes.Cecil ( cecil, abby, wj, shelby, weHateHer ) where
+> module PConsole.Tunes.Cecil ( cecil, abby, wj, shelby, weHateHer ) where
 >
 > import Euterpea.Music
 > import Parthenopea.Music.Siren

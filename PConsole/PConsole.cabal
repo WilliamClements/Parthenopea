@@ -55,16 +55,17 @@ executable PConsole
     other-modules:  PConsole.Tunes.Cecil, PConsole.Tunes.Covers,
                     PConsole.Tunes.Fanfare, PConsole.Tunes.SunPyg
 
-
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
     build-depends:    base         >= 4,
+                      containers   >= 0.5.5.1,
+                      Euterpea     >= 2.0.8,
                       Parthenopea  >= 0.1.0.1
 
     -- Directories containing source files.
-    hs-source-dirs:   PConsole
+    hs-source-dirs:   ., PConsole/
 
     -- Base language which the package is written in.
     default-language: GHC2021

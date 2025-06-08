@@ -9,7 +9,7 @@ Rosters
 William Clements
 May 4, 2023
 
-> module Parthenopea.Music.Rosters where
+> module PConsole.Tunes.Rosters where
 >
 > import Control.Monad ( foldM )
 > import Data.Map (Map)
@@ -18,21 +18,15 @@ May 4, 2023
 > import Debug.Trace ( traceIO, traceM )
 > import Euterpea.IO.MIDI ( play )
 > import Euterpea.Music
-> import Parthenopea.Debug
 > import Parthenopea.Music.Baking
 > import Parthenopea.Music.Siren
-> import Parthenopea.Repro.Discrete
-> import Parthenopea.Repro.EnvelopesTest
-> import Parthenopea.Repro.ModulationTest ( modulationTests )
-> import Parthenopea.Repro.SmashingTest ( smashingTests )
-> import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
+> import Parthenopea.Repro.Discrete ( importWav' )
 > import Parthenopea.SoundFont.Boot ( equipInstruments )
-> import Parthenopea.SoundFont.BootTest ( bootTests )
 > import Parthenopea.SoundFont.Runtime ( bootNRender )
-> import Parthenopea.Tunes.Cecil
-> import Parthenopea.Tunes.Covers
-> import Parthenopea.Tunes.Fanfare
-> import Parthenopea.Tunes.SunPyg
+> import PConsole.Tunes.Cecil
+> import PConsole.Tunes.Covers
+> import PConsole.Tunes.Fanfare
+> import PConsole.Tunes.SunPyg
 > import System.Environment ( getArgs )
 
 Rosters support =======================================================================================================
@@ -45,19 +39,6 @@ Rosters support ================================================================
 >
 >   _ ← if playAll
 >         then do
->           resultBoot                     ← runTestsQuietly bootTests
->           resultEnvelopes                ← runTestsQuietly envelopesTests
->           resultModulation               ← runTestsQuietly modulationTests     
->           resultSmashing                 ← runTestsQuietly smashingTests
->           resultSynthesizer              ← runTestsQuietly synthesizerTests
->           let resultDiscrete             = True -- runTestsQuietly discreteTests
->           putStrLn $ unwords [show
->                 (profess
->                   (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer
->                       , resultEnvelopes, resultDiscrete])
->                   (unwords ["one or more unit tests failed"])
->                   True)]
->           putStrLn "Unit tests completed successfully"
 >           bootNRender combineAll
 >         else if doProf
 >           then listInstruments

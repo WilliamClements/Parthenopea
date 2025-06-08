@@ -140,7 +140,7 @@ and recovery.
 >
 >       return (Just (runt, matchesAll, rdGen03))
 >   where
->     fName = "equipInstruments"
+>     fName                                = "equipInstruments"
 >
 >     bootFolder (bootIn, rdIn, matchesIn) sffile
 >                                          = 
