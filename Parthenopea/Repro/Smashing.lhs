@@ -102,7 +102,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >               (map (, (spaceId, 1)) is)
 >           where
 >             fName                        = "enumAssocs"
->             trace_EA                     = unwords [fName, tag, show mag, show dims, show spaces]
+>             trace_EA                     = unwords [fName, tag, show spaces]
 >
 >             is         :: [Int]
 >             is                           =

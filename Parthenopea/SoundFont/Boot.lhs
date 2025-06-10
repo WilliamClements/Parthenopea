@@ -307,7 +307,7 @@ PreZone administration =========================================================
 > instance Show InstZoneRecord where
 >   show (InstZoneRecord{ .. })            
 >                                          =
->     unwords ["InstZoneRecord", show (zswFile, zswInst), showMaybeInstCat zsInstCat, show zsGlobalKey]
+>     unwords ["InstZoneRecord", show (zswFile, zswInst), showMaybeInstCat zsInstCat, show $ length zsPreZones]
 > makeZRec               :: PerGMKey → InstZoneRecord
 > makeZRec pergm                           =
 >   InstZoneRecord pergm.pgkwFile pergm.pgkwInst Nothing Nothing Nothing []
@@ -480,10 +480,10 @@ smash task =====================================================================
 > smashTaskIf _ _                          = zrecTask smasher
 >   where
 >     smasher            :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
->     smasher zrec rdFold                  = (zrec{zsSmashup = Just (computeInstSmashup zrec.zsPreZones)}, rdFold)
+>     smasher zrec rdFold                  = (zrec{zsSmashup = Just (computeInstSmashup (show $ instKey zrec) zrec.zsPreZones)}, rdFold)
 >
-> computeInstSmashup     :: [PreZone] → Smashing Word
-> computeInstSmashup pzs                   = smashSubspaces "c" [128, 128, 2] (map extractSpace pzs)
+> computeInstSmashup     :: String → [PreZone] → Smashing Word
+> computeInstSmashup tag pzs               = smashSubspaces tag [128, 128, 2] (map extractSpace pzs)
 
 reorg task ============================================================================================================
           where appropriate, make one instrument out of many
@@ -628,9 +628,12 @@ categorization task ============================================================
 >         (icat, ss)                       = categorizeInst zrec
 >
 >     categorizeInst     :: InstZoneRecord → (Maybe InstCat, [Scan])
->     categorizeInst zrec                  = (icat', ss')
+>     categorizeInst zrec
+>       | traceIf trace_CI False           = undefined
+>       | otherwise                        = (icat', ss')
 >       where
 >         fName                            = "categorizeInst"
+>         trace_CI                         = unwords [fName, show pergm, show $ length pzs]
 >
 >         pergm                            = instKey zrec
 >         pzs                              = zrec.zsPreZones
@@ -730,12 +733,15 @@ categorization task ============================================================
 >                 icd                      = InstCatData pzs []
 >
 >             catPerc      :: [Word] → InstCat
->             catPerc ws                   =
+>             catPerc ws
+>               | traceNot trace_CP False  = undefined
+>               | otherwise                =
 >               if null pzs || null ws
 >                 then InstCatDisq NoZones fNameCatPerc
 >                 else InstCatPerc icd
 >               where
 >                 fNameCatPerc             = "catPerc"
+>                 trace_CP                 = unwords  [fNameCatPerc, show $ length pzs, show $ length pzs']
 >
 >                 pzs'                     = filter (\x → x.pzWordB `elem` ws) pzs
 >                 icd                      = InstCatData pzs' ws
@@ -755,16 +761,21 @@ build zone task ================================================================
 >                                          = fwIn{  fwBoot = fwBoot{zPerInstCache = fst formZoneCache}
 >                                                 , fwDispositions = snd formZoneCache}
 >   where
->     fName                                = "computePerInst"
->
 >     formZoneCache      :: (Map PerGMKey PerInstrument, ResultDispositions)
 >     formZoneCache                        = zrecCompute fwIn zcFolder (Map.empty, fwDispositions)
 >
 >     zcFolder           :: (Map PerGMKey PerInstrument, ResultDispositions)
 >                           → InstZoneRecord
 >                           → (Map PerGMKey PerInstrument, ResultDispositions)
->     zcFolder (zc, rdFold) zrec           =
->       let
+>     zcFolder (zc, rdFold) zrec
+>       | traceIf trace_ZCF False          = undefined
+>       | otherwise                        =
+>         (   Map.insert pergm perI zc
+>           , dispose pergm [Scan Accepted ToZoneCache fName (show icat)] rdz)
+>       where
+>         fName                            = "zcFolder"
+>         trace_ZCF                        = unwords [fName, show zrec, show pergm, show zrec.zsInstCat]
+>
 >         pergm                            = instKey zrec
 >         icat                             = fromJust zrec.zsInstCat
 >         smashup                          = fromJust zrec.zsSmashup
@@ -776,14 +787,16 @@ build zone task ================================================================
 >                                              (extractZoneKey pz)
 >                                              [Scan Accepted ToZoneCache fName (show pz.pzWordB)]
 >                                              rdIn)
->       in
->         (   Map.insert pergm perI zc
->           , dispose pergm [Scan Accepted ToZoneCache fName (show icat)] rdz)
 >
 >     computePerInst     :: PerGMKey → InstCat → Smashing Word → PerInstrument
->     computePerInst pergm icat smashup    = PerInstrument (zip pzs oList) icat smashup
+>     computePerInst pergm icat smashup
+>       | traceIf trace_CPI False          = undefined
+>       | otherwise                        = PerInstrument (zip pzs oList) icat smashup
 >       where
->         preI                             = fwBoot.zPreInstCache Map.! pergm
+>         fName                            = "computePerInst"
+>         trace_CPI                        = unwords [fName, show pergm, show $ length icd.inPreZones, show $ length oList]
+>
+>         preI                             = fwBoot.zPreInstCache Map.! tracer "pergm" pergm
 >
 >         icd            :: InstCatData
 >         bixen          :: [Word]
@@ -807,6 +820,10 @@ build zone task ================================================================
 >   | traceIf trace_BZ False               = undefined
 >   | otherwise                            = zone
 >   where
+>     fName                                = "buildZone"
+>     trace_BZ                             =
+>       unwords [fName, show (sffile.zWordF, bagIndex), show zName, show (fromZone == defZone)]
+>
 >     zName                                =
 >       case mpz of
 >         Nothing                          → "<global>"
@@ -831,9 +848,6 @@ build zone task ================================================================
 >         (xmodi <= ymodi)
 >         (unwords["SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt (buildZone mods)"])
 >         (zip [10_000..] (map (boota.ssIMods !) (deriveRange xmodi ymodi)))
->
->     trace_BZ                             =
->       unwords ["buildZone", show (sffile.zWordF, bagIndex), show zName, show (fromZone == defZone)]
 >
 > addGen                 :: SFZone → F.Generator → SFZone
 > addGen iz gen =
