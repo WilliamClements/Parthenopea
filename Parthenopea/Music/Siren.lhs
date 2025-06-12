@@ -777,7 +777,7 @@ music-related utilities ========================================================
 > pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Maybe (AbsPitch, AbsPitch)
 > pinnedKR pss (p1, p2)                    = if qualifies then Just (p1, p2) else Nothing                   
 >   where
->     qualifies                            = (p2 < p1 + 2) && all available [p1 .. p2]
+>     qualifies                            = (p2 < p1 + 2) && any available [p1 .. p2]
 >     available          :: AbsPitch → Bool
 >     available ap                         = maybe False (`elem` pss) (pitchToPerc ap)
 >

@@ -282,17 +282,18 @@ tournament starts here =========================================================
 >                           → PerGMKey → PerInstrument
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiFolder (wI, wP) pergmI_@PerGMKey{pgkwFile} perI
->                                          = result
+>       | traceNow trace_WIF False         = undefined
+>       | otherwise                        = result
 >       where
 >         fName                            = unwords [fName_, "wiFolder"]
+>         trace_WIF                        = unwords [fName, show pergmI_]
 >
->         icatData       :: InstCatData
 >         result         :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >
->         (icatData, result)               =
+>         result                           =
 >           case perI.pInstCat of
->             InstCatPerc x                → (x, decidePerc)
->             InstCatInst x                → (x, decideInst)
+>             InstCatPerc _                → decidePerc
+>             InstCatInst                  → decideInst
 >             _                            → error $ unwords [fName, "only Inst and Perc are valid here"]
 >
 >         decideInst     :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
@@ -320,7 +321,12 @@ tournament starts here =========================================================
 >           let
 >             pzs                          = map fst perI.pZones
 >
->             pergmsP                      = instrumentPercList pergmI_ icatData.inPercBixen
+>             bixen                        = case perI.pInstCat of
+>               InstCatPerc x              → x
+>               InstCatInst                → []
+>               _                          → error $ unwords [fName, "only Inst and Perc are valid here"]
+>
+>             pergmsP                      = instrumentPercList pergmI_ bixen
 >
 >             pFolder    :: Map PercussionSound [PerGMScored]
 >                           → PerGMKey

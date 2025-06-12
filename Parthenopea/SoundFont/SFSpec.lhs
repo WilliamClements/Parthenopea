@@ -217,8 +217,8 @@ implementing SoundFont spec ====================================================
 >   , pgkwBag            :: Maybe Word} deriving (Eq, Ord, Show)
 >
 > data InstCat                             =
->        InstCatInst InstCatData
->      | InstCatPerc InstCatData
+>        InstCatInst
+>      | InstCatPerc [Word]
 >      | InstCatDisq Impact String
 > instance Show InstCat where
 >   show icat                              =
@@ -227,20 +227,15 @@ implementing SoundFont spec ====================================================
 > getMaybePercList                         =
 >   \case
 >     Nothing                              → Nothing
->     Just (InstCatPerc icd)               → Just icd.inPercBixen
+>     Just (InstCatPerc bixen)             → Just bixen
 >     _                                    → Just []
 > showMaybeInstCat       :: Maybe InstCat → String
 > showMaybeInstCat                         =
 >   \case
 >     Nothing                              → "icNothing"
->     Just (InstCatInst _)                 → "icInst"
+>     Just InstCatInst                     → "icInst"
 >     Just (InstCatPerc _)                 → "icPerc"
 >     Just (InstCatDisq imp why)           → unwords ["icDisq", show imp, why]
-> data InstCatData                         =
->   InstCatData {
->     inPreZones         :: [PreZone]
->   , inPercBixen        :: [Word]} deriving Show
->
 > data SFBoot                              =
 >   SFBoot {
 >     zPreSampleCache    :: Map PreSampleKey PreSample

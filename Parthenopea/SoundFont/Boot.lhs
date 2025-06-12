@@ -653,7 +653,7 @@ categorization task ============================================================
 >         icatNarrow                       = Just (InstCatDisq Narrow noClue)
 >         (icat', ss')                     =
 >           case (icatAllKinds, icatRost) of
->             (Just (InstCatInst _)   , Just (InstCatInst _))
+>             (Just InstCatInst       , Just InstCatInst)
 >                                          → (icatRost, [Scan Modified CatIsInst fName noClue])
 >             (Just (InstCatPerc _)   , Just (InstCatPerc _))
 >                                          → (icatRost, [Scan Modified CatIsPerc fName noClue])
@@ -669,7 +669,7 @@ categorization task ============================================================
 >             iMatches                     = fromJust $ Map.lookup pergm fwMatches.mIMatches
 >             ffInst'                      =
 >               Map.filterWithKey (\k v → k `elem` select rostAlts && isPossible' v) iMatches.ffInst
->             ffPerc'                  =
+>             ffPerc'                      =
 >               Map.filterWithKey (\k v → k `elem` select rostAlts && isPossible' v) iMatches.ffPerc
 >           in
 >             [ 
@@ -728,9 +728,7 @@ categorization task ============================================================
 >             catInst      :: InstCat      =
 >               if null pzs
 >                 then InstCatDisq NoZones noClue
->                 else InstCatInst icd
->               where
->                 icd                      = InstCatData pzs []
+>                 else InstCatInst
 >
 >             catPerc      :: [Word] → InstCat
 >             catPerc ws
@@ -738,13 +736,12 @@ categorization task ============================================================
 >               | otherwise                =
 >               if null pzs || null ws
 >                 then InstCatDisq NoZones fNameCatPerc
->                 else InstCatPerc icd
+>                 else InstCatPerc ws
 >               where
 >                 fNameCatPerc             = "catPerc"
->                 trace_CP                 = unwords  [fNameCatPerc, show $ length pzs, show $ length pzs']
+>                 trace_CP                 = unwords  [fNameCatPerc, show ws, show $ length pzs, show $ length pzs']
 >
 >                 pzs'                     = filter (\x → x.pzWordB `elem` ws) pzs
->                 icd                      = InstCatData pzs' ws
 >
 >             catDisq    :: Impact → String → InstCat
 >             catDisq                      = InstCatDisq
@@ -779,7 +776,7 @@ build zone task ================================================================
 >         pergm                            = instKey zrec
 >         icat                             = fromJust zrec.zsInstCat
 >         smashup                          = fromJust zrec.zsSmashup
->         perI                             = computePerInst pergm icat smashup
+>         perI                             = computePerInst zrec icat smashup
 >         pzs                              = map fst perI.pZones
 >         (_, rdz)                         = zoneTask (const True) blessZone pzs rdFold
 >         blessZone      :: PreZone → ResultDispositions → (Maybe PreZone, ResultDispositions)
@@ -788,23 +785,22 @@ build zone task ================================================================
 >                                              [Scan Accepted ToZoneCache fName (show pz.pzWordB)]
 >                                              rdIn)
 >
->     computePerInst     :: PerGMKey → InstCat → Smashing Word → PerInstrument
->     computePerInst pergm icat smashup
+>     computePerInst     :: InstZoneRecord → InstCat → Smashing Word → PerInstrument
+>     computePerInst zrec icat smashup
 >       | traceIf trace_CPI False          = undefined
 >       | otherwise                        = PerInstrument (zip pzs oList) icat smashup
 >       where
 >         fName                            = "computePerInst"
->         trace_CPI                        = unwords [fName, show pergm, show $ length icd.inPreZones, show $ length oList]
+>         trace_CPI                        = unwords [fName, show pergm, show $ length zrec.zsPreZones, show $ length oList]
 >
->         preI                             = fwBoot.zPreInstCache Map.! tracer "pergm" pergm
+>         pergm                            = instKey zrec
+>         preI                             = fwBoot.zPreInstCache Map.! pergm
 >
->         icd            :: InstCatData
 >         bixen          :: [Word]
->
->         (icd, bixen)                     =
+>         bixen                            =
 >           case icat of
->             InstCatPerc x                → (x, x.inPercBixen)
->             InstCatInst x                → (x, map pzWordB x.inPreZones)
+>             InstCatPerc x                → x
+>             InstCatInst                  → map pzWordB zrec.zsPreZones
 >             _                            → error $ unwords [fName, "only Inst and Perc are valid here"]
 >
 >         gZone                            =
@@ -813,7 +809,7 @@ build zone task ================================================================
 >             Just pzk                     → buildZone sffile defZone Nothing pzk.pzkwBag
 >         oList                            = map (\pz → buildZone sffile gZone (Just pz) pz.pzWordB) pzs
 >
->         pzs                              = filter (\pz → pz.pzWordB `elem` bixen) icd.inPreZones
+>         pzs                              = filter (\pz → pz.pzWordB `elem` bixen) zrec.zsPreZones
 >
 > buildZone              :: SFFile → SFZone → Maybe PreZone → Word → SFZone
 > buildZone sffile fromZone mpz bagIndex
