@@ -130,7 +130,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >         outA ⤙ (mL, mR)
 >
 > eutModulate            :: ∀ p . Clock p ⇒ TimeFrame → Modulation → NoteOn → Signal p Double Double
-> eutModulate timeFrame m8nL noon =
+> eutModulate timeFrame m8nL noon          =
 >   proc a1L → do
 >     modSigL                            ← eutModSignals timeFrame m8nL ToFilterFc ⤙ ()
 >     a2L   ← addResonance noon m8nL     ⤙ (a1L, modSigL)

@@ -478,7 +478,8 @@ Controller Curves ==============================================================
 >     dNorm                                = (dIn - lo) / scale
 >
 > controlUniPolar        :: Mapping → Double → Double
-> controlUniPolar Mapping{ .. } dIn        = control xStart
+> controlUniPolar Mapping{msContinuity, msMax2Min} dIn
+>                                          = control xStart
 >   where
 >     control                              = case msContinuity of
 >                                              Linear     → controlLinear

@@ -268,8 +268,7 @@ tournament starts here =========================================================
 >   where
 >     fName_                               = "decideWinners"
 >
->     SFBoot{ .. }                         
->                                          = zBoot
+>     SFBoot{zPreInstCache, zPerInstCache} = zBoot
 >
 >     wiExec             :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiExec                               = (wI', wP')
@@ -282,7 +281,7 @@ tournament starts here =========================================================
 >                           → PerGMKey → PerInstrument
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiFolder (wI, wP) pergmI_@PerGMKey{pgkwFile} perI
->       | traceNow trace_WIF False         = undefined
+>       | traceIf trace_WIF False          = undefined
 >       | otherwise                        = result
 >       where
 >         fName                            = unwords [fName_, "wiFolder"]

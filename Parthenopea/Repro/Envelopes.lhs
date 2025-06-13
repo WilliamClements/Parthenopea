@@ -173,7 +173,7 @@ interpret them somehow.
 >     fName                                = "feFinish"
 >     trace_FEF                            = unwords [fName, show workee]
 >
->     iterIn'                              = iterIn{fiEnvWork = workee, fiDone = True}
+>     iterIn'                              = iterIn{fiFun = undefined, fiEnvWork = workee, fiDone = True}
 >
 > feContinue             :: FIterate → FEnvelope → (FIterate → FIterate) → FIterate
 > feContinue iterIn workee fun

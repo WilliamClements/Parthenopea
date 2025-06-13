@@ -480,7 +480,8 @@ smash task =====================================================================
 > smashTaskIf _ _                          = zrecTask smasher
 >   where
 >     smasher            :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
->     smasher zrec rdFold                  = (zrec{zsSmashup = Just (computeInstSmashup (show $ instKey zrec) zrec.zsPreZones)}, rdFold)
+>     smasher zrec rdFold                  =
+>       (zrec{zsSmashup = Just (computeInstSmashup (show $ instKey zrec) zrec.zsPreZones)}, rdFold)
 >
 > computeInstSmashup     :: String → [PreZone] → Smashing Word
 > computeInstSmashup tag pzs               = smashSubspaces tag [128, 128, 2] (map extractSpace pzs)
