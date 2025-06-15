@@ -101,11 +101,11 @@ organize exposed music =========================================================
 > sj =
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("bob"         , bob 1)]
->       [ ("rattan"      , rattan)]
+>    -- [ ("rattan"      , rattan)]
 >    -- [ ("littlePendingtonArnt"          , shimSong $ aggrandize littlePendingtonArnt)]
 >    -- [ ("deyDumpDum"  , deyDumpDum False)]
 >    -- [ ("baked"       , shimSong $ bakedJingle 42310)]
->    -- [ ("sunPyg"      , sunPyg)]
+>       [ ("sunPyg"      , sunPyg)]
 >    -- [ ("theFanfare"  , theFanfare False)]
 >    -- [ ("pit"         , pit)]
 >    -- [ ("wj"          , wj)]

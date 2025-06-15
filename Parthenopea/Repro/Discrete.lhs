@@ -37,16 +37,13 @@ June 17, 2024
 Discrete approach =====================================================================================================
 
 > computeFR          :: KernelSpec → DiscreteSig (Complex Double)
-> computeFR ks
->   | traceNot trace_CFR False             = undefined
->   | otherwise                            =
+> computeFR ks                             =
 >   profess
 >     ((ks.ksLen > 0) && not (null ys'))
->     (unwords ["computeFR bad input", show ks.ksLen, show ys'])
+>     (unwords [fName, "bad input", show ks.ksLen, show ys'])
 >     (fromRawVector tag' vec')
 >   where
 >     fName                                = "computeFR"
->     trace_CFR                            = unwords [fName, show ks, show shapes]
 >
 >     kd                                   = calcKernelData ks
 >     shapes                               = makeShapes ResponseNormal

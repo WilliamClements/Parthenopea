@@ -166,22 +166,10 @@ interpret them somehow.
 >     (targetT, _, _)                      = fromJust iterIn.fiEnvWork.fTargetT
 >
 > feFinish               :: FIterate → FEnvelope → FIterate
-> feFinish iterIn workee
->   | traceNot trace_FEF False             = undefined
->   | otherwise                            = feCheckFinal iterIn'
->   where
->     fName                                = "feFinish"
->     trace_FEF                            = unwords [fName, show workee]
->
->     iterIn'                              = iterIn{fiFun = undefined, fiEnvWork = workee, fiDone = True}
+> feFinish iterIn workee                   = feCheckFinal iterIn{fiFun = undefined, fiEnvWork = workee, fiDone = True}
 >
 > feContinue             :: FIterate → FEnvelope → (FIterate → FIterate) → FIterate
-> feContinue iterIn workee fun
->   | traceNot trace_FEC False             = undefined
->   | otherwise                            = iterIn{fiFun = fun, fiEnvWork = workee}
->   where
->     fName                                = "feContinue"
->     trace_FEC                            = unwords [fName, show workee]
+> feContinue iterIn workee fun             = iterIn{fiFun = fun, fiEnvWork = workee}
 >
 > faceValue, dahTooLong, decayTooLong
 >                        :: FIterate → FIterate
@@ -305,8 +293,8 @@ interpret them somehow.
 
 Emphasis on vetting ===================================================================================================
 
-Viability of the envelope "proposal" is evaluated in real time via a few conditions which are not obvious from
-listening to produced audio. For example, there should always be zeros at the beginning and end of the note.
+Viability of the envelope "proposal" is checked for a few conditions not easily diagnosed from listening to produced
+audio. For example, there should always be zeros at the beginning and end of every note envelope.
 
 > maybeVetAsDiscreteSig  :: FEnvelope → Segments → Bool
 > maybeVetAsDiscreteSig env segs           =
@@ -321,7 +309,6 @@ listening to produced audio. For example, there should always be zeros at the be
 >
 > vetAsDiscreteSig       :: Double → FEnvelope → Segments → Maybe (DiscreteSig Double)
 > vetAsDiscreteSig clockRate env segs
->   | traceNot trace_VADS False            = undefined
 >   | sum prologlist > epsilon             = error $ unwords [fName, "non-zero prolog", show prologlist]
 >   | sum epiloglist > epsilon             = error $ unwords [fName, "non-zero epilog", show epiloglist]
 >   | isNothing env.fModTriple && dipix < (kSig' `div` 5)
@@ -330,8 +317,6 @@ listening to produced audio. For example, there should always be zeros at the be
 >   | otherwise                            = Just dsig
 >   where
 >     fName                                = "vetAsDiscreteSig"
->     trace_VADS                           =
->       unwords [fName, show clockRate, show (kSig, kVec), show (prologlist, epiloglist)]
 >
 >     dsig                                 = discretizeEnvelope clockRate env segs
 >     (targetT, _, _)                      = deJust fName env.fTargetT

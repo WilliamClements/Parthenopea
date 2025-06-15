@@ -6,7 +6,6 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
-> {-# LANGUAGE TupleSections #-} 
 > {-# LANGUAGE UnicodeSyntax #-}
 
 SFSpec

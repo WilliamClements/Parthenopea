@@ -7,12 +7,13 @@ Parthenopea's strength, as a Euterpea extension, is orchestration. Listen to you
 
 Suggested workflow:
 1. start in Euterpea in Read-Eval-Print Loop (REPL) *interpreted* mode
-2. develop tunes algorithmically, or simply specify all the notes - this is a code-writing step
+2. develop tunes algorithmically, or simply specify all the notes
 3. listen to the tunes using *play* function and iterate 
-4. run Parthenopea's *compiled* command-line executable in a folder populated with SoundFont files
-5. listen to the generated WAV files and iterate
+4. your new code could then be placed in Parthenopea/PConsole/Tunes
+5. run Parthenopea's *compiled* command-line executable, PConsole, in a folder populated with SoundFont files
+6. listen to the generated WAV files of your tunes and iterate
 
-Disclaimer: a mix of Instruments from **unrelated** SoundFont files often sounds less cohesive than you would like. You can fix that as you iterate to final mappings.
+Disclaimer: a mix of Instruments from **unrelated** SoundFont files often sounds less cohesive than you would like. You can fix that as you iterate to final instrument mappings.
 
 Technological notes:
 1. Parthenopea employs its own offline SoundFont wavetable synth -- native Haskell, Arrows, and Signal Functions-based.
