@@ -1,6 +1,6 @@
 > module Main where
 >
-> import PConsole.Tunes.Rosters
+> import Tunes.Rosters
 >
 > main                   :: IO ()
 > main                                     = do

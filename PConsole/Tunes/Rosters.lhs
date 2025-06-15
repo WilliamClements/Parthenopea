@@ -9,7 +9,7 @@ Rosters
 William Clements
 May 4, 2023
 
-> module PConsole.Tunes.Rosters where
+> module Tunes.Rosters where
 >
 > import Control.Monad ( foldM )
 > import Data.Map (Map)
@@ -23,10 +23,10 @@ May 4, 2023
 > import Parthenopea.Repro.Discrete ( importWav' )
 > import Parthenopea.SoundFont.Boot ( equipInstruments )
 > import Parthenopea.SoundFont.Runtime ( bootNRender )
-> import PConsole.Tunes.Cecil
-> import PConsole.Tunes.Covers
-> import PConsole.Tunes.Fanfare
-> import PConsole.Tunes.SunPyg
+> import Tunes.Cecil
+> import Tunes.Covers
+> import Tunes.Fanfare
+> import Tunes.SunPyg
 > import System.Environment ( getArgs )
 
 Rosters support =======================================================================================================

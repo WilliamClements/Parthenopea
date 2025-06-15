@@ -52,8 +52,8 @@ executable PConsole
     main-is:        Main.lhs
     
     -- Modules included in this executable, other than Main.
-    other-modules:  PConsole.Tunes.Cecil, PConsole.Tunes.Covers,
-                    PConsole.Tunes.Fanfare, PConsole.Tunes.Rosters, PConsole.Tunes.SunPyg
+    other-modules:  Tunes.Cecil, Tunes.Covers,
+                    Tunes.Fanfare, Tunes.Rosters, Tunes.SunPyg
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -65,7 +65,7 @@ executable PConsole
                       Parthenopea  >= 0.1.0.1
 
     -- Directories containing source files.
-    hs-source-dirs:   ., PConsole/
+    hs-source-dirs:   .
 
     -- Base language which the package is written in.
     default-language: GHC2021
