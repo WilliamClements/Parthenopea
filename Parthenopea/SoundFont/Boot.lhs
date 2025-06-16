@@ -159,7 +159,7 @@ and recovery.
 >         head $ dropWhile unfinished (iterate nextGen (makeFileIterate sffile rost))
 >
 > openSoundFontFile      :: Word → FilePath → IO SFFile
-> openSoundFontFile wFile filename = do
+> openSoundFontFile wFile filename         = do
 >   putStr (unwords [show wFile, filename])
 >   ts1                                    ← getCurrentTime
 >   result                                 ← F.importFile filename

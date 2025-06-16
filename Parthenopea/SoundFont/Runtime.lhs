@@ -16,14 +16,14 @@ February 1, 2025
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import Data.Array.Unboxed
+> import Data.Array.Unboxed ( Array, (!) )
 > import qualified Data.Audio              as A
-> import Data.Either
+> import Data.Either ( lefts, rights )
 > import Data.Foldable ( toList )
-> import Data.List hiding (insert)
-> import Data.Map (Map)
+> import Data.List ( sortOn, singleton )
+> import Data.Map ( Map )
 > import qualified Data.Map                as Map
-> import Data.Maybe
+> import Data.Maybe ( isNothing, fromJust, fromMaybe, listToMaybe )
 > import Data.Ord ( Down(Down) )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import Debug.Trace ( traceIO )
@@ -34,17 +34,17 @@ February 1, 2025
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
-> import Parthenopea.Repro.Envelopes
-> import Parthenopea.Repro.EnvelopesTest
+> import Parthenopea.Repro.Envelopes ( deriveEnvelope )
+> import Parthenopea.Repro.EnvelopesTest ( envelopesTests )
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.ModulationTest
-> import Parthenopea.Repro.Smashing
-> import Parthenopea.Repro.SmashingTest
+> import Parthenopea.Repro.Smashing ( lookupCellIndex )
+> import Parthenopea.Repro.SmashingTest ( smashingTests )
 > import Parthenopea.Repro.Synthesizer
-> import Parthenopea.Repro.SynthesizerTest
+> import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
 > import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.Boot ( equipInstruments )
-> import Parthenopea.SoundFont.BootTest
+> import Parthenopea.SoundFont.BootTest ( bootTests )
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
   

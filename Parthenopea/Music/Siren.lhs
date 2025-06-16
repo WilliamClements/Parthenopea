@@ -630,7 +630,8 @@ examine song for instrument and percussion usage ===============================
 >   return $ shRanges ding
 >
 > critiqueMusic          :: Shredding → Shredding
-> critiqueMusic Shredding{shRanges}        = Shredding shRanges (concatMap critiqueShred (Map.assocs shRanges))
+> critiqueMusic Shredding{shRanges}        =
+>   Shredding shRanges (concatMap critiqueShred (Map.assocs shRanges))
 >
 > combineShreds          :: Shred → Shred → Shred
 > combineShreds s1 s2                      =
