@@ -2,175 +2,161 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
 > {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
-Rosters
+Command
 William Clements
-May 4, 2023
+June 16, 2025
 
-> module Tunes.Rosters where
+> module Parthenopea.SoundFont.Command ( pconsole ) where
 >
-> import Control.Monad ( foldM )
-> import Data.Map (Map)
+> import qualified Codec.Midi              as M
+> import qualified Codec.SoundFont         as F
+> import qualified Control.Monad           as CM
+> import Data.Array.Unboxed
+> import Data.Either ( lefts, rights )
+> import Data.List ( singleton )
 > import qualified Data.Map                as Map
-> import Data.Maybe
-> import Debug.Trace ( traceIO, traceM )
-> import Euterpea.IO.MIDI ( play )
+> import Data.Maybe ( fromMaybe )
+> import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
+> import Euterpea.IO.Audio.Render ( renderSF, InstrMap )
+> import Euterpea.IO.Audio.Types ( Stereo, Clock )
+> import Euterpea.IO.MIDI ( fromMidi )
 > import Euterpea.Music
-> import Parthenopea.Music.Baking
 > import Parthenopea.Music.Siren
-> import Parthenopea.Repro.Discrete ( importWav' )
-> import Parthenopea.SoundFont.Boot ( equipInstruments )
-> import Parthenopea.SoundFont.Runtime ( bootNRender )
-> import Tunes.Cecil
-> import Tunes.Covers
-> import Tunes.Fanfare
-> import Tunes.SunPyg
-> import System.Environment ( getArgs )
+> import Parthenopea.Repro.Emission
+> import Parthenopea.Repro.Synthesizer
+> import Parthenopea.SoundFont.Boot
+> import Parthenopea.SoundFont.Runtime
+> import Parthenopea.SoundFont.Scoring
+> import Parthenopea.SoundFont.SFSpec
+> import qualified System.FilePattern.Directory
+>                                          as FP
 
-Rosters support =======================================================================================================
+Command line logic ====================================================================================================
 
-> rmain                   :: IO ()
-> rmain = do
->   args ← getArgs
->   let playAll          = (length args == 1) && ("all" == head args)
->   let doProf           = (length args == 1) && ("prof" == head args)
+> pconsole               :: IO ()
+> pconsole                                 = do
+>   mids                                   ← FP.getDirectoryFiles "." (singleton "*.mid")
+>   sf2s                                   ← FP.getDirectoryFiles "." (singleton "*.sf2")
+>   putStrLn (msg mids sf2s)
+>   proceed mids sf2s
+>   where
+>     msg                :: [FilePath] → [FilePath] → String
+>     msg ms ss
+>       | null ms && null ss               = "no *.mid or *.sf2 files found: nothing to do"
+>       | null ss                          = "no *.sf2 files found: proceeding to survey mids"
+>       | null ms                          = "no *.mid files found: proceeding to survey sf2s"
+>       | otherwise                        = "proceeding to render mids by sf2s"
 >
->   _ ← if playAll
->         then do
->           bootNRender combineAll
->         else if doProf
->           then listInstruments
->           else bootNRender sj
->   return ()
+> proceed                :: [FilePath] → [FilePath] → IO ()
+> proceed ms ss                            = do
+>   CM.when (2 < length ms) runUnitTests
+>   mids                                   ← populateMids ms
+>   let rost                               = mids.midsRoster                
+>   sf2s                                   ← populateSf2s ss
 >
-> playWithWav            :: IO ()
-> playWithWav                              = do
->   wav ← importWav' "BatCave.wav"
->   print wav
-
-organize exposed music ================================================================================================
-
-> combineAll             :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
-> combineAll = ajingles ++ bjingles ++ cjingles ++ djingles ++ ejingles ++ zjingles
->
-> ajingles, bjingles
->  , cjingles, djingles, ejingles
->  , zjingles            :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
->
-> ajingles =
->    [ ("theFanfare"     , theFanfare False)
->    , ("alice"          , alice)
->    , ("bob"            , bob 4)
->    , ("copper"         , copper 2)
->    , ("gold"           , gold)
->    , ("silver"         , silver)
->    , ("deyDumpDum"     , deyDumpDum False)]
-> bjingles =
->    [ ("getCITM"        , getCITM)
->    , ("slot"           , slot 4)
->    , ("whelpNarp"      , whelpNarp)
->    , ("bake"           , shimSong $ bakedJingle 9345)
->    , ("bill"           , bill 4)
->    , ("roger"          , roger)]
-> cjingles =
->    [ ("cecil"          , cecil)
->    , ("abby"           , abby)
->    , ("wj"             , wj)
->    , ("shelby"         , shelby)
->    , ("weHateHer"      , weHateHer)]
-> djingles =
->    [ ("waypostpurple"  , waypostpurple)
->    , ("snake"          , snake)
->    , ("pendingtonArnt" , pendingtonArnt 2)
->    , ("ssailor"        , ssailor)]
-> ejingles =
->    [ ("kit"            , kit)
->    , ("pit"            , pit)
->    , ("dit"            , dit)
->    , ("rattan"         , rattan)]
-> zjingles =
->    [ ("deathlessHorsie", deathlessHorsie)
->    , ("basicLick"      , basicLick)
->    , ("sunPyg"         , sunPyg)
->    , ("packardGoose"   , packardGoose)
->    , ("yahozna"        , shimSong $ aggrandize yahozna)]
->
-> sj                     :: [(String, Map InstrumentName InstrumentName → Music (Pitch, [NoteAttribute]))]
-> sj =
->    -- [ ("theFanfare"  , theFanfare False)]
->    -- [ ("bob"         , bob 1)]
->    -- [ ("rattan"      , rattan)]
->    -- [ ("littlePendingtonArnt"          , shimSong $ aggrandize littlePendingtonArnt)]
->    -- [ ("deyDumpDum"  , deyDumpDum False)]
->    -- [ ("baked"       , shimSong $ bakedJingle 42310)]
->       [ ("sunPyg"      , sunPyg)]
->    -- [ ("theFanfare"  , theFanfare False)]
->    -- [ ("pit"         , pit)]
->    -- [ ("wj"          , wj)]
-
-a few playthings ... get it? ==========================================================================================
-
-> durS                   :: Rational → Double
-> durS r                                   = 2 * fromRational r
-> 
-> playJingle             :: () → (String, Music (Pitch, [NoteAttribute])) → IO ()
-> playJingle _ (s, m) =
->    do
->       traceM ( show s ++ " " ++ show (durS (dur m)) ++ " seconds" )
->       playDM Nothing m
->       
-> playJingles            :: [(String, Music (Pitch, [NoteAttribute]))] → IO ()
-> playJingles jingles =
->    foldM playJingle () (cycle jingles)
->
-> shredAll               :: IO (Map GMKind Shred)
-> shredAll                                 = do
->   allSongs                               ← mapM shredSong combineAll
->   return $ foldr (Map.unionWith combineShreds) Map.empty allSongs
->
-> doShredAll             :: IO ()
-> doShredAll                               = do
->   allShreds                              ← shredAll
->   mapM_ (\(x, y) → print (x, shCount y)) (Map.assocs allShreds)
->
-> playSnippet            :: () → Int → IO ()
-> playSnippet () i =
->   let inst :: InstrumentName
->       inst = toEnum (i `mod` fromEnum Gunshot)
->   in do
->     traceIO ("InstrumentName = " ++ show inst)
->     play $ instrument inst pSnippet02
->
-> playSnippets           :: IO ()
-> playSnippets = 
->    foldM playSnippet () [0..]
-> gUnit :: Music Pitch
-> gUnit = addDur qn [f 4, a 4, b 4, a 4, f 4, a 4, b 4, a 4
->                  , e 4, a 4, b 4, a 4, e 4, a 4, b 4, a 4]
->
-> gUnitAtVolume          :: Volume → Music (Pitch, Volume)
-> gUnitAtVolume vol = addVolume vol gUnit
->
-> nylon :: Music (Pitch, Volume)
-> nylon =
->   removeZeros
->   $ tempo 1
->   $ transpose 0
->   $ keysig A Major
->   $ instrument Glockenspiel
->     (line [gUnitAtVolume  40, rest hn, gUnitAtVolume  60, rest hn, gUnitAtVolume 80, rest hn
->          , gUnitAtVolume 100, rest hn, gUnitAtVolume 120])
->
-> listInstruments        :: IO ()
-> listInstruments                          = do
->   mbundle                                ← equipInstruments allKinds
->   if isJust mbundle
->     then do
->       let (runt, _, _)                   = fromJust mbundle
->       print runt
+>   if null ss
+>     then do return ()
 >     else do
->       return ()
+>       (prerunt, matches, rd)             ← surveyInstruments sf2s rost
+>       runt                               ← finishRuntime prerunt rost matches rd
+>       imap                               ← prepareInstruments runt
+>       -- here's the heart of the coconut
+>       mapM_ (renderSong runt imap) mids.midsSongs
+> 
+> data Mids                                =
+>   Mids {
+>     midsRoster         :: ([InstrumentName], [PercussionSound])
+>   , midsSongs          :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]}
+>
+> populateMids           :: [FilePath] → IO Mids
+> populateMids paths                       = do
+>   songs                                  ← mapM convertFromMidi paths
+>   rost                                   ← qualifyKinds songs
+>   return $ Mids rost songs
+>
+> convertFromMidi        :: FilePath → IO (String, DynMap → Music (Pitch, [NoteAttribute]))
+> convertFromMidi path                     = do
+>   midi                                   ← loadMidiFile path
+>   return (path, shimSong $ fromMidi midi)
+>
+> loadMidiFile           :: FilePath → IO M.Midi
+> loadMidiFile fn = do
+>   r                                      ← M.importFile fn 
+>   case r of
+>     Left err                             → error err
+>     Right m                              → return m
+>
+> populateSf2s           :: [FilePath] → IO (Array Word SFFile)
+> populateSf2s paths                       = do
+>   sffilesp                               ← CM.zipWithM openSoundFontFile [0..] paths
+>   let vFiles                             = listArray (0, fromIntegral (length paths - 1)) sffilesp
+>   return vFiles
+>
+> openSoundFontFile      :: Word → FilePath → IO SFFile
+> openSoundFontFile wFile filename         = do
+>   putStrLn (unwords [show wFile, filename])
+>   result                                 ← F.importFile filename
+>   case result of
+>     Left s                               →
+>       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
+>     Right soundFont                      → do
+>       let pdata                          = F.pdta soundFont
+>       let sdata                          = F.sdta soundFont
+>       let boota                          =
+>             FileArrays
+>               (F.insts pdata) (F.ibags pdata)
+>               (F.igens pdata) (F.imods pdata)
+>               (F.shdrs pdata)
+>       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
+>       let sffile                         = SFFile wFile filename boota samplea
+>       return sffile
+>
+> finishRuntime          ::  SFRuntime
+>                            → ([InstrumentName], [PercussionSound])
+>                            → Matches
+>                            → ResultDispositions
+>                            → IO SFRuntime
+> finishRuntime prerunt rost matches rd    = do
+>   writeScanReport prerunt rd
+>   (wI, wP)                               ← decideWinners prerunt rost matches 
+>   writeTournamentReport prerunt.zFiles wI wP
+>   let wins                               = WinningRecord (Map.map head wI) (Map.map head wP)
+>   return prerunt{zWinningRecord = wins}
+>
+> renderSong             :: ∀ p . Clock p ⇒
+>                           SFRuntime
+>                           → InstrMap (Stereo p)
+>                           → (String, DynMap → Music (Pitch, [NoteAttribute]))
+>                           → IO ()
+> renderSong runt imap (name, song)           =
+>   do
+>     putStrLn ("renderSong " ++ name)
+>     ding                                 ← shredMusic (song Map.empty)
+>     let dynMap                           = makeDynMap ding
+>     CM.unless (null dynMap)              (putStrLn $ unwords ["dynMap", show dynMap])
+>     let ks                               = Map.keys ding.shRanges
+>     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
+>     let (esI, esP)                       = printChoices runt is ding.shMsgs ps
+>     let ex                               = [Unblocked name, EndOfLine] ++ concatMap snd esI ++ concatMap snd esP
+>     putStr (reapEmissions ex)
+>     -- render song only if all OK
+>     if all fst esI && all fst esP
+>       then do
+>         let path                         = (reverse . drop 4 . reverse) name ++ ".wav"
+>         putStr path
+>         let (durS,s)                     = renderSF (song dynMap) imap
+>         putStrLn (unwords ["-> outFile*", path, show durS])
+>         if normalizingOutput
+>           then outFileNorm path durS s
+>           else outFile     path durS s
+>         putStrLn (unwords ["<- outFile*", path, show durS])
+>       else
+>         putStrLn "skipping..."
+>     return ()
 
 The End

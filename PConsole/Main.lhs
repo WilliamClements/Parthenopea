@@ -1,7 +1,7 @@
 > module Main where
 >
-> import Tunes.Rosters
+> import Parthenopea.SoundFont.Command
 >
 > main                   :: IO ()
 > main                                     = do
->   rmain
+>   pconsole

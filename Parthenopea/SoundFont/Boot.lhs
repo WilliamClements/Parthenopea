@@ -11,7 +11,7 @@ Boot
 William Clements
 January 21, 2025
 
-> module Parthenopea.SoundFont.Boot ( equipInstruments ) where
+> module Parthenopea.SoundFont.Boot ( surveyInstruments ) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
@@ -24,7 +24,6 @@ January 21, 2025
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe
-> import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import Debug.Trace
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
@@ -35,8 +34,6 @@ January 21, 2025
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
-> import qualified System.FilePattern.Directory
->                                          as FP
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
@@ -108,37 +105,19 @@ To support extracting from flawed SoundFont files, we - up front - withdraw unre
 respective collections. An item's presence may be critical to some instrumentation. So it entails further deletion
 and recovery.
 
-> equipInstruments       :: ([InstrumentName], [PercussionSound])
->                           → IO (Maybe (SFRuntime, Matches, ResultDispositions))
-> equipInstruments rost                    = do
+> surveyInstruments      :: Array Word SFFile
+>                           → ([InstrumentName], [PercussionSound])
+>                           → IO (SFRuntime, Matches, ResultDispositions)
+> surveyInstruments vFiles rost            = do
 >   putStrLn ""
 >   putStrLn $ unwords [fName, "rost", show rost]
 >   putStrLn ""
 >
->   tsStarted                              ← getCurrentTime
->
->   -- represent all input SoundFont files in ordered list, thence a vector
->   fps                                    ← FP.getDirectoryFiles "." (singleton "*.sf2")
->   if null fps
->     then do
->       putStrLn "no *.sf2 files found"
->       return Nothing
->     else do
->       sffilesp                           ← CM.zipWithM openSoundFontFile [0..] fps
->       let vFiles                         = listArray (0, fromIntegral (length fps - 1)) sffilesp
->
->       tsLoaded                           ← getCurrentTime
->       putStrLn ("___load files: " ++ show (diffUTCTime tsLoaded tsStarted))
->
->       -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->       let (bootAll, rdGen03, matchesAll) = foldl' bootFolder (dasBoot, virginrd, defMatches) vFiles
->       CM.when diagnosticsEnabled (traceIO $ show bootAll)
->       let runt                           = SFRuntime vFiles bootAll seedWinningRecord
->
->       tsBooted                           ← getCurrentTime
->       putStrLn ("___booted: " ++ show (diffUTCTime tsBooted tsLoaded))
->
->       return (Just (runt, matchesAll, rdGen03))
+>   -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
+>   let (bootAll, rdGen03, matchesAll) = foldl' bootFolder (dasBoot, virginrd, defMatches) vFiles
+>   CM.when diagnosticsEnabled (traceIO $ show bootAll)
+>   let runt                           = SFRuntime vFiles bootAll seedWinningRecord
+>   return (runt, matchesAll, rdGen03)
 >   where
 >     fName                                = "equipInstruments"
 >
@@ -157,39 +136,6 @@ and recovery.
 >             (name, userFun)              = head fiTaskIfs
 >       in
 >         head $ dropWhile unfinished (iterate nextGen (makeFileIterate sffile rost))
->
-> openSoundFontFile      :: Word → FilePath → IO SFFile
-> openSoundFontFile wFile filename         = do
->   putStr (unwords [show wFile, filename])
->   ts1                                    ← getCurrentTime
->   result                                 ← F.importFile filename
->   case result of
->     Left s                               →
->       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
->     Right soundFont                      → do
->       let pdata                          = F.pdta soundFont
->       let sdata                          = F.sdta soundFont
->       let boota                          =
->             FileArrays
->               (F.insts pdata) (F.ibags pdata)
->               (F.igens pdata) (F.imods pdata)
->               (F.shdrs pdata)
->       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
->       let sffile                         = SFFile wFile filename boota samplea
->       let nBits::Word                      =
->             case samplea.ssM24 of
->               Nothing                    → 16
->               Just _                     → 24
->       ts2                                ← getCurrentTime
->       CM.when diagnosticsEnabled (
->         putStr $ unwords [" ... lengths insts,bags,gens,mods,shdrs:"
->                         , show $ length boota.ssInsts
->                         , show $ length boota.ssIBags
->                         , show $ length boota.ssIGens
->                         , show $ length boota.ssIMods
->                         , show $ length boota.ssShdrs ])
->       putStrLn (unwords ["(", show nBits, ") loaded in", show (diffUTCTime ts2 ts1)])
->       return sffile
 
 support sample and instance ===========================================================================================
 

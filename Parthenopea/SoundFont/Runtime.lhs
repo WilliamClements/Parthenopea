@@ -12,13 +12,15 @@ Runtime
 William Clements
 February 1, 2025
 
-> module Parthenopea.SoundFont.Runtime ( bootNRender ) where
+> module Parthenopea.SoundFont.Runtime ( prepareInstruments
+>                                      , runUnitTests
+>                                      , writeScanReport
+>                                      , writeTournamentReport) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
 > import Data.Array.Unboxed ( Array, (!) )
 > import qualified Data.Audio              as A
-> import Data.Either ( lefts, rights )
 > import Data.Foldable ( toList )
 > import Data.List ( sortOn, singleton )
 > import Data.Map ( Map )
@@ -28,8 +30,7 @@ February 1, 2025
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import Debug.Trace ( traceIO )
 > import Euterpea.IO.Audio.Basics ( outA )
-> import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
-> import Euterpea.IO.Audio.Render ( renderSF, Instr, InstrMap )
+> import Euterpea.IO.Audio.Render ( Instr )
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
 > import Euterpea.Music
 > import Parthenopea.Debug
@@ -42,95 +43,27 @@ February 1, 2025
 > import Parthenopea.Repro.SmashingTest ( smashingTests )
 > import Parthenopea.Repro.Synthesizer
 > import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
-> import Parthenopea.Music.Siren
-> import Parthenopea.SoundFont.Boot ( equipInstruments )
 > import Parthenopea.SoundFont.BootTest ( bootTests )
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
   
 executive =============================================================================================================
 
-> bootNRender            :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
-> bootNRender songs                        = do
->   tsStarted                              ← getCurrentTime
->   if length songs > 8
->     then do
->       resultBoot                     ← runTestsQuietly bootTests
->       resultEnvelopes                ← runTestsQuietly envelopesTests
->       resultModulation               ← runTestsQuietly modulationTests     
->       resultSmashing                 ← runTestsQuietly smashingTests
->       resultSynthesizer              ← runTestsQuietly synthesizerTests
->       let resultDiscrete             = True -- runTestsQuietly discreteTests
->       putStrLn $ unwords [show
->          (profess
->            (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer
->                , resultEnvelopes, resultDiscrete])
->            (unwords ["one or more unit tests failed"])
->            True)]
->       putStrLn "Unit tests completed successfully"
->     else do
->       return ()
->
->   rost                                   ← qualifyKinds songs
->   mbundle                                ← equipInstruments rost
->   if isNothing mbundle
->     then do
->       return ()
->     else do 
->       let (prerunt, matches, rd)         = fromJust mbundle
->       runt                               ← finishRuntime prerunt rost matches rd
->
->       CM.when diagnosticsEnabled         (putStrLn $ unwords [fName, show runt])
->       CM.when doRender                   (doRendering runt)
->
->       tsRendered                         ← getCurrentTime
->       putStrLn ("___overall: " ++ show (diffUTCTime tsRendered tsStarted))
->   where
->     fName                                = "bootNRender"
->
->     -- track the complete _qualified_ populations of: samples, instruments, percussion
->     finishRuntime      ::  SFRuntime
->                            → ([InstrumentName], [PercussionSound])
->                            → Matches
->                            → ResultDispositions
->                            → IO SFRuntime
->     finishRuntime prerunt rost matches rd
->                                          = do
->       CM.when (howVerboseScanReport > (1/10)) (writeScanReport prerunt rd)
->       tsScanned                          ← getCurrentTime
->      
->       -- actually conduct the tournament
->       (wI, wP)                           ← decideWinners prerunt rost matches 
->       tsDecided                          ← getCurrentTime
->       putStrLn ("___decide winners: " ++ show (diffUTCTime tsDecided tsScanned))
->
->       CM.when (howVerboseTournamentReport > (1/10)) (writeTournamentReport prerunt.zFiles wI wP)
->       tsReported                         ← getCurrentTime
->
->       let wins                           = WinningRecord (Map.map head wI) (Map.map head wP)
->
->       tsRecond                           ← getCurrentTime
->       putStrLn ("___create winning record: " ++ show (diffUTCTime tsRecond tsReported))
->         
->       return prerunt{zWinningRecord = wins}
->
->     -- get it on
->     doRendering        :: SFRuntime → IO ()
->     doRendering runt
->                                          = do
->       tsStarted                          ← getCurrentTime
->
->       -- readying instrument maps to be accessed from song renderer
->       traceIO                            "prepareInstruments"
->       imap                               ← prepareInstruments runt
->       tsPrepared                         ← getCurrentTime
->       putStrLn ("___prepare instruments: " ++ show (diffUTCTime tsPrepared tsStarted))
->
->       -- here's the heart of the coconut
->       mapM_ (renderSong runt imap) songs
->
->       tsRendered                         ← getCurrentTime
->       putStrLn ("___render songs: "        ++ show (diffUTCTime tsRendered tsPrepared))
+> runUnitTests           :: IO ()
+> runUnitTests                             = do
+>   resultBoot                             ← runTestsQuietly bootTests
+>   resultEnvelopes                        ← runTestsQuietly envelopesTests
+>   resultModulation                       ← runTestsQuietly modulationTests     
+>   resultSmashing                         ← runTestsQuietly smashingTests
+>   resultSynthesizer                      ← runTestsQuietly synthesizerTests
+>   let resultDiscrete                     = True -- runTestsQuietly discreteTests
+>   putStrLn $ unwords [show
+>      (profess
+>        (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer
+>            , resultEnvelopes, resultDiscrete])
+>        (unwords ["one or more unit tests failed"])
+>        True)]
+>   putStrLn "Unit tests completed successfully"
 >
 > writeScanReport        :: SFRuntime → ResultDispositions → IO ()
 > writeScanReport runt rd@ResultDispositions{ .. }
@@ -240,40 +173,6 @@ executive ======================================================================
 >     nfs                = zip [0..] (toList sffiles)
 >     emitFileListC      = concatMap doF nfs
 >     doF (nth, sffile)  = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
->
-> renderSong             :: ∀ p . Clock p ⇒
->                           SFRuntime
->                           → InstrMap (Stereo p)
->                           → (String, DynMap → Music (Pitch, [NoteAttribute]))
->                           → IO ()
-> renderSong runt imap (name, song)           =
->   do
->     traceIO ("renderSong " ++ name)
->     ts1                                  ← getCurrentTime
->     ding                                 ← shredMusic (song Map.empty)
->     let dynMap                           = makeDynMap ding
->     CM.unless (null dynMap)              (traceIO $ unwords ["dynMap", show dynMap])
->     let ks                               = Map.keys ding.shRanges
->     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
->     let (esI, esP)                       = printChoices runt is ding.shMsgs ps
->     let ex                               = [Unblocked name, EndOfLine] ++ concatMap snd esI ++ concatMap snd esP
->     putStr (reapEmissions ex)
->     -- render song only if all OK
->     if all fst esI && all fst esP
->       then do
->         let path                         = name ++ ".wav"
->         putStr path
->         let (durS,s)                     = renderSF (song dynMap) imap
->         traceIO (unwords ["-> outFile*", path, show durS])
->         if normalizingOutput
->           then outFileNorm path durS s
->           else outFile     path durS s
->         traceIO (unwords ["<- outFile*", path, show durS])
->         ts2                              ← getCurrentTime
->         putStrLn (" (dur=" ++ show durS ++ ") written in " ++ show (diffUTCTime ts2 ts1))
->       else
->         putStrLn "skipping..."
->     return ()
 
 define signal functions and instrument maps to support rendering ======================================================
 
