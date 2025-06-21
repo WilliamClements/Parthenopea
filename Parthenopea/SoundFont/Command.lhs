@@ -11,7 +11,7 @@ Command
 William Clements
 June 16, 2025
 
-> module Parthenopea.SoundFont.Command ( pconsole ) where
+> module Parthenopea.SoundFont.Command ( pCommand ) where
 >
 > import qualified Codec.Midi              as M
 > import qualified Codec.SoundFont         as F
@@ -38,8 +38,8 @@ June 16, 2025
 
 Command line logic ====================================================================================================
 
-> pconsole               :: IO ()
-> pconsole                                 = do
+> pCommand               :: IO ()
+> pCommand                                 = do
 >   mids                                   ← FP.getDirectoryFiles "." (singleton "*.mid")
 >   sf2s                                   ← FP.getDirectoryFiles "." (singleton "*.sf2")
 >   putStrLn (msg mids sf2s)

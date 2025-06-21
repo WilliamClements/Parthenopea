@@ -4,4 +4,4 @@
 >
 > main                   :: IO ()
 > main                                     = do
->   pconsole
+>   pCommand
