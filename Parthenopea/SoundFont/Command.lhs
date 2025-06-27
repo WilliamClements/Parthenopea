@@ -36,7 +36,7 @@ June 16, 2025
 > import qualified System.FilePattern.Directory
 >                                          as FP
 
-Command line logic ====================================================================================================
+Implement PCommand ====================================================================================================
 
 > pCommand               :: IO ()
 > pCommand                                 = do
@@ -60,7 +60,7 @@ Command line logic =============================================================
 >   sf2s                                   ← populateSf2s ss
 >
 >   if null ss
->     then do return ()
+>     then return ()
 >     else do
 >       (prerunt, matches, rd)             ← surveyInstruments sf2s rost
 >       runt                               ← finishRuntime prerunt rost matches rd
