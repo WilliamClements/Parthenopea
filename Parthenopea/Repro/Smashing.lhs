@@ -29,8 +29,8 @@ issued.
 When you have an Instrument and a NoteOn, the "game" pinpoints which Zone to use to play the note. The smashing for
 this purposes is 128 x 128 x 2 covering all possible NoteOns, and Left/Right.
 
-The winning Zone is indicated to drive the particular note synthesis. We use a flat vector for the cache and index it
-by the three component values.
+The winning Zone(s) drive the particular note synthesis. We use a flat vector for the cache and index it by the three
+component values.
 
 This source file implements a generalization of that setup. See computeInstSmashup. We must know all the "subspaces"
 (range specifications) up front which we "smash" together to populate the flat vector.

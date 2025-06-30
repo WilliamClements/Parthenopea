@@ -1,6 +1,5 @@
 *.m4a
 *.pdf
-toy.lhs
 dist-newstyle/
 regex-base/
 *.svg
@@ -17,3 +16,4 @@ regex-base/
 .mscbackup/
 *.midi
 *.ghci
+cabal.project

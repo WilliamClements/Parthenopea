@@ -94,8 +94,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     cat                                  = catTaskIf          sffile rost
 >     perI                                 = perITaskIf         sffile rost
 >
-> reduceFileIterate      :: FileIterate → (SFBoot, ResultDispositions, Matches)
-> reduceFileIterate fiIn                   = (fwBoot, fwDispositions, fwMatches)
+> reduceFileIterate      :: FileIterate → (SFBoot, Matches, ResultDispositions)
+> reduceFileIterate fiIn                   = (fwBoot, fwMatches, fwDispositions)
 >   where
 >     FileWork{ .. }                       = fiIn.fiFw
 
@@ -114,19 +114,19 @@ and recovery.
 >   putStrLn ""
 >
 >   -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->   let (bootAll, rdGen03, matchesAll) = foldl' bootFolder (dasBoot, virginrd, defMatches) vFiles
+>   let (bootAll, matchesAll, rdAll) = foldl' bootFolder (dasBoot, defMatches, virginrd) vFiles
 >   CM.when diagnosticsEnabled (traceIO $ show bootAll)
 >   let runt                           = SFRuntime vFiles bootAll seedWinningRecord
->   return (runt, matchesAll, rdGen03)
+>   return (runt, matchesAll, rdAll)
 >   where
 >     fName                                = "equipInstruments"
 >
->     bootFolder (bootIn, rdIn, matchesIn) sffile
+>     bootFolder (bootIn, matchesIn, rdIn) sffile
 >                                          = 
 >       let
->         (bootOut, rdOut, matchesOut)     = reduceFileIterate (ingestFile sffile)     
+>         (bootOut, matchesOut, rdOut)     = reduceFileIterate (ingestFile sffile)     
 >       in
->         (combineBoot bootIn bootOut, combinerd rdIn rdOut, combineMatches matchesIn matchesOut)
+>         (combineBoot bootIn bootOut, combineMatches matchesIn matchesOut, combinerd rdIn rdOut)
 >
 >     ingestFile sffile                    =
 >       let

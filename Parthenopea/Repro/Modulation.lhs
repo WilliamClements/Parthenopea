@@ -491,7 +491,8 @@ Controller Curves ==============================================================
 >                                              else dIn
 >
 > controlBiPolar         :: Mapping → Double → Double
-> controlBiPolar ping@Mapping{ .. } dIn    = dOut
+> controlBiPolar ping@Mapping{ .. } dIn
+>                                          = dOut
 >   where
 >     -- bipolar concave/convex:
 >     --   if positive, swap the left half to the opposite
@@ -997,9 +998,11 @@ The use of following functions requires that their input is normalized between 0
 > quarterCircleTable                       = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
 >   where
 >     calc               :: Int → Double
->     calc i                               = 1 - sqrt (1 - cD*cD)
->       where
+>     calc i                               =
+>       let
 >         cD             :: Double         = fromIntegral i / tableSize
+>       in
+>         1 - sqrt (1 - cD*cD)
 >
 > qTableSize             :: Int
 > qTableSize                               = 1024
