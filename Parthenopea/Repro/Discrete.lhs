@@ -257,18 +257,12 @@ Discrete approach ==============================================================
 >   | traceNot trace_FCFR False            = undefined
 >   | otherwise                            =
 >   profess
->     (sane dsigOut')
->     (unwords ["fastConvolveFR-- insane result"])
->     dsigOut'
+>     (sane dsigOut)
+>     (unwords [fName, "insane result"])
+>     dsigOut
 >   where
 >     fName                                = "fastConvolveFR"
 >
->     dsigIn'                              = if correctDCOffset
->                                              then subtractDCOffset dsigIn
->                                              else dsigIn
->     dsigOut'                             = if correctDCOffset
->                                              then subtractDCOffset dsigOut
->                                              else dsigOut
 >     dsigOut                              =
 >       fromRawVector
 >         (unwords["toTime.product(", fst tags, "&", snd tags, ")"])
@@ -277,11 +271,11 @@ Discrete approach ==============================================================
 >           else VU.fromList (map realPart result))
 >
 >     cdubsIn            :: [Complex Double]
->     cdubsIn                              = toFrequencyDomain $ VU.toList $ dsigVec dsigIn'
+>     cdubsIn                              = toFrequencyDomain $ VU.toList $ dsigVec dsigIn
 >
 >     cdsigIn            :: DiscreteSig (Complex Double)
 >     cdsigIn                              =
->       fromRawVector ("toFreak " ++ dsigTag dsigIn') (VU.fromList cdubsIn)
+>       fromRawVector ("toFreak " ++ dsigTag dsigIn) (VU.fromList cdubsIn)
 >
 >     cdsigFR            :: DiscreteSig (Complex Double)
 >     cdsigFR                              = memoizedComputeFR lowpassKs{ksLen = length cdubsIn, ksSr = 44_100}
@@ -322,20 +316,6 @@ Discrete approach ==============================================================
 >                                              then sampleDown inLen
 >                                              else sampleUp inLen
 >     cds                                  = map acomplex as ++ replicate (newLen - inLen) 0
->
-> interpVal              :: Double → Array Int Double → Int → Double
-> interpVal fact vSource ixIn          =
->   profess
->     (ix0 < (snd . bounds) vSource)
->     (unwords ["out of range (interpVal)"])
->     (dFirst + (dSecond - dFirst) * (dixAt - fromIntegral ix0))
->   where
->     dixAt              :: Double         = fromIntegral ixIn / fact
->     ix0                :: Int            = truncate dixAt
->     dFirst             :: Double         = vSource ! ix0
->     dSecond            :: Double         = if ix0 == (snd . bounds) vSource
->                                              then dFirst
->                                              else vSource ! (ix0 + 1)
 
 Frequency Response ====================================================================================================
 
@@ -532,10 +512,6 @@ Type declarations ==============================================================
 >     xs                                   = map ((/ clockRate) . fromIntegral) [0::Int ..]
 >     ys                                   = take nPoints (VU.toList dsig.dsigVec)
 >
-> subtractDCOffset       :: DiscreteSig Double → DiscreteSig Double
-> subtractDCOffset dIn                     =
->   fromRawVector (dsigTag dIn) (VU.map (\x → x - dIn.dsigStats.stDCOffset) dIn.dsigVec)
->
 > data ResponseShape                       =
 >     Block
 >   | Bulge
@@ -556,7 +532,7 @@ Type declarations ==============================================================
 >   show (FrItem startPoint _)             = unwords ["FrItem", show startPoint]
 >
 > bulgeDiv, dropoffRate  :: Double
-> reverseSignal, disableConvo, disableMultiply, correctDCOffset, chopSignal
+> reverseSignal, disableConvo, disableMultiply, chopSignal
 >                        :: Bool
 >
 > -- what fraction of cutoff freak affected by nonzero Q (cutoff freak / div)
@@ -569,8 +545,6 @@ Type declarations ==============================================================
 > -- if response type is convo, no modulation at all
 > disableMultiply                          = False
 > -- if response type is convo, do domain conversions, but not convolution
-> correctDCOffset                          = False
-> -- experiment with neutralizing DC offset of a discrete signal
 > chopSignal                               = False
 > -- experiment with truncating, rather than padding, buffer, to power of two size
 

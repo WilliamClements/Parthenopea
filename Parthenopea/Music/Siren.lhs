@@ -2,13 +2,10 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE DeriveGeneric #-}
-> {-# LANGUAGE InstanceSigs #-}
 > {-# LANGUAGE NumericUnderscores  #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
-> {-# LANGUAGE TypeOperators #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Siren
@@ -17,9 +14,8 @@ December 12, 2022
 
 > module Parthenopea.Music.Siren where
 >
-> import qualified Codec.Midi              as M
 > import Control.Arrow.ArrowP
-> import Control.DeepSeq (NFData)
+> import Control.DeepSeq ( NFData )
 > import Control.SF.SF
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
@@ -30,16 +26,15 @@ December 12, 2022
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe
-> import Data.Ord
+> import Data.Ord ( comparing )
 > import Data.Ratio ( approxRational )
 > import qualified Data.Vector.Unboxed     as VU
-> import Data.Word
+> import Data.Word ( Word8 )
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.IO.MIDI.MidiIO ( unsafeOutputID )
 > import Euterpea.IO.MIDI.Play
-> import Euterpea.IO.MIDI.ToMidi2 ( writeMidi2 )
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import System.Random ( Random(randomR), StdGen )
@@ -59,29 +54,6 @@ December 12, 2022
 
 Utilities =============================================================================================================
 
-> hzToAp                 :: Double → AbsPitch
-> hzToAp freak                             =
->   round $ fromIntegral (absPitch (A,4)) + 12 * (logBase 2 freak - logBase 2 440)
->
-> impM                   :: FilePath → IO ()
-> impM fp                                  = do
->   mu ← importMidi fp
->   play mu
->   -- listInstruments $ aggrandize mu
->   return ()
->
-> importMidi             :: FilePath → IO (Music (Pitch, Volume))
-> importMidi fp = do
->   x ← M.importFile fp
->   case x of
->     Left z             → error z
->     Right m2           → analyzeMidi m2
->
-> analyzeMidi            :: M.Midi → IO (Music (Pitch, Volume))
-> analyzeMidi midi                         = do
->   print midi
->   return $ rest 0
->
 > addDur                 :: Dur → [Dur → Music a] → Music a
 > addDur durA ns  =  let fun n = n durA
 >                    in line (map fun ns)
@@ -102,9 +74,6 @@ Utilities ======================================================================
 >
 > dim                    :: Rational → Music a → Music a
 > dim amt                                  = phrase [Dyn (Diminuendo amt)]
->
-> captureMidi            :: Music (Pitch, [NoteAttribute]) → IO()
-> captureMidi                              = writeMidi2 "Siren.mid"
 >
 > fractionOf             :: Int → Double → Int
 > fractionOf x doub                        = min 127 $ round $ doub * fromIntegral x
@@ -808,18 +777,7 @@ snippets to be used with "lake" ================================================
 >     mel1                                 = retro melInput
 >     mel2                                 = invert melInput
 >     mel3                                 = (invert . retro) melInput
-
-music converter =======================================================================================================
-
-> aggrandize             :: Music (Pitch, Volume) → Music (Pitch, [NoteAttribute])
-> aggrandize (Prim (Note durN (p, v)))     = Prim (Note durN (p, [Volume v]))
-> aggrandize (Prim (Rest durN))            = Prim (Rest durN)
-> aggrandize (m1 :+: m2)                   = aggrandize m1 :+: aggrandize m2
-> aggrandize (m1 :=: m2)                   = aggrandize m1 :=: aggrandize m2
-> aggrandize (Modify ctrl m)               = Modify ctrl (aggrandize m)
-
------------------------------------------------------------------------------------------------------------------------
-
+>
 > eutSplit               :: ∀ p . Clock p ⇒ Signal p Double (Double, Double)
 > eutSplit                                 =
 >   proc sIn → do

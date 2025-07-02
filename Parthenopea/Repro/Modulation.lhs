@@ -29,7 +29,7 @@ November 6, 2023
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.MemoTrie
-> import Data.Word
+> import Data.Word ( Word64 )
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( AudRate, Clock(..), CtrRate, Signal )

@@ -1,26 +1,39 @@
 # Parthenopea
-Haskell library extending *Euterpea 2* music educational package. (See https://www.euterpea.com/ and obtain its textbook ***Haskell School of Music***.)
+Haskell library extending *Euterpea 2* music educational package. To Euterpea's song composition capabilities, Parthenopea adds a finishing touch -- experimentative orchestration.
 
-Parthenopea, using Euterpea and its own SoundFont-specific technology, provides **offline** rendering of songs specified in (user-supplied) MIDI files or created programmatically in Euterpea.
+There exists in the wild a vast trove of SoundFont files yielding a dizzying variety of sampled Instruments. Granted, the Euterpea user already can connect a synth and manually map Instruments. But Parthenopea automatically makes the highest quality Instrument choices from *the trove*.
 
-Can also be used to survey and compare thousands of Instruments found in (user-supplied) SoundFont files. Doesn't necessarily require direct use of Euterpea library.
+To survey, compare, and apply Instruments from *the trove* doesn't require user to *directly* interface with Euterpea.
 
-# Building it
-Some difficulty here. User needs to know *cabal* (e.g. *cabal.project*) to set up multiple local packages. Also how to debug broken dependency versioning. https://github.com/georgefst/Euterpea2 is a fork of Euterpea intended to help with the latter problem.
+For more on Euterpea, see https://www.euterpea.com/ and obtain its textbook ***Haskell School of Music***.
 
-# Batch processor
-Can initiate batch processing by typing *pCommand* in REPL (i.e. *ghci*). Later on, if you scale up to many/large SoundFont files (I've tested with 500 SoundFonts taking up 46 GB), you should build a standalone executable (*PCommand*) for this purpose, for better performance.
+## Building it
+Some difficulty here. User needs to know *cabal* (e.g. *cabal.project*) to set up multiple local packages. Also how to debug broken dependency versioning. https://github.com/georgefst/Euterpea2 is a fork of Euterpea intended to work around some build blockers.
 
-The batch processor opens all MIDI files (\*.mid) and SoundFont files (\*.sf2) found in the current directory. If both types are present, the batch processor will mine the SoundFont files to "convert" the MIDI files to WAV files you can listen to and share.
+## Batch processor
+Parthenopea's batch processor opens all MIDI files (\*.mid) and SoundFont files (\*.sf2) found in the current directory. If both types are present, it proceeds to mine for Instruments and "converts" the MIDI files to WAV files -- which you can listen to and share.
 
-# Rendering
-Parthenopea is opiniated. It picks only the most suitable SoundFont Instruments to realize each MIDI (GM) instrument. The criteria used, and all the scores, are provided in a textual *Tournament Report*.
+You can initiate batch processing by typing *pCommand* in the REPL (i.e. *ghci*). Later on, if you scale up to many/large SoundFont files (I've tested it with 500 SoundFont files taking up 46 GB), you should build a standalone executable (*PCommand*) for this purpose, for better performance.
 
-Note that the result obtained when mixing Instruments from *unrelated* SoundFont files won't sound cohesive. But Parthenopea is not first or foremost a production tool! In the spirit of discovery that Euterpea is known for, I think it is fascinating to listen to my tunes orchestrated varying which SoundFonts to use per rendering run.
+## Rendering
+Parthenopea is opiniated. As mentioned above, it tries to pick the most suitable SoundFont Instruments to realize each MIDI (GM) instrument. It *scores* Instruments via a combination of empirical stats. All the stats and scores are recorded and provided in a textual *Tournament Report*.
 
-# Synthesis
-Because of SoundFont (see https://www.synthfont.com/SFSPEC21.PDF), Parthenopea implements **wavetable** synthesis. It is **offline** synthesis because it is non-interactive, utilizing "rendering". The Parthenopea synth is written using Signal Functions ala Euterpea. 
+Note that the result obtained when mixing Instruments from *unrelated* SoundFont files won't sound cohesive. But it is always interesting to listen to your tunes varying which SoundFont files to draw from.
 
-The most difficult aspects to successfully implement were:
-1. Creating a (sweepable) low-pass filter **with resonance**. This ended up being a State Variable filter. See https://ccrma.stanford.edu/~jos/svf/svf.pdf .
-2. Envelope processing (important for note articulation other than that present in the Sample itself). SoundFont authors tend to use bizarre parameter values which I think are supported by their "synths of choice".
+# Design highlights
+
+## Synthesizer category
+Parthenopea implements a **wavetable** type **offline**  synthesizer. ***wavetable*** because Parthenopea works with SoundFont only. ***offline*** because non-interactive, requiring slow rendering steps.
+
+The Parthenopea synth is written using Signal Functions ala Euterpea. 
+
+## (Sweepable) low-pass filter **with resonance**
+In Euterpea, neither *filterLowPass* nor *filterLowPassBW* have resonance as a part of input/response, so I developed a Signal Function that works as a State Variable filter. See https://karmafx.net/docs/karmafx_digitalfilters.pdf and https://ccrma.stanford.edu/~jos/svf/svf.pdf .
+
+## Envelopes
+To induce note articulation effects, the SoundFont file Authors specify a set of sound envelope parameter values, . (See https://www.synthfont.com/SFSPEC21.PDF).  Difficulties arise from ambiguities in the spec and non-conformance in the artifacts (files). The actual amplitude scaling is accomplished via Euterpea's *envLineSeg* Signal Function. For the interpretation of parameters, we endeavor to:
+1. produce a reasonable note
+2. honor Author design intent
+
+## Permissive scanning
+File scanning must be "fault tolerant" to avoid disqualifying too many otherwise useful SoundFont files and Instruments. This is apparent in the behavior of tools like https://www.polyphone.io/ when opening those files. In Parthenopea, the glitches found are documented in a *Scan Report*.

@@ -18,13 +18,13 @@ January 21, 2025
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Either
+> import Data.Either ( lefts )
 > import Data.Foldable
 > import Data.List hiding (insert)
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe
-> import Debug.Trace
+> import Debug.Trace ( traceIO )
 > import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
 > import Numeric ( showHex )
