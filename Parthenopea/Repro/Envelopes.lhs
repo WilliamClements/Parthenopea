@@ -4,7 +4,6 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -73,13 +72,8 @@ Create a straight-line envelope generator with following phases:
 >           else error $ unwords ["unexpected"]
 >
 > proposeSegments        :: TimeFrame → FEnvelope → (FEnvelope, Segments)
-> proposeSegments tf envRaw
->   | traceNot trace_PS False              = undefined
->   | otherwise                            = (r, segs)
+> proposeSegments tf envRaw                = (r, segs)
 >   where
->     fName                                = "proposeSegments"
->     trace_PS                             = unwords [fName, show (tf.tfSecsScored, amps, deltaTs)]
->
 >     r                  :: FEnvelope      =
 >       refineEnvelope envRaw{fTargetT = Just (tf.tfSecsScored, releaseT, releaseT)}
 >
@@ -108,10 +102,9 @@ There is design intent hidden in input envelope values that are too large to mak
 interpret them somehow.
 
 > feSum, feRemaining     :: FEnvelope → Double
-> feSum FEnvelope{ .. }                    
->                                          = fDelayT + fAttackT + fHoldT + fDecayT + fSustainT + releaseT + postT
+> feSum fe                                 = fe.fDelayT + fe.fAttackT + fe.fHoldT + fe.fDecayT + fe.fSustainT + releaseT + postT
 >   where
->     (_, releaseT, postT)                 = fromJust fTargetT
+>     (_, releaseT, postT)                 = fromJust fe.fTargetT
 > feRemaining work                         = targetT - feSum work
 >   where
 >     (targetT, _, _)                      = fromJust work.fTargetT
@@ -126,14 +119,13 @@ interpret them somehow.
 >     fcDAH              :: Bool
 >   , fcDecay            :: Bool} deriving (Eq, Ord, Show)
 > evaluateCase           :: FEnvelope → FCase
-> evaluateCase FEnvelope{ .. } 
->                                          =
+> evaluateCase fe                          =
 >   let
->     (targetT, _, _)                      = fromJust fTargetT
+>     (targetT, _, _)                      = fromJust fe.fTargetT
 >   in
 >     FCase
->       ((fDelayT + fAttackT + fHoldT) >= (9/10) * targetT)
->       (fDecayT >= (7/10) * targetT)
+>       ((fe.fDelayT + fe.fAttackT + fe.fHoldT) >= (9/10) * targetT)
+>       (fe.fDecayT >= (7/10) * targetT)
 >
 > refineEnvelope         :: FEnvelope → FEnvelope
 > refineEnvelope fEnvIn                    = result.fiEnvWork
@@ -177,13 +169,9 @@ interpret them somehow.
 >                        :: FIterate → FIterate
 >
 > faceValue iterIn
->   | traceNot trace_FV False              = undefined
 >   | remaining < minDeltaT                = feContinue iterIn work reduceSustain
 >   | otherwise                            = feFinish iterIn work{fSustainT = remaining + work.fSustainT}
 >   where
->     fName                                = "faceValue"
->     trace_FV                             = unwords[fName, show (remaining, work)]
->
 >     work                                 = iterIn.fiEnvWork
 >     remaining                            = feRemaining work
 >
@@ -236,13 +224,9 @@ interpret them somehow.
 >     feFinish iterIn work{fDelayT = remaining + work.fDelayT}
 >
 > decayTooLong iterIn
->   | traceNot trace_DARTL False            = undefined
 >   | remaining < 0                        = feContinue iterIn work dahTooLong
 >   | otherwise                            = feFinish iterIn work{fDecayT = remaining + work.fDecayT}
 >   where
->     fName                                = "decayTooLong"
->     trace_DARTL                          = unwords[fName, show (remaining, work)]
->
 >     work                                 = iterIn.fiEnvWork{fDecayT = minDeltaT}
 >     remaining                            = feRemaining work
 >
@@ -255,18 +239,10 @@ interpret them somehow.
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe FEnvelope
 > deriveEnvelope mDelay mAttack noon (mHold, mHoldByKey) (mDecay, mDecayByKey)
->                mSustain mTriple
->   | traceNot trace_DE False               = undefined
->   | otherwise                            = if useEnvelopes && doUse mTriple
+>                mSustain mTriple          = if useEnvelopes && doUse mTriple
 >                                              then Just env
 >                                              else Nothing
 >   where
->     fName                                = "deriveEnvelope"
->     trace_DE                             =
->       if useEnvelopes
->         then unwords [fName, if isJust mTriple then "modEnv" else "volEnv", show env]
->         else unwords [fName, "(none)"]
->
 >     dHold              :: Double         = max minDeltaT (fromTimecents' mHold  mHoldByKey  noon.noteOnKey)
 >     dDecay             :: Double         = max minDeltaT (fromTimecents' mDecay mDecayByKey noon.noteOnKey)
 >
@@ -340,14 +316,12 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >       
 > vetEnvelope            :: FEnvelope → Segments → Bool
 > vetEnvelope env segs
->   | traceNot trace_VE False              = undefined
 >   | badAmp || badDeltaT                  = error $ unwords [fName, "negative amp or deltaT", show segs]
 >   | abs (a - b) > 0.01 || abs (b - c) > 0.01
 >                                          = error $ unwords [fName, "doesn't add up", show (a, b, c)]
 >   | otherwise                            = maybeVetAsDiscreteSig env segs
 >   where
 >     fName                                = "vetEnvelope"
->     trace_VE                             = unwords [fName, show (a,b,c)]
 >
 >     (targetT, _, postT)                  = deJust fName env.fTargetT
 >

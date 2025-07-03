@@ -5,7 +5,6 @@
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TypeFamilies #-} 
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -61,9 +60,8 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 > groomMods m8rs                           = Map.elems uniqued
 >   where
 >     uniqued                              = foldl' ufolder Map.empty m8rs
->     ufolder uniquer m8r@Modulator{ .. }  
->                                          =
->       Map.insert (ModKey mrModSrc mrModDest mrAmountSrc) m8r uniquer
+>     ufolder uniquer m8r                  =
+>       Map.insert (ModKey m8r.mrModSrc m8r.mrModDest m8r.mrAmountSrc) m8r uniquer
 >
 > freeOfCycles           :: [Modulator] → Bool
 > freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
@@ -268,22 +266,22 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >           [makeDefaultMod 11 ms3 16 (fromRational reverbAllPercent * 10) defModSrc | reverbAllPercent > 0]
 >
 > evaluateMods           :: ModDestType → Map ModDestType [Modulator] → NoteOn → Double
-> evaluateMods md graph noon@NoteOn{noteOnVel, noteOnKey}
->                                          = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
+> evaluateMods md graph noon               = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
 >   where
 >     evaluateMod        :: Modulator → Double
->     evaluateMod Modulator{ .. }          =
+>     evaluateMod m8r                      =
 >       let
->         getValue ModSrc{msSource, msMapping}
+>         getValue       :: ModSrc → Double
+>         getValue modSrc
 >           | useModulators                =
->               case msSource of
+>               case modSrc.msSource of
 >                 FromNoController         → 1
->                 FromNoteOnVel            → evaluateNoteOn noteOnVel msMapping
->                 FromNoteOnKey            → evaluateNoteOn noteOnKey msMapping
->                 FromLinked               → evaluateMods (ToLink mrModId) graph noon
+>                 FromNoteOnVel            → evaluateNoteOn noon.noteOnVel modSrc.msMapping
+>                 FromNoteOnKey            → evaluateNoteOn noon.noteOnKey modSrc.msMapping
+>                 FromLinked               → evaluateMods (ToLink m8r.mrModId) graph noon
 >           | otherwise                    = 1
 >       in
->         getValue mrModSrc * mrModAmount * getValue mrAmountSrc
+>         getValue m8r.mrModSrc * m8r.mrModAmount * getValue m8r.mrAmountSrc
 >
 > evaluateNoteOn         :: Int → Mapping → Double
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
@@ -418,8 +416,7 @@ Miscellaneous ==================================================================
 >
 > deriveLFO              :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
 > deriveLFO del mfreq toPitch toFilterFc toVolume
->   | traceNot trace_DLFO False            = undefined
->   | otherwise                            =
+>                                          =
 >       if useLFO && anyJust
 >         then Just $ LFO (fromTimecents del)
 >                         (fromAbsoluteCents $ fromMaybe 0 mfreq)
@@ -427,8 +424,6 @@ Miscellaneous ==================================================================
 >         else Nothing
 >   where
 >     anyJust            :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
->     trace_DLFO                           =
->       unwords ["deriveLFO", show (fromTimecents del), show (toPitch, toFilterFc, toVolume)]
 >
 > doLFO                  :: ∀ p . Clock p ⇒ Maybe LFO → Signal p () Double
 > doLFO                                    = maybe (constA 0) makeSF
@@ -491,8 +486,7 @@ Controller Curves ==============================================================
 >                                              else dIn
 >
 > controlBiPolar         :: Mapping → Double → Double
-> controlBiPolar ping@Mapping{ .. } dIn
->                                          = dOut
+> controlBiPolar ping dIn                  = dOut
 >   where
 >     -- bipolar concave/convex:
 >     --   if positive, swap the left half to the opposite
@@ -504,18 +498,18 @@ Controller Curves ==============================================================
 >                                              Convex  → Concave
 >                                              _ → error $ unwords ["swapCont"]
 >     (leftC, rightC)    :: (Continuity, Continuity)
->                                          = if msContinuity == Concave || msContinuity == Convex
->                                              then if msMax2Min
->                                                     then (msContinuity, swapCont msContinuity)
->                                                     else (swapCont msContinuity, msContinuity)
->                                              else (msContinuity, msContinuity)
+>                                          = if ping.msContinuity == Concave || ping.msContinuity == Convex
+>                                              then if ping.msMax2Min
+>                                                     then (ping.msContinuity, swapCont ping.msContinuity)
+>                                                     else (swapCont ping.msContinuity, ping.msContinuity)
+>                                              else (ping.msContinuity, ping.msContinuity)
 >     pingL                                = ping{msBiPolar = False, msContinuity = leftC}
 >     pingR                                = ping{msBiPolar = False, msContinuity = rightC}
->     (addL, addR)                         = if msMax2Min
+>     (addL, addR)                         = if ping.msMax2Min
 >                                              then (0, -1)
 >                                              else (-1, 0)
 >     dOut
->       | msContinuity == Switch           = (controlUniPolar ping dIn * 2) - 1
+>       | ping.msContinuity == Switch      = (controlUniPolar ping dIn * 2) - 1
 >       | dIn < 0.5                        = controlDenormal pingL dIn (0.0, 0.5) + addL
 >       | otherwise                        = controlDenormal pingR dIn (0.5, 1.0) + addR
 >
@@ -571,9 +565,7 @@ Type declarations ==============================================================
 >     k2                                   = mag * mag
 >
 > buildSystemM2N2        :: ([Complex Double], [Complex Double]) → CoeffsM2N2
-> buildSystemM2N2 (zeros, poles)
->   | traceNot trace_BSM2N2 False          = undefined
->   | otherwise                            =
+> buildSystemM2N2 (zeros, poles)           =
 >   let
 >     (z0, p0)                             =
 >       profess
@@ -585,9 +577,6 @@ Type declarations ==============================================================
 >     b0                               = (1 + a1 + a2) / 4
 >   in
 >     CoeffsM2N2 b0 b1 b2 a1 a2
->   where
->     trace_BSM2N2                         = unwords ["buildSystemM2N2\n", show zeros, "\n", show poles]
->
 
 r is the resonance radius, w0 is the angle of the poles and b0 is the gain factor
 
@@ -632,11 +621,11 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , coFilterFc         :: Double
 >   , coVolume           :: Double} deriving (Eq, Show)
 > coAccess               :: ModDestType → ModTriple → Double
-> coAccess md ModTriple{ .. }              =
+> coAccess md mTriple                      =
 >   case md of
->     ToPitch            → coPitch
->     ToFilterFc         → coFilterFc
->     ToVolume           → coVolume
+>     ToPitch            → mTriple.coPitch
+>     ToFilterFc         → mTriple.coFilterFc
+>     ToVolume           → mTriple.coVolume
 >     _                  → error $ unwords["coAccess: ModTriple only deals with ToPitch, ToFilterFc, and ToVolume"]                         
 > defModTriple           :: ModTriple
 > defModTriple                             = ModTriple 0 0 0
@@ -800,32 +789,30 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >         , "width",                       show width]
 >   
 > eatFreeVerb            :: ∀ p . Clock p ⇒ FreeVerb → Signal p Double Double
-> eatFreeVerb FreeVerb{ .. }           =
+> eatFreeVerb fv                           =
 >     proc sinL → do
->       cdL0 ← comb (iiCombDelayL ! 0) (iiCombLPL ! 0) ⤙ sinL
->       cdL1 ← comb (iiCombDelayL ! 1) (iiCombLPL ! 1) ⤙ sinL
->       cdL2 ← comb (iiCombDelayL ! 2) (iiCombLPL ! 2) ⤙ sinL
->       cdL3 ← comb (iiCombDelayL ! 3) (iiCombLPL ! 3) ⤙ sinL
->       cdL4 ← comb (iiCombDelayL ! 4) (iiCombLPL ! 4) ⤙ sinL
->       cdL5 ← comb (iiCombDelayL ! 5) (iiCombLPL ! 5) ⤙ sinL
->       cdL6 ← comb (iiCombDelayL ! 6) (iiCombLPL ! 6) ⤙ sinL
->       cdL7 ← comb (iiCombDelayL ! 7) (iiCombLPL ! 7) ⤙ sinL
+>       cdL0 ← comb (fv.iiCombDelayL ! 0) (fv.iiCombLPL ! 0) ⤙ sinL
+>       cdL1 ← comb (fv.iiCombDelayL ! 1) (fv.iiCombLPL ! 1) ⤙ sinL
+>       cdL2 ← comb (fv.iiCombDelayL ! 2) (fv.iiCombLPL ! 2) ⤙ sinL
+>       cdL3 ← comb (fv.iiCombDelayL ! 3) (fv.iiCombLPL ! 3) ⤙ sinL
+>       cdL4 ← comb (fv.iiCombDelayL ! 4) (fv.iiCombLPL ! 4) ⤙ sinL
+>       cdL5 ← comb (fv.iiCombDelayL ! 5) (fv.iiCombLPL ! 5) ⤙ sinL
+>       cdL6 ← comb (fv.iiCombDelayL ! 6) (fv.iiCombLPL ! 6) ⤙ sinL
+>       cdL7 ← comb (fv.iiCombDelayL ! 7) (fv.iiCombLPL ! 7) ⤙ sinL
 >
 >       let sumL = cdL0+cdL1+cdL2+cdL3+cdL4+cdL5+cdL6+cdL7
 >
 >       let fp0L = sumL/8
 >
->       fp1L ← allpass (iiAllPassDelayL ! 0) ⤙ fp0L
->       fp2L ← allpass (iiAllPassDelayL ! 1) ⤙ fp1L
->       fp3L ← allpass (iiAllPassDelayL ! 2) ⤙ fp2L
->       fp4L ← allpass (iiAllPassDelayL ! 3) ⤙ fp3L
+>       fp1L ← allpass (fv.iiAllPassDelayL ! 0) ⤙ fp0L
+>       fp2L ← allpass (fv.iiAllPassDelayL ! 1) ⤙ fp1L
+>       fp3L ← allpass (fv.iiAllPassDelayL ! 2) ⤙ fp2L
+>       fp4L ← allpass (fv.iiAllPassDelayL ! 3) ⤙ fp3L
 >             
 >       outA ⤙ fp4L
 >
 > comb                   :: ∀ p . Clock p ⇒ Word64 → FilterData → Signal p Double Double
-> comb maxDel stkFilter
->   | traceNever trace_C False             = undefined
->   | otherwise                            =
+> comb maxDel stkFilter                    =
 >   proc sIn → do
 >     rec
 >       sOut ← delayLine secs ⤙ sIn + sOut * jGain stkFilter
@@ -833,21 +820,15 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   where
 >     sr                                   = rate (undefined :: p)
 >     secs               :: Double         = fromIntegral maxDel/sr
->
->     trace_C                              = unwords ["comb delay (samples)=", show maxDel, "filter=", show stkFilter]
 > 
 > allpass                :: ∀ p . Clock p ⇒ Word64 → Signal p Double Double
-> allpass maxDel
->   | traceNever trace_AP False            = undefined
->   | otherwise                            =
+> allpass maxDel                           =
 >   proc sIn → do
 >     sOut ← delayLine secs ⤙ sIn
 >     outA ⤙ sOut
 >   where
 >     sr                                   = rate (undefined :: p)
 >     secs               :: Double         = fromIntegral maxDel/sr
->
->     trace_AP                             = unwords ["allpass delay (samples)=", show maxDel]
 > 
 > accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
 > accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)

@@ -4,7 +4,6 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 EnvelopesTest

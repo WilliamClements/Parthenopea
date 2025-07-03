@@ -3,7 +3,6 @@
 >
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 

@@ -3,7 +3,6 @@
 >
 > {-# LANGUAGE NumericUnderscores  #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -22,7 +21,6 @@ September 12, 2024
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ord ( Down(Down) )
-> import Debug.Trace ( traceIO )
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
@@ -144,8 +142,7 @@ use "matching as" cache ========================================================
 > zoneConforms           :: (PreZone, SFZone) → Bool
 > zoneConforms (pz, zone)                  = not $ or unsupported
 >   where
->     F.Shdr{end, start, endLoop, startLoop}
->                                          = effPZShdr pz
+>     shdr                                 = effPZShdr pz
 >
 >     unsupported        :: [Bool]
 >     unsupported                          =
@@ -162,8 +159,8 @@ use "matching as" cache ========================================================
 >         , case zone.zExclusiveClass of
 >             Nothing                      → False
 >             Just n                       → n /= 0
->         , end < start
->         , endLoop < startLoop
+>         , shdr.end < shdr.start
+>         , shdr.endLoop < shdr.startLoop
 >       ]
 
 Scoring stuff =========================================================================================================
@@ -217,8 +214,8 @@ Scoring stuff ==================================================================
 >   , zBoot              :: SFBoot
 >   , zWinningRecord     :: WinningRecord}
 > instance Show SFRuntime where
->   show (SFRuntime{ .. })                  =
->     unwords ["SFRuntime", show zBoot, show (length zWinningRecord.pWinningI, length zWinningRecord.pWinningP)]
+>   show runt                 =
+>     unwords ["SFRuntime", show runt.zBoot, show (length runt.zWinningRecord.pWinningI, length runt.zWinningRecord.pWinningP)]
 >
 > type AgainstKindResult                   = Double
 > 
@@ -260,20 +257,16 @@ tournament starts here =========================================================
 >                           → ([InstrumentName], [PercussionSound]) 
 >                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
-> decideWinners SFRuntime{ .. } rost matches
->                                          = do
->   traceIO $ unwords [fName_, show (length zPerInstCache)]
+> decideWinners runt rost matches          = do
 >   return wiExec
 >
 >   where
 >     fName_                               = "decideWinners"
 >
->     SFBoot{zPreInstCache, zPerInstCache} = zBoot
->
 >     wiExec             :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiExec                               = (wI', wP')
 >       where
->         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) zPerInstCache         
+>         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) runt.zBoot.zPerInstCache         
 >         wI'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wI
 >         wP'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wP
 >
@@ -368,9 +361,9 @@ tournament starts here =========================================================
 >           unwords [fName, iName, fromMaybe "" mnameZ, show kind]
 >
 >         pergm_                           = pergm{pgkwBag = Nothing}
->         preI                             = zPreInstCache Map.! pergm_
+>         preI                             = runt.zBoot.zPreInstCache Map.! pergm_
 >         iName                            = preI.piChanges.cnName
->         perI                             = zPerInstCache Map.! pergm_
+>         perI                             = runt.zBoot.zPerInstCache Map.! pergm_
 >
 >         scope_, scope  :: [(PreZone, SFZone)]
 >         scope_                           =
@@ -474,10 +467,10 @@ emit standard output text detailing what choices we made for rendering GM items 
 >       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
 >
 > showPerGM              :: PerGMScored → [Emission]
-> showPerGM PerGMScored{..}                = [emitShowL pgkwFile 4] ++ [ToFieldL szI 22] ++ showmZ
+> showPerGM scored                         =
+>   [emitShowL scored.pPerGMKey.pgkwFile 4] ++ [ToFieldL scored.szI 22] ++ showmZ
 >   where
->     PerGMKey{pgkwFile}                   = pPerGMKey
->     showmZ                               = maybe [] showZ mszP
+>     showmZ                               = maybe [] showZ scored.mszP
 >     showZ name                           = [Unblocked name]
 >
 > dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ (a, [PerGMScored]) → [Emission]
@@ -490,19 +483,17 @@ emit standard output text detailing what choices we made for rendering GM items 
 >     epilog                               = emitLine []
 >
 > dumpContestant         :: PerGMScored → [Emission]
-> dumpContestant PerGMScored{ .. }         = ex
+> dumpContestant scored                    = ex
 >   where
->     ArtifactGrade{pEmpiricals, pScore}   = pArtifactGrade
->     PerGMKey{pgkwFile}                   = pPerGMKey
->     showAkr            :: Double         = roundBy 10 pAgainstKindResult
->     (showEmp, n)                         = showEmpiricals pEmpiricals
+>     showAkr            :: Double         = roundBy 10 scored.pAgainstKindResult
+>     (showEmp, n)                         = showEmpiricals scored.pArtifactGrade.pEmpiricals
 > 
->     ex = emitLine [ Blanks 4, emitShowL      pgkwFile                  8
->                             , ToFieldR       szI                      22
->                   , Blanks 4, ToFieldR      (fromMaybe "" mszP)       22
->                   , Blanks 4, emitShowL      pScore                   15
->                             , ToFieldL       showEmp                   n
->                             , emitShowR      showAkr                   8]
+>     ex = emitLine [ Blanks 4, emitShowL      scored.pPerGMKey.pgkwFile       8
+>                             , ToFieldR       scored.szI                      22
+>                   , Blanks 4, ToFieldR      (fromMaybe "" scored.mszP)       22
+>                   , Blanks 4, emitShowL      scored.pArtifactGrade.pScore                   15
+>                             , ToFieldL       showEmp                         n
+>                             , emitShowR      showAkr                         8]
 
 Utilities =============================================================================================================
 

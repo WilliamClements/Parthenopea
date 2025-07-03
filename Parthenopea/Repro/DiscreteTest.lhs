@@ -24,7 +24,6 @@ June 22, 2024
 > import Euterpea.IO.Audio.IO ( outFile )
 > import Euterpea.IO.Audio.Render ( Instr )
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock, Mono, AudRate )
-> import Parthenopea.Debug(notracer, traceNot)
 > import Parthenopea.Music.Siren ( maxSample, qMidiSize128 )
 > import Parthenopea.Repro.Chart ( Section(Section), chartPoints )
 > import Parthenopea.Repro.Discrete
@@ -208,26 +207,21 @@ Feed chart =====================================================================
 >     groutsI                              = [(fromIntegral i, - (vecI VU.! i)) | i ← freakSpan]
 >     
 > createConvoTest        :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
-> createConvoTest waveTable lp@Lowpass{ .. } freq
->   | traceNot trace_CCT False             = undefined
->   | otherwise                            = applyConvolutionMono lp filterTestDur waveSF
+> createConvoTest waveTable lp freq        = applyConvolutionMono lp filterTestDur waveSF
 >   where
->     trace_CCT                            = unwords ["createConvoTest", show lowpassKs]
->
 >     waveSF                               =
 >       proc () → do
 >         a1 ← osc waveTable 0 ⤙ freq
 >         outA ⤙ a1
 >
 > createFilterTest       :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
-> createFilterTest waveTable lp@Lowpass{ .. } freq
->                                          =
+> createFilterTest waveTable lp freq       =
 >   proc () → do
 >     a1 ← osc waveTable 0                 ⤙ freq
 >     a2 ← filtersf                        ⤙ (a1, fc)
 >     outA                                 ⤙ a2 * 100 / fromIntegral qMidiSize128
 >   where
->     fc                                   = fromAbsoluteCents lowpassKs.ksFc                     
+>     fc                                   = fromAbsoluteCents lp.lowpassKs.ksFc                     
 >
 >     filtersf                             = procFilter lp
 >
@@ -241,9 +235,9 @@ Feed chart =====================================================================
 >   let f = apToHz ap
 >       v = fromIntegral vol / 100
 >   in proc () → do
->        a1 <- osc sineTable 0 <<< env1 -< () 
->        a2 <- sf -< (a1,f)
->        outA -< a2*v
+>        a1 ← osc sineTable 0 <<< env1 -< () 
+>        a2 ← sf ⤙ (a1,f)
+>        outA ⤙ a2*v
 >
 > tsvf                   :: IO ()
 > tsvf                                     = outFile "low.wav" 10 $ sfTest1 (procSVF lp) 10 72 80 []
@@ -317,10 +311,9 @@ Feed chart =====================================================================
 >       where
 >         xformDecline   :: Double → Double
 >         xformDecline                     =
->             notracer "fromCentibels"     . fromCentibels
->           . notracer "ddLinear2"         . ddLinear2 (-dropoffRate) 0 -- hcent
->           . notracer "delta"             . flip (-) (logBase 2 freakStart)
->           . notracer "logBase 2"         . logBase 2
->           . notracer "xIn"
+>             fromCentibels
+>           . ddLinear2 (-dropoffRate) 0 -- hcent
+>           . flip (-) (logBase 2 freakStart)
+>           . logBase 2
 
 The End

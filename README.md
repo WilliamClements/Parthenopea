@@ -31,7 +31,7 @@ The Parthenopea synth is written using Signal Functions ala Euterpea.
 In Euterpea, neither *filterLowPass* nor *filterLowPassBW* have resonance as a part of input/response, so I developed a Signal Function that works as a State Variable filter. See https://karmafx.net/docs/karmafx_digitalfilters.pdf and https://ccrma.stanford.edu/~jos/svf/svf.pdf .
 
 ## Envelopes
-To induce note articulation effects, the SoundFont file Authors specify a set of sound envelope parameter values, . (See https://www.synthfont.com/SFSPEC21.PDF).  Difficulties arise from ambiguities in the spec and non-conformance in the artifacts (files). The actual amplitude scaling is accomplished via Euterpea's *envLineSeg* Signal Function. For the interpretation of parameters, we endeavor to:
+To induce note articulation effects, the SoundFont file Authors specify a set of sound envelope parameter values. (See https://www.synthfont.com/SFSPEC21.PDF).  Difficulties arise from ambiguities in the spec and non-conformance in the artifacts (files). The actual amplitude scaling is accomplished via Euterpea's *envLineSeg* Signal Function. For the interpretation of parameters, we endeavor to:
 1. produce a reasonable note
 2. honor Author design intent
 

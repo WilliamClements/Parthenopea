@@ -4,7 +4,6 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -132,13 +131,12 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 > eutModulate            :: ∀ p . Clock p ⇒ TimeFrame → Modulation → NoteOn → Signal p Double Double
 > eutModulate timeFrame m8nL noon          =
 >   proc a1L → do
->     modSigL                            ← eutModSignals timeFrame m8nL ToFilterFc ⤙ ()
->     a2L   ← addResonance noon m8nL     ⤙ (a1L, modSigL)
->     outA                               ⤙ a2L
+>     modSigL                              ← eutModSignals timeFrame m8nL ToFilterFc ⤙ ()
+>     a2L   ← addResonance noon m8nL       ⤙ (a1L, modSigL)
+>     outA                                 ⤙ a2L
 >
 > eutDriver              :: ∀ p . Clock p ⇒ TimeFrame → Recon → Double → Signal p () Double
-> eutDriver timeFrame reconL@Recon{ .. } idelta
->                                          = if timeFrame.tfLooping
+> eutDriver timeFrame reconL idelta        = if timeFrame.tfLooping
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
 >   where
@@ -148,8 +146,9 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     calcNotLooping next                  = if next > 1      then frac next     else next
 >
 >     procDriver calcPhase                 = proc () → do
->       modSig                             ← eutModSignals timeFrame rM8n ToPitch ⤙ ()
->       let delta                          = idelta * evaluateModSignals "procDriver" rM8n ToPitch modSig rNoteOn
+>       modSig                             ← eutModSignals timeFrame reconL.rM8n ToPitch ⤙ ()
+>       let delta                          =
+>             idelta * evaluateModSignals "procDriver" reconL.rM8n ToPitch modSig reconL.rNoteOn
 >       rec
 >         let phase                        = calcPhase next
 >         next           ← delay 0         ⤙ phase + delta                           
@@ -159,27 +158,26 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                                          = normalizeLooping reconL
 >
 > normalizeLooping       :: Recon → (Double, Double)
-> normalizeLooping Recon{ .. }             = ((loopst - fullst) / denom, (loopen - fullst) / denom)
+> normalizeLooping recon                   = ((loopst - fullst) / denom, (loopen - fullst) / denom)
 >   where
->     (fullst, fullen)                     = (fromIntegral rStart, fromIntegral rEnd)
->     (loopst, loopen)                     = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
+>     (fullst, fullen)                     = (fromIntegral recon.rStart, fromIntegral recon.rEnd)
+>     (loopst, loopen)                     = (fromIntegral recon.rLoopStart, fromIntegral recon.rLoopEnd)
 >     denom              :: Double         = fullen - fullst
 >
 > eutModSignals          :: ∀ p. Clock p ⇒ TimeFrame → Modulation → ModDestType → Signal p () ModSignals
-> eutModSignals timeFrame Modulation{ .. } md
->                                          =
+> eutModSignals timeFrame m8n md           =
 >   proc _ → do
->     aL1 ← doEnvelope  timeFrame kModEnvL             ⤙ ()
->     aL2 ← doLFO       kModLfoL                       ⤙ ()
->     aL3 ← doLFO       kVibLfoL                       ⤙ ()
->     outA                                             ⤙ ModSignals aL1 aL2 aL3
+>     aL1 ← doEnvelope  timeFrame kModEnvL ⤙ ()
+>     aL2 ← doLFO       kModLfoL           ⤙ ()
+>     aL3 ← doLFO       kVibLfoL           ⤙ ()
+>     outA                                 ⤙ ModSignals aL1 aL2 aL3
 >   where
 >     (kModEnvL, kModLfoL, kVibLfoL)       = doModSigMaybes 
 >
 >     doModSigMaybes                       = case md of
->       ToPitch                            → ( mModEnv, mModLfo, mVibLfo)
->       ToFilterFc                         → ( mModEnv, mModLfo, Nothing)
->       ToVolume                           → ( Nothing, mModLfo, Nothing)
+>       ToPitch                            → ( m8n.mModEnv, m8n.mModLfo, m8n.mVibLfo)
+>       ToFilterFc                         → ( m8n.mModEnv, m8n.mModLfo, Nothing)
+>       ToVolume                           → ( Nothing,     m8n.mModLfo, Nothing)
 >       _                                  →
 >         error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in doModSigMaybes, not", show md]
 >
@@ -190,22 +188,19 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p Double Double
-> eutPumpMono reconL noon@NoteOn{noteOnVel} _ s16 ms8
->                                          =
+> eutPumpMono reconL noon _ s16 ms8        =
 >   proc pos → do
->     let pos'           :: Double         = fromIntegral (rEnd - rStart) * pos
+>     let pos'           :: Double         = fromIntegral (reconL.rEnd - reconL.rStart) * pos
 >     let ix             :: Int            = truncate pos'
 >     let offset         :: Double         = pos' - fromIntegral ix
 >
->     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral rStart + ix)
->     outA                                 ⤙ notracer "a1L" a1L * ampL
+>     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral reconL.rStart + ix)
+>     outA                                 ⤙ a1L * ampL
 >
 >   where
->     Recon{ .. }                          = reconL
->     Modulation{ .. }                     = rM8n
 >     cAttenL            :: Double         =
->       fromCentibels (rAttenuation + evaluateMods ToInitAtten mModsMap noon)
->     ampL                                 = fromIntegral noteOnVel / 100 / cAttenL
+>       fromCentibels (reconL.rAttenuation + evaluateMods ToInitAtten reconL.rM8n.mModsMap noon)
+>     ampL                                 = fromIntegral noon.noteOnVel / 100 / cAttenL
 >
 > eutPumpStereo         :: ∀ p . Clock p ⇒
 >                           (Recon, Recon)
@@ -221,8 +216,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     let ix             :: Int            = truncate pos' -- WOX should be round?
 >     let offset         :: Double         = pos' - fromIntegral ix
 >
->     let a1L                              = notracer "a1L" $ samplePointInterp s16 ms8 offset (fromIntegral stL + ix) 
->     let a1R                              = notracer "a1R" $ samplePointInterp s16 ms8 offset (fromIntegral stR + ix)
+>     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral stL + ix) 
+>     let a1R                              = samplePointInterp s16 ms8 offset (fromIntegral stR + ix)
 >     outA ⤙ (a1L * ampL, a1R * ampR)
 >
 >   where
@@ -238,27 +233,27 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     ampR                                 = fromIntegral noteOnVel / 100 / cAttenR
 >
 > eutAmplify             :: ∀ p . Clock p ⇒ TimeFrame → Recon → NoteOn → Signal p Double Double
-> eutAmplify timeFrame Recon{ .. } noon    =
+> eutAmplify timeFrame recon noon          =
 >   proc a1L → do
->     aenvL                                ← doEnvelope timeFrame rVolEnv ⤙ ()
->     modSigL                              ← eutModSignals timeFrame rM8n ToVolume ⤙ ()
+>     aenvL                                ← doEnvelope timeFrame recon.rVolEnv ⤙ ()
+>     modSigL                              ← eutModSignals timeFrame recon.rM8n ToVolume ⤙ ()
 >     let a2L                              =
->           notracer "a1" a1L * notracer "aenv" aenvL * evaluateModSignals "eutAmplify" rM8n ToVolume modSigL noon
+>           a1L * aenvL * evaluateModSignals "eutAmplify" recon.rM8n ToVolume modSigL noon
 >     outA ⤙ a2L
 
 Effects ===============================================================================================================
 
 > deriveEffects          :: Modulation → NoteOn → Maybe Int → Maybe Int → Maybe Int → Effects
-> deriveEffects Modulation{ .. } noon mChorus mReverb mPan
+> deriveEffects m8n noon mChorus mReverb mPan
 >                                          = Effects (dChorus / 1000) (dReverb / 1000) (dPan / 1000)
 >   where
 >     dChorus            :: Double         =
 >       if useChorus
->         then maybe 0 fromIntegral mChorus + evaluateMods ToChorus mModsMap noon
+>         then maybe 0 fromIntegral mChorus + evaluateMods ToChorus m8n.mModsMap noon
 >         else 0
 >     dReverb            :: Double         =
 >       if useReverb
->         then maybe 0 fromIntegral mReverb + evaluateMods ToReverb mModsMap noon
+>         then maybe 0 fromIntegral mReverb + evaluateMods ToReverb m8n.mModsMap noon
 >         else 0
 >     dPan               :: Double         =
 >       if usePan
@@ -290,8 +285,7 @@ Effects ========================================================================
 >
 > eutEffectsStereo       :: ∀ p . Clock p ⇒ (Recon, Recon) → Signal p (Double, Double) (Double, Double)
 > eutEffectsStereo (Recon{rEffects = effL}, Recon{rEffects = effR})
->   | traceNever trace_eE False = undefined
->   | otherwise =
+>                                          =
 >   proc (aL, aR) → do
 >     chL ← eutChorus chorusRate chorusDepth cFactorL      ⤙ aL
 >     chR ← eutChorus chorusRate chorusDepth cFactorR      ⤙ aR
@@ -321,8 +315,6 @@ Effects ========================================================================
 >   where
 >     Effects{efChorus = cFactorL, efReverb = rFactorL, efPan = pFactorL} = effL
 >     Effects{efChorus = cFactorR, efReverb = rFactorR, efPan = pFactorR} = effR
->
->     trace_eE = unwords ["eutEffectsStereo", show ((cFactorL, cFactorR), (rFactorL, rFactorR))]
 > 
 > eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Signal p Double Double
 > eutChorus crate_ cdepth_ cFactor         =
@@ -343,7 +335,7 @@ Effects ========================================================================
 >       z2 ← safeDelayLine1 0.025 0.019    ⤙ sIn
 >       z3 ← safeDelayLine1 0.029 0.023    ⤙ sIn
 >       let sOut                           = coeff1 * z1 + coeff2 * z2 + coeff3 * z3
->       outA                               ⤙ chorus sIn z1 z2 z3 sOut
+>       outA                               ⤙ sOut
 >
 >     coeff1 = 1/3
 >     coeff2 = 1/3
@@ -361,13 +353,6 @@ Effects ========================================================================
 >            sOut ← delayLine1 maxDel      ⤙ (sIn, del + cdepth * cphase)
 >            outA                          ⤙ sOut)
 >
->     chorus             :: Double → Double → Double → Double → Double → Double
->     chorus tIn y1 y2 y3 tOut
->       | traceNever trace_C False         = undefined
->       | otherwise                        = tOut
->       where
->         trace_C                          = unwords ["chorus", show (tIn, y1, y2, y3, tOut)]
->
 > eutReverb              :: ∀ p . Clock p ⇒ Double → Signal p Double Double
 > eutReverb rFactorL                       =
 >   if rFactorL > 0
@@ -382,9 +367,7 @@ Effects ========================================================================
 >     makeSF                               = eatFreeVerb $ makeFreeVerb roomSize damp width
 >   
 > doPan                  :: (Double, Double) → (Double, Double) → (Double, Double)
-> doPan (azimuthL, azimuthR) (sinL, sinR)
->   | traceNever trace_DP False            = undefined
->   | otherwise                            = ((ampLL + ampRL)/2, (ampLR + ampRR)/2)
+> doPan (azimuthL, azimuthR) (sinL, sinR)  = ((ampLL + ampRL)/2, (ampLR + ampRR)/2)
 >   where
 >     xL = cos ((azimuthL + 0.5) * pi / 2)
 >     xR = cos ((azimuthR + 0.5) * pi / 2)
@@ -392,8 +375,6 @@ Effects ========================================================================
 >     ampLR = sinL * (1 - xL)
 >     ampRL = sinR * xR
 >     ampRR = sinR * (1 - xR)
->
->     trace_DP = unwords ["doPan", show (ampLL, ampLR, ampRL, ampRR)]
 >
 > dcBlock                :: ∀ p . Clock p ⇒ Double → Signal p Double Double
 > dcBlock a = proc xn → do

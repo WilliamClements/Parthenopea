@@ -4,7 +4,6 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE NumericUnderscores  #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -413,8 +412,7 @@ also
 >
 > findBetterInstrument   :: InstrumentName → (AbsPitch, AbsPitch) → InstrumentName
 > findBetterInstrument than (playedLo, playedHi)
->   | traceNever trace_FBI False           = undefined
->   | otherwise                            =
+>                                          =
 >     if null rangedInsts
 >       then than
 >       else snd $ minimumBy (comparing fst) rangedInsts
@@ -427,17 +425,13 @@ also
 >                                            >>= instrumentRange >>= uncurry (fitsIn cand)
 >     
 >     fitsIn             :: InstrumentName → AbsPitch → AbsPitch → Maybe (Int, InstrumentName)
->     fitsIn cand rangeLo rangeHi
->       | traceNever trace_FI False        = undefined
->       | otherwise                        =
+>     fitsIn cand rangeLo rangeHi          =
+>       let
+>         rng                              = (rangeLo, rangeHi)
+>       in
 >         if inRange rng playedLo && inRange rng playedHi 
 >           then Just (snd rng - fst rng, cand)
 >           else Nothing
->       where
->         rng                              = (rangeLo, rangeHi)
->         trace_FI                         = unwords ["fitsIn", show rng, show playedLo, show playedHi]
->
->     trace_FBI                            = unwords ["findBetterInstrument", show than, show rangedInsts]
 >
 > selectRanged           :: [InstrumentName] → Array Int (InstrumentName, (AbsPitch, AbsPitch))
 > selectRanged is                          = listArray (1, length qual) qual
@@ -498,17 +492,13 @@ instrument range checking ======================================================
 > makeNonPitched                           = BandPart Percussion 0
 >
 > replace                :: BandPart → DynMap → BandPart
-> replace bp@BandPart{ .. } dynMap
->   | traceNever trace_R False             = undefined
->   | otherwise                            = bp{bpInstrument = ninst}
+> replace bp dynMap                        = bp{bpInstrument = ninst}
 >   where
->     minst                                = Map.lookup bpInstrument dynMap
+>     minst                                = Map.lookup bp.bpInstrument dynMap
 >     ninst                                =
->       if not (nonPitchedInstrument bpInstrument) && isJust minst
+>       if not (nonPitchedInstrument bp.bpInstrument) && isJust minst
 >         then fromJust minst
->         else bpInstrument
->
->     trace_R                              = unwords ["replace", show dynMap, show minst, show ninst]
+>         else bp.bpInstrument
 >
 > makeDynMap             :: Shredding → DynMap
 > makeDynMap ding                          =
@@ -517,11 +507,12 @@ instrument range checking ======================================================
 >     else Map.empty
 >   where
 >     maker              :: DynMap → (GMKind, Shred) → DynMap
->     maker i2i (kind, Shred{ .. })        =
+>     maker i2i (kind, shred)        =
 >       let
 >         inameL, inameR :: InstrumentName
 >         inameL                           = fromLeft (error "makeDynMap problem: no instrument") kind
->         inameR                           = findBetterInstrument inameL (ePitch shLowNote, ePitch shHighNote)
+>         inameR                           =
+>           findBetterInstrument inameL (ePitch shred.shLowNote, ePitch shred.shHighNote)
 >       in
 >         if isLeft kind && inameL /= inameR
 >           then Map.insert inameL inameR i2i
@@ -616,13 +607,13 @@ examine song for instrument and percussion usage ===============================
 >           s1.shCount + s2.shCount}
 >
 > critiqueShred          :: (GMKind, Shred) → [(InstrumentName, [String])]
-> critiqueShred (kind, Shred{ .. })        =
+> critiqueShred (kind, shred)            =
 >   let
 >     (instr, rng)                       =
 >       case kind of
 >         Left iname                       → (iname, fromMaybe wideOpen (instrumentRange iname))
 >         _                                → (Percussion, wideOpen)
->   in critiqueNote instr rng shLowNote ++ critiqueNote instr rng shHighNote
+>   in critiqueNote instr rng shred.shLowNote ++ critiqueNote instr rng shred.shHighNote
 > 
 > critiqueNote           :: InstrumentName → (AbsPitch, AbsPitch) → MEvent → [(InstrumentName, [String])]
 > critiqueNote name rng mev              =
@@ -665,7 +656,7 @@ examine song for instrument and percussion usage ===============================
 >   mapM_ (uncurry printShred) (Map.assocs shRanges)
 >   
 > printShred             :: GMKind → Shred → IO ()
-> printShred kind Shred{ .. }              = do
+> printShred kind shred                    = do
 >   putStrLn showGivenRange
 >   putStrLn showLowHighNotes
 >
@@ -674,7 +665,7 @@ examine song for instrument and percussion usage ===============================
 >     case kind of
 >       Left iname                         → instrumentRange iname
 >       _                                  → Nothing
->   showGivenRange                         = showKind ++ "(" ++ show shCount ++ ")" ++ " = " ++ showAvail
+>   showGivenRange                         = showKind ++ "(" ++ show shred.shCount ++ ")" ++ " = " ++ showAvail
 >     where
 >       showAvail                          = maybe "" (\r → show (fst r) ++ " .. " ++ show (snd r)) mrange
 >   showKind                               =
@@ -683,8 +674,8 @@ examine song for instrument and percussion usage ===============================
 >       Right psound                       → show psound
 >   showLowHighNotes                       =
 >     case kind of
->       Left _                             → showShred shLowNote ++ "\n" ++ showShred shHighNote ++ "\n" 
->       _                                  → showShred shLowNote ++ "\n" 
+>       Left _                             → showShred shred.shLowNote ++ "\n" ++ showShred shred.shHighNote ++ "\n" 
+>       _                                  → showShred shred.shLowNote ++ "\n" 
 >   showShred mev                          =
 >     case kind of
 >       Left _                             → show v

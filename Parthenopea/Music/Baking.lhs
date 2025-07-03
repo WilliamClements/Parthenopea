@@ -2,7 +2,6 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -48,9 +47,9 @@ The progress of the algorithm is expressed in above pair.
 > measureBakes bakes                       = profess
 >                                              (checkJobOk bm && checkMeasureOk bm)
 >                                              "measureBakes checkJobOk"
->                                              sHistogram
+>                                              bm.sHistogram
 >   where
->     (bm@BakingMetrics{ .. }, _)          = buildChannels bakes
+>     (bm, _)                              = buildChannels bakes
 >
 > sampleBakes            :: [Bake] → Array Int Int
 > sampleBakes bakes                        = scoreOnsets bakingBins (map bOnset bakes)
@@ -131,15 +130,14 @@ The progress of the algorithm is expressed in above pair.
 >     skipSection urn (bm, ms)             = (skipMetrics bm (bOnset urn), ms)
 >
 >     acceptSection      :: Bake → Baking → Baking
->     acceptSection urn@Bake{ .. } (bm, ms)
+>     acceptSection urn (bm, ms)
 >                                          = (bm', ms')
 >       where
->         chan                             = bIx `mod` numChannels
->         inst                             = fst bWch
->         rng                              = snd bWch
+>         chan                             = urn.bIx `mod` numChannels
+>         inst                             = fst urn.bWch
+>         rng                              = snd urn.bWch
 >
 >         durSoFar       :: Double
->         newDur         :: Double
 >         ss             :: SectionSpec
 >         newm           :: Music (Pitch, [NoteAttribute])
 >
@@ -147,12 +145,11 @@ The progress of the algorithm is expressed in above pair.
 >         durSoFar                         = fromRational $ dur (ms ! chan)
 >         ss                               = calibrateSection durSoFar urn
 >         newm                             =
->           generateSection bSnd bVol ss inst rng bXpose bSweep
+>           generateSection urn.bSnd urn.bVol ss inst rng urn.bXpose urn.bSweep
 >         ms'                              = appendSection ms chan newm
->         newDur                           = fromRational $ dur (ms' ! chan)
 >
 >         -- statskeeping
->         bm'                              = acceptMetrics bm durSoFar newDur ss bOnset
+>         bm'                              = acceptMetrics bm ss urn.bOnset
 >                   
 >     appendSection      :: Array Int (Music (Pitch, [NoteAttribute]))
 >                           → Int
@@ -161,19 +158,18 @@ The progress of the algorithm is expressed in above pair.
 >     appendSection ms chan newm           = ms // [(chan, ms!chan :+: newm)]
 >
 >     calibrateSection   :: Double → Bake → SectionSpec
->     calibrateSection durSoFar Bake{ .. }
->                                          = ((restDur, restTempo), (fillDur, fillTempo))
+>     calibrateSection durSoFar urn        = ((restDur, restTempo), (fillDur, fillTempo))
 >       where
 >         restDur, restTempo, fillDur, fillTempo
 >                        :: Double
 >
 >         -- use rest to pass the time until our onset
->         restDur                          = bOnset - durSoFar
+>         restDur                          = urn.bOnset - durSoFar
 >         restTempo                        = 1.0
 >
 >         -- meat part of the section
 >         fillDur                          = 1.0
->         fillTempo                        = bTempo
+>         fillTempo                        = urn.bTempo
 >
 >     generateSection    :: PercussionSound
 >                           → Volume
@@ -217,21 +213,21 @@ The progress of the algorithm is expressed in above pair.
 >     p                  :: Pitch          = pitch $ lo + round (dXp * fromIntegral (hi - lo))
 >
 > checkMeasureOk         :: BakingMetrics → Bool
-> checkMeasureOk BakingMetrics{ .. }
+> checkMeasureOk bm
 >   | traceNot trace_CMO False             = undefined
 >   | otherwise                            = True
 >   where
->     trace_CMO                            = unwords ["\ncheckMeasureOk", show sHistogram]
+>     trace_CMO                            = unwords ["\ncheckMeasureOk", show bm.sHistogram]
 >
 > checkJobOk             :: BakingMetrics → Bool
-> checkJobOk BakingMetrics{ .. }
+> checkJobOk bm
 >   | traceNot trace_CBO False             = undefined
 >   | otherwise                            = True
 >   where
 >     trace_CBO                            =
 >       unwords
->         [ "checkJobOk",                  show $ safeAverage sAccumSkipped sSkipped
->         , "avg baked start",             show $ safeAverage sAccumBaked sBaked]
+>         [ "checkJobOk",                  show $ safeAverage bm.sAccumSkipped bm.sSkipped
+>         , "avg baked start",             show $ safeAverage bm.sAccumBaked bm.sBaked]
 >
 >     safeAverage        :: Double → Int → Double
 >     safeAverage dd n
@@ -252,10 +248,8 @@ The progress of the algorithm is expressed in above pair.
 >   where
 >     trace_CZLO                           = unwords ["checkZListOK", show zlist]
 >
-> acceptMetrics          :: BakingMetrics → Double → Double → SectionSpec → Double → BakingMetrics
-> acceptMetrics bm@BakingMetrics{ .. } durSoFar newDur ss os
->   | traceNever trace_AM False            = undefined
->   | otherwise                            = bm { sBaked      = baked'
+> acceptMetrics          :: BakingMetrics → SectionSpec → Double → BakingMetrics
+> acceptMetrics bm ss os                   = bm { sBaked      = baked'
 >                                               , sRestDur    = restDur'
 >                                               , sFillDur    = fillDur'
 >                                               , sAccumBaked = accum'
@@ -263,18 +257,14 @@ The progress of the algorithm is expressed in above pair.
 >   where
 >     restDur, fillDur   :: Double
 >     ((restDur, _), (fillDur, _))         = ss
->     baked'                               = sBaked           + 1
->     restDur'                             = sRestDur         + restDur
->     fillDur'                             = sFillDur         + fillDur
->     accum'                               = sAccumBaked      + os
->     zlist                                = quantize sHistogram os fillDur
+>     baked'                               = bm.sBaked        + 1
+>     restDur'                             = bm.sRestDur      + restDur
+>     fillDur'                             = bm.sFillDur      + fillDur
+>     accum'                               = bm.sAccumBaked   + os
+>     zlist                                = quantize bm.sHistogram os fillDur
 >     hst'                                 = if not (checkZListOk zlist)
 >                                              then error "Bad ZList"
->                                              else sHistogram // zlist
->
->     trace_AM                             =                   
->       unwords ["acceptMetrics", show durSoFar, "← durSoFar, os →", show os
->              , "\nss", show ss, "\nnewDur", show newDur]
+>                                              else bm.sHistogram // zlist
 >
 >     quantize           :: Array Int Int → Double → Double → [(Int,  Int)]
 >     quantize hst o du                    = [(x, (hst!x) + 1) | x ← [fk..gk]]
@@ -287,8 +277,8 @@ The progress of the algorithm is expressed in above pair.
 >     histSelect o                         = floor $ o * fromIntegral bakingBins / songLength
 >
 > skipMetrics            :: BakingMetrics → Double → BakingMetrics
-> skipMetrics bm@BakingMetrics{ .. } accm  = bm { sSkipped      = sSkipped      + 1
->                                               , sAccumSkipped = sAccumSkipped + accm}
+> skipMetrics bm accm                      = bm { sSkipped      = bm.sSkipped      + 1
+>                                               , sAccumSkipped = bm.sAccumSkipped + accm}
 >
 > rs2Bake                :: [Double] → Bake
 > rs2Bake rs

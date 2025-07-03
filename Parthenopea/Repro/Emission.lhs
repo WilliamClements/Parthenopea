@@ -1,7 +1,6 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Emission

@@ -1,7 +1,7 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
-> {-# LANGUAGE RecordWildCards #-}
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Chart
@@ -44,10 +44,10 @@ Chart ==========================================================================
 >     padThem (x, y) = (x, y, 0, 0)
 >
 >     stylize            :: Section → Plot Double Double
->     stylize Section{ .. }                = 
+>     stylize sect                         = 
 >       let
->         noints = plot_points_style .~ filledCircles 2 section_color
->                    $ plot_points_values .~ section_points
+>         noints = plot_points_style .~ filledCircles 2 sect.section_color
+>                    $ plot_points_values .~ sect.section_points
 >                    $ plot_points_title .~ "test data"
 >                    $ def
 >       in

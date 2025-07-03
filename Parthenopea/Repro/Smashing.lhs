@@ -3,7 +3,6 @@
 >
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -60,10 +59,10 @@ This source file implements a generalization of that setup. See computeInstSmash
 > developSmashStats                        = VU.foldl' sfolder seedSmashStats
 >   where
 >     sfolder            :: SmashStats → (i, i) → SmashStats
->     sfolder stats@SmashStats{ .. } (_, count)
->       | count == 0                       = stats{countNothings = countNothings + 1}
->       | count == 1                       = stats{countSingles = countSingles + 1}
->       | otherwise                        = stats{countMultiples = countMultiples + 1}
+>     sfolder stats (_, count)
+>       | count == 0                       = stats{countNothings  = stats.countNothings + 1}
+>       | count == 1                       = stats{countSingles   = stats.countSingles + 1}
+>       | otherwise                        = stats{countMultiples = stats.countMultiples + 1}
 
 Each space (of nspaces) contains exactly ndims (3 in the Midi case) ranges. If dim is the value of a dimension then
 the associated range is implicitly 0..dim-1 -- the specifications each carve out a subset thereof.
@@ -93,17 +92,12 @@ You see there is some overlap between Zone 1 and Zone 2.
 >     sfolder vec (spaceId, rngs)          =
 >       let
 >         enumAssocs     :: [(Int, (i, i))]
->         enumAssocs
->           | traceNot trace_EA False      = undefined
->           | otherwise                    =
+>         enumAssocs                       =
 >             profess
 >               (0 <= mag && mag <= 32_768 && all (uncurry validRange) (zip dims rngs))
 >               (unwords ["enumAssocs: range violation", tag, show mag, show dims, show spaces])
 >               (map (, (spaceId, 1)) is)
 >           where
->             fName                        = "enumAssocs"
->             trace_EA                     = unwords [fName, tag, show spaces]
->
 >             is         :: [Int]
 >             is                           =
 >               map (computeCellIndex dims) (traverse walkRange rngs)

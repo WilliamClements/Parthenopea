@@ -5,7 +5,6 @@
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Runtime
@@ -66,19 +65,18 @@ executive ======================================================================
 >   putStrLn "Unit tests completed successfully"
 >
 > writeScanReport        :: SFRuntime → ResultDispositions → IO ()
-> writeScanReport runt rd@ResultDispositions{ .. }
->                                          = do
+> writeScanReport runt rd                  = do
 >   CM.when diagnosticsEnabled (putStrLn $ unwords [fName, show rd])
 >   tsStarted                              ← getCurrentTime
 >
 >   -- output all selections to the report file
 >   let esTimeStamp                        = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
->   let esSampleSummary                    = summarize preSampleDispos ++ [EndOfLine]
->   let esInstSummary                      = summarize preInstDispos ++ [EndOfLine]
->   let esPreZoneSummary                   = summarize preZoneDispos ++ [EndOfLine]
->   let esSampleScan                       = procMap preSampleDispos ++ [EndOfLine]
->   let esInstScan                         = procMap preInstDispos ++ [EndOfLine]
->   let esPreZoneScan                      = procMap preZoneDispos ++ [EndOfLine]
+>   let esSampleSummary                    = summarize rd.preSampleDispos ++ [EndOfLine]
+>   let esInstSummary                      = summarize rd.preInstDispos ++ [EndOfLine]
+>   let esPreZoneSummary                   = summarize rd.preZoneDispos ++ [EndOfLine]
+>   let esSampleScan                       = procMap rd.preSampleDispos ++ [EndOfLine]
+>   let esInstScan                         = procMap rd.preInstDispos ++ [EndOfLine]
+>   let esPreZoneScan                      = procMap rd.preZoneDispos ++ [EndOfLine]
 >   let esTail                             = [EndOfLine, EndOfLine]
 >
 >   writeFileBySections
@@ -289,51 +287,50 @@ reconcile zone and sample header ===============================================
 >                                              , rPitchCorrection           = pcL}
 >
 > recon                  :: (PreZone, SFZone, F.Shdr) → NoteOn → [Double] → Double → Recon
-> recon (pz, zone_, sHdr@F.Shdr{ .. }) noon nps secsScored
+> recon (pz, zone_, shdr) noon nps secsScored
 >                                          = reconL
 >   where
 >     zd                                   = pz.pzDigest
->     zone@SFZone{ .. }
->                                          =
+>     z                                    =
 >       (\case
 >         Just np                          → applyNoteParameter noon zone_ np secsScored
 >         Nothing                          → zone_) (listToMaybe nps)
->     m8n                                  = reconModulation zone sHdr noon
+>     m8n                                  = reconModulation z shdr noon
 >
 >     reconL = Recon {
->     rSampleMode    = fromMaybe           A.NoLoop           zSampleMode
->   , rSampleRate    = fromIntegral        sampleRate
->   , rStart         = (+)                 start              (fromIntegral zd.zdStart)
->   , rEnd           = (+)                 end                (fromIntegral zd.zdEnd)
->   , rLoopStart     = (+)                 startLoop          (fromIntegral zd.zdStartLoop)
->   , rLoopEnd       = (+)                 endLoop            (fromIntegral zd.zdEndLoop)
+>     rSampleMode    = fromMaybe           A.NoLoop           z.zSampleMode
+>   , rSampleRate    = fromIntegral        shdr.sampleRate
+>   , rStart         = (+)                 shdr.start         (fromIntegral zd.zdStart)
+>   , rEnd           = (+)                 shdr.end           (fromIntegral zd.zdEnd)
+>   , rLoopStart     = (+)                 shdr.startLoop     (fromIntegral zd.zdStartLoop)
+>   , rLoopEnd       = (+)                 shdr.endLoop       (fromIntegral zd.zdEndLoop)
 >   , rRootKey       = fromIntegral $ fromMaybe
->                                          originalPitch      zRootKey
->   , rForceKey      = fmap                fromIntegral       zKey
->   , rForceVel      = fmap                fromIntegral       zVel
->   , rTuning        = fromMaybe           100                zScaleTuning
+>                                          shdr.originalPitch z.zRootKey
+>   , rForceKey      = fmap                fromIntegral       z.zKey
+>   , rForceVel      = fmap                fromIntegral       z.zVel
+>   , rTuning        = fromMaybe           100                z.zScaleTuning
 >   , rNoteOn        = noon
->   , rAttenuation   = reconAttenuation                       zInitAtten
->   , rVolEnv        = deriveEnvelope                         zDelayVolEnv
->                                                             zAttackVolEnv
+>   , rAttenuation   = reconAttenuation                       z.zInitAtten
+>   , rVolEnv        = deriveEnvelope                         z.zDelayVolEnv
+>                                                             z.zAttackVolEnv
 >                                                             noon
->                                                             (zHoldVolEnv,  zKeyToVolEnvHold)
->                                                             (zDecayVolEnv, zKeyToVolEnvDecay)
->                                                             zSustainVolEnv
+>                                                             (z.zHoldVolEnv,  z.zKeyToVolEnvHold)
+>                                                             (z.zDecayVolEnv, z.zKeyToVolEnvDecay)
+>                                                             z.zSustainVolEnv
 >                                                             Nothing
 >   , rPitchCorrection
 >                    = if usePitchCorrection
->                        then Just $ reconPitchCorrection     pitchCorrection
->                                                             zCoarseTune
->                                                             zFineTune
+>                        then Just $ reconPitchCorrection     shdr.pitchCorrection
+>                                                             z.zCoarseTune
+>                                                             z.zFineTune
 >                        else Nothing
 >
 >   , rM8n           =                                        m8n
 >   , rEffects       = deriveEffects                          m8n
 >                                                             noon
->                                                             zChorus
->                                                             zReverb
->                                                             zPan}
+>                                                             z.zChorus
+>                                                             z.zReverb
+>                                                             z.zPan}
 >
 >     reconPitchCorrection
 >                        :: Int → Maybe Int → Maybe Int → Double
@@ -341,7 +338,7 @@ reconcile zone and sample header ===============================================
 >
 >     reconAttenuation   :: Maybe Int → Double
 >     reconAttenuation _     {- WOX -}       = if useAttenuation
->                                              then maybe 0 fromIntegral zInitAtten
+>                                              then maybe 0 fromIntegral z.zInitAtten
 >                                              else 0.0
 >
 > applyNoteParameter     :: NoteOn → SFZone → Double → Double → SFZone
@@ -358,9 +355,9 @@ reconcile zone and sample header ===============================================
 >            , zReleaseModEnv = Nothing}
 >
 > reconModulation        :: SFZone → F.Shdr → NoteOn → Modulation
-> reconModulation SFZone{ .. } shdr noon
+> reconModulation z shdr noon
 >   | traceIf trace_RM False               = undefined
->   | otherwise                            = resolveMods m8n zModulators defaultMods
+>   | otherwise                            = resolveMods m8n z.zModulators defaultMods
 >   where
 >     fName                                = "recon"
 >     trace_RM                             = unwords [fName, show resonanceType, shdr.sampleName]
@@ -377,8 +374,8 @@ reconcile zone and sample header ===============================================
 >
 >     curKernelSpec                        =
 >       KernelSpec
->         (fromMaybe 13_500 zInitFc)
->         (fromMaybe 0 zInitQ)
+>         (fromMaybe 13_500 z.zInitFc)
+>         (fromMaybe 0 z.zInitQ)
 >         1 
 >         useFastFourier
 >         (-1) -- must always be replaced
@@ -386,18 +383,18 @@ reconcile zone and sample header ===============================================
 >     resonanceType      :: ResonanceType  = ResonanceSVF
 >     nModEnv            :: Maybe FEnvelope
 >     nModEnv                              = deriveEnvelope
->                                              zDelayModEnv
->                                              zAttackModEnv
+>                                              z.zDelayModEnv
+>                                              z.zAttackModEnv
 >                                              noon
->                                              (zHoldModEnv, zKeyToModEnvHold) 
->                                              (zDecayModEnv, zKeyToModEnvDecay)
->                                              zSustainModEnv
->                                              (Just (zModEnvToPitch, zModEnvToFc))
+>                                              (z.zHoldModEnv, z.zKeyToModEnvHold) 
+>                                              (z.zDecayModEnv, z.zKeyToModEnvDecay)
+>                                              z.zSustainModEnv
+>                                              (Just (z.zModEnvToPitch, z.zModEnvToFc))
 >     nModLfo, nVibLfo   :: Maybe LFO
 >     nModLfo                              =
->       deriveLFO zDelayModLfo zFreqModLfo zModLfoToPitch zModLfoToFc zModLfoToVol
+>       deriveLFO z.zDelayModLfo z.zFreqModLfo z.zModLfoToPitch z.zModLfoToFc z.zModLfoToVol
 >     nVibLfo            :: Maybe LFO      =
->       deriveLFO zDelayVibLfo zFreqVibLfo zVibLfoToPitch Nothing     Nothing
+>       deriveLFO z.zDelayVibLfo z.zFreqVibLfo z.zVibLfoToPitch Nothing     Nothing
 >
 >     summarize          :: ModDestType → ModCoefficients
 >     summarize toWhich                    =

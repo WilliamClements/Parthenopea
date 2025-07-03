@@ -4,7 +4,6 @@
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -40,7 +39,7 @@ implementing SoundFont spec ====================================================
 >   , cnChanges          :: [ChangeNameItem]
 >   , cnName             :: String}
 >
-> data ChangeEarItem = MakeMono deriving Eq
+> data ChangeEarItem                       = MakeMono deriving Eq
 >
 > data ChangeEar a                         =
 >   ChangeEar {
@@ -53,13 +52,9 @@ implementing SoundFont spec ====================================================
 >   , pskwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
 > type PreSample                           = ChangeName F.Shdr
+>
 > effPSShdr              :: PreSample → F.Shdr
-> effPSShdr ps                             =
->   let
->     raw                                  = ps.cnSource
->     name                                 = ps.cnName
->   in
->     raw{F.sampleName = name}
+> effPSShdr ps                             = ps.cnSource{F.sampleName = ps.cnName}
 >
 > data PreZoneKey                          =
 >   PreZoneKey {
@@ -77,17 +72,10 @@ implementing SoundFont spec ====================================================
 >   , pzDigest           :: ZoneDigest
 >   , pzChanges          :: ChangeEar F.Shdr} deriving Eq
 > instance Show PreZone where
->   show (PreZone{ .. })
->                                          =
->     unwords ["PreZone", show (pzWordF, pzWordS, pzWordI, pzWordB), show pzDigest]
-> showBad                :: PreZone -> String
-> showBad PreZone{ .. }
->                                          =
->   let
->     ZoneDigest{ .. }
->                                          = pzDigest
->   in
->     show (pzWordB, (zdKeyRange, zdVelRange))
+>   show pz                                =
+>     unwords ["PreZone", show (pz.pzWordF, pz.pzWordS, pz.pzWordI, pz.pzWordB), show pz.pzDigest]
+> showBad                :: PreZone → String
+> showBad pz                               = show (pz.pzWordB, (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange))
 >
 > makePreZone            :: Word → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
 > makePreZone wF wS wI wB gens shdr        =
@@ -125,8 +113,8 @@ implementing SoundFont spec ====================================================
 >     piChanges          :: ChangeName F.Inst
 >   , iGlobalKey         :: Maybe PreZoneKey}
 > instance Show PreInstrument where
->   show (PreInstrument{ .. })             =
->     unwords ["PreInstrument", show piChanges.cnName]
+>   show preI                              =
+>     unwords ["PreInstrument", show preI.piChanges.cnName]
 >
 > data PerInstrument                       =
 >   PerInstrument {
@@ -243,8 +231,11 @@ implementing SoundFont spec ====================================================
 > dasBoot                :: SFBoot
 > dasBoot                                  = SFBoot Map.empty Map.empty Map.empty
 > instance Show SFBoot where
->   show (SFBoot{ .. })                    =
->     unwords [ "SFBoot", show (length zPreSampleCache), show (length zPreInstCache), show (length zPerInstCache)]
+>   show boot                              =
+>     unwords [  "SFBoot"
+>              , show (length boot.zPreSampleCache)
+>              , show (length boot.zPreInstCache)
+>              , show (length boot.zPerInstCache)]
 > combineBoot            :: SFBoot → SFBoot → SFBoot
 > combineBoot boot1 boot2                  =
 >   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache   boot2.zPreSampleCache
@@ -296,7 +287,7 @@ implementing SoundFont spec ====================================================
 >                                          = zd {zdPan = Just i}
 >     inspectGen (F.SampleIndex w)                         zd
 >                                          = zd {zdSampleIndex = Just w}
->     inspectGen (F.SampleMode m)                         zd
+>     inspectGen (F.SampleMode m)                          zd
 >                                          = zd {zdSampleMode = Just m}
 >
 >     inspectGen (F.StartAddressCoarseOffset i)            zd
@@ -412,26 +403,22 @@ bootstrapping ==================================================================
 >   , preInstDispos      :: Map PerGMKey         [Scan]
 >   , preZoneDispos      :: Map PreZoneKey       [Scan]}
 > instance Show ResultDispositions where
->   show rd@ResultDispositions{ .. }
->                                          =
+>   show rd                                =
 >     unwords [  "ResultDispositions"
->              , show (length preSampleDispos, length preInstDispos, length preZoneDispos, rdCountScans rd)]
+>              , show (length rd.preSampleDispos, length rd.preInstDispos, length rd.preZoneDispos, rdCountScans rd)]
 >
 > deadrd                 :: ∀ k . SFResource k ⇒ k → ResultDispositions → Bool
 > deadrd k rd                              = dead (inspect k rd)
 > virginrd               :: ResultDispositions
 > virginrd                                 = ResultDispositions Map.empty Map.empty Map.empty
 > emptyrd                :: ResultDispositions → Bool
-> emptyrd ResultDispositions{ .. }         
->                                          = null preSampleDispos && null preInstDispos && null preZoneDispos
+> emptyrd rd                               = null rd.preSampleDispos && null rd.preInstDispos && null rd.preZoneDispos
 > rdLengths              :: ResultDispositions → (Int, Int)
-> rdLengths ResultDispositions{ .. }       
->                                          = (length preSampleDispos, length preInstDispos)
+> rdLengths rd                             = (length rd.preSampleDispos, length rd.preInstDispos)
 > countScans             :: ∀ k . SFResource k ⇒ Map k [Scan] → Int
 > countScans                               = Map.foldl' (\n ss → n + length ss) 0
 > rdCountScans           :: ResultDispositions → (Int, Int)
-> rdCountScans  ResultDispositions{ .. }   
->                                          = (countScans preSampleDispos, countScans preInstDispos)
+> rdCountScans rd                          = (countScans rd.preSampleDispos, countScans rd.preInstDispos)
 > combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
 > combinerd rd1 rd2                        =
 >   rd1{  preSampleDispos                  = Map.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos

@@ -3,7 +3,6 @@
 >
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -44,12 +43,11 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   , fwMatches          :: Matches
 >   , fwDispositions     :: ResultDispositions}
 > instance Show FileWork where
->   show (FileWork{ .. })                  
->                                          =
+>   show fw                                =
 >     unwords [  "FileWork"
->              , show fwBoot
->              , show (length fwZRecs), "=zrecs"
->              , show fwDispositions]
+>              , show fw.fwBoot
+>              , show (length fw.fwZRecs), "=zrecs"
+>              , show fw.fwDispositions]
 > defFileWork            :: FileWork
 > defFileWork                              =
 >   FileWork dasBoot [] defMatches virginrd
@@ -58,9 +56,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     fiFw               :: FileWork
 >   , fiTaskIfs          :: [(String, FileWork → FileWork)]}
 > instance Show FileIterate where
->   show (FileIterate{ .. })               
->                                          =
->     unwords ["FileIterate", show fiFw]
+>   show fi                                =
+>     unwords ["FileIterate", show fi.fiFw]
 >
 > preSampleTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, markTaskIf, smashTaskIf, reorgTaskIf
 >                , shaveTaskIf, matchTaskIf, catTaskIf, perITaskIf
@@ -95,9 +92,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     perI                                 = perITaskIf         sffile rost
 >
 > reduceFileIterate      :: FileIterate → (SFBoot, Matches, ResultDispositions)
-> reduceFileIterate fiIn                   = (fwBoot, fwMatches, fwDispositions)
->   where
->     FileWork{ .. }                       = fiIn.fiFw
+> reduceFileIterate fiIn                   = (fiIn.fiFw.fwBoot, fiIn.fiFw.fwMatches, fiIn.fiFw.fwDispositions)
 
 executive =============================================================================================================
 
@@ -131,9 +126,9 @@ and recovery.
 >     ingestFile sffile                    =
 >       let
 >         unfinished fiIn                  = not (null fiIn.fiTaskIfs)
->         nextGen fiIn@FileIterate{ .. }   = notracer name fiIn{ fiFw = userFun fiFw, fiTaskIfs = tail fiTaskIfs}
+>         nextGen fiIn                     = fiIn{ fiFw = userFun fiIn.fiFw, fiTaskIfs = tail fiIn.fiTaskIfs}
 >           where
->             (name, userFun)              = head fiTaskIfs
+>             (_, userFun)                 = head fiIn.fiTaskIfs
 >       in
 >         head $ dropWhile unfinished (iterate nextGen (makeFileIterate sffile rost))
 
@@ -157,15 +152,14 @@ pre-sample task ================================================================
 > preSampleTaskIf sffile _ fwIn            = foldl' sampleFolder fwIn (formComprehension sffile ssShdrs)
 >   where
 >     sampleFolder       :: FileWork → PreSampleKey → FileWork
->     sampleFolder fwForm@FileWork{ .. } presk
->                                          =
+>     sampleFolder fwForm presk            =
 >       let
 >         fName                            = "sampleFolder"
 >
 >         fwBoot'                          =
 >           if dead ss
->             then fwBoot
->             else fwBoot{zPreSampleCache = Map.insert presk ps fwBoot.zPreSampleCache}
+>             then fwForm.fwBoot
+>             else fwForm.fwBoot{zPreSampleCache = Map.insert presk ps fwForm.fwBoot.zPreSampleCache}
 >         ps                               = ChangeName shdr changes name
 >         shdr                             = sffile.zFileArrays.ssShdrs ! presk.pskwSampleIndex
 >
@@ -186,23 +180,23 @@ pre-sample task ================================================================
 >                                              then (ss_, singleton FixCorruptName, good)
 >                                              else (ss_, [],                       raw)
 >       in
->         fwForm{ fwBoot = fwBoot', fwDispositions = dispose presk ss fwDispositions}
+>         fwForm{ fwBoot = fwBoot', fwDispositions = dispose presk ss fwForm.fwDispositions}
 
 pre-instance task =====================================================================================================
           access and critique all Instrument "records" in the file 
 
-> preInstTaskIf sffile _ fwIn@FileWork{ .. }
+> preInstTaskIf sffile _ fwIn
 >                                          =
->   fwIn{  fwBoot = fwBoot{zPreInstCache = preInstCache}
+>   fwIn{  fwBoot = fwIn.fwBoot{zPreInstCache = preInstCache}
 >        , fwDispositions = rdFinal}
 >   where
 >     pergms                               = formComprehension sffile ssInsts
->     (preInstCache, rdFinal)              = foldl' preIFolder (Map.empty, fwDispositions) pergms
+>     (preInstCache, rdFinal)              = foldl' preIFolder (Map.empty, fwIn.fwDispositions) pergms
 >
 >     preIFolder         :: (Map PerGMKey PreInstrument, ResultDispositions)
 >                           → PerGMKey
 >                           → (Map PerGMKey PreInstrument, ResultDispositions)
->     preIFolder (m, rdFold) pergm@PerGMKey{ .. }
+>     preIFolder (m, rdFold) pergm
 >                                          =
 >       if iinst.instBagNdx <= jinst.instBagNdx
 >         then (m', rd'')
@@ -211,7 +205,7 @@ pre-instance task ==============================================================
 >         fName                            = "preIFolder"
 >
 >         iinst                            = loadInst pergm
->         jinst                            = loadInst pergm{pgkwInst = pgkwInst + 1}
+>         jinst                            = loadInst pergm{pgkwInst = pergm.pgkwInst + 1}
 >
 >         raw                              = iinst.instName
 >         good                             = fixName raw
@@ -233,9 +227,7 @@ pre-instance task ==============================================================
 >         rd''                             = dispose pergm ss rdFold   
 >
 >     loadInst           :: PerGMKey → F.Inst
->     loadInst pergm                       = boota.ssInsts ! pergm.pgkwInst
->       where
->         boota                            = sffile.zFileArrays
+>     loadInst pergm                       = sffile.zFileArrays.ssInsts ! pergm.pgkwInst
 
 PreZone administration ================================================================================================
 
@@ -251,9 +243,9 @@ PreZone administration =========================================================
 >   , zsGlobalKey        :: Maybe PreZoneKey
 >   , zsPreZones         :: [PreZone]}
 > instance Show InstZoneRecord where
->   show (InstZoneRecord{ .. })            
->                                          =
->     unwords ["InstZoneRecord", show (zswFile, zswInst), showMaybeInstCat zsInstCat, show $ length zsPreZones]
+>   show zrec                              =
+>     unwords ["InstZoneRecord", show (zrec.zswFile, zrec.zswInst)
+>                              , showMaybeInstCat zrec.zsInstCat, show $ length zrec.zsPreZones]
 > makeZRec               :: PerGMKey → InstZoneRecord
 > makeZRec pergm                           =
 >   InstZoneRecord pergm.pgkwFile pergm.pgkwInst Nothing Nothing Nothing []
@@ -264,10 +256,10 @@ iterating InstZoneRecord list ==================================================
 
 > zrecTask               :: (InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions))
 >                           → FileWork → FileWork
-> zrecTask userFun fwIn@FileWork{fwZRecs, fwDispositions}
->                                          = fwIn{fwZRecs = workedOn, fwDispositions = rd'}
+> zrecTask userFun fw                      = fw{fwZRecs = workedOn, fwDispositions = rd'}
 >   where
->     (workedOn, rd')                      = foldl' taskRunner ([], fwDispositions) (goodZRecs fwDispositions fwZRecs)
+>     (workedOn, rd')                      =
+>       foldl' taskRunner ([], fw.fwDispositions) (goodZRecs fw.fwDispositions fw.fwZRecs)
 >
 >     taskRunner (zrecs, rdFold) zrec      =
 >       let
@@ -276,8 +268,7 @@ iterating InstZoneRecord list ==================================================
 >         (zrec': zrecs, rdFold')
 >
 > zrecCompute            :: ∀ a . FileWork → (a → InstZoneRecord → a) → a → a
-> zrecCompute FileWork{fwZRecs, fwDispositions} userFun seed
->                                          = foldl' userFun seed (goodZRecs fwDispositions fwZRecs)
+> zrecCompute fw userFun seed              = foldl' userFun seed (goodZRecs fw.fwDispositions fw.fwZRecs)
 >
 > zoneTask               :: (PreZone → Bool)
 >                           → (PreZone → ResultDispositions → (Maybe PreZone, ResultDispositions))
@@ -298,13 +289,12 @@ iterating InstZoneRecord list ==================================================
 survey task ===========================================================================================================
           instantiate zrecs
 
-> surveyTaskIf _ _ fwIn@FileWork{fwBoot}   = fwIn{fwZRecs = map makeZRec (Map.keys fwBoot.zPreInstCache)}
+> surveyTaskIf _ _ fwIn                    = fwIn{fwZRecs = map makeZRec (Map.keys fwIn.fwBoot.zPreInstCache)}
 
 capture task ==========================================================================================================
           populate zrecs with PreZones
 
-> captureTaskIf sffile _ fwIn@FileWork{ .. }
->                                          = zrecTask capturer fwIn 
+> captureTaskIf sffile _ fwIn              = zrecTask capturer fwIn
 >   where
 >     capturer           :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     capturer zrec rdIn                   =
@@ -318,7 +308,7 @@ capture task ===================================================================
 >       where
 >         fName_                           = unwords["captureZones"]
 >
->         preI                             = fwBoot.zPreInstCache Map.! pergm
+>         preI                             = fwIn.fwBoot.zPreInstCache Map.! pergm
 >         iName                            = preI.piChanges.cnName
 >         results                          = map captureZone (deriveRange ibagi jbagi)
 >
@@ -383,14 +373,12 @@ capture task ===================================================================
 >             
 >         captureZone    :: Word → Either PreZone (Disposition, Impact)
 >         captureZone bix
->           | traceNot trace_CZ False      = undefined
 >           | isNothing pz.pzDigest.zdSampleIndex
 >                                          = Right (Accepted, GlobalZone)
 >           | isNothing mpres              = Right (Dropped, OrphanedBySample)
 >           | otherwise                    = Left pz{pzChanges = ChangeEar (effPSShdr pres) []}
 >           where
 >             fName                        = unwords ["captureZone"]
->             trace_CZ                     = unwords [fName, show pz]
 >                 
 >             ibags                        = sffile.zFileArrays.ssIBags
 >             xgeni                        = F.genNdx $ ibags ! bix
@@ -404,7 +392,7 @@ capture task ===================================================================
 >             pz                           = makePreZone sffile.zWordF si (pgkwInst pergm) bix gens pres.cnSource
 >             si                           = deJust (unwords [fName, "si"]) pz.pzDigest.zdSampleIndex
 >             presk                        = PreSampleKey sffile.zWordF si
->             mpres                        = presk `Map.lookup` fwBoot.zPreSampleCache
+>             mpres                        = presk `Map.lookup` fwIn.fwBoot.zPreSampleCache
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
 
 mark task =============================================================================================================
@@ -542,23 +530,23 @@ To build the map
 shave task ============================================================================================================
           remove dropped or violated instruments from the preInstCache
 
-> shaveTaskIf _ _ fwIn@FileWork{fwBoot}    = fwIn{fwBoot = fwBoot{zPreInstCache = preInstCache}}
+> shaveTaskIf _ _ fwIn                     = fwIn{fwBoot = fwIn.fwBoot{zPreInstCache = preInstCache}}
 >   where
 >     validPergms        :: [PerGMKey]
 >     validPergms                          = zrecCompute fwIn (\x y → instKey y : x) []
 >
 >     preInstCache                         =
->       Map.filterWithKey (\ x _ → x `elem` validPergms) fwBoot.zPreInstCache
+>       Map.filterWithKey (\ x _ → x `elem` validPergms) fwIn.fwBoot.zPreInstCache
 
 match task ============================================================================================================
           track all fuzzy matches
 
-> matchTaskIf _ _ fwIn@FileWork{ .. }      = fwIn{fwMatches = Matches sMatches iMatches}
+> matchTaskIf _ _ fwIn                     = fwIn{fwMatches = Matches sMatches iMatches}
 >   where
 >     sMatches                             =
->       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.cnName) m)           Map.empty fwBoot.zPreSampleCache
+>       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.cnName) m)           Map.empty fwIn.fwBoot.zPreSampleCache
 >     iMatches                             =
->       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.piChanges.cnName) m) Map.empty fwBoot.zPreInstCache
+>       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.piChanges.cnName) m) Map.empty fwIn.fwBoot.zPreInstCache
 
 categorization task ===================================================================================================
           assign each instrument to one of the three categories
@@ -651,12 +639,7 @@ categorization task ============================================================
 >
 >             maybeSettle
 >                        :: (Foldable t, Show (t Fuzz)) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
->             maybeSettle thresh ic keys
->               | traceNot trace_MS False  = undefined
->               | otherwise                = find (> thresh) keys >> Just ic
->               where
->                 fName2                   = "maybeSettle"
->                 trace_MS                 = unwords [fName2, show keys]
+>             maybeSettle thresh ic keys   = find (> thresh) keys >> Just ic
 >
 >             canBePercI :: [PreZone] → Bool
 >             canBePercI                   = all canBePercZ
@@ -678,17 +661,12 @@ categorization task ============================================================
 >                 else InstCatInst
 >
 >             catPerc      :: [Word] → InstCat
->             catPerc ws
->               | traceNot trace_CP False  = undefined
->               | otherwise                =
+>             catPerc ws                   =
 >               if null pzs || null ws
 >                 then InstCatDisq NoZones fNameCatPerc
 >                 else InstCatPerc ws
 >               where
 >                 fNameCatPerc             = "catPerc"
->                 trace_CP                 = unwords  [fNameCatPerc, show ws, show $ length pzs, show $ length pzs']
->
->                 pzs'                     = filter (\x → x.pzWordB `elem` ws) pzs
 >
 >             catDisq    :: Impact → String → InstCat
 >             catDisq                      = InstCatDisq
@@ -844,21 +822,20 @@ build zone task ================================================================
 >   _                              → iz
 >
 > addMod                 :: (Word, F.Mod) → SFZone → SFZone
-> addMod (mId, F.Mod{..}) iz@SFZone{zModulators} 
->                                          = maybe iz addModulator makeModulator
+> addMod (mId, fmod) iz                    = maybe iz addModulator makeModulator
 >   where
 >     addModulator       :: Modulator → SFZone
->     addModulator m8r                     = iz{zModulators = m8r : zModulators}
+>     addModulator m8r                     = iz{zModulators = m8r : iz.zModulators}
 >
 >     makeModulator      :: Maybe Modulator
 >     makeModulator                        = mm'
 >       where
 >         mm, mm'        :: Maybe Modulator
->         mm                               = unpackModSrc srcOper
+>         mm                               = unpackModSrc fmod.srcOper
 >                                            >>= flip addSrc defModulator{mrModId = mId}
->                                            >>= addDest destOper
->                                            >>= addAmount (fromIntegral amount)
->         mm'                              = unpackModSrc amtSrcOper
+>                                            >>= addDest fmod.destOper
+>                                            >>= addAmount (fromIntegral fmod.amount)
+>         mm'                              = unpackModSrc fmod.amtSrcOper
 >                                            >>= addAmtSrc mm
 > sampleSizeOk           :: (Word, Word) → Bool
 > sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)

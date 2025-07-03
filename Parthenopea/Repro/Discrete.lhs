@@ -4,7 +4,6 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -64,9 +63,7 @@ Discrete approach ==============================================================
 > memoizedComputeFR = memo computeFR
 >
 > applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
-> applyConvolutionMono lowP secsToPlay sIn
->   | traceNot trace_AC False              = undefined
->   | otherwise                            = sig 
+> applyConvolutionMono lowP secsToPlay sIn = sig 
 >   where
 >     dsigIn             :: Maybe (DiscreteSig Double)
 >     dsigIn                               = fromContinuousSig "input mono" secsToPlay sIn
@@ -79,16 +76,13 @@ Discrete approach ==============================================================
 >         then toContinuousSig (fastConvolveFR dsig lowP)
 >         else toContinuousSig (slowConvolveIR dsig lowP) 
 >
->     trace_AC                             = unwords ["applyConvolutionMono", show lowP]
->
 > applyConvolutionStereo :: ∀ p . Clock p ⇒
 >                           (Lowpass, Lowpass)
 >                           → Double
 >                           → Signal p () (Double, Double)
 >                           → Signal p () (Double, Double)
 > applyConvolutionStereo (lowpL, lowpR) secsToPlay sIn
->   | traceNot trace_ACS False             = undefined
->   | otherwise                            = toContinuousSig' resultL resultR
+>                                          = toContinuousSig' resultL resultR
 >   where
 >     baseLen, fftLen    :: Int
 >     baseLen                              = truncate (secsToPlay * rate (undefined :: p))
@@ -104,23 +98,13 @@ Discrete approach ==============================================================
 >       | lowpL.lowpassKs.ksFast           = (fastConvolveFR dsigInL lowpL, fastConvolveFR dsigInR lowpR)
 >       | otherwise                        = (slowConvolveIR dsigInL lowpL, slowConvolveIR dsigInR lowpR)
 >
->     trace_ACS                            =
->       unwords ["applyConvolutionStereo", show baseLen, show fftLen
->              , "\ndsigInL:", show dsigInL
->              , "\ndsigInR:", show dsigInR]
->
 > fromContinuousSig      :: ∀ p a. (Clock p, Coeff a, VU.Unbox a, AudioSample a) ⇒
 >                           String → Double → Signal p () a → Maybe (DiscreteSig a)
-> fromContinuousSig tag dur sf
->   | traceNot trace_FCS False             = undefined
->   | otherwise                            =
+> fromContinuousSig tag dur sf             =
 >     if not (null dlist)
 >       then Just $ fromRawVector tag (VU.fromList dlist)
 >       else Nothing
 >   where
->     fName                                = "fromContinuousSig"
->     trace_FCS                            = unwords [fName, show $ rate (undefined::p), show $ length dlist]
->
 >     dlist              :: [a]
 >     dlist                                = toSamples dur sf
 >
@@ -145,17 +129,14 @@ Discrete approach ==============================================================
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
 >
 > discretizeEnvelope     :: Double → FEnvelope → Segments → DiscreteSig Double
-> discretizeEnvelope clockRate env segs
->   | traceNot trace_DE False              = undefined
->   | otherwise                            =
+> discretizeEnvelope clockRate env segs    =
 >   if howMany < 5 && howNegative > -0.2
 >     then dsig
 >     else error $ unwords [fName, "too many negative values", show (howMany, howNegative)]
 >   where
 >     fName                                = "discretizeEnvelope"
->     trace_DE                             = unwords [fName, show (howMany, howNegative), show dsig]
 >
->     dsig@DiscreteSig{ .. }
+>     dsig
 >       | abs (clockRate - ctrRate) < epsilon
 >                                          = deJust fName $ fromContinuousSig fName (targetT + minUseful) csignal
 >       | abs (clockRate - audRate) < epsilon
@@ -164,8 +145,8 @@ Discrete approach ==============================================================
 >
 >     (targetT, _, _)                      = deJust fName env.fTargetT
 >
->     nindices                             = VU.findIndices (< 0) dsigVec
->     nvalues                              = VU.map (dsigVec VU.!) nindices
+>     nindices                             = VU.findIndices (< 0) dsig.dsigVec
+>     nvalues                              = VU.map (dsig.dsigVec VU.!) nindices
 >     howMany                              = VU.length nindices
 >     howNegative                          = VU.sum nvalues
 >
@@ -177,7 +158,7 @@ Discrete approach ==============================================================
 >
 >     asignal            :: AudSF () Double
 >     asignal                              =
->       proc () -> do
+>       proc () → do
 >         aud ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
 >         outA ⤙ aud
 >
@@ -194,30 +175,28 @@ Discrete approach ==============================================================
 >     finished                             = sfolded {stVariance = ascale (1/(len-1)) sfolded.stVariance}
 >
 >     sfolder            ::  ∀ a. (Coeff a) ⇒ DiscreteStats a → a → DiscreteStats a
->     sfolder DiscreteStats{ .. } d  =
+>     sfolder stats d                      =
 >       DiscreteStats
->         (dsigLength + 1)
->         (stNumZeros + if aamp d < epsilon then 1 else 0)
->         (stNZ16th + if aamp d < epsilon && dsigLength < 512 then 1 else 0)
->         (aadd stDCOffset d)
->         (aadd stVariance (amul d d))
->         (max stMaxAmp (aamp d))
+>         (stats.dsigLength + 1)
+>         (stats.stNumZeros + if aamp d < epsilon then 1 else 0)
+>         (stats.stNZ16th + if aamp d < epsilon && stats.dsigLength < 512 then 1 else 0)
+>         (aadd stats.stDCOffset d)
+>         (aadd stats.stVariance (amul d d))
+>         (max stats.stMaxAmp (aamp d))
 >
 > measureFrequencyResponse
 >                        :: ∀ a. (Coeff a, VU.Unbox a) ⇒ VU.Vector a → FrequencyResponseStats
 > measureFrequencyResponse                 = VU.foldl' sfolder defFrequencyResponseStats
 >   where
 >     sfolder            :: FrequencyResponseStats → a → FrequencyResponseStats
->     sfolder FrequencyResponseStats{ .. } d
+>     sfolder fstats d
 >                                          =
 >       FrequencyResponseStats
->         (accommodate stRealExtent (realPart (acomplex d)))
->         (accommodate stImagExtent (imagPart (acomplex d)))
+>         (accommodate fstats.stRealExtent (realPart (acomplex d)))
+>         (accommodate fstats.stImagExtent (imagPart (acomplex d)))
 >
 > slowConvolveIR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
-> slowConvolveIR dsigIn Lowpass{ .. }
->   | traceNot trace_SCIR False            = undefined
->   | otherwise                            =
+> slowConvolveIR dsigIn lp                 =
 >   profess
 >     (ok x1 && ok x2 && ok x3 && sane dsigOut)
 >     (unwords [fName, "- problem with 1,2, or 3"])
@@ -231,7 +210,7 @@ Discrete approach ==============================================================
 >
 >     cdsigIR            :: DiscreteSig (Complex Double)
 >     cdsigIR                              =
->       memoizedComputeFR lowpassKs{ksLen = VU.length (dsigVec cdsigIn), ksSr = 44_100}
+>       memoizedComputeFR lp.lowpassKs{ksLen = VU.length (dsigVec cdsigIn), ksSr = 44_100}
 >
 >     x1, x2, x3         :: VU.Vector (Complex Double)
 >     x1                                   = dsigVec cdsigIn
@@ -247,15 +226,8 @@ Discrete approach ==============================================================
 >
 >     ok vec                               = VU.length vec > 0
 >
->     trace_SCIR                           =
->       unwords [fName, "\n", show dsigIn
->              , "\n X \n", show cdsigIR
->              , "\n = \n", show dsigOut]
->
 > fastConvolveFR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
-> fastConvolveFR dsigIn Lowpass{ .. }
->   | traceNot trace_FCFR False            = undefined
->   | otherwise                            =
+> fastConvolveFR dsigIn lp                 =
 >   profess
 >     (sane dsigOut)
 >     (unwords [fName, "insane result"])
@@ -278,7 +250,7 @@ Discrete approach ==============================================================
 >       fromRawVector ("toFreak " ++ dsigTag dsigIn) (VU.fromList cdubsIn)
 >
 >     cdsigFR            :: DiscreteSig (Complex Double)
->     cdsigFR                              = memoizedComputeFR lowpassKs{ksLen = length cdubsIn, ksSr = 44_100}
+>     cdsigFR                              = memoizedComputeFR lp.lowpassKs{ksLen = length cdubsIn, ksSr = 44_100}
 >
 >     tags                                 = (dsigTag cdsigIn, dsigTag cdsigFR)
 >     vecs                                 = (dsigVec cdsigIn, dsigVec cdsigFR)
@@ -296,11 +268,6 @@ Discrete approach ==============================================================
 >       if disableMultiply
 >         then toTimeDomain cdubsIn
 >         else toTimeDomain $ VU.toList vprod
->
->     trace_FCFR                           =
->       unwords [fName, "\n", show cdsigIn
->                           , show cdsigFR
->                           , show dsigOut]
 >
 > toFrequencyDomain      :: ∀ a. Coeff a ⇒ [a] → [Complex Double]
 > toFrequencyDomain                        = doFft fft
@@ -353,17 +320,16 @@ Each driver specifies an xform composed of functions from Double to Double
         map into the y-axis (but before multiplying by ynorm)
 
 > freakyResponse         :: KernelData → [ResponseShape] → Double → Complex Double
-> freakyResponse KernelData{ .. } shapes xIn_
->                                          = mkPolar mag ph
+> freakyResponse kd shapes xIn_            = mkPolar mag ph
 >   where
 >     mag                                  =
 >       profess
->         (xIn <= kdNyq)
+>         (xIn <= kd.kdNyq)
 >         (unwords ["xIn", show xIn, "out of range (mag)", show fritems])
 >         ((* ynorm) . \x → friCompute x xIn) fritem
->     (ph, xIn)                            = if xIn_ <= kdNyq
+>     (ph, xIn)                            = if xIn_ <= kd.kdNyq
 >                                              then (3*pi/2, xIn_)
->                                              else (pi/2, kdNyq - xIn_)
+>                                              else (pi/2, kd.kdNyq - xIn_)
 >
 >     fritem                               =
 >       if null fritems'
@@ -373,38 +339,38 @@ Each driver specifies an xform composed of functions from Double to Double
 >     fritems                              = foldl' doShape [] shapes
 >
 >     ynorm, h                   :: Double
->     ynorm                                = 1 / (1 + kdEQ)
+>     ynorm                                = 1 / (1 + kd.kdEQ)
 >     h                                    = 1
 >     
 >     doShape            :: [FrItem] → ResponseShape → [FrItem]
 >     doShape oldI Block                   = oldI ++ [newI]
 >       where
->         newD           :: Double         = kdLeftOfBulge
+>         newD           :: Double         = kd.kdLeftOfBulge
 >         newI           :: FrItem         = FrItem newD (const h)
 >         
 >     doShape oldI Bulge                   = oldI ++ iList
 >       where
->         iList          :: [FrItem]       = if kdStretch == 0 then [] else [newI1, newI2]
+>         iList          :: [FrItem]       = if kd.kdStretch == 0 then [] else [newI1, newI2]
 >
 >         newI1, newI2   :: FrItem
 >         newI1                            =
 >           FrItem
->             kdFc
->             (ddLinear2 kdEQ h . startUp . ddNorm2 kdLeftOfBulge kdFc)
+>             kd.kdFc
+>             (ddLinear2 kd.kdEQ h . startUp . ddNorm2 kd.kdLeftOfBulge kd.kdFc)
 >         newI2                            =
 >           FrItem
->             kdRightOfBulge
->             (ddLinear2 kdEQ h . finishDown . ddNorm2 kdFc kdRightOfBulge)
+>             kd.kdRightOfBulge
+>             (ddLinear2 kd.kdEQ h . finishDown . ddNorm2 kd.kdFc kd.kdRightOfBulge)
 >         
 >     doShape oldI Decline                 = oldI ++ [newI]
 >       where
->         newD                             = kdNyq
+>         newD                             = kd.kdNyq
 >         newI                             =
 >           FrItem
 >             newD
 >             (fromCentibels
 >              . ddLinear2 (-dropoffRate) (toCentibels h)
->              . flip (-) (logBase 2 kdFc)
+>              . flip (-) (logBase 2 kd.kdFc)
 >              . logBase 2)
 >          
 > ddNorm2                :: Double → Double → (Double → Double)
@@ -450,12 +416,12 @@ Type declarations ==============================================================
 >   , kdRightOfBulge     :: Double
 >   } deriving Show
 > calcKernelData         :: KernelSpec → KernelData
-> calcKernelData KernelSpec{ .. }          =
+> calcKernelData ks                        =
 >   KernelData
->     (fromIntegral ksLen)
+>     (fromIntegral ks.ksLen)
 >     fc
 >     effectiveQ
->     (fromIntegral ksLen / 2)
+>     (fromIntegral ks.ksLen / 2)
 >     kStretch
 >     (fc - kStretch / 2)
 >     (fc + kStretch / 2)
@@ -463,9 +429,9 @@ Type declarations ==============================================================
 >     fc, effectiveQ, kStretch, fudge4
 >                        :: Double
 >     fudge4                               = 4
->     fc                                   = fromAbsoluteCents ksFc
->     effectiveQ                           = fromCentibels (fromIntegral ksQ) / fudge4
->     kStretch                             = if ksQ == 0 then 0 else fc / bulgeDiv
+>     fc                                   = fromAbsoluteCents ks.ksFc
+>     effectiveQ                           = fromCentibels (fromIntegral ks.ksQ) / fudge4
+>     kStretch                             = if ks.ksQ == 0 then 0 else fc / bulgeDiv
 >
 > data DiscreteStats a                     =
 >   DiscreteStats {
@@ -492,17 +458,16 @@ Type declarations ==============================================================
 >     , dsigVec          :: VU.Vector a}
 > instance ∀ a. (Show a, Coeff a, VU.Unbox a) ⇒ Show (DiscreteSig a) where
 >   show                 :: DiscreteSig a → String
->   show DiscreteSig{ .. }                 =
->     unwords ["DiscreteSig", show (dsigTag, dsigStats, measureFrequencyResponse dsigVec)]
+>   show dsig                              =
+>     unwords ["DiscreteSig", show (dsig.dsigTag, dsig.dsigStats, measureFrequencyResponse dsig.dsigVec)]
 > sane                   :: (Coeff a) ⇒ DiscreteSig a → Bool
 > sane dsig                                =
 >   profess
->     (stMaxAmp < upsilon)
->     (unwords ["insanely large amplitude", show stMaxAmp])
+>     (stats.stMaxAmp < upsilon)
+>     (unwords ["insanely large amplitude", show stats.stMaxAmp])
 >     True
 >   where
->     DiscreteStats{ .. }                  
->                                          = dsig.dsigStats
+>     stats                                = dsig.dsigStats
 > chartDiscreteSig       :: Double → Int → DiscreteSig Double → String → IO ()
 > chartDiscreteSig clockRate nPoints dsig tag
 >                                          = chartPoints tag [sec]
