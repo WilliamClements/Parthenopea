@@ -1,12 +1,9 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
-> {-# LANGUAGE LambdaCase #-}
-> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
-> {-# LANGUAGE TupleSections #-} 
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Debug

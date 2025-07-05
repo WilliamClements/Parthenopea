@@ -10,7 +10,7 @@ Command
 William Clements
 June 16, 2025
 
-> module Parthenopea.SoundFont.Command ( pCommand ) where
+> module Parthenopea.SoundFont.Command ( pCommand, batchProcessor ) where
 >
 > import qualified Codec.Midi              as M
 > import qualified Codec.SoundFont         as F
@@ -39,59 +39,52 @@ Implement PCommand =============================================================
 
 > pCommand               :: IO ()
 > pCommand                                 = do
+>   batchProcessor []
+>
+> batchProcessor         :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
+> batchProcessor isongs                    = do
 >   mids                                   ← FP.getDirectoryFiles "." (singleton "*.mid")
 >   sf2s                                   ← FP.getDirectoryFiles "." (singleton "*.sf2")
 >   putStrLn (msg mids sf2s)
->   proceed mids sf2s
+>   proceed isongs mids sf2s
 >   where
 >     msg                :: [FilePath] → [FilePath] → String
 >     msg ms ss
->       | null ms && null ss               = "no *.mid or *.sf2 files found: nothing to do"
+>       | null ms && null isongs && null ss
+>                                          = "no *.mid or *.sf2 files found: nothing to do"
 >       | null ss                          = "no *.sf2 files found: proceeding to survey mids"
->       | null ms                          = "no *.mid files found: proceeding to survey sf2s"
+>       | null ms && null isongs           = "no *.mid files found: proceeding to survey sf2s"
 >       | otherwise                        = "proceeding to render mids by sf2s"
 >
-> proceed                :: [FilePath] → [FilePath] → IO ()
-> proceed ms ss                            = do
->   CM.when (2 < length ms) runUnitTests
->   mids                                   ← populateMids ms
->   let rost                               = mids.midsRoster                
->   sf2s                                   ← populateSf2s ss
+> proceed                :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → [FilePath] → [FilePath] → IO ()
+> proceed isongs mids sf2s                 = do
+>   msongs                                 ← mapM convertFromMidi mids
+>   let songs                              = isongs ++ msongs
 >
->   if null ss
+>   CM.when (20 < length songs)            runUnitTests
+>
+>   rost                                   ← qualifyKinds songs
+>   vFile                                  ← openSf2s sf2s
+>
+>   if null sf2s
 >     then return ()
 >     else do
->       (prerunt, matches, rd)             ← surveyInstruments sf2s rost
+>       (prerunt, matches, rd)             ← surveyInstruments vFile rost
 >       runt                               ← finishRuntime prerunt rost matches rd
 >       imap                               ← prepareInstruments runt
 >       -- here's the heart of the coconut
->       mapM_ (renderSong runt imap) mids.midsSongs
+>       mapM_ (renderSong runt imap) songs
 > 
-> data Mids                                =
->   Mids {
->     midsRoster         :: ([InstrumentName], [PercussionSound])
->   , midsSongs          :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]}
->
-> populateMids           :: [FilePath] → IO Mids
-> populateMids paths                       = do
->   songs                                  ← mapM convertFromMidi paths
->   rost                                   ← qualifyKinds songs
->   return $ Mids rost songs
->
 > convertFromMidi        :: FilePath → IO (String, DynMap → Music (Pitch, [NoteAttribute]))
 > convertFromMidi path                     = do
->   midi                                   ← loadMidiFile path
->   return (path, shimSong $ fromMidi midi)
+>   midi_                                  ← M.importFile path
+>   let midi                               = case midi_ of
+>                                              Left err → error err
+>                                              Right m  → m
+>   return ((reverse . drop 4 . reverse) path, shimSong $ fromMidi midi)
 >
-> loadMidiFile           :: FilePath → IO M.Midi
-> loadMidiFile fn = do
->   r                                      ← M.importFile fn 
->   case r of
->     Left err                             → error err
->     Right m                              → return m
->
-> populateSf2s           :: [FilePath] → IO (Array Word SFFile)
-> populateSf2s paths                       = do
+> openSf2s               :: [FilePath] → IO (Array Word SFFile)
+> openSf2s paths                           = do
 >   sffilesp                               ← CM.zipWithM openSoundFontFile [0..] paths
 >   let vFiles                             = listArray (0, fromIntegral (length paths - 1)) sffilesp
 >   return vFiles
@@ -146,7 +139,7 @@ Implement PCommand =============================================================
 >     -- render song only if all OK
 >     if all fst esI && all fst esP
 >       then do
->         let path                         = (reverse . drop 4 . reverse) name ++ ".wav"
+>         let path                         = name ++ ".wav"
 >         putStr path
 >         let (durS,s)                     = renderSF (song dynMap) imap
 >         putStrLn (unwords ["-> outFile*", path, show durS])

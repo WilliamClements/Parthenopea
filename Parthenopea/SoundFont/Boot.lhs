@@ -24,7 +24,6 @@ January 21, 2025
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Debug.Trace ( traceIO )
-> import Euterpea.IO.MIDI.GeneralMidi()
 > import Euterpea.Music
 > import Numeric ( showHex )
 > import Parthenopea.Debug
@@ -151,7 +150,6 @@ pre-sample task ================================================================
 
 > preSampleTaskIf sffile _ fwIn            = foldl' sampleFolder fwIn (formComprehension sffile ssShdrs)
 >   where
->     sampleFolder       :: FileWork → PreSampleKey → FileWork
 >     sampleFolder fwForm presk            =
 >       let
 >         fName                            = "sampleFolder"
@@ -193,9 +191,6 @@ pre-instance task ==============================================================
 >     pergms                               = formComprehension sffile ssInsts
 >     (preInstCache, rdFinal)              = foldl' preIFolder (Map.empty, fwIn.fwDispositions) pergms
 >
->     preIFolder         :: (Map PerGMKey PreInstrument, ResultDispositions)
->                           → PerGMKey
->                           → (Map PerGMKey PreInstrument, ResultDispositions)
 >     preIFolder (m, rdFold) pergm
 >                                          =
 >       if iinst.instBagNdx <= jinst.instBagNdx
@@ -296,7 +291,6 @@ capture task ===================================================================
 
 > captureTaskIf sffile _ fwIn              = zrecTask capturer fwIn
 >   where
->     capturer           :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     capturer zrec rdIn                   =
 >       let
 >         (newPzs, rdOut, mglobalKey)      = captureZones (instKey zrec) rdIn
@@ -306,7 +300,7 @@ capture task ===================================================================
 >     captureZones       :: PerGMKey → ResultDispositions → ([PreZone], ResultDispositions, Maybe PreZoneKey)
 >     captureZones pergm rdCap__           = (pzs', rdCap'', globalKey)
 >       where
->         fName_                           = unwords["captureZones"]
+>         fName_                           = "captureZones"
 >
 >         preI                             = fwIn.fwBoot.zPreInstCache Map.! pergm
 >         iName                            = preI.piChanges.cnName
@@ -324,7 +318,7 @@ capture task ===================================================================
 >
 >         noZones, illegalRange, hasRoms, illegalLimits, yesAdopt
 >                        :: Maybe [Scan] 
->         ss = fromJust 
+>         ss = deJust fName_
 >              $ noZones `CM.mplus` illegalRange
 >                        `CM.mplus` hasRoms
 >                        `CM.mplus` illegalLimits
@@ -413,7 +407,6 @@ smash task =====================================================================
 
 > smashTaskIf _ _                          = zrecTask smasher
 >   where
->     smasher            :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >     smasher zrec rdFold                  =
 >       (zrec{zsSmashup = Just (computeInstSmashup (show $ instKey zrec) zrec.zsPreZones)}, rdFold)
 >
@@ -439,6 +432,34 @@ To build the map
 
 > reorgTaskIf _ _ fwIn                     = zrecTask reorger fwIn
 >   where
+>     reorger zrec rdFold
+>       | not doAbsorption                 = (zrec,                       rdFold)
+>       | isJust dprobe                    = (zrec,                       dispose pergm scansBlocked rdFold)
+>       | isNothing aprobe                 = (zrec,                       rdFold)
+>       | party == zrec.zswInst            = (zrec{zsPreZones = hpzs, zsSmashup = Just hsmash},
+>                                                                         dispose pergm scansIng rdFold)
+>       | otherwise                        = (zrec{zsPreZones = []},      dispose pergm scansEd rdFold)
+>       where
+>         fName                            = "reorger"
+>
+>         pergm                            = instKey zrec
+>         wInst                            = zrec.zswInst
+>
+>         dprobe                           = Map.lookup wInst dMap
+>         aprobe                           = Map.lookup wInst aMap
+>         hprobe                           = Map.lookup wInst hMap
+>
+>         disqualified                     = deJust "dprobe" dprobe
+>         party                            = deJust "aprobe" aprobe
+>         (hpzs, hsmash)                   = deJust "hprobe" hprobe
+>
+>         scansIng                         =
+>           [Scan Modified Absorbing fName noClue]
+>         scansEd                          =
+>           [Scan Dropped Absorbed   fName (show party)]
+>         scansBlocked                     =
+>           [Scan NoChange NoAbsorption fName (show disqualified)]
+>
 >     instNames          :: [(String, Word)]
 >     instNames                            =
 >       let
@@ -497,35 +518,6 @@ To build the map
 >           where
 >             fold2Fun   :: Map Word Word → Word → Map Word Word
 >             fold2Fun qFold wMember       = Map.insert wMember wLead qFold
-> 
->     reorger            :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
->     reorger zrec rdFold
->       | not doAbsorption                 = (zrec,                       rdFold)
->       | isJust dprobe                    = (zrec,                       dispose pergm scansBlocked rdFold)
->       | isNothing aprobe                 = (zrec,                       rdFold)
->       | party == zrec.zswInst            = (zrec{zsPreZones = hpzs, zsSmashup = Just hsmash},
->                                                                         dispose pergm scansIng rdFold)
->       | otherwise                        = (zrec{zsPreZones = []},      dispose pergm scansEd rdFold)
->       where
->         fName                            = "reorger"
->
->         pergm                            = instKey zrec
->         wInst                            = zrec.zswInst
->
->         dprobe                           = Map.lookup wInst dMap
->         aprobe                           = Map.lookup wInst aMap
->         hprobe                           = Map.lookup wInst hMap
->
->         disqualified                     = deJust "dprobe" dprobe
->         party                            = deJust "aprobe" aprobe
->         (hpzs, hsmash)                   = deJust "hprobe" hprobe
->
->         scansIng                         =
->           [Scan Modified Absorbing fName noClue]
->         scansEd                          =
->           [Scan Dropped Absorbed   fName (show party)]
->         scansBlocked                     =
->           [Scan NoChange NoAbsorption fName (show disqualified)]
 
 shave task ============================================================================================================
           remove dropped or violated instruments from the preInstCache
@@ -686,9 +678,6 @@ build zone task ================================================================
 >     formZoneCache      :: (Map PerGMKey PerInstrument, ResultDispositions)
 >     formZoneCache                        = zrecCompute fwIn zcFolder (Map.empty, fwDispositions)
 >
->     zcFolder           :: (Map PerGMKey PerInstrument, ResultDispositions)
->                           → InstZoneRecord
->                           → (Map PerGMKey PerInstrument, ResultDispositions)
 >     zcFolder (zc, rdFold) zrec
 >       | traceIf trace_ZCF False          = undefined
 >       | otherwise                        =
