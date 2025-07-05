@@ -3,7 +3,7 @@ Haskell project built on and extending *Euterpea 2* music educational package. P
 
 The Euterpea user already can connect a synth to select and manually map Instruments to MIDI/GM from their SoundFont file set. However, using heuristics, Parthenopea chooses and maps "for you" the highest quality Instruments.
 
-For more on Euterpea, see https://www.euterpea.com/ and obtain its textbook ***Haskell School of Music***. However, Parthenopea doesn't require user to *directly* interface with Euterpea to survey, compare, and apply Instruments from their SoundFont *treasure trove*.
+For more on Euterpea, see https://www.euterpea.com/ and obtain its textbook ***Haskell School of Music***. But Parthenopea doesn't require user to *directly* interface with Euterpea to survey, compare, and apply Instruments from their SoundFont *treasure trove*.
 
 ## Building it
 Some difficulty here. User needs to know how (e.g. *cabal.project*) to set up local packages in a dependency chain. Also how to debug broken version constraints. https://github.com/georgefst/Euterpea2 is a fork of Euterpea intended to work around some build blockers.
