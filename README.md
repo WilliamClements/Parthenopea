@@ -1,19 +1,17 @@
 # Parthenopea
-Haskell library extending *Euterpea 2* music educational package. To Euterpea's song composition capabilities, Parthenopea adds a finishing touch -- experimentative orchestration.
+Haskell project built on and extending *Euterpea 2* music educational package. Parthenopea adds experimentative orchestration to Euterpea.
 
-There exists in the wild a vast *trove* of SoundFont files yielding a dizzying variety of sampled Instruments. Granted, the Euterpea user already can connect a synth and manually map Instruments from multiple SoundFont files. But Parthenopea **automatically** makes the highest quality Instrument choices from among the files. This can be a good way to experiment.
+The Euterpea user already can connect a synth to select and manually map Instruments to MIDI/GM from their SoundFont file set. However, using heuristics, Parthenopea chooses and maps "for you" the highest quality Instruments.
 
-To survey, compare, and apply Instruments from ***current*** *trove* doesn't require user to *directly* interface with Euterpea.
-
-For more on Euterpea, see https://www.euterpea.com/ and obtain its textbook ***Haskell School of Music***.
+For more on Euterpea, see https://www.euterpea.com/ and obtain its textbook ***Haskell School of Music***. However, Parthenopea doesn't require user to *directly* interface with Euterpea to survey, compare, and apply Instruments from their SoundFont *treasure trove*.
 
 ## Building it
-Some difficulty here. User needs to know *cabal* (e.g. *cabal.project*) to set up for building multiple local packages in a dependency chain. Also how to debug broken dependency versioning. https://github.com/georgefst/Euterpea2 is a fork of Euterpea intended to work around some build blockers.
+Some difficulty here. User needs to know how (e.g. *cabal.project*) to set up local packages in a dependency chain. Also how to debug broken version constraints. https://github.com/georgefst/Euterpea2 is a fork of Euterpea intended to work around some build blockers.
 
 ## Batch processor
-Parthenopea's *batch processor* opens all MIDI files (\*.mid) and SoundFont files (\*.sf2) found in the current directory. If both types are present, it proceeds to mine for best Instruments and "converts" the MIDI files to WAV files -- which you can listen to and share.
+Parthenopea's *batch processor* opens all MIDI files (\*.mid) and SoundFont files (\*.sf2) found in the current directory. If both types are present, it proceeds to mine for best Instruments and "converts" the MIDI files to music files -- which you can then listen to and share.
 
-You can initiate batch processing by typing *pCommand* in the REPL (i.e. *ghci*). Later on, if you scale up to many/large SoundFont files (I've tested it with 500 SoundFont at 46 GB!), you should build a standalone executable (*PCommand*) for this purpose, for better performance.
+Type *pCommand* into the REPL (i.e. *ghci*). Later on, scaling up to many and large SoundFont files, build and use a standalone executable (e.g. *PCommand*) for better performance.  It has been tested with ***500*** SoundFont files totalling ***46 GB*** :astonished: !
 
 ## Rendering
 Parthenopea is opiniated. As mentioned above, it tries to pick the most suitable SoundFont Instruments to realize each MIDI (GM) instrument. It *scores* Instruments via a combination of empirical stats. All the stats and scores are recorded and provided in a textual *Tournament Report*.
@@ -23,25 +21,34 @@ Note that the result obtained when mixing Instruments from *unrelated* SoundFont
 # Design highlights
 
 ## Synthesizer category
-Parthenopea implements a **wavetable** type **offline**  synthesizer. ***wavetable*** because Parthenopea works with SoundFont only. ***offline*** because non-interactive, requiring slow rendering steps.
+Parthenopea implements a **wavetable** type **offline**  synthesizer. ***Wavetable*** because Parthenopea works with SoundFont only. ***Offline*** because non-interactive, requiring slow rendering steps.
 
 The Parthenopea synth is written using Signal Functions ala Euterpea. 
 
 ## (Sweepable) low-pass filter **with resonance**
-In Euterpea, neither *filterLowPass* nor *filterLowPassBW* provide resonance as a part of input/response. So I developed a Signal Function that is a State Variable filter (SVF). See https://karmafx.net/docs/karmafx_digitalfilters.pdf and https://ccrma.stanford.edu/~jos/svf/svf.pdf .
+In Euterpea, *filterLowPass* and *filterLowPassBW* Signal Functions are sweepable, but neither provides *resonance* (Q). To address this lack, a Signal Function that is a State Variable filter (SVF) was developed. See https://karmafx.net/docs/karmafx_digitalfilters.pdf and https://ccrma.stanford.edu/~jos/svf/svf.pdf .
 
 ## Envelopes
-To induce note articulation effects, the SoundFont file Authors specify a set of sound envelope parameter values. (See https://www.synthfont.com/SFSPEC21.PDF).  Difficulties arise from ambiguities in the spec and non-conformance in the artifacts (files). The actual amplitude scaling is accomplished via Euterpea's *envLineSeg* Signal Function. In the interpretation of parameters, we endeavor to:
+To shape notes for a given Instrument, SoundFont file Authors can specify envelope parameter values. (See https://www.synthfont.com/SFSPEC21.PDF).  Implementation difficulties arose from ambiguities in the spec, non-conformance in the artifacts (files), and, unlike online playing, the lack of a precise key-release onset time.
+
+The runtime amplitude control is via Euterpea's *envLineSeg* Signal Function. Parthenopea first *interpretes* the envelope parameters, endeavoring to:
 1. produce a reasonable note
-2. honor Author design intent
+2. (try to) honor Author design intent
 
 ## Permissive scanning
-File scanning must be "fault tolerant" to avoid disqualifying too many otherwise useful SoundFont files and Instruments. This is apparent in the behavior of tools like https://www.polyphone.io/ when opening those flawed files. In Parthenopea, the glitches found are documented in a *Scan Report*.
+File scanning must be "fault tolerant" to avoid disqualifying too many otherwise useful SoundFont files and Instruments. This is apparent in the behavior of tools like https://www.polyphone.io/ when opening those flawed files. In Parthenopea, the glitches encountered and worked around are documented in a *Scan Report*.
 
 ## Instrument consolidation
-A note quality advantage can be attained by Authors via sampling the **natural** Instrument over many small ranges of Pitch and/or Velocity. Some authors, presumably for convenience, spread these many zones over multiple SoundFont instruments, each with a manageable zone count. 
+A note quality advantage is achieved by Authors via sampling the **natural** Instrument over many small ranges of Pitch and/or Velocity. Some authors, presumably for convenience, spread these many zones over multiple SoundFont Instruments, each with a manageable zone count. 
 
-The synthesizer will lose that note quality boost **bigtime** if just one *partial* Instrument is mapped to the given MIDI GM Instrument. So Parthenopea, prior to synthesis, will logically combine partial Instruments into one that has all the zones. 
+Synthesizers would lose that note quality boost **bigtime** if just one *partial* SoundFont Instrument is mapped to given MIDI GM Instrument. So Parthenopea, prior to synthesis, logically combines partial Instruments into one that has all the zones. 
 
 ## Array lookup for zone selection
-Nominally, a SoundFont note synthesizer must **search** through an Instrument's zones for the one whose Pitch and Velocity ranges contain the two incoming note parameters. Parthenopea optimizes that by forming an array per Instrument, so the search is reduced to an array lookup. 
+Nominally, SoundFont note synthesizer must **search** through an Instrument's zones for the one whose Pitch and Velocity ranges contain the two incoming note parameters. Parthenopea improves that by computing a cache per Instrument, such that the search is reduced to an array lookup.
+
+## Performance
+Don't ask :slightly_frowning_face: ! The bottlenecks are:
+1. parsing SoundFont files (https://hackage.haskell.org/package/HCodecs-0.5.2/docs/Codec-SoundFont.html)
+2. rendering - executing Signal Function tree
+
+Heavy batch runs have clocked in at ten hours.
