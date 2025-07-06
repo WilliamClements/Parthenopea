@@ -576,13 +576,6 @@ examine song for instrument and percussion usage ===============================
 >   shredses                               ← mapM shredSong songs
 >   return $ foldr (Map.unionWith combineShreds) Map.empty shredses
 >
-> qualifyKinds           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
->                           → IO ([InstrumentName], [PercussionSound])
-> qualifyKinds songs                       = do
->   mks                                    ← shredSongs songs
->   let isandps                            = Map.keys mks
->   return $ if null songs then allKinds else (lefts isandps, rights isandps)
->
 > shredSong              :: (String, DynMap → Music (Pitch, [NoteAttribute])) → IO (Map GMKind Shred)
 > shredSong (_, song)                      = do -- return $ shredMusic $ song Map.empty
 >   let asMusic                            = song Map.empty

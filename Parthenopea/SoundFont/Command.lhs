@@ -15,9 +15,8 @@ June 16, 2025
 > import qualified Codec.Midi              as M
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import Data.Array.Unboxed
+> import Data.Array.Unboxed ( Array, listArray )
 > import Data.Either ( lefts, rights )
-> import Data.List ( singleton )
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromMaybe )
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
@@ -27,8 +26,8 @@ June 16, 2025
 > import Euterpea.Music
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
-> import Parthenopea.Repro.Synthesizer
-> import Parthenopea.SoundFont.Boot
+> import Parthenopea.Repro.Synthesizer ( normalizingOutput )
+> import Parthenopea.SoundFont.Boot ( surveyInstruments )
 > import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
@@ -43,8 +42,8 @@ Implement PCommand =============================================================
 >
 > batchProcessor         :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
 > batchProcessor isongs                    = do
->   mids                                   ← FP.getDirectoryFiles "." (singleton "*.mid")
->   sf2s                                   ← FP.getDirectoryFiles "." (singleton "*.sf2")
+>   mids                                   ← FP.getDirectoryFiles "." ["*.mid", "*.midi"]
+>   sf2s                                   ← FP.getDirectoryFiles "." ["*.sf2"]
 >   putStrLn (msg mids sf2s)
 >   proceed isongs mids sf2s
 >   where
@@ -70,8 +69,15 @@ Implement PCommand =============================================================
 >     then return ()
 >     else do
 >       (prerunt, matches, rd)             ← surveyInstruments vFile rost
->       runt                               ← finishRuntime prerunt rost matches rd
+>
+>       writeScanReport prerunt rd
+>       (wI, wP)                           ← decideWinners prerunt rost matches 
+>       writeTournamentReport prerunt wI wP
+>
+>       let winners                        = WinningRecord (Map.map head wI) (Map.map head wP)
+>       let runt                           = prerunt{zWinningRecord = winners}
 >       imap                               ← prepareInstruments runt
+>
 >       -- here's the heart of the coconut
 >       mapM_ (renderSong runt imap) songs
 > 
@@ -81,7 +87,23 @@ Implement PCommand =============================================================
 >   let midi                               = case midi_ of
 >                                              Left err → error err
 >                                              Right m  → m
->   return ((reverse . drop 4 . reverse) path, shimSong $ fromMidi midi)
+>   return (removeExtension path, shimSong $ fromMidi midi)
+>   where
+>     removeExtension    :: FilePath → FilePath
+>     removeExtension fp                   =
+>       let
+>         fpRev                            = reverse fp
+>         fpRev'                           = dropWhile (/= '.') fpRev
+>         fpRev''                          = drop 1 fpRev'
+>       in
+>         reverse fpRev''
+>
+> qualifyKinds           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
+>                           → IO ([InstrumentName], [PercussionSound])
+> qualifyKinds songs                       = do
+>   mks                                    ← shredSongs songs
+>   let isandps                            = Map.keys mks
+>   return $ if null songs then allKinds else (lefts isandps, rights isandps)
 >
 > openSf2s               :: [FilePath] → IO (Array Word SFFile)
 > openSf2s paths                           = do
@@ -107,18 +129,6 @@ Implement PCommand =============================================================
 >       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
 >       let sffile                         = SFFile wFile filename boota samplea
 >       return sffile
->
-> finishRuntime          ::  SFRuntime
->                            → ([InstrumentName], [PercussionSound])
->                            → Matches
->                            → ResultDispositions
->                            → IO SFRuntime
-> finishRuntime prerunt rost matches rd    = do
->   writeScanReport prerunt rd
->   (wI, wP)                               ← decideWinners prerunt rost matches 
->   writeTournamentReport prerunt.zFiles wI wP
->   let wins                               = WinningRecord (Map.map head wI) (Map.map head wP)
->   return prerunt{zWinningRecord = wins}
 >
 > renderSong             :: ∀ p . Clock p ⇒
 >                           SFRuntime

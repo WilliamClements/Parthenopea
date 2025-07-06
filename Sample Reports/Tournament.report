@@ -1,0 +1,53 @@
+0    "AspartameCrystal.sf2"                                  
+1    "GM Bank 8.22 MB.sf2"                                   
+
+
+legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]
+
+weights = [10.0,2.0,0.0,1.5,3.0,3.0]
+
+> AcousticGuitarNylon                               
+>     1                 Nylon Guitar                              12207          0.0   -1.0  1.0   2.3   1.0   6.7            347.9
+>     1              Acoustic Guitar                              11094          0.0   -1.0  1.0   1.8   1.0   6.2            282.0
+>     0              Acoustic Guitar                              10496          0.0   -1.0  1.0   1.0   1.0   6.2            282.0
+>     1                 Clean Guitar                              3036           0.0   -1.0  1.0   2.4   1.0   0.5            151.5
+>     1             Overdrive Guitar                              2198           0.0   -1.0  1.0   2.6   -1.0  1.8            154.3
+>     1            Distortion Guitar                              1596           0.0   -1.0  1.0   1.8   -1.0  1.8            154.3
+>     1             Harmonics Guitar                              998            0.0   -1.0  1.0   1.0   -1.0  1.8            154.3
+>     1                 Muted Guitar                              -388           0.0   -1.0  1.0   1.8   -1.0  0.5            151.5
+>     1                  Jazz Guitar                              -388           0.0   -1.0  1.0   1.8   -1.0  0.5            151.5
+> 
+> ElectricBassFingered                              
+>     0                  Finger Bass                              11536          0.0   -1.0  1.0   1.0   1.0   6.9            378.6
+>     1                Fingered Bass                              11528          0.0   -1.0  1.0   1.0   1.0   6.9            377.7
+>     1                  Picked Bass                              8457           0.0   -1.0  1.0   1.5   1.0   4.5            186.5
+>     1                  Slap Bass 2                              8080           0.0   -1.0  1.0   1.5   1.0   4.3            179.9
+>     1                Contra Basson                              7818           0.0   -1.0  1.0   1.0   1.0   4.4            182.1
+>     1                 Synth Bass 1                              7684           0.0   -1.0  1.0   1.0   1.0   4.3            179.9
+>     1                  Slap Bass 1                              7684           0.0   -1.0  1.0   1.0   1.0   4.3            179.9
+>     1                 Synth Bass 2                              4684           0.0   -1.0  1.0   1.0   -1.0  4.3            179.9
+>     1               Fretless Bass1                              4636           0.0   -1.0  1.0   0.7   -1.0  4.4            183.2
+>     1                  Bass & Lead                              3754           0.0   -1.0  1.0   1.8   -1.0  3.3            163.4
+> 
+> Clarinet                                          
+>     1                     Clarinet                              10690          0.0   -1.0  1.0   2.6   -1.0  7.5            528.2
+> 
+
+0    "AspartameCrystal.sf2"                                  
+1    "GM Bank 8.22 MB.sf2"                                   
+
+
+legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]
+
+weights = [10.0,2.0,0.0,1.5,3.0,3.0]
+
+> AcousticSnare                                     
+>     1          Snare Drum 1                         SNRDRUM1    1250           0.0   -1.0  1.0   1.0   1.0   0.0            136.7
+> 
+> LowTom                                            
+>     1          Mid Tom 2                             MIDTOM2    4730           0.0   -1.0  1.0   1.0   1.0   2.3            158.5
+> 
+
+
+The End
+

@@ -18,7 +18,7 @@ February 1, 2025
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import Data.Array.Unboxed ( Array, (!) )
+> import Data.Array.Unboxed ( (!) )
 > import qualified Data.Audio              as A
 > import Data.Foldable ( toList )
 > import Data.List ( sortOn, singleton )
@@ -141,11 +141,11 @@ executive ======================================================================
 >            , Blanks 5]
 >           ++ kname k sffile
 >
-> writeTournamentReport  :: Array Word SFFile
+> writeTournamentReport  :: SFRuntime
 >                           → Map InstrumentName [PerGMScored]
 >                           → Map PercussionSound [PerGMScored]
 >                           → IO ()
-> writeTournamentReport sffiles pContI pContP
+> writeTournamentReport runt pContI pContP
 >                        = do
 >   tsStarted            ← getCurrentTime
 >
@@ -168,7 +168,7 @@ executive ======================================================================
 >
 >   where
 >     nfs                :: [(Int, SFFile)]
->     nfs                = zip [0..] (toList sffiles)
+>     nfs                = zip [0..] (toList runt.zFiles)
 >     emitFileListC      = concatMap doF nfs
 >     doF (nth, sffile)  = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
 
@@ -178,15 +178,12 @@ define signal functions and instrument maps to support rendering ===============
 > prepareInstruments runt                  = 
 >     return $ (Percussion, assignPercussion)                                                      : imap
 >   where
->     WinningRecord{pWinningI, pWinningP}  = runt.zWinningRecord
->     imap                                 = Map.foldrWithKey imapFolder [] pWinningI
->     pmap                                 = Map.foldrWithKey pmapFolder [] pWinningP
+>     winners                              = runt.zWinningRecord
+>     imap                                 = Map.foldrWithKey imapFolder [] winners.pWinningI
+>     pmap                                 = Map.foldrWithKey pmapFolder [] winners.pWinningP
 >
->     imapFolder kind PerGMScored{pPerGMKey} target
->                                          = (kind, assignInstrument pPerGMKey)                    : target
->
->     pmapFolder kind PerGMScored{pPerGMKey} target
->                                          = (kind, (pgkwFile pPerGMKey, pgkwInst pPerGMKey))      : target
+>     imapFolder kind scored target        = (kind, assignInstrument scored.pPerGMKey)                      : target
+>     pmapFolder kind scored target        = (kind, (pgkwFile scored.pPerGMKey, pgkwInst scored.pPerGMKey)) : target
 >
 >     assignInstrument   :: ∀ p . Clock p ⇒ PerGMKey → Instr (Stereo p)
 >     assignInstrument pergm durI pch vol params
