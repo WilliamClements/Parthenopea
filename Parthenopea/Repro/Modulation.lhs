@@ -284,7 +284,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >         getValue m8r.mrModSrc * m8r.mrModAmount * getValue m8r.mrAmountSrc
 >
 > evaluateNoteOn         :: Int → Mapping → Double
-> evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / 128) (0, 1)
+> evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / fromIntegral qMidiSize128) (0, 1)
 >
 > evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
 > evaluateModSignals tag m8n md msig noon  = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)

@@ -411,7 +411,7 @@ smash task =====================================================================
 >       (zrec{zsSmashup = Just (computeInstSmashup (show $ instKey zrec) zrec.zsPreZones)}, rdFold)
 >
 > computeInstSmashup     :: String → [PreZone] → Smashing Word
-> computeInstSmashup tag pzs               = smashSubspaces tag [128, 128, 2] (map extractSpace pzs)
+> computeInstSmashup tag pzs               = smashSubspaces tag [qMidiSize128, qMidiSize128, 2] (map extractSpace pzs)
 
 reorg task ============================================================================================================
           where appropriate, make one instrument out of many

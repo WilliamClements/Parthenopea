@@ -273,7 +273,7 @@ tournament starts here =========================================================
 >     wiFolder           :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >                           → PerGMKey → PerInstrument
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->     wiFolder (wI, wP) pergmI_@PerGMKey{pgkwFile} perI
+>     wiFolder (wI, wP) pergmI_ perI
 >       | traceIf trace_WIF False          = undefined
 >       | otherwise                        = result
 >       where
@@ -334,7 +334,7 @@ tournament starts here =========================================================
 >                 mffm   :: Maybe FFMatches
 >                 mffm                     =
 >                   mz >>= (zdSampleIndex . pzDigest)
->                      >>= Just . PreSampleKey pgkwFile
+>                      >>= Just . PreSampleKey pergmI_.pgkwFile
 >                      >>= (`Map.lookup` matches.mSMatches)
 >                 fuzzMap
 >                        :: Map PercussionSound Fuzz

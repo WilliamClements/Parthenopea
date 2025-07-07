@@ -15,7 +15,7 @@ June 16, 2025
 > import qualified Codec.Midi              as M
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import Data.Array.Unboxed ( Array, listArray )
+> import Data.Array.Unboxed ( listArray )
 > import Data.Either ( lefts, rights )
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromMaybe )
@@ -62,10 +62,11 @@ Implement PCommand =============================================================
 >
 >   CM.when (20 < length songs)            runUnitTests
 >
+>   sffilesp                               ← CM.zipWithM openSoundFontFile [0..] sf2s
+>   let vFile                              = listArray (0, fromIntegral (length sf2s - 1)) sffilesp
 >   rost                                   ← qualifyKinds songs
->   vFile                                  ← openSf2s sf2s
 >
->   if null sf2s
+>   if null vFile
 >     then return ()
 >     else do
 >       (prerunt, matches, rd)             ← surveyInstruments vFile rost
@@ -80,55 +81,6 @@ Implement PCommand =============================================================
 >
 >       -- here's the heart of the coconut
 >       mapM_ (renderSong runt imap) songs
-> 
-> convertFromMidi        :: FilePath → IO (String, DynMap → Music (Pitch, [NoteAttribute]))
-> convertFromMidi path                     = do
->   midi_                                  ← M.importFile path
->   let midi                               = case midi_ of
->                                              Left err → error err
->                                              Right m  → m
->   return (removeExtension path, shimSong $ fromMidi midi)
->   where
->     removeExtension    :: FilePath → FilePath
->     removeExtension fp                   =
->       let
->         fpRev                            = reverse fp
->         fpRev'                           = dropWhile (/= '.') fpRev
->         fpRev''                          = drop 1 fpRev'
->       in
->         reverse fpRev''
->
-> qualifyKinds           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
->                           → IO ([InstrumentName], [PercussionSound])
-> qualifyKinds songs                       = do
->   mks                                    ← shredSongs songs
->   let isandps                            = Map.keys mks
->   return $ if null songs then allKinds else (lefts isandps, rights isandps)
->
-> openSf2s               :: [FilePath] → IO (Array Word SFFile)
-> openSf2s paths                           = do
->   sffilesp                               ← CM.zipWithM openSoundFontFile [0..] paths
->   let vFiles                             = listArray (0, fromIntegral (length paths - 1)) sffilesp
->   return vFiles
->
-> openSoundFontFile      :: Word → FilePath → IO SFFile
-> openSoundFontFile wFile filename         = do
->   putStrLn (unwords [show wFile, filename])
->   result                                 ← F.importFile filename
->   case result of
->     Left s                               →
->       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
->     Right soundFont                      → do
->       let pdata                          = F.pdta soundFont
->       let sdata                          = F.sdta soundFont
->       let boota                          =
->             FileArrays
->               (F.insts pdata) (F.ibags pdata)
->               (F.igens pdata) (F.imods pdata)
->               (F.shdrs pdata)
->       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
->       let sffile                         = SFFile wFile filename boota samplea
->       return sffile
 >
 > renderSong             :: ∀ p . Clock p ⇒
 >                           SFRuntime
@@ -160,5 +112,48 @@ Implement PCommand =============================================================
 >       else
 >         putStrLn "skipping..."
 >     return ()
+> 
+> convertFromMidi        :: FilePath → IO (String, DynMap → Music (Pitch, [NoteAttribute]))
+> convertFromMidi path                     = do
+>   midi_                                  ← M.importFile path
+>   let midi                               = case midi_ of
+>                                              Left err → error err
+>                                              Right m  → m
+>   return (removeExtension path, const $ fromMidi midi)
+>   where
+>     removeExtension    :: FilePath → FilePath
+>     removeExtension fp                   =
+>       let
+>         fpRev                            = reverse fp
+>         fpRev'                           = dropWhile (/= '.') fpRev
+>         fpRev''                          = drop 1 fpRev'
+>       in
+>         reverse fpRev''
+>
+> qualifyKinds           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
+>                           → IO ([InstrumentName], [PercussionSound])
+> qualifyKinds songs                       = do
+>   mks                                    ← shredSongs songs
+>   let isandps                            = Map.keys mks
+>   return $ if null songs then allKinds else (lefts isandps, rights isandps)
+>
+> openSoundFontFile      :: Word → FilePath → IO SFFile
+> openSoundFontFile wFile filename         = do
+>   putStrLn (unwords [show wFile, filename])
+>   result                                 ← F.importFile filename
+>   case result of
+>     Left s                               →
+>       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
+>     Right soundFont                      → do
+>       let pdata                          = F.pdta soundFont
+>       let sdata                          = F.sdta soundFont
+>       let boota                          =
+>             FileArrays
+>               (F.insts pdata) (F.ibags pdata)
+>               (F.igens pdata) (F.imods pdata)
+>               (F.shdrs pdata)
+>       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
+>       let sffile                         = SFFile wFile filename boota samplea
+>       return sffile
 
 The End

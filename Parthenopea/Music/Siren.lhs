@@ -452,14 +452,10 @@ also
 
 instrument range checking =============================================================================================
 
-> union2Ranges           :: (Ord a, Ord b) ⇒ (a, b) → (a, b) → (a, b)
-> union2Ranges r1 r2                       = unionRanges (r1:[r2])
 > unionRanges            :: (Ord a, Ord b) ⇒ [(a, b)] → (a, b)
 > unionRanges []                           = error "empty range list"
 > unionRanges (r:rs)                       = ( minimum (map fst (r:rs))
 >                                            , maximum (map snd (r:rs)) )
-> intersect2Ranges       :: Ord b ⇒ (b, b) → (b, b) → Maybe (b, b)
-> intersect2Ranges r1 r2                   = intersectRanges (r1:[r2])
 > intersectRanges        :: Ord b ⇒ [(b, b)] → Maybe (b, b)
 > intersectRanges (r:rs)                   =
 >   case uncurry compare inverted of
@@ -564,12 +560,13 @@ examine song for instrument and percussion usage ===============================
 >     Percussion                           → Right $ toEnum (ePitch - 35)
 >     _                                    → Left eInst
 >
-> shimSong                :: Music (Pitch, [NoteAttribute]) → DynMap → Music (Pitch, [NoteAttribute])
-> shimSong m _                             = m
->
 > shredMusic              :: ToMusic1 a ⇒ Music a → IO Shredding
 > shredMusic m                             =
 >   return $ critiqueMusic $ foldl' shFolder defShredding $ fst (musicToMEvents defaultContext (toMusic1 m))
+>
+> critiqueMusic          :: Shredding → Shredding
+> critiqueMusic shred        =
+>   Shredding shred.shRanges (concatMap critiqueShred (Map.assocs shred.shRanges))
 >
 > shredSongs              :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO (Map GMKind Shred)
 > shredSongs songs                         = do
@@ -577,14 +574,10 @@ examine song for instrument and percussion usage ===============================
 >   return $ foldr (Map.unionWith combineShreds) Map.empty shredses
 >
 > shredSong              :: (String, DynMap → Music (Pitch, [NoteAttribute])) → IO (Map GMKind Shred)
-> shredSong (_, song)                      = do -- return $ shredMusic $ song Map.empty
+> shredSong (_, song)                      = do
 >   let asMusic                            = song Map.empty
 >   ding                                   ← shredMusic asMusic
 >   return $ shRanges ding
->
-> critiqueMusic          :: Shredding → Shredding
-> critiqueMusic Shredding{shRanges}        =
->   Shredding shRanges (concatMap critiqueShred (Map.assocs shRanges))
 >
 > combineShreds          :: Shred → Shred → Shred
 > combineShreds s1 s2                      =
@@ -600,16 +593,16 @@ examine song for instrument and percussion usage ===============================
 >           s1.shCount + s2.shCount}
 >
 > critiqueShred          :: (GMKind, Shred) → [(InstrumentName, [String])]
-> critiqueShred (kind, shred)            =
+> critiqueShred (kind, shred)              =
 >   let
->     (instr, rng)                       =
+>     (instr, rng)                         =
 >       case kind of
 >         Left iname                       → (iname, fromMaybe wideOpen (instrumentRange iname))
 >         _                                → (Percussion, wideOpen)
 >   in critiqueNote instr rng shred.shLowNote ++ critiqueNote instr rng shred.shHighNote
 > 
 > critiqueNote           :: InstrumentName → (AbsPitch, AbsPitch) → MEvent → [(InstrumentName, [String])]
-> critiqueNote name rng mev              =
+> critiqueNote name rng mev                =
 >   let
 >     p                                    = mev.ePitch
 >   in
@@ -633,20 +626,9 @@ examine song for instrument and percussion usage ===============================
 >         (if ePitch mev > ePitch shred.shHighNote then mev else shred.shHighNote)
 >         (shred.shCount + 1)
 >
-> shredJingles           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
-> shredJingles js                          = do
->   putStrLn "showing incidence, static range, onset time of low and high.\nNote: ! denotes out of bounds\n"
->   mapM_ (uncurry shredJingle) js
->
-> shredJingle            :: String → (DynMap → Music (Pitch, [NoteAttribute])) → IO ()
-> shredJingle name m                       = do
->   putStrLn name
->   putStrLn ""
->   printShreds =<< shredMusic (m Map.empty)
->
 > printShreds            :: Shredding → IO ()
-> printShreds Shredding{shRanges}          = 
->   mapM_ (uncurry printShred) (Map.assocs shRanges)
+> printShreds ding                         = 
+>   mapM_ (uncurry printShred) (Map.assocs ding.shRanges)
 >   
 > printShred             :: GMKind → Shred → IO ()
 > printShred kind shred                    = do
@@ -819,20 +801,17 @@ Returns sample point as (normalized) Double
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
 >
-> qMidiSize128           :: Int
+> qMidiSize128           :: Word
 > qMidiSize128                             = 128
-> qMidiSizeSpace         :: Int
-> qMidiSizeSpace                           = qMidiSize128 * qMidiSize128
 
 Configurable parameters ===============================================================================================
 
-> doRender, skipGlissandi
+> skipGlissandi
 >                        :: Bool
 > replacePerCent         :: Rational
 
 Edit the following ====================================================================================================
 
-> doRender                                 = True
 > skipGlissandi                            = False
 > replacePerCent                           = 0
 

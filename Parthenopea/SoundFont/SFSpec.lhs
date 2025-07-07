@@ -26,6 +26,7 @@ April 16, 2023
 > import Data.Ratio ( (%) )
 > import Euterpea.Music ( InstrumentName )
 > import Parthenopea.Debug
+> import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
   
@@ -313,10 +314,10 @@ implementing SoundFont spec ====================================================
 > okGMRanges ZoneDigest{zdKeyRange, zdVelRange}
 >                                          = okGMRange zdKeyRange && okGMRange zdVelRange
 >   where
->     okGMRange          :: (Num a, Ord a) ⇒ Maybe (a, a) → Bool
+>     okGMRange          :: Maybe (Word, Word) → Bool
 >     okGMRange mrng                       =
 >       case mrng of
->         Just (j, k)                      → (0 <= j) && j <= k && k < 128
+>         Just (j, k)                      → (0 <= j) && j <= k && k < qMidiSize128
 >         Nothing                          → True
 >
 > findBySampleIndex      :: [SFZone] → Word → Maybe SFZone

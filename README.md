@@ -9,7 +9,7 @@ For more on Euterpea, see https://www.euterpea.com/ and obtain its textbook ***H
 Some difficulty here. User needs to know how (e.g. *cabal.project*) to set up local packages in a dependency chain. Also how to debug broken version constraints. https://github.com/georgefst/Euterpea2 is a fork of Euterpea intended to work around some build blockers.
 
 ## Batch processor
-Parthenopea's *batch processor* opens all MIDI files (\*.mid) and SoundFont files (\*.sf2) found in the current directory. If both types are present, it proceeds to mine for best Instruments and "converts" the MIDI files to music files -- which you can then listen to and share.
+Parthenopea's *batch processor* opens all MIDI files (\*.mid or \*.midi) and SoundFont files (\*.sf2) found in the current directory. If both types are present, it proceeds to mine for best Instruments and "converts" the MIDI files to music files -- which you can then listen to and share.
 
 Type *pCommand* into the REPL (i.e. *ghci*). Later on, scaling up to many and large SoundFont files, build and use a standalone executable (e.g. *PCommand*) for better performance.  It has been tested with ***500*** SoundFont files totalling ***46 GB*** :astonished: !
 
@@ -31,7 +31,7 @@ In Euterpea, *filterLowPass* and *filterLowPassBW* Signal Functions are sweepabl
 ## Envelopes
 To shape notes for a given Instrument, SoundFont file Authors can specify envelope parameter values. (See https://www.synthfont.com/SFSPEC21.PDF).  Implementation difficulties arose from ambiguities in the spec, non-conformance in the artifacts (files), and, unlike online playing, the lack of a precise key-release onset time.
 
-The runtime amplitude control is via Euterpea's *envLineSeg* Signal Function. Parthenopea first *interpretes* the envelope parameters, endeavoring to:
+The runtime amplitude control is via Euterpea's *envLineSeg* Signal Function. Parthenopea first *interprets* the envelope parameters, endeavoring to:
 1. produce a reasonable note
 2. (try to) honor Author design intent
 
