@@ -440,26 +440,25 @@ emit standard output text detailing what choices we made for rendering GM items 
 
 > printChoices           :: SFRuntime
 >                           → [InstrumentName]
->                           → [(InstrumentName, [String])]
 >                           → [PercussionSound]
 >                           → ([(Bool, [Emission])], [(Bool, [Emission])])
-> printChoices SFRuntime{zWinningRecord} is msgs ps
->                                          = (map (showI zWinningRecord) is, map (showP zWinningRecord) ps)
+> printChoices runt is ps
+>                                          = (map (showI runt.zWinningRecord) is, map (showP runt.zWinningRecord) ps)
 >   where
 >     showI              :: WinningRecord → InstrumentName → (Bool, [Emission])
->     showI WinningRecord{pWinningI} kind
->       | isJust mpergm                    = (True, true kind mpergm ++ emitMsgs kind msgs)
+>     showI winners kind
+>       | isJust mpergm                    = (True, true kind mpergm)
 >       | kind == Percussion               = (True, [Blanks 3, gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
 >       | otherwise                        = (False, false kind)
 >       where
->         mpergm                           = Map.lookup kind pWinningI
+>         mpergm                           = Map.lookup kind winners.pWinningI
 >
 >     showP               :: WinningRecord → PercussionSound → (Bool, [Emission])
->     showP WinningRecord{pWinningP} kind
+>     showP winners kind
 >       | isJust mpergm                    = (True, true kind mpergm)
 >       | otherwise                        = (False, false kind)
 >       where
->         mpergm                           = Map.lookup kind pWinningP
+>         mpergm                           = Map.lookup kind winners.pWinningP
 >
 >     true kind mpergm                     =
 >       [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM (fromJust mpergm) ++ [EndOfLine]

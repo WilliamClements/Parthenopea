@@ -622,6 +622,8 @@ struct sfInstModList
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
+> reportRangesName       :: FilePath
+> reportRangesName                         = "Ranges.report"
 > reportScanName         :: FilePath
 > reportScanName                           = "Scan.report"
 > reportTournamentName   :: FilePath

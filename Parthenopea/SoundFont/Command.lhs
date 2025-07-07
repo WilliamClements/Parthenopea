@@ -40,7 +40,7 @@ Implement PCommand =============================================================
 > pCommand                                 = do
 >   batchProcessor []
 >
-> batchProcessor         :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO ()
+> batchProcessor         :: [Song] → IO ()
 > batchProcessor isongs                    = do
 >   mids                                   ← FP.getDirectoryFiles "." ["*.mid", "*.midi"]
 >   sf2s                                   ← FP.getDirectoryFiles "." ["*.sf2"]
@@ -55,22 +55,23 @@ Implement PCommand =============================================================
 >       | null ms && null isongs           = "no *.mid files found: proceeding to survey sf2s"
 >       | otherwise                        = "proceeding to render mids by sf2s"
 >
-> proceed                :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → [FilePath] → [FilePath] → IO ()
+> proceed                :: [Song] → [FilePath] → [FilePath] → IO ()
 > proceed isongs mids sf2s                 = do
 >   msongs                                 ← mapM convertFromMidi mids
->   let songs                              = isongs ++ msongs
+>   let songs_                             = isongs ++ msongs
+>   songs                                  ← mapM captureSong songs_
 >
->   CM.when (20 < length songs)            runUnitTests
+>   CM.when (20 < length songs && not (null sf2s)) runUnitTests
 >
 >   sffilesp                               ← CM.zipWithM openSoundFontFile [0..] sf2s
 >   let vFile                              = listArray (0, fromIntegral (length sf2s - 1)) sffilesp
+>   writeRangesReport songs
 >   rost                                   ← qualifyKinds songs
 >
 >   if null vFile
 >     then return ()
 >     else do
 >       (prerunt, matches, rd)             ← surveyInstruments vFile rost
->
 >       writeScanReport prerunt rd
 >       (wI, wP)                           ← decideWinners prerunt rost matches 
 >       writeTournamentReport prerunt wI wP
@@ -85,17 +86,19 @@ Implement PCommand =============================================================
 > renderSong             :: ∀ p . Clock p ⇒
 >                           SFRuntime
 >                           → InstrMap (Stereo p)
->                           → (String, DynMap → Music (Pitch, [NoteAttribute]))
+>                           → Song
 >                           → IO ()
-> renderSong runt imap (name, song)           =
+> renderSong runt imap song                =
 >   do
+>     let name                             = song.songName
+>     let music                            = song.songMusic
+>     let ding                             = song.songShredding
 >     putStrLn ("renderSong " ++ name)
->     ding                                 ← shredMusic (song Map.empty)
 >     let dynMap                           = makeDynMap ding
 >     CM.unless (null dynMap)              (putStrLn $ unwords ["dynMap", show dynMap])
->     let ks                               = Map.keys ding.shRanges
+>     let ks                               = Map.keys ding
 >     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
->     let (esI, esP)                       = printChoices runt is ding.shMsgs ps
+>     let (esI, esP)                       = printChoices runt is ps
 >     let ex                               = [Unblocked name, EndOfLine] ++ concatMap snd esI ++ concatMap snd esP
 >     putStr (reapEmissions ex)
 >     -- render song only if all OK
@@ -103,7 +106,7 @@ Implement PCommand =============================================================
 >       then do
 >         let path                         = name ++ ".wav"
 >         putStr path
->         let (durS,s)                     = renderSF (song dynMap) imap
+>         let (durS,s)                     = renderSF (music dynMap) imap
 >         putStrLn (unwords ["-> outFile*", path, show durS])
 >         if normalizingOutput
 >           then outFileNorm path durS s
@@ -113,13 +116,13 @@ Implement PCommand =============================================================
 >         putStrLn "skipping..."
 >     return ()
 > 
-> convertFromMidi        :: FilePath → IO (String, DynMap → Music (Pitch, [NoteAttribute]))
+> convertFromMidi        :: FilePath → IO Song
 > convertFromMidi path                     = do
 >   midi_                                  ← M.importFile path
 >   let midi                               = case midi_ of
 >                                              Left err → error err
 >                                              Right m  → m
->   return (removeExtension path, const $ fromMidi midi)
+>   return $ Song (removeExtension path) (const $ fromMidi midi) Map.empty
 >   where
 >     removeExtension    :: FilePath → FilePath
 >     removeExtension fp                   =
@@ -130,8 +133,7 @@ Implement PCommand =============================================================
 >       in
 >         reverse fpRev''
 >
-> qualifyKinds           :: [(String, DynMap → Music (Pitch, [NoteAttribute]))]
->                           → IO ([InstrumentName], [PercussionSound])
+> qualifyKinds           :: [Song] → IO ([InstrumentName], [PercussionSound])
 > qualifyKinds songs                       = do
 >   mks                                    ← shredSongs songs
 >   let isandps                            = Map.keys mks

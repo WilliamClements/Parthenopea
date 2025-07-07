@@ -13,13 +13,15 @@ February 1, 2025
 
 > module Parthenopea.SoundFont.Runtime ( prepareInstruments
 >                                      , runUnitTests
+>                                      , writeRangesReport
 >                                      , writeScanReport
 >                                      , writeTournamentReport) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import Data.Array.Unboxed ( (!) )
+> import Data.Array.Unboxed ( (!), inRange )
 > import qualified Data.Audio              as A
+> import Data.Either
 > import Data.Foldable ( toList )
 > import Data.List ( sortOn, singleton )
 > import Data.Map ( Map )
@@ -31,8 +33,10 @@ February 1, 2025
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Render ( Instr )
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
+> import Euterpea.IO.MIDI.MEvent
 > import Euterpea.Music
 > import Parthenopea.Debug
+> import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Envelopes ( deriveEnvelope )
 > import Parthenopea.Repro.EnvelopesTest ( envelopesTests )
@@ -63,6 +67,59 @@ executive ======================================================================
 >        (unwords ["one or more unit tests failed"])
 >        True)]
 >   putStrLn "Unit tests completed successfully"
+>
+> writeRangesReport      :: [Song] → IO ()
+> writeRangesReport songs                  = do
+>   let esAll                              = concatMap doSong songs
+>   let esPrefix                           =
+>         [ToFieldL "GMKind" 20
+>        , ToFieldR "lowest note" 12, Blanks 3
+>        , ToFieldL "*status" 15
+>        , ToFieldR "highest note" 12, Blanks 3
+>        , ToFieldL "*status" 15
+>        , ToFieldL "note count" 15
+>        , ToFieldL "alternative" 20, EndOfLine]
+>   writeFileBySections reportRangesName [esPrefix, esAll]
+>   where
+>     doSong             :: Song → [Emission]
+>     doSong song                          =
+>       [EndOfLine, Unblocked song.songName, EndOfLine] ++ doMusic song.songShredding
+>     doMusic            :: Map GMKind Shred → [Emission]
+>     doMusic ding                         = concatMap (uncurry doGMKind) (Map.assocs ding)
+>     doGMKind           :: GMKind → Shred → [Emission]
+>     doGMKind gmkind shred                = either doInstrument doPercussion gmkind
+>       where
+>         lo                               = shred.shLowNote.ePitch
+>         hi                               = shred.shHighNote.ePitch
+>
+>         this                             = fromLeft (error "writeRangeReport") gmkind
+>         alt                              = findBetterInstrument this (lo, hi)
+>         strAlt                           = if isLeft gmkind && (alt /= this) 
+>                                              then show alt
+>                                              else ""  
+>         doInstrument       :: InstrumentName → [Emission]
+>         doInstrument kind                =
+>           [emitShowL kind 20
+>          , emitShowR (pitch lo) 12, Blanks 3
+>          , ToFieldL (indicator lo) 15
+>          , emitShowR (pitch hi) 12, Blanks 3
+>          , ToFieldL (indicator hi) 15
+>          , emitShowL shred.shCount 15
+>          , ToFieldL strAlt 20, EndOfLine]
+>           
+>         doPercussion       :: PercussionSound → [Emission]
+>         doPercussion kind                =
+>           [emitShowL kind 20
+>          , Blanks 60
+>          , emitShowL shred.shCount 15, EndOfLine]
+>
+>         mrange                           =
+>           case gmkind of
+>             Left iname                   → instrumentRange iname
+>             _                            → Nothing
+>         indicator p                      = if isNothing mrange || inRange (deJust "range" mrange) p
+>                                              then "in range"
+>                                              else "out of range"
 >
 > writeScanReport        :: SFRuntime → ResultDispositions → IO ()
 > writeScanReport runt rd                  = do

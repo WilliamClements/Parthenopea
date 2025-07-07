@@ -1,0 +1,66 @@
+GMKind               lowest note   *status        highest note   *status        note count     alternative         
+
+basicLick
+OverdrivenGuitar           (E,3)   in range              (E,7)   out of range   1470           StringEnsemble1     
+FretlessBass               (C,3)   in range              (F,3)   in range       74             Banjo               
+FrenchHorn                 (G,3)   in range              (D,5)   in range       880            Banjo               
+
+bake
+RhodesPiano               (Ds,2)   in range              (F,6)   in range       35             Harpsichord         
+Harpsichord               (Fs,2)   in range              (D,5)   in range       25             Trombone            
+Vibraphone                 (C,4)   in range             (As,5)   in range       28             Trumpet             
+Marimba                    (C,3)   in range              (B,5)   in range       25             ChoirAahs           
+HammondOrgan               (C,3)   in range             (As,5)   in range       33             ChoirAahs           
+ElectricGuitarJazz        (Ds,3)   in range             (As,5)   in range       25             ChoirAahs           
+SlapBass1                  (A,2)   in range              (G,6)   in range       32             AcousticGuitarNylon 
+Violin                    (Fs,4)   in range             (As,6)   in range       36             Flute               
+Contrabass                (Ds,1)   in range             (As,1)   in range       24                                 
+OrchestralHarp             (A,2)   in range              (D,6)   in range       22             AcousticGuitarNylon 
+Trumpet                    (B,3)   in range              (E,5)   in range       31             Banjo               
+Trombone                  (Cs,3)   in range              (A,4)   in range       31             Banjo               
+AltoSax                    (B,3)   in range             (Cs,6)   in range       37             SopranoSax          
+Oboe                      (Fs,4)   in range             (Cs,6)   in range       30             SopranoSax          
+Piccolo                    (B,5)   in range              (E,7)   in range       23             Glockenspiel        
+AcousticBassDrum                                                                6              
+BassDrum1                                                                       8              
+SideStick                                                                       10             
+AcousticSnare                                                                   8              
+HandClap                                                                        2              
+ElectricSnare                                                                   9              
+LowFloorTom                                                                     13             
+ClosedHiHat                                                                     18             
+HighFloorTom                                                                    8              
+PedalHiHat                                                                      14             
+LowTom                                                                          7              
+OpenHiHat                                                                       9              
+LowMidTom                                                                       9              
+HiMidTom                                                                        3              
+CrashCymbal1                                                                    11             
+HighTom                                                                         10             
+RideCymbal1                                                                     10             
+ChineseCymbal                                                                   12             
+RideBell                                                                        4              
+Tambourine                                                                      5              
+SplashCymbal                                                                    9              
+Cowbell                                                                         14             
+CrashCymbal2                                                                    14             
+Vibraslap                                                                       7              
+RideCymbal2                                                                     15             
+HiBongo                                                                         10             
+LowBongo                                                                        7              
+MuteHiConga                                                                     8              
+OpenHiConga                                                                     10             
+LowConga                                                                        16             
+HighTimbale                                                                     15             
+LowTimbale                                                                      19             
+HighAgogo                                                                       13             
+LowAgogo                                                                        13             
+Cabasa                                                                          10             
+Maracas                                                                         11             
+ShortGuiro                                                                      8              
+LongGuiro                                                                       10             
+Claves                                                                          7              
+HiWoodBlock                                                                     8              
+LowWoodBlock                                                                    14             
+MuteTriangle                                                                    9              
+OpenTriangle                                                                    14             

@@ -496,10 +496,10 @@ instrument range checking ======================================================
 >         then fromJust minst
 >         else bp.bpInstrument
 >
-> makeDynMap             :: Shredding → DynMap
+> makeDynMap             :: Map GMKind Shred → DynMap
 > makeDynMap ding                          =
 >   if replacePerCent > 50
->     then foldl' maker Map.empty (Map.assocs ding.shRanges)
+>     then foldl' maker Map.empty (Map.assocs ding)
 >     else Map.empty
 >   where
 >     maker              :: DynMap → (GMKind, Shred) → DynMap
@@ -547,12 +547,15 @@ examine song for instrument and percussion usage ===============================
 >     , shHighNote       :: MEvent
 >     , shCount          :: Int} deriving (Show, Eq, Ord)
 >
-> data Shredding =
->   Shredding {
->       shRanges         :: Map GMKind Shred
->     , shMsgs           :: [(InstrumentName, [String])]} deriving (Show, Eq, Ord)
-> defShredding           :: Shredding
-> defShredding                             = Shredding Map.empty []
+> data Song                                =
+>   Song {
+>     songName           :: String
+>   , songMusic          :: DynMap → Music (Pitch, [NoteAttribute])
+>   , songShredding      :: Map GMKind Shred}
+> captureSong            :: Song → IO Song
+> captureSong (Song name music _)          = do
+>   ding                                   ← shredMusic $ music Map.empty
+>   return $ Song name music ding
 >
 > getGMKind              :: MEvent → GMKind
 > getGMKind MEvent{eInst, ePitch}          =
@@ -560,24 +563,17 @@ examine song for instrument and percussion usage ===============================
 >     Percussion                           → Right $ toEnum (ePitch - 35)
 >     _                                    → Left eInst
 >
-> shredMusic              :: ToMusic1 a ⇒ Music a → IO Shredding
+> shredMusic              :: ToMusic1 a ⇒ Music a → IO (Map GMKind Shred)
 > shredMusic m                             =
->   return $ critiqueMusic $ foldl' shFolder defShredding $ fst (musicToMEvents defaultContext (toMusic1 m))
+>   return $ foldl' shFolder Map.empty $ fst (musicToMEvents defaultContext (toMusic1 m))
 >
-> critiqueMusic          :: Shredding → Shredding
-> critiqueMusic shred        =
->   Shredding shred.shRanges (concatMap critiqueShred (Map.assocs shred.shRanges))
->
-> shredSongs              :: [(String, DynMap → Music (Pitch, [NoteAttribute]))] → IO (Map GMKind Shred)
+> shredSongs              :: [Song] → IO (Map GMKind Shred)
 > shredSongs songs                         = do
 >   shredses                               ← mapM shredSong songs
 >   return $ foldr (Map.unionWith combineShreds) Map.empty shredses
 >
-> shredSong              :: (String, DynMap → Music (Pitch, [NoteAttribute])) → IO (Map GMKind Shred)
-> shredSong (_, song)                      = do
->   let asMusic                            = song Map.empty
->   ding                                   ← shredMusic asMusic
->   return $ shRanges ding
+> shredSong              :: Song → IO (Map GMKind Shred)
+> shredSong song                           = shredMusic (song.songMusic Map.empty)
 >
 > combineShreds          :: Shred → Shred → Shred
 > combineShreds s1 s2                      =
@@ -610,15 +606,15 @@ examine song for instrument and percussion usage ===============================
 >       then []
 >       else singleton (name, singleton $ unwords ["...", show p, "out of range", show rng])
 >
-> shFolder               :: Shredding → MEvent → Shredding
+> shFolder               :: Map GMKind Shred → MEvent → Map GMKind Shred
 > shFolder ding mev                        =
 >   let
 >     kind               :: GMKind         = getGMKind mev
->     mshred             :: Maybe Shred    = Map.lookup kind ding.shRanges
+>     mshred             :: Maybe Shred    = Map.lookup kind ding
 >   in
 >     case mshred of
->       Nothing                            → Shredding (Map.insert kind (Shred mev mev 1) ding.shRanges) ding.shMsgs
->       Just shred                         → Shredding (Map.insert kind (upd shred)       ding.shRanges) ding.shMsgs
+>       Nothing                            → Map.insert kind (Shred mev mev 1) ding
+>       Just shred                         → Map.insert kind (upd shred)       ding
 >   where
 >     upd shred                            =
 >       Shred
@@ -626,9 +622,9 @@ examine song for instrument and percussion usage ===============================
 >         (if ePitch mev > ePitch shred.shHighNote then mev else shred.shHighNote)
 >         (shred.shCount + 1)
 >
-> printShreds            :: Shredding → IO ()
+> printShreds            :: (Map GMKind Shred) → IO ()
 > printShreds ding                         = 
->   mapM_ (uncurry printShred) (Map.assocs ding.shRanges)
+>   mapM_ (uncurry printShred) (Map.assocs ding)
 >   
 > printShred             :: GMKind → Shred → IO ()
 > printShred kind shred                    = do
