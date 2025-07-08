@@ -3,7 +3,7 @@ Haskell project built on and extending *Euterpea 2* music educational package. P
 
 Euterpea user already can connect a synth to select and manually map Instruments from sf2 files to GM. However, Parthenopea heuristically chooses and maps "for you" the highest quality Instruments.
 
-For more on Euterpea, see https://www.euterpea.com/ and obtain its textbook ***Haskell School of Music***. User need not *directly* interface with Euterpea to survey, compare, or apply SoundFont Instruments.
+For more on Euterpea, see https://www.euterpea.com/ and obtain its textbook ***Haskell School of Music***. With Parthenopea, user need not *directly* interface with Euterpea to survey, compare, or apply SoundFont Instruments.
 
 ## Building it
 Some potential difficulty here. User will need to:
@@ -25,7 +25,7 @@ Note that mixing Instruments from *unrelated* SoundFont files tends to sound off
 # Design highlights
 
 ## Synthesizer category
-Implements a **wavetable** type **offline**  synthesizer. ***Wavetable*** because integratied is with SoundFont only. ***Offline*** because rendering is not in real time.
+Implements a **wavetable** type **offline**  synthesizer. ***Wavetable*** because it is integrated with SoundFont only. ***Offline*** because rendering is not in real time.
 
 The Parthenopea synth is written using Signal Functions ala Euterpea. 
 
@@ -33,7 +33,7 @@ The Parthenopea synth is written using Signal Functions ala Euterpea.
 In Euterpea, *filterLowPass* and *filterLowPassBW* Signal Functions are sweepable, but neither provides *resonance* (Q). To address this lack, a Signal Function, a State Variable filter (SVF), was developed. See https://karmafx.net/docs/karmafx_digitalfilters.pdf and https://ccrma.stanford.edu/~jos/svf/svf.pdf .
 
 ## Envelopes
-SoundFont file Authors, one way or another, specify envelope parameter values. These parameters are *interpreted/modified*, feeding into Euterpea's *envLineSeg* Signal Function for timed amplitude control. Priorities for the *interpretation* logic are:
+SoundFont file Authors, one way or another, specify envelope parameter values for shaping notes. Parthenopea *interprets/modifies* these parameters, then feeds them into Euterpea's *envLineSeg* Signal Function for timed amplitude control. Priorities for the *interpretation* logic are:
 1. produce a reasonable note
 2. (try to) honor Author design intent
 
@@ -41,10 +41,10 @@ SoundFont file Authors, one way or another, specify envelope parameter values. T
 Files taken from the wild have many flaws that could trip us up. Tools like https://www.polyphone.io/ still function fine when opening those flawed files. In Parthenopea, glitches encountered and worked around are documented in a *Scan Report*.
 
 ## Instrument consolidation
-Sampling the **natural** Instrument over many small ranges of Pitch and/or Velocity tends to sound better in the playback. But the authors often spread these many Zones over multiple SoundFont Instruments, each with a manageable Zone count. Naive implementations, mapping one to one, give bad results. So Parthenopea, prior to synthesis, logically combines *partial* Instruments into one that has all the zones. 
+Sampling the **natural** Instrument over many small ranges of Pitch and/or Velocity tends to sound better in the playback. But the authors often spread these many Zones over multiple SoundFont Instruments, each with a manageable Zone count. Naive implementations, mapping one to one, give bad results. So Parthenopea, prior to synthesis, logically combines *partial* Instruments into one that has all the Zones. 
 
 ## Zone selection
-Don't like to **search**, at note synthesis time, through an Instrument's Zones to isolate one whose Pitch and Velocity ranges surround the two incoming note parameters. Parthenopea improves that by computing a winners' cache -- search is thus reduced to an array lookup.
+Don't like to **search**, at note synthesis time, through an Instrument's Zones to isolate one whose Pitch and Velocity ranges peg the two incoming note parameters. Parthenopea improves that by computing a winners' cache -- search is thus reduced to an array lookup.
 
 ## Performance
 Don't ask :slightly_frowning_face: ! The bottlenecks are:
