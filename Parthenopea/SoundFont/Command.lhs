@@ -88,11 +88,9 @@ Implement PCommand =============================================================
 >                           → InstrMap (Stereo p)
 >                           → Song
 >                           → IO ()
-> renderSong runt imap song                =
+> renderSong runt imap (Song name music ding)
+>                                          =
 >   do
->     let name                             = song.songName
->     let music                            = song.songMusic
->     let ding                             = song.songShredding
 >     putStrLn ("renderSong " ++ name)
 >     let dynMap                           = makeDynMap ding
 >     CM.unless (null dynMap)              (putStrLn $ unwords ["dynMap", show dynMap])

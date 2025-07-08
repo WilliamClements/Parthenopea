@@ -116,8 +116,8 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >     , ssPrevious       :: [Modulator]} deriving Show 
 >
 > eliminateDanglingMods  :: Sifting → Sifting
-> eliminateDanglingMods Sifting{ssCounter, ssCurrent}
->                                          = Sifting (ssCounter + 1) newTry ssCurrent
+> eliminateDanglingMods ting               =
+>   Sifting (ting.ssCounter + 1) newTry ting.ssCurrent
 >   where
 >     -- examine result of the previous generation
 >     -- use it to produce next generation, dropping nodes that:
@@ -126,9 +126,9 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >     --     or
 >     -- 3. are superseded 
 >     newTry                               = profess
->                                              (ssCounter <= 10)
+>                                              (ting.ssCounter <= 10)
 >                                              "maximum of 10 tries exceeded..."
->                                              filter shouldStay ssCurrent
+>                                              filter shouldStay ting.ssCurrent
 >
 >     shouldStay         :: Modulator → Bool
 >     shouldStay m8r                       = linkageInOk && linkageOutOk
@@ -136,10 +136,10 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >         linkageInOk                      =
 >           FromLinked /= m8rSource || maybe False (not . null) (Map.lookup (ToLink m8r.mrModId) byModDestType)
 >         linkageOutOk                     =
->           maybe True (\w → (isJust . find (\m → m.mrModId == w)) ssCurrent) (outGoing m8r.mrModDest)
+>           maybe True (\w → (isJust . find (\m → m.mrModId == w)) ting.ssCurrent) (outGoing m8r.mrModDest)
 >         
 >         m8rSource                        = msSource m8r.mrModSrc
->         byModDestType                    = compileMods ssCurrent
+>         byModDestType                    = compileMods ting.ssCurrent
 >
 > siftMods               :: [Modulator] → [Modulator]
 > siftMods m8rs                            = final.ssCurrent
@@ -287,7 +287,8 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / fromIntegral qMidiSize128) (0, 1)
 >
 > evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
-> evaluateModSignals tag m8n md msig noon  = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
+> evaluateModSignals tag m8n md (ModSignals xenv xlfo xvib) noon
+>                                          = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    fName                                 = "evaluateModSignals"
 >
@@ -306,9 +307,9 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >        _                                 → error $
 >          unwords [fName, "only ToPitch, ToFilterFc, and ToVolume supported", tag, show md]
 >
->    xmodEnv                               = msig.xModEnvValue * mco.xModEnvCo
->    xmodLfo                               = msig.xModLfoValue * mco.xModLfoCo
->    xvibLfo                               = msig.xVibLfoValue * mco.xVibLfoCo
+>    xmodEnv                               = xenv * mco.xModEnvCo
+>    xmodLfo                               = xlfo * mco.xModLfoCo
+>    xvibLfo                               = xvib * mco.xVibLfoCo
 >    xmods                                 = evaluateMods md m8n.mModsMap noon
 
 Filters are complex AND have a large impact ===========================================================================
@@ -630,11 +631,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > defModTriple           :: ModTriple
 > defModTriple                             = ModTriple 0 0 0
 >
-> data ModSignals                          =
->   ModSignals {
->     xModEnvValue       :: Double
->   , xModLfoValue       :: Double
->   , xVibLfoValue       :: Double} deriving (Show)
+> data ModSignals                          = ModSignals !Double !Double !Double
 > defModSignals          :: ModSignals
 > defModSignals                            = ModSignals 0 0 0
 >
