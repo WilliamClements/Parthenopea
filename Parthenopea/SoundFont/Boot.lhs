@@ -183,16 +183,14 @@ pre-sample task ================================================================
 pre-instance task =====================================================================================================
           access and critique all Instrument "records" in the file 
 
-> preInstTaskIf sffile _ fwIn
->                                          =
+> preInstTaskIf sffile _ fwIn              =
 >   fwIn{  fwBoot = fwIn.fwBoot{zPreInstCache = preInstCache}
 >        , fwDispositions = rdFinal}
 >   where
 >     pergms                               = formComprehension sffile ssInsts
 >     (preInstCache, rdFinal)              = foldl' preIFolder (Map.empty, fwIn.fwDispositions) pergms
 >
->     preIFolder (m, rdFold) pergm
->                                          =
+>     preIFolder (m, rdFold) pergm         =
 >       if iinst.instBagNdx <= jinst.instBagNdx
 >         then (m', rd'')
 >         else error $ unwords [fName, "corrupt instBagNdx"]

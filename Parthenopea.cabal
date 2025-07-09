@@ -61,7 +61,6 @@ library
                          Parthenopea.Repro.Smashing, Parthenopea.Repro.SmashingTest,
                          Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest,
                          Parthenopea.Repro.Envelopes, Parthenopea.Repro.EnvelopesTest,
-
                          Parthenopea.SoundFont.BootTest, Parthenopea.SoundFont.Scoring, Parthenopea.SoundFont.SFSpec
 
     -- LANGUAGE extensions used by modules in this package.

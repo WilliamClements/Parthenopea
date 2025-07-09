@@ -17,3 +17,4 @@ regex-base/
 *.midi
 *.ghci
 cabal.project
+*.report

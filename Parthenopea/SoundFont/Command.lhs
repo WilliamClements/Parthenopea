@@ -65,7 +65,6 @@ Implement PCommand =============================================================
 >
 >   sffilesp                               ← CM.zipWithM openSoundFontFile [0..] sf2s
 >   let vFile                              = listArray (0, fromIntegral (length sf2s - 1)) sffilesp
->   writeRangesReport songs
 >   rost                                   ← qualifyKinds songs
 >
 >   if null vFile
@@ -133,8 +132,9 @@ Implement PCommand =============================================================
 >
 > qualifyKinds           :: [Song] → IO ([InstrumentName], [PercussionSound])
 > qualifyKinds songs                       = do
->   mks                                    ← shredSongs songs
->   let isandps                            = Map.keys mks
+>   let ding                               = Map.unionsWith combineShreds (map songShredding songs)
+>   let isandps                            = Map.keys ding
+>   writeRangesReport songs ding
 >   return $ if null songs then allKinds else (lefts isandps, rights isandps)
 >
 > openSoundFontFile      :: Word → FilePath → IO SFFile

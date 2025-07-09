@@ -567,14 +567,6 @@ examine song for instrument and percussion usage ===============================
 > shredMusic m                             =
 >   return $ foldl' shFolder Map.empty $ fst (musicToMEvents defaultContext (toMusic1 m))
 >
-> shredSongs              :: [Song] → IO (Map GMKind Shred)
-> shredSongs songs                         = do
->   shredses                               ← mapM shredSong songs
->   return $ foldr (Map.unionWith combineShreds) Map.empty shredses
->
-> shredSong              :: Song → IO (Map GMKind Shred)
-> shredSong song                           = shredMusic (song.songMusic Map.empty)
->
 > combineShreds          :: Shred → Shred → Shred
 > combineShreds s1 s2                      =
 >   s1 {  shLowNote                        =

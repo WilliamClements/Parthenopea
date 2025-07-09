@@ -41,7 +41,7 @@ SoundFont file Authors, one way or another, specify envelope parameter values fo
 Files taken from the wild have many flaws that could trip us up. Tools like https://www.polyphone.io/ still function fine when opening those flawed files. In Parthenopea, glitches encountered and worked around are documented in a *Scan Report*.
 
 ## Instrument consolidation
-Sampling the **natural** Instrument over many small ranges of Pitch and/or Velocity tends to sound better in the playback. But the authors often spread these many Zones over multiple SoundFont Instruments, each with a manageable Zone count. Naive implementations, mapping one to one, give bad results. So Parthenopea, prior to synthesis, logically combines *partial* Instruments into one that has all the Zones. 
+Sampling the **natural** Instrument over many small ranges of Pitch and/or Velocity tends to sound better in the playback. But the Authors often spread these many Zones over multiple SoundFont Instruments, each with a manageable Zone count. Naive implementations, mapping one to one, give bad results. So Parthenopea, prior to synthesis, logically combines *partial* Instruments into one that has all the Zones. 
 
 ## Zone selection
 Don't like to **search**, at note synthesis time, through an Instrument's Zones to isolate one whose Pitch and Velocity ranges peg the two incoming note parameters. Parthenopea improves that by computing a winners' cache -- search is thus reduced to an array lookup.

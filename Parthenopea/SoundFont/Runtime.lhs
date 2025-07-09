@@ -68,8 +68,9 @@ executive ======================================================================
 >        True)]
 >   putStrLn "Unit tests completed successfully"
 >
-> writeRangesReport      :: [Song] → IO ()
-> writeRangesReport songs                  = do
+> writeRangesReport      :: [Song] → Map GMKind Shred → IO ()
+> writeRangesReport songs ding             = do
+>   let rollup                             = Song "rollup" (const $ rest 0) ding
 >   let esAll                              = concatMap doSong songs
 >   let esPrefix                           =
 >         [ToFieldL "GMKind" 20
@@ -79,13 +80,16 @@ executive ======================================================================
 >        , ToFieldL "*status" 15
 >        , ToFieldL "note count" 15
 >        , ToFieldL "alternative" 20, EndOfLine]
->   writeFileBySections reportRangesName [esPrefix, esAll]
+>   let esSuffix                          = if 1 < length songs
+>                                             then doSong rollup
+>                                             else []
+>   writeFileBySections reportRangesName [esPrefix, esAll, esSuffix]
 >   where
 >     doSong             :: Song → [Emission]
 >     doSong song                          =
 >       [EndOfLine, Unblocked song.songName, EndOfLine] ++ doMusic song.songShredding
 >     doMusic            :: Map GMKind Shred → [Emission]
->     doMusic ding                         = concatMap (uncurry doGMKind) (Map.assocs ding)
+>     doMusic ding'                        = concatMap (uncurry doGMKind) (Map.assocs ding')
 >     doGMKind           :: GMKind → Shred → [Emission]
 >     doGMKind gmkind shred                = either doInstrument doPercussion gmkind
 >       where
@@ -123,7 +127,7 @@ executive ======================================================================
 >
 > writeScanReport        :: SFRuntime → ResultDispositions → IO ()
 > writeScanReport runt rd                  = do
->   CM.when diagnosticsEnabled (putStrLn $ unwords [fName, show rd])
+>   CM.when diagnosticsEnabled             (putStrLn $ unwords [fName, show rd])
 >   tsStarted                              ← getCurrentTime
 >
 >   -- output all selections to the report file
