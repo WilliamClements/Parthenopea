@@ -19,6 +19,7 @@ June 16, 2025
 > import Data.Either ( lefts, rights )
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromMaybe )
+> import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF, InstrMap )
 > import Euterpea.IO.Audio.Types ( Stereo, Clock )
@@ -71,9 +72,9 @@ Implement PCommand =============================================================
 >     then return ()
 >     else do
 >       (prerunt, matches, rd)             ← surveyInstruments vFile rost
->       writeScanReport prerunt rd
+>       writeScanReport                    prerunt rd
 >       (wI, wP)                           ← decideWinners prerunt rost matches 
->       writeTournamentReport prerunt wI wP
+>       writeTournamentReport              prerunt wI wP
 >
 >       let winners                        = WinningRecord (Map.map head wI) (Map.map head wP)
 >       let runt                           = prerunt{zWinningRecord = winners}
@@ -90,25 +91,26 @@ Implement PCommand =============================================================
 > renderSong runt imap (Song name music ding)
 >                                          =
 >   do
->     putStrLn ("renderSong " ++ name)
+>     timeNow                              ← getCurrentTime
+>     putStrLn $ unwords ["renderSong", name, show timeNow, "->"]
+>
 >     let dynMap                           = makeDynMap ding
 >     CM.unless (null dynMap)              (putStrLn $ unwords ["dynMap", show dynMap])
 >     let ks                               = Map.keys ding
 >     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
 >     let (esI, esP)                       = printChoices runt is ps
->     let ex                               = [Unblocked name, EndOfLine] ++ concatMap snd esI ++ concatMap snd esP
->     putStr (reapEmissions ex)
+>     let ex                               = concatMap snd esI ++ concatMap snd esP
+>     putStr $ reapEmissions ex
 >     -- render song only if all OK
 >     if all fst esI && all fst esP
 >       then do
->         let path                         = name ++ ".wav"
->         putStr path
->         let (durS,s)                     = renderSF (music dynMap) imap
->         putStrLn (unwords ["-> outFile*", path, show durS])
+>         let (durS, s)                    = renderSF (music dynMap) imap
 >         if normalizingOutput
->           then outFileNorm path durS s
->           else outFile     path durS s
->         putStrLn (unwords ["<- outFile*", path, show durS])
+>           then outFileNorm               (name ++ ".wav") durS s
+>           else outFile                   (name ++ ".wav") durS s
+>
+>         tsFinished                       ← getCurrentTime
+>         putStrLn $ unwords ["<-", "renderSong", show (diffUTCTime tsFinished timeNow)]
 >       else
 >         putStrLn "skipping..."
 >     return ()
