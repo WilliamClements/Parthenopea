@@ -156,13 +156,12 @@ executive ======================================================================
 >     summarize          :: ∀ r . (SFResource r) ⇒ Map r [Scan] → [Emission]
 >     summarize sm                         =
 >       let
->         hs             :: [((Disposition, Impact, String), Int)]
 >         hs                               = sortOn (Down . snd) $ Map.toList $ Map.foldr histoFold Map.empty sm
 >
->         histoFold      :: [Scan] → Map (Disposition, Impact, String) Int → Map (Disposition, Impact, String) Int 
->         histoFold ss mfold               = foldr (\dispo m → Map.insertWith (+) dispo 1 m) mfold ts
+>         histoFold ss mfold               = foldr (foldfun . getTriple) mfold ss
 >           where
->             ts                           = map getTriple ss
+>             foldfun dispo                = Map.insertWith (+) dispo 1
+>             
 >
 >         emitHisto      :: ((Disposition, Impact, String), Int) → [Emission]
 >         emitHisto ((dispo, impact, function), count)
@@ -175,32 +174,28 @@ executive ======================================================================
 >       in
 >         concatMap emitHisto hs
 >         
->     procMap            :: ∀ r . (SFResource r, Show r) ⇒ Map r [Scan] → [Emission]
->     procMap sm                           = concat $ Map.mapWithKey procr sm
+>     procMap sm                           = concat $ Map.mapWithKey procKey sm
 >
->     procr              :: ∀ r . (SFResource r, Show r) ⇒ r → [Scan] → [Emission]
->     procr k ss_                          = if null ss
+>     procKey k ssIn                       = if null ssOut
 >                                              then []
->                                              else emit ++ [EndOfLine] ++ concatMap procs ss ++ [EndOfLine]
+>                                              else prolog ++ [EndOfLine] ++ concatMap procScan ssIn ++ [EndOfLine]
 >       where
->         ss                               = filter (\s → s.sDisposition `notElem` elideset) ss_
+>         ssOut                            = filter (\s → s.sDisposition `notElem` elideset) ssIn
 >         sffile                           = runt.zFiles ! wfile k
 >
->         procs          :: Scan → [Emission]
->         procs scan                       =
->           [  emitShowL scan.sDisposition 24
->            , emitShowL scan.sImpact      32
->            , ToFieldL scan.sFunction     52
->            , Unblocked scan.sClue
->            , EndOfLine]
->
->         emit           :: [Emission]
->         emit                             = 
+>         prolog                           = 
 >           [  Unblocked (show k)
 >            , Blanks 5
 >            , Unblocked sffile.zFilename
 >            , Blanks 5]
 >           ++ kname k sffile
+>
+>     procScan scan                    =
+>       [  emitShowL scan.sDisposition 24
+>        , emitShowL scan.sImpact      32
+>        , ToFieldL scan.sFunction     52
+>        , Unblocked scan.sClue
+>        , EndOfLine]
 >
 > writeTournamentReport  :: SFRuntime
 >                           → Map InstrumentName [PerGMScored]
@@ -237,7 +232,7 @@ define signal functions and instrument maps to support rendering ===============
 
 > prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
 > prepareInstruments runt                  = 
->     return $ (Percussion, assignPercussion)                                                      : imap
+>     return $ (Percussion, assignPercussion)                                                               : imap
 >   where
 >     winners                              = runt.zWinningRecord
 >     imap                                 = Map.foldrWithKey imapFolder [] winners.pWinningI
@@ -254,8 +249,7 @@ define signal functions and instrument maps to support rendering ===============
 >         outA                             ⤙ (zL, zR)
 >
 >     assignPercussion   :: ∀ p . Clock p ⇒ Instr (Stereo p)
->     assignPercussion durP pch vol params
->                                          = assignInstrument pergm durP pch vol params
+>     assignPercussion pDur pch vol ps     = assignInstrument pergm pDur pch vol ps
 >       where
 >         pergm                            = PerGMKey wF wI Nothing
 >         (wF, wI)                         =
@@ -283,9 +277,7 @@ define signal functions and instrument maps to support rendering ===============
 >     trace_ISF                            =
 >       unwords [fName_, show pergm.pgkwFile, show preI.piChanges.cnSource, show (pchIn, volIn), show durI]
 >
->     noon                                 = NoteOn
->                                              (clip (0, 127) volIn)
->                                              (clip (0, 127) pchIn)
+>     noon                                 = NoteOn (clip (0, 127) volIn) (clip (0, 127) pchIn)
 >     pchOut              :: AbsPitch      = fromMaybe noon.noteOnKey reconX.rForceKey
 >     volOut              :: Volume        = fromMaybe noon.noteOnVel reconX.rForceVel
 >

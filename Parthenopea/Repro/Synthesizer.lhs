@@ -355,7 +355,7 @@ Effects ========================================================================
 >
 > eutReverb              :: ∀ p . Clock p ⇒ Double → Signal p Double Double
 > eutReverb rFactorL                       =
->   if rFactorL > 0
+>   if rFactorL > epsilon
 >     then makeSF
 >     else constA 0
 >   where
