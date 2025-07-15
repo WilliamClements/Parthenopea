@@ -74,6 +74,7 @@ executive ======================================================================
 >   let esAll                              = concatMap doSong songs
 >   let esPrefix                           =
 >         [ToFieldL "GMKind" 20
+>        , ToFieldL "(range)" 18
 >        , ToFieldR "lowest note" 12, Blanks 3
 >        , ToFieldL "*status" 15
 >        , ToFieldR "highest note" 12, Blanks 3
@@ -104,6 +105,7 @@ executive ======================================================================
 >         doInstrument       :: InstrumentName → [Emission]
 >         doInstrument kind                =
 >           [emitShowL kind 20
+>          , emitShowL (instrumentPitchRange kind) 18
 >          , emitShowR (pitch lo) 12, Blanks 3
 >          , ToFieldL (indicator lo) 15
 >          , emitShowR (pitch hi) 12, Blanks 3
@@ -114,12 +116,12 @@ executive ======================================================================
 >         doPercussion       :: PercussionSound → [Emission]
 >         doPercussion kind                =
 >           [emitShowL kind 20
->          , Blanks 60
+>          , Blanks 78
 >          , emitShowL shred.shCount 15, EndOfLine]
 >
 >         mrange                           =
 >           case gmkind of
->             Left iname                   → instrumentRange iname
+>             Left iname                   → instrumentAbsPitchRange iname
 >             _                            → Nothing
 >         indicator p                      = if isNothing mrange || inRange (deJust "range" mrange) p
 >                                              then "in range"

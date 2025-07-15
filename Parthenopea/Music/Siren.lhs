@@ -298,13 +298,14 @@ also
    https://philharmonia.co.uk/resources/instruments/
    https://omeka-s.grinnell.edu/s/MusicalInstruments
 
-> instrumentRange        :: InstrumentName → Maybe (AbsPitch, AbsPitch)
-> instrumentRange inst                     = mrange >>= Just . BF.bimap absPitch absPitch
+> instrumentAbsPitchRange
+>                        :: InstrumentName → Maybe (AbsPitch, AbsPitch)
+> instrumentAbsPitchRange inst             = mrange >>= Just . BF.bimap absPitch absPitch
 >   where
->     mrange                               = instrumentRange_ inst
+>     mrange                               = instrumentPitchRange inst
 >
-> instrumentRange_       :: InstrumentName → Maybe (Pitch, Pitch)
-> instrumentRange_ inst =
+> instrumentPitchRange   :: InstrumentName → Maybe (Pitch, Pitch)
+> instrumentPitchRange inst                =
 >    case inst of
 >       Piccolo                   → Just (( D, 5), ( C, 8)) -- C piccolo
 >       Flute                     → Just (( C, 4), ( D, 7))
@@ -381,7 +382,7 @@ also
 >       Contrabass                → Just (( C, 1), (Cs, 2))
 >       StringEnsemble1           → Just
 >                                    $ unionRanges
->                                    $ map (fromJust . instrumentRange_)
+>                                    $ map (fromJust . instrumentPitchRange)
 >                                          (Violin:Viola:[Cello])
 >
 >       Banjo                     → Just (( C, 3), ( E, 5))
@@ -422,7 +423,7 @@ also
 >
 >     judgeScore         :: InstrumentName → Maybe (Int, InstrumentName)
 >     judgeScore cand                      = (\j → if nonPitchedInstrument j then Nothing else Just j) cand
->                                            >>= instrumentRange >>= uncurry (fitsIn cand)
+>                                            >>= instrumentAbsPitchRange >>= uncurry (fitsIn cand)
 >     
 >     fitsIn             :: InstrumentName → AbsPitch → AbsPitch → Maybe (Int, InstrumentName)
 >     fitsIn cand rangeLo rangeHi          =
@@ -436,7 +437,7 @@ also
 > selectRanged           :: [InstrumentName] → Array Int (InstrumentName, (AbsPitch, AbsPitch))
 > selectRanged is                          = listArray (1, length qual) qual
 >   where
->     qual                                 = mapMaybe (\i → instrumentRange i >>= Just . (i,)) is
+>     qual                                 = mapMaybe (\i → instrumentAbsPitchRange i >>= Just . (i,)) is
 >
 > denormVector           :: Double → Array Int b → b
 > denormVector norm vect                   = profess
@@ -477,7 +478,7 @@ instrument range checking ======================================================
 >     recenter           :: AbsPitch → Pitch
 >     recenter                             = trans (-bp.bpTranspose) . pitch
 >   in
->     BF.bimap recenter recenter (fromJust (instrumentRange bp.bpInstrument))
+>     BF.bimap recenter recenter (fromJust (instrumentAbsPitchRange bp.bpInstrument))
 >
 > type DynMap                              = Map InstrumentName InstrumentName
 >
@@ -585,7 +586,7 @@ examine song for instrument and percussion usage ===============================
 >   let
 >     (instr, rng)                         =
 >       case kind of
->         Left iname                       → (iname, fromMaybe wideOpen (instrumentRange iname))
+>         Left iname                       → (iname, fromMaybe wideOpen (instrumentAbsPitchRange iname))
 >         _                                → (Percussion, wideOpen)
 >   in critiqueNote instr rng shred.shLowNote ++ critiqueNote instr rng shred.shHighNote
 > 
@@ -626,7 +627,7 @@ examine song for instrument and percussion usage ===============================
 >   where
 >   mrange                                 =
 >     case kind of
->       Left iname                         → instrumentRange iname
+>       Left iname                         → instrumentAbsPitchRange iname
 >       _                                  → Nothing
 >   showGivenRange                         = showKind ++ "(" ++ show shred.shCount ++ ")" ++ " = " ++ showAvail
 >     where
@@ -794,8 +795,7 @@ Returns sample point as (normalized) Double
 
 Configurable parameters ===============================================================================================
 
-> skipGlissandi
->                        :: Bool
+> skipGlissandi          :: Bool
 > replacePerCent         :: Rational
 
 Edit the following ====================================================================================================
