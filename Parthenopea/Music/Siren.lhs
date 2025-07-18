@@ -553,6 +553,15 @@ examine song for instrument and percussion usage ===============================
 >     songName           :: String
 >   , songMusic          :: DynMap → Music (Pitch, [NoteAttribute])
 >   , songShredding      :: Map GMKind Shred}
+> songTimeAndNoteCount   :: Song → String
+> songTimeAndNoteCount song                =
+>   let
+>     sec                :: Double         = (fromRational . dur) (song.songMusic Map.empty)
+>     sec'               :: Int            = round sec
+>     notes              :: Int            = Map.foldr ((+) . shCount) 0 song.songShredding
+>   in
+>     unwords [show sec', "sec,", show notes, "notes"]
+>
 > captureSong            :: Song → IO Song
 > captureSong (Song name music _)          = do
 >   ding                                   ← shredMusic $ music Map.empty

@@ -45,7 +45,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   show fw                                =
 >     unwords [  "FileWork"
 >              , show fw.fwBoot
->              , show (length fw.fwZRecs), "=zrecs"
+>              , show (length fw.fwZRecs), "=#zrecs"
 >              , show fw.fwDispositions]
 > defFileWork            :: FileWork
 > defFileWork                              =

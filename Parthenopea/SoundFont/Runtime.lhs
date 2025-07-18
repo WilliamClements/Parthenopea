@@ -70,25 +70,33 @@ executive ======================================================================
 >
 > writeRangesReport      :: [Song] → Map GMKind Shred → IO ()
 > writeRangesReport songs ding             = do
->   let rollup                             = Song "rollup" (const $ rest 0) ding
+>   let rollup                             =
+>         Song "rollup" (const (foldr ((:+:) . uncap . songMusic) (rest 0) songs)) ding
 >   let esAll                              = concatMap doSong songs
 >   let esPrefix                           =
 >         [ToFieldL "GMKind" 20
->        , ToFieldL "(range)" 18
->        , ToFieldR "lowest note" 12, Blanks 3
->        , ToFieldL "*status" 15
->        , ToFieldR "highest note" 12, Blanks 3
->        , ToFieldL "*status" 15
+>        , ToFieldL "(range)" 22
+>        , ToFieldR "lowest" 8, Blanks 3
+>        , ToFieldL "*status" 8
+>        , ToFieldR "highest" 8, Blanks 3
+>        , ToFieldL "*status" 8
 >        , ToFieldL "note count" 15
 >        , ToFieldL "alternative" 20, EndOfLine]
 >   let esSuffix                          = if 1 < length songs
 >                                             then doSong rollup
 >                                             else []
 >   writeFileBySections reportRangesName [esPrefix, esAll, esSuffix]
+>
 >   where
+>     uncap              :: (DynMap → Music (Pitch, [NoteAttribute])) → Music (Pitch, [NoteAttribute])
+>     uncap m                              = m Map.empty
+>
 >     doSong             :: Song → [Emission]
 >     doSong song                          =
->       [EndOfLine, Unblocked song.songName, EndOfLine] ++ doMusic song.songShredding
+>       [EndOfLine
+>      , ToFieldL song.songName 60
+>      , ToFieldL (songTimeAndNoteCount song) 60
+>      , EndOfLine, EndOfLine] ++ doMusic song.songShredding
 >     doMusic            :: Map GMKind Shred → [Emission]
 >     doMusic ding'                        = concatMap (uncurry doGMKind) (Map.assocs ding')
 >     doGMKind           :: GMKind → Shred → [Emission]
@@ -105,18 +113,19 @@ executive ======================================================================
 >         doInstrument       :: InstrumentName → [Emission]
 >         doInstrument kind                =
 >           [emitShowL kind 20
->          , emitShowL (instrumentPitchRange kind) 18
->          , emitShowR (pitch lo) 12, Blanks 3
->          , ToFieldL (indicator lo) 15
->          , emitShowR (pitch hi) 12, Blanks 3
->          , ToFieldL (indicator hi) 15
+>          , emitShowL (instrumentPitchRange kind) 22
+>          , emitShowR (pitch lo) 8, Blanks 3
+>          , ToFieldL (indicator lo) 8
+>          , emitShowR (pitch hi) 8, Blanks 3
+>          , ToFieldL (indicator hi) 8
 >          , emitShowL shred.shCount 15
 >          , ToFieldL strAlt 20, EndOfLine]
 >           
 >         doPercussion       :: PercussionSound → [Emission]
 >         doPercussion kind                =
 >           [emitShowL kind 20
->          , Blanks 78
+>          , emitShowL (fromEnum kind + 35) 22
+>          , Blanks 38
 >          , emitShowL shred.shCount 15, EndOfLine]
 >
 >         mrange                           =
@@ -124,8 +133,8 @@ executive ======================================================================
 >             Left iname                   → instrumentAbsPitchRange iname
 >             _                            → Nothing
 >         indicator p                      = if isNothing mrange || inRange (deJust "range" mrange) p
->                                              then "in range"
->                                              else "out of range"
+>                                              then "in"
+>                                              else "out!!"
 >
 > writeScanReport        :: SFRuntime → ResultDispositions → IO ()
 > writeScanReport runt rd                  = do

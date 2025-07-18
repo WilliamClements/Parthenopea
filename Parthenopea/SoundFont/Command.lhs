@@ -64,15 +64,17 @@ Implement PCommand =============================================================
 >
 >   CM.when (20 < length songs && not (null sf2s)) runUnitTests
 >
+>   rost                                   ← qualifyKinds songs
+>
 >   sffilesp                               ← CM.zipWithM openSoundFontFile [0..] sf2s
 >   let vFile                              = listArray (0, fromIntegral (length sf2s - 1)) sffilesp
->   rost                                   ← qualifyKinds songs
 >
 >   if null vFile
 >     then return ()
 >     else do
 >       (prerunt, matches, rd)             ← surveyInstruments vFile rost
 >       writeScanReport                    prerunt rd
+>
 >       (wI, wP)                           ← decideWinners prerunt rost matches 
 >       writeTournamentReport              prerunt wI wP
 >
