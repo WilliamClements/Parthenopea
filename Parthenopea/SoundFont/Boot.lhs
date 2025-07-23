@@ -148,7 +148,8 @@ support sample and instance ====================================================
 pre-sample task =======================================================================================================
           critique all Sample records in the file
 
-> preSampleTaskIf sffile _ fwIn            = foldl' sampleFolder fwIn (formComprehension sffile ssShdrs)
+> preSampleTaskIf sffile _ fwIn            =
+>   foldl' sampleFolder fwIn (formComprehension sffile ssShdrs)
 >   where
 >     sampleFolder fwForm presk            =
 >       let
@@ -187,8 +188,8 @@ pre-instance task ==============================================================
 >   fwIn{  fwBoot = fwIn.fwBoot{zPreInstCache = preInstCache}
 >        , fwDispositions = rdFinal}
 >   where
->     pergms                               = formComprehension sffile ssInsts
->     (preInstCache, rdFinal)              = foldl' preIFolder (Map.empty, fwIn.fwDispositions) pergms
+>     (preInstCache, rdFinal)              =
+>       foldl' preIFolder (Map.empty, fwIn.fwDispositions) (formComprehension sffile ssInsts)
 >
 >     preIFolder (m, rdFold) pergm         =
 >       if iinst.instBagNdx <= jinst.instBagNdx
@@ -534,9 +535,11 @@ match task =====================================================================
 > matchTaskIf _ _ fwIn                     = fwIn{fwMatches = Matches sMatches iMatches}
 >   where
 >     sMatches                             =
->       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.cnName) m)           Map.empty fwIn.fwBoot.zPreSampleCache
+>       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.cnName) m)
+>         Map.empty fwIn.fwBoot.zPreSampleCache
 >     iMatches                             =
->       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.piChanges.cnName) m) Map.empty fwIn.fwBoot.zPreInstCache
+>       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.piChanges.cnName) m)
+>         Map.empty fwIn.fwBoot.zPreInstCache
 
 categorization task ===================================================================================================
           assign each instrument to one of the three categories

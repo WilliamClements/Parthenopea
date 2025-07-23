@@ -22,9 +22,9 @@ Batch processor semantics:
 Listen to your new song files with initially generated Instrument mappings. Iterate and improve choices.
 
 ## Rendering tunes
-First of all, do collect **many** SoundFont files. Capacity has been tested up to ***500*** SoundFont files totalling ***46 GB*** :astonished: !
+First of all, do collect **many** SoundFont files. The variety is breathtaking. Capacity has been tested up to ***500*** SoundFont files totalling ***46 GB*** :astonished: !
 
-Parthenopea runs *tournaments* to pick the most suitable SoundFont Instruments from the files. All the stats and scores driving the result are printed out. Take a look at *Tournament Report* in ***Sample Reports***.
+*batchProcessor* conducts *tournaments* to pick the most suitable SoundFont Instruments that have been mined from the files. All the stats and scores driving the result are printed out. Take a look at *Tournament Report* in ***Sample Reports***.
 
 Note that mixing *unrelated* SoundFont Instruments can sound **off** when played. But interesting anyway to listen to your tunes *varying* Instrument mappings.
 
@@ -36,15 +36,15 @@ Note that mixing *unrelated* SoundFont Instruments can sound **off** when played
 # Design highlights
 
 ## Synthesizer category
-Implements a **wavetable** type **offline**  synthesizer. ***Wavetable*** because it is integrated with SoundFont only. ***Offline*** because rendering is not in real time.
+Implements a **wavetable** type **offline**  synthesizer. ***Wavetable*** because all SoundFont instruments are sample-based. ***Offline*** because rendering is not in real time.
 
-The Parthenopea synth is written using Signal Functions ala Euterpea. 
+The *batch processor* synth is written using Signal Functions ala Euterpea. 
 
 ## (Sweepable) low-pass filter **with resonance**
 In Euterpea, *filterLowPass* and *filterLowPassBW* Signal Functions are sweepable, but neither provides *resonance* (Q). To address this lack, a new Signal Function was developed -- namely, a State Variable filter (SVF). See https://karmafx.net/docs/karmafx_digitalfilters.pdf and https://ccrma.stanford.edu/~jos/svf/svf.pdf (*procSVF* in the code).
 
 ## Envelopes
-SoundFont file Authors, one way or another, specify envelope parameter values for shaping notes. Parthenopea *interprets/modifies* these parameters going into Euterpea's *envLineSeg* Signal Function for timed amplitude control. Priorities for the *interpretation* logic are:
+SoundFont file Authors, one way or another, specify envelope parameter values for shaping notes. *batchProcessor* ***interprets/modifies*** the parameters going into Euterpea's *envLineSeg* Signal Function for timed amplitude control. Priorities for the *interpretation* logic are:
 1. produce a reasonable note
 2. (try to) honor Author design intent
 
@@ -55,7 +55,7 @@ Files taken from the wild have many flaws that tripped us up at first. Examples:
 1. unprintable characters in Sample or Instrument names -- renames the bad identifiers.
 2. unusable settings like zero Sample Rate :upside_down_face: -- disqualifies affected Instruments
 
-Tools like https://www.polyphone.io/ also function fine when opening those flawed files. In Parthenopea, glitches encountered and addressed are documented in a *Scan Report*.
+Tools like https://www.polyphone.io/ also function fine when opening those flawed files. In *batchProcessor*, glitches encountered and addressed are documented in a *Scan Report*.
 
 ## Instrument consolidation
 Sampling a **natural** Instrument over many small ranges of Pitch and/or Velocity can yield great sound. But Authors often split these many Zones among distinct SoundFont Instruments. Naive implementations, mapping Instruments one to one, loses the advantage :worried: if Instrument is distributed. So prior to synthesis, *partial* Instruments are in effect combined into one that has all the Zones. :relieved: 

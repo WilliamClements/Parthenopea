@@ -62,8 +62,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >   | traceIf trace_eS False               = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
->     then eutSplit <<< pumpMonoPath 
->     else pumpStereoPath
+>     then eutSplit <<< pumpMono
+>     else pumpStereo
 >   where
 >     fName                                = "eutSynthesize"
 >     trace_eS                             = unwords [fName, show timeFrame] 
@@ -97,21 +97,21 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
 >     delta              :: Double         = 1 / (numPoints * freqFactor)
 >
->     pumpMonoPath       :: Signal p () Double
->     pumpStereoPath     :: Signal p () (Double, Double)
+>     pumpMono           :: Signal p () Double
+>     pumpStereo         :: Signal p () (Double, Double)
 >     modulateStereo, ampStereo
 >                        :: Signal p (Double, Double) (Double, Double)
 >
->     pumpMonoPath                         =
+>     pumpMono                             =
 >       eutDriver                    timeFrame reconL delta
->       >>> eutPumpMono              reconL noon dur s16 ms8
+>       >>> eutPumpMonoSample        reconL noon dur s16 ms8
 >       >>> eutModulate              timeFrame m8nL noon
 >       >>> eutEffectsMono           reconL
 >       >>> eutAmplify               timeFrame reconL noon
 >
->     pumpStereoPath                       = 
+>     pumpStereo                           = 
 >       eutDriver                    timeFrame reconL delta
->         >>> eutPumpStereo          (reconL, reconR) noon dur s16 ms8
+>         >>> eutPumpStereoSample    (reconL, reconR) noon dur s16 ms8
 >         >>> modulateStereo
 >         >>> ampStereo
 >
@@ -130,7 +130,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 > eutModulate            :: ∀ p . Clock p ⇒ TimeFrame → Modulation → NoteOn → Signal p Double Double
 > eutModulate timeFrame m8nL noon          =
->   proc a1L → do
+>   proc a1L                               → do
 >     modSigL                              ← eutModSignals timeFrame m8nL ToFilterFc ⤙ ()
 >     a2L   ← addResonance noon m8nL       ⤙ (a1L, modSigL)
 >     outA                                 ⤙ a2L
@@ -181,14 +181,15 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >       _                                  →
 >         error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in doModSigMaybes, not", show md]
 >
-> eutPumpMono            :: ∀ p . Clock p ⇒
+> eutPumpMonoSample      :: ∀ p . Clock p ⇒
 >                           Recon
 >                           → NoteOn
 >                           → Dur
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p Double Double
-> eutPumpMono reconL noon _ s16 ms8        =
+> eutPumpMonoSample  reconL noon _ s16 ms8
+>                                          =
 >   proc pos → do
 >     let pos'           :: Double         = fromIntegral (reconL.rEnd - reconL.rStart) * pos
 >     let ix             :: Int            = truncate pos'
@@ -202,14 +203,14 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >       fromCentibels (reconL.rAttenuation + evaluateMods ToInitAtten reconL.rM8n.mModsMap noon)
 >     ampL                                 = fromIntegral noon.noteOnVel / 100 / cAttenL
 >
-> eutPumpStereo         :: ∀ p . Clock p ⇒
+> eutPumpStereoSample    :: ∀ p . Clock p ⇒
 >                           (Recon, Recon)
 >                           → NoteOn
 >                           → Dur
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p Double (Double, Double)
-> eutPumpStereo (reconL, reconR) noon@NoteOn{noteOnVel} _ s16 ms8
+> eutPumpStereoSample  (reconL, reconR) noon _ s16 ms8
 >                                          = 
 >   proc pos → do
 >     let pos'           :: Double         = fromIntegral (enL - stL) * pos
@@ -229,8 +230,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     Modulation{mModsMap = mmodsR}        = m8nR
 >     cAttenL                              = fromCentibels (attenL + evaluateMods ToInitAtten mmodsL noon)
 >     cAttenR                              = fromCentibels (attenR + evaluateMods ToInitAtten mmodsR noon)
->     ampL                                 = fromIntegral noteOnVel / 100 / cAttenL
->     ampR                                 = fromIntegral noteOnVel / 100 / cAttenR
+>     ampL                                 = fromIntegral noon.noteOnVel / 100 / cAttenL
+>     ampR                                 = fromIntegral noon.noteOnVel / 100 / cAttenR
 >
 > eutAmplify             :: ∀ p . Clock p ⇒ TimeFrame → Recon → NoteOn → Signal p Double Double
 > eutAmplify timeFrame recon noon          =

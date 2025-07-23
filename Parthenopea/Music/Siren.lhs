@@ -414,9 +414,9 @@ also
 > findBetterInstrument   :: InstrumentName → (AbsPitch, AbsPitch) → InstrumentName
 > findBetterInstrument than (playedLo, playedHi)
 >                                          =
->     if null rangedInsts
->       then than
->       else snd $ minimumBy (comparing fst) rangedInsts
+>   if null rangedInsts
+>     then than
+>     else snd $ minimumBy (comparing fst) rangedInsts
 >   where
 >     rangedInsts        :: [(Int, InstrumentName)]
 >     rangedInsts                          = mapMaybe judgeScore (fst allKinds)
