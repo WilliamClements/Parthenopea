@@ -174,6 +174,8 @@ implementing SoundFont spec ====================================================
 >   , zKeyToVolEnvHold   :: Maybe Int
 >   , zKeyToVolEnvDecay  :: Maybe Int
 >
+>   , zSweepVelo         :: Maybe (Double, Double)
+>
 >   , zModulators        :: [Modulator]} deriving (Eq, Show)
 >
 > defZone                :: SFZone
@@ -194,7 +196,7 @@ implementing SoundFont spec ====================================================
 >                                            Nothing Nothing Nothing Nothing
 >                                            Nothing Nothing Nothing Nothing
 >                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing
+>                                            Nothing Nothing Nothing
 >
 >                                            []
 >

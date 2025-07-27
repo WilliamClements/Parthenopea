@@ -58,7 +58,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL, mreconR) sr dur pch vol _ s16 ms8
+> eutSynthesize (reconL, mreconR) sr dur pch vol ps s16 ms8
 >   | traceIf trace_eS False               = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
@@ -66,7 +66,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     else pumpStereo
 >   where
 >     fName                                = "eutSynthesize"
->     trace_eS                             = unwords [fName, show timeFrame] 
+>     trace_eS                             = unwords [fName, show timeFrame, show ps] 
 >
 >     noon                                 = NoteOn vol pch
 >     reconR                               = fromJust mreconR
@@ -236,10 +236,11 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 > eutAmplify             :: ∀ p . Clock p ⇒ TimeFrame → Recon → NoteOn → Signal p Double Double
 > eutAmplify timeFrame recon noon          =
 >   proc a1L → do
+>     aSweep                               ← doVeloSweepingEnvelope timeFrame recon.rAttenuation recon.rDynamics ⤙ ()
 >     aenvL                                ← doEnvelope timeFrame recon.rVolEnv ⤙ ()
 >     modSigL                              ← eutModSignals timeFrame recon.rM8n ToVolume ⤙ ()
 >     let a2L                              =
->           a1L * aenvL * evaluateModSignals "eutAmplify" recon.rM8n ToVolume modSigL noon
+>           a1L * aenvL * aSweep * evaluateModSignals "eutAmplify" recon.rM8n ToVolume modSigL noon
 >     outA ⤙ a2L
 
 Effects ===============================================================================================================
@@ -399,6 +400,7 @@ Utility types ==================================================================
 >   , rForceKey          :: Maybe AbsPitch
 >   , rForceVel          :: Maybe Volume
 >   , rTuning            :: Int
+>   , rDynamics          :: Maybe (Either Double (Double, Double))
 >   , rNoteOn            :: NoteOn
 >   , rAttenuation       :: Double
 >   , rVolEnv            :: Maybe FEnvelope

@@ -25,6 +25,7 @@ Synthesizer-related tests ======================================================
 >   Recon
 >     A.ContLoop 44100 0 0 0 0
 >     60 Nothing Nothing 100
+>     Nothing
 >     (NoteOn 100 60)
 >     0 Nothing Nothing
 >     defModulation defEffects

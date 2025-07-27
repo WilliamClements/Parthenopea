@@ -16,12 +16,14 @@ Apr 26, 2025
 >        , ctrRate
 >        , deriveEnvelope
 >        , doEnvelope
+>        , doVeloSweepingEnvelope
 >        , minDeltaT
 >        , minUseful
 >        , proposeSegments
 >        , vetAsDiscreteSig
 >        , vetEnvelope) where
 >
+> import Data.Either ( fromRight )
 > import Data.Foldable
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
@@ -95,6 +97,24 @@ Create a straight-line envelope generator with following phases:
 >       | otherwise                        = minUseful
 >           
 >     fSusLevel                            = clip (0, 1) r.fSustainLevel
+>
+> doVeloSweepingEnvelope :: ∀ p . Clock p ⇒
+>                           TimeFrame
+>                           → Double
+>                           → Maybe (Either Double (Double, Double))
+>                           → Signal p () Double
+> doVeloSweepingEnvelope timeFrame velo    = maybe (constA velo) (makeSF . fromRight (127, 127))
+>   where
+>     makeSF             :: (Double, Double) → Signal p () Double
+>     makeSF (stVelo, enVelo)              =
+>       let
+>         amps, deltaTs  :: [Double]
+>         amps                             =
+>             [0,            stVelo,                                 enVelo,         0]
+>         deltaTs                          =
+>             [   minDeltaT,    timeFrame.tfSecsScored - 2 * minDeltaT,     minDeltaT]
+>       in
+>         envLineSeg amps deltaTs
 
 stepwise refinement from specified envelope parameters ================================================================
 

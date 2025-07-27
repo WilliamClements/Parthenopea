@@ -26,7 +26,7 @@ February 1, 2025
 > import Data.List ( sortOn, singleton )
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
-> import Data.Maybe ( isNothing, fromJust, fromMaybe, listToMaybe )
+> import Data.Maybe ( isNothing, fromJust, fromMaybe )
 > import Data.Ord ( Down(Down) )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import Debug.Trace ( traceIO )
@@ -88,7 +88,7 @@ executive ======================================================================
 >   writeFileBySections reportRangesName [esPrefix, esAll, esSuffix]
 >
 >   where
->     uncap              :: (DynMap → Music (Pitch, [NoteAttribute])) → Music (Pitch, [NoteAttribute])
+>     uncap              :: (DynMap → Music1) → Music1
 >     uncap m                              = m Map.empty
 >
 >     doSong             :: Song → [Emission]
@@ -133,8 +133,8 @@ executive ======================================================================
 >             Left iname                   → instrumentAbsPitchRange iname
 >             _                            → Nothing
 >         indicator p                      = if isNothing mrange || inRange (deJust "range" mrange) p
->                                              then "in"
->                                              else "out!!"
+>                                              then "*in"
+>                                              else "*out!!"
 >
 > writeScanReport        :: SFRuntime → ResultDispositions → IO ()
 > writeScanReport runt rd                  = do
@@ -278,30 +278,29 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Volume
 >                           → [Double]
 >                           → Signal p () (Double, Double)
-> instrumentSF SFRuntime{zFiles, zBoot} pergm durI pchIn volIn nps
+> instrumentSF runt pergm durI pchIn volIn ps
 >   | traceIf trace_ISF False              = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rSampleRate
->                                              durI pchOut volOut nps
->                                              zSample.ssData zSample.ssM24
+>                                              durI pchOut volOut ps
+>                                              sffile.zSample.ssData sffile.zSample.ssM24
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
->       unwords [fName_, show pergm.pgkwFile, show preI.piChanges.cnSource, show (pchIn, volIn), show durI]
+>       unwords [fName_, show pergm.pgkwFile, show preI.piChanges.cnSource, show (pchIn, volIn), show durI, show ps]
 >
 >     noon                                 = NoteOn (clip (0, 127) volIn) (clip (0, 127) pchIn)
 >     pchOut              :: AbsPitch      = fromMaybe noon.noteOnKey reconX.rForceKey
 >     volOut              :: Volume        = fromMaybe noon.noteOnVel reconX.rForceVel
 >
->     SFFile{zSample}                      = zFiles ! pergm.pgkwFile
+>     sffile                               = runt.zFiles ! pergm.pgkwFile
 >
->     SFBoot{zPreInstCache, zPerInstCache} = zBoot
->     preI                                 = zPreInstCache Map.! pergm
->     perI                                 = zPerInstCache Map.! pergm
+>     preI                                 = runt.zBoot.zPreInstCache Map.! pergm
+>     perI                                 = runt.zBoot.zPerInstCache Map.! pergm
 >
 >     (reconX, mreconX)                    =
 >       case setZone of
->         Left (pz, sfz, shdr)             → (recon (pz, sfz, shdr) noon nps (fromRational durI), Nothing)
->         Right zsPlus                     → reconLR zsPlus noon nps (fromRational durI)
+>         Left (pz, sfz, shdr)             → (recon (pz, sfz, shdr) noon ps (fromRational durI), Nothing)
+>         Right zsPlus                     → reconLR zsPlus noon ps (fromRational durI)
 
 zone selection for rendering ==========================================================================================
 
@@ -324,8 +323,8 @@ zone selection for rendering ===================================================
 >         fName                            = unwords [fName_, "doFlyEye"]
 >
 >         (index1, index2)                 = noonAsCoords noon
->         ((bagIdL, cntL), (bagIdR, cntR)) =
->           (lookupCellIndex index1 perI.pSmashing, lookupCellIndex index2 perI.pSmashing)
+>         (bagIdL, cntL)                   = lookupCellIndex index1 perI.pSmashing
+>         (bagIdR, cntR)                   = lookupCellIndex index2 perI.pSmashing
 >         foundL                           = findByBagIndex' perI.pZones bagIdL
 >         foundR                           = findByBagIndex' perI.pZones bagIdR
 
@@ -336,26 +335,34 @@ reconcile zone and sample header ===============================================
 >                           → [Double]
 >                           → Dur
 >                           → (Recon, Maybe Recon)
-> reconLR ((pzL, zoneL, shdrL), (pzR, zoneR, shdrR)) noon nps durR
+> reconLR ((pzL, zoneL, shdrL), (pzR, zoneR, shdrR)) noon ps durR
 >                                          = (recL, Just recR')
 >   where
 >     secsScored         :: Double         = fromRational durR
 >     recL@Recon{rRootKey = rkL, rPitchCorrection = pcL}
->                                          = recon (pzL, zoneL, shdrL) noon nps secsScored
->     recR                                 = recon (pzR, zoneR, shdrR) noon nps secsScored
+>                                          = recon (pzL, zoneL, shdrL) noon ps secsScored
+>     recR                                 = recon (pzR, zoneR, shdrR) noon ps secsScored
 >     recR'                                = recR{
 >                                                rRootKey                   = rkL
 >                                              , rPitchCorrection           = pcL}
 >
 > recon                  :: (PreZone, SFZone, F.Shdr) → NoteOn → [Double] → Double → Recon
-> recon (pz, zone_, shdr) noon nps secsScored
+> recon (pz, zone_, shdr) noon ps secsScored
 >                                          = reconL
 >   where
 >     zd                                   = pz.pzDigest
+>     dyn                :: Maybe (Either Double (Double, Double))
+>     dyn                                  =
+>       case length ps of
+>         0                                → Nothing
+>         1                                → Just (Left (head ps))
+>         2                                → Just (Right (head ps, (head . tail) ps))
+>         _                                → error $ unwords ["bad note dynamics"]
 >     z                                    =
->       (\case
->         Just np                          → applyNoteParameter noon zone_ np secsScored
->         Nothing                          → zone_) (listToMaybe nps)
+>       case dyn of
+>         Just (Left bend)                 → implementNoteBending noon zone_ bend secsScored
+>         Just (Right range)               → implementVeloSweeping zone_ range
+>         Nothing                          → zone_
 >     m8n                                  = reconModulation z shdr noon
 >
 >     reconL = Recon {
@@ -370,6 +377,7 @@ reconcile zone and sample header ===============================================
 >   , rForceKey      = fmap                fromIntegral       z.zKey
 >   , rForceVel      = fmap                fromIntegral       z.zVel
 >   , rTuning        = fromMaybe           100                z.zScaleTuning
+>   , rDynamics      = dyn
 >   , rNoteOn        = noon
 >   , rAttenuation   = reconAttenuation                       z.zInitAtten
 >   , rVolEnv        = deriveEnvelope                         z.zDelayVolEnv
@@ -402,8 +410,8 @@ reconcile zone and sample header ===============================================
 >                                              then maybe 0 fromIntegral z.zInitAtten
 >                                              else 0.0
 >
-> applyNoteParameter     :: NoteOn → SFZone → Double → Double → SFZone
-> applyNoteParameter noon zone bend secs   = zone'
+> implementNoteBending   :: NoteOn → SFZone → Double → Double → SFZone
+> implementNoteBending noon zone bend secs = zone'
 >   where
 >     zone'                                =
 >       zone{  zModEnvToPitch = (Just . round) (bend * 100)
@@ -414,6 +422,13 @@ reconcile zone and sample header ===============================================
 >            , zSustainModEnv = Just 0
 >            , zKey           = (Just . fromIntegral) noon.noteOnKey
 >            , zReleaseModEnv = Nothing}
+>
+> implementVeloSweeping  :: SFZone → (Double, Double) → SFZone
+> implementVeloSweeping zone (stVelo, enVelo)
+>                                          = zone'
+>   where
+>     zone'                                =
+>       zone{  zSweepVelo = Just (stVelo, enVelo)}
 >
 > reconModulation        :: SFZone → F.Shdr → NoteOn → Modulation
 > reconModulation z shdr noon

@@ -15,7 +15,7 @@ December 12, 2022
 >
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq ( NFData )
-> import Control.SF.SF
+> import Control.SF.SF ( unfold )
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
@@ -37,7 +37,7 @@ December 12, 2022
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import System.Random ( Random(randomR), StdGen )
-
+>  
 > type Velocity                            = Volume
 > type KeyNumber                           = AbsPitch
 >
@@ -68,8 +68,104 @@ Utilities ======================================================================
 > grace _ _                                = 
 >   error "Can only add a grace note to a note."
 >
+> approximate            :: Velocity → StdLoudness → Double
+> approximate v loud                       =
+>   let
+>     v', prox           :: Double
+>     v'                                   = fromIntegral v
+>     prox                                 = 
+>       case loud of
+>           PPP  → v' * 40;    PP → v' * 50;   P    → v' * 60
+>           MP   → v' * 70;    SF → v' * 80;   MF   → v' * 90
+>           NF   → v' * 100;   FF → v' * 110;  FFF  → v' * 120
+>   in
+>     prox / 128
+>     
 > t32                    :: [Music a] → Music a
 > t32 notes                                = tempo (3/2) (foldr (:+:) (rest 0) notes)
+>
+> data PassageAttribute                    =
+>   Levels StdLoudness StdLoudness
+>   | Bends Double Double deriving (Show, Eq, Ord)
+>
+> hashNote               :: AbsPitch → Dur → String
+> hashNote hAp hD                          = unwords [show hAp, "_-_", show hD]
+>
+> passage               :: BandPart → [PassageAttribute] → Music Pitch → Music1
+> passage bp pas ma                        = infuse ma
+>   where
+>     fName_                               = "passage"
+>
+>     v                 :: Velocity
+>     v                                    = bp.bpHomeVelocity
+>
+>     ma'               :: Music1
+>     ma'                                  = toMusic1 ma
+>
+>     evs               :: [MEvent]
+>     allDur_           :: Dur
+>     allDur            :: Double
+>     (evs, allDur_)                       = musicToMEvents (bandPartContext bp) ma'
+>     allDur                               = fromRational allDur_
+>
+>     eMap              :: Map String MEvent
+>     eMap                                 = foldl' eFolder Map.empty evs
+>       where
+>         eFolder eFold mev                = Map.insert
+>                                              (hashNote mev.ePitch mev.eDur) 
+>                                              mev
+>                                              eFold
+
+    Make a function to compute instantaneous Velocity given an elapsed time
+
+>     velocityPerTime    :: Double → Double
+>     velocityPerTime tIn                  = tIn * changeRate + fst overall
+>
+>     overall            :: (Double, Double)
+>     overall                              =
+>       case head pas of
+>         Levels stL enL                   → (approximate v stL, approximate v enL)
+>         _                                → error $ unwords [fName_, "unsupported PassageAttribute"]
+>
+>     changeRate         :: Double
+>     changeRate                           = (snd overall - fst overall) / allDur
+>
+>     infuse             :: Music Pitch → Music1
+>     infuse
+>       | traceNow trace_I False           = undefined
+>       | otherwise                        = mFold pFun (:+:) (:=:) gFun
+>       where
+>         fName                            = "infuse"
+>         trace_I                          = unwords [fName, show (length evs), "= #evs", show changeRate]
+>
+>         pFun           :: Primitive Pitch → Music1
+>         pFun (Note durI pitchI)          = note durI (pitchI, na (absPitch pitchI) durI)
+>         pFun (Rest durI)                 = rest durI
+>
+>         na             :: AbsPitch → Dur → [NoteAttribute]
+>         na kAp kDur                      =
+>           let
+>             key        :: String
+>             key                          = hashNote kAp kDur
+>             mev        :: Maybe MEvent
+>             mev                          = tracer "lookup" $ Map.lookup key eMap
+>           in
+>             case mev of
+>               Nothing                    → []
+>               Just ev                    → [Dynamics fName, Params (velos ev)]
+>           where
+>             velos      :: MEvent → [Double]
+>             velos ev                     =
+>               let
+>                 onset, delta
+>                        :: Double
+>                 onset                    = fromRational ev.eTime
+>                 delta                    = fromRational ev.eDur
+>               in
+>                 [velocityPerTime onset, velocityPerTime (onset + delta)]
+>            
+>         gFun           :: Control → Music1 → Music1
+>         gFun cont m1                      = Modify cont (toMusic1 m1)
 >
 > dim                    :: Rational → Music a → Music a
 > dim amt                                  = phrase [Dyn (Diminuendo amt)]
@@ -96,7 +192,7 @@ Utilities ======================================================================
 >       notize aP                          = note qn (pitch aP)
 >
 > -- note chordFromArray has the same function body as chord itself
-> chordFromArray         :: Array Int (Music (Pitch, [NoteAttribute])) → Music (Pitch, [NoteAttribute])
+> chordFromArray         :: Array Int Music1 → Music1
 > chordFromArray                           = foldr (:=:) (rest 0)
 
 This alternate playback function will enable channel manipulation to allow
@@ -471,7 +567,9 @@ instrument range checking ======================================================
 >   BandPart {
 >     bpInstrument       :: InstrumentName
 >   , bpTranspose        :: AbsPitch
->   , bpVelocity         :: Velocity} deriving Show
+>   , bpHomeVelocity     :: Velocity} deriving Show
+> bandPartContext        :: BandPart → MContext
+> bandPartContext bp = MContext {mcTime = 0, mcInst = bp.bpInstrument, mcDur = metro 120 qn, mcVol=127}
 > relativeRange          :: BandPart → (Pitch, Pitch)
 > relativeRange bp                         =
 >   let
@@ -504,7 +602,7 @@ instrument range checking ======================================================
 >     else Map.empty
 >   where
 >     maker              :: DynMap → (GMKind, Shred) → DynMap
->     maker i2i (kind, shred)        =
+>     maker i2i (kind, shred)              =
 >       let
 >         inameL, inameR :: InstrumentName
 >         inameL                           = fromLeft (error "makeDynMap problem: no instrument") kind
@@ -515,27 +613,28 @@ instrument range checking ======================================================
 >           then Map.insert inameL inameR i2i
 >           else i2i
 >
-> bandPart               :: BandPart → Music Pitch → Music (Pitch, [NoteAttribute])
+> bandPart               :: BandPart → Music Pitch → Music1
 > bandPart bp                              = mMap bChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
 >   where
 >     bChanger           :: Pitch → (Pitch, [NoteAttribute])
->     bChanger p                           = (p, [Volume bp.bpVelocity])
+>     bChanger p                           = (p, [Volume bp.bpHomeVelocity])
 >
-> orchestraPart          :: BandPart → Music (Pitch, [NoteAttribute]) → Music (Pitch, [NoteAttribute])
+> orchestraPart          :: BandPart → Music1 → Music1
 > orchestraPart bp                         = mMap oChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
 >   where
 >     oChanger           :: (Pitch, [NoteAttribute]) → (Pitch, [NoteAttribute])
 >     oChanger (p, nas)                    = (p, map nasFun nas)
 >
 >     nasFun             :: NoteAttribute → NoteAttribute
->     nasFun (Volume _)                    = Volume bp.bpVelocity
+>     nasFun (Volume _)                    = Volume bp.bpHomeVelocity
 >     nasFun na                            = na 
 >
-> bendNote               :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music (Pitch, [NoteAttribute])
-> bendNote bp pc o durB bend               = note durB ((pc, o), [Volume bp.bpVelocity, Params [fromIntegral bend]])
+> bendNote               :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music1
+> bendNote bp pc o durB bend               =
+>   note durB ((pc, o), [Volume bp.bpHomeVelocity, Params [fromIntegral bend]])
 >
-> addVolume'    :: BandPart → Music Pitch → Music (Pitch,[NoteAttribute])
-> addVolume' bp                            = mMap (, [Volume bp.bpVelocity])
+> addVolume'    :: BandPart → Music Pitch → Music1
+> addVolume' bp                            = mMap (, [Volume bp.bpHomeVelocity])
 >
 > psoundToPitch :: PercussionSound → Pitch
 > psoundToPitch psound                     = pitch (fromEnum psound + 35)
@@ -551,7 +650,7 @@ examine song for instrument and percussion usage ===============================
 > data Song                                =
 >   Song {
 >     songName           :: String
->   , songMusic          :: DynMap → Music (Pitch, [NoteAttribute])
+>   , songMusic          :: DynMap → Music1
 >   , songShredding      :: Map GMKind Shred}
 > songTimeAndNoteCount   :: Song → String
 > songTimeAndNoteCount song                =

@@ -66,10 +66,8 @@ Feed chart =====================================================================
 >     ,  purple `withOpacity` 2]
 >
 > bench, porch           :: IO ()
-> bench                                    =
->   benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
-> porch                                    =
->   benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
+> bench                                    = benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
+> porch                                    = benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
 >
 > checkGrouts            ::  [(Double, Double)] → IO String
 > checkGrouts grouts                       = do
@@ -256,12 +254,12 @@ Feed chart =====================================================================
 >
 > testFreaks             :: Int → IO Double
 > testFreaks qIter                         = do
->   let ks@KernelSpec{ .. }                = testKS{ksQ = qIter}
+>   let ks                                 = testKS{ksQ = qIter}
 >   let kd                                 = calcKernelData ks
 >   let shapes                             = makeShapes ResponseNormal
 >   let fun                                = getFreaky kd shapes
 >
->   let fc                                 = fromAbsoluteCents ksFc
+>   let fc                                 = fromAbsoluteCents ks.ksFc
 >   let fci              :: Int            = round fc
 >   let spread           :: Int            = min fci (50 * round (log fc))
 >   let fcStart                            = fci - spread `div` 2

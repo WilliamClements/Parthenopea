@@ -29,13 +29,13 @@ December 16, 2022
   
 Bake ==================================================================================================================
 
-> type Baking = (BakingMetrics, Array Int (Music (Pitch, [NoteAttribute])))
+> type Baking = (BakingMetrics, Array Int Music1)
 
 The progress of the algorithm is expressed in above pair.
 
 > -- from a list of contexts, assemble sections, and produce a
 > -- music "channel" array (with size numChannels)
-> consumeBakes           :: [Bake] → Array Int (Music (Pitch, [NoteAttribute]))
+> consumeBakes           :: [Bake] → Array Int Music1
 > consumeBakes bakes                       = profess
 >                                              (checkJobOk bm)
 >                                              "consumeBakes checkJobOk"
@@ -54,13 +54,13 @@ The progress of the algorithm is expressed in above pair.
 > sampleBakes            :: [Bake] → Array Int Int
 > sampleBakes bakes                        = scoreOnsets bakingBins (map bOnset bakes)
 >
-> bakedJingle            :: Int → Music (Pitch, [NoteAttribute])
+> bakedJingle            :: Int → Music1
 > bakedJingle seed                         = removeZeros
 >                                            $ instrument Percussion
 >                                            $ chordFromArray
 >                                            $ bake4Consumption seed
 >
-> bake4Consumption       :: Int → Array Int (Music (Pitch, [NoteAttribute]))
+> bake4Consumption       :: Int → Array Int Music1
 > bake4Consumption seed                    = consumeBakes
 >                                            $ zipWith (\x y → y{bIx = x}) [0..]
 >                                            $ sortOn bOnset
@@ -139,7 +139,7 @@ The progress of the algorithm is expressed in above pair.
 >
 >         durSoFar       :: Double
 >         ss             :: SectionSpec
->         newm           :: Music (Pitch, [NoteAttribute])
+>         newm           :: Music1
 >
 >         -- algorithm gets an N squared component here
 >         durSoFar                         = fromRational $ dur (ms ! chan)
@@ -151,10 +151,10 @@ The progress of the algorithm is expressed in above pair.
 >         -- statskeeping
 >         bm'                              = acceptMetrics bm ss urn.bOnset
 >                   
->     appendSection      :: Array Int (Music (Pitch, [NoteAttribute]))
+>     appendSection      :: Array Int Music1
 >                           → Int
->                           → Music (Pitch, [NoteAttribute])
->                           → Array Int (Music (Pitch, [NoteAttribute]))
+>                           → Music1
+>                           → Array Int Music1
 >     appendSection ms chan newm           = ms // [(chan, ms!chan :+: newm)]
 >
 >     calibrateSection   :: Double → Bake → SectionSpec
@@ -178,7 +178,7 @@ The progress of the algorithm is expressed in above pair.
 >                           → (AbsPitch, AbsPitch)
 >                           → Double
 >                           → Double
->                           → Music (Pitch, [NoteAttribute])
+>                           → Music1
 >     generateSection sound vol ss inst rng dXp sweep
 >                                          = theRest :+: (thePercFill :=: theInstFill)
 >       where
@@ -191,14 +191,14 @@ The progress of the algorithm is expressed in above pair.
 >         fillBeats                        = round (fillDur * fillTempo * 3.0 / 4.0)
 >
 >         theRest, thePercFill, theInstFill
->                        :: Music (Pitch, [NoteAttribute])
+>                        :: Music1
 >         theRest                          = rest $ approx restDur
 >         thePercFill                      =
 >           makePercFill sound (approx (0.5/fillTempo)) (fractionOf vol 1.25) (approx fillDur)
 >         theInstFill                      =
 >           instrument inst $ makeInstFill fillBeats rng dXp sweep (fractionOf vol 0.60) 
 >
-> makePercFill           :: PercussionSound → Rational → Volume → Dur → Music (Pitch, [NoteAttribute])
+> makePercFill           :: PercussionSound → Rational → Volume → Dur → Music1
 > makePercFill sound beats vol durP        = bandPart (makeNonPitched vol) m
 >   where
 >     m                                    =
@@ -206,7 +206,7 @@ The progress of the algorithm is expressed in above pair.
 >         then rest durP
 >         else roll durP $ perc sound beats
 >
-> makeInstFill           :: Int → (AbsPitch, AbsPitch) → Double → Double → Volume → Music (Pitch, [NoteAttribute])
+> makeInstFill           :: Int → (AbsPitch, AbsPitch) → Double → Double → Volume → Music1
 > makeInstFill beats (lo, hi) dXp bend vol
 >                                          = note (qn * toRational beats) (p, [Volume vol, Params [bend]])
 >   where
@@ -339,7 +339,7 @@ Definitions ====================================================================
 > newBakingMetrics                         = BakingMetrics 0 0 0 0 0 0 (array (0, eb) [(x, 0) | x ← [0..eb]])
 >   where
 >     eb                                   = bakingBins - 1
-> newMusic               :: Array Int (Music (Pitch, [NoteAttribute]))
+> newMusic               :: Array Int Music1
 > newMusic                                 = array (0, numChannels - 1) [(x, rest 0) | x ← [0..(numChannels - 1)]]
 >
 > songLength, numSections
