@@ -15,6 +15,7 @@ December 12, 2022
 >
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq ( NFData )
+> import qualified Control.Monad           as CM
 > import Control.SF.SF ( unfold )
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
@@ -27,6 +28,7 @@ December 12, 2022
 > import Data.Maybe
 > import Data.Ord ( comparing )
 > import Data.Ratio ( approxRational )
+> import qualified Data.Vector             as VB
 > import qualified Data.Vector.Unboxed     as VU
 > import Data.Word ( Word8 )
 > import Euterpea.IO.Audio.Basics ( outA )
@@ -37,9 +39,12 @@ December 12, 2022
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import System.Random ( Random(randomR), StdGen )
->  
-> type Velocity                            = Volume
+
+Utilities =============================================================================================================
+
+> type GMKind                              = Either InstrumentName PercussionSound
 > type KeyNumber                           = AbsPitch
+> type Velocity                            = Volume
 >
 > allKinds               :: ([InstrumentName], [PercussionSound])
 > allKinds                                 =
@@ -49,10 +54,6 @@ December 12, 2022
 > percPitchRange         :: (AbsPitch, AbsPitch)
 > percPitchRange                           = (fromEnum AcousticBassDrum + 35, fromEnum OpenTriangle + 35)
 >
-> type GMKind                              = Either InstrumentName PercussionSound
-
-Utilities =============================================================================================================
-
 > addDur                 :: Dur → [Dur → Music a] → Music a
 > addDur durA ns  =  let fun n = n durA
 >                    in line (map fun ns)
@@ -67,105 +68,187 @@ Utilities ======================================================================
 >       | otherwise                        = 1/8
 > grace _ _                                = 
 >   error "Can only add a grace note to a note."
->
-> approximate            :: Velocity → StdLoudness → Double
-> approximate v loud                       =
->   let
->     v', prox           :: Double
->     v'                                   = fromIntegral v
->     prox                                 = 
->       case loud of
->           PPP  → v' * 40;    PP → v' * 50;   P    → v' * 60
->           MP   → v' * 70;    SF → v' * 80;   MF   → v' * 90
->           NF   → v' * 100;   FF → v' * 110;  FFF  → v' * 120
->   in
->     prox / 128
 >     
 > t32                    :: [Music a] → Music a
 > t32 notes                                = tempo (3/2) (foldr (:+:) (rest 0) notes)
+
+TODO: approximate: adjust taking "home velocity" into consideration
+
+> loudness               :: StdLoudness → Double
+> loudness loud                            =
+>    case loud of
+>           PPP  → 40;    PP → 50;   P    → 60
+>           MP   → 70;    SF → 80;   MF   → 90
+>           NF   → 100;   FF → 110;  FFF  → 120
+
+Notation-Driven Dynamics ==============================================================================================
+
+_Marking_ = composer's passage-shape sequence, directives
+_VelocityNode = two optional "standard loudnesses" (P, PP, FF, etc.) per mk-note
+_Overall = describes sound frustum = onset time and dur *versus* start and end velocity
+
+> data Marking                             =
+>   ContinueFor Int
+>   | OneRest
+>   | OneV StdLoudness
+>   | TwoV StdLoudness StdLoudness
+>   deriving (Eq, Show)
 >
-> data PassageAttribute                    =
->   Levels StdLoudness StdLoudness
->   | Bends Double Double deriving (Show, Eq, Ord)
+> data VelocityNode                        =
+>   VelocityNode {
+>     vBefore            :: Maybe StdLoudness
+>   , vAfter             :: Maybe StdLoudness}
+>   deriving (Eq, Show)
+> defVelocityNode        :: VelocityNode
+> defVelocityNode                          = VelocityNode Nothing Nothing
 >
-> hashNote               :: AbsPitch → Dur → String
-> hashNote hAp hD                          = unwords [show hAp, "_-_", show hD]
+> markings2Nodes         :: Marking → [VelocityNode]
+> markings2Nodes (ContinueFor n)           = replicate n defVelocityNode
+> markings2Nodes OneRest                   = [defVelocityNode]
+> markings2Nodes (OneV loud)               = [VelocityNode (Just loud) (Just loud)]
+> markings2Nodes (TwoV loud1 loud2)        = [VelocityNode (Just loud1) (Just loud2)]
 >
-> passage               :: BandPart → [PassageAttribute] → Music Pitch → Music1
-> passage bp pas ma                        = infuse ma
+> data Overall                             =
+>   Overall {
+>     oStartT            :: Double
+>   , oEndT              :: Double
+>   , oStartV            :: Double
+>   , oEndV              :: Double}
+>   deriving Show
+> defOverall             :: Overall
+> defOverall                               = Overall 0 0 0 0
+> makeOverall            :: Double → Double → MEvent → Overall
+> makeOverall startV endV ev               = Overall startT (startT + durT) startV endV
 >   where
->     fName_                               = "passage"
+>     startT                               = fromRational ev.eTime
+>     durT                                 = fromRational ev.eDur
+> changeRate             :: Overall → Double
+> changeRate over                          = (over.oEndV - over.oStartV) / (over.oEndT - over.oStartT)
 >
->     v                 :: Velocity
->     v                                    = bp.bpHomeVelocity
+> data MekNote                             =
+>   MekNote {
+>     mPrimitive         :: Primitive Pitch
+>   , mSelfIndex         :: Int
+>   , mEventIndex        :: Int
+>   , mVelocityNode      :: VelocityNode
+>   , mOverallIn         :: Overall
+>   , mOverallOut        :: Overall}
+> defMekNote             :: MekNote
+> defMekNote                               = makeMekNote (Rest 0) 0 defVelocityNode
+> makeMekNote            :: Primitive Pitch → Int → VelocityNode → MekNote
+> makeMekNote prim six node                = MekNote prim six 0 node defOverall defOverall
 >
->     ma'               :: Music1
->     ma'                                  = toMusic1 ma
+> compileMarkings        :: [Marking] → [VelocityNode]
+> compileMarkings ms                       =
+>   let
+>     ns_                                  = concatMap markings2Nodes ms
+>     fStart, fEnd       :: ([VelocityNode], VelocityNode) → VelocityNode → ([VelocityNode], VelocityNode)
+>     fStart (vNodes, prev) vn             =
+>       let
+>         vn'                              = vn{vBefore = vn.vBefore `CM.mplus` prev.vBefore}
+>       in 
+>         (vNodes ++ [vn'], vn')
+>     fEnd (vNodes, prev) vn               =
+>       let
+>         vn'                              = vn{vAfter = vn.vAfter `CM.mplus` prev.vAfter}
+>       in 
+>         (vNodes ++ [vn'], vn')
+>   in
+>     fst
+>     $ foldl' fEnd ([], last ns_)
+>     $ reverse
+>     $ fst
+>     $ foldl' fStart ([], head ns_)
+>     $ reverse ns_
+>           
+> passage                :: BandPart → [Marking] → Music Pitch → Music1
+> passage bp markings ma                   =
+>   if enableDynamics
+>     then doPassage bp markings ma
+>     else toMusic1 ma
 >
->     evs               :: [MEvent]
->     allDur_           :: Dur
->     allDur            :: Double
->     (evs, allDur_)                       = musicToMEvents (bandPartContext bp) ma'
->     allDur                               = fromRational allDur_
+> doPassage              :: BandPart → [Marking] → Music Pitch → Music1
+> doPassage bp markings ma
+>   | traceNow trace_P False               = undefined
+>   | otherwise                            = removeZeros yMusic
+>   where
+>     fName                                = "doPassage"
+>     trace_P                              = unwords [fName, show markings, show nodes, show prims]
 >
->     eMap              :: Map String MEvent
->     eMap                                 = foldl' eFolder Map.empty evs
+>     ma'                                  =
+>       profess
+>         (not (null markings))
+>         (unwords [fName, "empty markings"])
+>         (removeZeros ma)
+>
+>     evs                :: [MEvent]
+>     (evs, _)                             = musicToMEvents (bandPartContext bp) (toMusic1 ma')
+>     eTable                               = VB.fromList evs
+>
+>     prims              :: [Primitive Pitch]
+>     prims                                = explode ma'
+>     nPrims                               = length prims
+>
+>     nodes              :: [VelocityNode]
+>     nodes                                = compileMarkings markings
+>     nNodes                               = length nodes
+>
+>     zipped, indexed, ready
+>                        :: [MekNote]
+>
+>     zipped                               =
+>       profess
+>         (nPrims == nNodes)
+>         (unwords [fName, "prims", show nPrims, "and nodes", show nNodes, "must correspond one to one"])
+>         (zipWith3 makeMekNote prims [0..1] nodes)
+>     (indexed, _)                         = foldl' implantIndex ([], 0) zipped
+>     ready                                = foldl' implantOverall [] indexed
+>     yMusic                               = foldl' foldFinally (rest 0) ready
+>
+>     explode            :: Music Pitch → [Primitive Pitch]
+>     explode                              = mFold pFun (++) undefined gFun
 >       where
->         eFolder eFold mev                = Map.insert
->                                              (hashNote mev.ePitch mev.eDur) 
->                                              mev
->                                              eFold
-
-    Make a function to compute instantaneous Velocity given an elapsed time
-
->     velocityPerTime    :: Double → Double
->     velocityPerTime tIn                  = tIn * changeRate + fst overall
+>         pFun           :: Primitive Pitch → [Primitive Pitch]
+>         pFun (Note pP dP)                = [Note pP dP]
+>         pFun (Rest dP)                   = [Rest dP]
 >
->     overall            :: (Double, Double)
->     overall                              =
->       case head pas of
->         Levels stL enL                   → (approximate v stL, approximate v enL)
->         _                                → error $ unwords [fName_, "unsupported PassageAttribute"]
->
->     changeRate         :: Double
->     changeRate                           = (snd overall - fst overall) / allDur
->
->     infuse             :: Music Pitch → Music1
->     infuse
->       | traceNow trace_I False           = undefined
->       | otherwise                        = mFold pFun (:+:) (:=:) gFun
+>         gFun           :: Control → [Primitive Pitch] → [Primitive Pitch]
+>         gFun _ _                         = []
+> 
+>     implantIndex       :: ([MekNote], Int) → MekNote → ([MekNote], Int)
+>     implantIndex (meks, soFar) mek       = (meks ++ [mek{mEventIndex = soFar}], soFar')
 >       where
->         fName                            = "infuse"
->         trace_I                          = unwords [fName, show (length evs), "= #evs", show changeRate]
+>         soFar'                           =  
+>           case mek.mPrimitive of
+>             Note _ _                     → soFar + 1
+>             Rest _                       → soFar
 >
->         pFun           :: Primitive Pitch → Music1
->         pFun (Note durI pitchI)          = note durI (pitchI, na (absPitch pitchI) durI)
->         pFun (Rest durI)                 = rest durI
+>     implantOverall     :: [MekNote] → MekNote → [MekNote] 
+>     implantOverall meks mek              = meks ++ [mek{mOverallIn = newOverall, mOverallOut = newOverall}] -- WOX
+>       where
+>         vFirst                           = fromMaybe SF mek.mVelocityNode.vBefore
+>         vSecond                          = fromMaybe SF mek.mVelocityNode.vAfter
+>         ev                               = eTable VB.! mek.mEventIndex
+>         newOverall                       = makeOverall (loudness vFirst) (loudness vSecond) ev
 >
->         na             :: AbsPitch → Dur → [NoteAttribute]
->         na kAp kDur                      =
->           let
->             key        :: String
->             key                          = hashNote kAp kDur
->             mev        :: Maybe MEvent
->             mev                          = tracer "lookup" $ Map.lookup key eMap
->           in
->             case mev of
->               Nothing                    → []
->               Just ev                    → [Dynamics fName, Params (velos ev)]
+>     foldFinally        :: Music1 → MekNote → Music1 
+>     foldFinally music mek                =
+>       music :+: case mek.mPrimitive of
+>                   Note durI pitchI       → note durI (pitchI, infuse mek)
+>                   Rest durI              → rest durI
+>
+>     infuse             :: MekNote → [NoteAttribute]
+>     infuse mek                           = [Dynamics fName, Params $ velos (eTable VB.! mek.mEventIndex)]
+>       where
+>         velocityPerTime
+>                        :: Double → Overall → Double
+>         velocityPerTime tIn over         = tIn * changeRate over + over.oStartV
+>
+>         velos          :: MEvent → [Double]
+>         velos ev                         = [velocityPerTime onset mek.mOverallIn, velocityPerTime (onset + delta) mek.mOverallOut]
 >           where
->             velos      :: MEvent → [Double]
->             velos ev                     =
->               let
->                 onset, delta
->                        :: Double
->                 onset                    = fromRational ev.eTime
->                 delta                    = fromRational ev.eDur
->               in
->                 [velocityPerTime onset, velocityPerTime (onset + delta)]
->            
->         gFun           :: Control → Music1 → Music1
->         gFun cont m1                      = Modify cont (toMusic1 m1)
+>             onset                        = fromRational ev.eTime
+>             delta                        = fromRational ev.eDur
 >
 > dim                    :: Rational → Music a → Music a
 > dim amt                                  = phrase [Dyn (Diminuendo amt)]
@@ -569,7 +652,7 @@ instrument range checking ======================================================
 >   , bpTranspose        :: AbsPitch
 >   , bpHomeVelocity     :: Velocity} deriving Show
 > bandPartContext        :: BandPart → MContext
-> bandPartContext bp = MContext {mcTime = 0, mcInst = bp.bpInstrument, mcDur = metro 120 qn, mcVol=127}
+> bandPartContext bp = MContext {mcTime = 0, mcInst = bp.bpInstrument, mcDur = metro 240 qn, mcVol=127}
 > relativeRange          :: BandPart → (Pitch, Pitch)
 > relativeRange bp                         =
 >   let
@@ -903,11 +986,13 @@ Returns sample point as (normalized) Double
 
 Configurable parameters ===============================================================================================
 
+> enableDynamics         :: Bool
 > skipGlissandi          :: Bool
 > replacePerCent         :: Rational
 
 Edit the following ====================================================================================================
 
+> enableDynamics                           = False
 > skipGlissandi                            = False
 > replacePerCent                           = 0
 

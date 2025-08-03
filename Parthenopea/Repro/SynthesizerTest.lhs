@@ -2,6 +2,7 @@
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
 > {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 SynthesizerTest
@@ -11,10 +12,13 @@ March 2, 2024
 > module Parthenopea.Repro.SynthesizerTest ( synthesizerTests ) where
 >
 > import qualified Data.Audio              as A
+> import qualified Control.Monad           as CM
+> import Data.List
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( Clock(..), AudRate, Signal )
-> import Parthenopea.Debug ( aEqual )
-> import Parthenopea.Music.Siren ( SlwRate, toSampleDubs )
+> import Euterpea.Music ( StdLoudness(..) )
+> import Parthenopea.Debug ( aEqual, tracer )
+> import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Modulation ( NoteOn(NoteOn), defModulation )
 > import Parthenopea.Repro.Synthesizer ( eutDriver, Effects(Effects), Recon(Recon), TimeFrame(..) )
   
@@ -58,5 +62,23 @@ Synthesizer-related tests ======================================================
 > testAud nSecs                            = do
 >   let sf :: Signal AudRate () Double     = driveDriver
 >   checkSignal nSecs sf
+>
+> passageTests           :: [IO Bool]
+> passageTests                             = [singleIsSingle
+>                                           , startThenEndLeavesNoNothings]
+>
+> singleIsSingle         :: IO Bool
+> singleIsSingle                           =
+>   return $ aEqual
+>              [VelocityNode (Just PP) (Just FF)]
+>              (compileMarkings [TwoV PP FF])
+> startThenEndLeavesNoNothings
+>                        :: IO Bool
+> startThenEndLeavesNoNothings             = do
+>   let vNodes                             = compileMarkings [OneV PP, ContinueFor 4, OneV FF]
+>   print vNodes
+>   let goodStart                          = Nothing `notElem` map vBefore vNodes
+>   let goodEnd                            = Nothing `notElem` map vAfter vNodes 
+>   return $ not (null vNodes) && goodStart && goodEnd 
 
-The End
+The End 
