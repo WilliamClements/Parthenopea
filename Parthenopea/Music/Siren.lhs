@@ -45,6 +45,8 @@ Utilities ======================================================================
 > type GMKind                              = Either InstrumentName PercussionSound
 > type KeyNumber                           = AbsPitch
 > type Velocity                            = Volume
+> type SelfIndex                           = Int
+> type EventIndex                          = Int
 >
 > allKinds               :: ([InstrumentName], [PercussionSound])
 > allKinds                                 =
@@ -72,41 +74,40 @@ Utilities ======================================================================
 > t32                    :: [Music a] → Music a
 > t32 notes                                = tempo (3/2) (foldr (:+:) (rest 0) notes)
 
-TODO: approximate: adjust taking "home velocity" into consideration
+TODO: adjust loudness output based on "home velocity"
 
 > loudness               :: StdLoudness → Double
 > loudness loud                            =
->    case loud of
+>   case loud of
 >           PPP  → 40;    PP → 50;   P    → 60
 >           MP   → 70;    SF → 80;   MF   → 90
 >           NF   → 100;   FF → 110;  FFF  → 120
 
 Notation-Driven Dynamics ==============================================================================================
 
-_Marking_ = composer's passage-shape sequence, directives
-_VelocityNode = two optional "standard loudnesses" (P, PP, FF, etc.) per mk-note
-_Overall = describes sound frustum = onset time and dur *versus* start and end velocity
+_Marking_                = composer's passage-shape sequence, directives
+_VelocityNode            = describes the range in time and loudness
+_Overall                 = describes sound frustum = onset time and dur *versus* start and end velocity
 
 > data Marking                             =
 >   ContinueFor Int
 >   | OneRest
->   | OneV StdLoudness
->   | TwoV StdLoudness StdLoudness
+>   | Mark StdLoudness
+>   | MarkTwo StdLoudness StdLoudness
 >   deriving (Eq, Show)
 >
 > data VelocityNode                        =
 >   VelocityNode {
->     vBefore            :: Maybe StdLoudness
->   , vAfter             :: Maybe StdLoudness}
+>     vBefore            :: Maybe (StdLoudness, EventIndex)
+>   , vAfter             :: Maybe (StdLoudness, EventIndex)}
 >   deriving (Eq, Show)
 > defVelocityNode        :: VelocityNode
 > defVelocityNode                          = VelocityNode Nothing Nothing
 >
-> markings2Nodes         :: Marking → [VelocityNode]
-> markings2Nodes (ContinueFor n)           = replicate n defVelocityNode
-> markings2Nodes OneRest                   = [defVelocityNode]
-> markings2Nodes (OneV loud)               = [VelocityNode (Just loud) (Just loud)]
-> markings2Nodes (TwoV loud1 loud2)        = [VelocityNode (Just loud1) (Just loud2)]
+> data MarkState                           =
+>   MarkNew
+>   | MarkContinue
+>   deriving (Eq, Show)
 >
 > data Overall                             =
 >   Overall {
@@ -117,31 +118,53 @@ _Overall = describes sound frustum = onset time and dur *versus* start and end v
 >   deriving Show
 > defOverall             :: Overall
 > defOverall                               = Overall 0 0 0 0
-> makeOverall            :: Double → Double → MEvent → Overall
-> makeOverall startV endV ev               = Overall startT (startT + durT) startV endV
+> makeOverall            :: Double → Double → MEvent → MEvent → Overall
+> makeOverall startV endV startEv endEv    = Overall startT endT startV endV
 >   where
->     startT                               = fromRational ev.eTime
->     durT                                 = fromRational ev.eDur
+>     startT                               = fromRational startEv.eTime
+>     endT                                 = fromRational $ endEv.eTime + fromRational endEv.eDur
 > changeRate             :: Overall → Double
 > changeRate over                          = (over.oEndV - over.oStartV) / (over.oEndT - over.oStartT)
 >
 > data MekNote                             =
 >   MekNote {
 >     mPrimitive         :: Primitive Pitch
->   , mSelfIndex         :: Int
->   , mEventIndex        :: Int
->   , mVelocityNode      :: VelocityNode
+>   , mSelfIndex         :: SelfIndex
+>   , mEventIndex        :: EventIndex
 >   , mOverallIn         :: Overall
 >   , mOverallOut        :: Overall}
+>   deriving Show
 > defMekNote             :: MekNote
-> defMekNote                               = makeMekNote (Rest 0) 0 defVelocityNode
-> makeMekNote            :: Primitive Pitch → Int → VelocityNode → MekNote
-> makeMekNote prim six node                = MekNote prim six 0 node defOverall defOverall
+> defMekNote                               = makeMekNote (Rest 0) 0
+> makeMekNote            :: Primitive Pitch → Int → MekNote
+> makeMekNote prim six                     = MekNote prim six 0 defOverall defOverall
 >
-> compileMarkings        :: [Marking] → [VelocityNode]
-> compileMarkings ms                       =
+> compileMarkings        :: [MekNote] → [Marking] → [VelocityNode]
+> compileMarkings meks ms                  =
 >   let
->     ns_                                  = concatMap markings2Nodes ms
+>     vmeks                                = VB.fromList meks
+>     ns_                                  = fst $ foldl' foldMarks ([], (0, MarkNew)) ms
+>
+>     foldMarks          :: ([VelocityNode], (SelfIndex, MarkState)) → Marking → ([VelocityNode], (SelfIndex, MarkState))
+>     foldMarks (ns, (si, st)) mark        = BF.first (ns ++) (markToNodes (si, st) mark)
+>
+>     markToNodes            :: (SelfIndex, MarkState) → Marking → ([VelocityNode], (SelfIndex, MarkState))
+>     markToNodes (count, _) (ContinueFor nMore)
+>                                          = (replicate nMore defVelocityNode,       (count + nMore, MarkContinue))
+>     markToNodes (count, _) OneRest       = ([defVelocityNode],                     (count + 1, MarkContinue))
+>     markToNodes (count, st) (Mark loud)  = ([markState (loud, (vmeks VB.! count).mEventIndex) st],
+>                                                                                    (count + 1, MarkContinue))
+>     markToNodes (count, _) (MarkTwo loud1 loud2)
+>                                          = ([VelocityNode (Just (loud1, ei)) (Just (loud2, ei))],
+>                                                                                    (count + 1, MarkContinue))
+>       where
+>         ei                               = (vmeks VB.! count).mEventIndex
+>
+>     markState          :: (StdLoudness, EventIndex) → MarkState → VelocityNode
+>     markState (loud, ei) st              = if st == MarkNew
+>                                              then VelocityNode (Just (loud, ei)) Nothing
+>                                              else VelocityNode Nothing (Just (loud, ei))
+>
 >     fStart, fEnd       :: ([VelocityNode], VelocityNode) → VelocityNode → ([VelocityNode], VelocityNode)
 >     fStart (vNodes, prev) vn             =
 >       let
@@ -154,56 +177,61 @@ _Overall = describes sound frustum = onset time and dur *versus* start and end v
 >       in 
 >         (vNodes ++ [vn'], vn')
 >   in
->     fst
+>     reverse
+>     $ fst
 >     $ foldl' fEnd ([], last ns_)
 >     $ reverse
 >     $ fst
->     $ foldl' fStart ([], head ns_)
->     $ reverse ns_
+>     $ foldl' fStart ([], head ns_) ns_
 >           
 > passage                :: BandPart → [Marking] → Music Pitch → Music1
 > passage bp markings ma                   =
 >   if enableDynamics
->     then doPassage bp markings ma
+>     then implementPassage bp markings ma
 >     else toMusic1 ma
 >
-> doPassage              :: BandPart → [Marking] → Music Pitch → Music1
-> doPassage bp markings ma
+> implementPassage       :: BandPart → [Marking] → Music Pitch → Music1
+> implementPassage bp markings ma_
 >   | traceNow trace_P False               = undefined
 >   | otherwise                            = removeZeros yMusic
 >   where
->     fName                                = "doPassage"
->     trace_P                              = unwords [fName, show markings, show nodes, show prims]
+>     fName_                               = "doPassage"
+>     trace_P                              = unwords [fName_, show markings, show evs, show nodes, show prims, show yMusic]
 >
->     ma'                                  =
+>     -- source notes and rests of the passage
+>     ma                                   =
 >       profess
->         (not (null markings))
->         (unwords [fName, "empty markings"])
->         (removeZeros ma)
+>         (not $ null markings)
+>         (unwords [fName_, "empty markings"])
+>         (removeZeros ma_)
 >
+>     -- simple list of the notes and rests
+>     prims              :: [Primitive Pitch]
+>     prims                                = explode ma
+>
+>     -- MEvents from "playing" the fragment
 >     evs                :: [MEvent]
->     (evs, _)                             = musicToMEvents (bandPartContext bp) (toMusic1 ma')
+>     (evs, _)                             = musicToMEvents (bandPartContext bp) (toMusic1 ma)
 >     eTable                               = VB.fromList evs
 >
->     prims              :: [Primitive Pitch]
->     prims                                = explode ma'
->     nPrims                               = length prims
->
->     nodes              :: [VelocityNode]
->     nodes                                = compileMarkings markings
->     nNodes                               = length nodes
->
->     zipped, indexed, ready
+>     -- list of enriched note/rest objects
+>     unIndexed, indexed, converted
 >                        :: [MekNote]
+>     unIndexed                            = zipWith makeMekNote prims [0..]
+>     indexed                              = fst $ foldl' implantEventIndices ([], 0) unIndexed
+>     nodes              :: [VelocityNode]
+>     nodes                                = compileMarkings indexed markings
+>     converted                            = zipWith convert indexed nodes
+>     yMusic                               = foldl' foldFinally (rest 0) converted
 >
->     zipped                               =
->       profess
->         (nPrims == nNodes)
->         (unwords [fName, "prims", show nPrims, "and nodes", show nNodes, "must correspond one to one"])
->         (zipWith3 makeMekNote prims [0..1] nodes)
->     (indexed, _)                         = foldl' implantIndex ([], 0) zipped
->     ready                                = foldl' implantOverall [] indexed
->     yMusic                               = foldl' foldFinally (rest 0) ready
+>     convert            :: MekNote → VelocityNode → MekNote
+>     convert mek vn                       = mek{mOverallIn = newOverall, mOverallOut = newOverall}
+>       where
+>         (loud1, ei1)                     = fromMaybe (SF, 0) vn.vBefore
+>         (loud2, ei2)                     = fromMaybe (SF, 0) vn.vAfter
+>         ev1                              = eTable VB.! ei1
+>         ev2                              = eTable VB.! ei2
+>         newOverall                       = makeOverall (loudness loud1) (loudness loud2) ev1 ev2
 >
 >     explode            :: Music Pitch → [Primitive Pitch]
 >     explode                              = mFold pFun (++) undefined gFun
@@ -215,21 +243,15 @@ _Overall = describes sound frustum = onset time and dur *versus* start and end v
 >         gFun           :: Control → [Primitive Pitch] → [Primitive Pitch]
 >         gFun _ _                         = []
 > 
->     implantIndex       :: ([MekNote], Int) → MekNote → ([MekNote], Int)
->     implantIndex (meks, soFar) mek       = (meks ++ [mek{mEventIndex = soFar}], soFar')
+>     implantEventIndices
+>                        :: ([MekNote], Int) → MekNote → ([MekNote], Int)
+>     implantEventIndices (meks, soFar) mek
+>                                          = (meks ++ [mek{mEventIndex = soFar}], soFar')
 >       where
 >         soFar'                           =  
 >           case mek.mPrimitive of
 >             Note _ _                     → soFar + 1
 >             Rest _                       → soFar
->
->     implantOverall     :: [MekNote] → MekNote → [MekNote] 
->     implantOverall meks mek              = meks ++ [mek{mOverallIn = newOverall, mOverallOut = newOverall}] -- WOX
->       where
->         vFirst                           = fromMaybe SF mek.mVelocityNode.vBefore
->         vSecond                          = fromMaybe SF mek.mVelocityNode.vAfter
->         ev                               = eTable VB.! mek.mEventIndex
->         newOverall                       = makeOverall (loudness vFirst) (loudness vSecond) ev
 >
 >     foldFinally        :: Music1 → MekNote → Music1 
 >     foldFinally music mek                =
@@ -238,17 +260,25 @@ _Overall = describes sound frustum = onset time and dur *versus* start and end v
 >                   Rest durI              → rest durI
 >
 >     infuse             :: MekNote → [NoteAttribute]
->     infuse mek                           = [Dynamics fName, Params $ velos (eTable VB.! mek.mEventIndex)]
+>     infuse mek                           = [Dynamics fName_, Params $ velos (eTable VB.! mek.mEventIndex)]
 >       where
+>         velos          :: MEvent → [Double]
+>         velos ev
+>           | traceNow trace_V False       = undefined
+>           | otherwise                    = result
+>           where
+>             fName                        = "velos"
+>             trace_V                      = unwords [fName, show mek, show onset, show delta, show result]
+>
+>             onset                        = fromRational ev.eTime
+>             delta                        = fromRational ev.eDur
+>   
+>             result                       = [ velocityPerTime onset           mek.mOverallIn
+>                                            , velocityPerTime (onset + delta) mek.mOverallOut]
 >         velocityPerTime
 >                        :: Double → Overall → Double
 >         velocityPerTime tIn over         = tIn * changeRate over + over.oStartV
 >
->         velos          :: MEvent → [Double]
->         velos ev                         = [velocityPerTime onset mek.mOverallIn, velocityPerTime (onset + delta) mek.mOverallOut]
->           where
->             onset                        = fromRational ev.eTime
->             delta                        = fromRational ev.eDur
 >
 > dim                    :: Rational → Music a → Music a
 > dim amt                                  = phrase [Dyn (Diminuendo amt)]
@@ -992,7 +1022,7 @@ Configurable parameters ========================================================
 
 Edit the following ====================================================================================================
 
-> enableDynamics                           = False
+> enableDynamics                           = True
 > skipGlissandi                            = False
 > replacePerCent                           = 0
 
