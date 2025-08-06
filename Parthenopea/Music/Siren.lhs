@@ -79,9 +79,9 @@ TODO: adjust loudness output based on "home velocity"
 > loudness               :: StdLoudness → Double
 > loudness loud                            =
 >   case loud of
->           PPP  → 40;    PP → 50;   P    → 60
->           MP   → 70;    SF → 80;   MF   → 90
->           NF   → 100;   FF → 110;  FFF  → 120
+>           PPP  → 10;    PP → 24;   P    → 38
+>           MP   → 52;    SF → 66;   MF   → 80
+>           NF   → 94;   FF → 108;  FFF  → 122
 
 Notation-Driven Dynamics ==============================================================================================
 
@@ -185,47 +185,32 @@ _Overall                 = describes sound frustum = onset time and dur *versus*
 >     $ foldl' fStart ([], head ns_) ns_
 >           
 > passage                :: BandPart → [Marking] → Music Pitch → Music1
-> passage bp markings ma                   =
->   if enableDynamics
->     then implementPassage bp markings ma
->     else toMusic1 ma
+> passage bp markings ma
+>   | not enableDynamics                   = toMusic1 ma
+>   | null markings                        = error $ unwords ["empty markings"]
+>   | otherwise                            = implementPassage bp markings (removeZeros ma)
 >
 > implementPassage       :: BandPart → [Marking] → Music Pitch → Music1
-> implementPassage bp markings ma_
->   | traceNow trace_P False               = undefined
->   | otherwise                            = removeZeros yMusic
+> implementPassage bp markings ma          = removeZeros $ foldl' foldFinally (rest 0) enriched
 >   where
->     fName_                               = "doPassage"
->     trace_P                              = unwords [fName_, show markings, show evs, show nodes, show prims, show yMusic]
->
->     -- source notes and rests of the passage
->     ma                                   =
->       profess
->         (not $ null markings)
->         (unwords [fName_, "empty markings"])
->         (removeZeros ma_)
->
->     -- simple list of the notes and rests
+>     -- zippable list of the notes and rests
 >     prims              :: [Primitive Pitch]
 >     prims                                = explode ma
 >
->     -- MEvents from "playing" the fragment
+>     -- captured performance events
 >     evs                :: [MEvent]
 >     (evs, _)                             = musicToMEvents (bandPartContext bp) (toMusic1 ma)
 >     eTable                               = VB.fromList evs
 >
->     -- list of enriched note/rest objects
->     unIndexed, indexed, converted
+>     -- evolving list of enriched note/rest objects
+>     unIndexed, indexed, enriched
 >                        :: [MekNote]
 >     unIndexed                            = zipWith makeMekNote prims [0..]
->     indexed                              = fst $ foldl' implantEventIndices ([], 0) unIndexed
->     nodes              :: [VelocityNode]
->     nodes                                = compileMarkings indexed markings
->     converted                            = zipWith convert indexed nodes
->     yMusic                               = foldl' foldFinally (rest 0) converted
+>     indexed                              = fst $ foldl' implant ([], 0) unIndexed
+>     enriched                             = zipWith enrich indexed (compileMarkings indexed markings)
 >
->     convert            :: MekNote → VelocityNode → MekNote
->     convert mek vn                       = mek{mOverallIn = newOverall, mOverallOut = newOverall}
+>     enrich             :: MekNote → VelocityNode → MekNote
+>     enrich mek vn                        = mek{mOverallIn = newOverall, mOverallOut = newOverall}
 >       where
 >         (loud1, ei1)                     = fromMaybe (SF, 0) vn.vBefore
 >         (loud2, ei2)                     = fromMaybe (SF, 0) vn.vAfter
@@ -234,19 +219,14 @@ _Overall                 = describes sound frustum = onset time and dur *versus*
 >         newOverall                       = makeOverall (loudness loud1) (loudness loud2) ev1 ev2
 >
 >     explode            :: Music Pitch → [Primitive Pitch]
->     explode                              = mFold pFun (++) undefined gFun
+>     explode                              = mFold pFun (++) undefined undefined
 >       where
 >         pFun           :: Primitive Pitch → [Primitive Pitch]
 >         pFun (Note pP dP)                = [Note pP dP]
 >         pFun (Rest dP)                   = [Rest dP]
->
->         gFun           :: Control → [Primitive Pitch] → [Primitive Pitch]
->         gFun _ _                         = []
 > 
->     implantEventIndices
->                        :: ([MekNote], Int) → MekNote → ([MekNote], Int)
->     implantEventIndices (meks, soFar) mek
->                                          = (meks ++ [mek{mEventIndex = soFar}], soFar')
+>     implant            :: ([MekNote], Int) → MekNote → ([MekNote], Int)
+>     implant (meks, soFar) mek            = (meks ++ [mek{mEventIndex = soFar}], soFar')
 >       where
 >         soFar'                           =  
 >           case mek.mPrimitive of
@@ -262,22 +242,24 @@ _Overall                 = describes sound frustum = onset time and dur *versus*
 >     infuse             :: MekNote → [NoteAttribute]
 >     infuse mek                           = [Dynamics fName_, Params $ velos (eTable VB.! mek.mEventIndex)]
 >       where
+>         fName_                           = "infuse"
+>
 >         velos          :: MEvent → [Double]
 >         velos ev
 >           | traceNow trace_V False       = undefined
 >           | otherwise                    = result
 >           where
->             fName                        = "velos"
+>             fName                        = unwords [fName_, "velos"]
 >             trace_V                      = unwords [fName, show mek, show onset, show delta, show result]
 >
 >             onset                        = fromRational ev.eTime
 >             delta                        = fromRational ev.eDur
 >   
->             result                       = [ velocityPerTime onset           mek.mOverallIn
->                                            , velocityPerTime (onset + delta) mek.mOverallOut]
->         velocityPerTime
->                        :: Double → Overall → Double
->         velocityPerTime tIn over         = tIn * changeRate over + over.oStartV
+>             result                       = [ velocity onset           mek.mOverallIn
+>                                            , velocity (onset + delta) mek.mOverallOut]
+>
+>         velocity       :: Double → Overall → Double
+>         velocity tIn over                = tIn * changeRate over + over.oStartV
 >
 >
 > dim                    :: Rational → Music a → Music a
