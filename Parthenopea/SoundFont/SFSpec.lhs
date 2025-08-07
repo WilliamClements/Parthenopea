@@ -643,11 +643,10 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportTournamentName   :: FilePath
 > reportTournamentName                     = "Tournament.report"
 >
-> howVerboseScanReport   :: Rational
-> howVerboseScanReport                     = 2/3
->
-> howVerboseTournamentReport
+> howVerboseRangesReport, howVerboseScanReport, howVerboseTournamentReport
 >                        :: Rational
-> howVerboseTournamentReport               = 3/4
+> howVerboseRangesReport                   = 0
+> howVerboseScanReport                     = 0/3
+> howVerboseTournamentReport               = 0/4
 
 The End

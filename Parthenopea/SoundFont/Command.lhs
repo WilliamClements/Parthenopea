@@ -73,10 +73,12 @@ Implement PCommand =============================================================
 >     then return ()
 >     else do
 >       (prerunt, matches, rd)             ← surveyInstruments vFile rost
->       writeScanReport                    prerunt rd
 >
->       (wI, wP)                           ← decideWinners prerunt rost matches 
->       writeTournamentReport              prerunt wI wP
+>       CM.when (howVerboseScanReport > 0) (writeScanReport prerunt rd)
+>
+>       (wI, wP)                           ← decideWinners prerunt rost matches
+>
+>       CM.when (howVerboseTournamentReport > 0) (writeTournamentReport prerunt wI wP)
 >
 >       let winners                        = WinningRecord (Map.map head wI) (Map.map head wP)
 >       let runt                           = prerunt{zWinningRecord = winners}
@@ -138,7 +140,9 @@ Implement PCommand =============================================================
 > qualifyKinds songs                       = do
 >   let ding                               = Map.unionsWith combineShreds (map songShredding songs)
 >   let isandps                            = Map.keys ding
->   writeRangesReport songs ding
+>
+>   CM.when (howVerboseTournamentReport > 0) (writeRangesReport songs ding)
+>
 >   return $ if null songs then allKinds else (lefts isandps, rights isandps)
 >
 > openSoundFontFile      :: Word → FilePath → IO SFFile

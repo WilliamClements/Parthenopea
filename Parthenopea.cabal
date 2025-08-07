@@ -52,8 +52,9 @@ library
     exposed-modules:     Parthenopea.Debug, Parthenopea.Music.Baking,
                          Parthenopea.Music.Percussion, Parthenopea.Music.Siren,
                          Parthenopea.Repro.Discrete, 
-                         Parthenopea.SoundFont.Boot, Parthenopea.SoundFont.Runtime,
-                         Parthenopea.SoundFont.Command
+                         Parthenopea.SoundFont.Boot, Parthenopea.SoundFont.Command,
+                         Parthenopea.SoundFont.Runtime, Parthenopea.SoundFont.SFSpec
+                         
     
     -- Modules included in this library but not exported.
     other-modules:       Parthenopea.Repro.Chart, Parthenopea.Repro.DiscreteTest,
@@ -61,7 +62,7 @@ library
                          Parthenopea.Repro.Smashing, Parthenopea.Repro.SmashingTest,
                          Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest,
                          Parthenopea.Repro.Envelopes, Parthenopea.Repro.EnvelopesTest,
-                         Parthenopea.SoundFont.BootTest, Parthenopea.SoundFont.Scoring, Parthenopea.SoundFont.SFSpec
+                         Parthenopea.SoundFont.BootTest, Parthenopea.SoundFont.Scoring
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
