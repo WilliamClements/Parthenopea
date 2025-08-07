@@ -45,7 +45,7 @@ February 1, 2025
 > import Parthenopea.Repro.Smashing ( lookupCellIndex )
 > import Parthenopea.Repro.SmashingTest ( smashingTests )
 > import Parthenopea.Repro.Synthesizer
-> import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
+> import Parthenopea.Repro.SynthesizerTest ( synthesizerTests, passageTests )
 > import Parthenopea.SoundFont.BootTest ( bootTests )
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
@@ -59,11 +59,12 @@ executive ======================================================================
 >   resultModulation                       ← runTestsQuietly modulationTests     
 >   resultSmashing                         ← runTestsQuietly smashingTests
 >   resultSynthesizer                      ← runTestsQuietly synthesizerTests
+>   resultsPassage                         ← runTestsQuietly passageTests
 >   let resultDiscrete                     = True -- runTestsQuietly discreteTests
 >   putStrLn $ unwords [show
 >      (profess
 >        (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer
->            , resultEnvelopes, resultDiscrete])
+>            , resultsPassage, resultEnvelopes, resultDiscrete])
 >        (unwords ["one or more unit tests failed"])
 >        True)]
 >   putStrLn "Unit tests completed successfully"

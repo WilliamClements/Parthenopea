@@ -284,8 +284,9 @@ interpret them somehow.
 >         Just (xToPitch, xToFilterFc)     → isJust xToPitch || isJust xToFilterFc
 >
 >     makeModTriple      :: Maybe (Maybe Int, Maybe Int) → Maybe ModTriple
->     makeModTriple                        = maybe Nothing (\(mi0, mi1) → Just $ deriveModTriple mi0 mi1 Nothing) 
->
+>     makeModTriple                        = maybe Nothing (uncurry go)
+>       where
+>         go toPitch toFilterFc            = Just (deriveModTriple toPitch toFilterFc Nothing)
 
 Emphasis on vetting ===================================================================================================
 

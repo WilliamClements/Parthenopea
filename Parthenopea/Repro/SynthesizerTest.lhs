@@ -9,12 +9,12 @@ SynthesizerTest
 William Clements
 March 2, 2024
 
-> module Parthenopea.Repro.SynthesizerTest ( synthesizerTests ) where
+> module Parthenopea.Repro.SynthesizerTest ( synthesizerTests, passageTests ) where
 >
 > import qualified Data.Audio              as A
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( Clock(..), AudRate, Signal )
-> import Euterpea.Music ( StdLoudness(..) )
+> import Euterpea.Music
 > import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Modulation ( NoteOn(NoteOn), defModulation )
@@ -63,20 +63,38 @@ Synthesizer-related tests ======================================================
 >
 > passageTests           :: [IO Bool]
 > passageTests                             = [singleIsSingle
->                                           , startThenEndLeavesNoNothings]
+>                                           , closedMarkingsLeaveNoNothings]
+>
+> testMeks               :: [MekNote]
+> testMeks                                 = [ makeMekNote (Note wn (Af, 3)) 0
+>                                            , makeMekNote (Rest hn) 1
+>                                            , makeMekNote (Note wn (Bf, 3))  2]
+>
+> testMarkingses         :: [[Marking]]
+> testMarkingses                           =
+>   [ [Mark2 PP FF]
+>   , [Mark PP, Mark FF]
+>   , [Mark PP, SpanN 1, Mark FF]
+>   -- , [Mark PP, SpanN 1]
+>   , [Mark PP, Mark P, Mark FF]
+>   ]
+>
+> vnodesHaveNoNothings   :: [VelocityNode] → Bool
+> vnodesHaveNoNothings vns                 = not $ Nothing `elem` map vBefore vns || Nothing `elem` map vAfter vns
 >
 > singleIsSingle         :: IO Bool
-> singleIsSingle                           = return True
->   -- return $ aEqual
->   --            [VelocityNode (Just PP) (Just FF)]
->   --            (compileMarkings [MarkTwo PP FF])
-> startThenEndLeavesNoNothings
+> singleIsSingle                           = do
+>   return $ aEqual
+>              [VelocityNode (Just (PP, 0)) (Just (FF, 0))]
+>              (compileMarkings testMeks [Mark2 PP FF])
+>
+> closedMarkingsLeaveNoNothings
 >                        :: IO Bool
-> startThenEndLeavesNoNothings             = return True -- do
->   -- let vNodes                             = compileMarkings [Mark PP, ContinueFor 4, Mark FF]
->   -- print vNodes
->   -- let goodStart                          = Nothing `notElem` map vBefore vNodes
->   -- let goodEnd                            = Nothing `notElem` map vAfter vNodes 
->   -- return $ not (null vNodes) && goodStart && goodEnd 
+> closedMarkingsLeaveNoNothings            = do
+>   mapM_ output testMarkingses
+>   return $ all allGood testMarkingses
+>   where
+>     allGood markings                     = vnodesHaveNoNothings $ compileMarkings testMeks markings
+>     output vn                            = print $ compileMarkings testMeks vn
 
 The End 

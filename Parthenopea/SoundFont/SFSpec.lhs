@@ -24,9 +24,9 @@ April 16, 2023
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ratio ( (%) )
-> import Euterpea.Music ( InstrumentName )
+> import Euterpea.IO.MIDI.GeneralMidi ( )
+> import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
   
@@ -621,6 +621,18 @@ struct sfInstModList
 >                                                   | cont                  ← [Linear, Concave, Convex, Switch]
 >                                                        , bipolar          ← [False, True]
 >                                                              , max2min    ← [False, True]]                                          
+>
+> type GMKind                              = Either InstrumentName PercussionSound
+> type KeyNumber                           = AbsPitch
+> type Velocity                            = Volume
+>
+> qMidiSize128           :: Word
+> qMidiSize128                             = 128
+>
+> allKinds               :: ([InstrumentName], [PercussionSound])
+> allKinds                                 =
+>   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>    , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 

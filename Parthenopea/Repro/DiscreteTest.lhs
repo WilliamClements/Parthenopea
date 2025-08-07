@@ -24,10 +24,11 @@ June 22, 2024
 > import Euterpea.IO.Audio.IO ( outFile )
 > import Euterpea.IO.Audio.Render ( Instr )
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock, Mono, AudRate )
-> import Parthenopea.Music.Siren ( maxSample, qMidiSize128 )
+> import Parthenopea.Music.Siren ( maxSample )
 > import Parthenopea.Repro.Chart ( Section(Section), chartPoints )
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.SoundFont.SFSpec ( qMidiSize128 )
 
 Feed chart ============================================================================================================
 

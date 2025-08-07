@@ -35,7 +35,6 @@ November 6, 2023
 > import Euterpea.Music ( AbsPitch )
 > import GHC.Generics ( Generic ) 
 > import Parthenopea.Debug
-> import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.SFSpec
 >
 > constA                 :: Arrow a ⇒ c → a b c
