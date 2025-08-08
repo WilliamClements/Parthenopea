@@ -557,7 +557,7 @@ categorization task ============================================================
 >
 >     categorizeInst     :: InstZoneRecord → (Maybe InstCat, [Scan])
 >     categorizeInst zrec
->       | traceIf trace_CI False           = undefined
+>       | traceNot trace_CI False          = undefined
 >       | otherwise                        = (icat', ss')
 >       where
 >         fName                            = "categorizeInst"

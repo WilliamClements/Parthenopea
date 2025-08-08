@@ -183,9 +183,12 @@ _Overall                 = describes sound frustum = onset time and dur *versus*
 >   | otherwise                            = implementPassage bp (expandMarkings markings) (removeZeros ma)
 >
 > implementPassage       :: BandPart → [Marking] → Music Pitch → Music1
-> implementPassage bp markings ma          = removeZeros $ foldl' foldFinally (rest 0) enriched
+> implementPassage bp markings ma
+>   | traceNow trace_IP False              = undefined
+>   | otherwise                            = removeZeros $ foldl' foldFinally (rest 0) enriched
 >   where
 >     fName__                             = "implementPassage"
+>     trace_IP                            = unwords [fName__, show (durma, durgramma)]
 >
 >     foldFinally        :: Music1 → MekNote → Music1 
 >     foldFinally music mek                =
@@ -227,6 +230,10 @@ _Overall                 = describes sound frustum = onset time and dur *versus*
 >                                              (length markings <= length prims)
 >                                              (error $ unwords [fName__, "markings too long"])
 >                                              (zipWith enrich indexed (compileMarkings indexed markings))
+>
+>     durma                               = dur ma
+>     durgramma                           = dur $ foldl' foldFinally (rest 0) enriched
+>
 >     enrich             :: MekNote → VelocityNode → MekNote
 >     enrich mek vn                        = mek{mOverallIn = newOverall, mOverallOut = newOverall}
 >       where
@@ -999,7 +1006,7 @@ Configurable parameters ========================================================
 
 Edit the following ====================================================================================================
 
-> enableDynamics                           = True
+> enableDynamics                           = False
 > skipGlissandi                            = False
 > replacePerCent                           = 0
 
