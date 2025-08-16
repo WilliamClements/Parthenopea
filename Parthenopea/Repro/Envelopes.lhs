@@ -103,8 +103,13 @@ Create a straight-line envelope generator with following phases:
 >                           → Double
 >                           → Maybe (Either Double (Double, Double))
 >                           → Signal p () Double
-> doVeloSweepingEnvelope timeFrame velo    = maybe (constA velo) (makeSF . fromRight (127, 127))
+> doVeloSweepingEnvelope timeFrame velo
+>   | traceIf trace_DVSE False             = undefined
+>   | otherwise                            = maybe (constA velo) (makeSF . fromRight (127, 127))
 >   where
+>     fName                                = "doVeloSweepingEnvelope"
+>     trace_DVSE                           = unwords [fName, show velo]
+>
 >     makeSF             :: (Double, Double) → Signal p () Double
 >     makeSF (stVelo, enVelo)              =
 >       let

@@ -16,8 +16,8 @@ May 14, 2023
 >        , Effects(..)
 >        , eutDriver
 >        , eutSynthesize
->        , noStereoNoPan
 >        , normalizingOutput
+>        , noStereoNoPan
 >        , Recon(..)
 >        , TimeFrame(..)
 >        , useAttenuation
@@ -240,8 +240,10 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     aenvL                                ← doEnvelope timeFrame recon.rVolEnv ⤙ ()
 >     modSigL                              ← eutModSignals timeFrame recon.rM8n ToVolume ⤙ ()
 >     let a2L                              =
->           a1L * aenvL * aSweep * evaluateModSignals "eutAmplify" recon.rM8n ToVolume modSigL noon
+>           a1L * aenvL * aSweep * evaluateModSignals fName recon.rM8n ToVolume modSigL noon
 >     outA ⤙ a2L
+>   where
+>     fName                                = "eutAmplify"
 
 Effects ===============================================================================================================
 

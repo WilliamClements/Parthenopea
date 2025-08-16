@@ -15,7 +15,6 @@ December 12, 2022
 >
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq ( NFData )
-> import qualified Control.Monad           as CM
 > import Control.SF.SF ( unfold )
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
@@ -28,7 +27,6 @@ December 12, 2022
 > import Data.Maybe
 > import Data.Ord ( comparing )
 > import Data.Ratio ( approxRational )
-> import qualified Data.Vector             as VB
 > import qualified Data.Vector.Unboxed     as VU
 > import Data.Word ( Word8 )
 > import Euterpea.IO.Audio.Basics ( outA )
@@ -40,12 +38,9 @@ December 12, 2022
 > import Parthenopea.Debug
 > import Parthenopea.SoundFont.SFSpec
 > import System.Random ( Random(randomR), StdGen )
-
+  
 Utilities =============================================================================================================
 
-> type SelfIndex                           = Int
-> type EventIndex                          = Int
->
 > percPitchRange         :: (AbsPitch, AbsPitch)
 > percPitchRange                           = (fromEnum AcousticBassDrum + 35, fromEnum OpenTriangle + 35)
 >
@@ -67,7 +62,7 @@ Utilities ======================================================================
 > t32                    :: [Music a] → Music a
 > t32 notes                                = tempo (3/2) (foldr (:+:) (rest 0) notes)
 
-TODO: adjust loudness output based on "home velocity"
+TODO: adjust loudness output based on "home velocity", which would be passed in from BandPart
 
 > loudness               :: StdLoudness → Double
 > loudness loud                            =
@@ -75,198 +70,6 @@ TODO: adjust loudness output based on "home velocity"
 >           PPP  → 10;    PP → 24;   P    → 38
 >           MP   → 52;    SF → 66;   MF   → 80
 >           NF   → 94;   FF → 108;  FFF  → 122
-
-Notation-Driven Dynamics ==============================================================================================
-
-_Marking_                = composer's passage-shape sequence, directives
-_VelocityNode            = intermediate form -- loudness ranges, each with hint
-_Overall                 = describes sound frustum = onset time and dur *versus* start and end velocity
-
-> data Marking                             =
->   SpanN Int
->   | Rest1
->   | Mark StdLoudness
->   | Mark2 StdLoudness StdLoudness
->   deriving (Eq, Show)
-> expandMarkings         :: [Marking] → [Marking]
-> expandMarkings                           = concatMap expandMarking
-> expandMarking           :: Marking → [Marking]
-> expandMarking (SpanN n)                  = replicate n Rest1
-> expandMarking mark                       = [mark]
->
-> data VelocityNode                        =
->   VelocityNode {
->     vBefore            :: Maybe (StdLoudness, EventIndex)
->   , vAfter             :: Maybe (StdLoudness, EventIndex)}
->   deriving (Eq, Show)
-> defVelocityNode        :: VelocityNode
-> defVelocityNode                          = VelocityNode Nothing Nothing
->
-> data MarkState                           =
->   MarkNew
->   | MarkContinue
->   deriving (Eq, Show)
->
-> data Overall                             =
->   Overall {
->     oStartT            :: Double
->   , oEndT              :: Double
->   , oStartV            :: Double
->   , oEndV              :: Double}
->   deriving Show
-> defOverall             :: Overall
-> defOverall                               = Overall 0 0 0 0
-> makeOverall            :: Double → Double → MEvent → MEvent → Overall
-> makeOverall startV endV startEv endEv    = Overall startT endT startV endV
->   where
->     startT                               = fromRational startEv.eTime
->     endT                                 = fromRational $ endEv.eTime + fromRational endEv.eDur
-> changeRate             :: Overall → Double
-> changeRate over                          = (over.oEndV - over.oStartV) / (over.oEndT - over.oStartT)
->
-> data MekNote                             =
->   MekNote {
->     mPrimitive         :: Primitive Pitch
->   , mSelfIndex         :: SelfIndex
->   , mEventIndex        :: EventIndex
->   , mOverallIn         :: Overall
->   , mOverallOut        :: Overall}
->   deriving Show
-> defMekNote             :: MekNote
-> defMekNote                               = makeMekNote (Rest 0) 0
-> makeMekNote            :: Primitive Pitch → Int → MekNote
-> makeMekNote prim six                     = MekNote prim six 0 defOverall defOverall
->
-> compileMarkings        :: [MekNote] → [Marking] → [VelocityNode]
-> compileMarkings meks ms                  = ns
->   where
->     ns_                                  =
->       if length ms <= length meks
->         then fst $ foldl' markFold ([], (0, MarkNew)) ms
->         else error $ unwords ["too many markings", show $ length ms, show $ length meks]
->     ns                                   = 
->       reverse $ fst $ foldl' fEnd ([], last ns_) $ reverse $ fst $ foldl' fStart ([], head ns_) ns_
->
->     vmeks                                = VB.fromList meks
->     eindex six                           = (vmeks VB.! six).mEventIndex
->
->     markFold           :: ([VelocityNode], (SelfIndex, MarkState)) → Marking → ([VelocityNode], (SelfIndex, MarkState))
->     markFold (vns, (six, st)) mark       = BF.first (vns ++) (markToNodes (six, st) mark)
->
->     markToNodes        :: (SelfIndex, MarkState) → Marking → ([VelocityNode], (SelfIndex, MarkState))
->     markToNodes (cnt, _) (SpanN n)       = (replicate n defVelocityNode,           (cnt + n, MarkContinue))
->     markToNodes (cnt, _) Rest1           = ([defVelocityNode],                     (cnt + 1, MarkContinue))
->     markToNodes (cnt, st) (Mark loud)    = ([state (loud, eindex cnt) st],         (cnt + 1, MarkContinue))
->     markToNodes (cnt, _) (Mark2 ld1 ld2) = ([VelocityNode (Just (ld1, eindex cnt)) (Just (ld2, eindex cnt))],
->                                                                                    (cnt + 1, MarkContinue))
->     state              :: (StdLoudness, EventIndex) → MarkState → VelocityNode
->     state (loud, ei) st                  = if st == MarkNew
->                                              then VelocityNode (Just (loud, ei)) Nothing
->                                              else VelocityNode Nothing (Just (loud, ei))
->
->     fStart, fEnd       :: ([VelocityNode], VelocityNode) → VelocityNode → ([VelocityNode], VelocityNode)
->     fStart (vNodes, prev) vn             =
->       let
->         vn'                              = vn{vBefore = vn.vBefore `CM.mplus` prev.vBefore}
->       in 
->         (vNodes ++ [vn'], vn')
->     fEnd (vNodes, prev) vn               =
->       let
->         vn'                              = vn{vAfter = vn.vAfter `CM.mplus` prev.vAfter}
->       in 
->         (vNodes ++ [vn'], vn')
->           
-> passage                :: BandPart → [Marking] → Music Pitch → Music1
-> passage bp markings ma
->   | not enableDynamics                   = toMusic1 ma
->   | null markings                        = error $ unwords ["empty markings"]
->   | otherwise                            = implementPassage bp (expandMarkings markings) (removeZeros ma)
->
-> implementPassage       :: BandPart → [Marking] → Music Pitch → Music1
-> implementPassage bp markings ma
->   | traceNow trace_IP False              = undefined
->   | otherwise                            = removeZeros $ foldl' foldFinally (rest 0) enriched
->   where
->     fName__                             = "implementPassage"
->     trace_IP                            = unwords [fName__, show (durma, durgramma)]
->
->     foldFinally        :: Music1 → MekNote → Music1 
->     foldFinally music mek                =
->       music :+: case mek.mPrimitive of
->                   Note durI pitchI       → note durI (pitchI, infuse mek)
->                   Rest durI              → rest durI
->
->     -- flatten ma to zippable list of the notes and rests
->     prims              :: [Primitive Pitch]
->     prims                                =
->       let
->         pFun           :: Primitive Pitch → [Primitive Pitch]
->         pFun (Note pP dP)                = [Note pP dP]
->         pFun (Rest dP)                   = [Rest dP]
->       in
->         mFold pFun (++) undefined undefined ma
->
->     -- capture performance events from ma
->     evs                :: [MEvent]
->     (evs, _)                             = musicToMEvents (bandPartContext bp) (toMusic1 ma)
->     eTable                               = VB.fromList evs
->
->     -- evolve enriched note/rest (MekNote) list
->     unIndexed, indexed, enriched
->                        :: [MekNote]
->     unIndexed                            = zipWith makeMekNote prims [0..]
->     indexed                              =
->       let
->         implant        :: ([MekNote], Int) → MekNote → ([MekNote], Int)
->         implant (meks, soFar) mek        = (meks ++ [mek{mEventIndex = soFar}], soFar')
->           where
->             soFar'                       =  
->               case mek.mPrimitive of
->                 Note _ _                 → soFar + 1
->                 Rest _                   → soFar
->       in
->         fst $ foldl' implant ([], 0) unIndexed
->     enriched                             = profess
->                                              (length markings <= length prims)
->                                              (error $ unwords [fName__, "markings too long"])
->                                              (zipWith enrich indexed (compileMarkings indexed markings))
->
->     durma                               = dur ma
->     durgramma                           = dur $ foldl' foldFinally (rest 0) enriched
->
->     enrich             :: MekNote → VelocityNode → MekNote
->     enrich mek vn                        = mek{mOverallIn = newOverall, mOverallOut = newOverall}
->       where
->         (loud1, ei1)                     = fromMaybe (SF, 0) vn.vBefore
->         (loud2, ei2)                     = fromMaybe (SF, 0) vn.vAfter
->         ev1                              = eTable VB.! ei1
->         ev2                              = eTable VB.! ei2
->         newOverall                       = makeOverall (loudness loud1) (loudness loud2) ev1 ev2
->
->     -- compute NoteAttribute and two or three Params
->     infuse             :: MekNote → [NoteAttribute]
->     infuse mek                           = [Dynamics fName_, Params $ velos (eTable VB.! mek.mEventIndex)]
->       where
->         fName_                           = "infuse"
->
->         velos          :: MEvent → [Double]
->         velos ev
->           | traceNow trace_V False       = undefined
->           | otherwise                    = result
->           where
->             fName                        = unwords [fName_, "velos"]
->             trace_V                      = unwords [fName, show mek, show onset, show delta, show result]
->
->             onset                        = fromRational ev.eTime
->             delta                        = fromRational ev.eDur
->   
->             result                       = [ velocity onset           mek.mOverallIn
->                                            , velocity (onset + delta) mek.mOverallOut]
->
->         velocity       :: Double → Overall → Double
->         velocity tIn over                = tIn * changeRate over + over.oStartV
->
->
 > dim                    :: Rational → Music a → Music a
 > dim amt                                  = phrase [Dyn (Diminuendo amt)]
 >
@@ -733,9 +536,6 @@ instrument range checking ======================================================
 > bendNote bp pc o durB bend               =
 >   note durB ((pc, o), [Volume bp.bpHomeVelocity, Params [fromIntegral bend]])
 >
-> addVolume'    :: BandPart → Music Pitch → Music1
-> addVolume' bp                            = mMap (, [Volume bp.bpHomeVelocity])
->
 > psoundToPitch :: PercussionSound → Pitch
 > psoundToPitch psound                     = pitch (fromEnum psound + 35)
 
@@ -1006,7 +806,7 @@ Configurable parameters ========================================================
 
 Edit the following ====================================================================================================
 
-> enableDynamics                           = False
+> enableDynamics                           = True
 > skipGlissandi                            = False
 > replacePerCent                           = 0
 

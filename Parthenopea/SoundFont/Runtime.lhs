@@ -36,6 +36,7 @@ February 1, 2025
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.Music
 > import Parthenopea.Debug
+> import Parthenopea.Music.PassageTest
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Envelopes ( deriveEnvelope )
@@ -45,7 +46,7 @@ February 1, 2025
 > import Parthenopea.Repro.Smashing ( lookupCellIndex )
 > import Parthenopea.Repro.SmashingTest ( smashingTests )
 > import Parthenopea.Repro.Synthesizer
-> import Parthenopea.Repro.SynthesizerTest ( synthesizerTests, passageTests )
+> import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
 > import Parthenopea.SoundFont.BootTest ( bootTests )
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
