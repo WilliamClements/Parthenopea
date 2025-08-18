@@ -800,13 +800,11 @@ Returns sample point as (normalized) Double
 
 Configurable parameters ===============================================================================================
 
-> enableDynamics         :: Bool
 > skipGlissandi          :: Bool
 > replacePerCent         :: Rational
 
 Edit the following ====================================================================================================
 
-> enableDynamics                           = True
 > skipGlissandi                            = False
 > replacePerCent                           = 0
 

@@ -100,15 +100,14 @@ Create a straight-line envelope generator with following phases:
 >
 > doVeloSweepingEnvelope :: ∀ p . Clock p ⇒
 >                           TimeFrame
->                           → Double
 >                           → Maybe (Either Double (Double, Double))
 >                           → Signal p () Double
-> doVeloSweepingEnvelope timeFrame velo
+> doVeloSweepingEnvelope timeFrame directive
 >   | traceIf trace_DVSE False             = undefined
->   | otherwise                            = maybe (constA velo) (makeSF . fromRight (127, 127))
+>   | otherwise                            = maybe (constA 1) (makeSF . fromRight (127, 127)) directive
 >   where
 >     fName                                = "doVeloSweepingEnvelope"
->     trace_DVSE                           = unwords [fName, show velo]
+>     trace_DVSE                           = unwords [fName, show directive]
 >
 >     makeSF             :: (Double, Double) → Signal p () Double
 >     makeSF (stVelo, enVelo)              =
@@ -127,7 +126,8 @@ There is design intent hidden in input envelope values that are too large to mak
 interpret them somehow.
 
 > feSum, feRemaining     :: FEnvelope → Double
-> feSum fe                                 = fe.fDelayT + fe.fAttackT + fe.fHoldT + fe.fDecayT + fe.fSustainT + releaseT + postT
+> feSum fe                                 =
+>   fe.fDelayT + fe.fAttackT + fe.fHoldT + fe.fDecayT + fe.fSustainT + releaseT + postT
 >   where
 >     (_, releaseT, postT)                 = fromJust fe.fTargetT
 > feRemaining work                         = targetT - feSum work
@@ -183,7 +183,8 @@ interpret them somehow.
 >     (targetT, _, _)                      = fromJust iterIn.fiEnvWork.fTargetT
 >
 > feFinish               :: FIterate → FEnvelope → FIterate
-> feFinish iterIn workee                   = feCheckFinal iterIn{fiFun = undefined, fiEnvWork = workee, fiDone = True}
+> feFinish iterIn workee                   =
+>   feCheckFinal iterIn{fiFun = undefined, fiEnvWork = workee, fiDone = True}
 >
 > feContinue             :: FIterate → FEnvelope → (FIterate → FIterate) → FIterate
 > feContinue iterIn workee fun             = iterIn{fiFun = fun, fiEnvWork = workee}

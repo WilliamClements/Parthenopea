@@ -33,18 +33,19 @@ notes on three kinds of scoring ================================================
 
 In order of when they occur in the overall process:
 
-1. FuzzyFind        - For each *.sf2, we record items when their names score high fuzzy-matched versus identifying
-                      words (e.g. piano) and low fuzzy-matched versus contra-keywords. This becomes principal criterion
-                      for instrument selection = pairing the GM ids like Flute with SoundFont instruments. Percussion
-                      winners go mostly by matching "pitch" with zonal key range.
+1. FuzzyFind        - For each *.sf2, we rank Sample and Instrument items whose names (strings) score highly when
+                      fuzzy-matched versus keywords like "piano". Also that score poorly when fuzzy-matched versus
+                      contra-keywords! The goal here is to pair a MIDI/GM instrument number with a good SoundFont
+                      Instrument for rendering music.
+                      
+                      Percussion winners go mostly by matching incoming pitch with Zonal key range.
   
 2. artifact grading - Before rendering, we bind the tournament winner (highest grade) to each GM InstrumentName or
                       PercussionSound. Empirically measured attributes (stereo, number of splits, fuzziness, etc.)
                       are weighted and summed.
 
-3. zone scoring     - While rendering, presented with a note, and a SoundFont Instrument already selected, we choose
-                      zone (by _lowest_ score) that best fits required pitch, velocity, etc. Note that it is zone
-                      scoring that strictly drives _render time_ choice of percussion as well.
+3. zone scoring     - Nowadays  we just crunch all the pitch and velocity ranges so that incoming notes are
+                      immediately mapped to suitable Zones.
 
 > type Fuzz = Double
 >

@@ -267,10 +267,10 @@ define signal functions and instrument maps to support rendering ===============
 >         pergm                            = PerGMKey wF wI Nothing
 >         (wF, wI)                         =
 >           case lookup kind pmap of
->             Nothing    → error ("Percussion does not have " ++ show kind ++ " in the supplied pmap.")
+>             Nothing    → error $ unwords ["Percussion does not have", show kind, "in the supplied pmap."]
 >             Just x     → x
 >         kind           :: PercussionSound
->                                          = toEnum (pch - 35)
+>         kind                             = toEnum (pch - 35)
 >
 > instrumentSF           :: ∀ p . Clock p ⇒
 >                           SFRuntime
@@ -437,7 +437,7 @@ reconcile zone and sample header ===============================================
 >   | traceIf trace_RM False               = undefined
 >   | otherwise                            = resolveMods m8n z.zModulators defaultMods
 >   where
->     fName                                = "recon"
+>     fName                                = "reconModulation"
 >     trace_RM                             = unwords [fName, show resonanceType, shdr.sampleName]
 >
 >     m8n                :: Modulation     =

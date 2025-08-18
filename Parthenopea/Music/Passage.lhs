@@ -1,12 +1,10 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
-> {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE NumericUnderscores  #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
-> {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Passage
@@ -52,29 +50,23 @@ _Overall                 =
 >   , oStartV            :: Double
 >   , oEndV              :: Double}
 >   deriving (Eq, Show)
-> makeOverall            :: Double → Double → MEvent → MEvent → Overall
-> makeOverall startV endV startEv endEv    = Overall startT endT startV endV
+> makeOverall            :: Double → Double → MEvent → MEvent → Maybe Overall
+> makeOverall startV endV startEv endEv    = Just $ Overall startT endT startV endV
 >   where
 >     startT                               = fromRational startEv.eTime
->     endT                                 = fromRational $ endEv.eTime + endEv.eDur
+>     endT                                 = fromRational endEv.eTime + fromRational endEv.eDur
 > changeRate             :: Overall → Double
 > changeRate over                          = (over.oEndV - over.oStartV) / (over.oEndT - over.oStartT)
 > velocity               :: Double → Overall → Double
 > velocity tIn over                        = over.oStartV + tIn * changeRate over
-> twoVelos               :: MEvent → Overall → [Double]
-> twoVelos ev over                         = [ velocity onset           over
+> twoVelos               :: Double → Double → Overall → [Double]
+> twoVelos onset delta over                = [ velocity onset           over
 >                                            , velocity (onset + delta) over]
->   where
->     onset                                = fromRational ev.eTime
->     delta                                = fromRational ev.eDur
-> fourVelos              :: MEvent → Overall → Overall → [Double]
-> fourVelos ev over0 over1                 = [ velocity onset           over0
+> fourVelos              :: Double → Double → Overall → Overall → [Double]
+> fourVelos onset delta over0 over1        = [ velocity onset           over0
 >                                            , velocity (onset + delta / 2) over0
 >                                            , velocity (onset + delta / 2) over1
 >                                            , velocity (onset + delta) over1]
->   where
->     onset                                = fromRational ev.eTime
->     delta                                = fromRational ev.eDur
 >
 > data MekNote                             =
 >   MekNote {
@@ -99,12 +91,12 @@ _Overall                 =
 >     Mark x                               → Just x
 >     ReMark x                             → Just x
 >     _                                    → Nothing
-> getMarkNode            :: MekNote → [SelfIndex]
+> getMarkNode            :: MekNote → VB.Vector SelfIndex
 > getMarkNode mek                          =
 >   case mek.mMarking of
->     Mark _                               → [mek.mSelfIndex]
->     ReMark _                             → [mek.mSelfIndex]
->     _                                    → []
+>     Mark _                               → VB.singleton mek.mSelfIndex
+>     ReMark _                             → VB.singleton mek.mSelfIndex
+>     _                                    → VB.empty
 > makeMekNote            :: Int → Primitive Pitch → Marking → MekNote
 > makeMekNote six prim marking
 >   | restProblem                          = error $ unwords ["Non-corresponding rests"]
@@ -128,7 +120,7 @@ _Overall                 =
 >       let
 >         (mek', item')                    = userFun mek itemA
 >       in
->         (meksFold VB.// [(mek'.mSelfIndex, mek')], item')
+>         (meksFold `VB.update` VB.singleton (mek'.mSelfIndex, mek'), item')
 >
 > passage                :: BandPart → [Marking] → Music Pitch → Music1
 > passage bp markings ma
@@ -139,7 +131,7 @@ _Overall                 =
 > passageImpl            :: BandPart → [Marking] → Music Pitch → Music1
 > passageImpl bp markings ma
 >   | traceNow trace_IP False              = undefined
->   | otherwise                            = foldl' final (rest 0) enriched
+>   | otherwise                            = VB.foldl' final (rest 0) enriched
 >   where
 >     fName__                              = "passageImpl"
 >     trace_IP                             = unwords [fName__, show markings]
@@ -169,35 +161,27 @@ _Overall                 =
 >                        :: VB.Vector MekNote     
 >     coIndexed                            = fst $ foldMeks implant 0 unIndexed
 >       where
->         unIndexed      :: VB.Vector MekNote     
 >         unIndexed                        =
 >           profess
+>                -- assertion
 >                (not (null prims) && (length prims == length markings))
 >                (unwords ["bad lengths; prims, markings", show $ length prims, show $ length markings])
 >                (VB.fromList $ zipWith3 makeMekNote [0..] prims markings)
 >         implant mek soFar                = (mek{mEventIndex = soFar}, soFar + mekWidth mek)
 >
->     nodes              :: [SelfIndex]
->     nodes                                = foldl' append [] coIndexed
+>     nodes              :: VB.Vector SelfIndex
+>     nodes                                = VB.foldl' append VB.empty coIndexed
+>                                              where append sis mek = sis VB.++ getMarkNode mek
+>     nodePairs                            = VB.zip nodes (VB.tail nodes)
+>     nodePairGroups                       = VB.fromList $ VB.groupBy inflected nodePairs
+>                                              where inflected (_, si1) (_, _) = inflection (coIndexed VB.! si1)                
+>         
+>     withOveralls                         = coIndexed `VB.update` lode
 >       where
->         append sis mek                   = sis ++ getMarkNode mek
+>         lode                             = VB.concatMap computeOverall nodePairs
 >
->     nodePairs          :: [(SelfIndex, SelfIndex)]
->     nodePairs                            = zip nodes (tail nodes)
->
->     nodePairGroups     :: [[(SelfIndex, SelfIndex)]]
->     nodePairGroups                       = groupBy inflected nodePairs
->       where
->         inflected (_, si1) (_, _)        = inflection (coIndexed VB.! si1)                
->             
->     withOveralls                         = coIndexed VB.// lode
->       where
->         lode                             = concatMap computeOverall nodePairs
->
->         computeOverall (si0, si1)        = [(si0, mek0{mOverall = Just over})]
+>         computeOverall (si0, si1)        = VB.singleton (si0, mek0{mOverall = makeOverall loud0 loud1 ev0 ev1})
 >           where
->             over                         = makeOverall loud0 loud1 ev0 ev1
->
 >             mek0                         = coIndexed VB.! si0
 >             mek1                         = coIndexed VB.! si1
 >
@@ -207,31 +191,69 @@ _Overall                 =
 >             loud0                        = (loudness . fromJust . getMarkLoudness) mek0
 >             loud1                        = (loudness . fromJust . getMarkLoudness) mek1
 >
->     enriched                             = withOveralls VB.// lode
+>     enriched                             = withOveralls `VB.update` lode
 >       where
->         lode                             = concatMap enrich nodePairGroups
+>         lode                             = VB.concatMap enrich nodePairGroups
 >         fence                            = VB.length withOveralls - 1
 >
->         enrich                           = concatMap richen
->         richen (si0, si1)                = map infuse lmeks
->           where
->             lmeks                        = map (withOveralls VB.!) [si0 .. si1 - fencePost]
->             fencePost                    = if si1 == fence then 0 else 1
->             infuse mek                   =
->               let
->                 fName                    = "infuse"
+>         enrich nodePairGroup             =
+>           let
+>             richen (si0, si1)            = VB.map infuse lmeks
+>               where
+>                 lmeks                    = VB.slice si0 (si1 - si0 + 1 - fencePost) withOveralls
+>                                              where fencePost = if si1 == fence then 0 else 1
+>                 infuse mek               =
+>                   let
+>                     fName                = "infuse"
 >
->                 ev                       = eTable VB.! mek.mEventIndex
->                 over0                    = fromJust (head lmeks).mOverall
+>                     si                   = mek.mSelfIndex
+>                     isInflection         = length nodePairGroup > 2
+>                                            && isJust (VB.find inflex (VB.slice 1 fence nodePairGroup))
+>                                              where inflex nodePair = si == fst nodePair
+>                     ev                   = eTable VB.! mek.mEventIndex
+>                     onset                = fromRational ev.eTime
+>                     delta                = fromRational ev.eDur
+>                     over0                = deJust fName (VB.head lmeks).mOverall
+>                     over1                =
+>                       case find (\np → snd np == mek.mSelfIndex) nodePairs of
+>                         Just np          → tracer "over1" $ fromJust (withOveralls VB.! fst np).mOverall
+>                         Nothing          → error $ unwords [fName, "inflection has no previous node !?"]
+>                   in
+>                     if isInflection
+>                       then changeParams mek (fourVelos onset delta over0 over1)
+>                       else changeParams mek (twoVelos onset delta over0)
+>            in
+>              VB.concatMap richen nodePairGroup
 >
->                 tween                    = changeParams mek (fourVelos ev over0 over1)
->                   where
->                     over1                = case find (\np → snd np == mek.mSelfIndex) nodePairs of
->                                              Just np               → fromJust (withOveralls VB.! fst np).mOverall
->                                              Nothing               → error $ unwords [fName, "inflection has no previous node !?"]
->
->                 tweak                    = changeParams mek (twoVelos ev over0)
->               in
->                 if inflection mek then tween else tweak
+> data Answers                             =
+>   Answers {
+>     aNoteBend          :: VB.Vector Double
+>   , a2Velos            :: VB.Vector Double
+>   , a4Velos            :: VB.Vector Double} deriving (Eq, Show)
+> setFromAnswers         :: Answers → VB.Vector Double
+> setFromAnswers answers                   = answers.aNoteBend VB.++ answers.a2Velos VB.++ answers.a4Velos
+> getAnswers             :: VB.Vector Double → Answers
+> getAnswers vParams                       = 
+>    case length vParams of
+>      0 → Answers VB.empty VB.empty VB.empty
+>      1 → Answers vParams VB.empty VB.empty
+>      2 → Answers VB.empty vParams VB.empty
+>      3 → Answers (VB.slice 0 1 vParams) (VB.slice 1 2 vParams) VB.empty
+>      4 → Answers VB.empty VB.empty vParams
+>      5 → Answers (VB.slice 0 1 vParams) VB.empty (VB.slice 1 4 vParams)
+>      _ → error "invalid params length"
+> addNoteBend, add2Velos, add4Velos
+>                        :: VB.Vector Double → VB.Vector Double → VB.Vector Double
+> addNoteBend nb vParams                   = setFromAnswers (getAnswers vParams){aNoteBend = nb}
+> add2Velos vs vParams                     = setFromAnswers (getAnswers vParams){a2Velos = vs}
+> add4Velos vs vParams                     = setFromAnswers (getAnswers vParams){a4Velos = vs}
+
+Configurable parameters ===============================================================================================
+
+> enableDynamics         :: Bool
+
+Edit the following ====================================================================================================
+
+> enableDynamics                           = True
 
 The End
