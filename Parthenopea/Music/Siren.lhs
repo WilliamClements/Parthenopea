@@ -73,9 +73,6 @@ TODO: adjust loudness output based on "home velocity", which would be passed in 
 > dim                    :: Rational → Music a → Music a
 > dim amt                                  = phrase [Dyn (Diminuendo amt)]
 >
-> fractionOf             :: Int → Double → Int
-> fractionOf x doub                        = min 127 $ round $ doub * fromIntegral x
->
 > slur                   :: Rational → Music a → Music a
 > slur rateS                               = Modify (Phrase [Art (Slurred rateS)])
 >
@@ -85,12 +82,9 @@ TODO: adjust loudness output based on "home velocity", which would be passed in 
 > approx                 :: Double → Dur
 > approx durA                              = approxRational durA ratEps
 >
-> rawPitches             :: [AbsPitch]
-> rawPitches                               = [0..127]
->
 > allPitches             :: Music Pitch
 > allPitches =
->    foldr ((:+:) . notize) (rest 0) rawPitches
+>    foldr ((:+:) . notize) (rest 0) [0..127]
 >    where
 >       notize aP                          = note qn (pitch aP)
 >
@@ -342,7 +336,7 @@ also
 >       Glockenspiel              → Just (( G, 5), ( C, 8))
 >       Vibraphone                → Just (( F, 3), ( F, 6))
 >       MusicBox                  → Just (( C, 4), ( E, 7)) -- made up out of thin air
->       Percussion                → Nothing -- was Just wideOpen
+>       Percussion                → Nothing -- was Just (0, 127)
 >       -- Chimes
 >       AcousticGuitarNylon       → Just (( E, 2), ( B, 6))
 >       AcousticGuitarSteel       → Just (( E, 2), ( B, 6))
@@ -446,9 +440,6 @@ also
 >   where
 >     (lo, hi)                             = bounds vect
 >     frange                               = (0, fromIntegral (hi - lo + 1) - 0.000_001)
->
-> wideOpen               :: (AbsPitch, AbsPitch)
-> wideOpen                                       = (0, 127)
 
 instrument range checking =============================================================================================
 
@@ -472,7 +463,7 @@ instrument range checking ======================================================
 >   , bpTranspose        :: AbsPitch
 >   , bpHomeVelocity     :: Velocity} deriving Show
 > bandPartContext        :: BandPart → MContext
-> bandPartContext bp = MContext {mcTime = 0, mcInst = bp.bpInstrument, mcDur = metro 240 qn, mcVol=127}
+> bandPartContext bp = MContext {mcTime = 0, mcInst = bp.bpInstrument, mcDur = metro 240 qn, mcVol=bp.bpHomeVelocity}
 > relativeRange          :: BandPart → (Pitch, Pitch)
 > relativeRange bp                         =
 >   let
@@ -594,8 +585,8 @@ examine song for instrument and percussion usage ===============================
 >   let
 >     (instr, rng)                         =
 >       case kind of
->         Left iname                       → (iname, fromMaybe wideOpen (instrumentAbsPitchRange iname))
->         _                                → (Percussion, wideOpen)
+>         Left iname                       → (iname, fromMaybe (0, 127) (instrumentAbsPitchRange iname))
+>         _                                → (Percussion, (0, 127))
 >   in critiqueNote instr rng shred.shLowNote ++ critiqueNote instr rng shred.shHighNote
 > 
 > critiqueNote           :: InstrumentName → (AbsPitch, AbsPitch) → MEvent → [(InstrumentName, [String])]

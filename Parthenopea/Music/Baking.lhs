@@ -197,7 +197,11 @@ The progress of the algorithm is expressed in above pair.
 >         thePercFill                      =
 >           makePercFill sound (approx (0.5/fillTempo)) (fractionOf vol 1.25) (approx fillDur)
 >         theInstFill                      =
->           instrument inst $ makeInstFill fillBeats rng dXp sweep (fractionOf vol 0.60) 
+>           instrument inst $ makeInstFill fillBeats rng dXp sweep (fractionOf vol 0.60)
+>
+>         fractionOf     :: Int → Double → Int
+>         fractionOf x doub                = min 127 $ round $ doub * fromIntegral x
+>
 >
 > makePercFill           :: PercussionSound → Rational → Volume → Dur → Music1
 > makePercFill sound beats vol durP        = bandPart (makeNonPitched vol) m

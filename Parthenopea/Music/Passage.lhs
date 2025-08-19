@@ -59,11 +59,13 @@ _Overall                 =
 > changeRate over                          = (over.oEndV - over.oStartV) / (over.oEndT - over.oStartT)
 > velocity               :: Double → Overall → Double
 > velocity tIn over                        = over.oStartV + tIn * changeRate over
-> twoVelos               :: Double → Double → Overall → [Double]
-> twoVelos onset delta over                = [ velocity onset           over
+> twoVelos               :: Double → Double → Overall → VB.Vector Double
+> twoVelos onset delta over                = VB.fromList
+>                                            [ velocity onset           over
 >                                            , velocity (onset + delta) over]
-> fourVelos              :: Double → Double → Overall → Overall → [Double]
-> fourVelos onset delta over0 over1        = [ velocity onset           over0
+> fourVelos              :: Double → Double → Overall → Overall → VB.Vector Double
+> fourVelos onset delta over0 over1        = VB.fromList
+>                                            [ velocity onset           over0
 >                                            , velocity (onset + delta / 2) over0
 >                                            , velocity (onset + delta / 2) over1
 >                                            , velocity (onset + delta) over1]
@@ -73,17 +75,15 @@ _Overall                 =
 >     mSelfIndex         :: SelfIndex
 >   , mPrimitive         :: Primitive Pitch
 >   , mMarking           :: Marking
->   , mEventIndex        :: EventIndex
->
->   , mEndIndex          :: SelfIndex
+>   , mEvent             :: Maybe MEvent
 >   , mOverall           :: Maybe Overall
->   , mParams            :: [Double]}
+>   , mParams            :: VB.Vector Double}
 >   deriving (Eq, Show)
 > inflection             :: MekNote → Bool
 > inflection mek                           = case mek.mMarking of
 >                                              ReMark _              → False
 >                                              _                     → True
-> changeParams           :: MekNote → [Double] → (SelfIndex, MekNote)
+> changeParams           :: MekNote → VB.Vector Double → (SelfIndex, MekNote)
 > changeParams mek dubs                    = (mek.mSelfIndex, mek{mParams = dubs})
 > getMarkLoudness        :: MekNote → Maybe StdLoudness
 > getMarkLoudness mek                      =
@@ -101,7 +101,7 @@ _Overall                 =
 > makeMekNote six prim marking
 >   | restProblem                          = error $ unwords ["Non-corresponding rests"]
 >   | otherwise                            =
->     MekNote six prim marking  0 0 Nothing []
+>     MekNote six prim marking Nothing Nothing VB.empty
 >   where
 >     restProblem                          =
 >       case prim of
@@ -112,15 +112,6 @@ _Overall                 =
 >   case mek.mPrimitive of
 >     Note _ _                             → 1
 >     Rest _                               → 0
-> foldMeks               :: ∀ a . (MekNote → a → (MekNote, a)) → a → VB.Vector MekNote → (VB.Vector MekNote, a)
-> foldMeks userFun initA meksIn            = foldl' mekFoldFun (meksIn, initA) meksIn
->   where
->     mekFoldFun         :: (VB.Vector MekNote, a) → MekNote → (VB.Vector MekNote, a)
->     mekFoldFun (meksFold, itemA) mek     =
->       let
->         (mek', item')                    = userFun mek itemA
->       in
->         (meksFold `VB.update` VB.singleton (mek'.mSelfIndex, mek'), item')
 >
 > passage                :: BandPart → [Marking] → Music Pitch → Music1
 > passage bp markings ma
@@ -130,7 +121,7 @@ _Overall                 =
 >
 > passageImpl            :: BandPart → [Marking] → Music Pitch → Music1
 > passageImpl bp markings ma
->   | traceNow trace_IP False              = undefined
+>   | traceIf trace_IP False               = undefined
 >   | otherwise                            = VB.foldl' final (rest 0) enriched
 >   where
 >     fName__                              = "passageImpl"
@@ -140,7 +131,7 @@ _Overall                 =
 >     final              :: Music1 → MekNote → Music1 
 >     final music mek                      =
 >       music :+: case mek.mPrimitive of
->                   Note durI pitchI       → note durI (pitchI, [Dynamics fName__, Params mek.mParams])
+>                   Note durI pitchI       → note durI (pitchI, [Dynamics fName__, (Params . VB.toList) mek.mParams])
 >                   Rest durI              → rest durI
 >
 >     -- flatten ma to zippable list of the notes and rests
@@ -157,36 +148,48 @@ _Overall                 =
 >     eTable                               = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
 >
 >     -- evolve enriched note/rest (MekNote) list
->     coIndexed, withOveralls, enriched
->                        :: VB.Vector MekNote     
->     coIndexed                            = fst $ foldMeks implant 0 unIndexed
->       where
->         unIndexed                        =
->           profess
->                -- assertion
->                (not (null prims) && (length prims == length markings))
->                (unwords ["bad lengths; prims, markings", show $ length prims, show $ length markings])
->                (VB.fromList $ zipWith3 makeMekNote [0..] prims markings)
->         implant mek soFar                = (mek{mEventIndex = soFar}, soFar + mekWidth mek)
+>     rawMeks, withEvents, withOveralls, enriched
+>                        :: VB.Vector MekNote
+>    
+>     rawMeks                               =
+>       profess
+>         -- assertion
+>         (not (null prims) && (length prims == length markings))
+>         (unwords ["bad lengths; prims, markings", show $ length prims, show $ length markings])
+>         (VB.fromList $ zipWith3 makeMekNote [0..] prims markings)
 >
->     nodes              :: VB.Vector SelfIndex
->     nodes                                = VB.foldl' append VB.empty coIndexed
+>     withEvents                           = fst $ foldl' implant (VB.empty, 0) rawMeks
+>       where
+>         implant (meks, soFar) mek        = (meks VB.++ VB.singleton mek{mEvent = setEvent}, soFar + mekWidth mek)
+>           where
+>             setEvent                     = case mek.mPrimitive of
+>                                              Note _ _              → Just (eTable VB.! soFar)
+>                                              Rest _                → Nothing
+>
+>     (nodePairs, nodePairGroups)          = formNodeGroups
+>       where
+>         formNodeGroups :: (VB.Vector (SelfIndex, SelfIndex), VB.Vector (VB.Vector (SelfIndex, Int)))
+>         formNodeGroups                   = (nps, npgs)
+>           where
+>             nodes                        = VB.foldl' append VB.empty withEvents
 >                                              where append sis mek = sis VB.++ getMarkNode mek
->     nodePairs                            = VB.zip nodes (VB.tail nodes)
->     nodePairGroups                       = VB.fromList $ VB.groupBy inflected nodePairs
->                                              where inflected (_, si1) (_, _) = inflection (coIndexed VB.! si1)                
->         
->     withOveralls                         = coIndexed `VB.update` lode
+>             nps                          = VB.zip nodes (VB.tail nodes)
+>             npgs                         = VB.fromList $ VB.groupBy inflected nps
+>                                              where inflected (_, si1) (_, _) = inflection (withEvents VB.! si1)
+>
+>     withOveralls                         = withEvents `VB.update` lode
 >       where
 >         lode                             = VB.concatMap computeOverall nodePairs
 >
 >         computeOverall (si0, si1)        = VB.singleton (si0, mek0{mOverall = makeOverall loud0 loud1 ev0 ev1})
 >           where
->             mek0                         = coIndexed VB.! si0
->             mek1                         = coIndexed VB.! si1
+>             fName                        = "computeOverall"
 >
->             ev0                          = eTable VB.! mek0.mEventIndex
->             ev1                          = eTable VB.! mek1.mEventIndex
+>             mek0                         = withEvents VB.! si0
+>             mek1                         = withEvents VB.! si1
+>
+>             ev0                          = deJust (unwords [fName, "0"]) mek0.mEvent
+>             ev1                          = deJust (unwords [fName, "1"]) mek1.mEvent
 >
 >             loud0                        = (loudness . fromJust . getMarkLoudness) mek0
 >             loud1                        = (loudness . fromJust . getMarkLoudness) mek1
@@ -207,16 +210,16 @@ _Overall                 =
 >                     fName                = "infuse"
 >
 >                     si                   = mek.mSelfIndex
->                     isInflection         = length nodePairGroup > 2
->                                            && isJust (VB.find inflex (VB.slice 1 fence nodePairGroup))
->                                              where inflex nodePair = si == fst nodePair
->                     ev                   = eTable VB.! mek.mEventIndex
+>                     isInflection         =
+>                       length nodePairGroup > 2 && isJust (VB.find inflex (VB.slice 1 fence nodePairGroup))
+>                       where inflex nodePair = si == fst nodePair
+>                     ev                   = deJust fName mek.mEvent
 >                     onset                = fromRational ev.eTime
 >                     delta                = fromRational ev.eDur
 >                     over0                = deJust fName (VB.head lmeks).mOverall
 >                     over1                =
 >                       case find (\np → snd np == mek.mSelfIndex) nodePairs of
->                         Just np          → tracer "over1" $ fromJust (withOveralls VB.! fst np).mOverall
+>                         Just np          → fromJust (withOveralls VB.! fst np).mOverall
 >                         Nothing          → error $ unwords [fName, "inflection has no previous node !?"]
 >                   in
 >                     if isInflection

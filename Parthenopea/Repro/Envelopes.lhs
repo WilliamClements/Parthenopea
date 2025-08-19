@@ -23,11 +23,11 @@ Apr 26, 2025
 >        , vetAsDiscreteSig
 >        , vetEnvelope) where
 >
-> import Data.Either ( fromRight )
 > import Data.Foldable
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, isNothing, fromJust, fromMaybe )
+> import qualified Data.Vector             as VB
 > import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
 > import Euterpea.IO.Audio.Types ( Clock(..), Signal )
@@ -100,21 +100,37 @@ Create a straight-line envelope generator with following phases:
 >
 > doVeloSweepingEnvelope :: ∀ p . Clock p ⇒
 >                           TimeFrame
->                           → Maybe (Either Double (Double, Double))
+>                           → VB.Vector Double
 >                           → Signal p () Double
 > doVeloSweepingEnvelope timeFrame directive
 >   | traceIf trace_DVSE False             = undefined
->   | otherwise                            = maybe (constA 1) (makeSF . fromRight (127, 127)) directive
+>   | VB.null directive                    = constA 1
+>   | 2 == VB.length directive             = makeSF2
+>   | 4 == VB.length directive             = makeSF4
+>   | otherwise                            = error $ unwords [fName, "illegal velo sweeping directive"]
 >   where
 >     fName                                = "doVeloSweepingEnvelope"
 >     trace_DVSE                           = unwords [fName, show directive]
 >
->     makeSF             :: (Double, Double) → Signal p () Double
->     makeSF (stVelo, enVelo)              =
+>     makeSF2            :: Signal p () Double
+>     makeSF2                               =
 >       let
+>         (stVelo, enVelo)                  = (directive VB.! 0, directive VB.! 1)
 >         amps, deltaTs  :: [Double]
 >         amps                             =
 >             [0,            stVelo,                                 enVelo,         0]
+>         deltaTs                          =
+>             [   minDeltaT,    timeFrame.tfSecsScored - 2 * minDeltaT,     minDeltaT]
+>       in
+>         envLineSeg amps deltaTs
+>
+>     makeSF4            :: Signal p () Double
+>     makeSF4                               =
+>       let
+>         (stVelo1, enVelo1, _, _)          = (directive VB.! 0, directive VB.! 1, directive VB.! 2, directive VB.! 3)
+>         amps, deltaTs  :: [Double]
+>         amps                             =
+>             [0,            stVelo1,                                 enVelo1,         0]
 >         deltaTs                          =
 >             [   minDeltaT,    timeFrame.tfSecsScored - 2 * minDeltaT,     minDeltaT]
 >       in

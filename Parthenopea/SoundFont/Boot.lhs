@@ -459,14 +459,14 @@ To build the map
 >         scansBlocked                     =
 >           [Scan NoChange NoAbsorption fName (show disqualified)]
 >
->     instNames          :: [(String, Word)]
+>     instNames          :: Map String Word
 >     instNames                            =
 >       let
->         extractFolder ns zrec            = (preI.piChanges.cnName, zrec.zswInst) : ns
+>         extractFolder ns zrec            = Map.insert preI.piChanges.cnName zrec.zswInst ns
 >           where
 >             preI                         = fwIn.fwBoot.zPreInstCache Map.! instKey zrec
 >       in
->         sort $ zrecCompute fwIn extractFolder []
+>         zrecCompute fwIn extractFolder Map.empty
 >     
 >     townersMap         :: Map Word ([PreZone], Smashing Word)
 >     townersMap                           =
@@ -475,11 +475,14 @@ To build the map
 >       in
 >         zrecCompute fwIn tFolder Map.empty 
 >     
->     grouped                              = groupBy (\x y → absorbRatio < howClose (fst x) (fst y)) instNames
+>     grouped                              = groupBy grouper (Map.toList instNames)
+>                                              where grouper x y = absorbRatio < howClose (fst x) (fst y)
 >     filteredByGroupSize                  = filter (\x → 1 < length x) grouped
 >     stringsDropped                       = map (map snd) filteredByGroupSize
->     headed, ready        :: Map Word [Word]
+>
+>     headed, ready      :: Map Word [Word]
 >     headed                               = Map.fromList $ map (\q → (head q, q)) stringsDropped
+>     ready                                = Map.mapWithKey (\k _ → headed Map.! k) hMap
 >
 >     hMap               :: Map Word ([PreZone], Smashing Word)
 >     dMap               :: Map Word SmashStats
@@ -506,8 +509,6 @@ To build the map
 >               case pz.pzDigest.zdVelRange of
 >                 Just rng                 → rng /= (0, 127)
 >                 Nothing                  → False
->
->     ready                                = Map.mapWithKey (\k _ → headed Map.! k) hMap
 >
 >     aMap               :: Map Word Word
 >     aMap                                 = Map.foldlWithKey fold1Fun Map.empty ready

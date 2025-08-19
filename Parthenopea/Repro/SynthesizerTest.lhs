@@ -12,6 +12,7 @@ March 2, 2024
 > module Parthenopea.Repro.SynthesizerTest ( synthesizerTests ) where
 >
 > import qualified Data.Audio              as A
+> import qualified Data.Vector             as VB
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( Clock(..), AudRate, Signal )
 > import Parthenopea.Debug ( aEqual )
@@ -24,10 +25,9 @@ Synthesizer-related tests ======================================================
 > defRecon               :: Recon
 > defRecon                                 =
 >   Recon
->     A.ContLoop 44100 0 0 0 0
->     60 Nothing Nothing 100
->     Nothing
->     (NoteOn 100 60)
+>     (NoteOn 100 60) A.ContLoop 44100 0 0 0 0
+>     60 100
+>     VB.empty
 >     0 Nothing Nothing
 >     defModulation defEffects
 >
