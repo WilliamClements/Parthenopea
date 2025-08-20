@@ -16,31 +16,33 @@ August 15, 2025
 > import Parthenopea.Music.Passage
 >
 > passageTests           :: [IO Bool]
-> passageTests                             = [singleIsSingle {-
->                                           , closedMarkingsLeaveNoNothings -} ]
+> passageTests                             = [singleIsSingle
+>                                           , doubleIsDouble ]
 >
-> testMeks               :: VB.Vector MekNote
-> testMeks                                 = VB.fromList $ zipWith3 makeMekNote [0..] prims (expandMarkings markings)
->   where
->     prims                                = [Note wn (Af, 3), Rest hn, Note wn (Bf, 3)]
->     markings                             = [Mark PP, Rest1, Mark FF]
+> aPrims, bPrims         :: VB.Vector (Primitive Pitch)
+> aPrims                                   = VB.fromList [Note wn (Af, 3), Rest hn, Note wn (Bf, 3)]
+> bPrims                                   = VB.fromList [Note wn (Af, 3), Rest hn, Note wn (Bf, 3)]
+>
+> aMarkings, bMarkings   :: VB.Vector Marking
+> aMarkings                                = VB.fromList [Mark PP, Rest1, Mark FF]
+> bMarkings                                = VB.fromList [ReMark PP, Rest1, ReMark FF]
+>
+> testMeks               :: VB.Vector (Primitive Pitch) → VB.Vector Marking → VB.Vector MekNote
+> testMeks prims markings                  =
+>   VB.zipWith3 makeMekNote (VB.fromList [0..3]) prims (VB.fromList (expandMarkings (VB.toList markings)))
 >
 > singleIsSingle         :: IO Bool
 > singleIsSingle                           = do
 >   return
 >     $ aEqual
->         (map mMarking (VB.toList testMeks))
->         [Mark PP,Rest1,Mark FF]
+>         (formNodeGroups $ testMeks aPrims aMarkings)
+>         (VB.fromList [(0,2)], VB.fromList [VB.fromList[0, 2]])
 >
-> {-
-> closedMarkingsLeaveNoNothings
->                        :: IO Bool
-> closedMarkingsLeaveNoNothings            = do
->   return True
->   mapM_ output testMarkingses
->   return $ all allGood testMarkingses
->   where
->     allGood markings                     = vnodesHaveNoNothings $ compileMarkings testMeks markings
->     output vn                            = print $ compileMarkings testMeks vn -}
+> doubleIsDouble         :: IO Bool
+> doubleIsDouble                           = do
+>   return
+>     $ aEqual
+>         (formNodeGroups $ testMeks aPrims bMarkings)
+>         (VB.fromList [(0,2)], VB.fromList [VB.fromList[0], VB.fromList[2]])
 
 The End 

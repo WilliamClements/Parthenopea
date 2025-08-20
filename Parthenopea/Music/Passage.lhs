@@ -11,15 +11,27 @@ Passage
 William Clements
 August 15, 2025
 
-> module Parthenopea.Music.Passage where
+> module Parthenopea.Music.Passage(
+>          add2Velos
+>        , add4Velos
+>        , addNoteBend
+>        , Answers(..)
+>        , expandMarkings
+>        , formNodeGroups
+>        , getAnswers
+>        , makeMekNote
+>        , Marking(..)
+>        , MekNote(..)
+>        , passage) where
 >
-> import Data.List
-> import Data.Maybe
+> import Data.List ( foldl' )
 > import qualified Data.Vector             as VB
-> import Euterpea.IO.MIDI.MEvent
+> import Euterpea.IO.MIDI.MEvent ( MEvent(eDur, eTime), musicToMEvents )
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Music.Siren
+> import Parthenopea.Music.Siren ( bandPartContext, BandPart(..), stdVelocity)
+> import Parthenopea.Repro.Modulation ( clip )
+> import Parthenopea.SoundFont.SFSpec ( Velocity )
 
 Notation-Driven Dynamics ==============================================================================================
 
@@ -28,7 +40,6 @@ _Overall                 =
    chamge rate = onset time and dur *versus* start and end velocity
 
 > type SelfIndex                           = Int
-> type EventIndex                          = Int
 >
 > data Marking                             =
 >     Mark StdLoudness
@@ -58,17 +69,17 @@ _Overall                 =
 > changeRate             :: Overall → Double
 > changeRate over                          = (over.oEndV - over.oStartV) / (over.oEndT - over.oStartT)
 > velocity               :: Double → Overall → Double
-> velocity tIn over                        = over.oStartV + tIn * changeRate over
+> velocity tIn over                        = clip (0, 128) (over.oStartV + tIn * changeRate over)
 > twoVelos               :: Double → Double → Overall → VB.Vector Double
 > twoVelos onset delta over                = VB.fromList
->                                            [ velocity onset           over
->                                            , velocity (onset + delta) over]
+>                                            [ velocity onset               over
+>                                            , velocity (onset + delta)     over]
 > fourVelos              :: Double → Double → Overall → Overall → VB.Vector Double
 > fourVelos onset delta over0 over1        = VB.fromList
->                                            [ velocity onset           over0
+>                                            [ velocity onset               over0
 >                                            , velocity (onset + delta / 2) over0
 >                                            , velocity (onset + delta / 2) over1
->                                            , velocity (onset + delta) over1]
+>                                            , velocity (onset + delta)     over1]
 >
 > data MekNote                             =
 >   MekNote {
@@ -77,20 +88,21 @@ _Overall                 =
 >   , mMarking           :: Marking
 >   , mEvent             :: Maybe MEvent
 >   , mOverall           :: Maybe Overall
->   , mParams            :: VB.Vector Double}
+>   , mParams            :: Either Velocity (VB.Vector Double)}
 >   deriving (Eq, Show)
 > inflection             :: MekNote → Bool
-> inflection mek                           = case mek.mMarking of
->                                              ReMark _              → False
->                                              _                     → True
-> changeParams           :: MekNote → VB.Vector Double → (SelfIndex, MekNote)
-> changeParams mek dubs                    = (mek.mSelfIndex, mek{mParams = dubs})
-> getMarkLoudness        :: MekNote → Maybe StdLoudness
-> getMarkLoudness mek                      =
+> inflection mek                           =
 >   case mek.mMarking of
->     Mark x                               → Just x
->     ReMark x                             → Just x
->     _                                    → Nothing
+>     ReMark _                             → False
+>     _                                    → True
+> changeParams           :: MekNote → Either Velocity (VB.Vector Double) → (SelfIndex, MekNote)
+> changeParams mek val                     = (mek.mSelfIndex, mek{mParams = val})
+> getMarkVelocity        :: MekNote → Velocity
+> getMarkVelocity mek                      =
+>   case mek.mMarking of
+>     Mark x                               → stdVelocity x
+>     ReMark x                             → stdVelocity x
+>     _                                    → error "no mark velocity"
 > getMarkNode            :: MekNote → VB.Vector SelfIndex
 > getMarkNode mek                          =
 >   case mek.mMarking of
@@ -101,18 +113,12 @@ _Overall                 =
 > makeMekNote six prim marking
 >   | restProblem                          = error $ unwords ["Non-corresponding rests"]
 >   | otherwise                            =
->     MekNote six prim marking Nothing Nothing VB.empty
+>     MekNote six prim marking Nothing Nothing (Right VB.empty)
 >   where
 >     restProblem                          =
 >       case prim of
 >         Rest _                           → marking /= Rest1
 >         _                                → False
-> mekWidth               :: MekNote → Int
-> mekWidth mek                             =
->   case mek.mPrimitive of
->     Note _ _                             → 1
->     Rest _                               → 0
->
 > passage                :: BandPart → [Marking] → Music Pitch → Music1
 > passage bp markings ma
 >   | not enableDynamics                   = toMusic1 ma
@@ -124,15 +130,22 @@ _Overall                 =
 >   | traceIf trace_IP False               = undefined
 >   | otherwise                            = VB.foldl' final (rest 0) enriched
 >   where
->     fName__                              = "passageImpl"
->     trace_IP                             = unwords [fName__, show markings]
+>     fName_                               = "passageImpl"
+>     trace_IP                             = unwords [fName_, show markings]
 >
 >     -- reconstruct notes with added dynamics metadata
 >     final              :: Music1 → MekNote → Music1 
 >     final music mek                      =
 >       music :+: case mek.mPrimitive of
->                   Note durI pitchI       → note durI (pitchI, [Dynamics fName__, (Params . VB.toList) mek.mParams])
+>                   Note durI pitchI       → note durI (pitchI, Dynamics fName_ : makeNas mek.mParams)
 >                   Rest durI              → rest durI
+>       where
+>         makeNas        :: Either Velocity (VB.Vector Double) → [NoteAttribute]
+>         makeNas (Left homeVolume)        = [Volume homeVolume]
+>         makeNas (Right directive)        = [(Volume . average) directive, (Params . VB.toList) directive]
+>         
+>         average        :: VB.Vector Double → Velocity
+>         average directive                = round $ VB.sum directive / (fromIntegral . length) directive
 >
 >     -- flatten ma to zippable list of the notes and rests
 >     prims              :: [Primitive Pitch]
@@ -160,22 +173,18 @@ _Overall                 =
 >
 >     withEvents                           = fst $ foldl' implant (VB.empty, 0) rawMeks
 >       where
->         implant (meks, soFar) mek        = (meks VB.++ VB.singleton mek{mEvent = setEvent}, soFar + mekWidth mek)
+>         implant (meks, soFar) mek        = (meks VB.++ VB.singleton mek{mEvent = setEvent}, soFar + mekWidth)
 >           where
->             setEvent                     = case mek.mPrimitive of
->                                              Note _ _              → Just (eTable VB.! soFar)
->                                              Rest _                → Nothing
+>             setEvent                     = 
+>               case mek.mPrimitive of
+>                 Note _ _                 → Just (eTable VB.! soFar)
+>                 Rest _                   → Nothing
+>             mekWidth                     = 
+>               case mek.mPrimitive of
+>                 Note _ _                 → 1
+>                 Rest _                   → 0
 >
->     (nodePairs, nodePairGroups)          = formNodeGroups
->       where
->         formNodeGroups :: (VB.Vector (SelfIndex, SelfIndex), VB.Vector (VB.Vector (SelfIndex, Int)))
->         formNodeGroups                   = (nps, npgs)
->           where
->             nodes                        = VB.foldl' append VB.empty withEvents
->                                              where append sis mek = sis VB.++ getMarkNode mek
->             nps                          = VB.zip nodes (VB.tail nodes)
->             npgs                         = VB.fromList $ VB.groupBy inflected nps
->                                              where inflected (_, si1) (_, _) = inflection (withEvents VB.! si1)
+>     (nodePairs, nodeGroups)              = formNodeGroups withEvents
 >
 >     withOveralls                         = withEvents `VB.update` lode
 >       where
@@ -191,43 +200,63 @@ _Overall                 =
 >             ev0                          = deJust (unwords [fName, "0"]) mek0.mEvent
 >             ev1                          = deJust (unwords [fName, "1"]) mek1.mEvent
 >
->             loud0                        = (loudness . fromJust . getMarkLoudness) mek0
->             loud1                        = (loudness . fromJust . getMarkLoudness) mek1
+>             loud0                        = (fromIntegral . getMarkVelocity) mek0
+>             loud1                        = (fromIntegral . getMarkVelocity) mek1
 >
 >     enriched                             = withOveralls `VB.update` lode
 >       where
->         lode                             = VB.concatMap enrich nodePairGroups
->         fence                            = VB.length withOveralls - 1
+>         lode                             = VB.concatMap enrich nodeGroups
+>         mekFence                         = VB.length withOveralls - 1
 >
->         enrich nodePairGroup             =
->           let
->             richen (si0, si1)            = VB.map infuse lmeks
+>         enrich         :: VB.Vector SelfIndex → VB.Vector (SelfIndex, MekNote)
+>         enrich nodeGroup
+>           | gLen == 0                    = error "no nodes in node group"
+>           | gLen == 1                    = VB.fromList [(mek0.mSelfIndex, mek0{mParams = (Left . getMarkVelocity) mek0})]
+>           | otherwise                    = VB.concatMap richen groupNodePairs
+>           where
+>             gLen                         = length nodeGroup
+>             mek0                         = withOveralls VB.! (nodeGroup VB.! 0)
+>             groupNodePairs               = VB.zip nodeGroup (VB.tail nodeGroup)
+>
+>             richen (si0, si1)
+>               | traceNow trace_R False   = undefined
+>               | otherwise                = VB.map infuse segMeks
 >               where
->                 lmeks                    = VB.slice si0 (si1 - si0 + 1 - fencePost) withOveralls
->                                              where fencePost = if si1 == fence then 0 else 1
+>                 fName                    = "richen"
+>                 trace_R                  = unwords [fName, show (si0, si1)]
+> 
+>                 segMeks                  = VB.slice si0 (si1 - si0 + 1 - fencePost) withOveralls
+>                                              where fencePost = if si1 == mekFence then 0 else 1
 >                 infuse mek               =
 >                   let
->                     fName                = "infuse"
->
->                     si                   = mek.mSelfIndex
->                     isInflection         =
->                       length nodePairGroup > 2 && isJust (VB.find inflex (VB.slice 1 fence nodePairGroup))
->                       where inflex nodePair = si == fst nodePair
 >                     ev                   = deJust fName mek.mEvent
 >                     onset                = fromRational ev.eTime
 >                     delta                = fromRational ev.eDur
->                     over0                = deJust fName (VB.head lmeks).mOverall
->                     over1                =
->                       case find (\np → snd np == mek.mSelfIndex) nodePairs of
->                         Just np          → fromJust (withOveralls VB.! fst np).mOverall
+>                     over0                = deJust (unwords [fName, "0", show si0]) (withOveralls VB.! si0).mOverall
+>                     over1                = -- WOX deJust (unwords [fName, "1", show si1]) (withOveralls VB.! si1).mOverall
+>                       case VB.find (\np → snd np == mek.mSelfIndex) groupNodePairs of
+>                         Just np          → deJust (unwords [fName, "-1", show np]) (withOveralls VB.! fst np).mOverall
 >                         Nothing          → error $ unwords [fName, "inflection has no previous node !?"]
+>
+>                     isInflection         = si0 == mek.mSelfIndex && si0 /= VB.head nodeGroup && si0 /= VB.last nodeGroup
 >                   in
 >                     if isInflection
->                       then changeParams mek (fourVelos onset delta over0 over1)
->                       else changeParams mek (twoVelos onset delta over0)
->            in
->              VB.concatMap richen nodePairGroup
+>                       then changeParams mek (Right (fourVelos onset delta over1 over0))
+>                       else changeParams mek (Right (twoVelos onset delta over0))
 >
+> formNodeGroups         :: VB.Vector MekNote
+>                           → (VB.Vector (SelfIndex, SelfIndex), VB.Vector (VB.Vector SelfIndex))
+> formNodeGroups meks                      = (nps, nhs)
+>   where
+>     nodes                                =
+>       let
+>         append sis mek                   = sis VB.++ getMarkNode mek
+>       in
+>         VB.foldl' append VB.empty meks
+>     nps                                  = VB.zip nodes (VB.tail nodes)
+>     nhs                                  = VB.fromList $ VB.groupBy inflected nodes
+>       where
+>         inflected _ si                   = inflection (meks VB.! si)
 > data Answers                             =
 >   Answers {
 >     aNoteBend          :: VB.Vector Double

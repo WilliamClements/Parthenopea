@@ -64,12 +64,15 @@ Utilities ======================================================================
 
 TODO: adjust loudness output based on "home velocity", which would be passed in from BandPart
 
-> loudness               :: StdLoudness → Double
-> loudness loud                            =
+> stdVelocity            :: StdLoudness → Velocity
+> stdVelocity loud                         =
 >   case loud of
 >           PPP  → 10;    PP → 24;   P    → 38
 >           MP   → 52;    SF → 66;   MF   → 80
 >           NF   → 94;   FF → 108;  FFF  → 122
+> stdLoudness            :: StdLoudness → Double
+> stdLoudness                              = fromIntegral . stdVelocity
+>
 > dim                    :: Rational → Music a → Music a
 > dim amt                                  = phrase [Dyn (Diminuendo amt)]
 >

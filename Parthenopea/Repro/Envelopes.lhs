@@ -98,43 +98,50 @@ Create a straight-line envelope generator with following phases:
 >           
 >     fSusLevel                            = clip (0, 1) r.fSustainLevel
 >
-> doVeloSweepingEnvelope :: ∀ p . Clock p ⇒
->                           TimeFrame
->                           → VB.Vector Double
->                           → Signal p () Double
-> doVeloSweepingEnvelope timeFrame directive
->   | traceIf trace_DVSE False             = undefined
->   | VB.null directive                    = constA 1
->   | 2 == VB.length directive             = makeSF2
->   | 4 == VB.length directive             = makeSF4
->   | otherwise                            = error $ unwords [fName, "illegal velo sweeping directive"]
+> doVeloSweepingEnvelope :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
+> doVeloSweepingEnvelope timeFrame vIn
+>   | 0 == dLen                            = constA 1
+>   | 2 == dLen                            = makeSF2
+>   | 4 == dLen                            = makeSF4
+>   | otherwise                            =
+>       error $ unwords [show dLen, "is llegal length for velo sweeping directive"]
 >   where
->     fName                                = "doVeloSweepingEnvelope"
->     trace_DVSE                           = unwords [fName, show directive]
+>     dLen                                 = VB.length vIn
 >
->     makeSF2            :: Signal p () Double
->     makeSF2                               =
->       let
->         (stVelo, enVelo)                  = (directive VB.! 0, directive VB.! 1)
->         amps, deltaTs  :: [Double]
->         amps                             =
->             [0,            stVelo,                                 enVelo,         0]
->         deltaTs                          =
->             [   minDeltaT,    timeFrame.tfSecsScored - 2 * minDeltaT,     minDeltaT]
->       in
->         envLineSeg amps deltaTs
+>     stVelo0, enVelo0, stVelo1, enVelo1, step, leg, knee
+>                        :: Double 
+>     stVelo0                              = vIn VB.! 0
+>     enVelo0                              = vIn VB.! 1
+>     stVelo1                              = vIn VB.! 2
+>     enVelo1                              = vIn VB.! 3
+>     step                                 = timeFrame.tfSecsScored - 2 * minDeltaT
+>     leg                                  = step / 2 - 2 * minDeltaT
+>     knee                                 = 4 * minDeltaT
 >
->     makeSF4            :: Signal p () Double
->     makeSF4                               =
->       let
->         (stVelo1, enVelo1, _, _)          = (directive VB.! 0, directive VB.! 1, directive VB.! 2, directive VB.! 3)
->         amps, deltaTs  :: [Double]
->         amps                             =
->             [0,            stVelo1,                                 enVelo1,         0]
->         deltaTs                          =
->             [   minDeltaT,    timeFrame.tfSecsScored - 2 * minDeltaT,     minDeltaT]
->       in
->         envLineSeg amps deltaTs
+>     segmentsFor2, segmentsFor4
+>                        :: Segments
+>     segmentsFor2                         =
+>       Segments
+>         [0,         stVelo0,       enVelo0,         0,           0]
+>         [ minDeltaT,       step,       minDeltaT,  minUseful]
+>     segmentsFor4                         =
+>       Segments
+>         [   0,      stVelo0,     enVelo0,     stVelo1,       enVelo1,       0,            0]
+>         [  minDeltaT,    leg,         knee,          leg,     minDeltaT,    minUseful]
+>
+>     makeSF2, makeSF4   :: Signal p () Double
+>     makeSF2
+>       | traceNow trace_MSF2 False        = undefined
+>       | otherwise                        = envLineSeg segmentsFor2.sAmps segmentsFor2.sDeltaTs
+>       where
+>         fName                            = "makeSF2"
+>         trace_MSF2                       = unwords [fName, show vIn]
+>     makeSF4
+>       | traceIf trace_MSF4 False         = undefined
+>       | otherwise                        = envLineSeg segmentsFor4.sAmps segmentsFor4.sDeltaTs
+>       where
+>         fName                            = "makeSF4"
+>         trace_MSF4                       = unwords [fName, show vIn]
 
 stepwise refinement from specified envelope parameters ================================================================
 
