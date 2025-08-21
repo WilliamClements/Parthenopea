@@ -234,7 +234,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     aenvL                                ← doEnvelope timeFrame recon.rVolEnv                    ⤙ ()
 >     modSigL                              ← eutModSignals timeFrame recon.rM8n ToVolume           ⤙ ()
 >     let a2L                              =
->           a1L * aenvL * aSweep * evaluateModSignals fName recon.rM8n ToVolume modSigL recon.rNoteOn
+>           a1L * aenvL * (aSweep / 100) * evaluateModSignals fName recon.rM8n ToVolume modSigL recon.rNoteOn
 >     outA ⤙ a2L
 >   where
 >     fName                                = "eutAmplify"
@@ -425,6 +425,6 @@ Turn Knobs Here ================================================================
 > usePan                                   = True
 > useDCBlock                               = True
 > noStereoNoPan                            = True
-> normalizingOutput                        = True
+> normalizingOutput                        = False
 
 The End

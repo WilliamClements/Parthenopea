@@ -516,11 +516,19 @@ instrument range checking ======================================================
 >     bChanger           :: Pitch → (Pitch, [NoteAttribute])
 >     bChanger p                           = (p, [Volume bp.bpHomeVelocity])
 >
+> hasDynamics            :: [NoteAttribute] → Bool
+> hasDynamics                              = any isDynamic
+>   where
+>     isDynamic na                         =
+>       case na of
+>         Dynamics _                       → True
+>         _                                → False
+>
 > orchestraPart          :: BandPart → Music1 → Music1
 > orchestraPart bp                         = mMap oChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
 >   where
 >     oChanger           :: (Pitch, [NoteAttribute]) → (Pitch, [NoteAttribute])
->     oChanger (p, nas)                    = (p, map nasFun nas)
+>     oChanger (p, nas)                    = (p, if hasDynamics nas then nas else map nasFun nas)
 >
 >     nasFun             :: NoteAttribute → NoteAttribute
 >     nasFun (Volume _)                    = Volume bp.bpHomeVelocity
