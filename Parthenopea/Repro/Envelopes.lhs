@@ -101,22 +101,23 @@ Create a straight-line envelope generator with following phases:
 > doVeloSweepingEnvelope :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
 > doVeloSweepingEnvelope timeFrame vIn
 >   | 0 == dLen                            = constA 128
->   | 2 == dLen                            = makeSF2
->   | 4 == dLen                            = makeSF4
+>   | 2 == dLen                            = runEnvelope segmentsFor2
+>   | 4 == dLen                            = runEnvelope segmentsFor4
 >   | otherwise                            =
 >       error $ unwords [show dLen, "is llegal length for velo sweeping directive"]
 >   where
 >     dLen                                 = VB.length vIn
 >
->     stVelo0, enVelo0, stVelo1, enVelo1, step, leg, knee
+>     stVelo0, enVelo0, stVelo1, enVelo1, step, midsection, leg
 >                        :: Double 
 >     stVelo0                              = vIn VB.! 0
 >     enVelo0                              = vIn VB.! 1
 >     stVelo1                              = vIn VB.! 2
 >     enVelo1                              = vIn VB.! 3
+>
 >     step                                 = timeFrame.tfSecsScored - 2 * minDeltaT
->     leg                                  = step / 2 - 2 * minDeltaT
->     knee                                 = 4 * minDeltaT
+>     midsection                           = step / 8
+>     leg                                  = step * 7 / 16
 >
 >     segmentsFor2, segmentsFor4
 >                        :: Segments
@@ -126,22 +127,16 @@ Create a straight-line envelope generator with following phases:
 >         [ minDeltaT,       step,       minDeltaT,  minUseful]
 >     segmentsFor4                         =
 >       Segments
->         [   0,      stVelo0,     enVelo0,     stVelo1,       enVelo1,       0,            0]
->         [  minDeltaT,    leg,         knee,          leg,     minDeltaT,    minUseful]
+>         [   0,      stVelo0,     enVelo0,     stVelo1,     enVelo1,       0,            0]
+>         [  minDeltaT,     leg,      midsection,     leg,     minDeltaT,    minUseful]
 >
->     makeSF2, makeSF4   :: Signal p () Double
->     makeSF2
->       | traceNow trace_MSF2 False        = undefined
->       | otherwise                        = envLineSeg segmentsFor2.sAmps segmentsFor2.sDeltaTs
+>     runEnvelope         :: Segments → Signal p () Double
+>     runEnvelope segs
+>       | traceNow trace_DE False          = undefined
+>       | otherwise                        = envLineSeg segs.sAmps segs.sDeltaTs
 >       where
->         fName                            = "makeSF2"
->         trace_MSF2                       = unwords [fName, show vIn]
->     makeSF4
->       | traceIf trace_MSF4 False         = undefined
->       | otherwise                        = envLineSeg segmentsFor4.sAmps segmentsFor4.sDeltaTs
->       where
->         fName                            = "makeSF4"
->         trace_MSF4                       = unwords [fName, show vIn]
+>         fName                            = "runEnvelope"
+>         trace_DE                         = unwords [fName, show vIn, show segs]
 
 stepwise refinement from specified envelope parameters ================================================================
 

@@ -141,7 +141,7 @@ Implement PCommand =============================================================
 >   let ding                               = Map.unionsWith combineShreds (map songShredding songs)
 >   let isandps                            = Map.keys ding
 >
->   CM.when (howVerboseTournamentReport > 0) (writeRangesReport songs ding)
+>   CM.when (howVerboseRangesReport > 0) (writeRangesReport songs ding)
 >
 >   return $ if null songs then allKinds else (lefts isandps, rights isandps)
 >
