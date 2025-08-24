@@ -132,7 +132,7 @@ Create a straight-line envelope generator with following phases:
 >
 >     runEnvelope         :: Segments → Signal p () Double
 >     runEnvelope segs
->       | traceNow trace_DE False          = undefined
+>       | traceIf trace_DE False           = undefined
 >       | otherwise                        = envLineSeg segs.sAmps segs.sDeltaTs
 >       where
 >         fName                            = "runEnvelope"

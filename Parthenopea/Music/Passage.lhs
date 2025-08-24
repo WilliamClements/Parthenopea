@@ -69,24 +69,27 @@ _Overall                 =
 >     endT                                 = fromRational startEv.eTime + fromRational startEv.eDur
 > changeRate             :: Overall → Double
 > changeRate over
->   | traceNow trace_CR False              = undefined
+>   | traceNot trace_CR False              = undefined
 >   | otherwise                            = (over.oEndV - over.oStartV) / (over.oEndT - over.oStartT)
 >   where
 >     fName                                = "changeRate"
 >     trace_CR                             = unwords [fName, show over]
 > velocity               :: Double → Overall → Double
-> velocity tIn over                        = clip (0, 128) (over.oStartV + (tracer "tIn" tIn - over.oStartT) * tracer "changeRate over" (changeRate over))
+> velocity tIn over
+>   | tIn < (over.oStartT -epsilon) || tIn > (over.oEndT + epsilon)
+>                                          = error $ unwords ["velocity out of range", show (tIn, over)]
+>   | otherwise                            = clip (0, 128) (over.oStartV + (tIn - over.oStartT) * changeRate over)
 > twoVelos               :: Double → Double → Overall → Either Velocity (VB.Vector Double)
 > twoVelos onset delta over                = branchVelos $ VB.fromList
 >                                            [ velocity onset               over
 >                                            , velocity (onset + delta)     over]
 > fourVelos              :: Double → Double → Overall → Overall → Either Velocity (VB.Vector Double)
 > fourVelos onset delta over0 over1
->   | traceNow trace_FV False              = undefined
+>   | traceNot trace_FV False              = undefined
 >   | otherwise                            = branchVelos $ VB.fromList
->                                            [ velocity (tracer "4onset" onset)  over0
+>                                            [ velocity onset  over0
 >                                            , velocity (onset + delta / 2) over0
->                                            , velocity (tracer "44onset" (onset + delta / 2)) over1
+>                                            , velocity (onset + delta / 2) over1
 >                                            , velocity (onset + delta)     over1]
 >   where
 >     fName                                = "fourVelos!!!!!"
@@ -190,7 +193,7 @@ _Overall                 =
 >
 >     withEvents                           = fst $ foldl' implant (VB.empty, 0) rawMeks
 >       where
->         eTable                           = tracer "eTable" $ VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
+>         eTable                           = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
 >
 >         implant (meks, soFar) mek        = (meks VB.++ VB.singleton mek{mEvent = setEvent}, soFar + mekWidth)
 >           where
@@ -199,7 +202,7 @@ _Overall                 =
 >                 Note _ _                 → (Just (eTable VB.! soFar),    1)
 >                 Rest _                   → (Nothing,                     0)
 >
->     (nodePairs, nodeGroups)              = tracer "(np, ng)" $ formNodeGroups withEvents
+>     (nodePairs, nodeGroups)              = formNodeGroups withEvents
 >
 >     withOveralls                         = withEvents `VB.update` lode
 >       where
@@ -207,7 +210,7 @@ _Overall                 =
 >           VB.concatMap (uncurry computeOverall) nodePairs VB.++ computeOverall lastSi lastSi
 >         lastSi                           = snd $ VB.last nodePairs
 >
->         computeOverall si0 si1           = VB.singleton (si0, mek0{mOverall = tracer "makeOverall" $ makeOverall si0 loud0 loud1 ev0})
+>         computeOverall si0 si1           = VB.singleton (si0, mek0{mOverall = makeOverall si0 loud0 loud1 ev0})
 >           where
 >             fName                        = "computeOverall"
 >
@@ -228,7 +231,7 @@ _Overall                 =
 >         enseed nodeGroup
 >           | gLen == 0                    = error "no nodes in node group"
 >           | gLen == 1                    = seedOne $ withOveralls VB.! (nodeGroup VB.! 0)
->           | otherwise                    = VB.concatMap seeden (VB.zip nodeGroup (VB.tail nodeGroup))
+>           | otherwise                    = VB.concatMap seeden (VB.zip nodeGroup (VB.tail nodeGroup)) VB.++ seeden (VB.last nodeGroup, VB.last nodeGroup)
 >           where
 >             gLen                         = VB.length nodeGroup
 >
@@ -241,8 +244,8 @@ _Overall                 =
 >                 keyNodeIsInner           = si0 /= VB.head nodeGroup
 >
 >                 mek0                     = withOveralls VB.! si0
->                 over0                    = deJust (msg 0 si0) mek0.mOverall
->                 over1                    =
+>                 over                     = deJust (msg 0 si0) mek0.mOverall
+>                 overPrev                 =
 >                   case VB.find (\np → snd np == mek0.mSelfIndex) nodePairs of
 >                     Just np              → deJust (unwords [fName, "-1", show np]) (withOveralls VB.! fst np).mOverall
 >                     Nothing              → error $ unwords [fName, "inflection has no previous node !?"]
@@ -254,13 +257,13 @@ _Overall                 =
 >                                              where fencePost = if si1 == mekFence then 0 else 1
 >
 >                 infuse mek               =
->                   if keyNodeIsInner && si0 == mek.mSelfIndex
->                     then changeParams mek $ fourVelos onset delta over1 over0
->                     else changeParams mek $ twoVelos onset delta over0
+>                   if False {- WOX && keyNodeIsInner && si0 == mek.mSelfIndex -}
+>                     then changeParams mek $ fourVelos onset delta overPrev over
+>                     else changeParams mek $ twoVelos onset delta over
 >                   where
 >                     ev                   = deJust fName mek.mEvent
->                     onset                = tracer "onset" $ fromRational ev.eTime
->                     delta                = tracer "delta" $ fromRational ev.eDur
+>                     onset                = fromRational ev.eTime
+>                     delta                = fromRational ev.eDur
 >               in
 >                 VB.map infuse seedMeks
 >
