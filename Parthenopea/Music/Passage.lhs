@@ -69,7 +69,7 @@ _Overall                 =
 > velocity               :: Double → Overall → Double
 > velocity tIn over
 >   | tIn < (over.oStartT - epsilon) || tIn > (over.oEndT + epsilon)
->                                          = error $ unwords ["velocity out of range", show (tIn, over)]
+>                                          = error $ unwords ["velocity: input tIn out of range", show (tIn, over)]
 >   | otherwise                            = clip (0, 128) (over.oStartV + (tIn - over.oStartT) * changeRate)
 >   where
 >     changeRate                           = (over.oEndV - over.oStartV) / (over.oEndT - over.oStartT)
@@ -162,7 +162,6 @@ _Overall                 =
 >    
 >     rawMeks                               =
 >       profess
->         -- assertion
 >         (nPrims /= 0 && (nPrims == nMarks))
 >         (unwords ["bad lengths; prims, markings", show (nPrims, nMarks)])
 >         (VB.zipWith3 makeMekNote selfIndices prims markings)
@@ -179,7 +178,7 @@ _Overall                 =
 >             pFun (Note pP dP)            = VB.singleton (Note pP dP)
 >             pFun (Rest dP)               = VB.singleton (Rest dP)
 >           in
->             mFold pFun (VB.++ ) undefined undefined ma
+>             mFold pFun (VB.++) undefined undefined ma
 >
 >     withEvents                           = fst $ foldl' implant (VB.empty, 0) rawMeks
 >       where
@@ -252,11 +251,10 @@ _Overall                 =
 >                     onset                = fromRational ev.eTime
 >                     delta                = fromRational ev.eDur
 >
->                 mek0                     = withOveralls VB.! si0
->                 over                     = deJust (unwords [fName, show si0]) mek0.mOverall
+>                 over                     = deJust (unwords [fName, show si0]) (withOveralls VB.! si0).mOverall
 >                 overPrev                 =
->                   case VB.find (\np → snd np == mek0.mSelfIndex) nodePairs of
->                     Just np              → deJust (unwords [fName, "-1", show np]) (withOveralls VB.! fst np).mOverall
+>                   case VB.find (\np → snd np == si0) nodePairs of
+>                     Just np              → deJust (unwords [fName, show np]) (withOveralls VB.! fst np).mOverall
 >                     Nothing              → error $ unwords [fName, "inflection has no previous node !?"]
 >
 >     enriched                             = seeded `VB.update` lode
@@ -276,7 +274,7 @@ _Overall                 =
 >             updateOne                    =
 >               case mek.mParams of
 >                 Nothing                  → VB.singleton $ changeParams mek (Left velo')
->                 Just _                   → VB.empty
+>                 _                        → VB.empty
 >           in
 >             (updates VB.++ updateOne, velo')
 >
