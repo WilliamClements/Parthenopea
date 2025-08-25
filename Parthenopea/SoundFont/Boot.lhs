@@ -104,16 +104,15 @@ and recovery.
 >                           → IO (SFRuntime, Matches, ResultDispositions)
 > surveyInstruments vFiles rost            = do
 >   putStrLn ""
->   putStrLn $ unwords [fName, "rost", show rost]
+>   putStrLn $ unwords [fName, show rost]
 >   putStrLn ""
 >
->   -- compute lazy caches (Maps); coded in "eager" manner, so _looks_ scary, performance-wise
->   let (bootAll, matchesAll, rdAll) = foldl' bootFolder (dasBoot, defMatches, virginrd) vFiles
+>   let (bootAll, matchesAll, rdAll)       = foldl' bootFolder (dasBoot, defMatches, virginrd) vFiles
 >   CM.when diagnosticsEnabled (traceIO $ show bootAll)
->   let runt                           = SFRuntime vFiles bootAll seedWinningRecord
+>   let runt                               = SFRuntime vFiles bootAll seedWinningRecord
 >   return (runt, matchesAll, rdAll)
 >   where
->     fName                                = "equipInstruments"
+>     fName                                = "surveyInstruments"
 >
 >     bootFolder (bootIn, matchesIn, rdIn) sffile
 >                                          = 

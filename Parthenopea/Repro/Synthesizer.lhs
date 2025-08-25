@@ -425,6 +425,6 @@ Turn Knobs Here ================================================================
 > usePan                                   = True
 > useDCBlock                               = True
 > noStereoNoPan                            = True
-> normalizingOutput                        = False
+> normalizingOutput                        = True
 
 The End

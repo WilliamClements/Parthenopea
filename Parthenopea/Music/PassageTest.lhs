@@ -21,11 +21,11 @@ August 15, 2025
 >                                           , fourReMarksWork
 >                                           , fourMarksWork ]
 >
-> aPrims, bPrims, cPrims
+> aPrims, cPrims
 >                        :: VB.Vector (Primitive Pitch)
 > aPrims                                   = VB.fromList [Note wn (Af, 3), Rest hn, Note wn (Bf, 3)]
-> bPrims                                   = VB.fromList [Note wn (Af, 3), Rest hn, Note wn (Bf, 3)]
 > cPrims                                   = VB.fromList [Note qn (Gs, 4), Note hn (Bs, 4), Note hn (Cs, 5), Note dhn (A, 4)]
+>
 > aMarkings, bMarkings, cMarkings, dMarkings
 >                        :: [Marking]
 > aMarkings                                = [Mark PP, Rest1, Mark FF]

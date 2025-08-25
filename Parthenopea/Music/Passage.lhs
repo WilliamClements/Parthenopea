@@ -56,51 +56,41 @@ _Overall                 =
 >
 > data Overall                             =
 >   Overall {
->     oSelfIndex         :: SelfIndex
->   , oStartT            :: Double
+>     oStartT            :: Double
 >   , oEndT              :: Double
 >   , oStartV            :: Double
 >   , oEndV              :: Double}
 >   deriving (Eq, Show)
-> makeOverall            :: SelfIndex → Double → Double → MEvent → Maybe Overall
-> makeOverall si startV endV startEv       = Just $ Overall si startT endT startV endV
+> makeOverall            :: Double → Double → MEvent → MEvent → Maybe Overall
+> makeOverall startV endV startEv endEv    = Just $ Overall startT endT startV endV
 >   where
 >     startT                               = fromRational startEv.eTime
->     endT                                 = fromRational startEv.eTime + fromRational startEv.eDur
-> changeRate             :: Overall → Double
-> changeRate over
->   | traceNot trace_CR False              = undefined
->   | otherwise                            = (over.oEndV - over.oStartV) / (over.oEndT - over.oStartT)
->   where
->     fName                                = "changeRate"
->     trace_CR                             = unwords [fName, show over]
+>     endT                                 = fromRational endEv.eTime + fromRational endEv.eDur
 > velocity               :: Double → Overall → Double
 > velocity tIn over
->   | tIn < (over.oStartT -epsilon) || tIn > (over.oEndT + epsilon)
+>   | tIn < (over.oStartT - epsilon) || tIn > (over.oEndT + epsilon)
 >                                          = error $ unwords ["velocity out of range", show (tIn, over)]
->   | otherwise                            = clip (0, 128) (over.oStartV + (tIn - over.oStartT) * changeRate over)
+>   | otherwise                            = clip (0, 128) (over.oStartV + (tIn - over.oStartT) * changeRate)
+>   where
+>     changeRate                           = (over.oEndV - over.oStartV) / (over.oEndT - over.oStartT)
 > twoVelos               :: Double → Double → Overall → Either Velocity (VB.Vector Double)
 > twoVelos onset delta over                = branchVelos $ VB.fromList
 >                                            [ velocity onset               over
 >                                            , velocity (onset + delta)     over]
 > fourVelos              :: Double → Double → Overall → Overall → Either Velocity (VB.Vector Double)
-> fourVelos onset delta over0 over1
->   | traceNot trace_FV False              = undefined
->   | otherwise                            = branchVelos $ VB.fromList
+> fourVelos onset delta over0 over1        = branchVelos $ VB.fromList
 >                                            [ velocity onset  over0
 >                                            , velocity (onset + delta / 2) over0
 >                                            , velocity (onset + delta / 2) over1
 >                                            , velocity (onset + delta)     over1]
->   where
->     fName                                = "fourVelos!!!!!"
->     trace_FV                             = unwords [fName, show (over0.oSelfIndex, over1.oSelfIndex)]
 > branchVelos            :: VB.Vector Double → Either Velocity (VB.Vector Double)
-> branchVelos vIn
->   | VB.null vIn                          = error "bad branchVelos"
->   | otherwise                            =
->   if 1 == length (VB.groupBy (\x y → abs (y - x) < epsilon) vIn)
->     then (Left . round) (vIn VB.! 0)
+> branchVelos vIn                          =
+>   if all (nearlyEqual keyParam) vIn
+>     then (Left . round) keyParam
 >     else Right vIn
+>   where
+>     keyParam                             = vIn VB.! 0
+>     nearlyEqual x y                      = abs (y - x) < epsilon
 >
 > data MekNote                             =
 >   MekNote {
@@ -141,7 +131,7 @@ _Overall                 =
 >   | otherwise                            = VB.foldl' final (rest 0) enriched
 >   where
 >     fName_                               = "passageImpl"
->     trace_IP                             = unwords [fName_, show markings]
+>     trace_IP                             = unwords [fName_, show markings, show (VB.map mEvent withEvents)]
 >
 >     -- reconstruct notes with added dynamics metadata
 >     final              :: Music1 → MekNote → Music1 
@@ -210,14 +200,18 @@ _Overall                 =
 >           VB.concatMap (uncurry computeOverall) nodePairs VB.++ computeOverall lastSi lastSi
 >         lastSi                           = snd $ VB.last nodePairs
 >
->         computeOverall si0 si1           = VB.singleton (si0, mek0{mOverall = makeOverall si0 loud0 loud1 ev0})
+>         computeOverall si0 si1
+>           | traceIf trace_CO False       = undefined
+>           | otherwise                    = VB.singleton (si0, mek0{mOverall = makeOverall loud0 loud1 ev0 ev1})
 >           where
 >             fName                        = "computeOverall"
+>             trace_CO                     = unwords [fName, show ((si0, loud0, ev0), (si1, loud1, ev1))]
 >
 >             mek0                         = withEvents VB.! si0
 >             mek1                         = withEvents VB.! si1
 >
 >             ev0                          = deJust (unwords [fName, "0"]) mek0.mEvent
+>             ev1                          = deJust (unwords [fName, "1"]) mek1.mEvent
 >
 >             loud0                        = (fromIntegral . getMarkVelocity) mek0
 >             loud1                        = (fromIntegral . getMarkVelocity) mek1
@@ -231,41 +225,39 @@ _Overall                 =
 >         enseed nodeGroup
 >           | gLen == 0                    = error "no nodes in node group"
 >           | gLen == 1                    = seedOne $ withOveralls VB.! (nodeGroup VB.! 0)
->           | otherwise                    = VB.concatMap seeden (VB.zip nodeGroup (VB.tail nodeGroup)) VB.++ seeden (VB.last nodeGroup, VB.last nodeGroup)
+>           | otherwise                    =
+>           VB.concatMap (uncurry seeden) (VB.zip nodeGroup (VB.tail nodeGroup))
+>                        VB.++ seeden (VB.last nodeGroup) (VB.last nodeGroup)
 >           where
 >             gLen                         = VB.length nodeGroup
 >
 >             seedOne mekArg               = VB.singleton $ changeParams mekArg (Left $ getMarkVelocity mekArg)
 >
->             seeden (si0, si1)            =
->               let
+>             seeden si0 si1
+>               | traceIf trace_S False    = undefined
+>               | otherwise                = VB.map infuse seedMeks
+>               where
 >                 fName                    = "seeden"
->
->                 keyNodeIsInner           = si0 /= VB.head nodeGroup
->
->                 mek0                     = withOveralls VB.! si0
->                 over                     = deJust (msg 0 si0) mek0.mOverall
->                 overPrev                 =
->                   case VB.find (\np → snd np == mek0.mSelfIndex) nodePairs of
->                     Just np              → deJust (unwords [fName, "-1", show np]) (withOveralls VB.! fst np).mOverall
->                     Nothing              → error $ unwords [fName, "inflection has no previous node !?"]
->
->                 msg    :: Int → Int → String
->                 msg n si                 = unwords [fName, show (n, si)]
+>                 trace_S                  = unwords [fName, show (si0, si1), show over]
 >
 >                 seedMeks                 = VB.slice si0 (si1 - si0 + 1 - fencePost) withOveralls
 >                                              where fencePost = if si1 == mekFence then 0 else 1
 >
 >                 infuse mek               =
->                   if False {- WOX && keyNodeIsInner && si0 == mek.mSelfIndex -}
+>                   if enableInflections && si0 == mek.mSelfIndex && si0 /= VB.head nodeGroup
 >                     then changeParams mek $ fourVelos onset delta overPrev over
 >                     else changeParams mek $ twoVelos onset delta over
 >                   where
 >                     ev                   = deJust fName mek.mEvent
 >                     onset                = fromRational ev.eTime
 >                     delta                = fromRational ev.eDur
->               in
->                 VB.map infuse seedMeks
+>
+>                 mek0                     = withOveralls VB.! si0
+>                 over                     = deJust (unwords [fName, show si0]) mek0.mOverall
+>                 overPrev                 =
+>                   case VB.find (\np → snd np == mek0.mSelfIndex) nodePairs of
+>                     Just np              → deJust (unwords [fName, "-1", show np]) (withOveralls VB.! fst np).mOverall
+>                     Nothing              → error $ unwords [fName, "inflection has no previous node !?"]
 >
 >     enriched                             = seeded `VB.update` lode
 >       where
@@ -337,9 +329,11 @@ _Overall                 =
 Configurable parameters ===============================================================================================
 
 > enableDynamics         :: Bool
+> enableInflections      :: Bool    
 
 Edit the following ====================================================================================================
 
 > enableDynamics                           = True
+> enableInflections                        = True
 
 The End
