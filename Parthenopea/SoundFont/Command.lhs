@@ -66,9 +66,9 @@ Implement PCommand =============================================================
 >
 >   rost                                   ← qualifyKinds songs
 >
+>   CM.unless (null sf2s) (do putStrLn ""; putStrLn $ unwords ["surveySoundFonts"])
 >   sffilesp                               ← CM.zipWithM openSoundFontFile [0..] sf2s
 >   let vFile                              = listArray (0, fromIntegral (length sf2s - 1)) sffilesp
->
 >   if null vFile
 >     then return ()
 >     else do
@@ -114,7 +114,7 @@ Implement PCommand =============================================================
 >           else outFile                   (name ++ ".wav") durS s
 >
 >         tsFinished                       ← getCurrentTime
->         putStrLn $ unwords ["<-", "renderSong", show (diffUTCTime tsFinished timeNow)]
+>         putStrLn $ unwords ["<-", name, show (diffUTCTime tsFinished timeNow)]
 >       else
 >         putStrLn "skipping..."
 >     return ()

@@ -320,14 +320,21 @@ zone selection for rendering ===================================================
 
 >     doFlyEye           :: NoteOn → Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
 >     doFlyEye noonFly
+>       | traceIf trace_DFE False          = undefined
 >       | bagIdL <= 0 || cntL <= 0 || bagIdR <= 0 || cntR <= 0
 >                                          = error $ unwords [fName, "cell is nonsense"]
 >       | isNothing foundL || isNothing foundR
->                                          = error $ unwords [fName, "zone not present"] 
+>                                          =
+>         error $ unwords [fName
+>                        , "zone"
+>                        , show (bagIdL, bagIdR)
+>                        , "not both present in"
+>                        , show (map (pzWordB . fst) perI.pZones)] 
 >       | foundL == foundR                 = (Left . fromJust) foundL
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where
 >         fName                            = unwords [fName_, "doFlyEye"]
+>         trace_DFE                        = unwords [fName, show perI.pSmashing]
 >
 >         (index1, index2)                 = noonAsCoords noonFly
 >         (bagIdL, cntL)                   = lookupCellIndex index1 perI.pSmashing
@@ -354,8 +361,13 @@ reconcile zone and sample header ===============================================
 >                                              , rPitchCorrection           = pcL}
 >
 > makeRecon              :: (PreZone, SFZone) → NoteOn → VB.Vector Double → Double → Recon
-> makeRecon (pz, z_) noon ps secs          = reconL
+> makeRecon (pz, z_) noon ps secs
+>   | traceIf trace_MR False               = undefined
+>   | otherwise                            = reconL
 >   where
+>     fName                                = "makeRecon"
+>     trace_MR                             = unwords [fName, shdr.sampleName]
+>
 >     zd                                   = pz.pzDigest
 >     shdr                                 = effPZShdr pz
 >     
@@ -363,7 +375,7 @@ reconcile zone and sample header ===============================================
 >     z                                    = if not (VB.null bend)
 >                                              then implementNoteBending noon z_ (bend VB.! 0) secs
 >                                              else z_
->     m8n                                  = reconModulation z shdr noon
+>     m8n                                  = reconModulation z noon
 >
 >     reconL = Recon {
 >     rSampleMode    = fromMaybe           A.NoLoop           z.zSampleMode
@@ -421,14 +433,9 @@ reconcile zone and sample header ===============================================
 >            , zKey           = (Just . fromIntegral) noon.noteOnKey
 >            , zReleaseModEnv = Nothing}
 >
-> reconModulation        :: SFZone → F.Shdr → NoteOn → Modulation
-> reconModulation z shdr noon
->   | traceIf trace_RM False               = undefined
->   | otherwise                            = resolveMods m8n z.zModulators defaultMods
+> reconModulation        :: SFZone → NoteOn → Modulation
+> reconModulation z noon                   = resolveMods m8n z.zModulators defaultMods
 >   where
->     fName                                = "reconModulation"
->     trace_RM                             = unwords [fName, show resonanceType, shdr.sampleName]
->
 >     m8n                :: Modulation     =
 >       defModulation{
 >         mLowpass                         = Lowpass resonanceType curKernelSpec

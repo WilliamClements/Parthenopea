@@ -630,7 +630,7 @@ examine song for instrument and percussion usage ===============================
 >         (if ePitch mev > ePitch shred.shHighNote then mev else shred.shHighNote)
 >         (shred.shCount + 1)
 >
-> printShreds            :: (Map GMKind Shred) → IO ()
+> printShreds            :: Map GMKind Shred → IO ()
 > printShreds ding                         = 
 >   mapM_ (uncurry printShred) (Map.assocs ding)
 >   

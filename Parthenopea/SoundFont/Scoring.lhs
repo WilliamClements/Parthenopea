@@ -16,6 +16,7 @@ September 12, 2024
 > import qualified Codec.SoundFont         as F
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
+> import qualified Data.Bifunctor          as BF
 > import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
@@ -262,7 +263,7 @@ tournament starts here =========================================================
 >   return wiExec
 >
 >   where
->     fName_                               = "decideWinners"
+>     fName__                              = "decideWinners"
 >
 >     wiExec             :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiExec                               = (wI', wP')
@@ -278,16 +279,15 @@ tournament starts here =========================================================
 >       | traceIf trace_WIF False          = undefined
 >       | otherwise                        = result
 >       where
->         fName                            = unwords [fName_, "wiFolder"]
->         trace_WIF                        = unwords [fName, show pergmI_]
+>         fName_                           = unwords [fName__, "wiFolder"]
+>         trace_WIF                        = unwords [fName_, show pergmI_, show (BF.bimap length length result)]
 >
 >         result         :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->
 >         result                           =
 >           case perI.pInstCat of
 >             InstCatPerc _                → decidePerc
 >             InstCatInst                  → decideInst
->             _                            → error $ unwords [fName, "only Inst and Perc are valid here"]
+>             _                            → error $ unwords [fName_, "only Inst and Perc are valid here"]
 >
 >         decideInst     :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >         decideInst                       = 
@@ -302,7 +302,7 @@ tournament starts here =========================================================
 >             i2Fuzz'                      =
 >               profess
 >                 (not $ Map.null i2Fuzz)
->                 (unwords [fName, "unexpected empty matches"]) 
+>                 (unwords [fName_, "unexpected empty matches"]) 
 >                 (if multipleCompetes
 >                    then Map.keys i2Fuzz
 >                    else (singleton . fst) (Map.findMax i2Fuzz))
@@ -317,7 +317,7 @@ tournament starts here =========================================================
 >             bixen                        = case perI.pInstCat of
 >               InstCatPerc x              → x
 >               InstCatInst                → []
->               _                          → error $ unwords [fName, "only Inst and Perc are valid here"]
+>               _                          → error $ unwords [fName_, "only Inst and Perc are valid here"]
 >
 >             pergmsP                      = instrumentPercList pergmI_ bixen
 >
@@ -326,11 +326,13 @@ tournament starts here =========================================================
 >                           → Map PercussionSound [PerGMScored]
 >             pFolder wpFold pergmP        = xaEnterTournament fuzzMap pergmP [] wpFold kind
 >               where
+>                 fName                    = unwords [fName_, "pFolder"]
+>
 >                 mz     :: Maybe PreZone
 >                 mz                       = pergmP.pgkwBag >>= findByBagIndex pzs
 >                 mkind  :: Maybe PercussionSound
 >                 mkind                    = mz >>= getAP >>= pitchToPerc
->                 kind                     = deJust (unwords["wpFolder", "mkind"]) mkind
+>                 kind                     = deJust (unwords[fName, "mkind"]) mkind
 >
 >                 mffm   :: Maybe FFMatches
 >                 mffm                     =
@@ -357,7 +359,7 @@ tournament starts here =========================================================
 >       | traceIf trace_XAET False         = undefined
 >       | otherwise                        = Map.insertWith (++) kind [scored] wins
 >       where
->         fName                            = unwords [fName_, "xaEnterTournament"]
+>         fName                            = unwords [fName__, "xaEnterTournament"]
 >         trace_XAET                       =
 >           unwords [fName, iName, fromMaybe "" mnameZ, show kind]
 >

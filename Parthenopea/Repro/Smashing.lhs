@@ -111,7 +111,9 @@ zipper to carry out the you-know-what.
 
 > smashSmashings         :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒
 >                           Smashing i → Smashing i → Smashing i
-> smashSmashings s1 s2                     =
+> smashSmashings s1 s2
+>   | traceNot trace_SS False              = undefined
+>   | otherwise                            =
 >   Smashing
 >     (s1.smashTag ++ s2.smashTag)
 >     dims
@@ -120,6 +122,7 @@ zipper to carry out the you-know-what.
 >     svector
 >   where
 >     fName                                = "smashSmashings"
+>     trace_SS                             = unwords [fName, show s1, show s2]
 >
 >     svector                              = VU.zipWith smashCell s1.smashVec s2.smashVec
 >

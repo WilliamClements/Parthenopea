@@ -3,6 +3,7 @@
 >
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -115,20 +116,19 @@ and recovery.
 >     fName                                = "surveyInstruments"
 >
 >     bootFolder (bootIn, matchesIn, rdIn) sffile
->                                          = 
->       let
->         (bootOut, matchesOut, rdOut)     = reduceFileIterate (ingestFile sffile)     
->       in
->         (combineBoot bootIn bootOut, combineMatches matchesIn matchesOut, combinerd rdIn rdOut)
+>                                          =
+>       (combineBoot bootIn bootOut, combineMatches matchesIn matchesOut, combinerd rdIn rdOut)
+>       where
+>         (bootOut, matchesOut, rdOut)     = reduceFileIterate ingestFile
 >
->     ingestFile sffile                    =
->       let
->         unfinished fiIn                  = not (null fiIn.fiTaskIfs)
->         nextGen fiIn                     = fiIn{ fiFw = userFun fiIn.fiFw, fiTaskIfs = tail fiIn.fiTaskIfs}
->           where
->             (_, userFun)                 = head fiIn.fiTaskIfs
->       in
->         head $ dropWhile unfinished (iterate nextGen (makeFileIterate sffile rost))
+>         ingestFile                       =
+>           let
+>             unfinished fiIn              = not (null fiIn.fiTaskIfs)
+>             nextGen fiIn@FileIterate{ .. }
+>                                          = fiIn{ fiFw = (snd . head) fiTaskIfs fiFw
+>                                                , fiTaskIfs = tail fiTaskIfs}
+>           in
+>             head $ dropWhile unfinished (iterate nextGen (makeFileIterate sffile rost))
 
 support sample and instance ===========================================================================================
 
@@ -365,12 +365,15 @@ capture task ===================================================================
 >             
 >         captureZone    :: Word → Either PreZone (Disposition, Impact)
 >         captureZone bix
+>           | traceIf trace_CZ False       = undefined
 >           | isNothing pz.pzDigest.zdSampleIndex
 >                                          = Right (Accepted, GlobalZone)
 >           | isNothing mpres              = Right (Dropped, OrphanedBySample)
 >           | otherwise                    = Left pz{pzChanges = ChangeEar (effPSShdr pres) []}
 >           where
->             fName                        = unwords ["captureZone"]
+>             fName                        = "captureZone"
+>             trace_CZ                     =
+>               unwords [fName, sffile.zFilename, iName, show bix, show pz.pzDigest.zdSampleIndex]
 >                 
 >             ibags                        = sffile.zFileArrays.ssIBags
 >             xgeni                        = F.genNdx $ ibags ! bix
@@ -703,11 +706,12 @@ build zone task ================================================================
 >     computePerInst     :: InstZoneRecord → InstCat → Smashing Word → PerInstrument
 >     computePerInst zrec icat smashup
 >       | traceIf trace_CPI False          = undefined
->       | otherwise                        = PerInstrument (zip pzs oList) icat smashup
+>       | otherwise                        = result
 >       where
 >         fName                            = "computePerInst"
->         trace_CPI                        = unwords [fName, show pergm, show $ length zrec.zsPreZones, show $ length oList]
+>         trace_CPI                        = unwords [fName, preI.piChanges.cnName, show pergm, show $ length zrec.zsPreZones, show $ length oList, show (map pzWordB pzs)]
 >
+>         result                           = PerInstrument (zip pzs oList) icat smashup
 >         pergm                            = instKey zrec
 >         preI                             = fwBoot.zPreInstCache Map.! pergm
 >

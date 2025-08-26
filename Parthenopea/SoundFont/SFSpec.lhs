@@ -643,8 +643,8 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >
 > howVerboseRangesReport, howVerboseScanReport, howVerboseTournamentReport
 >                        :: Rational
-> howVerboseRangesReport                   = 0
-> howVerboseScanReport                     = 0/3
-> howVerboseTournamentReport               = 0/4
+> howVerboseRangesReport                   = 1
+> howVerboseScanReport                     = 3/3
+> howVerboseTournamentReport               = 4/4
 
 The End
