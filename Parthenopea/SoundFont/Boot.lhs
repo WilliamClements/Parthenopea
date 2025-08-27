@@ -59,7 +59,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   show fi                                =
 >     unwords ["FileIterate", show fi.fiFw]
 >
-> preSampleTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, markTaskIf, smashTaskIf, reorgTaskIf
+> preSampleTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, vetTaskIf, markTaskIf, smashTaskIf, reorgTaskIf
 >                , shaveTaskIf, matchTaskIf, catTaskIf, perITaskIf
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
 >
@@ -70,6 +70,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     [  ("preSample",  preSample)
 >      , ("preInst",    preInst)
 >      , ("capture",    mark . capture . survey)
+>      , ("vet",        vet)
 >      , ("smash",      smash)
 >      , ("reorg",      reorg) 
 >      , ("shave1",     shave)
@@ -84,6 +85,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     preInst                              = preInstTaskIf      sffile rost
 >     survey                               = surveyTaskIf       sffile rost
 >     capture                              = captureTaskIf      sffile rost
+>     vet                                  = vetTaskIf          sffile rost
 >     smash                                = smashTaskIf        sffile rost
 >     reorg                                = reorgTaskIf        sffile rost
 >     shave                                = shaveTaskIf        sffile rost
@@ -296,7 +298,7 @@ capture task ===================================================================
 >         (zrec{zsPreZones = newPzs, zsGlobalKey = mglobalKey}, rdOut)
 >
 >     captureZones       :: PerGMKey → ResultDispositions → ([PreZone], ResultDispositions, Maybe PreZoneKey)
->     captureZones pergm rdCap__           = (pzs', rdCap'', globalKey)
+>     captureZones pergm rdCap             = (pzs, rdCap', globalKey)
 >       where
 >         fName_                           = "captureZones"
 >
@@ -350,22 +352,11 @@ capture task ===================================================================
 >             result                       = foldr CM.mplus Nothing tested
 >         yesAdopt                         = Just [Scan Modified Adopted fName_ iName]
 >
->         rdCap'                           = dispose pergm ss rdCap__
->         (pzs', rdCap'')                  = zoneTask (const True) capFolder pzs rdCap'
+>         rdCap'                           = dispose pergm ss rdCap
 >
->         capFolder      :: PreZone → ResultDispositions → (Maybe PreZone, ResultDispositions)
->         capFolder pz rdFold              =
->           let
->             impact                       = if wasSwitchedToMono pz
->                                              then AdoptedAsMono
->                                              else Adopted
->             ssImpact                     = [Scan Modified impact fName_ (show iName)]
->           in
->             (Just pz, dispose (extractSampleKey pz) ssImpact rdFold)
->             
 >         captureZone    :: Word → Either PreZone (Disposition, Impact)
 >         captureZone bix
->           | traceIf trace_CZ False       = undefined
+>           | traceNot trace_CZ False      = undefined
 >           | isNothing pz.pzDigest.zdSampleIndex
 >                                          = Right (Accepted, GlobalZone)
 >           | isNothing mpres              = Right (Dropped, OrphanedBySample)
@@ -389,6 +380,54 @@ capture task ===================================================================
 >             presk                        = PreSampleKey sffile.zWordF si
 >             mpres                        = presk `Map.lookup` fwIn.fwBoot.zPreSampleCache
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
+
+
+vet task ==========================================================================================================
+          switch bad stereo zones to mono
+
+> vetTaskIf _ _ fwIn                       = zrecTask vetter fwIn
+>   where
+>     vetter zrec rdIn
+>       | traceIf trace_V False            = undefined
+>       | otherwise                        = (zrec{zsPreZones = pzs'}, rdOut')
+>       where
+>         fName_                           = "vetter"
+>         trace_V                          = unwords [fName_, iName, show $ instKey zrec, showPreZones pzs, showPreZones pzs']
+>
+>         pergm                            = instKey zrec
+>         preI                             = fwIn.fwBoot.zPreInstCache Map.! pergm
+>         iName                            = preI.piChanges.cnName
+>
+>         slipMap                          = foldl' slipper Map.empty zrec.zsPreZones
+>                                              where slipper m pz = Map.insert pz.pzWordS pz.pzWordB m
+>
+>         (pzs, rdOut)                     = zoneTask check modify zrec.zsPreZones rdIn
+>         (pzs', rdOut')                   = zoneTask (const True) adopt pzs rdOut
+>     
+>         check pz
+>           | traceIf trace_C False        = undefined
+>           | not (isStereoZone pz)        = False
+>           | isNothing motherpz           = True
+>           | (effPZShdr otherpz).sampleLink /= pz.pzWordS
+>                                          = True
+>           | otherwise                    = pz.pzDigest.zdKeyRange /= otherpz.pzDigest.zdKeyRange
+>                                            || pz.pzDigest.zdVelRange /= otherpz.pzDigest.zdVelRange
+>           where
+>             fName                        = unwords [fName_, "check"]
+>             trace_C                      = unwords [fName, show (pz.pzWordS, motherpz)]
+>
+>             isOther w pzAny              = w == pzAny.pzWordB
+>             motherpz                     = Map.lookup (effPZShdr pz).sampleLink slipMap
+>                                            >>= (\x → find (isOther x) zrec.zsPreZones)
+>             otherpz                      = deJust fName motherpz
+>
+>         modify pz rdFold                 = (Just $ makeMono pz, rdFold)
+>         adopt pz rdFold                  = (Just pz, dispose (extractSampleKey pz) ssImpact rdFold)
+>           where
+>             impact                       = if wasSwitchedToMono pz
+>                                              then AdoptedAsMono
+>                                              else Adopted
+>             ssImpact                     = [Scan Modified impact fName_ (show iName)]
 
 mark task =============================================================================================================
           copy global zone markers from zrecs to preInstCache
