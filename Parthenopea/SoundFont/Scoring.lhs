@@ -324,9 +324,12 @@ tournament starts here =========================================================
 >             pFolder    :: Map PercussionSound [PerGMScored]
 >                           → PerGMKey
 >                           → Map PercussionSound [PerGMScored]
->             pFolder wpFold pergmP        = xaEnterTournament fuzzMap pergmP [] wpFold kind
+>             pFolder wpFold pergmP
+>               | traceIf trace_PF False   = undefined
+>               | otherwise                = xaEnterTournament fuzzMap pergmP [] wpFold kind
 >               where
 >                 fName                    = unwords [fName_, "pFolder"]
+>                 trace_PF                 = unwords [fName, show pergmP, show mz, show (mz >>= getAP), show (mz >>= getAP >>= pitchToPerc)]
 >
 >                 mz     :: Maybe PreZone
 >                 mz                       = pergmP.pgkwBag >>= findByBagIndex pzs
@@ -344,7 +347,12 @@ tournament starts here =========================================================
 >                 fuzzMap                  = getFuzzMap $ deJust (unwords ["mffm"]) mffm
 >
 >                 getAP  :: PreZone → Maybe AbsPitch
->                 getAP pz                 = pz.pzDigest.zdKeyRange >>= (Just . fromIntegral . fst)
+>                 getAP pz                 =
+>                   pz.pzDigest.zdKeyRange
+>                   >>= Just . singleton
+>                   >>= Just . (++) (singleton percPitchRange)
+>                   >>= intersectRanges
+>                   >>= Just . (fromIntegral . fst)
 >           in
 >             (wI, foldl' pFolder wP pergmsP)
 >

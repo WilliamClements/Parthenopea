@@ -28,23 +28,23 @@ February 1, 2025
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isNothing, fromJust, fromMaybe )
 > import Data.Ord ( Down(Down) )
-> import Data.Time.Clock ( diffUTCTime, getCurrentTime )
+> import Data.Time.Clock ( getCurrentTime )
 > import qualified Data.Vector             as VB
 > import Debug.Trace ( traceIO )
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Render ( Instr )
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
-> import Euterpea.IO.MIDI.MEvent
+> import Euterpea.IO.MIDI.MEvent ( MEvent(ePitch) )
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Passage
-> import Parthenopea.Music.PassageTest
+> import Parthenopea.Music.PassageTest ( passageTests )
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Envelopes ( deriveEnvelope )
 > import Parthenopea.Repro.EnvelopesTest ( envelopesTests )
 > import Parthenopea.Repro.Modulation
-> import Parthenopea.Repro.ModulationTest
+> import Parthenopea.Repro.ModulationTest ( modulationTests )
 > import Parthenopea.Repro.Smashing ( lookupCellIndex )
 > import Parthenopea.Repro.SmashingTest ( smashingTests )
 > import Parthenopea.Repro.Synthesizer
@@ -122,7 +122,7 @@ executive ======================================================================
 >          , ToFieldL (indicator lo) 8
 >          , emitShowR (pitch hi) 8, Blanks 3
 >          , ToFieldL (indicator hi) 8
->          , emitShowL shred.shCount 15
+>          , emitShowR shred.shCount 15
 >          , ToFieldL strAlt 20, EndOfLine]
 >           
 >         doPercussion       :: PercussionSound → [Emission]
@@ -142,10 +142,10 @@ executive ======================================================================
 >
 > writeScanReport        :: SFRuntime → ResultDispositions → IO ()
 > writeScanReport runt rd                  = do
->   CM.when diagnosticsEnabled             (putStrLn $ unwords [fName, show rd])
->   tsStarted                              ← getCurrentTime
+>   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show rd])
 >
 >   -- output all selections to the report file
+>   tsStarted                              ← getCurrentTime
 >   let esTimeStamp                        = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
 >   let esSampleSummary                    = summarize rd.preSampleDispos ++ [EndOfLine]
 >   let esInstSummary                      = summarize rd.preInstDispos ++ [EndOfLine]
@@ -160,11 +160,6 @@ executive ======================================================================
 >     ([esTimeStamp, esSampleSummary, esInstSummary, esPreZoneSummary]
 >      ++ if howVerboseScanReport < (1/3) then [] else [esSampleScan, esInstScan, esPreZoneScan]
 >      ++ [esTail])
->
->   tsFinished                             ← getCurrentTime
->   putStrLn (unwords ["___report scan results:", show (diffUTCTime tsFinished tsStarted)])
->   traceIO (unwords ["wrote", reportScanName])
->
 >   where
 >     fName                                = "writeScanReport"
 >
@@ -218,8 +213,6 @@ executive ======================================================================
 >                           → IO ()
 > writeTournamentReport runt pContI pContP
 >                        = do
->   tsStarted            ← getCurrentTime
->
 >   -- output all selections to the report file
 >   let legend           =
 >           emitComment     [   Unblocked "legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]"]
@@ -233,9 +226,6 @@ executive ======================================================================
 >   let eol              = singleton EndOfLine
 >
 >   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP, esQ, esTail]
->   tsFinished           ← getCurrentTime
->   putStrLn ("___report tournament results: " ++ show (diffUTCTime tsFinished tsStarted))
->   traceIO ("wrote " ++ reportTournamentName)
 >
 >   where
 >     nfs                :: [(Int, SFFile)]

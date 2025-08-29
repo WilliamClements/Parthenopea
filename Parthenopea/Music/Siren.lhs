@@ -41,9 +41,6 @@ December 12, 2022
   
 Utilities =============================================================================================================
 
-> percPitchRange         :: (AbsPitch, AbsPitch)
-> percPitchRange                           = (fromEnum AcousticBassDrum + 35, fromEnum OpenTriangle + 35)
->
 > addDur                 :: Dur → [Dur → Music a] → Music a
 > addDur durA ns  =  let fun n = n durA
 >                    in line (map fun ns)
@@ -455,11 +452,12 @@ instrument range checking ======================================================
 > unionRanges []                           = error "empty range list"
 > unionRanges (r:rs)                       = ( minimum (map fst (r:rs))
 >                                            , maximum (map snd (r:rs)) )
-> intersectRanges        :: Ord b ⇒ [(b, b)] → Maybe (b, b)
+> intersectRanges        :: (Ord b, Show b) ⇒ [(b, b)] → Maybe (b, b)
 > intersectRanges (r:rs)                   =
 >   case uncurry compare inverted of
 >     LT → Just inverted
->     _  → Nothing
+>     EQ → Just inverted
+>     GT  → Nothing
 >   where
 >     inverted                             = ( maximum (map fst (r:rs))
 >                                            , minimum (map snd (r:rs)) )
@@ -713,6 +711,9 @@ music-related utilities ========================================================
 >
 > percussionLimit        :: Double
 > percussionLimit                          = fromIntegral $ fromEnum OpenTriangle
+>
+> percPitchRange         :: (Word, Word)
+> percPitchRange                           = ((fromIntegral . fromEnum) AcousticBassDrum + 35, (fromIntegral . fromEnum) OpenTriangle + 35)
 >
 > pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Maybe (AbsPitch, AbsPitch)
 > pinnedKR pss (p1, p2)                    = if qualifies then Just (p1, p2) else Nothing                   

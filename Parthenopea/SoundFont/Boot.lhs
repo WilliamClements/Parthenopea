@@ -59,7 +59,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   show fi                                =
 >     unwords ["FileIterate", show fi.fiFw]
 >
-> preSampleTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, vetTaskIf, markTaskIf, smashTaskIf, reorgTaskIf
+> preSampleTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, markTaskIf, vetTaskIf, smashTaskIf, reorgTaskIf
 >                , shaveTaskIf, matchTaskIf, catTaskIf, perITaskIf
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
 >
@@ -166,15 +166,21 @@ pre-sample task ================================================================
 >         raw                              = shdr.sampleName
 >         good                             = fixName raw
 >
+>         mtype                            = toMaybeSampleType shdr.sampleType
+>         stereo                           =
+>           case mtype of
+>             Just SampleTypeLeft          → "stereo"
+>             Just SampleTypeRight         → "stereo"
+>             _                            → "mono"
+>
 >         ss_
 >           | not (goodSampleRate shdr.sampleRate)
 >                                          = [Scan Violated BadSampleRate fName (show shdr.sampleRate)]
->           | isNothing (toMaybeSampleType shdr.sampleType)
->                                          = [Scan Violated BadSampleType fName (show shdr.sampleType)]
+>           | isNothing mtype              = [Scan Violated BadSampleType fName (show shdr.sampleType)]
 >           | not (sampleSizeOk (shdr.start, shdr.end))
 >                                          = [Scan Violated BadSampleLimits fName (show (shdr.start, shdr.end))]
 >           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
->           | otherwise                    = [Scan Accepted Ok fName (show presk.pskwSampleIndex)]
+>           | otherwise                    = [Scan Accepted Ok fName stereo]
 >
 >         (ss, changes, name)              = if wasRescued CorruptName ss_
 >                                              then (ss_, singleton FixCorruptName, good)
@@ -381,6 +387,18 @@ capture task ===================================================================
 >             mpres                        = presk `Map.lookup` fwIn.fwBoot.zPreSampleCache
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
 
+mark task =============================================================================================================
+          copy global zone markers from zrecs to preInstCache
+
+> markTaskIf _ _ fwIn@FileWork{fwBoot}     = fwIn{fwBoot = fwBoot{zPreInstCache = preInstCache'}}
+>   where
+>     preInstCache'                        = zrecCompute fwIn markFolder fwBoot.zPreInstCache
+>     markFolder preInstCache zrec         =
+>       let
+>         pergm                            = instKey zrec
+>         preI                             = preInstCache Map.! pergm
+>       in
+>         Map.insert pergm (preI{iGlobalKey = zrec.zsGlobalKey}) preInstCache
 
 vet task ==========================================================================================================
           switch bad stereo zones to mono
@@ -406,6 +424,8 @@ vet task =======================================================================
 >     
 >         check pz
 >           | traceIf trace_C False        = undefined
+>           | not switchBadStereoZonesToMono
+>                                          = False
 >           | not (isStereoZone pz)        = False
 >           | isNothing motherpz           = True
 >           | (effPZShdr otherpz).sampleLink /= pz.pzWordS
@@ -416,10 +436,13 @@ vet task =======================================================================
 >             fName                        = unwords [fName_, "check"]
 >             trace_C                      = unwords [fName, show (pz.pzWordS, motherpz)]
 >
->             isOther w pzAny              = w == pzAny.pzWordB
 >             motherpz                     = Map.lookup (effPZShdr pz).sampleLink slipMap
->                                            >>= (\x → find (isOther x) zrec.zsPreZones)
+>                                            >>= thisOther
 >             otherpz                      = deJust fName motherpz
+>
+>             thisOther  :: Word → Maybe PreZone
+>             thisOther w                  = find (isOther w) zrec.zsPreZones
+>                                              where isOther wFind pzAny = wFind == pzAny.pzWordB
 >
 >         modify pz rdFold                 = (Just $ makeMono pz, rdFold)
 >         adopt pz rdFold                  = (Just pz, dispose (extractSampleKey pz) ssImpact rdFold)
@@ -428,19 +451,6 @@ vet task =======================================================================
 >                                              then AdoptedAsMono
 >                                              else Adopted
 >             ssImpact                     = [Scan Modified impact fName_ (show iName)]
-
-mark task =============================================================================================================
-          copy global zone markers from zrecs to preInstCache
-
-> markTaskIf _ _ fwIn@FileWork{fwBoot}     = fwIn{fwBoot = fwBoot{zPreInstCache = preInstCache'}}
->   where
->     preInstCache'                        = zrecCompute fwIn markFolder fwBoot.zPreInstCache
->     markFolder preInstCache zrec         =
->       let
->         pergm                            = instKey zrec
->         preI                             = preInstCache Map.! pergm
->       in
->         Map.insert pergm (preI{iGlobalKey = zrec.zsGlobalKey}) preInstCache
 
 smash task ============================================================================================================
           compute smashups for each instrument
@@ -539,7 +549,8 @@ To build the map
 >             towners                      = map (townersMap Map.!) memberIs
 >
 >             combined                     = concatMap fst towners
->             rebased                      = map rebase combined where rebase pz = pz{pzWordI = leadI}
+>             rebased                      = map rebase combined
+>                                              where rebase pz = pz{pzWordI = leadI}
 >
 >             smashups                     = map snd towners
 >             osmashup                     = foldl' smashSmashings (head smashups) (tail smashups)
@@ -681,8 +692,8 @@ categorization task ============================================================
 >             canBePercZ :: PreZone → Bool
 >             canBePercZ x                 =
 >               case x.pzDigest.zdKeyRange of
->                 Just rng                 →    inRange rng ((fromIntegral . fst) percPitchRange)
->                                            && inRange rng ((fromIntegral . snd) percPitchRange)
+>                 Just rng                 →    inRange rng (fst percPitchRange)
+>                                            && inRange rng (snd percPitchRange)
 >                 Nothing                  → True
 >      
 >             howLaden   :: [Word] → Double
@@ -903,5 +914,8 @@ build zone task ================================================================
 > doAbsorption                             = True
 > fixBadNames            :: Bool
 > fixBadNames                              = True
+> switchBadStereoZonesToMono
+>                        :: Bool
+> switchBadStereoZonesToMono               = True
 
 The End

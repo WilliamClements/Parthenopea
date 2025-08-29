@@ -77,7 +77,6 @@ Test runner ====================================================================
 >   results                                ← sequence tests
 >   let nSuccesses                         = foldl' (\n t → n + if t then 1 else 0) 0 results
 >   return (nSuccesses == length results)
->
 
 Debugging Flags =======================================================================================================
 

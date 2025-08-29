@@ -109,5 +109,9 @@ Quick & dirty way to format strings into tabular form
 > writeFileBySections    :: FilePath → [[Emission]] → IO ()
 > writeFileBySections fp eSections         = do
 >   mapM_ (appendFile fp . reapEmissions) eSections
+>   appendFile fp (reapEmissions theEnd)
+>   putStrLn (unwords ["wrote", fp])
+>   where
+>     theEnd = [EndOfLine, EndOfLine, Unblocked "The End", EndOfLine]
 
 The End
