@@ -101,6 +101,7 @@ Create a straight-line envelope generator with following phases:
 > doVeloSweepingEnvelope :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
 > doVeloSweepingEnvelope timeFrame vIn
 >   | 0 == dLen                            = constA 128
+>   | 1 == dLen                            = constA 128
 >   | 2 == dLen                            = runEnvelope segmentsFor2
 >   | 4 == dLen                            = runEnvelope segmentsFor4
 >   | otherwise                            =

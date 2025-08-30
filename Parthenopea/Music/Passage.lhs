@@ -131,12 +131,12 @@ _Overall                 =
 >   | otherwise                            = VB.foldl' final (rest 0) enriched
 >   where
 >     fName_                               = "passageImpl"
->     trace_IP                             = unwords [fName_, show markings, show (VB.map mEvent withEvents)]
+>     trace_IP                             = unwords [fName_, show markings]
 >
 >     -- reconstruct notes with added dynamics metadata
 >     final              :: Music1 → MekNote → Music1 
 >     final music mek
->       | traceIf trace_F False            = undefined
+>       | traceNot trace_F False           = undefined
 >       | otherwise                        =
 >       music :+: case mek.mPrimitive of
 >                   Note durI pitchI       →
@@ -200,7 +200,7 @@ _Overall                 =
 >         lastSi                           = snd $ VB.last nodePairs
 >
 >         computeOverall si0 si1
->           | traceIf trace_CO False       = undefined
+>           | traceNot trace_CO False      = undefined
 >           | otherwise                    = VB.singleton (si0, mek0{mOverall = makeOverall loud0 loud1 ev0 ev1})
 >           where
 >             fName                        = "computeOverall"
@@ -233,7 +233,7 @@ _Overall                 =
 >             seedOne mekArg               = VB.singleton $ changeParams mekArg (Left $ getMarkVelocity mekArg)
 >
 >             seeden si0 si1
->               | traceIf trace_S False    = undefined
+>               | traceNot trace_S False   = undefined
 >               | otherwise                = VB.map infuse seedMeks
 >               where
 >                 fName                    = "seeden"

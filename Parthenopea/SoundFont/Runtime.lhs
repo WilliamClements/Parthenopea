@@ -282,7 +282,7 @@ define signal functions and instrument maps to support rendering ===============
 >       unwords [fName_, show pergm.pgkwFile, show preI.piChanges.cnSource, show (pchIn, volIn), show durI, show ps]
 >
 >     ps                                   = VB.fromList ps_
->     noonIn                               = NoteOn volIn pchIn
+>     noonIn                               = carefulNoteOn volIn pchIn
 >     fly                                  = doFlyEye noonIn
 >
 >     noonOutL, noonOutR
@@ -324,7 +324,7 @@ zone selection for rendering ===================================================
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where
 >         fName                            = unwords [fName_, "doFlyEye"]
->         trace_DFE                        = unwords [fName, show perI.pSmashing]
+>         trace_DFE                        = unwords [fName, show noonFly, show perI.pSmashing]
 >
 >         (index1, index2)                 = noonAsCoords noonFly
 >         (bagIdL, cntL)                   = lookupCellIndex index1 perI.pSmashing

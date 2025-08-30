@@ -406,7 +406,7 @@ vet task =======================================================================
 > vetTaskIf _ _ fwIn                       = zrecTask vetter fwIn
 >   where
 >     vetter zrec rdIn
->       | traceIf trace_V False            = undefined
+>       | traceNot trace_V False           = undefined
 >       | otherwise                        = (zrec{zsPreZones = pzs'}, rdOut')
 >       where
 >         fName_                           = "vetter"
@@ -423,7 +423,7 @@ vet task =======================================================================
 >         (pzs', rdOut')                   = zoneTask (const True) adopt pzs rdOut
 >     
 >         check pz
->           | traceIf trace_C False        = undefined
+>           | traceNot trace_C False       = undefined
 >           | not switchBadStereoZonesToMono
 >                                          = False
 >           | not (isStereoZone pz)        = False
@@ -553,7 +553,8 @@ To build the map
 >                                              where rebase pz = pz{pzWordI = leadI}
 >
 >             smashups                     = map snd towners
->             osmashup                     = foldl' smashSmashings (head smashups) (tail smashups)
+>             osmashup                     = (foldl' smashSmashings (head smashups) (tail smashups))
+>                                              {smashTag = unwords [show leadI, show memberIs]}
 >
 >             memberHasVelocityRanges      = isJust $ find zonesHaveVelocityRange (map fst towners)
 >             zonesHaveVelocityRange pzs   = isJust $ find zoneHasVelocityRange pzs   

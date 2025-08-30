@@ -109,13 +109,12 @@ Smashing smashings =============================================================
 We smash smashings together in the Midi case to merge multiple Instruments into one. The function smashCell acts as a
 zipper to carry out the you-know-what.
 
-> smashSmashings         :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒
->                           Smashing i → Smashing i → Smashing i
+> smashSmashings         :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ Smashing i → Smashing i → Smashing i
 > smashSmashings s1 s2
 >   | traceNot trace_SS False              = undefined
 >   | otherwise                            =
 >   Smashing
->     (s1.smashTag ++ s2.smashTag)
+>     fName
 >     dims
 >     (s1.smashSpaces ++ s2.smashSpaces)
 >     (developSmashStats svector)
@@ -149,10 +148,12 @@ zipper to carry out the you-know-what.
 > lookupCellIndex        :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
 > lookupCellIndex coords smashup           = cell
 >   where
+>     fName                                = "lookupCellIndex"
+>
 >     cell_                                =
 >       profess
 >         (validCoords coords smashup)
->         (unwords ["lookupCellIndex", "invalid coords"])
+>         (unwords [fName, "invalid coords", show coords])
 >         (smashup.smashVec VU.! computeCellIndex smashup.smashDims coords)
 >     cell                                 =
 >       if snd cell_ > 0
