@@ -184,8 +184,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p Double Double
-> eutPumpMonoSample reconL s16 ms8
->                                          =
+> eutPumpMonoSample reconL s16 ms8         =
 >   proc pos → do
 >     let pos'           :: Double         = fromIntegral (reconL.rEnd - reconL.rStart) * pos
 >     let ix             :: Int            = truncate pos'
@@ -193,7 +192,6 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 >     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral reconL.rStart + ix)
 >     outA                                 ⤙ a1L * ampL
->
 >   where
 >     cAttenL            :: Double         =
 >       fromCentibels (reconL.rAttenuation + evaluateMods ToInitAtten reconL.rM8n.mModsMap reconL.rNoteOn)
@@ -213,8 +211,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 >     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral stL + ix) 
 >     let a1R                              = samplePointInterp s16 ms8 offset (fromIntegral stR + ix)
->     outA ⤙ (a1L * ampL, a1R * ampR)
->
+>     outA                                 ⤙ (a1L * ampL, a1R * ampR)
 >   where
 >     Recon{rAttenuation = attenL, rStart = stL, rEnd = enL, rM8n = m8nL}
 >                                          = reconL
@@ -309,7 +306,6 @@ Effects ========================================================================
 >                    then delay 0                          ⤙ pR
 >                    else dcBlock 0.995                    ⤙ pR
 >     outA                                                 ⤙ (pL', pR')
->
 >   where
 >     Effects{efChorus = cFactorL, efReverb = rFactorL, efPan = pFactorL} = effL
 >     Effects{efChorus = cFactorR, efReverb = rFactorR, efPan = pFactorR} = effR

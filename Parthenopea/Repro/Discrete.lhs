@@ -143,7 +143,7 @@ Discrete approach ==============================================================
 >                                          = deJust fName $ fromContinuousSig fName (targetT + minUseful) asignal
 >       | otherwise                        = error $ unwords [fName, show clockRate, "clockRate not supported"]
 >
->     (targetT, _, _)                      = deJust fName env.fTargetT
+>     targetT                              = (deJust fName env.fExtras).eeTargetT
 >
 >     nindices                             = VU.findIndices (< 0) dsig.dsigVec
 >     nvalues                              = VU.map (dsig.dsigVec VU.!) nindices

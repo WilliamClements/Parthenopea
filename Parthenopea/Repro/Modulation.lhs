@@ -672,9 +672,14 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , tfSecsScored       :: Double
 >   , tfSecsToPlay       :: Double
 >   , tfLooping          :: Bool} deriving (Eq, Show)
+> data EnvelopeExtras                      =
+>   EnvelopeExtras {
+>     eeTargetT          :: Double
+>   , eeReleaseT         :: Double
+>   , eePostT            :: Double} deriving (Eq, Show)
 > data FEnvelope                           =
 >   FEnvelope {
->     fTargetT           :: Maybe (Double, Double, Double)
+>     fExtras            :: Maybe EnvelopeExtras
 >   , fSustainLevel      :: Double
 >   , fModTriple         :: Maybe ModTriple
 >

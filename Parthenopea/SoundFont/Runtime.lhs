@@ -122,7 +122,7 @@ executive ======================================================================
 >          , ToFieldL (indicator lo) 8
 >          , emitShowR (pitch hi) 8, Blanks 3
 >          , ToFieldL (indicator hi) 8
->          , emitShowR shred.shCount 15
+>          , emitShowR shred.shCount 10, Blanks 5
 >          , ToFieldL strAlt 20, EndOfLine]
 >           
 >         doPercussion       :: PercussionSound → [Emission]
@@ -279,7 +279,7 @@ define signal functions and instrument maps to support rendering ===============
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
->       unwords [fName_, show pergm.pgkwFile, show preI.piChanges.cnSource, show (pchIn, volIn), show durI, show ps]
+>       unwords [fName_, show pergm, show preI.piChanges.cnName, show (pchIn, volIn), show durI, show ps]
 >
 >     ps                                   = VB.fromList ps_
 >     noonIn                               = carefulNoteOn volIn pchIn
@@ -356,7 +356,7 @@ reconcile zone and sample header ===============================================
 >   | otherwise                            = reconL
 >   where
 >     fName                                = "makeRecon"
->     trace_MR                             = unwords [fName, shdr.sampleName]
+>     trace_MR                             = unwords [fName, shdr.sampleName, show z]
 >
 >     zd                                   = pz.pzDigest
 >     shdr                                 = effPZShdr pz

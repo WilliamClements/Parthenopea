@@ -806,13 +806,13 @@ build zone task ================================================================
 >     gens                                 =
 >       profess
 >         (xgeni <= ygeni)
->         (unwords["SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt (buildZone gens)"])
+>         (unwords[fName, "SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt gens"])
 >         (map (boota.ssIGens !) (deriveRange xgeni ygeni))
 >     mods               :: [(Word, F.Mod)]
 >     mods                                 =
 >       profess
 >         (xmodi <= ymodi)
->         (unwords["SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt (buildZone mods)"])
+>         (unwords[fName, "SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt mods"])
 >         (zip [10_000..] (map (boota.ssIMods !) (deriveRange xmodi ymodi)))
 >
 > addGen                 :: SFZone → F.Generator → SFZone

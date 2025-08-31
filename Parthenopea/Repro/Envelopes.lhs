@@ -34,7 +34,7 @@ Apr 26, 2025
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
-
+  
 volume and modulation envelopes =======================================================================================
 
 Implement the SoundFont envelope model with specified:
@@ -77,7 +77,7 @@ Create a straight-line envelope generator with following phases:
 > proposeSegments tf envRaw                = (r, segs)
 >   where
 >     r                  :: FEnvelope      =
->       refineEnvelope envRaw{fTargetT = Just (tf.tfSecsScored, releaseT, releaseT)}
+>       refineEnvelope envRaw{fExtras = Just $ EnvelopeExtras tf.tfSecsScored releaseT releaseT}
 >
 >     amps, deltaTs      :: [Double]
 >     amps                                 =
@@ -146,12 +146,12 @@ interpret them somehow.
 
 > feSum, feRemaining     :: FEnvelope → Double
 > feSum fe                                 =
->   fe.fDelayT + fe.fAttackT + fe.fHoldT + fe.fDecayT + fe.fSustainT + releaseT + postT
+>   fe.fDelayT + fe.fAttackT + fe.fHoldT + fe.fDecayT + fe.fSustainT + ee.eeReleaseT + ee.eePostT
 >   where
->     (_, releaseT, postT)                 = fromJust fe.fTargetT
+>     ee                                   = fromJust fe.fExtras
 > feRemaining work                         = targetT - feSum work
 >   where
->     (targetT, _, _)                      = fromJust work.fTargetT
+>     targetT                              = (fromJust work.fExtras).eeTargetT
 >
 > data FIterate                            =
 >   FIterate {
@@ -165,7 +165,7 @@ interpret them somehow.
 > evaluateCase           :: FEnvelope → FCase
 > evaluateCase fe                          =
 >   let
->     (targetT, _, _)                      = fromJust fe.fTargetT
+>     targetT                              = (fromJust fe.fExtras).eeTargetT
 >   in
 >     FCase
 >       ((fe.fDelayT + fe.fAttackT + fe.fHoldT) >= (9/10) * targetT)
@@ -199,7 +199,7 @@ interpret them somehow.
 >     iterIn
 >   where
 >     theSum                               = feSum iterIn.fiEnvWork
->     (targetT, _, _)                      = fromJust iterIn.fiEnvWork.fTargetT
+>     targetT                              = (fromJust iterIn.fiEnvWork.fExtras).eeTargetT
 >
 > feFinish               :: FIterate → FEnvelope → FIterate
 > feFinish iterIn workee                   =
@@ -326,7 +326,7 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >   where
 >     fName                                = "maybeVetAsDiscreteSig"
 >
->     (secs, _, _)                         = deJust fName env.fTargetT
+>     secs                                 = (deJust fName env.fExtras).eeTargetT
 >     timeSkip                             = secs /= clip (1/32, 2) secs
 >
 > vetAsDiscreteSig       :: Double → FEnvelope → Segments → Maybe (DiscreteSig Double)
@@ -341,7 +341,7 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >     fName                                = "vetAsDiscreteSig"
 >
 >     dsig                                 = discretizeEnvelope clockRate env segs
->     (targetT, _, _)                      = deJust fName env.fTargetT
+>     targetT                              = (deJust fName env.fExtras).eeTargetT
 >
 >     checkSize                            = truncate $ minDeltaT * clockRate
 >     dipThresh          :: Double         = 1/10
@@ -369,15 +369,15 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >   where
 >     fName                                = "vetEnvelope"
 >
->     (targetT, _, postT)                  = deJust fName env.fTargetT
+>     ee                                   = deJust fName env.fExtras
 >
 >     badAmp, badDeltaT  :: Bool
 >     badAmp                               = isJust $ find (< 0) segs.sAmps
 >     badDeltaT                            = isJust $ find (< 0) segs.sDeltaTs
 >
 >     a                                    = feSum env
->     b                                    = targetT
->     c                                    = foldl' (+) (postT - 1) segs.sDeltaTs
+>     b                                    = ee.eeTargetT
+>     c                                    = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
 >
 > useEnvelopes           :: Bool
 > useEnvelopes                             = True

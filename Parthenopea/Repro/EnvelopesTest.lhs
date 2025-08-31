@@ -50,8 +50,8 @@ Envelopes-related tests ========================================================
 >         return True
 >   where
 >     (r, segs)                            = proposeSegments tf fe
->     (_, _, postT)                        = deJust "munch" r.fTargetT
->     secs                                 = foldl' (+) (postT - 1) segs.sDeltaTs
+>     ee                                   = deJust "munch" r.fExtras
+>     secs                                 = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
 >     
 >     mdsig                                = vetAsDiscreteSig clockRate r segs
 >     nPoints            :: Int            = round $ clockRate * (tf.tfSecsScored + 0.5)
