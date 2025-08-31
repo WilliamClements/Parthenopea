@@ -501,7 +501,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >     ex = emitLine [ Blanks 4, emitShowL      scored.pPerGMKey.pgkwFile       8
 >                             , ToFieldR       scored.szI                      22
 >                   , Blanks 4, ToFieldR      (fromMaybe "" scored.mszP)       22
->                   , Blanks 4, emitShowL      scored.pArtifactGrade.pScore                   15
+>                   , Blanks 4, emitShowL      scored.pArtifactGrade.pScore    15
 >                             , ToFieldL       showEmp                         n
 >                             , emitShowR      showAkr                         8]
 

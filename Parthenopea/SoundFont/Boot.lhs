@@ -677,7 +677,7 @@ categorization task ============================================================
 >               let
 >                 uFrac                = howLaden uZones
 >                 wFrac                = howLaden wZones
->               in if canBePercI pzs && fr < uFrac
+>               in if (howLaden (filter canBePercZ pzs) > 0.4) && fr < uFrac
 >                 then
 >                   (if 0.2 < wFrac
 >                      then Just (catPerc wZones)
@@ -688,16 +688,11 @@ categorization task ============================================================
 >                        :: (Foldable t, Show (t Fuzz)) ⇒ Fuzz → InstCat → t Fuzz → Maybe InstCat
 >             maybeSettle thresh ic keys   = find (> thresh) keys >> Just ic
 >
->             canBePercI :: [PreZone] → Bool
->             canBePercI                   = all canBePercZ
 >             canBePercZ :: PreZone → Bool
 >             canBePercZ x                 =
->               case x.pzDigest.zdKeyRange of
->                 Just rng                 →    inRange rng (fst percPitchRange)
->                                            && inRange rng (snd percPitchRange)
->                 Nothing                  → True
+>               maybe True (\y → isJust $ intersectRanges [y, percPitchRange]) x.pzDigest.zdKeyRange
 >      
->             howLaden   :: [Word] → Double
+>             howLaden   :: ∀ a . [a] → Double
 >             howLaden ws
 >               | null pzs                 = 0
 >               | otherwise                = (fromIntegral . length) ws / (fromIntegral . length) pzs
@@ -912,7 +907,7 @@ build zone task ================================================================
 >     n2                                   = 2
 >     n20                                  = 20
 > doAbsorption           :: Bool
-> doAbsorption                             = True
+> doAbsorption                             = False -- WOX
 > fixBadNames            :: Bool
 > fixBadNames                              = True
 > switchBadStereoZonesToMono
