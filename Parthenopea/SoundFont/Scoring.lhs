@@ -141,9 +141,10 @@ use "matching as" cache ========================================================
 >     pas = createFuzzMap inp percussionProFFKeys
 >     pbs = createFuzzMap inp percussionConFFKeys
 >
-> zoneConforms           :: (PreZone, SFZone) → Bool
-> zoneConforms (pz, zone)                  = not $ or unsupported
+> zoneConforms           :: PreZone → Bool
+> zoneConforms pz                          = not $ or unsupported
 >   where
+>     zone                                 = pz.pzSFZone
 >     shdr                                 = effPZShdr pz
 >
 >     unsupported        :: [Bool]
@@ -312,7 +313,7 @@ tournament starts here =========================================================
 >         decidePerc     :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >         decidePerc                       = 
 >           let
->             pzs                          = map fst perI.pZones
+>             pzs                          = perI.pZones
 >
 >             bixen                        = case perI.pInstCat of
 >               InstCatPerc x              → x
@@ -376,7 +377,7 @@ tournament starts here =========================================================
 >         iName                            = preI.piChanges.cnName
 >         perI                             = runt.zBoot.zPerInstCache Map.! pergm_
 >
->         scope_, scope  :: [(PreZone, SFZone)]
+>         scope_, scope  :: [PreZone]
 >         scope_                           =
 >           case pergm.pgkwBag of
 >             Nothing                      → perI.pZones
@@ -394,9 +395,9 @@ tournament starts here =========================================================
 >             
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
 >                                            >>= findByBagIndex' perI.pZones
->                                            >>= \(q, _) → Just (F.sampleName (effPZShdr q))
+>                                            >>= \q → Just (F.sampleName (effPZShdr q))
 >
->         computeGrade   :: [(PreZone, SFZone)] → ArtifactGrade
+>         computeGrade   :: [PreZone] → ArtifactGrade
 >         computeGrade zs                  = gradeEmpiricals (Grader ssWeights 500) empiricals
 >           where
 >             empiricals :: [Double]       = [   foldHints hints
@@ -414,16 +415,16 @@ tournament starts here =========================================================
 >           PerGMScored (computeGrade scope) (toGMKind kind) akResult pergm iName mnameZ
 >
 >         computeResolution
->                        :: [(PreZone, SFZone)] → Double
+>                        :: [PreZone] → Double
 >         computeResolution zs
 >           | null zs                      = error $ unwords ["null zs"]
 >           | otherwise                    = fromRational m1 * evalSplits kind + fromRational m2 * evalSampleSize
 >           where
->             theSplit                     = splitScore kind (map fst zs)
+>             theSplit                     = splitScore kind zs
 >             evalSplits _
 >               | theSplit <= 1            = 1
 >               | otherwise                = log (m3 * theSplit)
->             evalSampleSize               = sum (map (durScoring . fst) zs) / fromIntegral (length zs)
+>             evalSampleSize               = sum (map durScoring zs) / fromIntegral (length zs)
 >
 >             m1                           = 2/3
 >             m2                           = 1/3

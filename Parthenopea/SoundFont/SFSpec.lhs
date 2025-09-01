@@ -71,6 +71,7 @@ implementing SoundFont spec ====================================================
 >   , pzWordI            :: Word
 >   , pzWordB            :: Word
 >   , pzDigest           :: ZoneDigest
+>   , pzSFZone           :: SFZone
 >   , pzChanges          :: ChangeEar F.Shdr} deriving Eq
 > instance Show PreZone where
 >   show pz                                =
@@ -80,7 +81,7 @@ implementing SoundFont spec ====================================================
 >
 > makePreZone            :: Word → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
 > makePreZone wF wS wI wB gens shdr        =
->   PreZone wF wS wI wB (formDigest gens) (ChangeEar shdr [])
+>   PreZone wF wS wI wB (formDigest gens) defZone (ChangeEar shdr [])
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
@@ -109,21 +110,18 @@ implementing SoundFont spec ====================================================
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
 >
-> data PreInstrument                       =
->   PreInstrument {
->     piChanges          :: ChangeName F.Inst
->   , iGlobalKey         :: Maybe PreZoneKey}
+> newtype PreInstrument                    = PreInstrument {piChanges :: ChangeName F.Inst}
 > instance Show PreInstrument where
 >   show preI                              =
 >     unwords ["PreInstrument", show preI.piChanges.cnName]
 >
 > data PerInstrument                       =
 >   PerInstrument {
->     pZones             :: [(PreZone, SFZone)]
+>     pZones             :: [PreZone]
 >   , pInstCat           :: InstCat
 >   , pSmashing          :: Smashing Word}
 > showBags               :: PerInstrument → String
-> showBags perI                            = show (map (pzWordB . fst) perI.pZones)
+> showBags perI                            = show (map pzWordB perI.pZones)
 >
 > data SFZone =
 >   SFZone {
@@ -329,8 +327,8 @@ implementing SoundFont spec ====================================================
 > findByBagIndex         :: [PreZone] → Word → Maybe PreZone
 > findByBagIndex pzs w                     = find (\pz → w == pz.pzWordB) pzs
 >
-> findByBagIndex'        :: [(PreZone, a)] → Word → Maybe (PreZone, a)
-> findByBagIndex' zs w                     = find (\(pz, _) → w == pz.pzWordB) zs
+> findByBagIndex'        :: [PreZone] → Word → Maybe PreZone
+> findByBagIndex' zs w                     = find (\pz → w == pz.pzWordB) zs
 
 bootstrapping =========================================================================================================
 
@@ -468,9 +466,9 @@ sufficient to protect below code from bad data and document the situation. But .
 out diagnostics might cause us to execute this code first. So, being crash-free/minimal in isStereoZone et al.
 
 > isStereoInst, is24BitInst
->                        :: [(PreZone, a)] → Bool
+>                        :: [PreZone] → Bool
 >
-> isStereoInst zs                          = isJust $ find isStereoZone (map fst zs)
+> isStereoInst zs                          = isJust $ find isStereoZone zs
 >       
 > isStereoZone pz                          = isLeftPreZone pz || isRightPreZone pz
 >

@@ -288,8 +288,8 @@ define signal functions and instrument maps to support rendering ===============
 >     noonOutL, noonOutR
 >                         :: NoteOn
 >     (noonOutL, noonOutR)                 = case fly of
->                                              Left (_, z)                     → (calcNoteOn z, undefined)
->                                              Right ((_, zL), (_, zR))        → (calcNoteOn zL, calcNoteOn zR)
+>                                              Left z                     → (calcNoteOn z.pzSFZone, undefined)
+>                                              Right (zL, zR)             → (calcNoteOn zL.pzSFZone, calcNoteOn zR.pzSFZone)
 >       where
 >         calcNoteOn z                     = NoteOn (maybe (clip (0, 127) volIn) fromIntegral z.zVel) 
 >                                                   (maybe (clip (0, 127) pchIn) fromIntegral z.zKey)
@@ -301,14 +301,14 @@ define signal functions and instrument maps to support rendering ===============
 >
 >     (reconX, mreconX)                    =
 >       case fly of
->         Left (pz, sfz)                   → (makeRecon (pz, sfz) noonOutL ps (fromRational durI), Nothing)
->         Right ((pzL, sfzL), (pzR, sfzR)) → reconLR ((pzL, sfzL), (pzR, sfzR))
+>         Left pz                          → (makeRecon pz noonOutL ps (fromRational durI), Nothing)
+>         Right (pzL, pzR)                 → reconLR (pzL, pzR)
 >                                                    (noonOutL, noonOutR)
 >                                                    ps (fromRational durI)
 
 zone selection for rendering ==========================================================================================
 
->     doFlyEye           :: NoteOn → Either (PreZone, SFZone) ((PreZone, SFZone), (PreZone, SFZone))
+>     doFlyEye           :: NoteOn → Either PreZone (PreZone, PreZone)
 >     doFlyEye noonFly
 >       | traceIf trace_DFE False          = undefined
 >       | bagIdL <= 0 || cntL <= 0 || bagIdR <= 0 || cntR <= 0
@@ -319,7 +319,7 @@ zone selection for rendering ===================================================
 >                        , "zone"
 >                        , show (bagIdL, bagIdR)
 >                        , "not both present in"
->                        , show (map (pzWordB . fst) perI.pZones)] 
+>                        , show (map pzWordB perI.pZones)] 
 >       | foundL == foundR                 = (Left . fromJust) foundL
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where
@@ -334,31 +334,32 @@ zone selection for rendering ===================================================
 
 reconcile zone and sample header ======================================================================================
 
-> reconLR                :: ((PreZone, SFZone), (PreZone, SFZone))
+> reconLR                :: (PreZone, PreZone)
 >                           → (NoteOn, NoteOn)
 >                           → VB.Vector Double
 >                           → Dur
 >                           → (Recon, Maybe Recon)
-> reconLR ((pzL, zoneL), (pzR, zoneR)) (noonL, noonR) ps durR
+> reconLR (pzL, pzR) (noonL, noonR) ps durR
 >                                          = (recL, Just recR')
 >   where
 >     secsScored         :: Double         = fromRational durR
 >     recL@Recon{rRootKey = rkL, rPitchCorrection = pcL}
->                                          = makeRecon (pzL, zoneL) noonL ps secsScored
->     recR                                 = makeRecon (pzR, zoneR) noonR ps secsScored
+>                                          = makeRecon pzL noonL ps secsScored
+>     recR                                 = makeRecon pzR noonR ps secsScored
 >     recR'                                = recR{
 >                                                rRootKey                   = rkL
 >                                              , rPitchCorrection           = pcL}
 >
-> makeRecon              :: (PreZone, SFZone) → NoteOn → VB.Vector Double → Double → Recon
-> makeRecon (pz, z_) noon ps secs
+> makeRecon              :: PreZone → NoteOn → VB.Vector Double → Double → Recon
+> makeRecon pz noon ps secs
 >   | traceIf trace_MR False               = undefined
 >   | otherwise                            = reconL
 >   where
 >     fName                                = "makeRecon"
->     trace_MR                             = unwords [fName, shdr.sampleName, show z]
+>     trace_MR                             = unwords [fName, shdr.sampleName]
 >
 >     zd                                   = pz.pzDigest
+>     z_                                   = pz.pzSFZone
 >     shdr                                 = effPZShdr pz
 >     
 >     bend                                 = (getAnswers ps).aNoteBend

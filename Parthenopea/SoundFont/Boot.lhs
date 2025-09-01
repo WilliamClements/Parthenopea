@@ -18,7 +18,6 @@ January 21, 2025
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Either ( lefts )
 > import Data.Foldable
 > import Data.List hiding (insert)
 > import Data.Map (Map)
@@ -59,7 +58,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   show fi                                =
 >     unwords ["FileIterate", show fi.fiFw]
 >
-> preSampleTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, markTaskIf, vetTaskIf, smashTaskIf, reorgTaskIf
+> preSampleTaskIf, preInstTaskIf, surveyTaskIf, captureTaskIf, vetTaskIf, smashTaskIf, reorgTaskIf
 >                , shaveTaskIf, matchTaskIf, catTaskIf, perITaskIf
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
 >
@@ -69,7 +68,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     defFileWork 
 >     [  ("preSample",  preSample)
 >      , ("preInst",    preInst)
->      , ("capture",    mark . capture . survey)
+>      , ("capture",    capture . survey)
 >      , ("vet",        vet)
 >      , ("smash",      smash)
 >      , ("reorg",      reorg) 
@@ -79,8 +78,6 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >      , ("shave2",     shave)
 >      , ("perI",       perI)]
 >   where
->     mark                                 = markTaskIf         sffile rost
->
 >     preSample                            = preSampleTaskIf    sffile rost
 >     preInst                              = preInstTaskIf      sffile rost
 >     survey                               = surveyTaskIf       sffile rost
@@ -214,7 +211,7 @@ pre-instance task ==============================================================
 >         m'                               =
 >           if dead ss
 >              then m 
->              else Map.insert pergm (PreInstrument (ChangeName iinst changes finalName) Nothing) m
+>              else Map.insert pergm (PreInstrument (ChangeName iinst changes finalName)) m
 >
 >         ss
 >           | iinst.instBagNdx == jinst.instBagNdx
@@ -241,7 +238,6 @@ PreZone administration =========================================================
 >   , zswInst            :: Word
 >   , zsSmashup          :: Maybe (Smashing Word)
 >   , zsInstCat          :: Maybe InstCat
->   , zsGlobalKey        :: Maybe PreZoneKey
 >   , zsPreZones         :: [PreZone]}
 > instance Show InstZoneRecord where
 >   show zrec                              =
@@ -249,7 +245,7 @@ PreZone administration =========================================================
 >                              , showMaybeInstCat zrec.zsInstCat, show $ length zrec.zsPreZones]
 > makeZRec               :: PerGMKey → InstZoneRecord
 > makeZRec pergm                           =
->   InstZoneRecord pergm.pgkwFile pergm.pgkwInst Nothing Nothing Nothing []
+>   InstZoneRecord pergm.pgkwFile pergm.pgkwInst Nothing Nothing []
 > instKey                :: InstZoneRecord → PerGMKey
 > instKey zrec                             = PerGMKey zrec.zswFile zrec.zswInst Nothing       
 
@@ -299,24 +295,32 @@ capture task ===================================================================
 >   where
 >     capturer zrec rdIn                   =
 >       let
->         (newPzs, rdOut, mglobalKey)      = captureZones (instKey zrec) rdIn
+>         (newPzs, rdOut)                  = captureZones (instKey zrec) rdIn
 >       in
->         (zrec{zsPreZones = newPzs, zsGlobalKey = mglobalKey}, rdOut)
+>         (zrec{zsPreZones = newPzs}, rdOut)
 >
->     captureZones       :: PerGMKey → ResultDispositions → ([PreZone], ResultDispositions, Maybe PreZoneKey)
->     captureZones pergm rdCap             = (pzs, rdCap', globalKey)
+>     captureZones       :: PerGMKey → ResultDispositions → ([PreZone], ResultDispositions)
+>     captureZones pergm rdCap
+>       | traceIf trace_CZ False          = undefined
+>       | otherwise                        = (pzs, rdCap')
 >       where
 >         fName_                           = "captureZones"
+>         trace_CZ                         = unwords [fName_, show (ibagi, jbagi), show $ length results, show $ length pzs]
 >
 >         preI                             = fwIn.fwBoot.zPreInstCache Map.! pergm
 >         iName                            = preI.piChanges.cnName
 >         results                          = map captureZone (deriveRange ibagi jbagi)
 >
->         pzs                              = lefts results
->         globalKey                        =
->           if head results == Right (Accepted, GlobalZone)
->             then Just $ PreZoneKey sffile.zWordF pergm.pgkwInst ibagi 0
->             else Nothing
+>         pzs                              = fst $ foldl' doLefts ([], defZone) results
+>           where
+>             doLefts    :: ([PreZone], SFZone) → (Word, Either PreZone (Disposition, Impact)) → ([PreZone], SFZone)
+>             doLefts (spzs, foldZone) (bagIndex, eor)
+>                                          =
+>               case eor of
+>                 Left pz                  →
+>                   (spzs ++ [pz{pzSFZone = buildZone sffile foldZone (Just pz) bagIndex}], foldZone)
+>                 Right (_, imp)           →
+>                   (spzs, if imp == GlobalZone then buildZone sffile defZone Nothing bagIndex else foldZone)
 >
 >         iinsts                           = sffile.zFileArrays.ssInsts
 >         ibagi                            = F.instBagNdx (iinsts ! pgkwInst pergm)
@@ -360,13 +364,13 @@ capture task ===================================================================
 >
 >         rdCap'                           = dispose pergm ss rdCap
 >
->         captureZone    :: Word → Either PreZone (Disposition, Impact)
+>         captureZone    :: Word → (Word, Either PreZone (Disposition, Impact))
 >         captureZone bix
 >           | traceNot trace_CZ False      = undefined
 >           | isNothing pz.pzDigest.zdSampleIndex
->                                          = Right (Accepted, GlobalZone)
->           | isNothing mpres              = Right (Dropped, OrphanedBySample)
->           | otherwise                    = Left pz{pzChanges = ChangeEar (effPSShdr pres) []}
+>                                          = (bix, Right (Accepted, GlobalZone))
+>           | isNothing mpres              = (bix, Right (Dropped, OrphanedBySample))
+>           | otherwise                    = (bix, Left pz{pzChanges = ChangeEar (effPSShdr pres) []})
 >           where
 >             fName                        = "captureZone"
 >             trace_CZ                     =
@@ -386,19 +390,6 @@ capture task ===================================================================
 >             presk                        = PreSampleKey sffile.zWordF si
 >             mpres                        = presk `Map.lookup` fwIn.fwBoot.zPreSampleCache
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
-
-mark task =============================================================================================================
-          copy global zone markers from zrecs to preInstCache
-
-> markTaskIf _ _ fwIn@FileWork{fwBoot}     = fwIn{fwBoot = fwBoot{zPreInstCache = preInstCache'}}
->   where
->     preInstCache'                        = zrecCompute fwIn markFolder fwBoot.zPreInstCache
->     markFolder preInstCache zrec         =
->       let
->         pergm                            = instKey zrec
->         preI                             = preInstCache Map.! pergm
->       in
->         Map.insert pergm (preI{iGlobalKey = zrec.zsGlobalKey}) preInstCache
 
 vet task ==========================================================================================================
           switch bad stereo zones to mono
@@ -721,7 +712,7 @@ categorization task ============================================================
 build zone task =======================================================================================================
           generate the PerInstrument map (aka zone cache)
 
-> perITaskIf sffile _ fwIn@FileWork{fwBoot, fwDispositions}  
+> perITaskIf _ _ fwIn@FileWork{fwBoot, fwDispositions}  
 >                                          = fwIn{  fwBoot = fwBoot{zPerInstCache = fst formZoneCache}
 >                                                 , fwDispositions = snd formZoneCache}
 >   where
@@ -741,7 +732,7 @@ build zone task ================================================================
 >         icat                             = fromJust zrec.zsInstCat
 >         smashup                          = fromJust zrec.zsSmashup
 >         perI                             = computePerInst zrec icat smashup
->         pzs                              = map fst perI.pZones
+>         pzs                              = perI.pZones
 >         (_, rdz)                         = zoneTask (const True) blessZone pzs rdFold
 >         blessZone      :: PreZone → ResultDispositions → (Maybe PreZone, ResultDispositions)
 >         blessZone pz rdIn                = (Just pz, dispose
@@ -755,9 +746,9 @@ build zone task ================================================================
 >       | otherwise                        = result
 >       where
 >         fName                            = "computePerInst"
->         trace_CPI                        = unwords [fName, preI.piChanges.cnName, show pergm, show $ length zrec.zsPreZones, show $ length oList, show (map pzWordB pzs)]
+>         trace_CPI                        = unwords [fName, preI.piChanges.cnName, show pergm, show $ length zrec.zsPreZones, show (map pzWordB pzs)]
 >
->         result                           = PerInstrument (zip pzs oList) icat smashup
+>         result                           = PerInstrument pzs icat smashup
 >         pergm                            = instKey zrec
 >         preI                             = fwBoot.zPreInstCache Map.! pergm
 >
@@ -767,13 +758,6 @@ build zone task ================================================================
 >             InstCatPerc x                → x
 >             InstCatInst                  → map pzWordB zrec.zsPreZones
 >             _                            → error $ unwords [fName, "only Inst and Perc are valid here"]
->
->         gZone                            =
->           case preI.iGlobalKey of
->             Nothing                      → defZone
->             Just pzk                     → buildZone sffile defZone Nothing pzk.pzkwBag
->         oList                            = map (\pz → buildZone sffile gZone (Just pz) pz.pzWordB) pzs
->
 >         pzs                              = filter (\pz → pz.pzWordB `elem` bixen) zrec.zsPreZones
 >
 > buildZone              :: SFFile → SFZone → Maybe PreZone → Word → SFZone
@@ -907,7 +891,7 @@ build zone task ================================================================
 >     n2                                   = 2
 >     n20                                  = 20
 > doAbsorption           :: Bool
-> doAbsorption                             = False -- WOX
+> doAbsorption                             = True
 > fixBadNames            :: Bool
 > fixBadNames                              = True
 > switchBadStereoZonesToMono
