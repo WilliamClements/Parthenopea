@@ -301,20 +301,21 @@ capture task ===================================================================
 >
 >     captureZones       :: PerGMKey → ResultDispositions → ([PreZone], ResultDispositions)
 >     captureZones pergm rdCap
->       | traceIf trace_CZ False          = undefined
+>       | traceIf trace_CZS False          = undefined
 >       | otherwise                        = (pzs, rdCap')
 >       where
 >         fName_                           = "captureZones"
->         trace_CZ                         = unwords [fName_, show (ibagi, jbagi), show $ length results, show $ length pzs]
+>         trace_CZS                        =
+>           unwords [fName_, iName, show $ length pzs, "captured of", show $ length results]
 >
->         preI                             = fwIn.fwBoot.zPreInstCache Map.! pergm
->         iName                            = preI.piChanges.cnName
+>         iName                            = (fwIn.fwBoot.zPreInstCache Map.! pergm).piChanges.cnName
+>
 >         results                          = map captureZone (deriveRange ibagi jbagi)
 >
->         pzs                              = fst $ foldl' doLefts ([], defZone) results
+>         pzs                              = fst $ foldl' consume ([], defZone) results
 >           where
->             doLefts    :: ([PreZone], SFZone) → (Word, Either PreZone (Disposition, Impact)) → ([PreZone], SFZone)
->             doLefts (spzs, foldZone) (bagIndex, eor)
+>             consume    :: ([PreZone], SFZone) → (Word, Either PreZone (Disposition, Impact)) → ([PreZone], SFZone)
+>             consume (spzs, foldZone) (bagIndex, eor)
 >                                          =
 >               case eor of
 >                 Left pz                  →

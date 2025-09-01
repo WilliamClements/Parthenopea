@@ -26,10 +26,10 @@ executed code will require those identities fast. There is no upper limit on the
 issued.
 
 When you have an Instrument and a NoteOn, the "game" pinpoints which Zone to use to play the note. The smashing for
-this purposes is 128 x 128 x 2 covering all possible NoteOns, and Left/Right.
+this purposes is 128 x 128 x 2 covering all possible NoteOns, and Left/Right. We use a flat vector for the cache and
+index it by the three coordinates.
 
-The winning Zone(s) drive the particular note synthesis. We use a flat vector for the cache and index it by the three
-component values.
+The winning Zone(s) drive the note synthesis. 
 
 This source file implements a generalization of that setup. See computeInstSmashup. We must know all the "subspaces"
 (range specifications) up front which we "smash" together to populate the flat vector.
@@ -41,7 +41,7 @@ This source file implements a generalization of that setup. See computeInstSmash
 >     , smashSpaces       :: [(i, [(i, i)])]
 >     , smashStats        :: SmashStats
 >     , smashVec          :: VU.Vector (i, i)}
-> instance ∀ i. Show i ⇒ Show (Smashing i) where
+> instance ∀ i . Show i ⇒ Show (Smashing i) where
 >   show Smashing{smashTag, smashStats}    = unwords ["Smashing", show (smashTag, smashStats)]
 > data SmashStats                          =
 >   SmashStats {
