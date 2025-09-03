@@ -22,6 +22,7 @@ September 12, 2024
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ord ( Down(Down) )
+> import qualified Data.Vector             as VB
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
@@ -213,7 +214,7 @@ Scoring stuff ==================================================================
 >
 > data SFRuntime                           =
 >   SFRuntime {
->     zFiles             :: Array Word SFFile
+>     zFiles             :: VB.Vector SFFile
 >   , zBoot              :: SFBoot
 >   , zWinningRecord     :: WinningRecord}
 > instance Show SFRuntime where
@@ -373,9 +374,8 @@ tournament starts here =========================================================
 >           unwords [fName, iName, fromMaybe "" mnameZ, show kind]
 >
 >         pergm_                           = pergm{pgkwBag = Nothing}
->         preI                             = runt.zBoot.zPreInstCache Map.! pergm_
->         iName                            = preI.piChanges.cnName
 >         perI                             = runt.zBoot.zPerInstCache Map.! pergm_
+>         iName                            = perI.piChanges.cnName
 >
 >         scope_, scope  :: [PreZone]
 >         scope_                           =

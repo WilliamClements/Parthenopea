@@ -49,7 +49,7 @@ implementing SoundFont spec ====================================================
 >
 > data PreSampleKey                        =
 >   PreSampleKey {
->     pskwFile           :: Word
+>     pskwFile           :: Int
 >   , pskwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
 > type PreSample                           = ChangeName F.Shdr
@@ -59,14 +59,14 @@ implementing SoundFont spec ====================================================
 >
 > data PreZoneKey                          =
 >   PreZoneKey {
->     pzkwFile           :: Word
+>     pzkwFile           :: Int
 >   , pzkwInst           :: Word
 >   , pzkwBag            :: Word
 >   , pzkwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
 > data PreZone                             =
 >   PreZone {
->     pzWordF            :: Word
+>     pzWordF            :: Int
 >   , pzWordS            :: Word
 >   , pzWordI            :: Word
 >   , pzWordB            :: Word
@@ -79,9 +79,17 @@ implementing SoundFont spec ====================================================
 > showBad                :: PreZone → String
 > showBad pz                               = show (pz.pzWordB, (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange))
 >
-> makePreZone            :: Word → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
+> defPreZone             :: PreZone
+> defPreZone                               =
+>   makePreZone
+>     0 0 0 0
+>     [] (F.Shdr "" 0 0 0 0 0 0 0 0 0)
+>
+> makePreZone            :: Int → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
 > makePreZone wF wS wI wB gens shdr        =
->   PreZone wF wS wI wB (formDigest gens) defZone (ChangeEar shdr [])
+>   PreZone
+>     wF wS wI wB 
+>      (formDigest gens) defZone (ChangeEar shdr [])
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
@@ -110,14 +118,10 @@ implementing SoundFont spec ====================================================
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
 >
-> newtype PreInstrument                    = PreInstrument {piChanges :: ChangeName F.Inst}
-> instance Show PreInstrument where
->   show preI                              =
->     unwords ["PreInstrument", show preI.piChanges.cnName]
->
 > data PerInstrument                       =
 >   PerInstrument {
->     pZones             :: [PreZone]
+>    piChanges           :: ChangeName F.Inst
+>   , pZones             :: [PreZone]
 >   , pInstCat           :: InstCat
 >   , pSmashing          :: Smashing Word}
 > showBags               :: PerInstrument → String
@@ -198,7 +202,7 @@ implementing SoundFont spec ====================================================
 >
 > data PerGMKey                            =
 >   PerGMKey {
->     pgkwFile           :: Word
+>     pgkwFile           :: Int
 >   , pgkwInst           :: Word
 >   , pgkwBag            :: Maybe Word} deriving (Eq, Ord, Show)
 >
@@ -225,25 +229,22 @@ implementing SoundFont spec ====================================================
 > data SFBoot                              =
 >   SFBoot {
 >     zPreSampleCache    :: Map PreSampleKey PreSample
->   , zPreInstCache      :: Map PerGMKey PreInstrument
 >   , zPerInstCache      :: Map PerGMKey PerInstrument}
 > dasBoot                :: SFBoot
-> dasBoot                                  = SFBoot Map.empty Map.empty Map.empty
+> dasBoot                                  = SFBoot Map.empty Map.empty
 > instance Show SFBoot where
 >   show boot                              =
 >     unwords [  "SFBoot"
 >              , show (length boot.zPreSampleCache)
->              , show (length boot.zPreInstCache)
 >              , show (length boot.zPerInstCache)]
 > combineBoot            :: SFBoot → SFBoot → SFBoot
 > combineBoot boot1 boot2                  =
 >   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache   boot2.zPreSampleCache
->         , zPreInstCache                  = Map.union boot1.zPreInstCache     boot2.zPreInstCache
 >         , zPerInstCache                  = Map.union boot1.zPerInstCache     boot2.zPerInstCache}
 >
 > data SFFile                              =
 >   SFFile {
->     zWordF             :: Word
+>     zWordF             :: Int
 >   , zFilename          :: FilePath
 >   , zFileArrays        :: FileArrays
 >   , zSample            :: SampleArrays}
@@ -425,8 +426,8 @@ bootstrapping ==================================================================
 >       , preZoneDispos                    = Map.unionWith (++) rd1.preZoneDispos   rd2.preZoneDispos}
 >
 > class SFResource a where
->   sfkey                :: Word → Word → a
->   wfile                :: a → Word
+>   sfkey                :: Int → Word → a
+>   wfile                :: a → Int
 >   wblob                :: a → Word
 >   kname                :: a → SFFile → [Emission]
 >   inspect              :: a → ResultDispositions → [Scan]

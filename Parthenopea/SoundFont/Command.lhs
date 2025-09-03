@@ -15,11 +15,11 @@ June 16, 2025
 > import qualified Codec.Midi              as M
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import Data.Array.Unboxed ( listArray )
 > import Data.Either ( lefts, rights )
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromMaybe )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
+> import qualified Data.Vector             as VB
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF, InstrMap )
 > import Euterpea.IO.Audio.Types ( Stereo, Clock )
@@ -68,11 +68,11 @@ Implement PCommand =============================================================
 >
 >   CM.unless (null sf2s) (do putStrLn ""; putStrLn $ unwords ["surveySoundFonts"])
 >   sffilesp                               ← CM.zipWithM openSoundFontFile [0..] sf2s
->   let vFile                              = listArray (0, fromIntegral (length sf2s - 1)) sffilesp
->   if null vFile
+>   let vFiles                             = VB.fromList sffilesp
+>   if VB.null vFiles
 >     then return ()
 >     else do
->       (prerunt, matches, rd)             ← surveyInstruments vFile rost
+>       (prerunt, matches, rd)             ← surveyInstruments vFiles rost
 >
 >       CM.when (howVerboseScanReport > 0) (writeScanReport prerunt rd)
 >
@@ -145,7 +145,7 @@ Implement PCommand =============================================================
 >
 >   return $ if null songs then allKinds else (lefts isandps, rights isandps)
 >
-> openSoundFontFile      :: Word → FilePath → IO SFFile
+> openSoundFontFile      :: Int → FilePath → IO SFFile
 > openSoundFontFile wFile filename         = do
 >   putStrLn (unwords [show wFile, filename])
 >   result                                 ← F.importFile filename

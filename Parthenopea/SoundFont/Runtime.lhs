@@ -19,7 +19,7 @@ February 1, 2025
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import Data.Array.Unboxed ( (!), inRange )
+> import Data.Array.Unboxed ( inRange )
 > import qualified Data.Audio              as A
 > import Data.Either
 > import Data.Foldable ( toList )
@@ -191,7 +191,7 @@ executive ======================================================================
 >                                              else prolog ++ [EndOfLine] ++ concatMap procScan ssIn ++ [EndOfLine]
 >       where
 >         ssOut                            = filter (\s → s.sDisposition `notElem` elideset) ssIn
->         sffile                           = runt.zFiles ! wfile k
+>         sffile                           = runt.zFiles VB.! wfile k
 >
 >         prolog                           = 
 >           [  Unblocked (show k)
@@ -279,7 +279,7 @@ define signal functions and instrument maps to support rendering ===============
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
->       unwords [fName_, show pergm, show preI.piChanges.cnName, show (pchIn, volIn), show durI, show ps]
+>       unwords [fName_, show pergm, show perI.piChanges.cnName, show (pchIn, volIn), show durI, show ps]
 >
 >     ps                                   = VB.fromList ps_
 >     noonIn                               = carefulNoteOn volIn pchIn
@@ -294,9 +294,8 @@ define signal functions and instrument maps to support rendering ===============
 >         calcNoteOn z                     = NoteOn (maybe (clip (0, 127) volIn) fromIntegral z.zVel) 
 >                                                   (maybe (clip (0, 127) pchIn) fromIntegral z.zKey)
 >
->     sffile                               = runt.zFiles ! pergm.pgkwFile
+>     sffile                               = runt.zFiles VB.! pergm.pgkwFile
 >
->     preI                                 = runt.zBoot.zPreInstCache Map.! pergm
 >     perI                                 = runt.zBoot.zPerInstCache Map.! pergm
 >
 >     (reconX, mreconX)                    =
