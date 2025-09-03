@@ -24,7 +24,6 @@ January 21, 2025
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import qualified Data.Vector             as VB
-> import Debug.Trace ( traceIO )
 > import Euterpea.Music
 > import Numeric ( showHex )
 > import Parthenopea.Debug
@@ -38,19 +37,20 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 
 > data FileWork =
 >   FileWork {
->     fwBoot             :: SFBoot
->   , fwZRecs            :: [InstZoneRecord]
+>     fwZRecs            :: [InstZoneRecord]
+>   , fwPreSampleCache   :: Map PreSampleKey PreSample
+>   , fwInstrumentCache  :: Map PerGMKey PerInstrument
 >   , fwMatches          :: Matches
 >   , fwDispositions     :: ResultDispositions}
 > instance Show FileWork where
 >   show fw                                =
 >     unwords [  "FileWork"
->              , show fw.fwBoot
 >              , show (length fw.fwZRecs), "=#zrecs"
+>              , show (length fw.fwInstrumentCache), "=#cached"
 >              , show fw.fwDispositions]
 > defFileWork            :: FileWork
 > defFileWork                              =
->   FileWork dasBoot [] defMatches virginrd
+>   FileWork [] Map.empty Map.empty defMatches virginrd
 > data FileIterate =
 >   FileIterate {
 >     fiFw               :: FileWork
@@ -58,8 +58,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > instance Show FileIterate where
 >   show fi                                =
 >     unwords ["FileIterate", show fi.fiFw]
-> reduceFileIterate      :: FileIterate → (SFBoot, Matches, ResultDispositions)
-> reduceFileIterate fiIn                   = (fiIn.fiFw.fwBoot, fiIn.fiFw.fwMatches, fiIn.fiFw.fwDispositions)
+> reduceFileIterate      :: FileIterate → (Map PerGMKey PerInstrument, Matches, ResultDispositions)
+> reduceFileIterate fiIn                   = (fiIn.fiFw.fwInstrumentCache, fiIn.fiFw.fwMatches, fiIn.fiFw.fwDispositions)
 >
 > preSampleTaskIf, surveyTaskIf, captureTaskIf, vetTaskIf, smashTaskIf, reorgTaskIf
 >                , matchTaskIf, catTaskIf, perITaskIf
@@ -102,18 +102,17 @@ and recovery.
 >   putStrLn $ unwords [fName, show rost]
 >   putStrLn ""
 >
->   let (bootAll, matchesAll, rdAll)       = foldl' bootFolder (dasBoot, defMatches, virginrd) vFiles
->   CM.when diagnosticsEnabled (traceIO $ show bootAll)
->   let runt                               = SFRuntime vFiles bootAll seedWinningRecord
+>   let (iCacheAll, matchesAll, rdAll)     = foldl' bootFolder (Map.empty, defMatches, virginrd) vFiles
+>   let runt                               = SFRuntime vFiles iCacheAll seedWinningRecord
 >   return (runt, matchesAll, rdAll)
 >   where
 >     fName                                = "surveyInstruments"
 >
->     bootFolder (bootIn, matchesIn, rdIn) sffile
+>     bootFolder (icacheIn, matchesIn, rdIn) sffile
 >                                          =
->       (combineBoot bootIn bootOut, combineMatches matchesIn matchesOut, combinerd rdIn rdOut)
+>       (Map.union icacheIn icacheOut, combineMatches matchesIn matchesOut, combinerd rdIn rdOut)
 >       where
->         (bootOut, matchesOut, rdOut)     = reduceFileIterate ingestFile
+>         (icacheOut, matchesOut, rdOut)   = reduceFileIterate ingestFile
 >
 >         ingestFile                       =
 >           let
@@ -149,10 +148,10 @@ pre-sample task ================================================================
 >       let
 >         fName                            = "sampleFolder"
 >
->         fwBoot'                          =
+>         preSampleCache                   =
 >           if dead ss
->             then fwForm.fwBoot
->             else fwForm.fwBoot{zPreSampleCache = Map.insert presk ps fwForm.fwBoot.zPreSampleCache}
+>             then fwForm.fwPreSampleCache
+>             else Map.insert presk ps fwForm.fwPreSampleCache
 >         ps                               = ChangeName shdr changes name
 >         shdr                             = sffile.zFileArrays.ssShdrs ! presk.pskwSampleIndex
 >
@@ -179,7 +178,7 @@ pre-sample task ================================================================
 >                                              then (ss_, singleton FixCorruptName, good)
 >                                              else (ss_, [],                       raw)
 >       in
->         fwForm{ fwBoot = fwBoot', fwDispositions = dispose presk ss fwForm.fwDispositions}
+>         fwForm{ fwPreSampleCache = preSampleCache, fwDispositions = dispose presk ss fwForm.fwDispositions}
 
 PreZone administration ================================================================================================
 
@@ -319,13 +318,13 @@ capture task ===================================================================
 >         ibagi                            = F.instBagNdx (iinsts ! pgkwInst pergm)
 >         jbagi                            = F.instBagNdx (iinsts ! (pgkwInst pergm + 1))
 >
->         noZones, illegalRange, hasRoms, illegalLimits, yesAdopt
+>         noZones, illegalRange, hasRoms, illegalLimits, yesCapture
 >                        :: Maybe [Scan] 
 >         ss = deJust fName_
 >              $ noZones `CM.mplus` illegalRange
 >                        `CM.mplus` hasRoms
 >                        `CM.mplus` illegalLimits
->                        `CM.mplus` yesAdopt
+>                        `CM.mplus` yesCapture
 >         noZones
 >           | null pzs                     = Just [Scan Violated NoZones fName_ noClue]
 >           | otherwise                    = Nothing
@@ -353,7 +352,7 @@ capture task ===================================================================
 >           where
 >             tested                       = map illegalSampleSize pzs
 >             result                       = foldr CM.mplus Nothing tested
->         yesAdopt                         = Just [Scan Modified Adopted fName_ iName]
+>         yesCapture                       = Just [Scan Modified Captured fName_ iName]
 >
 >         rdCap'                           = dispose pergm ss rdCap
 >
@@ -381,7 +380,7 @@ capture task ===================================================================
 >             pz                           = makePreZone sffile.zWordF si (pgkwInst pergm) bix gens pres.cnSource
 >             si                           = deJust (unwords [fName, "si"]) pz.pzDigest.zdSampleIndex
 >             presk                        = PreSampleKey sffile.zWordF si
->             mpres                        = presk `Map.lookup` fwIn.fwBoot.zPreSampleCache
+>             mpres                        = presk `Map.lookup` fwIn.fwPreSampleCache
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
 
 vet task ==========================================================================================================
@@ -559,7 +558,7 @@ match task =====================================================================
 >   where
 >     sMatches                             =
 >       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.cnName) m)
->         Map.empty fwIn.fwBoot.zPreSampleCache
+>         Map.empty fwIn.fwPreSampleCache
 >     iMatches                             =
 >       let
 >         computeFF      :: Map PerGMKey FFMatches → InstZoneRecord → Map PerGMKey FFMatches 
@@ -691,18 +690,19 @@ categorization task ============================================================
 build zone task =======================================================================================================
           generate the PerInstrument map (aka zone cache)
 
-> perITaskIf _ _ fwIn@FileWork{fwBoot, fwDispositions}  
->                                          = fwIn{  fwBoot = fwBoot{zPerInstCache = fst formZoneCache}
->                                                 , fwDispositions = snd formZoneCache}
+> perITaskIf _ _ fwIn
+>                                          = fwIn{  fwInstrumentCache =    fst formInstrumentCache
+>                                                 , fwDispositions =       snd formInstrumentCache}
 >   where
->     formZoneCache      :: (Map PerGMKey PerInstrument, ResultDispositions)
->     formZoneCache                        = zrecCompute fwIn zcFolder (Map.empty, fwDispositions)
+>     formInstrumentCache
+>                        :: (Map PerGMKey PerInstrument, ResultDispositions)
+>     formInstrumentCache                  = zrecCompute fwIn zcFolder (Map.empty, fwIn.fwDispositions)
 >
 >     zcFolder (zc, rdFold) zrec
 >       | traceIf trace_ZCF False          = undefined
 >       | otherwise                        =
 >         (   Map.insert pergm perI zc
->           , dispose pergm [Scan Accepted ToZoneCache fName (show icat)] rdz)
+>           , dispose pergm [Scan Accepted ToCache fName (show icat)] rdz)
 >       where
 >         fName                            = "zcFolder"
 >         trace_ZCF                        = unwords [fName, show zrec, show pergm, show zrec.zsInstCat]
@@ -716,7 +716,7 @@ build zone task ================================================================
 >         blessZone      :: PreZone → ResultDispositions → (Maybe PreZone, ResultDispositions)
 >         blessZone pz rdIn                = (Just pz, dispose
 >                                              (extractZoneKey pz)
->                                              [Scan Accepted ToZoneCache fName (show pz.pzWordB)]
+>                                              [Scan Accepted ToCache fName (show pz.pzWordB)]
 >                                              rdIn)
 >
 >     computePerInst     :: InstZoneRecord → InstCat → Smashing Word → PerInstrument

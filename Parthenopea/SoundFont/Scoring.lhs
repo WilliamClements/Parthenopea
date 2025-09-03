@@ -215,11 +215,11 @@ Scoring stuff ==================================================================
 > data SFRuntime                           =
 >   SFRuntime {
 >     zFiles             :: VB.Vector SFFile
->   , zBoot              :: SFBoot
+>   , zInstrumentCache   :: Map PerGMKey PerInstrument
 >   , zWinningRecord     :: WinningRecord}
 > instance Show SFRuntime where
 >   show runt                 =
->     unwords ["SFRuntime", show runt.zBoot, show (length runt.zWinningRecord.pWinningI, length runt.zWinningRecord.pWinningP)]
+>     unwords ["SFRuntime", show (length runt.zWinningRecord.pWinningI, length runt.zWinningRecord.pWinningP)]
 >
 > type AgainstKindResult                   = Double
 > 
@@ -270,7 +270,7 @@ tournament starts here =========================================================
 >     wiExec             :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiExec                               = (wI', wP')
 >       where
->         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) runt.zBoot.zPerInstCache         
+>         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) runt.zInstrumentCache         
 >         wI'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wI
 >         wP'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wP
 >
@@ -374,7 +374,7 @@ tournament starts here =========================================================
 >           unwords [fName, iName, fromMaybe "" mnameZ, show kind]
 >
 >         pergm_                           = pergm{pgkwBag = Nothing}
->         perI                             = runt.zBoot.zPerInstCache Map.! pergm_
+>         perI                             = runt.zInstrumentCache Map.! pergm_
 >         iName                            = perI.piChanges.cnName
 >
 >         scope_, scope  :: [PreZone]

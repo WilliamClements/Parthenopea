@@ -296,7 +296,7 @@ define signal functions and instrument maps to support rendering ===============
 >
 >     sffile                               = runt.zFiles VB.! pergm.pgkwFile
 >
->     perI                                 = runt.zBoot.zPerInstCache Map.! pergm
+>     perI                                 = runt.zInstrumentCache Map.! pergm
 >
 >     (reconX, mreconX)                    =
 >       case fly of

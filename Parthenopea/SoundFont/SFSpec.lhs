@@ -226,21 +226,6 @@ implementing SoundFont spec ====================================================
 >     Just InstCatInst                     → "icInst"
 >     Just (InstCatPerc _)                 → "icPerc"
 >     Just (InstCatDisq imp why)           → unwords ["icDisq", show imp, why]
-> data SFBoot                              =
->   SFBoot {
->     zPreSampleCache    :: Map PreSampleKey PreSample
->   , zPerInstCache      :: Map PerGMKey PerInstrument}
-> dasBoot                :: SFBoot
-> dasBoot                                  = SFBoot Map.empty Map.empty
-> instance Show SFBoot where
->   show boot                              =
->     unwords [  "SFBoot"
->              , show (length boot.zPreSampleCache)
->              , show (length boot.zPerInstCache)]
-> combineBoot            :: SFBoot → SFBoot → SFBoot
-> combineBoot boot1 boot2                  =
->   boot1{  zPreSampleCache                = Map.union boot1.zPreSampleCache   boot2.zPreSampleCache
->         , zPerInstCache                  = Map.union boot1.zPerInstCache     boot2.zPerInstCache}
 >
 > data SFFile                              =
 >   SFFile {
@@ -342,13 +327,13 @@ bootstrapping ==================================================================
 >      | BadSampleRate | BadSampleType | BadSampleLimits
 >      | DevolveToMono | BadStereoPartner
 >      | Paired | Unpaired
->      | OrphanedBySample | OrphanedByInst | ToZoneCache
+>      | OrphanedBySample | OrphanedByInst | ToCache
 >      | Absorbing | Absorbed | NoAbsorption
 >      | CorruptGMRange | Narrow | BadSampleLooping
 >      | RomBased | UndercoveredRanges | OverCoveredRanges
 >      | Unrecognized | NoPercZones
 >      | CatIsPerc | CatIsInst
->      | Adopted | AdoptedAsMono | GlobalZone
+>      | Captured | Adopted | AdoptedAsMono | GlobalZone
 >   deriving (Eq, Ord, Show)
 >
 > data Scan                                =
