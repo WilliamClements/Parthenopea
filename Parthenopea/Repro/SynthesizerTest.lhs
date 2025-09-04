@@ -18,18 +18,24 @@ March 2, 2024
 > import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Modulation ( NoteOn(NoteOn), defModulation )
-> import Parthenopea.Repro.Synthesizer ( eutDriver, Effects(Effects), Recon(Recon), TimeFrame(..) )
+> import Parthenopea.Repro.Synthesizer ( eutDriver, Effects(Effects), Recon(Recon), Resolve(..), TimeFrame(..) )
   
 Synthesizer-related tests =============================================================================================
 
-> defRecon               :: Recon
-> defRecon                                 =
->   Recon
->     (NoteOn 100 60) A.ContLoop 44100 0 0 0 0
+> defResolve             :: Resolve
+> defResolve                               = 
+>   Resolve
+>     A.ContLoop 44100 0 0 0 0
 >     60 100
 >     VB.empty
 >     0 Nothing Nothing
 >     defModulation defEffects
+>
+> defRecon               :: Recon
+> defRecon                                 =
+>   Recon
+>     (NoteOn 100 60)
+>     defResolve
 >
 > defEffects             :: Effects
 > defEffects                               = Effects 0 0 0

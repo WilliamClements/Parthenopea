@@ -274,7 +274,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Signal p () (Double, Double)
 > instrumentSF runt pergm durI pchIn volIn ps_
 >   | traceIf trace_ISF False              = undefined
->   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rSampleRate
+>   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rResolve.rSampleRate
 >                                              durI sffile.zSample.ssData sffile.zSample.ssM24
 >   where
 >     fName_                               = "instrumentSF"
@@ -333,21 +333,19 @@ zone selection for rendering ===================================================
 
 reconcile zone and sample header ======================================================================================
 
-> reconLR                :: (PreZone, PreZone)
->                           → (NoteOn, NoteOn)
->                           → VB.Vector Double
->                           → Dur
->                           → (Recon, Maybe Recon)
+> reconLR                :: (PreZone, PreZone) → (NoteOn, NoteOn) → VB.Vector Double → Dur → (Recon, Maybe Recon)
 > reconLR (pzL, pzR) (noonL, noonR) ps durR
->                                          = (recL, Just recR')
+>                                          = (reconL, Just reconR{rResolve = resR})
 >   where
 >     secsScored         :: Double         = fromRational durR
->     recL@Recon{rRootKey = rkL, rPitchCorrection = pcL}
->                                          = makeRecon pzL noonL ps secsScored
->     recR                                 = makeRecon pzR noonR ps secsScored
->     recR'                                = recR{
->                                                rRootKey                   = rkL
->                                              , rPitchCorrection           = pcL}
+>
+>     reconL                               = makeRecon pzL noonL ps secsScored
+>     resL                                 = reconL.rResolve
+>
+>     reconR                               = makeRecon pzR noonR ps secsScored
+>     resR                                 = reconR.rResolve {
+>                                                rRootKey                   = resL.rRootKey
+>                                              , rPitchCorrection           = resL.rPitchCorrection}
 >
 > makeRecon              :: PreZone → NoteOn → VB.Vector Double → Double → Recon
 > makeRecon pz noon ps secs
@@ -357,7 +355,6 @@ reconcile zone and sample header ===============================================
 >     fName                                = "makeRecon"
 >     trace_MR                             = unwords [fName, shdr.sampleName]
 >
->     zd                                   = pz.pzDigest
 >     z_                                   = pz.pzSFZone
 >     shdr                                 = effPZShdr pz
 >     
@@ -365,41 +362,53 @@ reconcile zone and sample header ===============================================
 >     z                                    = if not (VB.null bend)
 >                                              then implementNoteBending noon z_ (bend VB.! 0) secs
 >                                              else z_
->     m8n                                  = reconModulation z noon
+>     m8n                                  = resolveModulation z
+>     m8n'                                 = reconModulation m8n z noon
 >
->     reconL = Recon {
->     rSampleMode    = fromMaybe           A.NoLoop           z.zSampleMode
->   , rSampleRate    = fromIntegral        shdr.sampleRate
->   , rStart         = (+)                 shdr.start         (fromIntegral zd.zdStart)
->   , rEnd           = (+)                 shdr.end           (fromIntegral zd.zdEnd)
->   , rLoopStart     = (+)                 shdr.startLoop     (fromIntegral zd.zdStartLoop)
->   , rLoopEnd       = (+)                 shdr.endLoop       (fromIntegral zd.zdEndLoop)
->   , rRootKey       = fromIntegral $ fromMaybe
->                                          shdr.originalPitch z.zRootKey
->   , rTuning        = fromMaybe           100                z.zScaleTuning
->   , rDynamics      = ps
->   , rNoteOn        = noon
->   , rAttenuation   = reconAttenuation                       z.zInitAtten
->   , rVolEnv        = deriveEnvelope                         z.zDelayVolEnv
+>     reconL = Recon noon (resolvePreZone pz)
+>                {  rVolEnv                = deriveEnvelope   z.zDelayVolEnv
 >                                                             z.zAttackVolEnv
 >                                                             noon
 >                                                             (z.zHoldVolEnv,  z.zKeyToVolEnvHold)
 >                                                             (z.zDecayVolEnv, z.zKeyToVolEnvDecay)
 >                                                             z.zSustainVolEnv
 >                                                             Nothing
->   , rPitchCorrection
->                    = if usePitchCorrection
->                        then Just $ reconPitchCorrection     shdr.pitchCorrection
->                                                             z.zCoarseTune
->                                                             z.zFineTune
->                        else Nothing
->
->   , rM8n           =                                        m8n
->   , rEffects       = deriveEffects                          m8n
+>                 , rEffects               = deriveEffects    m8n
 >                                                             noon
 >                                                             z.zChorus
 >                                                             z.zReverb
->                                                             z.zPan}
+>                                                             z.zPan
+>                 , rM8n                   = m8n'}
+>    
+> resolvePreZone         :: PreZone → Resolve
+> resolvePreZone pz                        = resL
+>   where
+>     zd                                   = pz.pzDigest
+>     z                                    = pz.pzSFZone
+>     shdr                                 = effPZShdr pz
+>     
+>     m8n                                  = resolveModulation z
+>
+>     resL                                 =
+>       Resolve
+>         (fromMaybe A.NoLoop z.zSampleMode)
+>         (fromIntegral shdr.sampleRate)
+>
+>         ((+) shdr.start (fromIntegral zd.zdStart))
+>         ((+) shdr.end (fromIntegral zd.zdEnd))
+>         ((+) shdr.startLoop (fromIntegral zd.zdStartLoop))
+>         ((+) shdr.endLoop (fromIntegral zd.zdEndLoop))
+>
+>         (fromIntegral $ fromMaybe shdr.originalPitch z.zRootKey)
+>         (fromMaybe 100 z.zScaleTuning)
+>         VB.empty
+>         (reconAttenuation z.zInitAtten)
+>         Nothing                         
+>         (if usePitchCorrection
+>            then Just $ reconPitchCorrection shdr.pitchCorrection z.zCoarseTune z.zFineTune
+>            else Nothing)
+>         m8n
+>         (Effects 0 0 0)
 >
 >     reconPitchCorrection
 >                        :: Int → Maybe Int → Maybe Int → Double
@@ -423,8 +432,8 @@ reconcile zone and sample header ===============================================
 >            , zKey           = (Just . fromIntegral) noon.noteOnKey
 >            , zReleaseModEnv = Nothing}
 >
-> reconModulation        :: SFZone → NoteOn → Modulation
-> reconModulation z noon                   = resolveMods m8n z.zModulators defaultMods
+> resolveModulation      :: SFZone → Modulation
+> resolveModulation z                      = m8n
 >   where
 >     m8n                :: Modulation     =
 >       defModulation{
@@ -446,14 +455,7 @@ reconcile zone and sample header ===============================================
 >
 >     resonanceType      :: ResonanceType  = ResonanceSVF
 >     nModEnv            :: Maybe FEnvelope
->     nModEnv                              = deriveEnvelope
->                                              z.zDelayModEnv
->                                              z.zAttackModEnv
->                                              noon
->                                              (z.zHoldModEnv, z.zKeyToModEnvHold) 
->                                              (z.zDecayModEnv, z.zKeyToModEnvDecay)
->                                              z.zSustainModEnv
->                                              (Just (z.zModEnvToPitch, z.zModEnvToFc))
+>     nModEnv                              = Nothing
 >     nModLfo, nVibLfo   :: Maybe LFO
 >     nModLfo                              =
 >       deriveLFO z.zDelayModLfo z.zFreqModLfo z.zModLfoToPitch z.zModLfoToFc z.zModLfoToVol
@@ -466,5 +468,23 @@ reconcile zone and sample header ===============================================
 >         (coAccess toWhich $ maybe defModTriple (fromJust . fModTriple) nModEnv)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
+>
+> reconModulation        :: Modulation → SFZone → NoteOn → Modulation
+> reconModulation m8n z noon               = resolveMods m8n' z.zModulators defaultMods
+>   where
+>     m8n'               :: Modulation     =
+>       m8n{
+>         mModEnv                          = nModEnv}
+>
+>     nModEnv            :: Maybe FEnvelope
+>     nModEnv                              =
+>                                            deriveEnvelope
+>                                              z.zDelayModEnv
+>                                              z.zAttackModEnv
+>                                              noon
+>                                              (z.zHoldModEnv, z.zKeyToModEnvHold) 
+>                                              (z.zDecayModEnv, z.zKeyToModEnvDecay)
+>                                              z.zSustainModEnv
+>                                              (Just (z.zModEnvToPitch, z.zModEnvToFc))
 
 The End
