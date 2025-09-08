@@ -264,8 +264,8 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >         modReverb                        =
 >           [makeDefaultMod 11 ms3 16 (fromRational reverbAllPercent * 10) defModSrc | reverbAllPercent > 0]
 >
-> evaluateMods           :: ModDestType → Map ModDestType [Modulator] → NoteOn → Double
-> evaluateMods md graph noon               = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
+> evaluateMods           :: ModDestType → Map ModDestType [Modulator] → Double
+> evaluateMods md graph                    = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
 >   where
 >     evaluateMod        :: Modulator → Double
 >     evaluateMod m8r                      =
@@ -274,10 +274,8 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >         getValue modSrc
 >           | useModulators                =
 >               case modSrc.msSource of
->                 FromNoController         → 1
->                 FromNoteOnVel            → evaluateNoteOn noon.noteOnVel modSrc.msMapping
->                 FromNoteOnKey            → evaluateNoteOn noon.noteOnKey modSrc.msMapping
->                 FromLinked               → evaluateMods (ToLink m8r.mrModId) graph noon
+>                 FromLinked               → evaluateMods (ToLink m8r.mrModId) graph
+>                 _                        → 1
 >           | otherwise                    = 1
 >       in
 >         getValue m8r.mrModSrc * m8r.mrModAmount * getValue m8r.mrAmountSrc
@@ -285,11 +283,13 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 > evaluateNoteOn         :: Int → Mapping → Double
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / fromIntegral qMidiSize128) (0, 1)
 >
-> evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → NoteOn → Double
-> evaluateModSignals tag m8n md (ModSignals xenv xlfo xvib) noon
->                                          = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
+> evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → Double
+> evaluateModSignals tag m8n md (ModSignals xenv xlfo xvib)
+>   | traceNot trace_EMS False             = undefined
+>   | otherwise                            = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    fName                                 = "evaluateModSignals"
+>    trace_EMS                             = unwords [fName, show (md, mco)]
 >
 >    converter           :: ModDestType → (Double → Double)
 >    converter                             =
@@ -309,7 +309,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >    xmodEnv                               = xenv * mco.xModEnvCo
 >    xmodLfo                               = xlfo * mco.xModLfoCo
 >    xvibLfo                               = xvib * mco.xVibLfoCo
->    xmods                                 = evaluateMods md m8n.mModsMap noon
+>    xmods                                 = evaluateMods md m8n.mModsMap
 
 Filters are complex AND have a large impact ===========================================================================
 
@@ -319,8 +319,8 @@ Filters are complex AND have a large impact ====================================
 >     ResonanceNone                        → Nothing
 >     _                                    → Just cascadeConfig
 >
-> addResonance           :: ∀ p . Clock p ⇒ NoteOn → Modulation → Signal p (Double, ModSignals) Double
-> addResonance noon m8n@Modulation{mLowpass}
+> addResonance           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, ModSignals) Double
+> addResonance m8n@Modulation{mLowpass}
 >                                          =
 >   case cascadeCount lowpassType of
 >     Nothing            →
@@ -353,7 +353,7 @@ Filters are complex AND have a large impact ====================================
 >
 >     modulateFc         :: ModSignals → Double
 >     modulateFc msig                      =
->       clip freakRange (lowpassFc mLowpass * evaluateModSignals "modulateFc" m8n ToFilterFc msig noon)
+>       clip freakRange (lowpassFc mLowpass * evaluateModSignals "modulateFc" m8n ToFilterFc msig)
 >
 > procFilter             :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
 > procFilter lp@Lowpass{lowpassType}       =

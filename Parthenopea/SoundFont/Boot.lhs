@@ -291,8 +291,8 @@ capture task ===================================================================
 >
 >     captureZones       :: InstZoneRecord → ResultDispositions → ([PreZone], ResultDispositions)
 >     captureZones zrec rdCap
->       | traceIf trace_CZS False          = undefined
->       | otherwise                        = (pzs, rdCap')
+>       | traceNot trace_CZS False          = undefined
+>       | otherwise                        = (pzs, dispose pergm ss rdCap)
 >       where
 >         fName_                           = "captureZones"
 >         trace_CZS                        =
@@ -302,6 +302,10 @@ capture task ===================================================================
 >         iName                            = zrec.zswChanges.cnName
 >
 >         results                          = map captureZone (deriveRange ibagi jbagi)
+>           where
+>             iinsts                       = sffile.zFileArrays.ssInsts
+>             ibagi                        = F.instBagNdx (iinsts ! pgkwInst pergm)
+>             jbagi                        = F.instBagNdx (iinsts ! (pgkwInst pergm + 1))
 >
 >         pzs                              = fst $ foldl' consume ([], defZone) results
 >           where
@@ -313,10 +317,6 @@ capture task ===================================================================
 >                   (spzs ++ [pz{pzSFZone = buildZone sffile foldZone (Just pz) bagIndex}], foldZone)
 >                 Right (_, imp)           →
 >                   (spzs, if imp == GlobalZone then buildZone sffile defZone Nothing bagIndex else foldZone)
->
->         iinsts                           = sffile.zFileArrays.ssInsts
->         ibagi                            = F.instBagNdx (iinsts ! pgkwInst pergm)
->         jbagi                            = F.instBagNdx (iinsts ! (pgkwInst pergm + 1))
 >
 >         noZones, illegalRange, hasRoms, illegalLimits, yesCapture
 >                        :: Maybe [Scan] 
@@ -354,8 +354,6 @@ capture task ===================================================================
 >             result                       = foldr CM.mplus Nothing tested
 >         yesCapture                       = Just [Scan Modified Captured fName_ iName]
 >
->         rdCap'                           = dispose pergm ss rdCap
->
 >         captureZone    :: Word → (Word, Either PreZone (Disposition, Impact))
 >         captureZone bix
 >           | traceNot trace_CZ False      = undefined
@@ -366,7 +364,7 @@ capture task ===================================================================
 >           where
 >             fName                        = "captureZone"
 >             trace_CZ                     =
->               unwords [fName, sffile.zFilename, iName, show bix, show pz.pzDigest.zdSampleIndex]
+>               unwords [fName, sffile.zFilename, iName, "sample/bag", show (pz.pzDigest.zdSampleIndex, bix)]
 >                 
 >             ibags                        = sffile.zFileArrays.ssIBags
 >             xgeni                        = F.genNdx $ ibags ! bix
@@ -439,7 +437,7 @@ smash task =====================================================================
 > smashTaskIf _ _                          = zrecTask smasher
 >   where
 >     smasher zrec rdFold                  =
->       (zrec{zsSmashup = Just (computeInstSmashup (show $ instKey zrec) zrec.zsPreZones)}, rdFold)
+>       (zrec{zsSmashup = Just (computeInstSmashup (show (instKey zrec).pgkwInst) zrec.zsPreZones)}, rdFold)
 >
 > computeInstSmashup     :: String → [PreZone] → Smashing Word
 > computeInstSmashup tag pzs               = smashSubspaces tag [qMidiSize128, qMidiSize128, 2] (map extractSpace pzs)

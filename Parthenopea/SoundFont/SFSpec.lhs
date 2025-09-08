@@ -304,17 +304,8 @@ implementing SoundFont spec ====================================================
 >         Just (j, k)                      → (0 <= j) && j <= k && k < qMidiSize128
 >         Nothing                          → True
 >
-> findBySampleIndex      :: [SFZone] → Word → Maybe SFZone
-> findBySampleIndex zs w                   = find (\z → z.zSampleIndex == Just w) zs
->
-> findBySampleIndex'     :: [(a, SFZone)] → Word → Maybe (a, SFZone)
-> findBySampleIndex' zs w                  = find (\(_, z) → z.zSampleIndex == Just w) zs
->
 > findByBagIndex         :: [PreZone] → Word → Maybe PreZone
 > findByBagIndex pzs w                     = find (\pz → w == pz.pzWordB) pzs
->
-> findByBagIndex'        :: [PreZone] → Word → Maybe PreZone
-> findByBagIndex' zs w                     = find (\pz → w == pz.pzWordB) zs
 
 bootstrapping =========================================================================================================
 

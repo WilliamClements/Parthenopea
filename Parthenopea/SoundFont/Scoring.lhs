@@ -14,6 +14,7 @@ September 12, 2024
 > module Parthenopea.SoundFont.Scoring where
 >
 > import qualified Codec.SoundFont         as F
+> import qualified Control.Monad           as CM
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
@@ -163,6 +164,8 @@ use "matching as" cache ========================================================
 >         , case zone.zExclusiveClass of
 >             Nothing                      → False
 >             Just n                       → n /= 0
+>         , isJust zone.zKeyToModEnvHold
+>         , isJust zone.zKeyToModEnvDecay
 >         , shdr.end < shdr.start
 >         , shdr.endLoop < shdr.startLoop
 >       ]
@@ -241,6 +244,9 @@ Scoring stuff ==================================================================
 >   WinningRecord {
 >     pWinningI          :: Map InstrumentName PerGMScored
 >   , pWinningP          :: Map PercussionSound PerGMScored}
+> instance Show WinningRecord where
+>   show winners                 =
+>     unwords ["SFRuntime", show (length winners.pWinningI, length winners.pWinningP)]
 > seedWinningRecord      :: WinningRecord
 > seedWinningRecord                        = WinningRecord Map.empty Map.empty
 >
@@ -262,6 +268,7 @@ tournament starts here =========================================================
 >                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 > decideWinners runt rost matches          = do
+>   CM.when diagnosticsEnabled             (putStrLn $ unwords [fName__, show $ length matches.mSMatches])
 >   return wiExec
 >
 >   where
@@ -386,7 +393,7 @@ tournament starts here =========================================================
 >                      (error $ unwords [fName, "findByBagIndex' returned a Nothing for"
 >                                       , show pergm.pgkwFile, iName, show bagI])
 >                      singleton
->                      (findByBagIndex' perI.pZones bagI)
+>                      (findByBagIndex perI.pZones bagI)
 >         scope                            =
 >           profess
 >             (not (null scope_))
@@ -394,7 +401,7 @@ tournament starts here =========================================================
 >             scope_
 >             
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
->                                            >>= findByBagIndex' perI.pZones
+>                                            >>= findByBagIndex perI.pZones
 >                                            >>= \q → Just (F.sampleName (effPZShdr q))
 >
 >         computeGrade   :: [PreZone] → ArtifactGrade

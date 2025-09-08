@@ -11,9 +11,7 @@ November 24, 2023
 >
 > import Control.Exception ( try, ErrorCall )
 > import Data.Either ( isLeft )
-> import Data.List ( nub, sort, sortOn )
 > import qualified Data.Map                as Map
-> import Data.Ord ( Down(Down) )
 > import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.SFSpec
@@ -31,9 +29,6 @@ Modulation-related tests =======================================================
 >   , linkedModulatorWillNotBeEliminated
 >   , danglingModulatorWillBeEliminated
 >   , mutuallyCyclicModulatorsWillBeRejected
->   , repeatedNoteOnsGiveSameResult
->   , positiveEvaluationsIncrease
->   , negativeEvaluationsDecrease
 >   , supercededModulatorWillBeEliminated
 >   , unsupercededModulatorWillNotBeEliminated
 >   , canonicalOrderingWorks
@@ -45,9 +40,6 @@ Modulation-related tests =======================================================
 >                                         ,   linkedModulatorWillNotBeEliminated
 >                                         ,   danglingModulatorWillBeEliminated
 >                                         ,   mutuallyCyclicModulatorsWillBeRejected
->                                         ,   repeatedNoteOnsGiveSameResult
->                                         ,   positiveEvaluationsIncrease
->                                         ,   negativeEvaluationsDecrease
 >                                         ,   supercededModulatorWillBeEliminated
 >                                         ,   unsupercededModulatorWillNotBeEliminated
 >                                         ,   canonicalOrderingWorks]
@@ -99,45 +91,6 @@ Modulation-related tests =======================================================
 >                                           , mrModDest = ToLink 0}
 >   result::(Either ErrorCall Int)         ← try $ countSurvivingMods [m8r0, m8r1]
 >   return $ isLeft result
->
-> repeatedNoteOnsGiveSameResult            = do
->   let m8r                                = defModulator{
->                                              mrModId = 0
->                                            , mrModSrc = defModSrc{msSource = FromNoteOnKey}
->                                            , mrModAmount = 0.5
->                                            , mrModDest = ToFilterFc}
->   let graph                              = compileMods [m8r]
->
->   let eval                               = evaluateMods ToFilterFc graph 
->   let results                            = [eval (NoteOn x 64) | x ← [0..127]]
->   return $ aEqual True $ all (==0.25) results
->
-> positiveEvaluationsIncrease              = do
->   let m8r                                = defModulator{mrModId = 0
->                                                       , mrModSrc = defModSrc{
->                                                           msSource = FromNoteOnKey
->                                                         , msMapping = defMapping{msContinuity = Concave}}
->                                                       , mrModAmount = 0.5
->                                                       , mrModDest = ToFilterFc}
->   let graph                              = compileMods [m8r]
->
->   let eval                               = evaluateMods ToFilterFc graph 
->   let results                            = [eval (NoteOn 64 x) | x ← [0..127]]
->   return $ aEqual results $ (nub . sort) results
->
-> negativeEvaluationsDecrease              = do
->   let m8r                                = defModulator{mrModId = 0
->                                                       , mrModSrc = defModSrc{
->                                                           msSource = FromNoteOnKey
->                                                         , msMapping = defMapping{msContinuity = Concave
->                                                                                , msMax2Min = True}}
->                                                       , mrModAmount = 0.5
->                                                       , mrModDest = ToFilterFc}
->   let graph                              = compileMods [m8r]
->
->   let eval                               = evaluateMods ToFilterFc graph 
->   let results                            = [eval (NoteOn 64 x) | x ← [0..127]]
->   return $ aEqual results $ (nub . sortOn Down) results
 >
 > supercededModulatorWillBeEliminated      = do
 >   let m8r0                               = defModulator{

@@ -18,7 +18,6 @@ May 14, 2023
 >        , eutSynthesize
 >        , normalizingOutput
 >        , noStereoNoPan
->        , Resolve(..)
 >        , Recon(..)
 >        , TimeFrame(..)
 >        , useAttenuation
@@ -52,12 +51,13 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 
 > eutSynthesize          :: ∀ p . Clock p ⇒
 >                           (Recon, Maybe Recon)
+>                           → NoteOn
 >                           → Double
 >                           → Dur
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL, mreconR) sr dur s16 ms8
+> eutSynthesize (reconL, mreconR) noon sr dur s16 ms8
 >   | traceIf trace_ES False               = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
@@ -68,15 +68,13 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     trace_ES                             = unwords [fName, show timeFrame] 
 >
 >     reconR                               = fromJust mreconR
->     (noonL, noonR)                       = (reconL.rNoteOn, reconR.rNoteOn)
->     (resL, resR)                         = (reconL.rResolve, reconR.rResolve)
->     (m8nL, m8nR)                         = (resL.rM8n, resR.rM8n)
+>     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
 >
->     numPoints          :: Double         = fromIntegral (resL.rEnd - resL.rStart)
+>     numPoints          :: Double         = fromIntegral (reconL.rEnd - reconL.rStart)
 >     secsSampled                          = numPoints * freqRatio / sr
 >     secsScored                           = 1 * fromRational dur
 >     looping            :: Bool           = secsScored > secsSampled
->                                            && (resL.rSampleMode /= A.NoLoop)
+>                                            && (reconL.rSampleMode /= A.NoLoop)
 >                                            && useLoopSwitching
 >     secsToPlay         :: Double         = if looping
 >                                              then secsScored
@@ -89,12 +87,12 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >         looping
 >
 >     freqRatio          :: Double         =
->       case resL.rTuning of
+>       case reconL.rTuning of
 >       0                                  → 1
->       100                                → apToHz resL.rRootKey / apToHz noonL.noteOnKey
->       _                                  → calcMicrotoneRatio resL.rRootKey noonL.noteOnKey (fromIntegral resL.rTuning)
+>       100                                → apToHz reconL.rRootKey / apToHz noon.noteOnKey
+>       _                                  → calcMicrotoneRatio reconL.rRootKey noon.noteOnKey (fromIntegral reconL.rTuning)
 >     rateRatio          :: Double         = rate (undefined::p) / sr
->     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 resL.rPitchCorrection
+>     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
 >     delta              :: Double         = 1 / (numPoints * freqFactor)
 >
 >     pumpMono           :: Signal p () Double
@@ -104,75 +102,83 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 >     pumpMono                             =
 >       eutDriver                    timeFrame reconL delta
->       >>> eutPumpMonoSample        reconL s16 ms8
->       >>> eutModulate              timeFrame m8nL noonL
->       >>> eutEffectsMono           resL
+>       >>> eutPumpMonoSample        reconL noon s16 ms8
+>       >>> eutModulate              timeFrame m8nL
+>       >>> eutEffectsMono           reconL
 >       >>> eutAmplify               timeFrame reconL
 >
 >     pumpStereo                           = 
 >       eutDriver                    timeFrame reconL delta
->         >>> eutPumpStereoSample    (reconL, reconR) s16 ms8
+>         >>> eutPumpStereoSample    (reconL, reconR) noon s16 ms8
 >         >>> modulateStereo
 >         >>> ampStereo
 >
 >     modulateStereo                       =
 >       proc (sL, sR) → do
->         mL                               ← eutModulate timeFrame m8nL noonL ⤙ sL
->         mR                               ← eutModulate timeFrame m8nR noonR ⤙ sR
+>         mL                               ← eutModulate timeFrame m8nL                      ⤙ sL
+>         mR                               ← eutModulate timeFrame m8nR                      ⤙ sR
 >         outA ⤙ (mL, mR)
 >
 >     ampStereo                            =
 >       proc (sL, sR) → do
->         (tL, tR)                         ← eutEffectsStereo (resL, resR)                   ⤙ (sL, sR)
+>         (tL, tR)                         ← eutEffectsStereo (reconL, reconR)               ⤙ (sL, sR)
 >         mL                               ← eutAmplify timeFrame reconL                     ⤙ tL
 >         mR                               ← eutAmplify timeFrame reconR                     ⤙ tR
 >         outA ⤙ (mL, mR)
 >
-> eutModulate            :: ∀ p . Clock p ⇒ TimeFrame → Modulation → NoteOn → Signal p Double Double
-> eutModulate timeFrame m8nL noon          =
+> eutModulate            :: ∀ p . Clock p ⇒ TimeFrame → Modulation → Signal p Double Double
+> eutModulate timeFrame m8nL               =
 >   proc a1L                               → do
 >     modSigL                              ← eutModSignals timeFrame m8nL ToFilterFc ⤙ ()
->     a2L   ← addResonance noon m8nL       ⤙ (a1L, modSigL)
+>     a2L   ← addResonance m8nL            ⤙ (a1L, modSigL)
 >     outA                                 ⤙ a2L
 >
 > eutDriver              :: ∀ p . Clock p ⇒ TimeFrame → Recon → Double → Signal p () Double
-> eutDriver timeFrame reconL idelta          = if timeFrame.tfLooping
+> eutDriver timeFrame reconL idelta
+>   | traceNot trace_ED False              = undefined
+>   | otherwise                            = if timeFrame.tfLooping
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
 >   where
+>     fName                                = "eutDriver"
+>     trace_ED                             = unwords [fName, show idelta]
+>
 >     calcLooping, calcNotLooping
 >                        :: Double → Double
 >     calcLooping next                     = if next > len    then lst           else next
 >     calcNotLooping next                  = if next > 1      then frac next     else next
 >
->     resL                                 = reconL.rResolve
 >     procDriver calcPhase                 = proc () → do
->       modSig                             ← eutModSignals timeFrame resL.rM8n ToPitch ⤙ ()
->       let delta                          =
->             idelta * evaluateModSignals "procDriver" resL.rM8n ToPitch modSig reconL.rNoteOn
+>       modSig                             ← eutModSignals timeFrame reconL.rM8n ToPitch ⤙ ()
+>       let delta                          = idelta * evaluateModSignals "procDriver" reconL.rM8n ToPitch modSig
 >       rec
 >         let phase                        = calcPhase next
 >         next           ← delay 0         ⤙ phase + delta                           
 >       outA                               ⤙ phase
 >
 >     (lst, len)         :: (Double, Double)
->                                          = normalizeLooping resL
+>                                          = normalizeLooping reconL
 >
-> normalizeLooping       :: Resolve → (Double, Double)
-> normalizeLooping resl                    = ((loopst - fullst) / denom, (loopen - fullst) / denom)
+> normalizeLooping       :: Recon → (Double, Double)
+> normalizeLooping recon                    = ((loopst - fullst) / denom, (loopen - fullst) / denom)
 >   where
->     (fullst, fullen)                     = (fromIntegral resl.rStart, fromIntegral resl.rEnd)
->     (loopst, loopen)                     = (fromIntegral resl.rLoopStart, fromIntegral resl.rLoopEnd)
+>     (fullst, fullen)                     = (fromIntegral recon.rStart, fromIntegral recon.rEnd)
+>     (loopst, loopen)                     = (fromIntegral recon.rLoopStart, fromIntegral recon.rLoopEnd)
 >     denom              :: Double         = fullen - fullst
 >
 > eutModSignals          :: ∀ p. Clock p ⇒ TimeFrame → Modulation → ModDestType → Signal p () ModSignals
-> eutModSignals timeFrame m8n md           =
+> eutModSignals timeFrame m8n md
+>   | traceNot trace_EMS False             = undefined
+>   | otherwise                            =
 >   proc _ → do
 >     aL1 ← doEnvelope  timeFrame kModEnvL ⤙ ()
 >     aL2 ← doLFO       kModLfoL           ⤙ ()
 >     aL3 ← doLFO       kVibLfoL           ⤙ ()
 >     outA                                 ⤙ ModSignals aL1 aL2 aL3
 >   where
+>     fName                                = "eutModSignals"
+>     trace_EMS                            = unwords [fName, show md]
+>
 >     (kModEnvL, kModLfoL, kVibLfoL)       = doModSigMaybes 
 >
 >     doModSigMaybes                       = case md of
@@ -184,30 +190,32 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 > eutPumpMonoSample      :: ∀ p . Clock p ⇒
 >                           Recon
+>                           → NoteOn
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p Double Double
-> eutPumpMonoSample reconL s16 ms8         =
+> eutPumpMonoSample reconL noon s16 ms8    =
 >   proc pos → do
->     let pos'           :: Double         = fromIntegral (resL.rEnd - resL.rStart) * pos
+>     let pos'           :: Double         = fromIntegral (reconL.rEnd - reconL.rStart) * pos
 >     let ix             :: Int            = truncate pos'
 >     let offset         :: Double         = pos' - fromIntegral ix
 >
->     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral resL.rStart + ix)
+>     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral reconL.rStart + ix)
 >     outA                                 ⤙ a1L * ampL
 >   where
->     resL                                 = reconL.rResolve
 >     cAttenL            :: Double         =
->       fromCentibels (resL.rAttenuation + evaluateMods ToInitAtten resL.rM8n.mModsMap reconL.rNoteOn)
->     ampL                                 = fromIntegral reconL.rNoteOn.noteOnVel / 100 / cAttenL
+>       fromCentibels (reconL.rAttenuation + evaluateMods ToInitAtten reconL.rM8n.mModsMap)
+>     ampL                                 = fromIntegral noon.noteOnVel / 100 / cAttenL
 >
 > eutPumpStereoSample    :: ∀ p . Clock p ⇒
 >                           (Recon, Recon)
+>                           → NoteOn
 >                           → A.SampleData Int16
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p Double (Double, Double)
-> eutPumpStereoSample (reconL, reconR) s16 ms8
->                                          = 
+> eutPumpStereoSample (reconL, reconR) noon s16 ms8
+>   | traceNot trace_EPSS False            = undefined
+>   | otherwise                            =
 >   proc pos → do
 >     let pos'           :: Double         = fromIntegral (enL - stL) * pos
 >     let ix             :: Int            = truncate pos' -- WOX should be round?
@@ -217,51 +225,52 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     let a1R                              = samplePointInterp s16 ms8 offset (fromIntegral stR + ix)
 >     outA                                 ⤙ (a1L * ampL, a1R * ampR)
 >   where
->     Resolve{rAttenuation = attenL, rStart = stL, rEnd = enL, rM8n = m8nL}
->                                          = reconL.rResolve
->     Resolve{rAttenuation = attenR, rStart = stR, rM8n = m8nR}
->                                          = reconR.rResolve
+>     fName                                = "eutPumpStereoSample"
+>     trace_EPSS                           = unwords [fName, show noon]
+>
+>     Recon{rAttenuation = attenL, rStart = stL, rEnd = enL, rM8n = m8nL}
+>                                          = reconL
+>     Recon{rAttenuation = attenR, rStart = stR, rM8n = m8nR}
+>                                          = reconR
 >     Modulation{mModsMap = mmodsL}        = m8nL
 >     Modulation{mModsMap = mmodsR}        = m8nR
->     cAttenL                              = fromCentibels (attenL + evaluateMods ToInitAtten mmodsL reconL.rNoteOn)
->     cAttenR                              = fromCentibels (attenR + evaluateMods ToInitAtten mmodsR reconR.rNoteOn)
->     ampL                                 = fromIntegral reconL.rNoteOn.noteOnVel / 100 / cAttenL
->     ampR                                 = fromIntegral reconR.rNoteOn.noteOnVel / 100 / cAttenR
+>     cAttenL                              = fromCentibels (attenL + evaluateMods ToInitAtten mmodsL)
+>     cAttenR                              = fromCentibels (attenR + evaluateMods ToInitAtten mmodsR)
+>     ampL                                 = fromIntegral noon.noteOnVel / 100 / cAttenL
+>     ampR                                 = fromIntegral noon.noteOnVel / 100 / cAttenR
 >
 > eutAmplify             :: ∀ p . Clock p ⇒ TimeFrame → Recon → Signal p Double Double
 > eutAmplify timeFrame recon               =
 >   proc a1L → do
->     aSweep                               ← doVeloSweepingEnvelope timeFrame resl.rDynamics      ⤙ ()
->     aenvL                                ← doEnvelope timeFrame resl.rVolEnv                    ⤙ ()
->     modSigL                              ← eutModSignals timeFrame resl.rM8n ToVolume           ⤙ ()
+>     aSweep                               ← doVeloSweepingEnvelope timeFrame recon.rDynamics      ⤙ ()
+>     aenvL                                ← doEnvelope timeFrame recon.rVolEnv                    ⤙ ()
+>     modSigL                              ← eutModSignals timeFrame recon.rM8n ToVolume           ⤙ ()
 >     let a2L                              =
->           a1L * aenvL * (aSweep / 100) * evaluateModSignals fName resl.rM8n ToVolume modSigL recon.rNoteOn
+>           a1L * aenvL * (aSweep / 100) * evaluateModSignals fName recon.rM8n ToVolume modSigL
 >     outA ⤙ a2L
 >   where
 >     fName                                = "eutAmplify"
->
->     resl                                 = recon.rResolve
 
 Effects ===============================================================================================================
 
-> deriveEffects          :: Modulation → NoteOn → Maybe Int → Maybe Int → Maybe Int → Effects
-> deriveEffects m8n noon mChorus mReverb mPan
+> deriveEffects          :: Modulation → Maybe Int → Maybe Int → Maybe Int → Effects
+> deriveEffects m8n mChorus mReverb mPan
 >                                          = Effects (dChorus / 1000) (dReverb / 1000) (dPan / 1000)
 >   where
 >     dChorus            :: Double         =
 >       if useChorus
->         then maybe 0 fromIntegral mChorus + evaluateMods ToChorus m8n.mModsMap noon
+>         then maybe 0 fromIntegral mChorus + evaluateMods ToChorus m8n.mModsMap
 >         else 0
 >     dReverb            :: Double         =
 >       if useReverb
->         then maybe 0 fromIntegral mReverb + evaluateMods ToReverb m8n.mModsMap noon
+>         then maybe 0 fromIntegral mReverb + evaluateMods ToReverb m8n.mModsMap
 >         else 0
 >     dPan               :: Double         =
 >       if usePan
 >         then maybe 0 fromIntegral mPan
 >         else 0
 >
-> eutEffectsMono       :: ∀ p . Clock p ⇒ Resolve → Signal p Double Double
+> eutEffectsMono       :: ∀ p . Clock p ⇒ Recon → Signal p Double Double
 > eutEffectsMono r                                         =
 >   proc aL → do
 >     chL ← eutChorus chorusRate chorusDepth cho           ⤙ aL
@@ -284,8 +293,8 @@ Effects ========================================================================
 >     rev                                                  = r.rEffects.efReverb
 >     pan                                                  = r.rEffects.efPan 
 >
-> eutEffectsStereo       :: ∀ p . Clock p ⇒ (Resolve, Resolve) → Signal p (Double, Double) (Double, Double)
-> eutEffectsStereo (Resolve{rEffects = effL}, Resolve{rEffects = effR})
+> eutEffectsStereo       :: ∀ p . Clock p ⇒ (Recon, Recon) → Signal p (Double, Double) (Double, Double)
+> eutEffectsStereo (Recon{rEffects = effL}, Recon{rEffects = effR})
 >                                          =
 >   proc (aL, aR) → do
 >     chL ← eutChorus chorusRate chorusDepth cFactorL      ⤙ aL
@@ -386,8 +395,8 @@ Effects ========================================================================
 
 Utility types =========================================================================================================
 
-> data Resolve =
->   Resolve {
+> data Recon                               =
+>   Recon {
 >     rSampleMode        :: A.SampleMode
 >   , rSampleRate        :: Double
 >   , rStart             :: Word
@@ -404,13 +413,7 @@ Utility types ==================================================================
 >   , rEffects           :: Effects}
 >   deriving (Eq, Show)
 >
-> data Recon =
->   Recon {
->     rNoteOn            :: NoteOn
->   , rResolve           :: Resolve}
->   deriving (Eq, Show)
->
-> data Effects =
+> data Effects                             =
 >   Effects {
 >     efChorus           :: Double
 >   , efReverb           :: Double

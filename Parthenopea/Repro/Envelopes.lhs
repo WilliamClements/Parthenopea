@@ -277,19 +277,18 @@ interpret them somehow.
 >
 > deriveEnvelope         :: Maybe Int
 >                           → Maybe Int
->                           → NoteOn
->                           → (Maybe Int, Maybe Int)
->                           → (Maybe Int, Maybe Int)
+>                           → Maybe Int
+>                           → Maybe Int
 >                           → Maybe Int
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe FEnvelope
-> deriveEnvelope mDelay mAttack noon (mHold, mHoldByKey) (mDecay, mDecayByKey)
->                mSustain mTriple          = if useEnvelopes && doUse mTriple
->                                              then Just env
->                                              else Nothing
+> deriveEnvelope mDelay mAttack mHold mDecay mSustain mTriple
+>   | traceNot trace_DE False              = undefined
+>   | otherwise                            =
+>   if useEnvelopes && doUse mTriple then Just env else Nothing
 >   where
->     dHold              :: Double         = max minDeltaT (fromTimecents' mHold  mHoldByKey  noon.noteOnKey)
->     dDecay             :: Double         = max minDeltaT (fromTimecents' mDecay mDecayByKey noon.noteOnKey)
+>     fName                                = "deriveEnvelope"
+>     trace_DE                             = unwords [fName, show mTriple]
 >
 >     env                                  =
 >       FEnvelope
@@ -298,8 +297,8 @@ interpret them somehow.
 >         (makeModTriple mTriple)
 >         (fromTimecents mDelay)
 >         (fromTimecents mAttack)
->         dHold
->         dDecay
+>         (fromTimecents mHold)
+>         (fromTimecents mDecay)
 >         minDeltaT
 >
 >     doUse              :: Maybe (Maybe Int, Maybe Int) → Bool

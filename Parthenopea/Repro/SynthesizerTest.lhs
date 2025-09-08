@@ -17,25 +17,19 @@ March 2, 2024
 > import Euterpea.IO.Audio.Types ( Clock(..), AudRate, Signal )
 > import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Music.Siren
-> import Parthenopea.Repro.Modulation ( NoteOn(NoteOn), defModulation )
-> import Parthenopea.Repro.Synthesizer ( eutDriver, Effects(Effects), Recon(Recon), Resolve(..), TimeFrame(..) )
+> import Parthenopea.Repro.Modulation ( defModulation )
+> import Parthenopea.Repro.Synthesizer ( eutDriver, Effects(Effects), Recon(Recon), TimeFrame(..) )
   
 Synthesizer-related tests =============================================================================================
 
-> defResolve             :: Resolve
-> defResolve                               = 
->   Resolve
+> defRecon               :: Recon
+> defRecon                                 = 
+>   Recon
 >     A.ContLoop 44100 0 0 0 0
 >     60 100
 >     VB.empty
 >     0 Nothing Nothing
 >     defModulation defEffects
->
-> defRecon               :: Recon
-> defRecon                                 =
->   Recon
->     (NoteOn 100 60)
->     defResolve
 >
 > defEffects             :: Effects
 > defEffects                               = Effects 0 0 0

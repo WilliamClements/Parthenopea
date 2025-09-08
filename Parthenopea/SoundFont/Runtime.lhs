@@ -11,7 +11,8 @@ Runtime
 William Clements
 February 1, 2025
 
-> module Parthenopea.SoundFont.Runtime ( prepareInstruments
+> module Parthenopea.SoundFont.Runtime ( implementNoteBending
+>                                      , prepareInstruments
 >                                      , runUnitTests
 >                                      , writeRangesReport
 >                                      , writeScanReport
@@ -37,7 +38,6 @@ February 1, 2025
 > import Euterpea.IO.MIDI.MEvent ( MEvent(ePitch) )
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Music.Passage
 > import Parthenopea.Music.PassageTest ( passageTests )
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
@@ -236,7 +236,8 @@ executive ======================================================================
 define signal functions and instrument maps to support rendering ======================================================
 
 > prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
-> prepareInstruments runt                  = 
+> prepareInstruments runt                  = do
+>     putStrLn $ unwords ["prepareInstruments", show winners]
 >     return $ (Percussion, assignPercussion)                                                               : imap
 >   where
 >     winners                              = runt.zWinningRecord
@@ -274,7 +275,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Signal p () (Double, Double)
 > instrumentSF runt pergm durI pchIn volIn ps_
 >   | traceIf trace_ISF False              = undefined
->   | otherwise                            = eutSynthesize (reconX, mreconX) reconX.rResolve.rSampleRate
+>   | otherwise                            = eutSynthesize (reconX, mreconX) noonOut reconX.rSampleRate
 >                                              durI sffile.zSample.ssData sffile.zSample.ssM24
 >   where
 >     fName_                               = "instrumentSF"
@@ -284,12 +285,9 @@ define signal functions and instrument maps to support rendering ===============
 >     ps                                   = VB.fromList ps_
 >     noonIn                               = carefulNoteOn volIn pchIn
 >     fly                                  = doFlyEye noonIn
->
->     noonOutL, noonOutR
->                         :: NoteOn
->     (noonOutL, noonOutR)                 = case fly of
->                                              Left z                     → (calcNoteOn z.pzSFZone, undefined)
->                                              Right (zL, zR)             → (calcNoteOn zL.pzSFZone, calcNoteOn zR.pzSFZone)
+>     noonOut                              = case fly of
+>                                              Left z                     → calcNoteOn z.pzSFZone
+>                                              Right (z, _)               → calcNoteOn z.pzSFZone
 >       where
 >         calcNoteOn z                     = NoteOn (maybe (clip (0, 127) volIn) fromIntegral z.zVel) 
 >                                                   (maybe (clip (0, 127) pchIn) fromIntegral z.zKey)
@@ -300,10 +298,15 @@ define signal functions and instrument maps to support rendering ===============
 >
 >     (reconX, mreconX)                    =
 >       case fly of
->         Left pz                          → (makeRecon pz noonOutL ps (fromRational durI), Nothing)
->         Right (pzL, pzR)                 → reconLR (pzL, pzR)
->                                                    (noonOutL, noonOutR)
->                                                    ps (fromRational durI)
+>         Left pz                          → (resolvePreZone pz, Nothing)
+>         Right (pzL, pzR)                 → (reconL, Just $ copyRoot reconL reconR)
+>           where
+>             reconL                       = resolvePreZone pzL
+>             reconR                       = resolvePreZone pzR
+>
+>     copyRoot           :: Recon → Recon → Recon
+>     copyRoot pz1 pz2                     = pz2{rRootKey                   = pz1.rRootKey
+>                                              , rPitchCorrection           = pz1.rPitchCorrection}
 
 zone selection for rendering ==========================================================================================
 
@@ -328,60 +331,13 @@ zone selection for rendering ===================================================
 >         (index1, index2)                 = noonAsCoords noonFly
 >         (bagIdL, cntL)                   = lookupCellIndex index1 perI.pSmashing
 >         (bagIdR, cntR)                   = lookupCellIndex index2 perI.pSmashing
->         foundL                           = findByBagIndex' perI.pZones bagIdL
->         foundR                           = findByBagIndex' perI.pZones bagIdR
+>         foundL                           = findByBagIndex perI.pZones bagIdL
+>         foundR                           = findByBagIndex perI.pZones bagIdR
 
 reconcile zone and sample header ======================================================================================
 
-> reconLR                :: (PreZone, PreZone) → (NoteOn, NoteOn) → VB.Vector Double → Dur → (Recon, Maybe Recon)
-> reconLR (pzL, pzR) (noonL, noonR) ps durR
->                                          = (reconL, Just reconR{rResolve = resR})
->   where
->     secsScored         :: Double         = fromRational durR
->
->     reconL                               = makeRecon pzL noonL ps secsScored
->     resL                                 = reconL.rResolve
->
->     reconR                               = makeRecon pzR noonR ps secsScored
->     resR                                 = reconR.rResolve {
->                                                rRootKey                   = resL.rRootKey
->                                              , rPitchCorrection           = resL.rPitchCorrection}
->
-> makeRecon              :: PreZone → NoteOn → VB.Vector Double → Double → Recon
-> makeRecon pz noon ps secs
->   | traceIf trace_MR False               = undefined
->   | otherwise                            = reconL
->   where
->     fName                                = "makeRecon"
->     trace_MR                             = unwords [fName, shdr.sampleName]
->
->     z_                                   = pz.pzSFZone
->     shdr                                 = effPZShdr pz
->     
->     bend                                 = (getAnswers ps).aNoteBend
->     z                                    = if not (VB.null bend)
->                                              then implementNoteBending noon z_ (bend VB.! 0) secs
->                                              else z_
->     m8n                                  = resolveModulation z
->     m8n'                                 = reconModulation m8n z noon
->
->     reconL = Recon noon (resolvePreZone pz)
->                {  rVolEnv                = deriveEnvelope   z.zDelayVolEnv
->                                                             z.zAttackVolEnv
->                                                             noon
->                                                             (z.zHoldVolEnv,  z.zKeyToVolEnvHold)
->                                                             (z.zDecayVolEnv, z.zKeyToVolEnvDecay)
->                                                             z.zSustainVolEnv
->                                                             Nothing
->                 , rEffects               = deriveEffects    m8n
->                                                             noon
->                                                             z.zChorus
->                                                             z.zReverb
->                                                             z.zPan
->                 , rM8n                   = m8n'}
->    
-> resolvePreZone         :: PreZone → Resolve
-> resolvePreZone pz                        = resL
+> resolvePreZone         :: PreZone → Recon
+> resolvePreZone pz                        = reconL
 >   where
 >     zd                                   = pz.pzDigest
 >     z                                    = pz.pzSFZone
@@ -389,8 +345,8 @@ reconcile zone and sample header ===============================================
 >     
 >     m8n                                  = resolveModulation z
 >
->     resL                                 =
->       Resolve
+>     reconL                               =
+>       Recon
 >         (fromMaybe A.NoLoop z.zSampleMode)
 >         (fromIntegral shdr.sampleRate)
 >
@@ -403,12 +359,12 @@ reconcile zone and sample header ===============================================
 >         (fromMaybe 100 z.zScaleTuning)
 >         VB.empty
 >         (reconAttenuation z.zInitAtten)
->         Nothing                         
+>         (deriveEnvelope z.zDelayVolEnv z.zAttackVolEnv z.zHoldVolEnv z.zDecayVolEnv z.zSustainVolEnv Nothing)                         
 >         (if usePitchCorrection
 >            then Just $ reconPitchCorrection shdr.pitchCorrection z.zCoarseTune z.zFineTune
 >            else Nothing)
 >         m8n
->         (Effects 0 0 0)
+>         (deriveEffects m8n z.zChorus z.zReverb z.zPan)
 >
 >     reconPitchCorrection
 >                        :: Int → Maybe Int → Maybe Int → Double
@@ -433,8 +389,13 @@ reconcile zone and sample header ===============================================
 >            , zReleaseModEnv = Nothing}
 >
 > resolveModulation      :: SFZone → Modulation
-> resolveModulation z                      = m8n
+> resolveModulation z
+>   | traceNot trace_RM False              = undefined
+>   | otherwise                            = resolveMods m8n z.zModulators defaultMods
 >   where
+>     fName                                = "resolveModulation"
+>     trace_RM                             = unwords [fName, show z]
+>
 >     m8n                :: Modulation     =
 >       defModulation{
 >         mLowpass                         = Lowpass resonanceType curKernelSpec
@@ -455,7 +416,13 @@ reconcile zone and sample header ===============================================
 >
 >     resonanceType      :: ResonanceType  = ResonanceSVF
 >     nModEnv            :: Maybe FEnvelope
->     nModEnv                              = Nothing
+>     nModEnv                              =   deriveEnvelope
+>                                              z.zDelayModEnv
+>                                              z.zAttackModEnv
+>                                              z.zHoldModEnv
+>                                              z.zDecayModEnv
+>                                              z.zSustainModEnv
+>                                              (Just (z.zModEnvToPitch, z.zModEnvToFc))
 >     nModLfo, nVibLfo   :: Maybe LFO
 >     nModLfo                              =
 >       deriveLFO z.zDelayModLfo z.zFreqModLfo z.zModLfoToPitch z.zModLfoToFc z.zModLfoToVol
@@ -468,23 +435,5 @@ reconcile zone and sample header ===============================================
 >         (coAccess toWhich $ maybe defModTriple (fromJust . fModTriple) nModEnv)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
->
-> reconModulation        :: Modulation → SFZone → NoteOn → Modulation
-> reconModulation m8n z noon               = resolveMods m8n' z.zModulators defaultMods
->   where
->     m8n'               :: Modulation     =
->       m8n{
->         mModEnv                          = nModEnv}
->
->     nModEnv            :: Maybe FEnvelope
->     nModEnv                              =
->                                            deriveEnvelope
->                                              z.zDelayModEnv
->                                              z.zAttackModEnv
->                                              noon
->                                              (z.zHoldModEnv, z.zKeyToModEnvHold) 
->                                              (z.zDecayModEnv, z.zKeyToModEnvDecay)
->                                              z.zSustainModEnv
->                                              (Just (z.zModEnvToPitch, z.zModEnvToFc))
 
 The End

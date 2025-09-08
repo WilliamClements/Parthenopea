@@ -514,8 +514,13 @@ instrument range checking ======================================================
 >           else i2i
 >
 > bandPart               :: BandPart → Music Pitch → Music1
-> bandPart bp                              = mMap bChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
+> bandPart bp
+>   | traceNot trace_BP False              = undefined
+>   | otherwise                            = mMap bChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
 >   where
+>     fName                                = "bandPart"
+>     trace_BP                             = unwords [fName, show bp]
+>
 >     bChanger           :: Pitch → (Pitch, [NoteAttribute])
 >     bChanger p                           = (p, [Volume bp.bpHomeVelocity])
 >
@@ -805,6 +810,12 @@ Returns sample point as (normalized) Double
 >     (s0, s1)           :: (Double, Double)
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
+>
+> lilSong                :: Song
+> lilSong                                  = Song "lilSailor" (const lilSailor) Map.empty
+>   where
+>     lilSailor                            = bandPart (BandPart Clarinet 0 100) (line [f 5 wn])
+
 
 Configurable parameters ===============================================================================================
 

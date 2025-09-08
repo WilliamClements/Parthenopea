@@ -184,8 +184,9 @@ zipper to carry out the you-know-what.
 > computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → Int
 > computeCellIndex [] []                   = 0
 > computeCellIndex (_:dims) (rng:rngs)     = fromIntegral (rng * product dims) + computeCellIndex dims rngs
-> computeCellIndex _ _                     =
->   error $ unwords ["computeCellIndex:", "input args dims and coords have unequal lengths"]
+> computeCellIndex _ _                     = error $ unwords [fName, "input dims and coords have unequal lengths"]
+>   where
+>     fName                                = "computeCellIndex"
 >
 > allCellsEqualTo        :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ Smashing i → Maybe (i, i)
 > allCellsEqualTo smashup                  =
