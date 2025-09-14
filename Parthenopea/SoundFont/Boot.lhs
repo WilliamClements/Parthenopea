@@ -1,6 +1,7 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
+> {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
@@ -19,6 +20,8 @@ January 21, 2025
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Foldable
+> import Data.IntMap.Lazy (IntMap)
+> import qualified Data.IntMap.Lazy as IntMap
 > import Data.List hiding (insert)
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
@@ -35,12 +38,29 @@ January 21, 2025
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 
-> data FileWork =
+> data Pairing                             =
+>   Pairing {
+>     fwPartners         :: IntMap {- SampleIndex -} SampleIndex
+>   , fwAllStereo        :: IntMap {- BagIndex -}    PreZone
+>   , fwMembersLeft      :: IntMap {- SampleIndex -} [BagIndex]
+>   , fwMembersRight     :: IntMap {- SampleIndex -} [BagIndex]}
+> defPairing             ::Pairing
+> defPairing                               =
+>   Pairing
+>     IntMap.empty
+>     IntMap.empty
+>     IntMap.empty
+>     IntMap.empty
+>
+> data FileWork                            =
 >   FileWork {
 >     fwZRecs            :: [InstZoneRecord]
 >   , fwPreSampleCache   :: Map PreSampleKey PreSample
 >   , fwInstrumentCache  :: Map PerGMKey PerInstrument
 >   , fwMatches          :: Matches
+>
+>   , fwPairing          :: Pairing
+>
 >   , fwDispositions     :: ResultDispositions}
 > instance Show FileWork where
 >   show fw                                =
@@ -50,7 +70,14 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >              , show fw.fwDispositions]
 > defFileWork            :: FileWork
 > defFileWork                              =
->   FileWork [] Map.empty Map.empty defMatches virginrd
+>   FileWork 
+>    []
+>    Map.empty
+>    Map.empty
+>    defMatches
+>    defPairing
+>    virginrd
+>
 > data FileIterate =
 >   FileIterate {
 >     fiFw               :: FileWork
@@ -59,9 +86,10 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   show fi                                =
 >     unwords ["FileIterate", show fi.fiFw]
 > reduceFileIterate      :: FileIterate → (Map PerGMKey PerInstrument, Matches, ResultDispositions)
-> reduceFileIterate fiIn                   = (fiIn.fiFw.fwInstrumentCache, fiIn.fiFw.fwMatches, fiIn.fiFw.fwDispositions)
+> reduceFileIterate FileIterate{ .. }                   =
+>   (fiFw.fwInstrumentCache, fiFw.fwMatches, fiFw.fwDispositions)
 >
-> preSampleTaskIf, surveyTaskIf, captureTaskIf, vetTaskIf, smashTaskIf, reorgTaskIf
+> preSampleTaskIf, smellTaskIf, surveyTaskIf, captureTaskIf, prepairTaskIf, vetTaskIf, smashTaskIf, reorgTaskIf
 >                , matchTaskIf, catTaskIf, perITaskIf
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
 >
@@ -69,8 +97,11 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > makeFileIterate sffile rost              =
 >   FileIterate
 >     defFileWork 
->     [  ("preSample",  preSample)
+>     [
+>        ("preSample",  preSample)
+>      , ("smell",      smell)
 >      , ("capture",    capture . survey)
+>      , ("prepair",    prepair)
 >      , ("vet",        vet)
 >      , ("smash",      smash)
 >      , ("reorg",      reorg) 
@@ -79,8 +110,10 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >      , ("perI",       perI)]
 >   where
 >     preSample                            = preSampleTaskIf    sffile rost
+>     smell                                = smellTaskIf        sffile rost
 >     survey                               = surveyTaskIf       sffile rost
 >     capture                              = captureTaskIf      sffile rost
+>     prepair                              = prepairTaskIf      sffile rost
 >     vet                                  = vetTaskIf          sffile rost
 >     smash                                = smashTaskIf        sffile rost
 >     reorg                                = reorgTaskIf        sffile rost
@@ -179,6 +212,33 @@ pre-sample task ================================================================
 >                                              else (ss_, [],                       raw)
 >       in
 >         fwForm{ fwPreSampleCache = preSampleCache, fwDispositions = dispose presk ss fwForm.fwDispositions}
+
+smell task ============================================================================================================
+          partner map at sample header level = driver for stereo pairings
+
+> smellTaskIf _ _ fWork@FileWork{fwPairing, fwPreSampleCache}
+>                                          = fWork{fwPairing = pairing}
+>   where
+>     pairing                              = fwPairing{fwPartners = partners}
+>
+>     allLeft                              = Map.filter leftOnly fwPreSampleCache
+>     leftOnly pres                        = Just SampleTypeLeft == toMaybeSampleType (effPSShdr pres).sampleType
+>
+>     partners                             = Map.foldlWithKey smellFolder IntMap.empty allLeft
+>     smellFolder        :: IntMap SampleIndex → PreSampleKey → PreSample → IntMap SampleIndex
+>     smellFolder m presk pres             =
+>       let
+>         otherKey                         = presk{pskwSampleIndex = (effPSShdr pres).sampleLink}
+>         mbackLink                        = otherKey `Map.lookup` fwPreSampleCache
+>                                            >>= Just . effPSShdr >>= backOk
+>         backOk oshdr                     =
+>           if Just SampleTypeRight == toMaybeSampleType oshdr.sampleType && oshdr.sampleLink == presk.pskwSampleIndex
+>             then Just otherKey.pskwSampleIndex
+>             else Nothing
+>       in
+>         case mbackLink of
+>           Nothing                        → m
+>           Just x                         → IntMap.insert (fromIntegral presk.pskwSampleIndex) x m
 
 PreZone administration ================================================================================================
 
@@ -291,7 +351,7 @@ capture task ===================================================================
 >
 >     captureZones       :: InstZoneRecord → ResultDispositions → ([PreZone], ResultDispositions)
 >     captureZones zrec rdCap
->       | traceNot trace_CZS False          = undefined
+>       | traceNot trace_CZS False         = undefined
 >       | otherwise                        = (pzs, dispose pergm ss rdCap)
 >       where
 >         fName_                           = "captureZones"
@@ -381,55 +441,93 @@ capture task ===================================================================
 >             mpres                        = presk `Map.lookup` fwIn.fwPreSampleCache
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
 
-vet task ==========================================================================================================
-          switch bad stereo zones to mono
+prepair task ==========================================================================================================
+          erect temporary infrastructure for stereo pairings
 
-> vetTaskIf _ _                            = zrecTask vetter
+> prepairTaskIf _ _ fWork@FileWork{fwPairing}
+>                                          = fWork{fwPairing = pairing}
 >   where
+>     pairing                              =
+>       fwPairing{
+>         fwAllStereo = mapStereo
+>       , fwMembersLeft = membersLeft
+>       , fwMembersRight = membersRight}
+>     allStereo                            = zrecCompute fWork buildUp []
+>     buildUp m zrec                       = m ++ filter isStereoZone zrec.zsPreZones
+>     mapStereo                            = foldl' foldStereo IntMap.empty allStereo
+>     foldStereo m pz                      = IntMap.insert (fromIntegral pz.pzWordB) pz m
+>     (membersLeft, membersRight)          = foldl' prepairFolder (IntMap.empty, IntMap.empty) allStereo
+>     prepairFolder (mleft, mright) pz     = (mleft', mright')
+>       where
+>         (mleft', mright')
+>           | isLeftPreZone pz             = (computeMembers SampleTypeLeft mleft, mright)
+>           | isRightPreZone pz            = (mleft, computeMembers SampleTypeRight mright)
+>           | otherwise                    = (mleft, mright)
+>         computeMembers :: SampleType → IntMap [BagIndex] → IntMap [BagIndex]
+>         computeMembers _                 = IntMap.insertWith (++) (fromIntegral pz.pzWordS) [pz.pzWordB]
+
+vet task ==============================================================================================================
+          switch bad stereo zones to mono, or off altogether
+
+> vetTaskIf _ _ fWork
+>                                          = (zrecTask vetter fWork){fwPairing = defPairing}
+>   where
+>     Pairing{ .. }                        
+>                                          = fWork.fwPairing
+>
 >     vetter zrec rdIn
 >       | traceNot trace_V False           = undefined
->       | otherwise                        = (zrec{zsPreZones = pzs'}, rdOut')
+>       | otherwise                        = (zrec, foldl' rdFolder rdIn bads)
 >       where
 >         fName_                           = "vetter"
->         trace_V                          = unwords [fName_, iName, show $ instKey zrec, showPreZones pzs, showPreZones pzs']
+>         trace_V                          = unwords [fName_, iName, show $ instKey zrec]
 >
 >         iName                            = zrec.zswChanges.cnName
 >
->         slipMap                          = foldl' slipper Map.empty zrec.zsPreZones
->                                              where slipper m pz = Map.insert pz.pzWordS pz.pzWordB m
->
->         (pzs, rdOut)                     = zoneTask check modify zrec.zsPreZones rdIn
->         (pzs', rdOut')                   = zoneTask (const True) adopt pzs rdOut
->     
->         check pz
->           | traceNot trace_C False       = undefined
->           | not switchBadStereoZonesToMono
->                                          = False
->           | not (isStereoZone pz)        = False
->           | isNothing motherpz           = True
->           | (effPZShdr otherpz).sampleLink /= pz.pzWordS
->                                          = True
->           | otherwise                    = pz.pzDigest.zdKeyRange /= otherpz.pzDigest.zdKeyRange
->                                            || pz.pzDigest.zdVelRange /= otherpz.pzDigest.zdVelRange
+>         bads                             = IntMap.foldlWithKey badsFolder [] fwPartners
+>         badsFolder rejects siFrom siTo   = rejects ++ newRejects
 >           where
->             fName                        = unwords [fName_, "check"]
->             trace_C                      = unwords [fName, show (pz.pzWordS, motherpz)]
+>             mbagsL, mbagsR
+>                        :: Maybe [BagIndex]
+>             mbagsL                       = fromIntegral siFrom `IntMap.lookup` fwMembersLeft
+>             mbagsR                       = fromIntegral siTo `IntMap.lookup` fwMembersRight
 >
->             motherpz                     = Map.lookup (effPZShdr pz).sampleLink slipMap
->                                            >>= thisOther
->             otherpz                      = deJust fName motherpz
+>             reconcileBags
+>                        :: [BagIndex] → [BagIndex] → [BagIndex]
+>             reconcileBags lBags rBags    = badBags
+>               where
+>                 badBags                  =
+>                   if survey lBags == survey rBags
+>                     then []
+>                     else lBags ++ rBags
 >
->             thisOther  :: Word → Maybe PreZone
->             thisOther w                  = find (isOther w) zrec.zsPreZones
->                                              where isOther wFind pzAny = wFind == pzAny.pzWordB
+>             survey     :: [BagIndex] → Map ((Word, Word), (Word, Word)) Int
+>             survey                       = foldl' doRanges Map.empty
 >
->         modify pz rdFold                 = (Just $ makeMono pz, rdFold)
->         adopt pz rdFold                  = (Just pz, dispose (extractSampleKey pz) ssImpact rdFold)
->           where
->             impact                       = if wasSwitchedToMono pz
->                                              then AdoptedAsMono
->                                              else Adopted
->             ssImpact                     = [Scan Modified impact fName_ (show iName)]
+>             doRanges   :: Map ((Word, Word), (Word, Word)) Int → BagIndex → Map ((Word, Word), (Word, Word)) Int
+>             doRanges m bag               = Map.insertWith (+) ranges 1 m
+>               where
+>                 pz                       = fwAllStereo IntMap.! fromIntegral bag
+>                 ranges                   =
+>                   (fromMaybe (0, 127) pz.pzDigest.zdKeyRange
+>                  , fromMaybe (0, 127) pz.pzDigest.zdVelRange)
+>
+>             newRejects                   =
+>               case (mbagsL, mbagsR) of
+>                 (Nothing, Nothing)       → []
+>                 (Just lBags, Nothing)    → lBags
+>                 (Nothing, Just rBags)    → rBags
+>                 (Just lBags, Just rBags) → reconcileBags lBags rBags
+>
+>         rdFolder       :: ResultDispositions → BagIndex → ResultDispositions
+>         rdFolder rdFold bag              =
+>           let
+>             ss                           =
+>               if switchBadStereoZonesToMono
+>                 then [Scan Modified DevolveToMono fName_ (show bag)]
+>                 else [Scan Violated BadStereoPartner fName_ (show bag)]
+>           in
+>             dispose (extractSampleKey (fwAllStereo IntMap.! fromIntegral bag)) ss rdFold
 
 smash task ============================================================================================================
           compute smashups for each instrument

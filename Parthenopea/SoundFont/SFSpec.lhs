@@ -32,20 +32,8 @@ April 16, 2023
   
 implementing SoundFont spec ===========================================================================================
 
-> data ChangeNameItem                      = FixCorruptName deriving Eq
->
-> data ChangeName a                        =
->   ChangeName {
->     cnSource           :: a
->   , cnChanges          :: [ChangeNameItem]
->   , cnName             :: String}
->
-> data ChangeEarItem                       = MakeMono deriving Eq
->
-> data ChangeEar a                         =
->   ChangeEar {
->     ceSource           :: a
->   , ceChanges          :: [ChangeEarItem]} deriving Eq
+> type SampleIndex                         = Word
+> type BagIndex                            = Word
 >
 > data PreSampleKey                        =
 >   PreSampleKey {
@@ -117,6 +105,21 @@ implementing SoundFont spec ====================================================
 > wasSwitchedToMono PreZone{pzChanges}     = MakeMono `elem` pzChanges.ceChanges
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
+>
+> data ChangeNameItem                      = FixCorruptName deriving Eq
+>
+> data ChangeName a                        =
+>   ChangeName {
+>     cnSource           :: a
+>   , cnChanges          :: [ChangeNameItem]
+>   , cnName             :: String}
+>
+> data ChangeEarItem                       = MakeMono deriving Eq
+>
+> data ChangeEar a                         =
+>   ChangeEar {
+>     ceSource           :: a
+>   , ceChanges          :: [ChangeEarItem]} deriving Eq
 >
 > data PerInstrument                       =
 >   PerInstrument {

@@ -255,7 +255,10 @@ Effects ========================================================================
 
 > deriveEffects          :: Modulation → Maybe Int → Maybe Int → Maybe Int → Effects
 > deriveEffects m8n mChorus mReverb mPan
->                                          = Effects (dChorus / 1000) (dReverb / 1000) (dPan / 1000)
+>                                          = Effects 
+>                                             (dChorus / 1000) 
+>                                             (dReverb / 1000) 
+>                                                (dPan / 1000)
 >   where
 >     dChorus            :: Double         =
 >       if useChorus
