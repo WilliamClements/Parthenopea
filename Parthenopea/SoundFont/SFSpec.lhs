@@ -41,9 +41,10 @@ implementing SoundFont spec ====================================================
 >   , pskwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
 > type PreSample                           = ChangeName F.Shdr
->
 > effPSShdr              :: PreSample → F.Shdr
 > effPSShdr ps                             = ps.cnSource{F.sampleName = ps.cnName}
+> isLeftPS               :: PreSample → Bool
+> isLeftPS ps                              = Just SampleTypeLeft == toMaybeSampleType (effPSShdr ps).sampleType
 >
 > data PreZoneKey                          =
 >   PreZoneKey {
@@ -91,8 +92,8 @@ implementing SoundFont spec ====================================================
 >                                          = (pzWordB, [pzDigest.zdKeyRange, pzDigest.zdVelRange, Just chans])
 >   where
 >     chans
->       | isLeftPreZone pz                 = (0, 0)
->       | isRightPreZone pz                = (1, 1)
+>       | isLeftPZ pz                      = (0, 0)
+>       | isRightPZ pz                     = (1, 1)
 >       | otherwise                        = (0, 1)
 > effPZShdr              :: PreZone → F.Shdr
 > effPZShdr PreZone{pzChanges}             =
@@ -448,14 +449,14 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > isStereoInst, is24BitInst
 >                        :: [PreZone] → Bool
 >
-> isStereoInst zs                          = isJust $ find isStereoZone zs
+> isStereoInst zs                          = isJust $ find isStereoPZ zs
 >       
-> isStereoZone pz                          = isLeftPreZone pz || isRightPreZone pz
 >
-> isStereoZone, isLeftPreZone, isRightPreZone
+> isStereoPZ, isLeftPZ, isRightPZ
 >                        :: PreZone → Bool
-> isLeftPreZone pz                         = SampleTypeLeft == toSampleType (effPZShdr pz).sampleType
-> isRightPreZone pz                        = SampleTypeRight == toSampleType (effPZShdr pz).sampleType
+> isStereoPZ pz                            = isLeftPZ pz || isRightPZ pz
+> isLeftPZ pz                              = SampleTypeLeft == toSampleType (effPZShdr pz).sampleType
+> isRightPZ pz                             = SampleTypeRight == toSampleType (effPZShdr pz).sampleType
 >
 > is24BitInst _                            = True -- was isJust $ ssM24 arrays       
 >

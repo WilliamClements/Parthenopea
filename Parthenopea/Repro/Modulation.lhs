@@ -659,7 +659,10 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , toPitchCo          :: ModCoefficients
 >   , toFilterFcCo       :: ModCoefficients
 >   , toVolumeCo         :: ModCoefficients
->   , mModsMap           :: Map ModDestType [Modulator]} deriving (Eq, Show)
+>   , mModsMap           :: Map ModDestType [Modulator]} deriving (Eq)
+> instance Show Modulation where
+>   show m                                 = unwords ["Modulation", show m.mLowpass, show m.mModEnv]
+>
 > defModulation          :: Modulation
 > defModulation                            =
 >   Modulation

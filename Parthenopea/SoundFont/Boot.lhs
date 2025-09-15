@@ -216,20 +216,17 @@ pre-sample task ================================================================
 smell task ============================================================================================================
           partner map at sample header level = driver for stereo pairings
 
-> smellTaskIf _ _ fWork@FileWork{fwPairing, fwPreSampleCache}
->                                          = fWork{fwPairing = pairing}
+> smellTaskIf _ _ fWork                    = fWork{fwPairing = pairing}
 >   where
->     pairing                              = fwPairing{fwPartners = partners}
+>     pairing                              =
+>       fWork.fwPairing{fwPartners = Map.foldlWithKey smellFolder IntMap.empty allLeft}
 >
->     allLeft                              = Map.filter leftOnly fwPreSampleCache
->     leftOnly pres                        = Just SampleTypeLeft == toMaybeSampleType (effPSShdr pres).sampleType
+>     allLeft                              = Map.filter isLeftPS fWork.fwPreSampleCache
 >
->     partners                             = Map.foldlWithKey smellFolder IntMap.empty allLeft
->     smellFolder        :: IntMap SampleIndex → PreSampleKey → PreSample → IntMap SampleIndex
 >     smellFolder m presk pres             =
 >       let
 >         otherKey                         = presk{pskwSampleIndex = (effPSShdr pres).sampleLink}
->         mbackLink                        = otherKey `Map.lookup` fwPreSampleCache
+>         mbackLink                        = otherKey `Map.lookup` fWork.fwPreSampleCache
 >                                            >>= Just . effPSShdr >>= backOk
 >         backOk oshdr                     =
 >           if Just SampleTypeRight == toMaybeSampleType oshdr.sampleType && oshdr.sampleLink == presk.pskwSampleIndex
@@ -298,7 +295,7 @@ iterating InstZoneRecord list ==================================================
 >         (mpz, rdFold')                   = zxform pz rdFold
 
 survey task ===========================================================================================================
-          instantiate zrecs
+          instantiate InstZoneRecord per Instrument
 
 > surveyTaskIf sffile _ fwIn               = fwIn{fwZRecs = zrecs, fwDispositions = rd'}
 >   where
@@ -444,45 +441,47 @@ capture task ===================================================================
 prepair task ==========================================================================================================
           erect temporary infrastructure for stereo pairings
 
-> prepairTaskIf _ _ fWork@FileWork{fwPairing}
->                                          = fWork{fwPairing = pairing}
+> prepairTaskIf _ _ fWork                  = fWork{fwPairing = pairing}
 >   where
+>     fName                                = "prepairTaskIf"
+>
 >     pairing                              =
->       fwPairing{
->         fwAllStereo = mapStereo
->       , fwMembersLeft = membersLeft
->       , fwMembersRight = membersRight}
->     allStereo                            = zrecCompute fWork buildUp []
->     buildUp m zrec                       = m ++ filter isStereoZone zrec.zsPreZones
->     mapStereo                            = foldl' foldStereo IntMap.empty allStereo
->     foldStereo m pz                      = IntMap.insert (fromIntegral pz.pzWordB) pz m
->     (membersLeft, membersRight)          = foldl' prepairFolder (IntMap.empty, IntMap.empty) allStereo
->     prepairFolder (mleft, mright) pz     = (mleft', mright')
->       where
->         (mleft', mright')
->           | isLeftPreZone pz             = (computeMembers SampleTypeLeft mleft, mright)
->           | isRightPreZone pz            = (mleft, computeMembers SampleTypeRight mright)
->           | otherwise                    = (mleft, mright)
->         computeMembers :: SampleType → IntMap [BagIndex] → IntMap [BagIndex]
->         computeMembers _                 = IntMap.insertWith (++) (fromIntegral pz.pzWordS) [pz.pzWordB]
+>       fWork.fwPairing{fwAllStereo = mapStereo, fwMembersLeft = membersLeft, fwMembersRight = membersRight}
+>
+>     allStereo                            =
+>       let
+>         buildUp m zrec                   = m ++ filter isStereoPZ zrec.zsPreZones
+>       in
+>         zrecCompute fWork buildUp []
+>
+>     mapStereo                            =
+>       let
+>         foldStereo m pz                  = IntMap.insert (fromIntegral pz.pzWordB) pz m
+>       in
+>         foldl' foldStereo IntMap.empty allStereo
+>
+>     (membersLeft, membersRight)          =
+>       let
+>         prepairFolder (mleft, mright) pz
+>           | isLeftPZ pz                  = (computeMembers pz mleft, mright)
+>           | isRightPZ pz                 = (mleft, computeMembers pz mright)
+>           | otherwise                    = error $ unwords [fName, "should already have filtered out mono"]
+>         computeMembers :: PreZone → IntMap [BagIndex] → IntMap [BagIndex]
+>         computeMembers pz                = IntMap.insertWith (++) (fromIntegral pz.pzWordS) [pz.pzWordB]
+>       in
+>         IntMap.foldl' prepairFolder (IntMap.empty, IntMap.empty) mapStereo
 
 vet task ==============================================================================================================
           switch bad stereo zones to mono, or off altogether
 
-> vetTaskIf _ _ fWork
->                                          = (zrecTask vetter fWork){fwPairing = defPairing}
+> vetTaskIf _ _ fWork                      = (zrecTask vetter fWork){fwPairing = defPairing}
 >   where
 >     Pairing{ .. }                        
 >                                          = fWork.fwPairing
 >
->     vetter zrec rdIn
->       | traceNot trace_V False           = undefined
->       | otherwise                        = (zrec, foldl' rdFolder rdIn bads)
+>     vetter zrec rdIn                     = (zrec, foldl' rdFolder rdIn bads)
 >       where
 >         fName_                           = "vetter"
->         trace_V                          = unwords [fName_, iName, show $ instKey zrec]
->
->         iName                            = zrec.zswChanges.cnName
 >
 >         bads                             = IntMap.foldlWithKey badsFolder [] fwPartners
 >         badsFolder rejects siFrom siTo   = rejects ++ newRejects
@@ -618,7 +617,7 @@ To build the map
 >         qualify leadI memberIs
 >           | 0 == osmashup.smashStats.countMultiples
 >                                          = Left (rebased, osmashup)
->           | memberHasVelocityRanges      = Left (rebased, osmashup)
+>           | membersHaveVelocityRanges    = Left (rebased, osmashup)
 >           | otherwise                    = Right osmashup.smashStats
 >           where
 >             towners                      = map (townersMap Map.!) memberIs
@@ -631,7 +630,7 @@ To build the map
 >             osmashup                     = (foldl' smashSmashings (head smashups) (tail smashups))
 >                                              {smashTag = unwords [show leadI, show memberIs]}
 >
->             memberHasVelocityRanges      = isJust $ find zonesHaveVelocityRange (map fst towners)
+>             membersHaveVelocityRanges    = all (zonesHaveVelocityRange . fst) towners
 >             zonesHaveVelocityRange pzs   = isJust $ find zoneHasVelocityRange pzs   
 >             zoneHasVelocityRange pz      =
 >               case pz.pzDigest.zdVelRange of
@@ -818,13 +817,12 @@ build zone task ================================================================
 >     computePerInst     :: InstZoneRecord → InstCat → Smashing Word → PerInstrument
 >     computePerInst zrec icat smashup
 >       | traceIf trace_CPI False          = undefined
->       | otherwise                        = result
+>       | otherwise                        =
+>         PerInstrument zrec.zswChanges pzs icat smashup
 >       where
 >         fName                            = "computePerInst"
->         trace_CPI                        = unwords [fName, zrec.zswChanges.cnName, show pergm, show $ length zrec.zsPreZones, show (map pzWordB pzs)]
->
->         result                           = PerInstrument zrec.zswChanges pzs icat smashup
->         pergm                            = instKey zrec
+>         trace_CPI                        =
+>           unwords [fName, zrec.zswChanges.cnName, show $ length zrec.zsPreZones, show (map pzWordB pzs)]
 >
 >         bixen          :: [Word]
 >         bixen                            =
@@ -944,6 +942,9 @@ build zone task ================================================================
 >     then Nothing
 >     else Just $ unwords [showHex stA [], showHex enA [], showHex stL [], showHex enL [], show zd.zdSampleMode]
 >   where
+>     shdr                                 = effPZShdr pz
+>     zd                                   = pz.pzDigest
+>
 >     stA                                  = shdr.start     + fromIntegral zd.zdStart
 >     enA                                  = shdr.end       + fromIntegral zd.zdEnd
 >     stL                                  = shdr.startLoop + fromIntegral zd.zdStartLoop
@@ -951,11 +952,8 @@ build zone task ================================================================
 >
 >     ok                                   =
 >       0 <= stA && stA <= enA && 0 <= stL && stL <= enL
->       && enA - stA < 2  ^ (22::Word)
+>       && enA - stA < 2 ^ (22::Word)
 >       && (zd.zdSampleMode == Just A.NoLoop || enL - stL < 2 ^ (22::Word))
->
->     shdr                                 = effPZShdr pz
->     zd                                   = pz.pzDigest
 >
 > goodSampleRate         :: Word → Bool
 > goodSampleRate x                         = x == clip (n64, n2 ^ n20) x

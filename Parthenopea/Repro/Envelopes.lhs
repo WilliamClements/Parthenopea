@@ -77,7 +77,7 @@ Create a straight-line envelope generator with following phases:
 > proposeSegments tf envRaw                = (r, segs)
 >   where
 >     r                  :: FEnvelope      =
->       refineEnvelope envRaw{fExtras = Just $ EnvelopeExtras tf.tfSecsScored releaseT releaseT}
+>       refineEnvelope envRaw{fExtras = Just $ EnvelopeExtras secsToPlay releaseT releaseT}
 >
 >     amps, deltaTs      :: [Double]
 >     amps                                 =
@@ -88,15 +88,15 @@ Create a straight-line envelope generator with following phases:
 >     segs                                 = Segments amps deltaTs
 >
 >     releaseT
->       | tf.tfSecsScored < (7 * minDeltaT)
->                                          = error $ unwords ["Note too short:", show tf.tfSecsScored]
->       | tf.tfSecsScored < (7 * minDeltaT) + minUseful
+>       | secsToPlay < (7 * minDeltaT)     = error $ unwords ["Note too short:", show secsToPlay]
+>       | secsToPlay < (7 * minDeltaT) + minUseful
 >                                          = minDeltaT
->       | tf.tfSecsScored < (7 * minDeltaT + 2 * minUseful)
+>       | secsToPlay < (7 * minDeltaT + 2 * minUseful)
 >                                          = minUseful / 4
 >       | otherwise                        = minUseful
 >           
 >     fSusLevel                            = clip (0, 1) r.fSustainLevel
+>     secsToPlay                           = tf.tfSecsToPlay
 >
 > doVeloSweepingEnvelope :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
 > doVeloSweepingEnvelope timeFrame vIn
@@ -116,7 +116,7 @@ Create a straight-line envelope generator with following phases:
 >     stVelo1                              = vIn VB.! 2
 >     enVelo1                              = vIn VB.! 3
 >
->     step                                 = timeFrame.tfSecsScored - 2 * minDeltaT
+>     step                                 = timeFrame.tfSecsToPlay - 2 * minDeltaT
 >     midsection                           = step / 8
 >     leg                                  = step * 7 / 16
 >
