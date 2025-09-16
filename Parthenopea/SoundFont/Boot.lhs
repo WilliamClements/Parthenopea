@@ -225,17 +225,20 @@ smell task =====================================================================
 >
 >     smellFolder m presk pres             =
 >       let
->         otherKey                         = presk{pskwSampleIndex = (effPSShdr pres).sampleLink}
->         mbackLink                        = otherKey `Map.lookup` fWork.fwPreSampleCache
->                                            >>= Just . effPSShdr >>= backOk
->         backOk oshdr                     =
->           if Just SampleTypeRight == toMaybeSampleType oshdr.sampleType && oshdr.sampleLink == presk.pskwSampleIndex
->             then Just otherKey.pskwSampleIndex
+>         isi                              = presk.pskwSampleIndex
+>         osi                              = (effPSShdr pres).sampleLink
+>
+>         mback_                           = presk{pskwSampleIndex = osi} `Map.lookup` fWork.fwPreSampleCache
+>         mback                            = mback_ >>= backOk
+>
+>         backOk opres                     =
+>           if isRightPS opres && (effPSShdr opres).sampleLink == isi
+>             then Just osi
 >             else Nothing
 >       in
->         case mbackLink of
+>         case mback of
 >           Nothing                        → m
->           Just x                         → IntMap.insert (fromIntegral presk.pskwSampleIndex) x m
+>           Just x                         → IntMap.insert (fromIntegral isi) x m
 
 PreZone administration ================================================================================================
 
@@ -474,59 +477,54 @@ prepair task ===================================================================
 vet task ==============================================================================================================
           switch bad stereo zones to mono, or off altogether
 
-> vetTaskIf _ _ fWork                      = (zrecTask vetter fWork){fwPairing = defPairing}
+> vetTaskIf _ _ fWork                      = fWork{fwPairing = defPairing, fwDispositions = rdOut}
 >   where
 >     Pairing{ .. }                        
 >                                          = fWork.fwPairing
 >
->     vetter zrec rdIn                     = (zrec, foldl' rdFolder rdIn bads)
+>     rdIn                                 = fWork.fwDispositions
+>     rdOut                                = foldl' rdFolder rdIn bads
+>
+>     bads                                 = IntMap.foldlWithKey badsFolder [] fwPartners
+>     badsFolder rejects siFrom siTo       = rejects ++ newRejects
 >       where
->         fName_                           = "vetter"
+>         newRejects                       =
+>           case (mbagsL, mbagsR) of
+>             (Nothing, Nothing)       → []
+>             (Just lBags, Nothing)    → lBags
+>             (Nothing, Just rBags)    → rBags
+>             (Just lBags, Just rBags) →
+>               if survey lBags == survey rBags
+>                 then []
+>                 else lBags ++ rBags
 >
->         bads                             = IntMap.foldlWithKey badsFolder [] fwPartners
->         badsFolder rejects siFrom siTo   = rejects ++ newRejects
->           where
->             mbagsL, mbagsR
+>         mbagsL, mbagsR
 >                        :: Maybe [BagIndex]
->             mbagsL                       = fromIntegral siFrom `IntMap.lookup` fwMembersLeft
->             mbagsR                       = fromIntegral siTo `IntMap.lookup` fwMembersRight
+>         mbagsL                           = fromIntegral siFrom `IntMap.lookup` fwMembersLeft
+>         mbagsR                           = fromIntegral siTo `IntMap.lookup` fwMembersRight
 >
->             reconcileBags
->                        :: [BagIndex] → [BagIndex] → [BagIndex]
->             reconcileBags lBags rBags    = badBags
->               where
->                 badBags                  =
->                   if survey lBags == survey rBags
->                     then []
->                     else lBags ++ rBags
->
->             survey     :: [BagIndex] → Map ((Word, Word), (Word, Word)) Int
->             survey                       = foldl' doRanges Map.empty
->
->             doRanges   :: Map ((Word, Word), (Word, Word)) Int → BagIndex → Map ((Word, Word), (Word, Word)) Int
+>         survey     :: [BagIndex] → Map ((Word, Word), (Word, Word)) Int
+>         survey                           =
+>           let
 >             doRanges m bag               = Map.insertWith (+) ranges 1 m
 >               where
 >                 pz                       = fwAllStereo IntMap.! fromIntegral bag
 >                 ranges                   =
->                   (fromMaybe (0, 127) pz.pzDigest.zdKeyRange
->                  , fromMaybe (0, 127) pz.pzDigest.zdVelRange)
->
->             newRejects                   =
->               case (mbagsL, mbagsR) of
->                 (Nothing, Nothing)       → []
->                 (Just lBags, Nothing)    → lBags
->                 (Nothing, Just rBags)    → rBags
->                 (Just lBags, Just rBags) → reconcileBags lBags rBags
->
->         rdFolder       :: ResultDispositions → BagIndex → ResultDispositions
->         rdFolder rdFold bag              =
->           let
->             ss                           =
->               if switchBadStereoZonesToMono
->                 then [Scan Modified DevolveToMono fName_ (show bag)]
->                 else [Scan Violated BadStereoPartner fName_ (show bag)]
+>                    (fromMaybe (0, 127) pz.pzDigest.zdKeyRange
+>                   , fromMaybe (0, 127) pz.pzDigest.zdVelRange)
 >           in
->             dispose (extractSampleKey (fwAllStereo IntMap.! fromIntegral bag)) ss rdFold
+>             foldl' doRanges Map.empty
+>
+>     rdFolder           :: ResultDispositions → BagIndex → ResultDispositions
+>     rdFolder rdFold bag                  =
+>       let
+>         fName                            = "rdFolder"
+>         ss                               =
+>           if switchBadStereoZonesToMono
+>             then [Scan Modified DevolveToMono fName (show bag)]
+>             else [Scan Violated BadStereoPartner fName (show bag)]
+>       in
+>         dispose (extractSampleKey (fwAllStereo IntMap.! fromIntegral bag)) ss rdFold
 
 smash task ============================================================================================================
           compute smashups for each instrument

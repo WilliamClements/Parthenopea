@@ -65,7 +65,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     else pumpStereo
 >   where
 >     fName                                = "eutSynthesize"
->     trace_ES                             = unwords [fName, show timeFrame] 
+>     trace_ES                             = unwords [fName, if isJust mreconR then "stereo" else "mono", show timeFrame] 
 >
 >     reconR                               = fromJust mreconR
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)

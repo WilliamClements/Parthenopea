@@ -45,6 +45,8 @@ implementing SoundFont spec ====================================================
 > effPSShdr ps                             = ps.cnSource{F.sampleName = ps.cnName}
 > isLeftPS               :: PreSample → Bool
 > isLeftPS ps                              = Just SampleTypeLeft == toMaybeSampleType (effPSShdr ps).sampleType
+> isRightPS              :: PreSample → Bool
+> isRightPS ps                             = Just SampleTypeRight == toMaybeSampleType (effPSShdr ps).sampleType
 >
 > data PreZoneKey                          =
 >   PreZoneKey {
