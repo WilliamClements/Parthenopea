@@ -43,7 +43,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     fwPartners         :: IntMap {- SampleIndex -} SampleIndex
 >   , fwAllStereo        :: IntMap {- BagIndex -}    PreZone
 >   , fwMembersLeft      :: IntMap {- SampleIndex -} [BagIndex]
->   , fwMembersRight     :: IntMap {- SampleIndex -} [BagIndex]}
+>   , fwMembersRight     :: IntMap {- SampleIndex -} [BagIndex]
+>   , fwNoStereo         :: [BagIndex]}
 > defPairing             ::Pairing
 > defPairing                               =
 >   Pairing
@@ -51,6 +52,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     IntMap.empty
 >     IntMap.empty
 >     IntMap.empty
+>     []
 >
 > data FileWork                            =
 >   FileWork {
@@ -89,8 +91,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 > reduceFileIterate FileIterate{ .. }                   =
 >   (fiFw.fwInstrumentCache, fiFw.fwMatches, fiFw.fwDispositions)
 >
-> preSampleTaskIf, smellTaskIf, surveyTaskIf, captureTaskIf, prepairTaskIf, vetTaskIf, smashTaskIf, reorgTaskIf
->                , matchTaskIf, catTaskIf, perITaskIf
+> preSampleTaskIf, smellTaskIf, surveyTaskIf, captureTaskIf, prepairTaskIf, pairTaskIf, vetTaskIf, smashTaskIf
+>                , reorgTaskIf, matchTaskIf, catTaskIf, perITaskIf
 >                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
 >
 > makeFileIterate        :: SFFile → ([InstrumentName], [PercussionSound]) → FileIterate
@@ -102,6 +104,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >      , ("smell",      smell)
 >      , ("capture",    capture . survey)
 >      , ("prepair",    prepair)
+>      , ("pair",       pair)
 >      , ("vet",        vet)
 >      , ("smash",      smash)
 >      , ("reorg",      reorg) 
@@ -114,6 +117,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     survey                               = surveyTaskIf       sffile rost
 >     capture                              = captureTaskIf      sffile rost
 >     prepair                              = prepairTaskIf      sffile rost
+>     pair                                 = pairTaskIf         sffile rost
 >     vet                                  = vetTaskIf          sffile rost
 >     smash                                = smashTaskIf        sffile rost
 >     reorg                                = reorgTaskIf        sffile rost
@@ -474,18 +478,15 @@ prepair task ===================================================================
 >       in
 >         IntMap.foldl' prepairFolder (IntMap.empty, IntMap.empty) mapStereo
 
-vet task ==============================================================================================================
-          switch bad stereo zones to mono, or off altogether
+pair task =============================================================================================================
+          produce bagIndex list identifying those switching to mono
 
-> vetTaskIf _ _ fWork                      = fWork{fwPairing = defPairing, fwDispositions = rdOut}
+> pairTaskIf _ _ fWork                     = fWork{fwPairing = fWork.fwPairing{fwNoStereo = noStereo}}
 >   where
 >     Pairing{ .. }                        
 >                                          = fWork.fwPairing
 >
->     rdIn                                 = fWork.fwDispositions
->     rdOut                                = foldl' rdFolder rdIn bads
->
->     bads                                 = IntMap.foldlWithKey badsFolder [] fwPartners
+>     noStereo                             = IntMap.foldlWithKey badsFolder [] fwPartners
 >     badsFolder rejects siFrom siTo       = rejects ++ newRejects
 >       where
 >         newRejects                       =
@@ -514,6 +515,17 @@ vet task =======================================================================
 >                   , fromMaybe (0, 127) pz.pzDigest.zdVelRange)
 >           in
 >             foldl' doRanges Map.empty
+
+vet task ==============================================================================================================
+          switch bad stereo zones to mono, or off altogether
+
+> vetTaskIf _ _ fWork                      = fWork{fwPairing = defPairing, fwDispositions = rdOut}
+>   where
+>     Pairing{ .. }                        
+>                                          = fWork.fwPairing
+>
+>     rdIn                                 = fWork.fwDispositions
+>     rdOut                                = foldl' rdFolder rdIn fwNoStereo
 >
 >     rdFolder           :: ResultDispositions → BagIndex → ResultDispositions
 >     rdFolder rdFold bag                  =
