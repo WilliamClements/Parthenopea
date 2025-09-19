@@ -58,7 +58,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p () (Double, Double)
 > eutSynthesize (reconL, mreconR) noon sr dur s16 ms8
->   | traceIf trace_ES False               = undefined
+>   | traceNot trace_ES False              = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
 >     then eutSplit <<< pumpMono

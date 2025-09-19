@@ -109,7 +109,7 @@ executive ======================================================================
 >         lo                               = shred.shLowNote.ePitch
 >         hi                               = shred.shHighNote.ePitch
 >
->         this                             = fromLeft (error "writeRangeReport") gmkind
+>         this                             = fromLeft (error "writeRangesReport") gmkind
 >         alt                              = findBetterInstrument this (lo, hi)
 >         strAlt                           = if isLeft gmkind && (alt /= this) 
 >                                              then show alt
@@ -129,7 +129,7 @@ executive ======================================================================
 >         doPercussion kind                =
 >           [emitShowL kind 20
 >          , emitShowL (fromEnum kind + 35) 22
->          , Blanks 46
+>          , Blanks 44
 >          , emitShowL shred.shCount 15, EndOfLine]
 >
 >         mrange                           =
@@ -280,7 +280,9 @@ define signal functions and instrument maps to support rendering ===============
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
->       unwords [fName_, show pergm, show perI.piChanges.cnName, show (pchIn, volIn), show durI, show ps]
+>       unwords [fName_, show (pergm.pgkwFile, pergm.pgkwInst)
+>                      , show perI.piChanges.cnName, show (pchIn, volIn), show durI
+>                      , show ps]
 >
 >     ps                                   = VB.fromList ps_
 >     noonIn                               = carefulNoteOn volIn pchIn
@@ -312,7 +314,7 @@ zone selection for rendering ===================================================
 
 >     doFlyEye           :: NoteOn → Either PreZone (PreZone, PreZone)
 >     doFlyEye noonFly
->       | traceIf trace_DFE False          = undefined
+>       | traceNot trace_DFE False         = undefined
 >       | bagIdL <= 0 || cntL <= 0 || bagIdR <= 0 || cntR <= 0
 >                                          = error $ unwords [fName, "cell is nonsense"]
 >       | isNothing foundL || isNothing foundR
@@ -427,7 +429,7 @@ reconcile zone and sample header ===============================================
 >     nModLfo                              =
 >       deriveLFO z.zDelayModLfo z.zFreqModLfo z.zModLfoToPitch z.zModLfoToFc z.zModLfoToVol
 >     nVibLfo            :: Maybe LFO      =
->       deriveLFO z.zDelayVibLfo z.zFreqVibLfo z.zVibLfoToPitch Nothing     Nothing
+>       deriveLFO z.zDelayVibLfo z.zFreqVibLfo z.zVibLfoToPitch Nothing Nothing
 >
 >     summarize          :: ModDestType → ModCoefficients
 >     summarize toWhich                    =

@@ -321,9 +321,7 @@ bootstrapping ==================================================================
 >
 > data Impact                              =
 >   Ok | NoZones | CorruptName
->      | BadSampleRate | BadSampleType | BadSampleLimits
->      | DevolveToMono | BadStereoPartner
->      | Paired | Unpaired
+>      | BadSampleRate | BadSampleType | BadSampleLimits | BadStereoPartner
 >      | OrphanedBySample | OrphanedByInst | ToCache
 >      | Absorbing | Absorbed | NoAbsorption
 >      | CorruptGMRange | Narrow | BadSampleLooping
