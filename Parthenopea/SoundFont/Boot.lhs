@@ -82,9 +82,9 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     IntMap.empty
 >     IntMap.empty
 >
-> data PairingItem                         =
->   PairingItem {
->     piwInst            :: Word
+> data PairingSlot                         =
+>   PairingSlot {
+>     piwInst            :: Maybe Word
 >   , piRange1           :: (Word, Word)
 >   , piRange2           :: (Word, Word)}
 >   deriving (Eq, Ord)
@@ -521,24 +521,24 @@ pair task ======================================================================
 >       in
 >         IntSet.difference (lBags `IntSet.union` rBags) allPaired
 >
->     combo          :: Map PairingItem IntSet → [(Word, Word)] → PairingItem → IntSet → [(Word, Word)]
->     combo otherSurv m iItem lBags        =
+>     combo          :: Map PairingSlot IntSet → [(Word, Word)] → PairingSlot → IntSet → [(Word, Word)]
+>     combo otherSurv m iSlot lBags        =
 >       let
->         rBags                            = Map.lookup iItem otherSurv
+>         rBags                            = Map.lookup iSlot otherSurv
 >         newPairs_                        = zip (IntSet.toList lBags) (IntSet.toList (fromMaybe IntSet.empty rBags))
 >         newPairs                         = map (BF.bimap fromIntegral fromIntegral) newPairs_
 >       in
 >         m ++ newPairs
 > 
->     survey     :: IntSet {- [BagIndex] -} → Map PairingItem IntSet {- [BagIndex] -}
+>     survey     :: IntSet {- [BagIndex] -} → Map PairingSlot IntSet {- [BagIndex] -}
 >     survey iset                          =
 >       let
->         doRanges m bag                   = Map.insertWith IntSet.union item ((IntSet.singleton . fromIntegral) bag) m
+>         doRanges m bag                   = Map.insertWith IntSet.union slot ((IntSet.singleton . fromIntegral) bag) m
 >           where
 >             pz                           = fwAllStereo IntMap.! fromIntegral bag
->             item                         =
->                PairingItem
->                  pz.pzWordI
+>             slot                         =
+>                PairingSlot
+>                  (Just pz.pzWordI)
 >                  (fromMaybe (0, 127) pz.pzDigest.zdKeyRange)
 >                  (fromMaybe (0, 127) pz.pzDigest.zdVelRange)
 >       in
@@ -874,21 +874,19 @@ build zone task ================================================================
 >                                              rdIn)
 >
 >     computePerInst     :: InstZoneRecord → InstCat → Smashing Word → PerInstrument
->     computePerInst zrec icat smashup
->       | traceIf trace_CPI False          = undefined
->       | otherwise                        =
->         PerInstrument zrec.zswChanges pzs icat smashup
+>     computePerInst zrec icat smashup     =
+>         PerInstrument 
+>          zrec.zswChanges 
+>          pzs 
+>          icat
+>          smashup
 >       where
->         fName                            = "computePerInst"
->         trace_CPI                        =
->           unwords [fName, zrec.zswChanges.cnName, show $ length zrec.zsPreZones, show (map pzWordB pzs)]
->
 >         bixen          :: [Word]
 >         bixen                            =
 >           case icat of
 >             InstCatPerc x                → x
 >             InstCatInst                  → map pzWordB zrec.zsPreZones
->             _                            → error $ unwords [fName, "only Inst and Perc are valid here"]
+>             _                            → error $ unwords ["only Inst and Perc are valid here"]
 >         pzs                              = filter (\pz → pz.pzWordB `elem` bixen) zrec.zsPreZones
 >
 > buildZone              :: SFFile → SFZone → Maybe PreZone → Word → SFZone
