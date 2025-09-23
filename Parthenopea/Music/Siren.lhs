@@ -545,17 +545,15 @@ instrument range checking ======================================================
 > bendNote               :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music1
 > bendNote bp pc o durB bend               =
 >   note durB ((pc, o), [Volume bp.bpHomeVelocity, Params [fromIntegral bend]])
->
-> psoundToPitch :: PercussionSound → Pitch
-> psoundToPitch psound                     = pitch (fromEnum psound + 35)
 
 examine song for instrument and percussion usage ======================================================================
 
 > data Shred =
 >   Shred {
->       shLowNote        :: MEvent
->     , shHighNote       :: MEvent
->     , shCount          :: Int} deriving (Show, Eq, Ord)
+>     shLowNote          :: MEvent
+>   , shHighNote         :: MEvent
+>   , shCount            :: Int}
+>   deriving (Eq, Ord, Show)
 >
 > data Song                                =
 >   Song {
@@ -625,7 +623,7 @@ examine song for instrument and percussion usage ===============================
 >   in
 >     case mshred of
 >       Nothing                            → Map.insert kind (Shred mev mev 1) ding
->       Just shred                         → Map.insert kind (upd shred)       ding
+>       Just shred                         → Map.insert kind (upd shred) ding
 >   where
 >     upd shred                            =
 >       Shred
@@ -812,10 +810,11 @@ Returns sample point as (normalized) Double
 >                                             , samplePoint s16 ms8 (ix + 1))
 >
 > lilSong                :: Song
-> lilSong                                  = Song "lilSailor" (const lilSailor) Map.empty
+> lilSong                                  =
+>   Song "lilSailor" (const lilSailor) Map.empty
 >   where
->     lilSailor                            = bandPart (BandPart Clarinet 0 100) (line [f 5 wn])
-
+>     lilSailor                            =
+>       bandPart (BandPart Clarinet 0 100) (line [f 5 wn])
 
 Configurable parameters ===============================================================================================
 

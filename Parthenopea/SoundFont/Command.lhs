@@ -87,11 +87,7 @@ Implement PCommand =============================================================
 >       -- here's the heart of the coconut
 >       mapM_ (renderSong runt imap) songs
 >
-> renderSong             :: ∀ p . Clock p ⇒
->                           SFRuntime
->                           → InstrMap (Stereo p)
->                           → Song
->                           → IO ()
+> renderSong             :: ∀ p . Clock p ⇒ SFRuntime → InstrMap (Stereo p) → Song → IO ()
 > renderSong runt imap (Song name music ding)
 >                                          =
 >   do

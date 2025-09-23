@@ -12,7 +12,7 @@ Boot
 William Clements
 January 21, 2025
 
-> module Parthenopea.SoundFont.Boot ( allowCrossInstrumentPairing, allowParallelPairing, surveyInstruments) where
+> module Parthenopea.SoundFont.Boot ( surveyInstruments ) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
@@ -68,8 +68,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > data Pairing                             =
 >   Pairing {
->     fwPartners         :: IntMap {- SampleIndex -} SampleIndex
->   , fwAllStereo        :: IntMap {- BagIndex -}    PreZone
+>     fwPartners         :: IntMap {- SampleIndex -} Int {- SampleIndex -}
+>   , fwPreZones         :: IntMap {- BagIndex -}    PreZone
 >   , fwMembersLeft      :: IntMap {- SampleIndex -} IntSet {- [BagIndex] -}
 >   , fwMembersRight     :: IntMap {- SampleIndex -} IntSet {- [BagIndex] -}
 >   , fwActions          :: IntMap {- InstIndex -}   IntSet {- [BagIndex] -} }
@@ -236,20 +236,21 @@ smell task =====================================================================
 >
 >     smellFolder m presk pres             =
 >       let
->         siIn                             = presk.pskwSampleIndex
->         siOut                            = (effPSShdr pres).sampleLink
+>         siIn, siOut    :: Int
+>         siIn                             = fromIntegral presk.pskwSampleIndex
+>         siOut                            = fromIntegral (effPSShdr pres).sampleLink
 >
->         mback_                           = presk{pskwSampleIndex = siOut} `Map.lookup` fWork.fwPreSampleCache
+>         mback_                           = presk{pskwSampleIndex = fromIntegral siOut} `Map.lookup` fWork.fwPreSampleCache
 >         mback                            = mback_ >>= backOk
 >
 >         backOk opres                     =
->           if isRightPS opres && (effPSShdr opres).sampleLink == siIn
+>           if isRightPS opres && fromIntegral (effPSShdr opres).sampleLink == siIn
 >             then Just siOut
 >             else Nothing
 >       in
 >         case mback of
 >           Nothing                        → m
->           Just x                         → IntMap.insert (fromIntegral siIn) x m
+>           Just x                         → IntMap.insert siIn x m
 
 PreZone administration ================================================================================================
 
@@ -457,7 +458,7 @@ prepair task ===================================================================
           erect temporary infrastructure for stereo pairings
 
 > prepairTaskIf _ _ fWork                  =
->   fWork{fwPairing = fWork.fwPairing{fwAllStereo = allStereo, fwMembersLeft = mLeft, fwMembersRight = mRight}}
+>   fWork{fwPairing = fWork.fwPairing{fwPreZones = allStereo, fwMembersLeft = mLeft, fwMembersRight = mRight}}
 >   where
 >     allStereo                            =
 >       let
@@ -489,60 +490,70 @@ pair task ======================================================================
 >     condemn            :: IntMap IntSet → Int → IntMap IntSet
 >     condemn actions iBag                 =
 >       let
->         pz                               = fwAllStereo IntMap.! iBag
+>         pz                               = fwPreZones IntMap.! iBag
 >         iInst                            = fromIntegral pz.pzWordI
 >       in
 >         IntMap.insertWith IntSet.union iInst (IntSet.singleton iBag) actions
 >
->     rejects                              = IntMap.foldlWithKey rejectFolder IntSet.empty fwPartners
->     rejectFolder soFar siFrom siTo       = soFar `IntSet.union` newRejects
+>     pairings           :: IntMap Int
+>     pairings                             = IntMap.foldlWithKey pairingFolder IntMap.empty fwPartners
+>
+>     pairingFolder soFar siFrom siTo      = soFar `IntMap.union` vetPairs bagsL bagsR
 >       where
->         newRejects                       =
->           case (mbagsL, mbagsR) of
->             (Nothing, Nothing)       → IntSet.empty
->             (Just lBags, Nothing)    → lBags
->             (Nothing, Just rBags)    → rBags
->             (Just lBags, Just rBags) → vetPairs lBags rBags
+>         bagsL                            = fromMaybe IntSet.empty (siFrom `IntMap.lookup` fwMembersLeft)
+>         bagsR                            = fromMaybe IntSet.empty (siTo `IntMap.lookup` fwMembersRight)
 >
->         mbagsL, mbagsR
->                        :: Maybe IntSet {- [BagIndex] -}
->         mbagsL                           = fromIntegral siFrom `IntMap.lookup` fwMembersLeft
->         mbagsR                           = fromIntegral siTo `IntMap.lookup` fwMembersRight
+>     rejects            :: IntSet
+>     rejects                              = IntMap.keysSet fwPreZones `IntSet.difference` unpair pairings
 >
->     vetPairs           :: IntSet {- [BagIndex] -} → IntSet {- [BagIndex] -} → IntSet {- [BagIndex] -}
->     vetPairs lBags rBags                 =
+>     vetPairs           :: IntSet → IntSet → IntMap Int
+>     vetPairs lBags rBags                 = goodPairs
+>       where
+>         reduce ignoreInst lb rb          = vPairs
+>           where  
+>             lSurv                        = survey ignoreInst lb
+>             rSurv                        = survey ignoreInst rb
+>
+>             vPairs                       = Map.foldlWithKey (pairThem ignoreInst rSurv) IntMap.empty lSurv
+>
+>         regularPairs                     = reduce False lBags rBags
+>         allPaired                        = unpair regularPairs
+>         lBags'                           = lBags `IntSet.difference` allPaired
+>         rBags'                           = rBags `IntSet.difference` allPaired
+>         goodPairs                        = if allowCrossInstrumentPairing
+>                                              then regularPairs `IntMap.union` reduce True lBags' rBags'
+>                                              else regularPairs
+>
+>     pairThem           :: Bool → Map PairingSlot IntSet → IntMap Int → PairingSlot → IntSet → IntMap Int
+>     pairThem ii osurv m iSlot lBags         =
 >       let
->         lSurv                            = survey lBags
->         rSurv                            = survey rBags
->
->         vPairs                           = Map.foldlWithKey (combo rSurv) [] lSurv
->         allPaired                        = IntSet.fromList (foldl' explode [] vPairs)
->                                              where explode m (x, y) = m ++ [fromIntegral x, fromIntegral y]
->       in
->         IntSet.difference (lBags `IntSet.union` rBags) allPaired
->
->     combo          :: Map PairingSlot IntSet → [(Word, Word)] → PairingSlot → IntSet → [(Word, Word)]
->     combo otherSurv m iSlot lBags        =
->       let
->         rBags                            = Map.lookup iSlot otherSurv
+>         rBags                            = Map.lookup iSlot osurv
 >         newPairs_                        = zip (IntSet.toList lBags) (IntSet.toList (fromMaybe IntSet.empty rBags))
->         newPairs                         = map (BF.bimap fromIntegral fromIntegral) newPairs_
+>         newPairs                         = if not ii && not allowParallelPairing
+>                                              then take 1 newPairs_
+>                                              else newPairs_
 >       in
->         m ++ newPairs
+>         m `IntMap.union` IntMap.fromList newPairs
 > 
->     survey     :: IntSet {- [BagIndex] -} → Map PairingSlot IntSet {- [BagIndex] -}
->     survey iset                          =
+>     survey             :: Bool → IntSet {- [BagIndex] -} → Map PairingSlot IntSet {- [BagIndex] -}
+>     survey ignoreInst iset               =
 >       let
->         doRanges m bag                   = Map.insertWith IntSet.union slot ((IntSet.singleton . fromIntegral) bag) m
+>         doRanges m bag                   =
+>           Map.insertWith IntSet.union slot ((IntSet.singleton . fromIntegral) bag) m
 >           where
->             pz                           = fwAllStereo IntMap.! fromIntegral bag
+>             pz                           = fwPreZones IntMap.! fromIntegral bag
 >             slot                         =
 >                PairingSlot
->                  (Just pz.pzWordI)
+>                  (if ignoreInst then Nothing else Just pz.pzWordI)
 >                  (fromMaybe (0, 127) pz.pzDigest.zdKeyRange)
 >                  (fromMaybe (0, 127) pz.pzDigest.zdVelRange)
 >       in
 >         IntSet.foldl' doRanges Map.empty iset
+>
+> unpair                 :: IntMap Int → IntSet
+> unpair                                   = IntMap.foldlWithKey ifolder IntSet.empty
+>   where
+>     ifolder iset ifrom ito               = (IntSet.insert ito . IntSet.insert ifrom) iset
 
 vet task ==============================================================================================================
           switch bad stereo zones to mono, or off altogether
@@ -564,14 +575,10 @@ vet task =======================================================================
 >
 >         makeThemMono, killThem
 >                        :: IntSet → ([PreZone], ResultDispositions)
->         makeThemMono bags                =
->           let
->             (pzs, rdFold')               = zoneTask check modify zrec.zsPreZones rdIn
->
+>         makeThemMono bags                = zoneTask check modify zrec.zsPreZones rdIn
+>           where
 >             check pz                     = fromIntegral pz.pzWordB `IntSet.member` bags
 >             modify pz rdFold             = (Just $ makeMono pz, rdFold)
->           in
->             (pzs, rdFold')
 >         killThem bags                    =
 >           let
 >             (okpzs, badpzs)              = partition notDead zrec.zsPreZones
@@ -581,12 +588,12 @@ vet task =======================================================================
 >           in
 >             (okpzs, foldl' rdFolder rdIn badpzs)          
 >
->         adopt rdFold pz              = dispose (extractSampleKey pz) ssImpact rdFold
+>         adopt rdFold pz                  = dispose (extractSampleKey pz) ssImpact rdFold
 >           where
->             impact                   = if wasSwitchedToMono pz
->                                          then AdoptedAsMono
->                                          else Adopted
->             ssImpact                 = [Scan Modified impact fName_ (show iName)]
+>             impact                       = if wasSwitchedToMono pz
+>                                              then AdoptedAsMono
+>                                              else Adopted
+>             ssImpact                     = [Scan Modified impact fName_ (show iName)]
 
 smash task ============================================================================================================
           compute smashups for each instrument
