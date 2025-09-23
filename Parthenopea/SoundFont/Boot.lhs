@@ -509,19 +509,19 @@ pair task ======================================================================
 >     vetPairs           :: IntSet → IntSet → IntMap Int
 >     vetPairs lBags rBags                 = goodPairs
 >       where
->         reduce ignoreInst lb rb          = vPairs
+>         makePairs ignoreInst lb rb       = vPairs
 >           where  
 >             lSurv                        = survey ignoreInst lb
 >             rSurv                        = survey ignoreInst rb
 >
 >             vPairs                       = Map.foldlWithKey (pairThem ignoreInst rSurv) IntMap.empty lSurv
 >
->         regularPairs                     = reduce False lBags rBags
->         allPaired                        = unpair regularPairs
->         lBags'                           = lBags `IntSet.difference` allPaired
->         rBags'                           = rBags `IntSet.difference` allPaired
+>         regularPairs                     = makePairs False lBags rBags
+>         pairedSoFar                      = unpair regularPairs
+>         lBags'                           = lBags `IntSet.difference` pairedSoFar
+>         rBags'                           = rBags `IntSet.difference` pairedSoFar
 >         goodPairs                        = if allowCrossInstrumentPairing
->                                              then regularPairs `IntMap.union` reduce True lBags' rBags'
+>                                              then regularPairs `IntMap.union` makePairs True lBags' rBags'
 >                                              else regularPairs
 >
 >     pairThem           :: Bool → Map PairingSlot IntSet → IntMap Int → PairingSlot → IntSet → IntMap Int
