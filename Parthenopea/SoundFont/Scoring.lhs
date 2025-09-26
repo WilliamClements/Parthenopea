@@ -461,8 +461,7 @@ emit standard output text detailing what choices we made for rendering GM items 
 >                           → [InstrumentName]
 >                           → [PercussionSound]
 >                           → ([(Bool, [Emission])], [(Bool, [Emission])])
-> printChoices runt is ps
->                                          = (map (showI runt.zWinningRecord) is, map (showP runt.zWinningRecord) ps)
+> printChoices runt is ps                  = (map (showI runt.zWinningRecord) is, map (showP runt.zWinningRecord) ps)
 >   where
 >     showI              :: WinningRecord → InstrumentName → (Bool, [Emission])
 >     showI winners kind

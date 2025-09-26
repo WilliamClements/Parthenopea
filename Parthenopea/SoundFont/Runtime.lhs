@@ -27,7 +27,7 @@ February 1, 2025
 > import Data.List ( sortOn, singleton )
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
-> import Data.Maybe ( isNothing, fromJust, fromMaybe )
+> import Data.Maybe
 > import Data.Ord ( Down(Down) )
 > import Data.Time.Clock ( getCurrentTime )
 > import qualified Data.Vector             as VB
@@ -281,8 +281,7 @@ define signal functions and instrument maps to support rendering ===============
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
 >       unwords [fName_, show (pergm.pgkwFile, pergm.pgkwInst)
->                      , show perI.piChanges.cnName, show (pchIn, volIn), show durI
->                      , show ps]
+>                      , show perI.piChanges.cnName, show (pchIn, volIn), show durI, show ps]
 >
 >     ps                                   = VB.fromList ps_
 >     noonIn                               = carefulNoteOn volIn pchIn
@@ -314,7 +313,7 @@ zone selection for rendering ===================================================
 
 >     doFlyEye           :: NoteOn → Either PreZone (PreZone, PreZone)
 >     doFlyEye noonFly
->       | traceNot trace_DFE False         = undefined
+>       | traceIf trace_DFE False          = undefined
 >       | bagIdL <= 0 || cntL <= 0 || bagIdR <= 0 || cntR <= 0
 >                                          = error $ unwords [fName, "cell is nonsense"]
 >       | isNothing foundL || isNothing foundR
@@ -328,7 +327,7 @@ zone selection for rendering ===================================================
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where
 >         fName                            = unwords [fName_, "doFlyEye"]
->         trace_DFE                        = unwords [fName, show noonFly, show perI.pSmashing]
+>         trace_DFE                        = unwords [fName, show (bagIdL, bagIdR), show perI.pSmashing]
 >
 >         (index1, index2)                 = noonAsCoords noonFly
 >         (bagIdL, cntL)                   = lookupCellIndex index1 perI.pSmashing

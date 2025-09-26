@@ -63,7 +63,9 @@ implementing SoundFont spec ====================================================
 >   , pzWordB            :: Word
 >   , pzDigest           :: ZoneDigest
 >   , pzSFZone           :: SFZone
->   , pzChanges          :: ChangeEar F.Shdr} deriving Eq
+>   , pzChanges          :: ChangeEar F.Shdr
+>   , pzPartner          :: Maybe Word}
+>   deriving Eq
 > instance Show PreZone where
 >   show pz                                =
 >     unwords ["PreZone", show (pz.pzWordF, pz.pzWordS, pz.pzWordI, pz.pzWordB), show pz.pzDigest]
@@ -81,6 +83,7 @@ implementing SoundFont spec ====================================================
 >   PreZone
 >     wF wS wI wB 
 >      (formDigest gens) defZone (ChangeEar shdr [])
+>      Nothing
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
@@ -97,6 +100,10 @@ implementing SoundFont spec ====================================================
 >       | isLeftPZ pz                      = (0, 0)
 >       | isRightPZ pz                     = (1, 1)
 >       | otherwise                        = (0, 1)
+> wordS, wordI, wordB    :: PreZone → Int
+> wordS pz                                 = fromIntegral pz.pzWordS
+> wordI pz                                 = fromIntegral pz.pzWordI
+> wordB pz                                 = fromIntegral pz.pzWordB
 > effPZShdr              :: PreZone → F.Shdr
 > effPZShdr PreZone{pzChanges}             =
 >   if MakeMono `elem` pzChanges.ceChanges
