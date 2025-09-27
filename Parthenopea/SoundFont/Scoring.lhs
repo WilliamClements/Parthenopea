@@ -29,6 +29,7 @@ September 12, 2024
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
 > import qualified Text.FuzzyFind          as FF
   
@@ -214,15 +215,6 @@ Scoring stuff ==================================================================
 >                           
 > qqHints                :: Map HintId HintBody
 > qqHints                                  = Map.fromList myHints
->
-> data SFRuntime                           =
->   SFRuntime {
->     zFiles             :: VB.Vector SFFile
->   , zInstrumentCache   :: Map PerGMKey PerInstrument
->   , zWinningRecord     :: WinningRecord}
-> instance Show SFRuntime where
->   show runt                 =
->     unwords ["SFRuntime", show (length runt.zWinningRecord.pWinningI, length runt.zWinningRecord.pWinningP)]
 >
 > type AgainstKindResult                   = Double
 > 
@@ -454,34 +446,74 @@ tournament starts here =========================================================
 >
 >     instrumentPercList :: PerGMKey → [Word] → [PerGMKey]
 >     instrumentPercList pergmI            = map (\w → pergmI {pgkwBag = Just w})
+>
+> writeTournamentReport  :: SFRuntime
+>                           → Map InstrumentName [PerGMScored]
+>                           → Map PercussionSound [PerGMScored]
+>                           → IO ()
+> writeTournamentReport runt pContI pContP
+>                        = do
+>   -- output all selections to the report file
+>   let legend           =
+>           emitComment     [   Unblocked "legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]"]
+>        ++ emitNextComment [   Unblocked "weights = "
+>                             , Unblocked (show ssWeights)] 
+>   let esFiles          = emitFileListC ++ [EndOfLine]
+>   let esI              = concatMap dumpContestants (Map.toList pContI)
+>   let esP              = concatMap dumpContestants (Map.toList pContP)
+>   let esQ              = [] -- formerly emitSettingses
+>   let esTail           = singleton $ Unblocked "\n\nThe End\n\n"
+>   let eol              = singleton EndOfLine
+>
+>   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP, esQ, esTail]
+>
+>   where
+>     nfs                :: [(Int, SFFile)]
+>     nfs                = zip [0..] (VB.toList runt.zFiles)
+>     emitFileListC      = concatMap doF nfs
+>     doF (nth, sffile)  = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
 
 emit standard output text detailing what choices we made for rendering GM items =======================================
 
+> trueChoice             :: Show a ⇒ a → PerGMScored → [Emission]
+> trueChoice kind scored                   =
+>   [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM scored ++ [EndOfLine]
+> falseChoice            :: Show a ⇒ a → [Emission]
+> falseChoice kind                         =
+>   [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
+>
+> recordChoicesI         :: Map InstrumentName PerGMScored → InstrumentName → PerGMScored → (Bool, Maybe PerGMKey, [Emission])
+> recordChoicesI wI kind _
+>   | isJust pergm                         = (True, pergm, trueChoice kind (fromJust mscored))
+>   | kind == Percussion                   = (True, pergm, [Blanks 3, gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
+>   | otherwise                            = (False, Nothing, falseChoice kind)
+>   where
+>     mscored                              = Map.lookup kind wI
+>     pergm                                = mscored >>= (Just . pPerGMKey)
+>
+> recordChoicesP         :: Map PercussionSound PerGMScored → PercussionSound → PerGMScored → (Bool, Maybe PerGMKey, [Emission])
+> recordChoicesP wP kind _
+>   | isJust mscored                       = (True, pergm, trueChoice kind (fromJust mscored))
+>   | otherwise                            = (False, Nothing, falseChoice kind)
+>   where
+>     mscored                              = Map.lookup kind wP
+>     pergm                                = mscored >>= (Just . pPerGMKey)
+>
 > printChoices           :: SFRuntime
 >                           → [InstrumentName]
 >                           → [PercussionSound]
 >                           → ([(Bool, [Emission])], [(Bool, [Emission])])
-> printChoices runt is ps                  = (map (showI runt.zWinningRecord) is, map (showP runt.zWinningRecord) ps)
+> printChoices runt is ps                  = (map showI is, map showP ps)
 >   where
->     showI              :: WinningRecord → InstrumentName → (Bool, [Emission])
->     showI winners kind
->       | isJust mpergm                    = (True, true kind mpergm)
->       | kind == Percussion               = (True, [Blanks 3, gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
->       | otherwise                        = (False, false kind)
+>     showI              :: InstrumentName → (Bool, [Emission])
+>     showI kind                           = (found, ems)
 >       where
->         mpergm                           = Map.lookup kind winners.pWinningI
+>         (found, _, ems)                  = runt.zChoicesI Map.! kind
 >
->     showP               :: WinningRecord → PercussionSound → (Bool, [Emission])
->     showP winners kind
->       | isJust mpergm                    = (True, true kind mpergm)
->       | otherwise                        = (False, false kind)
+>     showP               :: PercussionSound → (Bool, [Emission])
+>     showP kind                           = (found, ems)
 >       where
->         mpergm                           = Map.lookup kind winners.pWinningP
->
->     true kind mpergm                     =
->       [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM (fromJust mpergm) ++ [EndOfLine]
->     false kind                           =
->       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
+>         (found, _, ems)                  = runt.zChoicesP Map.! kind
 >
 > showPerGM              :: PerGMScored → [Emission]
 > showPerGM scored                         =

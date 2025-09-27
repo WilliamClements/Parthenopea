@@ -21,8 +21,7 @@ June 16, 2025
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import qualified Data.Vector             as VB
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
-> import Euterpea.IO.Audio.Render ( renderSF, InstrMap )
-> import Euterpea.IO.Audio.Types ( Stereo, Clock )
+> import Euterpea.IO.Audio.Render ( renderSF )
 > import Euterpea.IO.MIDI ( fromMidi )
 > import Euterpea.Music
 > import Parthenopea.Music.Siren
@@ -80,16 +79,23 @@ Implement PCommand =============================================================
 >
 >       CM.when (howVerboseTournamentReport > 0) (writeTournamentReport prerunt wI wP)
 >
->       let winners                        = WinningRecord (Map.map head wI) (Map.map head wP)
->       let runt                           = prerunt{zWinningRecord = winners}
->       imap                               ← prepareInstruments runt
+>       let wI'                            = Map.map head wI
+>       let wP'                            = Map.map head wP
+>
+>       let zI                             = Map.mapWithKey (recordChoicesI wI') wI'
+>       let zP                             = Map.mapWithKey (recordChoicesP wP') wP'
+>       let runt_                          = prerunt{
+>                                                zChoicesI = zI
+>                                              , zChoicesP = zP}
+>
+>       imap                               ← prepareInstruments runt_
+>       let runt                           = runt_{zInstrumentMap = imap}
 >
 >       -- here's the heart of the coconut
->       mapM_ (renderSong runt imap) songs
+>       mapM_ (renderSong runt) songs
 >
-> renderSong             :: ∀ p . Clock p ⇒ SFRuntime → InstrMap (Stereo p) → Song → IO ()
-> renderSong runt imap (Song name music ding)
->                                          =
+> renderSong             :: SFRuntime → Song → IO ()
+> renderSong runt (Song name music ding)   =
 >   do
 >     timeNow                              ← getCurrentTime
 >     putStrLn $ unwords ["renderSong", name, show timeNow, "->"]
@@ -104,7 +110,7 @@ Implement PCommand =============================================================
 >     -- render song only if all OK
 >     if all fst esI && all fst esP
 >       then do
->         let (durS, s)                    = renderSF (music dynMap) imap
+>         let (durS, s)                    = renderSF (music dynMap) runt.zInstrumentMap
 >         if normalizingOutput
 >           then outFileNorm               (name ++ ".wav") durS s
 >           else outFile                   (name ++ ".wav") durS s

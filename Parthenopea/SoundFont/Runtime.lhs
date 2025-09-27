@@ -14,17 +14,16 @@ February 1, 2025
 > module Parthenopea.SoundFont.Runtime ( implementNoteBending
 >                                      , prepareInstruments
 >                                      , runUnitTests
+>                                      , SFRuntime(..)
 >                                      , writeRangesReport
->                                      , writeScanReport
->                                      , writeTournamentReport) where
+>                                      , writeScanReport) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
 > import Data.Array.Unboxed ( inRange )
 > import qualified Data.Audio              as A
 > import Data.Either
-> import Data.Foldable ( toList )
-> import Data.List ( sortOn, singleton )
+> import Data.List ( sortOn )
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
@@ -50,11 +49,21 @@ February 1, 2025
 > import Parthenopea.Repro.Synthesizer
 > import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
 > import Parthenopea.SoundFont.BootTest ( bootTests )
-> import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
   
 executive =============================================================================================================
 
+> data SFRuntime                           =
+>   SFRuntime {
+>     zFiles             :: VB.Vector SFFile
+>   , zChoicesI          :: Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
+>   , zChoicesP          :: Map PercussionSound (Bool, Maybe PerGMKey, [Emission])
+>   , zInstrumentCache   :: Map PerGMKey PerInstrument
+>   , zInstrumentMap     :: [(InstrumentName, Instr (Stereo AudRate))]}
+> instance Show SFRuntime where
+>   show runt                 =
+>     unwords ["SFRuntime", show (length runt.zFiles, length runt.zInstrumentMap)]
+>
 > runUnitTests           :: IO ()
 > runUnitTests                             = do
 >   resultBoot                             ← runTestsQuietly bootTests
@@ -206,46 +215,24 @@ executive ======================================================================
 >        , ToFieldL scan.sFunction     52
 >        , Unblocked scan.sClue
 >        , EndOfLine]
->
-> writeTournamentReport  :: SFRuntime
->                           → Map InstrumentName [PerGMScored]
->                           → Map PercussionSound [PerGMScored]
->                           → IO ()
-> writeTournamentReport runt pContI pContP
->                        = do
->   -- output all selections to the report file
->   let legend           =
->           emitComment     [   Unblocked "legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]"]
->        ++ emitNextComment [   Unblocked "weights = "
->                             , Unblocked (show ssWeights)] 
->   let esFiles          = emitFileListC ++ [EndOfLine]
->   let esI              = concatMap dumpContestants (Map.toList pContI)
->   let esP              = concatMap dumpContestants (Map.toList pContP)
->   let esQ              = [] -- formerly emitSettingses
->   let esTail           = singleton $ Unblocked "\n\nThe End\n\n"
->   let eol              = singleton EndOfLine
->
->   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP, esQ, esTail]
->
->   where
->     nfs                :: [(Int, SFFile)]
->     nfs                = zip [0..] (toList runt.zFiles)
->     emitFileListC      = concatMap doF nfs
->     doF (nth, sffile)  = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
 
 define signal functions and instrument maps to support rendering ======================================================
 
 > prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
 > prepareInstruments runt                  = do
->     putStrLn $ unwords ["prepareInstruments", show winners]
 >     return $ (Percussion, assignPercussion)                                                               : imap
 >   where
->     winners                              = runt.zWinningRecord
->     imap                                 = Map.foldrWithKey imapFolder [] winners.pWinningI
->     pmap                                 = Map.foldrWithKey pmapFolder [] winners.pWinningP
+>     imap                                 = Map.foldrWithKey imapFolder [] runt.zChoicesI
+>     pmap                                 = Map.foldrWithKey pmapFolder [] runt.zChoicesP
 >
->     imapFolder kind scored target        = (kind, assignInstrument scored.pPerGMKey)                      : target
->     pmapFolder kind scored target        = (kind, (pgkwFile scored.pPerGMKey, pgkwInst scored.pPerGMKey)) : target
+>     imapFolder kind _ target             = (kind, assignInstrument pergm)                                 : target
+>       where
+>        (_, pPerGMKey, _)                 = runt.zChoicesI Map.! kind
+>        pergm                             = fromJust pPerGMKey
+>     pmapFolder kind _ target             = (kind, (pgkwFile pergm, pgkwInst pergm))                       : target
+>       where
+>        (_, pPerGMKey, _)                 = runt.zChoicesP Map.! kind
+>        pergm                             = fromJust pPerGMKey
 >
 >     assignInstrument   :: ∀ p . Clock p ⇒ PerGMKey → Instr (Stereo p)
 >     assignInstrument pergm durI pch vol params

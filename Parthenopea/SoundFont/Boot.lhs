@@ -35,6 +35,7 @@ January 21, 2025
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
+> import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
   
@@ -70,12 +71,14 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   Pairing {
 >     fwPartners         :: IntMap {- SampleIndex -} Int {- SampleIndex -}
 >   , fwPreZones         :: IntMap {- BagIndex -}    PreZone
->   , fwRejects          :: IntSet {- [BagIndex] -}
->   , fwActions          :: IntMap {- InstIndex -} IntSet {- [BagIndex] -}}
+>   , fwPairings         :: IntMap {- BagIndex -}    Int {- BagIndex -}
+>   , fwRejects          :: IntSet {- BagIndex -}
+>   , fwActions          :: IntMap {- InstIndex -}   IntSet {- [BagIndex] -}}
 > defPairing             ::Pairing
 > defPairing                               =
 >   Pairing
 >     IntMap.empty
+>     IntMap.empty 
 >     IntMap.empty
 >     IntSet.empty
 >     IntMap.empty
@@ -144,7 +147,8 @@ and recovery.
 >   putStrLn ""
 >
 >   let (iCacheAll, matchesAll, rdAll)     = foldl' bootFolder (Map.empty, defMatches, virginrd) vFiles
->   let runt                               = SFRuntime vFiles iCacheAll seedWinningRecord
+>   let runt                               =
+>         SFRuntime vFiles Map.empty Map.empty iCacheAll []
 >   return (runt, matchesAll, rdAll)
 >   where
 >     fName                                = "surveyInstruments"
@@ -226,7 +230,7 @@ smell task =====================================================================
 
 > smellTaskIf _ _ fWork                    = fWork{fwPairing = pairing}
 >   where
->     pairing                              =
+>     pairing                              = 
 >       fWork.fwPairing{fwPartners = Map.foldlWithKey smellFolder IntMap.empty allLeft}
 >     allLeft                              = Map.filter isLeftPS fWork.fwPreSampleCache
 >
@@ -465,7 +469,7 @@ pair task ======================================================================
           produce BagIndex list identifying PreZones switching to mono
 
 > pairTaskIf _ _ fWork                     =
->   fWork{fwPairing = fWork.fwPairing{fwRejects = rejects, fwActions = actions}}
+>   fWork{fwPairing = fWork.fwPairing{fwPairings = pairings, fwRejects = rejects, fwActions = actions}}
 >   where
 >     Pairing{ .. }                        
 >                                          = fWork.fwPairing
@@ -504,10 +508,10 @@ pair task ======================================================================
 >
 >     vetPairs bagsL bagsR                 =
 >       let
->         makePairs ignoreInst lb rb       = Map.foldlWithKey (pairThem ignoreInst rSurvey) IntMap.empty lSurvey
+>         makePairs ignoreI lb rb          = Map.foldlWithKey (pairThem ignoreI rSurvey) IntMap.empty lSurvey
 >           where  
->             lSurvey                      = survey ignoreInst lb
->             rSurvey                      = survey ignoreInst rb
+>             lSurvey                      = survey ignoreI lb
+>             rSurvey                      = survey ignoreI rb
 >         regularPairs                     = makePairs False bagsL bagsR
 >         pairedSoFar                      = unpair regularPairs
 >         bagsL'                           = bagsL `IntSet.difference` pairedSoFar
@@ -518,11 +522,11 @@ pair task ======================================================================
 >           else regularPairs
 >
 >     pairThem           :: Bool → Map PairingSlot IntSet → IntMap Int → PairingSlot → IntSet → IntMap Int
->     pairThem ii osurv m iSlot bagsL         =
+>     pairThem ignoreI osurv m iSlot bagsL =
 >       let
 >         bagsR                            = Map.lookup iSlot osurv
 >         newPairs_                        = zip (IntSet.toList bagsL) (IntSet.toList (fromMaybe IntSet.empty bagsR))
->         newPairs                         = if not ii && not allowParallelPairing
+>         newPairs                         = if not ignoreI && not allowParallelPairing
 >                                              then take 1 newPairs_
 >                                              else newPairs_
 >       in
@@ -548,7 +552,7 @@ pair task ======================================================================
 >     ifolder iset ifrom ito               = (IntSet.insert ito . IntSet.insert ifrom) iset
 
 vet task ==============================================================================================================
-          switch bad stereo zones to mono, or off altogether
+          execute: switch bad stereo zones to mono, or off altogether
 
 > vetTaskIf _ _ fWork                      = zrecTask vetter fWork
 >   where
@@ -560,12 +564,12 @@ vet task =======================================================================
 >            Nothing                       → (zrec, rd)
 >            Just acts                     → vetActions zrec rd acts
 >
->     bothPartners                         = 
+>     bothPartners                         =
 >       let
->         partners                         = fWork.fwPairing.fwPartners
+>         pairings                         = fWork.fwPairing.fwPairings
 >         reverseFolder pds iLeft iRight   = IntMap.insert iRight iLeft pds
 >       in
->         partners `IntMap.union` IntMap.foldlWithKey reverseFolder IntMap.empty partners
+>         pairings `IntMap.union` IntMap.foldlWithKey reverseFolder IntMap.empty pairings
 >
 >     vetActions zrec rdIn actions         = (zrec{zsPreZones = pzsOut}, rdOut)
 >       where
@@ -596,7 +600,7 @@ vet task =======================================================================
 >           in
 >             profess
 >               (isJust mpartner)
->               (unwords [fName, "paired missing"])
+>               (unwords [fName, "paired missing", show (wordB pz)])
 >               (Just pz{pzPartner = fmap fromIntegral mpartner}, rd)
 
 adopt task ============================================================================================================
