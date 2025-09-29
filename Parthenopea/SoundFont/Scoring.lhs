@@ -97,6 +97,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 > class GMPlayable a where
 >   toGMKind             :: a → GMKind
 >   select               :: ([InstrumentName], [PercussionSound]) → [a]
+>   specialCase          :: a → Bool
 >   getFuzzMap           :: FFMatches → Map a Fuzz
 >
 > instance GMPlayable InstrumentName where
@@ -105,6 +106,7 @@ apply fuzzyfind to mining instruments + percussion =============================
 >     if narrowInstrumentScope
 >       then fst rost
 >       else fst allKinds
+>   specialCase kind                       = Percussion == kind
 >   getFuzzMap                             = ffInst
 >
 > instance GMPlayable PercussionSound where
@@ -113,7 +115,23 @@ apply fuzzyfind to mining instruments + percussion =============================
 >     if narrowInstrumentScope
 >       then snd rost
 >       else snd allKinds
+>   specialCase _                          = False
 >   getFuzzMap                             = ffPerc
+>
+> kindChoices            :: ∀ a. (GMPlayable a, Eq a, Ord a, Show a) ⇒ 
+>                           Map a PerGMScored → a → PerGMScored → (Bool, Maybe PerGMKey, [Emission])
+> kindChoices m k _
+>   | isJust pergm                         = (True, pergm, trueChoice k (fromJust mscored))
+>   | specialCase k                        = (True, pergm, [Blanks 3, gmId k, Unblocked "(pseudo-instrument)", EndOfLine])
+>   | otherwise                            = (False, Nothing, falseChoice k)
+>   where
+>     mscored                              = Map.lookup k m
+>     pergm                                = mscored >>= (Just . pPerGMKey)
+>
+>     trueChoice kind scored                   =
+>       [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM scored ++ [EndOfLine]
+>     falseChoice kind                         =
+>       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
 >
 > class GMPlayable a ⇒ SFScorable a where
 >   splitScore           :: a → [PreZone] → Double
@@ -475,30 +493,6 @@ tournament starts here =========================================================
 
 emit standard output text detailing what choices we made for rendering GM items =======================================
 
-> trueChoice             :: Show a ⇒ a → PerGMScored → [Emission]
-> trueChoice kind scored                   =
->   [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM scored ++ [EndOfLine]
-> falseChoice            :: Show a ⇒ a → [Emission]
-> falseChoice kind                         =
->   [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
->
-> recordChoicesI         :: Map InstrumentName PerGMScored → InstrumentName → PerGMScored → (Bool, Maybe PerGMKey, [Emission])
-> recordChoicesI wI kind _
->   | isJust pergm                         = (True, pergm, trueChoice kind (fromJust mscored))
->   | kind == Percussion                   = (True, pergm, [Blanks 3, gmId kind, Unblocked "(pseudo-instrument)", EndOfLine])
->   | otherwise                            = (False, Nothing, falseChoice kind)
->   where
->     mscored                              = Map.lookup kind wI
->     pergm                                = mscored >>= (Just . pPerGMKey)
->
-> recordChoicesP         :: Map PercussionSound PerGMScored → PercussionSound → PerGMScored → (Bool, Maybe PerGMKey, [Emission])
-> recordChoicesP wP kind _
->   | isJust mscored                       = (True, pergm, trueChoice kind (fromJust mscored))
->   | otherwise                            = (False, Nothing, falseChoice kind)
->   where
->     mscored                              = Map.lookup kind wP
->     pergm                                = mscored >>= (Just . pPerGMKey)
->
 > printChoices           :: SFRuntime
 >                           → [InstrumentName]
 >                           → [PercussionSound]

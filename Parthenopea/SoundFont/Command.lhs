@@ -79,11 +79,11 @@ Implement PCommand =============================================================
 >
 >       CM.when (howVerboseTournamentReport > 0) (writeTournamentReport prerunt wI wP)
 >
->       let wI'                            = Map.map head wI
->       let wP'                            = Map.map head wP
+>       let zI                             = Map.mapWithKey (kindChoices m) m
+>                                              where m = Map.map head wI
+>       let zP                             = Map.mapWithKey (kindChoices m) m
+>                                              where m = Map.map head wP
 >
->       let zI                             = Map.mapWithKey (recordChoicesI wI') wI'
->       let zP                             = Map.mapWithKey (recordChoicesP wP') wP'
 >       let runt_                          = prerunt{
 >                                                zChoicesI = zI
 >                                              , zChoicesP = zP}
