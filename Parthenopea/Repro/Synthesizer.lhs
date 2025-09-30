@@ -4,6 +4,7 @@
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -54,10 +55,9 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           → NoteOn
 >                           → Double
 >                           → Dur
->                           → A.SampleData Int16
->                           → Maybe (A.SampleData Int8)
+>                           → SFFileRuntime
 >                           → Signal p () (Double, Double)
-> eutSynthesize (reconL, mreconR) noon sr dur s16 ms8
+> eutSynthesize (reconL, mreconR) noon sr dur sffileRuntime
 >   | traceNot trace_ES False              = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
@@ -100,16 +100,18 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     modulateStereo, ampStereo
 >                        :: Signal p (Double, Double) (Double, Double)
 >
+>     SampleArrays{ .. }                   
+>                                          = sffileRuntime.zSample
 >     pumpMono                             =
 >       eutDriver                    timeFrame reconL delta
->       >>> eutPumpMonoSample        reconL noon s16 ms8
+>       >>> eutPumpMonoSample        reconL noon ssData ssM24
 >       >>> eutModulate              timeFrame m8nL
 >       >>> eutEffectsMono           reconL
 >       >>> eutAmplify               timeFrame reconL
 >
 >     pumpStereo                           = 
 >       eutDriver                    timeFrame reconL delta
->         >>> eutPumpStereoSample    (reconL, reconR) noon s16 ms8
+>         >>> eutPumpStereoSample    (reconL, reconR) noon ssData ssM24
 >         >>> modulateStereo
 >         >>> ampStereo
 >

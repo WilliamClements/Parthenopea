@@ -20,7 +20,7 @@ January 21, 2025
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Foldable
-> import Data.IntMap.Lazy (IntMap)
+> import Data.IntMap.Strict (IntMap)
 > import qualified Data.IntMap.Strict as IntMap
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet as IntSet
@@ -98,9 +98,9 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >
 > preSampleTaskIf, smellTaskIf, surveyTaskIf, captureTaskIf, flatMapTaskIf, pairTaskIf, vetTaskIf
 >                , adoptTaskIf, smashTaskIf, reorgTaskIf, matchTaskIf, catTaskIf, perITaskIf
->                        :: SFFile → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
+>                        :: SFFileBoot → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
 >
-> makeFileIterate        :: SFFile → ([InstrumentName], [PercussionSound]) → FileIterate
+> makeFileIterate        :: SFFileBoot → ([InstrumentName], [PercussionSound]) → FileIterate
 > makeFileIterate sffile rost              =
 >   FileIterate
 >     defFileWork 
@@ -138,17 +138,19 @@ To support extracting from flawed SoundFont files, we - up front - withdraw unre
 respective collections. An item's presence may be critical to some instrumentation. So it entails further deletion
 and recovery.
 
-> surveyInstruments      :: VB.Vector SFFile
+> surveyInstruments      :: VB.Vector SFFileBoot
+>                           → VB.Vector SFFileRuntime
 >                           → ([InstrumentName], [PercussionSound])
 >                           → IO (SFRuntime, Matches, ResultDispositions)
-> surveyInstruments vFiles rost            = do
+> surveyInstruments vFilesBoot vFilesRuntime rost
+>                                          = do
 >   putStrLn ""
 >   putStrLn $ unwords [fName, show rost]
 >   putStrLn ""
 >
->   let (iCacheAll, matchesAll, rdAll)     = foldl' bootFolder (Map.empty, defMatches, virginrd) vFiles
+>   let (iCacheAll, matchesAll, rdAll)     = foldl' bootFolder (Map.empty, defMatches, virginrd) vFilesBoot
 >   let runt                               =
->         SFRuntime vFiles Map.empty Map.empty iCacheAll []
+>         SFRuntime vFilesBoot vFilesRuntime  Map.empty Map.empty iCacheAll []
 >   return (runt, matchesAll, rdAll)
 >   where
 >     fName                                = "surveyInstruments"
@@ -171,8 +173,8 @@ and recovery.
 
 support sample and instance ===========================================================================================
 
-> formComprehension      :: ∀ r a . SFResource r ⇒ SFFile → (FileArrays → Array Word a) → [r]
-> formComprehension sffile blobfun         = map (sfkey sffile.zWordF) bRange
+> formComprehension      :: ∀ r a . SFResource r ⇒ SFFileBoot → (FileArrays → Array Word a) → [r]
+> formComprehension sffile blobfun         = map (sfkey sffile.zWordFBoot) bRange
 >   where
 >     fName                                = "formComprehension"
 >
@@ -449,9 +451,9 @@ capture task ===================================================================
 >                                              (unwords [fName, "SoundFont file corrupt (gens)"])
 >                                              (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
 >
->             pz                           = makePreZone sffile.zWordF si (pgkwInst pergm) bix gens pres.cnSource
+>             pz                           = makePreZone sffile.zWordFBoot si (pgkwInst pergm) bix gens pres.cnSource
 >             si                           = deJust (unwords [fName, "si"]) pz.pzDigest.zdSampleIndex
->             presk                        = PreSampleKey sffile.zWordF si
+>             presk                        = PreSampleKey sffile.zWordFBoot si
 >             mpres                        = presk `Map.lookup` fwIn.fwPreSampleCache
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
 
@@ -924,14 +926,14 @@ build zone task ================================================================
 >             _                            → error $ unwords ["only Inst and Perc are valid here"]
 >         pzs                              = filter (\pz → pz.pzWordB `elem` bixen) zrec.zsPreZones
 >
-> buildZone              :: SFFile → SFZone → Maybe PreZone → Word → SFZone
+> buildZone              :: SFFileBoot → SFZone → Maybe PreZone → Word → SFZone
 > buildZone sffile fromZone mpz bagIndex
 >   | traceIf trace_BZ False               = undefined
 >   | otherwise                            = foldr addMod (foldl' addGen fromZone gens) mods
 >   where
 >     fName                                = "buildZone"
 >     trace_BZ                             =
->       unwords [fName, show (sffile.zWordF, bagIndex), show zName, show (fromZone == defZone)]
+>       unwords [fName, show (sffile.zWordFBoot, bagIndex), show zName, show (fromZone == defZone)]
 >
 >     zName                                =
 >       case mpz of
@@ -948,13 +950,13 @@ build zone task ================================================================
 >     gens                                 =
 >       profess
 >         (xgeni <= ygeni)
->         (unwords[fName, "SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt gens"])
+>         (unwords[fName, "SoundFont file", show sffile.zWordFBoot, sffile.zFilename, "corrupt gens"])
 >         (map (boota.ssIGens !) (deriveRange xgeni ygeni))
 >     mods               :: [(Word, F.Mod)]
 >     mods                                 =
 >       profess
 >         (xmodi <= ymodi)
->         (unwords[fName, "SoundFont file", show sffile.zWordF, sffile.zFilename, "corrupt mods"])
+>         (unwords[fName, "SoundFont file", show sffile.zWordFBoot, sffile.zFilename, "corrupt mods"])
 >         (zip [10_000..] (map (boota.ssIMods !) (deriveRange xmodi ymodi)))
 >
 > addGen                 :: SFZone → F.Generator → SFZone

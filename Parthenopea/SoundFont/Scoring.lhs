@@ -486,8 +486,8 @@ tournament starts here =========================================================
 >   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP, esQ, esTail]
 >
 >   where
->     nfs                :: [(Int, SFFile)]
->     nfs                = zip [0..] (VB.toList runt.zFiles)
+>     nfs                :: [(Int, SFFileBoot)]
+>     nfs                = zip [0..] (VB.toList runt.zBootFiles)
 >     emitFileListC      = concatMap doF nfs
 >     doF (nth, sffile)  = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
 
@@ -499,15 +499,10 @@ emit standard output text detailing what choices we made for rendering GM items 
 >                           → ([(Bool, [Emission])], [(Bool, [Emission])])
 > printChoices runt is ps                  = (map showI is, map showP ps)
 >   where
->     showI              :: InstrumentName → (Bool, [Emission])
 >     showI kind                           = (found, ems)
->       where
->         (found, _, ems)                  = runt.zChoicesI Map.! kind
->
->     showP               :: PercussionSound → (Bool, [Emission])
+>                                              where (found, _, ems) = runt.zChoicesI Map.! kind
 >     showP kind                           = (found, ems)
->       where
->         (found, _, ems)                  = runt.zChoicesP Map.! kind
+>                                              where (found, _, ems) = runt.zChoicesP Map.! kind
 >
 > showPerGM              :: PerGMScored → [Emission]
 > showPerGM scored                         =

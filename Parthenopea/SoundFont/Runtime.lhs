@@ -55,14 +55,15 @@ executive ======================================================================
 
 > data SFRuntime                           =
 >   SFRuntime {
->     zFiles             :: VB.Vector SFFile
+>     zBootFiles         :: VB.Vector SFFileBoot
+>   , zRuntimeFiles      :: VB.Vector SFFileRuntime
 >   , zChoicesI          :: Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
 >   , zChoicesP          :: Map PercussionSound (Bool, Maybe PerGMKey, [Emission])
 >   , zInstrumentCache   :: Map PerGMKey PerInstrument
 >   , zInstrumentMap     :: [(InstrumentName, Instr (Stereo AudRate))]}
 > instance Show SFRuntime where
 >   show runt                 =
->     unwords ["SFRuntime", show (length runt.zFiles, length runt.zInstrumentMap)]
+>     unwords ["SFRuntime", show (length runt.zBootFiles, length runt.zInstrumentMap)]
 >
 > runUnitTests           :: IO ()
 > runUnitTests                             = do
@@ -200,14 +201,14 @@ executive ======================================================================
 >                                              else prolog ++ [EndOfLine] ++ concatMap procScan ssIn ++ [EndOfLine]
 >       where
 >         ssOut                            = filter (\s → s.sDisposition `notElem` elideset) ssIn
->         sffile                           = runt.zFiles VB.! wfile k
+>         sffileBoot                       = runt.zBootFiles VB.! wfile k
 >
 >         prolog                           = 
 >           [  Unblocked (show k)
 >            , Blanks 5
->            , Unblocked sffile.zFilename
+>            , Unblocked sffileBoot.zFilename
 >            , Blanks 5]
->           ++ kname k sffile
+>           ++ kname k sffileBoot
 >
 >     procScan scan                    =
 >       [  emitShowL scan.sDisposition 24
@@ -263,7 +264,7 @@ define signal functions and instrument maps to support rendering ===============
 > instrumentSF runt pergm durI pchIn volIn ps_
 >   | traceIf trace_ISF False              = undefined
 >   | otherwise                            = eutSynthesize (reconX, mreconX) noonOut reconX.rSampleRate
->                                              durI sffile.zSample.ssData sffile.zSample.ssM24
+>                                              durI sffileRuntime 
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
@@ -280,8 +281,7 @@ define signal functions and instrument maps to support rendering ===============
 >         calcNoteOn z                     = NoteOn (maybe (clip (0, 127) volIn) fromIntegral z.zVel) 
 >                                                   (maybe (clip (0, 127) pchIn) fromIntegral z.zKey)
 >
->     sffile                               = runt.zFiles VB.! pergm.pgkwFile
->
+>     sffileRuntime                        = runt.zRuntimeFiles VB.! pergm.pgkwFile
 >     perI                                 = runt.zInstrumentCache Map.! pergm
 >
 >     (reconX, mreconX)                    =
@@ -292,8 +292,8 @@ define signal functions and instrument maps to support rendering ===============
 >             reconL                       = resolvePreZone pzL
 >             reconR                       = resolvePreZone pzR
 >
->     copyRoot           :: Recon → Recon → Recon
->     copyRoot pz1 pz2                     = pz2{rRootKey                   = pz1.rRootKey
+>             copyRoot   :: Recon → Recon → Recon
+>             copyRoot pz1 pz2             = pz2{rRootKey                   = pz1.rRootKey
 >                                              , rPitchCorrection           = pz1.rPitchCorrection}
 
 zone selection for rendering ==========================================================================================

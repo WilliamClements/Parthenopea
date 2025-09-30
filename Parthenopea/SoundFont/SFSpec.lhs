@@ -19,6 +19,7 @@ April 16, 2023
 > import Data.Char
 > import Data.Foldable
 > import Data.Int ( Int8, Int16 )
+> import Data.IntMap.Strict (IntMap)
 > import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
@@ -240,12 +241,11 @@ implementing SoundFont spec ====================================================
 >     Just (InstCatPerc _)                 → "icPerc"
 >     Just (InstCatDisq imp why)           → unwords ["icDisq", show imp, why]
 >
-> data SFFile                              =
->   SFFile {
->     zWordF             :: Int
+> data SFFileBoot                          =
+>   SFFileBoot {
+>     zWordFBoot         :: Int
 >   , zFilename          :: FilePath
->   , zFileArrays        :: FileArrays
->   , zSample            :: SampleArrays}
+>   , zFileArrays        :: FileArrays}
 >
 > data FileArrays                          = 
 >   FileArrays {
@@ -254,6 +254,13 @@ implementing SoundFont spec ====================================================
 >   , ssIGens            :: Array Word F.Generator
 >   , ssIMods            :: Array Word F.Mod
 >   , ssShdrs            :: Array Word F.Shdr}
+>
+> data SFFileRuntime                       =
+>   SFFileRuntime {
+>     zWordFRuntime      :: Int
+>   , zPerInstrument     :: IntMap PerInstrument
+>   , zPreZone           :: IntMap PreZone
+>   , zSample            :: SampleArrays}
 >
 > data SampleArrays                        = 
 >   SampleArrays {
@@ -416,7 +423,7 @@ bootstrapping ==================================================================
 >   sfkey                :: Int → Word → a
 >   wfile                :: a → Int
 >   wblob                :: a → Word
->   kname                :: a → SFFile → [Emission]
+>   kname                :: a → SFFileBoot → [Emission]
 >   inspect              :: a → ResultDispositions → [Scan]
 >   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
 >
