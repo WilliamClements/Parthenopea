@@ -273,6 +273,21 @@ Scoring stuff ==================================================================
 
 tournament starts here ================================================================================================
 
+> establishWinners       :: SFRuntime
+>                           → ([InstrumentName], [PercussionSound]) 
+>                           → Matches
+>                           → IO SFRuntime
+> establishWinners runt rost matches       = do
+>   (wI, wP)                               ← decideWinners runt rost matches
+>   CM.when (howVerboseTournamentReport > 0) (writeTournamentReport runt wI wP)
+>
+>   let zI                                 = Map.mapWithKey (kindChoices m) m
+>                                              where m = Map.map head wI
+>   let zP                                 = Map.mapWithKey (kindChoices m) m
+>                                              where m = Map.map head wP
+>
+>   return runt{zChoicesI = zI, zChoicesP = zP}
+>
 > decideWinners          :: SFRuntime
 >                           → ([InstrumentName], [PercussionSound]) 
 >                           → Matches
@@ -287,7 +302,7 @@ tournament starts here =========================================================
 >     wiExec             :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiExec                               = (wI', wP')
 >       where
->         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) runt.zInstrumentCache         
+>         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) runt.zInstrumentCache    
 >         wI'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wI
 >         wP'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wP
 >

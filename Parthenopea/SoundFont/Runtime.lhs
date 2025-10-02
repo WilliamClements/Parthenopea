@@ -12,7 +12,7 @@ William Clements
 February 1, 2025
 
 > module Parthenopea.SoundFont.Runtime ( implementNoteBending
->                                      , prepareInstruments
+>                                      , prepareRuntime
 >                                      , runUnitTests
 >                                      , SFRuntime(..)
 >                                      , writeRangesReport
@@ -219,6 +219,11 @@ executive ======================================================================
 
 define signal functions and instrument maps to support rendering ======================================================
 
+> prepareRuntime     :: SFRuntime → IO SFRuntime
+> prepareRuntime runt                      = do
+>   instrumentMap                          ← prepareInstruments runt
+>   return runt{zInstrumentMap = instrumentMap}
+>
 > prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
 > prepareInstruments runt                  = do
 >     return $ (Percussion, assignPercussion)                                                               : imap

@@ -67,31 +67,17 @@ Implement PCommand =============================================================
 >   rost                                   ← qualifyKinds songs
 >
 >   CM.unless (null sf2s) (do putStrLn ""; putStrLn $ unwords ["surveySoundFonts"])
->   amalgamum                              ← CM.zipWithM openSoundFontFile [0..] sf2s
->   let vFilesBoot                         = VB.fromList (map fst amalgamum)
->   let vFilesRuntime                      = VB.fromList (map snd amalgamum)
+>   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
+>   let vFilesBoot                         = VB.fromList (map fst extraction)
+>   let vFilesRuntime                      = VB.fromList (map snd extraction)
 >   if VB.null vFilesBoot
 >     then return ()
 >     else do
 >       (prerunt, matches, rd)             ← surveyInstruments vFilesBoot vFilesRuntime rost
->
 >       CM.when (howVerboseScanReport > 0) (writeScanReport prerunt rd)
 >
->       (wI, wP)                           ← decideWinners prerunt rost matches
->
->       CM.when (howVerboseTournamentReport > 0) (writeTournamentReport prerunt wI wP)
->
->       let zI                             = Map.mapWithKey (kindChoices m) m
->                                              where m = Map.map head wI
->       let zP                             = Map.mapWithKey (kindChoices m) m
->                                              where m = Map.map head wP
->
->       let runt_                          = prerunt{
->                                                zChoicesI = zI
->                                              , zChoicesP = zP}
->
->       imap                               ← prepareInstruments runt_
->       let runt                           = runt_{zInstrumentMap = imap}
+>       runt_                              ← establishWinners prerunt rost matches
+>       runt                               ← prepareRuntime runt_
 >
 >       -- here's the heart of the coconut
 >       mapM_ (renderSong runt) songs
