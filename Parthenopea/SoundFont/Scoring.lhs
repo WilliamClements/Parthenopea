@@ -23,7 +23,7 @@ September 12, 2024
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ord ( Down(Down) )
-> import qualified Data.Vector             as VB
+> import qualified Data.Vector.Strict      as VB
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
@@ -280,12 +280,10 @@ tournament starts here =========================================================
 > establishWinners runt rost matches       = do
 >   (wI, wP)                               ← decideWinners runt rost matches
 >   CM.when (howVerboseTournamentReport > 0) (writeTournamentReport runt wI wP)
->
 >   let zI                                 = Map.mapWithKey (kindChoices m) m
 >                                              where m = Map.map head wI
 >   let zP                                 = Map.mapWithKey (kindChoices m) m
 >                                              where m = Map.map head wP
->
 >   return runt{zChoicesI = zI, zChoicesP = zP}
 >
 > decideWinners          :: SFRuntime
@@ -512,12 +510,11 @@ emit standard output text detailing what choices we made for rendering GM items 
 >                           → [InstrumentName]
 >                           → [PercussionSound]
 >                           → ([(Bool, [Emission])], [(Bool, [Emission])])
-> printChoices runt is ps                  = (map showI is, map showP ps)
+> printChoices runt is ps                  = (map (extract runt.zChoicesI) is, map (extract runt.zChoicesP) ps)
 >   where
->     showI kind                           = (found, ems)
->                                              where (found, _, ems) = runt.zChoicesI Map.! kind
->     showP kind                           = (found, ems)
->                                              where (found, _, ems) = runt.zChoicesP Map.! kind
+>     extract            :: ∀ a. (Ord a) ⇒ Map a (Bool, Maybe PerGMKey, [Emission]) → a → (Bool, [Emission])
+>     extract choices kind                 = (found, ems)
+>                                              where (found, _, ems) = choices Map.! kind
 >
 > showPerGM              :: PerGMScored → [Emission]
 > showPerGM scored                         =

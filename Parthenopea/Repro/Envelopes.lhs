@@ -27,7 +27,7 @@ Apr 26, 2025
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe ( isJust, isNothing, fromJust, fromMaybe )
-> import qualified Data.Vector             as VB
+> import qualified Data.Vector.Strict      as VB
 > import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
 > import Euterpea.IO.Audio.Types ( Clock(..), Signal )

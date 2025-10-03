@@ -20,7 +20,7 @@ June 16, 2025
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromMaybe )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
-> import qualified Data.Vector             as VB
+> import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF )
 > import Euterpea.IO.MIDI ( fromMidi )

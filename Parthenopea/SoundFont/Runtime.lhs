@@ -23,13 +23,20 @@ February 1, 2025
 > import Data.Array.Unboxed ( inRange )
 > import qualified Data.Audio              as A
 > import Data.Either
+> import Data.Foldable
+> import Data.IntMap (IntMap)
+> import qualified Data.IntMap.Strict as IntMap
+> import Data.IntSet (IntSet)
+> import qualified Data.IntSet as IntSet
 > import Data.List ( sortOn )
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ord ( Down(Down) )
+> import Data.Set (Set)
+> import qualified Data.Set                as Set
 > import Data.Time.Clock ( getCurrentTime )
-> import qualified Data.Vector             as VB
+> import qualified Data.Vector.Strict      as VB
 > import Debug.Trace ( traceIO )
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Render ( Instr )
@@ -221,8 +228,34 @@ define signal functions and instrument maps to support rendering ===============
 
 > prepareRuntime     :: SFRuntime → IO SFRuntime
 > prepareRuntime runt                      = do
->   instrumentMap                          ← prepareInstruments runt
->   return runt{zInstrumentMap = instrumentMap}
+>   runtimeFiles                           ← VB.mapM supply runt.zRuntimeFiles
+>   instrumentMap                          ← prepareInstruments (runt{zRuntimeFiles = runtimeFiles})
+>   return runt{zRuntimeFiles = runtimeFiles, zInstrumentMap = instrumentMap}
+>   where
+>     supply sffile                        =
+>       let
+>         populate insts                   = sffile{zPerInstrument = IntMap.fromSet getPerI insts}
+>         getPerI inst                     =
+>           runt.zInstrumentCache Map.! PerGMKey sffile.zWordFRuntime (fromIntegral inst) Nothing
+>       in
+>         return $ maybe sffile populate (sffile.zWordFRuntime `IntMap.lookup` allInsts)
+>
+>     allPergms          :: Set PerGMKey
+>     allPergms                            =
+>       let
+>         extract        :: Map a (Bool, Maybe PerGMKey, [Emission]) → Set PerGMKey
+>         extract                          = foldl' buildUp Set.empty
+>         buildUp s (_, mpergm, _)         = s `Set.union` (Set.singleton . fromJust) mpergm 
+>       in
+>         extract runt.zChoicesI `Set.union` extract runt.zChoicesP
+>
+>     allInsts           :: IntMap IntSet
+>     allInsts                             =
+>       let
+>         selectI m pergm                  =
+>           IntMap.insertWith IntSet.union pergm.pgkwFile ((IntSet.singleton . fromIntegral) pergm.pgkwInst) m
+>       in
+>         foldl' selectI IntMap.empty allPergms
 >
 > prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
 > prepareInstruments runt                  = do
@@ -268,8 +301,7 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Signal p () (Double, Double)
 > instrumentSF runt pergm durI pchIn volIn ps_
 >   | traceIf trace_ISF False              = undefined
->   | otherwise                            = eutSynthesize (reconX, mreconX) noonOut reconX.rSampleRate
->                                              durI sffileRuntime 
+>   | otherwise                            = eutSynthesize (reconX, mreconX) noonOut reconX.rSampleRate durI sffile 
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
@@ -286,8 +318,8 @@ define signal functions and instrument maps to support rendering ===============
 >         calcNoteOn z                     = NoteOn (maybe (clip (0, 127) volIn) fromIntegral z.zVel) 
 >                                                   (maybe (clip (0, 127) pchIn) fromIntegral z.zKey)
 >
->     sffileRuntime                        = runt.zRuntimeFiles VB.! pergm.pgkwFile
->     perI                                 = runt.zInstrumentCache Map.! pergm
+>     sffile                               = runt.zRuntimeFiles VB.! pergm.pgkwFile
+>     perI                                 = sffile.zPerInstrument IntMap.! fromIntegral pergm.pgkwInst
 >
 >     (reconX, mreconX)                    =
 >       case fly of

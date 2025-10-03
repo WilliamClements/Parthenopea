@@ -35,7 +35,7 @@ May 14, 2023
 > import qualified Data.Audio              as A
 > import Data.Int ( Int8, Int16 )
 > import Data.Maybe
-> import qualified Data.Vector             as VB
+> import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) )

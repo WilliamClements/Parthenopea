@@ -138,6 +138,8 @@ implementing SoundFont spec ====================================================
 >   , pZones             :: [PreZone]
 >   , pInstCat           :: InstCat
 >   , pSmashing          :: Smashing Word}
+> instance Show PerInstrument where
+>   show perI                              = unwords ["PerInstrument", showBags perI]
 > showBags               :: PerInstrument → String
 > showBags perI                            = show (map pzWordB perI.pZones)
 >
@@ -261,6 +263,10 @@ implementing SoundFont spec ====================================================
 >   , zPerInstrument     :: IntMap PerInstrument
 >   , zPreZone           :: IntMap PreZone
 >   , zSample            :: SampleArrays}
+> instance Show SFFileRuntime where
+>   show sffile                            =
+>     unwords [  "SFFileRuntime"
+>              , show sffile.zPerInstrument]
 >
 > data SampleArrays                        = 
 >   SampleArrays {

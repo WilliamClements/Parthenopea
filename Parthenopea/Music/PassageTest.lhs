@@ -10,7 +10,7 @@ August 15, 2025
 
 > module Parthenopea.Music.PassageTest ( passageTests ) where
 >
-> import qualified Data.Vector             as VB
+> import qualified Data.Vector.Strict      as VB
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Passage

@@ -12,7 +12,7 @@ March 2, 2024
 > module Parthenopea.Repro.SynthesizerTest ( synthesizerTests ) where
 >
 > import qualified Data.Audio              as A
-> import qualified Data.Vector             as VB
+> import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( Clock(..), AudRate, Signal )
 > import Parthenopea.Debug ( aEqual )

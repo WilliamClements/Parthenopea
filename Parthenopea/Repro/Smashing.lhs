@@ -145,6 +145,13 @@ zipper to carry out the you-know-what.
 > validCoords            :: ∀ i . (Integral i, Ix i, VU.Unbox i) ⇒ [i] → Smashing i → Bool
 > validCoords coords smashup               = and $ zipWith inZRange coords smashup.smashDims
 >
+> getLeafCells           :: ∀ i . (Integral i, VU.Unbox i) ⇒ [i] → Smashing i → VU.Vector (i, i)
+> getLeafCells coords smashup              = VU.slice cellix leafDim smashup.smashVec
+>   where
+>     parentDims                           = init smashup.smashDims
+>     leafDim                              = (fromIntegral . last) smashup.smashDims
+>     cellix                               = computeCellIndex parentDims coords
+>
 > lookupCellIndex        :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
 > lookupCellIndex coords smashup           = cell
 >   where
@@ -160,7 +167,7 @@ zipper to carry out the you-know-what.
 >         then cell_
 >         else (snd $ minimum (map (measure coords) smashup.smashSpaces), 1)
 >
->     measure            :: [i] → (i, [(i, i)]) → (Double, i)
+>     measure            :: [i] → (i, [(i, i)]) → (Double, i)   
 >     measure coordsM space                =
 >       minimum (map (distance (fst space) coordsM) (listOutPoints (snd space)))
 >

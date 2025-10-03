@@ -28,7 +28,7 @@ January 21, 2025
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe
-> import qualified Data.Vector             as VB
+> import qualified Data.Vector.Strict      as VB
 > import Euterpea.Music
 > import Numeric ( showHex )
 > import Parthenopea.Debug

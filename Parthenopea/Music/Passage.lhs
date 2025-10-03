@@ -25,7 +25,7 @@ August 15, 2025
 >        , passage) where
 >
 > import Data.List ( foldl' )
-> import qualified Data.Vector             as VB
+> import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.MIDI.MEvent ( MEvent(eDur, eTime), musicToMEvents )
 > import Euterpea.Music
 > import Parthenopea.Debug
