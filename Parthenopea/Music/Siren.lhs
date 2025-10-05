@@ -785,12 +785,6 @@ Sampling =======================================================================
 
 Conversion functions and general helpers ==============================================================================
 
-> roundBy                :: Double → Double → Double
-> roundBy p10 x                            = fromIntegral rnd / p10
->   where
->     rnd                :: Int
->     rnd                                  = round (p10 * x)
-
 Returns sample point as (normalized) Double
 
 > sample24               :: Int16 → Word8 → Double

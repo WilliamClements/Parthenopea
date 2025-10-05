@@ -61,7 +61,9 @@ library
                          Parthenopea.Repro.Modulation, Parthenopea.Repro.ModulationTest,
                          Parthenopea.Repro.Smashing, Parthenopea.Repro.SmashingTest,
                          Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest,
-                         Parthenopea.SoundFont.BootTest, Parthenopea.SoundFont.Scoring
+                         Parthenopea.SoundFont.BootTest, Parthenopea.SoundFont.RangesReport,
+                         Parthenopea.SoundFont.ScanReport, Parthenopea.SoundFont.Scoring,
+                         Parthenopea.SoundFont.TournamentReport
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

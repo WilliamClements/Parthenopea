@@ -13,49 +13,31 @@ February 1, 2025
 
 > module Parthenopea.SoundFont.Runtime ( implementNoteBending
 >                                      , prepareRuntime
->                                      , runUnitTests
->                                      , SFRuntime(..)
->                                      , writeRangesReport
->                                      , writeScanReport) where
+>                                      , SFRuntime(..)) where
 >
 > import qualified Codec.SoundFont         as F
-> import qualified Control.Monad           as CM
-> import Data.Array.Unboxed ( inRange )
 > import qualified Data.Audio              as A
-> import Data.Either
 > import Data.Foldable
 > import Data.IntMap (IntMap)
 > import qualified Data.IntMap.Strict as IntMap
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet as IntSet
-> import Data.List ( sortOn )
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
-> import Data.Ord ( Down(Down) )
 > import Data.Set (Set)
 > import qualified Data.Set                as Set
-> import Data.Time.Clock ( getCurrentTime )
 > import qualified Data.Vector.Strict      as VB
-> import Debug.Trace ( traceIO )
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Render ( Instr )
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
-> import Euterpea.IO.MIDI.MEvent ( MEvent(ePitch) )
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Music.PassageTest ( passageTests )
-> import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Envelopes ( deriveEnvelope )
-> import Parthenopea.Repro.EnvelopesTest ( envelopesTests )
 > import Parthenopea.Repro.Modulation
-> import Parthenopea.Repro.ModulationTest ( modulationTests )
 > import Parthenopea.Repro.Smashing ( lookupCellIndex )
-> import Parthenopea.Repro.SmashingTest ( smashingTests )
 > import Parthenopea.Repro.Synthesizer
-> import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
-> import Parthenopea.SoundFont.BootTest ( bootTests )
 > import Parthenopea.SoundFont.SFSpec
   
 executive =============================================================================================================
@@ -71,158 +53,6 @@ executive ======================================================================
 > instance Show SFRuntime where
 >   show runt                 =
 >     unwords ["SFRuntime", show (length runt.zBootFiles, length runt.zInstrumentMap)]
->
-> runUnitTests           :: IO ()
-> runUnitTests                             = do
->   resultBoot                             ← runTestsQuietly bootTests
->   resultEnvelopes                        ← runTestsQuietly envelopesTests
->   resultModulation                       ← runTestsQuietly modulationTests     
->   resultSmashing                         ← runTestsQuietly smashingTests
->   resultSynthesizer                      ← runTestsQuietly synthesizerTests
->   resultsPassage                         ← runTestsQuietly passageTests
->   let resultDiscrete                     = True -- runTestsQuietly discreteTests
->   putStrLn $ unwords [show
->      (profess
->        (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer
->            , resultsPassage, resultEnvelopes, resultDiscrete])
->        (unwords ["one or more unit tests failed"])
->        True)]
->   putStrLn "Unit tests completed successfully"
->
-> writeRangesReport      :: [Song] → Map GMKind Shred → IO ()
-> writeRangesReport songs ding             = do
->   let rollup                             =
->         Song "rollup" (const (foldr ((:+:) . uncap . songMusic) (rest 0) songs)) ding
->   let esAll                              = concatMap doSong songs
->   let esPrefix                           =
->         [ToFieldL "GMKind" 20
->        , ToFieldL "(range)" 22
->        , ToFieldR "lowest" 8, Blanks 3
->        , ToFieldL "*status" 8
->        , ToFieldR "highest" 8, Blanks 3
->        , ToFieldL "*status" 8
->        , ToFieldL "note count" 15
->        , ToFieldL "alternative" 20, EndOfLine]
->   let esSuffix                          = if 1 < length songs
->                                             then doSong rollup
->                                             else []
->   writeFileBySections reportRangesName [esPrefix, esAll, esSuffix]
->
->   where
->     uncap              :: (DynMap → Music1) → Music1
->     uncap m                              = m Map.empty
->
->     doSong             :: Song → [Emission]
->     doSong song                          =
->       [EndOfLine
->      , ToFieldL song.songName 60
->      , ToFieldL (songTimeAndNoteCount song) 60
->      , EndOfLine, EndOfLine] ++ doMusic song.songShredding
->     doMusic            :: Map GMKind Shred → [Emission]
->     doMusic ding'                        = concatMap (uncurry doGMKind) (Map.assocs ding')
->     doGMKind           :: GMKind → Shred → [Emission]
->     doGMKind gmkind shred                = either doInstrument doPercussion gmkind
->       where
->         lo                               = shred.shLowNote.ePitch
->         hi                               = shred.shHighNote.ePitch
->
->         this                             = fromLeft (error "writeRangesReport") gmkind
->         alt                              = findBetterInstrument this (lo, hi)
->         strAlt                           = if isLeft gmkind && (alt /= this) 
->                                              then show alt
->                                              else ""  
->         doInstrument       :: InstrumentName → [Emission]
->         doInstrument kind                =
->           [emitShowL kind 20
->          , emitShowL (instrumentPitchRange kind) 22
->          , emitShowR (pitch lo) 8, Blanks 3
->          , ToFieldL (indicator lo) 8
->          , emitShowR (pitch hi) 8, Blanks 3
->          , ToFieldL (indicator hi) 8
->          , emitShowR shred.shCount 10, Blanks 5
->          , ToFieldL strAlt 20, EndOfLine]
->           
->         doPercussion       :: PercussionSound → [Emission]
->         doPercussion kind                =
->           [emitShowL kind 20
->          , emitShowL (fromEnum kind + 35) 22
->          , Blanks 44
->          , emitShowL shred.shCount 15, EndOfLine]
->
->         mrange                           =
->           case gmkind of
->             Left iname                   → instrumentAbsPitchRange iname
->             _                            → Nothing
->         indicator p                      = if isNothing mrange || inRange (deJust "range" mrange) p
->                                              then "*in"
->                                              else "*out!!"
->
-> writeScanReport        :: SFRuntime → ResultDispositions → IO ()
-> writeScanReport runt rd                  = do
->   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show rd])
->
->   -- output all selections to the report file
->   tsStarted                              ← getCurrentTime
->   let esTimeStamp                        = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
->   let esSampleSummary                    = summarize rd.preSampleDispos ++ [EndOfLine]
->   let esInstSummary                      = summarize rd.preInstDispos ++ [EndOfLine]
->   let esPreZoneSummary                   = summarize rd.preZoneDispos ++ [EndOfLine]
->   let esSampleScan                       = procMap rd.preSampleDispos ++ [EndOfLine]
->   let esInstScan                         = procMap rd.preInstDispos ++ [EndOfLine]
->   let esPreZoneScan                      = procMap rd.preZoneDispos ++ [EndOfLine]
->   let esTail                             = [EndOfLine, EndOfLine]
->
->   writeFileBySections
->     reportScanName
->     ([esTimeStamp, esSampleSummary, esInstSummary, esPreZoneSummary]
->      ++ if howVerboseScanReport < (1/3) then [] else [esSampleScan, esInstScan, esPreZoneScan]
->      ++ [esTail])
->   where
->     fName                                = "writeScanReport"
->
->     summarize          :: ∀ r . (SFResource r) ⇒ Map r [Scan] → [Emission]
->     summarize sm                         =
->       let
->         hs                               = sortOn (Down . snd) $ Map.toList $ Map.foldr histoFold Map.empty sm
->
->         histoFold ss mfold               = foldr (foldfun . getTriple) mfold ss
->           where
->             foldfun dispo                = Map.insertWith (+) dispo 1
->             
->
->         emitHisto      :: ((Disposition, Impact, String), Int) → [Emission]
->         emitHisto ((dispo, impact, function), count)
->                                          =
->           [  emitShowL   count        16
->            , emitShowL   dispo        24
->            , emitShowL   impact       32
->            , ToFieldL    function     52
->            , EndOfLine]
->       in
->         concatMap emitHisto hs
->         
->     procMap sm                           = concat $ Map.mapWithKey procKey sm
->
->     procKey k ssIn                       = if null ssOut
->                                              then []
->                                              else prolog ++ [EndOfLine] ++ concatMap procScan ssIn ++ [EndOfLine]
->       where
->         ssOut                            = filter (\s → s.sDisposition `notElem` elideset) ssIn
->         sffileBoot                       = runt.zBootFiles VB.! wfile k
->
->         prolog                           = 
->           [  Unblocked (show k)
->            , Blanks 5
->            , Unblocked sffileBoot.zFilename
->            , Blanks 5]
->           ++ kname k sffileBoot
->
->     procScan scan                    =
->       [  emitShowL scan.sDisposition 24
->        , emitShowL scan.sImpact      32
->        , ToFieldL scan.sFunction     52
->        , Unblocked scan.sClue
->        , EndOfLine]
 
 define signal functions and instrument maps to support rendering ======================================================
 
@@ -232,30 +62,41 @@ define signal functions and instrument maps to support rendering ===============
 >   instrumentMap                          ← prepareInstruments (runt{zRuntimeFiles = runtimeFiles})
 >   return runt{zRuntimeFiles = runtimeFiles, zInstrumentMap = instrumentMap}
 >   where
->     supply sffile                        =
->       let
->         populate insts                   = sffile{zPerInstrument = IntMap.fromSet getPerI insts}
->         getPerI inst                     =
->           runt.zInstrumentCache Map.! PerGMKey sffile.zWordFRuntime (fromIntegral inst) Nothing
->       in
->         return $ maybe sffile populate (sffile.zWordFRuntime `IntMap.lookup` allInsts)
->
->     allPergms          :: Set PerGMKey
->     allPergms                            =
+>     allInsts           :: IntMap IntSet
+>     allInsts                             =
 >       let
 >         extract        :: Map a (Bool, Maybe PerGMKey, [Emission]) → Set PerGMKey
 >         extract                          = foldl' buildUp Set.empty
 >         buildUp s (_, mpergm, _)         = s `Set.union` (Set.singleton . fromJust) mpergm 
->       in
->         extract runt.zChoicesI `Set.union` extract runt.zChoicesP
 >
->     allInsts           :: IntMap IntSet
->     allInsts                             =
->       let
+>         allPergms                        = extract runt.zChoicesI `Set.union` extract runt.zChoicesP
+>
 >         selectI m pergm                  =
 >           IntMap.insertWith IntSet.union pergm.pgkwFile ((IntSet.singleton . fromIntegral) pergm.pgkwInst) m
 >       in
 >         foldl' selectI IntMap.empty allPergms
+>
+>     supply sffile                        =
+>       let
+>         populate insts                   = sffile{zPerInstrument = newpr, zPreZone = preZone newpr insts}
+>           where
+>             newpr                        = perInstrument insts
+>
+>         perInstrument                    = IntMap.fromSet getPerI
+>           where
+>             getPerI inst                 =
+>               runt.zInstrumentCache Map.! PerGMKey sffile.zWordFRuntime (fromIntegral inst) Nothing
+>
+>         preZone newpr                    = IntSet.foldl' (grow newpr) IntMap.empty
+>
+>         grow newpr m inst                =
+>           let
+>             toPzPair   :: PreZone → (Int, PreZone)
+>             toPzPair pz                  = (fromIntegral pz.pzWordB, pz)
+>           in
+>             m `IntMap.union` IntMap.fromList (map toPzPair (newpr IntMap.! inst).pZones)
+>       in
+>         return $ maybe sffile populate (sffile.zWordFRuntime `IntMap.lookup` allInsts)
 >
 > prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
 > prepareInstruments runt                  = do
@@ -356,8 +197,8 @@ zone selection for rendering ===================================================
 >         (index1, index2)                 = noonAsCoords noonFly
 >         (bagIdL, cntL)                   = lookupCellIndex index1 perI.pSmashing
 >         (bagIdR, cntR)                   = lookupCellIndex index2 perI.pSmashing
->         foundL                           = findByBagIndex perI.pZones bagIdL
->         foundR                           = findByBagIndex perI.pZones bagIdR
+>         foundL                           = fromIntegral bagIdL `IntMap.lookup` sffile.zPreZone
+>         foundR                           = fromIntegral bagIdR `IntMap.lookup` sffile.zPreZone
 
 reconcile zone and sample header ======================================================================================
 

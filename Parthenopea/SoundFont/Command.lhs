@@ -29,9 +29,12 @@ June 16, 2025
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Synthesizer ( normalizingOutput )
 > import Parthenopea.SoundFont.Boot ( surveyInstruments )
+> import Parthenopea.SoundFont.RangesReport
+> import Parthenopea.SoundFont.ScanReport
 > import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.SoundFont.TournamentReport
 > import qualified System.FilePattern.Directory
 >                                          as FP
 

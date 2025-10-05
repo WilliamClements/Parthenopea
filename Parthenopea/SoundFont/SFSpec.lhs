@@ -268,6 +268,94 @@ implementing SoundFont spec ====================================================
 >     unwords [  "SFFileRuntime"
 >              , show sffile.zPerInstrument]
 >
+> type AgainstKindResult                   = Double
+> 
+> data ArtifactGrade =
+>   ArtifactGrade {
+>     pScore             :: Int
+>   , pEmpiricals        :: [Double]} deriving (Show)
+>
+> data PerGMScored                         =
+>   PerGMScored {
+>     pArtifactGrade     :: ArtifactGrade
+>   , pKind              :: GMKind
+>   , pAgainstKindResult :: AgainstKindResult
+>   , pPerGMKey          :: PerGMKey
+>   , szI                :: String
+>   , mszP               :: Maybe String} deriving (Show)
+>
+> class GMPlayable a where
+>   toGMKind             :: a → GMKind
+>   select               :: ([InstrumentName], [PercussionSound]) → [a]
+>   specialCase          :: a → Bool
+>   getFuzzMap           :: FFMatches → Map a Fuzz
+>
+> instance GMPlayable InstrumentName where
+>   toGMKind                               = Left
+>   select rost                            =
+>     if narrowInstrumentScope
+>       then fst rost
+>       else fst allKinds
+>   specialCase kind                       = Percussion == kind
+>   getFuzzMap                             = ffInst
+>
+> instance GMPlayable PercussionSound where
+>   toGMKind                               = Right
+>   select rost                            =
+>     if narrowInstrumentScope
+>       then snd rost
+>       else snd allKinds
+>   specialCase _                          = False
+>   getFuzzMap                             = ffPerc
+>
+> class GMPlayable a ⇒ SFScorable a where
+>   splitScore           :: a → [PreZone] → Double
+>   fuzzFactor           :: a → Double
+>
+> instance SFScorable InstrumentName where
+>   splitScore _ pzs                       = fromIntegral (length pzs)
+>   fuzzFactor _                           = 7/8
+>
+> instance SFScorable PercussionSound where
+>   splitScore _ _                         = 1
+>   fuzzFactor _                           = 3/4
+>
+> weighHints             :: Rational
+> weighStereo            :: Rational
+> weigh24Bit             :: Rational
+> weighResolution        :: Rational
+> weighConformance       :: Rational
+> weighFuzziness         :: Rational
+>
+> ssWeights              :: [Double]
+> ssWeights                                = [ fromRational weighHints
+>                                            , fromRational weighStereo
+>                                            , fromRational weigh24Bit
+>                                            , fromRational weighResolution
+>                                            , fromRational weighConformance
+>                                            , fromRational weighFuzziness ]
+>
+> weighHints                               = 10
+> weighStereo                              = 2
+> weigh24Bit                               = 0
+> weighResolution                          = 3/2
+> weighConformance                         = 3
+> weighFuzziness                           = 3
+>
+> roundBy                :: Double → Double → Double
+> roundBy p10 x                            = fromIntegral rnd / p10
+>   where
+>     rnd                :: Int
+>     rnd                                  = round (p10 * x)
+>
+> type Fuzz = Double
+>
+> data FFMatches =
+>   FFMatches {
+>     ffInput            :: String
+>   , ffInst             :: Map InstrumentName Fuzz
+>   , ffPerc             :: Map PercussionSound Fuzz} deriving Show
+>
 > data SampleArrays                        = 
 >   SampleArrays {
 >     ssData             :: A.SampleData Int16
@@ -645,5 +733,8 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > howVerboseRangesReport                   = 1
 > howVerboseScanReport                     = 3/3
 > howVerboseTournamentReport               = 4/4
+>
+> narrowInstrumentScope  :: Bool
+> narrowInstrumentScope                    = True
 
 The End

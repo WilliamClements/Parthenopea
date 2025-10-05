@@ -23,7 +23,6 @@ September 12, 2024
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ord ( Down(Down) )
-> import qualified Data.Vector.Strict      as VB
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
@@ -31,6 +30,7 @@ September 12, 2024
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.SoundFont.TournamentReport
 > import qualified Text.FuzzyFind          as FF
   
 notes on three kinds of scoring =======================================================================================
@@ -51,13 +51,6 @@ In order of when they occur in the overall process:
 3. zone scoring     - Nowadays  we just crunch all the pitch and velocity ranges so that incoming notes are
                       immediately mapped to suitable Zones.
 
-> type Fuzz = Double
->
-> data FFMatches =
->   FFMatches {
->     ffInput            :: String
->   , ffInst             :: Map InstrumentName Fuzz
->   , ffPerc             :: Map PercussionSound Fuzz} deriving Show
 > adhocFuzz              :: String → [String] → [Maybe FF.Alignment]
 > adhocFuzz inp                            = map (`FF.bestMatch` inp)
 
@@ -94,30 +87,6 @@ handle "matching as" cache misses ==============================================
 
 apply fuzzyfind to mining instruments + percussion ====================================================================
 
-> class GMPlayable a where
->   toGMKind             :: a → GMKind
->   select               :: ([InstrumentName], [PercussionSound]) → [a]
->   specialCase          :: a → Bool
->   getFuzzMap           :: FFMatches → Map a Fuzz
->
-> instance GMPlayable InstrumentName where
->   toGMKind                               = Left
->   select rost                            =
->     if narrowInstrumentScope
->       then fst rost
->       else fst allKinds
->   specialCase kind                       = Percussion == kind
->   getFuzzMap                             = ffInst
->
-> instance GMPlayable PercussionSound where
->   toGMKind                               = Right
->   select rost                            =
->     if narrowInstrumentScope
->       then snd rost
->       else snd allKinds
->   specialCase _                          = False
->   getFuzzMap                             = ffPerc
->
 > kindChoices            :: ∀ a. (GMPlayable a, Eq a, Ord a, Show a) ⇒ 
 >                           Map a PerGMScored → a → PerGMScored → (Bool, Maybe PerGMKey, [Emission])
 > kindChoices m k _
@@ -132,18 +101,6 @@ apply fuzzyfind to mining instruments + percussion =============================
 >       [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM scored ++ [EndOfLine]
 >     falseChoice kind                         =
 >       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
->
-> class GMPlayable a ⇒ SFScorable a where
->   splitScore           :: a → [PreZone] → Double
->   fuzzFactor           :: a → Double
->
-> instance SFScorable InstrumentName where
->   splitScore _ pzs                       = fromIntegral (length pzs)
->   fuzzFactor _                           = 7/8
->
-> instance SFScorable PercussionSound where
->   splitScore _ _                         = 1
->   fuzzFactor _                           = 3/4
 
 use "matching as" cache ===============================================================================================
 
@@ -207,14 +164,6 @@ Scoring stuff ==================================================================
 > foldHints              :: [SSHint] → Double
 > foldHints                                = foldr ((+) . fromRational . scoreHint) 0
 >
-> ssWeights              :: [Double]
-> ssWeights                                = [ fromRational weighHints
->                                            , fromRational weighStereo
->                                            , fromRational weigh24Bit
->                                            , fromRational weighResolution
->                                            , fromRational weighConformance
->                                            , fromRational weighFuzziness ]
->
 > -- hints
 > data HintId =
 >   HintId {
@@ -233,22 +182,6 @@ Scoring stuff ==================================================================
 >                           
 > qqHints                :: Map HintId HintBody
 > qqHints                                  = Map.fromList myHints
->
-> type AgainstKindResult                   = Double
-> 
-> data ArtifactGrade =
->   ArtifactGrade {
->     pScore             :: Int
->   , pEmpiricals        :: [Double]} deriving (Show)
->
-> data PerGMScored                         =
->   PerGMScored {
->     pArtifactGrade     :: ArtifactGrade
->   , pKind              :: GMKind
->   , pAgainstKindResult :: AgainstKindResult
->   , pPerGMKey          :: PerGMKey
->   , szI                :: String
->   , mszP               :: Maybe String} deriving (Show)
 >
 > data WinningRecord                       =
 >   WinningRecord {
@@ -477,73 +410,6 @@ tournament starts here =========================================================
 >
 >     instrumentPercList :: PerGMKey → [Word] → [PerGMKey]
 >     instrumentPercList pergmI            = map (\w → pergmI {pgkwBag = Just w})
->
-> writeTournamentReport  :: SFRuntime
->                           → Map InstrumentName [PerGMScored]
->                           → Map PercussionSound [PerGMScored]
->                           → IO ()
-> writeTournamentReport runt pContI pContP
->                        = do
->   -- output all selections to the report file
->   let legend           =
->           emitComment     [   Unblocked "legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]"]
->        ++ emitNextComment [   Unblocked "weights = "
->                             , Unblocked (show ssWeights)] 
->   let esFiles          = emitFileListC ++ [EndOfLine]
->   let esI              = concatMap dumpContestants (Map.toList pContI)
->   let esP              = concatMap dumpContestants (Map.toList pContP)
->   let esQ              = [] -- formerly emitSettingses
->   let esTail           = singleton $ Unblocked "\n\nThe End\n\n"
->   let eol              = singleton EndOfLine
->
->   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP, esQ, esTail]
->
->   where
->     nfs                :: [(Int, SFFileBoot)]
->     nfs                = zip [0..] (VB.toList runt.zBootFiles)
->     emitFileListC      = concatMap doF nfs
->     doF (nth, sffile)  = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
-
-emit standard output text detailing what choices we made for rendering GM items =======================================
-
-> printChoices           :: SFRuntime
->                           → [InstrumentName]
->                           → [PercussionSound]
->                           → ([(Bool, [Emission])], [(Bool, [Emission])])
-> printChoices runt is ps                  = (map (extract runt.zChoicesI) is, map (extract runt.zChoicesP) ps)
->   where
->     extract            :: ∀ a. (Ord a) ⇒ Map a (Bool, Maybe PerGMKey, [Emission]) → a → (Bool, [Emission])
->     extract choices kind                 = (found, ems)
->                                              where (found, _, ems) = choices Map.! kind
->
-> showPerGM              :: PerGMScored → [Emission]
-> showPerGM scored                         =
->   [emitShowL scored.pPerGMKey.pgkwFile 4] ++ [ToFieldL scored.szI 22] ++ showmZ
->   where
->     showmZ                               = maybe [] showZ scored.mszP
->     showZ name                           = [Unblocked name]
->
-> dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ (a, [PerGMScored]) → [Emission]
-> dumpContestants (kind, contestants)      = prolog ++ ex ++ epilog
->   where
->     prolog, ex, epilog :: [Emission]
->
->     prolog                               = emitLine [emitShowL kind 50]
->     ex                                   = concatMap dumpContestant contestants
->     epilog                               = emitLine []
->
-> dumpContestant         :: PerGMScored → [Emission]
-> dumpContestant scored                    = ex
->   where
->     showAkr            :: Double         = roundBy 10 scored.pAgainstKindResult
->     (showEmp, n)                         = showEmpiricals scored.pArtifactGrade.pEmpiricals
-> 
->     ex = emitLine [ Blanks 4, emitShowL      scored.pPerGMKey.pgkwFile       8
->                             , ToFieldR       scored.szI                      22
->                   , Blanks 4, ToFieldR      (fromMaybe "" scored.mszP)       22
->                   , Blanks 4, emitShowL      scored.pArtifactGrade.pScore    15
->                             , ToFieldL       showEmp                         n
->                             , emitShowR      showAkr                         8]
 
 Utilities =============================================================================================================
 
@@ -582,12 +448,6 @@ Utilities ======================================================================
 >                                   if cand >= rangeMin && cand <= rangeMax
 >                                   then 10 * max dist1 dist2
 >                                   else 100 * min dist1 dist2
->
-> showEmpiricals         :: [Double] → (String, Int)
-> showEmpiricals dubs                      = (concatMap fun dubs, 7 * length dubs)
->   where
->     fun                :: Double → String
->     fun x                                = fillFieldL 6 (show $ roundBy 10 x)
 >
 > scoreOnsets  :: Int → [Double] → Array Int Int
 > scoreOnsets nBins ts
@@ -918,24 +778,8 @@ Flags for customization ========================================================
 > qqDesires'             :: [Double]
 > qqDesires'                               = map (fromRational . scoreDesire) qqDesires
 
-Configurable parameters ===============================================================================================
-
-> weighHints             :: Rational
-> weighStereo            :: Rational
-> weigh24Bit             :: Rational
-> weighResolution        :: Rational
-> weighConformance       :: Rational
-> weighFuzziness         :: Rational
-
 Edit the following ====================================================================================================
 
-> weighHints                               = 10
-> weighStereo                              = 2
-> weigh24Bit                               = 0
-> weighResolution                          = 3/2
-> weighConformance                         = 3
-> weighFuzziness                           = 3
->
 > multipleCompetes       :: Bool
 > multipleCompetes                         = True
 >
@@ -943,8 +787,6 @@ Edit the following =============================================================
 > conRatio                                 = 3/4
 > absorbRatio                              = 7/10
 >
-> narrowInstrumentScope  :: Bool
-> narrowInstrumentScope                    = True
 > allowSpecifiedCrossovers, allowInferredCrossovers
 >                        :: Bool
 > allowSpecifiedCrossovers                 = False
