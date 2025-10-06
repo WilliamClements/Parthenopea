@@ -342,6 +342,12 @@ implementing SoundFont spec ====================================================
 > weighConformance                         = 3
 > weighFuzziness                           = 3
 >
+> accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
+> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
+>
+> clip                   :: Ord n ⇒ (n, n) → n → n
+> clip (lower, upper) val                  = min upper (max lower val)
+>
 > roundBy                :: Double → Double → Double
 > roundBy p10 x                            = fromIntegral rnd / p10
 >   where
@@ -451,13 +457,13 @@ bootstrapping ==================================================================
 > noClue                 :: String
 > noClue                                   = ""
 >
-> deadset, elideset, rescueset
->                        :: [Disposition]    -- a given list is filtered down to the three Dispositions
+> calcElideSet           :: Rational → [Disposition]
+> deadset, rescueset     :: [Disposition]    -- a given list is filtered down to the three Dispositions
 >                                            -- then we count "membership" per distinct Impact
 >                                            -- ...dead if any counts are odd
 > deadset                                  = [Violated, Dropped, Rescued]
 >                                            -- the following only optionally appear in scan report
-> elideset                                 = if howVerboseScanReport < (1/2)
+> calcElideSet dive                        = if dive < (1/2)
 >                                              then [Accepted, Modified, NoChange]
 >                                              else []
 > rescueset                                = [Rescued]
@@ -728,13 +734,37 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportTournamentName   :: FilePath
 > reportTournamentName                     = "Tournament.report"
 >
-> howVerboseRangesReport, howVerboseScanReport, howVerboseTournamentReport
->                        :: Rational
-> howVerboseRangesReport                   = 1
-> howVerboseScanReport                     = 3/3
-> howVerboseTournamentReport               = 4/4
->
 > narrowInstrumentScope  :: Bool
 > narrowInstrumentScope                    = True
+>
+> data ReportVerbosity                     =
+>   ReportVerbosity {
+>     dForRanges         :: Rational
+>   , dForScan           :: Rational
+>   , dForTournament     :: Rational}
+> okReportVerbosity      :: ReportVerbosity → Bool
+> okReportVerbosity rv                     = 
+>      inCanonicalRange rv.dForRanges
+>   && inCanonicalRange rv.dForScan
+>   && inCanonicalRange rv.dForTournament
+>   where
+>     inCanonicalRange diveItem            = diveItem == clip (0::Rational, 1::Rational) diveItem
+> allOn, allOff          :: ReportVerbosity
+> allOn                                    =
+>   ReportVerbosity 1 1 1
+> allOff                                   =
+>   ReportVerbosity 0 0 0
+>
+> data Directives                          =
+>   Directives {
+>     dReportVerbosity   :: ReportVerbosity
+>   , dMultipleCompetes  :: Bool}
+> defDirectives          :: Directives
+> defDirectives                            =
+>   Directives
+>     allOn
+>     True
+> okDirectives           :: Directives → Bool
+> okDirectives dives                       = okReportVerbosity dives.dReportVerbosity
 
 The End

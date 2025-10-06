@@ -18,9 +18,7 @@ February 1, 2025
 > import qualified Codec.SoundFont         as F
 > import qualified Data.Audio              as A
 > import Data.Foldable
-> import Data.IntMap (IntMap)
 > import qualified Data.IntMap.Strict as IntMap
-> import Data.IntSet (IntSet)
 > import qualified Data.IntSet as IntSet
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
@@ -54,7 +52,7 @@ executive ======================================================================
 >   show runt                 =
 >     unwords ["SFRuntime", show (length runt.zBootFiles, length runt.zInstrumentMap)]
 
-define signal functions and instrument maps to support rendering ======================================================
+cache SoundFont data that is only needed for Runtime ==================================================================
 
 > prepareRuntime     :: SFRuntime → IO SFRuntime
 > prepareRuntime runt                      = do
@@ -62,42 +60,42 @@ define signal functions and instrument maps to support rendering ===============
 >   instrumentMap                          ← prepareInstruments (runt{zRuntimeFiles = runtimeFiles})
 >   return runt{zRuntimeFiles = runtimeFiles, zInstrumentMap = instrumentMap}
 >   where
->     allInsts           :: IntMap IntSet
->     allInsts                             =
+>     actions                              =
 >       let
 >         extract        :: Map a (Bool, Maybe PerGMKey, [Emission]) → Set PerGMKey
 >         extract                          = foldl' buildUp Set.empty
->         buildUp s (_, mpergm, _)         = s `Set.union` (Set.singleton . fromJust) mpergm 
+>           where buildUp s (_, mpergm, _) = s `Set.union` (Set.singleton . fromJust) mpergm 
 >
->         allPergms                        = extract runt.zChoicesI `Set.union` extract runt.zChoicesP
+>         pergms                           = extract runt.zChoicesI `Set.union` extract runt.zChoicesP
 >
 >         selectI m pergm                  =
 >           IntMap.insertWith IntSet.union pergm.pgkwFile ((IntSet.singleton . fromIntegral) pergm.pgkwInst) m
 >       in
->         foldl' selectI IntMap.empty allPergms
+>         foldl' selectI IntMap.empty pergms
 >
 >     supply sffile                        =
 >       let
->         populate insts                   = sffile{zPerInstrument = newpr, zPreZone = preZone newpr insts}
->           where
->             newpr                        = perInstrument insts
+>         populate insts                   = sffile{zPerInstrument = newpi, zPreZone = preZone newpi insts}
+>           where newpi                    = perInstrument insts
 >
 >         perInstrument                    = IntMap.fromSet getPerI
 >           where
 >             getPerI inst                 =
->               runt.zInstrumentCache Map.! PerGMKey sffile.zWordFRuntime (fromIntegral inst) Nothing
+>               let
+>                 pergm                    = PerGMKey sffile.zWordFRuntime (fromIntegral inst) Nothing
+>               in
+>                 runt.zInstrumentCache Map.! pergm 
 >
->         preZone newpr                    = IntSet.foldl' (grow newpr) IntMap.empty
+>         preZone newpr                    = IntSet.foldl' (doPreZone newpr) IntMap.empty
 >
->         grow newpr m inst                =
->           let
->             toPzPair   :: PreZone → (Int, PreZone)
->             toPzPair pz                  = (fromIntegral pz.pzWordB, pz)
->           in
->             m `IntMap.union` IntMap.fromList (map toPzPair (newpr IntMap.! inst).pZones)
+>         doPreZone newpr m inst           =
+>           m `IntMap.union` IntMap.fromList (map toPzPair (newpr IntMap.! inst).pZones)
+>           where toPzPair pz              = (fromIntegral pz.pzWordB, pz)            
 >       in
->         return $ maybe sffile populate (sffile.zWordFRuntime `IntMap.lookup` allInsts)
->
+>         return $ maybe sffile populate (sffile.zWordFRuntime `IntMap.lookup` actions)
+
+define signal functions and instrument maps to support rendering ======================================================
+
 > prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
 > prepareInstruments runt                  = do
 >     return $ (Percussion, assignPercussion)                                                               : imap

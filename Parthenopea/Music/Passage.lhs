@@ -30,8 +30,8 @@ August 15, 2025
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren ( bandPartContext, BandPart(..), stdVelocity)
-> import Parthenopea.Repro.Modulation ( clip, epsilon )
-> import Parthenopea.SoundFont.SFSpec ( Velocity )
+> import Parthenopea.Repro.Modulation ( epsilon )
+> import Parthenopea.SoundFont.SFSpec ( clip, Velocity )
 
 Notation-Driven Dynamics ==============================================================================================
 

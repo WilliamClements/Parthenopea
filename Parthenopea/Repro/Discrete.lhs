@@ -32,6 +32,7 @@ June 17, 2024
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Chart ( Section(Section), chartPoints )
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.SoundFont.SFSpec
   
 Discrete approach =====================================================================================================
 

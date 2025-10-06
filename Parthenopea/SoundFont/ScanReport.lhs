@@ -25,8 +25,8 @@ October 5, 2025
   
 executive =============================================================================================================
 
-> writeScanReport        :: SFRuntime → ResultDispositions → IO ()
-> writeScanReport runt rd                  = do
+> writeScanReport        :: Rational → SFRuntime → ResultDispositions → IO ()
+> writeScanReport dive runt rd             = do
 >   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show rd])
 >
 >   -- output all selections to the report file
@@ -43,7 +43,7 @@ executive ======================================================================
 >   writeFileBySections
 >     reportScanName
 >     ([esTimeStamp, esSampleSummary, esInstSummary, esPreZoneSummary]
->      ++ if howVerboseScanReport < (1/3) then [] else [esSampleScan, esInstScan, esPreZoneScan]
+>      ++ if dive < (1/3) then [] else [esSampleScan, esInstScan, esPreZoneScan]
 >      ++ [esTail])
 >   where
 >     fName                                = "writeScanReport"
@@ -75,7 +75,7 @@ executive ======================================================================
 >                                              then []
 >                                              else prolog ++ [EndOfLine] ++ concatMap procScan ssIn ++ [EndOfLine]
 >       where
->         ssOut                            = filter (\s → s.sDisposition `notElem` elideset) ssIn
+>         ssOut                            = filter (\s → s.sDisposition `notElem` calcElideSet dive) ssIn
 >         sffileBoot                       = runt.zBootFiles VB.! wfile k
 >
 >         prolog                           = 

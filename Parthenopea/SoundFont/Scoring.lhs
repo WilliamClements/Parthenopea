@@ -27,7 +27,6 @@ September 12, 2024
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
-> import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.TournamentReport
@@ -206,24 +205,26 @@ Scoring stuff ==================================================================
 
 tournament starts here ================================================================================================
 
-> establishWinners       :: SFRuntime
+> establishWinners       :: Directives
+>                           → SFRuntime
 >                           → ([InstrumentName], [PercussionSound]) 
 >                           → Matches
 >                           → IO SFRuntime
-> establishWinners runt rost matches       = do
->   (wI, wP)                               ← decideWinners runt rost matches
->   CM.when (howVerboseTournamentReport > 0) (writeTournamentReport runt wI wP)
+> establishWinners dives runt rost matches = do
+>   (wI, wP)                               ← decideWinners dives runt rost matches
+>   CM.when (dives.dReportVerbosity.dForTournament > 0) (writeTournamentReport runt wI wP)
 >   let zI                                 = Map.mapWithKey (kindChoices m) m
 >                                              where m = Map.map head wI
 >   let zP                                 = Map.mapWithKey (kindChoices m) m
 >                                              where m = Map.map head wP
 >   return runt{zChoicesI = zI, zChoicesP = zP}
 >
-> decideWinners          :: SFRuntime
+> decideWinners          :: Directives
+>                           → SFRuntime
 >                           → ([InstrumentName], [PercussionSound]) 
 >                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
-> decideWinners runt rost matches          = do
+> decideWinners dives runt rost matches    = do
 >   CM.when diagnosticsEnabled             (putStrLn $ unwords [fName__, show $ length matches.mSMatches])
 >   return wiExec
 >
@@ -268,7 +269,7 @@ tournament starts here =========================================================
 >               profess
 >                 (not $ Map.null i2Fuzz)
 >                 (unwords [fName_, "unexpected empty matches"]) 
->                 (if multipleCompetes
+>                 (if dives.dMultipleCompetes
 >                    then Map.keys i2Fuzz
 >                    else (singleton . fst) (Map.findMax i2Fuzz))
 >           in
@@ -780,9 +781,6 @@ Flags for customization ========================================================
 
 Edit the following ====================================================================================================
 
-> multipleCompetes       :: Bool
-> multipleCompetes                         = True
->
 > conRatio, absorbRatio  :: Rational
 > conRatio                                 = 3/4
 > absorbRatio                              = 7/10

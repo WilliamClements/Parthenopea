@@ -3,6 +3,7 @@
 >
 > {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -17,6 +18,7 @@ June 16, 2025
 > import qualified Control.Monad           as CM
 > import qualified Data.IntMap.Strict as IntMap
 > import Data.Either ( lefts, rights )
+> import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromMaybe )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
@@ -42,14 +44,15 @@ Implement PCommand =============================================================
 
 > pCommand               :: IO ()
 > pCommand                                 = do
->   batchProcessor []
+>   batchProcessor defDirectives []
 >
-> batchProcessor         :: [Song] → IO ()
-> batchProcessor isongs                    = do
+> batchProcessor         :: Directives → [Song] → IO ()
+> batchProcessor dives isongs              = do
 >   mids                                   ← FP.getDirectoryFiles "." ["*.mid", "*.midi"]
 >   sf2s                                   ← FP.getDirectoryFiles "." ["*.sf2"]
 >   putStrLn (msg mids sf2s)
->   proceed isongs mids sf2s
+>   CM.unless ( okDirectives dives) (error "garbage in Directives")
+>   proceed dives isongs mids sf2s
 >   where
 >     msg                :: [FilePath] → [FilePath] → String
 >     msg ms ss
@@ -59,15 +62,17 @@ Implement PCommand =============================================================
 >       | null ms && null isongs           = "no *.mid files found: proceeding to survey sf2s"
 >       | otherwise                        = "proceeding to render mids by sf2s"
 >
-> proceed                :: [Song] → [FilePath] → [FilePath] → IO ()
-> proceed isongs mids sf2s                 = do
+> proceed                :: Directives → [Song] → [FilePath] → [FilePath] → IO ()
+> proceed dives isongs mids sf2s           = do
 >   msongs                                 ← mapM convertFromMidi mids
 >   let songs_                             = isongs ++ msongs
 >   songs                                  ← mapM captureSong songs_
 >
 >   CM.when (20 < length songs && not (null sf2s)) runUnitTests
+>   let ding                               = Map.unionsWith combineShreds (map songShredding songs)
+>   CM.when (dForRanges > 0) (writeRangesReport songs ding)
 >
->   rost                                   ← qualifyKinds songs
+>   rost                                   ← qualifyKinds ding songs
 >
 >   CM.unless (null sf2s) (do putStrLn ""; putStrLn $ unwords ["surveySoundFonts"])
 >   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
@@ -77,13 +82,16 @@ Implement PCommand =============================================================
 >     then return ()
 >     else do
 >       (prerunt, matches, rd)             ← surveyInstruments vFilesBoot vFilesRuntime rost
->       CM.when (howVerboseScanReport > 0) (writeScanReport prerunt rd)
+>       CM.when (dForScan > 0) (writeScanReport dForScan prerunt rd)
 >
->       runt_                              ← establishWinners prerunt rost matches
+>       runt_                              ← establishWinners dives prerunt rost matches
 >       runt                               ← prepareRuntime runt_
 >
 >       -- here's the heart of the coconut
 >       mapM_ (renderSong runt) songs
+>   where
+>     ReportVerbosity{ .. }               
+>                                          = dives.dReportVerbosity
 >
 > renderSong             :: SFRuntime → Song → IO ()
 > renderSong runt (Song name music ding)   =
@@ -129,13 +137,9 @@ Implement PCommand =============================================================
 >       in
 >         reverse fpRev''
 >
-> qualifyKinds           :: [Song] → IO ([InstrumentName], [PercussionSound])
-> qualifyKinds songs                       = do
->   let ding                               = Map.unionsWith combineShreds (map songShredding songs)
+> qualifyKinds           :: Map GMKind Shred → [Song] → IO ([InstrumentName], [PercussionSound])
+> qualifyKinds ding songs                  = do
 >   let isandps                            = Map.keys ding
->
->   CM.when (howVerboseRangesReport > 0) (writeRangesReport songs ding)
->
 >   return $ if null songs then allKinds else (lefts isandps, rights isandps)
 >
 > openSoundFontFile      :: Int → FilePath → IO (SFFileBoot, SFFileRuntime)

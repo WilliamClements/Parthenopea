@@ -34,6 +34,7 @@ Apr 26, 2025
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.SoundFont.SFSpec
   
 volume and modulation envelopes =======================================================================================
 

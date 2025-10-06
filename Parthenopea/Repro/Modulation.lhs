@@ -843,12 +843,6 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   where
 >     sr                                   = rate (undefined :: p)
 >     secs               :: Double         = fromIntegral maxDel/sr
-> 
-> accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
-> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
->
-> clip                   :: Ord n ⇒ (n, n) → n → n
-> clip (lower, upper) val                  = min upper (max lower val)
 
 Returns the frequency
 
