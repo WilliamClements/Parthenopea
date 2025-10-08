@@ -23,11 +23,11 @@ September 12, 2024
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ord ( Down(Down) )
+> import qualified Data.Vector.Strict      as VB
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
-> import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.TournamentReport
 > import qualified Text.FuzzyFind          as FF
@@ -83,23 +83,6 @@ handle "matching as" cache misses ==============================================
 > evalGenericPerc        :: String → Fuzz
 > evalGenericPerc inp                      =
 >   maximum (map (evalAgainstKeys inp . singleton) genericPercFFKeys)
-
-apply fuzzyfind to mining instruments + percussion ====================================================================
-
-> kindChoices            :: ∀ a. (GMPlayable a, Eq a, Ord a, Show a) ⇒ 
->                           Map a PerGMScored → a → PerGMScored → (Bool, Maybe PerGMKey, [Emission])
-> kindChoices m k _
->   | isJust pergm                         = (True, pergm, trueChoice k (fromJust mscored))
->   | specialCase k                        = (True, pergm, [Blanks 3, gmId k, Unblocked "(pseudo-instrument)", EndOfLine])
->   | otherwise                            = (False, Nothing, falseChoice k)
->   where
->     mscored                              = Map.lookup k m
->     pergm                                = mscored >>= (Just . pPerGMKey)
->
->     trueChoice kind scored                   =
->       [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM scored ++ [EndOfLine]
->     falseChoice kind                         =
->       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
 
 use "matching as" cache ===============================================================================================
 
@@ -206,25 +189,49 @@ Scoring stuff ==================================================================
 tournament starts here ================================================================================================
 
 > establishWinners       :: Directives
->                           → SFRuntime
 >                           → ([InstrumentName], [PercussionSound]) 
+>                           → VB.Vector SFFileBoot
+>                           → Map PerGMKey PerInstrument
 >                           → Matches
->                           → IO SFRuntime
-> establishWinners dives runt rost matches = do
->   (wI, wP)                               ← decideWinners dives runt rost matches
->   CM.when (dives.dReportVerbosity.dForTournament > 0) (writeTournamentReport runt wI wP)
->   let zI                                 = Map.mapWithKey (kindChoices m) m
->                                              where m = Map.map head wI
->   let zP                                 = Map.mapWithKey (kindChoices m) m
->                                              where m = Map.map head wP
->   return runt{zChoicesI = zI, zChoicesP = zP}
+>                           → IO ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
+>                                , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
+> establishWinners dives rost vFiles cache matches
+>                                          = do
+>   (wI_, wP_)                             ← decideWinners dives rost vFiles cache matches
+>   CM.when (dives.dReportVerbosity.dForTournament > 0) (writeTournamentReport vFiles wI_ wP_)
+>   let (wI, wP)                           = (Map.map head wI_, Map.map head wP_)
+>   let zI                                 = foldl' (buildUp wI) Map.empty (fst rost)
+>   let zP                                 = foldl' (buildUp wP) Map.empty (snd rost)
+>   return (zI, zP)
+>   where
+>     buildUp            :: ∀ a. (GMPlayable a, Eq a, Ord a, Show a) ⇒
+>                           Map a PerGMScored
+>                           → Map a (Bool, Maybe PerGMKey, [Emission]) → a → Map a (Bool, Maybe PerGMKey, [Emission])
+>     buildUp ref m kind                       = Map.insert kind (kindChoices ref kind) m
+>
+>     kindChoices        :: ∀ a. (GMPlayable a, Eq a, Ord a, Show a) ⇒ 
+>                           Map a PerGMScored → a → (Bool, Maybe PerGMKey, [Emission])
+>     kindChoices m k
+>       | isJust pergm                     = (True, pergm, trueChoice k (deJust (unwords ["establishWinners kindChoices"]) mscored))
+>       | specialCase k                    = (True, pergm, [Blanks 3, gmId k, Unblocked "(pseudo-instrument)", EndOfLine])
+>       | otherwise                        = (False, Nothing, falseChoice k)
+>       where
+>         mscored                          = Map.lookup k m
+>         pergm                            = mscored >>= (Just . pPerGMKey)
+>
+>     trueChoice kind scored                   =
+>       [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM scored ++ [EndOfLine]
+>     falseChoice kind                         =
+>       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
 >
 > decideWinners          :: Directives
->                           → SFRuntime
 >                           → ([InstrumentName], [PercussionSound]) 
+>                           → VB.Vector SFFileBoot
+>                           → Map PerGMKey PerInstrument
 >                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
-> decideWinners dives runt rost matches    = do
+> decideWinners dives rost _ cache matches
+>                                          = do
 >   CM.when diagnosticsEnabled             (putStrLn $ unwords [fName__, show $ length matches.mSMatches])
 >   return wiExec
 >
@@ -234,7 +241,7 @@ tournament starts here =========================================================
 >     wiExec             :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiExec                               = (wI', wP')
 >       where
->         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) runt.zInstrumentCache    
+>         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) cache    
 >         wI'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wI
 >         wP'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wP
 >
@@ -338,7 +345,7 @@ tournament starts here =========================================================
 >           unwords [fName, iName, fromMaybe "" mnameZ, show kind]
 >
 >         pergm_                           = pergm{pgkwBag = Nothing}
->         perI                             = runt.zInstrumentCache Map.! pergm_
+>         perI                             = cache Map.! pergm_
 >         iName                            = perI.piChanges.cnName
 >
 >         scope_, scope  :: [PreZone]

@@ -16,7 +16,6 @@ June 16, 2025
 > import qualified Codec.Midi              as M
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import qualified Data.IntMap.Strict as IntMap
 > import Data.Either ( lefts, rights )
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
@@ -76,16 +75,11 @@ Implement PCommand =============================================================
 >
 >   CM.unless (null sf2s) (do putStrLn ""; putStrLn $ unwords ["surveySoundFonts"])
 >   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
->   let vFilesBoot                         = VB.fromList (map fst extraction)
->   let vFilesRuntime                      = VB.fromList (map snd extraction)
+>   let vFilesBoot                         = VB.fromList extraction
 >   if VB.null vFilesBoot
 >     then return ()
 >     else do
->       (prerunt, matches, rd)             ← surveyInstruments vFilesBoot vFilesRuntime rost
->       CM.when (dForScan > 0) (writeScanReport dForScan prerunt rd)
->
->       runt_                              ← establishWinners dives prerunt rost matches
->       runt                               ← prepareRuntime runt_
+>       runt                               ← commandLogic dives rost vFilesBoot
 >
 >       -- here's the heart of the coconut
 >       mapM_ (renderSong runt) songs
@@ -142,7 +136,7 @@ Implement PCommand =============================================================
 >   let isandps                            = Map.keys ding
 >   return $ if null songs then allKinds else (lefts isandps, rights isandps)
 >
-> openSoundFontFile      :: Int → FilePath → IO (SFFileBoot, SFFileRuntime)
+> openSoundFontFile      :: Int → FilePath → IO SFFileBoot
 > openSoundFontFile wFile filename         = do
 >   putStrLn (unwords [show wFile, filename])
 >   result                                 ← F.importFile filename
@@ -158,8 +152,17 @@ Implement PCommand =============================================================
 >               (F.igens pdata) (F.imods pdata)
 >               (F.shdrs pdata)
 >       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
->       let sffileBoot                     = SFFileBoot wFile filename boota
->       let sffileRuntime                  = SFFileRuntime wFile IntMap.empty IntMap.empty samplea
->       return (sffileBoot, sffileRuntime)
+>       let sffileBoot                     = SFFileBoot wFile filename boota samplea
+>       return sffileBoot
+>
+> commandLogic           :: Directives → ([InstrumentName], [PercussionSound]) → VB.Vector SFFileBoot → IO SFRuntime
+> commandLogic dives rost vFilesBoot       = do
+>   (cache, matches, rd)                   ← surveyInstruments dives rost vFilesBoot
+>   CM.when (dForScan > 0)                 (writeScanReport dForScan vFilesBoot rd)
+>   (zI, zP)                               ← establishWinners dives rost vFilesBoot cache matches
+>   prepareRuntime dives rost vFilesBoot cache (zI, zP)
+>   where
+>     ReportVerbosity{ .. }
+>                                          = dives.dReportVerbosity
 
 The End

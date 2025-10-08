@@ -247,7 +247,8 @@ implementing SoundFont spec ====================================================
 >   SFFileBoot {
 >     zWordFBoot         :: Int
 >   , zFilename          :: FilePath
->   , zFileArrays        :: FileArrays}
+>   , zFileArrays        :: FileArrays
+>   , zSquirrelSample    :: SampleArrays}
 >
 > data FileArrays                          = 
 >   FileArrays {

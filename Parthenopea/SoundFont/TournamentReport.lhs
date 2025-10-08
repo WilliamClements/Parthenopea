@@ -23,11 +23,11 @@ October 5, 2025
 > import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
 >
-> writeTournamentReport  :: SFRuntime
+> writeTournamentReport  :: VB.Vector SFFileBoot
 >                           → Map InstrumentName [PerGMScored]
 >                           → Map PercussionSound [PerGMScored]
 >                           → IO ()
-> writeTournamentReport runt pContI pContP
+> writeTournamentReport vBootFiles pContI pContP
 >                        = do
 >   -- output all selections to the report file
 >   let legend           =
@@ -45,7 +45,7 @@ October 5, 2025
 >
 >   where
 >     nfs                :: [(Int, SFFileBoot)]
->     nfs                = zip [0..] (VB.toList runt.zBootFiles)
+>     nfs                = zip [0..] (VB.toList vBootFiles)
 >     emitFileListC      = concatMap doF nfs
 >     doF (nth, sffile)  = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
 

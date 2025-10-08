@@ -35,7 +35,6 @@ January 21, 2025
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
-> import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
   
@@ -138,38 +137,36 @@ To support extracting from flawed SoundFont files, we - up front - withdraw unre
 respective collections. An item's presence may be critical to some instrumentation. So it entails further deletion
 and recovery.
 
-> surveyInstruments      :: VB.Vector SFFileBoot
->                           → VB.Vector SFFileRuntime
+> surveyInstruments      :: Directives
 >                           → ([InstrumentName], [PercussionSound])
->                           → IO (SFRuntime, Matches, ResultDispositions)
-> surveyInstruments vFilesBoot vFilesRuntime rost
+>                           → VB.Vector SFFileBoot
+>                           → IO (Map PerGMKey PerInstrument, Matches, ResultDispositions)
+> surveyInstruments _ rost vFilesBoot
 >                                          = do
 >   putStrLn ""
 >   putStrLn $ unwords [fName, show rost]
 >   putStrLn ""
 >
->   let (iCacheAll, matchesAll, rdAll)     = foldl' bootFolder (Map.empty, defMatches, virginrd) vFilesBoot
->   let runt                               =
->         SFRuntime vFilesBoot vFilesRuntime  Map.empty Map.empty iCacheAll []
->   return (runt, matchesAll, rdAll)
+>   return $ foldl' bootFolder (Map.empty, defMatches, virginrd) vFilesBoot
 >   where
 >     fName                                = "surveyInstruments"
 >
 >     bootFolder (icacheIn, matchesIn, rdIn) sffile
 >                                          =
->       (Map.union icacheIn icacheOut, combineMatches matchesIn matchesOut, combinerd rdIn rdOut)
->       where
+>       let
 >         (icacheOut, matchesOut, rdOut)   = reduceFileIterate ingestFile
 >
->         ingestFile                       =
->           let
+>         ingestFile                       = head
+>                                            $ dropWhile unfinished
+>                                            $ iterate nextGen
+>                                            $ makeFileIterate sffile rost
+>           where
 >             unfinished fiIn              = not (null fiIn.fiTaskIfs)
->             nextGen    :: FileIterate → FileIterate
->             nextGen fiIn@FileIterate{fiFw, fiTaskIfs}
+>             nextGen fiIn@FileIterate{ .. }
 >                                          = fiIn{ fiFw = (snd . head) fiTaskIfs fiFw
 >                                                , fiTaskIfs = tail fiTaskIfs}
->           in
->             head $ dropWhile unfinished $ iterate nextGen $ makeFileIterate sffile rost
+>       in
+>         (Map.union icacheIn icacheOut, combineMatches matchesIn matchesOut, combinerd rdIn rdOut)
 
 support sample and instance ===========================================================================================
 
@@ -212,14 +209,21 @@ pre-sample task ================================================================
 >             Just SampleTypeRight         → "stereo"
 >             _                            → "mono"
 >
+>         violated, accepted
+>                        :: Impact → String → [Scan]
+>         violated impact clue             =
+>           [Scan Violated impact fName clue]
+>         accepted impact clue             =
+>           [Scan Accepted impact fName clue]
+>
 >         ss_
 >           | not (goodSampleRate shdr.sampleRate)
->                                          = [Scan Violated BadSampleRate fName (show shdr.sampleRate)]
->           | isNothing mtype              = [Scan Violated BadSampleType fName (show shdr.sampleType)]
+>                                          = violated BadSampleRate (show shdr.sampleRate)
+>           | isNothing mtype              = violated BadSampleType (show shdr.sampleType)
 >           | not (sampleSizeOk (shdr.start, shdr.end))
->                                          = [Scan Violated BadSampleLimits fName (show (shdr.start, shdr.end))]
+>                                          = violated BadSampleLimits (show (shdr.start, shdr.end))
 >           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
->           | otherwise                    = [Scan Accepted Ok fName stereo]
+>           | otherwise                    = accepted Ok stereo
 >
 >         (ss, changes, name)              = if wasRescued CorruptName ss_
 >                                              then (ss_, singleton FixCorruptName, good)
@@ -382,6 +386,33 @@ capture task ===================================================================
 >             ibagi                        = F.instBagNdx (iinsts ! pgkwInst pergm)
 >             jbagi                        = F.instBagNdx (iinsts ! (pgkwInst pergm + 1))
 >
+>         captureZone    :: Word → (Word, Either PreZone (Disposition, Impact))
+>         captureZone bix
+>           | traceNot trace_CZ False      = undefined
+>           | isNothing pz.pzDigest.zdSampleIndex
+>                                          = (bix, Right (Accepted, GlobalZone))
+>           | isNothing mpres              = (bix, Right (Dropped, OrphanedBySample))
+>           | otherwise                    = (bix, Left pz{pzChanges = ChangeEar (effPSShdr pres) []})
+>           where
+>             fName                        = "captureZone"
+>             trace_CZ                     =
+>               unwords [fName, sffile.zFilename, iName, "sample/bag", show (pz.pzDigest.zdSampleIndex, bix)]
+>                 
+>             ibags                        = sffile.zFileArrays.ssIBags
+>             xgeni                        = F.genNdx $ ibags ! bix
+>             ygeni                        = F.genNdx $ ibags ! (bix + 1)
+>             gens   :: [F.Generator]
+>             gens                         = profess
+>                                              (xgeni <= ygeni)
+>                                              (unwords [fName, "SoundFont file corrupt (gens)"])
+>                                              (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
+>
+>             pz                           = makePreZone sffile.zWordFBoot si (pgkwInst pergm) bix gens pres.cnSource
+>             si                           = deJust (unwords [fName, "si"]) pz.pzDigest.zdSampleIndex
+>             presk                        = PreSampleKey sffile.zWordFBoot si
+>             mpres                        = presk `Map.lookup` fwIn.fwPreSampleCache
+>             pres                         = deJust (unwords [fName, "pres"]) mpres
+>
 >         pzs                              = fst $ foldl' consume ([], defZone) results
 >           where
 >             consume (spzs, foldZone) (bagIndex, eor)
@@ -429,33 +460,6 @@ capture task ===================================================================
 >             tested                       = map illegalSampleSize pzs
 >             result                       = foldr CM.mplus Nothing tested
 >         yesCapture                       = Just [Scan Modified Captured fName_ iName]
->
->         captureZone    :: Word → (Word, Either PreZone (Disposition, Impact))
->         captureZone bix
->           | traceNot trace_CZ False      = undefined
->           | isNothing pz.pzDigest.zdSampleIndex
->                                          = (bix, Right (Accepted, GlobalZone))
->           | isNothing mpres              = (bix, Right (Dropped, OrphanedBySample))
->           | otherwise                    = (bix, Left pz{pzChanges = ChangeEar (effPSShdr pres) []})
->           where
->             fName                        = "captureZone"
->             trace_CZ                     =
->               unwords [fName, sffile.zFilename, iName, "sample/bag", show (pz.pzDigest.zdSampleIndex, bix)]
->                 
->             ibags                        = sffile.zFileArrays.ssIBags
->             xgeni                        = F.genNdx $ ibags ! bix
->             ygeni                        = F.genNdx $ ibags ! (bix + 1)
->             gens   :: [F.Generator]
->             gens                         = profess
->                                              (xgeni <= ygeni)
->                                              (unwords [fName, "SoundFont file corrupt (gens)"])
->                                              (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
->
->             pz                           = makePreZone sffile.zWordFBoot si (pgkwInst pergm) bix gens pres.cnSource
->             si                           = deJust (unwords [fName, "si"]) pz.pzDigest.zdSampleIndex
->             presk                        = PreSampleKey sffile.zWordFBoot si
->             mpres                        = presk `Map.lookup` fwIn.fwPreSampleCache
->             pres                         = deJust (unwords [fName, "pres"]) mpres
 
 flatMap task ==========================================================================================================
           erect temporary infrastructure for stereo pairings
@@ -558,36 +562,22 @@ vet task =======================================================================
 
 > vetTaskIf _ _ fWork                      = zrecTask vetter fWork
 >   where
+>     Pairing{ .. }                      
+>                                          = fWork.fwPairing
+>
 >     vetter zrec rd                       =
 >       let
->         mactions                         = fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwPairing.fwActions
+>         mactions                         = fromIntegral zrec.zswInst `IntMap.lookup` fwActions
 >       in
 >         case mactions of
 >            Nothing                       → (zrec, rd)
 >            Just acts                     → vetActions zrec rd acts
->
->     bothPartners                         =
->       let
->         pairings                         = fWork.fwPairing.fwPairings
->         reverseFolder pds iLeft iRight   = IntMap.insert iRight iLeft pds
->       in
->         pairings `IntMap.union` IntMap.foldlWithKey reverseFolder IntMap.empty pairings
 >
 >     vetActions zrec rdIn actions         = (zrec{zsPreZones = pzsOut}, rdOut)
 >       where
 >         fName                            = "vetActions"
 >
 >         (pzsOut, rdOut)                  = doAction $ if switchBadStereoZonesToMono then makeThemMono else killThem        
->
->         doAction rejectFun               =
->           let
->             check pz                     = wordB pz `IntSet.member` actions
->             modifyFun pz rd              =
->               if wordB pz `IntSet.member` fWork.fwPairing.fwRejects
->                 then rejectFun pz rd
->                 else pairFun pz rd
->           in
->             zoneTask check modifyFun zrec.zsPreZones rdIn
 >             
 >         makeThemMono pz rd               = (Just $ makeMono pz, rd)
 >             
@@ -595,6 +585,21 @@ vet task =======================================================================
 >           where
 >             scan                         =
 >               [Scan Violated BadStereoPartner fName zrec.zswChanges.cnName]
+>
+>         bothPartners                     =
+>           fwPairings `IntMap.union` IntMap.foldlWithKey reverser IntMap.empty fwPairings
+>           where
+>             reverser pds iLeft iRight    = IntMap.insert iRight iLeft pds
+>
+>         doAction rejectFun               =
+>           let
+>             check pz                     = wordB pz `IntSet.member` actions
+>             modifyFun pz rd              =
+>               if wordB pz `IntSet.member` fwRejects
+>                 then rejectFun pz rd
+>                 else pairFun pz rd
+>           in
+>             zoneTask check modifyFun zrec.zsPreZones rdIn
 >
 >         pairFun pz rd                    =
 >           let

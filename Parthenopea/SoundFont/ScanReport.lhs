@@ -20,13 +20,12 @@ October 5, 2025
 > import Debug.Trace ( traceIO )
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
-> import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
   
 executive =============================================================================================================
 
-> writeScanReport        :: Rational → SFRuntime → ResultDispositions → IO ()
-> writeScanReport dive runt rd             = do
+> writeScanReport        :: Rational →  VB.Vector SFFileBoot → ResultDispositions → IO ()
+> writeScanReport dive bootFiles rd             = do
 >   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show rd])
 >
 >   -- output all selections to the report file
@@ -76,7 +75,7 @@ executive ======================================================================
 >                                              else prolog ++ [EndOfLine] ++ concatMap procScan ssIn ++ [EndOfLine]
 >       where
 >         ssOut                            = filter (\s → s.sDisposition `notElem` calcElideSet dive) ssIn
->         sffileBoot                       = runt.zBootFiles VB.! wfile k
+>         sffileBoot                       = bootFiles VB.! wfile k
 >
 >         prolog                           = 
 >           [  Unblocked (show k)

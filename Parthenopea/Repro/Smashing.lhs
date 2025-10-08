@@ -26,8 +26,8 @@ executed code will require those identities fast. There is no upper limit on the
 issued.
 
 When you have an Instrument and a NoteOn, the "game" pinpoints which Zone to use to play the note. The smashing for
-this purposes is 128 x 128 x 2 covering all possible NoteOns, and Left/Right. We use a flat vector for the cache and
-index it by the three coordinates.
+this purpose is 128 x 128 x 2 covering all possible NoteOns, and Left/Right (channels). We use a flat vector for the
+cache and index it by the three coordinates.
 
 The winning Zone(s) drive the note synthesis. 
 

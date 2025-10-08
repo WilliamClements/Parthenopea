@@ -18,6 +18,7 @@ February 1, 2025
 > import qualified Codec.SoundFont         as F
 > import qualified Data.Audio              as A
 > import Data.Foldable
+> import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict as IntMap
 > import qualified Data.IntSet as IntSet
 > import Data.Map ( Map )
@@ -42,81 +43,111 @@ executive ======================================================================
 
 > data SFRuntime                           =
 >   SFRuntime {
->     zBootFiles         :: VB.Vector SFFileBoot
->   , zRuntimeFiles      :: VB.Vector SFFileRuntime
+>     zRoster            :: ([InstrumentName], [PercussionSound])
+>   , zRuntimeFiles      :: IntMap SFFileRuntime
 >   , zChoicesI          :: Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
 >   , zChoicesP          :: Map PercussionSound (Bool, Maybe PerGMKey, [Emission])
->   , zInstrumentCache   :: Map PerGMKey PerInstrument
 >   , zInstrumentMap     :: [(InstrumentName, Instr (Stereo AudRate))]}
 > instance Show SFRuntime where
 >   show runt                 =
->     unwords ["SFRuntime", show (length runt.zBootFiles, length runt.zInstrumentMap)]
+>     unwords ["SFRuntime", show (length runt.zRuntimeFiles, length runt.zInstrumentMap)]
 
 cache SoundFont data that is only needed for Runtime ==================================================================
 
-> prepareRuntime     :: SFRuntime → IO SFRuntime
-> prepareRuntime runt                      = do
->   runtimeFiles                           ← VB.mapM supply runt.zRuntimeFiles
->   instrumentMap                          ← prepareInstruments (runt{zRuntimeFiles = runtimeFiles})
->   return runt{zRuntimeFiles = runtimeFiles, zInstrumentMap = instrumentMap}
+> prepareRuntime     :: Directives
+>                       → ([InstrumentName], [PercussionSound]) 
+>                       → VB.Vector SFFileBoot
+>                       → Map PerGMKey PerInstrument
+>                       → ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
+>                         , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
+>                       → IO SFRuntime
+> prepareRuntime _ rost vFilesBoot cache (zI, zP)
+>                                          = do
+>   let runtimeFiles                       = IntMap.fromList $ mapMaybe supply (VB.toList vFilesBoot)
+>   let prerunt                            =
+>         SFRuntime
+>           rost
+>           runtimeFiles
+>           zI
+>           zP 
+>           []
+>   instrumentMap                          ← prepareInstruments prerunt
+>   return prerunt{zInstrumentMap = instrumentMap}
 >   where
 >     actions                              =
 >       let
 >         extract        :: Map a (Bool, Maybe PerGMKey, [Emission]) → Set PerGMKey
 >         extract                          = foldl' buildUp Set.empty
->           where buildUp s (_, mpergm, _) = s `Set.union` (Set.singleton . fromJust) mpergm 
+>           where
+>             buildUp s (_, mpergm, _)     =
+>               case mpergm of
+>                 Nothing                  → s
+>                 Just pergm               → s `Set.union` Set.singleton pergm 
 >
->         pergms                           = extract runt.zChoicesI `Set.union` extract runt.zChoicesP
+>         pergms                           = extract zI `Set.union` extract zP
 >
 >         selectI m pergm                  =
 >           IntMap.insertWith IntSet.union pergm.pgkwFile ((IntSet.singleton . fromIntegral) pergm.pgkwInst) m
 >       in
 >         foldl' selectI IntMap.empty pergms
 >
->     supply sffile                        =
->       let
->         populate insts                   = sffile{zPerInstrument = newpi, zPreZone = preZone newpi insts}
+>     supply             :: SFFileBoot → Maybe (Int, SFFileRuntime)
+>     supply sffile
+>       | traceIf trace_S False            = undefined
+>       | otherwise                        = probe >>= populate
+>       where
+>         fName                            = "prepareRuntime supply"
+>         trace_S                          = unwords [fName, show sffile.zWordFBoot, sffile.zFilename]
+>
+>         probe                            = sffile.zWordFBoot `IntMap.lookup` actions
+>
+>         populate insts                   = Just
+>                                             ( sffile.zWordFBoot
+>                                              , SFFileRuntime 
+>                                                  sffile.zWordFBoot
+>                                                  newpi
+>                                                  (preZone newpi insts)
+>                                                  sffile.zSquirrelSample)
 >           where newpi                    = perInstrument insts
 >
 >         perInstrument                    = IntMap.fromSet getPerI
 >           where
 >             getPerI inst                 =
 >               let
->                 pergm                    = PerGMKey sffile.zWordFRuntime (fromIntegral inst) Nothing
+>                 pergm                    = PerGMKey sffile.zWordFBoot (fromIntegral inst) Nothing
 >               in
->                 runt.zInstrumentCache Map.! pergm 
+>                 cache Map.! pergm 
 >
 >         preZone newpr                    = IntSet.foldl' (doPreZone newpr) IntMap.empty
 >
 >         doPreZone newpr m inst           =
 >           m `IntMap.union` IntMap.fromList (map toPzPair (newpr IntMap.! inst).pZones)
 >           where toPzPair pz              = (fromIntegral pz.pzWordB, pz)            
->       in
->         return $ maybe sffile populate (sffile.zWordFRuntime `IntMap.lookup` actions)
 
 define signal functions and instrument maps to support rendering ======================================================
 
 > prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
-> prepareInstruments runt                  = do
+> prepareInstruments prerunt               = do
 >     return $ (Percussion, assignPercussion)                                                               : imap
 >   where
->     imap                                 = Map.foldrWithKey imapFolder [] runt.zChoicesI
->     pmap                                 = Map.foldrWithKey pmapFolder [] runt.zChoicesP
+>     (zI, zP)                             = (prerunt.zChoicesI, prerunt.zChoicesP)
+>     imap                                 = Map.foldrWithKey imapFolder [] zI
+>     pmap                                 = Map.foldrWithKey pmapFolder [] zP
 >
 >     imapFolder kind _ target             = (kind, assignInstrument pergm)                                 : target
 >       where
->        (_, pPerGMKey, _)                 = runt.zChoicesI Map.! kind
->        pergm                             = fromJust pPerGMKey
+>        (_, pPerGMKey, _)                 = zI Map.! kind
+>        pergm                             = deJust "prepareRuntime imapFolder" pPerGMKey
 >     pmapFolder kind _ target             = (kind, (pgkwFile pergm, pgkwInst pergm))                       : target
 >       where
->        (_, pPerGMKey, _)                 = runt.zChoicesP Map.! kind
->        pergm                             = fromJust pPerGMKey
+>        (_, pPerGMKey, _)                 = zP Map.! kind
+>        pergm                             = deJust "prepareRuntime pmapFolder" pPerGMKey
 >
 >     assignInstrument   :: ∀ p . Clock p ⇒ PerGMKey → Instr (Stereo p)
 >     assignInstrument pergm durI pch vol params
 >                                          =
 >       proc _ → do
->         (zL, zR)                         ← instrumentSF runt pergm durI pch vol params ⤙ ()
+>         (zL, zR)                         ← instrumentSF prerunt pergm durI pch vol params ⤙ ()
 >         outA                             ⤙ (zL, zR)
 >
 >     assignPercussion   :: ∀ p . Clock p ⇒ Instr (Stereo p)
@@ -147,6 +178,9 @@ define signal functions and instrument maps to support rendering ===============
 >       unwords [fName_, show (pergm.pgkwFile, pergm.pgkwInst)
 >                      , show perI.piChanges.cnName, show (pchIn, volIn), show durI, show ps]
 >
+>     sffile                               = runt.zRuntimeFiles IntMap.! pergm.pgkwFile
+>     perI                                 = sffile.zPerInstrument IntMap.! fromIntegral pergm.pgkwInst
+>
 >     ps                                   = VB.fromList ps_
 >     noonIn                               = carefulNoteOn volIn pchIn
 >     fly                                  = doFlyEye noonIn
@@ -156,9 +190,6 @@ define signal functions and instrument maps to support rendering ===============
 >       where
 >         calcNoteOn z                     = NoteOn (maybe (clip (0, 127) volIn) fromIntegral z.zVel) 
 >                                                   (maybe (clip (0, 127) pchIn) fromIntegral z.zKey)
->
->     sffile                               = runt.zRuntimeFiles VB.! pergm.pgkwFile
->     perI                                 = sffile.zPerInstrument IntMap.! fromIntegral pergm.pgkwInst
 >
 >     (reconX, mreconX)                    =
 >       case fly of
