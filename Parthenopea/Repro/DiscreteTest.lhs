@@ -28,7 +28,7 @@ June 22, 2024
 > import Parthenopea.Repro.Chart ( Section(Section), chartPoints )
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
-> import Parthenopea.SoundFont.SFSpec ( qMidiSize128 )
+> import Parthenopea.SoundFont.Utility
 
 Feed chart ============================================================================================================
 

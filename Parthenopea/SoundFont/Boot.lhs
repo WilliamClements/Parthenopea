@@ -37,6 +37,7 @@ January 21, 2025
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.SoundFont.Utility
   
 importing sampled sound (from SoundFont (*.sf2) files) ================================================================
 

@@ -29,7 +29,9 @@ April 16, 2023
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
+> import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
+> import Parthenopea.SoundFont.Utility
   
 implementing SoundFont spec ===========================================================================================
 
@@ -343,18 +345,6 @@ implementing SoundFont spec ====================================================
 > weighConformance                         = 3
 > weighFuzziness                           = 3
 >
-> accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
-> accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
->
-> clip                   :: Ord n ⇒ (n, n) → n → n
-> clip (lower, upper) val                  = min upper (max lower val)
->
-> roundBy                :: Double → Double → Double
-> roundBy p10 x                            = fromIntegral rnd / p10
->   where
->     rnd                :: Int
->     rnd                                  = round (p10 * x)
->
 > type Fuzz = Double
 >
 > data FFMatches =
@@ -639,87 +629,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >     SampleTypeRomRight     → 0x8002
 >     SampleTypeRomLeft      → 0x8004
 >     SampleTypeRomLinked    → 0x8008
-
-"A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
---SoundFont spec
-
-struct sfInstModList
-{
-  SFModulator sfModSrcOper;
-  SFGenerator sfModDestOper;
-  SHORT modAmount;
-  SFModulator sfModAmtSrcOper;
-  SFTransform sfModTransOper;
-};
-
-> data Modulator                           =
->   Modulator {
->     mrModId            :: Word
->   , mrModSrc           :: ModSrc
->   , mrModDest          :: ModDestType
->   , mrModAmount        :: Double
->   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
->    
-> defModulator           :: Modulator
-> defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
->
-> data ModKey                              =
->   ModKey {
->     krSrc              :: ModSrc
->   , krDest             :: ModDestType
->   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
->
-> data ModDestType                         =
->     NoDestination
->   | ToPitch
->   | ToFilterFc
->   | ToVolume
->   | ToInitAtten
->   | ToChorus
->   | ToReverb
->   | ToLink Word deriving (Eq, Ord, Show)
->
-> data ModSrcSource                        =
->     FromNoController
->   | FromNoteOnVel
->   | FromNoteOnKey
->   | FromLinked deriving (Eq, Ord, Show)
->
-> data ModSrc                              =
->   ModSrc {
->     msMapping          :: Mapping
->   , msSource           :: ModSrcSource} deriving (Eq, Ord, Show)
->
-> defModSrc              :: ModSrc
-> defModSrc                                = ModSrc defMapping FromNoController
->
-> data Mapping =
->   Mapping {
->     msContinuity     :: Continuity
->   , msBiPolar        :: Bool  
->   , msMax2Min        :: Bool
->   , msCCBit          :: Bool} deriving (Eq, Ord, Show)
->
-> data Continuity =
->     Linear
->   | Concave
->   | Convex
->   | Switch deriving (Eq, Ord, Show, Enum)
->
-> defMapping             :: Mapping
-> defMapping                               = Mapping Linear False False False
-> allMappings            :: [Mapping]
-> allMappings                              = [Mapping cont bipolar max2min False
->                                                   | cont                  ← [Linear, Concave, Convex, Switch]
->                                                        , bipolar          ← [False, True]
->                                                              , max2min    ← [False, True]]                                          
->
-> type GMKind                              = Either InstrumentName PercussionSound
-> type KeyNumber                           = AbsPitch
-> type Velocity                            = Volume
->
-> qMidiSize128           :: Word
-> qMidiSize128                             = 128
 >
 > allKinds               :: ([InstrumentName], [PercussionSound])
 > allKinds                                 =

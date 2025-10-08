@@ -38,6 +38,7 @@ February 1, 2025
 > import Parthenopea.Repro.Smashing ( lookupCellIndex )
 > import Parthenopea.Repro.Synthesizer
 > import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.SoundFont.Utility
   
 executive =============================================================================================================
 
@@ -199,7 +200,6 @@ define signal functions and instrument maps to support rendering ===============
 >             reconL                       = resolvePreZone pzL
 >             reconR                       = resolvePreZone pzR
 >
->             copyRoot   :: Recon → Recon → Recon
 >             copyRoot pz1 pz2             = pz2{rRootKey                   = pz1.rRootKey
 >                                              , rPitchCorrection           = pz1.rPitchCorrection}
 

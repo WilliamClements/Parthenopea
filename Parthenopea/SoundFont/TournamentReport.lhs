@@ -22,6 +22,7 @@ October 5, 2025
 > import Parthenopea.Repro.Emission
 > import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.SoundFont.Utility
 >
 > writeTournamentReport  :: VB.Vector SFFileBoot
 >                           → Map InstrumentName [PerGMScored]

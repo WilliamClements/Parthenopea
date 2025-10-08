@@ -35,10 +35,85 @@ November 6, 2023
 > import Euterpea.Music ( AbsPitch )
 > import GHC.Generics ( Generic ) 
 > import Parthenopea.Debug
-> import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.SoundFont.Utility
 >
 > constA                 :: Arrow a ⇒ c → a b c
 > constA                                   = arr . const
+>
+
+"A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
+--SoundFont spec
+
+struct sfInstModList
+{
+  SFModulator sfModSrcOper;
+  SFGenerator sfModDestOper;
+  SHORT modAmount;
+  SFModulator sfModAmtSrcOper;
+  SFTransform sfModTransOper;
+};
+
+> data Modulator                           =
+>   Modulator {
+>     mrModId            :: Word
+>   , mrModSrc           :: ModSrc
+>   , mrModDest          :: ModDestType
+>   , mrModAmount        :: Double
+>   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
+>    
+> defModulator           :: Modulator
+> defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
+>
+> data ModKey                              =
+>   ModKey {
+>     krSrc              :: ModSrc
+>   , krDest             :: ModDestType
+>   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
+>
+> data ModDestType                         =
+>     NoDestination
+>   | ToPitch
+>   | ToFilterFc
+>   | ToVolume
+>   | ToInitAtten
+>   | ToChorus
+>   | ToReverb
+>   | ToLink Word deriving (Eq, Ord, Show)
+>
+> data ModSrcSource                        =
+>     FromNoController
+>   | FromNoteOnVel
+>   | FromNoteOnKey
+>   | FromLinked deriving (Eq, Ord, Show)
+>
+> data ModSrc                              =
+>   ModSrc {
+>     msMapping          :: Mapping
+>   , msSource           :: ModSrcSource} deriving (Eq, Ord, Show)
+>
+> defModSrc              :: ModSrc
+> defModSrc                                = ModSrc defMapping FromNoController
+>
+> data Mapping =
+>   Mapping {
+>     msContinuity     :: Continuity
+>   , msBiPolar        :: Bool  
+>   , msMax2Min        :: Bool
+>   , msCCBit          :: Bool} deriving (Eq, Ord, Show)
+>
+> data Continuity =
+>     Linear
+>   | Concave
+>   | Convex
+>   | Switch deriving (Eq, Ord, Show, Enum)
+>
+> defMapping             :: Mapping
+> defMapping                               = Mapping Linear False False False
+> allMappings            :: [Mapping]
+> allMappings                              = [Mapping cont bipolar max2min False
+>                                                   | cont                  ← [Linear, Concave, Convex, Switch]
+>                                                        , bipolar          ← [False, True]
+>                                                              , max2min    ← [False, True]]                                          
 
 Modulator management is complex considering small impact ==============================================================
 
@@ -598,25 +673,6 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >            else normQ)
 >         (2 * pi * initFc)
 >     
-> data NoteOn                              =
->   NoteOn {
->     noteOnVel          :: Velocity
->   , noteOnKey          :: KeyNumber} deriving (Eq, Ord, Show)
-> carefulNoteOn          :: Velocity → AbsPitch → NoteOn
-> carefulNoteOn volIn pchIn                = NoteOn volOut pchOut
->   where
->     fName                                = "carefulNoteOn"
->
->     volOut                               = safeClip volIn
->     pchOut                               = safeClip pchIn
->
->     safeClip x                           =
->       profess (x == clip (0, 127) x) (unwords [fName, "out of bounds", show (volIn, pchIn)]) x
-> noonAsCoords           :: NoteOn → ([Word], [Word])
-> noonAsCoords noon                        =
->   (  [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 0]
->    , [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 1])
->
 > data ModCoefficients                     =
 >   ModCoefficients {
 >     xModEnvCo          :: Double

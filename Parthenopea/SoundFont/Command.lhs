@@ -36,6 +36,7 @@ June 16, 2025
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.TournamentReport
+> import Parthenopea.SoundFont.Utility
 > import qualified System.FilePattern.Directory
 >                                          as FP
 
@@ -122,7 +123,6 @@ Implement PCommand =============================================================
 >                                              Right m  → m
 >   return $ Song (removeExtension path) (const $ fromMidi midi) Map.empty
 >   where
->     removeExtension    :: FilePath → FilePath
 >     removeExtension fp                   =
 >       let
 >         fpRev                            = reverse fp

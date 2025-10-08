@@ -45,6 +45,7 @@ May 14, 2023
 > import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.SoundFont.Utility
   
 Signal function-based synth ===========================================================================================
 
