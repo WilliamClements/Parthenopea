@@ -14,7 +14,6 @@ November 24, 2023
 > import qualified Data.Map                as Map
 > import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Repro.Modulation
-> import Parthenopea.SoundFont.SFSpec
 
 Modulation-related tests ==============================================================================================
 

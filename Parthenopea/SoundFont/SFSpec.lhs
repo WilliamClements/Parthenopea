@@ -25,6 +25,7 @@ April 16, 2023
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ratio ( (%) )
+> import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music
 > import Parthenopea.Debug
@@ -87,6 +88,31 @@ implementing SoundFont spec ====================================================
 >     wF wS wI wB 
 >      (formDigest gens) defZone (ChangeEar shdr [])
 >      Nothing
+>
+> data Recon                               =
+>   Recon {
+>     rSampleMode        :: A.SampleMode
+>   , rSampleRate        :: Double
+>   , rStart             :: Word
+>   , rEnd               :: Word
+>   , rLoopStart         :: Word
+>   , rLoopEnd           :: Word
+>   , rRootKey           :: AbsPitch
+>   , rTuning            :: Int
+>   , rDynamics          :: VB.Vector Double
+>   , rAttenuation       :: Double
+>   , rVolEnv            :: Maybe FEnvelope
+>   , rPitchCorrection   :: Maybe Double
+>   , rM8n               :: Modulation
+>   , rEffects           :: Effects}
+>   deriving (Eq, Show)
+>
+> data Effects                             =
+>   Effects {
+>     efChorus           :: Double
+>   , efReverb           :: Double
+>   , efPan              :: Double}
+>   deriving (Eq, Show)
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS

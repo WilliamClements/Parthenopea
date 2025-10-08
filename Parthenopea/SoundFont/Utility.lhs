@@ -11,9 +11,9 @@ October 8, 2025
 
 > module Parthenopea.SoundFont.Utility where
 >
+> import Data.Maybe
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music ( AbsPitch, InstrumentName, PercussionSound, Volume )
-> import Parthenopea.Debug
 >
 > type GMKind                              = Either InstrumentName PercussionSound
 > type KeyNumber                           = AbsPitch
@@ -21,6 +21,14 @@ October 8, 2025
 >
 > qMidiSize128           :: Word
 > qMidiSize128                             = 128
+>
+> profess                :: Bool → String → a → a
+> profess assertion msg something          = if not assertion
+>                                              then error (unwords ["Failed assertion --", msg])
+>                                              else something
+>
+> deJust                 :: ∀ a. String → Maybe a → a
+> deJust tag item                          = profess (isJust item) (unwords["expected Just for", tag]) (fromJust item)
 >
 > accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
 > accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)

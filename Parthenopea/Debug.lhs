@@ -28,16 +28,8 @@ February 2, 2025
 >         where
 >
 > import Data.List ( foldl' )
-> import Data.Maybe
 > import Debug.Trace
->
-> profess                :: Bool → String → a → a
-> profess assertion msg something          = if not assertion
->                                              then error (unwords ["Failed assertion --", msg])
->                                              else something
->
-> deJust                 :: ∀ a. String → Maybe a → a
-> deJust tag item                          = profess (isJust item) (unwords["expected Just for", tag]) (fromJust item)
+> import Parthenopea.SoundFont.Utility
   
 Tracing ===============================================================================================================
 

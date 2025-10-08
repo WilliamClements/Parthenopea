@@ -35,11 +35,10 @@ May 14, 2023
 > import qualified Data.Audio              as A
 > import Data.Int ( Int8, Int16 )
 > import Data.Maybe
-> import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
-> import Euterpea.Music ( AbsPitch, Dur )
+> import Euterpea.Music ( Dur )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Envelopes
@@ -398,33 +397,6 @@ Effects ========================================================================
 >     xn_l ← delay 0 ⤙ xn
 >     yn_l ← delay 0 ⤙ yn
 >   outA ⤙ yn
-
-Utility types =========================================================================================================
-
-> data Recon                               =
->   Recon {
->     rSampleMode        :: A.SampleMode
->   , rSampleRate        :: Double
->   , rStart             :: Word
->   , rEnd               :: Word
->   , rLoopStart         :: Word
->   , rLoopEnd           :: Word
->   , rRootKey           :: AbsPitch
->   , rTuning            :: Int
->   , rDynamics          :: VB.Vector Double
->   , rAttenuation       :: Double
->   , rVolEnv            :: Maybe FEnvelope
->   , rPitchCorrection   :: Maybe Double
->   , rM8n               :: Modulation
->   , rEffects           :: Effects}
->   deriving (Eq, Show)
->
-> data Effects                             =
->   Effects {
->     efChorus           :: Double
->   , efReverb           :: Double
->   , efPan              :: Double}
->   deriving (Eq, Show)
 
 Flags for customization ===============================================================================================
 
