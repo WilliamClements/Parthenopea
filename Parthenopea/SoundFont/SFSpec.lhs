@@ -68,7 +68,8 @@ implementing SoundFont spec ====================================================
 >   , pzDigest           :: ZoneDigest
 >   , pzSFZone           :: SFZone
 >   , pzChanges          :: ChangeEar F.Shdr
->   , pzPartner          :: Maybe Word}
+>   , pzPartner          :: Maybe Word
+>   , pzRecon            :: Maybe Recon}
 >   deriving Eq
 > instance Show PreZone where
 >   show pz                                =
@@ -87,7 +88,7 @@ implementing SoundFont spec ====================================================
 >   PreZone
 >     wF wS wI wB 
 >      (formDigest gens) defZone (ChangeEar shdr [])
->      Nothing
+>      Nothing Nothing
 >
 > data Recon                               =
 >   Recon {

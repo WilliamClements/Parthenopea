@@ -172,7 +172,7 @@ Scoring stuff ==================================================================
 >   , pWinningP          :: Map PercussionSound PerGMScored}
 > instance Show WinningRecord where
 >   show winners                 =
->     unwords ["SFRuntime", show (length winners.pWinningI, length winners.pWinningP)]
+>     unwords ["WinningRecord", show (length winners.pWinningI, length winners.pWinningP)]
 > seedWinningRecord      :: WinningRecord
 > seedWinningRecord                        = WinningRecord Map.empty Map.empty
 >

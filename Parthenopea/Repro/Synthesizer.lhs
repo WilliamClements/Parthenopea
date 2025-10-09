@@ -14,13 +14,10 @@ May 14, 2023
 
 > module Parthenopea.Repro.Synthesizer
 >        ( deriveEffects
->        , Effects(..)
 >        , eutDriver
 >        , eutSynthesize
 >        , normalizingOutput
 >        , noStereoNoPan
->        , Recon(..)
->        , TimeFrame(..)
 >        , useAttenuation
 >        , useChorus
 >        , useDCBlock

@@ -5,6 +5,7 @@
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Runtime
@@ -107,23 +108,26 @@ cache SoundFont data that is only needed for Runtime ===========================
 >                                              , SFFileRuntime 
 >                                                  sffile.zWordFBoot
 >                                                  newpi
->                                                  (preZone newpi insts)
+>                                                  preZone
 >                                                  sffile.zSquirrelSample)
->           where newpi                    = perInstrument insts
->
->         perInstrument                    = IntMap.fromSet getPerI
 >           where
->             getPerI inst                 =
->               let
->                 pergm                    = PerGMKey sffile.zWordFBoot (fromIntegral inst) Nothing
->               in
->                 cache Map.! pergm 
+>             newpi                        = IntMap.fromSet getPerI insts
+>               where
+>                 getPerI inst             =
+>                   let
+>                     pergm                = PerGMKey sffile.zWordFBoot (fromIntegral inst) Nothing
+>                   in
+>                     cache Map.! pergm
 >
->         preZone newpr                    = IntSet.foldl' (doPreZone newpr) IntMap.empty
->
->         doPreZone newpr m inst           =
->           m `IntMap.union` IntMap.fromList (map toPzPair (newpr IntMap.! inst).pZones)
->           where toPzPair pz              = (fromIntegral pz.pzWordB, pz)            
+>             preZone                      = IntSet.foldl' doPreZone IntMap.empty insts
+>               where
+>                 doPreZone m inst         =
+>                   let
+>                     wrapUp pz            = (fromIntegral pz.pzWordB, pz')
+>                       where
+>                         pz'              = pz{ pzRecon = Just $ resolvePreZone pz}            
+>                   in
+>                     m `IntMap.union` IntMap.fromList (map wrapUp (newpi IntMap.! inst).pZones)
 
 define signal functions and instrument maps to support rendering ======================================================
 
@@ -194,11 +198,11 @@ define signal functions and instrument maps to support rendering ===============
 >
 >     (reconX, mreconX)                    =
 >       case fly of
->         Left pz                          → (resolvePreZone pz, Nothing)
+>         Left pz                          → (receiveRecon pz, Nothing)
 >         Right (pzL, pzR)                 → (reconL, Just $ copyRoot reconL reconR)
 >           where
->             reconL                       = resolvePreZone pzL
->             reconR                       = resolvePreZone pzR
+>             reconL                       = receiveRecon pzL
+>             reconR                       = receiveRecon pzR
 >
 >             copyRoot pz1 pz2             = pz2{rRootKey                   = pz1.rRootKey
 >                                              , rPitchCorrection           = pz1.rPitchCorrection}
@@ -231,6 +235,9 @@ zone selection for rendering ===================================================
 
 reconcile zone and sample header ======================================================================================
 
+> receiveRecon           :: PreZone → Recon
+> receiveRecon pz                          = deJust "receiveRecon" pz.pzRecon
+>
 > resolvePreZone         :: PreZone → Recon
 > resolvePreZone pz                        = reconL
 >   where
