@@ -9,6 +9,7 @@ November 9, 2023
 
 > module Parthenopea.Repro.Emission
 >        (  bracks
+>         , closingRemarks
 >         , comma
 >         , commaOrNot
 >         , Emission(..)
@@ -28,6 +29,8 @@ November 9, 2023
 >         where
 >
 > import Data.List ( singleton )
+> import Data.Time
+> import Parthenopea.SoundFont.Utility
 
 Emission capability ===================================================================================================
 
@@ -106,12 +109,20 @@ Quick & dirty way to format strings into tabular form
 > safeReplicate          :: Int → Int → Char → String
 > safeReplicate sz maxSz                   = replicate (maxSz - sz)
 >
+> theEnd                 :: [Emission]
+> theEnd                                   = [EndOfLine, EndOfLine, Unblocked "The End", EndOfLine]
+>
 > writeFileBySections    :: FilePath → [[Emission]] → IO ()
 > writeFileBySections fp eSections         = do
 >   mapM_ (appendFile fp . reapEmissions) eSections
 >   appendFile fp (reapEmissions theEnd)
 >   putStrLn (unwords ["wrote", fp])
->   where
->     theEnd = [EndOfLine, EndOfLine, Unblocked "The End", EndOfLine]
+>
+> closingRemarks                 :: NominalDiffTime → [Emission]
+> closingRemarks ndt                       =
+>   let
+>     str                                  = formatNominalDiffTime ndt
+>   in
+>     [EndOfLine, Unblocked "Elapsed: ", Unblocked str] ++ theEnd
 
 The End

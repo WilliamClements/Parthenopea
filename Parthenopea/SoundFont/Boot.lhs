@@ -279,9 +279,16 @@ PreZone administration =========================================================
 >                              , showMaybeInstCat zrec.zsInstCat, show $ length zrec.zsPreZones]
 > makeZRec               :: PerGMKey → ChangeName F.Inst → InstZoneRecord
 > makeZRec pergm changes                          =
->   InstZoneRecord pergm.pgkwFile pergm.pgkwInst changes Nothing Nothing []
+>   InstZoneRecord 
+>     pergm.pgkwFile 
+>     pergm.pgkwInst
+>     changes Nothing Nothing []
 > instKey                :: InstZoneRecord → PerGMKey
-> instKey zrec                             = PerGMKey zrec.zswFile zrec.zswInst Nothing       
+> instKey zrec                             =
+>   PerGMKey 
+>     zrec.zswFile 
+>     zrec.zswInst
+>     Nothing       
 
 iterating InstZoneRecord list =========================================================================================
 
@@ -322,17 +329,23 @@ survey task ====================================================================
 
 > surveyTaskIf sffile _ fwIn               = fwIn{fwZRecs = zrecs, fwDispositions = rd'}
 >   where
+>     fName                                = "surveyTaskIf"
+>
 >     (zrecs, rd')                         =
 >       foldl' preIFolder ([], fwIn.fwDispositions) (formComprehension sffile ssInsts)
 >     
+>     violated, accepted :: Impact → String → [Scan]
+>     violated impact clue             =
+>       [Scan Violated impact fName clue]
+>     accepted impact clue             =
+>       [Scan Accepted impact fName clue]
+>
 >     preIFolder         :: ([InstZoneRecord], ResultDispositions) → PerGMKey → ([InstZoneRecord], ResultDispositions)
 >     preIFolder (zrecsFold, rdFold) pergm     =
 >       if iinst.instBagNdx <= jinst.instBagNdx
 >         then (zrecs', rd'')
 >         else error $ unwords [fName, "corrupt instBagNdx"]
 >       where
->         fName                            = "preIFolder"
->
 >         iinst                            = loadInst pergm
 >         jinst                            = loadInst pergm{pgkwInst = pergm.pgkwInst + 1}
 >
@@ -346,9 +359,9 @@ survey task ====================================================================
 >
 >         ss
 >           | iinst.instBagNdx == jinst.instBagNdx
->                                          = [Scan Violated NoZones fName (show iinst.instName)]
+>                                          = violated NoZones (show iinst.instName)
 >           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
->           | otherwise                    = [Scan Accepted Ok fName (show pergm.pgkwInst)]
+>           | otherwise                    = accepted Ok (show pergm.pgkwInst)
 >
 >         changes                          = if wasRescued CorruptName ss then singleton FixCorruptName else []
 >         finalName                        = if wasRescued CorruptName ss then good else raw
@@ -363,6 +376,14 @@ capture task ===================================================================
 
 > captureTaskIf sffile _ fwIn              = zrecTask capturer fwIn
 >   where
+>     fName                                = "captureTaskIf"
+>
+>     violated, modified :: Impact → String → [Scan]
+>     violated impact clue                 =
+>       [Scan Violated impact fName clue]
+>     modified impact clue             =
+>       [Scan Modified impact fName clue]
+>
 >     capturer zrecIn rdIn                 =
 >       let
 >         (newPzs, rdOut)                  = captureZones zrecIn rdIn
@@ -370,14 +391,8 @@ capture task ===================================================================
 >         (zrecIn{zsPreZones = newPzs}, rdOut)
 >
 >     captureZones       :: InstZoneRecord → ResultDispositions → ([PreZone], ResultDispositions)
->     captureZones zrec rdCap
->       | traceNot trace_CZS False         = undefined
->       | otherwise                        = (pzs, dispose pergm ss rdCap)
+>     captureZones zrec rdCap              = (pzs, dispose pergm ss rdCap)
 >       where
->         fName_                           = "captureZones"
->         trace_CZS                        =
->           unwords [fName_, iName, show $ length pzs, "captured of", show $ length results]
->
 >         pergm                            = instKey zrec
 >         iName                            = zrec.zswChanges.cnName
 >
@@ -389,16 +404,11 @@ capture task ===================================================================
 >
 >         captureZone    :: Word → (Word, Either PreZone (Disposition, Impact))
 >         captureZone bix
->           | traceNot trace_CZ False      = undefined
 >           | isNothing pz.pzDigest.zdSampleIndex
 >                                          = (bix, Right (Accepted, GlobalZone))
 >           | isNothing mpres              = (bix, Right (Dropped, OrphanedBySample))
 >           | otherwise                    = (bix, Left pz{pzChanges = ChangeEar (effPSShdr pres) []})
 >           where
->             fName                        = "captureZone"
->             trace_CZ                     =
->               unwords [fName, sffile.zFilename, iName, "sample/bag", show (pz.pzDigest.zdSampleIndex, bix)]
->                 
 >             ibags                        = sffile.zFileArrays.ssIBags
 >             xgeni                        = F.genNdx $ ibags ! bix
 >             ygeni                        = F.genNdx $ ibags ! (bix + 1)
@@ -428,16 +438,16 @@ capture task ===================================================================
 >
 >         noZones, illegalRange, hasRoms, illegalLimits, yesCapture
 >                        :: Maybe [Scan] 
->         ss = deJust fName_
+>         ss = deJust fName
 >              $ noZones `CM.mplus` illegalRange
 >                        `CM.mplus` hasRoms
 >                        `CM.mplus` illegalLimits
 >                        `CM.mplus` yesCapture
 >         noZones
->           | null pzs                     = Just [Scan Violated NoZones fName_ noClue]
+>           | null pzs                     = Just $ violated NoZones noClue
 >           | otherwise                    = Nothing
 >         illegalRange
->           | isJust mpz                   = Just [Scan Violated CorruptGMRange  fName_ clue]
+>           | isJust mpz                   = Just $ violated CorruptGMRange clue
 >           | otherwise                    = Nothing
 >           where
 >             mpz                          = find zoneBad pzs
@@ -445,7 +455,7 @@ capture task ===================================================================
 >             zoneBad pz                   = not (okGMRanges pz.pzDigest)
 >             clue                         = showBad $ fromJust mpz
 >         hasRoms
->           | isJust mpz                   = Just [Scan Violated RomBased fName_ clue]
+>           | isJust mpz                   = Just $ violated RomBased clue
 >           | otherwise                    = Nothing
 >           where
 >             mpz                          = find zoneRom pzs
@@ -455,12 +465,12 @@ capture task ===================================================================
 >             pzBad                        = fromJust mpz
 >             clue                         = showHex (stype pzBad) []
 >         illegalLimits
->           | isJust result                = Just [Scan Violated BadSampleLimits fName_ (fromJust result)]
+>           | isJust result                = Just $ violated BadSampleLimits $ fromJust result
 >           | otherwise                    = Nothing
 >           where
 >             tested                       = map illegalSampleSize pzs
 >             result                       = foldr CM.mplus Nothing tested
->         yesCapture                       = Just [Scan Modified Captured fName_ iName]
+>         yesCapture                       = Just $ modified Captured iName
 
 flatMap task ==========================================================================================================
           erect temporary infrastructure for stereo pairings
@@ -700,7 +710,8 @@ To build the map
 >     townersMap         :: Map Word ([PreZone], Smashing Word)
 >     townersMap                           =
 >       let
->         tFolder m zrec                   = Map.insert zrec.zswInst (zrec.zsPreZones, fromJust zrec.zsSmashup) m
+>         tFolder m zrec                   =
+>           Map.insert zrec.zswInst (zrec.zsPreZones, fromJust zrec.zsSmashup) m
 >       in
 >         zrecCompute fwIn tFolder Map.empty 
 >     
@@ -786,6 +797,13 @@ categorization task ============================================================
 >         fName                            = "categorizeInst"
 >         trace_CI                         = unwords [fName, iName, show icat']
 >
+>         modified, dropped
+>                        :: Impact → String → [Scan]
+>         modified impact clue             =
+>           [Scan Modified impact fName clue]
+>         dropped impact clue              =
+>           [Scan Dropped impact fName clue]
+>
 >         pergm                            = instKey zrec
 >         pzs                              = zrec.zsPreZones
 >         iName                            = zrec.zswChanges.cnName
@@ -804,14 +822,14 @@ categorization task ============================================================
 >         (icat', ss')                     =
 >           case (icatAllKinds, icatRost) of
 >             (Just InstCatInst       , Just InstCatInst)
->                                          → (icatRost, [Scan Modified CatIsInst fName noClue])
+>                                          → (icatRost, modified CatIsInst noClue)
 >             (Just (InstCatPerc _)   , Just (InstCatPerc _))
->                                          → (icatRost, [Scan Modified CatIsPerc fName noClue])
+>                                          → (icatRost, modified CatIsPerc noClue)
 >             (Just (InstCatDisq imp why), _)
->                                          → (icatAllKinds, [Scan Dropped imp fName why])
+>                                          → (icatAllKinds, dropped imp why)
 >             (_                      , Just (InstCatDisq imp why))
->                                          → (icatRost, [Scan Dropped imp fName why])
->             _                            → (icatNarrow, [Scan Dropped Narrow fName noClue])
+>                                          → (icatRost, dropped imp why)
+>             _                            → (icatNarrow, dropped Narrow noClue)
 >
 >         provideAlts    :: Maybe InstCat → ([InstrumentName], [PercussionSound]) → [Maybe InstCat]
 >         provideAlts seed rostAlts        =

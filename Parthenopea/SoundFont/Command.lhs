@@ -48,11 +48,16 @@ Implement PCommand =============================================================
 >
 > batchProcessor         :: Directives → [Song] → IO ()
 > batchProcessor dives isongs              = do
+>   timeThen                               ← getCurrentTime
 >   mids                                   ← FP.getDirectoryFiles "." ["*.mid", "*.midi"]
 >   sf2s                                   ← FP.getDirectoryFiles "." ["*.sf2"]
 >   putStrLn (msg mids sf2s)
 >   CM.unless ( okDirectives dives) (error "garbage in Directives")
 >   proceed dives isongs mids sf2s
+>   timeNow                                ← getCurrentTime
+>   let wrap                               = closingRemarks (diffUTCTime timeNow timeThen)
+>   putStrLn $ reapEmissions wrap
+>   return ()
 >   where
 >     msg                :: [FilePath] → [FilePath] → String
 >     msg ms ss
@@ -92,7 +97,7 @@ Implement PCommand =============================================================
 > renderSong runt (Song name music ding)   =
 >   do
 >     timeNow                              ← getCurrentTime
->     putStrLn $ unwords ["renderSong", name, show timeNow, "->"]
+>     putStrLn $ unwords ["renderSong", name, show timeNow, "...>"]
 >
 >     let dynMap                           = makeDynMap ding
 >     CM.unless (null dynMap)              (putStrLn $ unwords ["dynMap", show dynMap])
@@ -110,7 +115,7 @@ Implement PCommand =============================================================
 >           else outFile                   (name ++ ".wav") durS s
 >
 >         tsFinished                       ← getCurrentTime
->         putStrLn $ unwords ["<-", name, show (diffUTCTime tsFinished timeNow)]
+>         putStrLn $ unwords ["<...", name, show (diffUTCTime tsFinished timeNow)]
 >       else
 >         putStrLn "skipping..."
 >     return ()

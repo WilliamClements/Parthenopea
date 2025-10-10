@@ -39,10 +39,9 @@ October 5, 2025
 >   let esI              = concatMap dumpContestants (Map.toList pContI)
 >   let esP              = concatMap dumpContestants (Map.toList pContP)
 >   let esQ              = [] -- formerly emitSettingses
->   let esTail           = singleton $ Unblocked "\n\nThe End\n\n"
 >   let eol              = singleton EndOfLine
 >
->   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP, esQ, esTail]
+>   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP, esQ]
 >
 >   where
 >     nfs                :: [(Int, SFFileBoot)]

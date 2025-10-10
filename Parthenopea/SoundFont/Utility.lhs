@@ -12,6 +12,8 @@ October 8, 2025
 > module Parthenopea.SoundFont.Utility where
 >
 > import Data.Maybe
+> import Data.Time
+> import Data.Time.Clock.POSIX
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music ( AbsPitch, InstrumentName, PercussionSound, Volume )
 >
@@ -60,5 +62,10 @@ October 8, 2025
 > noonAsCoords noon                        =
 >   (  [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 0]
 >    , [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 1])
+
+-- Function to format NominalDiffTime into HH:MM:SS
+
+> formatNominalDiffTime  :: NominalDiffTime -> String
+> formatNominalDiffTime diff               = formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime diff)
 
 The End

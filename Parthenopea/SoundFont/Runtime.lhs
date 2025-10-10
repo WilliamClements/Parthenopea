@@ -86,12 +86,10 @@ cache SoundFont data that is only needed for Runtime ===========================
 >                 Nothing                  → s
 >                 Just pergm               → s `Set.union` Set.singleton pergm 
 >
->         pergms                           = extract zI `Set.union` extract zP
->
 >         selectI m pergm                  =
 >           IntMap.insertWith IntSet.union pergm.pgkwFile ((IntSet.singleton . fromIntegral) pergm.pgkwInst) m
 >       in
->         foldl' selectI IntMap.empty pergms
+>         foldl' selectI IntMap.empty (extract zI `Set.union` extract zP)
 >
 >     supply             :: SFFileBoot → Maybe (Int, SFFileRuntime)
 >     supply sffile
@@ -99,35 +97,32 @@ cache SoundFont data that is only needed for Runtime ===========================
 >       | otherwise                        = probe >>= populate
 >       where
 >         fName                            = "prepareRuntime supply"
->         trace_S                          = unwords [fName, show sffile.zWordFBoot, sffile.zFilename]
+>         trace_S                          = unwords [fName, show sffile.zWordFBoot, sffile.zFilename, show probe]
 >
 >         probe                            = sffile.zWordFBoot `IntMap.lookup` actions
+>         populate insts                   = 
+>           let
+>             getPerI inst                 =
+>               cache Map.! PerGMKey sffile.zWordFBoot (fromIntegral inst) Nothing
 >
->         populate insts                   = Just
->                                             ( sffile.zWordFBoot
->                                              , SFFileRuntime 
->                                                  sffile.zWordFBoot
->                                                  newpi
->                                                  preZone
->                                                  sffile.zSquirrelSample)
->           where
 >             newpi                        = IntMap.fromSet getPerI insts
->               where
->                 getPerI inst             =
->                   let
->                     pergm                = PerGMKey sffile.zWordFBoot (fromIntegral inst) Nothing
->                   in
->                     cache Map.! pergm
+>
+>             doPreZone m inst             =
+>               let
+>                 wrapUp pz                = (fromIntegral pz.pzWordB, pz')
+>                   where
+>                     pz'                  = pz{ pzRecon = Just $ resolvePreZone pz}            
+>               in
+>                 m `IntMap.union` IntMap.fromList (map wrapUp (newpi IntMap.! inst).pZones)
 >
 >             preZone                      = IntSet.foldl' doPreZone IntMap.empty insts
->               where
->                 doPreZone m inst         =
->                   let
->                     wrapUp pz            = (fromIntegral pz.pzWordB, pz')
->                       where
->                         pz'              = pz{ pzRecon = Just $ resolvePreZone pz}            
->                   in
->                     m `IntMap.union` IntMap.fromList (map wrapUp (newpi IntMap.! inst).pZones)
+>           in
+>             Just ( sffile.zWordFBoot
+>                  , SFFileRuntime 
+>                      sffile.zWordFBoot
+>                      newpi
+>                      preZone
+>                      sffile.zSquirrelSample)
 
 define signal functions and instrument maps to support rendering ======================================================
 
