@@ -56,13 +56,6 @@ In order of when they occur in the overall process:
 
 handle "matching as" cache misses =====================================================================================
 
-> createFuzzMap          :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ String → (a → Maybe (a, [String])) → Map a Fuzz
-> createFuzzMap inp getFFKeys              = Map.fromList $ mapMaybe (evalAgainstKindKeys inp) asLooks
->   where
->     -- weed out candidates with no fuzzy keys
->     asLooks            :: [(a, [String])]
->     asLooks                              = mapMaybe getFFKeys (select allKinds)
->
 > evalAgainstKeys        :: String → [String] → Fuzz
 > evalAgainstKeys inp keys                 = sum $ zipWith evalAgainstOne keys weights
 >   where
@@ -91,16 +84,23 @@ use "matching as" cache ========================================================
 > combineFF ffpros ffcons                  =
 >   Map.filter (>= 0) (Map.unionWith (+) ffpros (Map.map (* (- fromRational conRatio)) ffcons))
 >
-> computeFFMatches       :: String → FFMatches
-> computeFFMatches inp                     = FFMatches inp
+> computeFFMatches       :: String → Bool → FFMatches
+> computeFFMatches inp narrow              = FFMatches inp
 >                                              (combineFF ias ibs)
 >                                              (combineFF pas pbs)
 >   where
->     ias = createFuzzMap inp instrumentProFFKeys
->     ibs = createFuzzMap inp instrumentConFFKeys
+>     ias = createFuzzMap instrumentProFFKeys
+>     ibs = createFuzzMap instrumentConFFKeys
 >
->     pas = createFuzzMap inp percussionProFFKeys
->     pbs = createFuzzMap inp percussionConFFKeys
+>     pas = createFuzzMap percussionProFFKeys
+>     pbs = createFuzzMap percussionConFFKeys
+>
+>     createFuzzMap          :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ (a → Maybe (a, [String])) → Map a Fuzz
+>     createFuzzMap getFFKeys              = Map.fromList $ mapMaybe (evalAgainstKindKeys inp) asLooks
+>       where
+>         -- weed out candidates with no fuzzy keys
+>         asLooks            :: [(a, [String])]
+>         asLooks                              = mapMaybe getFFKeys (select allKinds narrow)
 >
 > zoneConforms           :: PreZone → Bool
 > zoneConforms pz                          = not $ or unsupported
@@ -221,7 +221,7 @@ tournament starts here =========================================================
 >         pergm                            = mscored >>= (Just . pPerGMKey)
 >
 >     trueChoice kind scored                   =
->       [Blanks 3, gmId kind, Unblocked " -> "] ++ showPerGM scored ++ [EndOfLine]
+>       [Blanks 3, gmId kind, Unblocked " ...> "] ++ showPerGM scored ++ [EndOfLine]
 >     falseChoice kind                         =
 >       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
 >
@@ -270,14 +270,15 @@ tournament starts here =========================================================
 >             fuzzMap                      = getFuzzMap iMatches
 >
 >             i2Fuzz     :: Map InstrumentName Fuzz
->             i2Fuzz                       = Map.filterWithKey (\k _ → k `elem` select rost) fuzzMap
+>             i2Fuzz                       =
+>               Map.filterWithKey (\k _ → k `elem` select rost dives.narrowInstrumentScope) fuzzMap
 >
 >             i2Fuzz'    :: [InstrumentName]
 >             i2Fuzz'                      =
 >               profess
 >                 (not $ Map.null i2Fuzz)
 >                 (unwords [fName_, "unexpected empty matches"]) 
->                 (if dives.dMultipleCompetes
+>                 (if dives.multipleCompetes
 >                    then Map.keys i2Fuzz
 >                    else (singleton . fst) (Map.findMax i2Fuzz))
 >           in

@@ -43,7 +43,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 
 > data FileWork                            =
 >   FileWork {
->     fwZRecs            :: [InstZoneRecord]
+>     fwDirectives       :: Directives
+>   , fwZRecs            :: [InstZoneRecord]
 >   , fwPreSampleCache   :: Map PreSampleKey PreSample
 >   , fwInstrumentCache  :: Map PerGMKey PerInstrument
 >   , fwMatches          :: Matches
@@ -57,9 +58,10 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >              , show (length fw.fwZRecs), "=#zrecs"
 >              , show (length fw.fwInstrumentCache), "=#cached"
 >              , show fw.fwDispositions]
-> defFileWork            :: FileWork
-> defFileWork                              =
->   FileWork 
+> defFileWork            :: Directives → FileWork
+> defFileWork dives                        =
+>   FileWork
+>    dives 
 >    []
 >    Map.empty
 >    Map.empty
@@ -100,10 +102,10 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >                , adoptTaskIf, smashTaskIf, reorgTaskIf, matchTaskIf, catTaskIf, perITaskIf
 >                        :: SFFileBoot → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
 >
-> makeFileIterate        :: SFFileBoot → ([InstrumentName], [PercussionSound]) → FileIterate
-> makeFileIterate sffile rost              =
+> makeFileIterate        :: Directives → SFFileBoot → ([InstrumentName], [PercussionSound]) → FileIterate
+> makeFileIterate dives sffile rost        =
 >   FileIterate
->     defFileWork 
+>     (defFileWork dives)
 >     [
 >        ("preSample",  preSample)
 >      , ("smell",      smell)
@@ -142,8 +144,7 @@ and recovery.
 >                           → ([InstrumentName], [PercussionSound])
 >                           → VB.Vector SFFileBoot
 >                           → IO (Map PerGMKey PerInstrument, Matches, ResultDispositions)
-> surveyInstruments _ rost vFilesBoot
->                                          = do
+> surveyInstruments dives rost vFilesBoot  = do
 >   putStrLn ""
 >   putStrLn $ unwords [fName, show rost]
 >   putStrLn ""
@@ -160,7 +161,7 @@ and recovery.
 >         ingestFile                       = head
 >                                            $ dropWhile unfinished
 >                                            $ iterate nextGen
->                                            $ makeFileIterate sffile rost
+>                                            $ makeFileIterate dives sffile rost
 >           where
 >             unfinished fiIn              = not (null fiIn.fiTaskIfs)
 >             nextGen fiIn@FileIterate{ .. }
@@ -766,13 +767,15 @@ match task =====================================================================
 
 > matchTaskIf _ _ fwIn                     = fwIn{fwMatches = Matches sMatches iMatches}
 >   where
+>     narrow                               = fwIn.fwDirectives.narrowInstrumentScope
+>
 >     sMatches                             =
->       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.cnName) m)
+>       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.cnName narrow) m)
 >         Map.empty fwIn.fwPreSampleCache
 >     iMatches                             =
 >       let
 >         computeFF      :: Map PerGMKey FFMatches → InstZoneRecord → Map PerGMKey FFMatches 
->         computeFF m zrec                 = Map.insert (instKey zrec) (computeFFMatches zrec.zswChanges.cnName) m
+>         computeFF m zrec                 = Map.insert (instKey zrec) (computeFFMatches zrec.zswChanges.cnName narrow) m
 >       in
 >         zrecCompute fwIn computeFF Map.empty 
 
@@ -788,6 +791,8 @@ categorization task ============================================================
 >     catter zrec rdFold                   = (zrec{zsInstCat = icat}, dispose (instKey zrec) ss rdFold)
 >       where
 >         (icat, ss)                       = categorizeInst zrec
+>
+>     narrow                               = fwIn.fwDirectives.narrowInstrumentScope
 >
 >     categorizeInst     :: InstZoneRecord → (Maybe InstCat, [Scan])
 >     categorizeInst zrec
@@ -836,9 +841,9 @@ categorization task ============================================================
 >           let
 >             iMatches                     = fromJust $ Map.lookup pergm fwIn.fwMatches.mIMatches
 >             ffInst'                      =
->               Map.filterWithKey (\k v → k `elem` select rostAlts && isPossible' v) iMatches.ffInst
+>               Map.filterWithKey (\k v → k `elem` select rostAlts narrow && isPossible' v) iMatches.ffInst
 >             ffPerc'                      =
->               Map.filterWithKey (\k v → k `elem` select rostAlts && isPossible' v) iMatches.ffPerc
+>               Map.filterWithKey (\k v → k `elem` select rostAlts narrow && isPossible' v) iMatches.ffPerc
 >           in
 >             [ 
 >                 maybeSettle isConfirmed catInst                  ffInst'
@@ -900,7 +905,8 @@ categorization task ============================================================
 >             catDisq                      = InstCatDisq
 >
 >         qualPercZone   :: ([InstrumentName], [PercussionSound]) → PreZone → Maybe Word
->         qualPercZone rost' prez          = mrange >>= pinnedKR (select rost') >> Just prez.pzWordB
+>         qualPercZone rost' prez          =
+>           mrange >>= pinnedKR (select rost' narrow) >> Just prez.pzWordB
 >           where
 >             mrange                       = prez.pzDigest.zdKeyRange >>= (Just . BF.bimap fromIntegral fromIntegral)
 

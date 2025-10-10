@@ -65,7 +65,7 @@ October 8, 2025
 
 -- Function to format NominalDiffTime into HH:MM:SS
 
-> formatNominalDiffTime  :: NominalDiffTime -> String
+> formatNominalDiffTime  :: NominalDiffTime → String
 > formatNominalDiffTime diff               = formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime diff)
 
 The End

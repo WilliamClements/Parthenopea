@@ -316,13 +316,13 @@ implementing SoundFont spec ====================================================
 >
 > class GMPlayable a where
 >   toGMKind             :: a → GMKind
->   select               :: ([InstrumentName], [PercussionSound]) → [a]
+>   select               :: ([InstrumentName], [PercussionSound]) → Bool → [a]
 >   specialCase          :: a → Bool
 >   getFuzzMap           :: FFMatches → Map a Fuzz
 >
 > instance GMPlayable InstrumentName where
 >   toGMKind                               = Left
->   select rost                            =
+>   select rost narrowInstrumentScope      =
 >     if narrowInstrumentScope
 >       then fst rost
 >       else fst allKinds
@@ -331,7 +331,7 @@ implementing SoundFont spec ====================================================
 >
 > instance GMPlayable PercussionSound where
 >   toGMKind                               = Right
->   select rost                            =
+>   select rost narrowInstrumentScope      =
 >     if narrowInstrumentScope
 >       then snd rost
 >       else snd allKinds
@@ -671,9 +671,6 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportTournamentName   :: FilePath
 > reportTournamentName                     = "Tournament.report"
 >
-> narrowInstrumentScope  :: Bool
-> narrowInstrumentScope                    = True
->
 > data ReportVerbosity                     =
 >   ReportVerbosity {
 >     dForRanges         :: Rational
@@ -695,11 +692,17 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > data Directives                          =
 >   Directives {
 >     dReportVerbosity   :: ReportVerbosity
->   , dMultipleCompetes  :: Bool}
+>   , narrowInstrumentScope
+>                        :: Bool
+>   , crossInstrumentPairing
+>                        :: Bool
+>   , multipleCompetes   :: Bool}
 > defDirectives          :: Directives
 > defDirectives                            =
 >   Directives
 >     allOn
+>     True
+>     False
 >     True
 > okDirectives           :: Directives → Bool
 > okDirectives dives                       = okReportVerbosity dives.dReportVerbosity
