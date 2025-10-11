@@ -675,7 +675,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >   ReportVerbosity {
 >     dForRanges         :: Rational
 >   , dForScan           :: Rational
->   , dForTournament     :: Rational}
+>   , dForTournament     :: Rational} deriving (Eq, Show)
 > okReportVerbosity      :: ReportVerbosity → Bool
 > okReportVerbosity rv                     = 
 >      inCanonicalRange rv.dForRanges
@@ -696,7 +696,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >                        :: Bool
 >   , crossInstrumentPairing
 >                        :: Bool
->   , multipleCompetes   :: Bool}
+>   , multipleCompetes   :: Bool} deriving (Eq, Show)
 > defDirectives          :: Directives
 > defDirectives                            =
 >   Directives

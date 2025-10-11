@@ -50,8 +50,8 @@ unit tests =====================================================================
 
 check all the incoming music for instrument range violations ==========================================================
 
-> writeRangesReport      :: [Song] → Map GMKind Shred → IO ()
-> writeRangesReport songs ding             = do
+> writeRangesReport      :: Directives → [Song] → Map GMKind Shred → IO ()
+> writeRangesReport dives songs ding       = do
 >   let rollup                             =
 >         Song "rollup" (const (foldr ((:+:) . uncap . songMusic) (rest 0) songs)) ding
 >   let esAll                              = concatMap doSong songs
@@ -64,11 +64,11 @@ check all the incoming music for instrument range violations ===================
 >        , ToFieldL "*status" 8
 >        , ToFieldL "note count" 15
 >        , ToFieldL "alternative" 20, EndOfLine]
->   let esSuffix                          = if 1 < length songs
+>   let esRollup                          = if 1 < length songs
 >                                             then doSong rollup
 >                                             else []
->   writeFileBySections reportRangesName [esPrefix, esAll, esSuffix]
->
+>   let esDives                            = [EndOfLine, Unblocked $ show dives] -- formerly emitSettingses
+>   writeFileBySections reportRangesName [esPrefix, esAll, esRollup, esDives]
 >   where
 >     uncap              :: (DynMap → Music1) → Music1
 >     uncap m                              = m Map.empty

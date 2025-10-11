@@ -65,7 +65,15 @@ October 8, 2025
 
 -- Function to format NominalDiffTime into HH:MM:SS
 
-> formatNominalDiffTime  :: NominalDiffTime → String
-> formatNominalDiffTime diff               = formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime diff)
+> formatDiffTime         :: ZonedTime → ZonedTime → String
+> formatDiffTime ltNow ltThen              =
+>   let
+>     utThen                               = zonedTimeToUTC ltThen
+>     utNow                                = zonedTimeToUTC ltNow
+>     utDiff                               = diffUTCTime utNow utThen
+>   in
+>     formatNominalDiffTime utDiff
+>   where
+>     formatNominalDiffTime diff           = formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime diff)
 
 The End

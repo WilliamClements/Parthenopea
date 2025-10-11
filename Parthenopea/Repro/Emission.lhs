@@ -118,10 +118,10 @@ Quick & dirty way to format strings into tabular form
 >   appendFile fp (reapEmissions theEnd)
 >   putStrLn (unwords ["wrote", fp])
 >
-> closingRemarks                 :: NominalDiffTime → [Emission]
-> closingRemarks ndt                       =
+> closingRemarks                 :: ZonedTime → ZonedTime → [Emission]
+> closingRemarks tLater tEarlier           =
 >   let
->     str                                  = formatNominalDiffTime ndt
+>     str                                  = formatDiffTime tLater tEarlier
 >   in
 >     [EndOfLine, Unblocked "Elapsed: ", Unblocked str] ++ theEnd
 

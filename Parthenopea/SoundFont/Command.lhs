@@ -20,7 +20,7 @@ June 16, 2025
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromMaybe )
-> import Data.Time.Clock ( diffUTCTime, getCurrentTime )
+> import Data.Time ( getZonedTime )
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF )
@@ -48,14 +48,17 @@ Implement PCommand =============================================================
 >
 > batchProcessor         :: Directives → [Song] → IO ()
 > batchProcessor dives isongs              = do
->   timeThen                               ← getCurrentTime
+>   timeThen                               ← getZonedTime
+>   print timeThen
+>
 >   mids                                   ← FP.getDirectoryFiles "." ["*.mid", "*.midi"]
 >   sf2s                                   ← FP.getDirectoryFiles "." ["*.sf2"]
 >   putStrLn (msg mids sf2s)
 >   CM.unless ( okDirectives dives) (error "garbage in Directives")
 >   proceed dives isongs mids sf2s
->   timeNow                                ← getCurrentTime
->   let wrap                               = closingRemarks (diffUTCTime timeNow timeThen)
+>
+>   timeNow                                ← getZonedTime
+>   let wrap                               = closingRemarks timeNow timeThen
 >   putStrLn $ reapEmissions wrap
 >   return ()
 >   where
@@ -75,7 +78,7 @@ Implement PCommand =============================================================
 >
 >   CM.when (20 < length songs && not (null sf2s)) runUnitTests
 >   let ding                               = Map.unionsWith combineShreds (map songShredding songs)
->   CM.when (dForRanges > 0) (writeRangesReport songs ding)
+>   CM.when (dForRanges > 0) (writeRangesReport dives songs ding)
 >
 >   rost                                   ← qualifyKinds ding songs
 >
@@ -86,18 +89,27 @@ Implement PCommand =============================================================
 >     then return ()
 >     else do
 >       runt                               ← commandLogic dives rost vFilesBoot
->
 >       -- here's the heart of the coconut
 >       mapM_ (renderSong runt) songs
 >   where
 >     ReportVerbosity{ .. }               
 >                                          = dives.dReportVerbosity
 >
+> commandLogic           :: Directives → ([InstrumentName], [PercussionSound]) → VB.Vector SFFileBoot → IO SFRuntime
+> commandLogic dives rost vFilesBoot       = do
+>   (cache, matches, rd)                   ← surveyInstruments dives rost vFilesBoot
+>   CM.when (dForScan > 0)                 (writeScanReport dForScan vFilesBoot rd)
+>   (zI, zP)                               ← establishWinners dives rost vFilesBoot cache matches
+>   prepareRuntime dives rost vFilesBoot cache (zI, zP)
+>   where
+>     ReportVerbosity{ .. }
+>                                          = dives.dReportVerbosity
+>
 > renderSong             :: SFRuntime → Song → IO ()
 > renderSong runt (Song name music ding)   =
 >   do
->     timeNow                              ← getCurrentTime
->     putStrLn $ unwords ["renderSong", name, show timeNow, "...>"]
+>     tsStart                               ← getZonedTime
+>     putStrLn $ unwords ["renderSong", name, show tsStart, "...>"]
 >
 >     let dynMap                           = makeDynMap ding
 >     CM.unless (null dynMap)              (putStrLn $ unwords ["dynMap", show dynMap])
@@ -113,9 +125,8 @@ Implement PCommand =============================================================
 >         if normalizingOutput
 >           then outFileNorm               (name ++ ".wav") durS s
 >           else outFile                   (name ++ ".wav") durS s
->
->         tsFinished                       ← getCurrentTime
->         putStrLn $ unwords ["<...", name, show (diffUTCTime tsFinished timeNow)]
+>         tsFinish                         ← getZonedTime
+>         putStrLn $ formatDiffTime tsFinish tsStart
 >       else
 >         putStrLn "skipping..."
 >     return ()
@@ -159,15 +170,5 @@ Implement PCommand =============================================================
 >       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
 >       let sffileBoot                     = SFFileBoot wFile filename boota samplea
 >       return sffileBoot
->
-> commandLogic           :: Directives → ([InstrumentName], [PercussionSound]) → VB.Vector SFFileBoot → IO SFRuntime
-> commandLogic dives rost vFilesBoot       = do
->   (cache, matches, rd)                   ← surveyInstruments dives rost vFilesBoot
->   CM.when (dForScan > 0)                 (writeScanReport dForScan vFilesBoot rd)
->   (zI, zP)                               ← establishWinners dives rost vFilesBoot cache matches
->   prepareRuntime dives rost vFilesBoot cache (zI, zP)
->   where
->     ReportVerbosity{ .. }
->                                          = dives.dReportVerbosity
 
 The End

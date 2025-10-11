@@ -92,30 +92,25 @@ cache SoundFont data that is only needed for Runtime ===========================
 >         foldl' selectI IntMap.empty (extract zI `Set.union` extract zP)
 >
 >     supply             :: SFFileBoot → Maybe (Int, SFFileRuntime)
->     supply sffile
->       | traceIf trace_S False            = undefined
->       | otherwise                        = probe >>= populate
+>     supply sffile                        = probe >>= savePerInstruments
 >       where
->         fName                            = "prepareRuntime supply"
->         trace_S                          = unwords [fName, show sffile.zWordFBoot, sffile.zFilename, show probe]
->
 >         probe                            = sffile.zWordFBoot `IntMap.lookup` actions
->         populate insts                   = 
+>         savePerInstruments insts         = 
 >           let
 >             getPerI inst                 =
 >               cache Map.! PerGMKey sffile.zWordFBoot (fromIntegral inst) Nothing
 >
 >             newpi                        = IntMap.fromSet getPerI insts
 >
->             doPreZone m inst             =
+>             savePreZones m inst          =
 >               let
 >                 wrapUp pz                = (fromIntegral pz.pzWordB, pz')
 >                   where
->                     pz'                  = pz{ pzRecon = Just $ resolvePreZone pz}            
+>                     pz'                  = pz{pzRecon = Just $ resolvePreZone pz}            
 >               in
 >                 m `IntMap.union` IntMap.fromList (map wrapUp (newpi IntMap.! inst).pZones)
 >
->             preZone                      = IntSet.foldl' doPreZone IntMap.empty insts
+>             preZone                      = IntSet.foldl' savePreZones IntMap.empty insts
 >           in
 >             Just ( sffile.zWordFBoot
 >                  , SFFileRuntime 
@@ -127,21 +122,18 @@ cache SoundFont data that is only needed for Runtime ===========================
 define signal functions and instrument maps to support rendering ======================================================
 
 > prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
-> prepareInstruments prerunt               = do
+> prepareInstruments prerunt@SFRuntime{ .. }
+>                                          = do
 >     return $ (Percussion, assignPercussion)                                                               : imap
 >   where
->     (zI, zP)                             = (prerunt.zChoicesI, prerunt.zChoicesP)
+>     (zI, zP)                             = (middle zChoicesI, middle zChoicesP)
+>                                              where middle = Map.mapMaybe (\(_, pp, _) → pp)
 >     imap                                 = Map.foldrWithKey imapFolder [] zI
 >     pmap                                 = Map.foldrWithKey pmapFolder [] zP
 >
->     imapFolder kind _ target             = (kind, assignInstrument pergm)                                 : target
->       where
->        (_, pPerGMKey, _)                 = zI Map.! kind
->        pergm                             = deJust "prepareRuntime imapFolder" pPerGMKey
->     pmapFolder kind _ target             = (kind, (pgkwFile pergm, pgkwInst pergm))                       : target
->       where
->        (_, pPerGMKey, _)                 = zP Map.! kind
->        pergm                             = deJust "prepareRuntime pmapFolder" pPerGMKey
+>     imapFolder kind _ target             = (kind, assignInstrument (zI Map.! kind))                       : target
+>     pmapFolder kind _ target             = (kind, (pergm.pgkwFile, pergm.pgkwInst))                       : target
+>                                              where pergm = zP Map.! kind
 >
 >     assignInstrument   :: ∀ p . Clock p ⇒ PerGMKey → Instr (Stereo p)
 >     assignInstrument pergm durI pch vol params

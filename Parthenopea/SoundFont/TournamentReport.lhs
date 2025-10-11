@@ -38,10 +38,9 @@ October 5, 2025
 >   let esFiles          = emitFileListC ++ [EndOfLine]
 >   let esI              = concatMap dumpContestants (Map.toList pContI)
 >   let esP              = concatMap dumpContestants (Map.toList pContP)
->   let esQ              = [] -- formerly emitSettingses
 >   let eol              = singleton EndOfLine
 >
->   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP, esQ]
+>   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP]
 >
 >   where
 >     nfs                :: [(Int, SFFileBoot)]
