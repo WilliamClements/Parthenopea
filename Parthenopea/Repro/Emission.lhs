@@ -24,6 +24,7 @@ November 9, 2023
 >         , gmId
 >         , parens
 >         , reapEmissions
+>         , theEnd
 >         , writeFileBySections
 >         )
 >         where
@@ -113,10 +114,8 @@ Quick & dirty way to format strings into tabular form
 > theEnd                                   = [EndOfLine, EndOfLine, Unblocked "The End", EndOfLine]
 >
 > writeFileBySections    :: FilePath → [[Emission]] → IO ()
-> writeFileBySections fp eSections         = do
+> writeFileBySections fp eSections   = do
 >   mapM_ (appendFile fp . reapEmissions) eSections
->   appendFile fp (reapEmissions theEnd)
->   putStrLn (unwords ["wrote", fp])
 >
 > closingRemarks                 :: ZonedTime → ZonedTime → [Emission]
 > closingRemarks tLater tEarlier           =

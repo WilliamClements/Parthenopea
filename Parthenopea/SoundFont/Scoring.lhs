@@ -199,7 +199,7 @@ tournament starts here =========================================================
 > establishWinners dives rost vFiles cache matches
 >                                          = do
 >   (wI_, wP_)                             ← decideWinners dives rost vFiles cache matches
->   CM.when (dives.dReportVerbosity.dForTournament > 0) (writeTournamentReport vFiles wI_ wP_)
+>   CM.when (dives.dReportVerbosity.dForTournament > 0) (writeTournamentReport dives vFiles wI_ wP_)
 >   let (wI, wP)                           = (Map.map head wI_, Map.map head wP_)
 >   let zI                                 = foldl' (buildUp wI) Map.empty (fst rost)
 >   let zP                                 = foldl' (buildUp wP) Map.empty (snd rost)
@@ -221,7 +221,7 @@ tournament starts here =========================================================
 >         pergm                            = mscored >>= (Just . pPerGMKey)
 >
 >     trueChoice kind scored                   =
->       [Blanks 3, gmId kind, Unblocked " ...> "] ++ showPerGM scored ++ [EndOfLine]
+>       [Blanks 3, gmId kind, Unblocked " ... "] ++ showPerGM scored ++ [EndOfLine]
 >     falseChoice kind                         =
 >       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
 >
@@ -233,7 +233,6 @@ tournament starts here =========================================================
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 > decideWinners dives rost _ cache matches
 >                                          = do
->   CM.when diagnosticsEnabled             (putStrLn $ unwords [fName__, show $ length matches.mSMatches])
 >   return wiExec
 >
 >   where

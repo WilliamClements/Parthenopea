@@ -26,7 +26,6 @@ December 12, 2022
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ord ( comparing )
-> import Data.Ratio ( approxRational )
 > import qualified Data.Vector.Unboxed     as VU
 > import Data.Word ( Word8 )
 > import Euterpea.IO.Audio.Basics ( outA )
@@ -81,12 +80,6 @@ TODO: adjust loudness output based on "home velocity", which would be passed in 
 >
 > slur                   :: Rational → Music a → Music a
 > slur rateS                               = Modify (Phrase [Art (Slurred rateS)])
->
-> ratEps                 :: Double
-> ratEps                                   = 0.000_1
->
-> approx                 :: Double → Dur
-> approx durA                              = approxRational durA ratEps
 >
 > allPitches             :: Music Pitch
 > allPitches =

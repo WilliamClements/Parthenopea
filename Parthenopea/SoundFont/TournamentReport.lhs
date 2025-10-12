@@ -24,28 +24,34 @@ October 5, 2025
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
 >
-> writeTournamentReport  :: VB.Vector SFFileBoot
+> writeTournamentReport  :: Directives
+>                           → VB.Vector SFFileBoot
 >                           → Map InstrumentName [PerGMScored]
 >                           → Map PercussionSound [PerGMScored]
 >                           → IO ()
-> writeTournamentReport vBootFiles pContI pContP
+> writeTournamentReport dives vBootFiles pContI pContP
 >                        = do
 >   -- output all selections to the report file
 >   let legend           =
->           emitComment     [   Unblocked "legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]"]
->        ++ emitNextComment [   Unblocked "weights = "
->                             , Unblocked (show ssWeights)] 
->   let esFiles          = emitFileListC ++ [EndOfLine]
+>           emitComment     [   ToFieldL "hints" spacing
+>                             , ToFieldL "stereo" spacing
+>                             , ToFieldL "24-bit" spacing
+>                             , ToFieldL "resolution" spacing
+>                             , ToFieldL "conformant" spacing
+>                             , ToFieldL "fuzzy" spacing]
+>        ++ emitNextComment (showWeights spacing )
+>         where
+>           spacing                        = 16
 >   let esI              = concatMap dumpContestants (Map.toList pContI)
 >   let esP              = concatMap dumpContestants (Map.toList pContP)
 >   let eol              = singleton EndOfLine
 >
->   writeFileBySections reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP]
+>   writeReportBySections dives reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP]
 >
 >   where
 >     nfs                :: [(Int, SFFileBoot)]
 >     nfs                = zip [0..] (VB.toList vBootFiles)
->     emitFileListC      = concatMap doF nfs
+>     esFiles            = concatMap doF nfs
 >     doF (nth, sffile)  = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
 
 emit standard output text detailing what choices we made for rendering GM items =======================================

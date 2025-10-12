@@ -25,6 +25,7 @@ April 16, 2023
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ratio ( (%) )
+> import Data.Time
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music
@@ -364,6 +365,8 @@ implementing SoundFont spec ====================================================
 >                                            , fromRational weighResolution
 >                                            , fromRational weighConformance
 >                                            , fromRational weighFuzziness ]
+> showWeights            :: Int → [Emission]
+> showWeights spacing                      = concatMap (\weight → [emitShowL weight spacing]) ssWeights
 >
 > weighHints                               = 10
 > weighStereo                              = 2
@@ -592,6 +595,14 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >
 > is24BitInst _                            = True -- was isJust $ ssM24 arrays       
 >
+> writeReportBySections  :: Directives → FilePath → [[Emission]] → IO ()
+> writeReportBySections dives fp eSections   = do
+>   tsStarted                              ← getZonedTime
+>   let prolog                             = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
+>   let epilog                             = [EndOfLine, Unblocked $ show dives]
+>   writeFileBySections fp ([prolog] ++ eSections ++ [epilog, theEnd])
+>   putStrLn (unwords ["wrote", fp])
+>
 > emitMsgs               :: InstrumentName → [(InstrumentName, [String])] → [Emission]
 > emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs
 >   where
@@ -691,19 +702,22 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >
 > data Directives                          =
 >   Directives {
->     dReportVerbosity   :: ReportVerbosity
->   , narrowInstrumentScope
+>     narrowInstrumentScope
 >                        :: Bool
 >   , crossInstrumentPairing
 >                        :: Bool
->   , multipleCompetes   :: Bool} deriving (Eq, Show)
+>   , switchBadStereoZonesToMono
+>                        :: Bool
+>   , multipleCompetes   :: Bool
+>   , dReportVerbosity   :: ReportVerbosity} deriving (Eq, Show)
 > defDirectives          :: Directives
 > defDirectives                            =
 >   Directives
->     allOn
 >     True
 >     False
 >     True
+>     True
+>     allOn
 > okDirectives           :: Directives → Bool
 > okDirectives dives                       = okReportVerbosity dives.dReportVerbosity
 

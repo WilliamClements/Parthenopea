@@ -67,8 +67,7 @@ check all the incoming music for instrument range violations ===================
 >   let esRollup                          = if 1 < length songs
 >                                             then doSong rollup
 >                                             else []
->   let esDives                            = [EndOfLine, Unblocked $ show dives] -- formerly emitSettingses
->   writeFileBySections reportRangesName [esPrefix, esAll, esRollup, esDives]
+>   writeReportBySections dives reportRangesName [esPrefix, esAll, esRollup]
 >   where
 >     uncap              :: (DynMap → Music1) → Music1
 >     uncap m                              = m Map.empty

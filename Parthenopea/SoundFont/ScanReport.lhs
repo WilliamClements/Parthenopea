@@ -15,7 +15,6 @@ October 5, 2025
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Ord ( Down(Down) )
-> import Data.Time.Clock ( getCurrentTime )
 > import qualified Data.Vector.Strict      as VB
 > import Debug.Trace ( traceIO )
 > import Parthenopea.Debug
@@ -24,13 +23,11 @@ October 5, 2025
   
 executive =============================================================================================================
 
-> writeScanReport        :: Rational →  VB.Vector SFFileBoot → ResultDispositions → IO ()
-> writeScanReport dive bootFiles rd             = do
+> writeScanReport        :: Directives → Rational → VB.Vector SFFileBoot → ResultDispositions → IO ()
+> writeScanReport dives verbosity bootFiles rd             = do
 >   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show rd])
 >
 >   -- output all selections to the report file
->   tsStarted                              ← getCurrentTime
->   let esTimeStamp                        = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
 >   let esSampleSummary                    = summarize rd.preSampleDispos ++ [EndOfLine]
 >   let esInstSummary                      = summarize rd.preInstDispos ++ [EndOfLine]
 >   let esPreZoneSummary                   = summarize rd.preZoneDispos ++ [EndOfLine]
@@ -39,10 +36,11 @@ executive ======================================================================
 >   let esPreZoneScan                      = procMap rd.preZoneDispos ++ [EndOfLine]
 >   let esTail                             = [EndOfLine, EndOfLine]
 >
->   writeFileBySections
+>   writeReportBySections
+>     dives
 >     reportScanName
->     ([esTimeStamp, esSampleSummary, esInstSummary, esPreZoneSummary]
->      ++ if dive < (1/3) then [] else [esSampleScan, esInstScan, esPreZoneScan]
+>     ([esSampleSummary, esInstSummary, esPreZoneSummary]
+>      ++ if verbosity < (1/3) then [] else [esSampleScan, esInstScan, esPreZoneScan]
 >      ++ [esTail])
 >   where
 >     fName                                = "writeScanReport"
@@ -74,7 +72,7 @@ executive ======================================================================
 >                                              then []
 >                                              else prolog ++ [EndOfLine] ++ concatMap procScan ssIn ++ [EndOfLine]
 >       where
->         ssOut                            = filter (\s → s.sDisposition `notElem` calcElideSet dive) ssIn
+>         ssOut                            = filter (\s → s.sDisposition `notElem` calcElideSet verbosity) ssIn
 >         sffileBoot                       = bootFiles VB.! wfile k
 >
 >         prolog                           = 

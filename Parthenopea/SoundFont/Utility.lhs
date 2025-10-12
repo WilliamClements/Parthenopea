@@ -12,10 +12,11 @@ October 8, 2025
 > module Parthenopea.SoundFont.Utility where
 >
 > import Data.Maybe
+> import Data.Ratio ( approxRational )
 > import Data.Time
 > import Data.Time.Clock.POSIX
 > import Euterpea.IO.MIDI.GeneralMidi ( )
-> import Euterpea.Music ( AbsPitch, InstrumentName, PercussionSound, Volume )
+> import Euterpea.Music ( AbsPitch, Dur, InstrumentName, PercussionSound, Volume )
 >
 > type GMKind                              = Either InstrumentName PercussionSound
 > type KeyNumber                           = AbsPitch
@@ -63,17 +64,30 @@ October 8, 2025
 >   (  [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 0]
 >    , [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 1])
 
--- Function to format NominalDiffTime into HH:MM:SS
+Time ==================================================================================================================
+
+> ratEps                 :: Double
+> ratEps                                   = 0.000_1
+>
+> approx                 :: Double → Dur
+> approx durA                              = approxRational durA ratEps
+
+-- Function to format elapsed time between two zoned times
 
 > formatDiffTime         :: ZonedTime → ZonedTime → String
-> formatDiffTime ltNow ltThen              =
+> formatDiffTime tsNow tsThen              =
 >   let
->     utThen                               = zonedTimeToUTC ltThen
->     utNow                                = zonedTimeToUTC ltNow
->     utDiff                               = diffUTCTime utNow utThen
+>     utcDiff                              = diffUTCTime (zonedTimeToUTC tsNow) (zonedTimeToUTC tsThen)
 >   in
->     formatNominalDiffTime utDiff
->   where
->     formatNominalDiffTime diff           = formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime diff)
+>     formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime utcDiff)
+
+-- Function to format elapsed time from raw seconds
+
+> formatSeconds         :: Rational → String
+> formatSeconds tsDiff                     =
+>   let
+>     utcDiff                              = secondsToNominalDiffTime $ fromRational tsDiff
+>   in
+>     formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime utcDiff)
 
 The End

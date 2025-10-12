@@ -535,7 +535,7 @@ pair task ======================================================================
 >         bagsL'                           = bagsL `IntSet.difference` pairedSoFar
 >         bagsR'                           = bagsR `IntSet.difference` pairedSoFar
 >       in
->         if allowCrossInstrumentPairing
+>         if fWork.fwDirectives.crossInstrumentPairing
 >           then regularPairs `IntMap.union` makePairs True bagsL' bagsR'
 >           else regularPairs
 >
@@ -589,7 +589,9 @@ vet task =======================================================================
 >       where
 >         fName                            = "vetActions"
 >
->         (pzsOut, rdOut)                  = doAction $ if switchBadStereoZonesToMono then makeThemMono else killThem        
+>         (pzsOut, rdOut)                  = doAction $ if fWork.fwDirectives.switchBadStereoZonesToMono 
+>                                                         then makeThemMono
+>                                                         else killThem        
 >             
 >         makeThemMono pz rd               = (Just $ makeMono pz, rd)
 >             
@@ -1089,12 +1091,6 @@ build zone task ================================================================
 > doAbsorption                             = True
 > fixBadNames            :: Bool
 > fixBadNames                              = True
-> switchBadStereoZonesToMono
->                        :: Bool
-> switchBadStereoZonesToMono               = True
-> allowCrossInstrumentPairing
->                        :: Bool
-> allowCrossInstrumentPairing              = True
 > allowParallelPairing   :: Bool
 > allowParallelPairing                     = True
 

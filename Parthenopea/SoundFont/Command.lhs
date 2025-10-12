@@ -98,7 +98,7 @@ Implement PCommand =============================================================
 > commandLogic           :: Directives → ([InstrumentName], [PercussionSound]) → VB.Vector SFFileBoot → IO SFRuntime
 > commandLogic dives rost vFilesBoot       = do
 >   (cache, matches, rd)                   ← surveyInstruments dives rost vFilesBoot
->   CM.when (dForScan > 0)                 (writeScanReport dForScan vFilesBoot rd)
+>   CM.when (dForScan > 0)                 (writeScanReport dives dForScan vFilesBoot rd)
 >   (zI, zP)                               ← establishWinners dives rost vFilesBoot cache matches
 >   prepareRuntime dives rost vFilesBoot cache (zI, zP)
 >   where
@@ -109,7 +109,7 @@ Implement PCommand =============================================================
 > renderSong runt (Song name music ding)   =
 >   do
 >     tsStart                               ← getZonedTime
->     putStrLn $ unwords ["renderSong", name, show tsStart, "...>"]
+>     putStrLn $ unwords ["renderSong", name]
 >
 >     let dynMap                           = makeDynMap ding
 >     CM.unless (null dynMap)              (putStrLn $ unwords ["dynMap", show dynMap])
@@ -126,7 +126,13 @@ Implement PCommand =============================================================
 >           then outFileNorm               (name ++ ".wav") durS s
 >           else outFile                   (name ++ ".wav") durS s
 >         tsFinish                         ← getZonedTime
->         putStrLn $ formatDiffTime tsFinish tsStart
+>         let summary                      =
+>               [ ToFieldL "song time:"                      25
+>               , ToFieldL (formatSeconds (approx durS))     25
+>               , ToFieldL "render time:"                    25
+>               , ToFieldL (formatDiffTime tsFinish tsStart) 25
+>               , EndOfLine, EndOfLine]
+>         putStr $ reapEmissions summary
 >       else
 >         putStrLn "skipping..."
 >     return ()
