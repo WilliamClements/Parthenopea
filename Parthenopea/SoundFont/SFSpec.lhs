@@ -601,7 +601,8 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >   let prolog                             = [Unblocked (show tsStarted), EndOfLine, EndOfLine]
 >   let epilog                             = [EndOfLine, Unblocked $ show dives]
 >   writeFileBySections fp ([prolog] ++ eSections ++ [epilog, theEnd])
->   putStrLn (unwords ["wrote", fp])
+>
+>   putStr $ reapEmissions [Unblocked $ unwords ["wrote", fp], EndOfLine]
 >
 > emitMsgs               :: InstrumentName → [(InstrumentName, [String])] → [Emission]
 > emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs

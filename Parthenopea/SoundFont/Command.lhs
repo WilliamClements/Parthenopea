@@ -49,26 +49,26 @@ Implement PCommand =============================================================
 > batchProcessor         :: Directives → [Song] → IO ()
 > batchProcessor dives isongs              = do
 >   timeThen                               ← getZonedTime
->   print timeThen
+>   putStr $ reapEmissions $ openingRemarks timeThen
 >
 >   mids                                   ← FP.getDirectoryFiles "." ["*.mid", "*.midi"]
 >   sf2s                                   ← FP.getDirectoryFiles "." ["*.sf2"]
->   putStrLn (msg mids sf2s)
+>   putStr $ reapEmissions [msg mids sf2s, EndOfLine]
 >   CM.unless ( okDirectives dives) (error "garbage in Directives")
 >   proceed dives isongs mids sf2s
 >
 >   timeNow                                ← getZonedTime
->   let wrap                               = closingRemarks timeNow timeThen
->   putStrLn $ reapEmissions wrap
+>   putStr $ reapEmissions $ closingRemarks timeNow timeThen
+>
 >   return ()
 >   where
->     msg                :: [FilePath] → [FilePath] → String
+>     msg                :: [FilePath] → [FilePath] → Emission
 >     msg ms ss
 >       | null ms && null isongs && null ss
->                                          = "no *.mid or *.sf2 files found: nothing to do"
->       | null ss                          = "no *.sf2 files found: proceeding to survey mids"
->       | null ms && null isongs           = "no *.mid files found: proceeding to survey sf2s"
->       | otherwise                        = "proceeding to render mids by sf2s"
+>                                          = Unblocked "no *.mid or *.sf2 files found: nothing to do"
+>       | null ss                          = Unblocked "no *.sf2 files found: proceeding to survey mids"
+>       | null ms && null isongs           = Unblocked "no *.mid files found: proceeding to survey sf2s"
+>       | otherwise                        = Unblocked "proceeding to render mids by sf2s"
 >
 > proceed                :: Directives → [Song] → [FilePath] → [FilePath] → IO ()
 > proceed dives isongs mids sf2s           = do
@@ -82,7 +82,9 @@ Implement PCommand =============================================================
 >
 >   rost                                   ← qualifyKinds ding songs
 >
->   CM.unless (null sf2s) (do putStrLn ""; putStrLn $ unwords ["surveySoundFonts"])
+>   CM.unless (null sf2s)
+>             (putStr $ reapEmissions [  EndOfLine
+>                                      , Unblocked $ unwords ["surveySoundFonts"], EndOfLine])
 >   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
 >   let vFilesBoot                         = VB.fromList extraction
 >   if VB.null vFilesBoot
@@ -109,10 +111,11 @@ Implement PCommand =============================================================
 > renderSong runt (Song name music ding)   =
 >   do
 >     tsStart                               ← getZonedTime
->     putStrLn $ unwords ["renderSong", name]
+>     putStr $ reapEmissions [Unblocked $ unwords ["renderSong", name], EndOfLine]
 >
 >     let dynMap                           = makeDynMap ding
->     CM.unless (null dynMap)              (putStrLn $ unwords ["dynMap", show dynMap])
+>     CM.unless (null dynMap)              
+>               (putStr $ reapEmissions [Unblocked $ unwords ["dynMap", show dynMap], EndOfLine])
 >     let ks                               = Map.keys ding
 >     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
 >     let (esI, esP)                       = printChoices runt is ps
@@ -134,7 +137,7 @@ Implement PCommand =============================================================
 >               , EndOfLine, EndOfLine]
 >         putStr $ reapEmissions summary
 >       else
->         putStrLn "skipping..."
+>         putStr $ reapEmissions [Unblocked "skipping..."]
 >     return ()
 > 
 > convertFromMidi        :: FilePath → IO Song
@@ -160,7 +163,7 @@ Implement PCommand =============================================================
 >
 > openSoundFontFile      :: Int → FilePath → IO SFFileBoot
 > openSoundFontFile wFile filename         = do
->   putStrLn (unwords [show wFile, filename])
+>   putStr $ reapEmissions [Unblocked (unwords [show wFile, filename]), EndOfLine]
 >   result                                 ← F.importFile filename
 >   case result of
 >     Left s                               →

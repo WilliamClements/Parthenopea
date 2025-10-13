@@ -22,6 +22,7 @@ November 9, 2023
 >         , fillFieldL
 >         , fillFieldR
 >         , gmId
+>         , openingRemarks
 >         , parens
 >         , reapEmissions
 >         , theEnd
@@ -114,10 +115,13 @@ Quick & dirty way to format strings into tabular form
 > theEnd                                   = [EndOfLine, EndOfLine, Unblocked "The End", EndOfLine]
 >
 > writeFileBySections    :: FilePath → [[Emission]] → IO ()
-> writeFileBySections fp eSections   = do
+> writeFileBySections fp eSections         = do
 >   mapM_ (appendFile fp . reapEmissions) eSections
 >
-> closingRemarks                 :: ZonedTime → ZonedTime → [Emission]
+> openingRemarks         :: ZonedTime → [Emission]
+> openingRemarks tNow                      = [Unblocked $ show tNow, EndOfLine, EndOfLine] 
+>
+> closingRemarks         :: ZonedTime → ZonedTime → [Emission]
 > closingRemarks tLater tEarlier           =
 >   let
 >     str                                  = formatDiffTime tLater tEarlier

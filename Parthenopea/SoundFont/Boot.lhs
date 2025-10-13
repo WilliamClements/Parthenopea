@@ -29,10 +29,11 @@ January 21, 2025
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import qualified Data.Vector.Strict      as VB
-> import Euterpea.Music
+> import Euterpea.Music ( InstrumentName, PercussionSound )
 > import Numeric ( showHex )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
+> import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.SoundFont.Scoring
@@ -145,10 +146,11 @@ and recovery.
 >                           → VB.Vector SFFileBoot
 >                           → IO (Map PerGMKey PerInstrument, Matches, ResultDispositions)
 > surveyInstruments dives rost vFilesBoot  = do
->   putStrLn ""
->   putStrLn $ unwords [fName, show rost]
->   putStrLn ""
->
+>   putStr $ reapEmissions
+>     [   EndOfLine
+>       , Unblocked fName, EndOfLine
+>       , Blanks 2, Unblocked $ show $ fst rost, EndOfLine
+>       , Blanks 2, Unblocked $ show $ snd rost, EndOfLine]
 >   return $ foldl' bootFolder (Map.empty, defMatches, virginrd) vFilesBoot
 >   where
 >     fName                                = "surveyInstruments"
@@ -261,7 +263,7 @@ smell task =====================================================================
 >           Nothing                        → m
 >           Just x                         → IntMap.insert siIn x m
 
-PreZone administration ================================================================================================
+InstZoneRecord and PreZone administration =============================================================================
 
 > goodZRecs              :: ResultDispositions → [InstZoneRecord] → [InstZoneRecord]
 > goodZRecs rdNow                          = filter (\x → not (deadrd (instKey x) rdNow))
@@ -353,7 +355,7 @@ survey task ====================================================================
 >         raw                              = iinst.instName
 >         good                             = fixName raw
 >
->         zrecs'                               =
+>         zrecs'                           =
 >           if dead ss
 >              then zrecsFold 
 >              else makeZRec pergm (ChangeName iinst changes finalName) : zrecsFold
@@ -583,15 +585,16 @@ vet task =======================================================================
 >       in
 >         case mactions of
 >            Nothing                       → (zrec, rd)
->            Just acts                     → vetActions zrec rd acts
+>            Just actions                  → vetActions zrec rd actions
 >
 >     vetActions zrec rdIn actions         = (zrec{zsPreZones = pzsOut}, rdOut)
 >       where
 >         fName                            = "vetActions"
 >
->         (pzsOut, rdOut)                  = doAction $ if fWork.fwDirectives.switchBadStereoZonesToMono 
->                                                         then makeThemMono
->                                                         else killThem        
+>         (pzsOut, rdOut)                  =
+>           mapAction $ if fWork.fwDirectives.switchBadStereoZonesToMono 
+>                         then makeThemMono
+>                         else killThem        
 >             
 >         makeThemMono pz rd               = (Just $ makeMono pz, rd)
 >             
@@ -605,7 +608,7 @@ vet task =======================================================================
 >           where
 >             reverser pds iLeft iRight    = IntMap.insert iRight iLeft pds
 >
->         doAction rejectFun               =
+>         mapAction rejectFun              =
 >           let
 >             check pz                     = wordB pz `IntSet.member` actions
 >             modifyFun pz rd              =

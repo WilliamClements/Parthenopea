@@ -21,6 +21,7 @@ February 1, 2025
 > import Data.Foldable
 > import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict as IntMap
+> import Data.IntSet (IntSet )
 > import qualified Data.IntSet as IntSet
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
@@ -76,15 +77,17 @@ cache SoundFont data that is only needed for Runtime ===========================
 >   instrumentMap                          ← prepareInstruments prerunt
 >   return prerunt{zInstrumentMap = instrumentMap}
 >   where
+>     actions            :: IntMap IntSet
 >     actions                              =
 >       let
 >         extract        :: Map a (Bool, Maybe PerGMKey, [Emission]) → Set PerGMKey
->         extract                          = foldl' buildUp Set.empty
+>         extract m                        = Set.fromList $ foldl' buildUp [] m
 >           where
+>             buildUp    :: [PerGMKey] → (Bool, Maybe PerGMKey, [Emission]) → [PerGMKey]
 >             buildUp s (_, mpergm, _)     =
 >               case mpergm of
 >                 Nothing                  → s
->                 Just pergm               → s `Set.union` Set.singleton pergm 
+>                 Just pergm               → pergm : s
 >
 >         selectI m pergm                  =
 >           IntMap.insertWith IntSet.union pergm.pgkwFile ((IntSet.singleton . fromIntegral) pergm.pgkwInst) m

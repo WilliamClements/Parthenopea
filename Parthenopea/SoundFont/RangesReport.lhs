@@ -10,6 +10,7 @@ October 5, 2025
 
 > module Parthenopea.SoundFont.RangesReport ( runUnitTests, writeRangesReport ) where
 >
+> import qualified Control.Monad           as CM
 > import Data.Array.Unboxed ( inRange )
 > import Data.Either
 > import Data.Map ( Map )
@@ -40,13 +41,13 @@ unit tests =====================================================================
 >   resultSynthesizer                      ← runTestsQuietly synthesizerTests
 >   resultsPassage                         ← runTestsQuietly passageTests
 >   let resultDiscrete                     = True -- runTestsQuietly discreteTests
->   putStrLn $ unwords [show
->      (profess
->        (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer
->            , resultsPassage, resultEnvelopes, resultDiscrete])
->        (unwords ["one or more unit tests failed"])
->        True)]
->   putStrLn "Unit tests completed successfully"
+>   let result                             =
+>         profess
+>           (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer
+>               , resultsPassage, resultEnvelopes, resultDiscrete])
+>           (unwords ["one or more unit tests failed"])
+>           True
+>   CM.when result (putStr $ reapEmissions [Unblocked "Unit tests completed successfully", EndOfLine])
 
 check all the incoming music for instrument range violations ==========================================================
 
