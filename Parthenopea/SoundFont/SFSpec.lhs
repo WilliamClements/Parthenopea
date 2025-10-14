@@ -707,18 +707,32 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >                        :: Bool
 >   , crossInstrumentPairing
 >                        :: Bool
+>   , parallelPairing    :: Bool
 >   , switchBadStereoZonesToMono
 >                        :: Bool
 >   , multipleCompetes   :: Bool
+>   , doAbsorption       :: Bool
+>   , fixBadNames        :: Bool
 >   , dReportVerbosity   :: ReportVerbosity} deriving (Eq, Show)
+>
 > defDirectives          :: Directives
-> defDirectives                            =
->   Directives
->     True
->     False
->     True
->     True
->     allOn
+> defDirectives                            = baseDives
+> -- make changes here
+>       {- narrowInstrumentScope           = False
+>     , dReportVerbosity                   = allOff -}
+>   where
+>     baseDives                            =
+>       Directives
+> -- not here
+>         True
+>         True
+>         False
+>         False
+>         True
+>         True
+>         True
+>         allOn
+>
 > okDirectives           :: Directives → Bool
 > okDirectives dives                       = okReportVerbosity dives.dReportVerbosity
 

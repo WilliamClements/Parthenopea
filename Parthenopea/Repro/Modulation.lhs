@@ -203,8 +203,6 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >                                              (ting.ssCounter <= 10)
 >                                              "maximum of 10 tries exceeded..."
 >                                              filter shouldStay ting.ssCurrent
->
->     shouldStay         :: Modulator → Bool
 >     shouldStay m8r                       = linkageInOk && linkageOutOk
 >       where
 >         linkageInOk                      =

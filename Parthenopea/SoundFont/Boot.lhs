@@ -150,7 +150,7 @@ and recovery.
 >     [   EndOfLine
 >       , Unblocked fName, EndOfLine
 >       , Blanks 2, Unblocked $ show $ fst rost, EndOfLine
->       , Blanks 2, Unblocked $ show $ snd rost, EndOfLine]
+>       , Blanks 2, Unblocked $ show $ snd rost, EndOfLine, EndOfLine]
 >   return $ foldl' bootFolder (Map.empty, defMatches, virginrd) vFilesBoot
 >   where
 >     fName                                = "surveyInstruments"
@@ -226,7 +226,7 @@ pre-sample task ================================================================
 >           | isNothing mtype              = violated BadSampleType (show shdr.sampleType)
 >           | not (sampleSizeOk (shdr.start, shdr.end))
 >                                          = violated BadSampleLimits (show (shdr.start, shdr.end))
->           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
+>           | not (goodName raw)           = badButMaybeFix fwIn.fwDirectives.fixBadNames CorruptName fName raw good
 >           | otherwise                    = accepted Ok stereo
 >
 >         (ss, changes, name)              = if wasRescued CorruptName ss_
@@ -363,7 +363,7 @@ survey task ====================================================================
 >         ss
 >           | iinst.instBagNdx == jinst.instBagNdx
 >                                          = violated NoZones (show iinst.instName)
->           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
+>           | not (goodName raw)           = badButMaybeFix fwIn.fwDirectives.fixBadNames CorruptName fName raw good
 >           | otherwise                    = accepted Ok (show pergm.pgkwInst)
 >
 >         changes                          = if wasRescued CorruptName ss then singleton FixCorruptName else []
@@ -496,9 +496,8 @@ pair task ======================================================================
 >
 >     paired                               = unpair pairings
 >     rejects                              = IntMap.keysSet fwPreZones `IntSet.difference` paired
->     toBeActedUpon                        = IntSet.union paired rejects
 >
->     actions                              = IntSet.foldl' register IntMap.empty toBeActedUpon
+>     actions                              = IntSet.foldl' register IntMap.empty rejects
 >       where
 >         register acts iBag               =
 >           let
@@ -546,7 +545,7 @@ pair task ======================================================================
 >       let
 >         bagsR                            = Map.lookup iSlot osurv
 >         newPairs_                        = zip (IntSet.toList bagsL) (IntSet.toList (fromMaybe IntSet.empty bagsR))
->         newPairs                         = if not ignoreI && not allowParallelPairing
+>         newPairs                         = if not ignoreI && not fWork.fwDirectives.parallelPairing
 >                                              then take 1 newPairs_
 >                                              else newPairs_
 >       in
@@ -679,7 +678,8 @@ To build the map
 > reorgTaskIf _ _ fwIn                     = zrecTask reorger fwIn
 >   where
 >     reorger zrec rdFold
->       | not doAbsorption                 = (zrec,                       rdFold)
+>       | not fwIn.fwDirectives.doAbsorption
+>                                          = (zrec,                       rdFold)
 >       | isJust dprobe                    = (zrec,                       dispose pergm scansBlocked rdFold)
 >       | isNothing aprobe                 = (zrec,                       rdFold)
 >       | party == zrec.zswInst            = (zrec{zsPreZones = hpzs, zsSmashup = Just hsmash},
@@ -873,9 +873,11 @@ categorization task ============================================================
 >               let
 >                 uFrac                = howLaden uZones
 >                 wFrac                = howLaden wZones
->               in if (howLaden (filter canBePercZ pzs) > 0.4) && fr < uFrac
+>                 myLaden              = howLaden pzsLeft
+>                 pzsLeft              = filter canBePercZ pzs
+>               in if (myLaden > 0.4) && fr < uFrac
 >                 then
->                   (if 0.2 < wFrac
+>                   (if not (null wZones)
 >                      then Just (catPerc wZones)
 >                      else Just (catDisq NoPercZones (show (uFrac, wFrac))))
 >                 else Nothing
@@ -1090,11 +1092,5 @@ build zone task ================================================================
 >     n64                                  = 64
 >     n2                                   = 2
 >     n20                                  = 20
-> doAbsorption           :: Bool
-> doAbsorption                             = True
-> fixBadNames            :: Bool
-> fixBadNames                              = True
-> allowParallelPairing   :: Bool
-> allowParallelPairing                     = True
 
 The End

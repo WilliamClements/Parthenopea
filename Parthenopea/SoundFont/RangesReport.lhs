@@ -107,7 +107,7 @@ check all the incoming music for instrument range violations ===================
 >         doPercussion kind                =
 >           [emitShowL kind 20
 >          , emitShowL (fromEnum kind + 35) 22
->          , Blanks 44
+>          , Blanks 46
 >          , emitShowL shred.shCount 15, EndOfLine]
 >
 >         mrange                           =

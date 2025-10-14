@@ -14,6 +14,7 @@ October 8, 2025
 > import Data.Maybe
 > import Data.Ratio ( approxRational )
 > import Data.Time
+> -- import Data.Time.Clock.Internal.NominalDiffTime (NominalDiffTime(..), Pico(..))
 > import Data.Time.Clock.POSIX
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music ( AbsPitch, Dur, InstrumentName, PercussionSound, Volume )
@@ -74,10 +75,18 @@ Time ===========================================================================
 
 -- Function to format elapsed time between two zoned times
 
+> diffZonedTime          :: ZonedTime → ZonedTime → Double
+> diffZonedTime tLater tEarlier            = 
+>   let
+>     (tStart, tEnd)                       = (zonedTimeToUTC tEarlier, zonedTimeToUTC tLater)
+>   in
+>     realToFrac $ nominalDiffTimeToSeconds $ diffUTCTime tEnd tStart
+>
 > formatDiffTime         :: ZonedTime → ZonedTime → String
 > formatDiffTime tsNow tsThen              =
 >   let
->     utcDiff                              = diffUTCTime (zonedTimeToUTC tsNow) (zonedTimeToUTC tsThen)
+>     (tStart, tEnd)                       = (zonedTimeToUTC tsThen, zonedTimeToUTC tsNow)
+>     utcDiff                              = diffUTCTime tEnd tStart
 >   in
 >     formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime utcDiff)
 

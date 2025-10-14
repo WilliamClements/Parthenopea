@@ -792,10 +792,5 @@ Edit the following =============================================================
 > conRatio, absorbRatio  :: Rational
 > conRatio                                 = 3/4
 > absorbRatio                              = 7/10
->
-> allowSpecifiedCrossovers, allowInferredCrossovers
->                        :: Bool
-> allowSpecifiedCrossovers                 = False
-> allowInferredCrossovers                  = False
 
 The End
