@@ -110,7 +110,7 @@ Implement PCommand =============================================================
 > renderSong             :: SFRuntime → Song → IO ()
 > renderSong runt (Song name music ding)   =
 >   do
->     tsStart                               ← getZonedTime
+>     tsStart                              ← getZonedTime
 >     putStr $ reapEmissions [Unblocked $ unwords ["renderSong", name], EndOfLine]
 >
 >     let dynMap                           = makeDynMap ding

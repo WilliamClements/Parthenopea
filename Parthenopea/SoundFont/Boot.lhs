@@ -46,18 +46,16 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >   FileWork {
 >     fwDirectives       :: Directives
 >   , fwZRecs            :: [InstZoneRecord]
->   , fwPreSampleCache   :: Map PreSampleKey PreSample
->   , fwInstrumentCache  :: Map PerGMKey PerInstrument
+>   , fwPreSamples       :: Map PreSampleKey PreSample
+>   , fwPerInstruments   :: Map PerGMKey PerInstrument
 >   , fwMatches          :: Matches
->
 >   , fwPairing          :: Pairing
->
 >   , fwDispositions     :: ResultDispositions}
 > instance Show FileWork where
 >   show fw                                =
 >     unwords [  "FileWork"
 >              , show (length fw.fwZRecs), "=#zrecs"
->              , show (length fw.fwInstrumentCache), "=#cached"
+>              , show (length fw.fwPerInstruments), "=#cached"
 >              , show fw.fwDispositions]
 > defFileWork            :: Directives → FileWork
 > defFileWork dives                        =
@@ -97,7 +95,7 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     unwords ["FileIterate", show fi.fiFw]
 > reduceFileIterate      :: FileIterate → (Map PerGMKey PerInstrument, Matches, ResultDispositions)
 > reduceFileIterate FileIterate{ .. }                   =
->   (fiFw.fwInstrumentCache, fiFw.fwMatches, fiFw.fwDispositions)
+>   (fiFw.fwPerInstruments, fiFw.fwMatches, fiFw.fwDispositions)
 >
 > preSampleTaskIf, smellTaskIf, surveyTaskIf, captureTaskIf, flatMapTaskIf, pairTaskIf, vetTaskIf
 >                , adoptTaskIf, smashTaskIf, reorgTaskIf, matchTaskIf, catTaskIf, perITaskIf
@@ -198,8 +196,8 @@ pre-sample task ================================================================
 >
 >         preSampleCache                   =
 >           if dead ss
->             then fwForm.fwPreSampleCache
->             else Map.insert presk ps fwForm.fwPreSampleCache
+>             then fwForm.fwPreSamples
+>             else Map.insert presk ps fwForm.fwPreSamples
 >         ps                               = ChangeName shdr changes name
 >         shdr                             = sffile.zFileArrays.ssShdrs ! presk.pskwSampleIndex
 >
@@ -233,16 +231,15 @@ pre-sample task ================================================================
 >                                              then (ss_, singleton FixCorruptName, good)
 >                                              else (ss_, [],                       raw)
 >       in
->         fwForm{ fwPreSampleCache = preSampleCache, fwDispositions = dispose presk ss fwForm.fwDispositions}
+>         fwForm{ fwPreSamples = preSampleCache, fwDispositions = dispose presk ss fwForm.fwDispositions}
 
 smell task ============================================================================================================
           partner map at sample header level = driver for stereo pairings
 
-> smellTaskIf _ _ fWork                    = fWork{fwPairing = pairing}
+> smellTaskIf _ _ fWork                    = fWork{fwPairing = fWork.fwPairing{fwPartners = partnerMap}}
 >   where
->     pairing                              = 
->       fWork.fwPairing{fwPartners = Map.foldlWithKey smellFolder IntMap.empty allLeft}
->     allLeft                              = Map.filter isLeftPS fWork.fwPreSampleCache
+>     partnerMap                           = Map.foldlWithKey smellFolder IntMap.empty allL
+>                                              where allL = Map.filter isLeftPS fWork.fwPreSamples
 >
 >     smellFolder m presk pres             =
 >       let
@@ -251,13 +248,13 @@ smell task =====================================================================
 >         siOut                            = fromIntegral (effPSShdr pres).sampleLink
 >
 >         mback_                           =
->           presk{pskwSampleIndex = fromIntegral siOut} `Map.lookup` fWork.fwPreSampleCache
+>           presk{pskwSampleIndex = fromIntegral siOut} `Map.lookup` fWork.fwPreSamples
 >         mback                            = mback_ >>= backOk
->
->         backOk opres                     =
->           if isRightPS opres && fromIntegral (effPSShdr opres).sampleLink == siIn
->             then Just siOut
->             else Nothing
+>           where
+>             backOk opres                 =
+>               if isRightPS opres && fromIntegral (effPSShdr opres).sampleLink == siIn
+>                 then Just siOut
+>                 else Nothing
 >       in
 >         case mback of
 >           Nothing                        → m
@@ -424,7 +421,7 @@ capture task ===================================================================
 >             pz                           = makePreZone sffile.zWordFBoot si (pgkwInst pergm) bix gens pres.cnSource
 >             si                           = deJust (unwords [fName, "si"]) pz.pzDigest.zdSampleIndex
 >             presk                        = PreSampleKey sffile.zWordFBoot si
->             mpres                        = presk `Map.lookup` fwIn.fwPreSampleCache
+>             mpres                        = presk `Map.lookup` fwIn.fwPreSamples
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
 >
 >         pzs                              = fst $ foldl' consume ([], defZone) results
@@ -681,6 +678,7 @@ To build the map
 >     closeEnough x y                      = absorbT < howClose (fst x) (fst y)
 >
 >     reorger zrec rdFold
+>       | traceIf trace_R False            = undefined
 >       | not fwIn.fwDirectives.doAbsorption
 >                                          = (zrec,                       rdFold)
 >       | isJust dprobe                    = (zrec,                       dispose pergm scansBlocked rdFold)
@@ -690,6 +688,12 @@ To build the map
 >       | otherwise                        = (zrec{zsPreZones = []},      dispose pergm scansEd rdFold)
 >       where
 >         fName                            = "reorger"
+>         trace_R                          =
+>           unwords [fName, "headed=", show headed
+>                         , "ready=", show ready
+>                         , "hMap=", show $ length hMap
+>                         , "dMap=", show $ length dMap
+>                         , "aMap=", show $ length aMap]
 >
 >         pergm                            = instKey zrec
 >         wInst                            = zrec.zswInst
@@ -712,24 +716,17 @@ To build the map
 >     townersMap         :: Map Word ([PreZone], Smashing Word)
 >     townersMap                           =
 >       let
->         tFolder m zrec                   =
->           Map.insert zrec.zswInst (zrec.zsPreZones, fromJust zrec.zsSmashup) m
+>         tFolder m zrec                   = Map.insert zrec.zswInst (zrec.zsPreZones, fromJust zrec.zsSmashup) m
 >       in
 >         zrecCompute fwIn tFolder Map.empty 
 >     
->     headed, ready      :: Map Word [Word]
 >     headed                               = foldr (Map.union . rewire) Map.empty groups
 >       where
 >         groups                           = filter noSingletons ((groupBy closeEnough . reverse) instNames)
 >                                              where noSingletons x = 1 < length x
 >         instNames                        = zrecCompute fwIn extract []
 >                                              where extract ns zrec = (zrec.zswChanges.cnName, zrec.zswInst) : ns
->         rewire ns                        = Map.insert leader members Map.empty
->                                              where
->                                                leader = (snd . head) ns
->                                                members = map snd ns
->     ready                                = Map.mapWithKey kingMe hMap
->                                              where kingMe k _ = headed Map.! k
+>         rewire ns                        = Map.insert ((snd . head) ns) (map snd ns) Map.empty
 >
 >     hMap               :: Map Word ([PreZone], Smashing Word)
 >     dMap               :: Map Word SmashStats
@@ -739,25 +736,31 @@ To build the map
 >         qualify leadI memberIs
 >           | 0 == osmashup.smashStats.countMultiples
 >                                          = Left (rebased, osmashup)
->           | membersHaveVelocityRanges    = Left (rebased, osmashup)
+>           | membersHaveVR                = Left (rebased, osmashup)
 >           | otherwise                    = Right osmashup.smashStats
 >           where
 >             towners                      = map (townersMap Map.!) memberIs
 >
->             combined                     = concatMap fst towners
->             rebased                      = map rebase combined
+>             rebased                      = map rebase (concatMap fst towners)
 >                                              where rebase pz = pz{pzWordI = leadI}
 >
 >             smashups                     = map snd towners
 >             osmashup                     = (foldl' smashSmashings (head smashups) (tail smashups))
->                                              {smashTag = unwords [show leadI, show memberIs]}
+>                                              {smashTag = unwords [show (leadI, memberIs)]}
 >
->             membersHaveVelocityRanges    = all (zonesHaveVelocityRange . fst) towners
->             zonesHaveVelocityRange pzs   = isJust $ find zoneHasVelocityRange pzs   
->             zoneHasVelocityRange pz      =
->               case pz.pzDigest.zdVelRange of
->                 Just rng                 → rng /= (0, 127)
->                 Nothing                  → False
+>             -- VR = Velocity Range(s)
+>             membersHaveVR                =
+>               let
+>                 zoneHasVR pz             =
+>                   case pz.pzDigest.zdVelRange of
+>                     Just rng             → rng /= (0, 127)
+>                     Nothing              → False
+>                 zonesHaveVR              = any zoneHasVR
+>               in
+>                 all (zonesHaveVR . fst) towners
+>
+>     ready                                = Map.mapWithKey kingMe hMap
+>                                              where kingMe k _ = headed Map.! k
 >
 >     aMap               :: Map Word Word
 >     aMap                                 = Map.foldlWithKey fold1Fun Map.empty ready
@@ -777,8 +780,8 @@ match task =====================================================================
 >     absorbT                              = fwIn.fwDirectives.absorbThreshold
 
 >     sMatches                             =
->       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches absorbT v.cnName narrow) m)
->         Map.empty fwIn.fwPreSampleCache
+>       Map.foldlWithKey compute Map.empty fwIn.fwPreSamples
+>         where compute m k v              = Map.insert k (computeFFMatches absorbT v.cnName narrow) m
 >     iMatches                             =
 >       let
 >         computeFF      :: Map PerGMKey FFMatches → InstZoneRecord → Map PerGMKey FFMatches 
@@ -923,8 +926,8 @@ categorization task ============================================================
 build zone task =======================================================================================================
           generate the PerInstrument map (aka zone cache)
 
-> perITaskIf _ _ fWork                     = fWork{  fwInstrumentCache =    fst formInstrumentCache
->                                                  , fwDispositions =       snd formInstrumentCache}
+> perITaskIf _ _ fWork                     = fWork{  fwPerInstruments   = fst formInstrumentCache
+>                                                  , fwDispositions     = snd formInstrumentCache}
 >   where
 >     formInstrumentCache
 >                        :: (Map PerGMKey PerInstrument, ResultDispositions)
@@ -950,8 +953,7 @@ build zone task ================================================================
 >         blessZone pz rdIn                = 
 >           let
 >             ss                           = [Scan Accepted ToCache fName (show pz.pzWordB)]
->             rdIn'                        =
->               dispose (extractZoneKey pz) ss rdIn
+>             rdIn'                        = dispose (extractZoneKey pz) ss rdIn
 >           in
 >             (Just pz, rdIn')
 >     computePerInst     :: InstZoneRecord → InstCat → Smashing Word → PerInstrument

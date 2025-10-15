@@ -44,21 +44,7 @@ implementing SoundFont spec ====================================================
 >   PreSampleKey {
 >     pskwFile           :: Int
 >   , pskwSampleIndex    :: Word} deriving (Eq, Ord, Show)
->
 > type PreSample                           = ChangeName F.Shdr
-> effPSShdr              :: PreSample → F.Shdr
-> effPSShdr ps                             = ps.cnSource{F.sampleName = ps.cnName}
-> isLeftPS               :: PreSample → Bool
-> isLeftPS ps                              = Just SampleTypeLeft == toMaybeSampleType (effPSShdr ps).sampleType
-> isRightPS              :: PreSample → Bool
-> isRightPS ps                             = Just SampleTypeRight == toMaybeSampleType (effPSShdr ps).sampleType
->
-> data PreZoneKey                          =
->   PreZoneKey {
->     pzkwFile           :: Int
->   , pzkwInst           :: Word
->   , pzkwBag            :: Word
->   , pzkwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
 > data PreZone                             =
 >   PreZone {
@@ -78,18 +64,58 @@ implementing SoundFont spec ====================================================
 > showBad                :: PreZone → String
 > showBad pz                               = show (pz.pzWordB, (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange))
 >
-> defPreZone             :: PreZone
-> defPreZone                               =
->   makePreZone
->     0 0 0 0
->     [] (F.Shdr "" 0 0 0 0 0 0 0 0 0)
->
 > makePreZone            :: Int → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
 > makePreZone wF wS wI wB gens shdr        =
 >   PreZone
 >     wF wS wI wB 
 >      (formDigest gens) defZone (ChangeEar shdr [])
 >      Nothing Nothing
+>
+> extractSampleKey       :: PreZone → PreSampleKey
+> extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
+> extractInstKey         :: PreZone → PerGMKey
+> extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
+> extractZoneKey         :: PreZone → PreZoneKey
+> extractZoneKey pz                        =
+>   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
+> extractSpace           :: PreZone → (Word, [Maybe (Word, Word)])
+> extractSpace pz@PreZone{pzWordB, pzDigest}  
+>                                          = (pzWordB, [pzDigest.zdKeyRange, pzDigest.zdVelRange, Just chans])
+>   where
+>     chans
+>       | isLeftPZ pz                      = (0, 0)
+>       | isRightPZ pz                     = (1, 1)
+>       | otherwise                        = (0, 1)
+>
+> effPSShdr              :: PreSample → F.Shdr
+> effPSShdr ps                             = ps.cnSource{F.sampleName = ps.cnName}
+> isLeftPS               :: PreSample → Bool
+> isLeftPS ps                              = Just SampleTypeLeft == toMaybeSampleType (effPSShdr ps).sampleType
+> isRightPS              :: PreSample → Bool
+> isRightPS ps                             = Just SampleTypeRight == toMaybeSampleType (effPSShdr ps).sampleType
+>
+> wordS, wordI, wordB    :: PreZone → Int
+> wordS pz                                 = fromIntegral pz.pzWordS
+> wordI pz                                 = fromIntegral pz.pzWordI
+> wordB pz                                 = fromIntegral pz.pzWordB
+> effPZShdr              :: PreZone → F.Shdr
+> effPZShdr PreZone{pzChanges}             =
+>   if MakeMono `elem` pzChanges.ceChanges
+>     then pzChanges.ceSource{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
+>     else pzChanges.ceSource
+> makeMono               :: PreZone → PreZone
+> makeMono pz@PreZone{pzChanges}           = pz{pzChanges = pzChanges{ceChanges = MakeMono : pzChanges.ceChanges}}
+> wasSwitchedToMono      :: PreZone → Bool
+> wasSwitchedToMono PreZone{pzChanges}     = MakeMono `elem` pzChanges.ceChanges
+> showPreZones           :: [PreZone] → String
+> showPreZones pzs                         = show $ map pzWordB pzs
+>
+> data PreZoneKey                          =
+>   PreZoneKey {
+>     pzkwFile           :: Int
+>   , pzkwInst           :: Word
+>   , pzkwBag            :: Word
+>   , pzkwSampleIndex    :: Word} deriving (Eq, Ord, Show)
 >
 > data Recon                               =
 >   Recon {
@@ -115,37 +141,6 @@ implementing SoundFont spec ====================================================
 >   , efReverb           :: Double
 >   , efPan              :: Double}
 >   deriving (Eq, Show)
->
-> extractSampleKey       :: PreZone → PreSampleKey
-> extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
-> extractInstKey         :: PreZone → PerGMKey
-> extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
-> extractZoneKey         :: PreZone → PreZoneKey
-> extractZoneKey pz                        =
->   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
-> extractSpace           :: PreZone → (Word, [Maybe (Word, Word)])
-> extractSpace pz@PreZone{pzWordB, pzDigest}  
->                                          = (pzWordB, [pzDigest.zdKeyRange, pzDigest.zdVelRange, Just chans])
->   where
->     chans
->       | isLeftPZ pz                      = (0, 0)
->       | isRightPZ pz                     = (1, 1)
->       | otherwise                        = (0, 1)
-> wordS, wordI, wordB    :: PreZone → Int
-> wordS pz                                 = fromIntegral pz.pzWordS
-> wordI pz                                 = fromIntegral pz.pzWordI
-> wordB pz                                 = fromIntegral pz.pzWordB
-> effPZShdr              :: PreZone → F.Shdr
-> effPZShdr PreZone{pzChanges}             =
->   if MakeMono `elem` pzChanges.ceChanges
->     then pzChanges.ceSource{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
->     else pzChanges.ceSource
-> makeMono               :: PreZone → PreZone
-> makeMono pz@PreZone{pzChanges}           = pz{pzChanges = pzChanges{ceChanges = MakeMono : pzChanges.ceChanges}}
-> wasSwitchedToMono      :: PreZone → Bool
-> wasSwitchedToMono PreZone{pzChanges}     = MakeMono `elem` pzChanges.ceChanges
-> showPreZones           :: [PreZone] → String
-> showPreZones pzs                         = show $ map pzWordB pzs
 >
 > data ChangeNameItem                      = FixCorruptName deriving Eq
 >
@@ -723,7 +718,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > defDirectives                            = baseDives
 > -- make changes here
 > -- For example:
->       {- {narrowInstrumentScope             = False} -}
+>       {- {narrowRosterForBoot                 = False} -}
 >       {- , dReportVerbosity                   = allOff -}
 >   where
 >     baseDives                            =

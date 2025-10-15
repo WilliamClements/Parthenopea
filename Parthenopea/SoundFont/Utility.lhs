@@ -14,9 +14,7 @@ October 8, 2025
 > import Data.Maybe
 > import Data.Ratio ( approxRational )
 > import Data.Time
-> -- import Data.Time.Clock.Internal.NominalDiffTime (NominalDiffTime(..), Pico(..))
 > import Data.Time.Clock.POSIX
-> import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music ( AbsPitch, Dur, InstrumentName, PercussionSound, Volume )
 >
 > type GMKind                              = Either InstrumentName PercussionSound
@@ -50,6 +48,7 @@ October 8, 2025
 >   NoteOn {
 >     noteOnVel          :: Velocity
 >   , noteOnKey          :: KeyNumber} deriving (Eq, Ord, Show)
+>
 > carefulNoteOn          :: Velocity → AbsPitch → NoteOn
 > carefulNoteOn volIn pchIn                = NoteOn volOut pchOut
 >   where
@@ -57,9 +56,9 @@ October 8, 2025
 >
 >     volOut                               = safeClip volIn
 >     pchOut                               = safeClip pchIn
->
 >     safeClip x                           =
 >       profess (x == clip (0, 127) x) (unwords [fName, "out of bounds", show (volIn, pchIn)]) x
+>
 > noonAsCoords           :: NoteOn → ([Word], [Word])
 > noonAsCoords noon                        =
 >   (  [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 0]

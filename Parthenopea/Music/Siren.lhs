@@ -529,10 +529,7 @@ instrument range checking ======================================================
 > orchestraPart          :: BandPart → Music1 → Music1
 > orchestraPart bp                         = mMap oChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
 >   where
->     oChanger           :: (Pitch, [NoteAttribute]) → (Pitch, [NoteAttribute])
 >     oChanger (p, nas)                    = (p, if hasDynamics nas then nas else map nasFun nas)
->
->     nasFun             :: NoteAttribute → NoteAttribute
 >     nasFun (Volume _)                    = Volume bp.bpHomeVelocity
 >     nasFun na                            = na 
 >
@@ -702,12 +699,6 @@ music-related utilities ========================================================
 >
 > roll                                     = trill  0
 > rolln                                    = trilln 0
->
-> extractTimes           :: Performance → [Double]
-> extractTimes                             = map (fromRational . eTime)
->
-> percussionLimit        :: Double
-> percussionLimit                          = fromIntegral $ fromEnum OpenTriangle
 >
 > percPitchRange         :: (Word, Word)
 > percPitchRange                           = ((fromIntegral . fromEnum) AcousticBassDrum + 35, (fromIntegral . fromEnum) OpenTriangle + 35)
