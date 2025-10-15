@@ -597,9 +597,9 @@ vet task =======================================================================
 >             
 >         makeThemMono pz rd               = (Just $ makeMono pz, rd)
 >             
->         killThem pz rd                   = (Nothing, dispose (extractZoneKey pz) scan rd)
+>         killThem pz rd                   = (Nothing, dispose (extractZoneKey pz) ss rd)
 >           where
->             scan                         =
+>             ss                           =
 >               [Scan Violated BadStereoPartner fName zrec.zswChanges.cnName]
 >
 >         bothPartners                     =
@@ -677,6 +677,9 @@ To build the map
 
 > reorgTaskIf _ _ fwIn                     = zrecTask reorger fwIn
 >   where
+>     absorbT                              = fwIn.fwDirectives.absorbThreshold
+>     closeEnough x y                      = absorbT < howClose (fst x) (fst y)
+>
 >     reorger zrec rdFold
 >       | not fwIn.fwDirectives.doAbsorption
 >                                          = (zrec,                       rdFold)
@@ -706,13 +709,6 @@ To build the map
 >         scansBlocked                     =
 >           [Scan NoChange NoAbsorption fName (show disqualified)]
 >
->     instNames          :: Map String Word
->     instNames                            =
->       let
->         extractFolder ns zrec            = Map.insert zrec.zswChanges.cnName zrec.zswInst ns
->       in
->         zrecCompute fwIn extractFolder Map.empty
->     
 >     townersMap         :: Map Word ([PreZone], Smashing Word)
 >     townersMap                           =
 >       let
@@ -721,14 +717,19 @@ To build the map
 >       in
 >         zrecCompute fwIn tFolder Map.empty 
 >     
->     grouped                              = groupBy grouper (Map.toList instNames)
->                                              where grouper x y = absorbRatio < howClose (fst x) (fst y)
->     filteredByGroupSize                  = filter (\x → 1 < length x) grouped
->     stringsDropped                       = map (map snd) filteredByGroupSize
->
 >     headed, ready      :: Map Word [Word]
->     headed                               = Map.fromList $ map (\q → (head q, q)) stringsDropped
->     ready                                = Map.mapWithKey (\k _ → headed Map.! k) hMap
+>     headed                               = foldr (Map.union . rewire) Map.empty groups
+>       where
+>         groups                           = filter noSingletons ((groupBy closeEnough . reverse) instNames)
+>                                              where noSingletons x = 1 < length x
+>         instNames                        = zrecCompute fwIn extract []
+>                                              where extract ns zrec = (zrec.zswChanges.cnName, zrec.zswInst) : ns
+>         rewire ns                        = Map.insert leader members Map.empty
+>                                              where
+>                                                leader = (snd . head) ns
+>                                                members = map snd ns
+>     ready                                = Map.mapWithKey kingMe hMap
+>                                              where kingMe k _ = headed Map.! k
 >
 >     hMap               :: Map Word ([PreZone], Smashing Word)
 >     dMap               :: Map Word SmashStats
@@ -761,26 +762,28 @@ To build the map
 >     aMap               :: Map Word Word
 >     aMap                                 = Map.foldlWithKey fold1Fun Map.empty ready
 >       where
->         fold1Fun       :: Map Word Word → Word → [Word] → Map Word Word
->         fold1Fun qIn wLead               = foldl' fold2Fun qIn
->           where
->             fold2Fun   :: Map Word Word → Word → Map Word Word
+>         fold1Fun qIn wLead               =
+>           let
 >             fold2Fun qFold wMember       = Map.insert wMember wLead qFold
+>           in
+>             foldl' fold2Fun qIn
 
 match task ============================================================================================================
           track all fuzzy matches
 
 > matchTaskIf _ _ fwIn                     = fwIn{fwMatches = Matches sMatches iMatches}
 >   where
->     narrow                               = fwIn.fwDirectives.narrowInstrumentScope
->
+>     narrow                               = fwIn.fwDirectives.narrowRosterForBoot
+>     absorbT                              = fwIn.fwDirectives.absorbThreshold
+
 >     sMatches                             =
->       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches v.cnName narrow) m)
+>       Map.foldlWithKey (\m k v → Map.insert k (computeFFMatches absorbT v.cnName narrow) m)
 >         Map.empty fwIn.fwPreSampleCache
 >     iMatches                             =
 >       let
 >         computeFF      :: Map PerGMKey FFMatches → InstZoneRecord → Map PerGMKey FFMatches 
->         computeFF m zrec                 = Map.insert (instKey zrec) (computeFFMatches zrec.zswChanges.cnName narrow) m
+>         computeFF m zrec                 =
+>           Map.insert (instKey zrec) (computeFFMatches absorbT zrec.zswChanges.cnName narrow) m
 >       in
 >         zrecCompute fwIn computeFF Map.empty 
 
@@ -797,7 +800,7 @@ categorization task ============================================================
 >       where
 >         (icat, ss)                       = categorizeInst zrec
 >
->     narrow                               = fwIn.fwDirectives.narrowInstrumentScope
+>     narrow                               = fwIn.fwDirectives.narrowRosterForBoot
 >
 >     categorizeInst     :: InstZoneRecord → (Maybe InstCat, [Scan])
 >     categorizeInst zrec
@@ -929,12 +932,14 @@ build zone task ================================================================
 >
 >     zcFolder (zc, rdFold) zrec
 >       | traceIf trace_ZCF False          = undefined
->       | otherwise                        =
->         (   Map.insert pergm perI zc
->           , dispose pergm [Scan Accepted ToCache fName (show icat)] rdz)
+>       | otherwise                        = (zc', rdFold')
 >       where
 >         fName                            = "zcFolder"
 >         trace_ZCF                        = unwords [fName, show zrec, show pergm, show zrec.zsInstCat]
+>
+>         zc'                              = Map.insert pergm perI zc
+>         rdFold'                          =
+>           dispose pergm [Scan Accepted ToCache fName (show icat)] rdz
 >
 >         pergm                            = instKey zrec
 >         icat                             = fromJust zrec.zsInstCat
@@ -942,11 +947,13 @@ build zone task ================================================================
 >         perI                             = computePerInst zrec icat smashup
 >         pzs                              = perI.pZones
 >         (_, rdz)                         = zoneTask (const True) blessZone pzs rdFold
->         blessZone      :: PreZone → ResultDispositions → (Maybe PreZone, ResultDispositions)
->         blessZone pz rdIn                =
->           (   Just pz
->             , dispose (extractZoneKey pz) [Scan Accepted ToCache fName (show pz.pzWordB)] rdIn)
->
+>         blessZone pz rdIn                = 
+>           let
+>             ss                           = [Scan Accepted ToCache fName (show pz.pzWordB)]
+>             rdIn'                        =
+>               dispose (extractZoneKey pz) ss rdIn
+>           in
+>             (Just pz, rdIn')
 >     computePerInst     :: InstZoneRecord → InstCat → Smashing Word → PerInstrument
 >     computePerInst zrec icat smashup     =
 >         PerInstrument 

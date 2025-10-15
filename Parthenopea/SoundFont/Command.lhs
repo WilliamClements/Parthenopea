@@ -131,11 +131,11 @@ Implement PCommand =============================================================
 >         tsFinish                         ← getZonedTime
 >         let summary                      =
 >               [ ToFieldL "song time:"                      15
->               , ToFieldR (show durS)                       15
+>               , ToFieldL (formatSeconds $ approx durS)     15
 >               , ToFieldL "render time:"                    15
->               , ToFieldR (formatDiffTime tsFinish tsStart) 15
+>               , ToFieldL (formatDiffTime tsFinish tsStart) 15
 >               , ToFieldL "ratio:"                          15
->               , ToFieldR (show ratio)                      25
+>               , ToFieldL (show ratio)                      25
 >               , EndOfLine, EndOfLine]
 >               where
 >                 delta  :: Double

@@ -80,14 +80,14 @@ handle "matching as" cache misses ==============================================
 
 use "matching as" cache ===============================================================================================
 
-> combineFF              :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ Map a Fuzz → Map a Fuzz → Map a Fuzz
-> combineFF ffpros ffcons                  =
+> combineFF              :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ Rational → Map a Fuzz → Map a Fuzz → Map a Fuzz
+> combineFF conRatio ffpros ffcons         =
 >   Map.filter (>= 0) (Map.unionWith (+) ffpros (Map.map (* (- fromRational conRatio)) ffcons))
 >
-> computeFFMatches       :: String → Bool → FFMatches
-> computeFFMatches inp narrow              = FFMatches inp
->                                              (combineFF ias ibs)
->                                              (combineFF pas pbs)
+> computeFFMatches       :: Rational → String → Bool → FFMatches
+> computeFFMatches conRatio inp narrow     = FFMatches inp
+>                                              (combineFF conRatio ias ibs)
+>                                              (combineFF conRatio pas pbs)
 >   where
 >     ias = createFuzzMap instrumentProFFKeys
 >     ibs = createFuzzMap instrumentConFFKeys
@@ -238,6 +238,8 @@ tournament starts here =========================================================
 >   where
 >     fName__                              = "decideWinners"
 >
+>     narrow                               = dives.narrowRosterForBoot
+>
 >     wiExec             :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiExec                               = (wI', wP')
 >       where
@@ -265,14 +267,11 @@ tournament starts here =========================================================
 >         decideInst     :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >         decideInst                       = 
 >           let
->             iMatches                     = deJust "mIMatches" (Map.lookup pergmI_ matches.mIMatches)
+>             iMatches                     = deJust "iMatches" (Map.lookup pergmI_ matches.mIMatches)
 >             fuzzMap                      = getFuzzMap iMatches
 >
->             i2Fuzz     :: Map InstrumentName Fuzz
->             i2Fuzz                       =
->               Map.filterWithKey (\k _ → k `elem` select rost dives.narrowInstrumentScope) fuzzMap
->
->             i2Fuzz'    :: [InstrumentName]
+>             i2Fuzz                       = Map.filterWithKey tryIt fuzzMap
+>                                              where tryIt k _ = k `elem` select rost narrow
 >             i2Fuzz'                      =
 >               profess
 >                 (not $ Map.null i2Fuzz)
@@ -786,11 +785,5 @@ Flags for customization ========================================================
 >                                             , qqDesireReFuzzy]
 > qqDesires'             :: [Double]
 > qqDesires'                               = map (fromRational . scoreDesire) qqDesires
-
-Edit the following ====================================================================================================
-
-> conRatio, absorbRatio  :: Rational
-> conRatio                                 = 3/4
-> absorbRatio                              = 7/10
 
 The End

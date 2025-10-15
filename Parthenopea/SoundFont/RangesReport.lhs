@@ -94,18 +94,18 @@ check all the incoming music for instrument range violations ===================
 >                                              else ""  
 >         doInstrument       :: InstrumentName → [Emission]
 >         doInstrument kind                =
->           [emitShowL kind 20
+>           [emitShowL kind 22
 >          , emitShowL (instrumentPitchRange kind) 22
->          , emitShowR (pitch lo) 8, Blanks 3
+>          , emitShowL (pitch lo) 8, Blanks 3
 >          , ToFieldL (indicator lo) 8
->          , emitShowR (pitch hi) 8, Blanks 3
+>          , emitShowL (pitch hi) 8, Blanks 3
 >          , ToFieldL (indicator hi) 8
->          , emitShowR shred.shCount 10, Blanks 5
+>          , emitShowL shred.shCount 10, Blanks 5
 >          , ToFieldL strAlt 20, EndOfLine]
 >           
 >         doPercussion       :: PercussionSound → [Emission]
 >         doPercussion kind                =
->           [emitShowL kind 20
+>           [emitShowL kind 22
 >          , emitShowL (fromEnum kind + 35) 22
 >          , Blanks 46
 >          , emitShowL shred.shCount 15, EndOfLine]

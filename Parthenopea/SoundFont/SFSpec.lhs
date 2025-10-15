@@ -703,7 +703,11 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >
 > data Directives                          =
 >   Directives {
->     narrowInstrumentScope
+>     doAbsorption       :: Bool
+>   , fixBadNames        :: Bool
+>   , narrowRosterForBoot
+>                        :: Bool
+>   , narrowRosterForRuntime
 >                        :: Bool
 >   , crossInstrumentPairing
 >                        :: Bool
@@ -711,26 +715,30 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >   , switchBadStereoZonesToMono
 >                        :: Bool
 >   , multipleCompetes   :: Bool
->   , doAbsorption       :: Bool
->   , fixBadNames        :: Bool
+>   , proConRatio        :: Rational
+>   , absorbThreshold    :: Rational
 >   , dReportVerbosity   :: ReportVerbosity} deriving (Eq, Show)
 >
 > defDirectives          :: Directives
 > defDirectives                            = baseDives
 > -- make changes here
->       {- narrowInstrumentScope           = False
->     , dReportVerbosity                   = allOff -}
+> -- For example:
+>       {- {narrowInstrumentScope             = False} -}
+>       {- , dReportVerbosity                   = allOff -}
 >   where
 >     baseDives                            =
 >       Directives
 > -- not here
 >         True
 >         True
+>         True
+>         True
+>         True
 >         False
 >         False
 >         True
->         True
->         True
+>         (3/4)
+>         (4/5)
 >         allOn
 >
 > okDirectives           :: Directives → Bool
