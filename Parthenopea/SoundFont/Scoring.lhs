@@ -33,6 +33,7 @@ September 12, 2024
 > import qualified Control.Monad           as CM
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
+> import qualified Data.Bifunctor          as BF
 > import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
@@ -202,29 +203,24 @@ tournament starts here =========================================================
 >   (wI_, wP_)                             ← decideWinners dives rost vFiles cache matches
 >   CM.when (dives.dReportVerbosity.dForTournament > 0) (writeTournamentReport dives vFiles wI_ wP_)
 >   let (wI, wP)                           = (Map.map head wI_, Map.map head wP_)
->   let zI                                 = foldl' (buildUp wI) Map.empty (fst rost)
->   let zP                                 = foldl' (buildUp wP) Map.empty (snd rost)
->   return (zI, zP)
+>   return (BF.bimap (foldl' (buildUp wI) Map.empty) (foldl' (buildUp wP) Map.empty) rost)
 >   where
->     buildUp            :: ∀ a. (GMPlayable a, Eq a, Ord a, Show a) ⇒
->                           Map a PerGMScored
->                           → Map a (Bool, Maybe PerGMKey, [Emission]) → a → Map a (Bool, Maybe PerGMKey, [Emission])
->     buildUp ref m kind                       = Map.insert kind (kindChoices ref kind) m
->
->     kindChoices        :: ∀ a. (GMPlayable a, Eq a, Ord a, Show a) ⇒ 
->                           Map a PerGMScored → a → (Bool, Maybe PerGMKey, [Emission])
+>     buildUp ref m kind                   = Map.insert kind (kindChoices ref kind) m
 >     kindChoices m k
->       | isJust pergm                     = (True, pergm, trueChoice k (deJust (unwords ["establishWinners kindChoices"]) mscored))
->       | specialCase k                    = (True, pergm, [Blanks 3, gmId k, Unblocked "(pseudo-instrument)", EndOfLine])
->       | otherwise                        = (False, Nothing, falseChoice k)
+>       | isJust pergm                     =
+>           (True, pergm, trueChoice k (deJust (unwords ["establishWinners kindChoices"]) mscored))
+>       | specialCase k                    =
+>           (True, pergm, [Blanks 3, gmId k, Unblocked "(pseudo-instrument)", EndOfLine])
+>       | otherwise                        =
+>           (False, Nothing, falseChoice k)
 >       where
 >         mscored                          = Map.lookup k m
 >         pergm                            = mscored >>= (Just . pPerGMKey)
 >
->     trueChoice kind scored                   =
->       [Blanks 3, gmId kind, Unblocked " ... "] ++ showPerGM scored ++ [EndOfLine]
->     falseChoice kind                         =
->       [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
+>         trueChoice kind scored           =
+>           [Blanks 3, gmId kind, Unblocked " ... "] ++ showPerGM scored ++ [EndOfLine]
+>         falseChoice kind                 =
+>           [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
 >
 > decideWinners          :: Directives
 >                           → ([InstrumentName], [PercussionSound]) 
