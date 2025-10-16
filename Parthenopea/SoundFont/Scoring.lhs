@@ -11,13 +11,28 @@ Scoring
 William Clements
 September 12, 2024
 
-> module Parthenopea.SoundFont.Scoring where
+> module Parthenopea.SoundFont.Scoring
+>        ( adhocFuzz
+>        , combineMatches
+>        , computeFFMatches
+>        , defMatches
+>        , establishWinners
+>        , isConfirmed
+>        , isConfirmed'
+>        , isPossible
+>        , isPossible'
+>        , Matches(..)
+>        , myHints
+>        , qqHints
+>        , scoreOnsets
+>        , stands
+>        , stands'
+>        ) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
-> import qualified Data.Bifunctor          as BF
 > import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
@@ -73,10 +88,6 @@ handle "matching as" cache misses ==============================================
 > evalAgainstKindKeys inp (kind, keys)     = if tot <= 0 then Nothing else Just (kind, tot)
 >   where
 >     tot                :: Double         = evalAgainstKeys inp keys
->
-> evalGenericPerc        :: String → Fuzz
-> evalGenericPerc inp                      =
->   maximum (map (evalAgainstKeys inp . singleton) genericPercFFKeys)
 
 use "matching as" cache ===============================================================================================
 
@@ -166,16 +177,6 @@ Scoring stuff ==================================================================
 > qqHints                :: Map HintId HintBody
 > qqHints                                  = Map.fromList myHints
 >
-> data WinningRecord                       =
->   WinningRecord {
->     pWinningI          :: Map InstrumentName PerGMScored
->   , pWinningP          :: Map PercussionSound PerGMScored}
-> instance Show WinningRecord where
->   show winners                 =
->     unwords ["WinningRecord", show (length winners.pWinningI, length winners.pWinningP)]
-> seedWinningRecord      :: WinningRecord
-> seedWinningRecord                        = WinningRecord Map.empty Map.empty
->
 > data Matches                             =
 >   Matches {
 >     mSMatches          :: Map PreSampleKey FFMatches
@@ -251,20 +252,13 @@ tournament starts here =========================================================
 >                           → PerGMKey → PerInstrument
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiFolder (wI, wP) pergmI_ perI
->       | traceIf trace_WIF False          = undefined
->       | otherwise                        = result
+>       | traceNot trace_WIF False          = undefined
+>       | otherwise                        = (decideInst, decidePerc)
 >       where
 >         fName_                           = unwords [fName__, "wiFolder"]
->         trace_WIF                        = unwords [fName_, show pergmI_, show (BF.bimap length length result)]
+>         trace_WIF                        = unwords [fName_, show $ length decideInst, show $ length decidePerc]
 >
->         result         :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->         result                           =
->           case perI.pInstCat of
->             InstCatPerc _                → decidePerc
->             InstCatInst                  → decideInst
->             _                            → error $ unwords [fName_, "only Inst and Perc are valid here"]
->
->         decideInst     :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
+>         decideInst     :: Map InstrumentName [PerGMScored]
 >         decideInst                       = 
 >           let
 >             iMatches                     = deJust "iMatches" (Map.lookup pergmI_ matches.mIMatches)
@@ -273,24 +267,17 @@ tournament starts here =========================================================
 >             i2Fuzz                       = Map.filterWithKey tryIt fuzzMap
 >                                              where tryIt k _ = k `elem` select rost narrow
 >             i2Fuzz'                      =
->               profess
->                 (not $ Map.null i2Fuzz)
->                 (unwords [fName_, "unexpected empty matches"]) 
->                 (if dives.multipleCompetes
->                    then Map.keys i2Fuzz
->                    else (singleton . fst) (Map.findMax i2Fuzz))
+>               if dives.multipleCompetes
+>                 then Map.keys i2Fuzz
+>                 else (singleton . fst) (Map.findMax i2Fuzz)
 >           in
->             (foldl' (xaEnterTournament fuzzMap pergmI_ []) wI i2Fuzz', wP)
+>             foldl' (xaEnterTournament fuzzMap pergmI_ []) wI i2Fuzz'
 >     
->         decidePerc     :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
+>         decidePerc     :: Map PercussionSound [PerGMScored]
 >         decidePerc                       = 
 >           let
 >             pzs                          = perI.pZones
->
->             bixen                        = case perI.pInstCat of
->               InstCatPerc x              → x
->               InstCatInst                → []
->               _                          → error $ unwords [fName_, "only Inst and Perc are valid here"]
+>             bixen                        = map pzWordB pzs
 >
 >             pergmsP                      = instrumentPercList pergmI_ bixen
 >
@@ -299,7 +286,10 @@ tournament starts here =========================================================
 >                           → Map PercussionSound [PerGMScored]
 >             pFolder wpFold pergmP
 >               | traceIf trace_PF False   = undefined
->               | otherwise                = xaEnterTournament fuzzMap pergmP [] wpFold kind
+>               | otherwise                =
+>                 if null mkind
+>                   then wpFold
+>                   else xaEnterTournament fuzzMap pergmP [] wpFold kind
 >               where
 >                 fName                    = unwords [fName_, "pFolder"]
 >                 trace_PF                 = unwords [fName, show pergmP, show mz, show (mz >>= getAP), show (mz >>= getAP >>= pitchToPerc)]
@@ -327,7 +317,7 @@ tournament starts here =========================================================
 >                   >>= intersectRanges
 >                   >>= Just . (fromIntegral . fst)
 >           in
->             (wI, foldl' pFolder wP pergmsP)
+>             foldl' pFolder wP pergmsP
 >
 >     xaEnterTournament  :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
 >                           Map a Fuzz
@@ -342,7 +332,7 @@ tournament starts here =========================================================
 >       where
 >         fName                            = unwords [fName__, "xaEnterTournament"]
 >         trace_XAET                       =
->           unwords [fName, iName, fromMaybe "" mnameZ, show kind]
+>           unwords [fName, iName, show pergm, show kind, show $ length perI.pZones]
 >
 >         pergm_                           = pergm{pgkwBag = Nothing}
 >         perI                             = cache Map.! pergm_
@@ -361,7 +351,7 @@ tournament starts here =========================================================
 >         scope                            =
 >           profess
 >             (not (null scope_))
->             (unwords[fName, "null scope", iName])
+>             (unwords[fName, "null scope", iName, show (pergm, pergm_), show $ length perI.pZones])
 >             scope_
 >             
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
@@ -433,30 +423,6 @@ Utilities ======================================================================
 > stands' fuzz                             = fuzz > stands
 > isConfirmed' fuzz                        = fuzz > isConfirmed
 >
-> scorePitchDistance     :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
-> scorePitchDistance cand mrange           =
->   case mrange of
->     Nothing                   → 1000
->     Just (rangeMin, rangeMax) → let
->                                   dist1  = abs $ cand - rangeMin
->                                   dist2  = abs $ cand - rangeMax
->                                 in
->                                   if cand >= rangeMin && cand <= rangeMax
->                                   then 100 * max dist1 dist2
->                                   else 1000 * min dist1 dist2
->
-> scoreVelocityDistance  :: (Num a, Ord a) ⇒ a → Maybe (a, a) → a
-> scoreVelocityDistance cand mrange        =
->   case mrange of
->     Nothing                   → 100
->     Just (rangeMin, rangeMax) → let
->                                   dist1  = abs $ cand - rangeMin
->                                   dist2  = abs $ cand - rangeMax
->                                 in
->                                   if cand >= rangeMin && cand <= rangeMax
->                                   then 10 * max dist1 dist2
->                                   else 100 * min dist1 dist2
->
 > scoreOnsets  :: Int → [Double] → Array Int Int
 > scoreOnsets nBins ts
 >   | traceAlways trace_SO False           = undefined
@@ -511,12 +477,6 @@ Utilities ======================================================================
 >         (x == clip (-1_000_000, 1_000_000) x)
 >         (unwords ["gradeEmpiricals", "fatal scoring out of bounds numbers like", show x])
 >         (round x)
->
-> genericInstFFKeys      :: [String]
-> genericInstFFKeys                        = singleton "horn" 
->
-> genericPercFFKeys      :: [String]
-> genericPercFFKeys                        = ["kit", "kick", "drum", "perc", "hat"]
 >
 > instrumentConFFKeys    :: InstrumentName → Maybe (InstrumentName, [String])
 > instrumentConFFKeys inst                 = embed inst keys
@@ -748,42 +708,8 @@ Utilities ======================================================================
 >
 > embed                  :: a → Maybe b → Maybe (a, b)
 > embed kind                               = fmap (kind,)
-
-Flags for customization ===============================================================================================
-
-> qqDesireReStereo       :: Desires
-> qqDesireRe24Bit        :: Desires
-> qqDesireReSplits       :: Desires
-> qqDesireReConformance  :: Desires
-> qqDesireReFuzzy        :: Desires
->
-> qqDesireReStereo                         = DPreferOn
-> qqDesireRe24Bit                          = DPreferOn
-> qqDesireReSplits                         = DPreferOn
-> qqDesireReConformance                    = DPreferOn
-> qqDesireReFuzzy                          = DPreferOn
->
-> data Desires =
->   DAllOff | DPreferOff | DNeutral | DPreferOn | DAllOn deriving (Eq, Show)
->
-> scoreDesire            :: Desires → Rational
-> scoreDesire x = case x of
->   DAllOff          → (-1)
->   DPreferOff       → (-1)
->   DNeutral         → 0
->   DPreferOn        → 1
->   DAllOn           → 1
 >
 > scoreBool              :: Bool → Rational
 > scoreBool x = if x then 1 else (-1)
->
-> qqDesires              :: [Desires]
-> qqDesires                                = [  qqDesireReStereo
->                                             , qqDesireRe24Bit
->                                             , qqDesireReSplits
->                                             , qqDesireReConformance
->                                             , qqDesireReFuzzy]
-> qqDesires'             :: [Double]
-> qqDesires'                               = map (fromRational . scoreDesire) qqDesires
 
 The End

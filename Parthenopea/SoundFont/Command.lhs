@@ -129,23 +129,7 @@ Implement PCommand =============================================================
 >           then outFileNorm               (name ++ ".wav") durS s
 >           else outFile                   (name ++ ".wav") durS s
 >         tsFinish                         ← getZonedTime
->         let summary                      =
->               [ ToFieldL "song time:"                      15
->               , ToFieldL (formatSeconds $ approx durS)     15
->               , ToFieldL "render time:"                    15
->               , ToFieldL (formatDiffTime tsFinish tsStart) 15
->               , ToFieldL "ratio:"                          15
->               , ToFieldL (show ratio)                      25
->               , EndOfLine, EndOfLine]
->               where
->                 delta  :: Double
->                 delta                    = diffZonedTime tsFinish tsStart
->                 ratio                    =
->                   profess
->                     (durS /= 0)
->                     (unwords ["bad division:", show delta, "over", show durS])
->                     (delta / durS)
->         putStr $ reapEmissions summary
+>         putStr $ reapEmissions $ emitSongTime durS tsStart tsFinish
 >       else
 >         putStr $ reapEmissions [Unblocked "skipping..."]
 >     return ()

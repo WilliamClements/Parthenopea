@@ -55,7 +55,6 @@ implementing SoundFont spec ====================================================
 >   , pzDigest           :: ZoneDigest
 >   , pzSFZone           :: SFZone
 >   , pzChanges          :: ChangeEar F.Shdr
->   , pzPartner          :: Maybe Word
 >   , pzRecon            :: Maybe Recon}
 >   deriving Eq
 > instance Show PreZone where
@@ -69,7 +68,7 @@ implementing SoundFont spec ====================================================
 >   PreZone
 >     wF wS wI wB 
 >      (formDigest gens) defZone (ChangeEar shdr [])
->      Nothing Nothing
+>      Nothing
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
@@ -161,7 +160,6 @@ implementing SoundFont spec ====================================================
 >   PerInstrument {
 >    piChanges           :: ChangeName F.Inst
 >   , pZones             :: [PreZone]
->   , pInstCat           :: InstCat
 >   , pSmashing          :: Smashing Word}
 > instance Show PerInstrument where
 >   show perI                              = unwords ["PerInstrument", showBags perI]
@@ -246,27 +244,6 @@ implementing SoundFont spec ====================================================
 >     pgkwFile           :: Int
 >   , pgkwInst           :: Word
 >   , pgkwBag            :: Maybe Word} deriving (Eq, Ord, Show)
->
-> data InstCat                             =
->        InstCatInst
->      | InstCatPerc [Word]
->      | InstCatDisq Impact String
-> instance Show InstCat where
->   show icat                              =
->     unwords ["InstCat", showMaybeInstCat $ Just icat]
-> getMaybePercList       :: Maybe InstCat → Maybe [Word]
-> getMaybePercList                         =
->   \case
->     Nothing                              → Nothing
->     Just (InstCatPerc bixen)             → Just bixen
->     _                                    → Just []
-> showMaybeInstCat       :: Maybe InstCat → String
-> showMaybeInstCat                         =
->   \case
->     Nothing                              → "icNothing"
->     Just InstCatInst                     → "icInst"
->     Just (InstCatPerc _)                 → "icPerc"
->     Just (InstCatDisq imp why)           → unwords ["icDisq", show imp, why]
 >
 > data SFFileBoot                          =
 >   SFFileBoot {

@@ -8,7 +8,7 @@ RangesReport
 William Clements
 October 5, 2025
 
-> module Parthenopea.SoundFont.RangesReport ( runUnitTests, writeRangesReport ) where
+> module Parthenopea.SoundFont.RangesReport ( emitSongTime, runUnitTests, writeRangesReport ) where
 >
 > import qualified Control.Monad           as CM
 > import Data.Array.Unboxed ( inRange )
@@ -16,6 +16,7 @@ October 5, 2025
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
+> import Data.Time
 > import Euterpea.IO.MIDI.MEvent ( MEvent(ePitch) )
 > import Euterpea.Music
 > import Parthenopea.Debug
@@ -117,5 +118,23 @@ check all the incoming music for instrument range violations ===================
 >         indicator p                      = if isNothing mrange || inRange (deJust "range" mrange) p
 >                                              then "*in"
 >                                              else "*out!!"
+>
+> emitSongTime           :: Double → ZonedTime → ZonedTime → [Emission]
+> emitSongTime durS tsStart tsFinish       =
+>   [ ToFieldL "song time:"                      15
+>   , ToFieldL (formatSeconds $ approx durS)     15
+>   , ToFieldL "render time:"                    15
+>   , ToFieldL (formatDiffTime tsFinish tsStart) 15
+>   , ToFieldL "ratio:"                          15
+>   , ToFieldL (show ratio)                      25
+>   , EndOfLine, EndOfLine]
+>   where
+>     delta              :: Double
+>     delta                                = diffZonedTime tsFinish tsStart
+>     ratio                                =
+>       profess
+>         (durS /= 0)
+>         (unwords ["bad division:", show delta, "over", show durS])
+>         (delta / durS)
 
 The End
