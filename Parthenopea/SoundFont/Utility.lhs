@@ -27,7 +27,9 @@ October 8, 2025
 >
 > qMidiSize128           :: Word
 > qMidiSize128                             = 128
->
+
+error wrappers ========================================================================================================
+
 > profess                :: Bool → String → a → a
 > profess assertion msg something          = if not assertion
 >                                              then error (unwords ["Failed assertion --", msg])
@@ -35,7 +37,9 @@ October 8, 2025
 >
 > deJust                 :: ∀ a. String → Maybe a → a
 > deJust tag item                          = profess (isJust item) (unwords["expected Just for", tag]) (fromJust item)
->
+
+ranges/numerics =======================================================================================================
+
 > accommodate            :: Ord n ⇒ (n, n) → n → (n, n)
 > accommodate (xmin, xmax) newx            = (min xmin newx, max xmax newx)
 >
@@ -72,7 +76,7 @@ note-on abstraction ============================================================
 >    , [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 1])
 >
 
-Graph Theory ==========================================================================================================
+graph Theory ==========================================================================================================
 
 > makeGraph              :: [(Node, [Node])] → Graph
 > makeGraph list                           = 
@@ -86,7 +90,7 @@ Graph Theory ===================================================================
 >     extra                                = map (,[]) orphans
 >   in array (0, highest) (list ++ extra)
 
-Time ==================================================================================================================
+time ==================================================================================================================
 
 > ratEps                 :: Double
 > ratEps                                   = 0.000_1

@@ -49,10 +49,11 @@ October 5, 2025
 >   writeReportBySections dives reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP]
 >
 >   where
->     nfs                :: [(Int, SFFileBoot)]
->     nfs                = zip [0..] (VB.toList vBootFiles)
->     esFiles            = concatMap doF nfs
->     doF (nth, sffile)  = [emitShowL nth 5, emitShowL (zFilename sffile) 56, EndOfLine]
+>     esFiles                              =
+>       let
+>         emitF sffile                     = [emitShowL sffile.zWordFBoot 7, emitShowL sffile.zFilename 54, EndOfLine]
+>       in
+>         VB.foldr (++) [] (VB.map emitF vBootFiles)
 
 emit standard output text detailing what choices we made for rendering GM items =======================================
 

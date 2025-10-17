@@ -761,16 +761,16 @@ match task =====================================================================
 > matchTaskIf _ _ fwIn                     = fwIn{fwMatches = Matches sMatches iMatches}
 >   where
 >     narrow                               = fwIn.fwDirectives.narrowRosterForBoot
->     absorbT                              = fwIn.fwDirectives.absorbThreshold
+>     procon                               = fwIn.fwDirectives.proConRatio
 
 >     sMatches                             =
 >       Map.foldlWithKey compute Map.empty fwIn.fwPreSamples
->         where compute m k v              = Map.insert k (computeFFMatches absorbT v.cnName narrow) m
+>         where compute m k v              = Map.insert k (computeFFMatches procon v.cnName narrow) m
 >     iMatches                             =
 >       let
 >         computeFF      :: Map PerGMKey FFMatches → InstZoneRecord → Map PerGMKey FFMatches 
 >         computeFF m zrec                 =
->           Map.insert (instKey zrec) (computeFFMatches absorbT zrec.zswChanges.cnName narrow) m
+>           Map.insert (instKey zrec) (computeFFMatches procon zrec.zswChanges.cnName narrow) m
 >       in
 >         zrecCompute fwIn computeFF Map.empty 
 

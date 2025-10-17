@@ -40,6 +40,7 @@ September 12, 2024
 > import Data.Maybe
 > import Data.Ord ( Down(Down) )
 > import qualified Data.Vector.Strict      as VB
+> import Debug.Trace ( traceIO )
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
@@ -230,6 +231,7 @@ tournament starts here =========================================================
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 > decideWinners dives rost _ cache matches
 >                                          = do
+>   CM.when diagnosticsEnabled             (traceIO $ unwords [fName__, show $ length cache])
 >   return wiExec
 >
 >   where
@@ -248,7 +250,7 @@ tournament starts here =========================================================
 >                           → PerGMKey → PerInstrument
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiFolder (wI, wP) pergmI_ perI
->       | traceNot trace_WIF False          = undefined
+>       | traceNot trace_WIF False         = undefined
 >       | otherwise                        = (decideInst, decidePerc)
 >       where
 >         fName_                           = unwords [fName__, "wiFolder"]
@@ -260,8 +262,8 @@ tournament starts here =========================================================
 >             iMatches                     = deJust "iMatches" (Map.lookup pergmI_ matches.mIMatches)
 >             fuzzMap                      = getFuzzMap iMatches
 >
->             i2Fuzz                       = Map.filterWithKey tryIt fuzzMap
->                                              where tryIt k _ = k `elem` select rost narrow
+>             i2Fuzz                       = Map.filterWithKey isInRoster fuzzMap
+>                                              where isInRoster k _ = k `elem` select rost narrow
 >             i2Fuzz'                      =
 >               if dives.multipleCompetes
 >                 then Map.keys i2Fuzz
