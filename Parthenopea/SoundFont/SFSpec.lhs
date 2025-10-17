@@ -673,6 +673,30 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > allOff                                   =
 >   ReportVerbosity 0 0 0
 >
+> data SynthSwitches                       =
+>   SynthSwitches {
+>     usePitchCorrection :: Bool
+>   , useAttenuation     :: Bool
+>   , useLoopSwitching   :: Bool
+>   , useReverb          :: Bool
+>   , useChorus          :: Bool
+>   , usePan             :: Bool
+>   , useDCBlock         :: Bool
+>   , noStereoNoPan      :: Bool
+>   , normalizingOutput  :: Bool} deriving (Eq, Show)
+> defSynthSwitches       :: SynthSwitches
+> defSynthSwitches                         =
+>   SynthSwitches
+>     True
+>     True
+>     True
+>     True
+>     True
+>     True
+>     True
+>     True
+>     True
+>
 > data Directives                          =
 >   Directives {
 >     doAbsorption       :: Bool
@@ -689,6 +713,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >   , multipleCompetes   :: Bool
 >   , proConRatio        :: Rational
 >   , absorbThreshold    :: Rational
+>   , synthSwitches      :: SynthSwitches
 >   , dReportVerbosity   :: ReportVerbosity} deriving (Eq, Show)
 >
 > defDirectives          :: Directives
@@ -711,6 +736,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >         True
 >         (3/4)
 >         (4/5)
+>         defSynthSwitches
 >         allOn
 >
 > okDirectives           :: Directives → Bool

@@ -11,6 +11,9 @@ October 8, 2025
 
 > module Parthenopea.SoundFont.Utility where
 >
+> import Data.Array.Unboxed
+> import Data.Foldable
+> import Data.Graph (Graph)
 > import Data.Maybe
 > import Data.Ratio ( approxRational )
 > import Data.Time
@@ -20,6 +23,7 @@ October 8, 2025
 > type GMKind                              = Either InstrumentName PercussionSound
 > type KeyNumber                           = AbsPitch
 > type Velocity                            = Volume
+> type Node                                = Int
 >
 > qMidiSize128           :: Word
 > qMidiSize128                             = 128
@@ -44,6 +48,9 @@ October 8, 2025
 >     rnd                :: Int
 >     rnd                                  = round (p10 * x)
 >
+
+note-on abstraction ===================================================================================================
+
 > data NoteOn                              =
 >   NoteOn {
 >     noteOnVel          :: Velocity
@@ -63,6 +70,21 @@ October 8, 2025
 > noonAsCoords noon                        =
 >   (  [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 0]
 >    , [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 1])
+>
+
+Graph Theory ==========================================================================================================
+
+> makeGraph              :: [(Node, [Node])] → Graph
+> makeGraph list                           = 
+>   let
+>     highestL                             = if null list
+>                                              then 0
+>                                              else maximum (map fst list)
+>     highestR                             = foldl' (\x y → max x (maximum y)) 0 (map snd list)
+>     highest                              = max highestL highestR
+>     orphans                              = filter (\x → isNothing (lookup x list)) [0..highest]
+>     extra                                = map (,[]) orphans
+>   in array (0, highest) (list ++ extra)
 
 Time ==================================================================================================================
 

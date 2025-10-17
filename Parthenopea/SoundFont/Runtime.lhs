@@ -46,7 +46,8 @@ executive ======================================================================
 
 > data SFRuntime                           =
 >   SFRuntime {
->     zRoster            :: ([InstrumentName], [PercussionSound])
+>     zDirectives        :: Directives
+>   , zRoster            :: ([InstrumentName], [PercussionSound])
 >   , zRuntimeFiles      :: IntMap SFFileRuntime
 >   , zChoicesI          :: Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
 >   , zChoicesP          :: Map PercussionSound (Bool, Maybe PerGMKey, [Emission])
@@ -64,11 +65,12 @@ cache SoundFont data that is only needed for Runtime ===========================
 >                       → ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
 >                         , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
 >                       → IO SFRuntime
-> prepareRuntime _ rost vFilesBoot cache (zI, zP)
+> prepareRuntime dives rost vFilesBoot cache (zI, zP)
 >                                          = do
 >   let runtimeFiles                       = IntMap.fromList $ mapMaybe supply (VB.toList vFilesBoot)
 >   let prerunt                            =
 >         SFRuntime
+>           dives
 >           rost
 >           runtimeFiles
 >           zI
@@ -109,7 +111,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >               let
 >                 wrapUp pz                = (fromIntegral pz.pzWordB, pz')
 >                   where
->                     pz'                  = pz{pzRecon = Just $ resolvePreZone pz}            
+>                     pz'                  = pz{pzRecon = Just $ resolvePreZone dives pz}            
 >               in
 >                 m `IntMap.union` IntMap.fromList (map wrapUp (newpi IntMap.! inst).pZones)
 >
@@ -166,7 +168,8 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Signal p () (Double, Double)
 > instrumentSF runt pergm durI pchIn volIn ps_
 >   | traceIf trace_ISF False              = undefined
->   | otherwise                            = eutSynthesize (reconX, mreconX) noonOut reconX.rSampleRate durI sffile 
+>   | otherwise                            =
+>   eutSynthesize switches (reconX, mreconX) noonOut reconX.rSampleRate durI sffile 
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
@@ -175,6 +178,7 @@ define signal functions and instrument maps to support rendering ===============
 >
 >     sffile                               = runt.zRuntimeFiles IntMap.! pergm.pgkwFile
 >     perI                                 = sffile.zPerInstrument IntMap.! fromIntegral pergm.pgkwInst
+>     switches                             = runt.zDirectives.synthSwitches
 >
 >     ps                                   = VB.fromList ps_
 >     noonIn                               = carefulNoteOn volIn pchIn
@@ -228,9 +232,10 @@ reconcile zone and sample header ===============================================
 > receiveRecon           :: PreZone → Recon
 > receiveRecon pz                          = deJust "receiveRecon" pz.pzRecon
 >
-> resolvePreZone         :: PreZone → Recon
-> resolvePreZone pz                        = reconL
+> resolvePreZone         :: Directives → PreZone → Recon
+> resolvePreZone dives pz                  = reconL
 >   where
+>     switches                             = dives.synthSwitches
 >     zd                                   = pz.pzDigest
 >     z                                    = pz.pzSFZone
 >     shdr                                 = effPZShdr pz
@@ -252,18 +257,18 @@ reconcile zone and sample header ===============================================
 >         VB.empty
 >         (reconAttenuation z.zInitAtten)
 >         (deriveEnvelope z.zDelayVolEnv z.zAttackVolEnv z.zHoldVolEnv z.zDecayVolEnv z.zSustainVolEnv Nothing)                         
->         (if usePitchCorrection
+>         (if switches.usePitchCorrection
 >            then Just $ reconPitchCorrection shdr.pitchCorrection z.zCoarseTune z.zFineTune
 >            else Nothing)
 >         m8n
->         (deriveEffects m8n z.zChorus z.zReverb z.zPan)
+>         (deriveEffects switches m8n z.zChorus z.zReverb z.zPan)
 >
 >     reconPitchCorrection
 >                        :: Int → Maybe Int → Maybe Int → Double
 >     reconPitchCorrection sub mps mpc     = fromMaybe ((fromCents . fromIntegral) sub) (fromCents' mps mpc)
 >
 >     reconAttenuation   :: Maybe Int → Double
->     reconAttenuation _     {- WOX -}       = if useAttenuation
+>     reconAttenuation _     {- WOX -}       = if switches.useAttenuation
 >                                              then maybe 0 fromIntegral z.zInitAtten
 >                                              else 0.0
 >

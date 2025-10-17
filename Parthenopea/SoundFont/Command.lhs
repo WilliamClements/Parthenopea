@@ -28,7 +28,6 @@ June 16, 2025
 > import Euterpea.Music
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
-> import Parthenopea.Repro.Synthesizer ( normalizingOutput )
 > import Parthenopea.SoundFont.Boot ( surveyInstruments )
 > import Parthenopea.SoundFont.RangesReport
 > import Parthenopea.SoundFont.ScanReport
@@ -110,6 +109,8 @@ Implement PCommand =============================================================
 > renderSong             :: SFRuntime → Song → IO ()
 > renderSong runt (Song name music ding)   =
 >   do
+>     let switches                         = runt.zDirectives.synthSwitches
+>
 >     tsStart                              ← getZonedTime
 >     putStr $ reapEmissions [Unblocked $ unwords ["renderSong", name], EndOfLine]
 >
@@ -125,7 +126,7 @@ Implement PCommand =============================================================
 >     if all fst esI && all fst esP
 >       then do
 >         let (durS, s)                    = renderSF (music dynMap) runt.zInstrumentMap
->         if normalizingOutput
+>         if switches.normalizingOutput
 >           then outFileNorm               (name ++ ".wav") durS s
 >           else outFile                   (name ++ ".wav") durS s
 >         tsFinish                         ← getZonedTime

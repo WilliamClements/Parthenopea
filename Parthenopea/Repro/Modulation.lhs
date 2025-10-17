@@ -119,8 +119,6 @@ Modulator management is complex considering small impact =======================
 
 Nonetheless, trying hard here for 100 percent correctness and support, even with high numbers of mods.
 
-> type Node = Int
->
 > resolveMods            :: Modulation → [Modulator] → [Modulator] → Modulation
 > resolveMods m8n m8rs dm8rs               = m8n{mModsMap = compileMods checked}
 >   where
@@ -153,18 +151,6 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >         (error $ unwords ["only ToLink forms a ModDestType to be turned into a Node"])
 >         fromIntegral
 >         (outGoing mdt)
->
-> makeGraph              :: [(Node, [Node])] → Graph
-> makeGraph list                           = 
->   let
->     highestL                             = if null list
->                                              then 0
->                                              else maximum (map fst list)
->     highestR                             = foldl' (\x y → max x (maximum y)) 0 (map snd list)
->     highest                              = max highestL highestR
->     orphans                              = filter (\x → isNothing (lookup x list)) [0..highest]
->     extra                                = map (,[]) orphans
->   in array (0, highest) (list ++ extra)
 >
 > -- | Calculates all the nodes that are part of cycles in a graph.
 > cyclicNodes :: Graph → [Node]

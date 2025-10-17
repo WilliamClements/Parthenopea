@@ -255,8 +255,8 @@ tournament starts here =========================================================
 >         trace_WIF                        = unwords [fName_, show $ length decideInst, show $ length decidePerc]
 >
 >         decideInst     :: Map InstrumentName [PerGMScored]
->         decideInst                       = 
->           let
+>         decideInst                       = foldl' (xaEnterTournament fuzzMap pergmI_ []) wI i2Fuzz'
+>           where
 >             iMatches                     = deJust "iMatches" (Map.lookup pergmI_ matches.mIMatches)
 >             fuzzMap                      = getFuzzMap iMatches
 >
@@ -266,20 +266,15 @@ tournament starts here =========================================================
 >               if dives.multipleCompetes
 >                 then Map.keys i2Fuzz
 >                 else (singleton . fst) (Map.findMax i2Fuzz)
->           in
->             foldl' (xaEnterTournament fuzzMap pergmI_ []) wI i2Fuzz'
 >     
 >         decidePerc     :: Map PercussionSound [PerGMScored]
->         decidePerc                       = 
->           let
+>         decidePerc                       = foldl' pFolder wP pergmsP
+>           where
 >             pzs                          = perI.pZones
 >             bixen                        = map pzWordB pzs
 >
 >             pergmsP                      = instrumentPercList pergmI_ bixen
 >
->             pFolder    :: Map PercussionSound [PerGMScored]
->                           → PerGMKey
->                           → Map PercussionSound [PerGMScored]
 >             pFolder wpFold pergmP
 >               | traceIf trace_PF False   = undefined
 >               | otherwise                =
@@ -312,8 +307,6 @@ tournament starts here =========================================================
 >                   >>= Just . (++) (singleton percPitchRange)
 >                   >>= intersectRanges
 >                   >>= Just . (fromIntegral . fst)
->           in
->             foldl' pFolder wP pergmsP
 >
 >     xaEnterTournament  :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
 >                           Map a Fuzz
