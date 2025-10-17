@@ -279,10 +279,9 @@ tournament starts here =========================================================
 >
 >             pFolder wpFold pergmP
 >               | traceIf trace_PF False   = undefined
->               | otherwise                =
->                 if null mkind
->                   then wpFold
->                   else xaEnterTournament fuzzMap pergmP [] wpFold kind
+>               | null mkind               = wpFold
+>               | Map.null fuzzMap         = wpFold
+>               | otherwise                = xaEnterTournament fuzzMap pergmP [] wpFold kind
 >               where
 >                 fName                    = unwords [fName_, "pFolder"]
 >                 trace_PF                 = unwords [fName, show pergmP, show mz, show (mz >>= getAP), show (mz >>= getAP >>= pitchToPerc)]
@@ -318,8 +317,9 @@ tournament starts here =========================================================
 >                           → a
 >                           → Map a [PerGMScored]
 >     xaEnterTournament fuzzMap pergm hints wins kind
->       | traceIf trace_XAET False         = undefined
->       | otherwise                        = Map.insertWith (++) kind [scored] wins
+>       | traceNot trace_XAET False        = undefined
+>       | goodScore scored                 = Map.insertWith (++) kind [scored] wins
+>       | otherwise                        = wins
 >       where
 >         fName                            = unwords [fName__, "xaEnterTournament"]
 >         trace_XAET                       =

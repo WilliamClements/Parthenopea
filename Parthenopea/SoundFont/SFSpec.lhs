@@ -286,7 +286,8 @@ implementing SoundFont spec ====================================================
 >   , pPerGMKey          :: PerGMKey
 >   , szI                :: String
 >   , mszP               :: Maybe String} deriving (Show)
->
+> goodScore              :: PerGMScored → Bool
+> goodScore score                           = tracer "score" score.pAgainstKindResult > 0
 > class GMPlayable a where
 >   toGMKind             :: a → GMKind
 >   select               :: ([InstrumentName], [PercussionSound]) → Bool → [a]
