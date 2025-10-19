@@ -185,9 +185,11 @@ support sample and instance ====================================================
 pre-sample task =======================================================================================================
           critique all Sample records in the file
 
-> preSampleTaskIf sffile _ fwIn            =
->   foldl' sampleFolder fwIn (formComprehension sffile ssShdrs)
+> preSampleTaskIf sffile _ fWork           =
+>   foldl' sampleFolder fWork (formComprehension sffile ssShdrs)
 >   where
+>     Directives{ .. }
+>                                          = fWork.fwDirectives                     
 >     sampleFolder fwForm presk            =
 >       let
 >         fName                            = "sampleFolder"
@@ -222,7 +224,7 @@ pre-sample task ================================================================
 >           | isNothing mtype              = violated BadSampleType (show shdr.sampleType)
 >           | not (sampleSizeOk (shdr.start, shdr.end))
 >                                          = violated BadSampleLimits (show (shdr.start, shdr.end))
->           | not (goodName raw)           = badButMaybeFix fwIn.fwDirectives.fixBadNames CorruptName fName raw good
+>           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
 >           | otherwise                    = accepted Ok stereo
 >
 >         (ss, changes, name)              = if wasRescued CorruptName ss_
@@ -323,12 +325,15 @@ iterating InstZoneRecord list ==================================================
 survey task ===========================================================================================================
           instantiate InstZoneRecord per Instrument
 
-> surveyTaskIf sffile _ fwIn               = fwIn{fwZRecs = zrecs, fwDispositions = rd'}
+> surveyTaskIf sffile _ fWork              = fWork{fwZRecs = zrecs, fwDispositions = rd'}
 >   where
 >     fName                                = "surveyTaskIf"
 >
+>     Directives{ .. }
+>                                          = fWork.fwDirectives                     
+>
 >     (zrecs, rd')                         =
->       foldl' preIFolder ([], fwIn.fwDispositions) (formComprehension sffile ssInsts)
+>       foldl' preIFolder ([], fWork.fwDispositions) (formComprehension sffile ssInsts)
 >     
 >     violated, accepted :: Impact → String → [Scan]
 >     violated impact clue             =
@@ -356,7 +361,7 @@ survey task ====================================================================
 >         ss
 >           | iinst.instBagNdx == jinst.instBagNdx
 >                                          = violated NoZones (show iinst.instName)
->           | not (goodName raw)           = badButMaybeFix fwIn.fwDirectives.fixBadNames CorruptName fName raw good
+>           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
 >           | otherwise                    = accepted Ok (show pergm.pgkwInst)
 >
 >         changes                          = if wasRescued CorruptName ss then singleton FixCorruptName else []
@@ -370,7 +375,7 @@ survey task ====================================================================
 capture task ==========================================================================================================
           populate zrecs with PreZones
 
-> captureTaskIf sffile _ fwIn              = zrecTask capturer fwIn
+> captureTaskIf sffile _ fWork             = zrecTask capturer fWork
 >   where
 >     fName                                = "captureTaskIf"
 >
@@ -417,7 +422,7 @@ capture task ===================================================================
 >             pz                           = makePreZone sffile.zWordFBoot si (pgkwInst pergm) bix gens pres.cnSource
 >             si                           = deJust (unwords [fName, "si"]) pz.pzDigest.zdSampleIndex
 >             presk                        = PreSampleKey sffile.zWordFBoot si
->             mpres                        = presk `Map.lookup` fwIn.fwPreSamples
+>             mpres                        = presk `Map.lookup` fWork.fwPreSamples
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
 >
 >         pzs                              = fst $ foldl' consume ([], defZone) results
@@ -656,18 +661,18 @@ To build the map
 
  5. implement a suitability calculation 
 
-> reorgTaskIf _ _ fwIn                     = zrecTask reorger fwIn
+> reorgTaskIf _ _ fWork                    = zrecTask reorger fWork
 >   where
->     absorbT                              = fwIn.fwDirectives.absorbThreshold
->     closeEnough x y                      = absorbT < howClose (fst x) (fst y)
+>     Directives{ .. }
+>                                          = fWork.fwDirectives                     
+>     closeEnough x y                      = absorbThreshold < howClose (fst x) (fst y)
 >
 >     reorger zrec rdFold
 >       | traceIf trace_R False            = undefined
->       | not fwIn.fwDirectives.doAbsorption
->                                          = (zrec,                       rdFold)
+>       | not doAbsorption                 = (zrec,                       rdFold)
 >       | isJust dprobe                    = (zrec,                       dispose pergm scansBlocked rdFold)
 >       | isNothing aprobe                 = (zrec,                       rdFold)
->       | party == zrec.zswInst            = (zrec{zsPreZones = hpzs, zsSmashup = Just hsmash},
+>       | party == wInst                   = (zrec{zsPreZones = hpzs, zsSmashup = Just hsmash},
 >                                                                         dispose pergm scansIng rdFold)
 >       | otherwise                        = (zrec{zsPreZones = []},      dispose pergm scansEd rdFold)
 >       where
@@ -702,13 +707,13 @@ To build the map
 >       let
 >         tFolder m zrec                   = Map.insert zrec.zswInst (zrec.zsPreZones, fromJust zrec.zsSmashup) m
 >       in
->         zrecCompute fwIn tFolder Map.empty 
+>         zrecCompute fWork tFolder Map.empty 
 >     
 >     headed                               = foldr (Map.union . rewire) Map.empty groups
 >       where
 >         groups                           = filter noSingletons ((groupBy closeEnough . reverse) instNames)
 >                                              where noSingletons x = 1 < length x
->         instNames                        = zrecCompute fwIn extract []
+>         instNames                        = zrecCompute fWork extract []
 >                                              where extract ns zrec = (zrec.zswChanges.cnName, zrec.zswInst) : ns
 >         rewire ns                        = Map.insert ((snd . head) ns) (map snd ns) Map.empty
 >
@@ -758,73 +763,65 @@ To build the map
 match task ============================================================================================================
           track all fuzzy matches
 
-> matchTaskIf _ _ fwIn                     = fwIn{fwMatches = Matches sMatches iMatches}
+> matchTaskIf _ _ fWork                    = fWork{fwMatches = Matches sMatches iMatches}
 >   where
->     narrow                               = fwIn.fwDirectives.narrowRosterForBoot
->     procon                               = fwIn.fwDirectives.proConRatio
-
+>     Directives{ .. }
+>                                          = fWork.fwDirectives                     
 >     sMatches                             =
->       Map.foldlWithKey compute Map.empty fwIn.fwPreSamples
->         where compute m k v              = Map.insert k (computeFFMatches procon v.cnName narrow) m
+>       Map.foldlWithKey compute Map.empty fWork.fwPreSamples
+>         where compute m k v              = Map.insert k (computeFFMatches proConRatio v.cnName narrowRosterForBoot) m
 >     iMatches                             =
 >       let
 >         computeFF      :: Map PerGMKey FFMatches → InstZoneRecord → Map PerGMKey FFMatches 
 >         computeFF m zrec                 =
->           Map.insert (instKey zrec) (computeFFMatches procon zrec.zswChanges.cnName narrow) m
+>           Map.insert (instKey zrec) (computeFFMatches proConRatio zrec.zswChanges.cnName narrowRosterForBoot) m
 >       in
->         zrecCompute fwIn computeFF Map.empty 
+>         zrecCompute fWork computeFF Map.empty 
 
 clean task ============================================================================================================
-          remove zrecs with no PreZones
+          removing zrecs that have gone bad
 
 > cleanTaskIf _ _                          = zrecTask cleaner
 >   where
 >     cleaner zrec rdFold
->       | null zrec.zsPreZones             = (zrec, dispose pergm ss rdFold)
+>       | null zrec.zsPreZones             = (zrec, dispose pergm ssNoZones rdFold)
 >       | otherwise                        = (zrec, rdFold)
 >       where
 >         fName                            = "cleaner"
 >
 >         pergm                            = instKey zrec
->         ss                               =
+>         ssNoZones                        =
 >           [Scan Violated NoZones fName noClue]
 
-build zone task =======================================================================================================
-          generate the PerInstrument map (aka zone cache)
+perI task =============================================================================================================
+          generate PerInstrument map
 
 > perITaskIf _ _ fWork                     = fWork{  fwPerInstruments   = perIs
 >                                                  , fwDispositions     = rdOut}
 >   where
->     (perIs, rdOut)                        = zrecCompute fWork zcFolder (Map.empty, fWork.fwDispositions)
+>     (perIs, rdOut)                        = zrecCompute fWork perIFolder (Map.empty, fWork.fwDispositions)
 >
->     zcFolder (zc, rdFold) zrec
->       | traceIf trace_ZCF False          = undefined
->       | otherwise                        = (zc', rdFold')
+>     perIFolder (m, rdFold) zrec
+>       | traceIf trace_PIF False          = undefined
+>       | otherwise                        = (m', rdFold')
 >       where
->         fName                            = "zcFolder"
->         trace_ZCF                        = unwords [fName, show zrec, show pergm]
+>         fName                            = "perIFolder"
+>         trace_PIF                        = unwords [fName, show zrec, show (instKey zrec), show perI]
 >
->         zc'                              = Map.insert pergm perI zc
+>         perI                             =
+>           PerInstrument 
+>             zrec.zswChanges 
+>             zrec.zsPreZones
+>             (fromJust zrec.zsSmashup) 
+>
+>         m'                               = Map.insert (instKey zrec) perI m
 >         rdFold'                          =
->           dispose pergm [Scan Accepted ToCache fName noClue] rdz -- WOX clue?
->
->         pergm                            = instKey zrec
->         perI                             = computePerInst zrec
->         pzs                              = perI.pZones
->         (_, rdz)                         = zoneTask (const True) blessZone pzs rdFold
->         blessZone pz rdIn                =
 >           let
->             ss                           = [Scan Accepted ToCache fName (show pz.pzWordB)]
->             rdIn'                        = dispose (extractZoneKey pz) ss rdIn
+>             (_, rdz)                     = zoneTask (const True) blessZone perI.pZones rdFold
+>             blessZone pz rdIn            = (Just pz, dispose (extractZoneKey pz) ssBless rdIn)
+>             ssBless                      = [Scan Accepted ToCache fName noClue]
 >           in
->             (Just pz, rdIn')
->
->     computePerInst     :: InstZoneRecord → PerInstrument
->     computePerInst zrec                  =
->       PerInstrument 
->          zrec.zswChanges
->          zrec.zsPreZones
->          (fromJust zrec.zsSmashup)
+>             dispose (instKey zrec) ssBless rdz
 >
 > buildZone              :: SFFileBoot → SFZone → Maybe PreZone → Word → SFZone
 > buildZone sffile fromZone mpz bagIndex

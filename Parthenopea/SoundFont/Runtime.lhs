@@ -109,7 +109,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >
 >             savePreZones m inst          =
 >               let
->                 wrapUp pz                = (fromIntegral pz.pzWordB, pz')
+>                 wrapUp pz                = (wordB pz, pz')
 >                   where
 >                     pz'                  = pz{pzRecon = Just $ resolvePreZone dives pz}            
 >               in

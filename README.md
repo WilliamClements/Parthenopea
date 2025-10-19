@@ -1,10 +1,10 @@
 # Parthenopea
-Haskell project; assists orchestration of Euterpea/MIDI computer music. Parthenopea applies SoundFont Instruments to songs and batch-produces sharable music files. 
+Haskell project(s) centered around Euterpea. The *batch processor* automates orchestration - applies SoundFont Instruments to songs and batch-produces sharable music files. 
 
 For more on music educational software and Euterpea, see https://www.euterpea.com/ and obtain its textbook ***Haskell School of Music***. 
 
 ## Usage concept
-The main actor is *PCommand*, a user-built executable with no UI. Calls Parthenopea's *batchProcessor* function to do everything.
+The main actor is *PCommand*, a user-built executable with no UI. Calls *batchProcessor* function to do everything.
 
 Have fun and be creative :musical_note: with interesting sounds for your tunes' "band pieces". Study sampled sound content with *batchProcessor*'s reports.
 
@@ -24,7 +24,7 @@ Listen to your new song files with initially generated Instrument mappings. Iter
 ## Rendering tunes
 First of all, do collect **many** SoundFont files. The variety is breathtaking. Capacity has been tested up to ***500*** SoundFont files totalling ***46 GB*** :astonished: !
 
-*batchProcessor* conducts *tournaments* to pick the most suitable SoundFont Instruments that have been mined from the files. All the stats and scores driving the result are printed out. Take a look at *Tournament Report* in ***Sample Reports***.
+*batchProcessor* conducts *tournaments* to curate the most suitable mined Instruments. Stats and scores driving the result are printed out. Take a look at *Tournament Report* in ***Sample Reports***.
 
 Note that mixing *unrelated* SoundFont Instruments can sound **off** when played. But interesting anyway to listen to your tunes *varying* Instrument mappings.
 
