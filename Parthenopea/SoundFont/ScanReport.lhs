@@ -24,7 +24,8 @@ October 5, 2025
 executive =============================================================================================================
 
 > writeScanReport        :: Directives → Rational → VB.Vector SFFileBoot → ResultDispositions → IO ()
-> writeScanReport dives verbosity bootFiles rd             = do
+> writeScanReport dives verbosity bootFiles rd
+>                                          = do
 >   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show rd])
 >
 >   -- output all selections to the report file
@@ -51,8 +52,7 @@ executive ======================================================================
 >         hs                               = sortOn (Down . snd) $ Map.toList $ Map.foldr histoFold Map.empty sm
 >
 >         histoFold ss mfold               = foldr (foldfun . getTriple) mfold ss
->           where
->             foldfun dispo                = Map.insertWith (+) dispo 1
+>           where foldfun dispo            = Map.insertWith (+) dispo 1
 >             
 >
 >         emitHisto      :: ((Disposition, Impact, String), Int) → [Emission]

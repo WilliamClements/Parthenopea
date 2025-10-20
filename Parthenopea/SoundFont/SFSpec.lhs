@@ -431,12 +431,10 @@ bootstrapping ==================================================================
 > data Impact                              =
 >   Ok | NoZones | CorruptName
 >      | BadSampleRate | BadSampleType | BadSampleLimits | BadStereoPartner
->      | OrphanedBySample | OrphanedByInst | ToCache
+>      | Orphaned | ToCache
 >      | Absorbing | Absorbed | NoAbsorption
->      | CorruptGMRange | Narrow | BadSampleLooping
->      | RomBased | UndercoveredRanges | OverCoveredRanges
->      | Unrecognized | NoPercZones
->      | CatIsPerc | CatIsInst
+>      | CorruptGMRange | RomBased
+>      | Unrecognized | Narrow | NoPercZones
 >      | Captured | Adopted | AdoptedAsMono | GlobalZone
 >   deriving (Eq, Ord, Show)
 >
