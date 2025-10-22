@@ -1,8 +1,9 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
-> {-# LANGUAGE NumericUnderscores  #-}
+> {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -33,17 +34,17 @@ October 5, 2025
 >                        = do
 >   -- output all selections to the report file
 >   let legend           =
->           emitComment     [   ToFieldL "hints" spacing
+>            emitComment     [   ToFieldL "hints" spacing
 >                             , ToFieldL "stereo" spacing
 >                             , ToFieldL "24-bit" spacing
 >                             , ToFieldL "resolution" spacing
 >                             , ToFieldL "conformant" spacing
 >                             , ToFieldL "fuzzy" spacing]
->        ++ emitNextComment (showWeights spacing )
+>         ++ emitNextComment (showWeights spacing )
 >         where
 >           spacing                        = 16
->   let esI              = concatMap dumpContestants (Map.toList pContI)
->   let esP              = concatMap dumpContestants (Map.toList pContP)
+>   let esI              = concatMap (uncurry dumpContestants) (Map.toList pContI)
+>   let esP              = concatMap (uncurry dumpContestants) (Map.toList pContP)
 >   let eol              = singleton EndOfLine
 >
 >   writeReportBySections dives reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP]
@@ -51,7 +52,7 @@ October 5, 2025
 >   where
 >     esFiles                              =
 >       let
->         emitF sffile                     = [emitShowL sffile.zWordFBoot 7, emitShowL sffile.zFilename 54, EndOfLine]
+>         emitF SFFileBoot{ .. }           = [emitShowL zWordFBoot 7, emitShowL zFilename 54, EndOfLine]
 >       in
 >         VB.foldr (++) [] (VB.map emitF vBootFiles)
 
@@ -69,13 +70,13 @@ emit standard output text detailing what choices we made for rendering GM items 
 >
 > showPerGM              :: PerGMScored → [Emission]
 > showPerGM scored                         =
->   [emitShowL scored.pPerGMKey.pgkwFile 4] ++ [ToFieldL scored.szI 22] ++ showmZ
+>   [emitShowL scored.pPerGMKey.pgkwFile 5] ++ [ToFieldL scored.szI 22] ++ showmZ
 >   where
 >     showmZ                               = maybe [] showZ scored.mszP
 >     showZ name                           = [Unblocked name]
 >
-> dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ (a, [PerGMScored]) → [Emission]
-> dumpContestants (kind, contestants)      = prolog ++ ex ++ epilog
+> dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ a → [PerGMScored] → [Emission]
+> dumpContestants kind contestants         = prolog ++ ex ++ epilog
 >   where
 >     prolog, ex, epilog :: [Emission]
 >

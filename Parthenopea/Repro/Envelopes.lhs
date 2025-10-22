@@ -12,9 +12,7 @@ William Clements
 Apr 26, 2025
 
 > module Parthenopea.Repro.Envelopes(
->          audRate
->        , ctrRate
->        , deriveEnvelope
+>          deriveEnvelope
 >        , doEnvelope
 >        , doVeloSweepingEnvelope
 >        , minDeltaT

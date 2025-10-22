@@ -39,7 +39,6 @@ November 6, 2023
 >
 > constA                 :: Arrow a ⇒ c → a b c
 > constA                                   = arr . const
->
 
 "A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
 --SoundFont spec

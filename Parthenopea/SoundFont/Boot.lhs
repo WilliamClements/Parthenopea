@@ -629,33 +629,32 @@ pair task ======================================================================
 >     rejects                              = IntMap.keysSet fwPreZones `IntSet.difference` unpair pairings
 >
 >     makeActions        :: IntSet → IntMap IntSet
->     makeActions                          = IntSet.foldl' register IntMap.empty
->       where
->         register actions iBag            =
->           let
->             pz                           = fwPreZones IntMap.! iBag
->           in
->             IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton iBag) actions
+>     makeActions                          =
+>       let
+>         make actions iBag                = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton iBag) actions
+>                                              where pz = fwPreZones IntMap.! iBag
+>       in
+>         IntSet.foldl' make IntMap.empty
 >
->     pairings                             = IntMap.foldlWithKey pairingFolder IntMap.empty fwPartners
->       where
->         pairingFolder soFar siFrom siTo  =
->           let
+>     pairings                             = 
+>       let
+>         pairingFolder soFar siFrom siTo  = soFar `IntMap.union` qualifyPairs bagsL bagsR
+>           where
 >             bagsL                        = fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
 >             bagsR                        = fromMaybe IntSet.empty (siTo   `IntMap.lookup` mRight)
->           in
->             soFar `IntMap.union` qualifyPairs bagsL bagsR
+>       in
+>         IntMap.foldlWithKey pairingFolder IntMap.empty fwPartners
 >
 >     (mLeft, mRight)                      =
 >       let
->         flatMapFolder (mleft, mright) pz
+>         flatMapFolder mleft mright pz
 >           | isLeftPZ pz                  = (computeMembers pz mleft, mright)
 >           | isRightPZ pz                 = (mleft, computeMembers pz mright)
 >           | otherwise                    = error "should already have filtered out mono case"
 >         computeMembers pz                =
 >           IntMap.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
 >       in
->         IntMap.foldl' flatMapFolder (IntMap.empty, IntMap.empty) fwPreZones
+>         IntMap.foldl' (uncurry flatMapFolder) (IntMap.empty, IntMap.empty) fwPreZones
 >
 >     qualifyPairs bagsL bagsR                 =
 >       let
@@ -686,14 +685,14 @@ pair task ======================================================================
 >     peg                :: Bool → IntSet {- [BagIndex] -} → Map PairingSlot IntSet {- [BagIndex] -}
 >     peg ignoreI bags                     =
 >       let
->         pegBags m bag                 =
+>         pegBags m bag                    =
 >           Map.insertWith IntSet.union slot (IntSet.singleton bag) m
 >           where
 >             pz                           = fwPreZones IntMap.! bag
 >             slot                         =
->               (if ignoreI then Nothing else Just pz.pzWordI
->              , fromMaybe (0, 127) pz.pzDigest.zdKeyRange
->              , fromMaybe (0, 127) pz.pzDigest.zdVelRange)
+>               ( if ignoreI then Nothing else Just pz.pzWordI
+>               , fromMaybe (0, 127) pz.pzDigest.zdKeyRange
+>               , fromMaybe (0, 127) pz.pzDigest.zdVelRange)
 >       in
 >         IntSet.foldl' pegBags Map.empty bags
 >
@@ -705,30 +704,29 @@ pair task ======================================================================
 >         trace_HU                         = unwords [fName, show $ IntMap.size fwPreZones]
 >
 >         unrejections                     = fwRejects `IntSet.difference` rejects
+>         unactions                        = makeActions $ unrejections `IntSet.union` unpair crossers
+>
 >         crossers                         =
 >           let
->             crossing   :: Int → Int → Bool
->             crossing iBag jBag                 =
+>             crossing iBag jBag           =
 >               wordI (fwPreZones IntMap.! iBag) /= wordI (fwPreZones IntMap.! jBag)
 >           in
 >             IntMap.filterWithKey crossing pairings
->           
->         unactions                        = makeActions $ unrejections `IntSet.union` unpair crossers
 >
 >         unrejector     :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
 >         unrejector zrec rd               =
->           (zrec{zsSmashup = fromIntegral zrec.zswInst `IntMap.lookup` unactions >>= unreject}, rd)
->           where               
+>           let
 >             unreject   :: IntSet → Maybe (Smashing Word)
 >             unreject unacts              =
->               let
+>               Just $ smashSmashings
+>                        (fromMaybe (error fName) zrec.zsSmashup)
+>                        (computeInstSmashup fName (toList pzs))
+>               where
 >                 dereference m i          = IntMap.insert i (m IntMap.! i) m
 >                 pzs                      = IntSet.foldl dereference IntMap.empty unacts
->               in
->                 Just $ smashSmashings
->                          (fromMaybe (error fName) zrec.zsSmashup)
->                          (computeInstSmashup fName (toList pzs))
->
+>           in               
+>             (zrec{zsSmashup = fromIntegral zrec.zswInst `IntMap.lookup` unactions >>= unreject}, rd)
+>           
 > unpair                 :: IntMap Int → IntSet
 > unpair                                   = IntMap.foldlWithKey ifolder IntSet.empty
 >   where

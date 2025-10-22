@@ -38,12 +38,10 @@ February 1, 2025
 > import Parthenopea.Repro.Envelopes ( deriveEnvelope )
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing ( lookupCellIndex )
-> import Parthenopea.Repro.Synthesizer
+> import Parthenopea.Repro.Synthesizer ( deriveEffects, eutSynthesize )
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
   
-executive =============================================================================================================
-
 > data SFRuntime                           =
 >   SFRuntime {
 >     zDirectives        :: Directives
