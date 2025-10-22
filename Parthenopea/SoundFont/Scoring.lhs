@@ -278,7 +278,7 @@ tournament starts here =========================================================
 >             pergmsP                      = instrumentPercList pergmI_ bixen
 >
 >             pFolder wpFold pergmP
->               | traceIf trace_PF False   = undefined
+>               | traceNot trace_PF False   = undefined
 >               | null mkind               = wpFold
 >               | Map.null fuzzMap         = wpFold
 >               | otherwise                = xaEnterTournament fuzzMap pergmP [] wpFold kind

@@ -37,8 +37,35 @@ January 21, 2025
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
-  
-importing sampled sound (from SoundFont (*.sf2) files) ================================================================
+
+a Boot problematic ====================================================================================================
+
+Each stage interface function takes a FileWork and returns modified FileWork. Often, stage computes temporary
+algebraic structure(s) that affect later stages. Dependency graph for this process turns out to have cycles in some
+cases, unfortunately.
+
+(1) reorg stage depends on previously computed smashups, but also modifies smashup of each absorption leader.
+
+(2) In pipeline sequence, when is good time to NUKE badly formed stereo zones (assuming switchBadStereoZonesToMono is
+False). But nuking a zone INVALIDATES Instrument's smashup! Which is expensive to recompute from scratch.
+
+Note that _incremental_ smashing cheaply accomodates ADDING a zone to an Instrument. (Comes in handy, also, for explicit
+cross pairing, which, in effect, adds each partner (zone) to the other's Instrument.)
+
+(3) _crossInstrumentPairing_ is not applicable in individual case if reorg combines the two instruments. How does that
+interact with _doAbsorption_?
+
+...If both True, a valid cross instrument pairing can still work even if absorption didn't fix it
+...If both False, easy, just don't do either
+...If cross True but absorption False, cross pairing only accomplished the "hard" way
+...If cross False but absorption True, cross pairing only accomplished implicitly
+
+To solve our circular dependence problem, we do the following:
+1. generate pairing data before smash or reorg steps, rejecting the unpartnered
+2. run smash step, but skip zones in the rejection list.
+3. run reorg to completion
+4. regenerate revised pairing data that reflects absorptions.
+5. incrementally update smashups for rejections that have been fixed by reorg.
 
 > data FileWork                            =
 >   FileWork {
@@ -108,12 +135,13 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >      , ("smell",      smell)
 >      , ("capture",    capture . survey)
 >      , ("flatMap",    flatMap)
->      , ("pair",       pair)
->      , ("vet",        vet)
+>      , ("pair 1",     pair . clean)
 >      , ("adopt",      adopt)
 >      , ("smash",      smash)
 >      , ("reorg",      reorg) 
 >      , ("match",      match)
+>      , ("pair 2",     pair . clean)
+>      , ("vet",        vet)
 >      , ("clean",      clean)
 >      , ("perI",       perI)]
 >   where
@@ -131,11 +159,8 @@ importing sampled sound (from SoundFont (*.sf2) files) =========================
 >     clean                                = cleanTaskIf        sffile rost
 >     perI                                 = perITaskIf         sffile rost
 
-executive =============================================================================================================
-
-To support extracting from flawed SoundFont files, we - up front - withdraw unrecoverable items from their
-respective collections. An item's presence may be critical to some instrumentation. So it entails further deletion
-and recovery.
+Boot executive function ===============================================================================================
+          returns overall PerInstrument map
 
 > surveyInstruments      :: Directives
 >                           → ([InstrumentName], [PercussionSound])
@@ -195,7 +220,7 @@ pre-sample task ================================================================
 >         fName                            = "sampleFolder"
 >
 >         preSampleCache                   =
->           if dead ss
+>           if dead ssSample
 >             then fwForm.fwPreSamples
 >             else Map.insert presk ps fwForm.fwPreSamples
 >         ps                               = ChangeName shdr changes name
@@ -218,7 +243,7 @@ pre-sample task ================================================================
 >         accepted impact clue             =
 >           [Scan Accepted impact fName clue]
 >
->         ss_
+>         ssSample_
 >           | not (goodSampleRate shdr.sampleRate)
 >                                          = violated BadSampleRate (show shdr.sampleRate)
 >           | isNothing mtype              = violated BadSampleType (show shdr.sampleType)
@@ -227,11 +252,11 @@ pre-sample task ================================================================
 >           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
 >           | otherwise                    = accepted Ok stereo
 >
->         (ss, changes, name)              = if wasRescued CorruptName ss_
->                                              then (ss_, singleton FixCorruptName, good)
->                                              else (ss_, [],                       raw)
+>         (ssSample, changes, name)        = if wasRescued CorruptName ssSample_
+>                                              then (ssSample_, singleton FixCorruptName, good)
+>                                              else (ssSample_, [],                       raw)
 >       in
->         fwForm{ fwPreSamples = preSampleCache, fwDispositions = dispose presk ss fwForm.fwDispositions}
+>         fwForm{ fwPreSamples = preSampleCache, fwDispositions = dispose presk ssSample fwForm.fwDispositions}
 
 smell task ============================================================================================================
           partner map at sample header level = driver for stereo pairings
@@ -390,7 +415,7 @@ capture task ===================================================================
 >         (zrecIn{zsPreZones = newPzs}, rdOut)
 >
 >     captureZones       :: InstZoneRecord → ResultDispositions → ([PreZone], ResultDispositions)
->     captureZones zrec rdCap              = (pzs, dispose pergm ss rdCap)
+>     captureZones zrec rdCap              = (pzs, dispose pergm ssCap rdCap)
 >       where
 >         pergm                            = instKey zrec
 >         iName                            = zrec.zswChanges.cnName
@@ -423,25 +448,25 @@ capture task ===================================================================
 >             mpres                        = presk `Map.lookup` fWork.fwPreSamples
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
 >
->         pzs                              = fst $ foldl' consume ([], defZone) results
+>         pzs                              = fst $ foldl' (uncurry evalResults) ([], defZone) results
 >           where
->             consume (spzs, foldZone) (bagIndex, eor)
+>             evalResults soFar foldZone (bagIndex, eor)
 >                                          =
 >               let
 >                 handleNormal pz          =
->                   (spzs ++ [pz{pzSFZone = buildZone sffile foldZone (Just pz) bagIndex}], foldZone)
+>                   (soFar ++ [pz{pzSFZone = buildZone sffile foldZone (Just pz) bagIndex}], foldZone)
 >                 handleError (_, imp)     =
->                   (spzs, if imp == GlobalZone then buildZone sffile defZone Nothing bagIndex else foldZone)
+>                   (soFar, if imp == GlobalZone then buildZone sffile defZone Nothing bagIndex else foldZone)
 >               in
 >                 either handleNormal handleError eor
 >
 >         noZones, illegalRange, hasRoms, illegalLimits, yesCapture
 >                        :: Maybe [Scan] 
->         ss = deJust fName
->              $ noZones `CM.mplus` illegalRange
->                        `CM.mplus` hasRoms
->                        `CM.mplus` illegalLimits
->                        `CM.mplus` yesCapture
+>         ssCap                            = deJust fName
+>                                            $ noZones `CM.mplus` illegalRange
+>                                                      `CM.mplus` hasRoms
+>                                                      `CM.mplus` illegalLimits
+>                                                      `CM.mplus` yesCapture
 >         noZones
 >           | null pzs                     = Just $ violated NoZones noClue
 >           | otherwise                    = Nothing
@@ -583,26 +608,34 @@ flatMap task ===================================================================
 >     assign m pz                          = IntMap.insert (wordB pz) pz m
 
 pair task =============================================================================================================
-          produce BagIndex list identifying PreZones switching to mono
+          produce actions list identifying PreZones that will be set aside during first pass
+          the second time in 
 
 > pairTaskIf _ _ fWork                     =
->   fWork{fwPairing = fWork.fwPairing{fwPairings = pairings, fwRejects = rejects, fwActions = actions}}
+>   if IntMap.null fwPairings && IntSet.null fwRejects
+>     then updatePairing fWork
+>     else (updatePairing . handleUnrejections) fWork
 >   where
 >     Directives{ .. }
 >                                          = fWork.fwDirectives                     
 >     Pairing{ .. }                        
 >                                          = fWork.fwPairing
 >
->     paired                               = unpair pairings
->     rejects                              = IntMap.keysSet fwPreZones `IntSet.difference` paired
+>     updatePairing, handleUnrejections
+>                        :: FileWork → FileWork
+>     updatePairing fwIn                   =
+>       fwIn{fwPairing = fwIn.fwPairing{fwPairings = pairings, fwRejects = rejects, fwActions = makeActions rejects}}
 >
->     actions                              = IntSet.foldl' register IntMap.empty rejects
+>     rejects                              = IntMap.keysSet fwPreZones `IntSet.difference` unpair pairings
+>
+>     makeActions        :: IntSet → IntMap IntSet
+>     makeActions                          = IntSet.foldl' register IntMap.empty
 >       where
->         register acts iBag               =
+>         register actions iBag            =
 >           let
 >             pz                           = fwPreZones IntMap.! iBag
 >           in
->             IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton iBag) acts
+>             IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton iBag) actions
 >
 >     pairings                             = IntMap.foldlWithKey pairingFolder IntMap.empty fwPartners
 >       where
@@ -611,7 +644,7 @@ pair task ======================================================================
 >             bagsL                        = fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
 >             bagsR                        = fromMaybe IntSet.empty (siTo   `IntMap.lookup` mRight)
 >           in
->             soFar `IntMap.union` vetPairs bagsL bagsR
+>             soFar `IntMap.union` qualifyPairs bagsL bagsR
 >
 >     (mLeft, mRight)                      =
 >       let
@@ -624,12 +657,12 @@ pair task ======================================================================
 >       in
 >         IntMap.foldl' flatMapFolder (IntMap.empty, IntMap.empty) fwPreZones
 >
->     vetPairs bagsL bagsR                 =
+>     qualifyPairs bagsL bagsR                 =
 >       let
->         makePairs ignoreI lb rb          = Map.foldlWithKey (pairThem ignoreI rSurvey) IntMap.empty lSurvey
+>         makePairs ignoreI lb rb          = Map.foldlWithKey (pairThem ignoreI rPegged) IntMap.empty lPegged
 >           where  
->             lSurvey                      = survey ignoreI lb
->             rSurvey                      = survey ignoreI rb
+>             lPegged                      = peg ignoreI lb
+>             rPegged                      = peg ignoreI rb
 >         regularPairs                     = makePairs False bagsL bagsR
 >         pairedSoFar                      = unpair regularPairs
 >         bagsL'                           = bagsL `IntSet.difference` pairedSoFar
@@ -650,10 +683,10 @@ pair task ======================================================================
 >       in
 >         m `IntMap.union` IntMap.fromList newPairs
 > 
->     survey             :: Bool → IntSet {- [BagIndex] -} → Map PairingSlot IntSet {- [BagIndex] -}
->     survey ignoreI bags                         =
+>     peg                :: Bool → IntSet {- [BagIndex] -} → Map PairingSlot IntSet {- [BagIndex] -}
+>     peg ignoreI bags                     =
 >       let
->         makeSurvey m bag                   =
+>         pegBags m bag                 =
 >           Map.insertWith IntSet.union slot (IntSet.singleton bag) m
 >           where
 >             pz                           = fwPreZones IntMap.! bag
@@ -662,7 +695,39 @@ pair task ======================================================================
 >              , fromMaybe (0, 127) pz.pzDigest.zdKeyRange
 >              , fromMaybe (0, 127) pz.pzDigest.zdVelRange)
 >       in
->         IntSet.foldl' makeSurvey Map.empty bags
+>         IntSet.foldl' pegBags Map.empty bags
+>
+>     handleUnrejections
+>       | traceNow trace_HU False          = undefined
+>       | otherwise                        = zrecTask unrejector
+>       where
+>         fName                            = "handleUnrejections"
+>         trace_HU                         = unwords [fName, show $ IntMap.size fwPreZones]
+>
+>         unrejections                     = fwRejects `IntSet.difference` rejects
+>         crossers                         =
+>           let
+>             crossing   :: Int → Int → Bool
+>             crossing iBag jBag                 =
+>               wordI (fwPreZones IntMap.! iBag) /= wordI (fwPreZones IntMap.! jBag)
+>           in
+>             IntMap.filterWithKey crossing pairings
+>           
+>         unactions                        = makeActions $ unrejections `IntSet.union` unpair crossers
+>
+>         unrejector     :: InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions)
+>         unrejector zrec rd               =
+>           (zrec{zsSmashup = fromIntegral zrec.zswInst `IntMap.lookup` unactions >>= unreject}, rd)
+>           where               
+>             unreject   :: IntSet → Maybe (Smashing Word)
+>             unreject unacts              =
+>               let
+>                 dereference m i          = IntMap.insert i (m IntMap.! i) m
+>                 pzs                      = IntSet.foldl dereference IntMap.empty unacts
+>               in
+>                 Just $ smashSmashings
+>                          (fromMaybe (error fName) zrec.zsSmashup)
+>                          (computeInstSmashup fName (toList pzs))
 >
 > unpair                 :: IntMap Int → IntSet
 > unpair                                   = IntMap.foldlWithKey ifolder IntSet.empty
@@ -670,7 +735,7 @@ pair task ======================================================================
 >     ifolder iset ifrom ito               = (IntSet.insert ito . IntSet.insert ifrom) iset
 
 vet task ==============================================================================================================
-          execute: switch bad stereo zones to mono, or off altogether
+          switch bad stereo zones to mono, or off altogether
 
 > vetTaskIf _ _ fWork                      = zrecTask vetter fWork
 >   where
@@ -683,9 +748,7 @@ vet task =======================================================================
 >       let
 >         mactions                         = fromIntegral zrec.zswInst `IntMap.lookup` fwActions
 >       in
->         case mactions of
->            Nothing                       → (zrec, rd)
->            Just actions                  → vetActions zrec rd actions
+>         maybe (zrec, rd) (vetActions zrec rd) mactions
 >
 >     vetActions zrec rdIn actions         = (zrec{zsPreZones = pzsOut}, rdOut)
 >       where
@@ -698,9 +761,9 @@ vet task =======================================================================
 >             
 >         makeThemMono pz rd               = (Just $ makeMono pz, rd)
 >             
->         killThem pz rd                   = (Nothing, dispose (extractZoneKey pz) ss rd)
+>         killThem pz rd                   = (Nothing, dispose (extractZoneKey pz) ssKill rd)
 >           where
->             ss                           =
+>             ssKill                       =
 >               [Scan Violated BadStereoPartner fName zrec.zswChanges.cnName]
 >
 >         mapAction rejectFun              =
@@ -713,7 +776,7 @@ vet task =======================================================================
 >           in
 >             zoneTask check modifyFun zrec.zsPreZones rdIn
 >
->         pairFun pz rd                    = (Just pz, rd) -- WOX
+>         pairFun pz rd                    = (Just pz, rd)
 
 adopt task ============================================================================================================
           mark adoption
@@ -731,18 +794,26 @@ adopt task =====================================================================
 >         fName                            = "adopter"
 >
 >         impact                           = if wasSwitchedToMono pz then AdoptedAsMono else Adopted
->         ssImpact                         =
+>         ssAdopt                          =
 >           [Scan Modified impact fName zrec.zswChanges.cnName]
 >       in
->         dispose (extractSampleKey pz) ssImpact rdFold
+>         dispose (extractSampleKey pz) ssAdopt rdFold
 
 smash task ============================================================================================================
           compute smashups for each instrument
 
-> smashTaskIf _ _                          = zrecTask smasher
+> smashTaskIf _ _ fWork                    = zrecTask smasher fWork
 >   where
+>     Pairing{ .. }
+>                                          = fWork.fwPairing
+>
 >     smasher zrec rdFold                  =
->       (zrec{zsSmashup = Just (computeInstSmashup (show (instKey zrec).pgkwInst) zrec.zsPreZones)}, rdFold)
+>       let
+>         tag                              = show (instKey zrec).pgkwInst
+>         pzs                              = filter ok zrec.zsPreZones
+>                                              where ok pz = wordB pz `IntSet.notMember` fwRejects
+>       in
+>         (zrec{zsSmashup = Just (computeInstSmashup tag pzs)}, rdFold)
 >
 > computeInstSmashup     :: String → [PreZone] → Smashing Word
 > computeInstSmashup tag pzs               = smashSubspaces tag [qMidiSize128, qMidiSize128, 2] (map extractSpace pzs)
@@ -766,8 +837,8 @@ To build the map
 
 > reorgTaskIf _ _ fWork                    = zrecTask reorger fWork
 >   where
->     Directives{ .. }
->                                          = fWork.fwDirectives                     
+>     Directives{ .. }  
+>                                          = fWork.fwDirectives
 >     closeEnough x y                      = absorbThreshold < howClose (fst x) (fst y)
 >
 >     reorger zrec rdFold
@@ -805,13 +876,6 @@ To build the map
 >         scansBlocked                     =
 >           [Scan NoChange NoAbsorption fName (show disqualified)]
 >
->     townersMap         :: Map Word ([PreZone], Smashing Word)
->     townersMap                           =
->       let
->         tFolder m zrec                   = Map.insert zrec.zswInst (zrec.zsPreZones, fromJust zrec.zsSmashup) m
->       in
->         zrecCompute fWork tFolder Map.empty 
->     
 >     headed                               = foldr (Map.union . rewire) Map.empty groups
 >       where
 >         groups                           = filter noSingletons ((groupBy closeEnough . reverse) instNames)
@@ -824,6 +888,12 @@ To build the map
 >     dMap               :: Map Word SmashStats
 >     (hMap, dMap)                         = Map.mapEitherWithKey qualify headed
 >       where
+>         townersMap                       =
+>           let
+>             tFolder m zrec               = Map.insert zrec.zswInst (zrec.zsPreZones, fromJust zrec.zsSmashup) m
+>           in
+>             zrecCompute fWork tFolder Map.empty 
+>     
 >         qualify        :: Word → [Word] → Either ([PreZone], Smashing Word) SmashStats
 >         qualify leadI memberIs
 >           | 0 == osmashup.smashStats.countMultiples
@@ -902,9 +972,9 @@ perI task ======================================================================
 > perITaskIf _ _ fWork                     = fWork{  fwPerInstruments   = perIs
 >                                                  , fwDispositions     = rdOut}
 >   where
->     (perIs, rdOut)                        = zrecCompute fWork perIFolder (Map.empty, fWork.fwDispositions)
+>     (perIs, rdOut)                        = zrecCompute fWork (uncurry perIFolder) (Map.empty, fWork.fwDispositions)
 >
->     perIFolder (m, rdFold) zrec
+>     perIFolder m rdFold zrec
 >       | traceIf trace_PIF False          = undefined
 >       | otherwise                        = (m', rdFold')
 >       where
