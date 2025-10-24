@@ -58,7 +58,7 @@ interact with _doAbsorption_?
 ...If both True, a valid cross instrument pairing can still work even if absorption didn't fix it
 ...If both False, easy, just don't do either
 ...If cross True but absorption False, cross pairing only accomplished the "hard" way
-...If cross False but absorption True, cross pairing only accomplished implicitly
+...If cross False but absorption True, cross pairing only accomplished implicitly (by not being crossing)
 
 To solve our circular dependence problem, we do the following:
 1. generate pairing data before smash or reorg steps, rejecting the unpartnered
@@ -95,11 +95,11 @@ To solve our circular dependence problem, we do the following:
 >
 > data Pairing                             =
 >   Pairing {
->     fwPartners         :: IntMap {- SampleIndex -} Int {- SampleIndex -}
->   , fwPreZones         :: IntMap {- BagIndex -}    PreZone
->   , fwPairings         :: IntMap {- BagIndex -}    Int {- BagIndex -}
->   , fwRejects          :: IntSet {- BagIndex -}
->   , fwActions          :: IntMap {- InstIndex -}   IntSet {- [BagIndex] -}}
+>     fwPartners         :: IntMap Int                   {- [SampleIndex → SampleIndex] -}
+>   , fwPreZones         :: IntMap PreZone               {- [BagIndex → pz]             -}
+>   , fwPairings         :: IntMap Int                   {- [BagIndex → BagIndex]       -}
+>   , fwRejects          :: IntSet                       {- [BagIndex]                  -}
+>   , fwActions          :: IntMap IntSet                {- [InstIndex → [BagIndex]]    -}}
 > defPairing             ::Pairing
 > defPairing                               =
 >   Pairing
@@ -283,7 +283,7 @@ smell task =====================================================================
 >       in
 >         case mback of
 >           Nothing                        → m
->           Just x                         → IntMap.insert siIn x m
+>           Just siOther                   → IntMap.insert siIn siOther m
 
 InstZoneRecord and PreZone administration =============================================================================
 
@@ -623,7 +623,8 @@ pair task ======================================================================
 >
 >     rejects                              = IntMap.keysSet fwPreZones `IntSet.difference` unpair pairings
 >
->     makeActions        :: IntSet → IntMap IntSet
+>     makeActions        :: IntSet                       {- [BagIndex]                    -}
+>                           → IntMap IntSet              {- [InstIndex → [BagIndex]]      -}
 >     makeActions                          =
 >       let
 >         make actions iBag                = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton iBag) actions
@@ -633,13 +634,14 @@ pair task ======================================================================
 >
 >     pairings                             = 
 >       let
->         (mLeft, mRight)                  = IntMap.foldl' (uncurry flatMapFolder) (IntMap.empty, IntMap.empty) fwPreZones
+>         mLeft, mRight  :: IntMap IntSet                {- [SampleIndex → [BagIndex]]    -}
+>         (mLeft, mRight)                  = IntMap.foldl' (uncurry flatFolder) (IntMap.empty, IntMap.empty) fwPreZones
 >           where
->             flatMapFolder mleft mright pz
->               | isLeftPZ pz              = (computeMembers pz mleft, mright)
->               | isRightPZ pz             = (mleft, computeMembers pz mright)
+>             flatFolder mleft mright pz
+>               | isLeftPZ pz              = (putMembers pz mleft, mright)
+>               | isRightPZ pz             = (mleft, putMembers pz mright)
 >               | otherwise                = error "should already have filtered out mono case"
->             computeMembers pz            =
+>             putMembers pz                =
 >               IntMap.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
 >
 >         pairingFolder soFar siFrom siTo  = soFar `IntMap.union` newPairs
@@ -650,6 +652,8 @@ pair task ======================================================================
 >
 >             (regular, extra)             = qualifyPairs bagsL bagsR
 >
+>             bagsL, bagsR
+>                        :: IntSet                       {- [BagIndex]                    -}             
 >             bagsL                        = fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
 >             bagsR                        = fromMaybe IntSet.empty (siTo   `IntMap.lookup` mRight)
 >       in
@@ -657,28 +661,30 @@ pair task ======================================================================
 >
 >     qualifyPairs bagsL bagsR             =
 >       let
->         makePairs ignoreI lb rb          = Map.foldlWithKey (pin rPegged) IntMap.empty lPegged
+>         makePairs ignoreI lbIn rbIn      = Map.foldlWithKey (pin $ peg rbIn) IntMap.empty (peg lbIn)
 >           where  
->             lPegged                      = peg lb
->             rPegged                      = peg rb
->
->             peg                :: IntSet {- [BagIndex] -} → Map PairingSlot IntSet {- [BagIndex] -}
+>             peg        :: IntSet                       {- [BagIndex]                    -}
+>                           → Map PairingSlot IntSet     {- [ps → [BagIndex]]             -}
 >             peg bags                     =
 >               let
->                 pegBags m bag            = Map.insertWith IntSet.union slot (IntSet.singleton bag) m
+>                 pegBag m bag             = Map.insertWith IntSet.union iSlot (IntSet.singleton bag) m
 >                   where
 >                     pz                   = fwPreZones IntMap.! bag
->                     slot                 =
+>                     iSlot                =
 >                       ( if ignoreI then Nothing else Just pz.pzWordI
 >                       , fromMaybe (0, 127) pz.pzDigest.zdKeyRange
 >                       , fromMaybe (0, 127) pz.pzDigest.zdVelRange)
 >               in
->                  IntSet.foldl' pegBags Map.empty bags
+>                  IntSet.foldl' pegBag Map.empty bags
 >
->             pin        :: Map PairingSlot IntSet → IntMap Int → PairingSlot → IntSet → IntMap Int
->             pin osurv m iSlot bL         =
+>             pin        :: Map PairingSlot IntSet       {- [ps → [BagIndex]]             -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
+>                           → PairingSlot                {- ps                            -}
+>                           → IntSet                     {- [BagIndex]                    -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
+>             pin pegBoard m iSlot bL      =
 >               let
->                 bR                       = Map.lookup iSlot osurv
+>                 bR                       = Map.lookup iSlot pegBoard
 >                 newPairs_                = zip (IntSet.toList bL) (IntSet.toList (fromMaybe IntSet.empty bR))
 >                 newPairs                 = if not ignoreI && not parallelPairing
 >                                              then take 1 newPairs_
@@ -693,7 +699,6 @@ pair task ======================================================================
 >       in
 >         (regularPairs, makePairs True bagsL' bagsR')
 > 
->
 >     updatePairing, handleUnrejections
 >                        :: FileWork → FileWork
 >     updatePairing fwIn                   =
@@ -706,8 +711,8 @@ pair task ======================================================================
 >         fName                            = "handleUnrejections"
 >         trace_HU                         = unwords [fName, show $ IntMap.size fwPreZones]
 >
->         unrejections                     = fwRejects `IntSet.difference` rejects
->         unactions                        = makeActions $ unrejections `IntSet.union` unpair crossers
+>         unrejects                        = fwRejects `IntSet.difference` rejects
+>         unactions                        = makeActions $ unrejects `IntSet.union` unpair crossers
 >
 >         crossers                         =
 >           let
@@ -750,9 +755,12 @@ vet task =======================================================================
 >       in
 >         maybe (zrec, rd) (vetActions zrec rd) mactions
 >
->     vetActions zrec rdIn actions         = (zrec{zsPreZones = pzsOut}, rdOut)
+>     vetActions zrec rdIn actions
+>       | traceIf trace_VA False           = undefined
+>       | otherwise                        = (zrec{zsPreZones = pzsOut}, rdOut)
 >       where
 >         fName                            = "vetActions"
+>         trace_VA                         = unwords [fName, show fwActions]
 >
 >         (pzsOut, rdOut)                  =
 >           mapAction $ if switchBadStereoZonesToMono 
@@ -991,6 +999,7 @@ perI task ======================================================================
 >             ssBless                      = [Scan Accepted ToCache fName noClue]
 >           in
 >             dispose (instKey zrec) ssBless rdz
+>
 > sampleSizeOk           :: (Word, Word) → Bool
 > sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
 >
