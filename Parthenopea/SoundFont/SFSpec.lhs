@@ -718,7 +718,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >
 > defDirectives          :: Directives
 > defDirectives                            = baseDives
-> -- make changes here
+> -- make experimental changes here
 > -- For example:
 >       {- {narrowRosterForBoot                 = False} -}
 >       {- , dReportVerbosity                   = allOff -}

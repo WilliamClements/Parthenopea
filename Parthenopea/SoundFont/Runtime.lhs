@@ -46,7 +46,7 @@ February 1, 2025
 >   SFRuntime {
 >     zDirectives        :: Directives
 >   , zRoster            :: ([InstrumentName], [PercussionSound])
->   , zRuntimeFiles      :: IntMap SFFileRuntime
+>   , zRuntimeFiles      :: IntMap SFFileRuntime         {- [FileIndex → SFFileRuntime]   -}
 >   , zChoicesI          :: Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
 >   , zChoicesP          :: Map PercussionSound (Bool, Maybe PerGMKey, [Emission])
 >   , zInstrumentMap     :: [(InstrumentName, Instr (Stereo AudRate))]}
@@ -77,7 +77,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >   instrumentMap                          ← prepareInstruments prerunt
 >   return prerunt{zInstrumentMap = instrumentMap}
 >   where
->     actions            :: IntMap IntSet
+>     actions            :: IntMap IntSet                {- [FileIndex → [InstIndex]]     -}
 >     actions                              =
 >       let
 >         extract        :: Map a (Bool, Maybe PerGMKey, [Emission]) → Set PerGMKey

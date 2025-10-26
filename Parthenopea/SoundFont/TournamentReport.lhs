@@ -34,15 +34,16 @@ October 5, 2025
 >                        = do
 >   -- output all selections to the report file
 >   let legend           =
->            emitComment     [   ToFieldL "hints" spacing
+>            emitComment     [   Blanks 81
+>                             , ToFieldL "hints" spacing
 >                             , ToFieldL "stereo" spacing
 >                             , ToFieldL "24-bit" spacing
->                             , ToFieldL "resolution" spacing
->                             , ToFieldL "conformant" spacing
+>                             , ToFieldL "resoln" spacing
+>                             , ToFieldL "confrm" spacing
 >                             , ToFieldL "fuzzy" spacing]
->         ++ emitNextComment (showWeights spacing )
+>         ++ emitNextComment (Blanks 81 : showWeights spacing)
 >         where
->           spacing                        = 16
+>           spacing                        = 7
 >   let esI              = concatMap (uncurry dumpContestants) (Map.toList pContI)
 >   let esP              = concatMap (uncurry dumpContestants) (Map.toList pContP)
 >   let eol              = singleton EndOfLine
@@ -98,9 +99,10 @@ emit standard output text detailing what choices we made for rendering GM items 
 >                             , emitShowR      showAkr                         8]
 >
 > showEmpiricals         :: [Double] → (String, Int)
-> showEmpiricals dubs                      = (concatMap fun dubs, 7 * length dubs)
+> showEmpiricals dubs                      = (concatMap fun dubs, (spacing + 1) * length dubs)
 >   where
 >     fun                :: Double → String
->     fun x                                = fillFieldL 6 (show $ roundBy 10 x)
+>     fun x                                = fillFieldL spacing (show $ roundBy 10 x)
+>     spacing                              = 7
 
 The End

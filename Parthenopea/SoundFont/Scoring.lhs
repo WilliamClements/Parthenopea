@@ -250,7 +250,7 @@ tournament starts here =========================================================
 >                           → PerGMKey → PerInstrument
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiFolder (wI, wP) pergmI_ perI
->       | traceNot trace_WIF False         = undefined
+>       | traceNow trace_WIF False         = undefined
 >       | otherwise                        = (decideInst, decidePerc)
 >       where
 >         fName_                           = unwords [fName__, "wiFolder"]
@@ -307,7 +307,7 @@ tournament starts here =========================================================
 >                   >>= Just . singleton
 >                   >>= Just . (++) (singleton percPitchRange)
 >                   >>= intersectRanges
->                   >>= Just . (fromIntegral . fst)
+>                   >>= Just . fromIntegral . fst
 >
 >     xaEnterTournament  :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
 >                           Map a Fuzz
@@ -317,7 +317,7 @@ tournament starts here =========================================================
 >                           → a
 >                           → Map a [PerGMScored]
 >     xaEnterTournament fuzzMap pergm hints wins kind
->       | traceNot trace_XAET False        = undefined
+>       | traceNow trace_XAET False        = undefined
 >       | goodScore scored                 = Map.insertWith (++) kind [scored] wins
 >       | otherwise                        = wins
 >       where

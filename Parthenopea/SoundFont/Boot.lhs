@@ -399,14 +399,24 @@ survey task ====================================================================
 capture task ==========================================================================================================
           populate zrecs with PreZones
 
+> data Capture                             =
+>   Capture {
+>     uPzs               :: [PreZone]
+>  ,  uSFZone            :: SFZone
+>  ,  uDispo             :: ResultDispositions}
+>
 > captureTaskIf sffile _ fWork             = zrecTask capturer fWork
 >   where
 >     fName                                = "captureTaskIf"
 >
+>     accepted impact clue                 =
+>       [Scan Accepted impact fName clue]
+>     dropped impact clue                  =
+>       [Scan Dropped impact fName clue]
+>     modified impact clue                 =
+>       [Scan Modified impact fName clue]
 >     violated impact clue                 =
 >       [Scan Violated impact fName clue]
->     modified impact clue             =
->       [Scan Modified impact fName clue]
 >
 >     capturer zrecIn rdIn                 =
 >       let
@@ -415,22 +425,16 @@ capture task ===================================================================
 >         (zrecIn{zsPreZones = newPzs}, rdOut)
 >
 >     captureZones       :: InstZoneRecord → ResultDispositions → ([PreZone], ResultDispositions)
->     captureZones zrec rdCap              = (pzs, dispose pergm ssCap rdCap)
+>     captureZones zrec rdCap              = (capt.uPzs, dispose pergm ssCap capt.uDispo)
 >       where
 >         pergm                            = instKey zrec
 >         iName                            = zrec.zswChanges.cnName
 >
->         results                          = map captureZone (deriveRange ibagi jbagi)
->           where
->             iinsts                       = sffile.zFileArrays.ssInsts
->             ibagi                        = F.instBagNdx (iinsts ! pgkwInst pergm)
->             jbagi                        = F.instBagNdx (iinsts ! (pgkwInst pergm + 1))
->
->         captureZone    :: Word → (Word, Either PreZone (Disposition, Impact))
+>         captureZone    :: Word → (Word, Either PreZone (PreZoneKey, [Scan]))
 >         captureZone bix
 >           | isNothing pz.pzDigest.zdSampleIndex
->                                          = (bix, Right (Accepted, GlobalZone))
->           | isNothing mpres              = (bix, Right (Dropped, Orphaned))
+>                                          = (bix, Right (pzk, accepted GlobalZone noClue))
+>           | isNothing mpres              = (bix, Right (pzk, dropped Orphaned noClue))
 >           | otherwise                    = (bix, Left pz{pzChanges = ChangeEar (effPSShdr pres) []})
 >           where
 >             ibags                        = sffile.zFileArrays.ssIBags
@@ -442,23 +446,41 @@ capture task ===================================================================
 >                                              (unwords [fName, "SoundFont file corrupt (gens)"])
 >                                              (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
 >
+>             pzk                          = PreZoneKey 
+>                                             sffile.zWordFBoot 
+>                                             (pgkwInst pergm)
+>                                             bix
+>                                             si
 >             pz                           = makePreZone sffile.zWordFBoot si (pgkwInst pergm) bix gens pres.cnSource
 >             si                           = deJust (unwords [fName, "si"]) pz.pzDigest.zdSampleIndex
 >             presk                        = PreSampleKey sffile.zWordFBoot si
 >             mpres                        = presk `Map.lookup` fWork.fwPreSamples
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
->
->         pzs                              = fst $ foldl' (uncurry evalResults) ([], defZone) results
+
+process initial capture results =======================================================================================
+
+>         results                          = map captureZone (deriveRange ibagi jbagi)
 >           where
->             evalResults soFar foldZone (bagIndex, eor)
+>             iinsts                       = sffile.zFileArrays.ssInsts
+>             ibagi                        = F.instBagNdx (iinsts ! pgkwInst pergm)
+>             jbagi                        = F.instBagNdx (iinsts ! (pgkwInst pergm + 1))
+>
+>         capt                             = foldl' rFolder (Capture [] defZone rdCap) results
+>           where
+>             rFolder        :: Capture → (Word, Either PreZone (PreZoneKey, [Scan])) → Capture
+>             rFolder captFold (bagIndex, eor)
 >                                          =
 >               let
->                 handleNormal pz          =
->                   (soFar ++ [pz{pzSFZone = buildZone sffile foldZone (Just pz) bagIndex}], foldZone)
->                 handleError (_, imp)     =
->                   (soFar, if imp == GlobalZone then buildZone sffile defZone Nothing bagIndex else foldZone)
+>                 doNormal pz              =
+>                   Capture (pz{pzSFZone = sfz} : captFold.uPzs) pz.pzSFZone captFold.uDispo
+>                   where sfz              = buildZone sffile captFold.uSFZone (Just pz) bagIndex
+>                 doError (k, ssZone)      =
+>                   if (head ssZone).sImpact == GlobalZone
+>                     then Capture captFold.uPzs sfz captFold.uDispo
+>                     else Capture captFold.uPzs captFold.uSFZone (dispose k ssZone captFold.uDispo)
+>                   where sfz              = buildZone sffile defZone Nothing bagIndex
 >               in
->                 either handleNormal handleError eor
+>                 either doNormal doError eor
 >
 >         noZones, illegalRange, hasRoms, illegalLimits, yesCapture
 >                        :: Maybe [Scan] 
@@ -468,13 +490,13 @@ capture task ===================================================================
 >                                                      `CM.mplus` illegalLimits
 >                                                      `CM.mplus` yesCapture
 >         noZones
->           | null pzs                     = Just $ violated NoZones noClue
+>           | null capt.uPzs            = Just $ violated NoZones noClue
 >           | otherwise                    = Nothing
 >         illegalRange
 >           | isJust mpz                   = Just $ violated CorruptGMRange clue
 >           | otherwise                    = Nothing
 >           where
->             mpz                          = find zoneBad pzs
+>             mpz                          = find zoneBad capt.uPzs
 >
 >             zoneBad pz                   = not (okGMRanges pz.pzDigest)
 >             clue                         = showBad $ fromJust mpz
@@ -482,7 +504,7 @@ capture task ===================================================================
 >           | isJust mpz                   = Just $ violated RomBased clue
 >           | otherwise                    = Nothing
 >           where
->             mpz                          = find zoneRom pzs
+>             mpz                          = find zoneRom capt.uPzs
 >
 >             stype pz                     = F.sampleType (effPZShdr pz)
 >             zoneRom pz                   = stype pz >= 0x8000
@@ -492,7 +514,7 @@ capture task ===================================================================
 >           | isJust result                = Just $ violated BadSampleLimits $ fromJust result
 >           | otherwise                    = Nothing
 >           where
->             tested                       = map illegalSampleSize pzs
+>             tested                       = map illegalSampleSize capt.uPzs
 >             result                       = foldr CM.mplus Nothing tested
 >         yesCapture                       = Just $ modified Captured iName
 >
