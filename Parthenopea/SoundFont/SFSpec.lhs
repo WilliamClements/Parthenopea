@@ -417,18 +417,19 @@ implementing SoundFont spec ====================================================
 >                                          = zd {zdEndLoop = zd.zdEndLoop + i}
 >
 >     inspectGen _ zd                      = zd
+>
 > okGMRanges             :: ZoneDigest → Bool
-> okGMRanges ZoneDigest{zdKeyRange, zdVelRange}
->                                          = okGMRange False zdKeyRange && okGMRange True zdVelRange
+> okGMRanges zd                            = rOk && iOk
 >   where
+>     infinite                             = (0, qMidiSize128 - 1)
+>
+>     kLim                                 = fromMaybe infinite zd.zdKeyRange
+>     vLim                                 = fromMaybe infinite zd.zdVelRange
+>
+>     rOk                                  = okRange kLim && okRange vLim
 >     okRange (j, k)                       = (0 <= j) && j <= k && k < qMidiSize128
 >
->     okGMRange gyro mrng                  =
->       let
->         infinite                         = (0, qMidiSize128 - 1)
->         myRange                          = fromMaybe infinite mrng
->       in
->         if myRange == infinite then gyro else okRange myRange
+>     iOk = kLim /= infinite || vLim /= infinite
 >
 > findByBagIndex         :: [PreZone] → Word → Maybe PreZone
 > findByBagIndex pzs w                     = find (\pz → w == pz.pzWordB) pzs
