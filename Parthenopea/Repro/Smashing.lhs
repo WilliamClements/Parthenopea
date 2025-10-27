@@ -106,8 +106,8 @@ You see there is some overlap between Zone 1 and Zone 2.
 
 Smashing smashings ====================================================================================================
 
-We smash smashings together in the Midi case to merge multiple Instruments into one. The function smashCell acts as a
-zipper to carry out the you-know-what.
+We smash smashings together in the Midi case when we merge multiple Instruments into one. The function smashCell acts
+as a zipper to carry out the you-know-what (smashing, stupid!)
 
 > smashSmashings         :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ Smashing i → Smashing i → Smashing i
 > smashSmashings s1 s2

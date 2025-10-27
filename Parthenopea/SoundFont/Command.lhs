@@ -53,7 +53,7 @@ Implement PCommand =============================================================
 >   mids                                   ← FP.getDirectoryFiles "." ["*.mid", "*.midi"]
 >   sf2s                                   ← FP.getDirectoryFiles "." ["*.sf2"]
 >   putStr $ reapEmissions [msg mids sf2s, EndOfLine]
->   CM.unless ( okDirectives dives) (error "garbage in Directives")
+>   CM.unless (okDirectives dives) (error "garbage in Directives")
 >   proceed dives isongs mids sf2s
 >
 >   timeNow                                ← getZonedTime

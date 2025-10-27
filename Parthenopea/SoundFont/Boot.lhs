@@ -461,11 +461,12 @@ capture task ===================================================================
 
 process initial capture results =======================================================================================
 
->         results                          = map captureZone (deriveRange ibagi jbagi)
->           where
+>         results                          =
+>           let
 >             iinsts                       = sffile.zFileArrays.ssInsts
 >             ibagi                        = F.instBagNdx (iinsts ! pgkwInst pergm)
 >             jbagi                        = F.instBagNdx (iinsts ! (pgkwInst pergm + 1))
+>           in map captureZone (deriveRange ibagi jbagi)
 >
 >         capt                             = foldl' rFolder defCapture{uDispo = rdCap} results
 >           where

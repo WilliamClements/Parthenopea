@@ -36,7 +36,7 @@ August 15, 2025
 Notation-Driven Dynamics ==============================================================================================
 
 _Marking_                = composer's passage-shape directive, sequence
-_Overall                 = 
+_Overall_                = 
    change rate = onset time and dur *versus* start and end velocity
 
 > type SelfIndex                           = Int
