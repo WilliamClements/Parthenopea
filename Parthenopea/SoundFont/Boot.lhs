@@ -37,7 +37,7 @@ January 21, 2025
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
-
+  
 a Boot problematic ====================================================================================================
 
 Each stage interface function takes a FileWork and returns modified FileWork. Often, stage computes temporary
@@ -134,15 +134,13 @@ To solve our circular dependence problem, we do the following:
 >        ("preSample",  preSample)
 >      , ("smell",      smell)
 >      , ("capture",    capture . survey)
->      , ("flatMap",    flatMap)
->      , ("pair 1",     pair . clean)
+>      , ("pair 1",     pair . flatMap . clean)
 >      , ("adopt",      adopt)
 >      , ("smash",      smash)
 >      , ("reorg",      reorg) 
 >      , ("match",      match)
->      , ("pair 2",     pair . clean)
->      , ("vet",        vet)
->      , ("clean",      clean)
+>      , ("pair 2",     pair . flatMap . clean)
+>      , ("vet",        clean . vet)
 >      , ("perI",       perI)]
 >   where
 >     preSample                            = preSampleTaskIf    sffile rost
@@ -248,7 +246,7 @@ pre-sample task ================================================================
 >                                          = violated BadSampleRate (show shdr.sampleRate)
 >           | isNothing mtype              = violated BadSampleType (show shdr.sampleType)
 >           | not (sampleSizeOk (shdr.start, shdr.end))
->                                          = violated BadSampleLimits (show (shdr.start, shdr.end))
+>                                          = violated BadAppliedLimits (show (shdr.start, shdr.end))
 >           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
 >           | otherwise                    = accepted Ok stereo
 >
@@ -259,13 +257,12 @@ pre-sample task ================================================================
 >         fwForm{ fwPreSamples = preSampleCache, fwDispositions = dispose presk ssSample fwForm.fwDispositions}
 
 smell task ============================================================================================================
-          partner map at sample header level = driver for stereo pairings
+          partner map at sample header level = forms basis for all stereo pairings
 
 > smellTaskIf _ _ fWork                    = fWork{fwPairing = fWork.fwPairing{fwPartners = partnerMap}}
 >   where
 >     partnerMap                           = Map.foldlWithKey smellFolder IntMap.empty allL
 >                                              where allL = Map.filter isLeftPS fWork.fwPreSamples
->
 >     smellFolder m presk pres             =
 >       let
 >         siIn, siOut    :: Int
@@ -404,6 +401,8 @@ capture task ===================================================================
 >     uPzs               :: [PreZone]
 >  ,  uSFZone            :: SFZone
 >  ,  uDispo             :: ResultDispositions}
+> defCapture             :: Capture
+> defCapture                               = Capture [] defZone virginrd
 >
 > captureTaskIf sffile _ fWork             = zrecTask capturer fWork
 >   where
@@ -433,8 +432,11 @@ capture task ===================================================================
 >         captureZone    :: Word → (Word, Either PreZone (PreZoneKey, [Scan]))
 >         captureZone bix
 >           | isNothing pz.pzDigest.zdSampleIndex
->                                          = (bix, Right (pzk, accepted GlobalZone noClue))
->           | isNothing mpres              = (bix, Right (pzk, dropped Orphaned noClue))
+>                                          = (bix, Right (pzk, accepted GlobalZone       noClue))
+>           | isNothing mpres              = (bix, Right (pzk, dropped  Orphaned         noClue))
+>           | not (okGMRanges pz.pzDigest) = (bix, Right (pzk, violated CorruptGMRange   (rangeClue pz)))
+>           | hasRom pz                    = (bix, Right (pzk, violated RomBased         (romClue pz)))
+>           | isJust probeLimits           = (bix, Right (pzk, violated BadAppliedLimits (fromJust probeLimits)))
 >           | otherwise                    = (bix, Left pz{pzChanges = ChangeEar (effPSShdr pres) []})
 >           where
 >             ibags                        = sffile.zFileArrays.ssIBags
@@ -445,7 +447,6 @@ capture task ===================================================================
 >                                              (xgeni <= ygeni)
 >                                              (unwords [fName, "SoundFont file corrupt (gens)"])
 >                                              (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
->
 >             pzk                          = PreZoneKey 
 >                                             sffile.zWordFBoot 
 >                                             (pgkwInst pergm)
@@ -456,6 +457,7 @@ capture task ===================================================================
 >             presk                        = PreSampleKey sffile.zWordFBoot si
 >             mpres                        = presk `Map.lookup` fWork.fwPreSamples
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
+>             probeLimits                  = badAppliedLimits pz
 
 process initial capture results =======================================================================================
 
@@ -465,7 +467,7 @@ process initial capture results ================================================
 >             ibagi                        = F.instBagNdx (iinsts ! pgkwInst pergm)
 >             jbagi                        = F.instBagNdx (iinsts ! (pgkwInst pergm + 1))
 >
->         capt                             = foldl' rFolder (Capture [] defZone rdCap) results
+>         capt                             = foldl' rFolder defCapture{uDispo = rdCap} results
 >           where
 >             rFolder        :: Capture → (Word, Either PreZone (PreZoneKey, [Scan])) → Capture
 >             rFolder captFold (bagIndex, eor)
@@ -475,47 +477,25 @@ process initial capture results ================================================
 >                   Capture (pz{pzSFZone = sfz} : captFold.uPzs) pz.pzSFZone captFold.uDispo
 >                   where sfz              = buildZone sffile captFold.uSFZone (Just pz) bagIndex
 >                 doError (k, ssZone)      =
->                   if (head ssZone).sImpact == GlobalZone
+>                   if hasImpact GlobalZone ssZone
 >                     then Capture captFold.uPzs sfz captFold.uDispo
 >                     else Capture captFold.uPzs captFold.uSFZone (dispose k ssZone captFold.uDispo)
 >                   where sfz              = buildZone sffile defZone Nothing bagIndex
 >               in
 >                 either doNormal doError eor
 >
->         noZones, illegalRange, hasRoms, illegalLimits, yesCapture
+>         stype pz                         = F.sampleType (effPZShdr pz)
+>         hasRom pz                        = stype pz >= 0x8000
+>         romClue pz                       = showHex (stype pz) []
+>         rangeClue pz                     = show (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange)
+>
+>         noZones, yesCapture
 >                        :: Maybe [Scan] 
 >         ssCap                            = deJust fName
->                                            $ noZones `CM.mplus` illegalRange
->                                                      `CM.mplus` hasRoms
->                                                      `CM.mplus` illegalLimits
->                                                      `CM.mplus` yesCapture
+>                                            $ noZones `CM.mplus` yesCapture
 >         noZones
->           | null capt.uPzs            = Just $ violated NoZones noClue
+>           | null capt.uPzs               = Just $ violated NoZones noClue
 >           | otherwise                    = Nothing
->         illegalRange
->           | isJust mpz                   = Just $ violated CorruptGMRange clue
->           | otherwise                    = Nothing
->           where
->             mpz                          = find zoneBad capt.uPzs
->
->             zoneBad pz                   = not (okGMRanges pz.pzDigest)
->             clue                         = showBad $ fromJust mpz
->         hasRoms
->           | isJust mpz                   = Just $ violated RomBased clue
->           | otherwise                    = Nothing
->           where
->             mpz                          = find zoneRom capt.uPzs
->
->             stype pz                     = F.sampleType (effPZShdr pz)
->             zoneRom pz                   = stype pz >= 0x8000
->             pzBad                        = fromJust mpz
->             clue                         = showHex (stype pzBad) []
->         illegalLimits
->           | isJust result                = Just $ violated BadSampleLimits $ fromJust result
->           | otherwise                    = Nothing
->           where
->             tested                       = map illegalSampleSize capt.uPzs
->             result                       = foldr CM.mplus Nothing tested
 >         yesCapture                       = Just $ modified Captured iName
 >
 > buildZone              :: SFFileBoot → SFZone → Maybe PreZone → Word → SFZone
@@ -724,7 +704,10 @@ pair task ======================================================================
 >     updatePairing, handleUnrejections
 >                        :: FileWork → FileWork
 >     updatePairing fwIn                   =
->       fwIn{fwPairing = fwIn.fwPairing{fwPairings = pairings, fwRejects = rejects, fwActions = makeActions rejects}}
+>       fwIn{fwPairing = fwIn.fwPairing{  fwPairings = pairings
+>                                       , fwRejects = rejects
+>                                       , fwActions = makeActions rejects
+>                                       , fwPreZones = IntMap.empty}}
 >
 >     handleUnrejections
 >       | traceIf trace_HU False           = undefined
@@ -1025,8 +1008,8 @@ perI task ======================================================================
 > sampleSizeOk           :: (Word, Word) → Bool
 > sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
 >
-> illegalSampleSize      :: PreZone → Maybe String
-> illegalSampleSize pz                     =
+> badAppliedLimits       :: PreZone → Maybe String
+> badAppliedLimits pz                      =
 >   if ok
 >     then Nothing
 >     else Just $ unwords [showHex stA [], showHex enA [], showHex stL [], showHex enL [], show zd.zdSampleMode]

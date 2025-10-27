@@ -114,16 +114,24 @@ implementing SoundFont spec ====================================================
 >     pzkwFile           :: Int
 >   , pzkwInst           :: Word
 >   , pzkwBag            :: Word
->   , pzkwSampleIndex    :: Word} deriving (Eq, Ord, Show)
+>   , pzkwSampleIndex    :: Word}
+>   deriving (Eq, Ord, Show)
+>
+> data AppliedLimits                             =
+>   AppliedLimits {
+>     rStart             :: Word
+>   , rEnd               :: Word
+>   , rLoopStart         :: Word
+>   , rLoopEnd           :: Word}
+>   deriving (Eq, Show)
+> defApplied             :: AppliedLimits
+> defApplied                               = AppliedLimits 0 0 0 0
 >
 > data Recon                               =
 >   Recon {
 >     rSampleMode        :: A.SampleMode
 >   , rSampleRate        :: Double
->   , rStart             :: Word
->   , rEnd               :: Word
->   , rLoopStart         :: Word
->   , rLoopEnd           :: Word
+>   , rApplied           :: AppliedLimits
 >   , rRootKey           :: AbsPitch
 >   , rTuning            :: Int
 >   , rDynamics          :: VB.Vector Double
@@ -411,13 +419,16 @@ implementing SoundFont spec ====================================================
 >     inspectGen _ zd                      = zd
 > okGMRanges             :: ZoneDigest → Bool
 > okGMRanges ZoneDigest{zdKeyRange, zdVelRange}
->                                          = okGMRange zdKeyRange && okGMRange zdVelRange
+>                                          = okGMRange False zdKeyRange && okGMRange True zdVelRange
 >   where
->     okGMRange          :: Maybe (Word, Word) → Bool
->     okGMRange mrng                       =
->       case mrng of
->         Just (j, k)                      → (0 <= j) && j <= k && k < qMidiSize128
->         Nothing                          → True
+>     okRange (j, k)                       = (0 <= j) && j <= k && k < qMidiSize128
+>
+>     okGMRange gyro mrng                  =
+>       let
+>         infinite                         = (0, qMidiSize128 - 1)
+>         myRange                          = fromMaybe infinite mrng
+>       in
+>         if myRange == infinite then gyro else okRange myRange
 >
 > findByBagIndex         :: [PreZone] → Word → Maybe PreZone
 > findByBagIndex pzs w                     = find (\pz → w == pz.pzWordB) pzs
@@ -430,7 +441,7 @@ bootstrapping ==================================================================
 >
 > data Impact                              =
 >   Ok | NoZones | CorruptName
->      | BadSampleRate | BadSampleType | BadSampleLimits | BadStereoPartner
+>      | BadSampleRate | BadSampleType | BadAppliedLimits | BadStereoPartner
 >      | Orphaned | ToCache
 >      | Absorbing | Absorbed | NoAbsorption
 >      | CorruptGMRange | RomBased
@@ -472,6 +483,9 @@ bootstrapping ==================================================================
 > dead                   :: [Scan] → Bool
 > dead ss                                  =
 >   surveyDispositions [Violated, Dropped] ss /= surveyDispositions [Rescued] ss
+>
+> hasImpact              :: Impact → [Scan] → Bool
+> hasImpact impact                         = any (\s → s.sImpact == impact)
 >
 > wasRescued             :: Impact → [Scan] → Bool
 > wasRescued impact                        = any (\s → s.sDisposition `elem` rescueset && s.sImpact == impact)

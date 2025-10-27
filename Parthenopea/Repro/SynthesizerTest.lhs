@@ -26,7 +26,7 @@ Synthesizer-related tests ======================================================
 > defRecon               :: Recon
 > defRecon                                 = 
 >   Recon
->     A.ContLoop 44100 0 0 0 0
+>     A.ContLoop 44100 defApplied
 >     60 100
 >     VB.empty
 >     0 Nothing Nothing

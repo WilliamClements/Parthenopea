@@ -245,11 +245,12 @@ reconcile zone and sample header ===============================================
 >         (fromMaybe A.NoLoop z.zSampleMode)
 >         (fromIntegral shdr.sampleRate)
 >
->         ((+) shdr.start (fromIntegral zd.zdStart))
->         ((+) shdr.end (fromIntegral zd.zdEnd))
->         ((+) shdr.startLoop (fromIntegral zd.zdStartLoop))
->         ((+) shdr.endLoop (fromIntegral zd.zdEndLoop))
->
+>         (AppliedLimits
+>                     ((+) shdr.start (fromIntegral zd.zdStart))
+>                     ((+) shdr.end (fromIntegral zd.zdEnd))
+>                     ((+) shdr.startLoop (fromIntegral zd.zdStartLoop))
+>                     ((+) shdr.endLoop (fromIntegral zd.zdEndLoop)))
+>         
 >         (fromIntegral $ fromMaybe shdr.originalPitch z.zRootKey)
 >         (fromMaybe 100 z.zScaleTuning)
 >         VB.empty

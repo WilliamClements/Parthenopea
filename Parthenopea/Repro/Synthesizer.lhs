@@ -59,7 +59,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     reconR                               = fromJust mreconR
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
 >
->     numPoints          :: Double         = fromIntegral (reconL.rEnd - reconL.rStart)
+>     numPoints          :: Double         = fromIntegral (reconL.rApplied.rEnd - reconL.rApplied.rStart)
 >     secsSampled                          = numPoints * freqRatio / sr
 >     secsScored                           = 1 * fromRational dur
 >     looping            :: Bool           = secsScored > secsSampled
@@ -151,10 +151,14 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                                          = normalizeLooping reconL
 >
 > normalizeLooping       :: Recon → (Double, Double)
-> normalizeLooping recon                    = ((loopst - fullst) / denom, (loopen - fullst) / denom)
+> normalizeLooping Recon{ .. }
+>                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)
 >   where
->     (fullst, fullen)                     = (fromIntegral recon.rStart, fromIntegral recon.rEnd)
->     (loopst, loopen)                     = (fromIntegral recon.rLoopStart, fromIntegral recon.rLoopEnd)
+>     AppliedLimits{ .. }                        
+>                                          = rApplied
+>
+>     (fullst, fullen)                     = (fromIntegral rStart, fromIntegral rEnd)
+>     (loopst, loopen)                     = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
 >     denom              :: Double         = fullen - fullst
 >
 > eutModSignals          :: ∀ p. Clock p ⇒ TimeFrame → Modulation → ModDestType → Signal p () ModSignals
@@ -187,13 +191,15 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           → Signal p Double Double
 > eutPumpMonoSample reconL noon s16 ms8    =
 >   proc pos → do
->     let pos'           :: Double         = fromIntegral (reconL.rEnd - reconL.rStart) * pos
+>     let pos'           :: Double         = fromIntegral (rEnd - rStart) * pos
 >     let ix             :: Int            = truncate pos'
 >     let offset         :: Double         = pos' - fromIntegral ix
 >
->     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral reconL.rStart + ix)
+>     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral rStart + ix)
 >     outA                                 ⤙ a1L * ampL
 >   where
+>     AppliedLimits{ .. }
+>                                          = reconL.rApplied
 >     cAttenL            :: Double         =
 >       fromCentibels (reconL.rAttenuation + evaluateMods ToInitAtten reconL.rM8n.mModsMap)
 >     ampL                                 = fromIntegral noon.noteOnVel / 100 / cAttenL
@@ -208,20 +214,20 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >   | traceNot trace_EPSS False            = undefined
 >   | otherwise                            =
 >   proc pos → do
->     let pos'           :: Double         = fromIntegral (enL - stL) * pos
+>     let pos'           :: Double         = fromIntegral (appliedL.rEnd - appliedL.rStart) * pos
 >     let ix             :: Int            = truncate pos' -- WOX should be round?
 >     let offset         :: Double         = pos' - fromIntegral ix
 >
->     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral stL + ix) 
->     let a1R                              = samplePointInterp s16 ms8 offset (fromIntegral stR + ix)
+>     let a1L                              = samplePointInterp s16 ms8 offset (fromIntegral appliedL.rStart + ix) 
+>     let a1R                              = samplePointInterp s16 ms8 offset (fromIntegral appliedR.rStart + ix)
 >     outA                                 ⤙ (a1L * ampL, a1R * ampR)
 >   where
 >     fName                                = "eutPumpStereoSample"
 >     trace_EPSS                           = unwords [fName, show noon]
 >
->     Recon{rAttenuation = attenL, rStart = stL, rEnd = enL, rM8n = m8nL}
+>     Recon{rAttenuation = attenL, rApplied = appliedL, rM8n = m8nL}
 >                                          = reconL
->     Recon{rAttenuation = attenR, rStart = stR, rM8n = m8nR}
+>     Recon{rAttenuation = attenR, rApplied = appliedR, rM8n = m8nR}
 >                                          = reconR
 >     Modulation{mModsMap = mmodsL}        = m8nL
 >     Modulation{mModsMap = mmodsR}        = m8nR
