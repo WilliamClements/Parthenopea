@@ -149,7 +149,7 @@ implementing SoundFont spec ====================================================
 >   , efPan              :: Double}
 >   deriving (Eq, Show)
 >
-> data ChangeNameItem                      = FixCorruptName deriving Eq
+> data ChangeNameItem                      = FixBadName deriving Eq
 >
 > data ChangeName a                        =
 >   ChangeName {
@@ -441,11 +441,11 @@ bootstrapping ==================================================================
 >   deriving (Eq, Ord, Show)
 >
 > data Impact                              =
->   Ok | NoZones | CorruptName
->      | BadSampleRate | BadSampleType | BadAppliedLimits | BadStereoPartner
+>   Ok | NoZones | BadName
+>      | BadSampleRate | BadSampleType | BadSampleLimits
+>      | BadAppliedLimits | BadStereoPartner | RomBased | BadGMRange 
 >      | Orphaned | ToCache
->      | Absorbing | Absorbed | NoAbsorption
->      | CorruptGMRange | RomBased
+>      | Absorbing | Absorbed | NoAbsorption    
 >      | Unrecognized | Narrow | NoPercZones
 >      | Captured | Adopted | AdoptedAsMono | GlobalZone
 >   deriving (Eq, Ord, Show)

@@ -246,12 +246,12 @@ pre-sample task ================================================================
 >                                          = violated BadSampleRate (show shdr.sampleRate)
 >           | isNothing mtype              = violated BadSampleType (show shdr.sampleType)
 >           | not (sampleSizeOk (shdr.start, shdr.end))
->                                          = violated BadAppliedLimits (show (shdr.start, shdr.end))
->           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
+>                                          = violated BadSampleLimits (show (shdr.start, shdr.end))
+>           | not (goodName raw)           = badButMaybeFix fixBadNames BadName fName raw good
 >           | otherwise                    = accepted Ok stereo
 >
->         (ssSample, changes, name)        = if wasRescued CorruptName ssSample_
->                                              then (ssSample_, singleton FixCorruptName, good)
+>         (ssSample, changes, name)        = if wasRescued BadName ssSample_
+>                                              then (ssSample_, singleton FixBadName, good)
 >                                              else (ssSample_, [],                       raw)
 >       in
 >         fwForm{ fwPreSamples = preSampleCache, fwDispositions = dispose presk ssSample fwForm.fwDispositions}
@@ -382,11 +382,11 @@ survey task ====================================================================
 >         ssSurvey
 >           | iinst.instBagNdx == jinst.instBagNdx
 >                                          = violated NoZones (show iinst.instName)
->           | not (goodName raw)           = badButMaybeFix fixBadNames CorruptName fName raw good
+>           | not (goodName raw)           = badButMaybeFix fixBadNames BadName fName raw good
 >           | otherwise                    = accepted Ok (show pergm.pgkwInst)
 >
->         changes                          = if wasRescued CorruptName ssSurvey then singleton FixCorruptName else []
->         finalName                        = if wasRescued CorruptName ssSurvey then good else raw
+>         changes                          = if wasRescued BadName ssSurvey then singleton FixBadName else []
+>         finalName                        = if wasRescued BadName ssSurvey then good else raw
 >
 >         rd''                             = dispose pergm ssSurvey rdFold   
 >
@@ -434,7 +434,7 @@ capture task ===================================================================
 >           | isNothing pz.pzDigest.zdSampleIndex
 >                                          = (bix, Right (pzk, accepted GlobalZone       noClue))
 >           | isNothing mpres              = (bix, Right (pzk, dropped  Orphaned         noClue))
->           | not (okGMRanges pz.pzDigest) = (bix, Right (pzk, violated CorruptGMRange   (rangeClue pz)))
+>           | not (okGMRanges pz.pzDigest) = (bix, Right (pzk, violated BadGMRange       (rangeClue pz)))
 >           | hasRom pz                    = (bix, Right (pzk, violated RomBased         (romClue pz)))
 >           | isJust probeLimits           = (bix, Right (pzk, violated BadAppliedLimits (fromJust probeLimits)))
 >           | otherwise                    = (bix, Left pz{pzChanges = ChangeEar (effPSShdr pres) []})
@@ -452,7 +452,7 @@ capture task ===================================================================
 >                                             (pgkwInst pergm)
 >                                             bix
 >                                             si
->             pz                           = makePreZone sffile.zWordFBoot si (pgkwInst pergm) bix gens pres.cnSource
+>             pz                           = makePreZone sffile.zWordFBoot si pergm.pgkwInst bix gens pres.cnSource
 >             si                           = deJust (unwords [fName, "si"]) pz.pzDigest.zdSampleIndex
 >             presk                        = PreSampleKey sffile.zWordFBoot si
 >             mpres                        = presk `Map.lookup` fWork.fwPreSamples
@@ -466,7 +466,8 @@ process initial capture results ================================================
 >             iinsts                       = sffile.zFileArrays.ssInsts
 >             ibagi                        = F.instBagNdx (iinsts ! pgkwInst pergm)
 >             jbagi                        = F.instBagNdx (iinsts ! (pgkwInst pergm + 1))
->           in map captureZone (deriveRange ibagi jbagi)
+>           in
+>             map captureZone (deriveRange ibagi jbagi)
 >
 >         capt                             = foldl' rFolder defCapture{uDispo = rdCap} results
 >           where
@@ -475,13 +476,11 @@ process initial capture results ================================================
 >                                          =
 >               let
 >                 doNormal pz              =
->                   Capture (pz{pzSFZone = sfz} : captFold.uPzs) pz.pzSFZone captFold.uDispo
->                   where sfz              = buildZone sffile captFold.uSFZone (Just pz) bagIndex
+>                   captFold{uPzs = pz{pzSFZone = buildZone sffile captFold.uSFZone (Just pz) bagIndex} : captFold.uPzs}
 >                 doError (k, ssZone)      =
 >                   if hasImpact GlobalZone ssZone
->                     then Capture captFold.uPzs sfz captFold.uDispo
->                     else Capture captFold.uPzs captFold.uSFZone (dispose k ssZone captFold.uDispo)
->                   where sfz              = buildZone sffile defZone Nothing bagIndex
+>                     then captFold{uSFZone = buildZone sffile defZone Nothing bagIndex}
+>                     else captFold{uDispo = dispose k ssZone captFold.uDispo}
 >               in
 >                 either doNormal doError eor
 >
@@ -652,9 +651,7 @@ pair task ======================================================================
 >             newPairs                     = if crossInstrumentPairing
 >                                              then regular `IntMap.union` extra
 >                                              else regular
->
 >             (regular, extra)             = qualifyPairs bagsL bagsR
->
 >             bagsL, bagsR
 >                        :: IntSet                       {- [BagIndex]                    -}             
 >             bagsL                        = fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
@@ -688,12 +685,13 @@ pair task ======================================================================
 >             pin pegBoard m iSlot bL      =
 >               let
 >                 bR                       = Map.lookup iSlot pegBoard
->                 newPairs_                = zip (IntSet.toList bL) (IntSet.toList (fromMaybe IntSet.empty bR))
->                 newPairs                 = if not ignoreI && not parallelPairing
->                                              then take 1 newPairs_
->                                              else newPairs_
+>                 newPairs                 = IntMap.fromList
+>                                            $ if not ignoreI && not parallelPairing
+>                                                then take 1 zipped
+>                                                else zipped 
+>                 zipped                   = zip (IntSet.toList bL) (IntSet.toList (fromMaybe IntSet.empty bR))
 >               in
->                  m `IntMap.union` IntMap.fromList newPairs
+>                  m `IntMap.union` newPairs
 >
 >         regularPairs                     = makePairs False bagsL bagsR
 >         pairedSoFar                      = unpair regularPairs
