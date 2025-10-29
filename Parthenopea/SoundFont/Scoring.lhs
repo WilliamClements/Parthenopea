@@ -201,7 +201,7 @@ tournament starts here =========================================================
 >                                , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
 > establishWinners dives rost vFiles cache matches
 >                                          = do
->   (wI_, wP_)                             ← decideWinners dives rost vFiles cache matches
+>   (wI_, wP_)                             ← decideWinners dives rost cache matches
 >   CM.when (dives.dReportVerbosity.dForTournament > 0) (writeTournamentReport dives vFiles wI_ wP_)
 >   let (wI, wP)                           = (Map.map head wI_, Map.map head wP_)
 >   return (BF.bimap (foldl' (buildUp wI) Map.empty) (foldl' (buildUp wP) Map.empty) rost)
@@ -225,11 +225,10 @@ tournament starts here =========================================================
 >
 > decideWinners          :: Directives
 >                           → ([InstrumentName], [PercussionSound]) 
->                           → VB.Vector SFFileBoot
 >                           → Map PerGMKey PerInstrument
 >                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
-> decideWinners dives rost _ cache matches
+> decideWinners dives rost cache matches
 >                                          = do
 >   CM.when diagnosticsEnabled             (traceIO $ unwords [fName__, show $ length cache])
 >   return wiExec
@@ -257,17 +256,9 @@ tournament starts here =========================================================
 >         trace_WIF                        = unwords [fName_, show $ length decideInst, show $ length decidePerc]
 >
 >         decideInst     :: Map InstrumentName [PerGMScored]
->         decideInst                       = foldl' (xaEnterTournament fuzzMap pergmI_ []) wI i2Fuzz'
+>         decideInst                       = proposeXAs iMatches wI pergmI_
 >           where
->             iMatches                     = deJust "iMatches" (Map.lookup pergmI_ matches.mIMatches)
->             fuzzMap                      = getFuzzMap iMatches
->
->             i2Fuzz                       = Map.filterWithKey isInRoster fuzzMap
->                                              where isInRoster k _ = k `elem` select rost narrow
->             i2Fuzz'                      =
->               if dives.multipleCompetes
->                 then Map.keys i2Fuzz
->                 else (singleton . fst) (Map.findMax i2Fuzz)
+>             iMatches = deJust "iMatches" (Map.lookup pergmI_ matches.mIMatches)
 >     
 >         decidePerc     :: Map PercussionSound [PerGMScored]
 >         decidePerc                       = foldl' pFolder wP pergmsP
@@ -278,10 +269,10 @@ tournament starts here =========================================================
 >             pergmsP                      = instrumentPercList pergmI_ bixen
 >
 >             pFolder wpFold pergmP
->               | traceNot trace_PF False   = undefined
+>               | traceNow trace_PF False  = undefined
 >               | null mkind               = wpFold
->               | Map.null fuzzMap         = wpFold
->               | otherwise                = xaEnterTournament fuzzMap pergmP [] wpFold kind
+>               | null mffm                = wpFold
+>               | otherwise                = proposeXAs ffm wpFold pergmP
 >               where
 >                 fName                    = unwords [fName_, "pFolder"]
 >                 trace_PF                 = unwords [fName, show pergmP, show mz, show (mz >>= getAP), show (mz >>= getAP >>= pitchToPerc)]
@@ -290,16 +281,12 @@ tournament starts here =========================================================
 >                 mz                       = pergmP.pgkwBag >>= findByBagIndex pzs
 >                 mkind  :: Maybe PercussionSound
 >                 mkind                    = mz >>= getAP >>= pitchToPerc
->                 kind                     = deJust (unwords[fName, "mkind"]) mkind
->
 >                 mffm   :: Maybe FFMatches
 >                 mffm                     =
 >                   mz >>= (zdSampleIndex . pzDigest)
 >                      >>= Just . PreSampleKey pergmI_.pgkwFile
 >                      >>= (`Map.lookup` matches.mSMatches)
->                 fuzzMap
->                        :: Map PercussionSound Fuzz
->                 fuzzMap                  = getFuzzMap $ deJust (unwords ["mffm"]) mffm
+>                 ffm                      = deJust (unwords [fName, "mffm"]) mffm
 >
 >                 getAP  :: PreZone → Maybe AbsPitch
 >                 getAP pz                 =
@@ -309,14 +296,26 @@ tournament starts here =========================================================
 >                   >>= intersectRanges
 >                   >>= Just . fromIntegral . fst
 >
+>     proposeXAs         :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ FFMatches → Map a [PerGMScored] → PerGMKey → Map a [PerGMScored]
+>     proposeXAs iMatches wX pergmX    = foldl' (xaEnterTournament iMatches pergmX []) wX i2Fuzz'
+>       where
+>         fuzzMap                      = getFuzzMap iMatches
+>
+>         i2Fuzz                       = Map.filterWithKey isInRoster fuzzMap
+>                                              where isInRoster k _ = k `elem` select rost narrow
+>         i2Fuzz'                      =
+>           if dives.multipleCompetes
+>             then Map.keys i2Fuzz
+>             else (singleton . fst) (Map.findMax i2Fuzz)
+>
 >     xaEnterTournament  :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
->                           Map a Fuzz
+>                           FFMatches
 >                           → PerGMKey
 >                           → [SSHint]
 >                           → Map a [PerGMScored]
 >                           → a
 >                           → Map a [PerGMScored]
->     xaEnterTournament fuzzMap pergm hints wins kind
+>     xaEnterTournament ffm pergm hints wins kind
 >       | traceIf trace_XAET False        = undefined
 >       | goodScore scored                 = Map.insertWith (++) kind [scored] wins
 >       | otherwise                        = wins
@@ -329,22 +328,14 @@ tournament starts here =========================================================
 >         perI                             = cache Map.! pergm_
 >         iName                            = perI.piChanges.cnName
 >
->         scope_, scope  :: [PreZone]
->         scope_                           =
->           case pergm.pgkwBag of
->             Nothing                      → perI.pZones
->             Just bagI                    →
->                    maybe
->                      (error $ unwords [fName, "findByBagIndex' returned a Nothing for"
->                                       , show pergm.pgkwFile, iName, show bagI])
->                      singleton
->                      (findByBagIndex perI.pZones bagI)
+>         scope          :: [PreZone]
 >         scope                            =
->           profess
->             (not (null scope_))
->             (unwords[fName, "null scope", iName, show (pergm, pergm_), show $ length perI.pZones])
->             scope_
->             
+>           let
+>             oneZone    :: Word → [PreZone]
+>             oneZone bag                  = maybe (error fName) singleton (findByBagIndex perI.pZones bag)
+>           in
+>             maybe perI.pZones oneZone pergm.pgkwBag
+>
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
 >                                            >>= findByBagIndex perI.pZones
 >                                            >>= \q → Just (F.sampleName (effPZShdr q))
@@ -395,7 +386,7 @@ tournament starts here =========================================================
 >                 xStart :: Word           = shdr.start + fromIntegral zd.zdStart
 >                 xEnd   :: Word           = shdr.end + fromIntegral zd.zdEnd
 >
->         akResult                         = fromMaybe 0 (Map.lookup kind fuzzMap)
+>         akResult                         = fromMaybe 0 (Map.lookup kind (getFuzzMap ffm))
 >
 >     instrumentPercList :: PerGMKey → [Word] → [PerGMKey]
 >     instrumentPercList pergmI            = map (\w → pergmI {pgkwBag = Just w})
