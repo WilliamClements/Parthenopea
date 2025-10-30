@@ -21,7 +21,6 @@ October 5, 2025
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.Music
 > import Parthenopea.Repro.Emission
-> import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
 >
@@ -59,11 +58,11 @@ October 5, 2025
 
 emit standard output text detailing what choices we made for rendering GM items =======================================
 
-> printChoices           :: SFRuntime
+> printChoices           :: (Map InstrumentName (Bool, Maybe PerGMKey, [Emission]), Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
 >                           → [InstrumentName]
 >                           → [PercussionSound]
 >                           → ([(Bool, [Emission])], [(Bool, [Emission])])
-> printChoices runt is ps                  = (map (extract runt.zChoicesI) is, map (extract runt.zChoicesP) ps)
+> printChoices (zI, zP) is ps              = (map (extract zI) is, map (extract zP) ps)
 >   where
 >     extract            :: ∀ a. (Ord a) ⇒ Map a (Bool, Maybe PerGMKey, [Emission]) → a → (Bool, [Emission])
 >     extract choices kind                 = (found, ems)

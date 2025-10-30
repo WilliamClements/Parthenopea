@@ -61,7 +61,13 @@ struct sfInstModList
 >   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
 >    
 > defModulator           :: Modulator
-> defModulator                             = Modulator 0 defModSrc NoDestination 0 defModSrc
+> defModulator                             =
+>   Modulator
+>    0 
+>    defModSrc 
+>    NoDestination 
+>    0
+>    defModSrc
 >
 > data ModKey                              =
 >   ModKey {
@@ -325,10 +331,8 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 > evaluateMods           :: ModDestType → Map ModDestType [Modulator] → Double
 > evaluateMods md graph                    = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
 >   where
->     evaluateMod        :: Modulator → Double
 >     evaluateMod m8r                      =
 >       let
->         getValue       :: ModSrc → Double
 >         getValue modSrc
 >           | useModulators                =
 >               case modSrc.msSource of

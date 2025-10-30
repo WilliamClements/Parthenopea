@@ -18,6 +18,7 @@ February 1, 2025
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Data.Audio              as A
+> import qualified Data.Bifunctor          as BF
 > import Data.Foldable
 > import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict as IntMap
@@ -47,8 +48,6 @@ February 1, 2025
 >     zDirectives        :: Directives
 >   , zRoster            :: ([InstrumentName], [PercussionSound])
 >   , zRuntimeFiles      :: IntMap SFFileRuntime         {- [FileIndex → SFFileRuntime]   -}
->   , zChoicesI          :: Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
->   , zChoicesP          :: Map PercussionSound (Bool, Maybe PerGMKey, [Emission])
 >   , zInstrumentMap     :: [(InstrumentName, Instr (Stereo AudRate))]}
 > instance Show SFRuntime where
 >   show runt                 =
@@ -63,7 +62,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >                       → ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
 >                         , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
 >                       → IO SFRuntime
-> prepareRuntime dives rost vFilesBoot cache (zI, zP)
+> prepareRuntime dives rost vFilesBoot cache choices
 >                                          = do
 >   let runtimeFiles                       = IntMap.fromList $ mapMaybe supply (VB.toList vFilesBoot)
 >   let prerunt                            =
@@ -71,10 +70,8 @@ cache SoundFont data that is only needed for Runtime ===========================
 >           dives
 >           rost
 >           runtimeFiles
->           zI
->           zP 
 >           []
->   instrumentMap                          ← prepareInstruments prerunt
+>   instrumentMap                          ← prepareInstruments prerunt choices
 >   return prerunt{zInstrumentMap = instrumentMap}
 >   where
 >     actions            :: IntMap IntSet                {- [FileIndex → [InstIndex]]     -}
@@ -92,7 +89,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >         selectI m pergm                  =
 >           IntMap.insertWith IntSet.union pergm.pgkwFile ((IntSet.singleton . fromIntegral) pergm.pgkwInst) m
 >       in
->         foldl' selectI IntMap.empty (extract zI `Set.union` extract zP)
+>         foldl' selectI IntMap.empty (extract (fst choices) `Set.union` extract (snd choices))
 >
 >     supply             :: SFFileBoot → Maybe (Int, SFFileRuntime)
 >     supply sffile                        = probe >>= savePerInstruments
@@ -124,12 +121,14 @@ cache SoundFont data that is only needed for Runtime ===========================
 
 define signal functions and instrument maps to support rendering ======================================================
 
-> prepareInstruments     :: SFRuntime → IO [(InstrumentName, Instr (Stereo AudRate))]
-> prepareInstruments prerunt@SFRuntime{ .. }
->                                          = do
+> prepareInstruments     :: SFRuntime
+>                           → ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
+>                             , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
+>                           → IO [(InstrumentName, Instr (Stereo AudRate))]
+> prepareInstruments runt choices          = do
 >     return $ (Percussion, assignPercussion)                                                               : imap
 >   where
->     (zI, zP)                             = (middle zChoicesI, middle zChoicesP)
+>     (zI, zP)                             = BF.bimap middle middle choices
 >                                              where middle = Map.mapMaybe (\(_, pp, _) → pp)
 >     imap                                 = Map.foldrWithKey imapFolder [] zI
 >     pmap                                 = Map.foldrWithKey pmapFolder [] zP
@@ -142,7 +141,7 @@ define signal functions and instrument maps to support rendering ===============
 >     assignInstrument pergm durI pch vol params
 >                                          =
 >       proc _ → do
->         (zL, zR)                         ← instrumentSF prerunt pergm durI pch vol params ⤙ ()
+>         (zL, zR)                         ← instrumentSF runt pergm durI pch vol params ⤙ ()
 >         outA                             ⤙ (zL, zR)
 >
 >     assignPercussion   :: ∀ p . Clock p ⇒ Instr (Stereo p)

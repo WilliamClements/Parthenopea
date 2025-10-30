@@ -269,7 +269,7 @@ tournament starts here =========================================================
 >             pergmsP                      = instrumentPercList pergmI_ bixen
 >
 >             pFolder wpFold pergmP
->               | traceNow trace_PF False  = undefined
+>               | traceNot trace_PF False  = undefined
 >               | null mkind               = wpFold
 >               | null mffm                = wpFold
 >               | otherwise                = proposeXAs ffm wpFold pergmP
@@ -296,13 +296,15 @@ tournament starts here =========================================================
 >                   >>= intersectRanges
 >                   >>= Just . fromIntegral . fst
 >
->     proposeXAs         :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ FFMatches → Map a [PerGMScored] → PerGMKey → Map a [PerGMScored]
+>     proposeXAs         :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
+>                           FFMatches
+>                           → Map a [PerGMScored]
+>                           → PerGMKey
+>                           → Map a [PerGMScored]
 >     proposeXAs iMatches wX pergmX    = foldl' (xaEnterTournament iMatches pergmX []) wX i2Fuzz'
 >       where
->         fuzzMap                      = getFuzzMap iMatches
->
->         i2Fuzz                       = Map.filterWithKey isInRoster fuzzMap
->                                              where isInRoster k _ = k `elem` select rost narrow
+>         i2Fuzz                       = Map.filterWithKey isInRoster (getFuzzMap iMatches)
+>                                          where isInRoster k _ = k `elem` select rost narrow
 >         i2Fuzz'                      =
 >           if dives.multipleCompetes
 >             then Map.keys i2Fuzz
@@ -316,7 +318,7 @@ tournament starts here =========================================================
 >                           → a
 >                           → Map a [PerGMScored]
 >     xaEnterTournament ffm pergm hints wins kind
->       | traceIf trace_XAET False        = undefined
+>       | traceIf trace_XAET False         = undefined
 >       | goodScore scored                 = Map.insertWith (++) kind [scored] wins
 >       | otherwise                        = wins
 >       where

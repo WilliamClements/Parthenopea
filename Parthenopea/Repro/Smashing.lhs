@@ -95,9 +95,11 @@ You see there is some overlap between Zone 1 and Zone 2.
 >         enumAssocs                       =
 >             profess
 >               (0 <= mag && mag <= 32_768 && all (uncurry validRange) (zip dims rngs))
->               (unwords ["enumAssocs: range violation", tag, show mag, show dims, show spaces])
+>               (unwords [fName, "range violation", tag, show mag, show dims, show spaces])
 >               (map (, (spaceId, 1)) is)
 >           where
+>             fName                        = "enumAssocs"
+>
 >             is         :: [Int]
 >             is                           =
 >               map (computeCellIndex dims) (traverse walkRange rngs)

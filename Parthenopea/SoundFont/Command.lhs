@@ -89,25 +89,34 @@ Implement PCommand =============================================================
 >   if VB.null vFilesBoot
 >     then return ()
 >     else do
->       runt                               ← commandLogic dives rost vFilesBoot
+>       (runt, choices)                     ← commandLogic dives rost vFilesBoot
 >       -- here's the heart of the coconut
->       mapM_ (renderSong runt) songs
+>       mapM_ (renderSong runt choices) songs
 >   where
 >     ReportVerbosity{ .. }               
 >                                          = dives.dReportVerbosity
 >
-> commandLogic           :: Directives → ([InstrumentName], [PercussionSound]) → VB.Vector SFFileBoot → IO SFRuntime
+> commandLogic           :: Directives → ([InstrumentName], [PercussionSound])
+>                           → VB.Vector SFFileBoot
+>                           → IO (SFRuntime, ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
+>                                            , Map PercussionSound (Bool, Maybe PerGMKey, [Emission])))
 > commandLogic dives rost vFilesBoot       = do
 >   (cache, matches, rd)                   ← surveyInstruments dives rost vFilesBoot
 >   CM.when (dForScan > 0)                 (writeScanReport dives dForScan vFilesBoot rd)
 >   (zI, zP)                               ← establishWinners dives rost vFilesBoot cache matches
->   prepareRuntime dives rost vFilesBoot cache (zI, zP)
+>   runt                                   ← prepareRuntime dives rost vFilesBoot cache (zI, zP)
+>   return (runt, (zI, zP))
 >   where
 >     ReportVerbosity{ .. }
 >                                          = dives.dReportVerbosity
 >
-> renderSong             :: SFRuntime → Song → IO ()
-> renderSong runt (Song name music ding)   =
+> renderSong             :: SFRuntime
+>                           → ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
+>                             , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
+>                           → Song
+>                           → IO ()
+> renderSong runt choices (Song name music ding)
+>                                          =
 >   do
 >     let switches                         = runt.zDirectives.synthSwitches
 >
@@ -119,7 +128,7 @@ Implement PCommand =============================================================
 >               (putStr $ reapEmissions [Unblocked $ unwords ["dynMap", show dynMap], EndOfLine])
 >     let ks                               = Map.keys ding
 >     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
->     let (esI, esP)                       = printChoices runt is ps
+>     let (esI, esP)                       = printChoices choices is ps
 >     let ex                               = concatMap snd esI ++ concatMap snd esP
 >     putStr $ reapEmissions ex
 >     -- render song only if all OK

@@ -51,7 +51,6 @@ ranges/numerics ================================================================
 >   where
 >     rnd                :: Int
 >     rnd                                  = round (p10 * x)
->
 
 note-on abstraction ===================================================================================================
 
@@ -61,14 +60,18 @@ note-on abstraction ============================================================
 >   , noteOnKey          :: KeyNumber} deriving (Eq, Ord, Show)
 >
 > carefulNoteOn          :: Velocity → AbsPitch → NoteOn
-> carefulNoteOn volIn pchIn                = NoteOn volOut pchOut
+> carefulNoteOn volIn pchIn                =
+>   NoteOn
+>     (safeClip volIn)
+>     (safeClip pchIn)
 >   where
 >     fName                                = "carefulNoteOn"
 >
->     volOut                               = safeClip volIn
->     pchOut                               = safeClip pchIn
 >     safeClip x                           =
->       profess (x == clip (0, 127) x) (unwords [fName, "out of bounds", show (volIn, pchIn)]) x
+>       profess
+>         (x == clip (0, 127) x)
+>         (unwords [fName, "out of bounds", show (volIn, pchIn)])
+>         x
 >
 > noonAsCoords           :: NoteOn → ([Word], [Word])
 > noonAsCoords noon                        =
