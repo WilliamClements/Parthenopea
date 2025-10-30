@@ -1,53 +1,34 @@
-0    "AspartameCrystal.sf2"                                  
-1    "GM Bank 8.22 MB.sf2"                                   
+2025-10-30 15:01:44.4927341 Eastern Daylight Time
 
+0      "AspartameGM.sf2"                                     
+1      "GXSCC_GM_033.sf2"                                    
 
-legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]
+                                                                                 hints  stereo 24-bit resoln confrm fuzzy  
 
-weights = [10.0,2.0,0.0,1.5,3.0,3.0]
+                                                                                 10.0   2.0    0.0    1.5    3.0    3.0    
 
-> AcousticGuitarNylon                               
->     1                 Nylon Guitar                              12207          0.0   -1.0  1.0   2.3   1.0   6.7            347.9
->     1              Acoustic Guitar                              11094          0.0   -1.0  1.0   1.8   1.0   6.2            282.0
->     0              Acoustic Guitar                              10496          0.0   -1.0  1.0   1.0   1.0   6.2            282.0
->     1                 Clean Guitar                              3036           0.0   -1.0  1.0   2.4   1.0   0.5            151.5
->     1             Overdrive Guitar                              2198           0.0   -1.0  1.0   2.6   -1.0  1.8            154.3
->     1            Distortion Guitar                              1596           0.0   -1.0  1.0   1.8   -1.0  1.8            154.3
->     1             Harmonics Guitar                              998            0.0   -1.0  1.0   1.0   -1.0  1.8            154.3
->     1                 Muted Guitar                              -388           0.0   -1.0  1.0   1.8   -1.0  0.5            151.5
->     1                  Jazz Guitar                              -388           0.0   -1.0  1.0   1.8   -1.0  0.5            151.5
+> SynthBass2                                        
+>     0                     FngrBass                              7882           0.0    -1.0   1.0    1.0    1.0    4.4             183.2
 > 
-> ElectricBassFingered                              
->     0                  Finger Bass                              11536          0.0   -1.0  1.0   1.0   1.0   6.9            378.6
->     1                Fingered Bass                              11528          0.0   -1.0  1.0   1.0   1.0   6.9            377.7
->     1                  Picked Bass                              8457           0.0   -1.0  1.0   1.5   1.0   4.5            186.5
->     1                  Slap Bass 2                              8080           0.0   -1.0  1.0   1.5   1.0   4.3            179.9
->     1                Contra Basson                              7818           0.0   -1.0  1.0   1.0   1.0   4.4            182.1
->     1                 Synth Bass 1                              7684           0.0   -1.0  1.0   1.0   1.0   4.3            179.9
->     1                  Slap Bass 1                              7684           0.0   -1.0  1.0   1.0   1.0   4.3            179.9
->     1                 Synth Bass 2                              4684           0.0   -1.0  1.0   1.0   -1.0  4.3            179.9
->     1               Fretless Bass1                              4636           0.0   -1.0  1.0   0.7   -1.0  4.4            183.2
->     1                  Bass & Lead                              3754           0.0   -1.0  1.0   1.8   -1.0  3.3            163.4
-> 
-> Clarinet                                          
->     1                     Clarinet                              10690          0.0   -1.0  1.0   2.6   -1.0  7.5            528.2
+> AltoSax                                           
+>     0                     Solo Sax                              6178           0.0    -1.0   1.0    -1.5   1.0    4.5             186.7
 > 
 
-0    "AspartameCrystal.sf2"                                  
-1    "GM Bank 8.22 MB.sf2"                                   
+0      "AspartameGM.sf2"                                     
+1      "GXSCC_GM_033.sf2"                                    
 
+                                                                                 hints  stereo 24-bit resoln confrm fuzzy  
 
-legend = [hints, stereo, 24-bit, resolution, conformant, fuzzy]
+                                                                                 10.0   2.0    0.0    1.5    3.0    3.0    
 
-weights = [10.0,2.0,0.0,1.5,3.0,3.0]
-
-> AcousticSnare                                     
->     1          Snare Drum 1                         SNRDRUM1    1250           0.0   -1.0  1.0   1.0   1.0   0.0            136.7
+> BassDrum1                                         
+>     0                     Drumkit0                035 Kick 2    6765           0.0    -1.0   1.0    1.0    1.0    3.7             179.9
+>     0                     Drumkit0         CABASA_S.296S.L08    1250           0.0    -1.0   1.0    1.0    1.0    0.0              79.4
+>     0                Trumpet/Brass                 Brass_55E    1250           0.0    -1.0   1.0    1.0    1.0    0.0              91.7
+>     0                Trumpet/Brass                 Brass_60E    1250           0.0    -1.0   1.0    1.0    1.0    0.0              91.7
+>     0                Trumpet/Brass                 Brass_67E    1250           0.0    -1.0   1.0    1.0    1.0    0.0              91.7
 > 
-> LowTom                                            
->     1          Mid Tom 2                             MIDTOM2    4730           0.0   -1.0  1.0   1.0   1.0   2.3            158.5
-> 
 
+Directives {doAbsorption = True, fixBadNames = True, narrowRosterForBoot = True, narrowRosterForRuntime = True, crossInstrumentPairing = True, parallelPairing = True, switchBadStereoZonesToMono = False, multipleCompetes = True, proConRatio = 3 % 4, absorbThreshold = 4 % 5, synthSwitches = SynthSwitches {usePitchCorrection = True, useAttenuation = True, useLoopSwitching = True, useReverb = True, useChorus = True, usePan = True, useDCBlock = True, noStereoNoPan = True, normalizingOutput = True}, dReportVerbosity = ReportVerbosity {dForRanges = 1 % 1, dForScan = 1 % 1, dForTournament = 1 % 1}}
 
 The End
-
