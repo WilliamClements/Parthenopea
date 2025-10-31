@@ -1,12 +1,52 @@
-2025-10-30 15:01:44.3932424 Eastern Daylight Time
+2025-10-30 15:09:54.4215124 Eastern Daylight Time
 
 GMKind              (range)                 lowest   *status  highest   *status note count     alternative         
+
+theFanfare                                                  13 sec, 117 notes                                           
+
+AcousticBass          Just ((E,1),(C,8))    (F,2)      *in     (C,4)      *in     50             Trombone            
+Trumpet               Just ((E,3),(C,6))    (C,4)      *in     (C,5)      *in     42             Banjo               
+Flute                 Just ((C,4),(D,7))    (Ds,4)     *in     (F,5)      *in     21             Trumpet             
+BassDrum1             36                                                                  4              
+
+alice                                                       8 sec, 42 notes                                             
+
+Vibraphone            Just ((F,3),(F,6))    (As,3)     *in     (As,4)     *in     42             Banjo               
+
+bob                                                         8 sec, 136 notes                                            
+
+AcousticGrandPiano    Just ((A,0),(C,8))    (C,2)      *in     (A,4)      *in     136            Sitar               
+
+copper                                                      4 sec, 20 notes                                             
+
+Banjo                 Just ((C,3),(E,5))    (Ds,4)     *in     (Gs,4)     *in     20                                 
+
+gold                                                        8 sec, 59 notes                                             
+
+AcousticGrandPiano    Just ((A,0),(C,8))    (As,4)     *in     (C,6)      *in     59             Trumpet             
+
+silver                                                      22 sec, 84 notes                                            
+
+OrchestralHarp        Just ((C,1),(Fs,7))   (B,4)      *in     (Cs,6)     *in     84             SopranoSax          
 
 deyDumpDum                                                  17 sec, 115 notes                                           
 
 SynthBass2            Just ((E,1),(C,8))    (G,1)      *in     (B,2)      *in     46             FretlessBass        
 AltoSax               Just ((D,3),(B,6))    (A,3)      *in     (C,6)      *in     57             Trumpet             
 BassDrum1             36                                                                  12             
+
+rollup                                                      81 sec, 573 notes                                           
+
+AcousticGrandPiano    Just ((A,0),(C,8))    (C,2)      *in     (C,6)      *in     195            Cello               
+Vibraphone            Just ((F,3),(F,6))    (As,3)     *in     (As,4)     *in     42             Banjo               
+AcousticBass          Just ((E,1),(C,8))    (F,2)      *in     (C,4)      *in     50             Trombone            
+SynthBass2            Just ((E,1),(C,8))    (G,1)      *in     (B,2)      *in     46             FretlessBass        
+OrchestralHarp        Just ((C,1),(Fs,7))   (B,4)      *in     (Cs,6)     *in     84             SopranoSax          
+Trumpet               Just ((E,3),(C,6))    (C,4)      *in     (C,5)      *in     42             Banjo               
+AltoSax               Just ((D,3),(B,6))    (A,3)      *in     (C,6)      *in     57             Trumpet             
+Flute                 Just ((C,4),(D,7))    (Ds,4)     *in     (F,5)      *in     21             Trumpet             
+Banjo                 Just ((C,3),(E,5))    (Ds,4)     *in     (Gs,4)     *in     20                                 
+BassDrum1             36                                                                  16             
 
 Directives {doAbsorption = True, fixBadNames = True, narrowRosterForBoot = True, narrowRosterForRuntime = True, crossInstrumentPairing = True, parallelPairing = True, switchBadStereoZonesToMono = False, multipleCompetes = True, proConRatio = 3 % 4, absorbThreshold = 4 % 5, synthSwitches = SynthSwitches {usePitchCorrection = True, useAttenuation = True, useLoopSwitching = True, useReverb = True, useChorus = True, usePan = True, useDCBlock = True, noStereoNoPan = True, normalizingOutput = True}, dReportVerbosity = ReportVerbosity {dForRanges = 1 % 1, dForScan = 1 % 1, dForTournament = 1 % 1}}
 

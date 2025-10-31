@@ -1,4 +1,4 @@
-2025-10-30 15:01:44.4927341 Eastern Daylight Time
+2025-10-30 15:09:54.5550831 Eastern Daylight Time
 
 0      "AspartameGM.sf2"                                     
 1      "GXSCC_GM_033.sf2"                                    
@@ -7,8 +7,15 @@
 
                                                                                  10.0   2.0    0.0    1.5    3.0    3.0    
 
+> AcousticBass                                      
+>     0                     FngrBass                              9409           0.0    -1.0   1.0    1.0    1.0    5.4             224.4
+>     0                Trumpet/Brass                              1305           0.0    -1.0   1.0    1.1    1.0    0.0              86.1
+> 
 > SynthBass2                                        
 >     0                     FngrBass                              7882           0.0    -1.0   1.0    1.0    1.0    4.4             183.2
+> 
+> Trumpet                                           
+>     0                Trumpet/Brass                              12489          0.0    -1.0   1.0    1.1    1.0    7.5             517.3
 > 
 > AltoSax                                           
 >     0                     Solo Sax                              6178           0.0    -1.0   1.0    -1.5   1.0    4.5             186.7
