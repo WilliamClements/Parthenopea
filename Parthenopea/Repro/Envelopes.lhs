@@ -18,8 +18,7 @@ Apr 26, 2025
 >        , minDeltaT
 >        , minUseful
 >        , proposeSegments
->        , vetAsDiscreteSig
->        , vetEnvelope) where
+>        , vetAsDiscreteSig) where
 >
 > import Data.Foldable
 > import Data.Map (Map)

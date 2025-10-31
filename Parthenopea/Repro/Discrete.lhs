@@ -353,26 +353,34 @@ Each driver specifies an xform composed of functions from Double to Double
 >       where
 >         iList          :: [FrItem]       = if kd.kdStretch == 0 then [] else [newI1, newI2]
 >
->         newI1, newI2   :: FrItem
+>         compute1                         =
+>           ddLinear2 kd.kdEQ h
+>           . startUp
+>           . ddNorm2 kd.kdLeftOfBulge kd.kdFc
 >         newI1                            =
 >           FrItem
 >             kd.kdFc
->             (ddLinear2 kd.kdEQ h . startUp . ddNorm2 kd.kdLeftOfBulge kd.kdFc)
+>             compute1
+>         compute2                         =
+>           ddLinear2 kd.kdEQ h
+>           . finishDown
+>           . ddNorm2 kd.kdFc kd.kdRightOfBulge
 >         newI2                            =
 >           FrItem
 >             kd.kdRightOfBulge
->             (ddLinear2 kd.kdEQ h . finishDown . ddNorm2 kd.kdFc kd.kdRightOfBulge)
+>             compute2
 >         
 >     doShape oldI Decline                 = oldI ++ [newI]
 >       where
->         newD                             = kd.kdNyq
+>         compute                          =
+>           fromCentibels
+>           . ddLinear2 (-dropoffRate) (toCentibels h)
+>           . flip (-) (logBase 2 kd.kdFc)
+>           . logBase 2
 >         newI                             =
 >           FrItem
->             newD
->             (fromCentibels
->              . ddLinear2 (-dropoffRate) (toCentibels h)
->              . flip (-) (logBase 2 kd.kdFc)
->              . logBase 2)
+>             kd.kdNyq
+>             compute
 >          
 > ddNorm2                :: Double → Double → (Double → Double)
 > ddNorm2 dLeft dRight xIn                 = (xIn - dLeft) / (dRight - dLeft)

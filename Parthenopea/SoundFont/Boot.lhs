@@ -241,6 +241,15 @@ pre-sample task ================================================================
 >         accepted impact clue             =
 >           [Scan Accepted impact fName clue]
 >
+>         sampleSizeOk (stS, enS)          = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
+>
+>         goodSampleRate x                 = x == clip (n64, n2 ^ n20) x
+>           where
+>             n64, n2, n20       :: Word
+>             n64                                  = 64
+>             n2                                   = 2
+>             n20                                  = 20
+>
 >         ssSample_
 >           | not (goodSampleRate shdr.sampleRate)
 >                                          = violated BadSampleRate (show shdr.sampleRate)
@@ -457,7 +466,24 @@ capture task ===================================================================
 >             presk                        = PreSampleKey sffile.zWordFBoot si
 >             mpres                        = presk `Map.lookup` fWork.fwPreSamples
 >             pres                         = deJust (unwords [fName, "pres"]) mpres
->             probeLimits                  = badAppliedLimits pz
+>
+>             probeLimits                  =
+>               if ok
+>                 then Nothing
+>                 else Just $ unwords [showHex stA [], showHex enA [], showHex stL [], showHex enL [], show zd.zdSampleMode]
+>               where
+>                 shdr                     = effPZShdr pz
+>                 zd                       = pz.pzDigest
+>
+>                 stA                      = shdr.start     + fromIntegral zd.zdStart
+>                 enA                      = shdr.end       + fromIntegral zd.zdEnd
+>                 stL                      = shdr.startLoop + fromIntegral zd.zdStartLoop
+>                 enL                      = shdr.endLoop   + fromIntegral zd.zdEndLoop
+>
+>                 ok                       =
+>                   0 <= stA && stA <= enA && 0 <= stL && stL <= enL
+>                   && enA - stA < 2 ^ (22::Word)
+>                   && (zd.zdSampleMode == Just A.NoLoop || enL - stL < 2 ^ (22::Word))
 
 process initial capture results =======================================================================================
 
@@ -975,7 +1001,7 @@ clean task =====================================================================
 >           [Scan Violated NoZones fName noClue]
 
 perI task =============================================================================================================
-          generate PerInstrument map
+          generating PerInstrument map
 
 > perITaskIf _ _ fWork                     = fWork{  fwPerInstruments   = perIs
 >                                                  , fwDispositions     = rdOut}
@@ -1003,35 +1029,5 @@ perI task ======================================================================
 >             ssBless                      = [Scan Accepted ToCache fName noClue]
 >           in
 >             dispose (instKey zrec) ssBless rdz
->
-> sampleSizeOk           :: (Word, Word) → Bool
-> sampleSizeOk (stS, enS)                  = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
->
-> badAppliedLimits       :: PreZone → Maybe String
-> badAppliedLimits pz                      =
->   if ok
->     then Nothing
->     else Just $ unwords [showHex stA [], showHex enA [], showHex stL [], showHex enL [], show zd.zdSampleMode]
->   where
->     shdr                                 = effPZShdr pz
->     zd                                   = pz.pzDigest
->
->     stA                                  = shdr.start     + fromIntegral zd.zdStart
->     enA                                  = shdr.end       + fromIntegral zd.zdEnd
->     stL                                  = shdr.startLoop + fromIntegral zd.zdStartLoop
->     enL                                  = shdr.endLoop   + fromIntegral zd.zdEndLoop
->
->     ok                                   =
->       0 <= stA && stA <= enA && 0 <= stL && stL <= enL
->       && enA - stA < 2 ^ (22::Word)
->       && (zd.zdSampleMode == Just A.NoLoop || enL - stL < 2 ^ (22::Word))
->
-> goodSampleRate         :: Word → Bool
-> goodSampleRate x                         = x == clip (n64, n2 ^ n20) x
->   where
->     n64, n2, n20       :: Word
->     n64                                  = 64
->     n2                                   = 2
->     n20                                  = 20
 
 The End

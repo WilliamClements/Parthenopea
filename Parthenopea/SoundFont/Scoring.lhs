@@ -71,49 +71,40 @@ In order of when they occur in the overall process:
 > adhocFuzz              :: String → [String] → [Maybe FF.Alignment]
 > adhocFuzz inp                            = map (`FF.bestMatch` inp)
 
-handle "matching as" cache misses =====================================================================================
+use "matching as" cache ===============================================================================================
 
-> evalAgainstKeys        :: String → [String] → Fuzz
-> evalAgainstKeys inp keys                 = sum $ zipWith evalAgainstOne keys weights
+> computeFFMatches       :: Rational → String → Bool → FFMatches
+> computeFFMatches conRatio inp narrow     = FFMatches 
+>                                              inp
+>                                              (combineFF ias ibs)
+>                                              (combineFF pas pbs)
 >   where
->     lFactor            :: Double         = sqrt $ fromIntegral $ length keys
->     weights            :: [Double]       = [1.9 / lFactor
->                                           , 1.6 / lFactor
->                                           , 1.25 / lFactor
->                                           , 1.17 / lFactor
->                                           , 1.14 / lFactor]
+>     combineFF ffpros ffcons              =
+>       Map.filter (>= 0) (Map.unionWith (+) ffpros (Map.map (* (- fromRational conRatio)) ffcons))
+>
+>     createFuzzMap getFFKeys              =
+>       Map.fromList $ mapMaybe evalAgainstKindKeys (mapMaybe getFFKeys (select allKinds narrow))
+>
+>     evalAgainstKindKeys (kind, keys)     = if tot <= 0 then Nothing else Just (kind, tot)
+>                                              where tot = evalAgainstKeys keys
+>
+>     evalAgainstKeys keys                 = sum $ zipWith evalAgainstOne keys weights
+>       where
+>         lFactor            :: Double         = sqrt $ fromIntegral $ length keys
+>         weights            :: [Double]       = [1.9 / lFactor
+>                                               , 1.6 / lFactor
+>                                               , 1.25 / lFactor
+>                                               , 1.17 / lFactor
+>                                               , 1.14 / lFactor]
 >
 >     evalAgainstOne     :: String → Double → Double
 >     evalAgainstOne key weight            = maybe 0 ((* weight) . fromIntegral . FF.score) (FF.bestMatch key inp)
 >
-> evalAgainstKindKeys    :: String → (a, [String]) → Maybe (a, Fuzz)
-> evalAgainstKindKeys inp (kind, keys)     = if tot <= 0 then Nothing else Just (kind, tot)
->   where
->     tot                :: Double         = evalAgainstKeys inp keys
-
-use "matching as" cache ===============================================================================================
-
-> combineFF              :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ Rational → Map a Fuzz → Map a Fuzz → Map a Fuzz
-> combineFF conRatio ffpros ffcons         =
->   Map.filter (>= 0) (Map.unionWith (+) ffpros (Map.map (* (- fromRational conRatio)) ffcons))
->
-> computeFFMatches       :: Rational → String → Bool → FFMatches
-> computeFFMatches conRatio inp narrow     = FFMatches inp
->                                              (combineFF conRatio ias ibs)
->                                              (combineFF conRatio pas pbs)
->   where
 >     ias = createFuzzMap instrumentProFFKeys
 >     ibs = createFuzzMap instrumentConFFKeys
 >
 >     pas = createFuzzMap percussionProFFKeys
 >     pbs = createFuzzMap percussionConFFKeys
->
->     createFuzzMap          :: ∀ a. (GMPlayable a, Eq a, Ord a) ⇒ (a → Maybe (a, [String])) → Map a Fuzz
->     createFuzzMap getFFKeys              = Map.fromList $ mapMaybe (evalAgainstKindKeys inp) asLooks
->       where
->         -- weed out candidates with no fuzzy keys
->         asLooks            :: [(a, [String])]
->         asLooks                              = mapMaybe getFFKeys (select allKinds narrow)
 >
 > zoneConforms           :: PreZone → Bool
 > zoneConforms pz                          = not $ or unsupported
@@ -228,8 +219,7 @@ tournament starts here =========================================================
 >                           → Map PerGMKey PerInstrument
 >                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
-> decideWinners dives rost cache matches
->                                          = do
+> decideWinners dives rost cache matches   = do
 >   CM.when diagnosticsEnabled             (traceIO $ unwords [fName__, show $ length cache])
 >   return wiExec
 >
