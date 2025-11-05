@@ -119,8 +119,7 @@ To solve our circular dependence problem, we do the following:
 >   show fi                                =
 >     unwords ["FileIterate", show fi.fiFw]
 > reduceFileIterate      :: FileIterate → (Map PerGMKey PerInstrument, Matches, ResultDispositions)
-> reduceFileIterate FileIterate{ .. }                   =
->   (fiFw.fwPerInstruments, fiFw.fwMatches, fiFw.fwDispositions)
+> reduceFileIterate FileIterate{ .. }      = (fiFw.fwPerInstruments, fiFw.fwMatches, fiFw.fwDispositions)
 >
 > preSampleTaskIf, smellTaskIf, surveyTaskIf, captureTaskIf, flatMapTaskIf, pairTaskIf, vetTaskIf
 >                , adoptTaskIf, smashTaskIf, reorgTaskIf, matchTaskIf, cleanTaskIf, perITaskIf
@@ -167,12 +166,12 @@ Boot executive function ========================================================
 > surveyInstruments dives rost vFilesBoot  = do
 >   putStr $ reapEmissions
 >     [   EndOfLine
->       , Unblocked fName, EndOfLine
+>       , Unblocked fName_, EndOfLine
 >       , Blanks 2, Unblocked $ show $ fst rost, EndOfLine
 >       , Blanks 2, Unblocked $ show $ snd rost, EndOfLine, EndOfLine]
 >   return $ foldl' bootFolder (Map.empty, defMatches, virginrd) vFilesBoot
 >   where
->     fName                                = "surveyInstruments"
+>     fName_                               = "surveyInstruments"
 >
 >     bootFolder (icacheIn, matchesIn, rdIn) sffile
 >                                          =
@@ -502,7 +501,8 @@ process initial capture results ================================================
 >                                          =
 >               let
 >                 doNormal pz              =
->                   captFold{uPzs = pz{pzSFZone = buildZone sffile captFold.uSFZone (Just pz) bagIndex} : captFold.uPzs}
+>                   captFold{uPzs = pz{pzSFZone = buildZone sffile captFold.uSFZone (Just pz) bagIndex}
+>                            : captFold.uPzs}
 >                 doError (k, ssZone)      =
 >                   if hasImpact GlobalZone ssZone
 >                     then captFold{uSFZone = buildZone sffile defZone Nothing bagIndex}
@@ -626,39 +626,70 @@ process initial capture results ================================================
 >                                            >>= addAmtSrc mm
 
 flatMap task ==========================================================================================================
-          erect temporary infrastructure for stereo pairings
+          Erect temporary infrastructure for stereo pairings in form of a bag-to-PreZone map. To retain in effect one
+          source of truth, this cache is used, only, during each run of pair task (first or second pass).
 
-> flatMapTaskIf _ _ fWork                  = fWork{fwPairing = fWork.fwPairing{fwPreZones = preZones}}
+> flatMapTaskIf _ _ fWork
+>   | traceIf trace_FMTI False             = undefined
+>   | otherwise                            = fWork{fwPairing = fWork.fwPairing{fwPreZones = preZones}}
 >   where
+>     fName                                = "flatMapTaskIf"
+>     trace_FMTI                           = unwords [fName, show $ IntMap.size preZones]
+>
 >     preZones                             = zrecCompute fWork aggregate IntMap.empty
 >     aggregate soFar zrec                 =
->       soFar `IntMap.union` foldl' assign IntMap.empty (filter isStereoPZ zrec.zsPreZones)
+>       soFar `IntMap.union` foldl' assign IntMap.empty stereoOnly
+>       where
+>         stereoOnly                       = filter isStereoPZ zrec.zsPreZones
 >     assign m pz                          = IntMap.insert (wordB pz) pz m
 
 pair task =============================================================================================================
           produce actions list setting aside questionable PreZones - second pass may or may not pair some of those
           "rejects" after all
 
-> pairTaskIf _ _ fWork                     =
->   if IntMap.null fwPairings && IntSet.null fwRejects
->     then updatePairing fWork
->     else (updatePairing . handleUnrejections) fWork
+> pairTaskIf _ _ fWork
+>   | isFirstPass                          = updatePairing fWork
+>   | otherwise                            = (updatePairing . handleUnrejections) fWork
 >   where
 >     Directives{ .. }
 >                                          = fWork.fwDirectives                     
 >     Pairing{ .. }                        
 >                                          = fWork.fwPairing
 >
->     rejects                              = IntMap.keysSet fwPreZones `IntSet.difference` unpair pairings
+>     isFirstPass                          = IntMap.null fwPairings && IntSet.null fwRejects
+
+convenience functions =================================================================================================
+          updatePairing  - close pair task
+          unpair         - cram all Ls and Rs from partner map into single set
+          makeActions    - from reject bag indices, form action map (from instrument to affected zones)
+
+>     updatePairing      :: FileWork → FileWork
+>     updatePairing fwIn                   =
+>       fwIn{fwPairing = fwIn.fwPairing{  fwPairings = pairings
+>                                       , fwRejects = rejects
+>                                       , fwPreZones = IntMap.empty}}
+>
+>     unpair             :: IntMap Int                   {- [BagIndex → BagIndex]         -}
+>                           → IntSet                     {- [BagIndex]                    -}
+>     unpair                               =
+>       let
+>         ifolder iset ifrom ito           = (IntSet.insert ito . IntSet.insert ifrom) iset
+>       in
+>         IntMap.foldlWithKey ifolder IntSet.empty
 >
 >     makeActions        :: IntSet                       {- [BagIndex]                    -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]      -}
->     makeActions                          =
->       let
->         make actions iBag                = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton iBag) actions
->                                              where pz = fwPreZones IntMap.! iBag
->       in
->         IntSet.foldl' make IntMap.empty
+>     makeActions                          = IntSet.foldl' make IntMap.empty
+>       where
+>         make actions bag                 = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton bag) actions
+>                                              where pz = fwPreZones IntMap.! bag
+    
+meat ==================================================================================================================
+          After somehow generating the pair list for this sffile, reject all other stereo bags - they failed to pair!
+          The "somehow" is to make pairs if and only if L and R excerpted zone data match exactly; i.e. produce
+          identical "pair slots".
+
+>     rejects                              = IntMap.keysSet fwPreZones `IntSet.difference` unpair pairings
 >
 >     pairings                             = 
 >       let
@@ -671,79 +702,85 @@ pair task ======================================================================
 >               | otherwise                = error "should already have filtered out mono case"
 >             putMembers pz                =
 >               IntMap.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
+>         
+>         regular                          = IntMap.foldlWithKey (pairingFolder False) IntMap.empty fwPartners
+>         extra                            = IntMap.foldlWithKey (pairingFolder True)  regular      fwPartners
 >
->         pairingFolder soFar siFrom siTo  = soFar `IntMap.union` newPairs
+>         pairingFolder  :: Bool →  IntMap Int → Int → Int → IntMap Int
+>         pairingFolder exotic soFar siFrom siTo
+>                                          = soFar `IntMap.union` qualifyPairs exotic fwPairings bsL bsR
 >           where
->             newPairs                     = if crossInstrumentPairing
->                                              then regular `IntMap.union` extra
->                                              else regular
->             (regular, extra)             = qualifyPairs bagsL bagsR
->             bagsL, bagsR
->                        :: IntSet                       {- [BagIndex]                    -}             
->             bagsL                        = fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
->             bagsR                        = fromMaybe IntSet.empty (siTo   `IntMap.lookup` mRight)
+>             bsL, bsR   :: IntSet                       {- [BagIndex]                    -}             
+>             bsL                          = fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
+>             bsR                          = fromMaybe IntSet.empty (siTo   `IntMap.lookup` mRight)
 >       in
->         IntMap.foldlWithKey pairingFolder IntMap.empty fwPartners
+>         regular `IntMap.union` if not isFirstPass then extra else IntMap.empty -- WOX
 >
->     qualifyPairs bagsL bagsR             =
->       let
->         makePairs ignoreI lbIn rbIn      = Map.foldlWithKey (pin $ peg rbIn) IntMap.empty (peg lbIn)
->           where  
->             peg        :: IntSet                       {- [BagIndex]                    -}
+>     qualifyPairs       :: Bool
+>                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
+>                           → IntSet                     {- [BagIndex]                    -}
+>                           → IntSet                     {- [BagIndex]                    -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
+>     qualifyPairs exotic alreadyDone bagsL bagsR
+>                                          = Map.foldlWithKey (pin $ peg bagsR') IntMap.empty (peg bagsL')
+>       where
+>         allowCross                       = exotic && crossInstrumentPairing
+>         allowParallel                    = exotic && parallelPairing
+> 
+>         pairedSoFar                      = unpair alreadyDone
+>         bagsL'                           = bagsL `IntSet.difference` pairedSoFar
+>         bagsR'                           = bagsR `IntSet.difference` pairedSoFar
+>
+>         peg            :: IntSet                       {- [BagIndex]                    -}
 >                           → Map PairingSlot IntSet     {- [ps → [BagIndex]]             -}
->             peg bags                     =
->               let
->                 pegBag m bag             = Map.insertWith IntSet.union iSlot (IntSet.singleton bag) m
->                   where
->                     pz                   = fwPreZones IntMap.! bag
->                     iSlot                =
->                       ( if ignoreI then Nothing else Just pz.pzWordI
->                       , fromMaybe (0, 127) pz.pzDigest.zdKeyRange
->                       , fromMaybe (0, 127) pz.pzDigest.zdVelRange)
->               in
->                  IntSet.foldl' pegBag Map.empty bags
+>         peg bags                         =
+>           let
+>             pegBag m bag                 = Map.insertWith IntSet.union iSlot (IntSet.singleton bag) m
+>               where
+>                 iSlot                    = (minst, zdKey, zdVel)
 >
->             pin        :: Map PairingSlot IntSet       {- [ps → [BagIndex]]             -}
+>                 pz                       = fwPreZones IntMap.! bag
+>                 minst                    = if allowCross || allowParallel then Nothing else Just pz.pzWordI
+>                 zdKey                    = fromMaybe (0, 127) pz.pzDigest.zdKeyRange
+>                 zdVel                    = fromMaybe (0, 127) pz.pzDigest.zdVelRange
+>           in
+>             IntSet.foldl' pegBag Map.empty bags
+>
+>         pin            :: Map PairingSlot IntSet       {- [ps → [BagIndex]]             -}
 >                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
 >                           → PairingSlot                {- ps                            -}
 >                           → IntSet                     {- [BagIndex]                    -}
 >                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
->             pin pegBoard m iSlot bL      =
->               let
->                 bR                       = Map.lookup iSlot pegBoard
->                 newPairs                 = IntMap.fromList
->                                            $ if not ignoreI && not parallelPairing
->                                                then take 1 zipped
->                                                else zipped 
->                 zipped                   = zip (IntSet.toList bL) (IntSet.toList (fromMaybe IntSet.empty bR))
->               in
->                  m `IntMap.union` newPairs
->
->         regularPairs                     = makePairs False bagsL bagsR
->         pairedSoFar                      = unpair regularPairs
->         bagsL'                           = bagsL `IntSet.difference` pairedSoFar
->         bagsR'                           = bagsR `IntSet.difference` pairedSoFar
->       in
->         (regularPairs, makePairs True bagsL' bagsR')
+>         pin pegBoard m iSlot bL          =
+>           let
+>             bR                           = Map.lookup iSlot pegBoard
+>             newPairs
+>               | null zipped              = []
+>               | not allowParallel && not allowCross && length zipped == 1
+>                                          = zipped
+>               | not allowParallel && not allowCross
+>                                          = []
+>               | otherwise                =
+>                 (if allowParallel then zipParallel else []) ++ (if allowCross then zipCross else [])
+>             zipped                       = zip (IntSet.toList bL) (IntSet.toList (fromMaybe IntSet.empty bR))
+>             (zipParallel, zipCross)      = partition areParallel zipped
+>               where
+>                 areParallel (bagL, bagR) =    (fwPreZones IntMap.! bagL).pzWordI
+>                                            == (fwPreZones IntMap.! bagR).pzWordI   
+>           in
+>             m `IntMap.union` IntMap.fromList newPairs
 > 
->     updatePairing, handleUnrejections
->                        :: FileWork → FileWork
->     updatePairing fwIn                   =
->       fwIn{fwPairing = fwIn.fwPairing{  fwPairings = pairings
->                                       , fwRejects = rejects
->                                       , fwActions = makeActions rejects
->                                       , fwPreZones = IntMap.empty}}
->
->     handleUnrejections
+>     handleUnrejections :: FileWork → FileWork
+>     handleUnrejections fwIn
 >       | traceIf trace_HU False           = undefined
->       | otherwise                        = zrecTask unrejector
+>       | otherwise                        =
+>       zrecTask unrejector (fwIn{fwPairing = fwIn.fwPairing{fwActions = makeActions rejects}})
 >       where
->         fName                            = "handleUnrejections"
->         trace_HU                         = unwords [fName, show $ IntMap.size fwPreZones]
+>         fName_                           = "handleUnrejections"
+>         trace_HU                         = unwords [fName_, show (fwRejects, rejects, unrejects)]
 >
->         unrejects                        = fwRejects `IntSet.difference` rejects
+>         unrejects                        = fwRejects `IntSet.intersection` rejects
 >         unactions                        = makeActions $ unrejects `IntSet.union` unpair crossers
->
 >         crossers                         =
 >           let
 >             crossing iBag jBag           =
@@ -751,23 +788,35 @@ pair task ======================================================================
 >           in
 >             IntMap.filterWithKey crossing pairings
 >
->         unrejector zrec rd               =
->           let
->             unreject unacts              =
+>         unrejector zrec rd
+>           | traceIf trace_U False       = undefined
+>           | otherwise                    = (zrec{zsSmashup = maybe zrec.zsSmashup unreject mactions}, rd)
+>           where
+>             fName                        = unwords [fName_, "unrejector"]
+>             trace_U                      = unwords [fName, show $ instKey zrec, show mactions]
+>           
+>             mactions                     = fromIntegral zrec.zswInst `IntMap.lookup` unactions
+>
+>             unreject   :: IntSet → Maybe (Smashing Word)
+>             unreject unbags
+>               | traceIf trace_UR False  = undefined
+>               | otherwise                =
 >               Just $ smashSmashings
 >                        (fromMaybe (error fName) zrec.zsSmashup)
 >                        (computeInstSmashup fName (toList pzs))
 >               where
->                 pzs                      = IntSet.foldl dereference IntMap.empty unacts
->                 dereference m iBag       = IntMap.insert iBag (m IntMap.! iBag) m
->             mactions                     = fromIntegral zrec.zswInst `IntMap.lookup` unactions
->           in               
->             (zrec{zsSmashup = maybe zrec.zsSmashup unreject mactions}, rd)
->           
-> unpair                 :: IntMap Int → IntSet
-> unpair                                   = IntMap.foldlWithKey ifolder IntSet.empty
->   where
->     ifolder iset ifrom ito               = (IntSet.insert ito . IntSet.insert ifrom) iset
+>                 trace_UR                 = unwords["unreject", show $ instKey zrec, show unbags]
+>
+>                 pzs    :: IntMap PreZone
+>                 pzs                      = IntSet.foldl' dereference IntMap.empty unbags
+>                 dereference
+>                        :: IntMap PreZone → Int → IntMap PreZone
+>                 dereference m unbag      =
+>                   let
+>                     mpz                  = unbag `IntMap.lookup` fwPreZones
+>                     pz                   = fromMaybe (error "splaaat") mpz
+>                   in
+>                     IntMap.insert unbag pz m
 
 vet task ==============================================================================================================
           switch bad stereo zones to mono, or off altogether
@@ -781,9 +830,9 @@ vet task =======================================================================
 >
 >     vetter zrec rd                       =
 >       let
->         mactions                         = fromIntegral zrec.zswInst `IntMap.lookup` fwActions
+>         vactions                         = fromIntegral zrec.zswInst `IntMap.lookup` fwActions
 >       in
->         maybe (zrec, rd) (vetActions zrec rd) mactions
+>         maybe (zrec, rd) (vetActions zrec rd) vactions
 >
 >     vetActions zrec rdIn actions
 >       | traceIf trace_VA False           = undefined
@@ -1009,7 +1058,7 @@ perI task ======================================================================
 >     (perIs, rdOut)                        = zrecCompute fWork (uncurry perIFolder) (Map.empty, fWork.fwDispositions)
 >
 >     perIFolder m rdFold zrec
->       | traceIf trace_PIF False          = undefined
+>       | traceNot trace_PIF False         = undefined
 >       | otherwise                        = (m', rdFold')
 >       where
 >         fName                            = "perIFolder"

@@ -560,20 +560,29 @@ examine song for instrument and percussion usage ===============================
 >   in
 >     unwords [show sec', "sec,", show notes, "notes"]
 >
-> captureSong            :: Song → IO Song
-> captureSong (Song name music _)          = do
->   ding                                   ← shredMusic $ music Map.empty
->   return $ Song name music ding
->
-> getGMKind              :: MEvent → GMKind
-> getGMKind MEvent{eInst, ePitch}          =
->   case eInst of
->     Percussion                           → Right $ toEnum (ePitch - 35)
->     _                                    → Left eInst
->
 > shredMusic              :: ToMusic1 a ⇒ Music a → IO (Map GMKind Shred)
 > shredMusic m                             =
 >   return $ foldl' shFolder Map.empty $ fst (musicToMEvents defaultContext (toMusic1 m))
+>   where
+>     shFolder ding mev                    =
+>       let
+>         kind               :: GMKind         = getGMKind mev
+>         mshred             :: Maybe Shred    = Map.lookup kind ding
+>
+>         getGMKind MEvent{eInst, ePitch}      =
+>           case eInst of
+>             Percussion                       → Right $ toEnum (ePitch - 35)
+>             _                                → Left eInst
+>       in
+>         case mshred of
+>           Nothing                            → Map.insert kind (Shred mev mev 1) ding
+>           Just shred                         → Map.insert kind (upd shred) ding
+>       where
+>         upd shred                            =
+>           Shred
+>            (if ePitch mev < ePitch shred.shLowNote  then mev else shred.shLowNote)
+>           (if ePitch mev > ePitch shred.shHighNote then mev else shred.shHighNote)
+>              (shred.shCount + 1)
 >
 > combineShreds          :: Shred → Shred → Shred
 > combineShreds s1 s2                      =
@@ -605,22 +614,6 @@ examine song for instrument and percussion usage ===============================
 >     if inRange rng p
 >       then []
 >       else singleton (name, singleton $ unwords ["...", show p, "out of range", show rng])
->
-> shFolder               :: Map GMKind Shred → MEvent → Map GMKind Shred
-> shFolder ding mev                        =
->   let
->     kind               :: GMKind         = getGMKind mev
->     mshred             :: Maybe Shred    = Map.lookup kind ding
->   in
->     case mshred of
->       Nothing                            → Map.insert kind (Shred mev mev 1) ding
->       Just shred                         → Map.insert kind (upd shred) ding
->   where
->     upd shred                            =
->       Shred
->         (if ePitch mev < ePitch shred.shLowNote  then mev else shred.shLowNote)
->         (if ePitch mev > ePitch shred.shHighNote then mev else shred.shHighNote)
->         (shred.shCount + 1)
 >
 > printShreds            :: Map GMKind Shred → IO ()
 > printShreds ding                         = 

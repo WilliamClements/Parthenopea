@@ -351,19 +351,20 @@ tournament starts here =========================================================
 >
 >         computeResolution
 >                        :: [PreZone] → Double
->         computeResolution zs
->           | null zs                      = error $ unwords ["null zs"]
->           | otherwise                    = fromRational m1 * evalSplits kind + fromRational m2 * evalSampleSize
+>         computeResolution pzs
+>           | null pzs                     = error $ unwords [fName, "null pzs"]
+>           | otherwise                    = m1 * evalSplits kind + m2 * evalSampleSize
 >           where
->             theSplit                     = splitScore kind zs
+>             theSplit                     = splitScore kind pzs
 >             evalSplits _
 >               | theSplit <= 1            = 1
 >               | otherwise                = log (m3 * theSplit)
->             evalSampleSize               = sum (map durScoring zs) / fromIntegral (length zs)
+>             evalSampleSize               = sum (map durScoring pzs) / fromIntegral (length pzs)
 >
+>             m1, m2, m3 :: Double
 >             m1                           = 2/3
 >             m2                           = 1/3
->             m3                           = 3 * if isStereoInst zs then 1/2 else 1
+>             m3                           = 3 * if isStereoInst pzs then 1/2 else 1
 >
 >         durScoring     :: PreZone → Double
 >         durScoring pz                    = if score < 0.01 then -10 else 1
@@ -416,7 +417,8 @@ Utilities ======================================================================
 >      fact                                = fromIntegral nBins / (hi - lo)
 >
 >      is                :: [Int]
->      is                                  = map (\x → floor $ (x - lo) * fact) ts
+>      is                                  = map enfloor ts
+>                                              where enfloor t = floor ((t - lo) * fact)
 >
 >      trace_SO =
 >        unwords [ "scoreOnsets lo, hi, fact="

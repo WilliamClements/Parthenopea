@@ -93,6 +93,10 @@ Implement PCommand =============================================================
 >       -- here's the heart of the coconut
 >       mapM_ (renderSong runt choices) songs
 >   where
+>     captureSong        :: Song → IO Song
+>     captureSong (Song name music _)      = do
+>       ding                               ← shredMusic $ music Map.empty
+>       return $ Song name music ding
 >     ReportVerbosity{ .. }               
 >                                          = dives.dReportVerbosity
 >
