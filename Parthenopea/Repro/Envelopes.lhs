@@ -74,6 +74,8 @@ Create a straight-line envelope generator with following phases:
 > proposeSegments        :: TimeFrame → FEnvelope → (FEnvelope, Segments)
 > proposeSegments tf envRaw                = (r, segs)
 >   where
+>     fName                                = "proposeSegments"
+>
 >     r                  :: FEnvelope      =
 >       refineEnvelope envRaw{fExtras = Just $ EnvelopeExtras secsToPlay releaseT releaseT}
 >
@@ -86,7 +88,7 @@ Create a straight-line envelope generator with following phases:
 >     segs                                 = Segments amps deltaTs
 >
 >     releaseT
->       | secsToPlay < (7 * minDeltaT)     = error $ unwords ["Note too short:", show secsToPlay]
+>       | secsToPlay < (7 * minDeltaT)     = error $ unwords [fName, "Note too short:", show secsToPlay]
 >       | secsToPlay < (7 * minDeltaT) + minUseful
 >                                          = minDeltaT
 >       | secsToPlay < (7 * minDeltaT + 2 * minUseful)
@@ -103,8 +105,10 @@ Create a straight-line envelope generator with following phases:
 >   | 2 == dLen                            = runEnvelope segmentsFor2
 >   | 4 == dLen                            = runEnvelope segmentsFor4
 >   | otherwise                            =
->       error $ unwords [show dLen, "is llegal length for velo sweeping directive"]
+>       error $ unwords [fName, show dLen, "is llegal length for velo sweeping directive"]
 >   where
+>     fName                                = "doVeloSweepingEnvelope"
+>
 >     dLen                                 = VB.length vIn
 >
 >     stVelo0, enVelo0, stVelo1, enVelo1, step, midsection, leg
@@ -134,7 +138,6 @@ Create a straight-line envelope generator with following phases:
 >       | traceIf trace_DE False           = undefined
 >       | otherwise                        = envLineSeg segs.sAmps segs.sDeltaTs
 >       where
->         fName                            = "runEnvelope"
 >         trace_DE                         = unwords [fName, show vIn, show segs]
 
 stepwise refinement from specified envelope parameters ================================================================

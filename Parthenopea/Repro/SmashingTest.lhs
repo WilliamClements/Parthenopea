@@ -75,8 +75,8 @@ Includes a four-dimensional example.
 >   let smashup          :: Smashing Int   =
 >         smashSubspaces "smashup" [3, 2] [(301, [Just (1, 2), Just (0, 0)])
 >                                        , (302, [Just (1, 1), Just (0, 1)])]
->   let aat1                               = lookupCellIndex [1, 0] smashup
->   let aat2                               = lookupCellIndex [1, 1] smashup
+>   let aat1                               = lookupCell [1, 0] smashup
+>   let aat2                               = lookupCell [1, 1] smashup
 >   print (aat1, aat2)
 >   return $ aEqual (snd aat1) 2 && aEqual (snd aat2) 1
 >
@@ -84,7 +84,7 @@ Includes a four-dimensional example.
 >   let smashup          :: Smashing Int   =
 >         smashSubspaces "smashup" [4, 3, 4] [ (401, [Just (0, 0), Just (1, 1), Just (1, 2)])
 >                                            , (402, [Just (1, 3), Just (2, 2), Just (3, 3)])]
->   let aat                                = lookupCellIndex [0, 1, 1] smashup
+>   let aat                                = lookupCell [0, 1, 1] smashup
 >   print aat
 >   return $ aEqual (fst aat) 401 
 >
@@ -92,7 +92,7 @@ Includes a four-dimensional example.
 >   let smashup          :: Smashing Int   =
 >         smashSubspaces "smashup" [2, 2, 3, 3] [ (501, [Just (0, 0), Just (1, 1), Just (1, 2), Just (2, 2)])
 >                                               , (502, [Just (1, 1), Just (0, 1), Just (1, 1), Just (0, 1)])]
->   let aat                                = lookupCellIndex [1, 0, 1, 0] smashup
+>   let aat                                = lookupCell [1, 0, 1, 0] smashup
 >   print aat
 >   return $ aEqual (fst aat) 502
 >
@@ -117,8 +117,8 @@ Includes a four-dimensional example.
 >                                         , (102, [Nothing, Just (5, 6)])]
 >   let southern                           = [1, 3]
 >   let northern                           = [1, 7]
->   let aat                                = lookupCellIndex southern smashup
->   let bat                                = lookupCellIndex northern smashup
+>   let aat                                = lookupCell southern smashup
+>   let bat                                = lookupCell northern smashup
 >   return $ aEqual (aat, bat) ((101, 1), (102, 1))
 >
 > workOutNearbyHorizontalUncovered         = do
@@ -127,8 +127,8 @@ Includes a four-dimensional example.
 >                                         , (102, [Just (6, 7), Nothing])]
 >   let western                            = [3, 1]
 >   let eastern                            = [7, 1]
->   let aat                                = lookupCellIndex western smashup
->   let bat                                = lookupCellIndex eastern smashup
+>   let aat                                = lookupCell western smashup
+>   let bat                                = lookupCell eastern smashup
 >   return $ aEqual (aat, bat) ((101, 1), (102, 1))
 >
 > leftAndRightAddUpToUnity                 = do
@@ -154,8 +154,8 @@ Includes a four-dimensional example.
 >
 >   let coords1                            = [0, 2, 5]
 >   let coords2                            = [1, 1, 3]
->   let spot1                              = aEqual (lookupCellIndex coords1 smashup) (101, 1)
->   let spot2                              = aEqual (lookupCellIndex coords2 smashup) (102, 1)
+>   let spot1                              = aEqual (lookupCell coords1 smashup) (101, 1)
+>   let spot2                              = aEqual (lookupCell coords2 smashup) (102, 1)
 >   let spots                              = spot1 && spot2
 >
 >   return $ checks && spots

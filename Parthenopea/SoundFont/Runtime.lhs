@@ -38,7 +38,7 @@ February 1, 2025
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Envelopes ( deriveEnvelope )
 > import Parthenopea.Repro.Modulation
-> import Parthenopea.Repro.Smashing ( lookupCellIndex )
+> import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Synthesizer ( deriveEffects, eutSynthesize )
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
@@ -179,7 +179,7 @@ define signal functions and instrument maps to support rendering ===============
 >
 >     ps                                   = VB.fromList ps_
 >     noonIn                               = carefulNoteOn volIn pchIn
->     fly                                  = doFlyEye noonIn
+>     fly                                  = eyeOnTheFly noonIn
 >     noonOut                              = case fly of
 >                                              Left z                     → calcNoteOn z.pzSFZone
 >                                              Right (z, _)               → calcNoteOn z.pzSFZone
@@ -200,9 +200,10 @@ define signal functions and instrument maps to support rendering ===============
 
 zone selection for rendering ==========================================================================================
 
->     doFlyEye           :: NoteOn → Either PreZone (PreZone, PreZone)
->     doFlyEye noonFly
->       | traceIf trace_DFE False          = undefined
+>     eyeOnTheFly        :: NoteOn → Either PreZone (PreZone, PreZone)
+>     eyeOnTheFly noonFly
+>       | traceNot trace_DFE False         = undefined
+>       | null perI.pSmashing.smashSpaces  = error $ unwords[fName, "smashup", show perI.pSmashing, "has no subspaces"]
 >       | bagIdL <= 0 || cntL <= 0 || bagIdR <= 0 || cntR <= 0
 >                                          = error $ unwords [fName, "cell is nonsense"]
 >       | isNothing foundL || isNothing foundR
@@ -215,12 +216,12 @@ zone selection for rendering ===================================================
 >       | foundL == foundR                 = (Left . fromJust) foundL
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where
->         fName                            = unwords [fName_, "doFlyEye"]
+>         fName                            = unwords [fName_, "eyeOnTheFly"]
 >         trace_DFE                        = unwords [fName, show (bagIdL, bagIdR), show perI.pSmashing]
 >
 >         (index1, index2)                 = noonAsCoords noonFly
->         (bagIdL, cntL)                   = lookupCellIndex index1 perI.pSmashing
->         (bagIdR, cntR)                   = lookupCellIndex index2 perI.pSmashing
+>         (bagIdL, cntL)                   = lookupCell index1 perI.pSmashing
+>         (bagIdR, cntR)                   = lookupCell index2 perI.pSmashing
 >         foundL                           = fromIntegral bagIdL `IntMap.lookup` sffile.zPreZone
 >         foundR                           = fromIntegral bagIdR `IntMap.lookup` sffile.zPreZone
 

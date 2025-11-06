@@ -3,6 +3,7 @@
 >
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -145,33 +146,41 @@ as a zipper to carry out the you-know-what (smashing, stupid!)
 > validRange dim (r, s)                    = 0 <= dim && r <= s && inZRange r dim && inZRange s dim
 >
 > validCoords            :: ∀ i . (Integral i, Ix i, VU.Unbox i) ⇒ [i] → Smashing i → Bool
-> validCoords coords smashup               = and $ zipWith inZRange coords smashup.smashDims
+> validCoords coords Smashing{ .. }
+>                                          = and $ zipWith inZRange coords smashDims
 >
 > getLeafCells           :: ∀ i . (Integral i, VU.Unbox i) ⇒ [i] → Smashing i → VU.Vector (i, i)
-> getLeafCells coords smashup              = VU.slice cellix leafDim smashup.smashVec
+> getLeafCells coords Smashing{ .. }
+>                                          = VU.slice cellix leafDim smashVec
 >   where
->     parentDims                           = init smashup.smashDims
->     leafDim                              = (fromIntegral . last) smashup.smashDims
+>     parentDims                           = init smashDims
+>     leafDim                              = (fromIntegral . last) smashDims
 >     cellix                               = computeCellIndex parentDims coords
 >
-> lookupCellIndex        :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
-> lookupCellIndex coords smashup           = cell
+> lookupCell             :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
+> lookupCell coords smashup@Smashing{ .. }
+>                                          = cell
 >   where
->     fName                                = "lookupCellIndex"
+>     fName                                = "lookupCell"
 >
->     cell_                                =
->       profess
->         (validCoords coords smashup)
->         (unwords [fName, "invalid coords", show coords])
->         (smashup.smashVec VU.! computeCellIndex smashup.smashDims coords)
->     cell                                 =
->       if snd cell_ > 0
->         then cell_
->         else (snd $ minimum (map (measure coords) smashup.smashSpaces), 1)
+>     cell
+>       | not (validCoords coords smashup) = error $ unwords [fName, "invalid coords"]
+>       | null measured                    = error $ unwords [fName, "smashup has no subspaces"]
+>       | snd cell_ > 0                    = cell_
+>       | otherwise                        = (snd $ minimum measured, 1)
+>       where
+>         measured                         = map (measure coords) smashSpaces
+>         cell_                            = smashVec VU.! computeCellIndex smashDims coords
 >
 >     measure            :: [i] → (i, [(i, i)]) → (Double, i)   
 >     measure coordsM space                =
->       minimum (map (distance (fst space) coordsM) (listOutPoints (snd space)))
+>       let
+>         listOut                          = listOutPoints (snd space)
+>       in
+>         profess
+>           (not $ null listOut)
+>           (unwords [fName, "minimum"])
+>           (minimum (map (distance (fst space) coordsM) listOut))
 >
 >     distance           :: i → [i] → [i] → (Double, i)
 >     distance bix [] []                   = (0, bix)
@@ -185,10 +194,11 @@ as a zipper to carry out the you-know-what (smashing, stupid!)
 >
 > listOutPoints          :: ∀ i . (Integral i) ⇒ [(i, i)] → [[i]]
 > listOutPoints []                         = [[]]
-> listOutPoints ((r, s) : ranges)          = points1 ++ points2
->   where
->     points1                              = map ([r] ++) (listOutPoints ranges)
->     points2                              = map ([s] ++) (listOutPoints ranges)
+> listOutPoints ((r, s) : ranges)          =
+>   let
+>     listOut                              = listOutPoints ranges
+>   in
+>     map ([r] ++) listOut ++ map ([s] ++) listOut
 >
 > computeCellIndex       :: ∀ i . (Integral i) ⇒ [i] → [i] → Int
 > computeCellIndex [] []                   = 0

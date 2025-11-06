@@ -239,7 +239,7 @@ tournament starts here =========================================================
 >                           → PerGMKey → PerInstrument
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     wiFolder (wI, wP) pergmI_ perI
->       | traceIf trace_WIF False          = undefined
+>       | traceNot trace_WIF False         = undefined
 >       | otherwise                        = (decideInst, decidePerc)
 >       where
 >         fName_                           = unwords [fName__, "wiFolder"]
