@@ -41,13 +41,12 @@ January 21, 2025
 a Boot problematic ====================================================================================================
 
 Each stage interface function takes a FileWork and returns modified FileWork. Often, stage computes temporary
-structure(s) to drive later stages. Dependency graph for this process turns out to have cycles in some
-cases, unfortunately.
+structure(s) to drive later stages. Dependency graph for this process may have cycles which we need to patch around.
 
-(1) reorg stage depends on previously computed smashups, but the absorption leader's smashup must then be updated.
+(1) reorg stage depends on previously computed smashups, but the absorption leader's smashup must be updated.
 
 (2) In pipeline sequence, it would be plenty fast to modify smashups for incremental zoning. But to REMOVE a zone
-means expensively recomputing smashup for remaining zones.
+means expensively recomputing smashup for all remaining zones.
 
 (3) How does _crossInstrumentPairing_ interact with _doAbsorption_?
 
@@ -55,13 +54,6 @@ means expensively recomputing smashup for remaining zones.
 ...If both False, easy, just don't do either
 ...If cross True, absorption False, cross pairing only accomplished explicitly (honoring well-formed crossings)
 ...If cross False, absorption True, cross pairing only accomplished implicitly (no longer crossing after absorption)
-
-To solve our circular dependence problem, we do the following:
-1. generate pairing data before smash or reorg steps, rejecting the unpartnered
-2. run smash step, but skip zones in the rejection list.
-3. run reorg to completion
-4. regenerate revised pairing data that reflects absorptions.
-5. incrementally update smashups for rejections that have been fixed by reorg.
 
 > data FileWork                            =
 >   FileWork {
@@ -754,6 +746,7 @@ meat ===========================================================================
 >         pin pegBoard m iSlot bL          =
 >           let
 >             bR                           = Map.lookup iSlot pegBoard
+>             zipped                       = zip (IntSet.toList bL) (IntSet.toList (fromMaybe IntSet.empty bR))
 >             newPairs
 >               | null zipped              = []
 >               | not allowParallel && not allowCross && length zipped == 1
@@ -762,7 +755,6 @@ meat ===========================================================================
 >                                          = []
 >               | otherwise                =
 >                 (if allowParallel then zipParallel else []) ++ (if allowCross then zipCross else [])
->             zipped                       = zip (IntSet.toList bL) (IntSet.toList (fromMaybe IntSet.empty bR))
 >             (zipParallel, zipCross)      = partition areParallel zipped
 >               where
 >                 areParallel (bagL, bagR) =    (fwPreZones IntMap.! bagL).pzWordI
@@ -926,7 +918,7 @@ To build the map
 >         townersMap                       =
 >           let
 >             tFolder m zrec               =
->               Map.insert zrec.zswInst (zrec.zsPreZones, deJust "townersMap" zrec.zsSmashup) m
+>               Map.insert zrec.zswInst (zrec.zsPreZones, deJust "townersMap smashup" zrec.zsSmashup) m
 >           in
 >             zrecCompute fWork tFolder Map.empty 
 >     
@@ -1015,7 +1007,7 @@ perI task ======================================================================
 >       | otherwise                        = (m', rdFold')
 >       where
 >         fName                            = "perIFolder"
->         trace_PIF                        = unwords [fName, show zrec, show (instKey zrec), show perI]
+>         trace_PIF                        = unwords [fName, show zrec, show (instKey zrec)]
 >
 >         smashing                         = deJust fName zrec.zsSmashup
 >         perI                             =
