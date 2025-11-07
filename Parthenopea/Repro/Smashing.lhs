@@ -52,10 +52,6 @@ This source file implements a generalization of that setup. See computeInstSmash
 > seedSmashStats         :: SmashStats
 > seedSmashStats                           = SmashStats 0 0 0
 >
-> seedSmashing           :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ Smashing i
-> seedSmashing                             =
->   Smashing "" [] [] seedSmashStats VU.empty
->
 > developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ VU.Vector (i,i) → SmashStats
 > developSmashStats                        = VU.foldl' sfolder seedSmashStats
 >   where
@@ -105,7 +101,7 @@ You see there is some overlap between Zone 1 and Zone 2.
 >             is                           =
 >               map (computeCellIndex dims) (traverse walkRange rngs)
 >       in
->          VU.accum smashCell vec enumAssocs
+>         VU.accum smashCell vec enumAssocs
 
 Smashing smashings ====================================================================================================
 
@@ -153,9 +149,8 @@ as a zipper to carry out the you-know-what (smashing, stupid!)
 > getLeafCells coords Smashing{ .. }
 >                                          = VU.slice cellix leafDim smashVec
 >   where
->     parentDims                           = init smashDims
 >     leafDim                              = (fromIntegral . last) smashDims
->     cellix                               = computeCellIndex parentDims coords
+>     cellix                               = computeCellIndex (init smashDims) (init coords)
 >
 > lookupCell             :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
 > lookupCell coords smashup@Smashing{ .. }

@@ -347,20 +347,16 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >
 > evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → Double
 > evaluateModSignals tag m8n md (ModSignals xenv xlfo xvib)
->   | traceNot trace_EMS False             = undefined
->   | otherwise                            = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
+>                                          = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    fName                                 = "evaluateModSignals"
->    trace_EMS                             = unwords [fName, show (md, mco)]
 >
->    converter           :: ModDestType → (Double → Double)
 >    converter                             =
 >      \case
 >         ToVolume                         → fromCentibels
 >         _                                → fromCents
 >
->    mco                 :: ModCoefficients
->                                          =
+>    mco                                   =
 >      case md of
 >        ToPitch                           → m8n.toPitchCo
 >        ToFilterFc                        → m8n.toFilterFcCo

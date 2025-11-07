@@ -508,15 +508,15 @@ instrument range checking ======================================================
 >           else i2i
 >
 > bandPart               :: BandPart → Music Pitch → Music1
-> bandPart bp
->   | traceNot trace_BP False              = undefined
->   | otherwise                            = mMap bChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
->   where
->     fName                                = "bandPart"
->     trace_BP                             = unwords [fName, show bp]
+> bandPart bp                              = mMap bChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
+>                                              where bChanger p = (p, [Volume bp.bpHomeVelocity])
 >
->     bChanger           :: Pitch → (Pitch, [NoteAttribute])
->     bChanger p                           = (p, [Volume bp.bpHomeVelocity])
+> orchestraPart          :: BandPart → Music1 → Music1
+> orchestraPart bp                         = mMap oChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
+>   where
+>     oChanger (p, nas)                    = (p, if hasDynamics nas then nas else map nasFun nas)
+>     nasFun (Volume _)                    = Volume bp.bpHomeVelocity
+>     nasFun na                            = na 
 >
 > hasDynamics            :: [NoteAttribute] → Bool
 > hasDynamics                              = any isDynamic
@@ -525,13 +525,6 @@ instrument range checking ======================================================
 >       case na of
 >         Dynamics _                       → True
 >         _                                → False
->
-> orchestraPart          :: BandPart → Music1 → Music1
-> orchestraPart bp                         = mMap oChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
->   where
->     oChanger (p, nas)                    = (p, if hasDynamics nas then nas else map nasFun nas)
->     nasFun (Volume _)                    = Volume bp.bpHomeVelocity
->     nasFun na                            = na 
 >
 > bendNote               :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music1
 > bendNote bp pc o durB bend               =

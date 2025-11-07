@@ -238,12 +238,9 @@ tournament starts here =========================================================
 >     wiFolder           :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >                           → PerGMKey → PerInstrument
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->     wiFolder (wI, wP) pergmI_ perI
->       | traceNot trace_WIF False         = undefined
->       | otherwise                        = (decideInst, decidePerc)
+>     wiFolder (wI, wP) pergmI_ perI       = (decideInst, decidePerc)
 >       where
 >         fName_                           = unwords [fName__, "wiFolder"]
->         trace_WIF                        = unwords [fName_, show $ length decideInst, show $ length decidePerc]
 >
 >         decideInst     :: Map InstrumentName [PerGMScored]
 >         decideInst                       = proposeXAs iMatches wI pergmI_

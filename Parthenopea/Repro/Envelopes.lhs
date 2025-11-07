@@ -284,13 +284,9 @@ interpret them somehow.
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe FEnvelope
 > deriveEnvelope mDelay mAttack mHold mDecay mSustain mTriple
->   | traceNot trace_DE False              = undefined
->   | otherwise                            =
+>                                          =
 >   if useEnvelopes && doUse mTriple then Just env else Nothing
 >   where
->     fName                                = "deriveEnvelope"
->     trace_DE                             = unwords [fName, show mTriple]
->
 >     env                                  =
 >       FEnvelope
 >         Nothing

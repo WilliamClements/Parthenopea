@@ -46,7 +46,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           → Dur
 >                           → SFFileRuntime
 >                           → Signal p () (Double, Double)
-> eutSynthesize switches (reconL, mreconR) noon sr dur sffileRuntime
+> eutSynthesize switches@SynthSwitches{ .. }
+>               (reconL, mreconR) noon sr dur sffileRuntime
 >   | traceIf trace_ES False               = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
@@ -67,7 +68,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     secsScored                           = 1 * fromRational dur
 >     looping            :: Bool           = secsScored > secsSampled
 >                                            && (reconL.rSampleMode /= A.NoLoop)
->                                            && switches.useLoopSwitching
+>                                            && useLoopSwitching
 >     secsToPlay         :: Double         = if looping
 >                                              then secsScored
 >                                              else min secsSampled secsScored
@@ -128,15 +129,10 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     outA                                 ⤙ a2L
 >
 > eutDriver              :: ∀ p . Clock p ⇒ TimeFrame → Recon → Double → Signal p () Double
-> eutDriver timeFrame reconL idelta
->   | traceNot trace_ED False              = undefined
->   | otherwise                            = if timeFrame.tfLooping
+> eutDriver timeFrame reconL idelta        = if timeFrame.tfLooping
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
 >   where
->     fName                                = "eutDriver"
->     trace_ED                             = unwords [fName, show idelta]
->
 >     calcLooping, calcNotLooping
 >                        :: Double → Double
 >     calcLooping next                     = if next > len    then lst           else next
@@ -165,26 +161,19 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     denom              :: Double         = fullen - fullst
 >
 > eutModSignals          :: ∀ p. Clock p ⇒ TimeFrame → Modulation → ModDestType → Signal p () ModSignals
-> eutModSignals timeFrame m8n md
->   | traceNot trace_EMS False             = undefined
->   | otherwise                            =
+> eutModSignals timeFrame m8n md           =
 >   proc _ → do
 >     aL1 ← doEnvelope  timeFrame kModEnvL ⤙ ()
 >     aL2 ← doLFO       kModLfoL           ⤙ ()
 >     aL3 ← doLFO       kVibLfoL           ⤙ ()
 >     outA                                 ⤙ ModSignals aL1 aL2 aL3
 >   where
->     fName                                = "eutModSignals"
->     trace_EMS                            = unwords [fName, show md]
->
->     (kModEnvL, kModLfoL, kVibLfoL)       = doModSigMaybes 
->
->     doModSigMaybes                       = case md of
+>     (kModEnvL, kModLfoL, kVibLfoL)       = case md of
 >       ToPitch                            → ( m8n.mModEnv, m8n.mModLfo, m8n.mVibLfo)
 >       ToFilterFc                         → ( m8n.mModEnv, m8n.mModLfo, Nothing)
 >       ToVolume                           → ( Nothing,     m8n.mModLfo, Nothing)
 >       _                                  →
->         error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in doModSigMaybes, not", show md]
+>         error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in eutModSignals, not", show md]
 >
 > eutPumpMonoSample      :: ∀ p . Clock p ⇒
 >                           Recon
@@ -214,8 +203,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           → Maybe (A.SampleData Int8)
 >                           → Signal p Double (Double, Double)
 > eutPumpStereoSample (reconL, reconR) noon s16 ms8
->   | traceNot trace_EPSS False            = undefined
->   | otherwise                            =
+>                                          =
 >   proc pos → do
 >     let pos'           :: Double         = fromIntegral (appliedL.rEnd - appliedL.rStart) * pos
 >     let ix             :: Int            = truncate pos' -- WOX should be round?
@@ -225,9 +213,6 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     let a1R                              = samplePointInterp s16 ms8 offset (fromIntegral appliedR.rStart + ix)
 >     outA                                 ⤙ (a1L * ampL, a1R * ampR)
 >   where
->     fName                                = "eutPumpStereoSample"
->     trace_EPSS                           = unwords [fName, show noon]
->
 >     Recon{rAttenuation = attenL, rApplied = appliedL, rM8n = m8nL}
 >                                          = reconL
 >     Recon{rAttenuation = attenR, rApplied = appliedR, rM8n = m8nR}
@@ -254,50 +239,56 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 Effects ===============================================================================================================
 
 > deriveEffects          :: SynthSwitches → Modulation → Maybe Int → Maybe Int → Maybe Int → Effects
-> deriveEffects switches m8n mChorus mReverb mPan
+> deriveEffects
+>   SynthSwitches{ .. }
+>   m8n mChorus mReverb mPan
 >                                          = Effects 
 >                                             (dChorus / 1000) 
 >                                             (dReverb / 1000) 
 >                                                (dPan / 1000)
 >   where
 >     dChorus            :: Double         =
->       if switches.useChorus
+>       if useChorus
 >         then maybe 0 fromIntegral mChorus + evaluateMods ToChorus m8n.mModsMap
 >         else 0
 >     dReverb            :: Double         =
->       if switches.useReverb
+>       if useReverb
 >         then maybe 0 fromIntegral mReverb + evaluateMods ToReverb m8n.mModsMap
 >         else 0
 >     dPan               :: Double         =
->       if switches.usePan
+>       if usePan
 >         then maybe 0 fromIntegral mPan
 >         else 0
 >
 > eutEffectsMono       :: ∀ p . Clock p ⇒ SynthSwitches → Recon → Signal p Double Double
-> eutEffectsMono switches r                =
+> eutEffectsMono
+>   SynthSwitches{ .. }
+>   Recon{ .. }                                            
+>                                          =
 >   proc aL → do
->     chL ← eutChorus chorusRate chorusDepth cho           ⤙ aL
->     rbL ← eutReverb rev                                  ⤙ aL
+>     chL ← eutChorus chorusRate chorusDepth efChorus      ⤙ aL
+>     rbL ← eutReverb efReverb                             ⤙ aL
 >
->     let mixL = (  cho       * chL
->                 + rev       * rbL
->                 + (1 - cho) * aL
->                 + (1 - rev) * aL) / 2
+>     let mixL = (  efChorus       * chL
+>                 + efReverb       * rbL
+>                 + (1 - efChorus) * aL
+>                 + (1 - efReverb) * aL) / 2
 >
 >     let pL                                               =
->           if switches.noStereoNoPan then mixL else fst $ doPan (pan, pan) (mixL, mixL)
+>           if noStereoNoPan then mixL else fst $ doPan (efPan, efPan) (mixL, mixL)
 >
->     pL' ←          if not switches.useDCBlock
->                    then delay 0                          ⤙ pL
->                    else dcBlock 0.995                    ⤙ pL
+>     pL' ←          if not useDCBlock
+>                      then delay 0                        ⤙ pL
+>                      else dcBlock 0.995                  ⤙ pL
 >     outA                                                 ⤙ pL'
 >   where
->     cho                                                  = r.rEffects.efChorus
->     rev                                                  = r.rEffects.efReverb
->     pan                                                  = r.rEffects.efPan 
+>     Effects{ .. }
+>                                                          = rEffects
 >
 > eutEffectsStereo       :: ∀ p . Clock p ⇒ SynthSwitches → (Recon, Recon) → Signal p (Double, Double) (Double, Double)
-> eutEffectsStereo switches (Recon{rEffects = effL}, Recon{rEffects = effR})
+> eutEffectsStereo
+>   SynthSwitches{ .. }
+>   (Recon{rEffects = effL}, Recon{rEffects = effR})
 >                                          =
 >   proc (aL, aR) → do
 >     chL ← eutChorus chorusRate chorusDepth cFactorL      ⤙ aL
@@ -317,10 +308,10 @@ Effects ========================================================================
 >
 >     let (pL, pR) = doPan (pFactorL, pFactorR) (mixL, mixR)
 >
->     pL' ←        if not switches.useDCBlock
+>     pL' ←        if not useDCBlock
 >                    then delay 0                          ⤙ pL
 >                    else dcBlock 0.995                    ⤙ pL
->     pR' ←        if not switches.useDCBlock
+>     pR' ←        if not useDCBlock
 >                    then delay 0                          ⤙ pR
 >                    else dcBlock 0.995                    ⤙ pR
 >     outA                                                 ⤙ (pL', pR')

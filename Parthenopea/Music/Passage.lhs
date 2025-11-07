@@ -135,16 +135,13 @@ _Overall_                =
 >
 >     -- reconstruct notes with added dynamics metadata
 >     final              :: Music1 → MekNote → Music1 
->     final music mek
->       | traceNot trace_F False           = undefined
->       | otherwise                        =
+>     final music mek                      =
 >       music :+: case mek.mPrimitive of
 >                   Note durI pitchI       →
 >                     note durI (pitchI, Dynamics fName_ : (makeNas . deJust fName) mek.mParams)
 >                   Rest durI              → rest durI
 >       where
 >         fName                            = "final"
->         trace_F                          = unwords [fName, show mek.mSelfIndex, show mek.mParams]
 >
 >         makeNas        :: Either Velocity (VB.Vector Double) → [NoteAttribute]
 >         makeNas (Left homeVolume)        = [Volume homeVolume]
@@ -199,12 +196,9 @@ _Overall_                =
 >           VB.concatMap (uncurry computeOverall) nodePairs VB.++ computeOverall lastSi lastSi
 >         lastSi                           = snd $ VB.last nodePairs
 >
->         computeOverall si0 si1
->           | traceNot trace_CO False      = undefined
->           | otherwise                    = VB.singleton (si0, mek0{mOverall = makeOverall loud0 loud1 ev0 ev1})
+>         computeOverall si0 si1           = VB.singleton (si0, mek0{mOverall = makeOverall loud0 loud1 ev0 ev1})
 >           where
 >             fName                        = "computeOverall"
->             trace_CO                     = unwords [fName, show ((si0, loud0, ev0), (si1, loud1, ev1))]
 >
 >             mek0                         = withEvents VB.! si0
 >             mek1                         = withEvents VB.! si1
@@ -232,12 +226,9 @@ _Overall_                =
 >
 >             seedOne mekArg               = VB.singleton $ changeParams mekArg (Left $ getMarkVelocity mekArg)
 >
->             seeden si0 si1
->               | traceNot trace_S False   = undefined
->               | otherwise                = VB.map infuse seedMeks
+>             seeden si0 si1               = VB.map infuse seedMeks
 >               where
 >                 fName                    = "seeden"
->                 trace_S                  = unwords [fName, show (si0, si1), show over]
 >
 >                 seedMeks                 = VB.slice si0 (si1 - si0 + 1 - fencePost) withOveralls
 >                                              where fencePost = if si1 == mekFence then 0 else 1

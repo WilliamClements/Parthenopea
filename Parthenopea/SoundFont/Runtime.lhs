@@ -30,6 +30,7 @@ February 1, 2025
 > import Data.Set (Set)
 > import qualified Data.Set                as Set
 > import qualified Data.Vector.Strict      as VB
+> import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Render ( Instr )
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
@@ -177,7 +178,7 @@ define signal functions and instrument maps to support rendering ===============
 >     perI                                 = sffile.zPerInstrument IntMap.! fromIntegral pergm.pgkwInst
 >     switches                             = runt.zDirectives.synthSwitches
 >
->     ps                                   = VB.fromList ps_
+>     ps                                   = VU.fromList ps_
 >     noonIn                               = carefulNoteOn volIn pchIn
 >     fly                                  = eyeOnTheFly noonIn
 >     noonOut                              = case fly of
@@ -203,28 +204,31 @@ zone selection for rendering ===================================================
 >     eyeOnTheFly        :: NoteOn → Either PreZone (PreZone, PreZone)
 >     eyeOnTheFly noonFly
 >       | traceIf trace_DFE False          = undefined
->       | null perI.pSmashing.smashSpaces  = error $ unwords[fName, "smashup", show perI.pSmashing, "has no subspaces"]
+>       | null smashSpaces                 = error $ unwords [fName, "smashup", show smashup, "has no subspaces"]
+>       | lvu /= 2                         = error $ unwords [fName, show lvu
+>                                                                  , "is not 2, so wrong number of leaf cells"]
 >       | bagIdL <= 0 || cntL <= 0 || bagIdR <= 0 || cntR <= 0
->                                          = error $ unwords [fName, "cell is nonsense"]
+>                                          = error $ unwords [fName, "cell is nonsense"
+>                                                                  , show ((bagIdL, cntL), (bagIdR, cntR))]
 >       | isNothing foundL || isNothing foundR
->                                          =
->         error $ unwords [fName
->                        , "zone"
->                        , show (bagIdL, bagIdR)
->                        , "not both present in"
->                        , show (map pzWordB perI.pZones)] 
+>                                          = error $ unwords [fName, "bags"
+>                                                                  , show (bagIdL, bagIdR)
+>                                                                  , "not both present in"
+>                                                                  , show (map pzWordB perI.pZones)] 
 >       | foundL == foundR                 = (Left . fromJust) foundL
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where
 >         fName                            = unwords [fName_, "eyeOnTheFly"]
 >         trace_DFE                        = unwords [fName, show (bagIdL, bagIdR), smashTag]
 >
->         Smashing{ .. }
+>         smashup@Smashing{ .. }
 >                                          = perI.pSmashing
 >
->         (index1, index2)                 = noonAsCoords noonFly
->         (bagIdL, cntL)                   = lookupCell index1 perI.pSmashing
->         (bagIdR, cntR)                   = lookupCell index2 perI.pSmashing
+>         (index1, _)                      = noonAsCoords noonFly
+>         vu                               = getLeafCells index1 smashup
+>         lvu                              = VU.length vu
+>         (bagIdL, cntL)                   = vu VU.! 0
+>         (bagIdR, cntR)                   = vu VU.! 1
 >         foundL                           = fromIntegral bagIdL `IntMap.lookup` sffile.zPreZone
 >         foundR                           = fromIntegral bagIdR `IntMap.lookup` sffile.zPreZone
 
@@ -288,13 +292,8 @@ reconcile zone and sample header ===============================================
 >            , zReleaseModEnv = Nothing}
 >
 > resolveModulation      :: SFZone → Modulation
-> resolveModulation z
->   | traceNot trace_RM False              = undefined
->   | otherwise                            = resolveMods m8n z.zModulators defaultMods
+> resolveModulation z                      = resolveMods m8n z.zModulators defaultMods
 >   where
->     fName                                = "resolveModulation"
->     trace_RM                             = unwords [fName, show z]
->
 >     m8n                :: Modulation     =
 >       defModulation{
 >         mLowpass                         = Lowpass resonanceType curKernelSpec
