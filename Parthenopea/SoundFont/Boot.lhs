@@ -396,21 +396,25 @@ capture task ===================================================================
 >     uPzs               :: [PreZone]
 >  ,  uSFZone            :: SFZone
 >  ,  uDispo             :: ResultDispositions}
+> instance Show Capture where
+>   show capt                            =
+>     unwords [  "Capture"
+>              , show (map pzWordB capt.uPzs)]
 > defCapture             :: Capture
 > defCapture                               = Capture [] defZone virginrd
 >
 > captureTaskIf sffile _ fWork             = zrecTask capturer fWork
 >   where
->     fName                                = "captureTaskIf"
+>     fName_                                = "captureTaskIf"
 >
 >     accepted impact clue                 =
->       [Scan Accepted impact fName clue]
+>       [Scan Accepted impact fName_ clue]
 >     dropped impact clue                  =
->       [Scan Dropped impact fName clue]
+>       [Scan Dropped impact fName_ clue]
 >     modified impact clue                 =
->       [Scan Modified impact fName clue]
+>       [Scan Modified impact fName_ clue]
 >     violated impact clue                 =
->       [Scan Violated impact fName clue]
+>       [Scan Violated impact fName_ clue]
 >
 >     capturer zrecIn rdIn                 =
 >       let
@@ -426,6 +430,7 @@ capture task ===================================================================
 >
 >         captureZone    :: Word → (Word, Either PreZone (PreZoneKey, [Scan]))
 >         captureZone bix
+>           | traceNot trace_CZ False      = undefined
 >           | isNothing pz.pzDigest.zdSampleIndex
 >                                          = (bix, Right (pzk, accepted GlobalZone       noClue))
 >           | isNothing mpres              = (bix, Right (pzk, dropped  Orphaned         noClue))
@@ -434,6 +439,9 @@ capture task ===================================================================
 >           | isJust probeLimits           = (bix, Right (pzk, violated BadAppliedLimits (fromJust probeLimits)))
 >           | otherwise                    = (bix, Left pz{pzChanges = ChangeEar (effPSShdr pres) []})
 >           where
+>             fName                        = unwords [fName_, "captureZone"]
+>             trace_CZ                     = unwords [fName, iName, show (xgeni, ygeni)]
+>
 >             ibags                        = sffile.zFileArrays.ssIBags
 >             xgeni                        = F.genNdx $ ibags ! bix
 >             ygeni                        = F.genNdx $ ibags ! (bix + 1)
@@ -504,7 +512,7 @@ process initial capture results ================================================
 >
 >         noZones, yesCapture
 >                        :: Maybe [Scan] 
->         ssCap                            = deJust fName
+>         ssCap                            = deJust fName_
 >                                            $ noZones `CM.mplus` yesCapture
 >         noZones
 >           | null capt.uPzs               = Just $ violated NoZones noClue

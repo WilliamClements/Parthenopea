@@ -202,7 +202,7 @@ zone selection for rendering ===================================================
 
 >     eyeOnTheFly        :: NoteOn → Either PreZone (PreZone, PreZone)
 >     eyeOnTheFly noonFly
->       | traceNot trace_DFE False         = undefined
+>       | traceIf trace_DFE False          = undefined
 >       | null perI.pSmashing.smashSpaces  = error $ unwords[fName, "smashup", show perI.pSmashing, "has no subspaces"]
 >       | bagIdL <= 0 || cntL <= 0 || bagIdR <= 0 || cntR <= 0
 >                                          = error $ unwords [fName, "cell is nonsense"]
@@ -217,7 +217,10 @@ zone selection for rendering ===================================================
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where
 >         fName                            = unwords [fName_, "eyeOnTheFly"]
->         trace_DFE                        = unwords [fName, show (bagIdL, bagIdR), show perI.pSmashing]
+>         trace_DFE                        = unwords [fName, show (bagIdL, bagIdR), smashTag]
+>
+>         Smashing{ .. }
+>                                          = perI.pSmashing
 >
 >         (index1, index2)                 = noonAsCoords noonFly
 >         (bagIdL, cntL)                   = lookupCell index1 perI.pSmashing
