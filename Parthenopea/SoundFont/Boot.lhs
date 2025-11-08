@@ -15,7 +15,6 @@ January 21, 2025
 > module Parthenopea.SoundFont.Boot ( surveyInstruments ) where
 >
 > import qualified Codec.SoundFont         as F
-> import qualified Control.Monad           as CM
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Foldable
@@ -58,7 +57,7 @@ means expensively recomputing smashup for all remaining zones.
 > data FileWork                            =
 >   FileWork {
 >     fwDirectives       :: Directives
->   , fwZRecs            :: [InstZoneRecord]
+>   , fwZRecs            :: IntMap InstZoneRecord
 >   , fwPreSamples       :: Map PreSampleKey PreSample
 >   , fwPerInstruments   :: Map PerGMKey PerInstrument
 >   , fwMatches          :: Matches
@@ -74,7 +73,7 @@ means expensively recomputing smashup for all remaining zones.
 > defFileWork dives                        =
 >   FileWork
 >    dives 
->    []
+>    IntMap.empty
 >    Map.empty
 >    Map.empty
 >    defMatches
@@ -279,9 +278,6 @@ smell task =====================================================================
 
 InstZoneRecord and PreZone administration =============================================================================
 
-> goodZRecs              :: ResultDispositions → [InstZoneRecord] → [InstZoneRecord]
-> goodZRecs rdNow                          = filter (\x → not (deadrd (instKey x) rdNow))
->
 > data InstZoneRecord                      =
 >   InstZoneRecord {
 >     zswFile            :: Int
@@ -307,21 +303,25 @@ InstZoneRecord and PreZone administration ======================================
 
 iterating InstZoneRecord list =========================================================================================
 
-> zrecTask               :: (InstZoneRecord → ResultDispositions → (InstZoneRecord, ResultDispositions))
+> zrecTask               :: (InstZoneRecord → ResultDispositions → (Maybe InstZoneRecord, ResultDispositions))
 >                           → FileWork → FileWork
 > zrecTask userFun fw                      = fw{fwZRecs = workedOn, fwDispositions = rd'}
 >   where
+>     workedOn           :: IntMap InstZoneRecord
 >     (workedOn, rd')                      =
->       foldl' taskRunner ([], fw.fwDispositions) (goodZRecs fw.fwDispositions fw.fwZRecs)
+>       foldl' taskRunner (fw.fwZRecs, fw.fwDispositions) fw.fwZRecs
 >
 >     taskRunner (zrecs, rdFold) zrec      =
 >       let
->         (zrec', rdFold')                 = userFun zrec rdFold
+>         mzrec          :: Maybe InstZoneRecord
+>         (mzrec, rdFold')                  = userFun zrec rdFold
+>
+>         kfun _                            = mzrec
 >       in
->         (zrec' : zrecs, rdFold')
+>         (IntMap.update kfun (fromIntegral zrec.zswInst) zrecs, rdFold')
 >
 > zrecCompute            :: ∀ a . FileWork → (a → InstZoneRecord → a) → a → a
-> zrecCompute fw userFun seed              = foldl' userFun seed (goodZRecs fw.fwDispositions fw.fwZRecs)
+> zrecCompute fw userFun seed              = foldl' userFun seed fw.fwZRecs
 >
 > zoneTask               :: (PreZone → Bool)
 >                           → (PreZone → ResultDispositions → (Maybe PreZone, ResultDispositions))
@@ -350,14 +350,14 @@ survey task ====================================================================
 >                                          = fWork.fwDirectives                     
 >
 >     (zrecs, rd')                         =
->       foldl' surveyFolder ([], fWork.fwDispositions) (formComprehension sffile ssInsts)
+>       foldl' surveyFolder (IntMap.empty, fWork.fwDispositions) (formComprehension sffile ssInsts)
 >     
 >     violated impact clue             =
 >       [Scan Violated impact fName clue]
 >     accepted impact clue             =
 >       [Scan Accepted impact fName clue]
 >
->     surveyFolder       :: ([InstZoneRecord], ResultDispositions) → PerGMKey → ([InstZoneRecord], ResultDispositions)
+>     surveyFolder       :: (IntMap InstZoneRecord, ResultDispositions) → PerGMKey → (IntMap InstZoneRecord, ResultDispositions)
 >     surveyFolder (zrecsFold, rdFold) pergm
 >       | iinst.instBagNdx <= jinst.instBagNdx
 >                                          = (zrecs', rd'')
@@ -372,7 +372,9 @@ survey task ====================================================================
 >         zrecs'
 >           | dead ssSurvey                = zrecsFold 
 >           | otherwise                    =
->             makeZRec pergm (ChangeName iinst changes finalName) : zrecsFold
+>             IntMap.insert (fromIntegral newZRec.zswInst) newZRec zrecsFold
+>           where
+>             newZRec                      = makeZRec pergm (ChangeName iinst changes finalName)
 >
 >         ssSurvey
 >           | iinst.instBagNdx == jinst.instBagNdx
@@ -419,14 +421,23 @@ capture task ===================================================================
 >     capturer zrecIn rdIn                 =
 >       let
 >         (newPzs, rdOut)                  = captureZones zrecIn rdIn
+>
+>         mzrec          :: Maybe InstZoneRecord
+>         mzrec                            = if null newPzs
+>                                             then Nothing
+>                                             else Just zrecIn{zsPreZones = newPzs}
 >       in
->         (zrecIn{zsPreZones = newPzs}, rdOut)
+>         (mzrec, rdOut)
 >
 >     captureZones       :: InstZoneRecord → ResultDispositions → ([PreZone], ResultDispositions)
 >     captureZones zrec rdCap              = (capt.uPzs, dispose pergm ssCap capt.uDispo)
 >       where
 >         pergm                            = instKey zrec
 >         iName                            = zrec.zswChanges.cnName
+>
+>         ssCap                            = if null capt.uPzs
+>                                              then violated NoZones noClue
+>                                              else modified Captured iName
 >
 >         captureZone    :: Word → (Word, Either PreZone (PreZoneKey, [Scan]))
 >         captureZone bix
@@ -509,15 +520,6 @@ process initial capture results ================================================
 >         hasRom pz                        = stype pz >= 0x8000
 >         romClue pz                       = showHex (stype pz) []
 >         rangeClue pz                     = show (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange)
->
->         noZones, yesCapture
->                        :: Maybe [Scan] 
->         ssCap                            = deJust fName_
->                                            $ noZones `CM.mplus` yesCapture
->         noZones
->           | null capt.uPzs               = Just $ violated NoZones noClue
->           | otherwise                    = Nothing
->         yesCapture                       = Just $ modified Captured iName
 >
 > buildZone              :: SFFileBoot → SFZone → Maybe PreZone → Word → SFZone
 > buildZone sffile fromZone mpz bagIndex
@@ -784,14 +786,12 @@ vet task =======================================================================
 >       let
 >         vactions                         = fromIntegral zrec.zswInst `IntMap.lookup` fwActions
 >       in
->         maybe (zrec, rd) (vetActions zrec rd) vactions
+>         maybe (Just zrec, rd) (vetActions zrec rd) vactions
 >
->     vetActions zrec rdIn actions
->       | traceIf trace_VA False           = undefined
->       | otherwise                        = (zrec{zsPreZones = pzsOut}, rdOut)
+>     vetActions         :: InstZoneRecord → ResultDispositions → IntSet → (Maybe InstZoneRecord, ResultDispositions)
+>     vetActions zrec rdIn actions         = (Just zrec{zsPreZones = pzsOut}, rdOut)
 >       where
 >         fName                            = "vetActions"
->         trace_VA                         = unwords [fName, show fwActions]
 >
 >         (pzsOut, rdOut)                  =
 >           mapAction $ if switchBadStereoZonesToMono 
@@ -817,7 +817,7 @@ adopt task =====================================================================
 
 > adoptTaskIf _ _                          = zrecTask adopter
 >   where
->     adopter zrec rd                      = (zrec, foldl' (adopt zrec) rd zrec.zsPreZones)
+>     adopter zrec rd                      = (Just zrec, foldl' (adopt zrec) rd zrec.zsPreZones)
 >
 >     adopt zrec rdFold pz                 = 
 >       let
@@ -842,7 +842,7 @@ smash task =====================================================================
 >             then Nothing
 >             else Just (computeInstSmashup tag zrec.zsPreZones)
 >       in
->         (zrec{zsSmashup = smashVar}, rdFold)
+>         (Just zrec{zsSmashup = smashVar}, rdFold)
 >
 > computeInstSmashup     :: String → [PreZone] → Smashing Word
 > computeInstSmashup tag pzs               =
@@ -878,12 +878,12 @@ To build the map
 >
 >     reorger zrec rdFold
 >       | traceIf trace_R False            = undefined
->       | not doAbsorption                 = (zrec,                       rdFold)
->       | isJust dprobe                    = (zrec,                       dispose pergm scansBlocked rdFold)
->       | isNothing aprobe                 = (zrec,                       rdFold)
->       | party == wInst                   = (zrec{zsPreZones = hpzs, zsSmashup = Just hsmash},
->                                                                         dispose pergm scansIng rdFold)
->       | otherwise                        = (zrec{zsPreZones = []},      dispose pergm scansEd rdFold)
+>       | not doAbsorption                 = (Just zrec,                       rdFold)
+>       | isJust dprobe                    = (Just zrec,                       dispose pergm scansBlocked rdFold)
+>       | isNothing aprobe                 = (Just zrec,                       rdFold)
+>       | party == wInst                   = (Just zrec{zsPreZones = hpzs, zsSmashup = Just hsmash},
+>                                                                              dispose pergm scansIng rdFold)
+>       | otherwise                        = (Nothing,                         dispose pergm scansEd rdFold)
 >       where
 >         fName                            = "reorger"
 >         trace_R                          =
@@ -993,8 +993,8 @@ clean task =====================================================================
 > cleanTaskIf _ _                          = zrecTask cleaner
 >   where
 >     cleaner zrec rdFold
->       | null zrec.zsPreZones             = (zrec, dispose pergm ssNoZones rdFold)
->       | otherwise                        = (zrec, rdFold)
+>       | null zrec.zsPreZones             = (Nothing, dispose pergm ssNoZones rdFold)
+>       | otherwise                        = (Just zrec, rdFold)
 >       where
 >         fName                            = "cleaner"
 >
