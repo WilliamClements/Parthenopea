@@ -105,11 +105,13 @@ cache SoundFont data that is only needed for Runtime ===========================
 >
 >             savePreZones m inst          =
 >               let
->                 wrapUp pz                = (wordB pz, pz')
+>                 wrapUp pz                = (wordB pz', pz')
 >                   where
 >                     pz'                  = pz{pzRecon = Just $ resolvePreZone dives pz}            
+>                 fun                      = wrapUp . accessPreZone "wrapUp" sffile.zPreZones
+>                 bags                     = (newpi IntMap.! inst).pZoneBags
 >               in
->                 m `IntMap.union` IntMap.fromList (map wrapUp (newpi IntMap.! inst).pZones)
+>                 m `IntMap.union` IntMap.fromList (map fun (IntSet.toList bags))
 >
 >             preZone                      = IntSet.foldl' savePreZones IntMap.empty insts
 >           in
@@ -207,14 +209,15 @@ zone selection for rendering ===================================================
 >       | null smashSpaces                 = error $ unwords [fName, "smashup", show smashup, "has no subspaces"]
 >       | lvu /= 2                         = error $ unwords [fName, show lvu
 >                                                                  , "is not 2, so wrong number of leaf cells"]
->       | bagIdL <= 0 || cntL <= 0 || bagIdR <= 0 || cntR <= 0
+>       | bagIdL < 0 || cntL <= 0 || bagIdR < 0 || cntR <= 0
 >                                          = error $ unwords [fName, "cell is nonsense"
->                                                                  , show ((bagIdL, cntL), (bagIdR, cntR))]
+>                                                                  , show ((bagIdL, cntL), (bagIdR, cntR))
+>                                                                  , show smashup.smashStats]
 >       | isNothing foundL || isNothing foundR
 >                                          = error $ unwords [fName, "bags"
 >                                                                  , show (bagIdL, bagIdR)
 >                                                                  , "not both present in"
->                                                                  , show (map pzWordB perI.pZones)] 
+>                                                                  , show perI.pZoneBags] 
 >       | foundL == foundR                 = (Left . fromJust) foundL
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where

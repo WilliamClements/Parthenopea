@@ -17,6 +17,7 @@ June 16, 2025
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
 > import Data.Either ( lefts, rights )
+> import qualified Data.IntMap.Strict as IntMap
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe ( fromMaybe )
@@ -38,7 +39,7 @@ June 16, 2025
 > import Parthenopea.SoundFont.Utility
 > import qualified System.FilePattern.Directory
 >                                          as FP
-
+  
 Implement PCommand ====================================================================================================
 
 > pCommand               :: IO ()
@@ -85,6 +86,7 @@ Implement PCommand =============================================================
 >             (putStr $ reapEmissions [  EndOfLine
 >                                      , Unblocked $ unwords ["surveySoundFonts"], EndOfLine])
 >   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
+>   putStrLn "extracted!"
 >   let vFilesBoot                         = VB.fromList extraction
 >   if VB.null vFilesBoot
 >     then return ()
@@ -104,8 +106,14 @@ Implement PCommand =============================================================
 >                           → VB.Vector SFFileBoot
 >                           → IO (SFRuntime, ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
 >                                            , Map PercussionSound (Bool, Maybe PerGMKey, [Emission])))
-> commandLogic dives rost vFilesBoot       = do
->   (cache, matches, rd)                   ← surveyInstruments dives rost vFilesBoot
+> commandLogic dives rost vFilesBoot_      = do
+>   putStrLn "commandLogic..."
+>   (vFilesBoot, survey)                   ← surveyInstruments dives rost vFilesBoot_
+>
+>   let rd                                 = survey.sDispositions
+>   let cache                              = survey.sPerInstruments
+>   let matches                            = survey.sMatches
+>
 >   CM.when (dForScan > 0)                 (writeScanReport dives dForScan vFilesBoot rd)
 >   (zI, zP)                               ← establishWinners dives rost vFilesBoot cache matches
 >   runt                                   ← prepareRuntime dives rost vFilesBoot cache (zI, zP)
@@ -185,7 +193,7 @@ Implement PCommand =============================================================
 >               (F.igens pdata) (F.imods pdata)
 >               (F.shdrs pdata)
 >       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
->       let sffileBoot                     = SFFileBoot wFile filename boota samplea
+>       let sffileBoot                     = SFFileBoot wFile filename boota IntMap.empty samplea
 >       return sffileBoot
 
 The End

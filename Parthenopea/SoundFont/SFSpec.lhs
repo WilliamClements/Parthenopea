@@ -20,6 +20,8 @@ April 16, 2023
 > import Data.Foldable
 > import Data.Int ( Int8, Int16 )
 > import Data.IntMap.Strict (IntMap)
+> import qualified Data.IntMap as IntMap
+> import Data.IntSet (IntSet)
 > import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
@@ -117,7 +119,7 @@ implementing SoundFont spec ====================================================
 >   , pzkwSampleIndex    :: Word}
 >   deriving (Eq, Ord, Show)
 >
-> data AppliedLimits                             =
+> data AppliedLimits                       =
 >   AppliedLimits {
 >     rStart             :: Word
 >   , rEnd               :: Word
@@ -166,17 +168,15 @@ implementing SoundFont spec ====================================================
 >
 > data PerInstrument                       =
 >   PerInstrument {
->    piChanges           :: ChangeName F.Inst
->   , pZones             :: [PreZone]
+>     piChanges          :: ChangeName F.Inst
+>   , pZoneBags          :: IntSet
 >   , pSmashing          :: Smashing Word}
 > instance Show PerInstrument where
->   show perI                              = unwords ["PerInstrument", showBags perI]
-> showBags               :: PerInstrument → String
-> showBags perI                            = show (map pzWordB perI.pZones)
+>   show perI                              = unwords ["PerInstrument", show perI.pZoneBags]
 >
 > data SFZone =
 >   SFZone {
->   zInstIndex         :: Maybe Word
+>     zInstIndex         :: Maybe Word
 >   , zKey               :: Maybe Word
 >   , zVel               :: Maybe Word
 >   , zInitAtten         :: Maybe Int
@@ -251,15 +251,50 @@ implementing SoundFont spec ====================================================
 >   PerGMKey {
 >     pgkwFile           :: Int
 >   , pgkwInst           :: Word
->   , pgkwBag            :: Maybe Word} deriving (Eq, Ord, Show)
+>   , pgkwBag            :: Maybe Word}
+>   deriving (Eq, Ord, Show)
 >
 > data SFFileBoot                          =
 >   SFFileBoot {
 >     zWordFBoot         :: Int
 >   , zFilename          :: FilePath
 >   , zFileArrays        :: FileArrays
+>   , zPreZones          :: IntMap PreZone
 >   , zSquirrelSample    :: SampleArrays}
 >
+> accessPreZone          :: String → IntMap PreZone → Int → PreZone
+> accessPreZone tag pzs bag             =
+>   case bag `IntMap.lookup` pzs of
+>     Nothing            → error $ unwords ["accessPreZone", tag, "bad bag", show bag]
+>     Just pz            → pz
+> accessPreZones         :: String → IntMap PreZone → IntSet → IntMap PreZone
+> accessPreZones tag pzs                   = IntMap.fromSet (accessPreZone tag pzs)
+>
+> data Matches                             =
+>   Matches {
+>     mSMatches          :: Map PreSampleKey FFMatches
+>   , mIMatches          :: Map PerGMKey FFMatches}
+> defMatches             :: Matches
+> defMatches                               = Matches Map.empty Map.empty
+> combineMatches         :: Matches → Matches → Matches
+> combineMatches m1 m2                     =
+>   m1{  mSMatches                         = Map.union m1.mSMatches    m2.mSMatches
+>      , mIMatches                         = Map.union m1.mIMatches    m2.mIMatches}
+>
+> data Survey                              =
+>   Survey {
+>     sPreZones          :: IntMap PreZone
+>   , sPerInstruments    :: Map PerGMKey PerInstrument
+>   , sMatches           :: Matches
+>   , sDispositions      :: ResultDispositions}
+> defSurvey              :: Survey
+> defSurvey                                =
+>   Survey
+>     IntMap.empty
+>     Map.empty
+>     (Matches Map.empty Map.empty)
+>     virginrd
+>     
 > data FileArrays                          = 
 >   FileArrays {
 >     ssInsts            :: Array Word F.Inst
@@ -430,9 +465,6 @@ implementing SoundFont spec ====================================================
 >     okRange (j, k)                       = (0 <= j) && j <= k && k < qMidiSize128
 >
 >     iOk = kLim /= infinite || vLim /= infinite
->
-> findByBagIndex         :: [PreZone] → Word → Maybe PreZone
-> findByBagIndex pzs w                     = find (\pz → w == pz.pzWordB) pzs
 
 bootstrapping =========================================================================================================
 
