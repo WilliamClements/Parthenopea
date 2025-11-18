@@ -28,7 +28,7 @@ issued.
 
 When you have an Instrument and a NoteOn, the "game" pinpoints which Zone to use to play the note. The smashing for
 this purpose is 128 x 128 x 2 covering all possible NoteOns, and Left/Right (channels). We use a flat vector for the
-cache and index it by the three coordinates.
+cache and custom-index it by the three coordinates.
 
 The winning Zone(s) drive the note synthesis. 
 
@@ -48,7 +48,8 @@ This source file implements a generalization of that setup. See computeInstSmash
 >   SmashStats {
 >     countNothings      :: Int
 >   , countSingles       :: Int
->   , countMultiples     :: Int} deriving (Eq, Show)
+>   , countMultiples     :: Int}
+>   deriving (Eq, Show)
 > seedSmashStats         :: SmashStats
 > seedSmashStats                           = SmashStats 0 0 0
 >
@@ -75,7 +76,12 @@ You see there is some overlap between Zone 1 and Zone 2.
 > smashSubspaces         :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒
 >                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
 > smashSubspaces tag dims spaces_          =
->   Smashing tag dims spaces (developSmashStats svector) svector
+>   Smashing 
+>     tag 
+>     dims
+>     spaces
+>     (developSmashStats svector)
+>     svector
 >   where
 >     spaces             :: [(i, [(i, i)])]
 >     spaces                               = map (BF.second (zipWith (\dim → fromMaybe (0, dim-1)) dims)) spaces_
@@ -145,12 +151,16 @@ as a zipper to carry out the you-know-what (smashing, stupid!)
 > validCoords coords Smashing{ .. }
 >                                          = and $ zipWith inZRange coords smashDims
 >
-> getLeafCells           :: ∀ i . (Integral i, VU.Unbox i) ⇒ [i] → Smashing i → VU.Vector (i, i)
+> getLeafCells           :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → VU.Vector (i, i)
 > getLeafCells coords Smashing{ .. }
->                                          = VU.slice cellix leafDim smashVec
+>   | traceNot trace_GLC False             = undefined
+>   | otherwise                            = VU.slice cellix leafDim smashVec
 >   where
+>     fName                                = "getLeafCells"
+>     trace_GLC                            = unwords [fName, show coords, show leafDim, show cellix]
+>
 >     leafDim                              = (fromIntegral . last) smashDims
->     cellix                               = computeCellIndex (init smashDims) (init coords)
+>     cellix                               = computeCellIndex smashDims (init coords ++ [0])
 >
 > lookupCell             :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → (i, i)
 > lookupCell coords smashup@Smashing{ .. }

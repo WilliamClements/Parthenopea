@@ -53,6 +53,13 @@ b...If both False, easy, just don't do either
 c...If cross True, absorption False, cross pairing only accomplished explicitly (honoring well-formed crossings)
 d...If cross False, absorption True, cross pairing only accomplished implicitly (no longer crossing after absorption)
 
+Current solution:
+1. Make smashups for all Instruments. Remember, lazy! 
+2. Use the smashups to drive reorg/absorption.
+3. Throw away smashups.
+4. Do pairing based on reorg'd Instruments.
+5. Make all-new smashups based on reorg.
+
 > data FileWork                            =
 >   FileWork {
 >     fwDirectives       :: Directives
@@ -177,7 +184,7 @@ Boot executive function ========================================================
 >     bootFolder (vFiles, Survey _ cacheIn matchesIn rdIn) sffile
 >                                          =
 >       let
->         Survey{ .. }                     
+>         survey@Survey{ .. }                     
 >                                          = reduceFileIterate ingestFile
 >
 >         ingestFile                       = head
@@ -192,11 +199,9 @@ Boot executive function ========================================================
 >
 >         vFiles'                          = vFiles `VB.snoc` sffile{zPreZones = sPreZones}
 >         survey'                          =
->           Survey
->             sPreZones
->             (Map.union cacheIn sPerInstruments)
->             (combineMatches matchesIn sMatches)
->             (combinerd rdIn sDispositions)
+>           survey{sPerInstruments = Map.union cacheIn sPerInstruments
+>                , sMatches = combineMatches matchesIn sMatches
+>                , sDispositions = combinerd rdIn sDispositions}
 >       in
 >         (vFiles', survey')
 
@@ -664,7 +669,7 @@ convenience functions ==========================================================
 >         make actions bag                 = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton bag) actions
 >                                              where pz = dereference bag
 >
->     dereference        :: Int → PreZone
+>     dereference        :: Int → PreZone                 {- BagIndex → pz                -}
 >     dereference bag                      = pz
 >       where
 >         fName                            = "dereference"
@@ -880,7 +885,7 @@ smash task =====================================================================
 >       let
 >         tag                              = show (instKey zrec).pgkwInst
 >         miset                            = fromIntegral zrec.zswInst `IntMap.lookup` summary
->         smashVar                         =
+>         smashVar                         = notracer "smashVar" $
 >           case miset of
 >             Nothing                      → Nothing
 >             Just iset                    → Just (computeInstSmashup

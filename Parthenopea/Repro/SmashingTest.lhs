@@ -11,6 +11,7 @@ October 11, 2024
 > module Parthenopea.Repro.SmashingTest ( smashingTests ) where
 >
 > import Data.List ( singleton )
+> import qualified Data.Vector.Unboxed     as VU
 > import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Repro.Smashing
   
@@ -31,7 +32,8 @@ Includes a four-dimensional example.
 >                                          ,  canCountMultiples
 >                                          ,  workOutNearbyVerticalUncovered
 >                                          ,  workOutNearbyHorizontalUncovered
->                                          ,  leftAndRightAddUpToUnity]
+>                                          ,  leftAndRightAddUpToUnity
+>                                          ,  canAccessLeafCells]
 >
 > filln                  :: Int → Maybe (Int, Int)
 > filln n                                  = Just (0, n - 1)
@@ -42,7 +44,7 @@ Includes a four-dimensional example.
 >                        :: IO Bool
 > canCountPartialCover, canCountMultiples, workOutNearbyVerticalUncovered, workOutNearbyHorizontalUncovered
 >                        :: IO Bool
-> leftAndRightAddUpToUnity
+> leftAndRightAddUpToUnity, canAccessLeafCells
 >                        :: IO Bool
 >
 > canClaimEntireSpaceWithImpunity          = do
@@ -159,5 +161,20 @@ Includes a four-dimensional example.
 >   let spots                              = spot1 && spot2
 >
 >   return $ checks && spots
+>
+> canAccessLeafCells                       = do
+>   let dims                               = [2, 4, 7]
+>
+>   let space                              = singleton (101, [Just (0, 0), Nothing, Nothing])
+>   let smashup          :: Smashing Int   = smashSubspaces "smashup1" dims space
+>
+>   let vec1                               = getLeafCells [0, 0, 0] smashup
+>   let vec2                               = getLeafCells [1, 2, 0] smashup
+>
+>   return (aEqual (VU.toList vec1) result1 && aEqual (VU.toList vec2) result2)
+>   where
+>     result1, result2   :: [(Int, Int)]
+>     result1                              = [(101,1),(101,1),(101,1),(101,1),(101,1),(101,1),(101,1)]
+>     result2                              = [(0,0),(0,0),(0,0),(0,0),(0,0),(0,0),(0,0)]
 
 The End
