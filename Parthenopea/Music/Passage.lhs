@@ -137,8 +137,7 @@ _Overall_                =
 >     final              :: Music1 → MekNote → Music1 
 >     final music mek                      =
 >       music :+: case mek.mPrimitive of
->                   Note durI pitchI       →
->                     note durI (pitchI, Dynamics fName_ : (makeNas . deJust fName) mek.mParams)
+>                   Note durI pitchI       → mangleNote durI pitchI
 >                   Rest durI              → rest durI
 >       where
 >         fName                            = "final"
@@ -152,6 +151,8 @@ _Overall_                =
 >         
 >         average        :: VB.Vector Double → Velocity
 >         average directive                = round $ VB.sum directive / (fromIntegral . VB.length) directive
+>
+>         mangleNote dM pM                 = note dM (pM, Dynamics fName_ : (makeNas . deJust fName) mek.mParams)
 >
 >     -- evolve enriched note/rest (MekNote) list
 >     rawMeks, withEvents, withOveralls, seeded, enriched

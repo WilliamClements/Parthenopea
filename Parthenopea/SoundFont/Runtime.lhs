@@ -156,7 +156,15 @@ define signal functions and instrument maps to support rendering ===============
 >             Nothing    → error $ unwords ["Percussion does not have", show kind, "in the supplied pmap."]
 >             Just x     → x
 >         kind           :: PercussionSound
->         kind                             = toEnum (pch - 35)
+>         kind                             =
+>           let
+>             percNum                      = pch - 35
+>             spread                       = fromEnum OpenTriangle - fromEnum AcousticBassDrum + 1
+>           in
+>             profess
+>               (inZRange percNum spread)
+>               (unwords ["assignPercussion illegal pch", show pch])
+>               (toEnum percNum)
 >
 > instrumentSF           :: ∀ p . Clock p ⇒
 >                           SFRuntime
@@ -169,16 +177,18 @@ define signal functions and instrument maps to support rendering ===============
 > instrumentSF runt pergm durI pchIn volIn ps_
 >   | traceIf trace_ISF False              = undefined
 >   | otherwise                            =
->   eutSynthesize switches (reconX, mreconX) noonOut reconX.rSampleRate durI sffile 
+>   eutSynthesize synthSwitches (reconX, mreconX) noonOut reconX.rSampleRate durI sffile 
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
 >       unwords [fName_, show (pergm.pgkwFile, pergm.pgkwInst)
 >                      , show perI.piChanges.cnName, show (pchIn, volIn), show durI, show ps]
 >
+>     Directives{ .. }
+>                                          = runt.zDirectives
+>
 >     sffile                               = runt.zRuntimeFiles IntMap.! pergm.pgkwFile
 >     perI                                 = sffile.zPerInstrument IntMap.! fromIntegral pergm.pgkwInst
->     switches                             = runt.zDirectives.synthSwitches
 >
 >     ps                                   = VU.fromList ps_
 >     noonIn                               = carefulNoteOn volIn pchIn
@@ -207,10 +217,8 @@ zone selection for rendering ===================================================
 >     eyeOnTheFly noonFly
 >       | traceIf trace_DFE False          = undefined
 >       | null smashSpaces                 = error $ unwords [fName, "smashup", show smashup, "has no subspaces"]
->       | lvu /= 2                         = error $ unwords [fName, show lvu
->                                                                  , "is not 2, so wrong number of leaf cells"]
 >       | bagIdL < 0 || cntL <= 0 || bagIdR < 0 || cntR <= 0
->                                          = error $ unwords [fName, "cell is nonsense"
+>                                          = error $ unwords [fName, show noonFly, "cell contains nonsense"
 >                                                                  , show ((bagIdL, cntL), (bagIdR, cntR))
 >                                                                  , show smashup.smashStats]
 >       | isNothing foundL || isNothing foundR
@@ -226,12 +234,22 @@ zone selection for rendering ===================================================
 >
 >         smashup@Smashing{ .. }
 >                                          = perI.pSmashing
+>         (index1, index2)                 = noonAsCoords noonFly
 >
->         (index1, _)                      = noonAsCoords noonFly
->         vu                               = getLeafCells index1 smashup
->         lvu                              = VU.length vu
->         (bagIdL, cntL)                   = vu VU.! 0
->         (bagIdR, cntR)                   = vu VU.! 1
+>         ((bagIdL, cntL), (bagIdR, cntR)) = if hackWildJumps
+>                                              then useTwoLookupCells
+>                                              else useOneGetLeafCells
+>           where
+>             useTwoLookupCells            = (lookupCell index1 smashup, lookupCell index2 smashup)
+>             useOneGetLeafCells           =
+>               let
+>                 vu                       = getLeafCells index1 smashup
+>                 lvu                      = VU.length vu
+>               in
+>                 profess
+>                   (lvu == 2)
+>                   (error $ unwords [fName, "Leaf dimension", show lvu, "not two!?!"])
+>                   (vu VU.! 0, vu VU.! 1)
 >         foundL                           = fromIntegral bagIdL `IntMap.lookup` sffile.zPreZone
 >         foundR                           = fromIntegral bagIdR `IntMap.lookup` sffile.zPreZone
 

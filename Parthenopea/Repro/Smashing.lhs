@@ -32,8 +32,8 @@ cache and custom-index it by the three coordinates.
 
 The winning Zone(s) drive the note synthesis. 
 
-This source file implements a generalization of that setup. See computeInstSmashup. We must know all the "subspaces"
-(range specifications) up front which we "smash" together to populate the flat vector.
+This source file implements a generalization of above definition. See computeInstSmashup. We must know all the
+"subspaces" (range specifications) up front which we "smash" together to populate the flat vector.
           
 > data Smashing i                          =
 >   Smashing {
@@ -96,10 +96,10 @@ You see there is some overlap between Zone 1 and Zone 2.
 >       let
 >         enumAssocs     :: [(Int, (i, i))]
 >         enumAssocs                       =
->             profess
->               (0 <= mag && mag <= 32_768 && all (uncurry validRange) (zip dims rngs))
->               (unwords [fName, "range violation", tag, show mag, show dims, show spaces])
->               (map (, (spaceId, 1)) is)
+>           profess
+>             (0 <= mag && mag <= 32_768 && all (uncurry validRange) (zip dims rngs))
+>             (unwords [fName, "range violation", tag, show mag, show dims, show spaces])
+>             (map (, (spaceId, 1)) is)
 >           where
 >             fName                        = "enumAssocs"
 >
@@ -150,10 +150,13 @@ as a zipper to carry out the you-know-what (smashing, stupid!)
 > validCoords            :: ∀ i . (Integral i, Ix i, VU.Unbox i) ⇒ [i] → Smashing i → Bool
 > validCoords coords Smashing{ .. }
 >                                          = and $ zipWith inZRange coords smashDims
->
-> getLeafCells           :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → VU.Vector (i, i)
-> getLeafCells coords Smashing{ .. }
+
+Navigation ============================================================================================================
+
+> getLeafCells           :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → VU.Vector (i, i)
+> getLeafCells coords smashup@Smashing{ .. }
 >   | traceNot trace_GLC False             = undefined
+>   | not (validCoords coords smashup)     = error $ unwords [fName, "invalid coords"]
 >   | otherwise                            = VU.slice cellix leafDim smashVec
 >   where
 >     fName                                = "getLeafCells"

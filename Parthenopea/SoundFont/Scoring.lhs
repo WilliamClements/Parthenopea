@@ -237,7 +237,7 @@ tournament starts here =========================================================
 >         fName_                           = unwords [fName__, "wiFolder"]
 >
 >         sffile                           = vFiles VB.! pergmI_.pgkwFile
->         -- WOX  pzs                              = loadPreZones sffile 
+>
 >         decideInst     :: Map InstrumentName [PerGMScored]
 >         decideInst                       = proposeXAs iMatches wI pergmI_
 >           where
@@ -535,7 +535,7 @@ Utilities ======================================================================
 >       Contrabass                → Just $ singleton "contrabass"
 >       TremoloStrings            → Just            ["tremolo", "string"]
 >       PizzicatoStrings          → Just            ["string", "pizzicato"]
->       OrchestralHarp            → Just            ["harp", "harp", "orchest", "concert"]
+>       OrchestralHarp            → Just            ["harp", "harp", "orch", "concert"]
 >       Timpani                   → Just            ["timpani", "timp"]
 >       StringEnsemble1           → Just            ["ensemble", "string", "1"]
 >       StringEnsemble2           → Just            ["ensemble", "string", "2"]
@@ -544,7 +544,7 @@ Utilities ======================================================================
 >       ChoirAahs                 → Just            ["choir", "aahs", "chorus"]
 >       VoiceOohs                 → Just            ["voice", "oohs", "chorus"]
 >       SynthVoice                → Just            ["voice", "synth"]
->       OrchestraHit              → Just            ["orchest", "hit"]
+>       OrchestraHit              → Just            ["orch", "hit"]
 >       Trumpet                   → Just            ["trumpet", "trump"]
 >       Trombone                  → Just $ singleton "trom"
 >       Tuba                      → Just $ singleton "tuba"
@@ -623,8 +623,9 @@ Utilities ======================================================================
 > percussionConFFKeys p = embed p keys
 >   where
 >     keys = case p of
->       AcousticSnare             → Just            ["elec"]
 >       AcousticBassDrum          → Just            ["elec"]
+>       AcousticSnare             → Just            ["elec"]
+>       BassDrum1                 → Just            ["orch", "concert"]
 >       _                         → Nothing
 >
 > percussionProFFKeys    :: PercussionSound → Maybe (PercussionSound, [String])

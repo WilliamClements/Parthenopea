@@ -758,6 +758,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >   , switchBadStereoZonesToMono
 >                        :: Bool
 >   , multipleCompetes   :: Bool
+>   , hackWildJumps      :: Bool
 >   , proConRatio        :: Rational
 >   , absorbThreshold    :: Rational
 >   , synthSwitches      :: SynthSwitches
@@ -780,6 +781,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >         True
 >         False
 >         False
+>         True
 >         True
 >         (3/4)
 >         (4/5)
