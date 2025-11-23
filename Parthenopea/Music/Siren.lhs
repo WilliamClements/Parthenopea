@@ -449,9 +449,9 @@ instrument range checking ======================================================
 > intersectRanges        :: (Ord b, Show b) ⇒ [(b, b)] → Maybe (b, b)
 > intersectRanges (r:rs)                   =
 >   case uncurry compare inverted of
->     LT → Just inverted
->     EQ → Just inverted
->     GT  → Nothing
+>     LT                                   → Just inverted
+>     EQ                                   → Just inverted
+>     GT                                   → Nothing
 >   where
 >     inverted                             = ( maximum (map fst (r:rs))
 >                                            , minimum (map snd (r:rs)) )
@@ -461,7 +461,8 @@ instrument range checking ======================================================
 >   BandPart {
 >     bpInstrument       :: InstrumentName
 >   , bpTranspose        :: AbsPitch
->   , bpHomeVelocity     :: Velocity} deriving Show
+>   , bpHomeVelocity     :: Velocity}
+>   deriving Show
 > bandPartContext        :: BandPart → MContext
 > bandPartContext bp = MContext {mcTime = 0, mcInst = bp.bpInstrument, mcDur = metro 240 qn, mcVol=bp.bpHomeVelocity}
 > relativeRange          :: BandPart → (Pitch, Pitch)

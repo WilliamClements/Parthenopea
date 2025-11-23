@@ -169,10 +169,10 @@ implementing SoundFont spec ====================================================
 > data PerInstrument                       =
 >   PerInstrument {
 >     piChanges          :: ChangeName F.Inst
->   , pZoneBags          :: IntSet
+>   , pBixen             :: IntSet
 >   , pSmashing          :: Smashing Word}
 > instance Show PerInstrument where
->   show perI                              = unwords ["PerInstrument", show perI.pZoneBags]
+>   show perI                              = unwords ["PerInstrument", show perI.pBixen]
 >
 > data SFZone =
 >   SFZone {
@@ -263,9 +263,9 @@ implementing SoundFont spec ====================================================
 >   , zSquirrelSample    :: SampleArrays}
 >
 > accessPreZone          :: String → IntMap PreZone → Int → PreZone
-> accessPreZone tag pzs bag             =
->   case bag `IntMap.lookup` pzs of
->     Nothing            → error $ unwords ["accessPreZone", tag, "bad bag", show bag]
+> accessPreZone tag pzs bix             =
+>   case bix `IntMap.lookup` pzs of
+>     Nothing            → error $ unwords ["accessPreZone", tag, "bad bix", show bix]
 >     Just pz            → pz
 > accessPreZones         :: String → IntMap PreZone → IntSet → IntMap PreZone
 > accessPreZones tag pzs                   = IntMap.fromSet (accessPreZone tag pzs)

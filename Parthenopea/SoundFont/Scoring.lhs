@@ -246,7 +246,7 @@ tournament starts here =========================================================
 >         decidePerc     :: Map PercussionSound [PerGMScored]
 >         decidePerc                       = foldl' pFolder wP pergmsP
 >           where
->             bixen                        = perI.pZoneBags
+>             bixen                        = perI.pBixen
 >
 >             pergmsP                      = instrumentPercList pergmI_ bixen
 >
@@ -308,7 +308,7 @@ tournament starts here =========================================================
 >       where
 >         fName                            = unwords [fName__, "xaEnterTournament"]
 >         trace_XAET                       =
->           unwords [fName, iName, show pergm, show kind, show $ IntSet.size perI.pZoneBags]
+>           unwords [fName, iName, show pergm, show kind, show $ IntSet.size perI.pBixen]
 >
 >         sffile                           = vFiles VB.! pergm.pgkwFile
 >         pergm_                           = pergm{pgkwBag = Nothing}
@@ -319,9 +319,9 @@ tournament starts here =========================================================
 >         scope                            =
 >           let
 >             oneZone    :: Int → IntMap PreZone
->             oneZone bag                  = IntMap.singleton bag (accessPreZone "oneZone" sffile.zPreZones bag)
+>             oneZone bix                  = IntMap.singleton bix (accessPreZone "oneZone" sffile.zPreZones bix)
 >           in
->             maybe (accessPreZones "scope" sffile.zPreZones perI.pZoneBags) (oneZone . fromIntegral) pergm.pgkwBag
+>             maybe (accessPreZones "scope" sffile.zPreZones perI.pBixen) (oneZone . fromIntegral) pergm.pgkwBag
 >
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
 >                                            >>= (Just . accessPreZone "mnameZ" sffile.zPreZones . fromIntegral)
@@ -378,8 +378,8 @@ tournament starts here =========================================================
 >         akResult                         = fromMaybe 0 (Map.lookup kind (getFuzzMap ffm))
 >
 >     instrumentPercList :: PerGMKey → IntSet → [PerGMKey]
->     instrumentPercList pergmI bags       = map cv (IntSet.toList bags)
->                                              where cv bag = pergmI {pgkwBag = Just $ fromIntegral bag}
+>     instrumentPercList pergmI bixen      = map cv (IntSet.toList bixen)
+>                                              where cv bix = pergmI {pgkwBag = Just $ fromIntegral bix}
 
 Utilities =============================================================================================================
 

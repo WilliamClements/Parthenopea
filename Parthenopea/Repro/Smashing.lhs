@@ -63,7 +63,7 @@ This source file implements a generalization of above definition. See computeIns
 >       | otherwise                        = stats{countMultiples = stats.countMultiples + 1}
 
 Each space (of nspaces) contains exactly ndims (3 in the Midi case) ranges. If dim is the value of a dimension then
-the associated range is implicitly 0..dim-1 -- the specifications each carve out a subset thereof.
+the associated range is implicitly 0..dim-1
 
 Say you have ndims=2 dimensions each of 64 extent. (Partially) covering overall 64x64 space are nspaces=3 "zones". 
 

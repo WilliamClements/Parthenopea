@@ -109,9 +109,9 @@ cache SoundFont data that is only needed for Runtime ===========================
 >                   where
 >                     pz'                  = pz{pzRecon = Just $ resolvePreZone dives pz}            
 >                 fun                      = wrapUp . accessPreZone "wrapUp" sffile.zPreZones
->                 bags                     = (newpi IntMap.! inst).pZoneBags
+>                 bixen                    = (newpi IntMap.! inst).pBixen
 >               in
->                 m `IntMap.union` IntMap.fromList (map fun (IntSet.toList bags))
+>                 m `IntMap.union` IntMap.fromList (map fun (IntSet.toList bixen))
 >
 >             preZone                      = IntSet.foldl' savePreZones IntMap.empty insts
 >           in
@@ -222,10 +222,10 @@ zone selection for rendering ===================================================
 >                                                                  , show ((bagIdL, cntL), (bagIdR, cntR))
 >                                                                  , show smashup.smashStats]
 >       | isNothing foundL || isNothing foundR
->                                          = error $ unwords [fName, "bags"
+>                                          = error $ unwords [fName, "bagIdL, bagIdR"
 >                                                                  , show (bagIdL, bagIdR)
 >                                                                  , "not both present in"
->                                                                  , show perI.pZoneBags] 
+>                                                                  , show perI.pBixen] 
 >       | foundL == foundR                 = (Left . fromJust) foundL
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where
