@@ -544,18 +544,17 @@ process initial capture results ================================================
 >         capty                           = foldl' rFolder defCapture{uDispo = rdCap} results
 >           where
 >             rFolder        :: Capture → (Word, Either PreZone (PreZoneKey, [Scan])) → Capture
->             rFolder captFold (bagIndex, eor)
+>             rFolder captFold (bix, eor)
 >                                          =
 >               let
 >                 doNormal pz              =
->                   captFold{uPzs = IntMap.insert
->                                     (wordB pz)
->                                     pz{pzSFZone = buildZone sffile captFold.uSFZone (Just pz) bagIndex}
->                                     captFold.uPzs}
+>                   captFold{uPzs = IntMap.insert (wordB pz) pz{pzSFZone = bz} captFold.uPzs}
+>                   where bz = buildZone sffile captFold.uSFZone (Just pz) bix
 >                 doError (k, ssZone)      =
 >                   if hasImpact GlobalZone ssZone
->                     then captFold{uSFZone = buildZone sffile defZone Nothing bagIndex}
+>                     then captFold{uSFZone = bz}
 >                     else captFold{uDispo = dispose k ssZone captFold.uDispo}
+>                   where bz = buildZone sffile defZone Nothing bix
 >               in
 >                 either doNormal doError eor
 >
@@ -565,13 +564,13 @@ process initial capture results ================================================
 >         rangeClue pz                     = show (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange)
 >
 > buildZone              :: SFFileBoot → SFZone → Maybe PreZone → Word → SFZone
-> buildZone sffile fromZone mpz bagIndex
+> buildZone sffile fromZone mpz bix
 >   | traceIf trace_BZ False               = undefined
 >   | otherwise                            = foldr addMod (foldl' addGen fromZone gens) mods
 >   where
 >     fName                                = "buildZone"
 >     trace_BZ                             =
->       unwords [fName, show (sffile.zWordFBoot, bagIndex), zName, show (fromZone == defZone)]
+>       unwords [fName, show (sffile.zWordFBoot, bix), zName, show (fromZone == defZone)]
 >
 >     zName                                =
 >       case mpz of
@@ -579,10 +578,10 @@ process initial capture results ================================================
 >         Just pz                          → show (effPZShdr pz).sampleName
 >     boota                                = sffile.zFileArrays
 >
->     xgeni                                = F.genNdx $ boota.ssIBags!bagIndex
->     ygeni                                = F.genNdx $ boota.ssIBags!(bagIndex + 1)
->     xmodi                                = F.modNdx $ boota.ssIBags!bagIndex
->     ymodi                                = F.modNdx $ boota.ssIBags!(bagIndex + 1)
+>     xgeni                                = F.genNdx $ boota.ssIBags!bix
+>     ygeni                                = F.genNdx $ boota.ssIBags!(bix + 1)
+>     xmodi                                = F.modNdx $ boota.ssIBags!bix
+>     ymodi                                = F.modNdx $ boota.ssIBags!(bix + 1)
 >
 >     gens               :: [F.Generator]
 >     gens                                 =
@@ -782,7 +781,7 @@ main flow ======================================================================
 >         pin pegBoard m iSlot bL          =
 >           let
 >             bR                           = Map.lookup iSlot pegBoard
->             zipped                       = zip (IntSet.toList bL) (IntSet.toList (fromMaybe IntSet.empty bR))
+>             zipped                       = zip (IntSet.toList bL) (maybe [] IntSet.toList bR)
 >             newPairs
 >               | null zipped              = []
 >               | not allowParallel && not allowCross && length zipped == 1
@@ -826,10 +825,7 @@ vet task =======================================================================
 >     Pairing{ .. }                      
 >                                          = fWork.fwPairing
 >     vet                                  =
->       zrecCompute
->         fWork
->         vetFolder
->         (Vet fWork.fwPreZones fWork.fwDispositions)
+>       zrecCompute fWork vetFolder (Vet fWork.fwPreZones fWork.fwDispositions)
 >       where
 >         vetFolder vetFold zrec           =
 >           let
@@ -943,7 +939,7 @@ To build the map
 
  5. implement a suitability calculation 
 
-> reorgTaskIf _ _ fWork                    = zrecTask reorger fWork
+> reorgTaskIf _ _ fWork                    = (zrecTask reorger fWork){fwOwners = IntMap.empty}
 >   where
 >     Directives{ .. }  
 >                                          = fWork.fwDirectives

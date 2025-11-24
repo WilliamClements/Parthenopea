@@ -217,26 +217,26 @@ zone selection for rendering ===================================================
 >     eyeOnTheFly noonFly
 >       | traceIf trace_DFE False          = undefined
 >       | null smashSpaces                 = error $ unwords [fName, "smashup", show smashup, "has no subspaces"]
->       | bagIdL < 0 || cntL <= 0 || bagIdR < 0 || cntR <= 0
+>       | spL < 0 || cntL <= 0 || spR < 0 || cntR <= 0
 >                                          = error $ unwords [fName, show noonFly, "cell contains nonsense"
->                                                                  , show ((bagIdL, cntL), (bagIdR, cntR))
->                                                                  , show smashup.smashStats]
+>                                                                  , show ((spL, cntL), (spR, cntR))
+>                                                                  , show smashStats]
 >       | isNothing foundL || isNothing foundR
->                                          = error $ unwords [fName, "bagIdL, bagIdR"
->                                                                  , show (bagIdL, bagIdR)
+>                                          = error $ unwords [fName, "spL, spR"
+>                                                                  , show (spL, spR)
 >                                                                  , "not both present in"
 >                                                                  , show perI.pBixen] 
 >       | foundL == foundR                 = (Left . fromJust) foundL
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where
 >         fName                            = unwords [fName_, "eyeOnTheFly"]
->         trace_DFE                        = unwords [fName, show (bagIdL, bagIdR), smashTag]
+>         trace_DFE                        = unwords [fName, show (spL, spR), smashTag]
 >
 >         smashup@Smashing{ .. }
 >                                          = perI.pSmashing
 >         (index1, index2)                 = noonAsCoords noonFly
 >
->         ((bagIdL, cntL), (bagIdR, cntR)) = if hackWildJumps
+>         ((spL, cntL), (spR, cntR))       = if hackWildJumps
 >                                              then useTwoLookupCells
 >                                              else useOneGetLeafCells
 >           where
@@ -250,8 +250,8 @@ zone selection for rendering ===================================================
 >                   (lvu == 2)
 >                   (error $ unwords [fName, "Leaf dimension", show lvu, "not two!?!"])
 >                   (vu VU.! 0, vu VU.! 1)
->         foundL                           = fromIntegral bagIdL `IntMap.lookup` sffile.zPreZone
->         foundR                           = fromIntegral bagIdR `IntMap.lookup` sffile.zPreZone
+>         foundL                           = fromIntegral spL `IntMap.lookup` sffile.zPreZone
+>         foundR                           = fromIntegral spR `IntMap.lookup` sffile.zPreZone
 
 reconcile zone and sample header ======================================================================================
 
