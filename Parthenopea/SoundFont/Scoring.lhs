@@ -246,9 +246,7 @@ tournament starts here =========================================================
 >         decidePerc     :: Map PercussionSound [PerGMScored]
 >         decidePerc                       = foldl' pFolder wP pergmsP
 >           where
->             bixen                        = perI.pBixen
->
->             pergmsP                      = instrumentPercList pergmI_ bixen
+>             pergmsP                      = instrumentPercList pergmI_ perI.pBixen
 >
 >             pFolder wpFold pergmP
 >               | traceNot trace_PF False  = undefined
@@ -308,17 +306,15 @@ tournament starts here =========================================================
 >       where
 >         fName                            = unwords [fName__, "xaEnterTournament"]
 >         trace_XAET                       =
->           unwords [fName, iName, show pergm, show kind, show $ IntSet.size perI.pBixen]
+>           unwords [fName, iName, show pergm, show kind, show perI.pBixen]
 >
 >         sffile                           = vFiles VB.! pergm.pgkwFile
 >         pergm_                           = pergm{pgkwBag = Nothing}
 >         perI                             = cache Map.! pergm_
 >         iName                            = perI.piChanges.cnName
 >
->         scope          :: IntMap PreZone
 >         scope                            =
 >           let
->             oneZone    :: Int → IntMap PreZone
 >             oneZone bix                  = IntMap.singleton bix (accessPreZone "oneZone" sffile.zPreZones bix)
 >           in
 >             maybe (accessPreZones "scope" sffile.zPreZones perI.pBixen) (oneZone . fromIntegral) pergm.pgkwBag

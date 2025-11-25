@@ -95,6 +95,8 @@ cache SoundFont data that is only needed for Runtime ===========================
 >     supply             :: SFFileBoot → Maybe (Int, SFFileRuntime)
 >     supply sffile                        = probe >>= savePerInstruments
 >       where
+>         fName                            = "supply"
+>
 >         probe                            = sffile.zWordFBoot `IntMap.lookup` actions
 >         savePerInstruments insts         = 
 >           let
@@ -103,15 +105,15 @@ cache SoundFont data that is only needed for Runtime ===========================
 >
 >             newpi                        = IntMap.fromSet getPerI insts
 >
+>             savePreZones
+>                        :: IntMap PreZone → Int → IntMap PreZone
 >             savePreZones m inst          =
 >               let
->                 wrapUp pz                = (wordB pz', pz')
->                   where
->                     pz'                  = pz{pzRecon = Just $ resolvePreZone dives pz}            
->                 fun                      = wrapUp . accessPreZone "wrapUp" sffile.zPreZones
+>                 wrapUp pz                = pz{pzRecon = Just $ resolvePreZone dives pz}
+>                 save                     = wrapUp . accessPreZone fName sffile.zPreZones
 >                 bixen                    = (newpi IntMap.! inst).pBixen
 >               in
->                 m `IntMap.union` IntMap.fromList (map fun (IntSet.toList bixen))
+>                 m `IntMap.union` IntMap.fromSet save bixen
 >
 >             preZone                      = IntSet.foldl' savePreZones IntMap.empty insts
 >           in
