@@ -58,8 +58,8 @@ check all the incoming music for instrument range violations ===================
 >         Song "rollup" (const (foldr ((:+:) . uncap . songMusic) (rest 0) songs)) ding
 >   let esAll                              = concatMap doSong songs
 >   let esPrefix                           =
->         [ToFieldL "GMKind" 20
->        , ToFieldL "(range)" 22
+>         [ToFieldL "GMKind" 22
+>        , ToFieldL "(working range)" 22
 >        , ToFieldR "lowest" 8, Blanks 3
 >        , ToFieldL "*status" 8
 >        , ToFieldR "highest" 8, Blanks 3
@@ -108,7 +108,7 @@ check all the incoming music for instrument range violations ===================
 >         doPercussion kind                =
 >           [emitShowL kind 22
 >          , emitShowL (fromEnum kind + 35) 22
->          , Blanks 46
+>          , Blanks 38
 >          , emitShowL shred.shCount 15, EndOfLine]
 >
 >         mrange                           =

@@ -321,17 +321,6 @@ implementing SoundFont spec ====================================================
 >     pScore             :: Int
 >   , pEmpiricals        :: [Double]} deriving (Show)
 >
-> data PerGMScored                         =
->   PerGMScored {
->     pArtifactGrade     :: ArtifactGrade
->   , pKind              :: GMKind
->   , pAgainstKindResult :: AgainstKindResult
->   , pPerGMKey          :: PerGMKey
->   , szI                :: String
->   , mszP               :: Maybe String} deriving (Show)
-> goodScore              :: PerGMScored → Bool
-> goodScore score                          = score.pAgainstKindResult > 0 && score.pArtifactGrade.pScore > 0
->
 > class GMPlayable a where
 >   toGMKind             :: a → GMKind
 >   select               :: ([InstrumentName], [PercussionSound]) → Bool → [a]

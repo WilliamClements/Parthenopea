@@ -15,16 +15,20 @@ September 12, 2024
 >        ( adhocFuzz
 >        , combineMatches
 >        , computeFFMatches
+>        , decideWinners
 >        , defMatches
 >        , establishWinners
+>        , gradeEmpiricals
 >        , isConfirmed
 >        , isConfirmed'
 >        , isPossible
 >        , isPossible'
 >        , Matches(..)
 >        , myHints
+>        , PerGMScored(..)
 >        , qqHints
 >        , scoreOnsets
+>        , showPerGM
 >        , stands
 >        , stands'
 >        ) where
@@ -51,7 +55,6 @@ September 12, 2024
 > import Parthenopea.Repro.Emission
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
-> import Parthenopea.SoundFont.TournamentReport
 > import qualified Text.FuzzyFind          as FF
   
 notes on three kinds of scoring =======================================================================================
@@ -77,6 +80,24 @@ In order of when they occur in the overall process:
 
 use "matching as" cache ===============================================================================================
 
+> data PerGMScored                         =
+>   PerGMScored {
+>     pArtifactGrade     :: ArtifactGrade
+>   , pKind              :: GMKind
+>   , pAgainstKindResult :: AgainstKindResult
+>   , pPerGMKey          :: PerGMKey
+>   , szI                :: String
+>   , mszP               :: Maybe String} deriving (Show)
+> goodScore              :: PerGMScored → Bool
+> goodScore score                          =
+>   score.pAgainstKindResult > 0 && fromIntegral score.pArtifactGrade.pScore > stands
+> showPerGM              :: PerGMScored → [Emission]
+> showPerGM scored                         =
+>   [emitShowL scored.pPerGMKey.pgkwFile 5] ++ [ToFieldL scored.szI 22] ++ showmZ
+>   where
+>     showmZ                               = maybe [] showZ scored.mszP
+>     showZ name                           = [Unblocked name]
+>
 > computeFFMatches       :: Rational → String → Bool → FFMatches
 > computeFFMatches conRatio inp narrow     = FFMatches 
 >                                              inp
@@ -176,17 +197,12 @@ Scoring stuff ==================================================================
 
 tournament starts here ================================================================================================
 
-> establishWinners       :: Directives
->                           → ([InstrumentName], [PercussionSound]) 
->                           → VB.Vector SFFileBoot
->                           → Map PerGMKey PerInstrument
->                           → Matches
+> establishWinners       :: ([InstrumentName], [PercussionSound])
+>                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >                           → IO ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
 >                                , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
-> establishWinners dives rost vFiles cache matches
+> establishWinners rost (wI_, wP_)
 >                                          = do
->   (wI_, wP_)                             ← decideWinners dives rost vFiles cache matches
->   CM.when (dives.dReportVerbosity.dForTournament > 0) (writeTournamentReport dives vFiles wI_ wP_)
 >   let (wI, wP)                           = (Map.map head wI_, Map.map head wP_)
 >   return (BF.bimap (foldl' (buildUp wI) Map.empty) (foldl' (buildUp wP) Map.empty) rost)
 >   where
@@ -382,8 +398,8 @@ Utilities ======================================================================
 > isPossible, stands, isConfirmed
 >                        :: Double
 > isPossible                               = 50
-> stands                                   = 150
-> isConfirmed                              = 250
+> stands                                   = 100
+> isConfirmed                              = 200
 >
 > isPossible', stands', isConfirmed'
 >                        :: Double → Bool

@@ -21,15 +21,15 @@ October 5, 2025
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.Music
 > import Parthenopea.Repro.Emission
+> import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
 >
 > writeTournamentReport  :: Directives
 >                           → VB.Vector SFFileBoot
->                           → Map InstrumentName [PerGMScored]
->                           → Map PercussionSound [PerGMScored]
+>                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >                           → IO ()
-> writeTournamentReport dives vBootFiles pContI pContP
+> writeTournamentReport dives vBootFiles (pContI, pContP)
 >                        = do
 >   -- output all selections to the report file
 >   let legend           =
@@ -67,13 +67,6 @@ emit standard output text detailing what choices we made for rendering GM items 
 >     extract            :: ∀ a. (Ord a) ⇒ Map a (Bool, Maybe PerGMKey, [Emission]) → a → (Bool, [Emission])
 >     extract choices kind                 = (found, ems)
 >                                              where (found, _, ems) = choices Map.! kind
->
-> showPerGM              :: PerGMScored → [Emission]
-> showPerGM scored                         =
->   [emitShowL scored.pPerGMKey.pgkwFile 5] ++ [ToFieldL scored.szI 22] ++ showmZ
->   where
->     showmZ                               = maybe [] showZ scored.mszP
->     showZ name                           = [Unblocked name]
 >
 > dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ a → [PerGMScored] → [Emission]
 > dumpContestants kind contestants         = prolog ++ ex ++ epilog

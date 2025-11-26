@@ -115,7 +115,9 @@ Implement PCommand =============================================================
 >   let matches                            = survey.sMatches
 >
 >   CM.when (dForScan > 0)                 (writeScanReport dives dForScan vFilesBoot rd)
->   (zI, zP)                               ← establishWinners dives rost vFilesBoot cache matches
+>   (wI, wP)                               ← decideWinners dives rost vFilesBoot cache matches
+>   CM.when (dives.dReportVerbosity.dForTournament > 0) (writeTournamentReport dives vFilesBoot (wI, wP))
+>   (zI, zP)                               ← establishWinners rost (wI, wP)
 >   runt                                   ← prepareRuntime dives rost vFilesBoot cache (zI, zP)
 >   return (runt, (zI, zP))
 >   where
