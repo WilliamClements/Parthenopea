@@ -153,7 +153,7 @@ Implement PCommand =============================================================
 >         tsFinish                         ← getZonedTime
 >         putStr $ reapEmissions $ emitSongTime durS tsStart tsFinish
 >       else
->         putStr $ reapEmissions [Unblocked "skipping..."]
+>         putStr $ reapEmissions skipSong
 >     return ()
 > 
 > convertFromMidi        :: FilePath → IO Song

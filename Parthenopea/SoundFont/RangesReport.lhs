@@ -8,7 +8,7 @@ RangesReport
 William Clements
 October 5, 2025
 
-> module Parthenopea.SoundFont.RangesReport ( emitSongTime, runUnitTests, writeRangesReport ) where
+> module Parthenopea.SoundFont.RangesReport ( emitSongTime, runUnitTests, skipSong, writeRangesReport ) where
 >
 > import qualified Control.Monad           as CM
 > import Data.Array.Unboxed ( inRange )
@@ -136,5 +136,8 @@ check all the incoming music for instrument range violations ===================
 >         (durS /= 0)
 >         (unwords ["bad division:", show delta, "over", show durS])
 >         (delta / durS)
+>
+> skipSong               :: [Emission]
+> skipSong                                 =  [Unblocked "skipping...", EndOfLine, EndOfLine]
 
 The End
