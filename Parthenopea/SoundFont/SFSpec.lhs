@@ -711,7 +711,8 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >
 > data SynthSwitches                       =
 >   SynthSwitches {
->     usePitchCorrection :: Bool
+>     useEnvelopes       :: Bool
+>   , usePitchCorrection :: Bool
 >   , useAttenuation     :: Bool
 >   , useLoopSwitching   :: Bool
 >   , useReverb          :: Bool
@@ -723,6 +724,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > defSynthSwitches       :: SynthSwitches
 > defSynthSwitches                         =
 >   SynthSwitches
+>     True
 >     True
 >     True
 >     True

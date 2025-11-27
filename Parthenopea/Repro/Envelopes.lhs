@@ -31,6 +31,7 @@ Apr 26, 2025
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
   
 volume and modulation envelopes =======================================================================================
@@ -145,14 +146,14 @@ stepwise refinement from specified envelope parameters =========================
 There is design intent hidden in input envelope values that are too large to make sense. Some synthesizer must 
 interpret them somehow.
 
-> feSum, feRemaining     :: FEnvelope → Double
+> feSum, feRemaining, feTarget
+>                        :: FEnvelope → Double
 > feSum fe                                 =
 >   fe.fDelayT + fe.fAttackT + fe.fHoldT + fe.fDecayT + fe.fSustainT + ee.eeReleaseT + ee.eePostT
 >   where
 >     ee                                   = fromJust fe.fExtras
-> feRemaining work                         = targetT - feSum work
->   where
->     targetT                              = (fromJust work.fExtras).eeTargetT
+> feRemaining work                         = feTarget work - feSum work
+> feTarget work                            = (fromJust work.fExtras).eeTargetT
 >
 > data FIterate                            =
 >   FIterate {
@@ -165,12 +166,9 @@ interpret them somehow.
 >   , fcDecay            :: Bool} deriving (Eq, Ord, Show)
 > evaluateCase           :: FEnvelope → FCase
 > evaluateCase fe                          =
->   let
->     targetT                              = (fromJust fe.fExtras).eeTargetT
->   in
 >     FCase
->       ((fe.fDelayT + fe.fAttackT + fe.fHoldT) >= (9/10) * targetT)
->       (fe.fDecayT >= (7/10) * targetT)
+>       ((fe.fDelayT + fe.fAttackT + fe.fHoldT) >= (9/10) * feTarget fe)
+>       (fe.fDecayT >= (7/10) * feTarget fe)
 >
 > refineEnvelope         :: FEnvelope → FEnvelope
 > refineEnvelope fEnvIn                    = result.fiEnvWork
@@ -200,7 +198,7 @@ interpret them somehow.
 >     iterIn
 >   where
 >     theSum                               = feSum iterIn.fiEnvWork
->     targetT                              = (fromJust iterIn.fiEnvWork.fExtras).eeTargetT
+>     targetT                              = feTarget iterIn.fiEnvWork
 >
 > feFinish               :: FIterate → FEnvelope → FIterate
 > feFinish iterIn workee                   =
@@ -276,16 +274,17 @@ interpret them somehow.
 >     work                                 = iterIn.fiEnvWork{fDecayT = minDeltaT}
 >     remaining                            = feRemaining work
 >
-> deriveEnvelope         :: Maybe Int
+> deriveEnvelope         :: SynthSwitches
+>                           → Maybe Int
 >                           → Maybe Int
 >                           → Maybe Int
 >                           → Maybe Int
 >                           → Maybe Int
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe FEnvelope
-> deriveEnvelope mDelay mAttack mHold mDecay mSustain mTriple
+> deriveEnvelope switches mDelay mAttack mHold mDecay mSustain mTriple
 >                                          =
->   if useEnvelopes && doUse mTriple then Just env else Nothing
+>   if switches.useEnvelopes && doUse mTriple then Just env else Nothing
 >   where
 >     env                                  =
 >       FEnvelope
@@ -374,9 +373,6 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >     a                                    = feSum env
 >     b                                    = ee.eeTargetT
 >     c                                    = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
->
-> useEnvelopes           :: Bool
-> useEnvelopes                             = True
 >
 > rateForVetEnvelope     :: Maybe Double
 > rateForVetEnvelope                       = Just ctrRate

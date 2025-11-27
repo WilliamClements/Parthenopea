@@ -268,7 +268,7 @@ reconcile zone and sample header ===============================================
 >     z                                    = pz.pzSFZone
 >     shdr                                 = effPZShdr pz
 >     
->     m8n                                  = resolveModulation z
+>     m8n                                  = resolveModulation dives z
 >
 >     reconL                               =
 >       Recon
@@ -285,7 +285,7 @@ reconcile zone and sample header ===============================================
 >         (fromMaybe 100 z.zScaleTuning)
 >         VB.empty
 >         (reconAttenuation z.zInitAtten)
->         (deriveEnvelope z.zDelayVolEnv z.zAttackVolEnv z.zHoldVolEnv z.zDecayVolEnv z.zSustainVolEnv Nothing)                         
+>         (deriveEnvelope switches z.zDelayVolEnv z.zAttackVolEnv z.zHoldVolEnv z.zDecayVolEnv z.zSustainVolEnv Nothing)                         
 >         (if switches.usePitchCorrection
 >            then Just $ reconPitchCorrection shdr.pitchCorrection z.zCoarseTune z.zFineTune
 >            else Nothing)
@@ -314,8 +314,8 @@ reconcile zone and sample header ===============================================
 >            , zKey           = (Just . fromIntegral) noon.noteOnKey
 >            , zReleaseModEnv = Nothing}
 >
-> resolveModulation      :: SFZone → Modulation
-> resolveModulation z                      = resolveMods m8n z.zModulators defaultMods
+> resolveModulation      :: Directives → SFZone → Modulation
+> resolveModulation dives z                = resolveMods m8n z.zModulators defaultMods
 >   where
 >     m8n                :: Modulation     =
 >       defModulation{
@@ -338,12 +338,13 @@ reconcile zone and sample header ===============================================
 >     resonanceType      :: ResonanceType  = ResonanceSVF
 >     nModEnv            :: Maybe FEnvelope
 >     nModEnv                              =   deriveEnvelope
->                                              z.zDelayModEnv
->                                              z.zAttackModEnv
->                                              z.zHoldModEnv
->                                              z.zDecayModEnv
->                                              z.zSustainModEnv
->                                              (Just (z.zModEnvToPitch, z.zModEnvToFc))
+>                                                dives.synthSwitches
+>                                                z.zDelayModEnv
+>                                                z.zAttackModEnv
+>                                                z.zHoldModEnv
+>                                                z.zDecayModEnv
+>                                                z.zSustainModEnv
+>                                                (Just (z.zModEnvToPitch, z.zModEnvToFc))
 >     nModLfo, nVibLfo   :: Maybe LFO
 >     nModLfo                              =
 >       deriveLFO z.zDelayModLfo z.zFreqModLfo z.zModLfoToPitch z.zModLfoToFc z.zModLfoToVol
