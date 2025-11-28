@@ -17,6 +17,7 @@ January 21, 2025
 > import qualified Codec.SoundFont         as F
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
+> import Data.Either
 > import Data.Foldable
 > import Data.IntMap.Strict (IntMap)
 > import qualified Data.IntMap.Strict as IntMap
@@ -89,6 +90,21 @@ Current solution:
 >    defMatches
 >    defPairing
 >    virginrd
+>
+> spawnCapture          :: FileWork → Capture
+> spawnCapture fWork                       =
+>   Capture
+>     fWork.fwZRecs
+>     fWork.fwPreZones
+>     defZone
+>     fWork.fwDispositions
+>
+> imbibeCapture          :: FileWork → Capture → FileWork
+> imbibeCapture fWork capt                 =
+>   fWork{
+>       fwZRecs = capt.uZRecs
+>     , fwPreZones = capt.uPzs
+>     , fwDispositions = capt.uDispo}
 >
 > makeOwners             :: IntMap PreZone → IntMap IntSet
 > makeOwners                               = IntMap.foldl' build IntMap.empty
@@ -443,17 +459,16 @@ capture task ===================================================================
 
 > data Capture                             =
 >   Capture {
->     uPzs               :: IntMap PreZone
+>     uZRecs             :: IntMap InstZoneRecord
+>  ,  uPzs               :: IntMap PreZone
 >  ,  uSFZone            :: SFZone
 >  ,  uDispo             :: ResultDispositions}
 > instance Show Capture where
 >   show capt                            =
 >     unwords [  "Capture"
 >              , show (IntMap.map pzWordB capt.uPzs)]
-> defCapture             :: Capture
-> defCapture                               = Capture IntMap.empty defZone virginrd
 >
-> captureTaskIf sffile _ fWork             = fWork{ fwPreZones = captx.uPzs, fwDispositions = captx.uDispo}
+> captureTaskIf sffile _ fWork             = imbibeCapture fWork (zrecCompute fWork captureZones (spawnCapture fWork))
 >   where
 >     fName_                               = "captureTaskIf"
 >
@@ -466,24 +481,17 @@ capture task ===================================================================
 >     violated impact clue                 =
 >       [Scan Violated impact fName_ clue]
 >
->     captx                                = zrecCompute fWork compute defCapture{uDispo = fWork.fwDispositions}
->       where
->         compute        :: Capture → InstZoneRecord → Capture
->         compute captFold zrecIn          =
->           let
->             (newPzs, dispo')             = captureZones zrecIn captFold.uDispo
->           in
->             captFold{uPzs = captFold.uPzs `IntMap.union` newPzs, uDispo = dispo'}
->
->     captureZones       :: InstZoneRecord → ResultDispositions → (IntMap PreZone, ResultDispositions)
->     captureZones zrec rdCap              = (capty.uPzs, dispose pergm ssCap capty.uDispo)
+>     captureZones       :: Capture → InstZoneRecord → Capture
+>     captureZones captIn zrec             = capty{uZRecs = zrecs, uDispo = dispose pergm ssCap capty.uDispo}
 >       where
 >         pergm                            = instKey zrec
 >         iName                            = zrec.zswChanges.cnName
+>         wInst                            = fromIntegral zrec.zswInst
 >
->         ssCap                            = if null capty.uPzs
->                                              then violated NoZones noClue
->                                              else modified Captured iName
+>         (zrecs, ssCap)                   =
+>           if any (isLeft . snd) results
+>             then (capty.uZRecs,                                     modified Captured iName)
+>             else (IntMap.update (const Nothing) wInst capty.uZRecs, violated NoZones noClue)
 >
 >         captureZone    :: Word → (Word, Either PreZone (PreZoneKey, [Scan]))
 >         captureZone bix
@@ -536,7 +544,7 @@ capture task ===================================================================
 >                   && enA - stA < 2 ^ (22::Word)
 >                   && (zd.zdSampleMode == Just A.NoLoop || enL - stL < 2 ^ (22::Word))
 
-process initial capture results =======================================================================================
+produce and process capture results ===================================================================================
 
 >         results                          =
 >           let
@@ -546,7 +554,7 @@ process initial capture results ================================================
 >           in
 >             map captureZone (deriveRange ibagi jbagi)
 >
->         capty                           = foldl' rFolder defCapture{uDispo = rdCap} results
+>         capty                           = foldl' rFolder captIn results
 >           where
 >             rFolder        :: Capture → (Word, Either PreZone (PreZoneKey, [Scan])) → Capture
 >             rFolder captFold (bix, eor)  =
