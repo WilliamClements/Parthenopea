@@ -554,7 +554,7 @@ produce and process capture results ============================================
 >           in
 >             map captureZone (deriveRange ibagi jbagi)
 >
->         capty                           = foldl' rFolder captIn results
+>         capty                           = foldl' rFolder captIn{uSFZone = defZone} results
 >           where
 >             rFolder        :: Capture → (Word, Either PreZone (PreZoneKey, [Scan])) → Capture
 >             rFolder captFold (bix, eor)  =

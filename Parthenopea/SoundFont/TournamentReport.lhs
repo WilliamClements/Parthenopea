@@ -33,13 +33,15 @@ October 5, 2025
 >                        = do
 >   -- output all selections to the report file
 >   let legend           =
->            emitComment     [   Blanks 81
+>            emitComment     [   Blanks 66
+>                             , ToFieldL "overall" 15
 >                             , ToFieldL "hints" spacing
 >                             , ToFieldL "stereo" spacing
 >                             , ToFieldL "24-bit" spacing
 >                             , ToFieldL "resoln" spacing
 >                             , ToFieldL "confrm" spacing
->                             , ToFieldL "fuzzy" spacing]
+>                             , ToFieldL "fuzzy" spacing
+>                             , ToFieldR "raw fuzz" 15]
 >         ++ emitNextComment (Blanks 81 : showWeights spacing)
 >         where
 >           spacing                        = 7
@@ -52,7 +54,7 @@ October 5, 2025
 >   where
 >     esFiles                              =
 >       let
->         emitF SFFileBoot{ .. }           = [emitShowL zWordFBoot 7, emitShowL zFilename 54, EndOfLine]
+>         emitF sffile                     = [emitShowL sffile.zWordFBoot 7, emitShowL sffile.zFilename 54, EndOfLine]
 >       in
 >         VB.foldr (++) [] (VB.map emitF vBootFiles)
 
