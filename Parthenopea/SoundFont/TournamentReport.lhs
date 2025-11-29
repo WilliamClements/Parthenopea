@@ -41,7 +41,7 @@ October 5, 2025
 >                             , ToFieldL "resoln" spacing
 >                             , ToFieldL "confrm" spacing
 >                             , ToFieldL "fuzzy" spacing
->                             , ToFieldR "raw fuzz" 15]
+>                             , ToFieldR "raw fuzz" 14]
 >         ++ emitNextComment (Blanks 81 : showWeights spacing)
 >         where
 >           spacing                        = 7

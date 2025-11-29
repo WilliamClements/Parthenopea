@@ -84,7 +84,8 @@ You see there is some overlap between Zone 1 and Zone 2.
 >     svector
 >   where
 >     spaces             :: [(i, [(i, i)])]
->     spaces                               = map (BF.second (zipWith (\dim → fromMaybe (0, dim-1)) dims)) spaces_
+>     spaces                               = map (BF.second (zipWith expand dims)) spaces_
+>                                              where expand dim = fromMaybe (0, dim-1)
 >
 >     mag                :: Int            = fromIntegral $ product dims
 >

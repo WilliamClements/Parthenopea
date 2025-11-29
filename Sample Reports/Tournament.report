@@ -1,41 +1,73 @@
-2025-10-30 15:09:54.5550831 Eastern Daylight Time
+2025-11-29 09:54:06.6342718 Eastern Standard Time
 
 0      "AspartameGM.sf2"                                     
 1      "GXSCC_GM_033.sf2"                                    
+2      "recorder-stereo.sf2"                                 
 
-                                                                                 hints  stereo 24-bit resoln confrm fuzzy  
+                                                                  overall        hints  stereo 24-bit resoln confrm fuzzy        raw fuzz
 
                                                                                  10.0   2.0    0.0    1.5    3.0    3.0    
 
-> AcousticBass                                      
->     0                     FngrBass                              9409           0.0    -1.0   1.0    1.0    1.0    5.4             224.4
->     0                Trumpet/Brass                              1305           0.0    -1.0   1.0    1.1    1.0    0.0              86.1
+> ElectricGuitarJazz                                
+>     0                      Jazz Gt                              7339           0.0    -1.0   1.0    -1.5   1.0    5.3             167.8
 > 
-> SynthBass2                                        
->     0                     FngrBass                              7882           0.0    -1.0   1.0    1.0    1.0    4.4             183.2
-> 
-> Trumpet                                           
->     0                Trumpet/Brass                              12489          0.0    -1.0   1.0    1.1    1.0    7.5             517.3
+> ElectricBassPicked                                
+>     0                     FngrBass                              9622           0.0    -1.0   1.0    1.0    1.0    5.6             183.2
+>     0                Trumpet/Brass                              1305           0.0    -1.0   1.0    1.1    1.0    0.0              19.4
 > 
 > AltoSax                                           
->     0                     Solo Sax                              6178           0.0    -1.0   1.0    -1.5   1.0    4.5             186.7
+>     0                     Solo Sax                              7805           0.0    -1.0   1.0    -1.5   1.0    5.6             186.7
+> 
+> Clarinet                                          
+>     0                     Clarinet                              10370          0.0    -1.0   1.0    -2.1   1.0    7.6             528.2
+> 
+> Recorder                                          
+>     2              Recorder Stereo                              16232          0.0    1.0    1.0    3.2    1.0    7.6             499.7
+>     2            Recorder Mono (R)                              16121          0.0    1.0    1.0    3.2    1.0    7.5             476.9
 > 
 
 0      "AspartameGM.sf2"                                     
 1      "GXSCC_GM_033.sf2"                                    
+2      "recorder-stereo.sf2"                                 
 
-                                                                                 hints  stereo 24-bit resoln confrm fuzzy  
+                                                                  overall        hints  stereo 24-bit resoln confrm fuzzy        raw fuzz
 
                                                                                  10.0   2.0    0.0    1.5    3.0    3.0    
 
-> BassDrum1                                         
->     0                     Drumkit0                035 Kick 2    6765           0.0    -1.0   1.0    1.0    1.0    3.7             179.9
->     0                     Drumkit0         CABASA_S.296S.L08    1250           0.0    -1.0   1.0    1.0    1.0    0.0              79.4
->     0                Trumpet/Brass                 Brass_55E    1250           0.0    -1.0   1.0    1.0    1.0    0.0              91.7
->     0                Trumpet/Brass                 Brass_60E    1250           0.0    -1.0   1.0    1.0    1.0    0.0              91.7
->     0                Trumpet/Brass                 Brass_67E    1250           0.0    -1.0   1.0    1.0    1.0    0.0              91.7
+> AcousticSnare                                     
+>     0                     Drumkit0              mellow snare    9012           0.0    -1.0   1.0    1.0    1.0    5.2             219.4
+>     0                     Drumkit0                    psnare    8646           0.0    -1.0   1.0    1.0    1.0    4.9             195.3
+> 
+> LowTom                                            
+>     0                     Drumkit0              mellow snare    6512           0.0    -1.0   1.0    1.0    1.0    3.5             125.6
+> 
+> CrashCymbal2                                      
+>     0                     Drumkit0                   chcrash    8682           0.0    -1.0   1.0    1.0    1.0    5.0             197.5
+>     1                           02                       020    1250           0.0    -1.0   1.0    1.0    1.0    0.0              20.2
+>     1                           12                       120    1250           0.0    -1.0   1.0    1.0    1.0    0.0              20.2
+>     1                           20                       200    1250           0.0    -1.0   1.0    1.0    1.0    0.0              37.5
+>     1                           21                       210    1250           0.0    -1.0   1.0    1.0    1.0    0.0              37.5
+>     1                           22                       220    1250           0.0    -1.0   1.0    1.0    1.0    0.0              37.5
+>     1                           23                       230    1250           0.0    -1.0   1.0    1.0    1.0    0.0              37.5
+>     1                           24                       240    1250           0.0    -1.0   1.0    1.0    1.0    0.0              37.5
+>     1                           25                       250    1250           0.0    -1.0   1.0    1.0    1.0    0.0              37.5
+>     1                           26                       260    1250           0.0    -1.0   1.0    1.0    1.0    0.0              37.5
+>     1                           27                       270    1250           0.0    -1.0   1.0    1.0    1.0    0.0              37.5
+>     1                           28                       280    1250           0.0    -1.0   1.0    1.0    1.0    0.0              37.5
+>     1                           30                       302    1250           0.0    -1.0   1.0    1.0    1.0    0.0              26.0
+>     0                        Clavi                    CLAVC2    1250           0.0    -1.0   1.0    1.0    1.0    0.0              26.0
+>     0                    Metal Pad                    CLAVC2    1250           0.0    -1.0   1.0    1.0    1.0    0.0              26.0
+>     0                     Drumkit0         GUIRO_SH.032S.L08    1250           0.0    -1.0   1.0    1.0    1.0    0.0              20.2
+>     0                     Drumkit0         CABASA_S.296S.L08    1250           0.0    -1.0   1.0    1.0    1.0    0.0              40.4
+>     0                     Drumkit0         AGOGO_SQ.285S.L08    1250           0.0    -1.0   1.0    1.0    1.0    0.0              40.4
+>     0                     Drumkit0         AGOGO_SQ.285S.L08    1250           0.0    -1.0   1.0    1.0    1.0    0.0              40.4
+>     0                     Drumkit0         CONGA_L_.298S.L08    1250           0.0    -1.0   1.0    1.0    1.0    0.0              40.4
+>     0                     Drumkit0         CONGA_L_.298S.L08    1250           0.0    -1.0   1.0    1.0    1.0    0.0              40.4
+>     0                     Drumkit0          CONGA_M_.299.L08    1250           0.0    -1.0   1.0    1.0    1.0    0.0              43.3
+>     0                     Drumkit0              Dr037_SStk2B    1250           0.0    -1.0   1.0    1.0    1.0    0.0              23.1
+>     0                     Drumkit0                035 Kick 2    1250           0.0    -1.0   1.0    1.0    1.0    0.0              49.1
 > 
 
-Directives {doAbsorption = True, fixBadNames = True, narrowRosterForBoot = True, narrowRosterForRuntime = True, crossInstrumentPairing = True, parallelPairing = True, switchBadStereoZonesToMono = False, multipleCompetes = True, proConRatio = 3 % 4, absorbThreshold = 4 % 5, synthSwitches = SynthSwitches {usePitchCorrection = True, useAttenuation = True, useLoopSwitching = True, useReverb = True, useChorus = True, usePan = True, useDCBlock = True, noStereoNoPan = True, normalizingOutput = True}, dReportVerbosity = ReportVerbosity {dForRanges = 1 % 1, dForScan = 1 % 1, dForTournament = 1 % 1}}
+Directives {doAbsorption = True, fixBadNames = True, narrowRosterForBoot = True, narrowRosterForRuntime = True, crossInstrumentPairing = True, parallelPairing = False, switchBadStereoZonesToMono = False, multipleCompetes = True, hackWildJumps = False, proConRatio = 3 % 4, absorbThreshold = 4 % 5, synthSwitches = SynthSwitches {useEnvelopes = True, usePitchCorrection = True, useAttenuation = True, useLoopSwitching = True, useReverb = True, useChorus = True, usePan = True, useDCBlock = True, noStereoNoPan = True, normalizingOutput = True}, dReportVerbosity = ReportVerbosity {dForRanges = 1 % 1, dForScan = 1 % 1, dForTournament = 1 % 1}}
 
 The End

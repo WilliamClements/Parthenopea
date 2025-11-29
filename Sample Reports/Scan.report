@@ -1,68 +1,70 @@
-2025-10-30 15:09:54.5055798 Eastern Daylight Time
+2025-11-29 09:54:06.5773033 Eastern Standard Time
 
-211             Modified                Adopted                         adopter                                             
-191             Accepted                Ok                              sampleFolder                                        
+307             Modified                Adopted                         adopt                                               
+239             Accepted                Ok                              sampleFolder                                        
 
-62              Accepted                Ok                              surveyTaskIf                                        
-41              Accepted                ToCache                         perIFolder                                          
-41              Modified                Captured                        captureTaskIf                                       
+65              Accepted                Ok                              surveyTaskIf                                        
+44              Modified                Captured                        captureTaskIf                                       
+43              Accepted                ToCache                         perIFolder                                          
 21              Violated                NoZones                         captureTaskIf                                       
+1               Modified                Absorbing                       reorger                                             
+1               Dropped                 Absorbed                        reorger                                             
 
-211             Accepted                ToCache                         perIFolder                                          
+307             Accepted                ToCache                         perIFolder                                          
 25              Violated                BadGMRange                      captureTaskIf                                       
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 0}     AspartameGM.sf2     "Brass_79E"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Trumpet/Brass
+Modified                Adopted                         adopt                                               Trumpet/Brass
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 1}     AspartameGM.sf2     "Brass_55E"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Trumpet/Brass
+Modified                Adopted                         adopt                                               Trumpet/Brass
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 2}     AspartameGM.sf2     "Brass_60E"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Trumpet/Brass
+Modified                Adopted                         adopt                                               Trumpet/Brass
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 3}     AspartameGM.sf2     "Brass_67E"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Trumpet/Brass
+Modified                Adopted                         adopt                                               Trumpet/Brass
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 4}     AspartameGM.sf2     "sax2_a#3"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Solo Sax
-Modified                Adopted                         adopter                                             Bagpipe
+Modified                Adopted                         adopt                                               Bagpipe
+Modified                Adopted                         adopt                                               Solo Sax
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 5}     AspartameGM.sf2     "sax2_c5"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Solo Sax
-Modified                Adopted                         adopter                                             Bagpipe
+Modified                Adopted                         adopt                                               Bagpipe
+Modified                Adopted                         adopt                                               Solo Sax
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 6}     AspartameGM.sf2     "sax2_d#3"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Solo Sax
-Modified                Adopted                         adopter                                             Bagpipe
+Modified                Adopted                         adopt                                               Bagpipe
+Modified                Adopted                         adopt                                               Solo Sax
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 7}     AspartameGM.sf2     "sax2_f4"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Solo Sax
-Modified                Adopted                         adopter                                             Bagpipe
+Modified                Adopted                         adopt                                               Bagpipe
+Modified                Adopted                         adopt                                               Solo Sax
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 8}     AspartameGM.sf2     "sax2_f5"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Solo Sax
-Modified                Adopted                         adopter                                             Bagpipe
+Modified                Adopted                         adopt                                               Bagpipe
+Modified                Adopted                         adopt                                               Solo Sax
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 9}     AspartameGM.sf2     "Clari_56"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Whistle
-Modified                Adopted                         adopter                                             Warm Pad
-Modified                Adopted                         adopter                                             Clarinet
+Modified                Adopted                         adopt                                               Clarinet
+Modified                Adopted                         adopt                                               Warm Pad
+Modified                Adopted                         adopt                                               Whistle
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 10}     AspartameGM.sf2     "Clari_62"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Whistle
-Modified                Adopted                         adopter                                             Warm Pad
-Modified                Adopted                         adopter                                             Clarinet
+Modified                Adopted                         adopt                                               Clarinet
+Modified                Adopted                         adopt                                               Warm Pad
+Modified                Adopted                         adopt                                               Whistle
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 11}     AspartameGM.sf2     "BIRD_60"
 Accepted                Ok                              sampleFolder                                        mono
@@ -90,148 +92,148 @@ Accepted                Ok                              sampleFolder            
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 19}     AspartameGM.sf2     "035 Kick 2"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 20}     AspartameGM.sf2     "Dr037_SStk2B"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 21}     AspartameGM.sf2     "psnare"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 22}     AspartameGM.sf2     "clap"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 23}     AspartameGM.sf2     "mellow snare"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 24}     AspartameGM.sf2     "DR_TMS_01_T_060_C_3_"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 25}     AspartameGM.sf2     "Dr042_HHClsd1B"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 26}     AspartameGM.sf2     "Dr042_HHClsd2B"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 27}     AspartameGM.sf2     "DR_CCR_NA_T_069_A_3_"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 28}     AspartameGM.sf2     "RIDE_310.DB8x.L08"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 29}     AspartameGM.sf2     "rdbel0"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 30}     AspartameGM.sf2     "COWBELL_.300S.L08"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 31}     AspartameGM.sf2     "PC_VIB_NA_T_060_C_3_"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 32}     AspartameGM.sf2     "bongohi"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 33}     AspartameGM.sf2     "bongolo"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 34}     AspartameGM.sf2     "CONGA_M_.299.L08"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 35}     AspartameGM.sf2     "CONGA_L_.298S.L08"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 36}     AspartameGM.sf2     "TIMBALE0.314S.L08"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 37}     AspartameGM.sf2     "AGOGO_SQ.285S.L08"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 38}     AspartameGM.sf2     "CABASA_S.296S.L08"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 39}     AspartameGM.sf2     "MARAC307.307S.L08"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 40}     AspartameGM.sf2     "PC_SWH_HI_T_060_C_3_"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 41}     AspartameGM.sf2     "PC_SWH_LO_T_060_C_3_"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 42}     AspartameGM.sf2     "GUIRO_SH.032S.L08"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 43}     AspartameGM.sf2     "GUILO_SQ.309S.L08"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 44}     AspartameGM.sf2     "clavesm"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 45}     AspartameGM.sf2     "TRI_OPEN.345S.L08"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 46}     AspartameGM.sf2     "WODBK60"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 47}     AspartameGM.sf2     "chcrash"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 48}     AspartameGM.sf2     "Standard D46"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 49}     AspartameGM.sf2     "cuica1"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 50}     AspartameGM.sf2     "cuica2"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 51}     AspartameGM.sf2     "Dr054_TambB"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Drumkit0
+Modified                Adopted                         adopt                                               Drumkit0
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 52}     AspartameGM.sf2     "saw_84"
 Accepted                Ok                              sampleFolder                                        mono
@@ -247,553 +249,793 @@ Accepted                Ok                              sampleFolder            
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 56}     AspartameGM.sf2     "BA_ELB_FI_T_033_A_0_"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             FngrBass
+Modified                Adopted                         adopt                                               FngrBass
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 57}     AspartameGM.sf2     "VIBAs4"
 Accepted                Ok                              sampleFolder                                        mono
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 58}     AspartameGM.sf2     "CLAVC2"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Clavi
-Modified                Adopted                         adopter                                             Metal Pad
+Modified                Adopted                         adopt                                               Metal Pad
+Modified                Adopted                         adopt                                               Clavi
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 59}     AspartameGM.sf2     "EGTD3"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Clavi
-Modified                Adopted                         adopter                                             Metal Pad
+Modified                Adopted                         adopt                                               Metal Pad
+Modified                Adopted                         adopt                                               Clavi
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 60}     AspartameGM.sf2     "Gt_Clean_50C2"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Jazz Gt
+Modified                Adopted                         adopt                                               Jazz Gt
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 61}     AspartameGM.sf2     "Gt_Clean_59B2"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Jazz Gt
+Modified                Adopted                         adopt                                               Jazz Gt
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 62}     AspartameGM.sf2     "Gt_Clean_69B2"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Jazz Gt
+Modified                Adopted                         adopt                                               Jazz Gt
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 63}     AspartameGM.sf2     "Gt_Clean_76B2"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Jazz Gt
+Modified                Adopted                         adopt                                               Jazz Gt
 
 PreSampleKey {pskwFile = 0, pskwSampleIndex = 64}     AspartameGM.sf2     "Sinewave2_74"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             Jazz Gt
+Modified                Adopted                         adopt                                               Jazz Gt
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 0}     GXSCC_GM_033.sf2     "309"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             30
+Modified                Adopted                         adopt                                               30
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 1}     GXSCC_GM_033.sf2     "308"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             30
+Modified                Adopted                         adopt                                               30
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 2}     GXSCC_GM_033.sf2     "307"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             30
-Modified                Adopted                         adopter                                             30
+Modified                Adopted                         adopt                                               30
+Modified                Adopted                         adopt                                               30
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 3}     GXSCC_GM_033.sf2     "306"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             30
+Modified                Adopted                         adopt                                               30
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 4}     GXSCC_GM_033.sf2     "305"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             30
-Modified                Adopted                         adopter                                             30
+Modified                Adopted                         adopt                                               30
+Modified                Adopted                         adopt                                               30
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 5}     GXSCC_GM_033.sf2     "304"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             30
-Modified                Adopted                         adopter                                             30
-Modified                Adopted                         adopter                                             30
+Modified                Adopted                         adopt                                               30
+Modified                Adopted                         adopt                                               30
+Modified                Adopted                         adopt                                               30
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 6}     GXSCC_GM_033.sf2     "303"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             30
-Modified                Adopted                         adopter                                             30
+Modified                Adopted                         adopt                                               30
+Modified                Adopted                         adopt                                               30
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 7}     GXSCC_GM_033.sf2     "302"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             30
+Modified                Adopted                         adopt                                               30
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 8}     GXSCC_GM_033.sf2     "301"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             30
+Modified                Adopted                         adopt                                               30
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 9}     GXSCC_GM_033.sf2     "300"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             30
-Modified                Adopted                         adopter                                             30
-Modified                Adopted                         adopter                                             30
-Modified                Adopted                         adopter                                             30
-Modified                Adopted                         adopter                                             30
+Modified                Adopted                         adopt                                               30
+Modified                Adopted                         adopt                                               30
+Modified                Adopted                         adopt                                               30
+Modified                Adopted                         adopt                                               30
+Modified                Adopted                         adopt                                               30
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 10}     GXSCC_GM_033.sf2     "283"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             28
+Modified                Adopted                         adopt                                               28
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 11}     GXSCC_GM_033.sf2     "282"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             28
+Modified                Adopted                         adopt                                               28
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 12}     GXSCC_GM_033.sf2     "281"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             28
+Modified                Adopted                         adopt                                               28
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 13}     GXSCC_GM_033.sf2     "280"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             28
+Modified                Adopted                         adopt                                               28
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 14}     GXSCC_GM_033.sf2     "273"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             27
+Modified                Adopted                         adopt                                               27
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 15}     GXSCC_GM_033.sf2     "272"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             27
+Modified                Adopted                         adopt                                               27
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 16}     GXSCC_GM_033.sf2     "271"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             27
+Modified                Adopted                         adopt                                               27
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 17}     GXSCC_GM_033.sf2     "270"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             27
+Modified                Adopted                         adopt                                               27
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 18}     GXSCC_GM_033.sf2     "263"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             26
+Modified                Adopted                         adopt                                               26
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 19}     GXSCC_GM_033.sf2     "262"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             26
+Modified                Adopted                         adopt                                               26
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 20}     GXSCC_GM_033.sf2     "261"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             26
+Modified                Adopted                         adopt                                               26
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 21}     GXSCC_GM_033.sf2     "260"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             26
+Modified                Adopted                         adopt                                               26
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 22}     GXSCC_GM_033.sf2     "253"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             25
+Modified                Adopted                         adopt                                               25
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 23}     GXSCC_GM_033.sf2     "252"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             25
+Modified                Adopted                         adopt                                               25
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 24}     GXSCC_GM_033.sf2     "251"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             25
+Modified                Adopted                         adopt                                               25
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 25}     GXSCC_GM_033.sf2     "250"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             25
+Modified                Adopted                         adopt                                               25
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 26}     GXSCC_GM_033.sf2     "243"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             24
+Modified                Adopted                         adopt                                               24
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 27}     GXSCC_GM_033.sf2     "242"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             24
+Modified                Adopted                         adopt                                               24
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 28}     GXSCC_GM_033.sf2     "241"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             24
+Modified                Adopted                         adopt                                               24
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 29}     GXSCC_GM_033.sf2     "240"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             24
+Modified                Adopted                         adopt                                               24
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 30}     GXSCC_GM_033.sf2     "233"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             23
+Modified                Adopted                         adopt                                               23
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 31}     GXSCC_GM_033.sf2     "232"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             23
+Modified                Adopted                         adopt                                               23
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 32}     GXSCC_GM_033.sf2     "231"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             23
+Modified                Adopted                         adopt                                               23
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 33}     GXSCC_GM_033.sf2     "230"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             23
+Modified                Adopted                         adopt                                               23
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 34}     GXSCC_GM_033.sf2     "223"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             22
+Modified                Adopted                         adopt                                               22
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 35}     GXSCC_GM_033.sf2     "222"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             22
+Modified                Adopted                         adopt                                               22
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 36}     GXSCC_GM_033.sf2     "221"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             22
+Modified                Adopted                         adopt                                               22
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 37}     GXSCC_GM_033.sf2     "220"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             22
+Modified                Adopted                         adopt                                               22
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 38}     GXSCC_GM_033.sf2     "213"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             21
+Modified                Adopted                         adopt                                               21
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 39}     GXSCC_GM_033.sf2     "212"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             21
+Modified                Adopted                         adopt                                               21
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 40}     GXSCC_GM_033.sf2     "211"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             21
+Modified                Adopted                         adopt                                               21
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 41}     GXSCC_GM_033.sf2     "210"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             21
+Modified                Adopted                         adopt                                               21
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 42}     GXSCC_GM_033.sf2     "203"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             20
+Modified                Adopted                         adopt                                               20
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 43}     GXSCC_GM_033.sf2     "202"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             20
+Modified                Adopted                         adopt                                               20
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 44}     GXSCC_GM_033.sf2     "201"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             20
+Modified                Adopted                         adopt                                               20
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 45}     GXSCC_GM_033.sf2     "200"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             20
+Modified                Adopted                         adopt                                               20
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 46}     GXSCC_GM_033.sf2     "193"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             19
+Modified                Adopted                         adopt                                               19
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 47}     GXSCC_GM_033.sf2     "192"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             19
+Modified                Adopted                         adopt                                               19
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 48}     GXSCC_GM_033.sf2     "191"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             19
+Modified                Adopted                         adopt                                               19
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 49}     GXSCC_GM_033.sf2     "190"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             19
+Modified                Adopted                         adopt                                               19
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 50}     GXSCC_GM_033.sf2     "183"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             18
+Modified                Adopted                         adopt                                               18
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 51}     GXSCC_GM_033.sf2     "182"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             18
+Modified                Adopted                         adopt                                               18
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 52}     GXSCC_GM_033.sf2     "181"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             18
+Modified                Adopted                         adopt                                               18
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 53}     GXSCC_GM_033.sf2     "180"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             18
+Modified                Adopted                         adopt                                               18
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 54}     GXSCC_GM_033.sf2     "173"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             17
+Modified                Adopted                         adopt                                               17
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 55}     GXSCC_GM_033.sf2     "172"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             17
+Modified                Adopted                         adopt                                               17
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 56}     GXSCC_GM_033.sf2     "171"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             17
+Modified                Adopted                         adopt                                               17
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 57}     GXSCC_GM_033.sf2     "170"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             17
+Modified                Adopted                         adopt                                               17
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 58}     GXSCC_GM_033.sf2     "163"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             16
+Modified                Adopted                         adopt                                               16
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 59}     GXSCC_GM_033.sf2     "162"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             16
+Modified                Adopted                         adopt                                               16
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 60}     GXSCC_GM_033.sf2     "161"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             16
+Modified                Adopted                         adopt                                               16
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 61}     GXSCC_GM_033.sf2     "160"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             16
+Modified                Adopted                         adopt                                               16
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 62}     GXSCC_GM_033.sf2     "153"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             15
+Modified                Adopted                         adopt                                               15
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 63}     GXSCC_GM_033.sf2     "152"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             15
+Modified                Adopted                         adopt                                               15
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 64}     GXSCC_GM_033.sf2     "151"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             15
+Modified                Adopted                         adopt                                               15
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 65}     GXSCC_GM_033.sf2     "150"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             15
+Modified                Adopted                         adopt                                               15
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 66}     GXSCC_GM_033.sf2     "143"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             14
+Modified                Adopted                         adopt                                               14
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 67}     GXSCC_GM_033.sf2     "142"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             14
+Modified                Adopted                         adopt                                               14
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 68}     GXSCC_GM_033.sf2     "141"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             14
+Modified                Adopted                         adopt                                               14
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 69}     GXSCC_GM_033.sf2     "140"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             14
+Modified                Adopted                         adopt                                               14
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 70}     GXSCC_GM_033.sf2     "133"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             13
+Modified                Adopted                         adopt                                               13
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 71}     GXSCC_GM_033.sf2     "132"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             13
+Modified                Adopted                         adopt                                               13
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 72}     GXSCC_GM_033.sf2     "131"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             13
+Modified                Adopted                         adopt                                               13
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 73}     GXSCC_GM_033.sf2     "130"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             13
+Modified                Adopted                         adopt                                               13
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 74}     GXSCC_GM_033.sf2     "123"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             12
+Modified                Adopted                         adopt                                               12
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 75}     GXSCC_GM_033.sf2     "122"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             12
+Modified                Adopted                         adopt                                               12
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 76}     GXSCC_GM_033.sf2     "121"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             12
+Modified                Adopted                         adopt                                               12
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 77}     GXSCC_GM_033.sf2     "120"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             12
+Modified                Adopted                         adopt                                               12
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 78}     GXSCC_GM_033.sf2     "113"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             11
+Modified                Adopted                         adopt                                               11
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 79}     GXSCC_GM_033.sf2     "112"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             11
+Modified                Adopted                         adopt                                               11
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 80}     GXSCC_GM_033.sf2     "111"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             11
+Modified                Adopted                         adopt                                               11
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 81}     GXSCC_GM_033.sf2     "110"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             11
+Modified                Adopted                         adopt                                               11
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 82}     GXSCC_GM_033.sf2     "103"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             10
+Modified                Adopted                         adopt                                               10
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 83}     GXSCC_GM_033.sf2     "102"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             10
+Modified                Adopted                         adopt                                               10
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 84}     GXSCC_GM_033.sf2     "101"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             10
+Modified                Adopted                         adopt                                               10
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 85}     GXSCC_GM_033.sf2     "100"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             10
+Modified                Adopted                         adopt                                               10
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 86}     GXSCC_GM_033.sf2     "093"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             09
+Modified                Adopted                         adopt                                               09
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 87}     GXSCC_GM_033.sf2     "092"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             09
+Modified                Adopted                         adopt                                               09
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 88}     GXSCC_GM_033.sf2     "091"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             09
+Modified                Adopted                         adopt                                               09
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 89}     GXSCC_GM_033.sf2     "090"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             09
+Modified                Adopted                         adopt                                               09
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 90}     GXSCC_GM_033.sf2     "083"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             08
+Modified                Adopted                         adopt                                               08
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 91}     GXSCC_GM_033.sf2     "082"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             08
+Modified                Adopted                         adopt                                               08
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 92}     GXSCC_GM_033.sf2     "081"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             08
+Modified                Adopted                         adopt                                               08
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 93}     GXSCC_GM_033.sf2     "080"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             08
+Modified                Adopted                         adopt                                               08
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 94}     GXSCC_GM_033.sf2     "073"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             07
+Modified                Adopted                         adopt                                               07
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 95}     GXSCC_GM_033.sf2     "072"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             07
+Modified                Adopted                         adopt                                               07
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 96}     GXSCC_GM_033.sf2     "071"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             07
+Modified                Adopted                         adopt                                               07
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 97}     GXSCC_GM_033.sf2     "070"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             07
+Modified                Adopted                         adopt                                               07
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 98}     GXSCC_GM_033.sf2     "063"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             06
+Modified                Adopted                         adopt                                               06
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 99}     GXSCC_GM_033.sf2     "062"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             06
+Modified                Adopted                         adopt                                               06
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 100}     GXSCC_GM_033.sf2     "061"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             06
+Modified                Adopted                         adopt                                               06
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 101}     GXSCC_GM_033.sf2     "060"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             06
+Modified                Adopted                         adopt                                               06
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 102}     GXSCC_GM_033.sf2     "053"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             05
+Modified                Adopted                         adopt                                               05
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 103}     GXSCC_GM_033.sf2     "052"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             05
+Modified                Adopted                         adopt                                               05
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 104}     GXSCC_GM_033.sf2     "051"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             05
+Modified                Adopted                         adopt                                               05
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 105}     GXSCC_GM_033.sf2     "050"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             05
+Modified                Adopted                         adopt                                               05
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 106}     GXSCC_GM_033.sf2     "043"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             04
+Modified                Adopted                         adopt                                               04
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 107}     GXSCC_GM_033.sf2     "042"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             04
+Modified                Adopted                         adopt                                               04
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 108}     GXSCC_GM_033.sf2     "041"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             04
+Modified                Adopted                         adopt                                               04
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 109}     GXSCC_GM_033.sf2     "040"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             04
+Modified                Adopted                         adopt                                               04
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 110}     GXSCC_GM_033.sf2     "033"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             03
+Modified                Adopted                         adopt                                               03
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 111}     GXSCC_GM_033.sf2     "032"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             03
+Modified                Adopted                         adopt                                               03
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 112}     GXSCC_GM_033.sf2     "031"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             03
+Modified                Adopted                         adopt                                               03
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 113}     GXSCC_GM_033.sf2     "030"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             03
+Modified                Adopted                         adopt                                               03
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 114}     GXSCC_GM_033.sf2     "023"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             02
+Modified                Adopted                         adopt                                               02
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 115}     GXSCC_GM_033.sf2     "022"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             02
+Modified                Adopted                         adopt                                               02
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 116}     GXSCC_GM_033.sf2     "021"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             02
+Modified                Adopted                         adopt                                               02
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 117}     GXSCC_GM_033.sf2     "020"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             02
+Modified                Adopted                         adopt                                               02
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 118}     GXSCC_GM_033.sf2     "013"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             01
+Modified                Adopted                         adopt                                               01
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 119}     GXSCC_GM_033.sf2     "012"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             01
+Modified                Adopted                         adopt                                               01
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 120}     GXSCC_GM_033.sf2     "011"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             01
+Modified                Adopted                         adopt                                               01
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 121}     GXSCC_GM_033.sf2     "010"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             01
+Modified                Adopted                         adopt                                               01
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 122}     GXSCC_GM_033.sf2     "003"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             00
+Modified                Adopted                         adopt                                               00
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 123}     GXSCC_GM_033.sf2     "002"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             00
+Modified                Adopted                         adopt                                               00
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 124}     GXSCC_GM_033.sf2     "001"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             00
+Modified                Adopted                         adopt                                               00
 
 PreSampleKey {pskwFile = 1, pskwSampleIndex = 125}     GXSCC_GM_033.sf2     "000"
 Accepted                Ok                              sampleFolder                                        mono
-Modified                Adopted                         adopter                                             00
+Modified                Adopted                         adopt                                               00
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 0}     recorder-stereo.sf2     "85L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 1}     recorder-stereo.sf2     "85R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 2}     recorder-stereo.sf2     "83L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 3}     recorder-stereo.sf2     "83R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 4}     recorder-stereo.sf2     "81L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 5}     recorder-stereo.sf2     "81R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 6}     recorder-stereo.sf2     "79L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 7}     recorder-stereo.sf2     "79R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 8}     recorder-stereo.sf2     "78L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 9}     recorder-stereo.sf2     "78R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 10}     recorder-stereo.sf2     "76L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 11}     recorder-stereo.sf2     "76R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 12}     recorder-stereo.sf2     "75L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 13}     recorder-stereo.sf2     "75R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 14}     recorder-stereo.sf2     "74L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 15}     recorder-stereo.sf2     "74R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 16}     recorder-stereo.sf2     "87L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 17}     recorder-stereo.sf2     "87R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 18}     recorder-stereo.sf2     "87-L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 19}     recorder-stereo.sf2     "87-R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 20}     recorder-stereo.sf2     "84L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 21}     recorder-stereo.sf2     "84R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 22}     recorder-stereo.sf2     "84-L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 23}     recorder-stereo.sf2     "84-R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 24}     recorder-stereo.sf2     "84--L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 25}     recorder-stereo.sf2     "84--R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 26}     recorder-stereo.sf2     "84---L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 27}     recorder-stereo.sf2     "84---R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 28}     recorder-stereo.sf2     "85-L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 29}     recorder-stereo.sf2     "85-R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 30}     recorder-stereo.sf2     "84----L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 31}     recorder-stereo.sf2     "84----R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 32}     recorder-stereo.sf2     "82L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 33}     recorder-stereo.sf2     "82R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 34}     recorder-stereo.sf2     "87--L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 35}     recorder-stereo.sf2     "87--R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 36}     recorder-stereo.sf2     "81-L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 37}     recorder-stereo.sf2     "81-R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 38}     recorder-stereo.sf2     "76-L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 39}     recorder-stereo.sf2     "76-R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 40}     recorder-stereo.sf2     "74-L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 41}     recorder-stereo.sf2     "74-R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 42}     recorder-stereo.sf2     "75-L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 43}     recorder-stereo.sf2     "75-R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 44}     recorder-stereo.sf2     "81--L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 45}     recorder-stereo.sf2     "81--R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 46}     recorder-stereo.sf2     "86L"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
+
+PreSampleKey {pskwFile = 2, pskwSampleIndex = 47}     recorder-stereo.sf2     "86R"
+Accepted                Ok                              sampleFolder                                        stereo
+Modified                Adopted                         adopt                                               Recorder Stereo
+Modified                Adopted                         adopt                                               Recorder Mono (R)
 
 
 PerGMKey {pgkwFile = 0, pgkwInst = 0, pgkwBag = Nothing}     AspartameGM.sf2     "Bagpipe"
@@ -1083,6 +1325,22 @@ Accepted                ToCache                         perIFolder
 PerGMKey {pgkwFile = 1, pgkwInst = 30, pgkwBag = Nothing}     GXSCC_GM_033.sf2     "00"
 Accepted                Ok                              surveyTaskIf                                        30
 Modified                Captured                        captureTaskIf                                       00
+Accepted                ToCache                         perIFolder                                          
+
+PerGMKey {pgkwFile = 2, pgkwInst = 0, pgkwBag = Nothing}     recorder-stereo.sf2     "Recorder Stereo"
+Accepted                Ok                              surveyTaskIf                                        0
+Modified                Captured                        captureTaskIf                                       Recorder Stereo
+Accepted                ToCache                         perIFolder                                          
+
+PerGMKey {pgkwFile = 2, pgkwInst = 1, pgkwBag = Nothing}     recorder-stereo.sf2     "Recorder Mono (L)"
+Accepted                Ok                              surveyTaskIf                                        1
+Modified                Captured                        captureTaskIf                                       Recorder Mono (L)
+Dropped                 Absorbed                        reorger                                             2
+
+PerGMKey {pgkwFile = 2, pgkwInst = 2, pgkwBag = Nothing}     recorder-stereo.sf2     "Recorder Mono (R)"
+Accepted                Ok                              surveyTaskIf                                        2
+Modified                Captured                        captureTaskIf                                       Recorder Mono (R)
+Modified                Absorbing                       reorger                                             
 Accepted                ToCache                         perIFolder                                          
 
 
@@ -1794,10 +2052,298 @@ Accepted                ToCache                         perIFolder
 PreZoneKey {pzkwFile = 1, pzkwInst = 30, pzkwBag = 167, pzkwSampleIndex = 122}     GXSCC_GM_033.sf2     "00", "003"
 Accepted                ToCache                         perIFolder                                          
 
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 1, pzkwSampleIndex = 40}     recorder-stereo.sf2     "Recorder Stereo", "74-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 2, pzkwSampleIndex = 41}     recorder-stereo.sf2     "Recorder Stereo", "74-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 3, pzkwSampleIndex = 14}     recorder-stereo.sf2     "Recorder Stereo", "74L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 4, pzkwSampleIndex = 15}     recorder-stereo.sf2     "Recorder Stereo", "74R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 5, pzkwSampleIndex = 42}     recorder-stereo.sf2     "Recorder Stereo", "75-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 6, pzkwSampleIndex = 43}     recorder-stereo.sf2     "Recorder Stereo", "75-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 7, pzkwSampleIndex = 12}     recorder-stereo.sf2     "Recorder Stereo", "75L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 8, pzkwSampleIndex = 13}     recorder-stereo.sf2     "Recorder Stereo", "75R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 9, pzkwSampleIndex = 38}     recorder-stereo.sf2     "Recorder Stereo", "76-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 10, pzkwSampleIndex = 39}     recorder-stereo.sf2     "Recorder Stereo", "76-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 11, pzkwSampleIndex = 10}     recorder-stereo.sf2     "Recorder Stereo", "76L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 12, pzkwSampleIndex = 11}     recorder-stereo.sf2     "Recorder Stereo", "76R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 13, pzkwSampleIndex = 8}     recorder-stereo.sf2     "Recorder Stereo", "78L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 14, pzkwSampleIndex = 9}     recorder-stereo.sf2     "Recorder Stereo", "78R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 15, pzkwSampleIndex = 6}     recorder-stereo.sf2     "Recorder Stereo", "79L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 16, pzkwSampleIndex = 7}     recorder-stereo.sf2     "Recorder Stereo", "79R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 17, pzkwSampleIndex = 44}     recorder-stereo.sf2     "Recorder Stereo", "81--L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 18, pzkwSampleIndex = 45}     recorder-stereo.sf2     "Recorder Stereo", "81--R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 19, pzkwSampleIndex = 36}     recorder-stereo.sf2     "Recorder Stereo", "81-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 20, pzkwSampleIndex = 37}     recorder-stereo.sf2     "Recorder Stereo", "81-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 21, pzkwSampleIndex = 4}     recorder-stereo.sf2     "Recorder Stereo", "81L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 22, pzkwSampleIndex = 5}     recorder-stereo.sf2     "Recorder Stereo", "81R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 23, pzkwSampleIndex = 32}     recorder-stereo.sf2     "Recorder Stereo", "82L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 24, pzkwSampleIndex = 33}     recorder-stereo.sf2     "Recorder Stereo", "82R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 25, pzkwSampleIndex = 2}     recorder-stereo.sf2     "Recorder Stereo", "83L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 26, pzkwSampleIndex = 3}     recorder-stereo.sf2     "Recorder Stereo", "83R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 27, pzkwSampleIndex = 30}     recorder-stereo.sf2     "Recorder Stereo", "84----L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 28, pzkwSampleIndex = 31}     recorder-stereo.sf2     "Recorder Stereo", "84----R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 29, pzkwSampleIndex = 26}     recorder-stereo.sf2     "Recorder Stereo", "84---L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 30, pzkwSampleIndex = 27}     recorder-stereo.sf2     "Recorder Stereo", "84---R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 31, pzkwSampleIndex = 24}     recorder-stereo.sf2     "Recorder Stereo", "84--L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 32, pzkwSampleIndex = 25}     recorder-stereo.sf2     "Recorder Stereo", "84--R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 33, pzkwSampleIndex = 22}     recorder-stereo.sf2     "Recorder Stereo", "84-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 34, pzkwSampleIndex = 23}     recorder-stereo.sf2     "Recorder Stereo", "84-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 35, pzkwSampleIndex = 20}     recorder-stereo.sf2     "Recorder Stereo", "84L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 36, pzkwSampleIndex = 21}     recorder-stereo.sf2     "Recorder Stereo", "84R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 37, pzkwSampleIndex = 28}     recorder-stereo.sf2     "Recorder Stereo", "85-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 38, pzkwSampleIndex = 29}     recorder-stereo.sf2     "Recorder Stereo", "85-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 39, pzkwSampleIndex = 0}     recorder-stereo.sf2     "Recorder Stereo", "85L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 40, pzkwSampleIndex = 1}     recorder-stereo.sf2     "Recorder Stereo", "85R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 41, pzkwSampleIndex = 46}     recorder-stereo.sf2     "Recorder Stereo", "86L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 42, pzkwSampleIndex = 47}     recorder-stereo.sf2     "Recorder Stereo", "86R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 43, pzkwSampleIndex = 34}     recorder-stereo.sf2     "Recorder Stereo", "87--L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 44, pzkwSampleIndex = 18}     recorder-stereo.sf2     "Recorder Stereo", "87-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 45, pzkwSampleIndex = 19}     recorder-stereo.sf2     "Recorder Stereo", "87-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 46, pzkwSampleIndex = 16}     recorder-stereo.sf2     "Recorder Stereo", "87L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 47, pzkwSampleIndex = 17}     recorder-stereo.sf2     "Recorder Stereo", "87R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 0, pzkwBag = 48, pzkwSampleIndex = 35}     recorder-stereo.sf2     "Recorder Stereo", "87--R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 50, pzkwSampleIndex = 40}     recorder-stereo.sf2     "Recorder Mono (R)", "74-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 51, pzkwSampleIndex = 14}     recorder-stereo.sf2     "Recorder Mono (R)", "74L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 52, pzkwSampleIndex = 42}     recorder-stereo.sf2     "Recorder Mono (R)", "75-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 53, pzkwSampleIndex = 12}     recorder-stereo.sf2     "Recorder Mono (R)", "75L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 54, pzkwSampleIndex = 38}     recorder-stereo.sf2     "Recorder Mono (R)", "76-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 55, pzkwSampleIndex = 10}     recorder-stereo.sf2     "Recorder Mono (R)", "76L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 56, pzkwSampleIndex = 8}     recorder-stereo.sf2     "Recorder Mono (R)", "78L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 57, pzkwSampleIndex = 6}     recorder-stereo.sf2     "Recorder Mono (R)", "79L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 58, pzkwSampleIndex = 44}     recorder-stereo.sf2     "Recorder Mono (R)", "81--L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 59, pzkwSampleIndex = 36}     recorder-stereo.sf2     "Recorder Mono (R)", "81-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 60, pzkwSampleIndex = 4}     recorder-stereo.sf2     "Recorder Mono (R)", "81L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 61, pzkwSampleIndex = 32}     recorder-stereo.sf2     "Recorder Mono (R)", "82L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 62, pzkwSampleIndex = 2}     recorder-stereo.sf2     "Recorder Mono (R)", "83L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 63, pzkwSampleIndex = 30}     recorder-stereo.sf2     "Recorder Mono (R)", "84----L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 64, pzkwSampleIndex = 26}     recorder-stereo.sf2     "Recorder Mono (R)", "84---L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 65, pzkwSampleIndex = 24}     recorder-stereo.sf2     "Recorder Mono (R)", "84--L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 66, pzkwSampleIndex = 22}     recorder-stereo.sf2     "Recorder Mono (R)", "84-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 67, pzkwSampleIndex = 20}     recorder-stereo.sf2     "Recorder Mono (R)", "84L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 68, pzkwSampleIndex = 28}     recorder-stereo.sf2     "Recorder Mono (R)", "85-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 69, pzkwSampleIndex = 0}     recorder-stereo.sf2     "Recorder Mono (R)", "85L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 70, pzkwSampleIndex = 46}     recorder-stereo.sf2     "Recorder Mono (R)", "86L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 71, pzkwSampleIndex = 34}     recorder-stereo.sf2     "Recorder Mono (R)", "87--L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 72, pzkwSampleIndex = 18}     recorder-stereo.sf2     "Recorder Mono (R)", "87-L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 73, pzkwSampleIndex = 16}     recorder-stereo.sf2     "Recorder Mono (R)", "87L"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 75, pzkwSampleIndex = 41}     recorder-stereo.sf2     "Recorder Mono (R)", "74-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 76, pzkwSampleIndex = 15}     recorder-stereo.sf2     "Recorder Mono (R)", "74R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 77, pzkwSampleIndex = 43}     recorder-stereo.sf2     "Recorder Mono (R)", "75-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 78, pzkwSampleIndex = 13}     recorder-stereo.sf2     "Recorder Mono (R)", "75R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 79, pzkwSampleIndex = 39}     recorder-stereo.sf2     "Recorder Mono (R)", "76-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 80, pzkwSampleIndex = 11}     recorder-stereo.sf2     "Recorder Mono (R)", "76R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 81, pzkwSampleIndex = 9}     recorder-stereo.sf2     "Recorder Mono (R)", "78R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 82, pzkwSampleIndex = 7}     recorder-stereo.sf2     "Recorder Mono (R)", "79R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 83, pzkwSampleIndex = 45}     recorder-stereo.sf2     "Recorder Mono (R)", "81--R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 84, pzkwSampleIndex = 37}     recorder-stereo.sf2     "Recorder Mono (R)", "81-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 85, pzkwSampleIndex = 5}     recorder-stereo.sf2     "Recorder Mono (R)", "81R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 86, pzkwSampleIndex = 33}     recorder-stereo.sf2     "Recorder Mono (R)", "82R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 87, pzkwSampleIndex = 3}     recorder-stereo.sf2     "Recorder Mono (R)", "83R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 88, pzkwSampleIndex = 31}     recorder-stereo.sf2     "Recorder Mono (R)", "84----R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 89, pzkwSampleIndex = 27}     recorder-stereo.sf2     "Recorder Mono (R)", "84---R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 90, pzkwSampleIndex = 25}     recorder-stereo.sf2     "Recorder Mono (R)", "84--R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 91, pzkwSampleIndex = 23}     recorder-stereo.sf2     "Recorder Mono (R)", "84-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 92, pzkwSampleIndex = 21}     recorder-stereo.sf2     "Recorder Mono (R)", "84R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 93, pzkwSampleIndex = 29}     recorder-stereo.sf2     "Recorder Mono (R)", "85-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 94, pzkwSampleIndex = 1}     recorder-stereo.sf2     "Recorder Mono (R)", "85R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 95, pzkwSampleIndex = 47}     recorder-stereo.sf2     "Recorder Mono (R)", "86R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 96, pzkwSampleIndex = 19}     recorder-stereo.sf2     "Recorder Mono (R)", "87-R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 97, pzkwSampleIndex = 17}     recorder-stereo.sf2     "Recorder Mono (R)", "87R"
+Accepted                ToCache                         perIFolder                                          
+
+PreZoneKey {pzkwFile = 2, pzkwInst = 2, pzkwBag = 98, pzkwSampleIndex = 35}     recorder-stereo.sf2     "Recorder Mono (R)", "87--R"
+Accepted                ToCache                         perIFolder                                          
 
 
 
 
-Directives {doAbsorption = True, fixBadNames = True, narrowRosterForBoot = True, narrowRosterForRuntime = True, crossInstrumentPairing = True, parallelPairing = True, switchBadStereoZonesToMono = False, multipleCompetes = True, proConRatio = 3 % 4, absorbThreshold = 4 % 5, synthSwitches = SynthSwitches {usePitchCorrection = True, useAttenuation = True, useLoopSwitching = True, useReverb = True, useChorus = True, usePan = True, useDCBlock = True, noStereoNoPan = True, normalizingOutput = True}, dReportVerbosity = ReportVerbosity {dForRanges = 1 % 1, dForScan = 1 % 1, dForTournament = 1 % 1}}
+
+Directives {doAbsorption = True, fixBadNames = True, narrowRosterForBoot = True, narrowRosterForRuntime = True, crossInstrumentPairing = True, parallelPairing = False, switchBadStereoZonesToMono = False, multipleCompetes = True, hackWildJumps = False, proConRatio = 3 % 4, absorbThreshold = 4 % 5, synthSwitches = SynthSwitches {useEnvelopes = True, usePitchCorrection = True, useAttenuation = True, useLoopSwitching = True, useReverb = True, useChorus = True, usePan = True, useDCBlock = True, noStereoNoPan = True, normalizingOutput = True}, dReportVerbosity = ReportVerbosity {dForRanges = 1 % 1, dForScan = 1 % 1, dForTournament = 1 % 1}}
 
 The End
