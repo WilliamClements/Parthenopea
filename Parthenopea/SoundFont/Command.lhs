@@ -11,7 +11,10 @@ Command
 William Clements
 June 16, 2025
 
-> module Parthenopea.SoundFont.Command ( pCommand, batchProcessor ) where
+> module Parthenopea.SoundFont.Command
+>        (  pCommand
+>         , batchProcessor
+>         ) where
 >
 > import qualified Codec.Midi              as M
 > import qualified Codec.SoundFont         as F
@@ -91,7 +94,7 @@ Implement PCommand =============================================================
 >   if VB.null vFilesBoot
 >     then return ()
 >     else do
->       (runt, choices)                     ← commandLogic dives rost vFilesBoot
+>       (runt, choices)                    ← commandLogic dives rost vFilesBoot
 >       -- here's the heart of the coconut
 >       mapM_ (renderSong runt choices) songs
 >   where
@@ -104,8 +107,7 @@ Implement PCommand =============================================================
 >
 > commandLogic           :: Directives → ([InstrumentName], [PercussionSound])
 >                           → VB.Vector SFFileBoot
->                           → IO (SFRuntime, ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
->                                            , Map PercussionSound (Bool, Maybe PerGMKey, [Emission])))
+>                           → IO (SFRuntime, (Map InstrumentName GMResults, Map PercussionSound GMResults))
 > commandLogic dives rost vFilesBoot_      = do
 >   putStrLn "commandLogic..."
 >   (vFilesBoot, survey)                   ← surveyInstruments dives rost vFilesBoot_
@@ -125,8 +127,7 @@ Implement PCommand =============================================================
 >                                          = dives.dReportVerbosity
 >
 > renderSong             :: SFRuntime
->                           → ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
->                             , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
+>                           → ( Map InstrumentName GMResults, Map PercussionSound GMResults)
 >                           → Song
 >                           → IO ()
 > renderSong runt choices (Song name music ding)

@@ -36,12 +36,12 @@ February 1, 2025
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Envelopes ( deriveEnvelope )
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Synthesizer ( deriveEffects, eutSynthesize )
 > import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.Utility
   
 > data SFRuntime                           =
@@ -60,8 +60,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >                       → ([InstrumentName], [PercussionSound]) 
 >                       → VB.Vector SFFileBoot
 >                       → Map PerGMKey PerInstrument
->                       → ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
->                         , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
+>                       → (Map InstrumentName GMResults, Map PercussionSound GMResults)
 >                       → IO SFRuntime
 > prepareRuntime dives rost vFilesBoot cache choices
 >                                          = do
@@ -78,11 +77,12 @@ cache SoundFont data that is only needed for Runtime ===========================
 >     actions            :: IntMap IntSet                {- [FileIndex → [InstIndex]]     -}
 >     actions                              =
 >       let
->         extract        :: Map a (Bool, Maybe PerGMKey, [Emission]) → Set PerGMKey
+>         extract        :: Map a GMResults → Set PerGMKey
 >         extract m                        = Set.fromList $ foldl' buildUp [] m
 >           where
->             buildUp    :: [PerGMKey] → (Bool, Maybe PerGMKey, [Emission]) → [PerGMKey]
->             buildUp s (_, mpergm, _)     =
+>             buildUp    :: [PerGMKey] → GMResults → [PerGMKey]
+>             buildUp s (GMResults _ mpergm _)
+>                                          =
 >               case mpergm of
 >                 Nothing                  → s
 >                 Just pergm               → pergm : s
@@ -127,14 +127,13 @@ cache SoundFont data that is only needed for Runtime ===========================
 define signal functions and instrument maps to support rendering ======================================================
 
 > prepareInstruments     :: SFRuntime
->                           → ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
->                             , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
+>                           → (Map InstrumentName GMResults, Map PercussionSound GMResults)
 >                           → IO [(InstrumentName, Instr (Stereo AudRate))]
 > prepareInstruments runt choices          = do
 >     return $ (Percussion, assignPercussion)                                                               : imap
 >   where
 >     (zI, zP)                             = BF.bimap middle middle choices
->                                              where middle = Map.mapMaybe (\(_, pp, _) → pp)
+>                                              where middle = Map.mapMaybe (\gmr → gmr.gmPerGMKey)
 >     imap                                 = Map.foldrWithKey imapFolder [] zI
 >     pmap                                 = Map.foldrWithKey pmapFolder [] zP
 >
@@ -276,10 +275,10 @@ reconcile zone and sample header ===============================================
 >         (fromIntegral shdr.sampleRate)
 >
 >         (AppliedLimits
->                     ((+) shdr.start (fromIntegral zd.zdStart))
->                     ((+) shdr.end (fromIntegral zd.zdEnd))
->                     ((+) shdr.startLoop (fromIntegral zd.zdStartLoop))
->                     ((+) shdr.endLoop (fromIntegral zd.zdEndLoop)))
+>                     ((+) shdr.start      (fromIntegral zd.zdStart))
+>                     ((+) shdr.end        (fromIntegral zd.zdEnd))
+>                     ((+) shdr.startLoop  (fromIntegral zd.zdStartLoop))
+>                     ((+) shdr.endLoop    (fromIntegral zd.zdEndLoop)))
 >         
 >         (fromIntegral $ fromMaybe shdr.originalPitch z.zRootKey)
 >         (fromMaybe 100 z.zScaleTuning)
@@ -297,7 +296,7 @@ reconcile zone and sample header ===============================================
 >     reconPitchCorrection sub mps mpc     = fromMaybe ((fromCents . fromIntegral) sub) (fromCents' mps mpc)
 >
 >     reconAttenuation   :: Maybe Int → Double
->     reconAttenuation _     {- WOX -}       = if switches.useAttenuation
+>     reconAttenuation _                   = if switches.useAttenuation
 >                                              then maybe 0 fromIntegral z.zInitAtten
 >                                              else 0.0
 >

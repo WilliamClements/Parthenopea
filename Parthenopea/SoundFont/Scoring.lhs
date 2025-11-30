@@ -18,6 +18,7 @@ September 12, 2024
 >        , decideWinners
 >        , defMatches
 >        , establishWinners
+>        , GMResults(..)
 >        , gradeEmpiricals
 >        , isConfirmed
 >        , isConfirmed'
@@ -97,6 +98,13 @@ use "matching as" cache ========================================================
 >   where
 >     showmZ                               = maybe [] showZ scored.mszP
 >     showZ name                           = [Unblocked name]
+>
+> data GMResults                           =
+>   GMResults {
+>     gmFound          :: Bool
+>   , gmPerGMKey       :: Maybe PerGMKey
+>   , gmEmission       :: [Emission]}
+>   deriving (Eq, Ord)
 >
 > computeFFMatches       :: Rational → String → Bool → FFMatches
 > computeFFMatches conRatio inp narrow     = FFMatches 
@@ -199,8 +207,7 @@ tournament starts here =========================================================
 
 > establishWinners       :: ([InstrumentName], [PercussionSound])
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->                           → IO ( Map InstrumentName (Bool, Maybe PerGMKey, [Emission])
->                                , Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
+>                           → IO (Map InstrumentName GMResults, Map PercussionSound GMResults)
 > establishWinners rost (wI_, wP_)
 >                                          = do
 >   let (wI, wP)                           = (Map.map head wI_, Map.map head wP_)
@@ -209,11 +216,20 @@ tournament starts here =========================================================
 >     buildUp ref m kind                   = Map.insert kind (kindChoices ref kind) m
 >     kindChoices m k
 >       | isJust pergm                     =
->           (True, pergm, trueChoice k (deJust (unwords ["establishWinners kindChoices"]) mscored))
+>           GMResults
+>             True
+>             pergm
+>             (trueChoice k (deJust (unwords ["establishWinners kindChoices"]) mscored))
 >       | specialCase k                    =
->           (True, pergm, [Blanks 3, gmId k, Unblocked "(pseudo-instrument)", EndOfLine])
+>           GMResults
+>             True
+>             pergm
+>             [Blanks 3, gmId k, Unblocked "(pseudo-instrument)", EndOfLine]
 >       | otherwise                        =
->           (False, Nothing, falseChoice k)
+>           GMResults
+>             False
+>             Nothing
+>             (falseChoice k)
 >       where
 >         mscored                          = Map.lookup k m
 >         pergm                            = mscored >>= (Just . pPerGMKey)

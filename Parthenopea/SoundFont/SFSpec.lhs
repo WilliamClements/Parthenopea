@@ -753,7 +753,8 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >   , proConRatio        :: Rational
 >   , absorbThreshold    :: Rational
 >   , synthSwitches      :: SynthSwitches
->   , dReportVerbosity   :: ReportVerbosity} deriving (Eq, Show)
+>   , dReportVerbosity   :: ReportVerbosity}
+>   deriving (Eq, Show)
 >
 > defDirectives          :: Directives
 > defDirectives                            = baseDives

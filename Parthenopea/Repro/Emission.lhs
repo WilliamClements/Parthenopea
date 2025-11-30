@@ -44,7 +44,8 @@ Quick & dirty way to format strings into tabular form
 >   | Unblocked String
 >   | Blanks Int
 >   | Empty 
->   | EndOfLine deriving Show
+>   | EndOfLine
+>   deriving (Eq, Ord, Show)
 >
 > makeString             :: Emission → String
 > makeString em                            =

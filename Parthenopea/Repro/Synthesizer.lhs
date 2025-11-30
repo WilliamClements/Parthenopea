@@ -232,7 +232,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     modSigL                              ← eutModSignals timeFrame recon.rM8n ToVolume           ⤙ ()
 >     let a2L                              =
 >           a1L * aenvL * (aSweep / 100) * evaluateModSignals fName recon.rM8n ToVolume modSigL
->     outA ⤙ a2L
+>     outA                                 ⤙ a2L
 >   where
 >     fName                                = "eutAmplify"
 

@@ -12,7 +12,11 @@ TournamentReport
 William Clements
 October 5, 2025
 
-> module Parthenopea.SoundFont.TournamentReport ( printChoices, showPerGM, writeTournamentReport ) where
+> module Parthenopea.SoundFont.TournamentReport
+>        ( printChoices
+>        , showPerGM
+>        , writeTournamentReport
+>        ) where
 >
 > import Data.List
 > import Data.Map ( Map )
@@ -60,15 +64,15 @@ October 5, 2025
 
 emit standard output text detailing what choices we made for rendering GM items =======================================
 
-> printChoices           :: (Map InstrumentName (Bool, Maybe PerGMKey, [Emission]), Map PercussionSound (Bool, Maybe PerGMKey, [Emission]))
+> printChoices           :: (Map InstrumentName GMResults, Map PercussionSound GMResults)
 >                           → [InstrumentName]
 >                           → [PercussionSound]
 >                           → ([(Bool, [Emission])], [(Bool, [Emission])])
 > printChoices (zI, zP) is ps              = (map (extract zI) is, map (extract zP) ps)
 >   where
->     extract            :: ∀ a. (Ord a) ⇒ Map a (Bool, Maybe PerGMKey, [Emission]) → a → (Bool, [Emission])
+>     extract            :: ∀ a. (Ord a) ⇒ Map a GMResults → a → (Bool, [Emission])
 >     extract choices kind                 = (found, ems)
->                                              where (found, _, ems) = choices Map.! kind
+>                                              where GMResults found _ ems = choices Map.! kind
 >
 > dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ a → [PerGMScored] → [Emission]
 > dumpContestants kind contestants         = prolog ++ ex ++ epilog
