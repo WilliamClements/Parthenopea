@@ -18,12 +18,15 @@ October 5, 2025
 >        , writeTournamentReport
 >        ) where
 >
+> import qualified Control.Monad           as CM
 > import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import qualified Data.Vector.Strict      as VB
+> import Debug.Trace
 > import Euterpea.Music
+> import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
@@ -35,6 +38,7 @@ October 5, 2025
 >                           → IO ()
 > writeTournamentReport dives vBootFiles (pContI, pContP)
 >                        = do
+>   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show $ (length pContI, length pContP)])
 >   -- output all selections to the report file
 >   let legend           =
 >            emitComment     [   Blanks 66
@@ -56,6 +60,8 @@ October 5, 2025
 >   writeReportBySections dives reportTournamentName [esFiles, legend, esI, eol, esFiles, legend, esP]
 >
 >   where
+>     fName                                = "writeTournamentReport"
+>
 >     esFiles                              =
 >       let
 >         emitF sffile                     = [emitShowL sffile.zWordFBoot 7, emitShowL sffile.zFilename 54, EndOfLine]
@@ -64,15 +70,15 @@ October 5, 2025
 
 emit standard output text detailing what choices we made for rendering GM items =======================================
 
-> printChoices           :: (Map InstrumentName GMResults, Map PercussionSound GMResults)
+> printChoices           :: (Map InstrumentName GMChoices, Map PercussionSound GMChoices)
 >                           → [InstrumentName]
 >                           → [PercussionSound]
 >                           → ([(Bool, [Emission])], [(Bool, [Emission])])
 > printChoices (zI, zP) is ps              = (map (extract zI) is, map (extract zP) ps)
 >   where
->     extract            :: ∀ a. (Ord a) ⇒ Map a GMResults → a → (Bool, [Emission])
+>     extract            :: ∀ a. (Ord a) ⇒ Map a GMChoices → a → (Bool, [Emission])
 >     extract choices kind                 = (found, ems)
->                                              where GMResults found _ ems = choices Map.! kind
+>                                              where GMChoices found _ ems = choices Map.! kind
 >
 > dumpContestants        :: ∀ a. (Ord a, Show a, SFScorable a) ⇒ a → [PerGMScored] → [Emission]
 > dumpContestants kind contestants         = prolog ++ ex ++ epilog

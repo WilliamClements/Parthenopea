@@ -60,7 +60,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >                       → ([InstrumentName], [PercussionSound]) 
 >                       → VB.Vector SFFileBoot
 >                       → Map PerGMKey PerInstrument
->                       → (Map InstrumentName GMResults, Map PercussionSound GMResults)
+>                       → (Map InstrumentName GMChoices, Map PercussionSound GMChoices)
 >                       → IO SFRuntime
 > prepareRuntime dives rost vFilesBoot cache choices
 >                                          = do
@@ -77,11 +77,11 @@ cache SoundFont data that is only needed for Runtime ===========================
 >     actions            :: IntMap IntSet                {- [FileIndex → [InstIndex]]     -}
 >     actions                              =
 >       let
->         extract        :: Map a GMResults → Set PerGMKey
+>         extract        :: Map a GMChoices → Set PerGMKey
 >         extract m                        = Set.fromList $ foldl' buildUp [] m
 >           where
->             buildUp    :: [PerGMKey] → GMResults → [PerGMKey]
->             buildUp s (GMResults _ mpergm _)
+>             buildUp    :: [PerGMKey] → GMChoices → [PerGMKey]
+>             buildUp s (GMChoices _ mpergm _)
 >                                          =
 >               case mpergm of
 >                 Nothing                  → s
@@ -103,7 +103,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >             getPerI inst                 =
 >               cache Map.! PerGMKey sffile.zWordFBoot (fromIntegral inst) Nothing
 >
->             newpi                        = IntMap.fromSet getPerI insts
+>             newPerI                      = IntMap.fromSet getPerI insts
 >
 >             savePreZones
 >                        :: IntMap PreZone → Int → IntMap PreZone
@@ -111,7 +111,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >               let
 >                 wrapUp pz                = pz{pzRecon = Just $ resolvePreZone dives pz}
 >                 save                     = wrapUp . accessPreZone fName sffile.zPreZones
->                 bixen                    = (newpi IntMap.! inst).pBixen
+>                 bixen                    = (newPerI IntMap.! inst).pBixen
 >               in
 >                 m `IntMap.union` IntMap.fromSet save bixen
 >
@@ -120,14 +120,14 @@ cache SoundFont data that is only needed for Runtime ===========================
 >             Just ( sffile.zWordFBoot
 >                  , SFFileRuntime 
 >                      sffile.zWordFBoot
->                      newpi
+>                      newPerI
 >                      preZone
 >                      sffile.zSquirrelSample)
 
 define signal functions and instrument maps to support rendering ======================================================
 
 > prepareInstruments     :: SFRuntime
->                           → (Map InstrumentName GMResults, Map PercussionSound GMResults)
+>                           → (Map InstrumentName GMChoices, Map PercussionSound GMChoices)
 >                           → IO [(InstrumentName, Instr (Stereo AudRate))]
 > prepareInstruments runt choices          = do
 >     return $ (Percussion, assignPercussion)                                                               : imap

@@ -107,7 +107,7 @@ Implement PCommand =============================================================
 >
 > commandLogic           :: Directives → ([InstrumentName], [PercussionSound])
 >                           → VB.Vector SFFileBoot
->                           → IO (SFRuntime, (Map InstrumentName GMResults, Map PercussionSound GMResults))
+>                           → IO (SFRuntime, (Map InstrumentName GMChoices, Map PercussionSound GMChoices))
 > commandLogic dives rost vFilesBoot_      = do
 >   putStrLn "commandLogic..."
 >   (vFilesBoot, survey)                   ← surveyInstruments dives rost vFilesBoot_
@@ -127,7 +127,7 @@ Implement PCommand =============================================================
 >                                          = dives.dReportVerbosity
 >
 > renderSong             :: SFRuntime
->                           → ( Map InstrumentName GMResults, Map PercussionSound GMResults)
+>                           → ( Map InstrumentName GMChoices, Map PercussionSound GMChoices)
 >                           → Song
 >                           → IO ()
 > renderSong runt choices (Song name music ding)

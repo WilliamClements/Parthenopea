@@ -17,6 +17,7 @@ October 5, 2025
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Time
+> import Debug.Trace ( traceIO )
 > import Euterpea.IO.MIDI.MEvent ( MEvent(ePitch) )
 > import Euterpea.Music
 > import Parthenopea.Debug
@@ -54,6 +55,7 @@ check all the incoming music for instrument range violations ===================
 
 > writeRangesReport      :: Directives → [Song] → Map GMKind Shred → IO ()
 > writeRangesReport dives songs ding       = do
+>   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show $ length songs])
 >   let rollup                             =
 >         Song "rollup" (const (foldr ((:+:) . uncap . songMusic) (rest 0) songs)) ding
 >   let esAll                              = concatMap doSong songs
@@ -71,6 +73,8 @@ check all the incoming music for instrument range violations ===================
 >                                             else []
 >   writeReportBySections dives reportRangesName [esPrefix, esAll, esRollup]
 >   where
+>     fName                                = "writeRangesReport"
+>
 >     uncap              :: (DynMap → Music1) → Music1
 >     uncap m                              = m Map.empty
 >

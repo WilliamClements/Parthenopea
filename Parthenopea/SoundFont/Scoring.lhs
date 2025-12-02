@@ -18,7 +18,7 @@ September 12, 2024
 >        , decideWinners
 >        , defMatches
 >        , establishWinners
->        , GMResults(..)
+>        , GMChoices(..)
 >        , gradeEmpiricals
 >        , isConfirmed
 >        , isConfirmed'
@@ -99,8 +99,8 @@ use "matching as" cache ========================================================
 >     showmZ                               = maybe [] showZ scored.mszP
 >     showZ name                           = [Unblocked name]
 >
-> data GMResults                           =
->   GMResults {
+> data GMChoices                           =
+>   GMChoices {
 >     gmFound          :: Bool
 >   , gmPerGMKey       :: Maybe PerGMKey
 >   , gmEmission       :: [Emission]}
@@ -207,7 +207,7 @@ tournament starts here =========================================================
 
 > establishWinners       :: ([InstrumentName], [PercussionSound])
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->                           → IO (Map InstrumentName GMResults, Map PercussionSound GMResults)
+>                           → IO (Map InstrumentName GMChoices, Map PercussionSound GMChoices)
 > establishWinners rost (wI_, wP_)
 >                                          = do
 >   let (wI, wP)                           = (Map.map head wI_, Map.map head wP_)
@@ -216,17 +216,17 @@ tournament starts here =========================================================
 >     buildUp ref m kind                   = Map.insert kind (kindChoices ref kind) m
 >     kindChoices m k
 >       | isJust pergm                     =
->           GMResults
+>           GMChoices
 >             True
 >             pergm
 >             (trueChoice k (deJust (unwords ["establishWinners kindChoices"]) mscored))
 >       | specialCase k                    =
->           GMResults
+>           GMChoices
 >             True
 >             pergm
 >             [Blanks 3, gmId k, Unblocked "(pseudo-instrument)", EndOfLine]
 >       | otherwise                        =
->           GMResults
+>           GMChoices
 >             False
 >             Nothing
 >             (falseChoice k)
