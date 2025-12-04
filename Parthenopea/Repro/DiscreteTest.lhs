@@ -44,7 +44,6 @@ Feed chart =====================================================================
 > cutoffs                :: [Int]
 > cutoffs                                  = [2_000, 4_000, 8_000, 15_353]
 >                                            -- 9_370, 9_373, 9_3274]
-    
 >                                           -- [9_300, 9_371, 9_380, 9_200, 9_300, 9_365]
 >                                           -- [9_350, 9_360, 9_380, 9_400]
 > -- cutoffs                                  = [9_350, 9_400, 9_425, 9_500]
@@ -60,11 +59,11 @@ Feed chart =====================================================================
 > colors                 :: [AlphaColour Double]
 >                                          =
 >   cycle
->     [  blue `withOpacity` 2
->     ,  orange `withOpacity` 2
->     ,  green `withOpacity` 2
->     ,  red  `withOpacity` 2
->     ,  purple `withOpacity` 2]
+>     [  blue    `withOpacity` 2
+>     ,  orange  `withOpacity` 2
+>     ,  green   `withOpacity` 2
+>     ,  red     `withOpacity` 2
+>     ,  purple  `withOpacity` 2]
 >
 > bench, porch           :: IO ()
 > bench                                    = benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks

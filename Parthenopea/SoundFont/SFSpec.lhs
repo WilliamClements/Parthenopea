@@ -4,6 +4,7 @@
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -143,6 +144,16 @@ implementing SoundFont spec ====================================================
 >   , rM8n               :: Modulation
 >   , rEffects           :: Effects}
 >   deriving (Eq, Show)
+> normalizeLooping       :: Recon → (Double, Double)
+> normalizeLooping Recon{ .. }
+>                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)
+>   where
+>     AppliedLimits{ .. }                        
+>                                          = rApplied
+>
+>     (fullst, fullen)                     = (fromIntegral rStart, fromIntegral rEnd)
+>     (loopst, loopen)                     = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
+>     denom              :: Double         = fullen - fullst
 >
 > data Effects                             =
 >   Effects {

@@ -395,22 +395,22 @@ Each driver specifies an xform composed of functions from Double to Double
 
 WAV ===================================================================================================================
 
-> importWav'              :: FilePath → IO (DiscreteSig Double)
+> importWav'             :: FilePath → IO (DiscreteSig Double)
 > importWav' fp = do
 >   x ← W.importFile fp
 >   case x of
 >     Left z             → error z
 >     Right w            → return $ discretizeWav w
 >
-> discretizeWav             :: A.Audio Int32 → DiscreteSig Double
+> discretizeWav          :: A.Audio Int32 → DiscreteSig Double
 > discretizeWav wav                        =
 >   let
->     bookie = elems $ A.sampleData wav
+>     samples                              = elems $ A.sampleData wav
 >
->     kookie             :: VU.Vector Double
->     kookie                               = VU.fromList (map ((/ 4_294_967_296) . fromIntegral) bookie)
+>     vect               :: VU.Vector Double
+>     vect                                 = VU.fromList (map ((/ 4_294_967_296) . fromIntegral) samples)
 >   in
->     fromRawVector "fromWAV" kookie
+>     fromRawVector "fromWAV" vect
 
 Type declarations =====================================================================================================
 

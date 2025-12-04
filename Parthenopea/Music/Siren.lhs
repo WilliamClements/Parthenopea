@@ -28,7 +28,6 @@ December 12, 2022
 > import Data.Ord ( comparing )
 > import qualified Data.Vector.Unboxed     as VU
 > import Data.Word ( Word8 )
-> import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.IO.MIDI.MidiIO ( unsafeOutputID )
@@ -723,11 +722,6 @@ snippets to be used with "lake" ================================================
 >     mel1                                 = retro melInput
 >     mel2                                 = invert melInput
 >     mel3                                 = (invert . retro) melInput
->
-> eutSplit               :: ∀ p . Clock p ⇒ Signal p Double (Double, Double)
-> eutSplit                                 =
->   proc sIn → do
->     outA                                 ⤙ (sIn, sIn)
 
 Sampling ==============================================================================================================
 

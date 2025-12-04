@@ -127,7 +127,7 @@ Implement PCommand =============================================================
 >                                          = dives.dReportVerbosity
 >
 > renderSong             :: SFRuntime
->                           → ( Map InstrumentName GMChoices, Map PercussionSound GMChoices)
+>                           → (Map InstrumentName GMChoices, Map PercussionSound GMChoices)
 >                           → Song
 >                           → IO ()
 > renderSong runt choices (Song name music ding)

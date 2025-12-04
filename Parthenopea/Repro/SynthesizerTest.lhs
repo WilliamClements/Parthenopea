@@ -17,8 +17,7 @@ March 2, 2024
 > import Euterpea.IO.Audio.Types ( Clock(..), AudRate, Signal )
 > import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Music.Siren
-> import Parthenopea.Repro.Modulation ( defModulation, TimeFrame(..) )
-> import Parthenopea.Repro.Synthesizer ( eutDriver )
+> import Parthenopea.Repro.Modulation ( constA, defModulation, TimeFrame(..) )
 > import Parthenopea.SoundFont.SFSpec
   
 Synthesizer-related tests =============================================================================================
@@ -37,8 +36,11 @@ Synthesizer-related tests ======================================================
 >
 > driveDriver            :: ∀ p. Clock p ⇒ Signal p () Double
 > driveDriver                              = proc _ → do
->   x                                      ← eutDriver (TimeFrame 2 1 1 True) defRecon 0.1 ⤙ ()
+>   x                                      ← driver (TimeFrame 2 1 1 True) defRecon 0.1 ⤙ ()
 >   outA                                                                                 ⤙ x
+>   where
+>     driver             :: TimeFrame → Recon → Double → Signal p () Double
+>     driver _ _ _                         = constA 1    
 > 
 > checkSignal            :: ∀ p. Clock p ⇒ Double → Signal p () Double → IO Bool
 > checkSignal nSecs sf                     = do
