@@ -19,7 +19,7 @@ June 16, 2025
 > import qualified Codec.Midi              as M
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
-> import Data.Either ( lefts, rights )
+> import Data.Either
 > import qualified Data.IntMap.Strict as IntMap
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
@@ -76,14 +76,14 @@ Implement PCommand =============================================================
 > proceed                :: Directives → [Song] → [FilePath] → [FilePath] → IO ()
 > proceed dives isongs mids sf2s           = do
 >   msongs                                 ← mapM convertFromMidi mids
->   let songs_                             = isongs ++ msongs
->   songs                                  ← mapM captureSong songs_
+>   songs                                  ← mapM captureSong (isongs ++ msongs)
 >
 >   CM.when (20 < length songs && not (null sf2s)) runUnitTests
+>
 >   let ding                               = Map.unionsWith combineShreds (map songShredding songs)
 >   CM.when (dForRanges > 0) (writeRangesReport dives songs ding)
 >
->   rost                                   ← qualifyKinds ding songs
+>   rost                                   ← identifyRoster ding songs
 >
 >   CM.unless (null sf2s)
 >             (putStr $ reapEmissions [  EndOfLine
@@ -102,6 +102,8 @@ Implement PCommand =============================================================
 >     captureSong (Song name music _)      = do
 >       ding                               ← shredMusic $ music Map.empty
 >       return $ Song name music ding
+>     identifyRoster     :: Map GMKind Shred → [Song] → IO ([InstrumentName], [PercussionSound])
+>     identifyRoster ding songs            = return $ if null songs then allKinds else partitionEithers $ Map.keys ding
 >     ReportVerbosity{ .. }               
 >                                          = dives.dReportVerbosity
 >
@@ -174,11 +176,6 @@ Implement PCommand =============================================================
 >         fpRev''                          = drop 1 fpRev'
 >       in
 >         reverse fpRev''
->
-> qualifyKinds           :: Map GMKind Shred → [Song] → IO ([InstrumentName], [PercussionSound])
-> qualifyKinds ding songs                  = do
->   let isandps                            = Map.keys ding
->   return $ if null songs then allKinds else (lefts isandps, rights isandps)
 >
 > openSoundFontFile      :: Int → FilePath → IO SFFileBoot
 > openSoundFontFile wFile filename         = do

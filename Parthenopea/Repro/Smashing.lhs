@@ -53,7 +53,8 @@ This source file implements a generalization of above definition. See computeIns
 > seedSmashStats         :: SmashStats
 > seedSmashStats                           = SmashStats 0 0 0
 >
-> developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒ VU.Vector (i,i) → SmashStats
+> developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒
+>                           VU.Vector (i,i) → SmashStats
 > developSmashStats                        = VU.foldl' sfolder seedSmashStats
 >   where
 >     sfolder            :: SmashStats → (i, i) → SmashStats
@@ -83,16 +84,10 @@ You see there is some overlap between Zone 1 and Zone 2.
 >     (developSmashStats svector)
 >     svector
 >   where
->     spaces             :: [(i, [(i, i)])]
 >     spaces                               = map (BF.second (zipWith expand dims)) spaces_
 >                                              where expand dim = fromMaybe (0, dim-1)
->
 >     mag                :: Int            = fromIntegral $ product dims
->
->     svector            :: VU.Vector (i, i)
 >     svector                              = foldl' sfolder (VU.replicate mag (0, 0)) spaces
->
->     sfolder            :: VU.Vector (i, i) → (i, [(i, i)]) → VU.Vector (i, i)
 >     sfolder vec (spaceId, rngs)          =
 >       let
 >         enumAssocs     :: [(Int, (i, i))]
@@ -107,6 +102,9 @@ You see there is some overlap between Zone 1 and Zone 2.
 >             is         :: [Int]
 >             is                           =
 >               map (computeCellIndex dims) (traverse walkRange rngs)
+>
+>         walkRange      :: (i, i) → [i]
+>         walkRange (x, y)                 = if x > y || y < 0 then [] else [x..y]
 >       in
 >         VU.accum smashCell vec enumAssocs
 
@@ -141,9 +139,6 @@ as a zipper to carry out the you-know-what (smashing, stupid!)
 > smashCell (spaceId1, cnt1) (spaceId2, cnt2)
 >   | cnt2 == 0                            = (spaceId1, cnt1)
 >   | otherwise                            = (spaceId2, cnt1 + cnt2)
->
-> walkRange              :: Integral n ⇒ (n, n) → [n]
-> walkRange (x, y)                         = if x > y || y < 0 then [] else [x..y]
 >
 > validRange             :: ∀ i . (Integral i, Ix i) ⇒ i → (i, i) → Bool
 > validRange dim (r, s)                    = 0 <= dim && r <= s && inZRange r dim && inZRange s dim
@@ -216,12 +211,14 @@ Navigation =====================================================================
 >   where
 >     fName                                = "computeCellIndex"
 >
-> allCellsEqualTo        :: ∀ i . (Integral i, Show i, VU.Unbox i) ⇒ Smashing i → Maybe (i, i)
+> allCellsEqualTo        :: ∀ i . (Integral i, VU.Unbox i) ⇒ Smashing i → Maybe (i, i)
 > allCellsEqualTo smashup                  =
 >   let
->     cand                                 = smashup.smashVec VU.! 0
+>     cand               :: (i, i)         = smashup.smashVec VU.! 0
+>     allix              :: [Int]          = [0..(VU.length smashup.smashVec - 1)]
+>     match j                              = cand == (smashup.smashVec VU.! j)
 >   in
->     if all (\j → cand == (smashup.smashVec VU.! j)) [0..(VU.length smashup.smashVec - 1)]
+>     if all match allix
 >       then Just cand
 >       else Nothing
 >

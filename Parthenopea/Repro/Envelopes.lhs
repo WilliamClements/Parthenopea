@@ -310,14 +310,11 @@ interpret them somehow.
 
 Emphasis on vetting ===================================================================================================
 
-Viability of the envelope "proposal" is checked for a few conditions not easily diagnosed from listening to produced
+Viability of the envelope "proposal" is checked for a few conditions not easily diagnosed when listening to produced
 audio. For example, there should always be zeros at the beginning and end of every note envelope.
 
 > maybeVetAsDiscreteSig  :: FEnvelope → Segments → Bool
-> maybeVetAsDiscreteSig env segs           =
->   case rateForVetEnvelope of
->     Nothing                              → True
->     Just clockRate                       → timeSkip || isJust (vetAsDiscreteSig clockRate env segs)
+> maybeVetAsDiscreteSig env segs           = timeSkip || isJust (vetAsDiscreteSig ctrRate env segs)
 >   where
 >     fName                                = "maybeVetAsDiscreteSig"
 >
@@ -373,8 +370,5 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >     a                                    = feSum env
 >     b                                    = ee.eeTargetT
 >     c                                    = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
->
-> rateForVetEnvelope     :: Maybe Double
-> rateForVetEnvelope                       = Just ctrRate
 
 The End

@@ -34,7 +34,11 @@ June 17, 2024
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.Utility
   
-Discrete approach =====================================================================================================
+Discrete filtering ====================================================================================================
+
+The KernelSpec values configure a lowpass filter without resonance - no sweeping of cutoff frequency supported. From
+that, we generate a "discrete signal" - a block of complex numbers - for the Frequency Response of the filter.
+Applying this filter to input signals is accomplished by sample point-wise multiplication, not slow convolution.
 
 > computeFR          :: KernelSpec → DiscreteSig (Complex Double)
 > computeFR ks                             =
@@ -48,16 +52,21 @@ Discrete approach ==============================================================
 >     kd                                   = calcKernelData ks
 >     shapes                               = makeShapes ResponseNormal
 >
->     -- function's domain corresponds to 0..ksLen-1 
->     -- there is coverage on whole target buffer
->     -- but internally, freaks above nyq will go as negative
+>     -- Function's domain corresponds to 0..ksLen-1.
+>     -- Function applied to freaks above (nyq = ksLen / 2) yields negations of bottom half.
 >     ys, ys'            :: [Complex Double]
->     ys                                   = map (getFreaky kd shapes . fromIntegral) ([0..ks.ksLen - 1]::[Int])
+>     ys                                   =
+>       let
+>         dom            :: [Int]          = [0..ks.ksLen - 1]
+>         dubs           :: [Double]       = map fromIntegral dom
+>       in
+>         map (getFreaky kd shapes) dubs
 >
 >     -- capture the Frequency Response; store the magnitudes (amplification/attenuation per freak)
 >     -- slow path then runs it through fft to create Impulse Response
->     ys'                                 = if ks.ksFast then ys    else toTimeDomain ys
->     tag'                                = if ks.ksFast then "FR!" else "IR!"
+>     (ys', tag')                         = if ks.ksFast
+>                                             then (ys,              "Frequency Response")
+>                                             else (toTimeDomain ys, "Impulse Response")
 >     vec'                                = VU.fromList ys'
 >
 > memoizedComputeFR      :: KernelSpec → DiscreteSig (Complex Double)
@@ -67,15 +76,15 @@ Discrete approach ==============================================================
 > applyConvolutionMono lowP secsToPlay sIn = sig 
 >   where
 >     dsigIn             :: Maybe (DiscreteSig Double)
->     dsigIn                               = fromContinuousSig "input mono" secsToPlay sIn
+>     dsigIn                               = fromSignal "input mono" secsToPlay sIn
 >
 >     sig                                  = maybe sIn doIt dsigIn
 >
 >     doIt               :: DiscreteSig Double → Signal p () Double
 >     doIt dsig                            =
 >       if lowP.lowpassKs.ksFast
->         then toContinuousSig (fastConvolveFR dsig lowP)
->         else toContinuousSig (slowConvolveIR dsig lowP) 
+>         then toMonoSignal (fastConvolveFR dsig lowP)
+>         else toMonoSignal (slowConvolveIR dsig lowP) 
 >
 > applyConvolutionStereo :: ∀ p . Clock p ⇒
 >                           (Lowpass, Lowpass)
@@ -83,12 +92,13 @@ Discrete approach ==============================================================
 >                           → Signal p () (Double, Double)
 >                           → Signal p () (Double, Double)
 > applyConvolutionStereo (lowpL, lowpR) secsToPlay sIn
->                                          = toContinuousSig' resultL resultR
+>                                          = toStereoSignal resultL resultR
 >   where
 >     baseLen, fftLen    :: Int
 >     baseLen                              = truncate (secsToPlay * rate (undefined :: p))
 >     fftLen                               = sampleUp baseLen
 >     
+>     pairs              :: Vector (Double, Double)
 >     pairs                                = toFftSamples fftLen sIn
 >
 >     dsigInL                              = fromRawVector "input left"  $ VU.map fst pairs
@@ -99,26 +109,27 @@ Discrete approach ==============================================================
 >       | lowpL.lowpassKs.ksFast           = (fastConvolveFR dsigInL lowpL, fastConvolveFR dsigInR lowpR)
 >       | otherwise                        = (slowConvolveIR dsigInL lowpL, slowConvolveIR dsigInR lowpR)
 >
-> fromContinuousSig      :: ∀ p a. (Clock p, Coeff a, VU.Unbox a, AudioSample a) ⇒
+> fromSignal             :: ∀ p a. (Clock p, Coeff a, VU.Unbox a, AudioSample a) ⇒
 >                           String → Double → Signal p () a → Maybe (DiscreteSig a)
-> fromContinuousSig tag dur sf             =
->     if not (null dlist)
->       then Just $ fromRawVector tag (VU.fromList dlist)
+> fromSignal tag dur sf             =
+>     if not (VU.null dlist)
+>       then Just $ fromRawVector tag dlist
 >       else Nothing
 >   where
->     dlist              :: [a]
 >     dlist                                = toSamples dur sf
 >
-> toContinuousSig         :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒ DiscreteSig a → Signal p () a
-> toContinuousSig dsL                      =
+> toMonoSignal           :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒
+>                           DiscreteSig a → Signal p () a
+> toMonoSignal dsL                         =
 >   proc ()                                → do
 >     rec
 >       ii' ← delay 0                      ⤙ ii
 >       let ii                             = ii' + 1
 >     outA                                 ⤙ dsL.dsigVec VU.! (ii' `mod` dsL.dsigStats.dsigLength)
 >
-> toContinuousSig'        :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒ DiscreteSig a → DiscreteSig a → Signal p () (a, a)
-> toContinuousSig' dsL dsR                 =
+> toStereoSignal          :: ∀ p a. (Clock p, Coeff a, VU.Unbox a) ⇒
+>                            DiscreteSig a → DiscreteSig a → Signal p () (a, a)
+> toStereoSignal dsL dsR                   =
 >   proc ()                                → do
 >     rec
 >       ii' ← delay 0                      ⤙ ii
@@ -128,7 +139,11 @@ Discrete approach ==============================================================
 >
 > fromRawVector          :: (Coeff a, VU.Unbox a) ⇒ String → VU.Vector a → DiscreteSig a
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
->
+  
+Discrete envelope checking ============================================================================================
+
+We realize/discretize the envelope's signal. The resulting block is checked for violations.
+
 > discretizeEnvelope     :: Double → FEnvelope → Segments → DiscreteSig Double
 > discretizeEnvelope clockRate env segs    =
 >   if howMany < 5 && howNegative > -0.2
@@ -139,9 +154,9 @@ Discrete approach ==============================================================
 >
 >     dsig
 >       | abs (clockRate - ctrRate) < epsilon
->                                          = deJust fName $ fromContinuousSig fName (targetT + minUseful) csignal
+>                                          = deJust fName $ fromSignal fName (targetT + minUseful) csignal
 >       | abs (clockRate - audRate) < epsilon
->                                          = deJust fName $ fromContinuousSig fName (targetT + minUseful) asignal
+>                                          = deJust fName $ fromSignal fName (targetT + minUseful) asignal
 >       | otherwise                        = error $ unwords [fName, show clockRate, "clockRate not supported"]
 >
 >     targetT                              = (deJust fName env.fExtras).eeTargetT
@@ -184,18 +199,10 @@ Discrete approach ==============================================================
 >         (aadd stats.stDCOffset d)
 >         (aadd stats.stVariance (amul d d))
 >         (max stats.stMaxAmp (aamp d))
->
-> measureFrequencyResponse
->                        :: ∀ a. (Coeff a, VU.Unbox a) ⇒ VU.Vector a → FrequencyResponseStats
-> measureFrequencyResponse                 = VU.foldl' sfolder defFrequencyResponseStats
->   where
->     sfolder            :: FrequencyResponseStats → a → FrequencyResponseStats
->     sfolder fstats d
->                                          =
->       FrequencyResponseStats
->         (accommodate fstats.stRealExtent (realPart (acomplex d)))
->         (accommodate fstats.stImagExtent (imagPart (acomplex d)))
->
+>  
+
+Convolution details ===================================================================================================
+
 > slowConvolveIR         :: DiscreteSig Double → Lowpass → DiscreteSig Double
 > slowConvolveIR dsigIn lp                 =
 >   profess
@@ -468,7 +475,22 @@ Type declarations ==============================================================
 > instance ∀ a. (Show a, Coeff a, VU.Unbox a) ⇒ Show (DiscreteSig a) where
 >   show                 :: DiscreteSig a → String
 >   show dsig                              =
->     unwords ["DiscreteSig", show (dsig.dsigTag, dsig.dsigStats, measureFrequencyResponse dsig.dsigVec)]
+>     unwords [fName, show (dsig.dsigTag, dsig.dsigStats, measureFrequencyResponse dsig.dsigVec)]
+>     where
+>       fName                              = "DiscreteSig"
+>
+>       measureFrequencyResponse
+>                        :: VU.Vector a → FrequencyResponseStats
+>       measureFrequencyResponse           =
+>         let
+>           sfolder      :: FrequencyResponseStats → a → FrequencyResponseStats
+>           sfolder fstats d               =
+>             FrequencyResponseStats
+>               (accommodate fstats.stRealExtent (realPart (acomplex d))) 
+>               (accommodate fstats.stImagExtent (imagPart (acomplex d)))
+>         in
+>           VU.foldl' sfolder defFrequencyResponseStats
+>
 > sane                   :: (Coeff a) ⇒ DiscreteSig a → Bool
 > sane dsig                                =
 >   profess

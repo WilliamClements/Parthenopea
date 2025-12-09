@@ -725,16 +725,19 @@ snippets to be used with "lake" ================================================
 
 Sampling ==============================================================================================================
 
-> toSamples              :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [a]
-> toSamples secs sig                       = take numSamples $ unfold $ strip sig
+> toSamples              :: ∀ a p. (AudioSample a, VU.Unbox a, Clock p) ⇒
+>                           Double → Signal p () a → VU.Vector a
+> toSamples secs sig                       = VU.fromList $ take numSamples $ unfold $ strip sig
 >   where
 >     sr                                   = rate     (undefined :: p)
 >     numSamples                           = truncate (secs * sr)
 >
-> toFftSamples           :: ∀ a p. (AudioSample a, VU.Unbox a, Clock p) ⇒ Int → Signal p () a → VU.Vector a
+> toFftSamples           :: ∀ a p. (AudioSample a, VU.Unbox a, Clock p) ⇒
+>                           Int → Signal p () a → VU.Vector a
 > toFftSamples numSamples sig              = VU.fromList $ take numSamples $ unfold $ strip sig
 >
-> toSampleDubs           :: ∀ a p. (AudioSample a, Clock p) ⇒ Double → Signal p () a → [Double]
+> toSampleDubs           :: ∀ a p. (AudioSample a, Clock p) ⇒
+>                           Double → Signal p () a → [Double]
 > toSampleDubs secs sig                    = take numDubs $ concatMap collapse $ unfold $ strip sig
 >   where
 >     sr                                   = rate     (undefined :: p)
@@ -742,7 +745,7 @@ Sampling =======================================================================
 >     numDubs                              = truncate (secs * sr) * numChannels
 >
 > maxSample              :: ∀ p. (Clock p) ⇒ Double → Signal p () Double → Double
-> maxSample durS sf                        = maximum $ map abs (toSamples durS sf)
+> maxSample durS sf                        = VU.maximum $ VU.map abs (toSamples durS sf)
 >
 > data SlwRate
 > instance Clock SlwRate where
