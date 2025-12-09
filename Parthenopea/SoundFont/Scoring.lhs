@@ -3,6 +3,7 @@
 >
 > {-# LANGUAGE NumericUnderscores  #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -278,7 +279,7 @@ tournament starts here =========================================================
 >         decidePerc     :: Map PercussionSound [PerGMScored]
 >         decidePerc                       = foldl' pFolder wP pergmsP
 >           where
->             pergmsP                      = instrumentPercList pergmI_ perI.pBixen
+>             pergmsP                      = instrumentPercList pergmI_ (ownedOnly perI)
 >
 >             pFolder wpFold pergmP
 >               | traceNot trace_PF False  = undefined
@@ -338,7 +339,7 @@ tournament starts here =========================================================
 >       where
 >         fName                            = unwords [fName__, "xaEnterTournament"]
 >         trace_XAET                       =
->           unwords [fName, iName, show pergm, show kind, show perI.pBixen]
+>           unwords [fName, iName, show pergm, show kind, show (ownedOnly perI)]
 >
 >         sffile                           = vFiles VB.! pergm.pgkwFile
 >         pergm_                           = pergm{pgkwBag = Nothing}
@@ -349,7 +350,7 @@ tournament starts here =========================================================
 >           let
 >             oneZone bix                  = IntMap.singleton bix (accessPreZone "oneZone" sffile.zPreZones bix)
 >           in
->             maybe (accessPreZones "scope" sffile.zPreZones perI.pBixen) (oneZone . fromIntegral) pergm.pgkwBag
+>             maybe (accessPreZones "scope" sffile.zPreZones (allBixen perI)) (oneZone . fromIntegral) pergm.pgkwBag
 >
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
 >                                            >>= (Just . accessPreZone "mnameZ" sffile.zPreZones . fromIntegral)

@@ -1141,7 +1141,7 @@ Signals of interest ============================================================
 > reverbAllPercent                         = 0
 > -- force given Reverb level on ALL notes
 > useDefaultMods         :: Bool
-> useDefaultMods                           = True
+> useDefaultMods                           = False
 > -- False to suppress all use of defaul Modulators
 > useLFO                 :: Bool
 > useLFO                                   = True

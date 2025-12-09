@@ -105,17 +105,14 @@ cache SoundFont data that is only needed for Runtime ===========================
 >
 >             newPerI                      = IntMap.fromSet getPerI insts
 >
->             savePreZones
->                        :: IntMap PreZone → Int → IntMap PreZone
->             savePreZones m inst          =
->               let
->                 wrapUp pz                = pz{pzRecon = Just $ resolvePreZone dives pz}
->                 save                     = wrapUp . accessPreZone fName sffile.zPreZones
->                 bixen                    = (newPerI IntMap.! inst).pBixen
->               in
->                 m `IntMap.union` IntMap.fromSet save bixen
+>             bixen                        = IntSet.foldl' lump IntSet.empty insts
+>                                              where lump m i = IntSet.union m (allBixen (newPerI IntMap.! i))
 >
->             preZone                      = IntSet.foldl' savePreZones IntMap.empty insts
+>             save       :: IntMap PreZone → Int → IntMap PreZone
+>             save m bix                   = IntMap.insert bix pz{pzRecon = Just $ resolvePreZone dives pz} m
+>                                              where pz = accessPreZone fName sffile.zPreZones bix
+>
+>             preZone                      = IntSet.foldl' save IntMap.empty bixen
 >           in
 >             Just ( sffile.zWordFBoot
 >                  , SFFileRuntime 
@@ -226,7 +223,7 @@ zone selection for rendering ===================================================
 >                                          = error $ unwords [fName, "spL, spR"
 >                                                                  , show (spL, spR)
 >                                                                  , "not both present in"
->                                                                  , show perI.pBixen] 
+>                                                                  , show (allBixen perI)] 
 >       | foundL == foundR                 = (Left . fromJust) foundL
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where

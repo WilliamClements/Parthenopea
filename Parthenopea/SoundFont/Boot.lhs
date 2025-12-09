@@ -12,7 +12,7 @@ Boot
 William Clements
 January 21, 2025
 
-> module Parthenopea.SoundFont.Boot ( surveyInstruments ) where
+> module Parthenopea.SoundFont.Boot ( surveyInstruments, twoWay ) where
 >
 > import qualified Codec.SoundFont         as F
 > import Data.Array.Unboxed
@@ -311,7 +311,7 @@ pre-sample task ================================================================
 >         fwForm{ fwPreSamples = preSampleCache, fwDispositions = dispose presk ssSample fwForm.fwDispositions}
 
 smell task ============================================================================================================
-          partner map at sample header level = forms basis for all stereo pairings
+          partner map at sample header level - all PreZone pairings map their L and R to shdr partners
 
 > smellTaskIf _ _ fWork                    = fWork{fwPairing = fWork.fwPairing{fwPartners = partnerMap}}
 >   where
@@ -720,7 +720,7 @@ pair task ======================================================================
 > pairTaskIf _ _ fWork
 >   | traceIf trace_PTI False              = undefined
 >   | otherwise                            =
->   fWork{fwPairing = fWork.fwPairing{fwPairings = pairings, fwActions = makeActions rejects}}
+>   fWork{fwPairing = fWork.fwPairing{fwPairings = pairings, fwActions = makeActions fWork rejects}}
 >   where
 >     fName__                              = "pairTaskIf"
 >     trace_PTI                            = unwords [fName__, show pairings]
@@ -729,27 +729,6 @@ pair task ======================================================================
 >                                          = fWork.fwDirectives                     
 >     Pairing{ .. }                        
 >                                          = fWork.fwPairing
-
-pairing convenience functions =========================================================================================
-          unpair           - cram all Ls and Rs from partner map into single set
-          makeActions      - from reject bag indices, form action map (from instrument to affected zones)
-
->     unpair             :: IntMap Int                   {- [BagIndex → BagIndex]         -}
->                           → IntSet                     {- [BagIndex]                    -}
->     unpair                               =
->       let
->         ifolder iset ifrom ito           = (IntSet.insert ito . IntSet.insert ifrom) iset
->       in
->         IntMap.foldlWithKey ifolder IntSet.empty
->
->     makeActions        :: IntSet                       {- [BagIndex]                    -}
->                           → IntMap IntSet              {- [InstIndex → [BagIndex]]      -}
->     makeActions                          =
->       let
->         make actions bix                 = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton bix) actions
->                                              where pz = accessPreZone fName__ fWork.fwPreZones bix
->       in
->         IntSet.foldl' make IntMap.empty
     
 pairing flow ==========================================================================================================
           After somehow generating the pair list for this sffile, reject all other stereo zones - they failed to pair!
@@ -848,6 +827,37 @@ pairing flow ===================================================================
 >               where
 >                 areParallel bixL bixR    =    (accessPreZone "bixL" fWork.fwPreZones bixL).pzWordI
 >                                            == (accessPreZone "bixR" fWork.fwPreZones bixR).pzWordI   
+
+pairing convenience functions =========================================================================================
+          unpair           - cram all Ls and Rs from partner map into single set
+          twoWay           - complete the map
+
+> unpair                 :: IntMap Int                   {- [BagIndex → BagIndex]         -}
+>                           → IntSet                     {- [BagIndex]                    -}
+> unpair                                   =
+>   let
+>     ifolder iset ifrom ito               = (IntSet.insert ito . IntSet.insert ifrom) iset
+>   in
+>     IntMap.foldlWithKey ifolder IntSet.empty
+>
+> twoWay                 :: IntMap Int                   {- [BagIndex → BagIndex]         -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]]        -}
+> twoWay                                   =
+>   let
+>     ifolder            :: IntMap Int → Int → Int → IntMap Int
+>     ifolder m ifrom ito                  = (IntMap.insert ito ifrom . IntMap.insert ifrom ito) m
+>   in
+>     IntMap.foldlWithKey ifolder IntMap.empty
+>
+> makeActions            :: FileWork
+>                           → IntSet                     {- [BagIndex]                    -}
+>                           → IntMap IntSet              {- [InstIndex → [BagIndex]]      -}
+> makeActions fWork                        =
+>   let
+>     make actions bix                     = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton bix) actions
+>                                              where pz = accessPreZone "mskeActions" fWork.fwPreZones bix
+>   in
+>     IntSet.foldl' make IntMap.empty
 
 vet task ==============================================================================================================
           switch bad stereo zones to mono, or off altogether
@@ -1159,6 +1169,7 @@ perI task ======================================================================
 >           PerInstrument 
 >             zrec.zswChanges 
 >             iset
+>             IntSet.empty
 >             smashing
 >
 >         ssInstrument                     =
@@ -1172,6 +1183,6 @@ perI task ======================================================================
 >             blessZone rd bix             = dispose (extractZoneKey pz) ssPreZone rd
 >                                              where pz = accessPreZone "bless" fWork.fwPreZones bix
 >           in
->             IntSet.foldl' blessZone rdFold perI.pBixen
+>             IntSet.foldl' blessZone rdFold perI.pOwned
 
 The End

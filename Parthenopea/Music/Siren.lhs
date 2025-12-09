@@ -737,8 +737,8 @@ Sampling =======================================================================
 > toFftSamples numSamples sig              = VU.fromList $ take numSamples $ unfold $ strip sig
 >
 > toSampleDubs           :: ∀ a p. (AudioSample a, Clock p) ⇒
->                           Double → Signal p () a → [Double]
-> toSampleDubs secs sig                    = take numDubs $ concatMap collapse $ unfold $ strip sig
+>                           Double → Signal p () a → VU.Vector Double
+> toSampleDubs secs sig                    = VU.fromList $ take numDubs $ concatMap collapse $ unfold $ strip sig
 >   where
 >     sr                                   = rate     (undefined :: p)
 >     numChannels                          = numChans (undefined :: a)

@@ -21,8 +21,9 @@ April 16, 2023
 > import Data.Foldable
 > import Data.Int ( Int8, Int16 )
 > import Data.IntMap.Strict (IntMap)
-> import qualified Data.IntMap as IntMap
+> import qualified Data.IntMap.Strict      as IntMap
 > import Data.IntSet (IntSet)
+> import qualified Data.IntSet             as IntSet
 > import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
@@ -180,10 +181,16 @@ implementing SoundFont spec ====================================================
 > data PerInstrument                       =
 >   PerInstrument {
 >     piChanges          :: ChangeName F.Inst
->   , pBixen             :: IntSet
+>   , pOwned             :: IntSet
+>   , pPartnered         :: IntSet
 >   , pSmashing          :: Smashing Word}
+> allBixen, ownedOnly    :: PerInstrument → IntSet
+> allBixen PerInstrument { .. }
+>                                          = pOwned `IntSet.union` pPartnered
+> ownedOnly PerInstrument { .. }
+>                                          = pOwned
 > instance Show PerInstrument where
->   show perI                              = unwords ["PerInstrument", show perI.pBixen]
+>   show perI                              = unwords ["PerInstrument", show (perI.pOwned, perI.pPartnered)]
 >
 > data SFZone =
 >   SFZone {

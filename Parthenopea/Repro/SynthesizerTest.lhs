@@ -13,6 +13,7 @@ March 2, 2024
 >
 > import qualified Data.Audio              as A
 > import qualified Data.Vector.Strict      as VB
+> import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( Clock(..), AudRate, Signal )
 > import Parthenopea.Debug ( aEqual )
@@ -44,11 +45,11 @@ Synthesizer-related tests ======================================================
 > 
 > checkSignal            :: ∀ p. Clock p ⇒ Double → Signal p () Double → IO Bool
 > checkSignal nSecs sf                     = do
->   let ss                                 = toSampleDubs nSecs sf
+>   let dubs                               = toSampleDubs nSecs sf
 >   let sr                                 = rate (undefined :: p)
->   print $ length ss
->   print $ maximum $ map abs ss
->   return $ aEqual (truncate (nSecs * sr)) (length ss)
+>   print $ VU.length dubs
+>   print $ VU.maximum $ VU.map abs dubs
+>   return $ aEqual (truncate (nSecs * sr)) (VU.length dubs)
 > 
 > testSlw, testAud       :: Double → IO Bool
 >
