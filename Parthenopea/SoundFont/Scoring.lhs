@@ -293,7 +293,8 @@ tournament starts here =========================================================
 >                                                   , show (mz >>= getAP >>= pitchToPerc)]
 >
 >                 mz     :: Maybe PreZone
->                 mz                       = pergmP.pgkwBag >>= (Just . accessPreZone "pergmP" sffile.zPreZones . fromIntegral)
+>                 mz                       =
+>                   pergmP.pgkwBag >>= (Just . accessPreZone "pergmP" sffile.zPreZones . fromIntegral)
 >                 mkind  :: Maybe PercussionSound
 >                 mkind                    = mz >>= getAP >>= pitchToPerc
 >                 mffm   :: Maybe FFMatches

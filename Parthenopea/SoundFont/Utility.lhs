@@ -51,6 +51,12 @@ ranges/numerics ================================================================
 >   where
 >     rnd                :: Int
 >     rnd                                  = round (p10 * x)
+>
+> inARange               :: (Ord a) ⇒ (a, a) → a → Bool
+> inARange (m, n) v                        = m <= v && v <= n
+>
+> inZRange               :: (Ix a, Num a) ⇒ a → a → Bool
+> inZRange x y                             = inRange (0, y - 1) x 
 
 note-on abstraction ===================================================================================================
 

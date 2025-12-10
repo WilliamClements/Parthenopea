@@ -81,14 +81,13 @@ implementing SoundFont spec ====================================================
 > extractZoneKey         :: PreZone → PreZoneKey
 > extractZoneKey pz                        =
 >   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
-> extractSpace           :: PreZone → (Word, [Maybe (Word, Word)])
-> extractSpace pz@PreZone{pzWordB, pzDigest}  
->                                          = (pzWordB, [pzDigest.zdKeyRange, pzDigest.zdVelRange, Just chans])
+> extractSpace           :: PreZone → [Maybe (Word, Word)]
+> extractSpace pz                          = [pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange, chans]
 >   where
 >     chans
->       | isLeftPZ pz                      = (0, 0)
->       | isRightPZ pz                     = (1, 1)
->       | otherwise                        = (0, 1)
+>       | isLeftPZ pz                      = Just (0, 0)
+>       | isRightPZ pz                     = Just (1, 1)
+>       | otherwise                        = Just (0, 1)
 >
 > effPSShdr              :: PreSample → F.Shdr
 > effPSShdr ps                             = ps.cnSource{F.sampleName = ps.cnName}
@@ -708,7 +707,9 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportScanName                           = "Scan.report"
 > reportTournamentName   :: FilePath
 > reportTournamentName                     = "Tournament.report"
->
+
+configuration ("Directives") ==========================================================================================
+
 > data ReportVerbosity                     =
 >   ReportVerbosity {
 >     dForRanges         :: Rational
@@ -720,7 +721,7 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >   && inCanonicalRange rv.dForScan
 >   && inCanonicalRange rv.dForTournament
 >   where
->     inCanonicalRange diveItem            = diveItem == clip (0::Rational, 1::Rational) diveItem
+>     inCanonicalRange                     = inARange (0::Rational, 1::Rational)
 > allOn, allOff          :: ReportVerbosity
 > allOn                                    =
 >   ReportVerbosity 1 1 1
@@ -755,7 +756,9 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >
 > data Directives                          =
 >   Directives {
->     doAbsorption       :: Bool
+>     client             :: String
+>
+>   , doAbsorption       :: Bool
 >   , fixBadNames        :: Bool
 >   , narrowRosterForBoot
 >                        :: Bool
@@ -770,25 +773,34 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >   , hackWildJumps      :: Bool
 >   , proConRatio        :: Rational
 >   , absorbThreshold    :: Rational
+>
 >   , synthSwitches      :: SynthSwitches
+>
 >   , dReportVerbosity   :: ReportVerbosity}
 >   deriving (Eq, Show)
->
+
+Client executable to specify any Directives default overrides, especially "client". ===================================
+
 > defDirectives          :: Directives
-> defDirectives                            = baseDives
-> -- make experimental changes here
-> -- For example:
->       {- {narrowRosterForBoot                 = False} -}
->       {- , dReportVerbosity                   = allOff -}
+> defDirectives                            =
+>   baseDives
+>     {   client = "sandbox"}
+
+Override here only if this is a Parthenopea library sandbox. ==========================================================
+For example:
+        , narrowRosterForBoot = False
+        , dReportVerbosity = allOff
+
 >   where
 >     baseDives                            =
 >       Directives
-> -- not here
+> -- do not change here, unless setting default defaults
+>         ""
 >         True
 >         True
 >         True
 >         True
->         True
+>         False
 >         False
 >         False
 >         True
@@ -799,6 +811,9 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 >         allOn
 >
 > okDirectives           :: Directives → Bool
-> okDirectives dives                       = okReportVerbosity dives.dReportVerbosity
+> okDirectives dives                       =
+>   okReportVerbosity dives.dReportVerbosity
+>   && inARange (1 % 10, 10 % 1) dives.proConRatio
+>   && inARange (1 % 10, 10 % 1) dives.absorbThreshold
 
 The End

@@ -13,13 +13,14 @@ February 10, 2025
 
 > module Parthenopea.Repro.Smashing where
 >
-> import qualified Data.Bifunctor          as BF
+> import Data.IntMap.Strict (IntMap)
+> import qualified Data.IntMap.Strict as IntMap
 > import Data.Ix
-> import Data.List
 > import Data.Maybe
 > import qualified Data.Vector.Unboxed     as VU
 > import Parthenopea.Debug
-  
+> import Parthenopea.SoundFont.Utility
+
 Range theory ==========================================================================================================
 
 "Write once, read many" characterizes a cache. A "smashing" caches values that identify the winner of a game. Later 
@@ -39,7 +40,7 @@ This source file implements a generalization of above definition. See computeIns
 >   Smashing {
 >     smashTag            :: String
 >     , smashDims         :: [i]
->     , smashSpaces       :: [(i, [(i, i)])]
+>     , smashSpaces       :: IntMap [(i, i)]
 >     , smashStats        :: SmashStats
 >     , smashVec          :: VU.Vector (i, i)}
 > instance ∀ i . Show i ⇒ Show (Smashing i) where
@@ -75,7 +76,7 @@ Zone 3: 0..1          , 0..1
 You see there is some overlap between Zone 1 and Zone 2.
 
 > smashSubspaces         :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒
->                           String → [i] → [(i, [Maybe (i, i)])] → Smashing i
+>                           String → [i] → IntMap [Maybe (i, i)] → Smashing i
 > smashSubspaces tag dims spaces_          =
 >   Smashing 
 >     tag 
@@ -84,18 +85,19 @@ You see there is some overlap between Zone 1 and Zone 2.
 >     (developSmashStats svector)
 >     svector
 >   where
->     spaces                               = map (BF.second (zipWith expand dims)) spaces_
+>     spaces                               = IntMap.map (zipWith expand dims) spaces_
 >                                              where expand dim = fromMaybe (0, dim-1)
 >     mag                :: Int            = fromIntegral $ product dims
->     svector                              = foldl' sfolder (VU.replicate mag (0, 0)) spaces
->     sfolder vec (spaceId, rngs)          =
+>     svector                              = IntMap.foldlWithKey sfolder (VU.replicate mag (0, 0)) spaces
+>     sfolder            :: VU.Vector (i, i) → Int → [(i, i)] → VU.Vector (i, i)
+>     sfolder vec spaceId rngs          =
 >       let
 >         enumAssocs     :: [(Int, (i, i))]
 >         enumAssocs                       =
 >           profess
 >             (0 <= mag && mag <= 32_768 && all (uncurry validRange) (zip dims rngs))
 >             (unwords [fName, "range violation", tag, show mag, show dims, show spaces])
->             (map (, (spaceId, 1)) is)
+>             (map (, (fromIntegral spaceId, 1)) is)
 >           where
 >             fName                        = "enumAssocs"
 >
@@ -120,7 +122,7 @@ as a zipper to carry out the you-know-what (smashing, stupid!)
 >   Smashing
 >     fName
 >     dims
->     (s1.smashSpaces ++ s2.smashSpaces)
+>     (s1.smashSpaces `IntMap.union` s2.smashSpaces)
 >     (developSmashStats svector)
 >     svector
 >   where
@@ -173,18 +175,18 @@ Navigation =====================================================================
 >       | snd cell_ > 0                    = cell_
 >       | otherwise                        = (snd $ minimum measured, 1)
 >       where
->         measured                         = map (measure coords) smashSpaces
+>         measured                         = IntMap.mapWithKey (measure coords) smashSpaces
 >         cell_                            = smashVec VU.! computeCellIndex smashDims coords
 >
->     measure            :: [i] → (i, [(i, i)]) → (Double, i)   
->     measure coordsM space                =
+>     measure            :: [i] → Int → [(i, i)] → (Double, i)   
+>     measure coordsM spaceId space        =
 >       let
->         listOut                          = listOutPoints (snd space)
+>         listOut                          = listOutPoints space
 >       in
 >         profess
 >           (not $ null listOut)
 >           (unwords [fName, "minimum"])
->           (minimum (map (distance (fst space) coordsM) listOut))
+>           (minimum (map (distance (fromIntegral spaceId) coordsM) listOut))
 >
 >     distance           :: i → [i] → [i] → (Double, i)
 >     distance bix [] []                   = (0, bix)
@@ -221,8 +223,5 @@ Navigation =====================================================================
 >     if all match allix
 >       then Just cand
 >       else Nothing
->
-> inZRange               :: (Ix a, Num a) ⇒ a → a → Bool
-> inZRange x y                             = inRange (0, y - 1) x 
 
 The End
