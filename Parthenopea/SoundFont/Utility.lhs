@@ -68,16 +68,8 @@ note-on abstraction ============================================================
 > carefulNoteOn          :: Velocity → AbsPitch → NoteOn
 > carefulNoteOn volIn pchIn                =
 >   NoteOn
->     (safeClip volIn)
->     (safeClip pchIn)
->   where
->     fName                                = "carefulNoteOn"
->
->     safeClip x                           =
->       profess
->         (x == clip (0, 127) x)
->         (unwords [fName, "out of bounds", show (volIn, pchIn)])
->         x
+>     (clip (0, 127) volIn)
+>     (clip (0, 127) pchIn)
 >
 > noonAsCoords           :: NoteOn → ([Word], [Word])
 > noonAsCoords noon                        =
