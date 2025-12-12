@@ -28,6 +28,7 @@ October 5, 2025
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility

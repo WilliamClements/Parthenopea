@@ -217,7 +217,7 @@ Feed chart =====================================================================
 >   proc () → do
 >     a1 ← osc waveTable 0                 ⤙ freq
 >     a2 ← filtersf                        ⤙ (a1, fc)
->     outA                                 ⤙ a2 * 100 / fromIntegral qMidiSize128
+>     outA                                 ⤙ a2 * 100 / qMidiDouble128
 >   where
 >     fc                                   = fromAbsoluteCents lp.lowpassKs.ksFc                     
 >

@@ -343,7 +343,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >         getValue m8r.mrModSrc * m8r.mrModAmount * getValue m8r.mrAmountSrc
 >
 > evaluateNoteOn         :: Int → Mapping → Double
-> evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / fromIntegral qMidiSize128) (0, 1)
+> evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / qMidiDouble128) (0, 1)
 >
 > evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → Double
 > evaluateModSignals tag m8n md (ModSignals xenv xlfo xvib)
@@ -902,7 +902,7 @@ Returns the elapsed time in seconds
 >     base               :: Double         =
 >       maybe (-12_000) fromIntegral mtimecents / 1_200
 >     inc                :: Double         =
->       maybe 0 fromIntegral mfact * fromIntegral (60 - key) / fromIntegral qMidiSize128 / 1_200
+>       maybe 0 fromIntegral mfact * fromIntegral (60 - key) / qMidiDouble128 / 1_200
 >
 > toTimecents            :: Double → Int
 > toTimecents secs                         = round $ logBase 2 secs * 1_200

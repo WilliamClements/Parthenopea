@@ -25,8 +25,12 @@ October 8, 2025
 > type Velocity                            = Volume
 > type Node                                = Int
 >
-> qMidiSize128           :: Word
-> qMidiSize128                             = 128
+> qMidiWord128           :: Word
+> qMidiWord128                             = 128
+> qMidiInt128            :: Int
+> qMidiInt128                              = 128
+> qMidiDouble128         :: Double
+> qMidiDouble128                           = 128
 
 error wrappers ========================================================================================================
 
@@ -64,12 +68,6 @@ note-on abstraction ============================================================
 >   NoteOn {
 >     noteOnVel          :: Velocity
 >   , noteOnKey          :: KeyNumber} deriving (Eq, Ord, Show)
->
-> carefulNoteOn          :: Velocity → AbsPitch → NoteOn
-> carefulNoteOn volIn pchIn                =
->   NoteOn
->     (clip (0, 127) volIn)
->     (clip (0, 127) pchIn)
 >
 > noonAsCoords           :: NoteOn → ([Word], [Word])
 > noonAsCoords noon                        =

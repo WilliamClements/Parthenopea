@@ -29,7 +29,7 @@ December 16, 2022
 > import Parthenopea.SoundFont.Utility
 > import System.Random ( mkStdGen )
   
-Bake ==================================================================================================================
+Bakes =================================================================================================================
 
 > type Baking = (BakingMetrics, Array Int Music1)
 
@@ -91,14 +91,16 @@ The progress of the algorithm is expressed in above pair.
 >                                            $ take (round numSections)
 >                                            $ randomNormSets 7
 >                                            $ mkStdGen seed
->
+
+Urns ==================================================================================================================
+
+"Bakes" -urns- are in increasing onset time order. To mitigate "collisions" we skip excessively "simultaneous" Bakes,
+as follows: After their contents have been recorded, urns become -inns-. The inns list is for assessing the number of
+active Bakes at any point in time, so it is always arranged in increasing end time order.
+
 > buildChannels          :: [Bake] → Baking
 > buildChannels bakes                      = build bakes [] (newBakingMetrics, newMusic)
 >   where
->     -- "Bakes" -urns- are in increasing onset time order. There is
->     -- an algorithm to mitigate "collisions" by skipping
->     -- excessively "simultaneous" Bakes. Therefore, the -inns- list
->     -- is arranged in increasing end time order.
 >     build              :: [Bake] → [Bake] → Baking → Baking
 >     build [] [] baking                   = baking
 >     build (urn:urns) [] baking           = tryUrn urn urns [] baking
@@ -132,8 +134,7 @@ The progress of the algorithm is expressed in above pair.
 >     skipSection urn (bm, ms)             = (skipMetrics bm (bOnset urn), ms)
 >
 >     acceptSection      :: Bake → Baking → Baking
->     acceptSection urn (bm, ms)
->                                          = (bm', ms')
+>     acceptSection urn (bm, ms)           = (bm', ms')
 >       where
 >         chan                             = urn.bIx `mod` numChannels
 >         inst                             = fst urn.bWch
@@ -309,7 +310,7 @@ The progress of the algorithm is expressed in above pair.
 >       choices = [  Piccolo,         Oboe,      AltoSax,             Trumpet
 >                  , Trombone,        Marimba,   Vibraphone,          ElectricGuitarJazz
 >                  , OrchestralHarp,  SlapBass1, RhodesPiano,         Harpsichord
->                  , HammondOrgan,    Violin,    Contrabass]
+>                  , HammondOrgan,    Violin,    Tuba]
 >       blacklist = [MuteCuica, OpenCuica, LongWhistle, ShortWhistle]
 >
 > computeEnd             :: Double → Double → Double

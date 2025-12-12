@@ -34,6 +34,7 @@ January 21, 2025
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
@@ -792,8 +793,8 @@ pairing flow ===================================================================
 >                 pz                       = accessPreZone "pegBix" fWork.fwPreZones bix
 >                 iSlot                    = PairingSlot
 >                                              (if allowCross || allowParallel then Nothing else Just pz.pzWordI)
->                                              (fromMaybe (0, qMidiSize128 - 1) pz.pzDigest.zdKeyRange)
->                                              (fromMaybe (0, qMidiSize128 - 1) pz.pzDigest.zdVelRange)
+>                                              (fromMaybe (0, qMidiWord128 - 1) pz.pzDigest.zdKeyRange)
+>                                              (fromMaybe (0, qMidiWord128 - 1) pz.pzDigest.zdVelRange)
 >               in
 >                 Map.insertWith IntSet.union iSlot (IntSet.singleton bix) m
 >
@@ -962,7 +963,7 @@ smash task =====================================================================
 >   profess
 >     (not $ IntMap.null pzdb)
 >     (unwords [fName, tag, "no zones"])
->     (smashSubspaces tag [qMidiSize128, qMidiSize128, 2] (IntMap.map extractSpace pzs))
+>     (smashSubspaces tag [qMidiWord128, qMidiWord128, 2] (IntMap.map extractSpace pzs))
 >   where
 >     fName                                = "computeInstSmashup"
 >     trace_CIS                            = unwords [fName, tag, show (IntMap.keys pzs)]
@@ -1079,7 +1080,7 @@ To build the map
 >               let
 >                 zoneHasVR pz             =
 >                   case pz.pzDigest.zdVelRange of
->                     Just rng             → rng /= (0, qMidiSize128 - 1)
+>                     Just rng             → rng /= (0, qMidiWord128 - 1)
 >                     Nothing              → False
 >                 zonesHaveVR              = any zoneHasVR
 >               in

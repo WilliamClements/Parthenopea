@@ -29,6 +29,7 @@ May 14, 2023
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
   

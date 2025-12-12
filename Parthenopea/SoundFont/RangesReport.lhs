@@ -29,6 +29,7 @@ October 5, 2025
 > import Parthenopea.Repro.SmashingTest ( smashingTests )
 > import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
 > import Parthenopea.SoundFont.BootTest ( bootTests )
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
 

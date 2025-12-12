@@ -51,8 +51,8 @@ library
     -- Modules exported by the library.
     exposed-modules:     Parthenopea.Debug, Parthenopea.Music.Baking, Parthenopea.Music.Passage,
                          Parthenopea.Music.Percussion, Parthenopea.Music.Siren, Parthenopea.Repro.Discrete, 
-                         Parthenopea.SoundFont.Boot, Parthenopea.SoundFont.Command, Parthenopea.SoundFont.Runtime,
-                         Parthenopea.SoundFont.SFSpec, Parthenopea.SoundFont.Utility
+                         Parthenopea.SoundFont.Boot, Parthenopea.SoundFont.Command, Parthenopea.SoundFont.Directives,
+                         Parthenopea.SoundFont.Runtime, Parthenopea.SoundFont.SFSpec, Parthenopea.SoundFont.Utility
                          
     
     -- Modules included in this library but not exported.

@@ -19,6 +19,7 @@ October 5, 2025
 > import Debug.Trace ( traceIO )
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.SFSpec
   
 executive =============================================================================================================

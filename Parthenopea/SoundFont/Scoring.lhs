@@ -55,6 +55,7 @@ September 12, 2024
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
 > import qualified Text.FuzzyFind          as FF

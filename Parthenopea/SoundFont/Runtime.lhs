@@ -40,8 +40,9 @@ February 1, 2025
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Synthesizer ( deriveEffects, eutSynthesize )
-> import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Scoring
+> import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
   
 > data SFRuntime                           =
@@ -172,15 +173,14 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Volume
 >                           → [Double]
 >                           → Signal p () (Double, Double)
-> instrumentSF runt pergm durI pchIn volIn ps_
+> instrumentSF runt pergm durI pchIn volIn _
 >   | traceIf trace_ISF False              = undefined
 >   | otherwise                            =
 >   eutSynthesize synthSwitches (reconX, mreconX) noonOut reconX.rSampleRate durI sffile 
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
->       unwords [fName_, show (pergm.pgkwFile, pergm.pgkwInst)
->                      , show perI.piChanges.cnName, show (pchIn, volIn), show durI, show ps]
+>       unwords [fName_, show (pergm.pgkwFile, pergm.pgkwInst)]
 >
 >     Directives{ .. }
 >                                          = runt.zDirectives
@@ -188,8 +188,7 @@ define signal functions and instrument maps to support rendering ===============
 >     sffile                               = runt.zRuntimeFiles IntMap.! pergm.pgkwFile
 >     perI                                 = sffile.zPerInstrument IntMap.! fromIntegral pergm.pgkwInst
 >
->     ps                                   = VU.fromList ps_
->     noonIn                               = carefulNoteOn volIn pchIn
+>     noonIn                               = carefulNoteOn
 >     fly                                  = eyeOnTheFly noonIn
 >     noonOut                              = case fly of
 >                                              Left z                     → calcNoteOn z.pzSFZone
@@ -250,6 +249,19 @@ zone selection for rendering ===================================================
 >                   (vu VU.! 0, vu VU.! 1)
 >         foundL                           = fromIntegral spL `IntMap.lookup` sffile.zPreZone
 >         foundR                           = fromIntegral spR `IntMap.lookup` sffile.zPreZone
+>
+>     carefulNoteOn      :: NoteOn
+>     carefulNoteOn                        = NoteOn (safeMidiValue volIn) (safeMidiValue pchIn)
+>       where
+>         safeMidiValue  :: Int → Int
+>         safeMidiValue x                  =
+>           let
+>             x' = clip (0, qMidiInt128 - 1) x
+>           in
+>             profess
+>               (hackWildMidiValues || x == x')
+>               (error $ unwords [fName_, "wild NoteOn", show (volIn, pchIn)])
+>               x'
 
 reconcile zone and sample header ======================================================================================
 

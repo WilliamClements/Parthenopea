@@ -37,6 +37,7 @@ April 16, 2023
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
   
 implementing SoundFont spec ===========================================================================================
@@ -462,13 +463,13 @@ implementing SoundFont spec ====================================================
 > okGMRanges             :: ZoneDigest → Bool
 > okGMRanges zd                            = rOk && iOk
 >   where
->     infinite                             = (0, qMidiSize128 - 1)
+>     infinite                             = (0, qMidiWord128 - 1)
 >
 >     kLim                                 = fromMaybe infinite zd.zdKeyRange
 >     vLim                                 = fromMaybe infinite zd.zdVelRange
 >
 >     rOk                                  = okRange kLim && okRange vLim
->     okRange (j, k)                       = (0 <= j) && j <= k && k < qMidiSize128
+>     okRange (j, k)                       = (0 <= j) && j <= k && k < qMidiWord128
 >
 >     iOk = kLim /= infinite || vLim /= infinite
 
@@ -707,113 +708,5 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportScanName                           = "Scan.report"
 > reportTournamentName   :: FilePath
 > reportTournamentName                     = "Tournament.report"
-
-configuration ("Directives") ==========================================================================================
-
-> data ReportVerbosity                     =
->   ReportVerbosity {
->     dForRanges         :: Rational
->   , dForScan           :: Rational
->   , dForTournament     :: Rational} deriving (Eq, Show)
-> okReportVerbosity      :: ReportVerbosity → Bool
-> okReportVerbosity rv                     = 
->      inCanonicalRange rv.dForRanges
->   && inCanonicalRange rv.dForScan
->   && inCanonicalRange rv.dForTournament
->   where
->     inCanonicalRange                     = inARange (0::Rational, 1::Rational)
-> allOn, allOff          :: ReportVerbosity
-> allOn                                    =
->   ReportVerbosity 1 1 1
-> allOff                                   =
->   ReportVerbosity 0 0 0
->
-> data SynthSwitches                       =
->   SynthSwitches {
->     useEnvelopes       :: Bool
->   , usePitchCorrection :: Bool
->   , useAttenuation     :: Bool
->   , useLoopSwitching   :: Bool
->   , useReverb          :: Bool
->   , useChorus          :: Bool
->   , usePan             :: Bool
->   , useDCBlock         :: Bool
->   , noStereoNoPan      :: Bool
->   , normalizingOutput  :: Bool} deriving (Eq, Show)
-> defSynthSwitches       :: SynthSwitches
-> defSynthSwitches                         =
->   SynthSwitches
->     True
->     True
->     True
->     True
->     True
->     True
->     True
->     True
->     True
->     True
->
-> data Directives                          =
->   Directives {
->     client             :: String
->
->   , doAbsorption       :: Bool
->   , fixBadNames        :: Bool
->   , narrowRosterForBoot
->                        :: Bool
->   , narrowRosterForRuntime
->                        :: Bool
->   , crossInstrumentPairing
->                        :: Bool
->   , parallelPairing    :: Bool
->   , switchBadStereoZonesToMono
->                        :: Bool
->   , multipleCompetes   :: Bool
->   , hackWildJumps      :: Bool
->   , proConRatio        :: Rational
->   , absorbThreshold    :: Rational
->
->   , synthSwitches      :: SynthSwitches
->
->   , dReportVerbosity   :: ReportVerbosity}
->   deriving (Eq, Show)
-
-Client executable to specify any Directives default overrides, especially "client". ===================================
-
-> defDirectives          :: Directives
-> defDirectives                            =
->   baseDives
->     {   client = "sandbox"}
-
-Override here only if this is a Parthenopea library sandbox. ==========================================================
-For example:
-        , narrowRosterForBoot = False
-        , dReportVerbosity = allOff
-
->   where
->     baseDives                            =
->       Directives
-> -- do not change here, unless setting default defaults
->         ""
->         True
->         True
->         True
->         True
->         False
->         False
->         False
->         True
->         True
->         (3/4)
->         (4/5)
->         defSynthSwitches
->         allOn
->
-> okDirectives           :: Directives → Bool
-> okDirectives dives                       =
->   okReportVerbosity dives.dReportVerbosity
->   && inARange (1 % 10, 10 % 1) dives.proConRatio
->   && inARange (1 % 10, 10 % 1) dives.absorbThreshold
 
 The End

@@ -33,6 +33,7 @@ June 16, 2025
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
 > import Parthenopea.SoundFont.Boot ( surveyInstruments )
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.RangesReport
 > import Parthenopea.SoundFont.ScanReport
 > import Parthenopea.SoundFont.Runtime
