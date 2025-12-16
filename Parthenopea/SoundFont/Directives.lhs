@@ -88,12 +88,17 @@ configuration ("Directives") ===================================================
 >   , dReportVerbosity   :: ReportVerbosity}
 >   deriving (Eq, Show)
 
-Client to specify any Directives default overrides, especially "client". ==============================================
+Client to specify Directives overrides, especially "client". ==========================================================
 
 > defDirectives          :: Directives
 > defDirectives                            =
 >   baseDives
->     {   client = "sandbox"}
+>     {   client                           = "sandbox"
+>       , crossInstrumentPairing           = False
+>       , hackWildJumps                    = True
+>       , hackWildMidiValues               = True
+>       , parallelPairing                  = False
+>       , dReportVerbosity                 = allOn}
 
 Override here only if this is a Parthenopea library sandbox. ==========================================================
 For example:
@@ -103,27 +108,39 @@ For example:
 >   where
 >     baseDives                            =
 >       Directives
-> -- do not alter values here, unless formally changing default defaults
+
+Edit below if changing "default defaults" =============================================================================
+
 >         ""
->         False
->         True
->         True
->         True
 >         True
 >         True
 >         True
 >         False
 >         False
 >         True
+>         True
+>         True
+>         True
+>         False
 >         (3/4)
 >         (4/5)
 >         defSynthSwitches
->         allOn
+>         allOff
 >
 > okDirectives           :: Directives → Bool
 > okDirectives dives                       =
 >   okReportVerbosity dives.dReportVerbosity
 >   && inARange (1 % 10, 10 % 1) dives.proConRatio
 >   && inARange (1 % 10,      1) dives.absorbThreshold -- lower threshold results in more absorptions permitted
+
+Remarks on directives 16-Dec-2025:
+
+1. crossInstrumentPairing and parallelPairing are intended to be on by default, as signified by their "default
+   default" settings. Turned off because they do not _fully_ work yet. Design is good.
+2. hackWildJumps and hackWildMidiValues are intended to be off by default. But it is difficult to guarantee no
+   glitches would result, and anyway these cases typically work out OK if you eat the error.
+3. dReportVerbosity is intended to be allOff by default for performance. Setting it to allOn for diagnostic value.
+4. As you see, synthSwitches are intended to be all on, and they are. Occasions for overriding are troubleshooting
+   experiments.
 
 The End

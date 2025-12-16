@@ -81,7 +81,7 @@ TODO: adjust loudness output based on "home velocity", which would be passed in 
 > slur rateS                               = Modify (Phrase [Art (Slurred rateS)])
 >
 > allPitches             :: Music Pitch
-> allPitches =
+> allPitches                               =
 >    foldr ((:+:) . notize) (rest 0) [0..127]
 >    where
 >       notize aP                          = note qn (pitch aP)

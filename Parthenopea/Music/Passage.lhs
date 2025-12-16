@@ -1,6 +1,7 @@
 > {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 > {-# HLINT ignore "Unused LANGUAGE pragma" #-}
 >
+> {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores  #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
@@ -61,8 +62,8 @@ _Overall_                =
 >   , oStartV            :: Double
 >   , oEndV              :: Double}
 >   deriving (Eq, Show)
-> makeOverall            :: Double → Double → MEvent → MEvent → Maybe Overall
-> makeOverall startV endV startEv endEv    = Just $ Overall startT endT startV endV
+> makeOverall            :: Double → Double → MEvent → MEvent → Overall
+> makeOverall startV endV startEv endEv    = Overall startT endT startV endV
 >   where
 >     startT                               = fromRational startEv.eTime
 >     endT                                 = fromRational endEv.eTime + fromRational endEv.eDur
@@ -101,16 +102,15 @@ _Overall_                =
 >   , mOverall           :: Maybe Overall
 >   , mParams            :: Maybe (Either Velocity (VB.Vector Double))}
 >   deriving (Eq, Show)
-> makeMekNote            :: SelfIndex → Primitive Pitch → Marking → MekNote
-> makeMekNote six prim marking
->   | restProblem                          = error $ unwords ["Non-corresponding rests"]
->   | otherwise                            =
->     MekNote six prim marking Nothing Nothing Nothing
->   where
->     restProblem                          =
->       case prim of
->         Rest _                           → marking /= Rest1
->         _                                → False
+> makeMekNote            :: SelfIndex → Primitive Pitch → Marking → Maybe MEvent → MekNote
+> makeMekNote six prim marking mev         =
+>   profess
+>     (case prim of
+>        Rest _                            → marking == Rest1
+>        _                                 → True)
+>     "Non-corresponding rests"
+>     (MekNote six prim marking mev Nothing Nothing)
+>
 > changeParams           :: MekNote → Either Velocity (VB.Vector Double) → (SelfIndex, MekNote)
 > changeParams mek val                     = (mek.mSelfIndex, mek{mParams = Just val})
 > getMarkVelocity        :: MekNote → Velocity
@@ -144,25 +144,29 @@ _Overall_                =
 >
 >         makeNas        :: Either Velocity (VB.Vector Double) → [NoteAttribute]
 >         makeNas (Left homeVolume)        = [Volume homeVolume]
->         makeNas (Right directive)        =
->           if VB.null directive
->             then error $ unwords [fName, "illegally null mParams directive"]
->             else [(Volume . average) directive, (Params . VB.toList) directive]
+>         makeNas (Right recipe)           =
+>           if VB.null recipe
+>             then error $ unwords [fName, "illegally null mParams recipe"]
+>             else [(Volume . average) recipe, (Params . VB.toList) recipe]
 >         
 >         average        :: VB.Vector Double → Velocity
->         average directive                = round $ VB.sum directive / (fromIntegral . VB.length) directive
+>         average recipe                   = round $ VB.sum recipe / (fromIntegral . VB.length) recipe
 >
 >         mangleNote dM pM                 = note dM (pM, Dynamics fName_ : (makeNas . deJust fName) mek.mParams)
 >
 >     -- evolve enriched note/rest (MekNote) list
->     rawMeks, withEvents, withOveralls, seeded, enriched
+>     rawMeks, withOveralls, seeded, enriched
 >                        :: VB.Vector MekNote
 >    
 >     rawMeks                               =
 >       profess
 >         (nPrims /= 0 && (nPrims == nMarks))
 >         (unwords ["bad lengths; prims, markings", show (nPrims, nMarks)])
->         (VB.zipWith3 makeMekNote selfIndices prims markings)
+>         (VB.zipWith4 makeMekNote
+>                        selfIndices
+>                        prims
+>                        markings
+>                        evs)
 >       where
 >         nPrims                           = VB.length prims
 >         nMarks                           = VB.length markings
@@ -178,31 +182,34 @@ _Overall_                =
 >           in
 >             mFold pFun (VB.++) undefined undefined ma
 >
->     withEvents                           = fst $ foldl' implant (VB.empty, 0) rawMeks
->       where
->         eTable                           = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
+>         evs            :: VB.Vector (Maybe MEvent)
+>         evs                              =
+>           let
+>             eTable                       = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
+>             slotIn (vec, soFar) prim     = (vec VB.++ VB.singleton curEvent, soFar + mekWidth)
+>               where
+>                 (curEvent, mekWidth)     = 
+>                   case prim of
+>                     Note _ _             → (Just (eTable VB.! soFar),    1)
+>                     Rest _               → (Nothing,                     0)
+>           in
+>             fst $ foldl' slotIn (VB.empty, 0) prims
 >
->         implant (meks, soFar) mek        = (meks VB.++ VB.singleton mek{mEvent = setEvent}, soFar + mekWidth)
->           where
->             (setEvent, mekWidth)         = 
->               case mek.mPrimitive of
->                 Note _ _                 → (Just (eTable VB.! soFar),    1)
->                 Rest _                   → (Nothing,                     0)
+>     (nodePairs, nodeGroups)              = formNodeGroups rawMeks
 >
->     (nodePairs, nodeGroups)              = formNodeGroups withEvents
->
->     withOveralls                         = withEvents `VB.update` lode
+>     withOveralls                         = rawMeks `VB.update` lode
 >       where
 >         lode                             =
 >           VB.concatMap (uncurry computeOverall) nodePairs VB.++ computeOverall lastSi lastSi
 >         lastSi                           = snd $ VB.last nodePairs
 >
->         computeOverall si0 si1           = VB.singleton (si0, mek0{mOverall = makeOverall loud0 loud1 ev0 ev1})
+>         computeOverall si0 si1           =
+>           VB.singleton (si0, mek0{mOverall = Just $ makeOverall loud0 loud1 ev0 ev1})
 >           where
 >             fName                        = "computeOverall"
 >
->             mek0                         = withEvents VB.! si0
->             mek1                         = withEvents VB.! si1
+>             mek0                         = rawMeks VB.! si0
+>             mek1                         = rawMeks VB.! si1
 >
 >             ev0                          = deJust (unwords [fName, "0"]) mek0.mEvent
 >             ev1                          = deJust (unwords [fName, "1"]) mek1.mEvent

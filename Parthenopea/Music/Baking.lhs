@@ -29,7 +29,8 @@ December 16, 2022
 > import Parthenopea.SoundFont.Utility
 > import System.Random ( mkStdGen )
   
-Bakes =================================================================================================================
+Baking ================================================================================================================
+a framework for aleatory composition
 
 > type Baking = (BakingMetrics, Array Int Music1)
 
@@ -94,9 +95,10 @@ The progress of the algorithm is expressed in above pair.
 
 Urns ==================================================================================================================
 
-"Bakes" -urns- are in increasing onset time order. To mitigate "collisions" we skip excessively "simultaneous" Bakes,
-as follows: After their contents have been recorded, urns become -inns-. The inns list is for assessing the number of
-active Bakes at any point in time, so it is always arranged in increasing end time order.
+"Bakes" - -urns- are accessed in onset time order. After its musical "blast" has been accepted, an urn becomes an
+-inn-. Why? A sort of lowpass filter mitigates problem of too many events happening at one time - I.E. we skip
+excessively simultaneous Bakes. The inns list provides an active Bakes count at any point in time, so it is instead
+accessed in end time order.
 
 > buildChannels          :: [Bake] → Baking
 > buildChannels bakes                      = build bakes [] (newBakingMetrics, newMusic)

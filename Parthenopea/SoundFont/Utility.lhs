@@ -69,11 +69,25 @@ note-on abstraction ============================================================
 >     noteOnVel          :: Velocity
 >   , noteOnKey          :: KeyNumber} deriving (Eq, Ord, Show)
 >
+> carefulNoteOn      :: Bool → Velocity → KeyNumber → NoteOn
+> carefulNoteOn hack volIn pchIn           = NoteOn (safeMidiValue volIn) (safeMidiValue pchIn)
+>   where
+>     fName                                = "carefulNoteOn"
+>
+>     safeMidiValue      :: Int → Int
+>     safeMidiValue x                      =
+>       let
+>         x'                               = clip (0, qMidiInt128 - 1) x
+>       in
+>         profess
+>           (hack || x == x')
+>           (unwords [fName, "wild", show (volIn, pchIn)])
+>           x'
+>
 > noonAsCoords           :: NoteOn → ([Word], [Word])
 > noonAsCoords noon                        =
 >   (  [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 0]
 >    , [fromIntegral noon.noteOnKey, fromIntegral noon.noteOnVel, 1])
->
 
 graph Theory ==========================================================================================================
 

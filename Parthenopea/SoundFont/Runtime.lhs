@@ -176,7 +176,7 @@ define signal functions and instrument maps to support rendering ===============
 > instrumentSF runt pergm durI pchIn volIn _
 >   | traceIf trace_ISF False              = undefined
 >   | otherwise                            =
->   eutSynthesize synthSwitches (reconX, mreconX) noonOut reconX.rSampleRate durI sffile 
+>   eutSynthesize synthSwitches (reconX, mreconX) noon reconX.rSampleRate durI sffile 
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
@@ -188,17 +188,10 @@ define signal functions and instrument maps to support rendering ===============
 >     sffile                               = runt.zRuntimeFiles IntMap.! pergm.pgkwFile
 >     perI                                 = sffile.zPerInstrument IntMap.! fromIntegral pergm.pgkwInst
 >
->     noonIn                               = carefulNoteOn
->     fly                                  = eyeOnTheFly noonIn
->     noonOut                              = case fly of
->                                              Left z                     → calcNoteOn z.pzSFZone
->                                              Right (z, _)               → calcNoteOn z.pzSFZone
->       where
->         calcNoteOn z                     = NoteOn (maybe (clip (0, 127) volIn) fromIntegral z.zVel) 
->                                                   (maybe (clip (0, 127) pchIn) fromIntegral z.zKey)
+>     noon                                 = carefulNoteOn hackWildMidiValues volIn pchIn
 >
 >     (reconX, mreconX)                    =
->       case fly of
+>       case eyeOnTheFly of
 >         Left pz                          → (receiveRecon pz, Nothing)
 >         Right (pzL, pzR)                 → (reconL, Just $ copyRoot reconL reconR)
 >           where
@@ -210,12 +203,12 @@ define signal functions and instrument maps to support rendering ===============
 
 zone selection for rendering ==========================================================================================
 
->     eyeOnTheFly        :: NoteOn → Either PreZone (PreZone, PreZone)
->     eyeOnTheFly noonFly
+>     eyeOnTheFly        :: Either PreZone (PreZone, PreZone)
+>     eyeOnTheFly
 >       | traceIf trace_DFE False          = undefined
->       | null smashSpaces                 = error $ unwords [fName, "smashup", show smashup, "has no subspaces"]
+>       | null smashSpaces                 = error $ unwords [fName, show smashup, "has no subspaces"]
 >       | spL < 0 || cntL <= 0 || spR < 0 || cntR <= 0
->                                          = error $ unwords [fName, show noonFly, "cell contains nonsense"
+>                                          = error $ unwords [fName, show noon, "cell contains nonsense"
 >                                                                  , show ((spL, cntL), (spR, cntR))
 >                                                                  , show smashStats]
 >       | isNothing foundL || isNothing foundR
@@ -231,7 +224,7 @@ zone selection for rendering ===================================================
 >
 >         smashup@Smashing{ .. }
 >                                          = perI.pSmashing
->         (index1, index2)                 = noonAsCoords noonFly
+>         (index1, index2)                 = noonAsCoords noon
 >
 >         ((spL, cntL), (spR, cntR))       = if hackWildJumps
 >                                              then useTwoLookupCells
@@ -245,23 +238,10 @@ zone selection for rendering ===================================================
 >               in
 >                 profess
 >                   (lvu == 2)
->                   (error $ unwords [fName, "Leaf dimension", show lvu, "not two!?!"])
+>                   (unwords [fName, "Leaf dimension", show lvu, "not two!?!"])
 >                   (vu VU.! 0, vu VU.! 1)
 >         foundL                           = fromIntegral spL `IntMap.lookup` sffile.zPreZone
 >         foundR                           = fromIntegral spR `IntMap.lookup` sffile.zPreZone
->
->     carefulNoteOn      :: NoteOn
->     carefulNoteOn                        = NoteOn (safeMidiValue volIn) (safeMidiValue pchIn)
->       where
->         safeMidiValue  :: Int → Int
->         safeMidiValue x                  =
->           let
->             x' = clip (0, qMidiInt128 - 1) x
->           in
->             profess
->               (hackWildMidiValues || x == x')
->               (error $ unwords [fName_, "wild NoteOn", show (volIn, pchIn)])
->               x'
 
 reconcile zone and sample header ======================================================================================
 

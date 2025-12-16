@@ -155,13 +155,15 @@ use "matching as" cache ========================================================
 >             Just n                       → n == A.PressLoop
 >         , case zone.zInitQ of
 >             Nothing                      → False
->             Just n                       → n /= 0
+>             Just n                       → n >= 480
 >         , case zone.zScaleTuning of
 >             Nothing                      → False
 >             Just n                       → n /= 0 -- && n /= 100
 >         , case zone.zExclusiveClass of
 >             Nothing                      → False
 >             Just n                       → n /= 0
+>         , isJust zone.zVel
+>         , isJust zone.zKey
 >         , isJust zone.zKeyToModEnvHold
 >         , isJust zone.zKeyToModEnvDecay
 >         , shdr.end < shdr.start
