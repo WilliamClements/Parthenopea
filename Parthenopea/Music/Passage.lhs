@@ -57,23 +57,22 @@ _Overall_                =
 >
 > data Overall                             =
 >   Overall {
->     oStartT            :: Double
->   , oEndT              :: Double
->   , oStartV            :: Double
->   , oEndV              :: Double}
+>     oChangeRate        :: Double
+>   , oStartT            :: Double
+>   , oStartV            :: Double}
 >   deriving (Eq, Show)
 > makeOverall            :: Double → Double → MEvent → MEvent → Overall
-> makeOverall startV endV startEv endEv    = Overall startT endT startV endV
+> makeOverall startV endV startEv endEv    = Overall changeRate startT startV
 >   where
 >     startT                               = fromRational startEv.eTime
 >     endT                                 = fromRational endEv.eTime + fromRational endEv.eDur
+>     changeRate                           = (endV - startV) / (endT - startT)
 > velocity               :: Double → Overall → Double
-> velocity tIn over
->   | tIn < (over.oStartT - epsilon) || tIn > (over.oEndT + epsilon)
->                                          = error $ unwords ["velocity: input tIn out of range", show (tIn, over)]
->   | otherwise                            = clip (0, 128) (over.oStartV + (tIn - over.oStartT) * changeRate)
->   where
->     changeRate                           = (over.oEndV - over.oStartV) / (over.oEndT - over.oStartT)
+> velocity tIn over                        =
+>   profess
+>     (tIn >= (over.oStartT - epsilon))
+>     (unwords ["velocity: input tIn out of range", show (tIn, over)])
+>     (clip (0, 128) (over.oStartV + (tIn - over.oStartT) * over.oChangeRate))
 > twoVelos               :: Double → Double → Overall → Either Velocity (VB.Vector Double)
 > twoVelos onset delta over                = branchVelos $ VB.fromList
 >                                            [ velocity onset               over
@@ -140,18 +139,20 @@ _Overall_                =
 >                   Note durI pitchI       → mangleNote durI pitchI
 >                   Rest durI              → rest durI
 >       where
->         fName                            = "final"
+>         fName                            = unwords [fName_, "final"]
 >
 >         makeNas        :: Either Velocity (VB.Vector Double) → [NoteAttribute]
 >         makeNas (Left homeVolume)        = [Volume homeVolume]
 >         makeNas (Right recipe)           =
->           if VB.null recipe
->             then error $ unwords [fName, "illegally null mParams recipe"]
->             else [(Volume . average) recipe, (Params . VB.toList) recipe]
+>           profess
+>             (not $ VB.null recipe)
+>             (unwords [fName, "illegally null recipe"])
+>             [(Volume . average) recipe, (Params . VB.toList) recipe]
 >         
 >         average        :: VB.Vector Double → Velocity
 >         average recipe                   = round $ VB.sum recipe / (fromIntegral . VB.length) recipe
 >
+>         mangleNote     :: Dur → a → Music (a, [NoteAttribute])
 >         mangleNote dM pM                 = note dM (pM, Dynamics fName_ : (makeNas . deJust fName) mek.mParams)
 >
 >     -- evolve enriched note/rest (MekNote) list
@@ -160,7 +161,7 @@ _Overall_                =
 >    
 >     rawMeks                               =
 >       profess
->         (nPrims /= 0 && (nPrims == nMarks))
+>         (nPrims > 0 && (nPrims == nMarks))
 >         (unwords ["bad lengths; prims, markings", show (nPrims, nMarks)])
 >         (VB.zipWith4 makeMekNote
 >                        selfIndices
