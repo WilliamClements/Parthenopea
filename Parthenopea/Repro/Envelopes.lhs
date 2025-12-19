@@ -99,25 +99,27 @@ Create a straight-line envelope generator with following phases:
 >     fSusLevel                            = clip (0, 1) r.fSustainLevel
 >     secsToPlay                           = tf.tfSecsToPlay
 >
-> doVeloSweepingEnvelope :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
-> doVeloSweepingEnvelope timeFrame vIn
->   | 0 == dLen                            = constA 128
->   | 1 == dLen                            = constA 128
->   | 2 == dLen                            = runEnvelope segmentsFor2
->   | 4 == dLen                            = runEnvelope segmentsFor4
->   | otherwise                            =
->       error $ unwords [fName, show dLen, "is llegal length for velo sweeping directive"]
+> doVeloSweepingEnvelope :: ∀ p . Clock p ⇒ TimeFrame → Either Velocity (VB.Vector Double) → Signal p () Double
+> doVeloSweepingEnvelope timeFrame         = either (constA . fromIntegral) (cookRecipe timeFrame)
+>
+> cookRecipe             :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
+> cookRecipe timeFrame recipe              = runEnvelope
 >   where
 >     fName                                = "doVeloSweepingEnvelope"
 >
->     dLen                                 = VB.length vIn
+>     dLen                                 = VB.length recipe
+>     segs                                 =
+>       case dLen of
+>         2                                → segmentsFor2
+>         4                                → segmentsFor4
+>         _                                → error $ unwords [fName, show dLen, "is illegal length for velo sweeping recipe"]
 >
 >     stVelo0, enVelo0, stVelo1, enVelo1, step, midsection, leg
 >                        :: Double 
->     stVelo0                              = vIn VB.! 0
->     enVelo0                              = vIn VB.! 1
->     stVelo1                              = vIn VB.! 2
->     enVelo1                              = vIn VB.! 3
+>     stVelo0                              = recipe VB.! 0
+>     enVelo0                              = recipe VB.! 1
+>     stVelo1                              = recipe VB.! 2
+>     enVelo1                              = recipe VB.! 3
 >
 >     step                                 = timeFrame.tfSecsToPlay - 2 * minDeltaT
 >     midsection                           = step / 8
@@ -134,12 +136,12 @@ Create a straight-line envelope generator with following phases:
 >         [   0,      stVelo0,     enVelo0,     stVelo1,     enVelo1,       0,            0]
 >         [  minDeltaT,     leg,      midsection,     leg,     minDeltaT,    minUseful]
 >
->     runEnvelope         :: Segments → Signal p () Double
->     runEnvelope segs
+>     runEnvelope         :: Signal p () Double
+>     runEnvelope
 >       | traceIf trace_DE False           = undefined
 >       | otherwise                        = envLineSeg segs.sAmps segs.sDeltaTs
 >       where
->         trace_DE                         = unwords [fName, show vIn, show segs]
+>         trace_DE                         = unwords [fName, show recipe, show segs]
 
 stepwise refinement from specified envelope parameters ================================================================
 

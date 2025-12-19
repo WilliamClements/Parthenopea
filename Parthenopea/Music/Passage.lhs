@@ -25,7 +25,7 @@ August 15, 2025
 >        , MekNote(..)
 >        , passage) where
 >
-> import Data.List ( foldl' )
+> import Data.List
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.MIDI.MEvent ( MEvent(eDur, eTime), musicToMEvents )
 > import Euterpea.Music
@@ -183,18 +183,27 @@ _Overall_                =
 >           in
 >             mFold pFun (VB.++) undefined undefined ma
 >
+>         eList                            = fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
+>         eTable                           = VB.fromList eList
+>         pList                            = VB.toList prims
+>
 >         evs            :: VB.Vector (Maybe MEvent)
->         evs                              =
+>         evs                              = VB.fromList evList
+>
+>         evList         :: [Maybe MEvent]
+>         evList                              =
 >           let
->             eTable                       = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
->             slotIn (vec, soFar) prim     = (vec VB.++ VB.singleton curEvent, soFar + mekWidth)
+>             slotIn     :: ([Maybe MEvent], Int) → Primitive Pitch → ([Maybe MEvent], Int)
+>             slotIn (pvec, soFar) prim     = (pvec ++ curEvents, soFar + mekWidth)
 >               where
->                 (curEvent, mekWidth)     = 
+>                 curEvents
+>                        :: [Maybe MEvent]
+>                 (curEvents, mekWidth)    = 
 >                   case prim of
->                     Note _ _             → (Just (eTable VB.! soFar),    1)
->                     Rest _               → (Nothing,                     0)
+>                     Note _ _             → (singleton (Just $ eTable VB.! soFar),    1)
+>                     Rest _               → ([],                               0)
 >           in
->             fst $ foldl' slotIn (VB.empty, 0) prims
+>             fst $ foldl' slotIn ([], 0) pList
 >
 >     (nodePairs, nodeGroups)              = formNodeGroups rawMeks
 >
@@ -212,8 +221,8 @@ _Overall_                =
 >             mek0                         = rawMeks VB.! si0
 >             mek1                         = rawMeks VB.! si1
 >
->             ev0                          = deJust (unwords [fName, "0"]) mek0.mEvent
->             ev1                          = deJust (unwords [fName, "1"]) mek1.mEvent
+>             ev0                          = deJust (unwords [fName, "ev0"]) mek0.mEvent
+>             ev1                          = deJust (unwords [fName, "ev1"]) mek1.mEvent
 >
 >             loud0                        = (fromIntegral . getMarkVelocity) mek0
 >             loud1                        = (fromIntegral . getMarkVelocity) mek1

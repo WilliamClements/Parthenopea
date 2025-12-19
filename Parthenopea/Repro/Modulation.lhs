@@ -923,8 +923,8 @@ Returns the elapsed time in seconds
 > taclip i                                 = Just $ clip (-16_000, 4_500) i
 > tkclip i                                 = Just $ clip (-1_200, 1_200) i
 > tdclip i                                 = Just $ clip (0, 1_440) i
-> tmclip w                                 = Just $ clip (0, 127) w
-> tnclip w                                 = Just $ clip (1, 127) w
+> tmclip w                                 = Just $ clip (0, qMidiWord128 - 1) w
+> tnclip w                                 = Just $ clip (1, qMidiWord128 - 1) w
 > t1clip i                                 = Just $ clip (-120, 120) i
 > t2clip i                                 = Just $ clip (-99, 99) i
 > t3clip i                                 = Just $ clip (0, 1_200) i

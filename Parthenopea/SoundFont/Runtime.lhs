@@ -27,7 +27,6 @@ February 1, 2025
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
 > import Data.Maybe
-> import Data.Set (Set)
 > import qualified Data.Set                as Set
 > import qualified Data.Vector.Strict      as VB
 > import qualified Data.Vector.Unboxed     as VU
@@ -78,10 +77,8 @@ cache SoundFont data that is only needed for Runtime ===========================
 >     actions            :: IntMap IntSet                {- [FileIndex → [InstIndex]]     -}
 >     actions                              =
 >       let
->         extract        :: Map a GMChoices → Set PerGMKey
 >         extract m                        = Set.fromList $ foldl' buildUp [] m
 >           where
->             buildUp    :: [PerGMKey] → GMChoices → [PerGMKey]
 >             buildUp s (GMChoices _ mpergm _)
 >                                          =
 >               case mpergm of
@@ -109,7 +106,6 @@ cache SoundFont data that is only needed for Runtime ===========================
 >             bixen                        = IntSet.foldl' lump IntSet.empty insts
 >                                              where lump m i = IntSet.union m (allBixen (newPerI IntMap.! i))
 >
->             save       :: IntMap PreZone → Int → IntMap PreZone
 >             save m bix                   = IntMap.insert bix pz{pzRecon = Just $ resolvePreZone dives pz} m
 >                                              where pz = accessPreZone fName sffile.zPreZones bix
 >
@@ -173,14 +169,14 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Volume
 >                           → [Double]
 >                           → Signal p () (Double, Double)
-> instrumentSF runt pergm durI pchIn volIn _
+> instrumentSF runt pergm durI pchIn volIn ps
 >   | traceIf trace_ISF False              = undefined
 >   | otherwise                            =
->   eutSynthesize synthSwitches (reconX, mreconX) noon reconX.rSampleRate durI sffile 
+>   eutSynthesize synthSwitches (reconX, mreconX) noon (VB.fromList ps) reconX.rSampleRate durI sffile 
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
->       unwords [fName_, show (pergm.pgkwFile, pergm.pgkwInst)]
+>       unwords [fName_, show (pergm.pgkwFile, pergm.pgkwInst), show (pchIn, volIn)]
 >
 >     Directives{ .. }
 >                                          = runt.zDirectives
@@ -271,7 +267,6 @@ reconcile zone and sample header ===============================================
 >         
 >         (fromIntegral $ fromMaybe shdr.originalPitch z.zRootKey)
 >         (fromMaybe 100 z.zScaleTuning)
->         VB.empty
 >         (reconAttenuation z.zInitAtten)
 >         (deriveEnvelope switches z.zDelayVolEnv z.zAttackVolEnv z.zHoldVolEnv z.zDecayVolEnv z.zSustainVolEnv Nothing)                         
 >         (if switches.usePitchCorrection
@@ -287,7 +282,7 @@ reconcile zone and sample header ===============================================
 >     reconAttenuation   :: Maybe Int → Double
 >     reconAttenuation _                   = if switches.useAttenuation
 >                                              then maybe 0 fromIntegral z.zInitAtten
->                                              else 0.0
+>                                              else 0
 >
 > implementNoteBending   :: NoteOn → SFZone → Double → Double → SFZone
 > implementNoteBending noon zone bend secs = zone'

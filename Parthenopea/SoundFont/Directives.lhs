@@ -39,6 +39,8 @@ configuration ("Directives") ===================================================
 > data SynthSwitches                       =
 >   SynthSwitches {
 >     useEnvelopes       :: Bool
+>   , usePassages        :: Bool
+>   , useNoteBending     :: Bool
 >   , usePitchCorrection :: Bool
 >   , useAttenuation     :: Bool
 >   , useLoopSwitching   :: Bool
@@ -51,6 +53,8 @@ configuration ("Directives") ===================================================
 > defSynthSwitches       :: SynthSwitches
 > defSynthSwitches                         =
 >   SynthSwitches
+>     True
+>     True
 >     True
 >     True
 >     True
@@ -98,6 +102,7 @@ Client to specify Directives overrides, especially "client". ===================
 >       , hackWildJumps                    = True
 >       , hackWildMidiValues               = True
 >       , parallelPairing                  = False
+>       , synthSwitches                    = baseDives.synthSwitches{useNoteBending = False}
 >       , dReportVerbosity                 = allOn}
 
 Override here only if this is a Parthenopea library sandbox. ==========================================================

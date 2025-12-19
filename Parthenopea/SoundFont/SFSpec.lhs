@@ -30,7 +30,6 @@ April 16, 2023
 > import Data.Maybe
 > import Data.Ratio ( (%) )
 > import Data.Time
-> import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music
 > import Parthenopea.Debug
@@ -138,7 +137,6 @@ implementing SoundFont spec ====================================================
 >   , rApplied           :: AppliedLimits
 >   , rRootKey           :: AbsPitch
 >   , rTuning            :: Int
->   , rDynamics          :: VB.Vector Double
 >   , rAttenuation       :: Double
 >   , rVolEnv            :: Maybe FEnvelope
 >   , rPitchCorrection   :: Maybe Double
@@ -531,9 +529,10 @@ bootstrapping ==================================================================
 > wasRescued impact                        = any (\s → s.sDisposition `elem` rescueset && s.sImpact == impact)
 >
 > badButMaybeFix         :: ∀ a. (Show a) ⇒ Bool → Impact → String → a → a → [Scan]
-> badButMaybeFix doFix imp fName bad good  = if doFix
->                                              then [viol, resc]
->                                              else [viol]
+> badButMaybeFix doFix imp fName bad good  =
+>   if doFix
+>     then [viol, resc]
+>     else [viol]
 >   where
 >     viol                                 = Scan Violated imp fName (show bad)
 >     resc                                 = Scan Rescued imp fName (show good)

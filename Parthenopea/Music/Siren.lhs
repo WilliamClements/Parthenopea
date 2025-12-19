@@ -82,7 +82,7 @@ TODO: adjust loudness output based on "home velocity", which would be passed in 
 >
 > allPitches             :: Music Pitch
 > allPitches                               =
->    foldr ((:+:) . notize) (rest 0) [0..127]
+>    foldr ((:+:) . notize) (rest 0) [0..qMidiInt128 - 1]
 >    where
 >       notize aP                          = note qn (pitch aP)
 >
@@ -334,7 +334,7 @@ also
 >       Glockenspiel              → Just (( G, 5), ( C, 8))
 >       Vibraphone                → Just (( F, 3), ( F, 6))
 >       MusicBox                  → Just (( C, 4), ( E, 7)) -- made up out of thin air
->       Percussion                → Nothing -- was Just (0, 127)
+>       Percussion                → Nothing
 >       -- Chimes
 >       AcousticGuitarNylon       → Just (( E, 2), ( B, 6))
 >       AcousticGuitarSteel       → Just (( E, 2), ( B, 6))
@@ -514,16 +514,25 @@ instrument range checking ======================================================
 > orchestraPart          :: BandPart → Music1 → Music1
 > orchestraPart bp                         = mMap oChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
 >   where
->     oChanger (p, nas)                    = (p, if hasDynamics nas then nas else map nasFun nas)
+>     oChanger (p, nas)                    =
+>       let
+>         (hasDynamic, hasVolume)          = hasDynamicOrVolume nas
+>       in
+>         (p, if hasDynamic then nas else map nasFun nas ++ ([Volume bp.bpHomeVelocity | not hasVolume]))
+>
 >     nasFun (Volume _)                    = Volume bp.bpHomeVelocity
 >     nasFun na                            = na 
 >
-> hasDynamics            :: [NoteAttribute] → Bool
-> hasDynamics                              = any isDynamic
+> hasDynamicOrVolume     :: [NoteAttribute] → (Bool, Bool)
+> hasDynamicOrVolume nas                   = (any isDynamic nas, any isVolume nas)
 >   where
 >     isDynamic na                         =
 >       case na of
 >         Dynamics _                       → True
+>         _                                → False
+>     isVolume na                          =
+>       case na of
+>         Volume _                         → True
 >         _                                → False
 >
 > bendNote               :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music1
@@ -595,8 +604,8 @@ examine song for instrument and percussion usage ===============================
 >   let
 >     (instr, rng)                         =
 >       case kind of
->         Left iname                       → (iname, fromMaybe (0, 127) (instrumentAbsPitchRange iname))
->         _                                → (Percussion, (0, 127))
+>         Left iname                       → (iname, fromMaybe (0, qMidiInt128 - 1) (instrumentAbsPitchRange iname))
+>         _                                → (Percussion, (0, qMidiInt128 - 1))
 >   in critiqueNote instr rng shred.shLowNote ++ critiqueNote instr rng shred.shHighNote
 > 
 > critiqueNote           :: InstrumentName → (AbsPitch, AbsPitch) → MEvent → [(InstrumentName, [String])]

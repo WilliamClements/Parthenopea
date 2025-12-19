@@ -39,7 +39,7 @@ October 5, 2025
 >                           → IO ()
 > writeTournamentReport dives vBootFiles (pContI, pContP)
 >                        = do
->   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show $ (length pContI, length pContP)])
+>   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show (length pContI, length pContP)])
 >   -- output all selections to the report file
 >   let legend           =
 >            emitComment     [   Blanks 66

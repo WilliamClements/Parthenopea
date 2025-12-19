@@ -21,6 +21,7 @@ May 14, 2023
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )
 > import qualified Data.Audio              as A
 > import Data.Maybe
+> import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
@@ -41,12 +42,13 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           SynthSwitches
 >                           → (Recon, Maybe Recon)
 >                           → NoteOn
+>                           → VB.Vector Double
 >                           → Double
 >                           → Dur
 >                           → SFFileRuntime
 >                           → Signal p () (Double, Double)
 > eutSynthesize switches@SynthSwitches{ .. }
->               (reconL, mreconR) noon sr dur sffileRuntime
+>               (reconL, mreconR) noon recipe sr dur sffileRuntime
 >   | traceIf trace_ES False               = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
@@ -158,7 +160,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 >     eutAmplify recon                     =
 >       proc a1L → do
->         aSweep                           ← doVeloSweepingEnvelope timeFrame recon.rDynamics      ⤙ ()
+>         aSweep                           ← doVeloSweepingEnvelope timeFrame eor                  ⤙ ()
 >         aenvL                            ← doEnvelope timeFrame recon.rVolEnv                    ⤙ ()
 >         modSigL                          ← eutModSignals timeFrame recon.rM8n ToVolume           ⤙ ()
 >         let a2L                          =
@@ -167,6 +169,9 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >       where
 >         fNameAmplify                     = "eutAmplify"
 >
+>         eor                              = if VB.null recipe
+>                                              then Left noon.noteOnVel
+>                                              else Right recipe
 >     pumpMonoSample                       =
 >       proc pos                           → do
 >         let pos'       :: Double         = fromIntegral (rEnd - rStart) * pos

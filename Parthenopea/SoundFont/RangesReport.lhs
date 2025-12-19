@@ -63,7 +63,7 @@ check all the incoming music for instrument range violations ===================
 >   let esPrefix                           =
 >         [ToFieldL "GMKind" 22
 >        , ToFieldL "(working range)" 22
->        , ToFieldR "lowest" 8, Blanks 3
+>        , ToFieldL "lowest" 8, Blanks 3
 >        , ToFieldL "*status" 8
 >        , ToFieldR "highest" 8, Blanks 3
 >        , ToFieldL "*status" 8
