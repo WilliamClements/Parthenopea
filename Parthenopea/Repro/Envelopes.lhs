@@ -78,32 +78,37 @@ Create a straight-line envelope generator with following phases:
 >     fName                                = "proposeSegments"
 >
 >     r                  :: FEnvelope      =
->       refineEnvelope envRaw{fExtras = Just $ EnvelopeExtras secsToPlay releaseT releaseT}
+>       let
+>         extras                           =
+>           EnvelopeExtras secs releaseT releaseT
+>       in
+>         refineEnvelope envRaw extras
 >
->     amps, deltaTs      :: [Double]
->     amps                                 =
->             [0,            0,             1,          1,       fSusLevel,     fSusLevel,      0,       0]
->     deltaTs                              =
->             [   r.fDelayT,    r.fAttackT,    r.fHoldT,    r.fDecayT,   r.fSustainT,   releaseT,  1]
->
->     segs                                 = Segments amps deltaTs
+>     segs                                 =
+>       let
+>         amps                             =
+>           [0,            0,             1,          1,       fSusLevel,     fSusLevel,      0,       0]
+>         deltaTs                          =
+>           [   r.fDelayT,    r.fAttackT,    r.fHoldT,   r.fDecayT,  r.fSustainT,    releaseT,     1]
+>       in
+>         Segments amps deltaTs
 >
 >     releaseT
->       | secsToPlay < (7 * minDeltaT)     = error $ unwords [fName, "Note too short:", show secsToPlay]
->       | secsToPlay < (7 * minDeltaT) + minUseful
+>       | secs < (7 * minDeltaT)           = error $ unwords [fName, "Note too short:", show secs]
+>       | secs < (7 * minDeltaT) + minUseful
 >                                          = minDeltaT
->       | secsToPlay < (7 * minDeltaT + 2 * minUseful)
+>       | secs < (7 * minDeltaT + 2 * minUseful)
 >                                          = minUseful / 4
 >       | otherwise                        = minUseful
 >           
 >     fSusLevel                            = clip (0, 1) r.fSustainLevel
->     secsToPlay                           = tf.tfSecsToPlay
+>     secs                                 = tf.tfSecsToPlay
 >
 > doVeloSweepingEnvelope :: ∀ p . Clock p ⇒ TimeFrame → Either Velocity (VB.Vector Double) → Signal p () Double
 > doVeloSweepingEnvelope timeFrame         = either (constA . fromIntegral) (cookRecipe timeFrame)
 >
 > cookRecipe             :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
-> cookRecipe timeFrame recipe              = runEnvelope
+> cookRecipe timeFrame recipe              = envLineSeg segs.sAmps segs.sDeltaTs
 >   where
 >     fName                                = "doVeloSweepingEnvelope"
 >
@@ -112,7 +117,8 @@ Create a straight-line envelope generator with following phases:
 >       case dLen of
 >         2                                → segmentsFor2
 >         4                                → segmentsFor4
->         _                                → error $ unwords [fName, show dLen, "is illegal length for velo sweeping recipe"]
+>         _                                →
+>           error $ unwords [fName, show dLen, "is illegal length for velo sweeping recipe"]
 >
 >     stVelo0, enVelo0, stVelo1, enVelo1, step, midsection, leg
 >                        :: Double 
@@ -135,17 +141,10 @@ Create a straight-line envelope generator with following phases:
 >       Segments
 >         [   0,      stVelo0,     enVelo0,     stVelo1,     enVelo1,       0,            0]
 >         [  minDeltaT,     leg,      midsection,     leg,     minDeltaT,    minUseful]
->
->     runEnvelope         :: Signal p () Double
->     runEnvelope
->       | traceIf trace_DE False           = undefined
->       | otherwise                        = envLineSeg segs.sAmps segs.sDeltaTs
->       where
->         trace_DE                         = unwords [fName, show recipe, show segs]
 
 stepwise refinement from specified envelope parameters ================================================================
 
-There is design intent hidden in input envelope values that are too large to make sense. Some synthesizer must 
+There is design intent hidden in input envelope values that are too large to make sense. Some synthesizers must 
 interpret them somehow.
 
 > feSum, feRemaining, feTarget
@@ -168,17 +167,22 @@ interpret them somehow.
 >   , fcDecay            :: Bool} deriving (Eq, Ord, Show)
 > evaluateCase           :: FEnvelope → FCase
 > evaluateCase fe                          =
->     FCase
->       ((fe.fDelayT + fe.fAttackT + fe.fHoldT) >= (9/10) * feTarget fe)
->       (fe.fDecayT >= (7/10) * feTarget fe)
+>   FCase
+>     ((fe.fDelayT + fe.fAttackT + fe.fHoldT) >= (9/10) * feTarget fe)
+>     (fe.fDecayT >= (7/10) * feTarget fe)
 >
-> refineEnvelope         :: FEnvelope → FEnvelope
-> refineEnvelope fEnvIn                    = result.fiEnvWork
+> refineEnvelope         :: FEnvelope → EnvelopeExtras → FEnvelope
+> refineEnvelope fEnvIn extras             = result.fiEnvWork
 >   where
 >     result                               = head $ dropWhile unfinished $ iterate nextGen fiInit
 >
->     unfinished fi                        = not fi.fiDone
+>     fiInit                               =
+>       FIterate 
+>         (caseActions Map.! evaluateCase fEnvIn) 
+>         fEnvIn{fExtras = Just extras}
+>         False
 >     nextGen fi                           = fi.fiFun fi
+>     unfinished fi                        = not fi.fiDone
 >
 >     caseActions        :: Map FCase (FIterate → FIterate)
 >     caseActions                          =
@@ -188,9 +192,6 @@ interpret them somehow.
 >
 >         , (FCase True False, dahTooLong)
 >         , (FCase True True, dahTooLong)]
->
->     fiInit                               =
->       FIterate (caseActions Map.! evaluateCase fEnvIn) fEnvIn False
 >
 > feCheckFinal           :: FIterate → FIterate
 > feCheckFinal iterIn                      =
@@ -209,9 +210,7 @@ interpret them somehow.
 > feContinue             :: FIterate → FEnvelope → (FIterate → FIterate) → FIterate
 > feContinue iterIn workee fun             = iterIn{fiFun = fun, fiEnvWork = workee}
 >
-> faceValue, dahTooLong, decayTooLong
->                        :: FIterate → FIterate
-> reduceSustain, reduceDecay, reduceHold, reduceAttack, reduceDelay
+> faceValue, dahTooLong, decayTooLong, reduceSustain, reduceDecay, reduceHold, reduceAttack, reduceDelay
 >                        :: FIterate → FIterate
 >
 > faceValue iterIn
@@ -225,6 +224,13 @@ interpret them somehow.
 >   where
 >     work                                 =
 >       iterIn.fiEnvWork{fDecayT = minDeltaT, fSustainT = minDeltaT}
+>
+> decayTooLong iterIn
+>   | remaining < 0                        = feContinue iterIn work dahTooLong
+>   | otherwise                            = feFinish iterIn work{fDecayT = remaining + work.fDecayT}
+>   where
+>     work                                 = iterIn.fiEnvWork{fDecayT = minDeltaT}
+>     remaining                            = feRemaining work
 >
 > reduceSustain iterIn                     =
 >   let
@@ -268,13 +274,6 @@ interpret them somehow.
 >     remaining                            = feRemaining work
 >   in
 >     feFinish iterIn work{fDelayT = remaining + work.fDelayT}
->
-> decayTooLong iterIn
->   | remaining < 0                        = feContinue iterIn work dahTooLong
->   | otherwise                            = feFinish iterIn work{fDecayT = remaining + work.fDecayT}
->   where
->     work                                 = iterIn.fiEnvWork{fDecayT = minDeltaT}
->     remaining                            = feRemaining work
 >
 > deriveEnvelope         :: SynthSwitches
 >                           → Maybe Int

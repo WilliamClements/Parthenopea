@@ -13,13 +13,8 @@ William Clements
 August 15, 2025
 
 > module Parthenopea.Music.Passage(
->          add2Velos
->        , add4Velos
->        , addNoteBend
->        , Answers(..)
->        , expandMarkings
+>        expandMarkings
 >        , formNodeGroups
->        , getAnswers
 >        , makeMekNote
 >        , Marking(..)
 >        , MekNote(..)
@@ -32,6 +27,7 @@ August 15, 2025
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren ( bandPartContext, BandPart(..), stdVelocity)
 > import Parthenopea.Repro.Modulation ( epsilon )
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
 
 Notation-Driven Dynamics ==============================================================================================
@@ -309,29 +305,6 @@ _Overall_                =
 >           case (meks VB.! si).mMarking of
 >             ReMark _                     → False
 >             _                            → True
->                                              
-> data Answers                             =
->   Answers {
->     aNoteBend          :: VB.Vector Double
->   , a2Velos            :: VB.Vector Double
->   , a4Velos            :: VB.Vector Double} deriving (Eq, Show)
-> setFromAnswers         :: Answers → VB.Vector Double
-> setFromAnswers answers                   = answers.aNoteBend VB.++ answers.a2Velos VB.++ answers.a4Velos
-> getAnswers             :: VB.Vector Double → Answers
-> getAnswers vParams                       = 
->    case length vParams of
->      0 → Answers VB.empty VB.empty VB.empty
->      1 → Answers vParams VB.empty VB.empty
->      2 → Answers VB.empty vParams VB.empty
->      3 → Answers (VB.slice 0 1 vParams) (VB.slice 1 2 vParams) VB.empty
->      4 → Answers VB.empty VB.empty vParams
->      5 → Answers (VB.slice 0 1 vParams) VB.empty (VB.slice 1 4 vParams)
->      _ → error "invalid params length"
-> addNoteBend, add2Velos, add4Velos
->                        :: VB.Vector Double → VB.Vector Double → VB.Vector Double
-> addNoteBend nb vParams                   = setFromAnswers (getAnswers vParams){aNoteBend = nb}
-> add2Velos vs vParams                     = setFromAnswers (getAnswers vParams){a2Velos = vs}
-> add4Velos vs vParams                     = setFromAnswers (getAnswers vParams){a4Velos = vs}
 
 Configurable parameters ===============================================================================================
 
