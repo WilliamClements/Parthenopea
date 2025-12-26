@@ -23,7 +23,6 @@ June 16, 2025
 > import qualified Data.IntMap.Strict as IntMap
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
-> import Data.Maybe ( fromMaybe )
 > import Data.Time ( getZonedTime )
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
@@ -103,7 +102,7 @@ Implement PCommand =============================================================
 >   where
 >     captureSong        :: Song → IO Song
 >     captureSong (Song name music _)      = do
->       ding                               ← shredMusic $ music Map.empty
+>       ding                               ← shredMusic music
 >       return $ Song name music ding
 >     identifyRoster     :: Map GMKind Shred → [Song] → IO ([InstrumentName], [PercussionSound])
 >     identifyRoster ding songs            = return $ if null songs then allKinds else partitionEithers $ Map.keys ding
@@ -143,18 +142,15 @@ Implement PCommand =============================================================
 >     tsStart                              ← getZonedTime
 >     putStr $ reapEmissions [Unblocked $ unwords ["renderSong", name], EndOfLine]
 >
->     let dynMap                           = makeDynMap ding
->     CM.unless (null dynMap)              
->               (putStr $ reapEmissions [Unblocked $ unwords ["dynMap", show dynMap], EndOfLine])
 >     let ks                               = Map.keys ding
->     let (is, ps)                         = (map (\i → fromMaybe i (Map.lookup i dynMap)) (lefts ks), rights ks)
+>     let (is, ps)                         = (lefts ks, rights ks)
 >     let (esI, esP)                       = printChoices choices is ps
 >     let ex                               = concatMap snd esI ++ concatMap snd esP
 >     putStr $ reapEmissions ex
 >     -- render song only if all OK
 >     if all fst esI && all fst esP
 >       then do
->         let (durS, s)                    = renderSF (music dynMap) runt.zInstrumentMap
+>         let (durS, s)                    = renderSF music runt.zInstrumentMap
 >         if switches.normalizingOutput
 >           then outFileNorm               (name ++ ".wav") durS s
 >           else outFile                   (name ++ ".wav") durS s
@@ -170,7 +166,7 @@ Implement PCommand =============================================================
 >   let midi                               = case midi_ of
 >                                              Left err → error err
 >                                              Right m  → m
->   return $ Song (removeExtension path) (const $ fromMidi midi) Map.empty
+>   return $ Song (removeExtension path) (fromMidi midi) Map.empty
 >   where
 >     removeExtension fp                   =
 >       let

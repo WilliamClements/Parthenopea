@@ -19,7 +19,6 @@ December 12, 2022
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Either
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List hiding (transpose)
 > import Data.Map (Map)
@@ -472,40 +471,11 @@ instrument range checking ======================================================
 >   in
 >     BF.bimap recenter recenter (fromJust (instrumentAbsPitchRange bp.bpInstrument))
 >
-> type DynMap                              = Map InstrumentName InstrumentName
->
 > makePitched            :: InstrumentName → AbsPitch → AbsPitch → Velocity → BandPart
 > makePitched iname apGlobal apLocal       = BandPart iname (apGlobal + apLocal)
 >
 > makeNonPitched         :: Velocity → BandPart
 > makeNonPitched                           = BandPart Percussion 0
->
-> replace                :: BandPart → DynMap → BandPart
-> replace bp dynMap                        = bp{bpInstrument = ninst}
->   where
->     minst                                = Map.lookup bp.bpInstrument dynMap
->     ninst                                =
->       if not (nonPitchedInstrument bp.bpInstrument) && isJust minst
->         then fromJust minst
->         else bp.bpInstrument
->
-> makeDynMap             :: Map GMKind Shred → DynMap
-> makeDynMap ding                          =
->   if replacePerCent > 50
->     then foldl' maker Map.empty (Map.assocs ding)
->     else Map.empty
->   where
->     maker              :: DynMap → (GMKind, Shred) → DynMap
->     maker i2i (kind, shred)              =
->       let
->         inameL, inameR :: InstrumentName
->         inameL                           = fromLeft (error "makeDynMap problem: no instrument") kind
->         inameR                           =
->           findBetterInstrument inameL (ePitch shred.shLowNote, ePitch shred.shHighNote)
->       in
->         if isLeft kind && inameL /= inameR
->           then Map.insert inameL inameR i2i
->           else i2i
 >
 > bandPart               :: BandPart → Music Pitch → Music1
 > bandPart bp                              = mMap bChanger . instrument bp.bpInstrument . transpose bp.bpTranspose
@@ -551,12 +521,12 @@ examine song for instrument and percussion usage ===============================
 > data Song                                =
 >   Song {
 >     songName           :: String
->   , songMusic          :: DynMap → Music1
+>   , songMusic          :: Music1
 >   , songShredding      :: Map GMKind Shred}
 > songTimeAndNoteCount   :: Song → String
 > songTimeAndNoteCount song                =
 >   let
->     sec                :: Double         = (fromRational . dur) (song.songMusic Map.empty)
+>     sec                :: Double         = (fromRational . dur) song.songMusic
 >     sec'               :: Int            = round sec
 >     notes              :: Int            = Map.foldr ((+) . shCount) 0 song.songShredding
 >   in
@@ -780,13 +750,6 @@ Returns sample point as (normalized) Double
 >     (s0, s1)           :: (Double, Double)
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
->
-> lilSong                :: Song
-> lilSong                                  =
->   Song "lilSailor" (const lilSailor) Map.empty
->   where
->     lilSailor                            =
->       bandPart (BandPart Clarinet 0 100) (line [f 5 wn])
 
 Configurable parameters ===============================================================================================
 

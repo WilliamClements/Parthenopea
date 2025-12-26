@@ -815,8 +815,8 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >     fvScaleDamp     = 0.4;
 >     fvScaleRoom     = 0.28
 >     fvOffsetRoom    = 0.7
->     fvCombDelays           :: [Word64] = [1617, 1557, 1491, 1422, 1356, 1277, 1188, 1116]
->     fvAllpassDelays        :: [Word64] = [225, 556, 441, 341]
+>     fvCombDelays       :: [Word64] = [1617, 1557, 1491, 1422, 1356, 1277, 1188, 1116]
+>     fvAllpassDelays    :: [Word64] = [225, 556, 441, 341]
 >
 >   in
 >     FreeVerb fvWetDryMix

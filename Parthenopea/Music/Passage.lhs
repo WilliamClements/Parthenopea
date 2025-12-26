@@ -114,14 +114,14 @@ _Overall_                =
 >     Mark x                               → stdVelocity x
 >     ReMark x                             → stdVelocity x
 >     _                                    → error "no mark velocity"
-> passage                :: BandPart → [Marking] → Music Pitch → Music1
-> passage bp markings ma
+> passage                :: Directives → BandPart → [Marking] → Music Pitch → Music1
+> passage dives bp markings ma
 >   | not enableDynamics                   = toMusic1 ma
 >   | null markings                        = error $ unwords ["empty markings"]
->   | otherwise                            = removeZeros $ passageImpl bp (expandMarkings markings) (removeZeros ma)
+>   | otherwise                            = removeZeros $ passageImpl dives bp (expandMarkings markings) (removeZeros ma)
 >
-> passageImpl            :: BandPart → VB.Vector Marking → Music Pitch → Music1
-> passageImpl bp markings ma
+> passageImpl            :: Directives → BandPart → VB.Vector Marking → Music Pitch → Music1
+> passageImpl dives bp markings ma
 >   | traceIf trace_IP False               = undefined
 >   | otherwise                            = VB.foldl' final (rest 0) enriched
 >   where
@@ -187,17 +187,17 @@ _Overall_                =
 >         evs                              = VB.fromList evList
 >
 >         evList         :: [Maybe MEvent]
->         evList                              =
+>         evList                           =
 >           let
 >             slotIn     :: ([Maybe MEvent], Int) → Primitive Pitch → ([Maybe MEvent], Int)
->             slotIn (pvec, soFar) prim     = (pvec ++ curEvents, soFar + mekWidth)
+>             slotIn (pvec, soFar) prim    = (pvec ++ curEvents, soFar + mekWidth)
 >               where
 >                 curEvents
 >                        :: [Maybe MEvent]
 >                 (curEvents, mekWidth)    = 
 >                   case prim of
 >                     Note _ _             → (singleton (Just $ eTable VB.! soFar),    1)
->                     Rest _               → ([],                               0)
+>                     Rest _               → ([],                                      0)
 >           in
 >             fst $ foldl' slotIn ([], 0) pList
 >

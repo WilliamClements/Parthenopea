@@ -82,7 +82,7 @@ Create a straight-line envelope generator with following phases:
 >         extras                           =
 >           EnvelopeExtras secs releaseT releaseT
 >       in
->         refineEnvelope envRaw extras
+>         refineEnvelope envRaw{fExtras = Just extras}
 >
 >     segs                                 =
 >       let
@@ -171,15 +171,15 @@ interpret them somehow.
 >     ((fe.fDelayT + fe.fAttackT + fe.fHoldT) >= (9/10) * feTarget fe)
 >     (fe.fDecayT >= (7/10) * feTarget fe)
 >
-> refineEnvelope         :: FEnvelope → EnvelopeExtras → FEnvelope
-> refineEnvelope fEnvIn extras             = result.fiEnvWork
+> refineEnvelope         :: FEnvelope → FEnvelope
+> refineEnvelope fEnvIn                    = result.fiEnvWork
 >   where
 >     result                               = head $ dropWhile unfinished $ iterate nextGen fiInit
 >
 >     fiInit                               =
 >       FIterate 
 >         (caseActions Map.! evaluateCase fEnvIn) 
->         fEnvIn{fExtras = Just extras}
+>         fEnvIn
 >         False
 >     nextGen fi                           = fi.fiFun fi
 >     unfinished fi                        = not fi.fiDone

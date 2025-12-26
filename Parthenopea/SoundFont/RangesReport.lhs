@@ -58,7 +58,7 @@ check all the incoming music for instrument range violations ===================
 > writeRangesReport dives songs ding       = do
 >   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show $ length songs])
 >   let rollup                             =
->         Song "rollup" (const (foldr ((:+:) . uncap . songMusic) (rest 0) songs)) ding
+>         Song "rollup" (foldr ((:+:) . songMusic) (rest 0) songs) ding
 >   let esAll                              = concatMap doSong songs
 >   let esPrefix                           =
 >         [ToFieldL "GMKind" 22
@@ -75,9 +75,6 @@ check all the incoming music for instrument range violations ===================
 >   writeReportBySections dives reportRangesName [esPrefix, esAll, esRollup]
 >   where
 >     fName                                = "writeRangesReport"
->
->     uncap              :: (DynMap → Music1) → Music1
->     uncap m                              = m Map.empty
 >
 >     doSong             :: Song → [Emission]
 >     doSong song                          =

@@ -59,7 +59,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     trace_ES                             =
 >       unwords [fName, if isJust mreconR
 >                         then "stereo"
->                         else "mono", "secsToPlay", show timeFrame.tfSecsToPlay] 
+>                         else "mono", "secsToPlay", show timeFrame.tfSecsToPlay, show reconL] 
 >
 >     reconR                               = fromJust mreconR
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
