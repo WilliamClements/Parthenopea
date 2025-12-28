@@ -15,6 +15,7 @@ April 16, 2023
 > module Parthenopea.SoundFont.SFSpec where
 >
 > import qualified Codec.SoundFont         as F
+> import Control.Applicative
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Char
@@ -279,11 +280,10 @@ implementing SoundFont spec ====================================================
 >   , zSquirrelSample    :: SampleArrays}
 >
 > accessPreZone          :: String → IntMap PreZone → Int → PreZone
-> accessPreZone tag pzs bix             =
->   case bix `IntMap.lookup` pzs of
->     Nothing            → error $ unwords ["accessPreZone", tag, "bad bix", show bix]
->     Just pz            → pz
 > accessPreZones         :: String → IntMap PreZone → IntSet → IntMap PreZone
+>
+> accessPreZone tag pzs bix                =
+>   fromJust $ (bix `IntMap.lookup` pzs) <|> error (unwords ["accessPreZone", tag, "Nothing at bix", show bix])
 > accessPreZones tag pzs                   = IntMap.fromSet (accessPreZone tag pzs)
 >
 > data Matches                             =
@@ -547,7 +547,7 @@ bootstrapping ==================================================================
 >     unwords [  "ResultDispositions"
 >              , show (length rd.preSampleDispos, length rd.preInstDispos, length rd.preZoneDispos, rdCountScans rd)]
 >
-> deadrd                 :: ∀ k . SFResource k ⇒ k → ResultDispositions → Bool
+> deadrd                 :: ∀ k . SFKeyType k ⇒ k → ResultDispositions → Bool
 > deadrd k rd                              = dead (inspect k rd)
 > virginrd               :: ResultDispositions
 > virginrd                                 = ResultDispositions Map.empty Map.empty Map.empty
@@ -555,7 +555,7 @@ bootstrapping ==================================================================
 > emptyrd rd                               = null rd.preSampleDispos && null rd.preInstDispos && null rd.preZoneDispos
 > rdLengths              :: ResultDispositions → (Int, Int)
 > rdLengths rd                             = (length rd.preSampleDispos, length rd.preInstDispos)
-> countScans             :: ∀ k . SFResource k ⇒ Map k [Scan] → Int
+> countScans             :: ∀ k . SFKeyType k ⇒ Map k [Scan] → Int
 > countScans                               = Map.foldl' (\n ss → n + length ss) 0
 > rdCountScans           :: ResultDispositions → (Int, Int)
 > rdCountScans rd                          = (countScans rd.preSampleDispos, countScans rd.preInstDispos)
@@ -565,7 +565,7 @@ bootstrapping ==================================================================
 >       , preInstDispos                    = Map.unionWith (++) rd1.preInstDispos   rd2.preInstDispos
 >       , preZoneDispos                    = Map.unionWith (++) rd1.preZoneDispos   rd2.preZoneDispos}
 >
-> class SFResource a where
+> class SFKeyType a where
 >   sfkey                :: Int → Word → a
 >   wfile                :: a → Int
 >   wblob                :: a → Word
@@ -573,7 +573,7 @@ bootstrapping ==================================================================
 >   inspect              :: a → ResultDispositions → [Scan]
 >   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
 >
-> instance SFResource PreSampleKey where
+> instance SFKeyType PreSampleKey where
 >   sfkey                                  = PreSampleKey
 >   wfile k                                = k.pskwFile
 >   wblob k                                = k.pskwSampleIndex
@@ -582,7 +582,7 @@ bootstrapping ==================================================================
 >   dispose presk ss rd                    =
 >     rd{preSampleDispos = Map.insertWith (flip (++)) presk ss rd.preSampleDispos}
 >
-> instance SFResource PerGMKey where
+> instance SFKeyType PerGMKey where
 >   sfkey wF wI                            = PerGMKey wF wI Nothing
 >   wfile k                                = k.pgkwFile
 >   wblob k                                = k.pgkwInst
@@ -591,7 +591,7 @@ bootstrapping ==================================================================
 >   dispose pergm ss rd                    =
 >     rd{preInstDispos = Map.insertWith (flip (++)) pergm ss rd.preInstDispos}
 >
-> instance SFResource PreZoneKey where
+> instance SFKeyType PreZoneKey where
 >   sfkey _ _                              = error "sfkey not supported for PreZoneKey"
 >   wfile k                                = k.pzkwFile
 >   wblob k                                = k.pzkwInst

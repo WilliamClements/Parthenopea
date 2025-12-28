@@ -154,15 +154,15 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 >     eutModulate m8n                      =
 >       proc a1L                           → do
->         modSigL                          ← eutModSignals timeFrame m8n ToFilterFc ⤙ ()
+>         modSigL                          ← eutModSignals timeFrame m8n ToFilterFc          ⤙ ()
 >         a2L   ← addResonance m8nL        ⤙ (a1L, modSigL)
 >         outA                             ⤙ a2L
 >
 >     eutAmplify recon                     =
 >       proc a1L → do
->         aSweep                           ← doSweepingEnvelope timeFrame eor                      ⤙ ()
->         aenvL                            ← doEnvelope timeFrame recon.rVolEnv                    ⤙ ()
->         modSigL                          ← eutModSignals timeFrame recon.rM8n ToVolume           ⤙ ()
+>         aSweep                           ← doSweepingEnvelope timeFrame eor                ⤙ ()
+>         aenvL                            ← doEnvelope timeFrame recon.rVolEnv              ⤙ ()
+>         modSigL                          ← eutModSignals timeFrame recon.rM8n ToVolume     ⤙ ()
 >         let a2L                          =
 >               a1L * aenvL * (aSweep / 100) * evaluateModSignals fNameAmplify recon.rM8n ToVolume modSigL
 >         outA                             ⤙ a2L
@@ -190,7 +190,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     pumpStereoSample                     =
 >       proc pos                           → do
 >         let pos'       :: Double         = fromIntegral (appliedL.rEnd - appliedL.rStart) * pos
->         let ix         :: Int            = truncate pos' -- WOX should be round?
+>         let ix         :: Int            = truncate pos'
 >         let offset     :: Double         = pos' - fromIntegral ix
 >
 >         let a1L                          = samplePointInterp ssData ssM24 offset (fromIntegral appliedL.rStart + ix) 

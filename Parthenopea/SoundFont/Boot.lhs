@@ -240,7 +240,7 @@ Boot executive function ========================================================
 
 support sample and instance ===========================================================================================
 
-> formComprehension      :: ∀ r a . SFResource r ⇒ SFFileBoot → (FileArrays → Array Word a) → [r]
+> formComprehension      :: ∀ r a . SFKeyType r ⇒ SFFileBoot → (FileArrays → Array Word a) → [r]
 > formComprehension sffile blobfun         = map (sfkey sffile.zWordFBoot) bRange
 >   where
 >     fName                                = "formComprehension"
@@ -842,7 +842,7 @@ pairing convenience functions ==================================================
 > twoWay                                   =
 >   let
 >     ifolder            :: IntMap Int → Int → Int → IntMap Int
->     ifolder m ifrom ito                  = (IntMap.insert ito ifrom . IntMap.insert ifrom ito) m
+>     ifolder imap ifrom ito               = (IntMap.insert ito ifrom . IntMap.insert ifrom ito) imap
 >   in
 >     IntMap.foldlWithKey ifolder IntMap.empty
 >

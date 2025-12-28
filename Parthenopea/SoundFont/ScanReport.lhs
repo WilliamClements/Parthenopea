@@ -47,7 +47,7 @@ executive ======================================================================
 >   where
 >     fName                                = "writeScanReport"
 >
->     summarize          :: ∀ r . (SFResource r) ⇒ Map r [Scan] → [Emission]
+>     summarize          :: ∀ r . (SFKeyType r) ⇒ Map r [Scan] → [Emission]
 >     summarize sm                         =
 >       let
 >         hs                               = sortOn (Down . snd) $ Map.toList $ Map.foldr histoFold Map.empty sm
