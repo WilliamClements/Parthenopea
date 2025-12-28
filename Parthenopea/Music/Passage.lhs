@@ -139,14 +139,14 @@ _Overall_                =
 >
 >         makeNas        :: Either Velocity (VB.Vector Double) → [NoteAttribute]
 >         makeNas (Left homeVolume)        = [Volume homeVolume]
->         makeNas (Right recipe)           =
+>         makeNas (Right sweeps)           =
 >           profess
->             (not $ VB.null recipe)
->             (unwords [fName, "illegally null recipe"])
->             [(Volume . average) recipe, (Params . VB.toList) recipe]
+>             (not $ VB.null sweeps)
+>             (unwords [fName, "illegally null sweeps"])
+>             [(Volume . average) sweeps, (Params . VB.toList) sweeps]
 >         
 >         average        :: VB.Vector Double → Velocity
->         average recipe                   = round $ VB.sum recipe / (fromIntegral . VB.length) recipe
+>         average sweeps                   = round $ VB.sum sweeps / (fromIntegral . VB.length) sweeps
 >
 >         mangleNote     :: Dur → a → Music (a, [NoteAttribute])
 >         mangleNote dM pM                 = note dM (pM, Dynamics fName_ : (makeNas . deJust fName) mek.mParams)

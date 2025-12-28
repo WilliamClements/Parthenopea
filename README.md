@@ -1,5 +1,5 @@
 # Parthenopea
-Haskell project(s) centered around Euterpea. The *batch processor* automates orchestration - applies SoundFont Instruments to songs and batch-produces sharable music files. 
+Haskell project(s) centered around Euterpea. The *batch processor* automates orchestration - applying SoundFont Instruments to songs and batch-producing sharable music files. 
 
 For more on music educational software and Euterpea, see https://www.euterpea.com/ and obtain its textbook ***Haskell School of Music***. 
 

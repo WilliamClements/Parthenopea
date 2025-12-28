@@ -14,7 +14,7 @@ Apr 26, 2025
 > module Parthenopea.Repro.Envelopes(
 >          deriveEnvelope
 >        , doEnvelope
->        , doVeloSweepingEnvelope
+>        , doSweepingEnvelope
 >        , minDeltaT
 >        , minUseful
 >        , proposeSegments
@@ -104,28 +104,28 @@ Create a straight-line envelope generator with following phases:
 >     fSusLevel                            = clip (0, 1) r.fSustainLevel
 >     secs                                 = tf.tfSecsToPlay
 >
-> doVeloSweepingEnvelope :: ∀ p . Clock p ⇒ TimeFrame → Either Velocity (VB.Vector Double) → Signal p () Double
-> doVeloSweepingEnvelope timeFrame         = either (constA . fromIntegral) (cookRecipe timeFrame)
+> doSweepingEnvelope     :: ∀ p . Clock p ⇒ TimeFrame → Either Velocity (VB.Vector Double) → Signal p () Double
+> doSweepingEnvelope timeFrame             = either (constA . fromIntegral) (doSweeps timeFrame)
 >
-> cookRecipe             :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
-> cookRecipe timeFrame recipe              = envLineSeg segs.sAmps segs.sDeltaTs
+> doSweeps               :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
+> doSweeps timeFrame sweeps              = envLineSeg segs.sAmps segs.sDeltaTs
 >   where
->     fName                                = "doVeloSweepingEnvelope"
+>     fName                                = "doSweepingEnvelope"
 >
->     dLen                                 = VB.length recipe
+>     dLen                                 = VB.length sweeps
 >     segs                                 =
 >       case dLen of
 >         2                                → segmentsFor2
 >         4                                → segmentsFor4
 >         _                                →
->           error $ unwords [fName, show dLen, "is illegal length for velo sweeping recipe"]
+>           error $ unwords [fName, show dLen, "is illegal length for velo sweeping sweeps"]
 >
 >     stVelo0, enVelo0, stVelo1, enVelo1, step, midsection, leg
 >                        :: Double 
->     stVelo0                              = recipe VB.! 0
->     enVelo0                              = recipe VB.! 1
->     stVelo1                              = recipe VB.! 2
->     enVelo1                              = recipe VB.! 3
+>     stVelo0                              = sweeps VB.! 0
+>     enVelo0                              = sweeps VB.! 1
+>     stVelo1                              = sweeps VB.! 2
+>     enVelo1                              = sweeps VB.! 3
 >
 >     step                                 = timeFrame.tfSecsToPlay - 2 * minDeltaT
 >     midsection                           = step / 8
