@@ -165,30 +165,34 @@ Current solution:
 >     smell                                = smellTaskIf        sffile rost
 >     instrument                           = instrumentTaskIf   sffile rost
 >     capture                              = captureTaskIf      sffile rost
->     pair                                 = pairTaskIf         sffile rost
->     vet                                  = vetTaskIf          sffile rost
->     adopt                                = adoptTaskIf        sffile rost
+>     clean                                = cleanTaskIf        sffile rost
 >     smash                                = smashTaskIf        sffile rost
 >     reorg                                = reorgTaskIf        sffile rost
 >     match                                = matchTaskIf        sffile rost
->     clean                                = cleanTaskIf        sffile rost
+>     pair                                 = pairTaskIf         sffile rost
+>     vet                                  = vetTaskIf          sffile rost
+>     adopt                                = adoptTaskIf        sffile rost
 >     perI                                 = perITaskIf         sffile rost
 
-Most of the tasks add dispositions unproblematically - ignoring
+(Mostly ignoring dispo contribution as it is unproblematic)
 
 Task preSample creates preSampleCache based on file's Sample Headers
 Task smell creates sample-level Partner map, based on preSampleCache
-Task instrumen creates the zrec IntMap based on file's Instrument data
-Task capture is the composition of two Tasks
-   Task capture creates pzdb, based on file's Zone data
-   Task clean
+Task instrument creates the zrec IntMap based on file's Instrument data
+Task capture creates pzdb, based on file's Zone data
+Task clean
       creates Owners map based on pzdb
       deletes empty zrecs based on Owners map
-Task adopt adds dispos only, based on Owners map
-Task smash creates Smashings based on Owners map and PreZone data
-Task reorg modifies some PreZones' parent handles, thus invalidating Owners map
-Task match modifies fuzzy data only 
-Task pair completes Pairing, creates Action map, based on partners and PreZones, does not modify PreZones
+Task adopt (adds dispos only, based on Owners map)
+Task smash creates smashups based on Owners map and PreZone data
+Task reorg invalidates Owners Map by what it does
+      deletes Instruments, in effect
+      modifies thereby orphaned PreZones to belong to absorbing member Instrument
+Task match (modifies fuzzy data only) 
+Task pair
+      develops Pairing
+      creates Action map, based on partners and PreZones
+      does not modify PreZones
 Task vet modifies or deletes PreZones based on Action map
 Task perI creates PerInstrument map based on Owners map and PreZone data
 
@@ -249,7 +253,7 @@ support sample and instance ====================================================
 >     bRange                               =
 >       profess
 >         ((stF == 0) && (stF <= enF) && (enF < 2_147_483_648))
->         (error $ unwords [fName, "corrupt blob indexing"])
+>         (error $ unwords [fName, "corrupt blob indexing", show (stF, enF)])
 >         (deriveRange stF enF)
 
 pre-sample task =======================================================================================================
@@ -287,20 +291,17 @@ pre-sample task ================================================================
 >             Just SampleTypeRight         → "stereo"
 >             _                            → "mono"
 >
->         sampleSizeOk (stS, enS)          = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Word)
+>         sampleSizeOk   :: Int → Int → Bool
+>         sampleSizeOk stS enS             = stS >= 0 && enS - stS >= 0 && enS - stS < 2 ^ (22::Int)
 >
->         goodSampleRate x                 = x == clip (n64, n2 ^ n20) x
->           where
->             n64, n2, n20       :: Word
->             n64                                  = 64
->             n2                                   = 2
->             n20                                  = 20
+>         goodSampleRate :: Int → Bool
+>         goodSampleRate x                 = x == clip (64, 2 ^ (20::Int)) x
 >
 >         ssSample_
->           | not (goodSampleRate shdr.sampleRate)
+>           | not (goodSampleRate $ fromIntegral shdr.sampleRate)
 >                                          = violated BadSampleRate (show shdr.sampleRate)
 >           | isNothing mtype              = violated BadSampleType (show shdr.sampleType)
->           | not (sampleSizeOk (shdr.start, shdr.end))
+>           | not (sampleSizeOk (fromIntegral shdr.start) (fromIntegral shdr.end))
 >                                          = violated BadSampleLimits (show (shdr.start, shdr.end))
 >           | not (goodName raw)           = badButMaybeFix fixBadNames BadName fName raw good
 >           | otherwise                    = accepted Ok stereo
