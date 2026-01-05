@@ -1,8 +1,4 @@
-> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
->
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
@@ -245,8 +241,13 @@ reconcile zone and sample header ===============================================
 > receiveRecon pz                          = deJust "receiveRecon" pz.pzRecon
 >
 > resolvePreZone         :: Directives → PreZone → Recon
-> resolvePreZone dives pz                  = reconL
+> resolvePreZone dives pz
+>   | traceIf trace_RPZ False              = undefined
+>   | otherwise                            = reconL
 >   where
+>     fName                                = "resolvePreZone"
+>     trace_RPZ                            = unwords [fName, show zd, show (rApplied reconL)]
+>
 >     switches                             = dives.synthSwitches
 >     zd                                   = pz.pzDigest
 >     z                                    = pz.pzSFZone

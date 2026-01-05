@@ -1,8 +1,4 @@
-> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
->
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 SynthesizerTest

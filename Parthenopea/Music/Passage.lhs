@@ -1,10 +1,4 @@
-> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
->
-> {-# LANGUAGE LambdaCase #-}
-> {-# LANGUAGE NumericUnderscores  #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 

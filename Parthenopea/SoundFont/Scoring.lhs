@@ -1,9 +1,5 @@
-> {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-> {-# HLINT ignore "Unused LANGUAGE pragma" #-}
->
 > {-# LANGUAGE NumericUnderscores  #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TupleSections #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -250,7 +246,7 @@ tournament starts here =========================================================
 >                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 > decideWinners dives rost vFiles cache matches   = do
->   CM.when diagnosticsEnabled             (traceIO $ unwords [fName__, show $ length cache])
+>   CM.when diagnosticsEnabled             (traceIO $ unwords [fName__, show $ length cache, show $ length matches.mIMatches, show $ length matches.mSMatches])
 >   return wiExec
 >
 >   where
