@@ -51,7 +51,7 @@ struct sfInstModList
 
 > data Modulator                           =
 >   Modulator {
->     mrModId            :: Word
+>     mrModId            :: Node
 >   , mrModSrc           :: ModSrc
 >   , mrModDest          :: ModDestType
 >   , mrModAmount        :: Double
@@ -71,6 +71,9 @@ struct sfInstModList
 >     krSrc              :: ModSrc
 >   , krDest             :: ModDestType
 >   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
+> modKey                 :: Modulator → ModKey
+> modKey m8r                               =
+>   ModKey m8r.mrModSrc m8r.mrModDest m8r.mrAmountSrc
 >
 > data ModDestType                         =
 >     NoDestination
@@ -80,7 +83,7 @@ struct sfInstModList
 >   | ToInitAtten
 >   | ToChorus
 >   | ToReverb
->   | ToLink Word deriving (Eq, Ord, Show)
+>   | ToLink Node deriving (Eq, Ord, Show)
 >
 > data ModSrcSource                        =
 >     FromNoController
@@ -124,18 +127,14 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 > resolveMods            :: Modulation → [Modulator] → [Modulator] → Modulation
 > resolveMods m8n m8rs dm8rs               = m8n{mModsMap = compileMods checked}
 >   where
->     sifted                               = renumberMods $ siftMods $ groomMods (dm8rs ++ m8rs)
+>     sifted                               = renumberMods $ siftMods $ Map.elems uniqued 
 >     checked                              = profess
 >                                              (freeOfCycles sifted)
 >                                              "cycles in modulator graph"
->                                              sifted
->         
-> groomMods              :: [Modulator] → [Modulator]
-> groomMods m8rs                           = Map.elems uniqued
->   where
->     uniqued                              = foldl' ufolder Map.empty m8rs
->     ufolder uniquer m8r                  =
->       Map.insert (ModKey m8r.mrModSrc m8r.mrModDest m8r.mrAmountSrc) m8r uniquer
+>                                              sifted        
+>     uniqued            :: Map ModKey Modulator
+>     uniqued                              = foldl' ufolder Map.empty (dm8rs ++ m8rs)
+>                                              where ufolder m m8r = Map.insert (modKey m8r) m8r m
 >
 > freeOfCycles           :: [Modulator] → Bool
 > freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
@@ -144,8 +143,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >     nodeList                             = Map.filterWithKey (\k _ → (isJust . outGoing) k) (compileMods m8rs)
 >
 >     edgeList           :: [(Node, [Node])]
->                                          =
->       map (BF.bimap nodeFrom (map (fromIntegral . mrModId))) (Map.toList nodeList)
+>     edgeList                             = map (BF.bimap nodeFrom (map mrModId)) (Map.toList nodeList)
 >
 >     nodeFrom           :: ModDestType → Node
 >     nodeFrom mdt                         =
@@ -155,17 +153,17 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >         (outGoing mdt)
 >
 > -- | Calculates all the nodes that are part of cycles in a graph.
-> cyclicNodes :: Graph → [Node]
+> cyclicNodes            :: Graph → [Node]
 > cyclicNodes graph                        = (map fst . filter isCyclicAssoc . assocs) graph
 >   where
 >     isCyclicAssoc                        = uncurry (reachableFromAny graph)
 >
 > -- | In the specified graph, can the specified node be reached, starting out
 > -- from any of the specified vertices?
-> reachableFromAny :: Graph → Node → [Node] → Bool
+> reachableFromAny       :: Graph → Node → [Node] → Bool
 > reachableFromAny graph node              = elem node . concatMap (Graph.reachable graph)
 >
-> outGoing               :: ModDestType → Maybe Word
+> outGoing               :: ModDestType → Maybe Node
 > outGoing                                 =
 >   \case
 >     ToLink mId                           → Just mId
@@ -218,7 +216,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 > renumberMods           :: [Modulator] → [Modulator]
 > renumberMods m8rs                        = map renumber m8rs
 >   where
->     subs               :: [(Word, Word)]
+>     subs               :: [(Node, Node)]
 >     subs                                 = zipWith (\i m → (mrModId m, i)) [0..] m8rs
 >     renumber           :: Modulator → Modulator
 >     renumber m8r@Modulator{mrModId, mrModDest}
@@ -272,7 +270,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >
 > addDest                :: Word → Modulator → Maybe Modulator
 > addDest wIn from
->   | (wIn .&. 0x8000) /= 0                = Just from{mrModDest = ToLink $ wIn .&. 0x7fff}
+>   | (wIn .&. 0x8000) /= 0                = Just from{mrModDest = ToLink $ fromIntegral wIn .&. 0x7fff}
 >   | otherwise                            = case wIn of
 >                                              8       → Just from{mrModDest = ToFilterFc}
 >                                              15      → Just from{mrModDest = ToChorus}
@@ -306,7 +304,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >  -- some implementations do not include the amount source below in the second default modulator
 >     ms2                                  = ModSrc   (Mapping Switch    False  True False) FromNoteOnVel
 >
->     makeDefaultMod     :: Word → ModSrc → Word → Double → ModSrc → Modulator
+>     makeDefaultMod     :: Node → ModSrc → Word → Double → ModSrc → Modulator
 >     makeDefaultMod mId ms igen amt aSrc  = deJust
 >                                              "makeDefaultMod"
 >                                              (Just defModulator{mrModId = mId}

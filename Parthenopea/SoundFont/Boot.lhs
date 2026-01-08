@@ -223,13 +223,8 @@ Boot executive function ========================================================
 >           where
 >             unfinished fiIn              = not (null fiIn.fiTaskIfs)
 >             nextGen fiIn@FileIterate{ .. }
->               | traceIf trace_NG False   = undefined
->               | otherwise                = fiIn{ fiFw = (snd . head) fiTaskIfs fiFw
+>                                          = fiIn{ fiFw = (snd . head) fiTaskIfs fiFw
 >                                                , fiTaskIfs = tail fiTaskIfs}
->               where
->                 fName                    = "nextGen"
->                 trace_NG                 = unwords [fName, show sffile.zWordFBoot
->                                                          , show fiterate]
 >
 >         vFiles'                          = vFiles `VB.snoc` sffile{zPreZones = sPreZones}
 >         survey'                          =
@@ -410,17 +405,25 @@ InstZoneRecord and PreZone administration ======================================
 >     unwords [  "Capture"
 >              , show (IntMap.map pzWordB capt.uPzs)]
 > instance Runner Capture where
->   spawn fWork                            =
+>   spawn fWork
+>     | traceIf trace_S False              = undefined
+>     | otherwise                          =
 >     Capture
 >       fWork.fwZRecs
 >       fWork.fwPreZones
 >       defZone
 >       fWork.fwDispositions
->   imbibe fWork capt                      =
+>     where
+>       trace_S                            = unwords ["spawn", show $ length fWork.fwPreZones]
+>   imbibe fWork capt
+>     | traceIf trace_I False              = undefined
+>     | otherwise                          =
 >     fWork{
 >         fwZRecs = capt.uZRecs
 >       , fwPreZones = capt.uPzs
 >       , fwDispositions = capt.uDispo}
+>     where
+>       trace_I                            = unwords ["imbibe", show $ length capt.uPzs]
 
 iterating InstZoneRecord list =========================================================================================
 
@@ -536,12 +539,12 @@ capture task ===================================================================
 >           | isNothing pzDigest.zdSampleIndex
 >                                          = (bix, Right (prezk, accepted GlobalZone       noClue))
 >           | isNothing mpres              = (bix, Right (prezk, dropped  Orphaned         noClue))
->           | not (okGMRanges pzDigest)    = (bix, Right (prezk, violated BadGMRange       (rangeClue pz)))
->           | hasRom pz                    = (bix, Right (prezk, violated RomBased         (romClue pz)))
+>           | not (okGMRanges pzDigest)    = (bix, Right (prezk, violated BadGMRange       (rangeClue pzqq)))
+>           | hasRom pzqq                  = (bix, Right (prezk, violated RomBased         (romClue pzqq)))
 >           | isJust probeLimits           = (bix, Right (prezk, violated BadAppliedLimits (fromJust probeLimits)))
->           | otherwise                    = (bix, Left pz{pzChanges = ChangeEar (effPSShdr pres) []})
+>           | otherwise                    = (bix, Left pzqq{pzChanges = ChangeEar (effPSShdr pres) []})
 >           where
->             pz@PreZone{ .. }
+>             pzqq@PreZone{ .. }
 >                                          = makePreZone sffile.zWordFBoot si pergm.pgkwInst bix gens pres.cnSource
 >
 >             gens       :: [F.Generator]
@@ -551,7 +554,7 @@ capture task ===================================================================
 >                                              where ibags = sffile.zFileArrays.ssIBags
 >               in
 >                 profess
->                   (xgeni <= ygeni)
+>                   (0 <= xgeni && xgeni <= ygeni)
 >                   (unwords [fName, "SoundFont file corrupt (gens)"])
 >                   (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
 >                                              
@@ -573,7 +576,7 @@ capture task ===================================================================
 >                 then Nothing
 >                 else Just $ unwords [showHex stA [], showHex enA [], showHex stL [], showHex enL [], show pzDigest.zdSampleMode]
 >               where
->                 shdr                     = effPZShdr pz
+>                 shdr                     = effPZShdr pzqq
 >
 >                 stA                      = shdr.start     + fromIntegral pzDigest.zdStart
 >                 enA                      = shdr.end       + fromIntegral pzDigest.zdEnd
@@ -642,7 +645,7 @@ produce and process capture results ============================================
 >         (xgeni <= ygeni)
 >         (unwords[fName, "SoundFont file", show sffile.zWordFBoot, sffile.zFilename, "corrupt gens"])
 >         (map (boota.ssIGens !) (deriveRange xgeni ygeni))
->     mods               :: [(Word, F.Mod)]
+>     mods               :: [(Node, F.Mod)]
 >     mods                                 =
 >       profess
 >         (xmodi <= ymodi)
@@ -700,7 +703,7 @@ produce and process capture results ============================================
 >   F.KeyToVolEnvDecay i           → iz {zKeyToVolEnvDecay =         tkclip i}
 >   _                              → iz
 >
-> addMod                 :: Word → F.Mod → SFZone → SFZone
+> addMod                 :: Node → F.Mod → SFZone → SFZone
 > addMod mId fmod sfzone                   = maybe sfzone addModulator makeModulator
 >   where
 >     addModulator m8r                     = sfzone{zModulators = m8r : sfzone.zModulators}
@@ -850,7 +853,7 @@ pairing convenience functions ==================================================
 > makeActions fWork                        =
 >   let
 >     make actions bix                     = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton bix) actions
->                                              where pz = accessPreZone "mskeActions" fWork.fwPreZones bix
+>                                              where pz = accessPreZone "makeActions" fWork.fwPreZones bix
 >   in
 >     IntSet.foldl' make IntMap.empty
 
@@ -957,7 +960,7 @@ smash task =====================================================================
 >
 > computeInstSmashup     :: String → IntMap PreZone → IntSet → Smashing Word
 > computeInstSmashup tag pzdb bixen
->   | traceIf trace_CIS False              = undefined
+>   | traceNot trace_CIS False             = undefined
 >   | otherwise                            =
 >   profess
 >     (not $ IntMap.null pzdb)
@@ -985,7 +988,8 @@ To build the map
 
  5. implement a suitability calculation 
 
-> reorgTaskIf _ _ fWork                    = (zrecTask reorger fWork){fwOwners = IntMap.empty}
+> reorgTaskIf _ _ fWork                    = (zrecTask reorger fWork)
+>                                              {fwPreZones = rebaseAbsorbed, fwOwners = IntMap.empty}
 >   where
 >     Directives{ .. }  
 >                                          = fWork.fwDirectives
@@ -995,10 +999,15 @@ To build the map
 >       | not doAbsorption                 = (Just zrec,                          pzdb, rdFold)
 >       | isJust dprobe                    = (Just zrec,                          pzdb, dispose pergm scansBlocked rdFold)
 >       | isNothing aprobe                 = (Just zrec,                          pzdb, rdFold)
->       | party == wInst                   = (Just zrec{zsSmashup = Just hsmash}, fromHold, dispose pergm scansIng rdFold)
+>       | party == wInst                   = (Just zrec{zsSmashup = Just hsmash}, pzdb, dispose pergm scansIng rdFold)
 >       | otherwise                        = (Nothing,                            pzdb, dispose pergm scansEd rdFold)
 >       where
 >         fName                            = "reorger"
+>
+>         ssTempl8 dispo imp clue          = [Scan dispo imp fName clue]
+>         scansIng                         = ssTempl8 Modified   Absorbing    noClue
+>         scansEd                          = ssTempl8 Dropped    Absorbed     (show party)
+>         scansBlocked                     = ssTempl8 NoChange   NoAbsorption (show disqualified)
 >
 >         pergm                            = instKey zrec
 >         wInst          :: Int
@@ -1009,14 +1018,7 @@ To build the map
 >
 >         disqualified                     = deJust "dprobe" dprobe
 >         party                            = deJust "aprobe" aprobe
->         (_, hsmash)                      = deJust "hprobe" (IntMap.lookup wInst holdMap)
->
->         scansIng                         =
->           [Scan Modified Absorbing fName noClue]
->         scansEd                          =
->           [Scan Dropped Absorbed   fName (show party)]
->         scansBlocked                     =
->           [Scan NoChange NoAbsorption fName (show disqualified)]
+>         hsmash                           = deJust "hprobe" (IntMap.lookup wInst holdMap)
 >
 >     headed             :: IntMap IntSet                {- [InstIndex → [InstIndex]]     -}
 >     headed                               = foldr (IntMap.union . rewire) IntMap.empty groups
@@ -1033,8 +1035,7 @@ To build the map
 >         rewire ns                        =
 >           IntMap.insert ((snd . head) ns) (IntSet.fromList (map snd ns)) IntMap.empty
 >
->     holdMap            :: IntMap (IntMap PreZone, Smashing Word)
->                                                        {- [InstIndex → ([BagIndex → pz], smash] -}
+>     holdMap            :: IntMap (Smashing Word)       {- [InstIndex → smash]                   -}
 >     disqualMap         :: IntMap SmashStats            {- [InstIndex → stats]                   -}
 >     (holdMap, disqualMap)                = IntMap.mapEitherWithKey qualify headed
 >       where
@@ -1056,20 +1057,15 @@ To build the map
 >     
 >         qualify        :: Int                          {- InstIndex                     -}
 >                           → IntSet                     {- [InstIndex]                   -}
->                           → Either (IntMap PreZone, Smashing Word) SmashStats
+>                           → Either (Smashing Word) SmashStats
 >         qualify leadI memberIs
 >           | 0 == osmashup.smashStats.countMultiples
->                                          = Left (rebased, osmashup)
->           | membersHaveVR                = Left (rebased, osmashup)
+>                                          = Left osmashup
+>           | membersHaveVR                = Left osmashup
 >           | otherwise                    = Right osmashup.smashStats
 >           where
 >             towners    :: [(IntMap PreZone, Smashing Word)]
 >             towners                      = map (townersMap IntMap.!) (IntSet.toList memberIs)
->             members    :: IntMap PreZone               {- [BagIndex → pz]               -}
->             members                      = foldl' grow IntMap.empty (map fst towners)
->                                              where grow m item = m `IntMap.union` item
->             rebased                      = IntMap.map rebase members
->                                              where rebase pz = pz{pzWordI = fromIntegral leadI}
 >             smashups                     = map snd towners
 >             osmashup                     = (foldl' smashSmashings (head smashups) (tail smashups))
 >                                              {smashTag = unwords [show (leadI, memberIs)]}
@@ -1087,6 +1083,7 @@ To build the map
 >     ready              :: IntMap IntSet                {- [InstIndex → [InstIndex]]     -}
 >     ready                                = IntMap.filterWithKey wasVetted headed
 >                                              where wasVetted k _ = IntMap.member k holdMap
+>
 >     absorptionMap      :: IntMap Int                   {- [InstIndex → InstIndex]       -}
 >     absorptionMap                        = IntMap.foldlWithKey fold1Fun IntMap.empty ready
 >       where
@@ -1097,10 +1094,14 @@ To build the map
 >           in
 >             IntSet.foldl' fold2Fun qIn
 >
->     fromHold           :: IntMap PreZone
->     fromHold                             = foldl' grow IntMap.empty holdMap
+>     rebaseAbsorbed                       = IntMap.foldlWithKey ufold fWork.fwPreZones fWork.fwPreZones
 >       where
->         grow soFar oneSet                = soFar `IntMap.union` fst oneSet
+>         ufold m k pz                     =
+>           let
+>             rebase leadI                 = IntMap.update change k m
+>                                              where change _ = Just pz{pzWordI = fromIntegral leadI}
+>           in
+>             maybe m rebase (IntMap.lookup (wordI pz) absorptionMap)
 
 match task ============================================================================================================
           accumulate all fuzzy matches
