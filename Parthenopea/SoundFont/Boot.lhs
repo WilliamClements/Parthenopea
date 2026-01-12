@@ -911,12 +911,9 @@ adopt task =====================================================================
 >     trace_ATI                            = unwords [fName_, show $ IntMap.keysSet fWork.fwOwners]
 >
 >     adopter zrec pzdb rd                 =
->       let
->         miset                            = fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwOwners
->       in
->         case miset of
->           Nothing                        → (Nothing,   pzdb, rd)
->           Just iset                      → (Just zrec, pzdb, IntSet.foldl' (adopt zrec) rd iset)
+>       case fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwOwners of
+>         Nothing                          → (Nothing,   pzdb, rd)
+>         Just iset                        → (Just zrec, pzdb, IntSet.foldl' (adopt zrec) rd iset)
 >
 >     adopt zrec rdFold bix
 >       | traceNever trace_A False         = undefined
@@ -944,7 +941,6 @@ smash task =====================================================================
 >     smasher zrec pzdb rdFold             =
 >       let
 >         tag                              = show (instKey zrec).pgkwInst
->         miset                            = fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwOwners
 >         addPartners from                 = from `IntSet.union` newPartners
 >           where
 >             newPartners                  =
@@ -952,7 +948,7 @@ smash task =====================================================================
 >                 qualify bix              = bix `IntMap.member` bothPartners
 >               in
 >                 IntSet.filter qualify from
->         smashVar                         = miset
+>         smashVar                         = fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwOwners
 >                                            >>= Just . addPartners
 >                                            >>= Just . computeInstSmashup tag pzdb
 >       in
@@ -1127,17 +1123,15 @@ clean task =====================================================================
 
 > cleanTaskIf _ _ fWork                    = (zrecTask cleaner fWork){fwOwners = owners}
 >   where
+>     fName                                = "cleanTaskIf"
+>     ssNoZones                            = [Scan Dropped NoZones fName noClue]
+>
 >     owners                               = makeOwners fWork.fwPreZones
+>           
 >     cleaner zrec pzdb rdFold             =
->       case iset of
+>       case fromIntegral zrec.zswInst `IntMap.lookup` owners of
 >         Nothing                          → (Nothing,   pzdb, dispose (instKey zrec) ssNoZones rdFold)
 >         _                                → (Just zrec, pzdb, rdFold)
->       where
->         fName                            = "cleaner"
->
->         iset                             = fromIntegral zrec.zswInst `IntMap.lookup` owners
->         ssNoZones                        =
->           [Scan Dropped NoZones fName noClue]
 
 perI task =============================================================================================================
           generating PerInstrument map
@@ -1155,16 +1149,12 @@ perI task ======================================================================
 >       where
 >         fName                            = "perIFolder"
 >
->         iset                             = fromMaybe IntSet.empty  miset -- (m, rdFold)
->         smashing                         = deJust fName zrec.zsSmashup
->         miset                            = fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwOwners 
->
 >         perI                             = 
 >           PerInstrument 
 >             zrec.zswChanges 
->             iset
+>             (fromMaybe IntSet.empty (fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwOwners))
 >             IntSet.empty
->             smashing
+>             (deJust fName zrec.zsSmashup)
 >
 >         ssInstrument                     =
 >           [Scan Accepted ToCache fName noClue]

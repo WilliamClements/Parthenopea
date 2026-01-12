@@ -502,8 +502,8 @@ instrument range checking ======================================================
 >         _                                → False
 >
 > bendNote               :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music1
-> bendNote bp pc o durB bend               =
->   note durB ((pc, o), [Volume bp.bpHomeVelocity, Params [fromIntegral bend]])
+> bendNote bp pc o durB _                  =
+>   note durB ((pc, o), [Volume bp.bpHomeVelocity {- WOX }, Params [fromIntegral bend] -} ])
 
 examine song for instrument and percussion usage ======================================================================
 

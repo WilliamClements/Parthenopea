@@ -214,7 +214,7 @@ accessed in end time order.
 >
 > makeInstFill           :: Int → (AbsPitch, AbsPitch) → Double → Double → Volume → Music1
 > makeInstFill beats (lo, hi) dXp bend vol
->                                          = note (qn * toRational beats) (p, [Volume vol, Params [bend]])
+>                                          = note (qn * toRational beats) (p, [Volume vol {- WOX , Params [bend] -} ])
 >   where
 >     p                  :: Pitch          = pitch $ lo + round (dXp * fromIntegral (hi - lo))
 >
