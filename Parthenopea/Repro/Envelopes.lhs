@@ -104,7 +104,7 @@ Create a straight-line envelope generator with following phases:
 > doSweepingEnvelope timeFrame             = either (constA . fromIntegral) (doSweeps timeFrame)
 >
 > doSweeps               :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
-> doSweeps timeFrame sweeps              = envLineSeg segs.sAmps segs.sDeltaTs
+> doSweeps timeFrame sweeps                = envLineSeg segs.sAmps segs.sDeltaTs
 >   where
 >     fName                                = "doSweepingEnvelope"
 >

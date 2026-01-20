@@ -35,6 +35,8 @@ configuration ("Directives") ===================================================
 >   SynthSwitches {
 >     useEnvelopes       :: Bool
 >   , usePassages        :: Bool
+>   , useModulators      :: Bool
+>   , useDefModulators   :: Bool
 >   , useNoteBending     :: Bool
 >   , usePitchCorrection :: Bool
 >   , useAttenuation     :: Bool
@@ -48,6 +50,8 @@ configuration ("Directives") ===================================================
 > defSynthSwitches       :: SynthSwitches
 > defSynthSwitches                         =
 >   SynthSwitches
+>     True
+>     True
 >     True
 >     True
 >     True
@@ -97,7 +101,8 @@ Client to specify Directives overrides, especially "client". ===================
 >       , hackWildJumps                    = True
 >       , hackWildMidiValues               = True
 >       , parallelPairing                  = False
->       , synthSwitches                    = baseDives.synthSwitches{useNoteBending = False}
+>       , synthSwitches                    = baseDives.synthSwitches{ useNoteBending = False
+>                                                                   , useDefModulators = False}
 >       , dReportVerbosity                 = allOn}
 
 Override here only if this is a Parthenopea library sandbox. ==========================================================
@@ -130,8 +135,9 @@ Edit below if changing "default defaults" ======================================
 > okDirectives           :: Directives → Bool
 > okDirectives dives                       =
 >   okReportVerbosity dives.dReportVerbosity
->   && inARange (1 % 10, 10 % 1) dives.proConRatio
+>   && inARange (1 % 10, 10 % 1) dives.proConRatio     -- higher ratio attenuates the con component
 >   && inARange (1 % 10,      1) dives.absorbThreshold -- lower threshold results in more absorptions permitted
+>   && (dives.synthSwitches.useModulators || not dives.synthSwitches.useDefModulators)
 
 Remarks on directives 16-Dec-2025:
 

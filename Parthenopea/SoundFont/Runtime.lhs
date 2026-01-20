@@ -299,7 +299,7 @@ reconcile zone and sample header ===============================================
 >            , zReleaseModEnv = Nothing}
 >
 > resolveModulation      :: Directives → SFZone → Modulation
-> resolveModulation dives z                = resolveMods m8n z.zModulators defaultMods
+> resolveModulation dives z                = resolveMods m8n z.zModulators (defaultMods dives.synthSwitches)
 >   where
 >     m8n                :: Modulation     =
 >       defModulation{

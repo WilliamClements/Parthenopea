@@ -474,7 +474,8 @@ bootstrapping ==================================================================
 >   deriving (Eq, Ord, Show)
 >
 > data Impact                              =
->   Ok | NoZones | BadName
+>   Ok | NoZones | BadZones
+>      | BadName
 >      | BadSampleRate | BadSampleType | BadSampleLimits
 >      | BadAppliedLimits | BadStereoPartner | RomBased | BadGMRange 
 >      | Orphaned | ToCache

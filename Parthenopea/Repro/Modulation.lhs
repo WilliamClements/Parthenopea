@@ -2,6 +2,7 @@
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TypeFamilies #-} 
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -12,7 +13,7 @@ November 6, 2023
 
 > module Parthenopea.Repro.Modulation where
 >
-> import Control.Arrow ( Arrow(arr), (>>>) )
+> import Control.Arrow ( Arrow(arr) )
 > import Control.Arrow.Operations
 > import Data.Array.Unboxed
 > import qualified Data.Bifunctor          as BF
@@ -29,9 +30,9 @@ November 6, 2023
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns
 > import Euterpea.IO.Audio.Types ( AudRate, Clock(..), CtrRate, Signal )
-> import Euterpea.Music ( AbsPitch )
 > import GHC.Generics ( Generic ) 
 > import Parthenopea.Debug
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
 >
 > constA                 :: Arrow a ⇒ c → a b c
@@ -200,11 +201,10 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >         byModDestType                    = compileMods ting.ssCurrent
 >
 > siftMods               :: [Modulator] → [Modulator]
-> siftMods m8rs                            = final.ssCurrent
+> siftMods m8rs                            = (head $ dropWhile unfinished generations).ssCurrent
 >   where
 >     generations                          =
 >       iterate' eliminateDanglingMods (Sifting 0 m8rs [])
->     final                                = head $ dropWhile unfinished generations
 >     unfinished Sifting{ssCurrent, ssPrevious}
 >                                          = ssCurrent /= ssPrevious
 >
@@ -229,9 +229,10 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >                                                   o                  → o) mrModDest}
 >
 > unpackModSrc           :: Word → Maybe ModSrc
-> unpackModSrc wIn                         = mmapping
->                                              >>= addMapping 
->                                              >>= addSource
+> unpackModSrc wIn                         =
+>   mmapping
+>     >>= addMapping 
+>     >>= addSource
 >   where
 >     mmapping                             = Just defMapping
 >                                              >>= addContinuity
@@ -265,6 +266,12 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >                    127    → Just from{msSource = FromLinked}
 >                    _      → Nothing
 >
+> addAmtSrc              :: ModSrc → Modulator → Maybe Modulator
+> addAmtSrc amtSrc from                    =
+>   (\case
+>     FromLinked                           → Nothing
+>     _                                    → Just from{mrAmountSrc = amtSrc}) amtSrc.msSource
+>
 > addSrc                 :: ModSrc → Modulator → Maybe Modulator
 > addSrc modSrc from                       = Just from{mrModSrc = modSrc}
 >
@@ -283,17 +290,9 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >                                              then Nothing
 >                                              else Just (from{mrModAmount = dIn})
 >
-> addAmtSrc              :: Maybe Modulator → ModSrc → Maybe Modulator
-> addAmtSrc mm8r amtSrc@ModSrc{msSource}   = mm8r >>=     (\x → case msSource of
->                                                               FromLinked       → Nothing
->                                                               _                → Just x{mrAmountSrc = amtSrc})
-> addAmtSrc'             :: ModSrc → Modulator → Maybe Modulator
-> addAmtSrc' modSrc@ModSrc{msSource} m8r   = Just m8r >>= (\x → case msSource of
->                                                               FromLinked       → Nothing
->                                                               _                → Just x{mrAmountSrc = modSrc})
->
-> defaultMods            :: [Modulator]
-> defaultMods                              = if useDefaultMods
+> defaultMods            :: SynthSwitches → [Modulator]
+> defaultMods SynthSwitches{ .. }
+>                                          = if useDefModulators
 >                                              then [ makeDefaultMod 0 ms0 48 960     defModSrc
 >                                                   , makeDefaultMod 1 ms1  8 (-2400) ms2 ] ++ specialDefaultMods
 >                                              else []
@@ -311,7 +310,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >                                               >>= addSrc ms
 >                                               >>= addDest igen
 >                                               >>= addAmount amt
->                                               >>= addAmtSrc' aSrc)
+>                                               >>= addAmtSrc aSrc)
 >
 >     ms3                                  = ModSrc   (Mapping Linear False False False) FromNoController
 >
@@ -323,25 +322,30 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >         modReverb                        =
 >           [makeDefaultMod 11 ms3 16 (fromRational reverbAllPercent * 10) defModSrc | reverbAllPercent > 0]
 >
-> evaluateMods           :: ModDestType → Map ModDestType [Modulator] → Double
-> evaluateMods md graph                    = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
+> evaluateMods           :: SynthSwitches → ModDestType → Map ModDestType [Modulator] → Double
+> evaluateMods sw@SynthSwitches{ .. } md graph
+>                                          = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
 >   where
->     evaluateMod m8r                      =
->       let
+>     evaluateMod m8r
+>       | traceIf trace_EM False           = undefined
+>       | otherwise                        = evalResult
+>       where
+>         fName                            = "evaluateMods"
+>         trace_EM                         = unwords [fName, show m8r, show evalResult]
+>
 >         getValue modSrc
 >           | useModulators                =
 >               case modSrc.msSource of
->                 FromLinked               → evaluateMods (ToLink m8r.mrModId) graph
+>                 FromLinked               → evaluateMods sw (ToLink m8r.mrModId) graph
 >                 _                        → 1
 >           | otherwise                    = 1
->       in
->         getValue m8r.mrModSrc * m8r.mrModAmount * getValue m8r.mrAmountSrc
+>         evalResult                       = getValue m8r.mrModSrc * m8r.mrModAmount * getValue m8r.mrAmountSrc
 >
 > evaluateNoteOn         :: Int → Mapping → Double
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / qMidiDouble128) (0, 1)
 >
-> evaluateModSignals     :: String → Modulation → ModDestType → ModSignals → Double
-> evaluateModSignals tag m8n md (ModSignals xenv xlfo xvib)
+> evaluateModSignals     :: SynthSwitches → String → Modulation → ModDestType → ModSignals → Double
+> evaluateModSignals sw tag m8n md (ModSignals xenv xlfo xvib)
 >                                          = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    fName                                 = "evaluateModSignals"
@@ -362,7 +366,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >    xmodEnv                               = xenv * mco.xModEnvCo
 >    xmodLfo                               = xlfo * mco.xModLfoCo
 >    xvibLfo                               = xvib * mco.xVibLfoCo
->    xmods                                 = evaluateMods md m8n.mModsMap
+>    xmods                                 = evaluateMods sw md m8n.mModsMap
 
 Filters are complex AND have a large impact ===========================================================================
 
@@ -371,42 +375,6 @@ Filters are complex AND have a large impact ====================================
 >   case resonType of
 >     ResonanceNone                        → Nothing
 >     _                                    → Just cascadeConfig
->
-> addResonance           :: ∀ p . Clock p ⇒ Modulation → Signal p (Double, ModSignals) Double
-> addResonance m8n@Modulation{mLowpass}
->                                          =
->   case cascadeCount lowpassType of
->     Nothing            →
->       proc (x, _)                        → do
->         y ← delay 0                      ⤙ x  
->         outA                             ⤙ y
->     Just count         →
->       case count of
->         0              → final
->         1              → stage >>> final
->         2              → stage >>> stage >>> final
->         3              → stage >>> stage >>> stage >>> final
->         4              → stage >>> stage >>> stage >>> stage >>> final
->         _              → error $ unwords [show count, "cascades are too many, not supported"]
->   where
->     Lowpass{lowpassType}                 = mLowpass
->
->     stage                                =
->         proc (sIn, msig)                 → do
->           let fc                         = modulateFc msig
->           pickled ← procFilter mLowpass  ⤙ (sIn, fc)
->           let sOut                       = pickled
->           outA                           ⤙ (sOut, msig)
->
->     final                                =
->         proc (sIn, msig)                 → do
->           let fc                         = modulateFc msig
->           pickled ← procFilter mLowpass  ⤙ (sIn, fc)
->           outA                           ⤙ pickled
->
->     modulateFc         :: ModSignals → Double
->     modulateFc msig                      =
->       clip freakRange (lowpassFc mLowpass * evaluateModSignals "modulateFc" m8n ToFilterFc msig)
 >
 > procFilter             :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
 > procFilter lp@Lowpass{lowpassType}       =
@@ -981,20 +949,18 @@ sampleUp returns power of 2 greater than OR EQUAL TO the input value (result at 
 sampleDown returns power of 2 less than OR EQUAL TO the input value (input enforced <= 2**31)
 breakUp returns a list of integers approximating divisions of a floating point range
 
-> sampleUp               :: Int → Int
+> sampleUp, sampleDown   :: Int → Int
 > sampleUp i                               =
 >   if i <= 0
 >     then error "out of range for sampleUp"
 >     else max 16_384 (head $ dropWhile (< i) (iterate' (* 2) 1))
->
-> sampleDown             :: Int → Int
 > sampleDown i                             =
 >   if i <= 0 || i > 2_147_483_648
 >     then error "out of range for sampleDown"
 >     else head $ dropWhile (> i) (iterate' (`div` 2) 2_147_483_648)
 >
-> breakUp :: (Double, Double) → Double → Int → [Int]
-> breakUp (xmin, xmax) base nDivs =
+> breakUp                :: (Double, Double) → Double → Int → [Int]
+> breakUp (xmin, xmax) base nDivs          =
 >   let
 >     (ymin, ymax) =
 >       if base == 0
@@ -1046,24 +1012,11 @@ The use of following functions requires that their input is normalized between 0
 > controlSwitch doub                       = if doub < 0.5
 >                                              then 0
 >                                              else 1
-
-Account for microtones specified by SoundFont scale tuning : 0 < x < 100 < 1200
-Note result is incorrect overall when involves multiple root pitches
-
-> calcMicrotoneRatio     :: AbsPitch → AbsPitch → Double → Double
-> calcMicrotoneRatio rootp p x             = step ** fromIntegral (rootp - p)
->   where
->     step               :: Double         = 2 ** (x / 1_200)
           
 Raises 'a' to the power 'b' using logarithms.
 
 > pow                    :: Floating a ⇒ a → a → a
 > pow x y                                  = exp (log x * y)
-
-Returns the fractional part of 'x'.
-
-> frac                   :: RealFrac r ⇒ r → r
-> frac                                     = snd . properFraction
 >
 > class Coeff a where
 >   azero                :: a
@@ -1108,36 +1061,27 @@ Returns the fractional part of 'x'.
 
 Signals of interest ===================================================================================================
 
-> sawtoothTable          :: Table
+> sawtoothTable, triangleWaveTable, sineTable
+>                        :: Table
 > sawtoothTable                            = tableSinesN 16_384 
 >                                                          [      1, 0.5  , 0.3
 >                                                            , 0.25, 0.2  , 0.167
 >                                                            , 0.14, 0.125, 0.111]
->
-> triangleWaveTable      :: Table
 > triangleWaveTable                        = tableSinesN 16_384 
 >                                                          [      1,  0, -0.5,  0,  0.3,   0
 >                                                           , -0.25,  0,  0.2,  0, -0.167, 0
 >                                                           ,  0.14,  0, -0.125]
->
-> sineTable :: Table
-> sineTable = tableSinesN 4096 [1]
+> sineTable                                = tableSinesN 4096 [1]
 >
 > deriveRange            :: Integral n ⇒ n → n → [n]
 > deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]
 >
-> useModulators          :: Bool
-> useModulators                            = True
-> -- False to suppress all use of Modulators
 > chorusAllPercent       :: Rational
 > chorusAllPercent                         = 0
 > -- force given Chorus level on ALL notes
 > reverbAllPercent       :: Rational
 > reverbAllPercent                         = 0
 > -- force given Reverb level on ALL notes
-> useDefaultMods         :: Bool
-> useDefaultMods                           = False
-> -- False to suppress all use of defaul Modulators
 > useLFO                 :: Bool
 > useLFO                                   = True
 > -- False to suppress all uses of the low frequency oscillator

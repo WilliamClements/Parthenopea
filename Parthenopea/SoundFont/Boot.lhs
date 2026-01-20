@@ -1,3 +1,4 @@
+> {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
@@ -511,16 +512,21 @@ capture task ===================================================================
 
 > captureTaskIf sffile _ fWork             = imbibe fWork (zrecCompute fWork cFolder (spawn fWork))
 >   where
->     fName                                = "captureTaskIf"
+>     fName_                               = "captureTaskIf"
 >
->     accepted imp clue                    =
->       [Scan Accepted imp fName clue]
->     dropped imp clue                     =
->       [Scan Dropped imp fName clue]
->     modified imp clue                    =
->       [Scan Modified imp fName clue]
->     violated imp clue                    =
->       [Scan Violated imp fName clue]
+>     Directives{ .. }
+>                                          = fWork.fwDirectives
+>     SynthSwitches{ .. }                  
+>                                          = synthSwitches
+>               
+>     ssTempl8 dispo imp clue              = [Scan dispo imp fName_ clue]
+>     ssGlobalZone                         = ssTempl8 Accepted   GlobalZone   noClue
+>     ssOrphaned                           = ssTempl8 Dropped    Orphaned     noClue
+>     ssInstrumentCaptured                 = ssTempl8 Modified   Captured
+>     ssBadZones                           = ssTempl8 Violated   BadZones     "see PreZone dispositions"
+>     ssBadGMRange                         = ssTempl8 Violated   BadGMRange
+>     ssRom                                = ssTempl8 Violated   RomBased
+>     ssApplied                            = ssTempl8 Violated   BadAppliedLimits
 >
 >     cFolder            :: Capture → InstZoneRecord → Capture
 >     cFolder captIn zrec                  = capty{uZRecs = zrecs, uDispo = dispose pergm ssCap capty.uDispo}
@@ -531,17 +537,17 @@ capture task ===================================================================
 >
 >         (zrecs, ssCap)                   =
 >           if any (isLeft . snd) results
->             then (capty.uZRecs,                                     modified Captured iName)
->             else (IntMap.update (const Nothing) wInst capty.uZRecs, violated NoZones noClue)
+>             then (capty.uZRecs,                                     ssInstrumentCaptured iName)
+>             else (IntMap.update (const Nothing) wInst capty.uZRecs, ssBadZones)
 >
 >         capturePreZone :: Word → (Word, Either PreZone (PreZoneKey, [Scan]))
 >         capturePreZone bix
 >           | isNothing pzDigest.zdSampleIndex
->                                          = (bix, Right (prezk, accepted GlobalZone       noClue))
->           | isNothing mpres              = (bix, Right (prezk, dropped  Orphaned         noClue))
->           | not (okGMRanges pzDigest)    = (bix, Right (prezk, violated BadGMRange       (rangeClue pzqq)))
->           | hasRom pzqq                  = (bix, Right (prezk, violated RomBased         (romClue pzqq)))
->           | isJust probeLimits           = (bix, Right (prezk, violated BadAppliedLimits (fromJust probeLimits)))
+>                                          = (bix, Right (prezk, ssGlobalZone))
+>           | isNothing mpres              = (bix, Right (prezk, ssOrphaned))
+>           | not (okGMRanges pzDigest)    = (bix, Right (prezk, ssBadGMRange      (rangeClue pzqq)))
+>           | hasRom pzqq                  = (bix, Right (prezk, ssRom             (romClue pzqq)))
+>           | isJust probeLimits           = (bix, Right (prezk, ssApplied         (fromJust probeLimits)))
 >           | otherwise                    = (bix, Left pzqq{pzChanges = ChangeEar (effPSShdr pres) []})
 >           where
 >             pzqq@PreZone{ .. }
@@ -555,10 +561,10 @@ capture task ===================================================================
 >               in
 >                 profess
 >                   (0 <= xgeni && xgeni <= ygeni)
->                   (unwords [fName, "SoundFont file corrupt (gens)"])
+>                   (unwords [fName_, "SoundFont file corrupt (gens)"])
 >                   (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
 >                                              
->             si                           = deJust (unwords [fName, "si"]) pzDigest.zdSampleIndex
+>             si                           = deJust (unwords [fName_, "si"]) pzDigest.zdSampleIndex
 >             prezk                        = PreZoneKey 
 >                                             sffile.zWordFBoot 
 >                                             (pgkwInst pergm)
@@ -569,7 +575,7 @@ capture task ===================================================================
 >                                             si
 >
 >             mpres                        = presk `Map.lookup` fWork.fwPreSamples
->             pres                         = deJust (unwords [fName, "pres"]) mpres
+>             pres                         = deJust (unwords [fName_, "pres"]) mpres
 >
 >             probeLimits                  =
 >               if ok
@@ -605,12 +611,12 @@ produce and process capture results ============================================
 >               let
 >                 doNormal pz              =
 >                   captFold{uPzs = IntMap.insert (wordB pz) pz{pzSFZone = bz} captFold.uPzs}
->                   where bz = buildZone sffile captFold.uSFZone (Just pz) bix
+>                   where bz = buildZone captFold.uSFZone (Just pz) bix
 >                 doError (k, ssZone)      =
 >                   if hasImpact GlobalZone ssZone
 >                     then captFold{uSFZone = bz}
 >                     else captFold{uDispo = dispose k ssZone captFold.uDispo}
->                   where bz = buildZone sffile defZone Nothing bix
+>                   where bz = buildZone defZone Nothing bix
 >               in
 >                 either doNormal doError eor
 >
@@ -619,103 +625,108 @@ produce and process capture results ============================================
 >         romClue pz                       = showHex (stype pz) []
 >         rangeClue pz                     = show (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange)
 >
-> buildZone              :: SFFileBoot → SFZone → Maybe PreZone → Word → SFZone
-> buildZone sffile fromZone mpz bix
->   | traceIf trace_BZ False               = undefined
->   | otherwise                            = foldr (uncurry addMod) (foldl' addGen fromZone gens) mods
->   where
->     fName                                = "buildZone"
->     trace_BZ                             =
->       unwords [fName, show (sffile.zWordFBoot, bix), zName, show (fromZone == defZone)]
->
->     zName                                =
->       case mpz of
->         Nothing                          → "<global>"
->         Just pz                          → show (effPZShdr pz).sampleName
->     boota                                = sffile.zFileArrays
->
->     xgeni                                = F.genNdx $ boota.ssIBags!bix
->     ygeni                                = F.genNdx $ boota.ssIBags!(bix + 1)
->     xmodi                                = F.modNdx $ boota.ssIBags!bix
->     ymodi                                = F.modNdx $ boota.ssIBags!(bix + 1)
->
->     gens               :: [F.Generator]
->     gens                                 =
->       profess
->         (xgeni <= ygeni)
->         (unwords[fName, "SoundFont file", show sffile.zWordFBoot, sffile.zFilename, "corrupt gens"])
->         (map (boota.ssIGens !) (deriveRange xgeni ygeni))
->     mods               :: [(Node, F.Mod)]
->     mods                                 =
->       profess
->         (xmodi <= ymodi)
->         (unwords[fName, "SoundFont file", show sffile.zWordFBoot, sffile.zFilename, "corrupt mods"])
->         (zip [10_000..] (map (boota.ssIMods !) (deriveRange xmodi ymodi)))
->
-> addGen                 :: SFZone → F.Generator → SFZone
-> addGen iz gen =
->   case gen of
->   F.InstIndex w                  → iz {zInstIndex =                Just w}
->   F.Key w                        → iz {zKey =                      tmclip w}
->   F.Vel w                        → iz {zVel =                      tnclip w}
->   F.InitAtten i                  → iz {zInitAtten =                tdclip i}
->   F.CoarseTune i                 → iz {zCoarseTune =               t1clip i}
->   F.FineTune i                   → iz {zFineTune =                 t2clip i}
->   F.SampleIndex w                → iz {zSampleIndex =              Just w}
->   F.SampleMode m                 → iz {zSampleMode =               Just m}
->   F.ScaleTuning i                → iz {zScaleTuning =              t3clip i}
->   F.ExclusiveClass i             → iz {zExclusiveClass =           (tnclip . fromIntegral) i}
->
->   F.DelayVolEnv i                → iz {zDelayVolEnv =              tcclip i}
->   F.AttackVolEnv i               → iz {zAttackVolEnv =             tcclip i}
->   F.HoldVolEnv i                 → iz {zHoldVolEnv =               tcclip i}
->   F.DecayVolEnv i                → iz {zDecayVolEnv =              tcclip i}
->   F.SustainVolEnv i              → iz {zSustainVolEnv =            tdclip i}
->   F.ReleaseVolEnv i              → iz {zReleaseVolEnv =            tbclip i}
->
->   F.Chorus i                     → iz {zChorus =                   ticlip i}
->   F.Reverb i                     → iz {zReverb =                   ticlip i}
->   F.Pan i                        → iz {zPan =                      tpclip i}
->
->   F.RootKey w                    → iz {zRootKey =                  tmclip w}
->
->   F.ModLfoToPitch i              → iz {zModLfoToPitch =            teclip i}
->   F.VibLfoToPitch i              → iz {zVibLfoToPitch =            teclip i}
->   F.ModEnvToPitch i              → iz {zModEnvToPitch =            teclip i}
->   F.InitFc i                     → iz {zInitFc =                   tfclip i}
->   F.InitQ i                      → iz {zInitQ =                    tqclip i}
->   F.ModLfoToFc i                 → iz {zModLfoToFc =               teclip i}
->   F.ModEnvToFc i                 → iz {zModEnvToFc =               teclip i}
->   F.ModLfoToVol i                → iz {zModLfoToVol =              tvclip i}
->   F.DelayModLfo i                → iz {zDelayModLfo =              tcclip i}
->   F.FreqModLfo i                 → iz {zFreqModLfo =               taclip i}
->   F.DelayVibLfo i                → iz {zDelayVibLfo =              tcclip i}
->   F.FreqVibLfo i                 → iz {zFreqVibLfo =               taclip i}
->   F.DelayModEnv i                → iz {zDelayModEnv =              tcclip i}
->   F.AttackModEnv i               → iz {zAttackModEnv =             tbclip i}
->   F.HoldModEnv i                 → iz {zHoldModEnv =               tcclip i}
->   F.DecayModEnv i                → iz {zDecayModEnv =              tbclip i}
->   F.SustainModEnv i              → iz {zSustainModEnv =            ticlip i}
->   F.ReleaseModEnv i              → iz {zReleaseModEnv =            tbclip i}
->   F.KeyToModEnvHold i            → iz {zKeyToModEnvHold =          tkclip i}
->   F.KeyToModEnvDecay i           → iz {zKeyToModEnvDecay =         tkclip i}
->   F.KeyToVolEnvHold i            → iz {zKeyToVolEnvHold =          tkclip i}
->   F.KeyToVolEnvDecay i           → iz {zKeyToVolEnvDecay =         tkclip i}
->   _                              → iz
->
-> addMod                 :: Node → F.Mod → SFZone → SFZone
-> addMod mId fmod sfzone                   = maybe sfzone addModulator makeModulator
->   where
->     addModulator m8r                     = sfzone{zModulators = m8r : sfzone.zModulators}
->     makeModulator                        = mm'
+>     buildZone          :: SFZone → Maybe PreZone → Word → SFZone
+>     buildZone fromZone mpz bix
+>       | traceIf trace_BZ False           = undefined
+>       | otherwise                        = foldr (uncurry addMod) (foldl' addGen fromZone gens) mods
 >       where
->         mm, mm'        :: Maybe Modulator
->         mm                               = unpackModSrc fmod.srcOper
->                                            >>= flip addSrc defModulator{mrModId = mId}
->                                            >>= addDest fmod.destOper
->                                            >>= addAmount (fromIntegral fmod.amount)
->         mm'                              = unpackModSrc fmod.amtSrcOper
->                                            >>= addAmtSrc mm
+>         fName                            = "buildZone"
+>         trace_BZ                         =
+>           unwords [fName, show (sffile.zWordFBoot, bix), zName, show (fromZone == defZone)]
+>
+>         zName                            =
+>           case mpz of
+>             Nothing                      → "<global>"
+>             Just pz                      → show (effPZShdr pz).sampleName
+>         boota                            = sffile.zFileArrays
+>
+>         xgeni                            = F.genNdx $ boota.ssIBags!bix
+>         ygeni                            = F.genNdx $ boota.ssIBags!(bix + 1)
+>         xmodi                            = F.modNdx $ boota.ssIBags!bix
+>         ymodi                            = F.modNdx $ boota.ssIBags!(bix + 1)
+>
+>         gens           :: [F.Generator]
+>         gens                             =
+>           profess
+>             (xgeni <= ygeni)
+>             (unwords[fName, "SoundFont file", show sffile.zWordFBoot, sffile.zFilename, "corrupt gens"])
+>             (map (boota.ssIGens !) (deriveRange xgeni ygeni))
+>         mods           :: [(Node, F.Mod)]
+>         mods                             =
+>           profess
+>             (xmodi <= ymodi)
+>             (unwords[fName, "SoundFont file", show sffile.zWordFBoot, sffile.zFilename, "corrupt mods"])
+>             (zip [10_000..] (map (boota.ssIMods !) (deriveRange xmodi ymodi)))
+>
+>     addGen             :: SFZone → F.Generator → SFZone
+>     addGen iz gen =
+>       case gen of
+>       F.InstIndex w                      → iz {zInstIndex =                Just w}
+>       F.Key w                            → iz {zKey =                      tmclip w}
+>       F.Vel w                            → iz {zVel =                      tnclip w}
+>       F.InitAtten i                      → iz {zInitAtten =                tdclip i}
+>       F.CoarseTune i                     → iz {zCoarseTune =               t1clip i}
+>       F.FineTune i                       → iz {zFineTune =                 t2clip i}
+>       F.SampleIndex w                    → iz {zSampleIndex =              Just w}
+>       F.SampleMode m                     → iz {zSampleMode =               Just m}
+>       F.ScaleTuning i                    → iz {zScaleTuning =              t3clip i}
+>       F.ExclusiveClass i                 → iz {zExclusiveClass =           (tnclip . fromIntegral) i}
+>
+>       F.DelayVolEnv i                    → iz {zDelayVolEnv =              tcclip i}
+>       F.AttackVolEnv i                   → iz {zAttackVolEnv =             tcclip i}
+>       F.HoldVolEnv i                     → iz {zHoldVolEnv =               tcclip i}
+>       F.DecayVolEnv i                    → iz {zDecayVolEnv =              tcclip i}
+>       F.SustainVolEnv i                  → iz {zSustainVolEnv =            tdclip i}
+>       F.ReleaseVolEnv i                  → iz {zReleaseVolEnv =            tbclip i}
+>
+>       F.Chorus i                         → iz {zChorus =                   ticlip i}
+>       F.Reverb i                         → iz {zReverb =                   ticlip i}
+>       F.Pan i                            → iz {zPan =                      tpclip i}
+>
+>       F.RootKey w                        → iz {zRootKey =                  tmclip w}
+>
+>       F.ModLfoToPitch i                  → iz {zModLfoToPitch =            teclip i}
+>       F.VibLfoToPitch i                  → iz {zVibLfoToPitch =            teclip i}
+>       F.ModEnvToPitch i                  → iz {zModEnvToPitch =            teclip i}
+>       F.InitFc i                         → iz {zInitFc =                   tfclip i}
+>       F.InitQ i                          → iz {zInitQ =                    tqclip i}
+>       F.ModLfoToFc i                     → iz {zModLfoToFc =               teclip i}
+>       F.ModEnvToFc i                     → iz {zModEnvToFc =               teclip i}
+>       F.ModLfoToVol i                    → iz {zModLfoToVol =              tvclip i}
+>       F.DelayModLfo i                    → iz {zDelayModLfo =              tcclip i}
+>       F.FreqModLfo i                     → iz {zFreqModLfo =               taclip i}
+>       F.DelayVibLfo i                    → iz {zDelayVibLfo =              tcclip i}
+>       F.FreqVibLfo i                     → iz {zFreqVibLfo =               taclip i}
+>       F.DelayModEnv i                    → iz {zDelayModEnv =              tcclip i}
+>       F.AttackModEnv i                   → iz {zAttackModEnv =             tbclip i}
+>       F.HoldModEnv i                     → iz {zHoldModEnv =               tcclip i}
+>       F.DecayModEnv i                    → iz {zDecayModEnv =              tbclip i}
+>       F.SustainModEnv i                  → iz {zSustainModEnv =            ticlip i}
+>       F.ReleaseModEnv i                  → iz {zReleaseModEnv =            tbclip i}
+>       F.KeyToModEnvHold i                → iz {zKeyToModEnvHold =          tkclip i}
+>       F.KeyToModEnvDecay i               → iz {zKeyToModEnvDecay =         tkclip i}
+>       F.KeyToVolEnvHold i                → iz {zKeyToVolEnvHold =          tkclip i}
+>       F.KeyToVolEnvDecay i               → iz {zKeyToVolEnvDecay =         tkclip i}
+>       _                                  → iz
+>
+>     addMod             :: Node → F.Mod → SFZone → SFZone
+>     addMod mId fmod sfzone               = maybe sfzone hookIn mmod
+>       where
+>         hookIn m8r                       = sfzone{zModulators = m8r : sfzone.zModulators}
+>
+>         modSrc                           = unpackModSrc fmod.srcOper
+>         amtSrc                           = unpackModSrc fmod.amtSrcOper
+>
+>         mmod
+>           | not useModulators            = Nothing
+>           | isNothing modSrc || isNothing amtSrc
+>                                          = Nothing
+>           | otherwise                    =
+>             Just defModulator{mrModId = mId}
+>               >>= addAmtSrc                (fromJust amtSrc)
+>               >>= addSrc                   (fromJust modSrc)
+>               >>= addDest                  fmod.destOper
+>               >>= addAmount                (fromIntegral fmod.amount)
 
 pair task =============================================================================================================
           store (1) pairings and (2) reject action map, to be used by vet task
@@ -1016,18 +1027,13 @@ To build the map
 >         party                            = deJust "aprobe" aprobe
 >         hsmash                           = deJust "hprobe" (IntMap.lookup wInst holdMap)
 >
->     headed             :: IntMap IntSet                {- [InstIndex → [InstIndex]]     -}
 >     headed                               = foldr (IntMap.union . rewire) IntMap.empty groups
 >       where
->         groups         :: [[(String, Int)]]
 >         groups                           = filter noSingletons (groupBy closeEnough instNames)
 >                                              where noSingletons x = 1 < length x
->         instNames      :: [(String, Int)]
 >         instNames                        = zrecCompute fWork extract []
 >           where
 >             extract ns zrec              = (zrec.zswChanges.cnName, fromIntegral zrec.zswInst) : ns
->
->         rewire         :: [(String, Int)] → IntMap IntSet
 >         rewire ns                        =
 >           IntMap.insert ((snd . head) ns) (IntSet.fromList (map snd ns)) IntMap.empty
 >
