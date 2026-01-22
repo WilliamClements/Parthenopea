@@ -24,7 +24,7 @@ Synthesizer-related tests ======================================================
 >     A.ContLoop 44100 defApplied
 >     60 100
 >     0 Nothing Nothing
->     defModulation defEffects
+>     defModulation (Just defEffects)
 >
 > defEffects             :: Effects
 > defEffects                               = Effects 0 0 0

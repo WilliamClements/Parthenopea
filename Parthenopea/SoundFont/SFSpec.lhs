@@ -138,7 +138,7 @@ implementing SoundFont spec ====================================================
 >   , rVolEnv            :: Maybe FEnvelope
 >   , rPitchCorrection   :: Maybe Double
 >   , rM8n               :: Modulation
->   , rEffects           :: Effects}
+>   , rEffects           :: Maybe Effects}
 >   deriving (Eq, Show)
 > normalizeLooping       :: Recon → (Double, Double)
 > normalizeLooping Recon{ .. }

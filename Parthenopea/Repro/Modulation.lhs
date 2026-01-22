@@ -283,19 +283,16 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >                                              15      → Just from{mrModDest = ToChorus}
 >                                              16      → Just from{mrModDest = ToReverb}
 >                                              48      → Just from{mrModDest = ToInitAtten}
->                                              _ → Nothing
+>                                              _       → Nothing
 >
 > addAmount              :: Double → Modulator → Maybe Modulator
 > addAmount dIn from                       = if dIn == 0
 >                                              then Nothing
 >                                              else Just (from{mrModAmount = dIn})
 >
-> defaultMods            :: SynthSwitches → [Modulator]
-> defaultMods SynthSwitches{ .. }
->                                          = if useDefModulators
->                                              then [ makeDefaultMod 0 ms0 48 960     defModSrc
->                                                   , makeDefaultMod 1 ms1  8 (-2400) ms2 ] ++ specialDefaultMods
->                                              else []
+> defaultMods            :: [Modulator]
+> defaultMods                              = [ makeDefaultMod 0 ms0 48 960     defModSrc
+>                                            , makeDefaultMod 1 ms1  8 (-2400) ms2 ]
 >  -- all three of these are negative unipolar, continuity varying                                                            
 >   where
 >     ms0                                  = ModSrc   (Mapping Concave   False  True False) FromNoteOnVel
@@ -312,40 +309,29 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >                                               >>= addAmount amt
 >                                               >>= addAmtSrc aSrc)
 >
->     ms3                                  = ModSrc   (Mapping Linear False False False) FromNoController
->
->     specialDefaultMods :: [Modulator]
->     specialDefaultMods                   = modChorus ++ modReverb
->       where
->         modChorus                        =
->           [makeDefaultMod 10 ms3 15 (fromRational chorusAllPercent * 10) defModSrc | chorusAllPercent > 0]
->         modReverb                        =
->           [makeDefaultMod 11 ms3 16 (fromRational reverbAllPercent * 10) defModSrc | reverbAllPercent > 0]
->
-> evaluateMods           :: SynthSwitches → ModDestType → Map ModDestType [Modulator] → Double
-> evaluateMods sw@SynthSwitches{ .. } md graph
->                                          = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
+> evaluateMods           :: SynthSwitches → ModDestType → Map ModDestType [Modulator] → NoteOn → Double
+> evaluateMods sw md graph noon            = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
 >   where
 >     evaluateMod m8r
->       | traceIf trace_EM False           = undefined
+>       | traceNot trace_EM False          = undefined
 >       | otherwise                        = evalResult
 >       where
->         fName                            = "evaluateMods"
->         trace_EM                         = unwords [fName, show m8r, show evalResult]
+>         fName                            = "evaluateMod"
+>         trace_EM                         = unwords [fName, show sw, show md, show graph, show noon]
 >
->         getValue modSrc
->           | useModulators                =
->               case modSrc.msSource of
->                 FromLinked               → evaluateMods sw (ToLink m8r.mrModId) graph
->                 _                        → 1
->           | otherwise                    = 1
+>         getValue modSrc                  =
+>           case modSrc.msSource of
+>             FromNoController             → 1
+>             FromNoteOnVel                → evaluateNoteOn noon.noteOnVel modSrc.msMapping
+>             FromNoteOnKey                → evaluateNoteOn noon.noteOnKey modSrc.msMapping
+>             FromLinked                   → evaluateMods sw (ToLink m8r.mrModId) graph noon
 >         evalResult                       = getValue m8r.mrModSrc * m8r.mrModAmount * getValue m8r.mrAmountSrc
 >
 > evaluateNoteOn         :: Int → Mapping → Double
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / qMidiDouble128) (0, 1)
 >
-> evaluateModSignals     :: SynthSwitches → String → Modulation → ModDestType → ModSignals → Double
-> evaluateModSignals sw tag m8n md (ModSignals xenv xlfo xvib)
+> evaluateModSignals     :: SynthSwitches → String → Modulation → ModDestType → NoteOn → ModSignals → Double
+> evaluateModSignals sw tag m8n md noon (ModSignals xenv xlfo xvib)
 >                                          = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    fName                                 = "evaluateModSignals"
@@ -366,7 +352,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >    xmodEnv                               = xenv * mco.xModEnvCo
 >    xmodLfo                               = xlfo * mco.xModLfoCo
 >    xvibLfo                               = xvib * mco.xVibLfoCo
->    xmods                                 = evaluateMods sw md m8n.mModsMap
+>    xmods                                 = evaluateMods sw md m8n.mModsMap noon
 
 Filters are complex AND have a large impact ===========================================================================
 
@@ -1076,12 +1062,6 @@ Signals of interest ============================================================
 > deriveRange            :: Integral n ⇒ n → n → [n]
 > deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]
 >
-> chorusAllPercent       :: Rational
-> chorusAllPercent                         = 0
-> -- force given Chorus level on ALL notes
-> reverbAllPercent       :: Rational
-> reverbAllPercent                         = 0
-> -- force given Reverb level on ALL notes
 > useLFO                 :: Bool
 > useLFO                                   = True
 > -- False to suppress all uses of the low frequency oscillator

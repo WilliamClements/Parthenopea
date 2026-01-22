@@ -184,11 +184,11 @@ define signal functions and instrument maps to support rendering ===============
 >
 >     (reconX, mreconX)                    =
 >       case eyeOnTheFly of
->         Left pz                          → (receiveRecon pz, Nothing)
+>         Left pz                          → (receiveRecon synthSwitches pz noon, Nothing)
 >         Right (pzL, pzR)                 → (reconL, Just $ copyRoot reconL reconR)
 >           where
->             reconL                       = receiveRecon pzL
->             reconR                       = receiveRecon pzR
+>             reconL                       = receiveRecon synthSwitches pzL noon
+>             reconR                       = receiveRecon synthSwitches pzR noon
 >
 >             copyRoot pz1 pz2             = pz2{rRootKey                   = pz1.rRootKey
 >                                              , rPitchCorrection           = pz1.rPitchCorrection}
@@ -237,8 +237,14 @@ zone selection for rendering ===================================================
 
 reconcile zone and sample header ======================================================================================
 
-> receiveRecon           :: PreZone → Recon
-> receiveRecon pz                          = deJust "receiveRecon" pz.pzRecon
+> receiveRecon           :: SynthSwitches → PreZone → NoteOn → Recon
+> receiveRecon sw pz noon
+>                                          =
+>   let
+>     recon                                = deJust "receiveRecon" pz.pzRecon
+>     z                                    = pz.pzSFZone
+>   in
+>     recon{rEffects = Just $ deriveEffects sw recon.rM8n z.zChorus z.zReverb z.zPan noon}
 >
 > resolvePreZone         :: Directives → PreZone → Recon
 > resolvePreZone dives pz
@@ -274,7 +280,7 @@ reconcile zone and sample header ===============================================
 >            then Just $ reconPitchCorrection shdr.pitchCorrection z.zCoarseTune z.zFineTune
 >            else Nothing)
 >         m8n
->         (deriveEffects switches m8n z.zChorus z.zReverb z.zPan)
+>         Nothing
 >
 >     reconPitchCorrection
 >                        :: Int → Maybe Int → Maybe Int → Double
@@ -299,8 +305,13 @@ reconcile zone and sample header ===============================================
 >            , zReleaseModEnv = Nothing}
 >
 > resolveModulation      :: Directives → SFZone → Modulation
-> resolveModulation dives z                = resolveMods m8n z.zModulators (defaultMods dives.synthSwitches)
+> resolveModulation dives z                = resolveMods
+>                                              m8n
+>                                              z.zModulators
+>                                              (if useDefModulators then defaultMods else [])
 >   where
+>     SynthSwitches{ .. }
+>                                          = dives.synthSwitches
 >     m8n                :: Modulation     =
 >       defModulation{
 >         mLowpass                         = Lowpass resonanceType curKernelSpec

@@ -53,9 +53,10 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >   where
 >     fName                                = "eutSynthesize"
 >     trace_ES                             =
->       unwords [fName, if isJust mreconR
->                         then "stereo"
->                         else "mono", show timeFrame, show (numPoints, freqRatio, sr), show deltaCalc] 
+>       unwords [fName, "numPoints", show numPoints
+>                    , "freqRatio",  show freqRatio
+>                    , "sr",         show sr
+>                    , "deltaCalc",  show deltaCalc] 
 >
 >     reconR                               = fromJust mreconR
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
@@ -104,7 +105,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >       eutDriver
 >         >>> pumpMonoSample
 >         >>> eutModulate         m8nL
->         >>> eutEffectsMono      sw reconL
+>         >>> eutEffectsMono      sw (deJust fName reconL.rEffects)
 >         >>> eutAmplify          reconL
 >
 >     pumpStereo                           = 
@@ -130,8 +131,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                                              where frac = snd . properFraction
 >
 >         procDriver calcPhase             = proc () → do
->           modSig                         ← eutModSignals timeFrame reconL.rM8n ToPitch     ⤙ ()
->           let delta                      = deltaCalc * evaluateModSignals sw "procDriver" reconL.rM8n ToPitch modSig
+>           modSig                         ← eutModSignals reconL.rM8n ToPitch               ⤙ ()
+>           let delta                      = deltaCalc * evaluateModSignals sw "procDriver" reconL.rM8n ToPitch noon modSig
 >           rec
 >             let phase                    = calcPhase next
 >             next           ← delay 0     ⤙ phase + delta                           
@@ -141,28 +142,29 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >       proc (sL, sR) → do
 >         mL                               ← eutModulate m8nL                                ⤙ sL
 >         mR                               ← eutModulate m8nR                                ⤙ sR
->         outA ⤙ (mL, mR)
+>         outA                                                                               ⤙ (mL, mR)
 >
 >     ampStereo                            =
 >       proc (sL, sR) → do
->         (tL, tR)                         ← eutEffectsStereo sw (reconL, reconR)            ⤙ (sL, sR)
+>         (tL, tR)                         ← eutEffectsStereo sw (fromJust reconL.rEffects)
+>                                                                (fromJust reconR.rEffects)  ⤙ (sL, sR)
 >         mL                               ← eutAmplify reconL                               ⤙ tL
 >         mR                               ← eutAmplify reconR                               ⤙ tR
->         outA ⤙ (mL, mR)
+>         outA                                                                               ⤙ (mL, mR)
 >
 >     eutModulate m8n                      =
 >       proc a1L                           → do
->         modSigL                          ← eutModSignals timeFrame m8n ToFilterFc          ⤙ ()
->         a2L   ← addResonance m8nL        ⤙ (a1L, modSigL)
->         outA                             ⤙ a2L
+>         modSigL                          ← eutModSignals m8n ToFilterFc                    ⤙ ()
+>         a2L                              ← addResonance m8nL                               ⤙ (a1L, modSigL)
+>         outA                                                                               ⤙ a2L
 >
 >     eutAmplify recon                     =
 >       proc a1L → do
 >         aSweep                           ← doSweepingEnvelope timeFrame eor                ⤙ ()
 >         aenvL                            ← doEnvelope timeFrame recon.rVolEnv              ⤙ ()
->         modSigL                          ← eutModSignals timeFrame recon.rM8n ToVolume     ⤙ ()
+>         modSigL                          ← eutModSignals recon.rM8n ToVolume               ⤙ ()
 >         let a2L                          =
->               a1L * aenvL * (aSweep / 100) * evaluateModSignals sw fNameAmplify recon.rM8n ToVolume modSigL
+>               a1L * aenvL * (aSweep / 100) * evaluateModSignals sw fNameAmplify recon.rM8n ToVolume noon modSigL
 >         outA                             ⤙ a2L
 >       where
 >         fNameAmplify                     = "eutAmplify"
@@ -182,14 +184,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >         AppliedLimits{ .. }
 >                                          = reconL.rApplied
 >         cAttenL        :: Double         =
->           fromCentibels (reconL.rAttenuation + evaluateMods sw ToInitAtten reconL.rM8n.mModsMap)
+>           fromCentibels (reconL.rAttenuation + evaluateMods sw ToInitAtten reconL.rM8n.mModsMap noon)
 >         ampL                             = fromIntegral noon.noteOnVel / 100 / cAttenL
-
-Account for microtones specified by SoundFont scale tuning : 0 < x < 100 < 1200
-Clearly multiple root pitches are mutually incompatible in general
-
->     calcMicrotoneRatio :: AbsPitch → Int → Double
->     calcMicrotoneRatio apDelta tuning    = pow 2 (fromIntegral apDelta * fromIntegral tuning / 1_200)
 >
 >     pumpStereoSample                     =
 >       proc pos                           → do
@@ -207,8 +203,8 @@ Clearly multiple root pitches are mutually incompatible in general
 >                                          = reconR
 >         Modulation{mModsMap = mmodsL}    = m8nL
 >         Modulation{mModsMap = mmodsR}    = m8nR
->         cAttenL                          = fromCentibels (attenL + evaluateMods sw ToInitAtten mmodsL)
->         cAttenR                          = fromCentibels (attenR + evaluateMods sw ToInitAtten mmodsR)
+>         cAttenL                          = fromCentibels (attenL + evaluateMods sw ToInitAtten mmodsL noon)
+>         cAttenR                          = fromCentibels (attenR + evaluateMods sw ToInitAtten mmodsR noon)
 >         ampL                             = fromIntegral noon.noteOnVel / 100 / cAttenL
 >         ampR                             = fromIntegral noon.noteOnVel / 100 / cAttenR
 >
@@ -217,9 +213,9 @@ Clearly multiple root pitches are mutually incompatible in general
 >                                          =
 >       case cascadeCount lowpassType of
 >         Nothing        →
->           proc (x, _)                        → do
->             y ← delay 0                      ⤙ x  
->             outA                             ⤙ y
+>           proc (x, _)                    → do
+>             y ← delay 0                  ⤙ x  
+>             outA                         ⤙ y
 >         Just count     →
 >           case count of
 >             0          → final
@@ -246,30 +242,39 @@ Clearly multiple root pitches are mutually incompatible in general
 >
 >         modulateFc     :: ModSignals → Double
 >         modulateFc msig                  =
->           clip freakRange (lowpassFc mLowpass * evaluateModSignals sw "modulateFc" m8n ToFilterFc msig)
+>           clip freakRange (lowpassFc mLowpass * evaluateModSignals sw "modulateFc" m8n ToFilterFc noon msig)
+
+Account for custom frequency intervals -- SoundFont scale tuning : 0 < x < 100 < 1200
+Clearly multiple root pitches are mutually incompatible in general
+
+For example, input of 3 = key interval, 50 = scale tuning, yields ratio of: 1.09
+Multiply the input frequency by that to give output frequency
+
+>     calcMicrotoneRatio :: AbsPitch → Int → Double
+>     calcMicrotoneRatio apDelta tuning    = pow 2 (fromIntegral apDelta * fromIntegral tuning / 1_200)
 
 Modulation Signals ====================================================================================================
 
-> eutModSignals          :: ∀ p. Clock p ⇒ TimeFrame → Modulation → ModDestType → Signal p () ModSignals
-> eutModSignals timeFrame m8n md           =
->   proc _                                 → do
->     aL1 ← doEnvelope  timeFrame kModEnvL ⤙ ()
->     aL2 ← doLFO       kModLfoL           ⤙ ()
->     aL3 ← doLFO       kVibLfoL           ⤙ ()
->     outA                                 ⤙ ModSignals aL1 aL2 aL3
->   where
->     (kModEnvL, kModLfoL, kVibLfoL)       = case md of
->       ToPitch                            → ( m8n.mModEnv, m8n.mModLfo, m8n.mVibLfo)
->       ToFilterFc                         → ( m8n.mModEnv, m8n.mModLfo, Nothing)
->       ToVolume                           → ( Nothing,     m8n.mModLfo, Nothing)
->       _                                  →
->         error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in eutModSignals, not", show md]
+>     eutModSignals          :: Modulation → ModDestType → Signal p () ModSignals
+>     eutModSignals m8n md                 =
+>       proc _                             → do
+>         aL1 ← doEnvelope  timeFrame kModEnvL             ⤙ ()
+>         aL2 ← doLFO       kModLfoL                       ⤙ ()
+>         aL3 ← doLFO       kVibLfoL                       ⤙ ()
+>         outA                                             ⤙ ModSignals aL1 aL2 aL3
+>       where
+>         (kModEnvL, kModLfoL, kVibLfoL)   = case md of
+>           ToPitch                        → ( m8n.mModEnv, m8n.mModLfo, m8n.mVibLfo)
+>           ToFilterFc                     → ( m8n.mModEnv, m8n.mModLfo, Nothing)
+>           ToVolume                       → ( Nothing,     m8n.mModLfo, Nothing)
+>           _                              →
+>             error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in eutModSignals, not", show md]
 
 Effects ===============================================================================================================
 
-> deriveEffects          :: SynthSwitches → Modulation → Maybe Int → Maybe Int → Maybe Int → Effects
+> deriveEffects          :: SynthSwitches → Modulation → Maybe Int → Maybe Int → Maybe Int → NoteOn → Effects
 > deriveEffects
->   sw@SynthSwitches{ .. } m8n mChorus mReverb mPan
+>   sw@SynthSwitches{ .. } m8n mChorus mReverb mPan noon
 >                                          = Effects 
 >                                             (dChorus / 1000) 
 >                                             (dReverb / 1000) 
@@ -277,21 +282,21 @@ Effects ========================================================================
 >   where
 >     dChorus            :: Double         =
 >       if useChorus
->         then maybe 0 fromIntegral mChorus + evaluateMods sw ToChorus m8n.mModsMap
+>         then maybe 0 fromIntegral mChorus + evaluateMods sw ToChorus m8n.mModsMap noon
 >         else 0
 >     dReverb            :: Double         =
 >       if useReverb
->         then maybe 0 fromIntegral mReverb + evaluateMods sw ToReverb m8n.mModsMap
+>         then maybe 0 fromIntegral mReverb + evaluateMods sw ToReverb m8n.mModsMap noon
 >         else 0
 >     dPan               :: Double         =
 >       if usePan
 >         then maybe 0 fromIntegral mPan
 >         else 0
 >
-> eutEffectsMono       :: ∀ p . Clock p ⇒ SynthSwitches → Recon → Signal p Double Double
+> eutEffectsMono       :: ∀ p . Clock p ⇒ SynthSwitches → Effects → Signal p Double Double
 > eutEffectsMono
 >   SynthSwitches{ .. }
->   Recon{ .. }                                            
+>   Effects{ .. }
 >                                          =
 >   proc aL → do
 >     chL ← eutChorus chorusRate chorusDepth efChorus      ⤙ aL
@@ -309,14 +314,11 @@ Effects ========================================================================
 >                      then delay 0                        ⤙ pL
 >                      else dcBlock 0.995                  ⤙ pL
 >     outA                                                 ⤙ pL'
->   where
->     Effects{ .. }
->                                                          = rEffects
 >
-> eutEffectsStereo       :: ∀ p . Clock p ⇒ SynthSwitches → (Recon, Recon) → Signal p (Double, Double) (Double, Double)
+> eutEffectsStereo       :: ∀ p . Clock p ⇒ SynthSwitches → Effects → Effects → Signal p (Double, Double) (Double, Double)
 > eutEffectsStereo
 >   SynthSwitches{ .. }
->   (Recon{rEffects = effL}, Recon{rEffects = effR})
+>   effL effR
 >                                          =
 >   proc (aL, aR) → do
 >     chL ← eutChorus chorusRate chorusDepth cFactorL      ⤙ aL

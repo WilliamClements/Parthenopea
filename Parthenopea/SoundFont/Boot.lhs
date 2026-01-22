@@ -651,12 +651,13 @@ produce and process capture results ============================================
 >             (xgeni <= ygeni)
 >             (unwords[fName, "SoundFont file", show sffile.zWordFBoot, sffile.zFilename, "corrupt gens"])
 >             (map (boota.ssIGens !) (deriveRange xgeni ygeni))
+>         baseId         :: Node            = if fromZone == defZone then 10_000 else 20_000
 >         mods           :: [(Node, F.Mod)]
 >         mods                             =
 >           profess
 >             (xmodi <= ymodi)
 >             (unwords[fName, "SoundFont file", show sffile.zWordFBoot, sffile.zFilename, "corrupt mods"])
->             (zip [10_000..] (map (boota.ssIMods !) (deriveRange xmodi ymodi)))
+>             (zip [baseId..] (map (boota.ssIMods !) (deriveRange xmodi ymodi)))
 >
 >     addGen             :: SFZone → F.Generator → SFZone
 >     addGen iz gen =

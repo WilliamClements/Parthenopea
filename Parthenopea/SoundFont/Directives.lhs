@@ -101,8 +101,7 @@ Client to specify Directives overrides, especially "client". ===================
 >       , hackWildJumps                    = True
 >       , hackWildMidiValues               = True
 >       , parallelPairing                  = False
->       , synthSwitches                    = baseDives.synthSwitches{ useNoteBending = False
->                                                                   , useDefModulators = False}
+>       , synthSwitches                    = baseDives.synthSwitches{ useNoteBending = False }
 >       , dReportVerbosity                 = allOn}
 
 Override here only if this is a Parthenopea library sandbox. ==========================================================
