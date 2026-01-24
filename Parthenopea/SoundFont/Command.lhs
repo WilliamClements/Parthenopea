@@ -24,18 +24,17 @@ June 16, 2025
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
 > import Euterpea.IO.Audio.Render ( renderSF )
 > import Euterpea.IO.MIDI ( fromMidi )
-> import Euterpea.Music
+> import Euterpea.Music ( InstrumentName, PercussionSound )
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
 > import Parthenopea.SoundFont.Boot ( surveyInstruments )
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.RangesReport
-> import Parthenopea.SoundFont.ScanReport
+> import Parthenopea.SoundFont.ScanReport ( writeScanReport )
 > import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.TournamentReport
-> import Parthenopea.SoundFont.Utility
 > import qualified System.FilePattern.Directory
 >                                          as FP
   
@@ -49,17 +48,16 @@ Implement PCommand =============================================================
 > batchProcessor dives isongs              = do
 >   timeThen                               ← getZonedTime
 >   putStr $ reapEmissions $ openingRemarks timeThen
+>   CM.unless (okDirectives dives)         (error $ unwords[fName, "garbage in Directives", show dives])
 >
 >   mids                                   ← FP.getDirectoryFiles "." ["*.mid", "*.midi"]
 >   sf2s                                   ← FP.getDirectoryFiles "." ["*.sf2"]
 >   putStr $ reapEmissions [msg mids sf2s, EndOfLine]
->   CM.unless (okDirectives dives)         (error $ unwords[fName, "garbage in Directives"])
+>
 >   proceed dives isongs mids sf2s
 >
 >   timeNow                                ← getZonedTime
 >   putStr $ reapEmissions $ closingRemarks timeNow timeThen
->
->   return ()
 >   where
 >     fName                                = "batchProcessor"
 >
@@ -78,7 +76,7 @@ Implement PCommand =============================================================
 >
 >   CM.when (20 < length songs && not (null sf2s)) runUnitTests
 >
->   let ding                               = Map.unionsWith combineShreds (map songShredding songs)
+>   let ding                               = Map.unionsWith combineShreds (map shreds songs)
 >   CM.when (dForRanges > 0) (writeRangesReport dives songs ding)
 >
 >   rost                                   ← identifyRoster ding songs
@@ -96,11 +94,9 @@ Implement PCommand =============================================================
 >       -- here's the heart of the coconut
 >       mapM_ (renderSong runt choices) songs
 >   where
->     captureSong        :: Song → IO Song
 >     captureSong (Song name music _)      = do
 >       ding                               ← shredMusic music
 >       return $ Song name music ding
->     identifyRoster     :: Map GMKind Shred → [Song] → IO ([InstrumentName], [PercussionSound])
 >     identifyRoster ding songs            = return $ if null songs then allKinds else partitionEithers $ Map.keys ding
 >     ReportVerbosity{ .. }               
 >                                          = dives.dReportVerbosity

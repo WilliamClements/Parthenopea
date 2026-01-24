@@ -10,7 +10,7 @@ April 16, 2023
 >
 > import Data.Ratio ( (%) )
 > import Parthenopea.SoundFont.Utility
-
+  
 configuration ("Directives") ==========================================================================================
 
 > data ReportVerbosity                     =
@@ -82,6 +82,7 @@ configuration ("Directives") ===================================================
 >   , parallelPairing    :: Bool
 >   , switchBadStereoZonesToMono
 >                        :: Bool
+>   , skipGlissandi      :: Bool
 >
 >   , proConRatio        :: Rational
 >   , absorbThreshold    :: Rational
@@ -97,10 +98,9 @@ Client to specify Directives overrides, especially "client". ===================
 > defDirectives                            =
 >   baseDives
 >     {   client                           = "sandbox"
->       , crossInstrumentPairing           = False
+>       , switchBadStereoZonesToMono       = False
 >       , hackWildJumps                    = True
 >       , hackWildMidiValues               = True
->       , parallelPairing                  = False
 >       , synthSwitches                    = baseDives.synthSwitches{ useNoteBending = False }
 >       , dReportVerbosity                 = allOn}
 
@@ -125,6 +125,7 @@ Edit below if changing "default defaults" ======================================
 >         True
 >         True
 >         True
+>         False
 >         False
 >         (3/4)
 >         (4/5)

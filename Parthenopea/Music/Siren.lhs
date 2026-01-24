@@ -29,6 +29,7 @@ December 12, 2022
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import Parthenopea.Debug
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
 > import System.Random ( Random(randomR), StdGen )
@@ -215,9 +216,9 @@ which makes for a cleaner sound on some synthesizers:
 
 "ascendFrom/descendFrom" ==============================================================================================
 
-> squeezeAPSequence      :: [AbsPitch] → Dur → Music Pitch
-> squeezeAPSequence gliss durS
->   | skipGlissandi                         = rest durS
+> squeezeAPSequence      :: Directives → [AbsPitch] → Dur → Music Pitch
+> squeezeAPSequence dives gliss durS
+>   | dives.skipGlissandi                   = rest durS
 >   | length gliss < 6                      = error $ unwords [fName, "not enough notes"]
 >   | durS < 1 / 8                          = error $ unwords [fName, "not enough duration"]
 >   | otherwise                             = chord [rest durS, dim 1 $ slur 2 $ line notes]
@@ -243,8 +244,8 @@ which makes for a cleaner sound on some synthesizers:
 >       in
 >         (ap + delta, ix')
 >
-> descendFrom            :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
-> descendFrom bp p pc mode                 = squeezeAPSequence (takeWhile (>= bottom) limited)
+> descendFrom            :: Directives → BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
+> descendFrom dives bp p pc mode           = squeezeAPSequence dives (takeWhile (>= bottom) limited)
 >   where
 >     top                                  = absPitch p
 >     bottom                               = (absPitch . fst) (relativeRange bp)
@@ -252,8 +253,8 @@ which makes for a cleaner sound on some synthesizers:
 >     extended                             = extendModeToInfinity True top $ shiftMode shift $ mode2Templ8 mode
 >     limited                              = take 28 (map fst extended)
 >
-> ascendFrom             :: BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
-> ascendFrom bp p pc mode                  = squeezeAPSequence (takeWhile (<= top) limited)
+> ascendFrom             :: Directives → BandPart → Pitch → PitchClass → Mode → Dur → Music Pitch
+> ascendFrom dives bp p pc mode            = squeezeAPSequence dives (takeWhile (<= top) limited)
 >   where
 >     top                                  = (absPitch . snd) (relativeRange bp)
 >     bottom                               = absPitch p
@@ -438,8 +439,8 @@ instrument range checking ======================================================
 
 > unionRanges            :: (Ord a, Ord b) ⇒ [(a, b)] → (a, b)
 > unionRanges []                           = error "empty range list"
-> unionRanges (r:rs)                       = ( minimum (map fst (r:rs))
->                                            , maximum (map snd (r:rs)) )
+> unionRanges rs                           = ( minimum (map fst rs)
+>                                            , maximum (map snd rs) )
 > intersectRanges        :: (Ord b, Show b) ⇒ [(b, b)] → Maybe (b, b)
 > intersectRanges (r:rs)                   =
 >   case uncurry compare inverted of
@@ -518,13 +519,13 @@ examine song for instrument and percussion usage ===============================
 >   Song {
 >     songName           :: String
 >   , songMusic          :: Music1
->   , songShredding      :: Map GMKind Shred}
+>   , shreds             :: Map GMKind Shred}
 > songTimeAndNoteCount   :: Song → String
 > songTimeAndNoteCount song                =
 >   let
 >     sec                :: Double         = (fromRational . dur) song.songMusic
 >     sec'               :: Int            = round sec
->     notes              :: Int            = Map.foldr ((+) . shCount) 0 song.songShredding
+>     notes              :: Int            = Map.foldr ((+) . shCount) 0 song.shreds
 >   in
 >     unwords [show sec', "sec,", show notes, "notes"]
 >
@@ -566,22 +567,20 @@ examine song for instrument and percussion usage ===============================
 >           s1.shCount + s2.shCount}
 >
 > critiqueShred          :: (GMKind, Shred) → [(InstrumentName, [String])]
-> critiqueShred (kind, shred)              =
->   let
+> critiqueShred (kind, shred)              = critiqueNote shred.shLowNote ++ critiqueNote shred.shHighNote
+>   where
+>     critiqueNote mev                     =
+>       let
+>         p                                = mev.ePitch
+>       in
+>         if inRange rng p
+>           then []
+>           else singleton (instr, singleton $ unwords ["...", show p, "out of range", show rng])
+>
 >     (instr, rng)                         =
 >       case kind of
 >         Left iname                       → (iname, fromMaybe (0, qMidiInt128 - 1) (instrumentAbsPitchRange iname))
->         _                                → (Percussion, (0, qMidiInt128 - 1))
->   in critiqueNote instr rng shred.shLowNote ++ critiqueNote instr rng shred.shHighNote
-> 
-> critiqueNote           :: InstrumentName → (AbsPitch, AbsPitch) → MEvent → [(InstrumentName, [String])]
-> critiqueNote name rng mev                =
->   let
->     p                                    = mev.ePitch
->   in
->     if inRange rng p
->       then []
->       else singleton (name, singleton $ unwords ["...", show p, "out of range", show rng])
+>         _                                → (Percussion, (0, qMidiInt128 - 1)) 
 >
 > printShreds            :: Map GMKind Shred → IO ()
 > printShreds ding                         = 
@@ -746,15 +745,5 @@ Returns sample point as (normalized) Double
 >     (s0, s1)           :: (Double, Double)
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
-
-Configurable parameters ===============================================================================================
-
-> skipGlissandi          :: Bool
-> replacePerCent         :: Rational
-
-Edit the following ====================================================================================================
-
-> skipGlissandi                            = False
-> replacePerCent                           = 0
 
 The End

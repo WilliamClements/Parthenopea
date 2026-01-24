@@ -21,6 +21,7 @@ December 16, 2022
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
+> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Scoring ( scoreOnsets )
 > import Parthenopea.SoundFont.SFSpec ( allKinds )
 > import Parthenopea.SoundFont.Utility
@@ -35,39 +36,39 @@ The progress of the algorithm is expressed in above pair.
 
 > -- from a list of contexts, assemble sections, and produce a
 > -- music "channel" array (with size numChannels)
-> consumeBakes           :: [Bake] → Array Int Music1
-> consumeBakes bakes                       = profess
+> consumeBakes           :: Directives → [Bake] → Array Int Music1
+> consumeBakes dives bakes                 = profess
 >                                              (checkJobOk bm)
 >                                              "consumeBakes checkJobOk"
 >                                              ms
 >   where
->     (bm, ms)                             = buildChannels bakes
+>     (bm, ms)                             = buildChannels dives bakes
 >
-> measureBakes           :: [Bake] → Array Int Int
-> measureBakes bakes                       = profess
+> measureBakes           :: Directives → [Bake] → Array Int Int
+> measureBakes dives bakes                 = profess
 >                                              (checkJobOk bm && checkMeasureOk bm)
 >                                              "measureBakes checkJobOk"
 >                                              bm.sHistogram
 >   where
->     (bm, _)                              = buildChannels bakes
+>     (bm, _)                              = buildChannels dives bakes
 >
 > sampleBakes            :: [Bake] → Array Int Int
 > sampleBakes bakes                        = scoreOnsets bakingBins (map bOnset bakes)
 >
-> bakedJingle            :: Int → Music1
-> bakedJingle seed                         = removeZeros
+> bakedJingle            :: Directives → Int → Music1
+> bakedJingle dives seed                   = removeZeros
 >                                            $ instrument Percussion
 >                                            $ chordFromArray
->                                            $ bake4Consumption seed
+>                                            $ bake4Consumption dives seed
 >
-> bake4Consumption       :: Int → Array Int Music1
-> bake4Consumption seed                    = consumeBakes
+> bake4Consumption       :: Directives → Int → Array Int Music1
+> bake4Consumption dives seed              = consumeBakes dives 
 >                                            $ zipWith (\x y → y{bIx = x}) [0..]
 >                                            $ sortOn bOnset
 >                                            $ bakeUtility seed
 >
-> bake4Measuring         :: Int → Array Int Int
-> bake4Measuring seed                      = measureBakes
+> bake4Measuring         :: Directives → Int → Array Int Int
+> bake4Measuring dives seed                = measureBakes dives
 >                                            $ zipWith (\x y → y{bIx = x}) [0..]
 >                                            $ sortOn bOnset
 >                                            $ bakeUtility seed
@@ -76,10 +77,10 @@ The progress of the algorithm is expressed in above pair.
 > bake4Sampling seed                       = sampleBakes
 >                                            $ bakeUtility seed
 >
-> bakeOps                :: IO ()
-> bakeOps                                  = do
->   let vm                                 = bake4Consumption 100
->   let vi                                 = bake4Measuring 100
+> bakeOps                :: Directives → IO ()
+> bakeOps dives                           = do
+>   let vm                                 = bake4Consumption dives 100
+>   let vi                                 = bake4Measuring dives 100
 >   traceIO $ show vm
 >   traceIO $ show vi
 >   return ()
@@ -97,8 +98,8 @@ Urns ===========================================================================
 excessively simultaneous Bakes. The inns list provides an active Bakes count at any point in time, so it is instead
 accessed in end time order.
 
-> buildChannels          :: [Bake] → Baking
-> buildChannels bakes                      = build bakes [] (newBakingMetrics, newMusic)
+> buildChannels          :: Directives → [Bake] → Baking
+> buildChannels dives bakes                = build bakes [] (newBakingMetrics, newMusic)
 >   where
 >     build              :: [Bake] → [Bake] → Baking → Baking
 >     build [] [] baking                   = baking
@@ -196,7 +197,7 @@ accessed in end time order.
 >                        :: Music1
 >         theRest                          = rest $ approx restDur
 >         thePercFill                      =
->           makePercFill sound (approx (0.5/fillTempo)) (fractionOf vol 1.25) (approx fillDur)
+>           makePercFill dives sound (approx (0.5/fillTempo)) (fractionOf vol 1.25) (approx fillDur)
 >         theInstFill                      =
 >           instrument inst $ makeInstFill fillBeats rng dXp sweep (fractionOf vol 0.60)
 >
@@ -204,11 +205,11 @@ accessed in end time order.
 >         fractionOf x doub                = min (qMidiInt128 - 1) $ round $ doub * fromIntegral x
 >
 >
-> makePercFill           :: PercussionSound → Rational → Volume → Dur → Music1
-> makePercFill sound beats vol durP        = bandPart (makeNonPitched vol) m
+> makePercFill           :: Directives → PercussionSound → Rational → Volume → Dur → Music1
+> makePercFill dives sound beats vol durP        = bandPart (makeNonPitched vol) m
 >   where
 >     m                                    =
->       if skipGlissandi
+>       if dives.skipGlissandi
 >         then rest durP
 >         else roll durP $ perc sound beats
 >

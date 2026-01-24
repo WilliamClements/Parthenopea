@@ -78,7 +78,7 @@ check all the incoming music for instrument range violations ===================
 >       [EndOfLine
 >      , ToFieldL song.songName 60
 >      , ToFieldL (songTimeAndNoteCount song) 60
->      , EndOfLine, EndOfLine] ++ doMusic song.songShredding
+>      , EndOfLine, EndOfLine] ++ doMusic song.shreds
 >     doMusic            :: Map GMKind Shred → [Emission]
 >     doMusic ding'                        = concatMap (uncurry doGMKind) (Map.assocs ding')
 >     doGMKind           :: GMKind → Shred → [Emission]
