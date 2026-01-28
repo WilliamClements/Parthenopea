@@ -1,4 +1,5 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
+> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -45,8 +46,15 @@ configuration ("Directives") ===================================================
 >   , useChorus          :: Bool
 >   , usePan             :: Bool
 >   , useDCBlock         :: Bool
+>   , useLFO             :: Bool
+>   , chorusRate         :: Double
+>   , chorusDepth        :: Double
 >   , noStereoNoPan      :: Bool
 >   , normalizingOutput  :: Bool} deriving (Eq, Show)
+
+useLFO
+-- False to suppress all uses of the low frequency oscillator
+
 > defSynthSwitches       :: SynthSwitches
 > defSynthSwitches                         =
 >   SynthSwitches
@@ -62,6 +70,9 @@ configuration ("Directives") ===================================================
 >     True
 >     True
 >     True
+>     True
+>     5.0
+>     0.0001
 >     True
 >     True
 >
@@ -133,11 +144,19 @@ Edit below if changing "default defaults" ======================================
 >         allOff
 >
 > okDirectives           :: Directives → Bool
-> okDirectives dives                       =
->   okReportVerbosity dives.dReportVerbosity
->   && inARange (1 % 10, 10 % 1) dives.proConRatio     -- higher ratio attenuates the con component
->   && inARange (1 % 10,      1) dives.absorbThreshold -- lower threshold results in more absorptions permitted
->   && (dives.synthSwitches.useModulators || not dives.synthSwitches.useDefModulators)
+> okDirectives Directives{ .. }
+>                                          = 
+>   okReportVerbosity dReportVerbosity
+>   && okSwitches synthSwitches
+>   && inARange (1 % 10, 10 % 1) proConRatio     -- higher ratio attenuates the con component
+>   && inARange (1 % 10,      1) absorbThreshold -- lower threshold results in more absorptions permitted
+>
+> okSwitches             :: SynthSwitches → Bool
+> okSwitches SynthSwitches{ .. }
+>                                          =
+>   (useModulators || not useDefModulators)
+>   && inARange (0.1, 100) chorusRate
+>   && inARange (0.00001, 0.1) chorusDepth
 
 Remarks on directives 16-Dec-2025:
 

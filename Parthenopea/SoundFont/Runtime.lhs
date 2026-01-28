@@ -327,7 +327,7 @@ reconcile zone and sample header ===============================================
 >         (fromMaybe 13_500 z.zInitFc)
 >         (fromMaybe 0 z.zInitQ)
 >         1 
->         useFastFourier
+>         True
 >         (-1) -- must always be replaced
 >
 >     resonanceType      :: ResonanceType  = ResonanceSVF
@@ -352,5 +352,17 @@ reconcile zone and sample header ===============================================
 >         (coAccess toWhich $ maybe defModTriple (fromJust . fModTriple) nModEnv)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
 >         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
+>
+>     deriveLFO          :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
+>     deriveLFO del mfreq toPitch toFilterFc toVolume
+>                                          =
+>       if useLFO && anyJust
+>         then Just $ LFO (fromTimecents del)
+>                         (fromAbsoluteCents $ fromMaybe 0 mfreq)
+>                         (deriveModTriple toPitch toFilterFc toVolume)
+>         else Nothing
+>       where
+>         anyJust                          = isJust toPitch || isJust toFilterFc || isJust toVolume
+>
 
 The End

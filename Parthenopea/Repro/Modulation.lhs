@@ -317,7 +317,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >       | otherwise                        = evalResult
 >       where
 >         fName                            = "evaluateMod"
->         trace_EM                         = unwords [fName, show sw, show md, show graph, show noon]
+>         trace_EM                         = unwords [fName, show md, show graph, show noon]
 >
 >         getValue modSrc                  =
 >           case modSrc.msSource of
@@ -356,12 +356,6 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 
 Filters are complex AND have a large impact ===========================================================================
 
-> cascadeCount           :: ResonanceType → Maybe Int
-> cascadeCount resonType                   =
->   case resonType of
->     ResonanceNone                        → Nothing
->     _                                    → Just cascadeConfig
->
 > procFilter             :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
 > procFilter lp@Lowpass{lowpassType}       =
 >   case lowpassType of
@@ -421,17 +415,6 @@ Miscellaneous ==================================================================
 >     (maybe 0 fromIntegral toFilterFc)
 >     (maybe 0 fromIntegral toVolume)
 >
-> deriveLFO              :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
-> deriveLFO del mfreq toPitch toFilterFc toVolume
->                                          =
->       if useLFO && anyJust
->         then Just $ LFO (fromTimecents del)
->                         (fromAbsoluteCents $ fromMaybe 0 mfreq)
->                         (deriveModTriple toPitch toFilterFc toVolume)
->         else Nothing
->   where
->     anyJust            :: Bool           = isJust toPitch || isJust toFilterFc || isJust toVolume
->
 > doLFO                  :: ∀ p . Clock p ⇒ Maybe LFO → Signal p () Double
 > doLFO                                    = maybe (constA 0) makeSF
 >   where
@@ -471,8 +454,7 @@ Miscellaneous ==================================================================
 Controller Curves =====================================================================================================
 
 > controlDenormal        :: Mapping → Double → (Double, Double) → Double
-> controlDenormal ping@Mapping{msBiPolar} dIn (lo, hi)
->                                          = if msBiPolar
+> controlDenormal ping dIn (lo, hi)        = if ping.msBiPolar
 >                                              then controlBiPolar ping dNorm
 >                                              else controlUniPolar ping dNorm
 >   where
@@ -480,17 +462,15 @@ Controller Curves ==============================================================
 >     dNorm                                = (dIn - lo) / scale
 >
 > controlUniPolar        :: Mapping → Double → Double
-> controlUniPolar Mapping{msContinuity, msMax2Min} dIn
->                                          = control xStart
+> controlUniPolar ping dIn                 = if ping.msMax2Min
+>                                              then control (1 - dIn)
+>                                              else control dIn
 >   where
->     control                              = case msContinuity of
+>     control                              = case ping.msContinuity of
 >                                              Linear     → controlLinear
 >                                              Concave    → controlConcave
 >                                              Convex     → controlConvex
 >                                              Switch     → controlSwitch
->     xStart             :: Double         = if msMax2Min
->                                              then 1 - dIn
->                                              else dIn
 >
 > controlBiPolar         :: Mapping → Double → Double
 > controlBiPolar ping dIn                  = dOut
@@ -654,8 +634,14 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > defModulation          :: Modulation
 > defModulation                            =
 >   Modulation
->     (Lowpass ResonanceNone (defKernelSpec useFastFourier)) Nothing Nothing Nothing
->     defModCoefficients defModCoefficients defModCoefficients Map.empty
+>     (Lowpass ResonanceNone (defKernelSpec True)) 
+>     Nothing 
+>     Nothing 
+>     Nothing
+>     defModCoefficients 
+>     defModCoefficients 
+>     defModCoefficients 
+>     Map.empty
 >
 > data TimeFrame                           =
 >   TimeFrame {
@@ -1061,23 +1047,5 @@ Signals of interest ============================================================
 >
 > deriveRange            :: Integral n ⇒ n → n → [n]
 > deriveRange x y                          = if x >= y || y <= 0 then [] else [x..(y-1)]
->
-> useLFO                 :: Bool
-> useLFO                                   = True
-> -- False to suppress all uses of the low frequency oscillator
-> chorusRate             :: Double
-> chorusRate                               = 5.0
-> -- configures chorus param
-> -- suggested default is 5 Hz
-> chorusDepth            :: Double
-> chorusDepth                              = 0.001
-> -- configures chorus param
-> -- suggested default is + or - 1/1000 (of the rate)
-> cascadeConfig          :: Int
-> cascadeConfig                            = 0
-> -- number of times to cascade the filter
-> useFastFourier         :: Bool
-> useFastFourier                           = True
-> -- False to employ convolution in time domain
 
 The End

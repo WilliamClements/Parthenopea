@@ -132,7 +132,7 @@ Feed chart =====================================================================
 >                                              (toAbsoluteCents bench_fc)
 >                                              (round currentQ)
 >                                              44_100
->                                              useFastFourier
+>                                              True
 >                                              256
 >
 >                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks}
@@ -163,12 +163,12 @@ Feed chart =====================================================================
 >                                              (toAbsoluteCents bench_fc)
 >                                              (round currentQ)
 >                                              44_100
->                                              useFastFourier
+>                                              True
 >                                              256
 >                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks}
 >
-> chartIr                :: IO ()
-> chartIr                                  = do
+> chartIr                :: Bool → IO ()
+> chartIr useFastFourier                   = do
 >   chartPoints
 >     (if useFastFourier then "freakResponse" else "impulseResponse")
 >     [Section (opaque blue) groutsR, Section (opaque orange) groutsI]

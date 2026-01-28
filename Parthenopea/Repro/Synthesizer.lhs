@@ -132,7 +132,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 >         procDriver calcPhase             = proc () → do
 >           modSig                         ← eutModSignals reconL.rM8n ToPitch               ⤙ ()
->           let delta                      = deltaCalc * evaluateModSignals sw "procDriver" reconL.rM8n ToPitch noon modSig
+>           let delta                      =
+>                 deltaCalc * evaluateModSignals sw "procDriver" reconL.rM8n ToPitch noon modSig
 >           rec
 >             let phase                    = calcPhase next
 >             next           ← delay 0     ⤙ phase + delta                           
@@ -210,30 +211,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 >     addResonance       :: Modulation → Signal p (Double, ModSignals) Double
 >     addResonance m8n@Modulation{mLowpass}
->                                          =
->       case cascadeCount lowpassType of
->         Nothing        →
->           proc (x, _)                    → do
->             y ← delay 0                  ⤙ x  
->             outA                         ⤙ y
->         Just count     →
->           case count of
->             0          → final
->             1          → stage >>> final
->             2          → stage >>> stage >>> final
->             3          → stage >>> stage >>> stage >>> final
->             4          → stage >>> stage >>> stage >>> stage >>> final
->             _          → error $ unwords [show count, "cascades are too many, not supported"]
+>                                          = final
 >       where
->         Lowpass{lowpassType}             = mLowpass
->
->         stage                            =
->           proc (sIn, msig)               → do
->             let fc                       = modulateFc msig
->             pickled ← procFilter mLowpass  ⤙ (sIn, fc)
->             let sOut                     = pickled
->             outA                         ⤙ (sOut, msig)
->
 >         final                            =
 >           proc (sIn, msig)               → do
 >             let fc                       = modulateFc msig
@@ -245,10 +224,10 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >           clip freakRange (lowpassFc mLowpass * evaluateModSignals sw "modulateFc" m8n ToFilterFc noon msig)
 
 Account for custom frequency intervals -- SoundFont scale tuning : 0 < x < 100 < 1200
-Clearly multiple root pitches are mutually incompatible in general
+Clearly multiple root pitches are mutually incompatible, in general, for calculating frequency ratios
 
 For example, input of 3 = key interval, 50 = scale tuning, yields ratio of: 1.09
-Multiply the input frequency by that to give output frequency
+Multiply the root frequency by that to give output frequency
 
 >     calcMicrotoneRatio :: AbsPitch → Int → Double
 >     calcMicrotoneRatio apDelta tuning    = pow 2 (fromIntegral apDelta * fromIntegral tuning / 1_200)
