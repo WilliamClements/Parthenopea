@@ -253,7 +253,8 @@ Effects ========================================================================
 
 > deriveEffects          :: SynthSwitches → Modulation → Maybe Int → Maybe Int → Maybe Int → NoteOn → Effects
 > deriveEffects
->   sw@SynthSwitches{ .. } m8n mChorus mReverb mPan noon
+>   sw@SynthSwitches{ .. }
+>   m8n mChorus mReverb mPan noon
 >                                          = Effects 
 >                                             (dChorus / 1000) 
 >                                             (dReverb / 1000) 
@@ -297,9 +298,8 @@ Effects ========================================================================
 > eutEffectsStereo       :: ∀ p . Clock p ⇒ SynthSwitches → Effects → Effects → Signal p (Double, Double) (Double, Double)
 > eutEffectsStereo
 >   SynthSwitches{ .. }
->   effL effR
->                                          =
->   proc (aL, aR) → do
+>   effL effR                              =
+>   proc (aL, aR)                          → do
 >     chL ← eutChorus chorusRate chorusDepth cFactorL      ⤙ aL
 >     chR ← eutChorus chorusRate chorusDepth cFactorR      ⤙ aR
 >
@@ -329,19 +329,11 @@ Effects ========================================================================
 >     Effects{efChorus = cFactorR, efReverb = rFactorR, efPan = pFactorR} = effR
 > 
 > eutChorus              :: ∀ p . Clock p ⇒ Double → Double → Double → Signal p Double Double
-> eutChorus crate_ cdepth_ cFactor         =
+> eutChorus crate cdepth cFactor         =
 >   if cFactor > 0
 >     then makeSF
 >     else delay 0                                            
 >   where
->     crate                                = profess (crate_ == clip (0.1, 100) crate_)
->                                              "chorus rate"
->                                              crate_
->     cdepth                               = profess (cdepth_ == clip (0.0001, 1.1) cdepth_)
->                                              "chorus depth"
->                                              cdepth_
->
->     makeSF             :: Signal p Double Double
 >     makeSF                               = proc sIn → do
 >       z1 ← safeDelayLine1 0.023 0.017    ⤙ sIn
 >       z2 ← safeDelayLine1 0.025 0.019    ⤙ sIn
@@ -353,7 +345,6 @@ Effects ========================================================================
 >     coeff2 = 1/3
 >     coeff3 = 1/3
 >
->     safeDelayLine1     :: Double → Double → Signal p Double Double
 >     safeDelayLine1 maxDel del            =
 >       profess
 >         (maxDel >= del + cdepth)
@@ -368,15 +359,12 @@ Effects ========================================================================
 > eutReverb              :: ∀ p . Clock p ⇒ Double → Signal p Double Double
 > eutReverb rFactorL                       =
 >   if rFactorL > epsilon
->     then makeSF
+>     then eatFreeVerb $ makeFreeVerb roomSize damp width
 >     else constA 0
 >   where
 >     roomSize                             = 0.75
 >     damp                                 = 0.25
 >     width                                = 1.0
->
->     makeSF             :: Signal p Double Double
->     makeSF                               = eatFreeVerb $ makeFreeVerb roomSize damp width
 >   
 > doPan                  :: (Double, Double) → (Double, Double) → (Double, Double)
 > doPan (azimuthL, azimuthR) (sigL, sigR)  = ((ampLL + ampRL)/2, (ampLR + ampRR)/2)

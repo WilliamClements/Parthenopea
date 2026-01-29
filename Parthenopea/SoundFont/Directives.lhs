@@ -156,7 +156,7 @@ Edit below if changing "default defaults" ======================================
 >                                          =
 >   (useModulators || not useDefModulators)
 >   && inARange (0.1, 100) chorusRate
->   && inARange (0.00001, 0.1) chorusDepth
+>   && inARange (0.00001, 1.1) chorusDepth
 
 Remarks on directives 16-Dec-2025:
 
