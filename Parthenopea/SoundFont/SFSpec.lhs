@@ -236,7 +236,8 @@ implementing SoundFont spec ====================================================
 >   , zKeyToVolEnvHold   :: Maybe Int
 >   , zKeyToVolEnvDecay  :: Maybe Int
 >
->   , zModulators        :: [Modulator]} deriving (Eq, Show)
+>   , zModulators        :: [Modulator]}
+>   deriving (Eq, Show)
 >
 > defZone                :: SFZone
 > defZone                                  = SFZone 
@@ -304,7 +305,7 @@ implementing SoundFont spec ====================================================
 >   Survey
 >     IntMap.empty
 >     Map.empty
->     (Matches Map.empty Map.empty)
+>     defMatches
 >     virginrd
 >     
 > data FileArrays                          = 

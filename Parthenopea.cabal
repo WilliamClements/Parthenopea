@@ -1,74 +1,53 @@
 cabal-version:      3.0
---
--- The name of the package.
 name:               Parthenopea
-
--- The package version.
--- See the Haskell package versioning policy (PVP) for standards
--- guiding when and how versions should be incremented.
--- https://pvp.haskell.org
--- PVP summary:     +-+------- breaking API changes
---                  | | +----- non-breaking API additions
---                  | | | +--- code changes with no API change
 version:            0.1.0.1
-
--- A short (one-line) description of the package.
--- synopsis:
-
--- A longer description of the package.
--- description:
-
--- The license under which the package is released.
 license:            Apache-2.0
-
--- The file containing the license text.
 license-file:       LICENSE
-
--- The package author(s).
-author:             William Clements
-
--- An email address to which users can send suggestions, bug reports, and patches.
-maintainer:         william@clementsassociates.net
-
--- A copyright notice.
--- copyright:
+copyright:          William Clements (c) 2022
 category:           Sound
+author:             William Clements
+maintainer:         william@clementsassociates.net
+homepage:           https://github.com/WilliamClements/Parthenopea#readme
+bug-reports:        https://github.com/WilliamClements/Parthenopea/issues
+synopsis:           music composition and orchestration tool
+description:
+  Extends Euterpea2 embedded algorithmic composition language. Provides offline (SoundFont-based) synthesis.
+
 build-type:         Simple
 
--- Extra doc files to be distributed with the package, such as a CHANGELOG or a README.
-extra-doc-files:    CHANGELOG.md
+extra-doc-files:
+  CHANGELOG.md
+  README.md
+  VideoScript.md
 
--- Extra source files to be distributed with the package, such as examples, or a tutorial module.
--- extra-source-files:
+source-repository head
+  type: git
+  location: https://github.com/WilliamClements/Parthenopea
 
 common warnings
-    ghc-options: -O2 -funbox-strict-fields -fexcess-precision -Wall -Wno-x-partial
+    ghc-options:
+      -O2
+      -funbox-strict-fields
+      -fexcess-precision
+      -Wall
+      -Wno-x-partial
 
 library
-    -- Import common warning flags.
-    import:           warnings
-
-    -- Modules exported by the library.
-    exposed-modules:     Parthenopea.Debug, Parthenopea.Music.Baking, Parthenopea.Music.Passage,
-                         Parthenopea.Music.Percussion, Parthenopea.Music.Siren, Parthenopea.Repro.Discrete, 
-                         Parthenopea.SoundFont.Boot, Parthenopea.SoundFont.Command, Parthenopea.SoundFont.Directives,
-                         Parthenopea.SoundFont.Runtime, Parthenopea.SoundFont.SFSpec, Parthenopea.SoundFont.Utility
-                         
-    
-    -- Modules included in this library but not exported.
-    other-modules:       Parthenopea.Music.PassageTest, Parthenopea.Repro.Chart, Parthenopea.Repro.DiscreteTest,
-                         Parthenopea.Repro.Emission, Parthenopea.Repro.Envelopes, Parthenopea.Repro.EnvelopesTest,
-                         Parthenopea.Repro.Modulation, Parthenopea.Repro.ModulationTest,
-                         Parthenopea.Repro.Smashing, Parthenopea.Repro.SmashingTest,
-                         Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest,
-                         Parthenopea.SoundFont.BootTest, Parthenopea.SoundFont.RangesReport,
-                         Parthenopea.SoundFont.ScanReport, Parthenopea.SoundFont.Scoring,
-                         Parthenopea.SoundFont.TournamentReport
-
-    -- LANGUAGE extensions used by modules in this package.
-    -- other-extensions:
-
-    -- Other library packages from which modules are imported.
+    import:             warnings
+    default-language:   GHC2021
+    hs-source-dirs:     .
+    exposed-modules:    Parthenopea.Debug, Parthenopea.Music.Baking, Parthenopea.Music.Passage,
+                        Parthenopea.Music.Percussion, Parthenopea.Music.Siren, Parthenopea.Repro.Discrete, 
+                        Parthenopea.SoundFont.Boot, Parthenopea.SoundFont.Command, Parthenopea.SoundFont.Directives,
+                        Parthenopea.SoundFont.Runtime, Parthenopea.SoundFont.SFSpec, Parthenopea.SoundFont.Utility
+    other-modules:      Parthenopea.Music.PassageTest, Parthenopea.Repro.Chart, Parthenopea.Repro.DiscreteTest,
+                        Parthenopea.Repro.Emission, Parthenopea.Repro.Envelopes, Parthenopea.Repro.EnvelopesTest,
+                        Parthenopea.Repro.Modulation, Parthenopea.Repro.ModulationTest,
+                        Parthenopea.Repro.Smashing, Parthenopea.Repro.SmashingTest,
+                        Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest,
+                        Parthenopea.SoundFont.BootTest, Parthenopea.SoundFont.RangesReport,
+                        Parthenopea.SoundFont.ScanReport, Parthenopea.SoundFont.Scoring,
+                        Parthenopea.SoundFont.TournamentReport
     build-depends:
         array                      >= 0.5.8.0,
         arrows                     >= 0.4,
@@ -96,9 +75,3 @@ library
         vector                     >= 0.13.2.0,
         
         ghc-prim
-
-    -- Directories containing source files.
-    hs-source-dirs:   .
-
-    -- Base language which the package is written in.
-    default-language: GHC2021

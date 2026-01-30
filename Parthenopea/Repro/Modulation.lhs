@@ -894,7 +894,6 @@ Returns the amplitude ratio
 >
 > toCentibels            :: Double → Double
 > toCentibels ratio                        = logBase 10 (ratio * 1000)
->
 
 Returns the amplitude ratio (based on input 10ths of a percent) 
 
