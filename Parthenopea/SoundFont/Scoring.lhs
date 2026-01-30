@@ -38,8 +38,6 @@ September 12, 2024
 > import qualified Data.Bifunctor          as BF
 > import Data.IntMap.Strict (IntMap)
 > import qualified Data.IntMap as IntMap
-> import Data.IntSet (IntSet)
-> import qualified Data.IntSet as IntSet
 > import Data.List
 > import Data.Map ( Map )
 > import qualified Data.Map                as Map
@@ -245,8 +243,11 @@ tournament starts here =========================================================
 >                           → Map PerGMKey PerInstrument
 >                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
-> decideWinners dives rost vFiles cache matches   = do
->   CM.when diagnosticsEnabled             (traceIO $ unwords [fName__, show $ length cache, show $ length matches.mIMatches, show $ length matches.mSMatches])
+> decideWinners dives rost vFiles cache matches
+>                                          = do
+>   CM.when
+>     diagnosticsEnabled
+>     (traceIO $ unwords [fName__, show (length cache, length matches.mIMatches, length matches.mSMatches)])
 >   return wiExec
 >
 >   where
@@ -264,23 +265,24 @@ tournament starts here =========================================================
 >     wiFolder           :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >                           → PerGMKey → PerInstrument
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->     wiFolder (wI, wP) pergmI_ perI       = (decideInst, decidePerc)
+>     wiFolder (wI, wP) pergmI perI        = (decideInst, decidePerc)
 >       where
 >         fName_                           = unwords [fName__, "wiFolder"]
 >
->         sffile                           = vFiles VB.! pergmI_.pgkwFile
+>         sffile                           = vFiles VB.! pergmI.pgkwFile
 >
 >         decideInst     :: Map InstrumentName [PerGMScored]
->         decideInst                       = proposeXAs iMatches wI pergmI_
+>         decideInst                       = proposeXAs iMatches wI pergmI
 >           where
->             iMatches = deJust "iMatches" (Map.lookup pergmI_ matches.mIMatches)
+>             iMatches = deJust "iMatches" (Map.lookup pergmI matches.mIMatches)
 >     
 >         decidePerc     :: Map PercussionSound [PerGMScored]
->         decidePerc                       = foldl' pFolder wP pergmsP
+>         decidePerc                       = IntMap.foldl' propose wP pergmsP
 >           where
->             pergmsP                      = instrumentPercList pergmI_ (ownedOnly perI)
+>             pergmsP                      = IntMap.fromSet cv (ownedOnly perI)
+>                                              where cv bix = pergmI {pgkwBag = (Just . fromIntegral) bix}
 >
->             pFolder wpFold pergmP
+>             propose wpFold pergmP
 >               | traceNot trace_PF False  = undefined
 >               | null mkind               = wpFold
 >               | null mffm                = wpFold
@@ -299,7 +301,7 @@ tournament starts here =========================================================
 >                 mffm   :: Maybe FFMatches
 >                 mffm                     =
 >                   mz >>= (zdSampleIndex . pzDigest)
->                      >>= Just . PreSampleKey pergmI_.pgkwFile
+>                      >>= Just . PreSampleKey pergmI.pgkwFile
 >                      >>= (`Map.lookup` matches.mSMatches)
 >                 ffm                      = deJust (unwords [fName, "mffm"]) mffm
 >
@@ -342,8 +344,7 @@ tournament starts here =========================================================
 >           unwords [fName, iName, show pergm, show kind, show (ownedOnly perI)]
 >
 >         sffile                           = vFiles VB.! pergm.pgkwFile
->         pergm_                           = pergm{pgkwBag = Nothing}
->         perI                             = cache Map.! pergm_
+>         perI                             = cache Map.! pergm{pgkwBag = Nothing}
 >         iName                            = perI.piChanges.cnName
 >
 >         scope                            =
@@ -372,7 +373,13 @@ tournament starts here =========================================================
 >               | otherwise                = 0
 >   
 >         scored         :: PerGMScored    =
->           PerGMScored (computeGrade scope) (toGMKind kind) akResult pergm iName mnameZ
+>           PerGMScored 
+>             (computeGrade scope)
+>             (toGMKind kind) 
+>             akResult 
+>             pergm 
+>             iName 
+>             mnameZ
 >
 >         computeResolution
 >                        :: [PreZone] → Double
@@ -405,10 +412,6 @@ tournament starts here =========================================================
 >                 xEnd   :: Word           = shdr.end + fromIntegral zd.zdEnd
 >
 >         akResult                         = fromMaybe 0 (Map.lookup kind (getFuzzMap ffm))
->
->     instrumentPercList :: PerGMKey → IntSet → [PerGMKey]
->     instrumentPercList pergmI bixen      = map cv (IntSet.toList bixen)
->                                              where cv bix = pergmI {pgkwBag = Just $ fromIntegral bix}
 
 Utilities =============================================================================================================
 

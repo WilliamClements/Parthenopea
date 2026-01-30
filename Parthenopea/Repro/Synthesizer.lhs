@@ -295,7 +295,8 @@ Effects ========================================================================
 >                      else dcBlock 0.995                  ⤙ pL
 >     outA                                                 ⤙ pL'
 >
-> eutEffectsStereo       :: ∀ p . Clock p ⇒ SynthSwitches → Effects → Effects → Signal p (Double, Double) (Double, Double)
+> eutEffectsStereo       :: ∀ p . Clock p ⇒
+>                           SynthSwitches → Effects → Effects → Signal p (Double, Double) (Double, Double)
 > eutEffectsStereo
 >   SynthSwitches{ .. }
 >   effL effR                              =

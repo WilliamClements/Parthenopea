@@ -72,7 +72,7 @@ library
     build-depends:
         array                      >= 0.5.8.0,
         arrows                     >= 0.4,
-        base                       >= 4,
+        base                       >= 4.15,
         bytestring                 >= 0.12.2.0,
         Chart                      >= 1.9.5,
         Chart-diagrams             >= 1.9.5.1,

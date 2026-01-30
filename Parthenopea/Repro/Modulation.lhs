@@ -956,29 +956,30 @@ The use of following functions requires that their input is normalized between 0
 >
 > quarterCircleTable     :: Array Int Double
 >                                            -- TODO: use Table
-> quarterCircleTable                       = array (0, qTableSize - 1) [(x, calc x) | x ← [0..(qTableSize - 1)]]
+> quarterCircleTable                       =
+>   array (0, qTableSize1024 - 1) [(x, calc x) | x ← [0..(qTableSize1024 - 1)]]
 >   where
 >     calc               :: Int → Double
 >     calc i                               =
 >       let
->         cD             :: Double         = fromIntegral i / tableSize
+>         cD             :: Double         = fromIntegral i / tableSize1024
 >       in
 >         1 - sqrt (1 - cD*cD)
 >
-> qTableSize             :: Int
-> qTableSize                               = 1024
-> tableSize              :: Double
-> tableSize                                = fromIntegral qTableSize
+> qTableSize1024         :: Int
+> qTableSize1024                           = 1024
+> tableSize1024          :: Double
+> tableSize1024                            = fromIntegral qTableSize1024
 >
 > controlConcave         :: Double → Double
 > controlConcave doub
 >   | doub >= 1                            = 1
->   | otherwise                            = quarterCircleTable ! truncate (doub * tableSize)
+>   | otherwise                            = quarterCircleTable ! truncate (doub * tableSize1024)
 >
 > controlConvex          :: Double → Double
 > controlConvex doub
 >   | (1 - doub) >= 1                      = 1
->   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - doub) * tableSize))
+>   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - doub) * tableSize1024))
 >
 > controlSwitch          :: (Ord a1, Fractional a1, Num a2) ⇒ a1 → a2
 > controlSwitch doub                       = if doub < 0.5

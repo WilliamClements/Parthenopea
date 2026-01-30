@@ -311,18 +311,17 @@ Viability of the envelope "proposal" is checked for a few conditions not easily 
 audio. For example, there should always be zeros at the beginning and end of every note envelope.
 
 > maybeVetAsDiscreteSig  :: FEnvelope → Segments → Bool
-> maybeVetAsDiscreteSig env segs           = timeSkip || isJust (vetAsDiscreteSig ctrRate env segs)
+> maybeVetAsDiscreteSig env segs           = (dt /= clip (1/32, 2) dt) || isJust (vetAsDiscreteSig ctrRate env segs)
 >   where
 >     fName                                = "maybeVetAsDiscreteSig"
 >
->     secs                                 = (deJust fName env.fExtras).eeTargetT
->     timeSkip                             = secs /= clip (1/32, 2) secs
+>     dt                                   = (deJust fName env.fExtras).eeTargetT
 >
 > vetAsDiscreteSig       :: Double → FEnvelope → Segments → Maybe (DiscreteSig Double)
 > vetAsDiscreteSig clockRate env segs
->   | sum prologlist > epsilon             = error $ unwords [fName, "non-zero prolog", show prologlist]
->   | sum epiloglist > epsilon             = error $ unwords [fName, "non-zero epilog", show epiloglist]
->   | isNothing env.fModTriple && dipix < (kSig' `div` 5)
+>   | noisy prolog                         = error $ unwords [fName, "non-zero prolog", show prolog]
+>   | noisy epilog                         = error $ unwords [fName, "non-zero epilog", show epilog]
+>   | isNothing env.fModTriple && dipix < (min kSig kChunk `div` 5)
 >                                          =
 >     error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show (kSig, kVec)]
 >   | otherwise                            = Just dsig
@@ -332,22 +331,25 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >     dsig                                 = discretizeEnvelope clockRate env segs
 >     targetT                              = (deJust fName env.fExtras).eeTargetT
 >
->     checkSize                            = truncate $ minDeltaT * clockRate
+>     noisy             :: VU.Vector Double → Bool
+>     noisy air                            = VU.foldr ((+) . abs) 0 air < epsilon
+>
 >     dipThresh          :: Double         = 1/10
 >
->     kVec, kSig, kSig'  :: Int
+>     kVec, kCheck, kSig, kChunk
+>                        :: Int
 >     kVec                                 = VU.length dsig.dsigVec
+>     kCheck                               = truncate $ clockRate * minDeltaT
 >     kSig                                 = truncate $ clockRate * targetT
->     kSig'                                = truncate $ clockRate * min targetT 0.5
+>     kChunk                               = truncate $ clockRate * 0.5
+>     kSkip                                = round    $ clockRate * (env.fDelayT + env.fAttackT)
 >
->     prologlist, epiloglist
->                        :: [Double]
->     prologlist                           = VU.toList $ VU.force $ VU.slice 0                  checkSize dsig.dsigVec
->     epiloglist                           = VU.toList $ VU.force $ VU.slice (kSig - checkSize) checkSize dsig.dsigVec
+>     prolog, epilog     :: VU.Vector Double
+>     prolog                               = VU.force $ VU.slice 0               kCheck dsig.dsigVec
+>     epilog                               = VU.force $ VU.slice (kSig - kCheck) kCheck dsig.dsigVec
+>     afterAttack                          = VU.force $ VU.slice kSkip (kSig - kSkip)   dsig.dsigVec
 >
->     skipSize                             = round $ (env.fDelayT + env.fAttackT) * clockRate
->     afterAttack                          = VU.slice skipSize (kSig - skipSize) dsig.dsigVec
->     dipix                                = skipSize + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
+>     dipix                                = kSkip + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
 >       
 > vetEnvelope            :: FEnvelope → Segments → Bool
 > vetEnvelope env segs
@@ -359,11 +361,16 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >     fName                                = "vetEnvelope"
 >
 >     ee                                   = deJust fName env.fExtras
->
+
+Negative values fatal for amps or deltaTs
+
 >     badAmp, badDeltaT  :: Bool
 >     badAmp                               = isJust $ find (< 0) segs.sAmps
 >     badDeltaT                            = isJust $ find (< 0) segs.sDeltaTs
->
+
+Three different ways of computing the envelope duration must all get same answer (within 1/100 seconds)
+
+>     a, b, c            :: Double
 >     a                                    = feSum env
 >     b                                    = ee.eeTargetT
 >     c                                    = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs

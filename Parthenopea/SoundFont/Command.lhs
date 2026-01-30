@@ -114,7 +114,7 @@ Implement PCommand =============================================================
 >
 >   CM.when (dForScan > 0)                 (writeScanReport dives dForScan vFilesBoot rd)
 >   (wI, wP)                               ← decideWinners dives rost vFilesBoot cache matches
->   CM.when (dives.dReportVerbosity.dForTournament > 0) (writeTournamentReport dives vFilesBoot (wI, wP))
+>   CM.when (dForTournament > 0)           (writeTournamentReport dives vFilesBoot (wI, wP))
 >   (zI, zP)                               ← establishWinners rost (wI, wP)
 >   runt                                   ← prepareRuntime dives rost vFilesBoot cache (zI, zP)
 >   return (runt, (zI, zP))
