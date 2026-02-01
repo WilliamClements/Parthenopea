@@ -25,7 +25,6 @@ June 17, 2024
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
 > import Euterpea.IO.Audio.Types ( AudSF, AudioSample(..), Clock(..), CtrSF, Signal)
 > import Numeric.FFT ( fft, ifft )
-> import Parthenopea.Debug
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Chart ( Section(Section), chartPoints )
 > import Parthenopea.Repro.Modulation

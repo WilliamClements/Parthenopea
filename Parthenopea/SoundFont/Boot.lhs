@@ -1,4 +1,3 @@
-> {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
@@ -41,7 +40,7 @@ a Boot problematic =============================================================
 Each stage interface function takes a FileWork and returns modified FileWork. Often, stage computes temporary
 structure(s) to drive later stages. Dependency graph for this process has cycles which we patch around.
 
-(1) reorg stage depends on previously computed smashups, but the absorption leader's smashup must be updated.
+(1) reorg stage depends on previously computed smashups, but absorption leaders' smashups must be updated.
 
 (2) In pipeline sequence, it would be plenty fast to modify smashups when incrementally adding zones. But to REMOVE a
 zone means expensively recomputing smashup for all remaining zones.

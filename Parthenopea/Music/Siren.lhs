@@ -28,7 +28,6 @@ December 12, 2022
 > import Euterpea.IO.MIDI.MidiIO ( unsafeOutputID )
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
-> import Parthenopea.Debug
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility

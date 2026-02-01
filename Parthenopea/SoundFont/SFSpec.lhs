@@ -29,7 +29,6 @@ April 16, 2023
 > import Data.Time
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music
-> import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing

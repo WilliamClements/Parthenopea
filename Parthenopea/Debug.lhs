@@ -7,10 +7,8 @@ February 2, 2025
 
 > module Parthenopea.Debug
 >        (  aEqual
->         , deJust
 >         , diagnosticsEnabled
 >         , notracer
->         , profess
 >         , runTests
 >         , runTestsQuietly
 >         , traceAlways
@@ -24,7 +22,6 @@ February 2, 2025
 >
 > import Data.List ( foldl' )
 > import Debug.Trace
-> import Parthenopea.SoundFont.Utility
   
 Tracing ===============================================================================================================
 
@@ -68,7 +65,7 @@ Test runner ====================================================================
 Debugging Flags =======================================================================================================
 
 > diagnosticsLevel       :: Rational
-> diagnosticsLevel                         = 1/4
+> diagnosticsLevel                         = 3/4
 > 
 > diagnosticsEnabled     :: Bool
 > diagnosticsEnabled                       = diagnosticsLevel > 1/2

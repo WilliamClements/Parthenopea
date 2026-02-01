@@ -24,7 +24,6 @@ Apr 26, 2025
 > import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
 > import Euterpea.IO.Audio.Types ( Clock(..), Signal )
-> import Parthenopea.Debug
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.Directives
@@ -332,7 +331,7 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >     targetT                              = (deJust fName env.fExtras).eeTargetT
 >
 >     noisy             :: VU.Vector Double → Bool
->     noisy air                            = VU.foldr ((+) . abs) 0 air < epsilon
+>     noisy air                            = VU.foldr ((+) . abs) 0 air > epsilon
 >
 >     dipThresh          :: Double         = 1/10
 >
