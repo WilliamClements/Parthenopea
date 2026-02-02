@@ -376,17 +376,17 @@ InstZoneRecord and PreZone administration ======================================
 >         fwZRecs = inst.iZRecs
 >       , fwDispositions = inst.iDispo}
 >
-> data RunnerPreZones                      =
->   RunnerPreZones {
+> data Vet                                 =
+>   Vet {
 >     ipzdb              :: IntMap PreZone
 >  ,  ipDispo            :: ResultDispositions}
-> instance Show RunnerPreZones where
+> instance Show Vet where
 >   show inst                              =
->     unwords [  "RunnerPreZones"
+>     unwords [  "Vet"
 >              , show inst.ipzdb, show inst.ipDispo]
-> instance Runner RunnerPreZones where
+> instance Runner Vet where
 >   spawn fWork                            =
->     RunnerPreZones
+>     Vet
 >       fWork.fwPreZones
 >       fWork.fwDispositions
 >   imbibe fWork inst                      =
@@ -872,22 +872,24 @@ vet task =======================================================================
           switch bad stereo zones to mono, or off altogether
           can cause, but does not clean out zoneless zrecs 
 
-> vetTaskIf _ _ fWork                      = imbibe fWork (zrecCompute fWork vFolder (spawn fWork))
+> vetTaskIf _ _ fWork                      = imbibe fWork (zrecCompute fWork vetter (spawn fWork))
 >   where
 >     Directives{ .. }
 >                                          = fWork.fwDirectives                     
 >     Pairing{ .. }                      
 >                                          = fWork.fwPairing
->     vFolder vetFold zrec                 =
->       let
->         vactions                         = fromIntegral zrec.zswInst `IntMap.lookup` fwActions
->       in
->         maybe vetFold (vetActions vetFold zrec) vactions
 >
->     vetActions         :: RunnerPreZones → InstZoneRecord → IntSet → RunnerPreZones
+>     vetter             :: Vet → InstZoneRecord → Vet
+>     vetter vetIn zrec                    =
+>       let
+>         actions                          = fromIntegral zrec.zswInst `IntMap.lookup` fwActions
+>       in
+>         maybe vetIn (vetActions vetIn zrec) actions
+>
+>     vetActions         :: Vet → InstZoneRecord → IntSet → Vet
 >     vetActions vetIn zrec actions        = vetIn{ipzdb = pzsOut, ipDispo = rdOut}
 >       where
->         fName_                           = "vetActions"
+>         fName                            = "vetActions"
 >
 >         actionFun                        = if switchBadStereoZonesToMono 
 >                                              then makeThemMono
@@ -907,7 +909,7 @@ vet task =======================================================================
 >           let
 >             pz                           = accessPreZone "killThem" fWork.fwPreZones bix
 >             ssKill                       =
->               [Scan Violated BadStereoPartner fName_ zrec.zswChanges.cnName]
+>               [Scan Violated BadStereoPartner fName zrec.zswChanges.cnName]
 >           in
 >             (IntMap.update (const Nothing) (wordB pz) pzdb, dispose (extractZoneKey pz) ssKill rd)
 
@@ -1037,12 +1039,12 @@ To build the map
 >         rewire ns                        =
 >           IntMap.insert ((snd . head) ns) (IntSet.fromList (map snd ns)) IntMap.empty
 >
->     holdMap            :: IntMap (Smashing Word)       {- [InstIndex → smash]                   -}
->     disqualMap         :: IntMap SmashStats            {- [InstIndex → stats]                   -}
+>     holdMap            :: IntMap (Smashing Word)       {- [InstIndex → smash]                    -}
+>     disqualMap         :: IntMap SmashStats            {- [InstIndex → stats]                    -}
 >     (holdMap, disqualMap)                = IntMap.mapEitherWithKey qualify headed
 >       where
 >         townersMap     :: IntMap (IntMap PreZone, Smashing Word)
->                                                        {- [InstIndex → ([BagIndex → pz], smash] -}
+>                                                        {- [InstIndex → ([BagIndex → pz], smash)] -}
 >         townersMap                       =
 >           let
 >             tFolder    :: IntMap (IntMap PreZone, Smashing Word)
@@ -1057,8 +1059,8 @@ To build the map
 >           in
 >             zrecCompute fWork tFolder IntMap.empty 
 >     
->         qualify        :: Int                          {- InstIndex                     -}
->                           → IntSet                     {- [InstIndex]                   -}
+>         qualify        :: Int                          {- InstIndex                              -}
+>                           → IntSet                     {- [InstIndex]                            -}
 >                           → Either (Smashing Word) SmashStats
 >         qualify leadI memberIs
 >           | 0 == osmashup.smashStats.countMultiples
