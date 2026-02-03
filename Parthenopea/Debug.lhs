@@ -20,7 +20,6 @@ February 2, 2025
 >         )
 >         where
 >
-> import Data.List ( foldl' )
 > import Debug.Trace
   
 Tracing ===============================================================================================================
@@ -65,7 +64,7 @@ Test runner ====================================================================
 Debugging Flags =======================================================================================================
 
 > diagnosticsLevel       :: Rational
-> diagnosticsLevel                         = 3/4
+> diagnosticsLevel                         = 1/4
 > 
 > diagnosticsEnabled     :: Bool
 > diagnosticsEnabled                       = diagnosticsLevel > 1/2

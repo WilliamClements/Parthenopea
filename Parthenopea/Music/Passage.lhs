@@ -115,7 +115,7 @@ _Overall_                =
 >   | otherwise                            = removeZeros $ passageImpl dives bp (expandMarkings markings) (removeZeros ma)
 >
 > passageImpl            :: Directives → BandPart → VB.Vector Marking → Music Pitch → Music1
-> passageImpl dives bp markings ma
+> passageImpl _ bp markings ma
 >   | traceIf trace_IP False               = undefined
 >   | otherwise                            = VB.foldl' final (rest 0) enriched
 >   where

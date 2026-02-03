@@ -9,7 +9,6 @@ October 8, 2025
 > module Parthenopea.SoundFont.Utility where
 >
 > import Data.Array.Unboxed
-> import Data.Foldable
 > import Data.Graph (Graph)
 > import Data.Maybe
 > import Data.Ratio ( approxRational )

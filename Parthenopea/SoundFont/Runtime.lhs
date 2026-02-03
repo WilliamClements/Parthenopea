@@ -15,7 +15,6 @@ February 1, 2025
 > import qualified Codec.SoundFont         as F
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Foldable
 > import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict as IntMap
 > import Data.IntSet (IntSet )

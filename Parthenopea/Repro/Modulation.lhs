@@ -2,7 +2,6 @@
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TypeFamilies #-} 
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -21,7 +20,7 @@ November 6, 2023
 > import Data.Complex
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
-> import Data.List ( foldl', iterate', find )
+> import Data.List ( iterate', find )
 > import Data.Map (Map)
 > import qualified Data.Map                as Map
 > import Data.Maybe
@@ -34,7 +33,7 @@ November 6, 2023
 > import Parthenopea.Debug
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
->
+>  
 > constA                 :: Arrow a ⇒ c → a b c
 > constA                                   = arr . const
 
@@ -174,29 +173,38 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >   Sifting {
 >       ssCounter        :: Int
 >     , ssCurrent        :: [Modulator]
->     , ssPrevious       :: [Modulator]} deriving Show 
+>     , ssPrevious       :: [Modulator]}
+>     deriving Show 
 >
 > eliminateDanglingMods  :: Sifting → Sifting
 > eliminateDanglingMods ting               =
->   Sifting (ting.ssCounter + 1) newTry ting.ssCurrent
+>   Sifting 
+>     (ting.ssCounter + 1) 
+>     newTry 
+>     ting.ssCurrent
 >   where
 >     -- examine result of the previous generation
 >     -- use it to produce next generation, dropping nodes that:
 >     -- 1. expect linked sources but have none
 >     -- 2. consist of an outbound link (by Id) to non-existent mod
 >     --     or
->     -- 3. are superseded 
->     newTry                               = profess
->                                              (ting.ssCounter <= 10)
->                                              "maximum of 10 tries exceeded..."
->                                              filter shouldStay ting.ssCurrent
+>     -- 3. are superseded
+>     newTry             :: [Modulator] 
+>     newTry                               =
+>       profess
+>         (ting.ssCounter <= 10)
+>         "maximum of 10 tries exceeded..."
+>         filter shouldStay ting.ssCurrent
+>
 >     shouldStay m8r                       = linkageInOk && linkageOutOk
 >       where
 >         linkageInOk                      =
 >           FromLinked /= m8rSource || maybe False (not . null) (Map.lookup (ToLink m8r.mrModId) byModDestType)
 >         linkageOutOk                     =
->           maybe True (\w → (isJust . find (\m → m.mrModId == w)) ting.ssCurrent) (outGoing m8r.mrModDest)
->         
+>           let
+>             matched node                 = isJust $ find ((== node) . mrModId) ting.ssCurrent
+>           in
+>             maybe True matched (outGoing m8r.mrModDest)
 >         m8rSource                        = msSource m8r.mrModSrc
 >         byModDestType                    = compileMods ting.ssCurrent
 >
@@ -225,7 +233,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >         upd mid                          = deJust "upd mid" $ lookup mid subs
 >       in
 >         m8r{  mrModId                    = upd mrModId
->             , mrModDest                  = (\case (ToLink m)         → (ToLink $ upd m);
+>             , mrModDest                  = (\case (ToLink m)         → ToLink $ upd m;
 >                                                   o                  → o) mrModDest}
 >
 > unpackModSrc           :: Word → Maybe ModSrc

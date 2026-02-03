@@ -12,7 +12,6 @@ June 22, 2024
 >
 > import Control.Arrow
 > import Data.Complex ( imagPart, realPart, Complex )
-> import Data.List ( foldl' )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import qualified Data.Vector.Unboxed     as VU
 > import Diagrams.Prelude hiding ( fc )

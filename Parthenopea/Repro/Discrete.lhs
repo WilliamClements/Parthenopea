@@ -17,7 +17,6 @@ June 17, 2024
 > import qualified Data.Bifunctor          as BF
 > import Data.Complex
 > import Data.Int ( Int32 )
-> import Data.List ( foldl' )
 > import Data.MemoTrie ( memo )
 > import qualified Data.Vector.Unboxed     as VU
 > import Diagrams.Prelude hiding ( fc )

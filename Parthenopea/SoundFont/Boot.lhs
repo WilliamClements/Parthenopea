@@ -14,7 +14,6 @@ January 21, 2025
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Either
-> import Data.Foldable
 > import Data.IntMap.Strict (IntMap)
 > import qualified Data.IntMap.Strict      as IntMap
 > import Data.IntSet (IntSet)
@@ -428,29 +427,26 @@ InstZoneRecord and PreZone administration ======================================
 iterating InstZoneRecord list =========================================================================================
 
 > zrecTask               :: (InstZoneRecord
->                            → IntMap PreZone
 >                            → ResultDispositions
->                            → (Maybe InstZoneRecord, IntMap PreZone, ResultDispositions))
+>                            → (Maybe InstZoneRecord, ResultDispositions))
 >                           → FileWork → FileWork
-> zrecTask userFun fw                      = fw{fwZRecs = zrecs', fwPreZones = preZones, fwDispositions = rd'}
+> zrecTask userFun fw                      = fw{fwZRecs = zrecs', fwDispositions = rd'}
 >   where
 >     zrecs'             :: IntMap InstZoneRecord
->     preZones           :: IntMap PreZone
 >     rd'                :: ResultDispositions
->     (zrecs', preZones, rd')              =
->       foldl' taskRunner (fw.fwZRecs, fw.fwPreZones, fw.fwDispositions) fw.fwZRecs
+>     (zrecs', rd')              =
+>       foldl' taskRunner (fw.fwZRecs, fw.fwDispositions) fw.fwZRecs
 >
->     taskRunner         :: (IntMap InstZoneRecord, IntMap PreZone, ResultDispositions)
+>     taskRunner         :: (IntMap InstZoneRecord, ResultDispositions)
 >                           → InstZoneRecord
->                           → (IntMap InstZoneRecord, IntMap PreZone, ResultDispositions)
->     taskRunner (zrecs, pzsSoFar, rdFold) zrec
+>                           → (IntMap InstZoneRecord, ResultDispositions)
+>     taskRunner (zrecs, rdFold) zrec
 >                                          =
 >       let
 >         mzrec          :: Maybe InstZoneRecord
->         (mzrec, pzsFold, rdFold')        = userFun zrec pzsSoFar rdFold
+>         (mzrec, rdFold')        = userFun zrec rdFold
 >       in
 >         (IntMap.update (const mzrec) (fromIntegral zrec.zswInst) zrecs
->         , pzsFold
 >         , rdFold')
 >
 > zrecCompute            :: ∀ a . FileWork → (a → InstZoneRecord → a) → a → a
@@ -923,10 +919,10 @@ adopt task =====================================================================
 >     fName_                               = "adoptTaskIf"
 >     trace_ATI                            = unwords [fName_, show $ IntMap.keysSet fWork.fwOwners]
 >
->     adopter zrec pzdb rd                 =
+>     adopter zrec rd                 =
 >       case fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwOwners of
->         Nothing                          → (Nothing,   pzdb, rd)
->         Just iset                        → (Just zrec, pzdb, IntSet.foldl' (adopt zrec) rd iset)
+>         Nothing                          → (Nothing,   rd)
+>         Just iset                        → (Just zrec, IntSet.foldl' (adopt zrec) rd iset)
 >
 >     adopt zrec rdFold bix
 >       | traceNever trace_A False         = undefined
@@ -951,7 +947,7 @@ smash task =====================================================================
 >       where
 >         reverser pds iLeft iRight        = IntMap.insert iRight iLeft pds
 >
->     smasher zrec pzdb rdFold             =
+>     smasher zrec rdFold             =
 >       let
 >         tag                              = show (instKey zrec).pgkwInst
 >         addPartners from                 = from `IntSet.union` newPartners
@@ -963,9 +959,9 @@ smash task =====================================================================
 >                 IntSet.filter qualify from
 >         smashVar                         = fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwOwners
 >                                            >>= Just . addPartners
->                                            >>= Just . computeInstSmashup tag pzdb
+>                                            >>= Just . computeInstSmashup tag fWork.fwPreZones
 >       in
->         (Just zrec{zsSmashup = smashVar}, pzdb, rdFold)
+>         (Just zrec{zsSmashup = smashVar}, rdFold)
 >
 > computeInstSmashup     :: String → IntMap PreZone → IntSet → Smashing Word
 > computeInstSmashup tag pzdb bixen
@@ -1004,12 +1000,12 @@ To build the map
 >                                          = fWork.fwDirectives
 >     closeEnough x y                      = absorbThreshold < howClose (fst x) (fst y)
 >
->     reorger zrec pzdb rdFold
->       | not doAbsorption                 = (Just zrec,                          pzdb, rdFold)
->       | isJust dprobe                    = (Just zrec,                          pzdb, dispose pergm scansBlocked rdFold)
->       | isNothing aprobe                 = (Just zrec,                          pzdb, rdFold)
->       | party == wInst                   = (Just zrec{zsSmashup = Just hsmash}, pzdb, dispose pergm scansIng rdFold)
->       | otherwise                        = (Nothing,                            pzdb, dispose pergm scansEd rdFold)
+>     reorger zrec rdFold
+>       | not doAbsorption                 = (Just zrec,                          rdFold)
+>       | isJust dprobe                    = (Just zrec,                          dispose pergm scansBlocked rdFold)
+>       | isNothing aprobe                 = (Just zrec,                          rdFold)
+>       | party == wInst                   = (Just zrec{zsSmashup = Just hsmash}, dispose pergm scansIng rdFold)
+>       | otherwise                        = (Nothing,                            dispose pergm scansEd rdFold)
 >       where
 >         fName                            = "reorger"
 >
@@ -1136,10 +1132,10 @@ clean task =====================================================================
 >
 >     owners                               = makeOwners fWork.fwPreZones
 >           
->     cleaner zrec pzdb rdFold             =
+>     cleaner zrec rdFold                  =
 >       case fromIntegral zrec.zswInst `IntMap.lookup` owners of
->         Nothing                          → (Nothing,   pzdb, dispose (instKey zrec) ssNoZones rdFold)
->         _                                → (Just zrec, pzdb, rdFold)
+>         Nothing                          → (Nothing,   dispose (instKey zrec) ssNoZones rdFold)
+>         _                                → (Just zrec, rdFold)
 
 perI task =============================================================================================================
           generating PerInstrument map

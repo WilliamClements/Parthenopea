@@ -7,7 +7,6 @@ June 22, 2024
 
 > module Parthenopea.Repro.EnvelopesTest ( envelopesTests ) where
 >
-> import Data.Foldable
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation

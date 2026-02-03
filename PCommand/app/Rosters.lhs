@@ -67,7 +67,7 @@
 >                                         ++ ejingles
 >
 > selectedJingleList     :: Directives → [Song]
-> selectedJingleList _                     = ajingles
+> selectedJingleList _                     = djingles
 >   -- [ Song    "sunPyg"      (sunPyg dives)              Map.empty]
 >   -- [ Song    "bake"        (const $ bakedJingle 1003)  Map.empty]
 >   -- [ Song    "iboogie"     (iboogie)                   Map.empty]
