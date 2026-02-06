@@ -1,0 +1,3 @@
+packages:
+  Parthenopea.cabal
+with-compiler: ghc-9.10.3

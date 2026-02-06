@@ -237,7 +237,7 @@ accessed in end time order.
 >
 >     safeAverage        :: Double → Int → Double
 >     safeAverage dd n
->       | n == 0                           = 0.0
+>       | n == 0                           = 0
 >       | otherwise                        = dd / fromIntegral n
 >
 > checkUrnOk             :: Bake → Bool

@@ -47,7 +47,7 @@ Implement the SoundFont envelope model with specified:
    1    2    3  4      6
 
 Create a straight-line envelope generator with following phases:
- - delay - ~zero most of the time
+   delay
    attack
    hold
    decay
@@ -57,6 +57,8 @@ Create a straight-line envelope generator with following phases:
 > doEnvelope             :: ∀ p . Clock p ⇒ TimeFrame → Maybe FEnvelope → Signal p () Double
 > doEnvelope timeFrame                     = maybe (constA 1) makeSF
 >   where
+>     fName                                = "doEnvelope"
+>
 >     makeSF             :: FEnvelope → Signal p () Double
 >     makeSF envIn                         =
 >       let
@@ -65,7 +67,7 @@ Create a straight-line envelope generator with following phases:
 >       in
 >         if ok
 >           then envLineSeg segs.sAmps segs.sDeltaTs
->           else error $ unwords ["unexpected"]
+>           else error $ unwords [fName, "computed envelope rejected", show envNow, show segs]
 >
 > proposeSegments        :: TimeFrame → FEnvelope → (FEnvelope, Segments)
 > proposeSegments tf envRaw                = (r, segs)
@@ -343,7 +345,8 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >     kChunk                               = truncate $ clockRate * 0.5
 >     kSkip                                = round    $ clockRate * (env.fDelayT + env.fAttackT)
 >
->     prolog, epilog     :: VU.Vector Double
+>     prolog, epilog, afterAttack
+>                         :: VU.Vector Double
 >     prolog                               = VU.force $ VU.slice 0               kCheck dsig.dsigVec
 >     epilog                               = VU.force $ VU.slice (kSig - kCheck) kCheck dsig.dsigVec
 >     afterAttack                          = VU.force $ VU.slice kSkip (kSig - kSkip)   dsig.dsigVec

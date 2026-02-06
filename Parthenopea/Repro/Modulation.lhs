@@ -367,7 +367,7 @@ Filters are complex AND have a large impact ====================================
 > procFilter             :: ∀ p . Clock p ⇒ Lowpass → Signal p (Double, Double) Double
 > procFilter lp@Lowpass{lowpassType}       =
 >   case lowpassType of
->     ResonanceNone                        → error $ unwords ["should not reach procFilter if ResonanceNone"]
+>     ResonanceNone                        → error $ unwords ["should not reach procFilter if", show lowpassType]
 >     ResonanceSVF                         → procSVF lp
 >     ResonanceChamberlin                  → procChamberlin lp
 
@@ -540,7 +540,7 @@ Type declarations ==============================================================
 >   } deriving (Eq, Show)
 > lowpassFc, lowpassQ    :: Lowpass → Double
 > lowpassFc lp                             = fromAbsoluteCents lp.lowpassKs.ksFc -- (ksFc $ lowpassKs lp)
-> lowpassQ lp                              = fromIntegral      (ksQ  $ lowpassKs lp)
+> lowpassQ lp                              = fromIntegral      (ksQ $ lowpassKs lp)
 >
 > data CoeffsM2N2                          =
 >   CoeffsM2N2 {
