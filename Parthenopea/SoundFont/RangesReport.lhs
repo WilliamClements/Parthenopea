@@ -53,7 +53,7 @@ check all the incoming music for instrument range violations ===================
 
 > writeRangesReport      :: Directives → [Song] → Map GMKind Shred → IO ()
 > writeRangesReport dives songs ding       = do
->   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, show $ length songs])
+>   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, "--", show $ length songs, "songs"])
 >   let rollup                             =
 >         Song "rollup" (foldr ((:+:) . songMusic) (rest 0) songs) ding
 >   let esAll                              = concatMap doSong songs

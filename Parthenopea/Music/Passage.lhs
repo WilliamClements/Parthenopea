@@ -112,8 +112,11 @@ _Overall_                =
 > passage dives bp markings ma
 >   | not enableDynamics                   = toMusic1 ma
 >   | null markings                        = error $ unwords ["empty markings"]
->   | otherwise                            = removeZeros $ passageImpl dives bp (expandMarkings markings) (removeZeros ma)
->
+>   | otherwise                            =
+>     removeZeros $ passageImpl dives bp (expandMarkings markings) (removeZeros ma)
+
+Construct a vector of MekNotes called "enriched" then fold it into a Music1 ===========================================
+
 > passageImpl            :: Directives → BandPart → VB.Vector Marking → Music Pitch → Music1
 > passageImpl _ bp markings ma
 >   | traceIf trace_IP False               = undefined
@@ -131,9 +134,9 @@ _Overall_                =
 >       where
 >         fName                            = unwords [fName_, "final"]
 >
->         makeNas        :: Either Velocity (VB.Vector Double) → [NoteAttribute]
->         makeNas (Left homeVolume)        = [Volume homeVolume]
->         makeNas (Right sweeps)           =
+>         makeNAs        :: Either Velocity (VB.Vector Double) → [NoteAttribute]
+>         makeNAs (Left homeVolume)        = [Volume homeVolume]
+>         makeNAs (Right sweeps)           =
 >           profess
 >             (not $ VB.null sweeps)
 >             (unwords [fName, "illegally null sweeps"])
@@ -143,7 +146,7 @@ _Overall_                =
 >         average sweeps                   = round $ VB.sum sweeps / (fromIntegral . VB.length) sweeps
 >
 >         mangleNote     :: Dur → a → Music (a, [NoteAttribute])
->         mangleNote dM pM                 = note dM (pM, Dynamics fName_ : (makeNas . deJust fName) mek.mParams)
+>         mangleNote dM pM                 = note dM (pM, Dynamics fName_ : (makeNAs . deJust fName) mek.mParams)
 >
 >     -- evolve enriched note/rest (MekNote) list
 >     rawMeks, withOveralls, seeded, enriched
@@ -195,6 +198,7 @@ _Overall_                =
 >           in
 >             fst $ foldl' slotIn ([], 0) pList
 >
+>     mekFence                             = VB.length rawMeks - 1
 >     (nodePairs, nodeGroups)              = formNodeGroups rawMeks
 >
 >     withOveralls                         = rawMeks `VB.update` lode
@@ -220,7 +224,6 @@ _Overall_                =
 >     seeded                               = withOveralls `VB.update` lode
 >       where
 >         lode                             = VB.concatMap enseed nodeGroups
->         mekFence                         = VB.length withOveralls - 1
 >
 >         enseed         :: VB.Vector SelfIndex → VB.Vector (SelfIndex, MekNote)
 >         enseed nodeGroup

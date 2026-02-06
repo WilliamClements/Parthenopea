@@ -89,7 +89,8 @@ Current solution:
 >    defPairing
 >    virginrd
 >
-> makeOwners             :: IntMap PreZone → IntMap IntSet
+> makeOwners             :: IntMap PreZone               {- [BagIndex → pz]                       -}
+>                           → IntMap IntSet              {- [InstIndex → [BagIndex]]              -}
 > makeOwners                               = IntMap.foldl' build IntMap.empty
 >   where
 >     build m pz                           =
@@ -97,9 +98,9 @@ Current solution:
 >
 > data Pairing                             =
 >   Pairing {
->     fwPartners         :: IntMap Int                   {- [SampleIndex → SampleIndex] -}
->   , fwPairings         :: IntMap Int                   {- [BagIndex → BagIndex]       -}
->   , fwActions          :: IntMap IntSet                {- [InstIndex → [BagIndex]]    -}}
+>     fwPartners         :: IntMap Int                   {- [SampleIndex → SampleIndex]            -}
+>   , fwPairings         :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
+>   , fwActions          :: IntMap IntSet                {- [InstIndex → [BagIndex]]               -}}
 >   deriving Show
 > defPairing             :: Pairing
 > defPairing                               =
@@ -215,10 +216,9 @@ Boot executive function ========================================================
 >         survey@Survey{ .. }                     
 >                                          = reduceFileIterate ingestFile
 >
->         fiterate                         = makeFileIterate dives sffile rost 
 >         ingestFile                       = head
 >                                            $ dropWhile unfinished
->                                            $ iterate nextGen fiterate
+>                                            $ iterate' nextGen (makeFileIterate dives sffile rost)
 >           where
 >             unfinished fiIn              = not (null fiIn.fiTaskIfs)
 >             nextGen fiIn@FileIterate{ .. }
@@ -301,7 +301,7 @@ pre-sample task ================================================================
 >                                              then (ssSample_, singleton FixBadName, good)
 >                                              else (ssSample_, [],                   raw)
 >       in
->         fwForm{ fwPreSamples = preSampleCache, fwDispositions = dispose presk ssSample fwForm.fwDispositions}
+>         fwForm{fwPreSamples = preSampleCache, fwDispositions = dispose presk ssSample fwForm.fwDispositions}
 
 smell task ============================================================================================================
           partner map at sample header level - note: all PreZone pairings map their L and R to these shdr partners
@@ -489,7 +489,14 @@ instrument task ================================================================
 >           | otherwise                    =
 >             IntMap.insert (fromIntegral newZRec.zswInst) newZRec inst.iZRecs
 >           where
->             newZRec                      = makeZRec pergm (ChangeName iinst changes finalName)
+>             changes                      = if wasRescued BadName ssSurvey then singleton FixBadName else []
+>             finalName                    = if wasRescued BadName ssSurvey then good else raw
+>             cn                           =
+>               ChangeName
+>                 iinst
+>                 changes
+>                 finalName
+>             newZRec                      = makeZRec pergm cn
 >         rd'                              = dispose pergm ssSurvey inst.iDispo
 >
 >         ssSurvey
@@ -497,15 +504,12 @@ instrument task ================================================================
 >                                          = violated NoZones (show iinst.instName)
 >           | not (goodName raw)           = badButMaybeFix fixBadNames BadName fName raw good
 >           | otherwise                    = accepted Ok (show pergm.pgkwInst)
->
->         changes                          = if wasRescued BadName ssSurvey then singleton FixBadName else []
->         finalName                        = if wasRescued BadName ssSurvey then good else raw
 
 capture task ==========================================================================================================
           populate zrecs with PreZones
           it does clean up zrecs with no zones
 
-> captureTaskIf sffile _ fWork             = imbibe fWork (zrecCompute fWork cFolder (spawn fWork))
+> captureTaskIf sffile _ fWork             = imbibe fWork (zrecCompute fWork capture (spawn fWork))
 >   where
 >     fName_                               = "captureTaskIf"
 >
@@ -523,8 +527,8 @@ capture task ===================================================================
 >     ssRom                                = ssTempl8 Violated   RomBased
 >     ssApplied                            = ssTempl8 Violated   BadAppliedLimits
 >
->     cFolder            :: Capture → InstZoneRecord → Capture
->     cFolder captIn zrec                  = capty{uZRecs = zrecs, uDispo = dispose pergm ssCap capty.uDispo}
+>     capture            :: Capture → InstZoneRecord → Capture
+>     capture captIn zrec                  = capty{uZRecs = zrecs, uDispo = dispose pergm ssCap capty.uDispo}
 >       where
 >         pergm                            = instKey zrec
 >         iName                            = zrec.zswChanges.cnName
@@ -606,12 +610,12 @@ produce and process capture results ============================================
 >               let
 >                 doNormal pz              =
 >                   captFold{uPzs = IntMap.insert (wordB pz) pz{pzSFZone = bz} captFold.uPzs}
->                   where bz = buildZone captFold.uSFZone (Just pz) bix
+>                   where bz               = buildZone captFold.uSFZone (Just pz) bix
 >                 doError (k, ssZone)      =
 >                   if hasImpact GlobalZone ssZone
 >                     then captFold{uSFZone = bz}
 >                     else captFold{uDispo = dispose k ssZone captFold.uDispo}
->                   where bz = buildZone defZone Nothing bix
+>                   where bz               = buildZone defZone Nothing bix
 >               in
 >                 either doNormal doError eor
 >
@@ -743,29 +747,31 @@ pairing flow ===================================================================
 
           And remember: peg 'em and pin 'em!
 
+>     rejects            :: IntSet                       {- [BagIndex]                             -}
 >     rejects                              = IntMap.keysSet universe `IntSet.difference` unpair pairings
 >                                              where universe = IntMap.filter isStereoPZ fWork.fwPreZones
 >
+>     pairings           :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
 >     pairings                             = regular `IntMap.union` extra
 >       where
->         regular, extra :: IntMap Int                   {- [BagIndex → BagIndex]         -}         
+>         regular, extra :: IntMap Int                   {- [BagIndex → BagIndex]                  -}         
 >         regular                          = IntMap.foldlWithKey (pFolder False IntMap.empty) IntMap.empty fwPartners
 >         extra                            = IntMap.foldlWithKey (pFolder True regular)       IntMap.empty fwPartners
 >
->         pFolder        :: Bool                         {- exotic                        -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
->                           → Int                        {- SampleIndex                   -}
->                           → Int                        {- SampleIndex                   -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
+>         pFolder        :: Bool                         {- exotic                                 -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
+>                           → Int                        {- SampleIndex                            -}
+>                           → Int                        {- SampleIndex                            -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
 >         pFolder exo done soFar siFrom siTo
 >                                          = soFar `IntMap.union` inducePairs exo done bsL bsR
 >           where
->             bsL, bsR   :: IntSet                       {- [BagIndex]                    -}             
+>             bsL, bsR   :: IntSet                       {- [BagIndex]                             -}             
 >             bsL                          = fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
 >             bsR                          = fromMaybe IntSet.empty (siTo   `IntMap.lookup` mRight)
 >
->         mLeft, mRight  :: IntMap IntSet                {- [SampleIndex → [BagIndex]]    -}
+>         mLeft, mRight  :: IntMap IntSet                {- [SampleIndex → [BagIndex]]             -}
 >         (mLeft, mRight)                  =
 >           IntMap.foldl' (uncurry fFolder) (IntMap.empty, IntMap.empty) fWork.fwPreZones
 >           where
@@ -776,11 +782,11 @@ pairing flow ===================================================================
 >             putMembers pz                =
 >               IntMap.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
 >
->     inducePairs        :: Bool                         {- exotic                        -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
->                           → IntSet                     {- [BagIndex]                    -}
->                           → IntSet                     {- [BagIndex]                    -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
+>     inducePairs        :: Bool                         {- exotic                                 -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
+>                           → IntSet                     {- [BagIndex]                             -}
+>                           → IntSet                     {- [BagIndex]                             -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
 >     inducePairs exo done bixenL bixenR   = Map.foldlWithKey ((pin . peg) bixenR') IntMap.empty (peg bixenL') 
 >       where
 >         fName_                           = unwords [fName__, "inducePairs"]
@@ -792,8 +798,8 @@ pairing flow ===================================================================
 >         bixenL'                          = bixenL `IntSet.difference` pairedSoFar
 >         bixenR'                          = bixenR `IntSet.difference` pairedSoFar
 >
->         peg            :: IntSet                       {- [BagIndex]                    -}
->                           → Map PairingSlot IntSet     {- [ps → [BagIndex]]             -}
+>         peg            :: IntSet                       {- [BagIndex]                             -}
+>                           → Map PairingSlot IntSet     {- [ps → [BagIndex]]                      -}
 >         peg                              = IntSet.foldl' pegBix Map.empty
 >           where
 >             pegBix m bix                 = 
@@ -806,11 +812,11 @@ pairing flow ===================================================================
 >               in
 >                 Map.insertWith IntSet.union iSlot (IntSet.singleton bix) m
 >
->         pin            :: Map PairingSlot IntSet       {- [ps → [BagIndex]]             -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
->                           → PairingSlot                {- ps                            -}
->                           → IntSet                     {- [BagIndex]                    -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]         -}
+>         pin            :: Map PairingSlot IntSet       {- [ps → [BagIndex]]                      -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
+>                           → PairingSlot                {- ps                                     -}
+>                           → IntSet                     {- [BagIndex]                             -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
 >         pin pegBoard m iSlot bL
 >           | traceNot trace_P False       = undefined
 >           | otherwise                    = m `IntMap.union` IntMap.fromList newPairs
@@ -837,16 +843,16 @@ pairing convenience functions ==================================================
           twoWay           - complete the map (add R → L)
           makeActions      - turn input set of bixen into instrument-based actions list
 
-> unpair                 :: IntMap Int                   {- [BagIndex → BagIndex]         -}
->                           → IntSet                     {- [BagIndex]                    -}
+> unpair                 :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
+>                           → IntSet                     {- [BagIndex]                             -}
 > unpair                                   =
 >   let
 >     ifolder iset ifrom ito               = (IntSet.insert ito . IntSet.insert ifrom) iset
 >   in
 >     IntMap.foldlWithKey ifolder IntSet.empty
 >
-> twoWay                 :: IntMap Int                   {- [BagIndex → BagIndex]         -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]]        -}
+> twoWay                 :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
+>                           → IntMap Int                 {- [BagIndex → BagIndex]]                 -}
 > twoWay                                   =
 >   let
 >     ifolder            :: IntMap Int → Int → Int → IntMap Int
@@ -855,8 +861,8 @@ pairing convenience functions ==================================================
 >     IntMap.foldlWithKey ifolder IntMap.empty
 >
 > makeActions            :: FileWork
->                           → IntSet                     {- [BagIndex]                    -}
->                           → IntMap IntSet              {- [InstIndex → [BagIndex]]      -}
+>                           → IntSet                     {- [BagIndex]                             -}
+>                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
 > makeActions fWork                        =
 >   let
 >     make actions bix                     = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton bix) actions

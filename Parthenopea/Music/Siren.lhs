@@ -528,25 +528,25 @@ examine song for instrument and percussion usage ===============================
 >   in
 >     unwords [show sec', "sec,", show notes, "notes"]
 >
-> shredMusic              :: ToMusic1 a ⇒ Music a → IO (Map GMKind Shred)
+> shredMusic             :: ToMusic1 a ⇒ Music a → IO (Map GMKind Shred)
 > shredMusic m                             =
 >   return $ foldl' shFolder Map.empty $ fst (musicToMEvents defaultContext (toMusic1 m))
 >   where
 >     shFolder ding mev                    =
 >       let
->         kind               :: GMKind         = getGMKind mev
->         mshred             :: Maybe Shred    = Map.lookup kind ding
+>         kind                             = getGMKind mev
+>         mshred                           = Map.lookup kind ding
 >
->         getGMKind MEvent{eInst, ePitch}      =
+>         getGMKind MEvent{eInst, ePitch}  =
 >           case eInst of
->             Percussion                       → Right $ toEnum (ePitch - 35)
->             _                                → Left eInst
+>             Percussion                   → Right $ toEnum (ePitch - 35)
+>             _                            → Left eInst
 >       in
 >         case mshred of
->           Nothing                            → Map.insert kind (Shred mev mev 1) ding
->           Just shred                         → Map.insert kind (upd shred) ding
+>           Nothing                        → Map.insert kind (Shred mev mev 1) ding
+>           Just shred                     → Map.insert kind (upd shred) ding
 >       where
->         upd shred                            =
+>         upd shred                        =
 >           Shred
 >            (if ePitch mev < ePitch shred.shLowNote  then mev else shred.shLowNote)
 >           (if ePitch mev > ePitch shred.shHighNote then mev else shred.shHighNote)
@@ -660,7 +660,8 @@ music-related utilities ========================================================
 > rolln                                    = trilln 0
 >
 > percPitchRange         :: (Word, Word)
-> percPitchRange                           = ((fromIntegral . fromEnum) AcousticBassDrum + 35, (fromIntegral . fromEnum) OpenTriangle + 35)
+> percPitchRange                           = ((fromIntegral . fromEnum) AcousticBassDrum + 35
+>                                           , (fromIntegral . fromEnum) OpenTriangle + 35)
 >
 > pinnedKR               :: [PercussionSound] → (AbsPitch, AbsPitch) → Maybe (AbsPitch, AbsPitch)
 > pinnedKR pss (p1, p2)                    = if qualifies then Just (p1, p2) else Nothing                   

@@ -85,11 +85,11 @@ Implement PCommand =============================================================
 >             (putStr $ reapEmissions [  EndOfLine
 >                                      , Unblocked $ unwords ["surveySoundFonts"], EndOfLine])
 >   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
->   putStrLn "extracted!"
 >   let vFilesBoot                         = VB.fromList extraction
 >   if VB.null vFilesBoot
 >     then return ()
 >     else do
+>       putStrLn "extracted!"
 >       (runt, choices)                    ← commandLogic dives rost vFilesBoot
 >       -- here's the heart of the coconut
 >       mapM_ (renderSong runt choices) songs
@@ -137,8 +137,7 @@ Implement PCommand =============================================================
 >     let ks                               = Map.keys ding
 >     let (is, ps)                         = (lefts ks, rights ks)
 >     let (esI, esP)                       = printChoices choices is ps
->     let ex                               = concatMap snd esI ++ concatMap snd esP
->     putStr $ reapEmissions ex
+>     putStr $ reapEmissions (concatMap snd esI ++ concatMap snd esP)
 >     -- render song only if all OK
 >     if all fst esI && all fst esP
 >       then do

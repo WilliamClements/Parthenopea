@@ -29,8 +29,9 @@ common warnings
       -O2
       -funbox-strict-fields
       -fexcess-precision
-      -Wall
+      -W
       -Wno-x-partial
+      -Wno-name-shadowing
 
 library
     import:             warnings
@@ -84,6 +85,7 @@ executable PCommand
                         Tunes.Opus131, Tunes.SunPyg
     build-depends:
         base                       >= 4.15,
+        cmdargs                    >= 0.10.22,
         containers                 >= 0.5.5.1,
         Euterpea                   >= 2.0.8,
         Parthenopea,
