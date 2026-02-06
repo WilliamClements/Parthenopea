@@ -11,7 +11,7 @@ July 10, 2025
 > import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.Directives
   
-Opus131 ===============================================================================================================
+Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C Sharp Minor ===========================
 
 > o131Tempo              :: Dur
 > o131Tempo                                = 1

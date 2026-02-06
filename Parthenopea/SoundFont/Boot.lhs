@@ -440,14 +440,12 @@ iterating InstZoneRecord list ==================================================
 >     taskRunner         :: (IntMap InstZoneRecord, ResultDispositions)
 >                           → InstZoneRecord
 >                           → (IntMap InstZoneRecord, ResultDispositions)
->     taskRunner (zrecs, rdFold) zrec
->                                          =
+>     taskRunner (zrecs, rdFold) zrec      =
 >       let
 >         mzrec          :: Maybe InstZoneRecord
 >         (mzrec, rdFold')        = userFun zrec rdFold
 >       in
->         (IntMap.update (const mzrec) (fromIntegral zrec.zswInst) zrecs
->         , rdFold')
+>         (IntMap.update (const mzrec) (fromIntegral zrec.zswInst) zrecs, rdFold')
 >
 > zrecCompute            :: ∀ a . FileWork → (a → InstZoneRecord → a) → a → a
 > zrecCompute fw userFun seed              = IntMap.foldl' userFun seed fw.fwZRecs

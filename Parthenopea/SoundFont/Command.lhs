@@ -73,11 +73,12 @@ Implement PCommand =============================================================
 > proceed dives isongs mids sf2s           = do
 >   msongs                                 ← mapM convertFromMidi mids
 >   songs                                  ← mapM captureSong (isongs ++ msongs)
+>   let nSongs                             = length songs
 >
->   CM.when (20 < length songs && not (null sf2s)) runUnitTests
+>   CM.when (20 < nSongs && not (null sf2s)) runUnitTests
 >
 >   let ding                               = Map.unionsWith combineShreds (map shreds songs)
->   CM.when (dForRanges > 0) (writeRangesReport dives songs ding)
+>   CM.when (dForRanges > 0 && 0 < nSongs) (writeRangesReport dives songs ding)
 >
 >   rost                                   ← identifyRoster ding songs
 >

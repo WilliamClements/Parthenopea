@@ -1,12 +1,12 @@
 # Parthenopea
 
-Computer music project centered around Euterpea. This new *batch processor* automates orchestration - applying found SoundFont Instruments to songs and batch-producing sharable music files.
+Computer music project centered around Euterpea. This new *batch processor* automates orchestration in a sense - applying found SoundFont Instruments to songs and batch-producing sharable music files.
 
 For more on music educational software and Euterpea, see <https://www.euterpea.com> and obtain its textbook ***Haskell School of Music***.
 
 ## Usage concept
 
-All of Euterpea is available to the programming user for creating algorithmic compositions in Haskell. Some new capabilities have been added; e.g. *Passages*, for controlling volume dynamics within a song. But the main actor here is *PCommand*, an executable (provided in Release). Invoke it to do a batch processing run.
+All of Euterpea is available to the programming user for creating algorithmic compositions in Haskell. Some new capabilities have been added; e.g. *Passages*, for controlling dynamics within a song. But the main actor here is *PCommand*, an executable (provided in Release). Invoke it to do a batch processing run.
 
 Have fun and be creative :musical_note: with interesting sounds for your instruments. Study sampled sound content via the batch processor's reports.
 
