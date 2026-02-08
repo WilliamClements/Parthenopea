@@ -26,12 +26,13 @@ source-repository head
 
 common warnings
     ghc-options:
-      -O2
-      -funbox-strict-fields
       -fexcess-precision
+      -funbox-strict-fields
+      -O2
       -W
       -Wno-x-partial
       -Wno-name-shadowing
+      -Wno-unused-top-binds
 
 library
     import:             warnings

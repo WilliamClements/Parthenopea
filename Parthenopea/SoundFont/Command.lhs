@@ -130,7 +130,7 @@ Implement PCommand =============================================================
 > renderSong runt choices (Song name music ding)
 >                                          =
 >   do
->     let switches                         = runt.zDirectives.synthSwitches
+>     let sw                               = runt.zDirectives.synthSwitches
 >
 >     tsStart                              ← getZonedTime
 >     putStr $ reapEmissions [Unblocked $ unwords ["renderSong", name], EndOfLine]
@@ -143,7 +143,7 @@ Implement PCommand =============================================================
 >     if all fst esI && all fst esP
 >       then do
 >         let (durS, s)                    = renderSF music runt.zInstrumentMap
->         if switches.normalizingOutput
+>         if sw.normalizingOutput
 >           then outFileNorm               (name ++ ".wav") durS s
 >           else outFile                   (name ++ ".wav") durS s
 >         tsFinish                         ← getZonedTime

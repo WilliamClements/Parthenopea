@@ -253,7 +253,7 @@ reconcile zone and sample header ===============================================
 >     fName                                = "resolvePreZone"
 >     trace_RPZ                            = unwords [fName, show zd, show (rApplied reconL)]
 >
->     switches                             = dives.synthSwitches
+>     sw                                   = dives.synthSwitches
 >     zd                                   = pz.pzDigest
 >     z                                    = pz.pzSFZone
 >     shdr                                 = effPZShdr pz
@@ -274,8 +274,8 @@ reconcile zone and sample header ===============================================
 >         (fromIntegral $ fromMaybe shdr.originalPitch z.zRootKey)
 >         (fromMaybe 100 z.zScaleTuning)
 >         (reconAttenuation z.zInitAtten)
->         (deriveEnvelope switches z.zDelayVolEnv z.zAttackVolEnv z.zHoldVolEnv z.zDecayVolEnv z.zSustainVolEnv Nothing)                         
->         (if switches.usePitchCorrection
+>         (deriveEnvelope sw z.zDelayVolEnv z.zAttackVolEnv z.zHoldVolEnv z.zDecayVolEnv z.zSustainVolEnv Nothing)                         
+>         (if sw.usePitchCorrection
 >            then Just $ reconPitchCorrection shdr.pitchCorrection z.zCoarseTune z.zFineTune
 >            else Nothing)
 >         m8n
@@ -286,7 +286,7 @@ reconcile zone and sample header ===============================================
 >     reconPitchCorrection sub mps mpc     = fromMaybe ((fromCents . fromIntegral) sub) (fromCents' mps mpc)
 >
 >     reconAttenuation   :: Maybe Int → Double
->     reconAttenuation _                   = if switches.useAttenuation
+>     reconAttenuation _                   = if sw.useAttenuation
 >                                              then maybe 0 fromIntegral z.zInitAtten
 >                                              else 0
 >
@@ -307,10 +307,9 @@ reconcile zone and sample header ===============================================
 > resolveModulation dives z                = resolveMods
 >                                              m8n
 >                                              z.zModulators
->                                              (if useDefModulators then defaultMods else [])
+>                                              (if sw.useDefModulators then defaultMods else [])
 >   where
->     SynthSwitches{ .. }
->                                          = dives.synthSwitches
+>     sw                                   = dives.synthSwitches
 >     m8n                :: Modulation     =
 >       defModulation{
 >         mLowpass                         = Lowpass resonanceType curKernelSpec
@@ -329,16 +328,15 @@ reconcile zone and sample header ===============================================
 >         True
 >         (-1) -- must always be replaced
 >
->     resonanceType      :: ResonanceType  = ResonanceSVF
->     nModEnv            :: Maybe FEnvelope
->     nModEnv                              =   deriveEnvelope
->                                                dives.synthSwitches
->                                                z.zDelayModEnv
->                                                z.zAttackModEnv
->                                                z.zHoldModEnv
->                                                z.zDecayModEnv
->                                                z.zSustainModEnv
->                                                (Just (z.zModEnvToPitch, z.zModEnvToFc))
+>     resonanceType                        = ResonanceSVF
+>     nModEnv                              = deriveEnvelope
+>                                              dives.synthSwitches
+>                                              z.zDelayModEnv
+>                                              z.zAttackModEnv
+>                                              z.zHoldModEnv
+>                                              z.zDecayModEnv
+>                                              z.zSustainModEnv
+>                                              (Just (z.zModEnvToPitch, z.zModEnvToFc))
 >     nModLfo, nVibLfo   :: Maybe LFO
 >     nModLfo                              =
 >       deriveLFO z.zDelayModLfo z.zFreqModLfo z.zModLfoToPitch z.zModLfoToFc z.zModLfoToVol
@@ -355,7 +353,7 @@ reconcile zone and sample header ===============================================
 >     deriveLFO          :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
 >     deriveLFO del mfreq toPitch toFilterFc toVolume
 >                                          =
->       if useLFO && anyJust
+>       if sw.useLFO && anyJust
 >         then Just $ LFO (fromTimecents del)
 >                         (fromAbsoluteCents $ fromMaybe 0 mfreq)
 >                         (deriveModTriple toPitch toFilterFc toVolume)

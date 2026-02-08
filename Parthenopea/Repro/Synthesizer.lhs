@@ -210,18 +210,17 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >         ampR                             = fromIntegral noon.noteOnVel / 100 / cAttenR
 >
 >     addResonance       :: Modulation → Signal p (Double, ModSignals) Double
->     addResonance m8n@Modulation{mLowpass}
->                                          = final
+>     addResonance m8n                     = res
 >       where
->         final                            =
+>         res                              =
 >           proc (sIn, msig)               → do
 >             let fc                       = modulateFc msig
->             pickled ← procFilter mLowpass ⤙ (sIn, fc)
+>             pickled ← procFilter m8n.mLowpass ⤙ (sIn, fc)
 >             outA                         ⤙ pickled
 >
 >         modulateFc     :: ModSignals → Double
 >         modulateFc msig                  =
->           clip freakRange (lowpassFc mLowpass * evaluateModSignals sw "modulateFc" m8n ToFilterFc noon msig)
+>           clip freakRange (lowpassFc m8n.mLowpass * evaluateModSignals sw "modulateFc" m8n ToFilterFc noon msig)
 
 Account for custom frequency intervals -- SoundFont scale tuning : 0 < x < 100 < 1200
 Clearly multiple root pitches are mutually incompatible, in general, for calculating frequency ratios
@@ -252,34 +251,31 @@ Modulation Signals =============================================================
 Effects ===============================================================================================================
 
 > deriveEffects          :: SynthSwitches → Modulation → Maybe Int → Maybe Int → Maybe Int → NoteOn → Effects
-> deriveEffects
->   sw@SynthSwitches{ .. }
->   m8n mChorus mReverb mPan noon
+> deriveEffects sw m8n mChorus mReverb mPan noon
 >                                          = Effects 
 >                                             (dChorus / 1000) 
 >                                             (dReverb / 1000) 
 >                                                (dPan / 1000)
 >   where
 >     dChorus            :: Double         =
->       if useChorus
+>       if sw.useChorus
 >         then maybe 0 fromIntegral mChorus + evaluateMods sw ToChorus m8n.mModsMap noon
 >         else 0
 >     dReverb            :: Double         =
->       if useReverb
+>       if sw.useReverb
 >         then maybe 0 fromIntegral mReverb + evaluateMods sw ToReverb m8n.mModsMap noon
 >         else 0
 >     dPan               :: Double         =
->       if usePan
+>       if sw.usePan
 >         then maybe 0 fromIntegral mPan
 >         else 0
 >
 > eutEffectsMono       :: ∀ p . Clock p ⇒ SynthSwitches → Effects → Signal p Double Double
-> eutEffectsMono
->   SynthSwitches{ .. }
->   Effects{ .. }
+> eutEffectsMono sw Effects{ .. }
 >                                          =
 >   proc aL → do
->     chL ← eutChorus chorusRate chorusDepth efChorus      ⤙ aL
+>     chL ← eutChorus sw.chorusRate sw.chorusDepth efChorus
+>                                                          ⤙ aL
 >     rbL ← eutReverb efReverb                             ⤙ aL
 >
 >     let mixL = (  efChorus       * chL
@@ -288,21 +284,21 @@ Effects ========================================================================
 >                 + (1 - efReverb) * aL) / 2
 >
 >     let pL                                               =
->           if noStereoNoPan then mixL else fst $ doPan (efPan, efPan) (mixL, mixL)
+>           if sw.noStereoNoPan then mixL else fst $ doPan (efPan, efPan) (mixL, mixL)
 >
->     pL' ←          if not useDCBlock
+>     pL' ←          if not sw.useDCBlock
 >                      then delay 0                        ⤙ pL
 >                      else dcBlock 0.995                  ⤙ pL
 >     outA                                                 ⤙ pL'
 >
 > eutEffectsStereo       :: ∀ p . Clock p ⇒
 >                           SynthSwitches → Effects → Effects → Signal p (Double, Double) (Double, Double)
-> eutEffectsStereo
->   SynthSwitches{ .. }
->   effL effR                              =
+> eutEffectsStereo sw effL effR            =
 >   proc (aL, aR)                          → do
->     chL ← eutChorus chorusRate chorusDepth cFactorL      ⤙ aL
->     chR ← eutChorus chorusRate chorusDepth cFactorR      ⤙ aR
+>     chL ← eutChorus sw.chorusRate sw.chorusDepth cFactorL
+>                                                          ⤙ aL
+>     chR ← eutChorus sw.chorusRate sw.chorusDepth cFactorR
+>                                                          ⤙ aR
 >
 >     rbL ← eutReverb rFactorL                             ⤙ aL
 >     rbR ← eutReverb rFactorR                             ⤙ aR
@@ -318,10 +314,10 @@ Effects ========================================================================
 >
 >     let (pL, pR) = doPan (pFactorL, pFactorR) (mixL, mixR)
 >
->     pL' ←        if not useDCBlock
+>     pL' ←        if not sw.useDCBlock
 >                    then delay 0                          ⤙ pL
 >                    else dcBlock 0.995                    ⤙ pL
->     pR' ←        if not useDCBlock
+>     pR' ←        if not sw.useDCBlock
 >                    then delay 0                          ⤙ pR
 >                    else dcBlock 0.995                    ⤙ pR
 >     outA                                                 ⤙ (pL', pR')

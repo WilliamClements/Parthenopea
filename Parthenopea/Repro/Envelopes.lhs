@@ -280,9 +280,9 @@ interpret them somehow.
 >                           → Maybe Int
 >                           → Maybe (Maybe Int, Maybe Int)
 >                           → Maybe FEnvelope
-> deriveEnvelope switches mDelay mAttack mHold mDecay mSustain mTriple
+> deriveEnvelope sw mDelay mAttack mHold mDecay mSustain mTriple
 >                                          =
->   if switches.useEnvelopes && doUse mTriple then Just env else Nothing
+>   if sw.useEnvelopes && doUse mTriple then Just env else Nothing
 >   where
 >     env                                  =
 >       FEnvelope
