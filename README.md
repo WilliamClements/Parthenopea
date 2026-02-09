@@ -1,19 +1,29 @@
 # Parthenopea
 
-Computer music project centered around Euterpea. This new *batch processor* automates orchestration in a sense - applying found SoundFont Instruments to songs and batch-producing sharable music files.
+Computer music project centered around Euterpea. The new *batch processor* automates orchestration in a sense - applying found SoundFont Instruments to songs and batch-producing sharable music files.
 
 For more on music educational software and Euterpea, see <https://www.euterpea.com> and obtain its textbook ***Haskell School of Music***.
 
-## Usage concept
+## Usage
 
-All of Euterpea is available to the programming user for creating algorithmic compositions in Haskell. Some new capabilities have been added; e.g. *Passages*, for controlling dynamics within a song. But the main actor here is *PCommand*, an executable (provided in Release). Invoke it to do a batch processing run.
+All of Euterpea is available to the Haskell programming user for creating or transcribing, and playing, compositions. New *Passages* capability adds better control over dynamics within a song.
 
-Have fun and be creative :musical_note: with interesting sounds for your instruments. Study sampled sound content via the batch processor's reports.
+For the "production" end, download *PCommand* Windows 64-bit executable from Releases. Invoke it in an empty folder to start cold. It will prompt you to supply Midi files and SoundFonts to run a true *batch* job.
 
-Batch processor semantics:
+Have fun and be creative :musical_note: with interesting sounds for your instruments. Study sampled sound content via batch processor reports.
+
+## Installation
+
+1. install <https://www.haskell.org/ghcup/> to obtain *cabal* and *ghc*.
+2. clone this repository into a primary folder
+3. clone, beside that, <https://github.com/georgefst/Euterpea2> (a fork of Euterpea avoiding build blockers).
+4. in primary folder, edit provided cabal.project to put in above path to Euterpea2 source
+5. "cabal build" to make PCommand (along with Parthenopea lib)
+
+## Batch processor semantics
 
 1. takes input files from, and sends output files to, the runtime start directory
-2. some Euterpea-coded sample tunes are provided -- Beethoven's string quartet Opus 131 in C Sharp Minor, just the opening fugue, showcases the use of *Passages*.
+2. some Euterpea-coded sample tunes are provided -- Beethoven's string quartet Opus 131 in C Sharp Minor, the opening fugue, showcases the use of *Passages* dynamics annotation.
 3. input:
    - SoundFont files (\*.sf2)
    - MIDI files (\*.mid and/or \*.midi) to be rendered
@@ -28,15 +38,9 @@ Listen to your new song files with initially generated Instrument mappings. Iter
 
 First of all, do collect **many** SoundFont files. The variety is breathtaking. And PCommand's capacity has been tested up to ***500*** SoundFont files totalling ***46 GB*** :astonished: !
 
-The *batchProcessor* conducts *tournaments* to curate the most suitable mined Instruments. Stats and scores driving the result are printed out. Take a look at *Tournament Report* in ***Sample Reports***.
+The batch processor conducts *tournaments* to curate the most suitable mined Instruments. Stats and scores driving the result are printed out. Take a look at *Tournament Report* in ***Sample Reports***.
 
 Note that mixing *unrelated* SoundFont Instruments can sound **off** when played. But interesting anyway to listen to your tunes *varying* Instrument mappings.
-
-## Installation
-
-1. install <https://www.haskell.org/ghcup/> to obtain *cabal* and *ghc*.
-2. clone this repository and <https://github.com/georgefst/Euterpea2> (a fork of Euterpea avoiding build blockers).
-3. create your own simple executable project (PCommand) - make it depend on both packages.
 
 ## Design highlights
 
@@ -70,11 +74,11 @@ Tools like <https://www.polyphone.io/> also function fine when opening those fla
 
 ### Instrument consolidation
 
-Sampling a **natural** Instrument over many small ranges of Pitch and/or Velocity can yield great sound. But Authors often split these many Zones among distinct SoundFont Instruments. Naive implementations, mapping Instruments one to one, loses the advantage :worried: if Instrument is distributed. So prior to synthesis, *partial* Instruments are in effect combined into one that has all the Zones. :relieved:
+Sampling a **natural** Instrument over many small ranges of Pitch and/or Velocity yields nice spacious sound. But Authors often split Zones among distinct SoundFont Instruments. Naive implementations, mapping Instruments one to one, loses the advantage :worried: if Instrument is distributed. So prior to synthesis, *partial* Instruments are in effect combined into one that has all the Zones. :relieved:
 
 ### Zone selection
 
-Don't like to **search**, at note synthesis time, through an Instrument's Zones to isolate one whose Pitch and Velocity ranges peg the two incoming note parameters. Computes winners' cache instead -- search is thus reduced to an array lookup.
+Don't like to **search**, at note synthesis time, through an Instrument's Zones to isolate one whose Pitch and Velocity ranges peg the two incoming note parameters. Lazily computes winners' cache instead -- search is thus reduced to an array lookup.
 
 (See *Smashing* Module in the code).
 
@@ -83,6 +87,10 @@ Don't like to **search**, at note synthesis time, through an Instrument's Zones 
 Don't ask :roll_eyes: ! The bottlenecks are:
 
 1. parsing SoundFont files (<https://hackage.haskell.org/package/HCodecs-0.5.2/docs/Codec-SoundFont.html>)
-2. rendering - evaluating Signal Function tree
+2. rendering - evaluating Signal Functions modeling the audio clock rate
 
 Heavy batch runs have clocked in at ten hours.
+
+### Why the names?
+
+*Euterpe* is the name of a Muse from Greek mythology. *Parthenope* was a Siren, the daughter of a Muse.

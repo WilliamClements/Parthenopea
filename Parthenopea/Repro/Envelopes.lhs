@@ -320,9 +320,9 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >
 > vetAsDiscreteSig       :: Double → FEnvelope → Segments → Maybe (DiscreteSig Double)
 > vetAsDiscreteSig clockRate env segs
->   | noisy prolog                         = error $ unwords [fName, "non-zero prolog", show prolog]
->   | noisy epilog                         = error $ unwords [fName, "non-zero epilog", show epilog]
->   | isNothing env.fModTriple && dipix < (min kSig kChunk `div` 5)
+>   | sum prologlist > epsilon             = error $ unwords [fName, "non-zero prolog", show prologlist]
+>   | sum epiloglist > epsilon             = error $ unwords [fName, "non-zero epilog", show epiloglist]
+>   | isNothing env.fModTriple && dipix < (kSig' `div` 5)
 >                                          =
 >     error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show (kSig, kVec)]
 >   | otherwise                            = Just dsig
@@ -332,26 +332,22 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >     dsig                                 = discretizeEnvelope clockRate env segs
 >     targetT                              = (deJust fName env.fExtras).eeTargetT
 >
->     noisy             :: VU.Vector Double → Bool
->     noisy air                            = VU.foldr ((+) . abs) 0 air > epsilon
->
+>     checkSize                            = truncate $ minDeltaT * clockRate
 >     dipThresh          :: Double         = 1/10
 >
->     kVec, kCheck, kSig, kChunk
->                        :: Int
+>     kVec, kSig, kSig'  :: Int
 >     kVec                                 = VU.length dsig.dsigVec
->     kCheck                               = truncate $ clockRate * minDeltaT
 >     kSig                                 = truncate $ clockRate * targetT
->     kChunk                               = truncate $ clockRate * 0.5
->     kSkip                                = round    $ clockRate * (env.fDelayT + env.fAttackT)
+>     kSig'                                = truncate $ clockRate * min targetT 0.5
 >
->     prolog, epilog, afterAttack
->                         :: VU.Vector Double
->     prolog                               = VU.force $ VU.slice 0               kCheck dsig.dsigVec
->     epilog                               = VU.force $ VU.slice (kSig - kCheck) kCheck dsig.dsigVec
->     afterAttack                          = VU.force $ VU.slice kSkip (kSig - kSkip)   dsig.dsigVec
+>     prologlist, epiloglist
+>                        :: [Double]
+>     prologlist                           = VU.toList $ VU.force $ VU.slice 0                  checkSize dsig.dsigVec
+>     epiloglist                           = VU.toList $ VU.force $ VU.slice (kSig - checkSize) checkSize dsig.dsigVec
 >
->     dipix                                = kSkip + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
+>     skipSize                             = round $ (env.fDelayT + env.fAttackT) * clockRate
+>     afterAttack                          = VU.slice skipSize (kSig - skipSize) dsig.dsigVec
+>     dipix                                = skipSize + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
 >       
 > vetEnvelope            :: FEnvelope → Segments → Bool
 > vetEnvelope env segs

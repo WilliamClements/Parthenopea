@@ -202,7 +202,7 @@ accessed in end time order.
 >           instrument inst $ makeInstFill fillBeats rng dXp sweep (fractionOf vol 0.60)
 >
 >         fractionOf     :: Int → Double → Int
->         fractionOf x doub                = min (qMidiInt128 - 1) $ round $ doub * fromIntegral x
+>         fractionOf x doub                = min (qMidiInt128 - 1) (round $ doub * fromIntegral x)
 >
 >
 > makePercFill           :: Directives → PercussionSound → Rational → Volume → Dur → Music1
