@@ -17,6 +17,7 @@ December 16, 2022
 >
 > import Data.Array.Unboxed
 > import Data.List ( sortOn )
+> import qualified Data.Vector.Strict      as VB
 > import Debug.Trace
 > import Euterpea.Music
 > import Parthenopea.Debug
@@ -30,13 +31,13 @@ December 16, 2022
 Baking ================================================================================================================
 a framework for aleatory composition
 
-> type Baking = (BakingMetrics, Array Int Music1)
+> type Baking = (BakingMetrics, VB.Vector (Double, Music1))
 
 The progress of the algorithm is expressed in above pair.
 
 > -- from a list of contexts, assemble sections, and produce a
 > -- music "channel" array (with size numChannels)
-> consumeBakes           :: Directives → [Bake] → Array Int Music1
+> consumeBakes           :: Directives → [Bake] → VB.Vector (Double, Music1)
 > consumeBakes dives bakes                 = profess
 >                                              (checkJobOk bm)
 >                                              "consumeBakes checkJobOk"
@@ -61,7 +62,7 @@ The progress of the algorithm is expressed in above pair.
 >                                            $ chordFromArray
 >                                            $ bake4Consumption dives seed
 >
-> bake4Consumption       :: Directives → Int → Array Int Music1
+> bake4Consumption       :: Directives → Int → VB.Vector (Double, Music1)
 > bake4Consumption dives seed              = consumeBakes dives 
 >                                            $ zipWith (\x y → y{bIx = x}) [0..]
 >                                            $ sortOn bOnset
@@ -142,23 +143,25 @@ accessed in end time order.
 >
 >         durSoFar       :: Double
 >         ss             :: SectionSpec
->         newm           :: Music1
+>         addm           :: Music1
 >
->         -- algorithm gets an N squared component here
->         durSoFar                         = fromRational $ dur (ms ! chan)
+>         durSoFar                         = fst (ms VB.! chan)
 >         ss                               = calibrateSection durSoFar urn
->         newm                             =
+>         addm                             =
 >           generateSection urn.bSnd urn.bVol ss inst rng urn.bXpose urn.bSweep
->         ms'                              = appendSection ms chan newm
+>         ms'                              = appendSection ms chan addm
 >
 >         -- statskeeping
 >         bm'                              = acceptMetrics bm ss urn.bOnset
 >                   
->     appendSection      :: Array Int Music1
+>     appendSection      :: VB.Vector (Double, Music1)
 >                           → Int
 >                           → Music1
->                           → Array Int Music1
->     appendSection ms chan newm           = ms // [(chan, ms!chan :+: newm)]
+>                           → VB.Vector (Double, Music1)
+>     appendSection ms chan addm           = ms VB.// [(chan, (newDur, newm))]
+>       where
+>         (oldDur, oldm)                   = ms VB.! chan
+>         (newDur, newm)                   = (oldDur + fromRational (dur addm), oldm :+: addm)
 >
 >     calibrateSection   :: Double → Bake → SectionSpec
 >     calibrateSection durSoFar urn        = ((restDur, restTempo), (fillDur, fillTempo))
@@ -345,8 +348,8 @@ Definitions ====================================================================
 > newBakingMetrics                         = BakingMetrics 0 0 0 0 0 0 (array (0, eb) [(x, 0) | x ← [0..eb]])
 >   where
 >     eb                                   = bakingBins - 1
-> newMusic               :: Array Int Music1
-> newMusic                                 = array (0, numChannels - 1) [(x, rest 0) | x ← [0..(numChannels - 1)]]
+> newMusic               :: VB.Vector (Double, Music1)
+> newMusic                                 = VB.replicate numChannels (0, rest 0)
 >
 > songLength, numSections
 >                        :: Double

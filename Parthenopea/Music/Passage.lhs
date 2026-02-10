@@ -75,7 +75,7 @@ _Overall_                =
 >                                            , velocity (onset + delta)     over1]
 > branchVelos            :: VB.Vector Double → Either Velocity (VB.Vector Double)
 > branchVelos vIn                          =
->   if all (nearlyEqual keyParam) vIn
+>   if VB.all (nearlyEqual keyParam) vIn
 >     then (Left . round) keyParam
 >     else Right vIn
 >   where
@@ -98,10 +98,15 @@ _Overall_                =
 >        Rest _                            → marking == Rest1
 >        _                                 → True)
 >     "Non-corresponding rests"
->     (MekNote six prim marking mev Nothing Nothing)
+>     (MekNote 
+>        six 
+>        prim 
+>        marking 
+>        mev 
+>        Nothing Nothing)
 >
-> changeParams           :: MekNote → Either Velocity (VB.Vector Double) → (SelfIndex, MekNote)
-> changeParams mek val                     = (mek.mSelfIndex, mek{mParams = Just val})
+> adoptParams            :: MekNote → Either Velocity (VB.Vector Double) → (SelfIndex, MekNote)
+> adoptParams mek val                      = (mek.mSelfIndex, mek{mParams = Just val})
 > getMarkVelocity        :: MekNote → Velocity
 > getMarkVelocity mek                      =
 >   case mek.mMarking of
@@ -170,15 +175,12 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >         prims          :: VB.Vector (Primitive Pitch)
 >         prims                            =
 >           let
->             pFun       :: Primitive Pitch → VB.Vector (Primitive Pitch)
 >             pFun (Note pP dP)            = VB.singleton (Note pP dP)
 >             pFun (Rest dP)               = VB.singleton (Rest dP)
 >           in
 >             mFold pFun (VB.++) undefined undefined ma
 >
->         eList                            = fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
->         eTable                           = VB.fromList eList
->         pList                            = VB.toList prims
+>         eTable                           = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
 >
 >         evs            :: VB.Vector (Maybe MEvent)
 >         evs                              = VB.fromList evList
@@ -189,14 +191,12 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >             slotIn     :: ([Maybe MEvent], Int) → Primitive Pitch → ([Maybe MEvent], Int)
 >             slotIn (pvec, soFar) prim    = (pvec ++ curEvents, soFar + mekWidth)
 >               where
->                 curEvents
->                        :: [Maybe MEvent]
 >                 (curEvents, mekWidth)    = 
 >                   case prim of
 >                     Note _ _             → (singleton (Just $ eTable VB.! soFar),    1)
 >                     Rest _               → ([],                                      0)
 >           in
->             fst $ foldl' slotIn ([], 0) pList
+>             fst $ VB.foldl' slotIn ([], 0) prims
 >
 >     mekFence                             = VB.length rawMeks - 1
 >     (nodePairs, nodeGroups)              = formNodeGroups rawMeks
@@ -235,7 +235,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >           where
 >             gLen                         = VB.length nodeGroup
 >
->             seedOne mekArg               = VB.singleton $ changeParams mekArg (Left $ getMarkVelocity mekArg)
+>             seedOne mekArg               = VB.singleton $ adoptParams mekArg (Left $ getMarkVelocity mekArg)
 >
 >             seeden si0 si1               = VB.map infuse seedMeks
 >               where
@@ -246,8 +246,8 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >
 >                 infuse mek               =
 >                   if enableInflections && si0 == mek.mSelfIndex && si0 /= VB.head nodeGroup
->                     then changeParams mek $ fourVelos onset delta overPrev over
->                     else changeParams mek $ twoVelos onset delta over
+>                     then adoptParams mek $ fourVelos onset delta overPrev over
+>                     else adoptParams mek $ twoVelos onset delta over
 >                   where
 >                     ev                   = deJust fName mek.mEvent
 >                     onset                = fromRational ev.eTime
@@ -275,7 +275,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >                 _                        → velo
 >             updateOne                    =
 >               case mek.mParams of
->                 Nothing                  → VB.singleton $ changeParams mek (Left velo')
+>                 Nothing                  → VB.singleton $ adoptParams mek (Left velo')
 >                 _                        → VB.empty
 >           in
 >             (updates VB.++ updateOne, velo')

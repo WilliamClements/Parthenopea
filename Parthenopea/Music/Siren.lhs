@@ -21,6 +21,7 @@ December 12, 2022
 > import qualified Data.Map                as Map
 > import Data.Maybe
 > import Data.Ord ( comparing )
+> import qualified Data.Vector.Strict      as VB
 > import qualified Data.Vector.Unboxed     as VU
 > import Data.Word ( Word8 )
 > import Euterpea.IO.Audio.Types
@@ -82,8 +83,8 @@ TODO: adjust loudness output based on "home velocity", which would be passed in 
 >       notize aP                          = note qn (pitch aP)
 >
 > -- note chordFromArray has the same function body as chord itself
-> chordFromArray         :: Array Int Music1 → Music1
-> chordFromArray                           = foldr (:=:) (rest 0)
+> chordFromArray         :: VB.Vector (Double, Music1) → Music1
+> chordFromArray                           = foldr ((:=:) . snd) (rest 0)
 
 This alternate playback function will enable channel manipulation to allow
 more than 16 instruments to be used in the source music.
