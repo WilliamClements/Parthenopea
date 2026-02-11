@@ -22,8 +22,8 @@ April 16, 2023
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
 > import Data.List
-> import Data.Map ( Map )
-> import qualified Data.Map                as Map
+> import Data.Map.Strict ( Map )
+> import qualified Data.Map.Strict                as Map
 > import Data.Maybe
 > import Data.Ratio ( (%) )
 > import Data.Time
@@ -42,8 +42,9 @@ implementing SoundFont spec ====================================================
 >
 > data PreSampleKey                        =
 >   PreSampleKey {
->     pskwFile           :: Int
->   , pskwSampleIndex    :: Word} deriving (Eq, Ord, Show)
+>     pskwFile           :: !Int
+>   , pskwSampleIndex    :: !Word}
+>   deriving (Eq, Ord, Show)
 > type PreSample                           = ChangeName F.Shdr
 >
 > data PreZone                             =
@@ -110,18 +111,18 @@ implementing SoundFont spec ====================================================
 >
 > data PreZoneKey                          =
 >   PreZoneKey {
->     pzkwFile           :: Int
->   , pzkwInst           :: Word
->   , pzkwBag            :: Word
->   , pzkwSampleIndex    :: Word}
+>     pzkwFile           :: !Int
+>   , pzkwInst           :: !Word
+>   , pzkwBag            :: !Word
+>   , pzkwSampleIndex    :: !Word}
 >   deriving (Eq, Ord, Show)
 >
 > data AppliedLimits                       =
 >   AppliedLimits {
->     rStart             :: Word
->   , rEnd               :: Word
->   , rLoopStart         :: Word
->   , rLoopEnd           :: Word}
+>     rStart             :: !Word
+>   , rEnd               :: !Word
+>   , rLoopStart         :: !Word
+>   , rLoopEnd           :: !Word}
 >   deriving (Eq, Show)
 > defApplied             :: AppliedLimits
 > defApplied                               = AppliedLimits 0 0 0 0
@@ -262,9 +263,9 @@ implementing SoundFont spec ====================================================
 >
 > data PerGMKey                            =
 >   PerGMKey {
->     pgkwFile           :: Int
->   , pgkwInst           :: Word
->   , pgkwBag            :: Maybe Word}
+>     pgkwFile           :: !Int
+>   , pgkwInst           :: !Word
+>   , pgkwBag            :: !(Maybe Word)}
 >   deriving (Eq, Ord, Show)
 >
 > data SFFileBoot                          =

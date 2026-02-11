@@ -14,7 +14,6 @@ August 15, 2025
 >        , MekNote(..)
 >        , passage) where
 >
-> import Data.List
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.MIDI.MEvent ( MEvent(eDur, eTime), musicToMEvents )
 > import Euterpea.Music
@@ -47,10 +46,10 @@ _Overall_                =
 >
 > data Overall                             =
 >   Overall {
->     oChangeRate        :: Double
->   , oStartT            :: Double
->   , oStartV            :: Double}
->   deriving (Eq, Show)
+>     oChangeRate        :: !Double
+>   , oStartT            :: !Double
+>   , oStartV            :: !Double}
+>   deriving Show
 > makeOverall            :: Double → Double → MEvent → MEvent → Overall
 > makeOverall startV endV startEv endEv    = Overall changeRate startT startV
 >   where
@@ -90,7 +89,7 @@ _Overall_                =
 >   , mEvent             :: Maybe MEvent
 >   , mOverall           :: Maybe Overall
 >   , mParams            :: Maybe (Either Velocity (VB.Vector Double))}
->   deriving (Eq, Show)
+>   deriving Show
 > makeMekNote            :: SelfIndex → Primitive Pitch → Marking → Maybe MEvent → MekNote
 > makeMekNote six prim marking mev         =
 >   profess
@@ -105,8 +104,8 @@ _Overall_                =
 >        mev 
 >        Nothing Nothing)
 >
-> adoptParams            :: MekNote → Either Velocity (VB.Vector Double) → (SelfIndex, MekNote)
-> adoptParams mek val                      = (mek.mSelfIndex, mek{mParams = Just val})
+> adoptParams            :: MekNote → Either Velocity (VB.Vector Double) → MekNote
+> adoptParams mek val                      = mek{mParams = Just val}
 > getMarkVelocity        :: MekNote → Velocity
 > getMarkVelocity mek                      =
 >   case mek.mMarking of
@@ -125,14 +124,26 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 > passageImpl            :: Directives → BandPart → VB.Vector Marking → Music Pitch → Music1
 > passageImpl _ bp markings ma
 >   | traceIf trace_IP False               = undefined
->   | otherwise                            = VB.foldl' final (rest 0) enriched
+>   | otherwise                            = VB.foldl' finalFold (rest 0) enriched
 >   where
 >     fName_                               = "passageImpl"
 >     trace_IP                             = unwords [fName_, show markings]
 >
+>     rawMeks                              = makeMeks    
+>     mekFence                             = VB.length rawMeks - 1
+>     (nodePairs, nodeGroups)              = formNodeGroups rawMeks
+>
+>     enriched                             =
+>       let
+>         doUpdate       :: (VB.Vector MekNote → VB.Vector MekNote) → VB.Vector MekNote → VB.Vector MekNote
+>         doUpdate updateIf vIn            = VB.update vIn $ VB.map enTag $ updateIf vIn
+>                                              where enTag mek = (mek.mSelfIndex, mek)
+>       in
+>         (doUpdate enrich . doUpdate seeSeeded . doUpdate wearOveralls) rawMeks
+>
 >     -- reconstruct notes with added dynamics metadata
->     final              :: Music1 → MekNote → Music1 
->     final music mek                      =
+>     finalFold          :: Music1 → MekNote → Music1 
+>     finalFold music mek                  =
 >       music :+: case mek.mPrimitive of
 >                   Note durI pitchI       → mangleNote durI pitchI
 >                   Rest durI              → rest durI
@@ -153,11 +164,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >         mangleNote     :: Dur → a → Music (a, [NoteAttribute])
 >         mangleNote dM pM                 = note dM (pM, Dynamics fName_ : (makeNAs . deJust fName) mek.mParams)
 >
->     -- evolve enriched note/rest (MekNote) list
->     rawMeks, withOveralls, seeded, enriched
->                        :: VB.Vector MekNote
->    
->     rawMeks                               =
+>     makeMeks                              =
 >       profess
 >         (nPrims > 0 && (nPrims == nMarks))
 >         (unwords ["bad lengths; prims, markings", show (nPrims, nMarks)])
@@ -183,37 +190,34 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >         eTable                           = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
 >
 >         evs            :: VB.Vector (Maybe MEvent)
->         evs                              = VB.fromList evList
->
->         evList         :: [Maybe MEvent]
->         evList                           =
+>         evs                              = 
 >           let
->             slotIn     :: ([Maybe MEvent], Int) → Primitive Pitch → ([Maybe MEvent], Int)
->             slotIn (pvec, soFar) prim    = (pvec ++ curEvents, soFar + mekWidth)
+>             slotIn     :: (VB.Vector (Maybe MEvent), Int) → Primitive Pitch → (VB.Vector (Maybe MEvent), Int)
+>             slotIn (pvec, soFar) prim    = (pvec VB.++ curEvents, soFar + mekWidth)
 >               where
 >                 (curEvents, mekWidth)    = 
 >                   case prim of
->                     Note _ _             → (singleton (Just $ eTable VB.! soFar),    1)
->                     Rest _               → ([],                                      0)
+>                     Note _ _             → (VB.singleton (Just $ eTable VB.! soFar),    1)
+>                     Rest _               → (VB.empty,                                   0)
 >           in
->             fst $ VB.foldl' slotIn ([], 0) prims
+>             fst $ VB.foldl' slotIn (VB.empty, 0) prims
 >
->     mekFence                             = VB.length rawMeks - 1
->     (nodePairs, nodeGroups)              = formNodeGroups rawMeks
+>     -- stepwise evolution of enriched note/rest (MekNote) list uses these functions
+>     wearOveralls, seeSeeded, enrich
+>                        :: VB.Vector MekNote → VB.Vector MekNote
 >
->     withOveralls                         = rawMeks `VB.update` lode
+>     wearOveralls vIn                     =
+>       VB.concatMap (uncurry computeOverall) nodePairs VB.++ computeOverall lastSi lastSi
 >       where
->         lode                             =
->           VB.concatMap (uncurry computeOverall) nodePairs VB.++ computeOverall lastSi lastSi
 >         lastSi                           = snd $ VB.last nodePairs
 >
 >         computeOverall si0 si1           =
->           VB.singleton (si0, mek0{mOverall = Just $ makeOverall loud0 loud1 ev0 ev1})
+>           VB.singleton mek0{mOverall = Just $ makeOverall loud0 loud1 ev0 ev1}
 >           where
 >             fName                        = "computeOverall"
 >
->             mek0                         = rawMeks VB.! si0
->             mek1                         = rawMeks VB.! si1
+>             mek0                         = vIn VB.! si0
+>             mek1                         = vIn VB.! si1
 >
 >             ev0                          = deJust (unwords [fName, "ev0"]) mek0.mEvent
 >             ev1                          = deJust (unwords [fName, "ev1"]) mek1.mEvent
@@ -221,14 +225,12 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >             loud0                        = (fromIntegral . getMarkVelocity) mek0
 >             loud1                        = (fromIntegral . getMarkVelocity) mek1
 >
->     seeded                               = withOveralls `VB.update` lode
+>     seeSeeded vIn                        = VB.concatMap enseed nodeGroups
 >       where
->         lode                             = VB.concatMap enseed nodeGroups
->
->         enseed         :: VB.Vector SelfIndex → VB.Vector (SelfIndex, MekNote)
+>         enseed         :: VB.Vector SelfIndex → VB.Vector MekNote
 >         enseed nodeGroup
 >           | gLen == 0                    = error "no nodes in node group"
->           | gLen == 1                    = seedOne $ withOveralls VB.! (nodeGroup VB.! 0)
+>           | gLen == 1                    = seedOne $ vIn VB.! (nodeGroup VB.! 0)
 >           | otherwise                    =
 >           VB.concatMap (uncurry seeden) (VB.zip nodeGroup (VB.tail nodeGroup))
 >                        VB.++ seeden (VB.last nodeGroup) (VB.last nodeGroup)
@@ -241,7 +243,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >               where
 >                 fName                    = "seeden"
 >
->                 seedMeks                 = VB.slice si0 (si1 - si0 + 1 - fencePost) withOveralls
+>                 seedMeks                 = VB.slice si0 (si1 - si0 + 1 - fencePost) vIn
 >                                              where fencePost = if si1 == mekFence then 0 else 1
 >
 >                 infuse mek               =
@@ -253,20 +255,18 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >                     onset                = fromRational ev.eTime
 >                     delta                = fromRational ev.eDur
 >
->                 over                     = deJust (unwords [fName, show si0]) (withOveralls VB.! si0).mOverall
+>                 over                     = deJust (unwords [fName, show si0]) (vIn VB.! si0).mOverall
 >                 overPrev                 =
 >                   case VB.find (\np → snd np == si0) nodePairs of
->                     Just np              → deJust (unwords [fName, show np]) (withOveralls VB.! fst np).mOverall
+>                     Just np              → deJust (unwords [fName, show np]) (vIn VB.! fst np).mOverall
 >                     Nothing              → error $ unwords [fName, "inflection has no previous node !?"]
 >
->     enriched                             = seeded `VB.update` lode
+>     enrich vIn                           = fst $ VB.foldl' enrichFold (VB.empty, bp.bpHomeVelocity) vIn
 >       where
->         lode                             = fst $ VB.foldl' enrich (VB.empty, bp.bpHomeVelocity) seeded
->
->         enrich         :: (VB.Vector (SelfIndex, MekNote), Velocity)
+>         enrichFold     :: (VB.Vector MekNote, Velocity)
 >                           → MekNote
->                           → (VB.Vector (SelfIndex, MekNote), Velocity)
->         enrich (updates, velo) mek       =
+>                           → (VB.Vector MekNote, Velocity)
+>         enrichFold (updates, velo) mek       =
 >           let
 >             velo'                        =
 >               case mek.mMarking of

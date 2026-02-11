@@ -39,8 +39,8 @@ September 12, 2024
 > import Data.IntMap.Strict (IntMap)
 > import qualified Data.IntMap as IntMap
 > import Data.List
-> import Data.Map ( Map )
-> import qualified Data.Map                as Map
+> import Data.Map.Strict ( Map )
+> import qualified Data.Map.Strict                as Map
 > import Data.Maybe
 > import Data.Ord ( Down(Down) )
 > import qualified Data.Vector.Strict      as VB

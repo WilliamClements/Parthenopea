@@ -21,8 +21,8 @@ November 6, 2023
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
 > import Data.List ( iterate', find )
-> import Data.Map (Map)
-> import qualified Data.Map                as Map
+> import Data.Map.Strict (Map)
+> import qualified Data.Map.Strict                as Map
 > import Data.Maybe
 > import Data.MemoTrie
 > import Data.Word ( Word64 )

@@ -19,8 +19,8 @@ February 1, 2025
 > import qualified Data.IntMap.Strict as IntMap
 > import Data.IntSet (IntSet )
 > import qualified Data.IntSet as IntSet
-> import Data.Map ( Map )
-> import qualified Data.Map                as Map
+> import Data.Map.Strict ( Map )
+> import qualified Data.Map.Strict                as Map
 > import Data.Maybe
 > import qualified Data.Set                as Set
 > import qualified Data.Vector.Strict      as VB

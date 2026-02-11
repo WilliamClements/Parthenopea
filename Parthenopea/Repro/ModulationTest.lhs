@@ -8,7 +8,7 @@ November 24, 2023
 >
 > import Control.Exception ( try, ErrorCall )
 > import Data.Either ( isLeft )
-> import qualified Data.Map                as Map
+> import qualified Data.Map.Strict                as Map
 > import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Repro.Modulation
 
