@@ -24,6 +24,8 @@ August 15, 2025
 > import Parthenopea.SoundFont.Utility
 
 Notation-Driven Dynamics ==============================================================================================
+           When Passage is used, each note in a group is assigned a volume range versus time. Underlying synthesizer
+           interprets that to vary output volume accordingly.
 
 _Marking_                = composer's passage-shape directive, sequence
 _Overall_                = 
@@ -103,9 +105,6 @@ _Overall_                =
 >        marking 
 >        mev 
 >        Nothing Nothing)
->
-> adoptParams            :: MekNote → Either Velocity (VB.Vector Double) → MekNote
-> adoptParams mek val                      = mek{mParams = Just val}
 > getMarkVelocity        :: MekNote → Velocity
 > getMarkVelocity mek                      =
 >   case mek.mMarking of
@@ -142,6 +141,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >         (doUpdate enrich . doUpdate seeSeeded . doUpdate wearOveralls) rawMeks
 >
 >     -- reconstruct notes with added dynamics metadata
+>     -- WOX n squared ?
 >     finalFold          :: Music1 → MekNote → Music1 
 >     finalFold music mek                  =
 >       music :+: case mek.mPrimitive of
@@ -237,7 +237,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >           where
 >             gLen                         = VB.length nodeGroup
 >
->             seedOne mekArg               = VB.singleton $ adoptParams mekArg (Left $ getMarkVelocity mekArg)
+>             seedOne mekArg               = VB.singleton $ mekArg{mParams = (Just . Left) (getMarkVelocity mekArg)}
 >
 >             seeden si0 si1               = VB.map infuse seedMeks
 >               where
@@ -248,8 +248,8 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >
 >                 infuse mek               =
 >                   if enableInflections && si0 == mek.mSelfIndex && si0 /= VB.head nodeGroup
->                     then adoptParams mek $ fourVelos onset delta overPrev over
->                     else adoptParams mek $ twoVelos onset delta over
+>                     then mek{mParams = Just (fourVelos onset delta overPrev over)}
+>                     else mek{mParams = Just (twoVelos onset delta over)}
 >                   where
 >                     ev                   = deJust fName mek.mEvent
 >                     onset                = fromRational ev.eTime
@@ -275,7 +275,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >                 _                        → velo
 >             updateOne                    =
 >               case mek.mParams of
->                 Nothing                  → VB.singleton $ adoptParams mek (Left velo')
+>                 Nothing                  → VB.singleton $ mek{mParams = (Just . Left) velo'}
 >                 _                        → VB.empty
 >           in
 >             (updates VB.++ updateOne, velo')
