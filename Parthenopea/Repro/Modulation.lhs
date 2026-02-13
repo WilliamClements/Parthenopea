@@ -1,4 +1,5 @@
 > {-# LANGUAGE Arrows #-}
+> {-# LANGUAGE StandaloneDeriving #-}
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
@@ -12,7 +13,6 @@ November 6, 2023
 
 > module Parthenopea.Repro.Modulation where
 >
-> import Control.Arrow ( Arrow(arr) )
 > import Control.Arrow.Operations
 > import Data.Array.Unboxed
 > import qualified Data.Bifunctor          as BF
@@ -28,14 +28,11 @@ November 6, 2023
 > import Data.Word ( Word64 )
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.BasicSigFuns
-> import Euterpea.IO.Audio.Types ( AudRate, Clock(..), CtrRate, Signal )
+> import Euterpea.IO.Audio.Types
 > import GHC.Generics ( Generic ) 
 > import Parthenopea.Debug
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
->  
-> constA                 :: Arrow a ⇒ c → a b c
-> constA                                   = arr . const
 
 "A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
 --SoundFont spec
@@ -415,14 +412,6 @@ see source https://ccrma.stanford.edu/~jos/svf/svf.pdf
 
 Miscellaneous =========================================================================================================
 
-> deriveModTriple        :: Maybe Int → Maybe Int → Maybe Int → ModTriple
-> deriveModTriple toPitch toFilterFc toVolume
->                                          =
->   ModTriple
->     (maybe 0 fromIntegral toPitch)
->     (maybe 0 fromIntegral toFilterFc)
->     (maybe 0 fromIntegral toVolume)
->
 > doLFO                  :: ∀ p . Clock p ⇒ Maybe LFO → Signal p () Double
 > doLFO                                    = maybe (constA 0) makeSF
 >   where
@@ -601,20 +590,13 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > defModCoefficients     :: ModCoefficients
 > defModCoefficients                       = ModCoefficients 0 0 0
 >
-> data ModTriple                           =
->   ModTriple {
->     coPitch            :: Double
->   , coFilterFc         :: Double
->   , coVolume           :: Double} deriving (Eq, Show)
 > coAccess               :: ModDestType → ModTriple → Double
-> coAccess md mTriple                      =
+> coAccess md (ModTriple coPitch coFilterFc coVolume)                      =
 >   case md of
->     ToPitch            → mTriple.coPitch
->     ToFilterFc         → mTriple.coFilterFc
->     ToVolume           → mTriple.coVolume
+>     ToPitch            → coPitch
+>     ToFilterFc         → coFilterFc
+>     ToVolume           → coVolume
 >     _                  → error $ unwords["coAccess: ModTriple only deals with ToPitch, ToFilterFc, and ToVolume"]                         
-> defModTriple           :: ModTriple
-> defModTriple                             = ModTriple 0 0 0
 >
 > data ModSignals                          = ModSignals !Double !Double !Double
 > defModSignals          :: ModSignals
@@ -624,7 +606,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   LFO {
 >     lfoDelay           :: Double
 >   , lfoFrequency       :: Double
->   , lfoModTriple       :: ModTriple} deriving (Eq, Show)
+>   , lfoModTriple       :: ModTriple}
 >
 > data Modulation                          =
 >   Modulation {
@@ -635,9 +617,14 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , toPitchCo          :: ModCoefficients
 >   , toFilterFcCo       :: ModCoefficients
 >   , toVolumeCo         :: ModCoefficients
->   , mModsMap           :: Map ModDestType [Modulator]} deriving (Eq)
+>   , mModsMap           :: Map ModDestType [Modulator]}
 > instance Show Modulation where
->   show m                                 = unwords ["Modulation", show m.mLowpass, show m.mModEnv]
+>   show m                                 = unwords ["Modulation", show m.mLowpass]
+> instance Eq Modulation where
+>   (==) m1 m2                             = m1.mLowpass == m2.mLowpass
+>                                            && m1.toPitchCo == m2.toPitchCo
+>                                            && m1.toFilterFcCo == m2.toFilterFcCo
+>                                            && m1.toVolumeCo == m2.toVolumeCo
 >
 > defModulation          :: Modulation
 > defModulation                            =
@@ -650,41 +637,6 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >     defModCoefficients 
 >     defModCoefficients 
 >     Map.empty
->
-> data TimeFrame                           =
->   TimeFrame {
->     tfSecsSampled      :: Double
->   , tfSecsScored       :: Double
->   , tfSecsToPlay       :: Double
->   , tfLooping          :: Bool} deriving (Eq, Show)
-> data EnvelopeExtras                      =
->   EnvelopeExtras {
->     eeTargetT          :: Double
->   , eeReleaseT         :: Double
->   , eePostT            :: Double} deriving (Eq, Show)
-> data FEnvelope                           =
->   FEnvelope {
->     fExtras            :: Maybe EnvelopeExtras
->   , fSustainLevel      :: Double
->   , fModTriple         :: Maybe ModTriple
->
->   , fDelayT            :: Double
->   , fAttackT           :: Double
->   , fHoldT             :: Double
->   , fDecayT            :: Double
->   , fSustainT          :: Double} deriving (Eq, Show)
-> data Segments                            =
->   Segments {
->     sAmps              :: [Double]
->   , sDeltaTs           :: [Double]} deriving Show
->
-> minDeltaT, minUseful   :: Double
-> minDeltaT                                = fromTimecents Nothing
-> minUseful                                = 1/82
->
-> ctrRate, audRate       :: Double
-> ctrRate                                  = rate (undefined :: CtrRate)
-> audRate                                  = rate (undefined :: AudRate)
 >
 > data FreeVerb =
 >   FreeVerb
@@ -825,30 +777,6 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   where
 >     sr                                   = rate (undefined :: p)
 >     secs               :: Double         = fromIntegral maxDel/sr
-
-Returns the frequency
-
-> fromAbsoluteCents      :: Int → Double
-> fromAbsoluteCents acents                 = 8.176 * fromCents (fromIntegral acents)
->
-> toAbsoluteCents        :: Double → Int
-> toAbsoluteCents freq                     = round $ 100 * 12 * logBase 2 (freq / 8.176)
-
-Returns the elapsed time in seconds
-
-> fromTimecents          :: Maybe Int → Double
-> fromTimecents mtimecents                 = pow 2 (maybe (- 12_000) fromIntegral mtimecents / 1_200)
->
-> fromTimecents'         :: Maybe Int → Maybe Int → KeyNumber → Double
-> fromTimecents' mtimecents mfact key      = pow 2 (base + inc)
->   where
->     base               :: Double         =
->       maybe (-12_000) fromIntegral mtimecents / 1_200
->     inc                :: Double         =
->       maybe 0 fromIntegral mfact * fromIntegral (60 - key) / qMidiDouble128 / 1_200
->
-> toTimecents            :: Double → Int
-> toTimecents secs                         = round $ logBase 2 secs * 1_200
 >
 > teclip, tfclip, tqclip, tvclip, ticlip, tpclip, tcclip, tbclip, taclip, tkclip, tdclip,
 >   t1clip, t2clip, t3clip
@@ -871,19 +799,6 @@ Returns the elapsed time in seconds
 > t1clip i                                 = Just $ clip (-120, 120) i
 > t2clip i                                 = Just $ clip (-99, 99) i
 > t3clip i                                 = Just $ clip (0, 1_200) i
-
-Returns the frequency ratio
-
-> fromCents              :: Double → Double
-> fromCents cents                          = pow 2 (cents/12/100)
->
-> fromCents'             :: Maybe Int → Maybe Int → Maybe Double
-> fromCents' mcoarse mfine
->   | isNothing mcoarse && isNothing mfine = Nothing
->   | otherwise                            = Just $ fromCents $ coarse * 100 + fine
->   where
->     coarse = maybe 0 fromIntegral mcoarse
->     fine   = maybe 0 fromIntegral mfine
 >
 > freakRange             :: (Double, Double)
 > freakRange                               = (20, 20_000)
@@ -894,35 +809,6 @@ Returns the frequency ratio
 >     (not $ isNaN y || isInfinite y || isDenormalized y || abs y > 200_000)
 >     (msg ++ " bad Double = " ++ show y)
 >     y
-
-Returns the amplitude ratio
-
-> fromCentibels          :: Double → Double
-> fromCentibels centibels                  = pow 10 (centibels/1000)
->
-> toCentibels            :: Double → Double
-> toCentibels ratio                        = logBase 10 (ratio * 1000)
-
-Returns the amplitude ratio (based on input 10ths of a percent) 
-
-> fromTithe              :: Maybe Int → Bool → Double
-> fromTithe iS isVol                       =
->   if isVol
->     then 1 / fromCentibels jS
->     else (1000 - jS) / 1000
->   where
->     jS                 :: Double         = maybe 0 fromIntegral iS
->
-> theE, epsilon, upsilon :: Double
-> theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
-> epsilon                                  = 1e-8               -- a generous little epsilon
-> upsilon                                  = 1e10               -- a scrawny  big    upsilon
->    
-> theE' :: Complex Double
-> theE' = theE :+ 0
->
-> theJ :: Complex Double
-> theJ = 0 :+ 1
 
 sampleUp returns power of 2 greater than OR EQUAL TO the input value (result at least 2**14)
 sampleDown returns power of 2 less than OR EQUAL TO the input value (input enforced <= 2**31)
@@ -992,11 +878,6 @@ The use of following functions requires that their input is normalized between 0
 > controlSwitch doub                       = if doub < 0.5
 >                                              then 0
 >                                              else 1
-          
-Raises 'a' to the power 'b' using logarithms.
-
-> pow                    :: Floating a ⇒ a → a → a
-> pow x y                                  = exp (log x * y)
 >
 > class Coeff a where
 >   azero                :: a

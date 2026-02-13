@@ -24,8 +24,18 @@ source-repository head
   type: git
   location: https://github.com/WilliamClements/Parthenopea
 
-common warnings
-    ghc-options:
+common ghc-options-lib
+  ghc-options:
+      -fexcess-precision
+      -funbox-strict-fields
+      -O2
+      -W
+      -Wno-x-partial
+      -Wno-name-shadowing
+      -Wno-unused-top-binds
+
+common ghc-options-exe
+  ghc-options:
       -fexcess-precision
       -funbox-strict-fields
       -O2
@@ -35,7 +45,7 @@ common warnings
       -Wno-unused-top-binds
 
 library
-    import:             warnings
+    import:             ghc-options-lib
     default-language:   GHC2021
     hs-source-dirs:     .
     exposed-modules:    Parthenopea.Debug, Parthenopea.Music.Baking, Parthenopea.Music.Passage,
@@ -78,7 +88,7 @@ library
         ghc-prim
 
 executable PCommand
-    import:             warnings
+    import:             ghc-options-exe
     default-language:   GHC2021
     main-is:            app/PCommand.lhs
     hs-source-dirs:     PCommand

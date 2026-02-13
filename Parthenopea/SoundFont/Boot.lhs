@@ -112,8 +112,8 @@ Current solution:
 > data PairingSlot                         =
 >   PairingSlot {
 >     psInst             :: Maybe Word
->   , psKeyRange         :: (Word, Word)
->   , psVelRange         :: (Word, Word)}
+>   , psKeyRange         :: !(Word, Word)
+>   , psVelRange         :: !(Word, Word)}
 >   deriving (Eq, Ord, Show)
 >
 > data FileIterate =
@@ -333,8 +333,8 @@ InstZoneRecord and PreZone administration ======================================
 
 > data InstZoneRecord                      =
 >   InstZoneRecord {
->     zswFile            :: Int
->   , zswInst            :: Word
+>     zswFile            :: !Int
+>   , zswInst            :: !Word
 >   , zswChanges         :: ChangeName F.Inst
 >   , zsSmashup          :: Maybe (Smashing Word)}
 > instance Show InstZoneRecord where

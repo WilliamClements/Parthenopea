@@ -34,23 +34,24 @@ configuration ("Directives") ===================================================
 >
 > data SynthSwitches                       =
 >   SynthSwitches {
->     useEnvelopes       :: Bool
->   , usePassages        :: Bool
->   , useModulators      :: Bool
->   , useDefModulators   :: Bool
->   , useNoteBending     :: Bool
->   , usePitchCorrection :: Bool
->   , useAttenuation     :: Bool
->   , useLoopSwitching   :: Bool
->   , useReverb          :: Bool
->   , useChorus          :: Bool
->   , usePan             :: Bool
->   , useDCBlock         :: Bool
->   , useLFO             :: Bool
->   , chorusRate         :: Double
->   , chorusDepth        :: Double
->   , noStereoNoPan      :: Bool
->   , normalizingOutput  :: Bool} deriving (Eq, Show)
+>     useEnvelopes       :: !Bool
+>   , usePassages        :: !Bool
+>   , useModulators      :: !Bool
+>   , useDefModulators   :: !Bool
+>   , useNoteBending     :: !Bool
+>   , usePitchCorrection :: !Bool
+>   , useAttenuation     :: !Bool
+>   , useLoopSwitching   :: !Bool
+>   , useReverb          :: !Bool
+>   , useChorus          :: !Bool
+>   , usePan             :: !Bool
+>   , useDCBlock         :: !Bool
+>   , useLFO             :: !Bool
+>   , chorusRate         :: !Double
+>   , chorusDepth        :: !Double
+>   , noStereoNoPan      :: !Bool
+>   , normalizingOutput  :: !Bool}
+>   deriving (Eq, Show)
 
 useLFO
 -- False to suppress all uses of the low frequency oscillator
@@ -78,22 +79,22 @@ useLFO
 >
 > data Directives                          =
 >   Directives {
->     client             :: String
+>     client             :: !String
 >
 >   , crossInstrumentPairing
->   , doAbsorption       :: Bool
->   , fixBadNames        :: Bool
->   , hackWildJumps      :: Bool
->   , hackWildMidiValues :: Bool
->   , multipleCompetes   :: Bool
+>   , doAbsorption       :: !Bool
+>   , fixBadNames        :: !Bool
+>   , hackWildJumps      :: !Bool
+>   , hackWildMidiValues :: !Bool
+>   , multipleCompetes   :: !Bool
 >   , narrowRosterForBoot
->                        :: Bool
+>                        :: !Bool
 >   , narrowRosterForRuntime
->                        :: Bool
->   , parallelPairing    :: Bool
+>                        :: !Bool
+>   , parallelPairing    :: !Bool
 >   , switchBadStereoZonesToMono
->                        :: Bool
->   , skipGlissandi      :: Bool
+>                        :: !Bool
+>   , skipGlissandi      :: !Bool
 >
 >   , proConRatio        :: Rational
 >   , absorbThreshold    :: Rational

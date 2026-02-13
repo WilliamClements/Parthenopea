@@ -1206,7 +1206,7 @@ Dadadada =======================================================================
 >   body = passage
 >            dives
 >            da4Lead
->            [Mark PP, Mark PP, Mark P, SpanN 2, Mark FFF]
+>            [Inflect PP, Inflect PP, Inflect P, SpanN 2, Inflect FFF]
 >            (line [af 4 en, bf 4 en, c 5 en, bf 4 en, c 5 en, bf 4 en])
 
 Deydumpdum ============================================================================================================

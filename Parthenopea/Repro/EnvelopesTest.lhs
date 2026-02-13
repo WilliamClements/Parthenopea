@@ -9,7 +9,6 @@ June 22, 2024
 >
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Envelopes
-> import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.Utility
 
 Envelopes-related tests ===============================================================================================

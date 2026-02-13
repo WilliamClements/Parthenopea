@@ -32,7 +32,7 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 > qvcEnabled = True
 >
 > o131shape1             :: [Marking]
-> o131shape1                               = [Mark PPP, Mark PP, Mark PP, Mark FFF, Mark PP, SpanN 6, Mark PP]
+> o131shape1                               = [Inflect PPP, Inflect PP, Inflect PP, Inflect FFF, Inflect PP, SpanN 6, Inflect PP]
 >
 > opus131                 :: Directives → Music (Pitch, [NoteAttribute])
 > opus131 dives                            =
@@ -73,16 +73,16 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >                                             , gs 4 qn, fs 4 qn, a 4 qn, gs 4 qn, fs 4 qn, e 4 qn, fs 4 qn, gs 4 dhn])]
 >   -- 4 % 1
 >   qv1p1005_008 =
->     line [passage dives qv1 [Mark P, SpanN 9, Mark P] (line [b 4 hn, a 4 hn, es 4 qn, fs 4 qn, a 4 qn
+>     line [passage dives qv1 [Inflect P, SpanN 9, Inflect P] (line [b 4 hn, a 4 hn, es 4 qn, fs 4 qn, a 4 qn
 >                                                      , g 4 qn, es 4 hn, es 5 qn, fs 5 hn, e 5 qn, ds 5 hn])]
 >   -- 4 % 1
 >   qv1p1009_012 =
->     line [passage dives qv1 [Mark P, Mark P] (line [fs 5 qn, e 5 qn])
->         , passage dives qv1 [Mark P, SpanN 2, Mark FF] (line [e 5 hn, ds 5 hn, e 5 wn, d 5 hn])
->         , passage dives qv1 [Mark FF, SpanN 1, Mark P] (line [cs 5 qn, bs 4 qn, b 4 hn])]
+>     line [passage dives qv1 [Inflect P, Inflect P] (line [fs 5 qn, e 5 qn])
+>         , passage dives qv1 [Inflect P, SpanN 2, Inflect FF] (line [e 5 hn, ds 5 hn, e 5 wn, d 5 hn])
+>         , passage dives qv1 [Inflect FF, SpanN 1, Inflect P] (line [cs 5 qn, bs 4 qn, b 4 hn])]
 >   -- 4 % 1
 >   qv1p1013_016 =
->     line [passage dives qv1 [Mark P, SpanN 9, Mark P] (line [d 4 qn, cs 4 qn, as 4 hn, b 4 hn, cs 5 qn, d 5 qn, b 4 qn
+>     line [passage dives qv1 [Inflect P, SpanN 9, Inflect P] (line [d 4 qn, cs 4 qn, as 4 hn, b 4 hn, cs 5 qn, d 5 qn, b 4 qn
 >                                                      , cs 5 qn, d 5 qn, e 5 dhn, d 5 hn])]
 >
 >   -- rollup 0 + 17.25 -> 17.25
@@ -98,12 +98,12 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >
 >   -- 17 % 4
 >   qv2p1009_012 =
->     line [passage dives qv2 [Mark P, SpanN 2, Mark P] (line [bs 3 qn, ds 4 qn, gs 3 hn, gs 4 qn])
->         , passage dives qv2 [Mark PP, SpanN 5, Mark FF] (line [bs 4 hn, cs 5 qn, b 4 qn, as 4 qn, cs 4 qn, b 4 qn, a 3 qn])
->         , passage dives qv2 [Mark FF, SpanN 2, Mark PP] (line [gs 3 qn, a 3 qn, ds 4 qn, es 4 qn])]
+>     line [passage dives qv2 [Inflect P, SpanN 2, Inflect P] (line [bs 3 qn, ds 4 qn, gs 3 hn, gs 4 qn])
+>         , passage dives qv2 [Inflect PP, SpanN 5, Inflect FF] (line [bs 4 hn, cs 5 qn, b 4 qn, as 4 qn, cs 4 qn, b 4 qn, a 3 qn])
+>         , passage dives qv2 [Inflect FF, SpanN 2, Inflect PP] (line [gs 3 qn, a 3 qn, ds 4 qn, es 4 qn])]
 >   -- 4 % 1
 >   qv2p1013_016 =
->     passage dives qv2 [Mark P, SpanN 11, Mark P]
+>     passage dives qv2 [Inflect P, SpanN 11, Inflect P]
 >                  (line [d 4 qn, b 3 qn, as 3 qn, cs 4 qn, d 4 qn, b 3 hn, as 3 qn, b 3 qn, gs 3 qn, a 3 qn, b 3 qn
 >                      , cs 4 dhn, b 3 qn])
 >
@@ -122,7 +122,7 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >                      , gs 3 qn, fs 3 qn,  a 3 qn, gs 3 qn, fs 3 qn, e 3 qn, fs 3 qn, gs 3 dhn])
 >   -- 4 % 1
 >   qvap1013_016 =
->     passage dives qva [Mark P, SpanN 12, Mark P]
+>     passage dives qva [Inflect P, SpanN 12, Inflect P]
 >                 (line [gs 4 qn, as 4 qn, fs 4 hn, g 3 qn, fs 3 qn, es 3 qn, d 3 qn, f 3 qn, e 3 qn
 >                      , d 3 qn, cs 3 qn, d 3 qn, e 3 qn, fs 3 hn])
 >

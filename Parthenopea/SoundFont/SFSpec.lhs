@@ -49,15 +49,14 @@ implementing SoundFont spec ====================================================
 >
 > data PreZone                             =
 >   PreZone {
->     pzWordF            :: Int
->   , pzWordS            :: Word
->   , pzWordI            :: Word
->   , pzWordB            :: Word
+>     pzWordF            :: !Int
+>   , pzWordS            :: !Word
+>   , pzWordI            :: !Word
+>   , pzWordB            :: !Word
 >   , pzDigest           :: ZoneDigest
 >   , pzSFZone           :: SFZone
 >   , pzChanges          :: ChangeEar F.Shdr
 >   , pzRecon            :: Maybe Recon}
->   deriving Eq
 > instance Show PreZone where
 >   show pz                                =
 >     unwords ["PreZone", show (pz.pzWordF, pz.pzWordS, pz.pzWordI, pz.pzWordB), show pz.pzDigest]
@@ -129,17 +128,16 @@ implementing SoundFont spec ====================================================
 >
 > data Recon                               =
 >   Recon {
->     rSampleMode        :: A.SampleMode
->   , rSampleRate        :: Double
+>     rSampleMode        :: !A.SampleMode
+>   , rSampleRate        :: !Double
 >   , rApplied           :: AppliedLimits
->   , rRootKey           :: AbsPitch
->   , rTuning            :: Int
->   , rAttenuation       :: Double
+>   , rRootKey           :: !AbsPitch
+>   , rTuning            :: !Int
+>   , rAttenuation       :: !Double
 >   , rVolEnv            :: Maybe FEnvelope
 >   , rPitchCorrection   :: Maybe Double
 >   , rM8n               :: Modulation
 >   , rEffects           :: Maybe Effects}
->   deriving (Eq, Show)
 > normalizeLooping       :: Recon → (Double, Double)
 > normalizeLooping Recon{ .. }
 >                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)
@@ -153,9 +151,9 @@ implementing SoundFont spec ====================================================
 >
 > data Effects                             =
 >   Effects {
->     efChorus           :: Double
->   , efReverb           :: Double
->   , efPan              :: Double}
+>     efChorus           :: !Double
+>   , efReverb           :: !Double
+>   , efPan              :: !Double}
 >   deriving (Eq, Show)
 >
 > data ChangeNameItem                      = FixBadName deriving Eq
@@ -270,7 +268,7 @@ implementing SoundFont spec ====================================================
 >
 > data SFFileBoot                          =
 >   SFFileBoot {
->     zWordFBoot         :: Int
+>     zWordFBoot         :: !Int
 >   , zFilename          :: FilePath
 >   , zFileArrays        :: FileArrays
 >   , zPreZones          :: IntMap PreZone
@@ -318,7 +316,7 @@ implementing SoundFont spec ====================================================
 >
 > data SFFileRuntime                       =
 >   SFFileRuntime {
->     zWordFRuntime      :: Int
+>     zWordFRuntime      :: !Int
 >   , zPerInstrument     :: IntMap PerInstrument
 >   , zPreZone           :: IntMap PreZone
 >   , zSample            :: SampleArrays}
@@ -331,8 +329,9 @@ implementing SoundFont spec ====================================================
 > 
 > data ArtifactGrade =
 >   ArtifactGrade {
->     pScore             :: Int
->   , pEmpiricals        :: [Double]} deriving (Show)
+>     pScore             :: !Int
+>   , pEmpiricals        :: [Double]}
+>   deriving (Show)
 >
 > class GMPlayable a where
 >   toGMKind             :: a → GMKind
@@ -398,7 +397,7 @@ implementing SoundFont spec ====================================================
 >
 > data FFMatches =
 >   FFMatches {
->     ffInput            :: String
+>     ffInput            :: !String
 >   , ffInst             :: Map InstrumentName Fuzz
 >   , ffPerc             :: Map PercussionSound Fuzz} deriving Show
 >
@@ -414,10 +413,10 @@ implementing SoundFont spec ====================================================
 >   , zdPan              :: Maybe Int
 >   , zdSampleIndex      :: Maybe Word
 >   , zdSampleMode       :: Maybe A.SampleMode
->   , zdStart            :: Int
->   , zdEnd              :: Int
->   , zdStartLoop        :: Int
->   , zdEndLoop          :: Int} deriving (Eq, Show)
+>   , zdStart            :: !Int
+>   , zdEnd              :: !Int
+>   , zdStartLoop        :: !Int
+>   , zdEndLoop          :: !Int} deriving (Eq, Show)
 > defDigest              :: ZoneDigest
 > defDigest                                = ZoneDigest Nothing Nothing Nothing Nothing Nothing 0 0 0 0
 > formDigest             :: [F.Generator] → ZoneDigest
@@ -487,10 +486,11 @@ bootstrapping ==================================================================
 >
 > data Scan                                =
 >   Scan {
->     sDisposition       :: Disposition
->   , sImpact            :: Impact
->   , sFunction          :: String
->   , sClue              :: String} deriving (Eq, Show)
+>     sDisposition       :: !Disposition
+>   , sImpact            :: !Impact
+>   , sFunction          :: !String
+>   , sClue              :: !String}
+>   deriving (Eq, Show)
 > getTriple              :: Scan → (Disposition, Impact, String)
 > getTriple s                              = (s.sDisposition, s.sImpact, s.sFunction)
 >
@@ -691,11 +691,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >     SampleTypeRomRight     → 0x8002
 >     SampleTypeRomLeft      → 0x8004
 >     SampleTypeRomLinked    → 0x8008
->
-> allKinds               :: ([InstrumentName], [PercussionSound])
-> allKinds                                 =
->   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
->    , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 

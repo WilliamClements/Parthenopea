@@ -11,12 +11,11 @@ Apr 26, 2025
 >          deriveEnvelope
 >        , doEnvelope
 >        , doSweepingEnvelope
->        , minDeltaT
->        , minUseful
 >        , proposeSegments
 >        , vetAsDiscreteSig) where
 >
 > import Data.Foldable
+> import Data.List
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict                as Map
 > import Data.Maybe ( isJust, isNothing, fromJust, fromMaybe )
@@ -25,7 +24,6 @@ Apr 26, 2025
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
 > import Euterpea.IO.Audio.Types ( Clock(..), Signal )
 > import Parthenopea.Repro.Discrete
-> import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
   
@@ -67,7 +65,7 @@ Create a straight-line envelope generator with following phases:
 >       in
 >         if ok
 >           then envLineSeg segs.sAmps segs.sDeltaTs
->           else error $ unwords [fName, "computed envelope rejected", show envNow, show segs]
+>           else error $ unwords [fName, "computed envelope rejected", show segs]
 >
 > proposeSegments        :: TimeFrame → FEnvelope → (FEnvelope, Segments)
 > proposeSegments tf envRaw                = (r, segs)
@@ -171,7 +169,7 @@ interpret them somehow.
 > refineEnvelope         :: FEnvelope → FEnvelope
 > refineEnvelope fEnvIn                    = result.fiEnvWork
 >   where
->     result                               = head $ dropWhile unfinished $ iterate nextGen fiInit
+>     result                               = head $ dropWhile unfinished $ iterate' nextGen fiInit
 >
 >     fiInit                               =
 >       FIterate 

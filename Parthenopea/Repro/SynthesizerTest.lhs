@@ -13,8 +13,9 @@ March 2, 2024
 > import Euterpea.IO.Audio.Types ( Clock(..), AudRate, Signal )
 > import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Music.Siren
-> import Parthenopea.Repro.Modulation ( constA, defModulation, TimeFrame(..) )
+> import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.SoundFont.Utility
   
 Synthesizer-related tests =============================================================================================
 

@@ -19,7 +19,6 @@ August 15, 2025
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren ( bandPartContext, BandPart(..), stdVelocity)
-> import Parthenopea.Repro.Modulation ( epsilon )
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
 
@@ -34,8 +33,8 @@ _Overall_                =
 > type SelfIndex                           = Int
 >
 > data Marking                             =
->     Mark StdLoudness
->   | ReMark StdLoudness
+>   Mark StdLoudness
+>   | Inflect StdLoudness
 >   | Rest1
 >   | Span1
 >   | SpanN Int
@@ -109,7 +108,7 @@ _Overall_                =
 > getMarkVelocity mek                      =
 >   case mek.mMarking of
 >     Mark x                               → stdVelocity x
->     ReMark x                             → stdVelocity x
+>     Inflect x                            → stdVelocity x
 >     _                                    → error "no mark velocity"
 > passage                :: Directives → BandPart → [Marking] → Music Pitch → Music1
 > passage dives bp markings ma
@@ -271,7 +270,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >             velo'                        =
 >               case mek.mMarking of
 >                 Mark x                   → stdVelocity x
->                 ReMark x                 → stdVelocity x
+>                 Inflect x                → stdVelocity x
 >                 _                        → velo
 >             updateOne                    =
 >               case mek.mParams of
@@ -289,7 +288,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >         getMarkNode mek                  =
 >           case mek.mMarking of
 >             Mark _                       → VB.singleton mek.mSelfIndex
->             ReMark _                     → VB.singleton mek.mSelfIndex
+>             Inflect _                    → VB.singleton mek.mSelfIndex
 >             _                            → VB.empty
 >
 >         append sis mek                   = sis VB.++ getMarkNode mek
@@ -300,7 +299,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >       where
 >         inflected _ si                   =
 >           case (meks VB.! si).mMarking of
->             ReMark _                     → False
+>             Mark _                     → False
 >             _                            → True
 
 Configurable parameters ===============================================================================================

@@ -27,10 +27,10 @@ August 15, 2025
 >
 > aMarkings, bMarkings, cMarkings, dMarkings
 >                        :: [Marking]
-> aMarkings                                = [Mark PP, Rest1, Mark FF]
-> bMarkings                                = [ReMark PP, Rest1, ReMark FF]
-> cMarkings                                = [ReMark PPP, ReMark P, ReMark P, ReMark FF]
-> dMarkings                                = [Mark PPP, Mark P, Mark P, Mark FF]
+> aMarkings                                = [Inflect PP, Rest1, Inflect FF]
+> bMarkings                                = [Mark PP, Rest1, Mark FF]
+> cMarkings                                = [Mark PPP, Mark P, Mark P, Mark FF]
+> dMarkings                                = [Inflect PPP, Inflect P, Inflect P, Inflect FF]
 >
 > testMeks               :: VB.Vector (Primitive Pitch) → [Marking] → VB.Vector MekNote
 > testMeks prims markings                  =

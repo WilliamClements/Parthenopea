@@ -30,7 +30,6 @@ December 12, 2022
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import Parthenopea.SoundFont.Directives
-> import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
 > import System.Random ( Random(randomR), StdGen )
   

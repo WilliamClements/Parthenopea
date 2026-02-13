@@ -8,18 +8,27 @@ October 8, 2025
 
 > module Parthenopea.SoundFont.Utility where
 >
+> import Control.Arrow
 > import Data.Array.Unboxed
+> import Data.Complex
 > import Data.Graph (Graph)
 > import Data.Maybe
 > import Data.Ratio ( approxRational )
 > import Data.Time
 > import Data.Time.Clock.POSIX
-> import Euterpea.Music ( AbsPitch, Dur, InstrumentName, PercussionSound, Volume )
+> import Euterpea.IO.Audio.Types ( AudRate, Clock(..), CtrRate )
+> import Euterpea.IO.MIDI.GeneralMidi ( )
+> import Euterpea.Music
 >
 > type GMKind                              = Either InstrumentName PercussionSound
 > type KeyNumber                           = AbsPitch
 > type Velocity                            = Volume
 > type Node                                = Int
+>
+> allKinds               :: ([InstrumentName], [PercussionSound])
+> allKinds                                 =
+>   (  map toEnum [fromEnum AcousticGrandPiano .. fromEnum Gunshot]
+>    , map toEnum [fromEnum AcousticBassDrum .. fromEnum OpenTriangle])
 >
 > qMidiWord128           :: Word
 > qMidiWord128                             = 128
@@ -123,6 +132,10 @@ time ===========================================================================
 >     utcDiff                              = diffUTCTime tEnd tStart
 >   in
 >     formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime utcDiff)
+>
+> ctrRate, audRate       :: Double
+> ctrRate                                  = rate (undefined :: CtrRate)
+> audRate                                  = rate (undefined :: AudRate)
 
 -- Function to format elapsed time from raw seconds
 
@@ -132,5 +145,122 @@ time ===========================================================================
 >     utcDiff                              = secondsToNominalDiffTime $ fromRational tsDiff
 >   in
 >     formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime utcDiff)
+>
+> data ModTriple                           = ModTriple !Double !Double !Double
+> defModTriple           :: ModTriple
+> defModTriple                             = ModTriple 0 0 0
+>
+> deriveModTriple        :: Maybe Int → Maybe Int → Maybe Int → ModTriple
+> deriveModTriple toPitch toFilterFc toVolume
+>                                          =
+>   ModTriple
+>     (maybe 0 fromIntegral toPitch)
+>     (maybe 0 fromIntegral toFilterFc)
+>     (maybe 0 fromIntegral toVolume)
+>
+> data TimeFrame                           =
+>   TimeFrame {
+>     tfSecsSampled      :: Double
+>   , tfSecsScored       :: Double
+>   , tfSecsToPlay       :: Double
+>   , tfLooping          :: Bool} deriving (Eq, Show)
+> data EnvelopeExtras                      =
+>   EnvelopeExtras {
+>     eeTargetT          :: Double
+>   , eeReleaseT         :: Double
+>   , eePostT            :: Double} deriving (Eq, Show)
+> data FEnvelope                           =
+>   FEnvelope {
+>     fExtras            :: Maybe EnvelopeExtras
+>   , fSustainLevel      :: Double
+>   , fModTriple         :: Maybe ModTriple
+>
+>   , fDelayT            :: Double
+>   , fAttackT           :: Double
+>   , fHoldT             :: Double
+>   , fDecayT            :: Double
+>   , fSustainT          :: Double}
+> data Segments                            =
+>   Segments {
+>     sAmps              :: [Double]
+>   , sDeltaTs           :: [Double]} deriving Show
+
+Returns the frequency ratio
+
+> fromCents              :: Double → Double
+> fromCents cents                          = pow 2 (cents/12/100)
+>
+> fromCents'             :: Maybe Int → Maybe Int → Maybe Double
+> fromCents' mcoarse mfine
+>   | isNothing mcoarse && isNothing mfine = Nothing
+>   | otherwise                            = Just $ fromCents $ coarse * 100 + fine
+>   where
+>     coarse = maybe 0 fromIntegral mcoarse
+>     fine   = maybe 0 fromIntegral mfine
+
+Returns the frequency
+
+> fromAbsoluteCents      :: Int → Double
+> fromAbsoluteCents acents                 = 8.176 * fromCents (fromIntegral acents)
+>
+> toAbsoluteCents        :: Double → Int
+> toAbsoluteCents freq                     = round $ 100 * 12 * logBase 2 (freq / 8.176)
+
+Returns the elapsed time in seconds
+
+> fromTimecents          :: Maybe Int → Double
+> fromTimecents mtimecents                 = pow 2 (maybe (- 12_000) fromIntegral mtimecents / 1_200)
+>
+> fromTimecents'         :: Maybe Int → Maybe Int → KeyNumber → Double
+> fromTimecents' mtimecents mfact key      = pow 2 (base + inc)
+>   where
+>     base               :: Double         =
+>       maybe (-12_000) fromIntegral mtimecents / 1_200
+>     inc                :: Double         =
+>       maybe 0 fromIntegral mfact * fromIntegral (60 - key) / qMidiDouble128 / 1_200
+>
+> toTimecents            :: Double → Int
+> toTimecents secs                         = round $ logBase 2 secs * 1_200
+>
+> minDeltaT, minUseful   :: Double
+> minDeltaT                                = fromTimecents Nothing
+> minUseful                                = 1/82
+
+Returns the amplitude ratio
+
+> fromCentibels          :: Double → Double
+> fromCentibels centibels                  = pow 10 (centibels/1000)
+>
+> toCentibels            :: Double → Double
+> toCentibels ratio                        = logBase 10 (ratio * 1000)
+
+Returns the amplitude ratio (based on input 10ths of a percent) 
+
+> fromTithe              :: Maybe Int → Bool → Double
+> fromTithe iS isVol                       =
+>   if isVol
+>     then 1 / fromCentibels jS
+>     else (1000 - jS) / 1000
+>   where
+>     jS                 :: Double         = maybe 0 fromIntegral iS
+>
+> theE, epsilon, upsilon :: Double
+> theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
+> epsilon                                  = 1e-8               -- a generous little epsilon
+> upsilon                                  = 1e10               -- a scrawny  big    upsilon
+>    
+> theE' :: Complex Double
+> theE' = theE :+ 0
+>
+> theJ :: Complex Double
+> theJ = 0 :+ 1
+>  
+> constA                 :: Arrow a ⇒ c → a b c
+> constA                                   = arr . const
+   
+Raises 'a' to the power 'b' using logarithms.
+
+> pow                    :: Floating a ⇒ a → a → a
+> pow x y                                  = exp (log x * y)
 
 The End
