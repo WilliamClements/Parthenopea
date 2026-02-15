@@ -119,12 +119,12 @@ use "matching as" cache ========================================================
 >
 >     evalAgainstKeys keys                 = sum $ zipWith evalAgainstOne keys weights
 >       where
->         lFactor            :: Double         = sqrt $ fromIntegral $ length keys
->         weights            :: [Double]       = [1.9 / lFactor
->                                               , 1.6 / lFactor
->                                               , 1.25 / lFactor
->                                               , 1.17 / lFactor
->                                               , 1.14 / lFactor]
+>         lFactor            :: Double     = sqrt $ fromIntegral $ length keys
+>         weights            :: [Double]   = [1.9 / lFactor
+>                                           , 1.6 / lFactor
+>                                           , 1.25 / lFactor
+>                                           , 1.17 / lFactor
+>                                           , 1.14 / lFactor]
 >
 >     evalAgainstOne     :: String → Double → Double
 >     evalAgainstOne key weight            = maybe 0 ((* weight) . fromIntegral . FF.score) (FF.bestMatch key inp)
@@ -496,8 +496,8 @@ Utilities ======================================================================
 >       BrightAcousticPiano       → Just            ["elec", "grand"]
 >       Cello                     → Just            ["tremolo", "strike", "pluck", "stacc"]
 >       Contrabass                → Just $ singleton "tremolo"
->       ElectricBassFingered      → Just            ["acous", "brass", "bassoon"]
->       ElectricBassPicked        → Just            ["acous", "brass", "bassoon"]
+>       ElectricBassFingered      → Just            ["drum", "bassoon", "acous", "brass"]
+>       ElectricBassPicked        → Just            ["drum", "bassoon", "acous", "brass"]
 >       EnglishHorn               → Just $ singleton "french"
 >       Flute                     → Just $ singleton "pan"
 >       FrenchHorn                → Just $ singleton "english"

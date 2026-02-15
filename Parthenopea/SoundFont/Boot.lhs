@@ -566,7 +566,7 @@ capture task ===================================================================
 >             si                           = pzqq.pzWordS
 >             prezk                        = PreZoneKey 
 >                                             sffile.zWordFBoot 
->                                             (pgkwInst pergm)
+>                                             pergm.pgkwInst
 >                                             bix
 >                                             si
 >             presk                        = PreSampleKey 
@@ -1159,15 +1159,17 @@ perI task ======================================================================
 >       where
 >         fName                            = "perIFolder"
 >
+>         owned                            =
+>           fromMaybe IntSet.empty (fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwOwners)
 >         perI                             = 
 >           PerInstrument 
 >             zrec.zswChanges 
->             (fromMaybe IntSet.empty (fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwOwners))
+>             owned
 >             IntSet.empty
 >             (deJust fName zrec.zsSmashup)
 >
 >         ssInstrument                     =
->           [Scan Accepted ToCache fName noClue]
+>           [Scan Accepted ToCache fName (show $ IntSet.size owned)]
 >         ssPreZone                        =
 >           [Scan Accepted ToCache fName (show zrec.zswInst)]
 >

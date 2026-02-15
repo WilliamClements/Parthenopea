@@ -437,7 +437,7 @@ also
 instrument range checking =============================================================================================
 
 > unionRanges            :: (Ord a, Ord b) ⇒ [(a, b)] → (a, b)
-> unionRanges []                           = error "empty range list"
+> unionRanges []                           = error "empty union range list"
 > unionRanges rs                           = ( minimum (map fst rs)
 >                                            , maximum (map snd rs) )
 > intersectRanges        :: (Ord b, Show b) ⇒ [(b, b)] → Maybe (b, b)
@@ -449,7 +449,7 @@ instrument range checking ======================================================
 >   where
 >     inverted                             = ( maximum (map fst (r:rs))
 >                                            , minimum (map snd (r:rs)) )
-> intersectRanges _                        = error "empty range list"
+> intersectRanges _                        = error "empty intersect range list"
 >
 > data BandPart =
 >   BandPart {

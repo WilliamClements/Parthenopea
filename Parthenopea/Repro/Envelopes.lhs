@@ -169,7 +169,7 @@ interpret them somehow.
 > refineEnvelope         :: FEnvelope → FEnvelope
 > refineEnvelope fEnvIn                    = result.fiEnvWork
 >   where
->     result                               = head $ dropWhile unfinished $ iterate nextGen fiInit
+>     result                               = head $ dropWhile unfinished $ iterate' nextGen fiInit
 >
 >     fiInit                               =
 >       FIterate 
@@ -200,7 +200,7 @@ interpret them somehow.
 >
 > feFinish               :: FIterate → FEnvelope → FIterate
 > feFinish iterIn workee                   =
->   feCheckFinal iterIn{fiFun = undefined, fiEnvWork = workee, fiDone = True}
+>   feCheckFinal iterIn{fiFun = id, fiEnvWork = workee, fiDone = True}
 >
 > feContinue             :: FIterate → FEnvelope → (FIterate → FIterate) → FIterate
 > feContinue iterIn workee fun             = iterIn{fiFun = fun, fiEnvWork = workee}
