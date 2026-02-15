@@ -147,6 +147,7 @@ time ===========================================================================
 >     formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime utcDiff)
 >
 > data ModTriple                           = ModTriple !Double !Double !Double
+>   deriving (Eq, Show)
 > defModTriple           :: ModTriple
 > defModTriple                             = ModTriple 0 0 0
 >
@@ -180,6 +181,7 @@ time ===========================================================================
 >   , fHoldT             :: Double
 >   , fDecayT            :: Double
 >   , fSustainT          :: Double}
+>   deriving (Eq, Show)
 > data Segments                            =
 >   Segments {
 >     sAmps              :: [Double]

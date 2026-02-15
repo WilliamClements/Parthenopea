@@ -57,17 +57,18 @@ implementing SoundFont spec ====================================================
 >   , pzSFZone           :: SFZone
 >   , pzChanges          :: ChangeEar F.Shdr
 >   , pzRecon            :: Maybe Recon}
+>   deriving Eq
 > instance Show PreZone where
 >   show pz                                =
 >     unwords ["PreZone", show (pz.pzWordF, pz.pzWordS, pz.pzWordI, pz.pzWordB), show pz.pzDigest]
 > showBad                :: PreZone → String
 > showBad pz                               = show (pz.pzWordB, (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange))
 >
-> makePreZone            :: Int → Word → Word → Word → [F.Generator] → F.Shdr → PreZone
-> makePreZone wF wS wI wB gens shdr        =
+> makePreZone            :: Int → Word → Word → ZoneDigest → F.Shdr → PreZone
+> makePreZone wF wI bix digest shdr        =
 >   PreZone
->     wF wS wI wB 
->      (formDigest gens) defZone (ChangeEar shdr [])
+>     wF (fromJust digest.zdSampleIndex) wI bix 
+>      digest defZone (ChangeEar shdr [])
 >      Nothing
 >
 > extractSampleKey       :: PreZone → PreSampleKey
@@ -138,6 +139,7 @@ implementing SoundFont spec ====================================================
 >   , rPitchCorrection   :: Maybe Double
 >   , rM8n               :: Modulation
 >   , rEffects           :: Maybe Effects}
+>   deriving Eq
 > normalizeLooping       :: Recon → (Double, Double)
 > normalizeLooping Recon{ .. }
 >                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)

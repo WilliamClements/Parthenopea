@@ -207,7 +207,7 @@ zone selection for rendering ===================================================
 >                                                                  , show (spL, spR)
 >                                                                  , "not both present in"
 >                                                                  , show (allBixen perI)] 
->       | spL == spR                       = (Left . fromJust) foundL
+>       | foundL == foundR                 = (Left . fromJust) foundL
 >       | otherwise                        = Right (fromJust foundL, fromJust foundR)
 >       where
 >         fName                            = unwords [fName_, "eyeOnTheFly"]

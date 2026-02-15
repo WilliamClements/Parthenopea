@@ -607,6 +607,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >     lfoDelay           :: Double
 >   , lfoFrequency       :: Double
 >   , lfoModTriple       :: ModTriple}
+>   deriving (Eq, Show)
 >
 > data Modulation                          =
 >   Modulation {
@@ -618,13 +619,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >   , toFilterFcCo       :: ModCoefficients
 >   , toVolumeCo         :: ModCoefficients
 >   , mModsMap           :: Map ModDestType [Modulator]}
-> instance Show Modulation where
->   show m                                 = unwords ["Modulation", show m.mLowpass]
-> instance Eq Modulation where
->   (==) m1 m2                             = m1.mLowpass == m2.mLowpass
->                                            && m1.toPitchCo == m2.toPitchCo
->                                            && m1.toFilterFcCo == m2.toFilterFcCo
->                                            && m1.toVolumeCo == m2.toVolumeCo
+>   deriving (Eq, Show)
 >
 > defModulation          :: Modulation
 > defModulation                            =

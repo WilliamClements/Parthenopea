@@ -169,7 +169,7 @@ interpret them somehow.
 > refineEnvelope         :: FEnvelope → FEnvelope
 > refineEnvelope fEnvIn                    = result.fiEnvWork
 >   where
->     result                               = head $ dropWhile unfinished $ iterate' nextGen fiInit
+>     result                               = head $ dropWhile unfinished $ iterate nextGen fiInit
 >
 >     fiInit                               =
 >       FIterate 

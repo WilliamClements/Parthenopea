@@ -539,7 +539,7 @@ capture task ===================================================================
 >
 >         capturePreZone :: Word → (Word, Either PreZone (PreZoneKey, [Scan]))
 >         capturePreZone bix
->           | isNothing pzDigest.zdSampleIndex
+>           | isNothing digest.zdSampleIndex
 >                                          = (bix, Right (prezk, ssGlobalZone))
 >           | isNothing mpres              = (bix, Right (prezk, ssOrphaned))
 >           | not (okGMRanges pzDigest)    = (bix, Right (prezk, ssBadGMRange      (rangeClue pzqq)))
@@ -547,9 +547,6 @@ capture task ===================================================================
 >           | isJust probeLimits           = (bix, Right (prezk, ssApplied         (fromJust probeLimits)))
 >           | otherwise                    = (bix, Left pzqq{pzChanges = ChangeEar (effPSShdr pres) []})
 >           where
->             pzqq@PreZone{ .. }
->                                          = makePreZone sffile.zWordFBoot si pergm.pgkwInst bix gens pres.cnSource
->
 >             gens       :: [F.Generator]
 >             gens                         =
 >               let
@@ -560,8 +557,13 @@ capture task ===================================================================
 >                   (0 <= xgeni && xgeni <= ygeni)
 >                   (unwords [fName_, "SoundFont file corrupt (gens)"])
 >                   (map (sffile.zFileArrays.ssIGens !) (deriveRange xgeni ygeni))
->                                              
->             si                           = deJust (unwords [fName_, "si"]) pzDigest.zdSampleIndex
+>             
+>             digest                       = formDigest gens                                 
+>
+>             pzqq@PreZone{ .. }
+>                                          = makePreZone sffile.zWordFBoot pergm.pgkwInst bix digest pres.cnSource
+>
+>             si                           = pzqq.pzWordS
 >             prezk                        = PreZoneKey 
 >                                             sffile.zWordFBoot 
 >                                             (pgkwInst pergm)
