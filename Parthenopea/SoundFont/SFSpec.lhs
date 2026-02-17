@@ -57,7 +57,6 @@ implementing SoundFont spec ====================================================
 >   , pzSFZone           :: SFZone
 >   , pzChanges          :: ChangeEar F.Shdr
 >   , pzRecon            :: Maybe Recon}
->   deriving Eq
 > instance Show PreZone where
 >   show pz                                =
 >     unwords ["PreZone", show (pz.pzWordF, pz.pzWordS, pz.pzWordI, pz.pzWordB), show pz.pzDigest]

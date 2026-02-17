@@ -93,9 +93,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     pumpStereo         :: Signal p () (Double, Double)
 >     modulateStereo, ampStereo
 >                        :: Signal p (Double, Double) (Double, Double)
->     eutModulate        :: Modulation → Signal p Double Double
 >     eutDriver          :: Signal p () Double
->     eutAmplify         :: Recon → Signal p Double Double
 >     pumpMonoSample     :: Signal p Double Double
 >     pumpStereoSample   :: Signal p Double (Double, Double)
 >
@@ -104,15 +102,16 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     pumpMono                             =
 >       eutDriver
 >         >>> pumpMonoSample
->         >>> eutModulate         m8nL
+>         >>> eutModulate         timeFrame m8nL noon
 >         >>> eutEffectsMono      sw (deJust fName reconL.rEffects)
->         >>> eutAmplify          reconL
+>         >>> eutAmplify          timeFrame reconL.rM8n reconL.rVolEnv sweeps noon
 >
 >     pumpStereo                           = 
 >       eutDriver
 >         >>> pumpStereoSample
 >         >>> modulateStereo
->         >>> ampStereo
+>         >>> eutEffectsStereo    sw (deJust fName reconL.rEffects) (deJust fName reconR.rEffects)
+>         >>> ampStereo 
 >
 >     eutSplit                             =
 >       proc sIn → do
@@ -131,9 +130,9 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                                              where frac = snd . properFraction
 >
 >         procDriver calcPhase             = proc () → do
->           modSig                         ← eutModSignals reconL.rM8n ToPitch               ⤙ ()
+>           modSig                         ← eutModSignals timeFrame reconL.rM8n ToPitch     ⤙ ()
 >           let delta                      =
->                 deltaCalc * evaluateModSignals sw "procDriver" reconL.rM8n ToPitch noon modSig
+>                 deltaCalc * evaluateModSignals "procDriver" reconL.rM8n ToPitch noon modSig
 >           rec
 >             let phase                    = calcPhase next
 >             next           ← delay 0     ⤙ phase + delta                           
@@ -141,38 +140,18 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 >     modulateStereo                       =
 >       proc (sL, sR) → do
->         mL                               ← eutModulate m8nL                                ⤙ sL
->         mR                               ← eutModulate m8nR                                ⤙ sR
+>         mL                               ← eutModulate timeFrame m8nL noon                 ⤙ sL
+>         mR                               ← eutModulate timeFrame m8nR noon                 ⤙ sR
 >         outA                                                                               ⤙ (mL, mR)
 >
 >     ampStereo                            =
->       proc (sL, sR) → do
->         (tL, tR)                         ← eutEffectsStereo sw (fromJust reconL.rEffects)
->                                                                (fromJust reconR.rEffects)  ⤙ (sL, sR)
->         mL                               ← eutAmplify reconL                               ⤙ tL
->         mR                               ← eutAmplify reconR                               ⤙ tR
+>       proc (tL, tR) → do
+>         mL                               ← eutAmplify timeFrame reconL.rM8n reconL.rVolEnv sweeps noon
+>                                                                                            ⤙ tL
+>         mR                               ← eutAmplify timeFrame reconR.rM8n reconR.rVolEnv sweeps noon
+>                                                                                            ⤙ tR
 >         outA                                                                               ⤙ (mL, mR)
 >
->     eutModulate m8n                      =
->       proc a1L                           → do
->         modSigL                          ← eutModSignals m8n ToFilterFc                    ⤙ ()
->         a2L                              ← addResonance m8nL                               ⤙ (a1L, modSigL)
->         outA                                                                               ⤙ a2L
->
->     eutAmplify recon                     =
->       proc a1L → do
->         aSweep                           ← doSweepingEnvelope timeFrame eor                ⤙ ()
->         aenvL                            ← doEnvelope timeFrame recon.rVolEnv              ⤙ ()
->         modSigL                          ← eutModSignals recon.rM8n ToVolume               ⤙ ()
->         let a2L                          =
->               a1L * aenvL * (aSweep / 100) * evaluateModSignals sw fNameAmplify recon.rM8n ToVolume noon modSigL
->         outA                             ⤙ a2L
->       where
->         fNameAmplify                     = "eutAmplify"
->
->         eor                              = if VB.null sweeps
->                                              then Left noon.noteOnVel
->                                              else Right sweeps
 >     pumpMonoSample                       =
 >       proc pos                           → do
 >         let pos'       :: Double         = fromIntegral (rEnd - rStart) * pos
@@ -185,7 +164,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >         AppliedLimits{ .. }
 >                                          = reconL.rApplied
 >         cAttenL        :: Double         =
->           fromCentibels (reconL.rAttenuation + evaluateMods sw ToInitAtten reconL.rM8n.mModsMap noon)
+>           fromCentibels (reconL.rAttenuation + evaluateMods ToInitAtten reconL.rM8n.mModsMap noon)
 >         ampL                             = fromIntegral noon.noteOnVel / 100 / cAttenL
 >
 >     pumpStereoSample                     =
@@ -204,23 +183,10 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                                          = reconR
 >         Modulation{mModsMap = mmodsL}    = m8nL
 >         Modulation{mModsMap = mmodsR}    = m8nR
->         cAttenL                          = fromCentibels (attenL + evaluateMods sw ToInitAtten mmodsL noon)
->         cAttenR                          = fromCentibels (attenR + evaluateMods sw ToInitAtten mmodsR noon)
+>         cAttenL                          = fromCentibels (attenL + evaluateMods ToInitAtten mmodsL noon)
+>         cAttenR                          = fromCentibels (attenR + evaluateMods ToInitAtten mmodsR noon)
 >         ampL                             = fromIntegral noon.noteOnVel / 100 / cAttenL
 >         ampR                             = fromIntegral noon.noteOnVel / 100 / cAttenR
->
->     addResonance       :: Modulation → Signal p (Double, ModSignals) Double
->     addResonance m8n                     = res
->       where
->         res                              =
->           proc (sIn, msig)               → do
->             let fc                       = modulateFc msig
->             pickled ← procFilter m8n.mLowpass ⤙ (sIn, fc)
->             outA                         ⤙ pickled
->
->         modulateFc     :: ModSignals → Double
->         modulateFc msig                  =
->           clip freakRange (lowpassFc m8n.mLowpass * evaluateModSignals sw "modulateFc" m8n ToFilterFc noon msig)
 
 Account for custom frequency intervals -- SoundFont scale tuning : 0 < x < 100 < 1200
 Clearly multiple root pitches are mutually incompatible, in general, for calculating frequency ratios
@@ -231,22 +197,67 @@ Multiply the root frequency by that to give output frequency
 >     calcMicrotoneRatio :: AbsPitch → Int → Double
 >     calcMicrotoneRatio apDelta tuning    = pow 2 (fromIntegral apDelta * fromIntegral tuning / 1_200)
 
+Resonance =============================================================================================================
+
+> addResonance           :: ∀ p . Clock p ⇒ Modulation → NoteOn
+>                           → Signal p (Double, ModSignals) Double
+> addResonance m8n noon                    =
+>   proc (sIn, msig)                       → do
+>     let fc                               = modulateFc msig
+>     pickled ← procFilter m8n.mLowpass    ⤙ (sIn, fc)
+>     outA                                 ⤙ pickled
+>   where
+>     modulateFc     :: ModSignals → Double
+>     modulateFc msig                  =
+>       clip freakRange (lowpassFc m8n.mLowpass * evaluateModSignals "modulateFc" m8n ToFilterFc noon msig)
+
 Modulation Signals ====================================================================================================
 
->     eutModSignals          :: Modulation → ModDestType → Signal p () ModSignals
->     eutModSignals m8n md                 =
->       proc _                             → do
->         aL1 ← doEnvelope  timeFrame kModEnvL             ⤙ ()
->         aL2 ← doLFO       kModLfoL                       ⤙ ()
->         aL3 ← doLFO       kVibLfoL                       ⤙ ()
->         outA                                             ⤙ ModSignals aL1 aL2 aL3
->       where
->         (kModEnvL, kModLfoL, kVibLfoL)   = case md of
->           ToPitch                        → ( m8n.mModEnv, m8n.mModLfo, m8n.mVibLfo)
->           ToFilterFc                     → ( m8n.mModEnv, m8n.mModLfo, Nothing)
->           ToVolume                       → ( Nothing,     m8n.mModLfo, Nothing)
->           _                              →
->             error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in eutModSignals, not", show md]
+> eutModSignals          :: ∀ p . Clock p ⇒ TimeFrame → Modulation → ModDestType
+>                           → Signal p () ModSignals
+> eutModSignals timeFrame m8n md           =
+>   proc _                                 → do
+>     aL1 ← doEnvelope  timeFrame kModEnvL             ⤙ ()
+>     aL2 ← doLFO       kModLfoL                       ⤙ ()
+>     aL3 ← doLFO       kVibLfoL                       ⤙ ()
+>     outA                                             ⤙ ModSignals aL1 aL2 aL3
+>   where
+>     (kModEnvL, kModLfoL, kVibLfoL)       = case md of
+>       ToPitch                            → ( m8n.mModEnv, m8n.mModLfo, m8n.mVibLfo)
+>       ToFilterFc                         → ( m8n.mModEnv, m8n.mModLfo, Nothing)
+>       ToVolume                           → ( Nothing,     m8n.mModLfo, Nothing)
+>       _                                  →
+>         error $ unwords["only ToPitch, ToFilterFc, and ToVolume supported in eutModSignals, not", show md]
+
+Modulation ============================================================================================================
+
+> eutModulate            :: ∀ p . Clock p ⇒ TimeFrame → Modulation → NoteOn
+>                           → Signal p Double Double
+> eutModulate timeFrame m8n noon           =
+>   proc a1L                               → do
+>     modSigL                              ← eutModSignals timeFrame m8n ToFilterFc         ⤙ ()
+>     a2L                                  ← addResonance m8n noon                          ⤙ (a1L, modSigL)
+>     outA                                                                                  ⤙ a2L
+
+Amplification =========================================================================================================
+
+> eutAmplify             :: ∀ p . Clock p ⇒ TimeFrame → Modulation → Maybe FEnvelope → VB.Vector Double → NoteOn
+>                           → Signal p Double Double
+> eutAmplify timeFrame m8n volEnv sweeps noon
+>                                          =
+>   proc a1L → do
+>     aSweep                               ← doSweepingEnvelope timeFrame eor                ⤙ ()
+>     aenvL                                ← doEnvelope timeFrame volEnv                     ⤙ ()
+>     modSigL                              ← eutModSignals timeFrame m8n ToVolume            ⤙ ()
+>     let a2L                              =
+>           a1L * aenvL * (aSweep / 100) * evaluateModSignals fNameAmplify m8n ToVolume noon modSigL
+>     outA                                 ⤙ a2L
+>   where
+>     fNameAmplify                         = "eutAmplify"
+>
+>     eor                                  = if VB.null sweeps
+>                                              then Left noon.noteOnVel
+>                                              else Right sweeps
 
 Effects ===============================================================================================================
 
@@ -259,11 +270,11 @@ Effects ========================================================================
 >   where
 >     dChorus            :: Double         =
 >       if sw.useChorus
->         then maybe 0 fromIntegral mChorus + evaluateMods sw ToChorus m8n.mModsMap noon
+>         then maybe 0 fromIntegral mChorus + evaluateMods ToChorus m8n.mModsMap noon
 >         else 0
 >     dReverb            :: Double         =
 >       if sw.useReverb
->         then maybe 0 fromIntegral mReverb + evaluateMods sw ToReverb m8n.mModsMap noon
+>         then maybe 0 fromIntegral mReverb + evaluateMods ToReverb m8n.mModsMap noon
 >         else 0
 >     dPan               :: Double         =
 >       if sw.usePan

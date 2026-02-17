@@ -189,8 +189,8 @@ define signal functions and instrument maps to support rendering ===============
 >             reconL                       = receiveRecon synthSwitches pzL noon
 >             reconR                       = receiveRecon synthSwitches pzR noon
 >
->             copyRoot pz1 pz2             = pz2{rRootKey                   = pz1.rRootKey
->                                              , rPitchCorrection           = pz1.rPitchCorrection}
+>             copyRoot r1 r2               = r2{rRootKey                    = r1.rRootKey
+>                                              , rPitchCorrection           = r1.rPitchCorrection}
 
 zone selection for rendering ==========================================================================================
 
@@ -207,8 +207,8 @@ zone selection for rendering ===================================================
 >                                                                  , show (spL, spR)
 >                                                                  , "not both present in"
 >                                                                  , show (allBixen perI)] 
->       | foundL == foundR                 = (Left . fromJust) foundL
->       | otherwise                        = Right (fromJust foundL, fromJust foundR)
+>       | pzL.pzRecon == pzR.pzRecon       = Left pzL
+>       | otherwise                        = Right (pzL, pzR)
 >       where
 >         fName                            = unwords [fName_, "eyeOnTheFly"]
 >         trace_DFE                        = unwords [fName, show (spL, spR), smashTag]
@@ -233,6 +233,9 @@ zone selection for rendering ===================================================
 >                   (vu VU.! 0, vu VU.! 1)
 >         foundL                           = fromIntegral spL `IntMap.lookup` sffile.zPreZone
 >         foundR                           = fromIntegral spR `IntMap.lookup` sffile.zPreZone
+>
+>         pzL                              = deJust fName foundL
+>         pzR                              = deJust fName foundR
 
 reconcile zone and sample header ======================================================================================
 

@@ -89,13 +89,6 @@ Current solution:
 >    defPairing
 >    virginrd
 >
-> makeOwners             :: IntMap PreZone               {- [BagIndex → pz]                       -}
->                           → IntMap IntSet              {- [InstIndex → [BagIndex]]              -}
-> makeOwners                               = IntMap.foldl' build IntMap.empty
->   where
->     build m pz                           =
->       IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton (wordB pz)) m
->
 > data Pairing                             =
 >   Pairing {
 >     fwPartners         :: IntMap Int                   {- [SampleIndex → SampleIndex]            -}
@@ -842,6 +835,7 @@ pairing convenience functions ==================================================
           unpair           - cram all Ls and Rs from partner map into single set
           twoWay           - complete the map (add R → L)
           makeActions      - turn input set of bixen into instrument-based actions list
+          makeOwners       - gotta identify these last two
 
 > unpair                 :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
 >                           → IntSet                     {- [BagIndex]                             -}
@@ -869,6 +863,13 @@ pairing convenience functions ==================================================
 >                                              where pz = accessPreZone "makeActions" fWork.fwPreZones bix
 >   in
 >     IntSet.foldl' make IntMap.empty
+>
+> makeOwners             :: IntMap PreZone               {- [BagIndex → pz]                       -}
+>                           → IntMap IntSet              {- [InstIndex → [BagIndex]]              -}
+> makeOwners                               = IntMap.foldl' build IntMap.empty
+>   where
+>     build m pz                           =
+>       IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton (wordB pz)) m
 
 vet task ==============================================================================================================
           switch bad stereo zones to mono, or off altogether

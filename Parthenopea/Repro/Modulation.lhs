@@ -31,7 +31,6 @@ November 6, 2023
 > import Euterpea.IO.Audio.Types
 > import GHC.Generics ( Generic ) 
 > import Parthenopea.Debug
-> import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
 
 "A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
@@ -314,8 +313,8 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >                                               >>= addAmount amt
 >                                               >>= addAmtSrc aSrc)
 >
-> evaluateMods           :: SynthSwitches → ModDestType → Map ModDestType [Modulator] → NoteOn → Double
-> evaluateMods sw md graph noon            = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
+> evaluateMods           :: ModDestType → Map ModDestType [Modulator] → NoteOn → Double
+> evaluateMods md graph noon               = sum $ maybe [] (map evaluateMod) (Map.lookup md graph)
 >   where
 >     evaluateMod m8r
 >       | traceNot trace_EM False          = undefined
@@ -329,14 +328,14 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >             FromNoController             → 1
 >             FromNoteOnVel                → evaluateNoteOn noon.noteOnVel modSrc.msMapping
 >             FromNoteOnKey                → evaluateNoteOn noon.noteOnKey modSrc.msMapping
->             FromLinked                   → evaluateMods sw (ToLink m8r.mrModId) graph noon
+>             FromLinked                   → evaluateMods (ToLink m8r.mrModId) graph noon
 >         evalResult                       = getValue m8r.mrModSrc * m8r.mrModAmount * getValue m8r.mrAmountSrc
 >
 > evaluateNoteOn         :: Int → Mapping → Double
 > evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / qMidiDouble128) (0, 1)
 >
-> evaluateModSignals     :: SynthSwitches → String → Modulation → ModDestType → NoteOn → ModSignals → Double
-> evaluateModSignals sw tag m8n md noon (ModSignals xenv xlfo xvib)
+> evaluateModSignals     :: String → Modulation → ModDestType → NoteOn → ModSignals → Double
+> evaluateModSignals tag m8n md noon (ModSignals xenv xlfo xvib)
 >                                          = converter md (xmodEnv + xmodLfo + xvibLfo + xmods)
 >  where
 >    fName                                 = "evaluateModSignals"
@@ -357,7 +356,7 @@ Nonetheless, trying hard here for 100 percent correctness and support, even with
 >    xmodEnv                               = xenv * mco.xModEnvCo
 >    xmodLfo                               = xlfo * mco.xModLfoCo
 >    xvibLfo                               = xvib * mco.xVibLfoCo
->    xmods                                 = evaluateMods sw md m8n.mModsMap noon
+>    xmods                                 = evaluateMods md m8n.mModsMap noon
 
 Filters are complex AND have a large impact ===========================================================================
 
