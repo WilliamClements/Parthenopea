@@ -29,6 +29,7 @@ January 21, 2025
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
+> import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec

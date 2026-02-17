@@ -30,8 +30,8 @@ April 16, 2023
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music
 > import Parthenopea.Repro.Emission
-> import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
+> import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
   
@@ -46,29 +46,6 @@ implementing SoundFont spec ====================================================
 >   , pskwSampleIndex    :: !Word}
 >   deriving (Eq, Ord, Show)
 > type PreSample                           = ChangeName F.Shdr
->
-> data PreZone                             =
->   PreZone {
->     pzWordF            :: !Int
->   , pzWordS            :: !Word
->   , pzWordI            :: !Word
->   , pzWordB            :: !Word
->   , pzDigest           :: ZoneDigest
->   , pzSFZone           :: SFZone
->   , pzChanges          :: ChangeEar F.Shdr
->   , pzRecon            :: Maybe Recon}
-> instance Show PreZone where
->   show pz                                =
->     unwords ["PreZone", show (pz.pzWordF, pz.pzWordS, pz.pzWordI, pz.pzWordB), show pz.pzDigest]
-> showBad                :: PreZone → String
-> showBad pz                               = show (pz.pzWordB, (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange))
->
-> makePreZone            :: Int → Word → Word → ZoneDigest → F.Shdr → PreZone
-> makePreZone wF wI bix digest shdr        =
->   PreZone
->     wF (fromJust digest.zdSampleIndex) wI bix 
->      digest defZone (ChangeEar shdr [])
->      Nothing
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
@@ -92,70 +69,11 @@ implementing SoundFont spec ====================================================
 > isRightPS              :: PreSample → Bool
 > isRightPS ps                             = Just SampleTypeRight == toMaybeSampleType (effPSShdr ps).sampleType
 >
-> wordS, wordI, wordB    :: PreZone → Int
-> wordS pz                                 = fromIntegral pz.pzWordS
-> wordI pz                                 = fromIntegral pz.pzWordI
-> wordB pz                                 = fromIntegral pz.pzWordB
 > effPZShdr              :: PreZone → F.Shdr
 > effPZShdr PreZone{pzChanges}             =
 >   if MakeMono `elem` pzChanges.ceChanges
 >     then pzChanges.ceSource{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
 >     else pzChanges.ceSource
-> makeMono               :: PreZone → PreZone
-> makeMono pz@PreZone{pzChanges}           = pz{pzChanges = pzChanges{ceChanges = MakeMono : pzChanges.ceChanges}}
-> wasSwitchedToMono      :: PreZone → Bool
-> wasSwitchedToMono PreZone{pzChanges}     = MakeMono `elem` pzChanges.ceChanges
-> showPreZones           :: [PreZone] → String
-> showPreZones pzs                         = show $ map pzWordB pzs
->
-> data PreZoneKey                          =
->   PreZoneKey {
->     pzkwFile           :: !Int
->   , pzkwInst           :: !Word
->   , pzkwBag            :: !Word
->   , pzkwSampleIndex    :: !Word}
->   deriving (Eq, Ord, Show)
->
-> data AppliedLimits                       =
->   AppliedLimits {
->     rStart             :: !Word
->   , rEnd               :: !Word
->   , rLoopStart         :: !Word
->   , rLoopEnd           :: !Word}
->   deriving (Eq, Show)
-> defApplied             :: AppliedLimits
-> defApplied                               = AppliedLimits 0 0 0 0
->
-> data Recon                               =
->   Recon {
->     rSampleMode        :: !A.SampleMode
->   , rSampleRate        :: !Double
->   , rApplied           :: AppliedLimits
->   , rRootKey           :: !AbsPitch
->   , rTuning            :: !Int
->   , rAttenuation       :: !Double
->   , rVolEnv            :: Maybe FEnvelope
->   , rPitchCorrection   :: Maybe Double
->   , rM8n               :: Modulation
->   , rEffects           :: Maybe Effects}
->   deriving Eq
-> normalizeLooping       :: Recon → (Double, Double)
-> normalizeLooping Recon{ .. }
->                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)
->   where
->     AppliedLimits{ .. }                        
->                                          = rApplied
->
->     (fullst, fullen)                     = (fromIntegral rStart, fromIntegral rEnd)
->     (loopst, loopen)                     = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
->     denom              :: Double         = fullen - fullst
->
-> data Effects                             =
->   Effects {
->     efChorus           :: !Double
->   , efReverb           :: !Double
->   , efPan              :: !Double}
->   deriving (Eq, Show)
 >
 > data ChangeNameItem                      = FixBadName deriving Eq
 >
@@ -164,13 +82,6 @@ implementing SoundFont spec ====================================================
 >     cnSource           :: a
 >   , cnChanges          :: [ChangeNameItem]
 >   , cnName             :: String}
->
-> data ChangeEarItem                       = MakeMono deriving Eq
->
-> data ChangeEar a                         =
->   ChangeEar {
->     ceSource           :: a
->   , ceChanges          :: [ChangeEarItem]} deriving Eq
 >
 > data PerInstrument                       =
 >   PerInstrument {
@@ -185,80 +96,6 @@ implementing SoundFont spec ====================================================
 >                                          = pOwned
 > instance Show PerInstrument where
 >   show perI                              = unwords ["PerInstrument", show (perI.pOwned, perI.pPartnered)]
->
-> data SFZone =
->   SFZone {
->     zInstIndex         :: Maybe Word
->   , zKey               :: Maybe Word
->   , zVel               :: Maybe Word
->   , zInitAtten         :: Maybe Int
->   , zCoarseTune        :: Maybe Int
->   , zFineTune          :: Maybe Int
->   , zSampleIndex       :: Maybe Word
->   , zSampleMode        :: Maybe A.SampleMode
->   , zScaleTuning       :: Maybe Int
->   , zExclusiveClass    :: Maybe Word
->
->   , zDelayVolEnv       :: Maybe Int
->   , zAttackVolEnv      :: Maybe Int
->   , zHoldVolEnv        :: Maybe Int
->   , zDecayVolEnv       :: Maybe Int
->   , zSustainVolEnv     :: Maybe Int 
->   , zReleaseVolEnv     :: Maybe Int
->
->   , zChorus            :: Maybe Int
->   , zReverb            :: Maybe Int
->   , zPan               :: Maybe Int
->
->   , zRootKey           :: Maybe Word
->
->   , zModLfoToPitch     :: Maybe Int
->   , zVibLfoToPitch     :: Maybe Int
->   , zModEnvToPitch     :: Maybe Int
->   , zInitFc            :: Maybe Int
->   , zInitQ             :: Maybe Int
->   , zModLfoToFc        :: Maybe Int
->   , zModEnvToFc        :: Maybe Int
->   , zModLfoToVol       :: Maybe Int
->   , zDelayModLfo       :: Maybe Int
->   , zFreqModLfo        :: Maybe Int
->   , zDelayVibLfo       :: Maybe Int
->   , zFreqVibLfo        :: Maybe Int
->   , zDelayModEnv       :: Maybe Int
->   , zAttackModEnv      :: Maybe Int
->   , zHoldModEnv        :: Maybe Int
->   , zDecayModEnv       :: Maybe Int
->   , zSustainModEnv     :: Maybe Int
->   , zReleaseModEnv     :: Maybe Int
->   , zKeyToModEnvHold   :: Maybe Int
->   , zKeyToModEnvDecay  :: Maybe Int
->   , zKeyToVolEnvHold   :: Maybe Int
->   , zKeyToVolEnvDecay  :: Maybe Int
->
->   , zModulators        :: [Modulator]}
->   deriving (Eq, Show)
->
-> defZone                :: SFZone
-> defZone                                  = SFZone 
->                                            Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing
->
->                                            Nothing Nothing Nothing
->     
->                                            Nothing
-> 
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing
->
->                                            []
 >
 > data PerGMKey                            =
 >   PerGMKey {
@@ -406,67 +243,6 @@ implementing SoundFont spec ====================================================
 >   SampleArrays {
 >     ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
->
-> data ZoneDigest                          =
->   ZoneDigest {
->     zdKeyRange         :: Maybe (Word, Word)
->   , zdVelRange         :: Maybe (Word, Word)
->   , zdPan              :: Maybe Int
->   , zdSampleIndex      :: Maybe Word
->   , zdSampleMode       :: Maybe A.SampleMode
->   , zdStart            :: !Int
->   , zdEnd              :: !Int
->   , zdStartLoop        :: !Int
->   , zdEndLoop          :: !Int} deriving (Eq, Show)
-> defDigest              :: ZoneDigest
-> defDigest                                = ZoneDigest Nothing Nothing Nothing Nothing Nothing 0 0 0 0
-> formDigest             :: [F.Generator] → ZoneDigest
-> formDigest                               = foldr inspectGen defDigest
->   where
->     inspectGen         :: F.Generator → ZoneDigest → ZoneDigest 
->     inspectGen (F.KeyRange i j)                          zd
->                                          = zd {zdKeyRange = Just(i, j)}
->     inspectGen (F.VelRange i j)                          zd
->                                          = zd {zdVelRange = Just(i, j)}
->     inspectGen (F.Pan i)                                 zd
->                                          = zd {zdPan = Just i}
->     inspectGen (F.SampleIndex w)                         zd
->                                          = zd {zdSampleIndex = Just w}
->     inspectGen (F.SampleMode m)                          zd
->                                          = zd {zdSampleMode = Just m}
->
->     inspectGen (F.StartAddressCoarseOffset i)            zd
->                                          = zd {zdStart = zd.zdStart + 32_768 * i}
->     inspectGen (F.StartAddressOffset i)                  zd
->                                          = zd {zdStart = zd.zdStart + i}
->     inspectGen (F.EndAddressCoarseOffset i)              zd
->                                          = zd {zdEnd = zd.zdEnd + 32_768 * i}
->     inspectGen (F.EndAddressOffset i)                    zd
->                                          = zd {zdEnd = zd.zdEnd + i}
->
->     inspectGen (F.LoopStartAddressCoarseOffset i)        zd
->                                          = zd {zdStartLoop = zd.zdStartLoop + 32_768 * i}
->     inspectGen (F.LoopStartAddressOffset i)              zd
->                                          = zd {zdStartLoop = zd.zdStartLoop + i}
->     inspectGen (F.LoopEndAddressCoarseOffset i)          zd
->                                          = zd {zdEndLoop = zd.zdEndLoop + 32_768 * i}
->     inspectGen (F.LoopEndAddressOffset i)                zd
->                                          = zd {zdEndLoop = zd.zdEndLoop + i}
->
->     inspectGen _ zd                      = zd
->
-> okGMRanges             :: ZoneDigest → Bool
-> okGMRanges zd                            = rOk && iOk
->   where
->     infinite                             = (0, qMidiWord128 - 1)
->
->     kLim                                 = fromMaybe infinite zd.zdKeyRange
->     vLim                                 = fromMaybe infinite zd.zdVelRange
->
->     rOk                                  = okRange kLim && okRange vLim
->     okRange (j, k)                       = (0 <= j) && j <= k && k < qMidiWord128
->
->     iOk = kLim /= infinite || vLim /= infinite
 
 bootstrapping =========================================================================================================
 

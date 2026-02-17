@@ -12,8 +12,6 @@ February 1, 2025
 >                                      , prepareRuntime
 >                                      , SFRuntime(..)) where
 >
-> import qualified Codec.SoundFont         as F
-> import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict as IntMap
@@ -30,10 +28,9 @@ February 1, 2025
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Repro.Envelopes ( deriveEnvelope )
-> import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Smashing
-> import Parthenopea.Repro.Synthesizer ( deriveEffects, eutSynthesize )
+> import Parthenopea.Repro.Synthesizer ( eutSynthesize )
+> import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
@@ -101,8 +98,10 @@ cache SoundFont data that is only needed for Runtime ===========================
 >             bixen                        = IntSet.foldl' lump IntSet.empty insts
 >                                              where lump m i = IntSet.union m (allBixen (newPerI IntMap.! i))
 >
->             save m bix                   = IntMap.insert bix pz{pzRecon = Just $ resolvePreZone dives pz} m
->                                              where pz = accessPreZone fName sffile.zPreZones bix
+>             save m bix                   = IntMap.insert bix pz{pzRecon = Just recon} m
+>               where
+>                 pz                       = accessPreZone fName sffile.zPreZones bix
+>                 recon                    = resolvePreZone dives pz (effPZShdr pz)
 >
 >             preZone                      = IntSet.foldl' save IntMap.empty bixen
 >           in
@@ -236,62 +235,6 @@ zone selection for rendering ===================================================
 >
 >         pzL                              = deJust fName foundL
 >         pzR                              = deJust fName foundR
-
-reconcile zone and sample header ======================================================================================
-
-> receiveRecon           :: SynthSwitches → PreZone → NoteOn → Recon
-> receiveRecon sw pz noon
->                                          =
->   let
->     recon                                = deJust "receiveRecon" pz.pzRecon
->     z                                    = pz.pzSFZone
->   in
->     recon{rEffects = Just $ deriveEffects sw recon.rM8n z.zChorus z.zReverb z.zPan noon}
->
-> resolvePreZone         :: Directives → PreZone → Recon
-> resolvePreZone dives pz
->   | traceIf trace_RPZ False              = undefined
->   | otherwise                            = reconL
->   where
->     fName                                = "resolvePreZone"
->     trace_RPZ                            = unwords [fName, show zd, show (rApplied reconL)]
->
->     sw                                   = dives.synthSwitches
->     zd                                   = pz.pzDigest
->     z                                    = pz.pzSFZone
->     shdr                                 = effPZShdr pz
->     
->     m8n                                  = resolveModulation dives z
->
->     reconL                               =
->       Recon
->         (fromMaybe A.NoLoop z.zSampleMode)
->         (fromIntegral shdr.sampleRate)
->
->         (AppliedLimits
->                     ((+) shdr.start      (fromIntegral zd.zdStart))
->                     ((+) shdr.end        (fromIntegral zd.zdEnd))
->                     ((+) shdr.startLoop  (fromIntegral zd.zdStartLoop))
->                     ((+) shdr.endLoop    (fromIntegral zd.zdEndLoop)))
->         
->         (fromIntegral $ fromMaybe shdr.originalPitch z.zRootKey)
->         (fromMaybe 100 z.zScaleTuning)
->         (reconAttenuation z.zInitAtten)
->         (deriveEnvelope sw z.zDelayVolEnv z.zAttackVolEnv z.zHoldVolEnv z.zDecayVolEnv z.zSustainVolEnv Nothing)                         
->         (if sw.usePitchCorrection
->            then Just $ reconPitchCorrection shdr.pitchCorrection z.zCoarseTune z.zFineTune
->            else Nothing)
->         m8n
->         Nothing
->
->     reconPitchCorrection
->                        :: Int → Maybe Int → Maybe Int → Double
->     reconPitchCorrection sub mps mpc     = fromMaybe ((fromCents . fromIntegral) sub) (fromCents' mps mpc)
->
->     reconAttenuation   :: Maybe Int → Double
->     reconAttenuation _                   = if sw.useAttenuation
->                                              then maybe 0 fromIntegral z.zInitAtten
->                                              else 0
 >
 > implementNoteBending   :: NoteOn → SFZone → Double → Double → SFZone
 > implementNoteBending noon zone bend secs = zone'
@@ -305,64 +248,5 @@ reconcile zone and sample header ===============================================
 >            , zSustainModEnv = Just 0
 >            , zKey           = (Just . fromIntegral) noon.noteOnKey
 >            , zReleaseModEnv = Nothing}
->
-> resolveModulation      :: Directives → SFZone → Modulation
-> resolveModulation dives z                = resolveMods
->                                              m8n
->                                              z.zModulators
->                                              (if sw.useDefModulators then defaultMods else [])
->   where
->     sw                                   = dives.synthSwitches
->     m8n                :: Modulation     =
->       defModulation{
->         mLowpass                         = Lowpass resonanceType curKernelSpec
->       , mModEnv                          = nModEnv
->       , mModLfo                          = nModLfo
->       , mVibLfo                          = nVibLfo
->       , toPitchCo                        = summarize ToPitch
->       , toFilterFcCo                     = summarize ToFilterFc
->       , toVolumeCo                       = summarize ToVolume}
->
->     curKernelSpec                        =
->       KernelSpec
->         (fromMaybe 13_500 z.zInitFc)
->         (fromMaybe 0 z.zInitQ)
->         1 
->         True
->         (-1) -- must always be replaced
->
->     resonanceType                        = ResonanceSVF
->     nModEnv                              = deriveEnvelope
->                                              dives.synthSwitches
->                                              z.zDelayModEnv
->                                              z.zAttackModEnv
->                                              z.zHoldModEnv
->                                              z.zDecayModEnv
->                                              z.zSustainModEnv
->                                              (Just (z.zModEnvToPitch, z.zModEnvToFc))
->     nModLfo, nVibLfo   :: Maybe LFO
->     nModLfo                              =
->       deriveLFO z.zDelayModLfo z.zFreqModLfo z.zModLfoToPitch z.zModLfoToFc z.zModLfoToVol
->     nVibLfo            :: Maybe LFO      =
->       deriveLFO z.zDelayVibLfo z.zFreqVibLfo z.zVibLfoToPitch Nothing Nothing
->
->     summarize          :: ModDestType → ModCoefficients
->     summarize toWhich                    =
->       ModCoefficients
->         (coAccess toWhich $ maybe defModTriple (fromJust . fModTriple) nModEnv)
->         (coAccess toWhich $ maybe defModTriple lfoModTriple nModLfo)
->         (coAccess toWhich $ maybe defModTriple lfoModTriple nVibLfo)
->
->     deriveLFO          :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
->     deriveLFO del mfreq toPitch toFilterFc toVolume
->                                          =
->       if sw.useLFO && anyJust
->         then Just $ LFO (fromTimecents del)
->                         (fromAbsoluteCents $ fromMaybe 0 mfreq)
->                         (deriveModTriple toPitch toFilterFc toVolume)
->         else Nothing
->       where
->         anyJust                          = isJust toPitch || isJust toFilterFc || isJust toVolume
->
 
 The End

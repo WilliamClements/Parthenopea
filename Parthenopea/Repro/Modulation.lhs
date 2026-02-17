@@ -603,9 +603,9 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >
 > data LFO                                 =
 >   LFO {
->     lfoDelay           :: Double
->   , lfoFrequency       :: Double
->   , lfoModTriple       :: ModTriple}
+>     lfoDelay           :: !Double
+>   , lfoFrequency       :: !Double
+>   , lfoModTriple       :: !ModTriple}
 >   deriving (Eq, Show)
 >
 > data Modulation                          =
@@ -631,6 +631,13 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >     defModCoefficients 
 >     defModCoefficients 
 >     Map.empty
+>
+> data Effects                             =
+>   Effects {
+>     efChorus           :: !Double
+>   , efReverb           :: !Double
+>   , efPan              :: !Double}
+>   deriving (Eq, Show)
 >
 > data FreeVerb =
 >   FreeVerb

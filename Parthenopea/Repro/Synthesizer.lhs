@@ -26,6 +26,7 @@ May 14, 2023
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
@@ -250,10 +251,10 @@ Amplification ==================================================================
 >     aenvL                                ← doEnvelope timeFrame volEnv                     ⤙ ()
 >     modSigL                              ← eutModSignals timeFrame m8n ToVolume            ⤙ ()
 >     let a2L                              =
->           a1L * aenvL * (aSweep / 100) * evaluateModSignals fNameAmplify m8n ToVolume noon modSigL
+>           a1L * aenvL * (aSweep / 100) * evaluateModSignals fName m8n ToVolume noon modSigL
 >     outA                                 ⤙ a2L
 >   where
->     fNameAmplify                         = "eutAmplify"
+>     fName                                = "eutAmplify"
 >
 >     eor                                  = if VB.null sweeps
 >                                              then Left noon.noteOnVel
@@ -261,26 +262,6 @@ Amplification ==================================================================
 
 Effects ===============================================================================================================
 
-> deriveEffects          :: SynthSwitches → Modulation → Maybe Int → Maybe Int → Maybe Int → NoteOn → Effects
-> deriveEffects sw m8n mChorus mReverb mPan noon
->                                          = Effects 
->                                             (dChorus / 1000) 
->                                             (dReverb / 1000) 
->                                                (dPan / 1000)
->   where
->     dChorus            :: Double         =
->       if sw.useChorus
->         then maybe 0 fromIntegral mChorus + evaluateMods ToChorus m8n.mModsMap noon
->         else 0
->     dReverb            :: Double         =
->       if sw.useReverb
->         then maybe 0 fromIntegral mReverb + evaluateMods ToReverb m8n.mModsMap noon
->         else 0
->     dPan               :: Double         =
->       if sw.usePan
->         then maybe 0 fromIntegral mPan
->         else 0
->
 > eutEffectsMono       :: ∀ p . Clock p ⇒ SynthSwitches → Effects → Signal p Double Double
 > eutEffectsMono sw Effects{ .. }
 >                                          =

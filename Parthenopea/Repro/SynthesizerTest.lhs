@@ -14,7 +14,7 @@ March 2, 2024
 > import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Modulation
-> import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Utility
   
 Synthesizer-related tests =============================================================================================
