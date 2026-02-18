@@ -284,11 +284,7 @@ also
    https://philharmonia.co.uk/resources/instruments/
    https://omeka-s.grinnell.edu/s/MusicalInstruments
 
-> instrumentAbsPitchRange
->                        :: InstrumentName → Maybe (AbsPitch, AbsPitch)
-> instrumentAbsPitchRange inst             = mrange >>= Just . BF.bimap absPitch absPitch
->   where
->     mrange                               = instrumentPitchRange inst
+> instrumentAbsPitchRange inst             = (instrumentPitchRange inst) >>= Just . BF.bimap absPitch absPitch
 >
 > instrumentPitchRange   :: InstrumentName → Maybe (Pitch, Pitch)
 > instrumentPitchRange inst                =

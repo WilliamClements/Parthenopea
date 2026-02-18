@@ -1,5 +1,4 @@
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE StandaloneDeriving #-}
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}

@@ -207,12 +207,12 @@ tournament starts here =========================================================
 > establishWinners       :: ([InstrumentName], [PercussionSound])
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >                           → IO (Map InstrumentName GMChoices, Map PercussionSound GMChoices)
-> establishWinners rost (wI_, wP_)
->                                          = do
->   let (wI, wP)                           = (Map.map head wI_, Map.map head wP_)
->   return (BF.bimap (foldl' (buildUp wI) Map.empty) (foldl' (buildUp wP) Map.empty) rost)
+> establishWinners rost m2                 = do
+>   let (hI, hP)                           = BF.bimap (Map.map head) (Map.map head) m2
+>   let (cI, cP)                           = BF.bimap (foldl' (bump hI) Map.empty) (foldl' (bump hP) Map.empty) rost
+>   return (cI, cP)
 >   where
->     buildUp ref m kind                   = Map.insert kind (kindChoices ref kind) m
+>     bump ref m kind                      = Map.insert kind (kindChoices ref kind) m
 >     kindChoices m k
 >       | isJust pergm                     =
 >           GMChoices
@@ -260,8 +260,10 @@ tournament starts here =========================================================
 >     wiExec                               = (wI', wP')
 >       where
 >         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) cache    
->         wI'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wI
->         wP'                              = Map.map (sortOn (Down . pScore . pArtifactGrade)) wP
+>         (wI', wP')                       = BF.bimap
+>                                              (Map.map (sortOn (Down . pScore . pArtifactGrade)))
+>                                              (Map.map (sortOn (Down . pScore . pArtifactGrade)))
+>                                              (wI, wP)
 >
 >     wiFolder           :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >                           → PerGMKey → PerInstrument
