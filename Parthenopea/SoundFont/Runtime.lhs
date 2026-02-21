@@ -8,9 +8,9 @@ Runtime
 William Clements
 February 1, 2025
 
-> module Parthenopea.SoundFont.Runtime ( implementNoteBending
->                                      , prepareRuntime
->                                      , SFRuntime(..)) where
+> module Parthenopea.SoundFont.Runtime
+>        ( prepareRuntime
+>        , SFRuntime(..)) where
 >
 > import qualified Data.Bifunctor          as BF
 > import Data.IntMap.Strict ( IntMap )
@@ -83,12 +83,11 @@ cache SoundFont data that is only needed for Runtime ===========================
 >         foldl' selectI IntMap.empty (extract (fst choices) `Set.union` extract (snd choices))
 >
 >     supply             :: SFFileBoot → Maybe (Int, SFFileRuntime)
->     supply sffile                        = probe >>= savePerInstruments
+>     supply sffile                        = sffile.zWordFBoot `IntMap.lookup` actions >>= runtimeFile
 >       where
 >         fName                            = "supply"
 >
->         probe                            = sffile.zWordFBoot `IntMap.lookup` actions
->         savePerInstruments insts         = 
+>         runtimeFile insts                = 
 >           let
 >             getPerI inst                 =
 >               cache Map.! PerGMKey sffile.zWordFBoot (fromIntegral inst) Nothing
@@ -166,27 +165,27 @@ define signal functions and instrument maps to support rendering ===============
 > instrumentSF runt pergm durI pchIn volIn ps
 >   | traceIf trace_ISF False              = undefined
 >   | otherwise                            =
->   eutSynthesize synthSwitches (reconX, mreconX) noon (VB.fromList ps) reconX.rSampleRate durI sffile 
+>   eutSynthesize sw (reconX, mreconX) noon (VB.fromList ps) reconX.rSampleRate durI sffile 
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
 >       unwords [fName_, show (pergm.pgkwFile, pergm.pgkwInst), show (pchIn, volIn)]
 >
->     Directives{ .. }
->                                          = runt.zDirectives
+>     dives                                = runt.zDirectives
+>     sw                                   = dives.synthSwitches
 >
 >     sffile                               = runt.zRuntimeFiles IntMap.! pergm.pgkwFile
 >     perI                                 = sffile.zPerInstrument IntMap.! fromIntegral pergm.pgkwInst
 >
->     noon                                 = carefulNoteOn hackWildMidiValues volIn pchIn
+>     noon                                 = carefulNoteOn dives.hackWildMidiValues volIn pchIn
 >
 >     (reconX, mreconX)                    =
 >       case eyeOnTheFly of
->         Left pz                          → (receiveRecon synthSwitches pz noon, Nothing)
+>         Left pz                          → (receiveRecon sw pz noon, Nothing)
 >         Right (pzL, pzR)                 → (reconL, Just $ copyRoot reconL reconR)
 >           where
->             reconL                       = receiveRecon synthSwitches pzL noon
->             reconR                       = receiveRecon synthSwitches pzR noon
+>             reconL                       = receiveRecon sw pzL noon
+>             reconR                       = receiveRecon sw pzR noon
 >
 >             copyRoot r1 r2               = r2{rRootKey                    = r1.rRootKey
 >                                              , rPitchCorrection           = r1.rPitchCorrection}
@@ -195,7 +194,7 @@ zone selection for rendering ===================================================
 
 >     eyeOnTheFly        :: Either PreZone (PreZone, PreZone)
 >     eyeOnTheFly
->       | traceIf trace_DFE False          = undefined
+>       | traceIf trace_EOTF False         = undefined
 >       | null smashSpaces                 = error $ unwords [fName, show smashup, "has no subspaces"]
 >       | spL < 0 || cntL <= 0 || spR < 0 || cntR <= 0
 >                                          = error $ unwords [fName, show noon, "cell contains nonsense"
@@ -210,13 +209,13 @@ zone selection for rendering ===================================================
 >       | otherwise                        = Right (pzL, pzR)
 >       where
 >         fName                            = unwords [fName_, "eyeOnTheFly"]
->         trace_DFE                        = unwords [fName, show (spL, spR), smashTag]
+>         trace_EOTF                       = unwords [fName, show (spL, spR), smashTag]
 >
 >         smashup@Smashing{ .. }
 >                                          = perI.pSmashing
 >         (index1, index2)                 = noonAsCoords noon
 >
->         ((spL, cntL), (spR, cntR))       = if hackWildJumps
+>         ((spL, cntL), (spR, cntR))       = if dives.hackWildJumps
 >                                              then useTwoLookupCells
 >                                              else useOneGetLeafCells
 >           where
@@ -235,18 +234,5 @@ zone selection for rendering ===================================================
 >
 >         pzL                              = deJust fName foundL
 >         pzR                              = deJust fName foundR
->
-> implementNoteBending   :: NoteOn → SFZone → Double → Double → SFZone
-> implementNoteBending noon zone bend secs = zone'
->   where
->     zone'                                =
->       zone{  zModEnvToPitch = (Just . round) (bend * 100)
->            , zDelayModEnv   = Nothing
->            , zAttackModEnv  = Just $ toTimecents secs - 1
->            , zHoldModEnv    = Nothing
->            , zDecayModEnv   = Nothing
->            , zSustainModEnv = Just 0
->            , zKey           = (Just . fromIntegral) noon.noteOnKey
->            , zReleaseModEnv = Nothing}
 
 The End

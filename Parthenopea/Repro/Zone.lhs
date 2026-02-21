@@ -13,7 +13,6 @@ February 15, 2026
 >        , ChangeEarItem(..)
 >        , defApplied
 >        , defZone
->        , deriveEffects
 >        , formDigest
 >        , makeMono
 >        , makePreZone

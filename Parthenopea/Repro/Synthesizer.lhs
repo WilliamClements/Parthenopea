@@ -9,9 +9,7 @@ William Clements
 May 14, 2023
 
 > module Parthenopea.Repro.Synthesizer
->        ( deriveEffects
->        , eutSynthesize
->        ) where
+>        ( eutSynthesize ) where
 >
 > import Control.Arrow
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )
@@ -82,7 +80,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >       case reconL.rTuning of
 >       0                                  → 1
 >       100                                → apToHz reconL.rRootKey / apToHz noon.noteOnKey
->       _                                  → calcMicrotoneRatio
+>       _                                  → microtoneRatio
 >                                              (reconL.rRootKey - noon.noteOnKey)
 >                                              (fromIntegral reconL.rTuning)
 >     rateRatio          :: Double         = rate (undefined::p) / sr
@@ -195,8 +193,8 @@ Clearly multiple root pitches are mutually incompatible, in general, for calcula
 For example, input of 3 = key interval, 50 = scale tuning, yields ratio of: 1.09
 Multiply the root frequency by that to give output frequency
 
->     calcMicrotoneRatio :: AbsPitch → Int → Double
->     calcMicrotoneRatio apDelta tuning    = pow 2 (fromIntegral apDelta * fromIntegral tuning / 1_200)
+> microtoneRatio         :: AbsPitch → Int → Double
+> microtoneRatio apDelta tuning            = pow 2 (fromIntegral apDelta * fromIntegral tuning / 1_200)
 
 Resonance =============================================================================================================
 

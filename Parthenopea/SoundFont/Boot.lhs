@@ -64,7 +64,6 @@ Current solution:
 >   , fwZRecs            :: IntMap InstZoneRecord        {- [InstIndex → zrec] -}
 >   , fwPreZones         :: IntMap PreZone               {- [BagIndex → pz] -}
 >   , fwOwners           :: IntMap IntSet                {- [InstIndex → [BagIndex]] -}
->   , fwShared           :: IntMap IntSet                {- [InstIndex → [BagIndex]] -}
 >   , fwPreSamples       :: Map PreSampleKey PreSample
 >   , fwPerInstruments   :: Map PerGMKey PerInstrument
 >   , fwMatches          :: Matches
@@ -82,8 +81,7 @@ Current solution:
 >    dives 
 >    IntMap.empty
 >    IntMap.empty
->    IntMap.empty
->    IntMap.empty
+>    IntMap.empty 
 >    Map.empty
 >    Map.empty
 >    defMatches
@@ -423,7 +421,7 @@ iterating InstZoneRecord list ==================================================
 > zrecTask               :: (InstZoneRecord
 >                            → ResultDispositions
 >                            → (Maybe InstZoneRecord, ResultDispositions))
->                           → FileWork → FileWork
+>                            → FileWork → FileWork
 > zrecTask userFun fw                      = fw{fwZRecs = zrecs', fwDispositions = rd'}
 >   where
 >     zrecs'             :: IntMap InstZoneRecord
@@ -536,10 +534,10 @@ capture task ===================================================================
 >           | isNothing digest.zdSampleIndex
 >                                          = (bix, Right (prezk, ssGlobalZone))
 >           | isNothing mpres              = (bix, Right (prezk, ssOrphaned))
->           | not (okGMRanges pzDigest)    = (bix, Right (prezk, ssBadGMRange      (rangeClue pzqq)))
->           | hasRom pzqq                  = (bix, Right (prezk, ssRom             (romClue pzqq)))
+>           | not (okGMRanges pzDigest)    = (bix, Right (prezk, ssBadGMRange      (rangeClue pz)))
+>           | hasRom pz                    = (bix, Right (prezk, ssRom             (romClue pz)))
 >           | isJust probeLimits           = (bix, Right (prezk, ssApplied         (fromJust probeLimits)))
->           | otherwise                    = (bix, Left pzqq{pzChanges = ChangeEar (effPSShdr pres) []})
+>           | otherwise                    = (bix, Left pz{pzChanges = ChangeEar (effPSShdr pres) []})
 >           where
 >             gens       :: [F.Generator]
 >             gens                         =
@@ -554,10 +552,10 @@ capture task ===================================================================
 >             
 >             digest                       = formDigest gens                                 
 >
->             pzqq@PreZone{ .. }
+>             pz@PreZone{ .. }
 >                                          = makePreZone sffile.zWordFBoot pergm.pgkwInst bix digest pres.cnSource
 >
->             si                           = pzqq.pzWordS
+>             si                           = pz.pzWordS
 >             prezk                        = PreZoneKey 
 >                                             sffile.zWordFBoot 
 >                                             pergm.pgkwInst
@@ -575,7 +573,7 @@ capture task ===================================================================
 >                 then Nothing
 >                 else Just $ unwords [showHex stA [], showHex enA [], showHex stL [], showHex enL [], show pzDigest.zdSampleMode]
 >               where
->                 shdr                     = effPZShdr pzqq
+>                 shdr                     = effPZShdr pz
 >
 >                 stA                      = shdr.start     + fromIntegral pzDigest.zdStart
 >                 enA                      = shdr.end       + fromIntegral pzDigest.zdEnd
@@ -1156,7 +1154,8 @@ perI task ======================================================================
 >
 >     perIFolder         :: Map PerGMKey PerInstrument → ResultDispositions 
 >                           → InstZoneRecord → (Map PerGMKey PerInstrument, ResultDispositions)
->     perIFolder m rdFold zrec             = (m', dispose (instKey zrec) ssInstrument rdFold')
+>     perIFolder m rdFold zrec             =
+>       (Map.insert (instKey zrec) perI m, dispose (instKey zrec) ssInstrument rdFold')
 >       
 >       where
 >         fName                            = "perIFolder"
@@ -1175,7 +1174,6 @@ perI task ======================================================================
 >         ssPreZone                        =
 >           [Scan Accepted ToCache fName (show zrec.zswInst)]
 >
->         m'                               = Map.insert (instKey zrec) perI m 
 >         rdFold'                          =
 >           let
 >             blessZone rd bix             = dispose (extractZoneKey pz) ssPreZone rd
