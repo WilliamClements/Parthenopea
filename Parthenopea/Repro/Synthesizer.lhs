@@ -278,7 +278,7 @@ Effects ========================================================================
 >
 >     pL' ←          if not sw.useDCBlock
 >                      then delay 0                        ⤙ pL
->                      else dcBlock 0.995                  ⤙ pL
+>                      else dcBlock dcBlockCharacteristic  ⤙ pL
 >     outA                                                 ⤙ pL'
 >
 > eutEffectsStereo       :: ∀ p . Clock p ⇒
@@ -293,11 +293,13 @@ Effects ========================================================================
 >     rbL ← eutReverb rFactorL                             ⤙ aL
 >     rbR ← eutReverb rFactorR                             ⤙ aR
 >
->     let mixL = (  cFactorL       * chL
+>     let mixL                             =
+>                (  cFactorL       * chL
 >                 + rFactorL       * rbL
 >                 + (1 - cFactorL) * aL
 >                 + (1 - rFactorL) * aL) / 2
->     let mixR = (  cFactorR       * chR
+>     let mixR                             =
+>                (  cFactorR       * chR
 >                 + rFactorR       * rbR
 >                 + (1 - cFactorR) * aR
 >                 + (1 - rFactorR) * aR) / 2
@@ -306,10 +308,10 @@ Effects ========================================================================
 >
 >     pL' ←        if not sw.useDCBlock
 >                    then delay 0                          ⤙ pL
->                    else dcBlock 0.995                    ⤙ pL
+>                    else dcBlock dcBlockCharacteristic    ⤙ pL
 >     pR' ←        if not sw.useDCBlock
 >                    then delay 0                          ⤙ pR
->                    else dcBlock 0.995                    ⤙ pR
+>                    else dcBlock dcBlockCharacteristic    ⤙ pR
 >     outA                                                 ⤙ (pL', pR')
 >   where
 >     Effects{efChorus = cFactorL, efReverb = rFactorL, efPan = pFactorL} = effL
@@ -356,19 +358,21 @@ Effects ========================================================================
 > doPan                  :: (Double, Double) → (Double, Double) → (Double, Double)
 > doPan (azimuthL, azimuthR) (sigL, sigR)  = ((ampLL + ampRL)/2, (ampLR + ampRR)/2)
 >   where
->     xL = cos ((azimuthL + 0.5) * pi / 2)
->     xR = cos ((azimuthR + 0.5) * pi / 2)
->     ampLL = sigL * xL
->     ampLR = sigL * (1 - xL)
->     ampRL = sigR * xR
->     ampRR = sigR * (1 - xR)
+>     xL                                   = cos ((azimuthL + 0.5) * pi / 2)
+>     xR                                   = cos ((azimuthR + 0.5) * pi / 2)
+>     ampLL                                = sigL * xL
+>     ampLR                                = sigL * (1 - xL)
+>     ampRL                                = sigR * xR
+>     ampRR                                = sigR * (1 - xR)
+>
+> dcBlockCharacteristic                    = 0.995
 >
 > dcBlock                :: ∀ p . Clock p ⇒ Double → Signal p Double Double
-> dcBlock a = proc xn → do
+> dcBlock characteristic                   = proc xn → do
 >   rec
->     let yn = xn - xn_l + a * yn_l
->     xn_l ← delay 0 ⤙ xn
->     yn_l ← delay 0 ⤙ yn
+>     let yn             = xn - xn_l + characteristic * yn_l
+>     xn_l               ← delay 0         ⤙ xn
+>     yn_l               ← delay 0         ⤙ yn
 >   outA ⤙ yn
 
 The End

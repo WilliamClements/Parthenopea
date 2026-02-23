@@ -458,9 +458,6 @@ instrument task ================================================================
 >     accepted imp clue                    =
 >       [Scan Accepted imp fName clue]
 >
->     loadInst           :: PerGMKey → F.Inst
->     loadInst pergm                       = sffile.zFileArrays.ssInsts ! pergm.pgkwInst
->
 >     iFolder            :: RunnerZRecs → PerGMKey → RunnerZRecs
 >     iFolder inst pergm
 >       | iinst.instBagNdx <= jinst.instBagNdx
@@ -468,6 +465,7 @@ instrument task ================================================================
 >       | otherwise                        =
 >         error $ unwords [fName, "corrupt instBagNdx", show (iinst.instBagNdx, jinst.instBagNdx)]
 >       where
+>         loadInst pergm                   = sffile.zFileArrays.ssInsts ! pergm.pgkwInst
 >         iinst                            = loadInst pergm
 >         jinst                            = loadInst pergm{pgkwInst = pergm.pgkwInst + 1}
 >
@@ -534,7 +532,7 @@ capture task ===================================================================
 >           | isNothing digest.zdSampleIndex
 >                                          = (bix, Right (prezk, ssGlobalZone))
 >           | isNothing mpres              = (bix, Right (prezk, ssOrphaned))
->           | not (okGMRanges pzDigest)    = (bix, Right (prezk, ssBadGMRange      (rangeClue pz)))
+>           | not (okGMRanges digest)      = (bix, Right (prezk, ssBadGMRange      (rangeClue pz)))
 >           | hasRom pz                    = (bix, Right (prezk, ssRom             (romClue pz)))
 >           | isJust probeLimits           = (bix, Right (prezk, ssApplied         (fromJust probeLimits)))
 >           | otherwise                    = (bix, Left pz{pzChanges = ChangeEar (effPSShdr pres) []})
@@ -552,8 +550,7 @@ capture task ===================================================================
 >             
 >             digest                       = formDigest gens                                 
 >
->             pz@PreZone{ .. }
->                                          = makePreZone sffile.zWordFBoot pergm.pgkwInst bix digest pres.cnSource
+>             pz                           = makePreZone sffile.zWordFBoot pergm.pgkwInst bix digest pres.cnSource
 >
 >             si                           = pz.pzWordS
 >             prezk                        = PreZoneKey 
@@ -571,19 +568,20 @@ capture task ===================================================================
 >             probeLimits                  =
 >               if ok
 >                 then Nothing
->                 else Just $ unwords [showHex stA [], showHex enA [], showHex stL [], showHex enL [], show pzDigest.zdSampleMode]
+>                 else Just $ unwords [showHex stA [], showHex enA [], showHex stL [], showHex enL []
+>                                    , show digest.zdSampleMode]
 >               where
 >                 shdr                     = effPZShdr pz
 >
->                 stA                      = shdr.start     + fromIntegral pzDigest.zdStart
->                 enA                      = shdr.end       + fromIntegral pzDigest.zdEnd
->                 stL                      = shdr.startLoop + fromIntegral pzDigest.zdStartLoop
->                 enL                      = shdr.endLoop   + fromIntegral pzDigest.zdEndLoop
+>                 stA                      = shdr.start     + fromIntegral digest.zdStart
+>                 enA                      = shdr.end       + fromIntegral digest.zdEnd
+>                 stL                      = shdr.startLoop + fromIntegral digest.zdStartLoop
+>                 enL                      = shdr.endLoop   + fromIntegral digest.zdEndLoop
 >
 >                 ok                       =
 >                   0 <= stA && stA <= enA && 0 <= stL && stL <= enL
 >                   && enA - stA < 2 ^ (22::Word)
->                   && (pzDigest.zdSampleMode == Just A.NoLoop || enL - stL < 2 ^ (22::Word))
+>                   && (digest.zdSampleMode == Just A.NoLoop || enL - stL < 2 ^ (22::Word))
 
 produce and process capture results ===================================================================================
 
@@ -723,8 +721,14 @@ produce and process capture results ============================================
 pair task =============================================================================================================
           store (1) pairings and (2) reject action map, to be used by vet task
 
+> data PairsSurvey                         =
+>   PairsSurvey {
+>     psUnpaired         :: IntSet
+>   , psPaired           :: IntMap Int
+>   , psTasks            :: [PairsSurvey → IntMap Int]}
+>
 > pairTaskIf _ _ fWork                     =
->   fWork{fwPairing = fWork.fwPairing{fwPairings = pairings, fwActions = makeActions fWork rejects}}
+>   fWork{fwPairing = fWork.fwPairing{fwPairings = survey.psPaired, fwActions = makeActions fWork survey.psUnpaired}}
 >   where
 >     fName__                              = "pairTaskIf"
 >
@@ -739,56 +743,71 @@ pairing flow ===================================================================
 
           And remember: peg 'em and pin 'em!
 
->     rejects            :: IntSet                       {- [BagIndex]                             -}
->     rejects                              = IntMap.keysSet universe `IntSet.difference` unpair pairings
->                                              where universe = IntMap.filter isStereoPZ fWork.fwPreZones
->
->     pairings           :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
->     pairings                             = regular `IntMap.union` extra
+>     survey             :: PairsSurvey
+>     survey                               = head $ dropWhile unfinished $ iterate' nextGen sinit
 >       where
->         regular, extra :: IntMap Int                   {- [BagIndex → BagIndex]                  -}         
->         regular                          = IntMap.foldlWithKey (pFolder False IntMap.empty) IntMap.empty fwPartners
->         extra                            = IntMap.foldlWithKey (pFolder True regular)       IntMap.empty fwPartners
+>         sinit                            =
+>           PairsSurvey 
+>             (IntMap.keysSet $ IntMap.filter isStereoPZ fWork.fwPreZones) 
+>             IntMap.empty
+>             [nominal, exotic, ignoreLink]
+>         unfinished ps                    = not (IntSet.null ps.psUnpaired) && not (null ps.psTasks)
+>         nextGen ps                       =
+>           let
+>             newPairs                     = (head ps.psTasks) ps
+>           in
+>             PairsSurvey
+>               (ps.psUnpaired `IntSet.difference` (unpair newPairs))
+>               (ps.psPaired `IntMap.union` newPairs)
+>               (tail ps.psTasks)
 >
->         pFolder        :: Bool                         {- exotic                                 -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
->                           → Int                        {- SampleIndex                            -}
->                           → Int                        {- SampleIndex                            -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
->         pFolder exo done soFar siFrom siTo
->                                          = soFar `IntMap.union` inducePairs exo done bsL bsR
->           where
->             bsL, bsR   :: IntSet                       {- [BagIndex]                             -}             
->             bsL                          = fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
->             bsR                          = fromMaybe IntSet.empty (siTo   `IntMap.lookup` mRight)
+>     nominal sy                            = IntMap.foldlWithKey (pInduce False sy.psUnpaired) IntMap.empty fwPartners
+>     exotic sy                             = IntMap.foldlWithKey (pInduce True sy.psUnpaired) IntMap.empty fwPartners
+>     ignoreLink sy                         =
+>       let
+>         (bixenL, bixenR)                  = IntSet.partition isLeft sy.psUnpaired
+>         isLeft bix                        = isLeftPZ $ accessPreZone "ignoreLink" fWork.fwPreZones bix 
+>       in
+>         if linklessPairing
+>           then inducePairs False bixenL bixenR
+>           else IntMap.empty
 >
->         mLeft, mRight  :: IntMap IntSet                {- [SampleIndex → [BagIndex]]             -}
->         (mLeft, mRight)                  =
->           IntMap.foldl' (uncurry fFolder) (IntMap.empty, IntMap.empty) fWork.fwPreZones
->           where
->             fFolder mleft mright pz
->               | isLeftPZ pz              = (putMembers pz mleft, mright)
->               | isRightPZ pz             = (mleft, putMembers pz mright)
->               | otherwise                = (mleft, mright)
->             putMembers pz                =
->               IntMap.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
+>     pInduce        :: Bool                             {- exotic                                 -}
+>                       → IntSet                         {- [BagIndex]                             -}
+>                       → IntMap Int                     {- [BagIndex → BagIndex]                  -}
+>                       → Int                            {- SampleIndex                            -}
+>                       → Int                            {- SampleIndex                            -}
+>                       → IntMap Int                     {- [BagIndex → BagIndex]                  -}
+>     pInduce exo unpaired soFar siFrom siTo
+>                                          = soFar `IntMap.union` inducePairs exo bsL bsR
+>       where
+>         bsL, bsR       :: IntSet                       {- [BagIndex]                             -}             
+>         bsL                              =
+>           unpaired `IntSet.intersection` fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
+>         bsR                              =
+>           unpaired `IntSet.intersection` fromMaybe IntSet.empty (siTo   `IntMap.lookup` mRight)
+>
+>     mLeft, mRight      :: IntMap IntSet                {- [SampleIndex → [BagIndex]]             -}
+>     (mLeft, mRight)                      =
+>       IntMap.foldl' (uncurry fFolder) (IntMap.empty, IntMap.empty) fWork.fwPreZones
+>       where
+>         fFolder mleft mright pz
+>           | isLeftPZ pz              = (putMembers pz mleft, mright)
+>           | isRightPZ pz             = (mleft, putMembers pz mright)
+>           | otherwise                = (mleft, mright)
+>         putMembers pz                =
+>           IntMap.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
 >
 >     inducePairs        :: Bool                         {- exotic                                 -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
 >                           → IntSet                     {- [BagIndex]                             -}
 >                           → IntSet                     {- [BagIndex]                             -}
 >                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
->     inducePairs exo done bixenL bixenR   = Map.foldlWithKey ((pin . peg) bixenR') IntMap.empty (peg bixenL') 
+>     inducePairs exo bixenL bixenR        = Map.foldlWithKey ((pin . peg) bixenR) IntMap.empty (peg bixenL) 
 >       where
 >         fName_                           = unwords [fName__, "inducePairs"]
 >
 >         allowCross                       = exo && crossInstrumentPairing
 >         allowParallel                    = exo && parallelPairing
-> 
->         pairedSoFar                      = unpair done
->         bixenL'                          = bixenL `IntSet.difference` pairedSoFar
->         bixenR'                          = bixenR `IntSet.difference` pairedSoFar
 >
 >         peg            :: IntSet                       {- [BagIndex]                             -}
 >                           → Map PairingSlot IntSet     {- [ps → [BagIndex]]                      -}

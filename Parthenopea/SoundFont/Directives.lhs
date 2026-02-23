@@ -92,6 +92,7 @@ useLFO
 >   , narrowRosterForRuntime
 >                        :: !Bool
 >   , parallelPairing    :: !Bool
+>   , linklessPairing    :: !Bool
 >   , switchBadStereoZonesToMono
 >                        :: !Bool
 >   , skipGlissandi      :: !Bool
@@ -133,6 +134,7 @@ Edit below if changing "default defaults" ======================================
 >         True
 >         False
 >         False
+>         True
 >         True
 >         True
 >         True
