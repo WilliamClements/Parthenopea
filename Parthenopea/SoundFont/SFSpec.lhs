@@ -255,7 +255,7 @@ bootstrapping ==================================================================
 >      | BadName
 >      | BadSampleRate | BadSampleType | BadSampleLimits
 >      | BadAppliedLimits | BadStereoPartner | RomBased | BadGMRange 
->      | Orphaned | ToCache
+>      | Paired | Orphaned | ToCache
 >      | Absorbing | Absorbed | NoAbsorption    
 >      | Unrecognized | Narrow | NoPercZones
 >      | Captured | Adopted | AdoptedAsMono | GlobalZone

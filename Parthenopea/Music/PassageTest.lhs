@@ -34,7 +34,7 @@ August 15, 2025
 >
 > testMeks               :: VB.Vector (Primitive Pitch) → [Marking] → VB.Vector MekNote
 > testMeks prims markings                  =
->   VB.zipWith4 makeMekNote (VB.fromList [0..3]) prims (expandMarkings markings) VB.empty -- WOX
+>   VB.zipWith4 makeMekNote (VB.fromList [0..3]) prims (expandMarkings markings) VB.empty
 >
 > singleIsSingle         :: IO Bool
 > singleIsSingle                           = do

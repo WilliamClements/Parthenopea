@@ -208,7 +208,7 @@ accessed in end time order.
 >
 >
 > makePercFill           :: Directives → PercussionSound → Rational → Volume → Dur → Music1
-> makePercFill dives sound beats vol durP        = bandPart (makeNonPitched vol) m
+> makePercFill dives sound beats vol durP  = bandPart (makeNonPitched vol) m
 >   where
 >     m                                    =
 >       if dives.skipGlissandi

@@ -725,10 +725,13 @@ pair task ======================================================================
 >   PairsSurvey {
 >     psUnpaired         :: IntSet
 >   , psPaired           :: IntMap Int
->   , psTasks            :: [PairsSurvey → IntMap Int]}
+>   , psDispos           :: ResultDispositions
+>   , psTasks            :: [(String, PairsSurvey → IntMap Int)]}
 >
 > pairTaskIf _ _ fWork                     =
->   fWork{fwPairing = fWork.fwPairing{fwPairings = survey.psPaired, fwActions = makeActions fWork survey.psUnpaired}}
+>   fWork{fwPairing = fWork.fwPairing{fwPairings = survey.psPaired
+>                                   , fwActions = makeActions fWork survey.psUnpaired}
+>       , fwDispositions = survey.psDispos}
 >   where
 >     fName__                              = "pairTaskIf"
 >
@@ -737,7 +740,7 @@ pair task ======================================================================
 >     Pairing{ .. }                        
 >                                          = fWork.fwPairing
     
-pairing flow ==========================================================================================================
+pairing approach ======================================================================================================
           After somehow generating the pair list for this sffile, reject all other stereo zones - they failed to pair!
           The "somehow" is to make pairs if and only if L and R's excerpted zone data produce identical "pair slots".
 
@@ -750,20 +753,32 @@ pairing flow ===================================================================
 >           PairsSurvey 
 >             (IntMap.keysSet $ IntMap.filter isStereoPZ fWork.fwPreZones) 
 >             IntMap.empty
->             [nominal, exotic, ignoreLink]
+>             fWork.fwDispositions
+>             [("nominal", nominal), ("exotic", exotic), ("linkless", linkless)]
 >         unfinished ps                    = not (IntSet.null ps.psUnpaired) && not (null ps.psTasks)
 >         nextGen ps                       =
 >           let
->             newPairs                     = (head ps.psTasks) ps
+>             pFunction                    = (fst . head) ps.psTasks
+>             newPairs                     = ((snd . head) ps.psTasks) ps
+>             dispos'                      = IntMap.foldlWithKey' announce ps.psDispos newPairs
+>             announce rdFold ifrom ito    = (dispose pzkFrom ssFrom . dispose pzkTo ssTo) rdFold
+>               where
+>                 pzkFrom                  = extractZoneKey $ fWork.fwPreZones IntMap.! ifrom
+>                 pzkTo                    = extractZoneKey $ fWork.fwPreZones IntMap.! ito
+>                 clueFrom                 = unwords [pFunction, show ito]
+>                 clueTo                   = unwords [pFunction, show ifrom]
+>                 ssFrom                   = [Scan Modified Paired fName__ clueFrom] 
+>                 ssTo                     = [Scan Modified Paired fName__ clueTo] 
 >           in
 >             PairsSurvey
 >               (ps.psUnpaired `IntSet.difference` (unpair newPairs))
 >               (ps.psPaired `IntMap.union` newPairs)
+>               dispos'
 >               (tail ps.psTasks)
 >
 >     nominal sy                            = IntMap.foldlWithKey (pInduce False sy.psUnpaired) IntMap.empty fwPartners
 >     exotic sy                             = IntMap.foldlWithKey (pInduce True sy.psUnpaired) IntMap.empty fwPartners
->     ignoreLink sy                         =
+>     linkless sy                           =
 >       let
 >         (bixenL, bixenR)                  = IntSet.partition isLeft sy.psUnpaired
 >         isLeft bix                        = isLeftPZ $ accessPreZone "ignoreLink" fWork.fwPreZones bix 
@@ -778,14 +793,13 @@ pairing flow ===================================================================
 >                       → Int                            {- SampleIndex                            -}
 >                       → Int                            {- SampleIndex                            -}
 >                       → IntMap Int                     {- [BagIndex → BagIndex]                  -}
->     pInduce exo unpaired soFar siFrom siTo
->                                          = soFar `IntMap.union` inducePairs exo bsL bsR
+>     pInduce exo unp soFar siFrom siTo    = soFar `IntMap.union` inducePairs exo bsL bsR
 >       where
 >         bsL, bsR       :: IntSet                       {- [BagIndex]                             -}             
 >         bsL                              =
->           unpaired `IntSet.intersection` fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
+>           unp `IntSet.intersection` fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
 >         bsR                              =
->           unpaired `IntSet.intersection` fromMaybe IntSet.empty (siTo   `IntMap.lookup` mRight)
+>           unp `IntSet.intersection` fromMaybe IntSet.empty (siTo   `IntMap.lookup` mRight)
 >
 >     mLeft, mRight      :: IntMap IntSet                {- [SampleIndex → [BagIndex]]             -}
 >     (mLeft, mRight)                      =

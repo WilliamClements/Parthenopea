@@ -52,6 +52,11 @@ February 15, 2026
 > instance Show PreZone where
 >   show pz                                =
 >     unwords ["PreZone", show (pz.pzWordF, pz.pzWordS, pz.pzWordI, pz.pzWordB), show pz.pzDigest]
+>
+> extractZoneKey         :: PreZone → PreZoneKey
+> extractZoneKey pz                        =
+>   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
+>
 > showBad                :: PreZone → String
 > showBad pz                               = show (pz.pzWordB, (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange))
 >
