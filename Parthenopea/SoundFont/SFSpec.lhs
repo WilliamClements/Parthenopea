@@ -404,11 +404,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 >
 >   putStr $ reapEmissions [Unblocked $ unwords ["wrote", fp], EndOfLine]
 >
-> emitMsgs               :: InstrumentName → [(InstrumentName, [String])] → [Emission]
-> emitMsgs kind msgs                       = concatMap (\s → [Unblocked s, EndOfLine]) imsgs
->   where
->     imsgs              :: [String]       = fromMaybe [] (lookup kind msgs)
->
 > howClose               :: ∀ j . (Eq j) ⇒ [j] → [j] → Rational
 > howClose js0 js1
 >   | null js0 || null js1                 = 0

@@ -41,7 +41,6 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >   $ chord [qv1Music, qv2Music, qvaMusic, qvcMusic]
 >
 >   where
->
 >   qv1Music                               =
 >     if qv1Enabled then keysig Cs Minor $ orchestraPart qv1 qv1Line else rest 0
 >   qv2Music                               =
@@ -63,27 +62,32 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >   qvcLine = line [ qvcp1000_004, qvcp1005_008, qvcp1009_012, qvcp1013_016, toMusic1 (line [qvcp1017_020, qvcp1021_024
 >                  , qvcp1025_028, qvcp1029_032, qvcp1033_036, qvcp1037_040, qvcp1041_044, qvcp1045_048
 >                  , qvcp1049_052, qvcp1053_056, qvcp1057_060, qvcp1061_064])]
+>
+>   p1                                     = passage dives qv1
+>   p2                                     = passage dives qv2
+>   pa                                     = passage dives qva
+>   pc                                     = passage dives qvc
 
     Violin 1 Pt 1 Measure 0 → 16 --------------------------------------------------------------------------------------
    
 >   -- 21 % 4 
 >   qv1p1000_004 =
 >     line [rest dhn
->         , passage dives qv1 o131shape1 (line [gs 4 qn, bs 4 hn, cs 5 hn, a 4 dhn
->                                             , gs 4 qn, fs 4 qn, a 4 qn, gs 4 qn, fs 4 qn, e 4 qn, fs 4 qn, gs 4 dhn])]
+>         , p1 o131shape1 (line [gs 4 qn, bs 4 hn, cs 5 hn, a 4 dhn
+>                              , gs 4 qn, fs 4 qn, a 4 qn, gs 4 qn, fs 4 qn, e 4 qn, fs 4 qn, gs 4 dhn])]
 >   -- 4 % 1
 >   qv1p1005_008 =
->     line [passage dives qv1 [Inflect P, SpanN 9, Inflect P] (line [b 4 hn, a 4 hn, es 4 qn, fs 4 qn, a 4 qn
->                                                      , g 4 qn, es 4 hn, es 5 qn, fs 5 hn, e 5 qn, ds 5 hn])]
+>     line [p1 [Inflect P, SpanN 9, Inflect P] (line [b 4 hn, a 4 hn, es 4 qn, fs 4 qn, a 4 qn
+>                                                   , g 4 qn, es 4 hn, es 5 qn, fs 5 hn, e 5 qn, ds 5 hn])]
 >   -- 4 % 1
 >   qv1p1009_012 =
->     line [passage dives qv1 [Inflect P, Inflect P] (line [fs 5 qn, e 5 qn])
->         , passage dives qv1 [Inflect P, SpanN 2, Inflect FF] (line [e 5 hn, ds 5 hn, e 5 wn, d 5 hn])
->         , passage dives qv1 [Inflect FF, SpanN 1, Inflect P] (line [cs 5 qn, bs 4 qn, b 4 hn])]
+>     line [p1 [Inflect P, Inflect P] (line [fs 5 qn, e 5 qn])
+>         , p1 [Inflect P, SpanN 2, Inflect FF] (line [e 5 hn, ds 5 hn, e 5 wn, d 5 hn])
+>         , p1 [Inflect FF, SpanN 1, Inflect P] (line [cs 5 qn, bs 4 qn, b 4 hn])]
 >   -- 4 % 1
 >   qv1p1013_016 =
->     line [passage dives qv1 [Inflect P, SpanN 9, Inflect P] (line [d 4 qn, cs 4 qn, as 4 hn, b 4 hn, cs 5 qn, d 5 qn, b 4 qn
->                                                      , cs 5 qn, d 5 qn, e 5 dhn, d 5 hn])]
+>     line [p1 [Inflect P, SpanN 9, Inflect P] (line [d 4 qn, cs 4 qn, as 4 hn, b 4 hn, cs 5 qn, d 5 qn, b 4 qn
+>                                                  , cs 5 qn, d 5 qn, e 5 dhn, d 5 hn])]
 >
 >   -- rollup 0 + 17.25 -> 17.25
 
@@ -93,19 +97,18 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >   qv2p1000_004 = toMusic1 (line [rest (4 * wn), rest dhn]::Music Pitch)
 >   -- 4 % 1
 >   qv2p1005_008 =
->     line [passage dives qv2 o131shape1 (line [cs 4 qn, es 4 hn, fs 4 hn, d 4 dhn
->                                       , cs 4 qn, b 3 qn, d 4 qn, cs 4 qn, b 3 qn, a 3 qn, b 3 qn, cs 4 qn])]
->
+>     line [p2 o131shape1 (line [cs 4 qn, es 4 hn, fs 4 hn, d 4 dhn
+>                              , cs 4 qn, b 3 qn, d 4 qn, cs 4 qn, b 3 qn, a 3 qn, b 3 qn, cs 4 qn])]
 >   -- 17 % 4
 >   qv2p1009_012 =
->     line [passage dives qv2 [Inflect P, SpanN 2, Inflect P] (line [bs 3 qn, ds 4 qn, gs 3 hn, gs 4 qn])
->         , passage dives qv2 [Inflect PP, SpanN 5, Inflect FF] (line [bs 4 hn, cs 5 qn, b 4 qn, as 4 qn, cs 4 qn, b 4 qn, a 3 qn])
->         , passage dives qv2 [Inflect FF, SpanN 2, Inflect PP] (line [gs 3 qn, a 3 qn, ds 4 qn, es 4 qn])]
+>     line [p2 [Inflect P, SpanN 2, Inflect P] (line [bs 3 qn, ds 4 qn, gs 3 hn, gs 4 qn])
+>         , p2 [Inflect PP, SpanN 5, Inflect FF] (line [bs 4 hn, cs 5 qn, b 4 qn, as 4 qn, cs 4 qn, b 4 qn, a 3 qn])
+>         , p2 [Inflect FF, SpanN 2, Inflect PP] (line [gs 3 qn, a 3 qn, ds 4 qn, es 4 qn])]
 >   -- 4 % 1
 >   qv2p1013_016 =
->     passage dives qv2 [Inflect P, SpanN 11, Inflect P]
->                  (line [d 4 qn, b 3 qn, as 3 qn, cs 4 qn, d 4 qn, b 3 hn, as 3 qn, b 3 qn, gs 3 qn, a 3 qn, b 3 qn
->                      , cs 4 dhn, b 3 qn])
+>     p2 [Inflect P, SpanN 11, Inflect P]
+>        (line [d 4 qn, b 3 qn, as 3 qn, cs 4 qn, d 4 qn, b 3 hn, as 3 qn, b 3 qn, gs 3 qn, a 3 qn, b 3 qn
+>            , cs 4 dhn, b 3 qn])
 >
 >   -- rollup 0 + 17 -> 17
 
@@ -117,14 +120,14 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >   qvap1005_008 = toMusic1 (line [rest (3 * wn), rest dhn]::Music Pitch)
 >   -- 18 % 4
 >   qvap1009_012 =
->     passage dives qva o131shape1
->                 (line [gs 3 qn, bs 3 hn, cs 4 hn, a 3 dhn
->                      , gs 3 qn, fs 3 qn,  a 3 qn, gs 3 qn, fs 3 qn, e 3 qn, fs 3 qn, gs 3 dhn])
+>     pa o131shape1
+>        (line [gs 3 qn, bs 3 hn, cs 4 hn, a 3 dhn
+>             , gs 3 qn, fs 3 qn,  a 3 qn, gs 3 qn, fs 3 qn, e 3 qn, fs 3 qn, gs 3 dhn])
 >   -- 4 % 1
 >   qvap1013_016 =
->     passage dives qva [Inflect P, SpanN 12, Inflect P]
->                 (line [gs 4 qn, as 4 qn, fs 4 hn, g 3 qn, fs 3 qn, es 3 qn, d 3 qn, f 3 qn, e 3 qn
->                      , d 3 qn, cs 3 qn, d 3 qn, e 3 qn, fs 3 hn])
+>     pa [Inflect P, SpanN 12, Inflect P]
+>        (line [gs 4 qn, as 4 qn, fs 4 hn, g 3 qn, fs 3 qn, es 3 qn, d 3 qn, f 3 qn, e 3 qn
+>              , d 3 qn, cs 3 qn, d 3 qn, e 3 qn, fs 3 hn])
 >
 >   -- rollup 0 + 17.25 -> 17.25
 
@@ -138,9 +141,9 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >   qvcp1009_012 = line [rest (3 * wn), rest dhn]
 >   -- 18 % 4
 >   qvcp1013_016 =
->     passage dives qvc o131shape1
->                 (line [cs 3 qn, es 3 hn, fs 3 hn, d 3 dhn
->                      , cs 3 qn,  b 2 qn, d 3 qn, cs 3 qn, b 2 qn, a 2 qn, b 2 qn, cs 3 dhn])
+>     pc o131shape1
+>        (line [cs 3 qn, es 3 hn, fs 3 hn, d 3 dhn
+>             , cs 3 qn,  b 2 qn, d 3 qn, cs 3 qn, b 2 qn, a 2 qn, b 2 qn, cs 3 dhn])
 >
 >   -- rollup 0 + 17.25 -> 17.25
 

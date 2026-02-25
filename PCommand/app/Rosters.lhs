@@ -24,7 +24,6 @@
 >      , ("+djingles",       djingles)
 >      , ("+njingles",       njingles)
 >      , ("+zjingles",       zjingles)
->      , ("+bjingles",       bjingles)
 >      , ("+all",            ajingles ++ bjingles ++ cjingles ++ djingles ++ ejingles ++ njingles ++ zjingles)]
 >   
 >     ajingles, bjingles, cjingles, djingles, ejingles, njingles, zjingles

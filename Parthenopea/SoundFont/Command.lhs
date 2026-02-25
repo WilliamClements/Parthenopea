@@ -108,11 +108,11 @@ Implement PCommand =============================================================
 >                           → IO (SFRuntime, (Map InstrumentName GMChoices, Map PercussionSound GMChoices))
 > commandLogic dives rost vFilesBoot_      = do
 >   putStrLn "commandLogic..."
->   (vFilesBoot, survey)                   ← surveyInstruments dives rost vFilesBoot_
+>   (vFilesBoot, sy)                       ← surveyInstruments dives rost vFilesBoot_
 >
->   let rd                                 = survey.sDispositions
->   let cache                              = survey.sPerInstruments
->   let matches                            = survey.sMatches
+>   let rd                                 = sy.sDispositions
+>   let cache                              = sy.sPerInstruments
+>   let matches                            = sy.sMatches
 >
 >   CM.when (dForScan > 0)                 (writeScanReport dives dForScan vFilesBoot rd)
 >   (wI, wP)                               ← decideWinners dives rost vFilesBoot cache matches

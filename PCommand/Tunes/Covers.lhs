@@ -3036,6 +3036,12 @@ Igor's Boogie ==================================================================
 > ibStrum                                  = makePitched AcousticGuitarNylon               ibTranspose     0     100
 > ibVoice                                  = makePitched AcousticGuitarNylon               ibTranspose     0     100
 >
+> iblEnabled, ibsEnabled, ibvEnabled
+>                        :: Bool
+> iblEnabled = False
+> ibsEnabled = False
+> ibvEnabled = True
+>
 > iboogie              :: Music (Pitch, [NoteAttribute])
 > iboogie                                  =
 >   removeZeros
@@ -3044,46 +3050,49 @@ Igor's Boogie ==================================================================
 >
 >   where
 >
->     leadMusic                            = bandPart ibLead leadLine
->     strumMusic                           = bandPart ibStrum strumLine
->     voiceMusic                           = bandPart ibVoice voiceLine
->
->     leadLine, strumLine, voiceLine
->                        :: Music Pitch
->     leadLine                             = line [lead001, lead002, lead003, lead004
->                                                , lead005]
->     strumLine                            = line [strum001, strum002, strum003, strum004
->                                                , strum005]
->     voiceLine                            = line [voice001, voice002, voice003, voice004
->                                                , voice005]
+>   leadMusic                              =
+>     if iblEnabled then keysig C Major $ orchestraPart ibLead leadLine else rest 0
+>   strumMusic                             =
+>     if ibsEnabled then keysig C Major $ orchestraPart ibStrum strumLine else rest 0
+>   voiceMusic                             =
+>     if ibvEnabled then keysig C Major $ orchestraPart ibVoice voiceLine else rest 0
+>                           
+>   leadLine, strumLine, voiceLine
+>                        :: Music (Pitch, [NoteAttribute])
+>   leadLine                               =
+>     toMusic1 $ line [lead001, lead002, lead003, lead004, lead005]
+>   strumLine                              =
+>     toMusic1 $ line [strum001, strum002, strum003, strum004, strum005]
+>   voiceLine                              =
+>     toMusic1 $ line [voice001, voice002, voice003, voice004, voice005]
 >
 >     -- 9 % 8
->     lead001  = line [ d 5 en, e 5 en, e 5 en, e 5 en, e 5 en
->                     , t32 [e 5 sn, f 5 sn, e 5 sn]
->                     , d 5 sn, c 5 sn, d 5 en, rest en]
->     strum001  = line [ g 5 en, gs 5 en, a 5 en, b 5 en, c 6 en, cs 6 en, f 5 en, fs 5 en, rest en]
->     voice001  = line [ c 5 en, b 4 en, bf 4 en, a 4 en, g 5 en
->                      , t32 [gs 4 sn, a 4 sn, b 4 sn]
->                      , bf 4 sn, af 4 sn, a 4 en, rest en]
+>   lead001  = line [ d 5 en, e 5 en, e 5 en, e 5 en, e 5 en
+>                   , t32 [e 5 sn, f 5 sn, e 5 sn]
+>                   , d 5 sn, c 5 sn, d 5 en, rest en]
+>   strum001  = line [ g 5 en, gs 5 en, a 5 en, b 5 en, c 6 en, cs 6 en, f 5 en, fs 5 en, rest en]
+>   voice001  = line [ c 5 en, b 4 en, bf 4 en, a 4 en, g 4 en
+>                    , t32 [gs 4 sn, a 4 sn, b 4 sn]
+>                    , bf 4 sn, af 4 sn, a 4 en, rest en]
 >
 >     -- 1 % 1
->     lead002 =  line [addDur sn [b 4, as 4, fs 4, cs 5,  c 5,  b 4, g 4,  d 4, ef 4, af 4, df 5, gf 5], fs 5 en, c 5 en]
->     strum002 = line [addDur sn [e 5,  f 5,  d 5,  e 5,  f 5,  g 5, d 5, bf 4, af 4,  e 5,  f 5,  d 6], a 5 en, g 5 en]
->     voice002 = line [addDur en [g 4,  a 4,  d 4,  c 4, df 4, af 4], addDur sn [c 5, bf 4, af 4, f 4]]
+>   lead002 =  line [addDur sn [b 4, as 4, fs 4, cs 5,  c 5,  b 4, g 4,  d 4, ef 4, af 4, df 5, gf 5], f 5 en, c 5 en]
+>   strum002 = line [addDur sn [e 5,  f 5,  d 5,  e 5,  f 5,  g 5, d 5, bf 4, af 4,  e 5,  f 5,  d 6], a 5 en, g 5 en]
+>   voice002 = line [addDur en [g 4,  a 4,  d 4,  c 4, df 4, af 4], addDur sn [c 5, bf 4, af 4, f 4]]
 >
 >     -- 3 % 8
->     lead003  = line [ e 5 en, cs 5 en, ds 5 en]
->     strum003 = line [ gs 5 en, a 5 en, gs 5 en]
->     voice003 = addDur sn [b 4, bf 4, g 4, e 4, bf 4, c 5]
+>   lead003  = line [ e 5 en, cs 5 en, ds 5 en]
+>   strum003 = line [ gs 5 en, a 5 en, gs 5 en]
+>   voice003 = addDur sn [b 4, bf 4, g 4, e 4, bf 4, c 5]
 >
 >     -- 7 % 8
->     lead004 = line [ d 5 en, d 5 en, d 5 en, d 5 en, t32 [d 5 sn, e 5 sn, d 5 sn], cs 5 sn, b 4 sn, fs 5 en]
->     strum004 = addDur en [fs 5, g 5, a 5, bf 5, b 5, gs 5, a 5]
->     voice004 = line [ b 4 en, bf 4 en, g 4 en, f 4 en, t32 [fs 4 sn, b 4 sn, a 4 sn], fs 4 sn, g 4 sn, d 5 en]
+>   lead004 = line [ d 5 en, d 5 en, d 5 en, d 5 en, t32 [d 5 sn, e 5 sn, d 5 sn], cs 5 sn, b 4 sn, fs 5 en]
+>   strum004 = addDur en [fs 5, g 5, a 5, bf 5, b 5, gs 5, a 5]
+>   voice004 = line [ b 4 en, bf 4 en, g 4 en, f 4 en, t32 [fs 4 sn, b 4 sn, a 4 sn], fs 4 sn, g 4 sn, d 5 en]
 >
 >     -- 7 % 8
->     lead005 = line [ e 5 en, e 5 en, e 5 en, e 5 en, t32 [e 5 sn, f 5 sn, e 5 sn], d 5 sn, c 5 sn, d 5 en]
->     strum005 = addDur en [cs 5, c 5, b 5, a 5, af 5, g 5, fs 5]
->     voice005 = addDur en [ a 4, g 4, a 4, b 4, cs 5, a 5, b 5]
+>   lead005 = line [ e 5 en, e 5 en, e 5 en, e 5 en, t32 [e 5 sn, f 5 sn, e 5 sn], d 5 sn, c 5 sn, d 5 en]
+>   strum005 = addDur en [cs 6, c 6, b 5, a 5, af 5, g 5, fs 5]
+>   voice005 = addDur en [ a 4, g 4, a 4, b 4, cs 5, a 4, b 4]
 
 The End
