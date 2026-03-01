@@ -98,18 +98,6 @@ more than 16 instruments to be used in the source music.
 >                                              Just i → Just $ unsafeOutputID i
 >     , perfAlg= map (\mev → mev{eDur = max 0 (eDur mev - 0.000_001)}) . perform}
 
-This alternate playback function will merge overlapping notes, 
-which makes for a cleaner sound on some synthesizers:
-
-> playX        :: (NFData a, ToMusic1 a) ⇒ Music a → IO ()
-> playX = playC defParams{perfAlg = eventMerge . perform} where 
->     eventMerge :: Performance → Performance
->     eventMerge (e1:e2:mevs) = 
->         let e1' = e1{eDur = eTime e2 + eDur e2 - eTime e1}
->         in  if ePitch e1 == ePitch e2 then eventMerge (e1':mevs) 
->             else e1 : eventMerge (e2:mevs)
->     eventMerge mev = mev
-
 "triad" ===============================================================================================================
 
 > triad                  :: PitchClass → Mode → Pitch → Dur → Music Pitch

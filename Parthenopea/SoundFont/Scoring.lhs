@@ -354,7 +354,7 @@ tournament starts here =========================================================
 >           let
 >             oneZone bix                  = IntMap.singleton bix (accessPreZone "oneZone" sffile.zPreZones bix)
 >           in
->             maybe (accessPreZones "scope" sffile.zPreZones (allBixen perI)) (oneZone . fromIntegral) pergm.pgkwBag
+>             maybe (accessPreZones "scope" sffile.zPreZones (ownedOnly perI)) (oneZone . fromIntegral) pergm.pgkwBag
 >
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
 >                                            >>= (Just . accessPreZone "mnameZ" sffile.zPreZones . fromIntegral)

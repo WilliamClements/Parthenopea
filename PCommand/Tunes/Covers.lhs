@@ -1,3 +1,4 @@
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -16,6 +17,7 @@ January 13, 2023
 >        , yahozna) where
 >
 > import Euterpea.Music
+> import Parthenopea.Music.Passage
 > import Parthenopea.Music.Percussion
 > import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.Directives
@@ -3032,23 +3034,27 @@ Igor's Boogie ==================================================================
 >
 > ibLead, ibStrum, ibVoice
 >                        :: BandPart
-> ibLead                                   = makePitched AcousticGuitarNylon               ibTranspose     0     100
-> ibStrum                                  = makePitched AcousticGuitarNylon               ibTranspose     0     100
-> ibVoice                                  = makePitched AcousticGuitarNylon               ibTranspose     0     100
+> ibLead                                   = makePitched ElectricGrandPiano                ibTranspose     0     100
+> ibStrum                                  = makePitched FrenchHorn                        ibTranspose     0     100
+> ibVoice                                  = makePitched Viola                             ibTranspose     0     100
 >
 > iblEnabled, ibsEnabled, ibvEnabled
 >                        :: Bool
-> iblEnabled = False
-> ibsEnabled = False
-> ibvEnabled = True
+> iblEnabled = True
+> ibsEnabled = True
+> ibvEnabled = True    
 >
-> iboogie              :: Music (Pitch, [NoteAttribute])
-> iboogie                                  =
+> iboogie              :: Directives → Music (Pitch, [NoteAttribute])
+> iboogie dives                            =
 >   removeZeros
 >   $ tempo ibTempo
 >   $ chord [leadMusic, strumMusic, voiceMusic]
 >
 >   where
+>
+>   leadP                                  = passage dives ibLead
+>   strumP                                 = passage dives ibStrum
+>   voiceP                                 = passage dives ibVoice
 >
 >   leadMusic                              =
 >     if iblEnabled then keysig C Major $ orchestraPart ibLead leadLine else rest 0
@@ -3060,11 +3066,15 @@ Igor's Boogie ==================================================================
 >   leadLine, strumLine, voiceLine
 >                        :: Music (Pitch, [NoteAttribute])
 >   leadLine                               =
->     toMusic1 $ line [lead001, lead002, lead003, lead004, lead005]
+>     toMusic1 $ line [lead001, lead002, lead003, lead004, lead005, lead006, lead007, lead008
+>                    , lead009, lead010, lead011, lead012, lead013]
 >   strumLine                              =
->     toMusic1 $ line [strum001, strum002, strum003, strum004, strum005]
+>     line [toMusic1 $ line [strum001, strum002, strum003, strum004, strum005, strum006, strum007, strum008
+>                    , strum009, strum010, strum011, strum012]
+>         , strum013]
 >   voiceLine                              =
->     toMusic1 $ line [voice001, voice002, voice003, voice004, voice005]
+>     toMusic1 $ line [voice001, voice002, voice003, voice004, voice005, voice006, voice007, voice008
+>                    , voice009, voice010, voice011, voice012, voice013]
 >
 >     -- 9 % 8
 >   lead001  = line [ d 5 en, e 5 en, e 5 en, e 5 en, e 5 en
@@ -3076,8 +3086,10 @@ Igor's Boogie ==================================================================
 >                    , bf 4 sn, af 4 sn, a 4 en, rest en]
 >
 >     -- 1 % 1
->   lead002 =  line [addDur sn [b 4, as 4, fs 4, cs 5,  c 5,  b 4, g 4,  d 4, ef 4, af 4, df 5, gf 5], f 5 en, c 5 en]
->   strum002 = line [addDur sn [e 5,  f 5,  d 5,  e 5,  f 5,  g 5, d 5, bf 4, af 4,  e 5,  f 5,  d 6], a 5 en, g 5 en]
+>   lead002 =  line [addDur sn [b 4, as 4, fs 4, cs 5,  c 5,  b 4, g 4,  d 4, ef 4, af 4, df 5, gf 5]
+>                  , f 5 en, c 5 en]
+>   strum002 = line [addDur sn [e 5,  f 5,  d 5,  e 5,  f 5,  g 5, d 5, bf 4, af 4,  e 5,  f 5,  d 6]
+>                  , a 5 en, g 5 en]
 >   voice002 = line [addDur en [g 4,  a 4,  d 4,  c 4, df 4, af 4], addDur sn [c 5, bf 4, af 4, f 4]]
 >
 >     -- 3 % 8
@@ -3094,5 +3106,54 @@ Igor's Boogie ==================================================================
 >   lead005 = line [ e 5 en, e 5 en, e 5 en, e 5 en, t32 [e 5 sn, f 5 sn, e 5 sn], d 5 sn, c 5 sn, d 5 en]
 >   strum005 = addDur en [cs 6, c 6, b 5, a 5, af 5, g 5, fs 5]
 >   voice005 = addDur en [ a 4, g 4, a 4, b 4, cs 5, a 4, b 4]
+>
+>     -- 5 % 4
+>   lead006 = addDur en [ef 4, af 4, df 5, gf 5, f 5, c 5, g 4, b 4, gs 4, a 4]
+>   strum006 = line [chord [d 5 (qn + dqn), as 5 (qn + dqn)]
+>                  , chord [addDur en [g 4, d 4, fs 4, ds 4,  e 4]
+>                         , addDur en [e 5, b 4,  d 5,  b 4, cs 5]]]
+>   voice006 = addDur en [ef 2, af 2, df 3, gf 3, f 3, c 3, g 2, b 2, gs 2, a 2]
+>
+>     -- 1 % 1
+>   lead007 = line [bf 4 en, bf 4 sn, bf 4 sn, bf 4 sn, ef 5 sn, af 4 en, df 4 hn]
+>   strum007 = chord [bf 4 wn, a 5 wn]
+>   voice007 = line [bf 3 en, addDur sn [bf 3, bf 3, bf 3, ef 4], af 3 en, df 3 hn]
+>
+>     -- 3 % 4
+>   lead008 = line [rest en, chord [line [g 4 qn, g 4 qn, g 4 sn, rest sn]
+>                                 , line [fs 5 qn, fs 5 qn, fs 5 sn, rest sn]]]
+>   strum008 = line [rest en, chord [line [ef 5 qn, ef 5 qn, ef 5 sn, rest sn]
+>                                  , line [d 5 qn, d 5 qn, d 5 sn, rest sn]]]
+>   voice008 = line [rest en, chord [line [ c 3 qn,  c 3 qn,  c 3 sn, rest sn]
+>                                  , line [d 4 qn, d 4 qn, d 4 sn, rest sn]]]
+>
+>     -- 3 % 4
+>   lead009 = addDur sn [f 4, e 4, c 4, g 4, af 4, g 4, ef 4, bf 4, b 4, e 5, a 5, cs 6]
+>   strum009 = addDur sn [f 4, e 4, c 4, g 4, af 4, g 4, ef 4, bf 4, b 4, e 5, a 5, cs 6]
+>   voice009 = addDur sn [f 3, e 3, c 3, g 3, af 3, g 3, ef 3, bf 3, b 3, e 4, a 4, cs 5]
+>
+>     -- 1 % 2
+>   lead010 = line [b 5 en, b 5 sn, b 5 sn, b 5 sn, e 5 sn, a 4 en]
+>   strum010 = line [b 5 sn, rest sn, b 5 tn, rest tn, b 5 tn, rest tn, b 5 sn, e 5 sn, a 4 en]
+>   voice010 = line [b 4 sn, rest sn, b 4 tn, rest tn, b 4 tn, rest tn, b 4 sn, e 4 sn, a 3 en]
+>
+>     -- 1 % 1
+>   lead011 = line [d 4 (qn + (qn / 3)), t32[d 4 en, d 4 en, d 4 en, d 4 qn, d 4 qn, d 4 en]]
+>   strum011 = line [d 4 (qn + (qn / 3)), t32[d 4 en, d 4 en, d 4 en, d 4 qn, d 4 qn, d 4 en]]
+>   voice011 = line [d 3 (qn + (qn / 3)), t32[d 3 en, d 3 en, d 3 en, d 3 qn, d 3 qn, d 3 en]]
+>
+>     -- 3 % 4
+>   lead012 = t32 [c 4 en, e 4 en, g 4 en, b 4 en, d 5 sn, e 5 sn, a 5 en, c 5 den, b 4 sn, e 4 sn, c 4 sn]
+>   strum012 = line [t32 [d 4 en, f 4 en, a 4 en, c 5 en, e 5 sn, g 5 sn, b 5 en
+>                 , chord [line [e 5 den, c 5 sn, g 4 sn, d 4 sn]
+>                        , line [a 5 den, e 5 sn, b 4 sn, g 4 sn]]]]
+>   voice012 = line [t32 [a 3 en, c 4 en, e 4 en, g 4 en, b 4 sn, d 5 sn, g 5 en]
+>                 , chord [f 4 qn, g 4 qn, c 5 qn, d 5 qn]]
+>
+>     -- 2 % 1
+>   lead013 = line [a 3 (wn + wn)]
+>              -- WOX should be real directives
+>   strum013 = (chord [strumP  [Inflect SF] (cs 4 (wn + wn)), strumP [Inflect PP] (a 4 (wn + wn))])
+>   voice013 = chord [ e 4 (wn + wn), a 4 (wn + wn)]
 
 The End

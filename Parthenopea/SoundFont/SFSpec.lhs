@@ -87,15 +87,15 @@ implementing SoundFont spec ====================================================
 >   PerInstrument {
 >     piChanges          :: ChangeName F.Inst
 >   , pOwned             :: IntSet
->   , pPartnered         :: IntSet
+>   , pCrossing          :: IntSet
 >   , pSmashing          :: Smashing Word}
 > allBixen, ownedOnly    :: PerInstrument → IntSet
 > allBixen PerInstrument { .. }
->                                          = pOwned `IntSet.union` pPartnered
+>                                          = pOwned `IntSet.union` pCrossing
 > ownedOnly PerInstrument { .. }
 >                                          = pOwned
 > instance Show PerInstrument where
->   show perI                              = unwords ["PerInstrument", show (perI.pOwned, perI.pPartnered)]
+>   show perI                              = unwords ["PerInstrument", show (perI.pOwned, perI.pCrossing)]
 >
 > data PerGMKey                            =
 >   PerGMKey {

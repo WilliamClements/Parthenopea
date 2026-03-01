@@ -254,13 +254,11 @@ February 15, 2026
 >                                            Nothing Nothing
 >
 >                                            []
->
 
 reconcile zone and sample header ======================================================================================
 
 > receiveRecon           :: SynthSwitches → PreZone → NoteOn → Recon
-> receiveRecon sw pz noon
->                                          =
+> receiveRecon sw pz noon                  =
 >   let
 >     recon                                = deJust "receiveRecon" pz.pzRecon
 >     z                                    = pz.pzSFZone

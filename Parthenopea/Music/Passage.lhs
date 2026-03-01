@@ -112,7 +112,7 @@ _Overall_                =
 >     _                                    → error "no mark velocity"
 > passage                :: Directives → BandPart → [Marking] → Music Pitch → Music1
 > passage dives bp markings ma
->   | not enableDynamics                   = toMusic1 ma
+>   | not dives.synthSwitches.usePassages  = toMusic1 ma
 >   | null markings                        = error $ unwords ["empty markings"]
 >   | otherwise                            =
 >     removeZeros $ passageImpl dives bp (expandMarkings markings) (removeZeros ma)
@@ -163,7 +163,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >         mangleNote     :: Dur → a → Music (a, [NoteAttribute])
 >         mangleNote dM pM                 = note dM (pM, Dynamics fName_ : (makeNAs . deJust fName) mek.mParams)
 >
->     makeMeks                              =
+>     makeMeks                             =
 >       profess
 >         (nPrims > 0 && (nPrims == nMarks))
 >         (unwords ["bad lengths; prims, markings", show (nPrims, nMarks)])
@@ -183,8 +183,9 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >           let
 >             pFun (Note pP dP)            = VB.singleton (Note pP dP)
 >             pFun (Rest dP)               = VB.singleton (Rest dP)
+>             noChords _ _                 = error "no chords in Passage input"
 >           in
->             mFold pFun (VB.++) undefined undefined ma
+>             mFold pFun (VB.++) noChords undefined ma
 >
 >         eTable                           = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
 >
@@ -299,7 +300,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >       where
 >         inflected _ si                   =
 >           case (meks VB.! si).mMarking of
->             Mark _                     → False
+>             Mark _                       → False
 >             _                            → True
 
 Configurable parameters ===============================================================================================

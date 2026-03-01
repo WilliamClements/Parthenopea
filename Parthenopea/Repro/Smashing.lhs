@@ -42,8 +42,8 @@ This source file implements a generalization of above definition. See computeIns
           
 > data Smashing i                          =
 >   Smashing {
->     smashTag            :: String
->     , smashDims         :: [i]
+>     smashTag            :: !String
+>     , smashDims         :: ![i]
 >     , smashSpaces       :: IntMap [(i, i)]
 >     , smashStats        :: SmashStats
 >     , smashVec          :: VU.Vector (i, i)}
@@ -55,12 +55,10 @@ This source file implements a generalization of above definition. See computeIns
 >   , countSingles       :: Int
 >   , countMultiples     :: Int}
 >   deriving (Eq, Show)
-> seedSmashStats         :: SmashStats
-> seedSmashStats                           = SmashStats 0 0 0
 >
 > developSmashStats      :: ∀ i. (Integral i, Show i, VU.Unbox i) ⇒
 >                           VU.Vector (i,i) → SmashStats
-> developSmashStats                        = VU.foldl' sfolder seedSmashStats
+> developSmashStats                        = VU.foldl' sfolder (SmashStats 0 0 0)
 >   where
 >     sfolder            :: SmashStats → (i, i) → SmashStats
 >     sfolder stats (_, count)
@@ -157,12 +155,10 @@ Navigation =====================================================================
 
 > getLeafCells           :: ∀ i . (Integral i, Ix i, Show i, VU.Unbox i) ⇒ [i] → Smashing i → VU.Vector (i, i)
 > getLeafCells coords smashup@Smashing{ .. }
->   | traceNot trace_GLC False             = undefined
 >   | not (validCoords coords smashup)     = error $ unwords [fName, "invalid coords"]
 >   | otherwise                            = VU.slice cellix leafDim smashVec
 >   where
 >     fName                                = "getLeafCells"
->     trace_GLC                            = unwords [fName, show coords, show leafDim, show cellix]
 >
 >     leafDim                              = (fromIntegral . last) smashDims
 >     cellix                               = computeCellIndex smashDims (init coords ++ [0])

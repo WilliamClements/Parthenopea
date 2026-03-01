@@ -87,28 +87,41 @@ cache SoundFont data that is only needed for Runtime ===========================
 >       where
 >         fName                            = "supply"
 >
->         runtimeFile insts                = 
+>         runtimeFile insts                =    
 >           let
 >             getPerI inst                 =
 >               cache Map.! PerGMKey sffile.zWordFBoot (fromIntegral inst) Nothing
 >
 >             newPerI                      = IntMap.fromSet getPerI insts
->
->             bixen                        = IntSet.foldl' lump IntSet.empty insts
+>             pzdb                         = 
+>               if doCopyPzdb
+>                 then IntSet.foldl'       doSave   IntMap.empty     bixen
+>                 else IntMap.foldlWithKey doUpdate sffile.zPreZones sffile.zPreZones
+>               where
+>                 bixen                    = IntSet.foldl' lump IntSet.empty insts
 >                                              where lump m i = IntSet.union m (allBixen (newPerI IntMap.! i))
 >
->             save m bix                   = IntMap.insert bix pz{pzRecon = Just recon} m
->               where
->                 pz                       = accessPreZone fName sffile.zPreZones bix
->                 recon                    = resolvePreZone dives pz (effPZShdr pz)
+>                 resolve pz               = pz{pzRecon = Just $ resolvePreZone dives pz (effPZShdr pz)}
 >
->             preZone                      = IntSet.foldl' save IntMap.empty bixen
+>                 doSave m bix             =
+>                   let
+>                     pz                   = accessPreZone fName sffile.zPreZones bix
+>                   in
+>                     IntMap.insert bix (resolve pz) m
+>
+>                 doUpdate m bix pz        =
+>                   let
+>                     keep _               = if bix `IntSet.member` bixen
+>                                              then (Just . resolve) pz
+>                                              else Nothing
+>                   in
+>                     IntMap.update keep bix m
 >           in
 >             Just ( sffile.zWordFBoot
 >                  , SFFileRuntime 
 >                      sffile.zWordFBoot
 >                      newPerI
->                      preZone
+>                      pzdb
 >                      sffile.zSquirrelSample)
 
 define signal functions and instrument maps to support rendering ======================================================
@@ -234,5 +247,7 @@ zone selection for rendering ===================================================
 >
 >         pzL                              = deJust fName foundL
 >         pzR                              = deJust fName foundR
+>
+> doCopyPzdb                               = False
 
 The End

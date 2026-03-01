@@ -206,7 +206,6 @@ accessed in end time order.
 >         fractionOf     :: Int → Double → Int
 >         fractionOf x doub                = min (qMidiInt128 - 1) (round $ doub * fromIntegral x)
 >
->
 > makePercFill           :: Directives → PercussionSound → Rational → Volume → Dur → Music1
 > makePercFill dives sound beats vol durP  = bandPart (makeNonPitched vol) m
 >   where
