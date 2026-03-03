@@ -127,6 +127,12 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >     fName_                               = "passageImpl"
 >     trace_IP                             = unwords [fName_, show markings]
 >
+>     enriched, rawMeks  :: VB.Vector MekNote
+>
+>     -- stepwise evolution of enriched note/rest (MekNote) vector via these functions
+>     wearOveralls, seeSeeded, enrich
+>                        :: VB.Vector MekNote → VB.Vector MekNote
+>
 >     rawMeks                              = makeMeks    
 >     mekFence                             = VB.length rawMeks - 1
 >     (nodePairs, nodeGroups)              = formNodeGroups rawMeks
@@ -140,7 +146,6 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >         (doUpdate enrich . doUpdate seeSeeded . doUpdate wearOveralls) rawMeks
 >
 >     -- reconstruct notes with added dynamics metadata
->     -- WOX n squared ?
 >     finalFold          :: Music1 → MekNote → Music1 
 >     finalFold music mek                  =
 >       music :+: case mek.mPrimitive of
@@ -149,7 +154,8 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >       where
 >         fName                            = unwords [fName_, "final"]
 >
->         makeNAs        :: Either Velocity (VB.Vector Double) → [NoteAttribute]
+>         mangleNote dM pM                 = note dM (pM, Dynamics fName_ : (makeNAs . deJust fName) mek.mParams)
+>
 >         makeNAs (Left homeVolume)        = [Volume homeVolume]
 >         makeNAs (Right sweeps)           =
 >           profess
@@ -157,11 +163,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >             (unwords [fName, "illegally null sweeps"])
 >             [(Volume . average) sweeps, (Params . VB.toList) sweeps]
 >         
->         average        :: VB.Vector Double → Velocity
 >         average sweeps                   = round $ VB.sum sweeps / (fromIntegral . VB.length) sweeps
->
->         mangleNote     :: Dur → a → Music (a, [NoteAttribute])
->         mangleNote dM pM                 = note dM (pM, Dynamics fName_ : (makeNAs . deJust fName) mek.mParams)
 >
 >     makeMeks                             =
 >       profess
@@ -178,7 +180,6 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >
 >         selfIndices                      = VB.generate nPrims id
 >
->         prims          :: VB.Vector (Primitive Pitch)
 >         prims                            =
 >           let
 >             pFun (Note pP dP)            = VB.singleton (Note pP dP)
@@ -189,7 +190,6 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >
 >         eTable                           = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
 >
->         evs            :: VB.Vector (Maybe MEvent)
 >         evs                              = 
 >           let
 >             slotIn     :: (VB.Vector (Maybe MEvent), Int) → Primitive Pitch → (VB.Vector (Maybe MEvent), Int)
@@ -202,14 +202,12 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >           in
 >             fst $ VB.foldl' slotIn (VB.empty, 0) prims
 >
->     -- stepwise evolution of enriched note/rest (MekNote) list uses these functions
->     wearOveralls, seeSeeded, enrich
->                        :: VB.Vector MekNote → VB.Vector MekNote
->
 >     wearOveralls vIn                     =
 >       VB.concatMap (uncurry computeOverall) nodePairs VB.++ computeOverall lastSi lastSi
 >       where
->         lastSi                           = snd $ VB.last nodePairs
+>         lastSi                           = if null nodePairs
+>                                              then mekFence
+>                                              else snd $ VB.last nodePairs
 >
 >         computeOverall si0 si1           =
 >           VB.singleton mek0{mOverall = Just $ makeOverall loud0 loud1 ev0 ev1}
@@ -235,8 +233,7 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >           VB.concatMap (uncurry seeden) (VB.zip nodeGroup (VB.tail nodeGroup))
 >                        VB.++ seeden (VB.last nodeGroup) (VB.last nodeGroup)
 >           where
->             gLen                         = VB.length nodeGroup
->
+>             gLen                         = VB.length nodeGroup  
 >             seedOne mekArg               = VB.singleton $ mekArg{mParams = (Just . Left) (getMarkVelocity mekArg)}
 >
 >             seeden si0 si1               = VB.map infuse seedMeks

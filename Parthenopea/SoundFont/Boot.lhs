@@ -148,6 +148,7 @@ Current solution:
 >      , ("pair",       pair)
 >      , ("vet",        clean . vet)
 >      , ("adopt",      adopt)
+>      , ("rat",        rat)
 >      , ("smash 2",    smash)
 >      , ("perI",       perI)]
 >   where
@@ -162,6 +163,7 @@ Current solution:
 >     pair                                 = pairTaskIf         sffile rost
 >     vet                                  = vetTaskIf          sffile rost
 >     adopt                                = adoptTaskIf        sffile rost
+>     rat                                  = ratTaskIf          sffile rost
 >     perI                                 = perITaskIf         sffile rost
 
 (Mostly ignoring dispo contribution as it is unproblematic)
@@ -184,6 +186,7 @@ Task pair
       creates Action map, based on partners and PreZones
       does not modify PreZones
 Task vet modifies or deletes PreZones based on Action map
+Task rat adjusts for exotic pairing ahead of smash 2 and perI
 Task perI creates PerInstrument map based on Owners map and PreZone data
 
 Boot executive function ===============================================================================================
@@ -241,7 +244,7 @@ support sample and instance ====================================================
 pre-sample task =======================================================================================================
           critique all Sample records in the file
 
-> preSampleTaskIf sffile _ fWork           = foldl' sampleFolder fWork (formComprehension sffile ssShdrs)
+> preSampleTaskIf sffile _ fWork           = foldl' sample fWork (formComprehension sffile ssShdrs)
 >   where
 >     Directives{ .. }
 >                                          = fWork.fwDirectives                     
@@ -254,7 +257,7 @@ pre-sample task ================================================================
 >     accepted imp clue                    =
 >       [Scan Accepted imp fName clue]
 >
->     sampleFolder fwForm presk            =
+>     sample fwForm presk                  =
 >       let
 >         preSampleCache                   =
 >           if dead ssSample
@@ -379,7 +382,7 @@ iterating InstZoneRecord list ==================================================
 >   where
 >     zrecs'             :: IntMap InstZoneRecord
 >     rd'                :: ResultDispositions
->     (zrecs', rd')              =
+>     (zrecs', rd')                        =
 >       foldl' taskRunner (fWork.fwZRecs, fWork.fwDispositions) fWork.fwZRecs
 >
 >     taskRunner         :: (IntMap InstZoneRecord, ResultDispositions)
@@ -725,7 +728,8 @@ pairing approach ===============================================================
 >               (tail sy.psTasks)
 
 Pairing algorithm phases ==============================================================================================
-      Each of these three functions operates on unpaired list. They are invoked, in order, during iterate'.
+      Each of these three functions operates on unpaired list. They are invoked, in following sequence,
+      during iterate'.
 
 >     nominal sy                            =
 >       IntMap.foldlWithKey (conducePartners False sy.psUnpaired) IntMap.empty fwSamplePairings
@@ -916,16 +920,17 @@ adopt task =====================================================================
 >       in
 >         dispose (extractSampleKey pz) ssAdopt rdFold
 
-smash task ============================================================================================================
-          compute smashups for each instrument
+rat task ==============================================================================================================
+          rationalize exotic pairing
 
-> smashTaskIf _ _ fWork                    = zrecTask smasher fWork{fwPartners = partners}
+> ratTaskIf _ _ fWork                      = fWork{fwPartners = partners}
 >   where
 >     mirrored                             =
 >       let
->         reverser pds iLeft iRight        = IntMap.insert iRight iLeft pds
+>         reverser m iLeft iRight          = IntMap.insert iRight iLeft m
+>         oneWay                           = fWork.fwPairing.fwPairings
 >       in
->         IntMap.foldlWithKey reverser fWork.fwPairing.fwPairings fWork.fwPairing.fwPairings
+>         IntMap.foldlWithKey reverser oneWay oneWay
 >
 >     partners                             =
 >       let
@@ -938,14 +943,19 @@ smash task =====================================================================
 >             residue                      = (IntSet.fromList allFound) `IntSet.difference` iset
 >       in
 >         IntMap.foldlWithKey sniffOut IntMap.empty fWork.fwOwners
->     
+
+smash task ============================================================================================================
+          compute smashups for each instrument
+
+> smashTaskIf _ _ fWork                    = zrecTask smasher fWork
+>   where
 >     smasher zrec rdFold                  =
 >       let
 >         tag                              = show (instKey zrec).pgkwInst
 >
 >         wInst          :: Int            = fromIntegral zrec.zswInst
 >         bixenPaired                      = fromMaybe IntSet.empty (wInst `IntMap.lookup` fWork.fwOwners)
->         bixenPartnered                   = fromMaybe IntSet.empty (wInst `IntMap.lookup` partners)
+>         bixenPartnered                   = fromMaybe IntSet.empty (wInst `IntMap.lookup` fWork.fwPartners)
 >
 >         smashVar                         =
 >           Just $ computeInstSmashup tag fWork.fwPreZones (bixenPaired `IntSet.union` bixenPartnered)

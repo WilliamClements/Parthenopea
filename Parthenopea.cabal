@@ -1,4 +1,4 @@
-cabal-version:      3.14
+cabal-version:      3.12
 name:               Parthenopea
 version:            0.0.1.6
 license:            Apache-2.0

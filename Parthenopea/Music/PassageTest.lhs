@@ -10,6 +10,8 @@ August 15, 2025
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Passage
+> import Parthenopea.Music.Siren
+> import Parthenopea.SoundFont.Directives
 >
 > passageTests           :: [IO Bool]
 > passageTests                             = []
@@ -31,6 +33,14 @@ August 15, 2025
 > bMarkings                                = [Mark PP, Rest1, Mark FF]
 > cMarkings                                = [Mark PPP, Mark P, Mark P, Mark FF]
 > dMarkings                                = [Inflect PPP, Inflect P, Inflect P, Inflect FF]
+>
+> qqq :: IO () = do
+>   let ibTranspose = 0
+>   let ibStrum = makePitched FrenchHorn ibTranspose 0 100
+>   let strumP = passage defDirectives ibStrum
+>   let m1 = line [strumP  [Inflect SF] (line [cs 4 (wn + wn)])]
+>   -- WOX let m2 = (chord [strumP  [Inflect SF] (cs 4 (wn + wn)), strumP [Inflect PP] (a 4 (wn + wn))])
+>   print m1
 >
 > testMeks               :: VB.Vector (Primitive Pitch) → [Marking] → VB.Vector MekNote
 > testMeks prims markings                  =
