@@ -39,114 +39,6 @@ February 15, 2026
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
 >
-> data PreZone                             =
->   PreZone {
->     pzWordF            :: !Int
->   , pzWordS            :: !Word
->   , pzWordI            :: !Word
->   , pzWordB            :: !Word
->   , pzDigest           :: ZoneDigest
->   , pzSFZone           :: SFZone
->   , pzChanges          :: ChangeEar F.Shdr
->   , pzRecon            :: Maybe Recon}
-> instance Show PreZone where
->   show pz                                =
->     unwords ["PreZone", show (pz.pzWordF, pz.pzWordS, pz.pzWordI, pz.pzWordB), show pz.pzDigest]
->
-> extractZoneKey         :: PreZone → PreZoneKey
-> extractZoneKey pz                        =
->   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
->
-> showBad                :: PreZone → String
-> showBad pz                               = show (pz.pzWordB, (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange))
->
-> makePreZone            :: Int → Word → Word → ZoneDigest → F.Shdr → PreZone
-> makePreZone wF wI bix digest shdr        =
->   PreZone
->     wF (fromJust digest.zdSampleIndex) wI bix 
->      digest defZone (ChangeEar shdr [])
->      Nothing
->
-> wordS, wordI, wordB    :: PreZone → Int
-> wordS pz                                 = fromIntegral pz.pzWordS
-> wordI pz                                 = fromIntegral pz.pzWordI
-> wordB pz                                 = fromIntegral pz.pzWordB
-> makeMono               :: PreZone → PreZone
-> makeMono pz@PreZone{pzChanges}           = pz{pzChanges = pzChanges{ceChanges = MakeMono : pzChanges.ceChanges}}
-> wasSwitchedToMono      :: PreZone → Bool
-> wasSwitchedToMono PreZone{pzChanges}     = MakeMono `elem` pzChanges.ceChanges
-> showPreZones           :: [PreZone] → String
-> showPreZones pzs                         = show $ map pzWordB pzs
->
-> data ZoneDigest                          =
->   ZoneDigest {
->     zdKeyRange         :: Maybe (Word, Word)
->   , zdVelRange         :: Maybe (Word, Word)
->   , zdPan              :: Maybe Int
->   , zdSampleIndex      :: Maybe Word
->   , zdSampleMode       :: Maybe A.SampleMode
->   , zdStart            :: !Int
->   , zdEnd              :: !Int
->   , zdStartLoop        :: !Int
->   , zdEndLoop          :: !Int} deriving (Eq, Show)
-> defDigest              :: ZoneDigest
-> defDigest                                = ZoneDigest Nothing Nothing Nothing Nothing Nothing 0 0 0 0
-> formDigest             :: [F.Generator] → ZoneDigest
-> formDigest                               = foldr inspectGen defDigest
->   where
->     inspectGen         :: F.Generator → ZoneDigest → ZoneDigest 
->     inspectGen (F.KeyRange i j)                          zd
->                                          = zd {zdKeyRange = Just(i, j)}
->     inspectGen (F.VelRange i j)                          zd
->                                          = zd {zdVelRange = Just(i, j)}
->     inspectGen (F.Pan i)                                 zd
->                                          = zd {zdPan = Just i}
->     inspectGen (F.SampleIndex w)                         zd
->                                          = zd {zdSampleIndex = Just w}
->     inspectGen (F.SampleMode m)                          zd
->                                          = zd {zdSampleMode = Just m}
->
->     inspectGen (F.StartAddressCoarseOffset i)            zd
->                                          = zd {zdStart = zd.zdStart + 32_768 * i}
->     inspectGen (F.StartAddressOffset i)                  zd
->                                          = zd {zdStart = zd.zdStart + i}
->     inspectGen (F.EndAddressCoarseOffset i)              zd
->                                          = zd {zdEnd = zd.zdEnd + 32_768 * i}
->     inspectGen (F.EndAddressOffset i)                    zd
->                                          = zd {zdEnd = zd.zdEnd + i}
->
->     inspectGen (F.LoopStartAddressCoarseOffset i)        zd
->                                          = zd {zdStartLoop = zd.zdStartLoop + 32_768 * i}
->     inspectGen (F.LoopStartAddressOffset i)              zd
->                                          = zd {zdStartLoop = zd.zdStartLoop + i}
->     inspectGen (F.LoopEndAddressCoarseOffset i)          zd
->                                          = zd {zdEndLoop = zd.zdEndLoop + 32_768 * i}
->     inspectGen (F.LoopEndAddressOffset i)                zd
->                                          = zd {zdEndLoop = zd.zdEndLoop + i}
->
->     inspectGen _ zd                      = zd
->
-> okGMRanges             :: ZoneDigest → Bool
-> okGMRanges zd                            = rOk && iOk
->   where
->     infinite                             = (0, qMidiWord128 - 1)
->
->     kLim                                 = fromMaybe infinite zd.zdKeyRange
->     vLim                                 = fromMaybe infinite zd.zdVelRange
->
->     rOk                                  = okRange kLim && okRange vLim
->     okRange (j, k)                       = (0 <= j) && j <= k && k < qMidiWord128
->
->     iOk = kLim /= infinite || vLim /= infinite
->
-> data PreZoneKey                          =
->   PreZoneKey {
->     pzkwFile           :: !Int
->   , pzkwInst           :: !Word
->   , pzkwBag            :: !Word
->   , pzkwSampleIndex    :: !Word}
->   deriving (Eq, Ord, Show)
->
 > data AppliedLimits                       =
 >   AppliedLimits {
 >     rStart             :: !Word
@@ -156,30 +48,6 @@ February 15, 2026
 >   deriving (Eq, Show)
 > defApplied             :: AppliedLimits
 > defApplied                               = AppliedLimits 0 0 0 0
->
-> data Recon                               =
->   Recon {
->     rSampleMode        :: !A.SampleMode
->   , rSampleRate        :: !Double
->   , rApplied           :: AppliedLimits
->   , rRootKey           :: !AbsPitch
->   , rTuning            :: !Int
->   , rAttenuation       :: !Double
->   , rVolEnv            :: Maybe FEnvelope
->   , rPitchCorrection   :: Maybe Double
->   , rM8n               :: Modulation
->   , rEffects           :: Maybe Effects}
->   deriving Eq
-> normalizeLooping       :: Recon → (Double, Double)
-> normalizeLooping Recon{ .. }
->                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)
->   where
->     AppliedLimits{ .. }                        
->                                          = rApplied
->
->     (fullst, fullen)                     = (fromIntegral rStart, fromIntegral rEnd)
->     (loopst, loopen)                     = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
->     denom              :: Double         = fullen - fullst
 >
 > data SFZone =
 >   SFZone {
@@ -232,28 +100,165 @@ February 15, 2026
 >
 >   , zModulators        :: [Modulator]}
 >   deriving (Eq, Show)
->
 > defZone                :: SFZone
 > defZone                                  = SFZone 
->                                            Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
+>   Nothing Nothing
+>   Nothing Nothing Nothing Nothing
+>   Nothing Nothing Nothing Nothing
 >
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing
+>   Nothing Nothing Nothing Nothing
+>   Nothing Nothing
 >
->                                            Nothing Nothing Nothing
+>   Nothing Nothing Nothing
 >     
->                                            Nothing
+>   Nothing
 > 
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing Nothing Nothing
->                                            Nothing Nothing
+>   Nothing Nothing Nothing Nothing
+>   Nothing Nothing Nothing Nothing
+>   Nothing Nothing Nothing Nothing
+>   Nothing Nothing Nothing Nothing
+>   Nothing Nothing Nothing Nothing
+>   Nothing Nothing
 >
->                                            []
+>   []
+>
+> data ChangeEarItem                       = MakeMono deriving Eq
+> data ChangeEar a                         =
+>   ChangeEar {
+>     ceSource           :: a
+>   , ceChanges          :: [ChangeEarItem]} deriving Eq
+>
+> data PreZone                             =
+>   PreZone {
+>     pzWordF            :: !Int
+>   , pzWordS            :: !Word
+>   , pzWordI            :: !Word
+>   , pzWordB            :: !Word
+>   , pzDigest           :: ZoneDigest
+>   , pzSFZone           :: SFZone
+>   , pzChanges          :: ChangeEar F.Shdr
+>   , pzRecon            :: Maybe Recon}
+> makePreZone            :: Int → Word → Word → ZoneDigest → F.Shdr → PreZone
+> makePreZone wF wI bix digest shdr        =
+>   PreZone
+>     wF (fromJust digest.zdSampleIndex) wI bix 
+>      digest defZone (ChangeEar shdr [])
+>      Nothing
+>
+> wordS, wordI, wordB    :: PreZone → Int
+> wordS pz                                 = fromIntegral pz.pzWordS
+> wordI pz                                 = fromIntegral pz.pzWordI
+> wordB pz                                 = fromIntegral pz.pzWordB
+> makeMono               :: PreZone → PreZone
+> makeMono pz@PreZone{pzChanges}           = pz{pzChanges = pzChanges{ceChanges = MakeMono : pzChanges.ceChanges}}
+> wasSwitchedToMono      :: PreZone → Bool
+> wasSwitchedToMono PreZone{pzChanges}     = MakeMono `elem` pzChanges.ceChanges
+> showPreZones           :: [PreZone] → String
+> showPreZones pzs                         = show $ map pzWordB pzs
+> instance Show PreZone where
+>   show pz                                =
+>     unwords ["PreZone", show (pz.pzWordF, pz.pzWordS, pz.pzWordI, pz.pzWordB), show pz.pzDigest]
+>
+> extractZoneKey         :: PreZone → PreZoneKey
+> extractZoneKey pz                        =
+>   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
+>
+> showBad                :: PreZone → String
+> showBad pz                               = show (pz.pzWordB, (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange))
+>
+> data PreZoneKey                          =
+>   PreZoneKey {
+>     pzkwFile           :: !Int
+>   , pzkwInst           :: !Word
+>   , pzkwBag            :: !Word
+>   , pzkwSampleIndex    :: !Word}
+>   deriving (Eq, Ord, Show)
+>
+> data Recon                               =
+>   Recon {
+>     rSampleMode        :: !A.SampleMode
+>   , rSampleRate        :: !Double
+>   , rApplied           :: AppliedLimits
+>   , rRootKey           :: !AbsPitch
+>   , rTuning            :: !Int
+>   , rAttenuation       :: !Double
+>   , rVolEnv            :: Maybe FEnvelope
+>   , rPitchCorrection   :: Maybe Double
+>   , rM8n               :: Modulation
+>   , rEffects           :: Maybe Effects}
+>   deriving Eq
+>
+> data ZoneDigest                          =
+>   ZoneDigest {
+>     zdKeyRange         :: Maybe (Word, Word)
+>   , zdVelRange         :: Maybe (Word, Word)
+>   , zdPan              :: Maybe Int
+>   , zdSampleIndex      :: Maybe Word
+>   , zdSampleMode       :: Maybe A.SampleMode
+>   , zdStart            :: !Int
+>   , zdEnd              :: !Int
+>   , zdStartLoop        :: !Int
+>   , zdEndLoop          :: !Int} deriving (Eq, Show)
+> defDigest              :: ZoneDigest
+> defDigest                                = ZoneDigest Nothing Nothing Nothing Nothing Nothing 0 0 0 0
+> formDigest             :: [F.Generator] → ZoneDigest
+> formDigest                               = foldr inspectGen defDigest
+>   where
+>     inspectGen         :: F.Generator → ZoneDigest → ZoneDigest 
+>     inspectGen (F.KeyRange i j)                          zd
+>                                          = zd {zdKeyRange = Just(i, j)}
+>     inspectGen (F.VelRange i j)                          zd
+>                                          = zd {zdVelRange = Just(i, j)}
+>     inspectGen (F.Pan i)                                 zd
+>                                          = zd {zdPan = Just i}
+>     inspectGen (F.SampleIndex w)                         zd
+>                                          = zd {zdSampleIndex = Just w}
+>     inspectGen (F.SampleMode m)                          zd
+>                                          = zd {zdSampleMode = Just m}
+>
+>     inspectGen (F.StartAddressCoarseOffset i)            zd
+>                                          = zd {zdStart = zd.zdStart + 32_768 * i}
+>     inspectGen (F.StartAddressOffset i)                  zd
+>                                          = zd {zdStart = zd.zdStart + i}
+>     inspectGen (F.EndAddressCoarseOffset i)              zd
+>                                          = zd {zdEnd = zd.zdEnd + 32_768 * i}
+>     inspectGen (F.EndAddressOffset i)                    zd
+>                                          = zd {zdEnd = zd.zdEnd + i}
+>
+>     inspectGen (F.LoopStartAddressCoarseOffset i)        zd
+>                                          = zd {zdStartLoop = zd.zdStartLoop + 32_768 * i}
+>     inspectGen (F.LoopStartAddressOffset i)              zd
+>                                          = zd {zdStartLoop = zd.zdStartLoop + i}
+>     inspectGen (F.LoopEndAddressCoarseOffset i)          zd
+>                                          = zd {zdEndLoop = zd.zdEndLoop + 32_768 * i}
+>     inspectGen (F.LoopEndAddressOffset i)                zd
+>                                          = zd {zdEndLoop = zd.zdEndLoop + i}
+>
+>     inspectGen _ zd                      = zd
+> okGMRanges             :: ZoneDigest → Bool
+> okGMRanges zd                            = rOk && iOk
+>   where
+>     infinite                             = (0, qMidiWord128 - 1)
+>
+>     kLim                                 = fromMaybe infinite zd.zdKeyRange
+>     vLim                                 = fromMaybe infinite zd.zdVelRange
+>
+>     rOk                                  = okRange kLim && okRange vLim
+>     okRange (j, k)                       = (0 <= j) && j <= k && k < qMidiWord128
+>
+>     iOk = kLim /= infinite || vLim /= infinite
+>
+> normalizeLooping       :: Recon → (Double, Double)
+> normalizeLooping Recon{ .. }
+>                                          = ((loopst - fullst) / denom, (loopen - fullst) / denom)
+>   where
+>     AppliedLimits{ .. }                        
+>                                          = rApplied
+>
+>     (fullst, fullen)                     = (fromIntegral rStart, fromIntegral rEnd)
+>     (loopst, loopen)                     = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
+>     denom              :: Double         = fullen - fullst
+>
 
 reconcile zone and sample header ======================================================================================
 
@@ -385,14 +390,5 @@ reconcile zone and sample header ===============================================
 >       if sw.usePan
 >         then maybe 0 fromIntegral mPan
 >         else 0
-
-Navigation ============================================================================================================
-
-> data ChangeEarItem                       = MakeMono deriving Eq
->
-> data ChangeEar a                         =
->   ChangeEar {
->     ceSource           :: a
->   , ceChanges          :: [ChangeEarItem]} deriving Eq
 
 The End

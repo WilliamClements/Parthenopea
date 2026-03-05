@@ -2,6 +2,7 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE TemplateHaskell #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 SFSpec
@@ -12,6 +13,7 @@ April 16, 2023
 >
 > import qualified Codec.SoundFont         as F
 > import Control.Applicative
+> import Control.Lens hiding (element)
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Char
@@ -39,6 +41,76 @@ implementing SoundFont spec ====================================================
 
 > type SampleIndex                         = Word
 > type BagIndex                            = Word
+> type Fuzz                                = Double
+>
+> data SampleType =
+>   SampleTypeMono
+>   | SampleTypeRight
+>   | SampleTypeLeft
+>   | SampleTypeLinked
+>   | SampleTypeOggVorbis
+>   | SampleTypeRomMono
+>   | SampleTypeRomRight
+>   | SampleTypeRomLeft
+>   | SampleTypeRomLinked deriving (Eq, Show)
+>
+> toSampleType           :: Word → SampleType
+> toSampleType hex                         = deJust "toMaybeSampleType" (toMaybeSampleType hex)
+>
+> toMaybeSampleType      :: Word → Maybe SampleType
+> toMaybeSampleType n                      =
+>   case n of
+>     0x0                    → Just SampleTypeMono
+>     0x1                    → Just SampleTypeMono
+>     0x2                    → Just SampleTypeRight
+>     0x4                    → Just SampleTypeLeft
+>     0x8                    → Just SampleTypeLinked
+>     0x10                   → Just SampleTypeOggVorbis
+>     0x8001                 → Just SampleTypeRomMono
+>     0x8002                 → Just SampleTypeRomRight
+>     0x8004                 → Just SampleTypeRomLeft
+>     0x8008                 → Just SampleTypeRomLinked
+>     _                      → Nothing
+>
+> fromSampleType             :: SampleType → Word
+> fromSampleType stype =
+>   case stype of
+>     SampleTypeMono         → 0x1
+>     SampleTypeRight        → 0x2
+>     SampleTypeLeft         → 0x4
+>     SampleTypeLinked       → 0x8
+>     SampleTypeOggVorbis    → 0x10
+>     SampleTypeRomMono      → 0x8001
+>     SampleTypeRomRight     → 0x8002
+>     SampleTypeRomLeft      → 0x8004
+>     SampleTypeRomLinked    → 0x8008
+>
+> isStereoPZ, isLeftPZ, isRightPZ
+>                        :: PreZone → Bool
+> isStereoPZ pz                            = isLeftPZ pz || isRightPZ pz
+> isLeftPZ pz                              = SampleTypeLeft == toSampleType (effPZShdr pz).sampleType
+> isRightPZ pz                             = SampleTypeRight == toSampleType (effPZShdr pz).sampleType
+>
+> effPZShdr              :: PreZone → F.Shdr
+> effPZShdr PreZone{pzChanges}             =
+>   if MakeMono `elem` pzChanges.ceChanges
+>     then pzChanges.ceSource{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
+>     else pzChanges.ceSource
+>
+> data PerGMKey                            =
+>   PerGMKey {
+>     pgkwFile           :: !Int
+>   , pgkwInst           :: !Word
+>   , pgkwBag            :: !(Maybe Word)}
+>   deriving (Eq, Ord, Show)
+>
+> data ChangeNameItem                      = FixBadName deriving Eq
+>
+> data ChangeName a                        =
+>   ChangeName {
+>     cnSource           :: a
+>   , cnChanges          :: [ChangeNameItem]
+>   , cnName             :: String}
 >
 > data PreSampleKey                        =
 >   PreSampleKey {
@@ -46,6 +118,46 @@ implementing SoundFont spec ====================================================
 >   , pskwSampleIndex    :: !Word}
 >   deriving (Eq, Ord, Show)
 > type PreSample                           = ChangeName F.Shdr
+>
+> data Disposition                         =
+>   Accepted | Modified | Violated | Rescued | Dropped | NoChange
+>   deriving (Eq, Ord, Show)
+>
+> data Impact                              =
+>   Ok | NoZones | BadZones
+>      | BadName
+>      | BadSampleRate | BadSampleType | BadSampleLimits
+>      | BadAppliedLimits | BadStereoPartner | RomBased | BadGMRange 
+>      | Paired | Orphaned | ToCache
+>      | Absorbing | Absorbed | NoAbsorption    
+>      | Unrecognized | Narrow | NoPercZones
+>      | Captured | Adopted | AdoptedAsMono | GlobalZone
+>   deriving (Eq, Ord, Show)
+>
+> virginrd               :: ResultDispositions
+> virginrd                                 = ResultDispositions Map.empty Map.empty Map.empty
+>
+> data Scan                                =
+>   Scan {
+>     sDisposition       :: !Disposition
+>   , sImpact            :: !Impact
+>   , sFunction          :: !String
+>   , sClue              :: !String}
+>   deriving (Eq, Show)
+>
+> data ResultDispositions                  =
+>   ResultDispositions {
+>     preSampleDispos    :: Map PreSampleKey     [Scan]
+>   , preInstDispos      :: Map PerGMKey         [Scan]
+>   , preZoneDispos      :: Map PreZoneKey       [Scan]}
+>
+> data FileArrays                          = 
+>   FileArrays {
+>     ssInsts            :: Array Word F.Inst
+>   , ssIBags            :: Array Word F.Bag
+>   , ssIGens            :: Array Word F.Generator
+>   , ssIMods            :: Array Word F.Mod
+>   , ssShdrs            :: Array Word F.Shdr}
 >
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
@@ -69,20 +181,6 @@ implementing SoundFont spec ====================================================
 > isRightPS              :: PreSample → Bool
 > isRightPS ps                             = Just SampleTypeRight == toMaybeSampleType (effPSShdr ps).sampleType
 >
-> effPZShdr              :: PreZone → F.Shdr
-> effPZShdr PreZone{pzChanges}             =
->   if MakeMono `elem` pzChanges.ceChanges
->     then pzChanges.ceSource{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
->     else pzChanges.ceSource
->
-> data ChangeNameItem                      = FixBadName deriving Eq
->
-> data ChangeName a                        =
->   ChangeName {
->     cnSource           :: a
->   , cnChanges          :: [ChangeNameItem]
->   , cnName             :: String}
->
 > data PerInstrument                       =
 >   PerInstrument {
 >     piChanges          :: ChangeName F.Inst
@@ -97,13 +195,16 @@ implementing SoundFont spec ====================================================
 > instance Show PerInstrument where
 >   show perI                              = unwords ["PerInstrument", show (perI.pOwned, perI.pCrossing)]
 >
-> data PerGMKey                            =
->   PerGMKey {
->     pgkwFile           :: !Int
->   , pgkwInst           :: !Word
->   , pgkwBag            :: !(Maybe Word)}
->   deriving (Eq, Ord, Show)
+> data FFMatches =
+>   FFMatches {
+>     ffInput            :: !String
+>   , ffInst             :: Map InstrumentName Fuzz
+>   , ffPerc             :: Map PercussionSound Fuzz} deriving Show
 >
+> data SampleArrays                        = 
+>   SampleArrays {
+>     ssData             :: A.SampleData Int16
+>   , ssM24              :: Maybe (A.SampleData Int8)}
 > data SFFileBoot                          =
 >   SFFileBoot {
 >     zWordFBoot         :: !Int
@@ -143,15 +244,8 @@ implementing SoundFont spec ====================================================
 >     Map.empty
 >     defMatches
 >     virginrd
+> makeLenses ''Survey
 >     
-> data FileArrays                          = 
->   FileArrays {
->     ssInsts            :: Array Word F.Inst
->   , ssIBags            :: Array Word F.Bag
->   , ssIGens            :: Array Word F.Generator
->   , ssIMods            :: Array Word F.Mod
->   , ssShdrs            :: Array Word F.Shdr}
->
 > data SFFileRuntime                       =
 >   SFFileRuntime {
 >     zWordFRuntime      :: !Int
@@ -230,44 +324,9 @@ implementing SoundFont spec ====================================================
 > weighResolution                          = 3/2
 > weighConformance                         = 3
 > weighFuzziness                           = 3
->
-> type Fuzz = Double
->
-> data FFMatches =
->   FFMatches {
->     ffInput            :: !String
->   , ffInst             :: Map InstrumentName Fuzz
->   , ffPerc             :: Map PercussionSound Fuzz} deriving Show
->
-> data SampleArrays                        = 
->   SampleArrays {
->     ssData             :: A.SampleData Int16
->   , ssM24              :: Maybe (A.SampleData Int8)}
 
 bootstrapping =========================================================================================================
 
-> data Disposition                         =
->   Accepted | Modified | Violated | Rescued | Dropped | NoChange
->   deriving (Eq, Ord, Show)
->
-> data Impact                              =
->   Ok | NoZones | BadZones
->      | BadName
->      | BadSampleRate | BadSampleType | BadSampleLimits
->      | BadAppliedLimits | BadStereoPartner | RomBased | BadGMRange 
->      | Paired | Orphaned | ToCache
->      | Absorbing | Absorbed | NoAbsorption    
->      | Unrecognized | Narrow | NoPercZones
->      | Captured | Adopted | AdoptedAsMono | GlobalZone
->   deriving (Eq, Ord, Show)
->
-> data Scan                                =
->   Scan {
->     sDisposition       :: !Disposition
->   , sImpact            :: !Impact
->   , sFunction          :: !String
->   , sClue              :: !String}
->   deriving (Eq, Show)
 > getTriple              :: Scan → (Disposition, Impact, String)
 > getTriple s                              = (s.sDisposition, s.sImpact, s.sFunction)
 >
@@ -312,11 +371,6 @@ bootstrapping ==================================================================
 >     viol                                 = Scan Violated imp fName (show bad)
 >     resc                                 = Scan Rescued imp fName (show good)
 >
-> data ResultDispositions                  =
->   ResultDispositions {
->     preSampleDispos    :: Map PreSampleKey     [Scan]
->   , preInstDispos      :: Map PerGMKey         [Scan]
->   , preZoneDispos      :: Map PreZoneKey       [Scan]}
 > instance Show ResultDispositions where
 >   show rd                                =
 >     unwords [  "ResultDispositions"
@@ -324,8 +378,6 @@ bootstrapping ==================================================================
 >
 > deadrd                 :: ∀ k . SFKeyType k ⇒ k → ResultDispositions → Bool
 > deadrd k rd                              = dead (inspect k rd)
-> virginrd               :: ResultDispositions
-> virginrd                                 = ResultDispositions Map.empty Map.empty Map.empty
 > emptyrd                :: ResultDispositions → Bool
 > emptyrd rd                               = null rd.preSampleDispos && null rd.preInstDispos && null rd.preZoneDispos
 > rdLengths              :: ResultDispositions → (Int, Int)
@@ -387,12 +439,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > isStereoInst zs                          = isJust $ find isStereoPZ zs
 >       
 >
-> isStereoPZ, isLeftPZ, isRightPZ
->                        :: PreZone → Bool
-> isStereoPZ pz                            = isLeftPZ pz || isRightPZ pz
-> isLeftPZ pz                              = SampleTypeLeft == toSampleType (effPZShdr pz).sampleType
-> isRightPZ pz                             = SampleTypeRight == toSampleType (effPZShdr pz).sampleType
->
 > is24BitInst _                            = True -- was isJust $ ssM24 arrays       
 >
 > writeReportBySections  :: Directives → FilePath → [[Emission]] → IO ()
@@ -421,48 +467,6 @@ out diagnostics might cause us to execute this code first. So, being crash-free/
 > fixName name
 >   | null name                            = "<noname>"
 >   | otherwise                            = map (\cN → if goodChar cN then cN else '_') name
->
-> data SampleType =
->   SampleTypeMono
->   | SampleTypeRight
->   | SampleTypeLeft
->   | SampleTypeLinked
->   | SampleTypeOggVorbis
->   | SampleTypeRomMono
->   | SampleTypeRomRight
->   | SampleTypeRomLeft
->   | SampleTypeRomLinked deriving (Eq, Show)
->
-> toSampleType           :: Word → SampleType
-> toSampleType hex                         = deJust "toMaybeSampleType" (toMaybeSampleType hex)
->
-> toMaybeSampleType      :: Word → Maybe SampleType
-> toMaybeSampleType n                      =
->   case n of
->     0x0                    → Just SampleTypeMono
->     0x1                    → Just SampleTypeMono
->     0x2                    → Just SampleTypeRight
->     0x4                    → Just SampleTypeLeft
->     0x8                    → Just SampleTypeLinked
->     0x10                   → Just SampleTypeOggVorbis
->     0x8001                 → Just SampleTypeRomMono
->     0x8002                 → Just SampleTypeRomRight
->     0x8004                 → Just SampleTypeRomLeft
->     0x8008                 → Just SampleTypeRomLinked
->     _                      → Nothing
->
-> fromSampleType             :: SampleType → Word
-> fromSampleType stype =
->   case stype of
->     SampleTypeMono         → 0x1
->     SampleTypeRight        → 0x2
->     SampleTypeLeft         → 0x4
->     SampleTypeLinked       → 0x8
->     SampleTypeOggVorbis    → 0x10
->     SampleTypeRomMono      → 0x8001
->     SampleTypeRomRight     → 0x8002
->     SampleTypeRomLeft      → 0x8004
->     SampleTypeRomLinked    → 0x8008
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
