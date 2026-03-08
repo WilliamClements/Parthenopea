@@ -13,7 +13,6 @@ April 16, 2023
 >
 > import qualified Codec.SoundFont         as F
 > import Control.Applicative
-> import Control.Lens hiding (element)
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Char
@@ -244,7 +243,6 @@ implementing SoundFont spec ====================================================
 >     Map.empty
 >     defMatches
 >     virginrd
-> makeLenses ''Survey
 >     
 > data SFFileRuntime                       =
 >   SFFileRuntime {

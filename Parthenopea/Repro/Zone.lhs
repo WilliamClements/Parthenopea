@@ -39,16 +39,6 @@ February 15, 2026
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
 >
-> data AppliedLimits                       =
->   AppliedLimits {
->     rStart             :: !Word
->   , rEnd               :: !Word
->   , rLoopStart         :: !Word
->   , rLoopEnd           :: !Word}
->   deriving (Eq, Show)
-> defApplied             :: AppliedLimits
-> defApplied                               = AppliedLimits 0 0 0 0
->
 > data SFZone =
 >   SFZone {
 >     zInstIndex         :: Maybe Word
@@ -138,13 +128,15 @@ February 15, 2026
 >   , pzSFZone           :: SFZone
 >   , pzChanges          :: ChangeEar F.Shdr
 >   , pzRecon            :: Maybe Recon}
+> instance Show PreZone where
+>   show pz                                =
+>     unwords ["PreZone", show (pz.pzWordF, pz.pzWordS, pz.pzWordI, pz.pzWordB), show pz.pzDigest]
 > makePreZone            :: Int → Word → Word → ZoneDigest → F.Shdr → PreZone
 > makePreZone wF wI bix digest shdr        =
 >   PreZone
 >     wF (fromJust digest.zdSampleIndex) wI bix 
 >      digest defZone (ChangeEar shdr [])
 >      Nothing
->
 > wordS, wordI, wordB    :: PreZone → Int
 > wordS pz                                 = fromIntegral pz.pzWordS
 > wordI pz                                 = fromIntegral pz.pzWordI
@@ -155,14 +147,9 @@ February 15, 2026
 > wasSwitchedToMono PreZone{pzChanges}     = MakeMono `elem` pzChanges.ceChanges
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
-> instance Show PreZone where
->   show pz                                =
->     unwords ["PreZone", show (pz.pzWordF, pz.pzWordS, pz.pzWordI, pz.pzWordB), show pz.pzDigest]
->
 > extractZoneKey         :: PreZone → PreZoneKey
 > extractZoneKey pz                        =
 >   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
->
 > showBad                :: PreZone → String
 > showBad pz                               = show (pz.pzWordB, (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange))
 >
@@ -174,11 +161,21 @@ February 15, 2026
 >   , pzkwSampleIndex    :: !Word}
 >   deriving (Eq, Ord, Show)
 >
+> data AppliedLimits                       =
+>   AppliedLimits {
+>     rStart             :: !Word
+>   , rEnd               :: !Word
+>   , rLoopStart         :: !Word
+>   , rLoopEnd           :: !Word}
+>   deriving (Eq, Show)
+> defApplied             :: AppliedLimits
+> defApplied                               = AppliedLimits 0 0 0 0
+>
 > data Recon                               =
 >   Recon {
 >     rSampleMode        :: !A.SampleMode
 >   , rSampleRate        :: !Double
->   , rApplied           :: AppliedLimits
+>   , rApplied           :: !AppliedLimits
 >   , rRootKey           :: !AbsPitch
 >   , rTuning            :: !Int
 >   , rAttenuation       :: !Double

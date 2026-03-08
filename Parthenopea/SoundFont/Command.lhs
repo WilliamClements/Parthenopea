@@ -84,8 +84,7 @@ Implement PCommand =============================================================
 >   rost                                   ← identifyRoster ding songs
 >
 >   CM.unless (null sf2s)
->             (putStr $ reapEmissions [  EndOfLine
->                                      , Unblocked $ unwords ["surveySoundFonts"], EndOfLine])
+>             (putStr $ reapEmissions [  Unblocked $ unwords ["surveySoundFonts"], EndOfLine])
 >   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
 >   let vFilesBoot                         = VB.fromList extraction
 >   if VB.null vFilesBoot
@@ -99,7 +98,9 @@ Implement PCommand =============================================================
 >     captureSong (Song name music _)      = do
 >       ding                               ← shredMusic music
 >       return $ Song name music ding
->     identifyRoster ding songs            = return $ if null songs then allKinds else partitionEithers $ Map.keys ding
+>     identifyRoster ding songs            = return $ if null songs
+>                                                       then allKinds
+>                                                       else partitionEithers (Map.keys ding)
 >     ReportVerbosity{ .. }               
 >                                          = dives.dReportVerbosity
 >
@@ -129,29 +130,28 @@ Implement PCommand =============================================================
 >                           → Song
 >                           → IO ()
 > renderSong runt choices (Song name music ding)
->                                          =
->   do
->     let sw                               = runt.zDirectives.synthSwitches
+>                                          = do
+>   let sw                                 = runt.zDirectives.synthSwitches
 >
->     tsStart                              ← getZonedTime
->     putStr $ reapEmissions [Unblocked $ unwords ["renderSong", name], EndOfLine]
+>   tsStart                                ← getZonedTime
+>   putStr $ reapEmissions [Unblocked $ unwords ["renderSong", name], EndOfLine]
 >
->     let ks                               = Map.keys ding
->     let (is, ps)                         = (lefts ks, rights ks)
->     let (esI, esP)                       = printChoices choices is ps
->     putStr $ reapEmissions (concatMap snd esI ++ concatMap snd esP)
+>   let ks                                 = Map.keys ding
+>   let (is, ps)                           = (lefts ks, rights ks)
+>   let (esI, esP)                         = printChoices choices is ps
+>   putStr $ reapEmissions (concatMap snd esI ++ concatMap snd esP)
 >     -- render song only if all OK
->     if all fst esI && all fst esP
->       then do
->         let (durS, s)                    = renderSF music runt.zInstrumentMap
->         if sw.normalizingOutput
->           then outFileNorm               (name ++ ".wav") durS s
->           else outFile                   (name ++ ".wav") durS s
->         tsFinish                         ← getZonedTime
->         putStr $ reapEmissions $ emitSongTime durS tsStart tsFinish
->       else
->         putStr $ reapEmissions skipSong
->     return ()
+>   if all fst esI && all fst esP
+>     then do
+>       let (durS, s)                      = renderSF music runt.zInstrumentMap
+>       if sw.normalizingOutput
+>         then outFileNorm               (name ++ ".wav") durS s
+>         else outFile                   (name ++ ".wav") durS s
+>       tsFinish                         ← getZonedTime
+>       putStr $ reapEmissions $ emitSongTime durS tsStart tsFinish
+>     else
+>       putStr $ reapEmissions skipSong
+>   return ()
 > 
 > convertFromMidi        :: FilePath → IO Song
 > convertFromMidi path                     = do

@@ -40,10 +40,10 @@ January 21, 2025
   
 a Boot problematic ====================================================================================================
 
-Each stage interface function takes a FileWork and returns modified FileWork. Often, stage computes temporary
-structure(s) to drive later stages. Dependency graph for this process has cycles which we patch around.
+Each stage interface function takes FileWork and returns modified FileWork. 
 
-(1) reorg stage depends on previously computed smashups, but absorption leaders' smashups must be updated.
+(1) reorg stage depends on previously computed smashups, but then recreates absorption leaders' smashups to reflect
+the new zonage.
 
 (2) Fast to modify smashups when incrementally adding zones. But to REMOVE a zone means expensively recomputing
 smashup across all remaining zones.
@@ -54,13 +54,6 @@ b...If both False, easy, just don't do either
 c...If cross True, absorption False, cross pairing only accomplished explicitly (honoring well-formed crossings)
 d...If cross False, absorption True, cross pairing only accomplished implicitly (no longer crossing after absorption)
 
-Current solution:
-1. Make smashups for all Instruments. Remember, lazy! 
-2. Use the smashups to drive reorg/absorption.
-3. Throw away smashups.
-4. Do pairing based on reorg'd Instruments.
-5. Make all-new smashups based on reorg.
-
 Garden an instrument collection =======================================================================================
 
 > data InstZoneRecord                      =
@@ -70,12 +63,8 @@ Garden an instrument collection ================================================
 >   , zswChanges         :: ChangeName F.Inst
 >   , zsSmashup          :: Maybe (Smashing Word)}
 
-Runners ===============================================================================================================
+Runners keep stage interface functions as a simple fold ===============================================================
 
-> class Runner a where
->   spawn                :: FileWork → a → a
->   imbibe               :: FileWork → a → FileWork
->
 > data ZRec                                =
 >   ZRec {
 >     _iZRecs            :: IntMap InstZoneRecord
@@ -95,12 +84,15 @@ Runners ========================================================================
 >     _ipzdb             :: IntMap PreZone
 >  ,  _ipDispo           :: ResultDispositions}
 > defVet                                   = Vet IntMap.empty virginrd
+>
+
+FileWork ==============================================================================================================
 
 > data Pairing                             =
 >   Pairing {
->     fwSamplePairings   :: IntMap Int                   {- [SampleIndex → SampleIndex]            -}
->   , fwPairings         :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
->   , fwActions          :: IntMap IntSet                {- [InstIndex → [BagIndex]]               -}}
+>     _fwSamplePairings  :: IntMap Int                   {- [SampleIndex → SampleIndex]            -}
+>   , _fwZonePairings    :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
+>   , _fwZoneModified    :: IntMap IntSet}
 >   deriving Show
 > defPairing             :: Pairing
 > defPairing                               =
@@ -109,17 +101,20 @@ Runners ========================================================================
 >     IntMap.empty
 >     IntMap.empty
 >
+> makeLenses ''Pairing
 > data FileWork                            =
 >   FileWork {
 >     fwDirectives       :: Directives
 >   , _fwZRecs           :: IntMap InstZoneRecord        {- [InstIndex → zrec] -}
 >   , _fwPreZones        :: IntMap PreZone               {- [BagIndex → pz] -}
->   , fwOwners           :: IntMap IntSet                {- [InstIndex → [BagIndex]] -}
->   , fwPartners         :: IntMap IntSet                {- [InstIndex → [BagIndex]] -}
+>
+>   , _fwZoneOwners      :: IntMap IntSet                {- [InstIndex → [BagIndex]] -}
+>   , _fwZonePartners    :: IntMap IntSet                {- [InstIndex → [BagIndex]] -}
+>
 >   , fwPreSamples       :: Map PreSampleKey PreSample
->   , fwPerInstruments   :: Map PerGMKey PerInstrument
+>   , _fwPerInstruments  :: Map PerGMKey PerInstrument
 >   , fwMatches          :: Matches
->   , fwPairing          :: Pairing
+>   , _fwPairing         :: Pairing
 >   , _fwDispositions    :: ResultDispositions}
 > defFileWork            :: Directives → FileWork
 > defFileWork dives                        =
@@ -143,9 +138,9 @@ Runners ========================================================================
 > instance Show FileWork where
 >   show fw                                =
 >     unwords [  "FileWork"
->              , show (length (view fwZRecs fw)), "=#zrecs"
->              , show (length fw.fwPerInstruments), "=#cached"
->              , show fw._fwDispositions]
+>              , show (length (fw ^. fwZRecs)), "=#zrecs"
+>              , show (length (fw ^. fwPerInstruments)), "=#cached"
+>              , show (fw ^. fwDispositions)]
 >
 > data PairingSlot                         =
 >   PairingSlot {
@@ -166,7 +161,7 @@ Runners ========================================================================
 >                                          =
 >   Survey
 >     _fwPreZones
->     fwPerInstruments
+>     _fwPerInstruments
 >     fwMatches
 >     _fwDispositions
 >   where
@@ -175,12 +170,11 @@ Runners ========================================================================
 
 (Mostly ignoring dispo contribution as it is unproblematic)
 
-Task preSample creates preSampleCache based on file's Sample Headers
+Task preSample caches file's Sample Headers
 Task smell creates sample-level Partner map, based on preSampleCache
-Task instrument creates the zrec IntMap based on file's Instrument data
-Task capture creates pzdb, based on file's Zone data
+Task instrument creates the zrec collection (IntMap) based on file's Instrument data
+Task capture creates pzdb, based on file's Zone data, and generates zone owners collection (also IntMap)
 Task clean
-      creates Owners map based on pzdb
       deletes empty zrecs based on Owners map
 Task adopt (adds dispos only, based on Owners map)
 Task smash creates smashups based on Owners map and PreZone data
@@ -195,6 +189,85 @@ Task pair
 Task vet modifies or deletes PreZones based on Action map
 Task rat adjusts for exotic pairing ahead of smash 2 and perI
 Task perI creates PerInstrument map based on Owners map and PreZone data
+
+FileWork development
+
+> preSampleTaskIf, smellTaskIf, instrumentTaskIf, captureTaskIf, pairTaskIf, vetTaskIf
+>                , adoptTaskIf, smashTaskIf, reorgTaskIf, matchTaskIf, cleanTaskIf, perITaskIf
+>                , shrinkTaskIf, ratTaskIf
+>                        :: SFFileBoot → ([InstrumentName], [PercussionSound]) → FileWork → FileWork
+>
+> makeFileIterate        :: Directives → SFFileBoot → ([InstrumentName], [PercussionSound]) → FileIterate
+> makeFileIterate dives sffile rost        =
+>   FileIterate
+>     (defFileWork dives)
+>     [
+>        ("preSample",  preSample)
+>      , ("smell",      smell)
+>      , ("instrument", instrument)
+>      , ("capture",    clean . capture)
+>      , ("smash 1",    smash)
+>      , ("reorg",      clean . reorg) 
+>      , ("match",      match)
+>      , ("pair",       pair)
+>      , ("vet",        clean . vet)
+>      , ("adopt",      adopt)
+>      , ("rat",        rat)
+>      , ("smash 2",    smash . shrink)
+>      , ("perI",       perI)]
+>   where
+>     preSample                            = preSampleTaskIf    sffile rost
+>     smell                                = smellTaskIf        sffile rost
+>     instrument                           = instrumentTaskIf   sffile rost
+>     capture                              = captureTaskIf      sffile rost
+>     clean                                = cleanTaskIf        sffile rost
+>     smash                                = smashTaskIf        sffile rost
+>     reorg                                = reorgTaskIf        sffile rost
+>     match                                = matchTaskIf        sffile rost
+>     pair                                 = pairTaskIf         sffile rost
+>     vet                                  = vetTaskIf          sffile rost
+>     adopt                                = adoptTaskIf        sffile rost
+>     rat                                  = ratTaskIf          sffile rost
+>     shrink                               = shrinkTaskIf       sffile rost
+>     perI                                 = perITaskIf         sffile rost
+
+Boot executive function ===============================================================================================
+          returns overall PerInstrument map
+
+> surveyInstruments      :: Directives
+>                           → ([InstrumentName], [PercussionSound])
+>                           → VB.Vector SFFileBoot
+>                           → IO (VB.Vector SFFileBoot, Survey)
+> surveyInstruments dives rost sfs         = do
+>   putStr $ reapEmissions
+>     [   EndOfLine
+>       , Unblocked fName_, EndOfLine
+>       , Blanks 2, Unblocked $ show $ fst rost, EndOfLine
+>       , Blanks 2, Unblocked $ show $ snd rost, EndOfLine, EndOfLine]
+>   return $ VB.foldl' bootFolder (VB.empty, defSurvey) sfs
+>   where
+>     fName_                               = "surveyInstruments"
+>
+>     bootFolder         :: (VB.Vector SFFileBoot, Survey) → SFFileBoot → (VB.Vector SFFileBoot, Survey)
+>     bootFolder (vFiles, Survey _ cacheIn matchesIn rdIn) sffile
+>                                          =
+>       let
+>         sy                               = reduceFileIterate ingestFile
+>         ingestFile                       = head
+>                                            $ dropWhile unfinished
+>                                            $ iterate' nextGen (makeFileIterate dives sffile rost)
+>           where
+>             unfinished fiIn              = not (null fiIn.fiTaskIfs)
+>             nextGen fiIn@FileIterate{ .. }
+>                                          = fiIn{ fiFw = (snd . head) fiTaskIfs fiFw
+>                                                , fiTaskIfs = tail fiTaskIfs}
+>         vFiles'                          = vFiles `VB.snoc` sffile{zPreZones = sy.sPreZones}
+>         survey'                          =
+>           sy{sPerInstruments             = Map.union cacheIn sy.sPerInstruments
+>            , sMatches                    = combineMatches matchesIn sy.sMatches
+>            , sDispositions               = combinerd rdIn sy.sDispositions}
+>       in
+>         (vFiles', survey')
 
 support sample and instance ===========================================================================================
 
@@ -270,7 +343,7 @@ smell task =====================================================================
           partner map at sample header level - note: all non-linkless PreZone pairings map their L and R to these
           shdr partners
 
-> smellTaskIf _ _ fWork                    = fWork{fwPairing = fWork.fwPairing{fwSamplePairings = partnerMap}}
+> smellTaskIf _ _ fWork                    = ((fwPairing . fwSamplePairings) .~ partnerMap) fWork
 >   where
 >     partnerMap                           = Map.foldlWithKey smellFolder IntMap.empty allL
 >                                              where allL = Map.filter isLeftPS fWork.fwPreSamples
@@ -310,15 +383,14 @@ InstZoneRecord administration ==================================================
 >     zrec.zswFile 
 >     zrec.zswInst
 >     Nothing       
->
 
-iterating InstZoneRecord list =========================================================================================
+iterating InstZoneRecord collection ===================================================================================
 
 > zrecTask               :: (InstZoneRecord
 >                            → ResultDispositions
 >                            → (Maybe InstZoneRecord, ResultDispositions))
 >                            → FileWork → FileWork
-> zrecTask userFun fWork                   = fWork{_fwZRecs = zrecs', _fwDispositions = rd'}
+> zrecTask userFun fWork                   = ((fwZRecs .~ zrecs') . (fwDispositions .~ rd')) fWork
 >   where
 >     zrecs'             :: IntMap InstZoneRecord
 >     rd'                :: ResultDispositions
@@ -390,7 +462,7 @@ capture task ===================================================================
           populate zrecs with PreZones
           it does clean up zrecs with no zones
 
-> captureTaskIf sffile _ fWork             = imbibe fWork (IntMap.foldl' capture (spawn fWork defCapture) fWork._fwZRecs)
+> captureTaskIf sffile _ fWork             = (fwZoneOwners .~ (makeOwners (work ^. fwPreZones))) work
 >   where
 >     fName_                               = "captureTaskIf"
 >
@@ -407,6 +479,9 @@ capture task ===================================================================
 >     ssBadGMRange                         = ssTempl8 Violated   BadGMRange
 >     ssRom                                = ssTempl8 Violated   RomBased
 >     ssApplied                            = ssTempl8 Violated   BadAppliedLimits
+>
+>     work               :: FileWork       =
+>       imbibe fWork (IntMap.foldl' capture (spawn fWork defCapture) (fWork ^. fwZRecs))
 >
 >     capture            :: Capture → InstZoneRecord → Capture
 >     capture captIn zrec                  = captOut{_uZRecs = zrecs, _uDispo = dispose pergm ssCap captOut._uDispo}
@@ -620,16 +695,15 @@ pair task ======================================================================
 >   , psTasks            :: [(String, PairsSurvey → IntMap Int)]}
 >
 > pairTaskIf _ _ fWork                     =
->   fWork{fwPairing = fWork.fwPairing{fwPairings = survey.psPaired
->                                   , fwActions = makeActions fWork survey.psUnpaired}
->       , _fwDispositions = survey.psDispos}
+>   ( (fwPairing . fwZonePairings .~ survey.psPaired)
+>    . (fwDispositions .~ survey.psDispos)) fWork
 >   where
 >     fName__                              = "pairTaskIf"
 >
 >     Directives{ .. }
 >                                          = fWork.fwDirectives                     
 >     Pairing{ .. }                        
->                                          = fWork.fwPairing
+>                                          = fWork._fwPairing
     
 pairing approach ======================================================================================================
           After somehow generating the pair list for this sffile, reject all other stereo zones - they failed to pair!
@@ -642,7 +716,7 @@ pairing approach ===============================================================
 >       where
 >         sinit                            =
 >           PairsSurvey 
->             (IntMap.keysSet $ IntMap.filter isStereoPZ fWork._fwPreZones) 
+>             (IntMap.keysSet $ IntMap.filter isStereoPZ $ fWork ^. fwPreZones) 
 >             IntMap.empty
 >             fWork._fwDispositions
 >             [("nominal", nominal), ("exotic", exotic), ("linkless", linkless)]
@@ -668,13 +742,13 @@ pairing approach ===============================================================
 >               (tail sy.psTasks)
 
 Pairing algorithm phases ==============================================================================================
-      Each of these three functions operates on unpaired list. They are invoked, in following sequence,
+      Each of these three functions operates on unpaired set. They are invoked, in following sequence,
       during iterate'.
 
 >     nominal sy                            =
->       IntMap.foldlWithKey (conducePartners False sy.psUnpaired) IntMap.empty fwSamplePairings
+>       IntMap.foldlWithKey (conducePartners False sy.psUnpaired) IntMap.empty _fwSamplePairings
 >     exotic sy                             =
->       IntMap.foldlWithKey (conducePartners True sy.psUnpaired) IntMap.empty fwSamplePairings
+>       IntMap.foldlWithKey (conducePartners True sy.psUnpaired) IntMap.empty _fwSamplePairings
 >     linkless sy                           =
 >       let
 >         (bixenL, bixenR)                  = IntSet.partition isLeft sy.psUnpaired
@@ -758,7 +832,8 @@ pairing convenience functions ==================================================
           unpair           - cram all Ls and Rs from partner map into single set
           twoWay           - complete the map (add R → L)
           makeActions      - turn input set of bixen into instrument-based actions list
-          makeOwners       - gotta identify these last two
+          makeOwners       - generate owners map from raw PreZones
+          cycleOwners      - fix owners map after modifying zones
 
 > unpair                 :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
 >                           → IntSet                     {- [BagIndex]                             -}
@@ -793,24 +868,51 @@ pairing convenience functions ==================================================
 >   where
 >     build m pz                           =
 >       IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton (wordB pz)) m
+>
+> repairOwners           :: IntMap PreZone               {- [BagIndex → pz]                        -}
+>                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
+>                           → IntSet                     {- [InstIndex]                            -}
+>                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
+> repairOwners pzdb owners insts           =
+>   let
+>     instKeys                             =
+>       (IntMap.keysSet owners) `IntSet.intersection` insts
+>
+>     invalidateOwners                     = IntSet.foldl' (flip IntMap.delete)
+>
+>     refreshOwners pzdb owners'           = IntMap.foldl' refresh owners' pzdb
+>       where
+>         refresh m pz                     =
+>           if (wordI pz) `IntSet.member` instKeys
+>             then IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton (wordB pz)) m
+>             else m
+>   in
+>     refreshOwners pzdb (invalidateOwners owners instKeys)
 
 vet task ==============================================================================================================
           switch bad stereo zones to mono, or off altogether
           can cause, but does not clean out zoneless zrecs 
 
-> vetTaskIf _ _ fWork                      = imbibe fWork (IntMap.foldl' vetter (spawn fWork defVet) fWork._fwZRecs)
+> vetTaskIf _ _ fWork                      = (fwZoneOwners .~ fixed) (imbibe fWork processed)
 >   where
 >     Directives{ .. }
 >                                          = fWork.fwDirectives                     
 >     Pairing{ .. }                      
->                                          = fWork.fwPairing
+>                                          = fWork._fwPairing
+>
+>     processed                            = IntMap.foldl' vetter (spawn fWork defVet) (fWork ^. fwZRecs)
+>     fixed                                = repairOwners
+>                                              (fWork ^. fwPreZones)
+>                                              (fWork ^. fwZoneOwners)
+>                                              (IntMap.keysSet (fWork ^. fwPairing ^. fwZoneModified))
 >
 >     vetter             :: Vet → InstZoneRecord → Vet
 >     vetter vetIn zrec                    =
 >       let
->         actions                          = fromIntegral zrec.zswInst `IntMap.lookup` fwActions
+>         wInst          :: Int            = fromIntegral zrec.zswInst
+>         zActions                         = wInst `IntMap.lookup` (fWork ^. fwPairing ^. fwZoneModified)
 >       in
->         maybe vetIn (vetActions vetIn zrec) actions
+>         maybe vetIn (vetActions vetIn zrec) zActions
 >
 >     vetActions         :: Vet → InstZoneRecord → IntSet → Vet
 >     vetActions vetIn zrec actions        = vetIn{_ipzdb = pzsOut, _ipDispo = rdOut}
@@ -845,7 +947,7 @@ adopt task =====================================================================
 > adoptTaskIf _ _ fWork                    = zrecTask adopter fWork
 >   where
 >     adopter zrec rd                      =
->       case fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwOwners of
+>       case fromIntegral zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneOwners) of
 >         Nothing                          → (Nothing,   rd)
 >         Just iset                        → (Just zrec, IntSet.foldl' (adopt zrec) rd iset)
 >
@@ -863,12 +965,12 @@ adopt task =====================================================================
 rat task ==============================================================================================================
           rationalize exotic pairing
 
-> ratTaskIf _ _ fWork                      = fWork{fwPartners = partners}
+> ratTaskIf _ _ fWork                      = (fwZonePartners .~ partners) fWork
 >   where
 >     mirrored                             =
 >       let
 >         reverser m iLeft iRight          = IntMap.insert iRight iLeft m
->         oneWay                           = fWork.fwPairing.fwPairings
+>         oneWay                           = fWork ^. (fwPairing . fwZonePairings)
 >       in
 >         IntMap.foldlWithKey reverser oneWay oneWay
 >
@@ -882,7 +984,7 @@ rat task =======================================================================
 >             allFound                     = mapMaybe (`IntMap.lookup` mirrored) (IntSet.toList iset)
 >             residue                      = (IntSet.fromList allFound) `IntSet.difference` iset
 >       in
->         IntMap.foldlWithKey sniffOut IntMap.empty fWork.fwOwners
+>         IntMap.foldlWithKey sniffOut IntMap.empty (fWork ^. fwZoneOwners)
 
 smash task ============================================================================================================
           compute smashups for each instrument
@@ -895,12 +997,12 @@ smash task =====================================================================
 >         tag                              = show (instKey zrec).pgkwInst
 >
 >         wInst          :: Int            = fromIntegral zrec.zswInst
->         bixenPaired                      = fromMaybe IntSet.empty (wInst `IntMap.lookup` fWork.fwOwners)
->         bixenPartnered                   = fromMaybe IntSet.empty (wInst `IntMap.lookup` fWork.fwPartners)
+>         bixenPaired                      = fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZoneOwners))
+>         bixenPartnered                   = fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZonePartners))
 >
 >         smashVar                         =
 >           zrec.zsSmashup
->             <|> Just (computeInstSmashup tag fWork._fwPreZones (bixenPaired `IntSet.union` bixenPartnered))
+>             <|> Just (computeInstSmashup tag (fWork ^. fwPreZones) (bixenPaired `IntSet.union` bixenPartnered))
 >       in
 >         (Just zrec{zsSmashup = smashVar}, rdFold)
 >
@@ -935,8 +1037,8 @@ To build the map
 
  5. implement a suitability calculation 
 
-> reorgTaskIf _ _ fWork                    = (zrecTask reorger fWork)
->                                              {_fwPreZones = rebaseAbsorbed, fwOwners = IntMap.empty}
+> reorgTaskIf _ _ fWork                    =
+>   ((fwZoneOwners .~ owners) . (fwPreZones .~ rebaseAbsorbed)) (zrecTask reorger fWork)
 >   where
 >     Directives{ .. }  
 >                                          = fWork.fwDirectives
@@ -992,7 +1094,7 @@ To build the map
 >                 wInst                    = fromIntegral zrec.zswInst
 >                 vpzs                     = accessPreZones "towners" fWork._fwPreZones iset
 >                 vsmash                   = deJust "townersMap smashup" zrec.zsSmashup
->                 iset                     = fWork.fwOwners IntMap.! wInst
+>                 iset                     = (fWork ^. fwZoneOwners) IntMap.! wInst
 >           in
 >             IntMap.foldl' town IntMap.empty fWork._fwZRecs
 >     
@@ -1044,6 +1146,9 @@ To build the map
 >                                              where change _ = Just pz{pzWordI = fromIntegral leadI}
 >           in
 >             maybe m rebase (IntMap.lookup (wordI pz) absorptionMap)
+>
+>     owners                               =
+>       repairOwners rebaseAbsorbed (fWork ^. fwZoneOwners) (IntMap.keysSet absorptionMap)
 
 match task ============================================================================================================
           accumulate all fuzzy matches
@@ -1064,55 +1169,54 @@ match task =====================================================================
 >         IntMap.foldl' computeFF Map.empty fWork._fwZRecs    
 
 shrink task ===========================================================================================================
-          accounts for pairing activity-caused invalidations; e.g. we can have zones plugged in that are not owned
-          by the instrument; in that case, cause smashups to be recalculated.
+          Accounts for pairing activity-caused invalidations; when we have zones plugged in that are not owned
+          by the instrument, cause smashups to be recalculated (in later pass).
 
 > shrinkTaskIf _ _ fWork                   = zrecTask shrinker fWork
 >   where
->     shrinker zrec rdFold                  =
->       case fromIntegral zrec.zswInst `IntMap.lookup` fWork.fwPartners of
->         Nothing                          → (Just zrec,                      rdFold)
->         _                                → (Just zrec{zsSmashup = Nothing}, rdFold)
+>     shrinker zrec rdFold                 =
+>       let
+>         wInst          :: Int            = fromIntegral zrec.zswInst
+>       in
+>         case wInst `IntMap.lookup` (fWork ^. fwZonePartners) of
+>           Nothing                        → (Just zrec,                      rdFold)
+>           _                              → (Just zrec{zsSmashup = Nothing}, rdFold)
 
 clean task ============================================================================================================
           (re-)create owner map (relates instance index to bag indices)
           removing zrecs that have gone bad
 
-> cleanTaskIf _ _ fWork                    = (zrecTask cleaner fWork){fwOwners = owners}
+> cleanTaskIf _ _ fWork                    = zrecTask cleaner fWork
 >   where
 >     fName                                = "cleanTaskIf"
 >     ssNoZones                            = [Scan Dropped NoZones fName noClue]
 >
->     owners                               = makeOwners fWork._fwPreZones
->           
 >     cleaner zrec rdFold                  =
->       case fromIntegral zrec.zswInst `IntMap.lookup` owners of
+>       case fromIntegral zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneOwners) of
 >         Nothing                          → (Nothing,   dispose (instKey zrec) ssNoZones rdFold)
 >         _                                → (Just zrec, rdFold)
 
 perI task =============================================================================================================
           generating PerInstrument map
 
-> perITaskIf _ _ fWork                     = fWork{  fwPerInstruments   = perIs
->                                                  , _fwDispositions    = rdOut
->                                                  , fwPairing          = defPairing}
+> perITaskIf _ _ fWork                     = ((fwPerInstruments .~ perIs) . (fwDispositions .~ rdOut)) fWork
 >   where
 >     (perIs, rdOut)                       =
 >       IntMap.foldl' (uncurry perIFolder) (Map.empty, fWork._fwDispositions) fWork._fwZRecs   
 >
 >     perIFolder         :: Map PerGMKey PerInstrument → ResultDispositions 
 >                           → InstZoneRecord → (Map PerGMKey PerInstrument, ResultDispositions)
->     perIFolder m rdFold zrec             =
->       (Map.insert (instKey zrec) perI m, dispose (instKey zrec) ssInstrument rdFold')
->       
+>     perIFolder m rdFold zrec             = (Map.insert pergm perI m, dispose pergm ssInstrument rdFold')
 >       where
 >         fName                            = "perIFolder"
 >
 >         wInst          :: Int            = fromIntegral zrec.zswInst
+>         pergm          :: PerGMKey       = instKey zrec
+>
 >         owned                            =
->           fromMaybe IntSet.empty (wInst `IntMap.lookup` fWork.fwOwners)
+>           fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZoneOwners))
 >         partnered                        =
->           fromMaybe IntSet.empty (wInst `IntMap.lookup` fWork.fwPartners)
+>           fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZonePartners))
 >         perI                             = 
 >           PerInstrument 
 >             zrec.zswChanges 
@@ -1128,12 +1232,16 @@ perI task ======================================================================
 >         rdFold'                          =
 >           let
 >             blessZone rd bix             = dispose (extractZoneKey pz) ssPreZone rd
->                                              where pz = accessPreZone "blessZone" fWork._fwPreZones bix
+>                                              where pz = accessPreZone "blessZone" (fWork ^. fwPreZones) bix
 >           in
 >             IntSet.foldl' blessZone rdFold perI.pOwned
 
 Runner boilerplate ====================================================================================================
 
+> class Runner a where
+>   spawn                :: FileWork → a → a
+>   imbibe               :: FileWork → a → FileWork
+>
 > instance Runner ZRec where
 >   spawn fWork seed                       =
 >       (  (iZRecs         .~ (fWork ^. fwZRecs))
@@ -1158,7 +1266,7 @@ Runner boilerplate =============================================================
 > instance Show Capture where
 >   show capt                              =
 >     unwords [  "Capture"
->              , show (IntMap.map pzWordB capt._uPzs)]
+>              , show (IntMap.map pzWordB (capt ^. uPzs))]
 >
 > instance Runner Vet where
 >   spawn fWork seed                      =
@@ -1170,79 +1278,6 @@ Runner boilerplate =============================================================
 > instance Show Vet where
 >   show inst                              =
 >     unwords [  "Vet"
->              , show inst._ipzdb, show inst._ipDispo]
->
-> makeFileIterate dives sffile rost        =
->   FileIterate
->     (defFileWork dives)
->     [
->        ("preSample",  preSample)
->      , ("smell",      smell)
->      , ("instrument", instrument)
->      , ("capture",    clean . capture)
->      , ("smash 1",    smash)
->      , ("reorg",      clean . reorg) 
->      , ("match",      match)
->      , ("pair",       pair)
->      , ("vet",        clean . vet)
->      , ("adopt",      adopt)
->      , ("rat",        rat)
->      , ("smash 2",    smash . shrink)
->      , ("perI",       perI)]
->   where
->     preSample                            = preSampleTaskIf    sffile rost
->     smell                                = smellTaskIf        sffile rost
->     instrument                           = instrumentTaskIf   sffile rost
->     capture                              = captureTaskIf      sffile rost
->     clean                                = cleanTaskIf        sffile rost
->     smash                                = smashTaskIf        sffile rost
->     reorg                                = reorgTaskIf        sffile rost
->     match                                = matchTaskIf        sffile rost
->     pair                                 = pairTaskIf         sffile rost
->     vet                                  = vetTaskIf          sffile rost
->     adopt                                = adoptTaskIf        sffile rost
->     rat                                  = ratTaskIf          sffile rost
->     shrink                               = shrinkTaskIf       sffile rost
->     perI                                 = perITaskIf         sffile rost
->
-> makeFileIterate        :: Directives → SFFileBoot → ([InstrumentName], [PercussionSound]) → FileIterate
-
-Boot executive function ===============================================================================================
-          returns overall PerInstrument map
-
-> surveyInstruments      :: Directives
->                           → ([InstrumentName], [PercussionSound])
->                           → VB.Vector SFFileBoot
->                           → IO (VB.Vector SFFileBoot, Survey)
-> surveyInstruments dives rost sfs         = do
->   putStr $ reapEmissions
->     [   EndOfLine
->       , Unblocked fName_, EndOfLine
->       , Blanks 2, Unblocked $ show $ fst rost, EndOfLine
->       , Blanks 2, Unblocked $ show $ snd rost, EndOfLine, EndOfLine]
->   return $ VB.foldl' bootFolder (VB.empty, defSurvey) sfs
->   where
->     fName_                               = "surveyInstruments"
->
->     bootFolder         :: (VB.Vector SFFileBoot, Survey) → SFFileBoot → (VB.Vector SFFileBoot, Survey)
->     bootFolder (vFiles, Survey _ cacheIn matchesIn rdIn) sffile
->                                          =
->       let
->         sy                               = reduceFileIterate ingestFile
->         ingestFile                       = head
->                                            $ dropWhile unfinished
->                                            $ iterate' nextGen (makeFileIterate dives sffile rost)
->           where
->             unfinished fiIn              = not (null fiIn.fiTaskIfs)
->             nextGen fiIn@FileIterate{ .. }
->                                          = fiIn{ fiFw = (snd . head) fiTaskIfs fiFw
->                                                , fiTaskIfs = tail fiTaskIfs}
->         vFiles'                          = vFiles `VB.snoc` sffile{zPreZones = sy.sPreZones}
->         survey'                          =
->           sy{sPerInstruments             = Map.union cacheIn sy.sPerInstruments
->            , sMatches                    = combineMatches matchesIn sy.sMatches
->            , sDispositions               = combinerd rdIn sy.sDispositions}
->       in
->         (vFiles', survey')
+>              , show (inst ^. ipzdb), show (inst ^. ipDispo)]
 
 The End
