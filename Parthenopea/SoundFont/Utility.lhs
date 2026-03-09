@@ -225,7 +225,7 @@ Returns the elapsed time in seconds
 > toTimecents secs                         = round $ logBase 2 secs * 1_200
 >
 > minDeltaT, minUseful   :: Double
-> minDeltaT                                = fromTimecents Nothing
+> minDeltaT                                = fromTimecents Nothing -- 9.765625e-4
 > minUseful                                = 1/82
 
 Returns the amplitude ratio
@@ -245,7 +245,19 @@ Returns the amplitude ratio (based on input 10ths of a percent)
 >     else (1000 - jS) / 1000
 >   where
 >     jS                 :: Double         = maybe 0 fromIntegral iS
->
+   
+Raises 'a' to the power 'b' using logarithms
+
+> pow                    :: Floating a ⇒ a → a → a
+> pow x y                                  = exp (log x * y)
+
+Need this definition
+
+> constA                 :: Arrow a ⇒ c → a b c
+> constA                                   = arr . const
+
+Constants
+
 > theE, epsilon, upsilon :: Double
 > theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
 > epsilon                                  = 1e-8               -- a generous little epsilon
@@ -256,13 +268,5 @@ Returns the amplitude ratio (based on input 10ths of a percent)
 >
 > theJ :: Complex Double
 > theJ = 0 :+ 1
->  
-> constA                 :: Arrow a ⇒ c → a b c
-> constA                                   = arr . const
-   
-Raises 'a' to the power 'b' using logarithms.
-
-> pow                    :: Floating a ⇒ a → a → a
-> pow x y                                  = exp (log x * y)
 
 The End

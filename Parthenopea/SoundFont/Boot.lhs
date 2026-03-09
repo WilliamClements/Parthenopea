@@ -100,8 +100,8 @@ FileWork =======================================================================
 >     IntMap.empty 
 >     IntMap.empty
 >     IntMap.empty
->
 > makeLenses ''Pairing
+>
 > data FileWork                            =
 >   FileWork {
 >     fwDirectives       :: Directives
@@ -174,13 +174,13 @@ Task preSample caches file's Sample Headers
 Task smell creates sample-level Partner map, based on preSampleCache
 Task instrument creates the zrec collection (IntMap) based on file's Instrument data
 Task capture creates pzdb, based on file's Zone data, and generates zone owners collection (also IntMap)
-Task clean
-      deletes empty zrecs based on Owners map
+Task clean deletes empty zrecs based on Owners map
 Task adopt (adds dispos only, based on Owners map)
 Task smash creates smashups based on Owners map and PreZone data
 Task reorg invalidates Owners Map by what it does
       deletes Instruments, in effect
       modifies thereby orphaned PreZones to belong to absorbing member Instrument
+      repairs owners map afterward
 Task match (modifies fuzzy data only) 
 Task pair
       develops Pairing
@@ -262,12 +262,12 @@ Boot executive function ========================================================
 >                                          = fiIn{ fiFw = (snd . head) fiTaskIfs fiFw
 >                                                , fiTaskIfs = tail fiTaskIfs}
 >         vFiles'                          = vFiles `VB.snoc` sffile{zPreZones = sy.sPreZones}
->         survey'                          =
+>         sy'                              =
 >           sy{sPerInstruments             = Map.union cacheIn sy.sPerInstruments
 >            , sMatches                    = combineMatches matchesIn sy.sMatches
 >            , sDispositions               = combinerd rdIn sy.sDispositions}
 >       in
->         (vFiles', survey')
+>         (vFiles', sy')
 
 support sample and instance ===========================================================================================
 
@@ -547,6 +547,7 @@ capture task ===================================================================
 >
 >                 ok                       =
 >                   0 <= stA && stA <= enA && 0 <= stL && stL <= enL
+>                   && enA - stA > 200
 >                   && enA - stA < 2 ^ (22::Word)
 >                   && (digest.zdSampleMode == Just A.NoLoop || enL - stL < 2 ^ (22::Word))
 
@@ -579,7 +580,9 @@ produce and process capture results ============================================
 >         hasRom pz                        = stype pz >= 0x8000
 >         romClue pz                       = showHex (stype pz) []
 >         rangeClue pz                     = show (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange)
->
+
+consume zone ==========================================================================================================
+
 >     buildZone          :: SFZone → Maybe PreZone → Word → SFZone
 >     buildZone fromZone mpz bix
 >       | traceIf trace_BZ False           = undefined
@@ -695,8 +698,8 @@ pair task ======================================================================
 >   , psTasks            :: [(String, PairsSurvey → IntMap Int)]}
 >
 > pairTaskIf _ _ fWork                     =
->   ( (fwPairing . fwZonePairings .~ survey.psPaired)
->    . (fwDispositions .~ survey.psDispos)) fWork
+>   ( (fwPairing . fwZonePairings .~ sy.psPaired)
+>    . (fwDispositions            .~ sy.psDispos)) fWork
 >   where
 >     fName__                              = "pairTaskIf"
 >
@@ -711,8 +714,8 @@ pairing approach ===============================================================
 
           And remember: peg 'em and pin 'em! I.E. collate (peg) candidates to push (pin) matchers to pairs list.
 
->     survey             :: PairsSurvey
->     survey                               = head $ dropWhile unfinished $ iterate' nextGen sinit
+>     sy                 :: PairsSurvey
+>     sy                                   = head $ dropWhile unfinished $ iterate' nextGen sinit
 >       where
 >         sinit                            =
 >           PairsSurvey 
@@ -742,8 +745,7 @@ pairing approach ===============================================================
 >               (tail sy.psTasks)
 
 Pairing algorithm phases ==============================================================================================
-      Each of these three functions operates on unpaired set. They are invoked, in following sequence,
-      during iterate'.
+      Each of these three functions operates on unpaired set. They are invoked, in equence, during iterate'.
 
 >     nominal sy                            =
 >       IntMap.foldlWithKey (conducePartners False sy.psUnpaired) IntMap.empty _fwSamplePairings
@@ -861,7 +863,9 @@ pairing convenience functions ==================================================
 >                                              where pz = accessPreZone "makeActions" fWork._fwPreZones bix
 >   in
 >     IntSet.foldl' make IntMap.empty
->
+
+husband owners ========================================================================================================
+
 > makeOwners             :: IntMap PreZone               {- [BagIndex → pz]                       -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]              -}
 > makeOwners                               = IntMap.foldl' build IntMap.empty

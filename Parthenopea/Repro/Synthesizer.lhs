@@ -187,7 +187,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >         ampL                             = fromIntegral noon.noteOnVel / 100 / cAttenL
 >         ampR                             = fromIntegral noon.noteOnVel / 100 / cAttenR
 
-Account for custom frequency intervals -- SoundFont scale tuning : 0 < x < 100 < 1200
+Account for custom frequency intervals = SoundFont scale tuning : 0 < x < 100 < 1200
 Clearly multiple root pitches are mutually incompatible, in general, for calculating frequency ratios
 
 For example, input of 3 = key interval, 50 = scale tuning, yields ratio of: 1.09
