@@ -3035,8 +3035,8 @@ Igor's Boogie ==================================================================
 > ibLead, ibStrum, ibVoice
 >                        :: BandPart
 > ibLead                                   = makePitched ElectricGrandPiano                ibTranspose     0     100
-> ibStrum                                  = makePitched FrenchHorn                        ibTranspose     0     100
-> ibVoice                                  = makePitched Viola                             ibTranspose     0     100
+> ibStrum                                  = makePitched SopranoSax                        ibTranspose     0     100
+> ibVoice                                  = makePitched BaritoneSax                       ibTranspose     0     100
 >
 > iblEnabled, ibsEnabled, ibvEnabled
 >                        :: Bool

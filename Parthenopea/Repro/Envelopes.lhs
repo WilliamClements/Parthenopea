@@ -23,6 +23,7 @@ Apr 26, 2025
 > import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
 > import Euterpea.IO.Audio.Types ( Clock(..), Signal )
+> import Parthenopea.Debug
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
@@ -103,9 +104,12 @@ Create a straight-line envelope generator with following phases:
 > doSweepingEnvelope timeFrame             = either (constA . fromIntegral) (doSweeps timeFrame)
 >
 > doSweeps               :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
-> doSweeps timeFrame sweeps                = envLineSeg segs.sAmps segs.sDeltaTs
+> doSweeps timeFrame sweeps
+>   | traceIf trace_DSE False              = undefined
+>   | otherwise                            = envLineSeg segs.sAmps segs.sDeltaTs
 >   where
 >     fName                                = "doSweepingEnvelope"
+>     trace_DSE                            = unwords[fName, show segs]
 >
 >     dLen                                 = VB.length sweeps
 >     segs                                 =

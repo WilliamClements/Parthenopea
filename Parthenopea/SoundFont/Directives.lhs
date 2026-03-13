@@ -100,7 +100,7 @@ useLFO
 >   , proConRatio        :: Rational
 >   , absorbThreshold    :: Rational
 >
->   , synthSwitches      :: SynthSwitches
+>   , synthSwitches      :: !SynthSwitches
 >
 >   , dReportVerbosity   :: ReportVerbosity}
 >   deriving (Eq, Show)
