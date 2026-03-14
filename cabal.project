@@ -1,4 +1,4 @@
 packages:
   Parthenopea.cabal
   ../Euterpea2/
-with-compiler: ghc-9.12.2
+with-compiler: ghc-9.10.3

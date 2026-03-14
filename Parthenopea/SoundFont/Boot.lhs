@@ -85,14 +85,12 @@ Runners keep stage interface functions as a simple fold ========================
 >  ,  _ipDispo           :: ResultDispositions}
 > defVet                                   = Vet IntMap.empty virginrd
 >
->
 > data PairsSurvey                         =
 >   PairsSurvey {
 >     _psUnpaired        :: IntSet                       {- [BagIndex]                             -}
 >   , _psPaired          :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
 >   , _psDispos          :: ResultDispositions
 >   , psTasks            :: [(String, PairsSurvey → IntMap Int)]}
->
 > makeLenses ''PairsSurvey
 
 FileWork ==============================================================================================================
@@ -182,7 +180,7 @@ FileWork =======================================================================
 Task preSample caches file's Sample Headers
 Task smell creates sample-level Partner map, based on preSampleCache
 Task instrument creates the zrec collection (IntMap) based on file's Instrument data
-Task capture creates pzdb, based on file's Zone data, and generates zone owners collection (also IntMap)
+Task capture creates pzdb, based on file's Zone data, and generates zone owners collection (IntMap)
 Task clean deletes empty zrecs based on Owners map
 Task adopt (adds dispos only, based on Owners map)
 Task smash creates smashups based on Owners map and PreZone data
@@ -196,6 +194,7 @@ Task pair
       creates Action map, based on partners and PreZones
       does not modify PreZones
 Task vet modifies or deletes PreZones based on Action map
+Task shrink 
 Task rat adjusts for exotic pairing ahead of smash 2 and perI
 Task perI creates PerInstrument map based on Owners map and PreZone data
 
@@ -413,7 +412,7 @@ iterating InstZoneRecord collection ============================================
 >     taskRunner (zrecs, rdFold) zrec      =
 >       let
 >         mzrec          :: Maybe InstZoneRecord
->         (mzrec, rdFold')        = userFun zrec rdFold
+>         (mzrec, rdFold')                 = userFun zrec rdFold
 >       in
 >         (IntMap.update (const mzrec) (fromIntegral zrec.zswInst) zrecs, rdFold')
 
@@ -558,7 +557,6 @@ capture task ===================================================================
 >
 >                 ok                       =
 >                   0 <= stA && stA <= enA && 0 <= stL && stL <= enL
->                   && enA - stA > 200
 >                   && enA - stA < 2 ^ (22::Word)
 >                   && (digest.zdSampleMode == Just A.NoLoop || enL - stL < 2 ^ (22::Word))
 
@@ -702,9 +700,9 @@ pair task ======================================================================
           store (1) pairings and (2) reject action map, to be used by vet task
 
 > pairTaskIf _ _ fWork                     =
->   ( (fwPairing . fwZonePairings .~ (sy ^. psPaired))
->    . (fwPairing . fwZoneModified .~ (makeActions fWork (sy ^. psUnpaired)))
->    . (fwDispositions            .~ (sy ^. psDispos))) fWork
+>   ( (fwPairing . fwZonePairings    .~ (sy ^. psPaired))
+>    . (fwPairing . fwZoneModified   .~ (makeActions fWork (sy ^. psUnpaired)))
+>    . (fwDispositions               .~ (sy ^. psDispos))) fWork
 >   where
 >     fName__                              = "pairTaskIf"
 >
@@ -1182,16 +1180,9 @@ shrink task ====================================================================
 
 > shrinkTaskIf _ _ fWork                   = zrecTask shrinker fWork
 >   where
->     shrinker zrec rdFold                 =
->       let
->         wInst          :: Int            = fromIntegral zrec.zswInst
->       in
->         case wInst `IntMap.lookup` (fWork ^. fwZonePartners) of
->           Nothing                        → (Just zrec,                      rdFold)
->           _                              → (Just zrec{zsSmashup = Nothing}, rdFold)
+>     shrinker zrec rdFold                 = (Just zrec{zsSmashup = Nothing}, rdFold)
 
 clean task ============================================================================================================
-          (re-)create owner map (relates instance index to bag indices)
           removing zrecs that have gone bad
 
 > cleanTaskIf _ _ fWork                    = zrecTask cleaner fWork
