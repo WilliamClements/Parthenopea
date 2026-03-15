@@ -117,7 +117,7 @@ Create a straight-line envelope generator with following phases:
 >         2                                → segmentsFor2
 >         4                                → segmentsFor4
 >         _                                →
->           error $ unwords [fName, show dLen, "is illegal length for velo sweeping sweeps"]
+>           error $ unwords [fName, show dLen, "is illegal (not two or four) length for velo sweeping"]
 >
 >     stVelo0, enVelo0, stVelo1, enVelo1, step, midsection, leg
 >                        :: Double 

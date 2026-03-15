@@ -61,8 +61,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     (m8nL, m8nR)                         = (reconL.rM8n, reconR.rM8n)
 >
 >     numPoints          :: Double         = fromIntegral (reconL.rApplied.rEnd - reconL.rApplied.rStart)
->     secsSampled                          = numPoints * freqRatio / sr
->     secsScored                           = 1 * fromRational dur
+>     secsSampled        :: Double         = numPoints * freqRatio / sr
+>     secsScored         :: Double         = 1 * fromRational dur
 >     looping            :: Bool           = secsScored > secsSampled
 >                                            && (reconL.rSampleMode /= A.NoLoop)
 >                                            && useLoopSwitching
