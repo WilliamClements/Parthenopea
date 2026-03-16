@@ -1,4 +1,3 @@
-> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -3052,9 +3051,7 @@ Igor's Boogie ==================================================================
 >
 >   where
 >
->   leadP                                  = passage dives ibLead
 >   strumP                                 = passage dives ibStrum
->   voiceP                                 = passage dives ibVoice
 >
 >   leadMusic                              =
 >     if iblEnabled then keysig C Major $ orchestraPart ibLead leadLine else rest 0
@@ -3153,7 +3150,7 @@ Igor's Boogie ==================================================================
 >     -- 2 % 1
 >   lead013 = line [a 3 (wn + wn)]
 >              -- WOX should be real directives
->   strum013 = (chord [strumP  [Inflect SF] (cs 4 (wn + wn)), strumP [Inflect PP] (a 4 (wn + wn))])
+>   strum013 = chord [strumP  [Inflect SF] (cs 4 (wn + wn)), strumP [Inflect PP] (a 4 (wn + wn))]
 >   voice013 = chord [ e 4 (wn + wn), a 4 (wn + wn)]
 
 The End

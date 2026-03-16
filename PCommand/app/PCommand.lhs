@@ -27,8 +27,8 @@ Jingle-list will be rendered also if named in the plus argument.
 >     jingleDB           :: Map String [Song]
 >     jingleDB                             = makeJingleDB dives
 >
->     doNormal songs                       = batchProcessor dives songs
->     doError msg                          = putStrLn msg
+>     doNormal                             = batchProcessor dives
+>     doError                              = putStrLn
 >
 >     massage            :: [String] → Either [Song] String
 >     massage args                         =

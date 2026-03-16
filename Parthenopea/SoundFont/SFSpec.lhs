@@ -1,8 +1,6 @@
-> {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
-> {-# LANGUAGE TemplateHaskell #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 SFSpec
