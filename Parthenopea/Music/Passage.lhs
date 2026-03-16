@@ -38,6 +38,7 @@ _Overall_                =
 >   | Rest1
 >   | Span1
 >   | SpanN Int
+>   | Tail StdLoudness
 >   deriving (Eq, Show)
 > expandMarkings         :: [Marking] → VB.Vector Marking
 > expandMarkings ms                        = VB.fromList $ concatMap expand ms

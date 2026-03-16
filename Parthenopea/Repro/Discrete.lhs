@@ -59,13 +59,13 @@ Applying this filter to input signals is accomplished by sample point-wise multi
 >
 >     -- capture the Frequency Response; store the magnitudes (amplification/attenuation per freak)
 >     -- slow path then runs it through fft to create Impulse Response
->     (ys', tag')                         = if ks.ksFast
+>     (ys', tag')                          = if ks.ksFast
 >                                             then (ys,              "Frequency Response")
 >                                             else (toTimeDomain ys, "Impulse Response")
->     vec'                                = VU.fromList ys'
+>     vec'                                 = VU.fromList ys'
 >
 > memoizedComputeFR      :: KernelSpec → DiscreteSig (Complex Double)
-> memoizedComputeFR = memo computeFR
+> memoizedComputeFR                        = memo computeFR
 >
 > applyConvolutionMono   :: ∀ p . Clock p ⇒ Lowpass → Double → Signal p () Double → Signal p () Double                 
 > applyConvolutionMono lowP secsToPlay sIn = sig 
