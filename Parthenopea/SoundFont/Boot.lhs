@@ -748,7 +748,7 @@ pairing approach ===============================================================
 >               (tail sy.psTasks)
 
 Pairing algorithm phases ==============================================================================================
-      Each of these three functions operates on unpaired set. They are invoked, in equence, during iterate'.
+      Each of these three functions operates on unpaired set. They are invoked, in sequence, during iterate'.
 
 >     nominal sy                            =
 >       IntMap.foldlWithKey (conducePartners False (sy ^. psUnpaired)) IntMap.empty (fWork ^. fwPairing ^. fwSamplePairings)
