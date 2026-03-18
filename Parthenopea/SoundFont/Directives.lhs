@@ -118,16 +118,10 @@ Client to specify Directives overrides, especially "client". ===================
 >       , dReportVerbosity                 = allOn}
 
 Override here only if this is a Parthenopea library sandbox. ==========================================================
-For example:
-        , narrowRosterForBoot = False
-        , dReportVerbosity = allOff
 
 >   where
 >     baseDives                            =
 >       Directives
-
-Edit below if changing "default defaults" =============================================================================
-
 >         ""
 >         True
 >         True

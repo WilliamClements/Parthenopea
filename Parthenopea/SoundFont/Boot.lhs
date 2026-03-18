@@ -122,7 +122,7 @@ FileWork =======================================================================
 >   , _fwPreZones        :: IntMap PreZone               {- [BagIndex → pz]                        -}
 >
 >   , _fwZoneOwners      :: IntMap IntSet                {- [InstIndex → [BagIndex]]               -}
->   , _fwZonePartners    :: IntMap IntSet                {- [InstIndex → [BagIndex]]               -}
+>   , _fwZoneCrossing    :: IntMap IntSet                {- [InstIndex → [BagIndex]]               -}
 >
 >   , _fwPreSamples      :: Map PreSampleKey PreSample
 >   , _fwPerInstruments  :: Map PerGMKey PerInstrument
@@ -181,27 +181,27 @@ FileWork =======================================================================
 
 (Mostly ignoring dispo contribution as it is unproblematic)
 
-Task preSample caches file's Sample Headers
-Task smell creates sample-level Partner map, based on preSampleCache
-Task instrument creates the zrec collection (IntMap) based on file's Instrument data
-Task capture creates pzdb, based on file's Zone data, and generates zone owners collection (IntMap)
-Task clean deletes empty zrecs based on Owners map
-Task adopt (adds dispos only, based on Owners map)
-Task smash creates smashups based on Owners map and PreZone data
-Task reorg invalidates Owners Map by what it does
+Task *preSample*    caches file's Sample Headers
+Task *smell*        creates sample-level Partner map, based on preSampleCache
+Task *instrument*   creates the zrec collection (IntMap) based on file's Instrument data
+Task *capture*      creates pzdb, based on file's Zone data, and generates zone owners
+Task *clean*        deletes empty zrecs based on owners
+Task *adopt*        (adds dispos only, based on owners)
+Task *smash*        creates smashups based on owners and PreZone data
+Task *reorg*        invalidates owners by what it does
       deletes Instruments, in effect
       modifies thereby orphaned PreZones to belong to absorbing member Instrument
       repairs owners map afterward
-Task match (modifies fuzzy data only) 
-Task pair
+Task *match*        (modifies fuzzy data only) 
+Task *pair*
       creates Action map, based on partners and PreZones
       does not modify PreZones
       adjusts for exotic pairing ahead of smash 2 and perI
-Task vet
+Task *vet*
       modifies or deletes PreZones based on Action map
       repairs owners map
-Task shrink carries out the smashup invalidations 
-Task perI creates PerInstrument map based on Owners map and PreZone data
+Task *shrink*       carries out required smashup invalidations 
+Task *perI*         creates PerInstrument map based on owners and PreZone data
 
 FileWork development
 
@@ -706,7 +706,7 @@ pair task ======================================================================
 >    . (fwPairing . fwZoneModified   .~ modified)
 >    . (fwDispositions               .~ (sy ^. psDispos))
 >    . (fwDirty                      .~ dirty)
->    . (fwZonePartners               .~ partners)) fWork
+>    . (fwZoneCrossing               .~ crossers)) fWork
 >   where
 >     fName__                              = "pairTaskIf"
 >
@@ -754,12 +754,12 @@ Pairing algorithm phases =======================================================
 
 >     nominal sy                            =
 >       IntMap.foldlWithKey
->         (conducePartners False (sy ^. psUnpaired))
+>         (conduceCrossing False (sy ^. psUnpaired))
 >         IntMap.empty
 >         (fWork ^. (fwPairing . fwSamplePairings))
 >     exotic sy                             =
 >       IntMap.foldlWithKey
->         (conducePartners True (sy ^. psUnpaired))
+>         (conduceCrossing True (sy ^. psUnpaired))
 >         IntMap.empty
 >         (fWork ^. (fwPairing . fwSamplePairings))
 >     linkless sy                           =
@@ -782,13 +782,13 @@ Pairing algorithm phases =======================================================
 >         putMembers pz                =
 >           IntMap.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
 >
->     conducePartners    :: Bool                         {- exotic                                 -}
+>     conduceCrossing    :: Bool                         {- exotic                                 -}
 >                           → IntSet                     {- [BagIndex]                             -}
 >                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
 >                           → Int                        {- SampleIndex                            -}
 >                           → Int                        {- SampleIndex                            -}
 >                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
->     conducePartners exo unp soFar siFrom siTo
+>     conduceCrossing exo unp soFar siFrom siTo
 >                                          = soFar `IntMap.union` inducePairs exo bsL bsR
 >       where
 >         bsL, bsR       :: IntSet                       {- [BagIndex]                             -}             
@@ -843,9 +843,9 @@ Pairing algorithm phases =======================================================
 
 Pairing book-keeping ==================================================================================================
 
->     modified                             = makeActions fWork (sy ^. psUnpaired)
->     dirty                                = IntMap.keysSet modified `IntSet.union` IntMap.keysSet partners
->     partners                             = IntMap.foldlWithKey sniffOut IntMap.empty (fWork ^. fwZoneOwners)
+>     modified                             = makeActions (fWork ^. fwPreZones) (sy ^. psUnpaired)
+>     dirty                                = IntMap.keysSet modified `IntSet.union` IntMap.keysSet crossers
+>     crossers                             = IntMap.foldlWithKey sniffOut IntMap.empty (fWork ^. fwZoneOwners)
 >       where
 >         mirror                           =
 >           let
@@ -859,7 +859,7 @@ Pairing book-keeping ===========================================================
 >             then IntMap.insert iinst residue m 
 >             else m
 >           where
->             allFound   :: IntSet         = IntSet.fromList $ mapMaybe (`IntMap.lookup` mirror) (IntSet.toList iset)
+>             allFound                     = IntSet.fromList $ mapMaybe (`IntMap.lookup` mirror) (IntSet.toList iset)
 >             residue    :: IntSet         = allFound `IntSet.difference` iset
 
 pairing convenience functions =========================================================================================
@@ -886,13 +886,13 @@ pairing convenience functions ==================================================
 >   in
 >     IntMap.foldlWithKey ifolder IntMap.empty
 >
-> makeActions            :: FileWork
+> makeActions            :: IntMap PreZone               {- BagIndex → pz                          -}
 >                           → IntSet                     {- [BagIndex]                             -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
-> makeActions fWork                        =
+> makeActions pzdb                         =
 >   let
 >     make actions bix                     = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton bix) actions
->                                              where pz = accessPreZone "makeActions" (fWork ^. fwPreZones) bix
+>                                              where pz = accessPreZone "makeActions" pzdb bix
 >   in
 >     IntSet.foldl' make IntMap.empty
 
@@ -992,7 +992,7 @@ adopt task =====================================================================
 
 smash task ============================================================================================================
           compute smashups for each instrument
-          this is initiated multiple times, and only updates the zrec's smashup if it currently contains Nothing
+          this is initiated multiple times, and only redoes the zrec's smashup if it currently contains Nothing
 
 > smashTaskIf _ _ fWork                    = zrecTask smasher fWork
 >   where
@@ -1002,11 +1002,11 @@ smash task =====================================================================
 >
 >         wInst          :: Int            = fromIntegral zrec.zswInst
 >         bixenPaired                      = fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZoneOwners))
->         bixenPartnered                   = fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZonePartners))
+>         bixenCrossing                    = fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZoneCrossing))
 >
 >         smashVar                         =
 >           zrec.zsSmashup
->             <|> Just (computeInstSmashup tag (fWork ^. fwPreZones) (bixenPaired `IntSet.union` bixenPartnered))
+>             <|> Just (computeInstSmashup tag (fWork ^. fwPreZones) (bixenPaired `IntSet.union` bixenCrossing))
 >       in
 >         (Just zrec{zsSmashup = smashVar}, rdFold)
 >
@@ -1177,8 +1177,8 @@ match task =====================================================================
 >         IntMap.foldl' computeFF Map.empty (fWork ^. fwZRecs)    
 
 shrink task ===========================================================================================================
-          Accounts for pairing activity-caused invalidations; when instrument includes unowned zones, cause smashups
-          to be recalculated (in later pass).
+          Accounts for pairing activity-caused invalidations; when instrument includes unowned zones, below causes
+          smashups to be recalculated (in later pass).
 
 > shrinkTaskIf _ _ fWork                   = zrecTask shrinker fWork
 >   where
@@ -1222,13 +1222,13 @@ perI task ======================================================================
 >
 >         owned                            =
 >           fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZoneOwners))
->         partnered                        =
->           fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZonePartners))
+>         crossing                        =
+>           fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZoneCrossing))
 >         perI                             = 
 >           PerInstrument 
 >             zrec.zswChanges 
 >             owned
->             partnered
+>             crossing
 >             (deJust fName zrec.zsSmashup)
 >
 >         ssInstrument                     =
