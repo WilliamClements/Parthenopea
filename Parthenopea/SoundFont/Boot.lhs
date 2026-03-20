@@ -1156,7 +1156,7 @@ match task =====================================================================
 >     Directives{ .. }
 >                                          = fWork ^. fwDirectives                     
 >     sMatches                             =
->       Lazy.foldlWithKey compute Lazy.empty (fWork ^. fwPreSamples)
+>       Map.foldlWithKey compute Lazy.empty (fWork ^. fwPreSamples)
 >         where compute m k v              = Lazy.insert k (computeFFMatches proConRatio v.cnName narrowRosterForBoot) m
 >     iMatches                             =
 >       let
