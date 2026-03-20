@@ -18,7 +18,7 @@ February 10, 2025
 >        , smashSubspaces) where
 >
 > import Data.IntMap.Strict (IntMap)
-> import qualified Data.IntMap.Strict as IntMap
+> import qualified Data.IntMap.Strict      as IntMap
 > import Data.Ix
 > import Data.Maybe
 > import qualified Data.Vector.Unboxed     as VU

@@ -13,11 +13,11 @@ February 1, 2025
 >
 > import qualified Data.Bifunctor          as BF
 > import Data.IntMap.Strict ( IntMap )
-> import qualified Data.IntMap.Strict as IntMap
+> import qualified Data.IntMap.Strict      as IntMap
 > import Data.IntSet (IntSet )
-> import qualified Data.IntSet as IntSet
+> import qualified Data.IntSet             as IntSet
 > import Data.Map.Strict ( Map )
-> import qualified Data.Map.Strict                as Map
+> import qualified Data.Map.Strict         as Map
 > import Data.Maybe
 > import qualified Data.Set                as Set
 > import qualified Data.Vector.Strict      as VB

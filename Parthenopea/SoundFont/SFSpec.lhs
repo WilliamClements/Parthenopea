@@ -22,7 +22,7 @@ April 16, 2023
 > import qualified Data.IntSet             as IntSet
 > import Data.List
 > import Data.Map.Strict ( Map )
-> import qualified Data.Map.Strict                as Map
+> import qualified Data.Map.Strict         as Map
 > import Data.Maybe
 > import Data.Ratio ( (%) )
 > import Data.Time

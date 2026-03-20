@@ -8,7 +8,7 @@ Jingle-list will be rendered also if named in the plus argument.
 
 > import App.Rosters
 > import Data.Map.Strict ( Map )
-> import qualified Data.Map.Strict                as Map
+> import qualified Data.Map.Strict         as Map
 > import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.Command
 > import Parthenopea.SoundFont.Directives

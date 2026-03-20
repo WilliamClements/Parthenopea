@@ -11,7 +11,7 @@ October 5, 2025
 > import Data.Array.Unboxed ( inRange )
 > import Data.Either
 > import Data.Map.Strict ( Map )
-> import qualified Data.Map.Strict                as Map
+> import qualified Data.Map.Strict         as Map
 > import Data.Maybe
 > import Data.Time
 > import Debug.Trace ( traceIO )

@@ -42,8 +42,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           → Dur
 >                           → SFFileRuntime
 >                           → Signal p () (Double, Double)
-> eutSynthesize sw@SynthSwitches{ .. }
->               (reconL, mreconR) noon sweeps sr dur sffileRuntime
+> eutSynthesize sw (reconL, mreconR) noon sweeps sr dur sffileRuntime
 >   | traceIf trace_ES False               = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
@@ -65,7 +64,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     secsScored         :: Double         = 1 * fromRational dur
 >     looping            :: Bool           = secsScored > secsSampled
 >                                            && (reconL.rSampleMode /= A.NoLoop)
->                                            && useLoopSwitching
+>                                            && sw.useLoopSwitching
 >     secsToPlay         :: Double         = if looping
 >                                              then secsScored
 >                                              else min secsSampled secsScored

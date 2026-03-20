@@ -16,9 +16,9 @@ June 16, 2025
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
 > import Data.Either
-> import qualified Data.IntMap.Strict as IntMap
+> import qualified Data.IntMap.Strict      as IntMap
 > import Data.Map.Strict ( Map )
-> import qualified Data.Map.Strict                as Map
+> import qualified Data.Map.Strict         as Map
 > import Data.Time ( getZonedTime )
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )

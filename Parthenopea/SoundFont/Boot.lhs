@@ -20,10 +20,10 @@ January 21, 2025
 > import Data.IntMap.Strict (IntMap)
 > import qualified Data.IntMap.Strict      as IntMap
 > import Data.IntSet (IntSet)
-> import qualified Data.IntSet as IntSet
+> import qualified Data.IntSet             as IntSet
 > import Data.List 
 > import Data.Map.Strict (Map)
-> import qualified Data.Map.Strict                as Map
+> import qualified Data.Map.Strict         as Map
 > import Data.Maybe
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.Music ( InstrumentName, PercussionSound )
@@ -105,7 +105,7 @@ FileWork =======================================================================
 >   Pairing {
 >     _fwSamplePairings  :: IntMap Int                   {- [SampleIndex → SampleIndex]            -}
 >   , _fwZonePairings    :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
->   , _fwZoneModified    :: IntMap IntSet}
+>   , _fwDirtyZs         :: IntMap IntSet}
 >   deriving Show
 > defPairing             :: Pairing
 > defPairing                               =
@@ -128,7 +128,7 @@ FileWork =======================================================================
 >   , _fwPerInstruments  :: Map PerGMKey PerInstrument
 >   , _fwMatches         :: Matches
 >   , _fwPairing         :: Pairing
->   , _fwDirty           :: IntSet                       {- [InstIndex]                            -}
+>   , _fwDirtyIs         :: IntSet                       {- [InstIndex]                            -}
 >   , _fwDispositions    :: ResultDispositions}
 > defFileWork            :: Directives → FileWork
 > defFileWork dives                        =
@@ -185,7 +185,10 @@ Task *preSample*    caches file's Sample Headers
 Task *smell*        creates sample-level Partner map, based on preSampleCache
 Task *instrument*   creates the zrec collection (IntMap) based on file's Instrument data
 Task *capture*      creates pzdb, based on file's Zone data, and generates zone owners
-Task *clean*        deletes empty zrecs based on owners
+Task *clean*
+      processes the dirty instrument list
+      deletes empty zrecs based on owners
+      repairs owners map
 Task *adopt*        (adds dispos only, based on owners)
 Task *smash*        creates smashups based on owners and PreZone data
 Task *reorg*        invalidates owners by what it does
@@ -199,7 +202,6 @@ Task *pair*
       adjusts for exotic pairing ahead of smash 2 and perI
 Task *vet*
       modifies or deletes PreZones based on Action map
-      repairs owners map
 Task *shrink*       carries out required smashup invalidations 
 Task *perI*         creates PerInstrument map based on owners and PreZone data
 
@@ -218,14 +220,14 @@ FileWork development
 >        ("preSample",  preSample)
 >      , ("smell",      smell)
 >      , ("instrument", instrument)
->      , ("capture",    clean . capture)
+>      , ("capture",    clean . shrink . capture)
 >      , ("smash 1",    smash)
->      , ("reorg",      clean . reorg) 
+>      , ("reorg",      clean . shrink . reorg) 
 >      , ("match",      match)
 >      , ("pair",       pair)
->      , ("vet",        clean . vet)
+>      , ("vet",        clean . shrink . vet)
 >      , ("adopt",      adopt)
->      , ("smash 2",    smash . shrink)
+>      , ("smash 2",    smash)
 >      , ("perI",       perI)]
 >   where
 >     preSample                            = preSampleTaskIf    sffile rost
@@ -471,7 +473,6 @@ instrument task ================================================================
 
 capture task ==========================================================================================================
           populate zrecs with PreZones
-          it does clean up zrecs with no zones
 
 > captureTaskIf sffile _ fWork             = (fwZoneOwners .~ makeOwners (work ^. fwPreZones)) work
 >   where
@@ -620,7 +621,7 @@ consume zone ===================================================================
 >             (xgeni <= ygeni)
 >             (unwords[fName, "SoundFont file", show sffile.zWordFBoot, sffile.zFilename, "corrupt gens"])
 >             (map (boota.ssIGens !) (deriveRange xgeni ygeni))
->         baseId         :: Node            = if fromZone == defZone then 10_000 else 20_000
+>         baseId         :: Node           = if fromZone == defZone then 10_000 else 20_000
 >         mods           :: [(Node, F.Mod)]
 >         mods                             =
 >           profess
@@ -699,13 +700,13 @@ consume zone ===================================================================
 >               >>= addAmount                (fromIntegral fmod.amount)
 
 pair task =============================================================================================================
-          store (1) pairings and (2) reject action map, to be used by vet task
+          store (1) pairings, (2) reject action map, etc., to be used later on
 
 > pairTaskIf _ _ fWork                     =
 >   ( (fwPairing . fwZonePairings    .~ (sy ^. psPaired))
->    . (fwPairing . fwZoneModified   .~ modified)
+>    . (fwPairing . fwDirtyZs        .~ modified)
 >    . (fwDispositions               .~ (sy ^. psDispos))
->    . (fwDirty                      .~ dirty)
+>    . (fwDirtyIs                    .~ dirty)
 >    . (fwZoneCrossing               .~ crossers)) fWork
 >   where
 >     fName__                              = "pairTaskIf"
@@ -754,12 +755,12 @@ Pairing algorithm phases =======================================================
 
 >     nominal sy                            =
 >       IntMap.foldlWithKey
->         (conduceCrossing False (sy ^. psUnpaired))
+>         (conducePairing False (sy ^. psUnpaired))
 >         IntMap.empty
 >         (fWork ^. (fwPairing . fwSamplePairings))
 >     exotic sy                             =
 >       IntMap.foldlWithKey
->         (conduceCrossing True (sy ^. psUnpaired))
+>         (conducePairing True (sy ^. psUnpaired))
 >         IntMap.empty
 >         (fWork ^. (fwPairing . fwSamplePairings))
 >     linkless sy                           =
@@ -782,13 +783,13 @@ Pairing algorithm phases =======================================================
 >         putMembers pz                =
 >           IntMap.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
 >
->     conduceCrossing    :: Bool                         {- exotic                                 -}
+>     conducePairing     :: Bool                         {- exotic                                 -}
 >                           → IntSet                     {- [BagIndex]                             -}
 >                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
 >                           → Int                        {- SampleIndex                            -}
 >                           → Int                        {- SampleIndex                            -}
 >                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
->     conduceCrossing exo unp soFar siFrom siTo
+>     conducePairing exo unp soFar siFrom siTo
 >                                          = soFar `IntMap.union` inducePairs exo bsL bsR
 >       where
 >         bsL, bsR       :: IntSet                       {- [BagIndex]                             -}             
@@ -847,6 +848,7 @@ Pairing book-keeping ===========================================================
 >     dirty                                = IntMap.keysSet modified `IntSet.union` IntMap.keysSet crossers
 >     crossers                             = IntMap.foldlWithKey sniffOut IntMap.empty (fWork ^. fwZoneOwners)
 >       where
+>         allStereo                        = unpair (sy ^. psPaired)
 >         mirror                           =
 >           let
 >             reverser m iLeft iRight      = IntMap.insert iRight iLeft m
@@ -859,15 +861,13 @@ Pairing book-keeping ===========================================================
 >             then IntMap.insert iinst residue m 
 >             else m
 >           where
->             allFound                     = IntSet.fromList $ mapMaybe (`IntMap.lookup` mirror) (IntSet.toList iset)
+>             allFound                     = IntSet.map (mirror IntMap.!) (iset `IntSet.intersection` allStereo)
 >             residue    :: IntSet         = allFound `IntSet.difference` iset
 
 pairing convenience functions =========================================================================================
           unpair           - cram all Ls and Rs from partner map into single set
           twoWay           - complete the map (add R → L)
           makeActions      - turn input set of bixen into instrument-based actions list
-          makeOwners       - generate owners map from raw PreZones
-          repairOwners     - fix owners map after modifying zones
 
 > unpair                 :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
 >                           → IntSet                     {- [BagIndex]                             -}
@@ -896,7 +896,9 @@ pairing convenience functions ==================================================
 >   in
 >     IntSet.foldl' make IntMap.empty
 
-husband owners ========================================================================================================
+owners husbandry ======================================================================================================
+          makeOwners       - generate owners map from raw PreZones
+          repairOwners     - fix owners map after modifying zones
 
 > makeOwners             :: IntMap PreZone               {- [BagIndex → pz]                       -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]              -}
@@ -909,35 +911,26 @@ husband owners =================================================================
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
 >                           → IntSet                     {- [InstIndex]                            -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
-> repairOwners pzdb owners localDirty      = refreshOwners pzdb (invalidateOwners owners localDirty)
+> repairOwners pzdb owners dirty           = invalidated `IntMap.union` makeOwners (IntMap.filter isInteresting pzdb) 
 >   where
->     invalidateOwners                     = IntSet.foldl' (flip IntMap.delete)
->
->     refreshOwners pzdb owners'           = owners' `IntMap.union` makeOwners (IntMap.filter isInteresting pzdb) 
->     isInteresting pz                     = wordI pz `IntSet.member` localDirty
+>     invalidated                          = IntSet.foldl' (flip IntMap.delete) owners dirty
+>     isInteresting pz                     = wordI pz `IntSet.member` dirty
 
 vet task ==============================================================================================================
-          switch bad stereo zones to mono, or off altogether
-          can cause, but does not clean out zoneless zrecs 
+          switch bad stereo zones to mono, or off altogether (modifies pzdb)
 
-> vetTaskIf _ _ fWork                      = (fwZoneOwners .~ fixed) work
+> vetTaskIf _ _ fWork                      = (fwPairing . fwDirtyZs .~ IntMap.empty) (imbibe fWork processed)
 >   where
 >     Directives{ .. }
 >                                          = fWork ^. fwDirectives                     
 >
 >     processed          :: Vet            = IntMap.foldl' vetter (spawn fWork defVet) (fWork ^. fwZRecs)
->     work               :: FileWork       = imbibe fWork processed
->
->     fixed                                = repairOwners
->                                              (work ^. fwPreZones)
->                                              (work ^. fwZoneOwners)
->                                              (work ^. fwDirty)
 >
 >     vetter             :: Vet → InstZoneRecord → Vet
 >     vetter vetIn zrec                    =
 >       let
 >         wInst          :: Int            = fromIntegral zrec.zswInst
->         zActions                         = wInst `IntMap.lookup` (fWork ^. (fwPairing . fwZoneModified))
+>         zActions                         = wInst `IntMap.lookup` (fWork ^. (fwPairing . fwDirtyZs))
 >       in
 >         maybe vetIn (vetActions vetIn zrec) zActions
 >
@@ -1044,7 +1037,8 @@ To build the map
 > reorgTaskIf _ _ fWork                    =
 >   if not doAbsorption
 >     then fWork
->     else ((fwZoneOwners .~ owners') . (fwPreZones .~ rebaseAbsorbed)) (zrecTask reorger fWork)
+>     else ((fwPreZones .~ rebaseAbsorbed)
+>           . (fwDirtyIs .~ IntMap.keysSet absorptionMap)) (zrecTask reorger fWork)
 >   where
 >     Directives{ .. }  
 >                                          = fWork ^. fwDirectives
@@ -1152,11 +1146,6 @@ To build the map
 >                                              where change _ = Just pz{pzWordI = fromIntegral leadI}
 >           in
 >             maybe m rebase (IntMap.lookup (wordI pz) absorptionMap)
->
->     owners'                              = repairOwners
->                                              rebaseAbsorbed
->                                              (fWork ^. fwZoneOwners)
->                                              (IntMap.keysSet absorptionMap)
 
 match task ============================================================================================================
           accumulate all fuzzy matches
@@ -1186,22 +1175,33 @@ shrink task ====================================================================
 >       let
 >         wInst                            = fromIntegral zrec.zswInst
 >       in
->         case wInst `IntSet.member` (fWork ^. fwDirty) of
+>         case wInst `IntSet.member` (fWork ^. fwDirtyIs) of
 >           True                           → (Just zrec{zsSmashup = Nothing}, rdFold)
 >           _                              → (Just zrec                     , rdFold)
 
 clean task ============================================================================================================
           removing zrecs that have gone bad
 
-> cleanTaskIf _ _ fWork                    = zrecTask cleaner fWork
+> cleanTaskIf _ _ fWork                    = ((fwZoneOwners .~ owners')
+>                                             . (fwDirtyIs .~ IntSet.empty)) work
 >   where
 >     fName                                = "cleanTaskIf"
 >     ssNoZones                            = [Scan Dropped NoZones fName noClue]
 >
->     cleaner zrec rdFold                  =
->       case fromIntegral zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneOwners) of
->         Nothing                          → (Nothing,   dispose (instKey zrec) ssNoZones rdFold)
->         _                                → (Just zrec, rdFold)
+>     owners'                              = repairOwners
+>                                              (work ^. fwPreZones)
+>                                              (work ^. fwZoneOwners)
+>                                              (work ^. fwDirtyIs)
+>     work                                 =
+>       let      
+>         cleaner zrec rdFold              =
+>           case wInst `IntMap.lookup` (fWork ^. fwZoneOwners) of
+>             Nothing                      → (Nothing,   dispose (instKey zrec) ssNoZones rdFold)
+>             _                            → (Just zrec, rdFold)
+>           where
+>             wInst                        = fromIntegral zrec.zswInst
+>       in
+>         zrecTask cleaner fWork
 
 perI task =============================================================================================================
           generating PerInstrument map

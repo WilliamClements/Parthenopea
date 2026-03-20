@@ -18,7 +18,7 @@ December 12, 2022
 > import Data.Int ( Int8, Int16, Int32 )
 > import Data.List hiding (transpose)
 > import Data.Map.Strict (Map)
-> import qualified Data.Map.Strict                as Map
+> import qualified Data.Map.Strict         as Map
 > import Data.Maybe
 > import Data.Ord ( comparing )
 > import qualified Data.Vector.Strict      as VB

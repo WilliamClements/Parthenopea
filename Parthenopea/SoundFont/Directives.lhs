@@ -111,7 +111,6 @@ Client to specify Directives overrides, especially "client". ===================
 > defDirectives                            =
 >   baseDives
 >     {   client                           = "sandbox"
->       , switchBadStereoZonesToMono       = False
 >       , hackWildJumps                    = True
 >       , hackWildMidiValues               = True
 >       , synthSwitches                    = baseDives.synthSwitches{ useNoteBending = False }
@@ -155,14 +154,13 @@ Override here only if this is a Parthenopea library sandbox. ===================
 >   && inARange (0.1, 100) chorusRate
 >   && inARange (0.00001, 1.1) chorusDepth
 
-Remarks on directives 16-Dec-2025:
+Remarks on directives and defaults 18-Mar-2026:
 
-1. crossInstrumentPairing and parallelPairing are intended to be on by default, as signified by their "default
-   default" settings. Turned off because they do not _fully_ work yet. Design is good.
-2. hackWildJumps and hackWildMidiValues are intended to be off by default. But it is difficult to guarantee no
-   glitches would result, and anyway these cases typically work out OK if you eat the error.
-3. dReportVerbosity is intended to be allOff by default for performance. Setting it to allOn for diagnostic value.
-4. As you see, synthSwitches are intended to be all on, and they are. Occasions for overriding are troubleshooting
-   experiments.
+1. hackWildJumps and hackWildMidiValues are intended to be off by default. But we trade off in favor of a higher
+   success rate. Typical glitches that are thus masked are usually not interesting. However, the harmful side of the
+   tradeoff is loss in diagnostic clarity when chasing actual bugs.
+2. dReportVerbosity is intended to be allOff by default for performance. Setting it to allOn for diagnostic value.
+3. synthSwitches are intended to be all on. Currently opting out of note bending. Troubleshooting experiments are
+   the usual reason for overriding.
 
 The End

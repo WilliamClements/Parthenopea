@@ -37,10 +37,10 @@ September 12, 2024
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.IntMap.Strict (IntMap)
-> import qualified Data.IntMap as IntMap
+> import qualified Data.IntMap             as IntMap
 > import Data.List
 > import Data.Map.Strict ( Map )
-> import qualified Data.Map.Strict                as Map
+> import qualified Data.Map.Strict         as Map
 > import Data.Maybe
 > import Data.Ord ( Down(Down) )
 > import qualified Data.Vector.Strict      as VB
