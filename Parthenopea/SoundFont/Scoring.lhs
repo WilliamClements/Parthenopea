@@ -39,6 +39,7 @@ September 12, 2024
 > import Data.IntMap.Strict (IntMap)
 > import qualified Data.IntMap             as IntMap
 > import Data.List
+> import qualified Data.Map.Lazy           as Lazy
 > import Data.Map.Strict ( Map )
 > import qualified Data.Map.Strict         as Map
 > import Data.Maybe
@@ -248,7 +249,7 @@ tournament starts here =========================================================
 >                                          = do
 >   CM.when
 >     diagnosticsEnabled
->     (traceIO $ unwords [fName__, show (length cache, length matches.mIMatches, length matches.mSMatches)])
+>     (traceIO $ unwords [fName__, show (length cache, Lazy.size matches.mIMatches, Lazy.size matches.mSMatches)])
 >   return wiExec
 >
 >   where
@@ -277,7 +278,7 @@ tournament starts here =========================================================
 >         decideInst     :: Map InstrumentName [PerGMScored]
 >         decideInst                       = proposeXAs iMatches wI pergmI
 >           where
->             iMatches = deJust "iMatches" (Map.lookup pergmI matches.mIMatches)
+>             iMatches = deJust "iMatches" (Lazy.lookup pergmI matches.mIMatches)
 >     
 >         decidePerc     :: Map PercussionSound [PerGMScored]
 >         decidePerc                       = IntMap.foldl' propose wP pergmsP
@@ -305,7 +306,7 @@ tournament starts here =========================================================
 >                 mffm                     =
 >                   mz >>= (zdSampleIndex . pzDigest)
 >                      >>= Just . PreSampleKey pergmI.pgkwFile
->                      >>= (`Map.lookup` matches.mSMatches)
+>                      >>= (`Lazy.lookup` matches.mSMatches)
 >                 ffm                      = deJust (unwords [fName, "mffm"]) mffm
 >
 >                 getAP  :: PreZone → Maybe AbsPitch

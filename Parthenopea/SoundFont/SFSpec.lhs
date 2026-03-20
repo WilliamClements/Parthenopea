@@ -21,6 +21,7 @@ April 16, 2023
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
 > import Data.List
+> import qualified Data.Map.Lazy           as Lazy
 > import Data.Map.Strict ( Map )
 > import qualified Data.Map.Strict         as Map
 > import Data.Maybe
@@ -132,7 +133,10 @@ implementing SoundFont spec ====================================================
 >   deriving (Eq, Ord, Show)
 >
 > virginrd               :: ResultDispositions
-> virginrd                                 = ResultDispositions Map.empty Map.empty Map.empty
+> virginrd                                 = ResultDispositions 
+>                              Lazy.empty 
+>                                Lazy.empty 
+>                                Lazy.empty
 >
 > data Scan                                =
 >   Scan {
@@ -144,9 +148,9 @@ implementing SoundFont spec ====================================================
 >
 > data ResultDispositions                  =
 >   ResultDispositions {
->     preSampleDispos    :: Map PreSampleKey     [Scan]
->   , preInstDispos      :: Map PerGMKey         [Scan]
->   , preZoneDispos      :: Map PreZoneKey       [Scan]}
+>     preSampleDispos    :: Lazy.Map PreSampleKey     [Scan]
+>   , preInstDispos      :: Lazy.Map PerGMKey         [Scan]
+>   , preZoneDispos      :: Lazy.Map PreZoneKey       [Scan]}
 >
 > data FileArrays                          = 
 >   FileArrays {
@@ -219,14 +223,14 @@ implementing SoundFont spec ====================================================
 >
 > data Matches                             =
 >   Matches {
->     mSMatches          :: Map PreSampleKey FFMatches
->   , mIMatches          :: Map PerGMKey FFMatches}
+>     mSMatches          :: Lazy.Map PreSampleKey FFMatches
+>   , mIMatches          :: Lazy.Map PerGMKey FFMatches}
 > defMatches             :: Matches
-> defMatches                               = Matches Map.empty Map.empty
+> defMatches                               = Matches Lazy.empty Lazy.empty
 > combineMatches         :: Matches → Matches → Matches
 > combineMatches m1 m2                     =
->   m1{  mSMatches                         = Map.union m1.mSMatches    m2.mSMatches
->      , mIMatches                         = Map.union m1.mIMatches    m2.mIMatches}
+>   m1{  mSMatches                         = Lazy.union m1.mSMatches    m2.mSMatches
+>      , mIMatches                         = Lazy.union m1.mIMatches    m2.mIMatches}
 >
 > data Survey                              =
 >   Survey {
@@ -375,18 +379,20 @@ bootstrapping ==================================================================
 > deadrd                 :: ∀ k . SFKeyType k ⇒ k → ResultDispositions → Bool
 > deadrd k rd                              = dead (inspect k rd)
 > emptyrd                :: ResultDispositions → Bool
-> emptyrd rd                               = null rd.preSampleDispos && null rd.preInstDispos && null rd.preZoneDispos
+> emptyrd rd                               =    Lazy.null rd.preSampleDispos
+>                                            && Lazy.null rd.preInstDispos
+>                                            && Lazy.null rd.preZoneDispos
 > rdLengths              :: ResultDispositions → (Int, Int)
-> rdLengths rd                             = (length rd.preSampleDispos, length rd.preInstDispos)
-> countScans             :: ∀ k . SFKeyType k ⇒ Map k [Scan] → Int
-> countScans                               = Map.foldl' (\n ss → n + length ss) 0
+> rdLengths rd                             = (Lazy.size rd.preSampleDispos, Lazy.size rd.preInstDispos)
+> countScans             :: ∀ k . SFKeyType k ⇒ Lazy.Map k [Scan] → Int
+> countScans                               = Lazy.foldl' (\n ss → n + length ss) 0
 > rdCountScans           :: ResultDispositions → (Int, Int)
 > rdCountScans rd                          = (countScans rd.preSampleDispos, countScans rd.preInstDispos)
 > combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
 > combinerd rd1 rd2                        =
->   rd1{  preSampleDispos                  = Map.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
->       , preInstDispos                    = Map.unionWith (++) rd1.preInstDispos   rd2.preInstDispos
->       , preZoneDispos                    = Map.unionWith (++) rd1.preZoneDispos   rd2.preZoneDispos}
+>   rd1{  preSampleDispos                  = Lazy.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
+>       , preInstDispos                    = Lazy.unionWith (++) rd1.preInstDispos   rd2.preInstDispos
+>       , preZoneDispos                    = Lazy.unionWith (++) rd1.preZoneDispos   rd2.preZoneDispos}
 >
 > class SFKeyType a where
 >   sfkey                :: Int → Word → a
@@ -401,18 +407,18 @@ bootstrapping ==================================================================
 >   wfile k                                = k.pskwFile
 >   wblob k                                = k.pskwSampleIndex
 >   kname k sffile                         = [Unblocked (show (ssShdrs sffile.zFileArrays ! wblob k).sampleName)]
->   inspect presk rd                       = fromMaybe [] (Map.lookup presk rd.preSampleDispos)
+>   inspect presk rd                       = fromMaybe [] (Lazy.lookup presk rd.preSampleDispos)
 >   dispose presk ss rd                    =
->     rd{preSampleDispos = Map.insertWith (flip (++)) presk ss rd.preSampleDispos}
+>     rd{preSampleDispos = Lazy.insertWith (flip (++)) presk ss rd.preSampleDispos}
 >
 > instance SFKeyType PerGMKey where
 >   sfkey wF wI                            = PerGMKey wF wI Nothing
 >   wfile k                                = k.pgkwFile
 >   wblob k                                = k.pgkwInst
 >   kname k sffile                         = [Unblocked (show (ssInsts sffile.zFileArrays ! wblob k).instName)]
->   inspect pergm rd                       = fromMaybe [] (Map.lookup pergm rd.preInstDispos)
+>   inspect pergm rd                       = fromMaybe [] (Lazy.lookup pergm rd.preInstDispos)
 >   dispose pergm ss rd                    =
->     rd{preInstDispos = Map.insertWith (flip (++)) pergm ss rd.preInstDispos}
+>     rd{preInstDispos = Lazy.insertWith (flip (++)) pergm ss rd.preInstDispos}
 >
 > instance SFKeyType PreZoneKey where
 >   sfkey _ _                              = error "sfkey not supported for PreZoneKey"
@@ -421,9 +427,9 @@ bootstrapping ==================================================================
 >   kname k sffile                         =    kname (PerGMKey k.pzkwFile k.pzkwInst Nothing) sffile
 >                                            ++ [comma]
 >                                            ++ kname (PreSampleKey k.pzkwFile k.pzkwSampleIndex) sffile
->   inspect prezk rd                       = fromMaybe [] (Map.lookup prezk rd.preZoneDispos)
+>   inspect prezk rd                       = fromMaybe [] (Lazy.lookup prezk rd.preZoneDispos)
 >   dispose prezk ss rd                    =
->     rd{preZoneDispos = Map.insertWith (flip (++)) prezk ss rd.preZoneDispos}
+>     rd{preZoneDispos = Lazy.insertWith (flip (++)) prezk ss rd.preZoneDispos}
 
 Note that harsher consequences of unacceptable sample header are enforced earlier. Logically, that would be
 sufficient to protect below code from bad data and document the situation. But ... mechanism such as putting

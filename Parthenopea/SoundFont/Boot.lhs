@@ -17,11 +17,12 @@ January 21, 2025
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Either
-> import Data.IntMap.Strict (IntMap)
+> import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict      as IntMap
-> import Data.IntSet (IntSet)
+> import Data.IntSet ( IntSet )
 > import qualified Data.IntSet             as IntSet
 > import Data.List 
+> import qualified Data.Map.Lazy           as Lazy
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
 > import Data.Maybe
@@ -1155,15 +1156,15 @@ match task =====================================================================
 >     Directives{ .. }
 >                                          = fWork ^. fwDirectives                     
 >     sMatches                             =
->       Map.foldlWithKey compute Map.empty (fWork ^. fwPreSamples)
->         where compute m k v              = Map.insert k (computeFFMatches proConRatio v.cnName narrowRosterForBoot) m
+>       Lazy.foldlWithKey compute Lazy.empty (fWork ^. fwPreSamples)
+>         where compute m k v              = Lazy.insert k (computeFFMatches proConRatio v.cnName narrowRosterForBoot) m
 >     iMatches                             =
 >       let
->         computeFF      :: Map PerGMKey FFMatches → InstZoneRecord → Map PerGMKey FFMatches 
+>         computeFF      :: Lazy.Map PerGMKey FFMatches → InstZoneRecord → Lazy.Map PerGMKey FFMatches 
 >         computeFF m zrec                 =
->           Map.insert (instKey zrec) (computeFFMatches proConRatio zrec.zswChanges.cnName narrowRosterForBoot) m
+>           Lazy.insert (instKey zrec) (computeFFMatches proConRatio zrec.zswChanges.cnName narrowRosterForBoot) m
 >       in
->         IntMap.foldl' computeFF Map.empty (fWork ^. fwZRecs)    
+>         IntMap.foldl' computeFF Lazy.empty (fWork ^. fwZRecs)    
 
 shrink task ===========================================================================================================
           Accounts for pairing activity-caused invalidations; when instrument includes unowned zones, below causes
