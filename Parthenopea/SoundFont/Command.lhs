@@ -145,9 +145,9 @@ Implement PCommand =============================================================
 >     then do
 >       let (durS, s)                      = renderSF music runt.zInstrumentMap
 >       if sw.normalizingOutput
->         then outFileNorm               (name ++ ".wav") durS s
->         else outFile                   (name ++ ".wav") durS s
->       tsFinish                         ← getZonedTime
+>         then outFileNorm                 (name ++ ".wav") durS s
+>         else outFile                     (name ++ ".wav") durS s
+>       tsFinish                           ← getZonedTime
 >       putStr $ reapEmissions $ emitSongTime durS tsStart tsFinish
 >     else
 >       putStr $ reapEmissions skipSong
@@ -185,7 +185,11 @@ Implement PCommand =============================================================
 >               (F.igens pdata) (F.imods pdata)
 >               (F.shdrs pdata)
 >       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
->       let sffileBoot                     = SFFileBoot wFile filename boota IntMap.empty samplea
->       return sffileBoot
+>       return $ SFFileBoot 
+>                  wFile 
+>                  filename 
+>                  boota 
+>                  IntMap.empty 
+>                  samplea
 
 The End

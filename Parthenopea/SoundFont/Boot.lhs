@@ -105,14 +105,12 @@ FileWork =======================================================================
 > data Pairing                             =
 >   Pairing {
 >     _fwSamplePairings  :: IntMap Int                   {- [SampleIndex → SampleIndex]            -}
->   , _fwZonePairings    :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
 >   , _fwDirtyZs         :: IntMap IntSet}
 >   deriving Show
 > defPairing             :: Pairing
 > defPairing                               =
 >   Pairing
 >     IntMap.empty 
->     IntMap.empty
 >     IntMap.empty
 > makeLenses ''Pairing
 >
@@ -206,7 +204,7 @@ Task *vet*
 Task *shrink*       carries out required smashup invalidations 
 Task *perI*         creates PerInstrument map based on owners and PreZone data
 
-FileWork development
+FileWork development ==================================================================================================
 
 > preSampleTaskIf, smellTaskIf, instrumentTaskIf, captureTaskIf, pairTaskIf, vetTaskIf
 >                , adoptTaskIf, smashTaskIf, reorgTaskIf, matchTaskIf, cleanTaskIf, perITaskIf
@@ -701,13 +699,12 @@ consume zone ===================================================================
 >               >>= addAmount                (fromIntegral fmod.amount)
 
 pair task =============================================================================================================
-          store (1) pairings, (2) reject action map, etc., to be used later on
+          store (1) reject action map (dirty zs), (2) dispo (3) dirty is (4) crossers, to be used later on
 
 > pairTaskIf _ _ fWork                     =
->   ( (fwPairing . fwZonePairings    .~ (sy ^. psPaired))
->    . (fwPairing . fwDirtyZs        .~ modified)
+>   ( (fwPairing . fwDirtyZs         .~ dirtyZs)
 >    . (fwDispositions               .~ (sy ^. psDispos))
->    . (fwDirtyIs                    .~ dirty)
+>    . (fwDirtyIs                    .~ dirtyIs)
 >    . (fwZoneCrossing               .~ crossers)) fWork
 >   where
 >     fName__                              = "pairTaskIf"
@@ -845,11 +842,11 @@ Pairing algorithm phases =======================================================
 
 Pairing book-keeping ==================================================================================================
 
->     modified                             = makeActions (fWork ^. fwPreZones) (sy ^. psUnpaired)
->     dirty                                = IntMap.keysSet modified `IntSet.union` IntMap.keysSet crossers
+>     dirtyZs                              = makeActions (fWork ^. fwPreZones) (sy ^. psUnpaired)
+>     dirtyIs                              = IntMap.keysSet dirtyZs `IntSet.union` IntMap.keysSet crossers
 >     crossers                             = IntMap.foldlWithKey sniffOut IntMap.empty (fWork ^. fwZoneOwners)
 >       where
->         allStereo                        = unpair (sy ^. psPaired)
+>         allStereo      :: IntSet         = unpair (sy ^. psPaired)
 >         mirror                           =
 >           let
 >             reverser m iLeft iRight      = IntMap.insert iRight iLeft m
@@ -857,6 +854,10 @@ Pairing book-keeping ===========================================================
 >           in
 >             IntMap.foldlWithKey reverser oneWay oneWay
 >
+>         sniffOut       :: IntMap IntSet                {- [InstIndex → [BagIndex]]               -}
+>                           → Int                        {- InstIndex                              -}
+>                           → IntSet                     {- [BagIndex]                             -}
+>                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
 >         sniffOut m iinst iset            =
 >           if not (IntSet.null residue)
 >             then IntMap.insert iinst residue m 
@@ -887,7 +888,7 @@ pairing convenience functions ==================================================
 >   in
 >     IntMap.foldlWithKey ifolder IntMap.empty
 >
-> makeActions            :: IntMap PreZone               {- BagIndex → pz                          -}
+> makeActions            :: IntMap PreZone               {- [BagIndex → pz]                        -}
 >                           → IntSet                     {- [BagIndex]                             -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
 > makeActions pzdb                         =
@@ -920,12 +921,13 @@ owners husbandry ===============================================================
 vet task ==============================================================================================================
           switch bad stereo zones to mono, or off altogether (modifies pzdb)
 
-> vetTaskIf _ _ fWork                      = (fwPairing . fwDirtyZs .~ IntMap.empty) (imbibe fWork processed)
+> vetTaskIf _ _ fWork                      = (fwPairing . fwDirtyZs .~ IntMap.empty) work
 >   where
 >     Directives{ .. }
 >                                          = fWork ^. fwDirectives                     
 >
 >     processed          :: Vet            = IntMap.foldl' vetter (spawn fWork defVet) (fWork ^. fwZRecs)
+>     work               :: FileWork       = imbibe fWork processed
 >
 >     vetter             :: Vet → InstZoneRecord → Vet
 >     vetter vetIn zrec                    =
@@ -1038,7 +1040,7 @@ To build the map
 > reorgTaskIf _ _ fWork                    =
 >   if not doAbsorption
 >     then fWork
->     else ((fwPreZones .~ rebaseAbsorbed)
+>     else ((fwPreZones  .~ rebaseAbsorbed)
 >           . (fwDirtyIs .~ IntMap.keysSet absorptionMap)) (zrecTask reorger fWork)
 >   where
 >     Directives{ .. }  
@@ -1183,16 +1185,15 @@ shrink task ====================================================================
 clean task ============================================================================================================
           removing zrecs that have gone bad
 
-> cleanTaskIf _ _ fWork                    = ((fwZoneOwners .~ owners')
->                                             . (fwDirtyIs .~ IntSet.empty)) work
+> cleanTaskIf _ _ fWork                    = (fwDirtyIs .~ IntSet.empty) work
 >   where
 >     fName                                = "cleanTaskIf"
 >     ssNoZones                            = [Scan Dropped NoZones fName noClue]
 >
 >     owners'                              = repairOwners
->                                              (work ^. fwPreZones)
->                                              (work ^. fwZoneOwners)
->                                              (work ^. fwDirtyIs)
+>                                              (fWork ^. fwPreZones)
+>                                              (fWork ^. fwZoneOwners)
+>                                              (fWork ^. fwDirtyIs)
 >     work                                 =
 >       let      
 >         cleaner zrec rdFold              =
@@ -1202,7 +1203,7 @@ clean task =====================================================================
 >           where
 >             wInst                        = fromIntegral zrec.zswInst
 >       in
->         zrecTask cleaner fWork
+>         zrecTask cleaner ((fwZoneOwners .~ owners') fWork)
 
 perI task =============================================================================================================
           generating PerInstrument map
