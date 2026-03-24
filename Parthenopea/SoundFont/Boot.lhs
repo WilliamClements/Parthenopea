@@ -393,6 +393,8 @@ InstZoneRecord administration ==================================================
 >     zrec.zswFile 
 >     zrec.zswInst
 >     Nothing       
+> zrecSmash              :: FileWork → Int → Smashing Word
+> zrecSmash fWork inst                     = fromJust ((fWork ^. fwZRecs) IntMap.! inst).zsSmashup
 
 iterating InstZoneRecord collection ===================================================================================
 
@@ -1050,7 +1052,7 @@ To build the map
 >     reorger zrec rdFold
 >       | isJust dprobe                    = (Just zrec,                          dispose pergm scansBlocked rdFold)
 >       | isNothing aprobe                 = (Just zrec,                          rdFold)
->       | party == wInst                   = (Just zrec{zsSmashup = Just hsmash}, dispose pergm scansIng rdFold)
+>       | party == wInst                   = (Just zrec,                          dispose pergm scansIng rdFold)
 >       | otherwise                        = (Nothing,                            dispose pergm scansEd rdFold)
 >       where
 >         fName                            = "reorger"
@@ -1068,7 +1070,8 @@ To build the map
 >
 >         disqualified                     = deJust "dprobe" dprobe
 >         party                            = deJust "aprobe" aprobe
->         hsmash                           = deJust "hprobe" (IntMap.lookup wInst holdMap)
+>
+>     headed, ready      :: IntMap IntSet                {- [InstIndex → [InstIndex]]              -}
 >
 >     headed                               = foldr (IntMap.union . rewire) IntMap.empty groups
 >       where
@@ -1080,53 +1083,42 @@ To build the map
 >         rewire ns                        =
 >           IntMap.insert ((snd . head) ns) (IntSet.fromList (map snd ns)) IntMap.empty
 >
->     holdMap            :: IntMap (Smashing Word)       {- [InstIndex → smash]                    -}
+>     holdMap            :: IntMap Int                   {- [InstIndex → smash]                    -}
 >     disqualMap         :: IntMap SmashStats            {- [InstIndex → stats]                    -}
 >     (holdMap, disqualMap)                = IntMap.mapEitherWithKey qualify headed
 >       where
->         townersMap     :: IntMap (IntMap PreZone, Smashing Word)
->                                                        {- [InstIndex → ([BagIndex → pz], smash)] -}
->         townersMap                       =
->           let
->             town       :: IntMap (IntMap PreZone, Smashing Word)
->                           → InstZoneRecord
->                           → IntMap (IntMap PreZone, Smashing Word)
->             town m zrec                  = IntMap.insert wInst (vpzs, vsmash) m
->               where
->                 wInst                    = fromIntegral zrec.zswInst
->                 vpzs                     = accessPreZones "towners" (fWork ^. fwPreZones) iset
->                 vsmash                   = deJust "townersMap smashup" zrec.zsSmashup
->                 iset                     = (fWork ^. fwZoneOwners) IntMap.! wInst
->           in
->             IntMap.foldl' town IntMap.empty (fWork ^. fwZRecs)
->     
 >         qualify        :: Int                          {- InstIndex                              -}
 >                           → IntSet                     {- [InstIndex]                            -}
->                           → Either (Smashing Word) SmashStats
+>                           → Either Int SmashStats
 >         qualify leadI memberIs
 >           | null smashups                = error "null smashups?!?"
 >           | 0 == osmashup.smashStats.countMultiples
->                                          = Left osmashup
->           | membersHaveVR                = Left osmashup
+>                                          = Left leadI
+>           | membersHaveVR memberIs       = Left leadI
 >           | otherwise                    = Right osmashup.smashStats
 >           where
->             towners    :: [(IntMap PreZone, Smashing Word)]
->             towners                      = map (townersMap IntMap.!) (IntSet.toList memberIs)
->             smashups                     = map snd towners
+>             smashups                     = map (zrecSmash fWork) (IntSet.toList memberIs)
 >             osmashup                     = (foldl' smashSmashings (head smashups) (tail smashups))
 >                                              {smashTag = unwords [show (leadI, memberIs)]}
 >             -- VR = Velocity Range(s)
->             membersHaveVR                =
+>             membersHaveVR
+>                        :: IntSet → Bool
+>             membersHaveVR iset               =
 >               let
->                 zoneHasVR pz             =
+>                 zoneHasVR bix            = 
 >                   case pz.pzDigest.zdVelRange of
 >                     Just rng             → rng /= (0, qMidiWord128 - 1)
 >                     Nothing              → False
->                 zonesHaveVR              = any zoneHasVR
+>                   where
+>                     pz                   = (fWork ^. fwPreZones) IntMap.! bix
+>                 zonesHaveVR
+>                        :: Int → Bool
+>                 zonesHaveVR inst         = any zoneHasVR (IntSet.toList bixen)
+>                   where
+>                     bixen                = (fWork ^. fwZoneOwners) IntMap.! inst
 >               in
->                 all (zonesHaveVR . fst) towners
+>                 all zonesHaveVR (IntSet.toList iset)
 >
->     ready              :: IntMap IntSet                {- [InstIndex → [InstIndex]]              -}
 >     ready                                = IntMap.filterWithKey wasVetted headed
 >                                              where wasVetted k _ = IntMap.member k holdMap
 >
@@ -1183,7 +1175,8 @@ shrink task ====================================================================
 >           _                              → (Just zrec                     , rdFold)
 
 clean task ============================================================================================================
-          removing zrecs that have gone bad
+          1. repair owners
+          2. remove zrecs that have gone bad
 
 > cleanTaskIf _ _ fWork                    = (fwDirtyIs .~ IntSet.empty) work
 >   where
@@ -1201,9 +1194,9 @@ clean task =====================================================================
 >             Nothing                      → (Nothing,   dispose (instKey zrec) ssNoZones rdFold)
 >             _                            → (Just zrec, rdFold)
 >           where
->             wInst                        = fromIntegral zrec.zswInst
+>             wInst                        = fromIntegral (tracer "clean wInst" zrec.zswInst)
 >       in
->         zrecTask cleaner ((fwZoneOwners .~ owners') fWork)
+>         zrecTask cleaner ((fwZoneOwners .~ (tracer "owners'" owners')) fWork)
 
 perI task =============================================================================================================
           generating PerInstrument map
