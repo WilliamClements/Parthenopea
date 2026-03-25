@@ -213,14 +213,6 @@ Returns the elapsed time in seconds
 > fromTimecents          :: Maybe Int → Double
 > fromTimecents mtimecents                 = pow 2 (maybe (- 12_000) fromIntegral mtimecents / 1_200)
 >
-> fromTimecents'         :: Maybe Int → Maybe Int → KeyNumber → Double
-> fromTimecents' mtimecents mfact key      = pow 2 (base + inc)
->   where
->     base               :: Double         =
->       maybe (-12_000) fromIntegral mtimecents / 1_200
->     inc                :: Double         =
->       maybe 0 fromIntegral mfact * fromIntegral (60 - key) / qMidiDouble128 / 1_200
->
 > toTimecents            :: Double → Int
 > toTimecents secs                         = round $ logBase 2 secs * 1_200
 >

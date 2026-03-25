@@ -66,7 +66,7 @@ Garden an instrument collection ================================================
 > data InstZoneRecord                      =
 >   InstZoneRecord {
 >     zswFile            :: !Int
->   , zswInst            :: !Word
+>   , zswInst            :: !Int
 >   , zswChanges         :: ChangeName F.Inst
 >   , zsSmashup          :: Maybe (Smashing Word)}
 
@@ -334,10 +334,10 @@ pre-sample task ================================================================
 >         goodSampleRate x                 = x == clip (64, 2 ^ (20::Int)) x
 >
 >         ssSample_
->           | not (goodSampleRate $ fromIntegral shdr.sampleRate)
+>           | not (goodSampleRate shdr.sampleRate)
 >                                          = violated BadSampleRate (show shdr.sampleRate)
 >           | isNothing mtype              = violated BadSampleType (show shdr.sampleType)
->           | not (sampleSizeOk (fromIntegral shdr.start) (fromIntegral shdr.end))
+>           | not (sampleSizeOk shdr.start shdr.end)
 >                                          = violated BadSampleLimits (show (shdr.start, shdr.end))
 >           | not (goodName raw)           = badButMaybeFix fixBadNames BadName fName raw good
 >           | otherwise                    = accepted Ok stereo
@@ -385,10 +385,10 @@ InstZoneRecord administration ==================================================
 > makeZRec pergm changes                   =
 >   InstZoneRecord 
 >     pergm.pgkwFile 
->     pergm.pgkwInst
+>     (fromIntegral pergm.pgkwInst)
 >     changes Nothing
 > instKey                :: InstZoneRecord → PerGMKey
-> instKey zrec                             = stdPerGMKey zrec.zswFile (fromIntegral zrec.zswInst)
+> instKey zrec                             = stdPerGMKey zrec.zswFile zrec.zswInst
 > zrecSmash              :: FileWork → Int → Smashing Word
 > zrecSmash fWork inst                     = fromJust ((fWork ^. fwZRecs) IntMap.! inst).zsSmashup
 
@@ -413,7 +413,7 @@ iterating InstZoneRecord collection ============================================
 >         mzrec          :: Maybe InstZoneRecord
 >         (mzrec, rdFold')                 = userFun zrec rdFold
 >       in
->         (IntMap.update (const mzrec) (fromIntegral zrec.zswInst) zrecs, rdFold')
+>         (IntMap.update (const mzrec) zrec.zswInst zrecs, rdFold')
 
 instrument task =======================================================================================================
           instantiate InstZoneRecord per Instrument
@@ -450,7 +450,7 @@ instrument task ================================================================
 >         zrecs'
 >           | dead ssSurvey                = inst ^. iZRecs
 >           | otherwise                    =
->           IntMap.insert (fromIntegral newZRec.zswInst) newZRec (inst ^. iZRecs)
+>           IntMap.insert newZRec.zswInst newZRec (inst ^. iZRecs)
 >           where
 >             changes                      = if wasRescued BadName ssSurvey then singleton FixBadName else []
 >             finalName                    = if wasRescued BadName ssSurvey then good else raw
@@ -498,12 +498,11 @@ capture task ===================================================================
 >       where
 >         pergm                            = instKey zrec
 >         iName                            = zrec.zswChanges.cnName
->         wInst                            = fromIntegral zrec.zswInst
 >
 >         (zrecs, ssCap)                   =
 >           if any (isLeft . snd) results
 >             then (captOut ^. uZRecs,                                       ssInstrumentCaptured iName)
->             else (IntMap.update (const Nothing) wInst (captOut ^. uZRecs), ssBadZones)
+>             else (IntMap.update (const Nothing) zrec.zswInst (captOut ^. uZRecs), ssBadZones)
 >
 >         capturePreZone :: Word → (Word, Either PreZone (PreZoneKey, [Scan]))
 >         capturePreZone bix
@@ -911,10 +910,10 @@ owners husbandry ===============================================================
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
 >                           → IntSet                     {- [InstIndex]                            -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
-> repairOwners pzdb owners dirty           = invalidated `IntMap.union` makeOwners (IntMap.filter isInteresting pzdb) 
+> repairOwners pzdb owners dirtyIs         = invalidated `IntMap.union` makeOwners (IntMap.filter isInteresting pzdb) 
 >   where
->     invalidated                          = IntSet.foldl' (flip IntMap.delete) owners dirty
->     isInteresting pz                     = wordI pz `IntSet.member` dirty
+>     invalidated                          = IntSet.foldl' (flip IntMap.delete) owners dirtyIs
+>     isInteresting pz                     = wordI pz `IntSet.member` dirtyIs
 
 vet task ==============================================================================================================
           switch bad stereo zones to mono, or off altogether (modifies pzdb)
@@ -930,8 +929,7 @@ vet task =======================================================================
 >     vetter             :: Vet → InstZoneRecord → Vet
 >     vetter vetIn zrec                    =
 >       let
->         wInst          :: Int            = fromIntegral zrec.zswInst
->         zActions                         = wInst `IntMap.lookup` (fWork ^. (fwPairing . fwDirtyZs))
+>         zActions                         = zrec.zswInst `IntMap.lookup` (fWork ^. (fwPairing . fwDirtyZs))
 >       in
 >         maybe vetIn (vetActions vetIn zrec) zActions
 >
@@ -969,7 +967,7 @@ adopt task =====================================================================
 > adoptTaskIf _ _ fWork                    = zrecTask adopter fWork
 >   where
 >     adopter zrec rd                      =
->       case fromIntegral zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneOwners) of
+>       case zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneOwners) of
 >         Nothing                          → (Nothing,   rd)
 >         Just iset                        → (Just zrec, IntSet.foldl' (adopt zrec) rd iset)
 >
@@ -992,11 +990,10 @@ smash task =====================================================================
 >   where
 >     smasher zrec rdFold                  =
 >       let
->         tag                              = show wInst
+>         tag                              = show zrec.zswInst
 >
->         wInst          :: Int            = fromIntegral zrec.zswInst
->         bixenPaired                      = fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZoneOwners))
->         bixenCrossing                    = fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZoneCrossing))
+>         bixenPaired                      = fromMaybe IntSet.empty (zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneOwners))
+>         bixenCrossing                    = fromMaybe IntSet.empty (zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneCrossing))
 >
 >         smashVar                         =
 >           zrec.zsSmashup
@@ -1048,7 +1045,7 @@ To build the map
 >     reorger zrec rdFold
 >       | isJust dprobe                    = (Just zrec,                          dispose pergm scansBlocked rdFold)
 >       | isNothing aprobe                 = (Just zrec,                          rdFold)
->       | party == wInst                   = (Just zrec,                          dispose pergm scansIng rdFold)
+>       | party == zrec.zswInst            = (Just zrec,                          dispose pergm scansIng rdFold)
 >       | otherwise                        = (Nothing,                            dispose pergm scansEd rdFold)
 >       where
 >         fName                            = "reorger"
@@ -1059,10 +1056,9 @@ To build the map
 >         scansBlocked                     = ssTempl8 NoChange   NoAbsorption (show disqualified)
 >
 >         pergm                            = instKey zrec
->         wInst          :: Int            = fromIntegral zrec.zswInst
 >
->         dprobe                           = IntMap.lookup wInst disqualMap
->         aprobe                           = IntMap.lookup wInst absorptionMap
+>         dprobe                           = IntMap.lookup zrec.zswInst disqualMap
+>         aprobe                           = IntMap.lookup zrec.zswInst absorptionMap
 >
 >         disqualified                     = deJust "dprobe" dprobe
 >         party                            = deJust "aprobe" aprobe
@@ -1075,7 +1071,7 @@ To build the map
 >                                              where noSingletons x = 1 < length x
 >         instNames                        = IntMap.foldl' extract [] (fWork ^. fwZRecs)
 >           where
->             extract ns zrec              = (zrec.zswChanges.cnName, fromIntegral zrec.zswInst) : ns
+>             extract ns zrec              = (zrec.zswChanges.cnName, zrec.zswInst) : ns
 >         rewire ns                        =
 >           IntMap.insert ((snd . head) ns) (IntSet.fromList (map snd ns)) IntMap.empty
 >
@@ -1163,12 +1159,9 @@ shrink task ====================================================================
 > shrinkTaskIf _ _ fWork                   = zrecTask shrinker fWork
 >   where
 >     shrinker zrec rdFold                 =
->       let
->         wInst                            = fromIntegral zrec.zswInst
->       in
->         case wInst `IntSet.member` (fWork ^. fwDirtyIs) of
->           True                           → (Just zrec{zsSmashup = Nothing}, rdFold)
->           _                              → (Just zrec                     , rdFold)
+>       case zrec.zswInst `IntSet.member` (fWork ^. fwDirtyIs) of
+>         True                           → (Just zrec{zsSmashup = Nothing}, rdFold)
+>         _                              → (Just zrec                     , rdFold)
 
 clean task ============================================================================================================
           1. repair owners
@@ -1186,11 +1179,9 @@ clean task =====================================================================
 >     work                                 =
 >       let      
 >         cleaner zrec rdFold              =
->           case wInst `IntMap.lookup` owners' of
+>           case zrec.zswInst `IntMap.lookup` owners' of
 >             Nothing                      → (Nothing,   dispose (instKey zrec) ssNoZones rdFold)
 >             _                            → (Just zrec, rdFold)
->           where
->             wInst                        = fromIntegral zrec.zswInst
 >       in
 >         zrecTask cleaner ((fwZoneOwners .~ owners') fWork)
 
@@ -1208,13 +1199,12 @@ perI task ======================================================================
 >       where
 >         fName                            = "perIFolder"
 >
->         wInst          :: Int            = fromIntegral zrec.zswInst
 >         pergm          :: PerGMKey       = instKey zrec
 >
 >         owned                            =
->           fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZoneOwners))
+>           fromMaybe IntSet.empty (zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneOwners))
 >         crossing                        =
->           fromMaybe IntSet.empty (wInst `IntMap.lookup` (fWork ^. fwZoneCrossing))
+>           fromMaybe IntSet.empty (zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneCrossing))
 >         perI                             = 
 >           PerInstrument 
 >             zrec.zswChanges 
