@@ -89,7 +89,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >         runtimeFile insts                =    
 >           let
 >             getPerI inst                 =
->               cache Map.! PerGMKey sffile.zWordFBoot (fromIntegral inst) Nothing
+>               cache Map.! stdPerGMKey sffile.zWordFBoot inst
 >
 >             newPerI                      = IntMap.fromSet getPerI insts
 >             pzdb                         = 
@@ -150,7 +150,7 @@ define signal functions and instrument maps to support rendering ===============
 >     assignPercussion   :: ∀ p . Clock p ⇒ Instr (Stereo p)
 >     assignPercussion pDur pch vol ps     = assignInstrument pergm pDur pch vol ps
 >       where
->         pergm                            = PerGMKey wF wI Nothing
+>         pergm                            = stdPerGMKey wF (fromIntegral wI)
 >         (wF, wI)                         =
 >           case lookup kind pmap of
 >             Nothing    → error $ unwords ["Percussion does not have", show kind, "in the supplied pmap."]

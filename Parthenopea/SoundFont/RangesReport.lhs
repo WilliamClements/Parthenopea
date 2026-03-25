@@ -5,7 +5,11 @@ RangesReport
 William Clements
 October 5, 2025
 
-> module Parthenopea.SoundFont.RangesReport ( emitSongTime, runUnitTests, skipSong, writeRangesReport ) where
+> module Parthenopea.SoundFont.RangesReport (
+>        emitSongTime
+>        , runUnitTests
+>        , skipSong
+>        , writeRangesReport ) where
 >
 > import qualified Control.Monad           as CM
 > import Data.Array.Unboxed ( inRange )

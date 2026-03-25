@@ -101,6 +101,12 @@ implementing SoundFont spec ====================================================
 >   , pgkwInst           :: !Word
 >   , pgkwBag            :: !(Maybe Word)}
 >   deriving (Eq, Ord, Show)
+> stdPerGMKey            :: Int → Int → PerGMKey
+> stdPerGMKey wFile wInst                  =
+>   PerGMKey
+>     wFile
+>     (fromIntegral wInst)
+>     Nothing
 >
 > data ChangeNameItem                      = FixBadName deriving Eq
 >
@@ -163,7 +169,7 @@ implementing SoundFont spec ====================================================
 > extractSampleKey       :: PreZone → PreSampleKey
 > extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
 > extractInstKey         :: PreZone → PerGMKey
-> extractInstKey pz                        = PerGMKey pz.pzWordF pz.pzWordI Nothing
+> extractInstKey pz                        = stdPerGMKey pz.pzWordF (fromIntegral pz.pzWordI)
 > extractZoneKey         :: PreZone → PreZoneKey
 > extractZoneKey pz                        =
 >   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
@@ -232,15 +238,14 @@ implementing SoundFont spec ====================================================
 >   m1{  mSMatches                         = Lazy.union m1.mSMatches    m2.mSMatches
 >      , mIMatches                         = Lazy.union m1.mIMatches    m2.mIMatches}
 >
-> data Survey                              =
->   Survey {
+> data FileSurvey                          =
+>   FileSurvey {
 >     sPreZones          :: IntMap PreZone
 >   , sPerInstruments    :: Map PerGMKey PerInstrument
 >   , sMatches           :: Matches
 >   , sDispositions      :: ResultDispositions}
-> defSurvey              :: Survey
 > defSurvey                                =
->   Survey
+>   FileSurvey
 >     IntMap.empty
 >     Map.empty
 >     defMatches
@@ -412,7 +417,7 @@ bootstrapping ==================================================================
 >     rd{preSampleDispos = Lazy.insertWith (flip (++)) presk ss rd.preSampleDispos}
 >
 > instance SFKeyType PerGMKey where
->   sfkey wF wI                            = PerGMKey wF wI Nothing
+>   sfkey wF wI                            = stdPerGMKey wF (fromIntegral wI)
 >   wfile k                                = k.pgkwFile
 >   wblob k                                = k.pgkwInst
 >   kname k sffile                         = [Unblocked (show (ssInsts sffile.zFileArrays ! wblob k).instName)]
@@ -424,7 +429,7 @@ bootstrapping ==================================================================
 >   sfkey _ _                              = error "sfkey not supported for PreZoneKey"
 >   wfile k                                = k.pzkwFile
 >   wblob k                                = k.pzkwInst
->   kname k sffile                         =    kname (PerGMKey k.pzkwFile k.pzkwInst Nothing) sffile
+>   kname k sffile                         =    kname (stdPerGMKey k.pzkwFile (fromIntegral k.pzkwInst)) sffile
 >                                            ++ [comma]
 >                                            ++ kname (PreSampleKey k.pzkwFile k.pzkwSampleIndex) sffile
 >   inspect prezk rd                       = fromMaybe [] (Lazy.lookup prezk rd.preZoneDispos)

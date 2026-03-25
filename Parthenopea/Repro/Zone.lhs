@@ -163,10 +163,10 @@ February 15, 2026
 >
 > data AppliedLimits                       =
 >   AppliedLimits {
->     rStart             :: !Word
->   , rEnd               :: !Word
->   , rLoopStart         :: !Word
->   , rLoopEnd           :: !Word}
+>     rStart             :: !Int
+>   , rEnd               :: !Int
+>   , rLoopStart         :: !Int
+>   , rLoopEnd           :: !Int}
 >   deriving (Eq, Show)
 > defApplied             :: AppliedLimits
 > defApplied                               = AppliedLimits 0 0 0 0
@@ -251,11 +251,11 @@ February 15, 2026
 >   where
 >     AppliedLimits{ .. }                        
 >                                          = rApplied
->
+>     fullst, fullen, loopst, loopen, denom
+>                        :: Double
 >     (fullst, fullen)                     = (fromIntegral rStart, fromIntegral rEnd)
 >     (loopst, loopen)                     = (fromIntegral rLoopStart, fromIntegral rLoopEnd)
->     denom              :: Double         = fullen - fullst
->
+>     denom                                = fullen - fullst
 
 reconcile zone and sample header ======================================================================================
 
@@ -287,10 +287,10 @@ reconcile zone and sample header ===============================================
 >         (fromIntegral shdr.sampleRate)
 >
 >         (AppliedLimits
->                     ((+) shdr.start      (fromIntegral zd.zdStart))
->                     ((+) shdr.end        (fromIntegral zd.zdEnd))
->                     ((+) shdr.startLoop  (fromIntegral zd.zdStartLoop))
->                     ((+) shdr.endLoop    (fromIntegral zd.zdEndLoop)))
+>                     ((+) (fromIntegral shdr.start)        zd.zdStart)
+>                     ((+) (fromIntegral shdr.end)          zd.zdEnd)
+>                     ((+) (fromIntegral shdr.startLoop)    zd.zdStartLoop)
+>                     ((+) (fromIntegral shdr.endLoop)      zd.zdEndLoop))
 >         
 >         (fromIntegral $ fromMaybe shdr.originalPitch z.zRootKey)
 >         (fromMaybe 100 z.zScaleTuning)

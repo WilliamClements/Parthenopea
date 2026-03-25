@@ -170,9 +170,9 @@ FileWork =======================================================================
 > instance Show FileIterate where
 >   show fi                                =
 >     unwords ["FileIterate", show fi.fiFw]
-> reduceFileIterate      :: FileIterate → Survey
+> reduceFileIterate      :: FileIterate → FileSurvey
 > reduceFileIterate fi                     =
->   Survey
+>   FileSurvey
 >     (fi.fiFw ^. fwPreZones)
 >     (fi.fiFw ^. fwPerInstruments)
 >     (fi.fiFw ^. fwMatches)
@@ -249,7 +249,7 @@ Boot executive function ========================================================
 > surveyInstruments      :: Directives
 >                           → ([InstrumentName], [PercussionSound])
 >                           → VB.Vector SFFileBoot
->                           → IO (VB.Vector SFFileBoot, Survey)
+>                           → IO (VB.Vector SFFileBoot, FileSurvey)
 > surveyInstruments dives rost sfs         = do
 >   putStr $ reapEmissions
 >     [   EndOfLine
@@ -260,8 +260,8 @@ Boot executive function ========================================================
 >   where
 >     fName_                               = "surveyInstruments"
 >
->     bootFolder         :: (VB.Vector SFFileBoot, Survey) → SFFileBoot → (VB.Vector SFFileBoot, Survey)
->     bootFolder (vFiles, Survey _ cacheIn matchesIn rdIn) sffile
+>     bootFolder         :: (VB.Vector SFFileBoot, FileSurvey) → SFFileBoot → (VB.Vector SFFileBoot, FileSurvey)
+>     bootFolder (vFiles, FileSurvey _ cacheIn matchesIn rdIn) sffile
 >                                          =
 >       let
 >         sy                               = reduceFileIterate ingestFile
@@ -388,11 +388,7 @@ InstZoneRecord administration ==================================================
 >     pergm.pgkwInst
 >     changes Nothing
 > instKey                :: InstZoneRecord → PerGMKey
-> instKey zrec                             =
->   PerGMKey 
->     zrec.zswFile 
->     zrec.zswInst
->     Nothing       
+> instKey zrec                             = stdPerGMKey zrec.zswFile (fromIntegral zrec.zswInst)
 > zrecSmash              :: FileWork → Int → Smashing Word
 > zrecSmash fWork inst                     = fromJust ((fWork ^. fwZRecs) IntMap.! inst).zsSmashup
 

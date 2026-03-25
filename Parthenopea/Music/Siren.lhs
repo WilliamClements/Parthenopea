@@ -518,23 +518,17 @@ examine song for instrument and percussion usage ===============================
 >   where
 >     shFolder ding mev                    =
 >       let
->         kind                             = getGMKind mev
->         mshred                           = Map.lookup kind ding
->
 >         getGMKind MEvent{eInst, ePitch}  =
 >           case eInst of
 >             Percussion                   → Right $ toEnum (ePitch - 35)
 >             _                            → Left eInst
->       in
->         case mshred of
->           Nothing                        → Map.insert kind (Shred mev mev 1) ding
->           Just shred                     → Map.insert kind (upd shred) ding
->       where
->         upd shred                        =
+>         upd shred _                      =
 >           Shred
->            (if ePitch mev < ePitch shred.shLowNote  then mev else shred.shLowNote)
->           (if ePitch mev > ePitch shred.shHighNote then mev else shred.shHighNote)
->              (shred.shCount + 1)
+>             (if ePitch mev < ePitch shred.shLowNote  then mev else shred.shLowNote)
+>             (if ePitch mev > ePitch shred.shHighNote then mev else shred.shHighNote)
+>             (shred.shCount + 1)
+>       in
+>         Map.insertWith upd (getGMKind mev) (Shred mev mev 1) ding
 >
 > combineShreds          :: Shred → Shred → Shred
 > combineShreds s1 s2                      =
@@ -564,44 +558,6 @@ examine song for instrument and percussion usage ===============================
 >       case kind of
 >         Left iname                       → (iname, fromMaybe (0, qMidiInt128 - 1) (instrumentAbsPitchRange iname))
 >         _                                → (Percussion, (0, qMidiInt128 - 1)) 
->
-> printShreds            :: Map GMKind Shred → IO ()
-> printShreds ding                         = 
->   mapM_ (uncurry printShred) (Map.assocs ding)
->   
-> printShred             :: GMKind → Shred → IO ()
-> printShred kind shred                    = do
->   putStrLn showGivenRange
->   putStrLn showLowHighNotes
->
->   where
->   mrange                                 =
->     case kind of
->       Left iname                         → instrumentAbsPitchRange iname
->       _                                  → Nothing
->   showGivenRange                         = showKind ++ "(" ++ show shred.shCount ++ ")" ++ " = " ++ showAvail
->     where
->       showAvail                          = maybe "" (\r → show (fst r) ++ " .. " ++ show (snd r)) mrange
->   showKind                               =
->     case kind of
->       Left iname                         → show iname
->       Right psound                       → show psound
->   showLowHighNotes                       =
->     case kind of
->       Left _                             → showShred shred.shLowNote ++ "\n" ++ showShred shred.shHighNote ++ "\n" 
->       _                                  → showShred shred.shLowNote ++ "\n" 
->   showShred mev                          =
->     case kind of
->       Left _                             → show v
->                                            ++ show (pitch mev.ePitch)
->                                            ++ showOutOfRangeIndicator mev.ePitch
->       _                                  → show v
->     where
->       v                :: Double
->       v                                  = fromRational mev.eTime
->   showOutOfRangeIndicator p              = if isNothing mrange || inRange (deJust "range" mrange) p
->                                              then "."
->                                              else "!"
 
 music-related utilities ===============================================================================================
           some code _copied_ from HSoM and Euterpea - if you feel strongly, I'll do it the right way with exports
