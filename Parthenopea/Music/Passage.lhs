@@ -303,12 +303,10 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 
 Configurable parameters ===============================================================================================
 
-> enableDynamics         :: Bool
 > enableInflections      :: Bool    
 
 Edit the following ====================================================================================================
 
-> enableDynamics                           = True
 > enableInflections                        = True
 
 The End

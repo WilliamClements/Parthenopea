@@ -222,9 +222,9 @@ FileWork development ===========================================================
 >      , ("capture",    clean . shrink . capture)
 >      , ("smash 1",    smash)
 >      , ("reorg",      clean . shrink . reorg) 
->      , ("match",      match)
 >      , ("pair",       pair)
 >      , ("vet",        clean . shrink . vet)
+>      , ("match",      match)
 >      , ("adopt",      adopt)
 >      , ("smash 2",    smash)
 >      , ("perI",       perI)]
@@ -1190,13 +1190,13 @@ clean task =====================================================================
 >     work                                 =
 >       let      
 >         cleaner zrec rdFold              =
->           case wInst `IntMap.lookup` (fWork ^. fwZoneOwners) of
+>           case wInst `IntMap.lookup` owners' of
 >             Nothing                      → (Nothing,   dispose (instKey zrec) ssNoZones rdFold)
 >             _                            → (Just zrec, rdFold)
 >           where
->             wInst                        = fromIntegral (tracer "clean wInst" zrec.zswInst)
+>             wInst                        = fromIntegral zrec.zswInst
 >       in
->         zrecTask cleaner ((fwZoneOwners .~ (tracer "owners'" owners')) fWork)
+>         zrecTask cleaner ((fwZoneOwners .~ owners') fWork)
 
 perI task =============================================================================================================
           generating PerInstrument map
