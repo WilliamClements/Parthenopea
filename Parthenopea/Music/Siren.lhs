@@ -680,7 +680,7 @@ Returns sample point as (normalized) Double
 > samplePoint s16 ms8 ix                   = sample24 (s16 ! ix) (fromIntegral (maybe 0 (! ix) ms8))
 >
 > samplePointInterp      :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Double → Int → Double
-> samplePointInterp s16 ms8 offs ix      = s0 + offs * (s1 - s0)
+> samplePointInterp s16 ms8 offs ix        = s0 + offs * (s1 - s0)
 >   where
 >     (s0, s1)           :: (Double, Double)
 >                                          = (  samplePoint s16 ms8 ix

@@ -299,7 +299,7 @@ tournament starts here =========================================================
 >
 >                 mz     :: Maybe PreZone
 >                 mz                       =
->                   pergmP.pgkwBag >>= (Just . accessPreZone "pergmP" sffile.zPreZones . fromIntegral)
+>                   pergmP.pgkwBag >>= Just . (sffile.zPreZones IntMap.!) . fromIntegral
 >                 mkind  :: Maybe PercussionSound
 >                 mkind                    = mz >>= getAP >>= pitchToPerc
 >                 mffm   :: Maybe FFMatches
@@ -353,12 +353,12 @@ tournament starts here =========================================================
 >
 >         scope                            =
 >           let
->             oneZone bix                  = IntMap.singleton bix (accessPreZone "oneZone" sffile.zPreZones bix)
+>             oneZone bix                  = IntMap.singleton bix (sffile.zPreZones IntMap.! bix)
 >           in
 >             maybe (accessPreZones "scope" sffile.zPreZones (ownedOnly perI)) (oneZone . fromIntegral) pergm.pgkwBag
 >
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
->                                            >>= (Just . accessPreZone "mnameZ" sffile.zPreZones . fromIntegral)
+>                                            >>= Just . (sffile.zPreZones IntMap.!) . fromIntegral
 >                                            >>= \q → Just (F.sampleName (effPZShdr q))
 >
 >         computeGrade   :: IntMap PreZone → ArtifactGrade

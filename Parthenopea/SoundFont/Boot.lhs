@@ -611,8 +611,7 @@ consume zone ===================================================================
 >         xmodi                            = F.modNdx $ boota.ssIBags!bix
 >         ymodi                            = F.modNdx $ boota.ssIBags!(bix + 1)
 >
->         gens           :: [F.Generator]
->         gens                             =
+>         gens           :: [F.Generator]  =
 >           profess
 >             (xgeni <= ygeni)
 >             (unwords[fName, "SoundFont file", show sffile.zWordFBoot, sffile.zFilename, "corrupt gens"])
@@ -715,8 +714,7 @@ pairing approach ===============================================================
 
           And remember: peg 'em and pin 'em! I.E. collate (peg) candidates to push (pin) matchers to pairs list.
 
->     sy                 :: PairsSurvey
->     sy                                   = head $ dropWhile unfinished $ iterate' nextGen sinit
+>     sy                 :: PairsSurvey    = head $ dropWhile unfinished $ iterate' nextGen sinit
 >       where
 >         sinit                            =
 >           PairsSurvey 
@@ -761,7 +759,7 @@ Pairing algorithm phases =======================================================
 >     linkless sy                           =
 >       let
 >         (bixenL, bixenR)                  = IntSet.partition isLeft (sy ^. psUnpaired)
->         isLeft bix                        = isLeftPZ $ accessPreZone "linkless" (fWork ^. fwPreZones) bix 
+>         isLeft bix                        = isLeftPZ $ (fWork ^. fwPreZones) IntMap.! bix 
 >       in
 >         if linklessPairing
 >           then inducePairs False bixenL bixenR
@@ -772,10 +770,10 @@ Pairing algorithm phases =======================================================
 >       IntMap.foldl' (uncurry fFolder) (IntMap.empty, IntMap.empty) (fWork ^. fwPreZones)
 >       where
 >         fFolder mleft mright pz
->           | isLeftPZ pz              = (putMembers pz mleft, mright)
->           | isRightPZ pz             = (mleft, putMembers pz mright)
->           | otherwise                = (mleft, mright)
->         putMembers pz                =
+>           | isLeftPZ pz                  = (putMembers pz mleft, mright)
+>           | isRightPZ pz                 = (mleft, putMembers pz mright)
+>           | otherwise                    = (mleft, mright)
+>         putMembers pz                    =
 >           IntMap.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
 >
 >     conducePairing     :: Bool                         {- exotic                                 -}
@@ -808,7 +806,7 @@ Pairing algorithm phases =======================================================
 >           where
 >             pegBix m bix                 = 
 >               let
->                 pz                       = accessPreZone "pegBix" (fWork ^. fwPreZones) bix
+>                 pz                       = (fWork ^. fwPreZones) IntMap.! bix
 >                 iSlot                    = PairingSlot
 >                                              (if allowCross || allowParallel then Nothing else Just pz.pzWordI)
 >                                              (fromMaybe (0, qMidiWord128 - 1) pz.pzDigest.zdKeyRange)
@@ -834,8 +832,8 @@ Pairing algorithm phases =======================================================
 >
 >             (zipParallel, zipCross)      = partition (uncurry areParallel) zipped
 >               where
->                 areParallel bixL bixR    =    (accessPreZone "pin bixL" (fWork ^. fwPreZones) bixL).pzWordI
->                                            == (accessPreZone "pin bixR" (fWork ^. fwPreZones) bixR).pzWordI   
+>                 areParallel bixL bixR    =    ((fWork ^. fwPreZones) IntMap.! bixL).pzWordI
+>                                            == ((fWork ^. fwPreZones) IntMap.! bixR).pzWordI   
 
 Pairing book-keeping ==================================================================================================
 
@@ -891,7 +889,7 @@ pairing convenience functions ==================================================
 > makeActions pzdb                         =
 >   let
 >     make actions bix                     = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton bix) actions
->                                              where pz = accessPreZone "makeActions" pzdb bix
+>                                              where pz = pzdb IntMap.! bix
 >   in
 >     IntSet.foldl' make IntMap.empty
 
@@ -949,13 +947,13 @@ vet task =======================================================================
 >                        :: IntMap PreZone → ResultDispositions → Int → (IntMap PreZone, ResultDispositions)
 >         makeThemMono pzdb rd bix         =
 >           let
->             pz                           = accessPreZone "makeThemMono" (fWork ^. fwPreZones) bix
+>             pz                           = (fWork ^. fwPreZones) IntMap.! bix
 >           in
 >             (IntMap.update (Just . makeMono) (wordB pz) pzdb, rd)
 >             
 >         killThem pzdb rd bix             = 
 >           let
->             pz                           = accessPreZone "killThem" (fWork ^. fwPreZones) bix
+>             pz                           = (fWork ^. fwPreZones) IntMap.! bix
 >             ssKill                       =
 >               [Scan Violated BadStereoPartner fName zrec.zswChanges.cnName]
 >           in
@@ -975,7 +973,7 @@ adopt task =====================================================================
 >       let
 >         fName                            = "adopt"
 >
->         pz                               = accessPreZone fName (fWork ^. fwPreZones) bix
+>         pz                               = (fWork ^. fwPreZones) IntMap.! bix
 >         imp                              = if wasSwitchedToMono pz then AdoptedAsMono else Adopted
 >         ssAdopt                          =
 >           [Scan Modified imp fName zrec.zswChanges.cnName]
@@ -992,12 +990,14 @@ smash task =====================================================================
 >       let
 >         tag                              = show zrec.zswInst
 >
->         bixenPaired                      = fromMaybe IntSet.empty (zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneOwners))
->         bixenCrossing                    = fromMaybe IntSet.empty (zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneCrossing))
+>         bixenOwned                       =
+>           fromMaybe IntSet.empty (zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneOwners))
+>         bixenCrossing                    =
+>           fromMaybe IntSet.empty (zrec.zswInst `IntMap.lookup` (fWork ^. fwZoneCrossing))
 >
 >         smashVar                         =
 >           zrec.zsSmashup
->             <|> Just (computeInstSmashup tag (fWork ^. fwPreZones) (bixenPaired `IntSet.union` bixenCrossing))
+>             <|> Just (computeInstSmashup tag (fWork ^. fwPreZones) (bixenOwned `IntSet.union` bixenCrossing))
 >       in
 >         (Just zrec{zsSmashup = smashVar}, rdFold)
 >
@@ -1220,7 +1220,7 @@ perI task ======================================================================
 >         rdFold'                          =
 >           let
 >             blessZone rd bix             = dispose (extractZoneKey pz) ssPreZone rd
->                                              where pz = accessPreZone "blessZone" (fWork ^. fwPreZones) bix
+>                                              where pz = (fWork ^. fwPreZones) IntMap.! bix
 >           in
 >             IntSet.foldl' blessZone rdFold (allBixen perI)
 

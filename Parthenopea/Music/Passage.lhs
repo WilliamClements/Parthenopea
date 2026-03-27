@@ -21,7 +21,7 @@ August 15, 2025
 > import Parthenopea.Music.Siren ( bandPartContext, BandPart(..), stdVelocity)
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
-
+  
 Notation-Driven Dynamics ==============================================================================================
            When Passage is used, each note in a group is assigned a volume range versus time. Underlying synthesizer
            interprets that to vary output volume accordingly.
@@ -110,6 +110,7 @@ _Overall_                =
 >   case mek.mMarking of
 >     Mark x                               → stdVelocity x
 >     Inflect x                            → stdVelocity x
+>     Tail x                               → stdVelocity x
 >     _                                    → error "no mark velocity"
 > passage                :: Directives → BandPart → [Marking] → Music Pitch → Music1
 > passage dives bp markings ma
@@ -146,7 +147,10 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >       in
 >         (doUpdate enrich . doUpdate seeSeeded . doUpdate wearOveralls) rawMeks
 >
->     -- reconstruct notes with added dynamics metadata
+
+finalFold =============================================================================================================
+      reconstruct notes with added dynamics metadata
+
 >     finalFold          :: Music1 → MekNote → Music1 
 >     finalFold music mek                  =
 >       music :+: case mek.mPrimitive of
@@ -166,6 +170,14 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >         
 >         average sweeps                   = round $ VB.sum sweeps / (fromIntegral . VB.length) sweeps
 >
+
+makeMeks ==============================================================================================================
+      zip tpgether heterogeneous data to be operated on further
+      1. index
+      2. Music Primitive
+      3. composer's velocity Marking
+      4. MEvent from "performing" the music snippet 
+
 >     makeMeks                             =
 >       profess
 >         (nPrims > 0 && (nPrims == nMarks))
@@ -202,7 +214,10 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >                     Rest _               → (VB.empty,                                   0)
 >           in
 >             fst $ VB.foldl' slotIn (VB.empty, 0) prims
->
+
+wearOveralls ==========================================================================================================
+      based on the node pairs and the node groups, compute transforms to thread the velocity changes through
+
 >     wearOveralls vIn                     =
 >       VB.concatMap (uncurry computeOverall) nodePairs VB.++ computeOverall lastSi lastSi
 >       where
@@ -223,7 +238,10 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >
 >             loud0                        = (fromIntegral . getMarkVelocity) mek0
 >             loud1                        = (fromIntegral . getMarkVelocity) mek1
->
+
+seeSeeded =============================================================================================================
+      infuse meks' mParams with fourVelos or twoVelos
+
 >     seeSeeded vIn                        = VB.concatMap enseed nodeGroups
 >       where
 >         enseed         :: VB.Vector SelfIndex → VB.Vector MekNote
@@ -258,7 +276,10 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >                   case VB.find (\np → snd np == si0) nodePairs of
 >                     Just np              → deJust (unwords [fName, show np]) (vIn VB.! fst np).mOverall
 >                     Nothing              → error $ unwords [fName, "inflection has no previous node !?"]
->
+
+enrich ================================================================================================================
+      nail down the velocities per note
+
 >     enrich vIn                           = fst $ VB.foldl' enrichFold (VB.empty, bp.bpHomeVelocity) vIn
 >       where
 >         enrichFold     :: (VB.Vector MekNote, Velocity)
@@ -277,7 +298,10 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >                 _                        → VB.empty
 >           in
 >             (updates VB.++ updateOne, velo')
->
+
+formNodeGroups ========================================================================================================
+      (utility) - find the inflections, etc.
+
 > formNodeGroups         :: VB.Vector MekNote
 >                           → (VB.Vector (SelfIndex, SelfIndex), VB.Vector (VB.Vector SelfIndex))
 > formNodeGroups meks                      = (nodePairs, nodeGroups)

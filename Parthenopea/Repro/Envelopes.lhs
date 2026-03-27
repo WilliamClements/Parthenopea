@@ -23,7 +23,6 @@ Apr 26, 2025
 > import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
 > import Euterpea.IO.Audio.Types ( Clock(..), Signal )
-> import Parthenopea.Debug
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
@@ -104,28 +103,17 @@ Create a straight-line envelope generator with following phases:
 > doSweepingEnvelope timeFrame             = either (constA . fromIntegral) (doSweeps timeFrame)
 >
 > doSweeps               :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
-> doSweeps timeFrame sweeps
->   | traceIf trace_DSE False              = undefined
->   | otherwise                            = envLineSeg segs.sAmps segs.sDeltaTs
+> doSweeps timeFrame sweeps                = envLineSeg segs.sAmps segs.sDeltaTs
 >   where
->     fName                                = "doSweepingEnvelope"
->     trace_DSE                            = unwords[fName, show segs]
->
->     dLen                                 = VB.length sweeps
->     segs                                 =
->       case dLen of
+>     segs               :: Segments       =
+>       case VB.length sweeps of
 >         2                                → segmentsFor2
 >         4                                → segmentsFor4
 >         _                                →
->           error $ unwords [fName, show dLen, "is illegal (not two or four) length for velo sweeping"]
+>           error $ unwords [show $ VB.length sweeps, "is illegal (not two or four) length for velo sweeping"]
 >
->     stVelo0, enVelo0, stVelo1, enVelo1, step, midsection, leg
+>     step, midsection, leg
 >                        :: Double 
->     stVelo0                              = sweeps VB.! 0
->     enVelo0                              = sweeps VB.! 1
->     stVelo1                              = sweeps VB.! 2
->     enVelo1                              = sweeps VB.! 3
->
 >     step                                 = timeFrame.tfSecsToPlay - 2 * minDeltaT
 >     midsection                           = step / 8
 >     leg                                  = step * 7 / 16
@@ -134,12 +122,12 @@ Create a straight-line envelope generator with following phases:
 >                        :: Segments
 >     segmentsFor2                         =
 >       Segments
->         [0,         stVelo0,       enVelo0,         0,           0]
+>         [0,      sweeps VB.! 0,    sweeps VB.! 1,         0,           0]
 >         [ minDeltaT,       step,       minDeltaT,  minUseful]
 >     segmentsFor4                         =
 >       Segments
->         [   0,      stVelo0,     enVelo0,     stVelo1,     enVelo1,       0,            0]
->         [  minDeltaT,     leg,      midsection,     leg,     minDeltaT,    minUseful]
+>         [   0,  sweeps VB.! 0,   sweeps VB.! 1,  sweeps VB.! 2,  sweeps VB.! 3,       0,            0]
+>         [  minDeltaT,     leg,      midsection,         leg,            minDeltaT,    minUseful]
 
 stepwise refinement from specified envelope parameters ================================================================
 
@@ -316,9 +304,7 @@ audio. For example, there should always be zeros at the beginning and end of eve
 > maybeVetAsDiscreteSig  :: FEnvelope → Segments → Bool
 > maybeVetAsDiscreteSig env segs           = (dt /= clip (1/32, 2) dt) || isJust (vetAsDiscreteSig ctrRate env segs)
 >   where
->     fName                                = "maybeVetAsDiscreteSig"
->
->     dt                                   = (deJust fName env.fExtras).eeTargetT
+>     dt                                   = maybe minDeltaT eeTargetT env.fExtras
 >
 > vetAsDiscreteSig       :: Double → FEnvelope → Segments → Maybe (DiscreteSig Double)
 > vetAsDiscreteSig clockRate env segs

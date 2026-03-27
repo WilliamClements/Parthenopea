@@ -84,8 +84,6 @@ cache SoundFont data that is only needed for Runtime ===========================
 >     supply             :: SFFileBoot → Maybe (Int, SFFileRuntime)
 >     supply sffile                        = sffile.zWordFBoot `IntMap.lookup` actions >>= runtimeFile
 >       where
->         fName                            = "supply"
->
 >         runtimeFile insts                =    
 >           let
 >             getPerI inst                 =
@@ -104,7 +102,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >
 >                 doSave m bix             =
 >                   let
->                     pz                   = accessPreZone fName sffile.zPreZones bix
+>                     pz                   = sffile.zPreZones IntMap.! bix
 >                   in
 >                     IntMap.insert bix (resolve pz) m
 >
