@@ -7,6 +7,7 @@ August 15, 2025
 > module Parthenopea.Music.PassageTest ( passageTests ) where
 >
 > import qualified Data.Vector.Strict      as VB
+> import Euterpea.IO.MIDI.MEvent ( MEvent(..) )
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Passage
@@ -14,13 +15,10 @@ August 15, 2025
 > import Parthenopea.SoundFont.Directives
 >
 > passageTests           :: [IO Bool]
-> passageTests                             = []
-> {-
-> passageTests                             = [singleIsSingle
+> passageTests = [singleIsSingle
 >                                           , doubleIsDouble
 >                                           , fourReMarksWork
 >                                           , fourMarksWork ]
-> -}
 >
 > aPrims, cPrims
 >                        :: VB.Vector (Primitive Pitch)
@@ -44,37 +42,42 @@ August 15, 2025
 >
 > testMeks               :: VB.Vector (Primitive Pitch) → [Marking] → VB.Vector MekNote
 > testMeks prims markings                  =
->   VB.zipWith4 makeMekNote (VB.fromList [0..3]) prims (expandMarkings markings) VB.empty
+>   VB.zipWith4 makeMekNote
+>               (VB.fromList [0..3])
+>               prims
+>               (expandMarkings markings)
+>               (VB.fromList [Just (MEvent 0 ElectricGrandPiano 0 0 0 [])])
 >
 > singleIsSingle         :: IO Bool
 > singleIsSingle                           = do
+>   putStrLn "golf"
 >   return
 >     $ aEqual
->         (formNodeGroups $ testMeks aPrims aMarkings)
->         (VB.fromList [(0,2)], VB.fromList [VB.fromList[0, 2]])
+>         (formNodeGroups $ tracer "meks" $ testMeks aPrims aMarkings)
+>         (VB.fromList [(0,2)], [VB.fromList[0, 2]])
 >
 > doubleIsDouble         :: IO Bool
 > doubleIsDouble                           = do
 >   return
 >     $ aEqual
 >         (formNodeGroups $ testMeks aPrims bMarkings)
->         (VB.fromList [(0,2)], VB.fromList [VB.fromList[0], VB.fromList[2]])
+>         (VB.fromList [(0,2)], [VB.fromList[0], VB.fromList[2]])
 >
 > fourReMarksWork        :: IO Bool
 > fourReMarksWork                           = do
 >   return
 >     $ aEqual
 >         (formNodeGroups $ testMeks cPrims cMarkings)
->         (VB.fromList [(0,1),(1,2),(2,3)], VB.fromList [  VB.fromList [0]
->                                                        , VB.fromList [1]
->                                                        , VB.fromList [2]
->                                                        , VB.fromList [3]])
+>         (VB.fromList [(0,1),(1,2),(2,3)], [  VB.fromList [0]
+>                                              , VB.fromList [1]
+>                                              , VB.fromList [2]
+>                                              , VB.fromList [3]])
 >
 > fourMarksWork         :: IO Bool
 > fourMarksWork                            = do
 >   return
 >     $ aEqual
 >         (formNodeGroups $ testMeks cPrims dMarkings)
->         (VB.fromList [(0,1),(1,2),(2,3)], VB.fromList [ VB.fromList [0, 1, 2, 3]])
+>         (VB.fromList [(0,1),(1,2),(2,3)], [ VB.fromList [0, 1, 2, 3]])
 
 The End 

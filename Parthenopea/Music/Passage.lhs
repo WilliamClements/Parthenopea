@@ -24,7 +24,7 @@ August 15, 2025
   
 Notation-Driven Dynamics ==============================================================================================
            When Passage is used, each note in a group is assigned a volume range versus time. Underlying synthesizer
-           interprets that to vary output volume accordingly.
+           interprets that to vary output volume accordingly -- across the whole phrase.
 
 _Marking_                = composer's passage-shape directive, sequence
 _Overall_                = 
@@ -75,12 +75,12 @@ _Overall_                =
 >                                            , velocity (onset + delta / 2) over1
 >                                            , velocity (onset + delta)     over1]
 > branchVelos            :: VB.Vector Double → Either Velocity (VB.Vector Double)
-> branchVelos vIn                          =
->   if VB.all (nearlyEqual keyParam) vIn
+> branchVelos meksIn                       =
+>   if VB.all (nearlyEqual keyParam) meksIn
 >     then (Left . round) keyParam
->     else Right vIn
+>     else Right meksIn
 >   where
->     keyParam                             = vIn VB.! 0
+>     keyParam                             = meksIn VB.! 0
 >     nearlyEqual x y                      = abs (y - x) < epsilon
 >
 > data MekNote                             =
@@ -119,10 +119,12 @@ _Overall_                =
 >   | otherwise                            =
 >     removeZeros $ passageImpl dives bp (expandMarkings markings) (removeZeros ma)
 
-Construct a vector of MekNotes called "enriched" then fold it into a Music1 ===========================================
+passageImpl ==========================================================================================================
+      Construct a vector of MekNotes called "enriched" then fold it into a Music1
+      M.E.K. = Music Education for Kids
 
 > passageImpl            :: Directives → BandPart → VB.Vector Marking → Music Pitch → Music1
-> passageImpl _ bp markings ma
+> passageImpl dives bp markings ma
 >   | traceIf trace_IP False               = undefined
 >   | otherwise                            = VB.foldl' finalFold (rest 0) enriched
 >   where
@@ -132,24 +134,24 @@ Construct a vector of MekNotes called "enriched" then fold it into a Music1 ====
 >     enriched, rawMeks  :: VB.Vector MekNote
 >
 >     -- stepwise evolution of enriched note/rest (MekNote) vector via these functions
->     wearOveralls, seeSeeded, enrich
+>     -- each function produces an update vector with elements that need to be changed
+>     wearOveralls, sewSeeds, enfill
 >                        :: VB.Vector MekNote → VB.Vector MekNote
 >
 >     rawMeks                              = makeMeks    
 >     mekFence                             = VB.length rawMeks - 1
 >     (nodePairs, nodeGroups)              = formNodeGroups rawMeks
 >
->     enriched                             =
+>     enriched                             = notracer "enriched" $
 >       let
 >         doUpdate       :: (VB.Vector MekNote → VB.Vector MekNote) → VB.Vector MekNote → VB.Vector MekNote
->         doUpdate updateIf vIn            = VB.update vIn $ VB.map enTag $ updateIf vIn
+>         doUpdate updateIf meksIn         = VB.update meksIn $ VB.map enTag $ updateIf (notracer "meksIn" meksIn)
 >                                              where enTag mek = (mek.mSelfIndex, mek)
 >       in
->         (doUpdate enrich . doUpdate seeSeeded . doUpdate wearOveralls) rawMeks
->
+>         (doUpdate enfill . doUpdate sewSeeds . doUpdate wearOveralls) rawMeks
 
 finalFold =============================================================================================================
-      reconstruct notes with added dynamics metadata
+      construct and enfix the note attributes that determine the "passage" input to the runtime synthesizer
 
 >     finalFold          :: Music1 → MekNote → Music1 
 >     finalFold music mek                  =
@@ -169,14 +171,17 @@ finalFold ======================================================================
 >             [(Volume . average) sweeps, (Params . VB.toList) sweeps]
 >         
 >         average sweeps                   = round $ VB.sum sweeps / (fromIntegral . VB.length) sweeps
->
 
 makeMeks ==============================================================================================================
-      zip tpgether heterogeneous data to be operated on further
-      1. index
+      quick-zip together the available heterogeneous data per primitive
+      1. (index)
       2. Music Primitive
       3. composer's velocity Marking
-      4. MEvent from "performing" the music snippet 
+      4. Maybe MEvent from "performing" the music snippet
+
+      later stages will compute and add following data to each M.E.K. note
+      1. transform having type Overall
+      2. directive having type Maybe (Either Velocity (VB.Vector Double))}
 
 >     makeMeks                             =
 >       profess
@@ -216,9 +221,11 @@ makeMeks =======================================================================
 >             fst $ VB.foldl' slotIn (VB.empty, 0) prims
 
 wearOveralls ==========================================================================================================
-      based on the node pairs and the node groups, compute transforms to thread the velocity changes through
+      compute transforms (Overalls) to thread the velocity changes through
+      irrespective of grouping, it folds on nodePairs
+      the Overall is consumed in fourVelos or twoVelos - core dynamics functions
 
->     wearOveralls vIn                     =
+>     wearOveralls meksIn                  =
 >       VB.concatMap (uncurry computeOverall) nodePairs VB.++ computeOverall lastSi lastSi
 >       where
 >         lastSi                           = if null nodePairs
@@ -230,8 +237,8 @@ wearOveralls ===================================================================
 >           where
 >             fName                        = "computeOverall"
 >
->             mek0                         = vIn VB.! si0
->             mek1                         = vIn VB.! si1
+>             mek0                         = meksIn VB.! si0
+>             mek1                         = meksIn VB.! si1
 >
 >             ev0                          = deJust (unwords [fName, "ev0"]) mek0.mEvent
 >             ev1                          = deJust (unwords [fName, "ev1"]) mek1.mEvent
@@ -239,15 +246,16 @@ wearOveralls ===================================================================
 >             loud0                        = (fromIntegral . getMarkVelocity) mek0
 >             loud1                        = (fromIntegral . getMarkVelocity) mek1
 
-seeSeeded =============================================================================================================
-      infuse meks' mParams with fourVelos or twoVelos
+sewSeeds ==============================================================================================================
+      infuse M.E.K. notes' mParams, which has the type Maybe (Either Velocity (Vector Double))
+      folds on nodeGroups
 
->     seeSeeded vIn                        = VB.concatMap enseed nodeGroups
+>     sewSeeds meksIn                      = VB.concat (map enseed nodeGroups)
 >       where
 >         enseed         :: VB.Vector SelfIndex → VB.Vector MekNote
 >         enseed nodeGroup
->           | gLen == 0                    = error "no nodes in node group"
->           | gLen == 1                    = seedOne $ vIn VB.! (nodeGroup VB.! 0)
+>           | gLen == 0                    = error $ unwords [fName_, "no nodes in node group"]
+>           | gLen == 1                    = seedOne $ meksIn VB.! (nodeGroup VB.! 0)
 >           | otherwise                    =
 >           VB.concatMap (uncurry seeden) (VB.zip nodeGroup (VB.tail nodeGroup))
 >                        VB.++ seeden (VB.last nodeGroup) (VB.last nodeGroup)
@@ -255,15 +263,18 @@ seeSeeded ======================================================================
 >             gLen                         = VB.length nodeGroup  
 >             seedOne mekArg               = VB.singleton $ mekArg{mParams = (Just . Left) (getMarkVelocity mekArg)}
 >
->             seeden si0 si1               = VB.map infuse seedMeks
+>             seeden si0_ si1_             = VB.map infuse seedMeks
 >               where
+>                 si0                      = notracer "si0" si0_
+>                 si1                      = notracer "si1" si1_
+>
 >                 fName                    = "seeden"
 >
->                 seedMeks                 = VB.slice si0 (si1 - si0 + 1 - fencePost) vIn
+>                 seedMeks                 = VB.slice si0 (si1 - si0 + 1 - fencePost) meksIn
 >                                              where fencePost = if si1 == mekFence then 0 else 1
 >
 >                 infuse mek               =
->                   if enableInflections && si0 == mek.mSelfIndex && si0 /= VB.head nodeGroup
+>                   if dives.synthSwitches.useInflections && si0 == mek.mSelfIndex && si0 /= VB.head nodeGroup
 >                     then mek{mParams = Just (fourVelos onset delta overPrev over)}
 >                     else mek{mParams = Just (twoVelos onset delta over)}
 >                   where
@@ -271,21 +282,22 @@ seeSeeded ======================================================================
 >                     onset                = fromRational ev.eTime
 >                     delta                = fromRational ev.eDur
 >
->                 over                     = deJust (unwords [fName, show si0]) (vIn VB.! si0).mOverall
+>                 over                     = deJust (unwords [fName, show si0]) (meksIn VB.! si0).mOverall
 >                 overPrev                 =
 >                   case VB.find (\np → snd np == si0) nodePairs of
->                     Just np              → deJust (unwords [fName, show np]) (vIn VB.! fst np).mOverall
+>                     Just np              → deJust (unwords [fName, show np]) (meksIn VB.! fst np).mOverall
 >                     Nothing              → error $ unwords [fName, "inflection has no previous node !?"]
 
-enrich ================================================================================================================
-      nail down the velocities per note
+enfill ================================================================================================================
+      fills in any as yet undetermined mParams with simple (Left) Velocity
+      folds on MekNotes
 
->     enrich vIn                           = fst $ VB.foldl' enrichFold (VB.empty, bp.bpHomeVelocity) vIn
+>     enfill meksIn                        = fst $ VB.foldl' fillOne (VB.empty, bp.bpHomeVelocity) meksIn
 >       where
->         enrichFold     :: (VB.Vector MekNote, Velocity)
+>         fillOne        :: (VB.Vector MekNote, Velocity)
 >                           → MekNote
 >                           → (VB.Vector MekNote, Velocity)
->         enrichFold (updates, velo) mek       =
+>         fillOne (updates, velo) mek      =
 >           let
 >             velo'                        =
 >               case mek.mMarking of
@@ -300,37 +312,31 @@ enrich =========================================================================
 >             (updates VB.++ updateOne, velo')
 
 formNodeGroups ========================================================================================================
-      (utility) - find the inflections, etc.
+      model the inflection/non-inflection sequence
+      each value in nodePairs is the SelfIndex pair identifying consecutive nodes of source vector
 
 > formNodeGroups         :: VB.Vector MekNote
->                           → (VB.Vector (SelfIndex, SelfIndex), VB.Vector (VB.Vector SelfIndex))
+>                           → (VB.Vector (SelfIndex, SelfIndex), [VB.Vector SelfIndex])
 > formNodeGroups meks                      = (nodePairs, nodeGroups)
 >   where
+>     getMarkNode mek                      =
+>       case mek.mMarking of
+>         Mark _                           → VB.singleton mek.mSelfIndex
+>         Inflect _                        → VB.singleton mek.mSelfIndex
+>         _                                → VB.empty
 >     nodes                                =
 >       let
->         getMarkNode mek                  =
->           case mek.mMarking of
->             Mark _                       → VB.singleton mek.mSelfIndex
->             Inflect _                    → VB.singleton mek.mSelfIndex
->             _                            → VB.empty
->
 >         append sis mek                   = sis VB.++ getMarkNode mek
 >       in
 >         VB.foldl' append VB.empty meks
 >     nodePairs                            = VB.zip nodes (VB.tail nodes)
->     nodeGroups                           = VB.fromList $ VB.groupBy inflected nodes
->       where
+>     nodeGroups                           =
+>       let
 >         inflected _ si                   =
 >           case (meks VB.! si).mMarking of
 >             Mark _                       → False
 >             _                            → True
-
-Configurable parameters ===============================================================================================
-
-> enableInflections      :: Bool    
-
-Edit the following ====================================================================================================
-
-> enableInflections                        = True
+>       in
+>          VB.groupBy inflected nodes
 
 The End

@@ -36,6 +36,7 @@ configuration ("Directives") ===================================================
 >   SynthSwitches {
 >     useEnvelopes       :: !Bool
 >   , usePassages        :: !Bool
+>   , useInflections     :: !Bool
 >   , useModulators      :: !Bool
 >   , useDefModulators   :: !Bool
 >   , useNoteBending     :: !Bool
@@ -59,6 +60,7 @@ useLFO
 > defSynthSwitches       :: SynthSwitches
 > defSynthSwitches                         =
 >   SynthSwitches
+>     True
 >     True
 >     True
 >     True
