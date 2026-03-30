@@ -131,7 +131,7 @@ time ===========================================================================
 >     (tStart, tEnd)                       = (zonedTimeToUTC tsThen, zonedTimeToUTC tsNow)
 >     utcDiff                              = diffUTCTime tEnd tStart
 >   in
->     formatTime defaultTimeLocale "%H:%M:%S" (posixSecondsToUTCTime utcDiff)
+>     formatTime defaultTimeLocale "%H:%M:%S%Q" (posixSecondsToUTCTime utcDiff)
 >
 > ctrRate, audRate       :: Double
 > ctrRate                                  = rate (undefined :: CtrRate)

@@ -7,7 +7,8 @@ William Clements
 August 15, 2025
 
 > module Parthenopea.Music.Passage(
->        expandMarkings
+>        enrichPassage
+>        , expandMarkings
 >        , formNodeGroups
 >        , makeMekNote
 >        , Marking(..)
@@ -118,11 +119,13 @@ _Overall_                =
 > passage dives bp markings ma
 >   | not dives.synthSwitches.usePassages  = toMusic1 ma
 >   | null markings                        = error $ unwords ["empty markings"]
->   | otherwise                            = removeZeros musicOut
+>   | otherwise                            = (removeZeros . passageToMusic) meksIn
 >   where
->     meksIn                               = enrichPassage dives bp (expandMarkings markings) musicIn
->     musicIn                              = removeZeros ma
->     musicOut                             = foldl' finalFold (rest 0) meksIn
+>     meksIn                               = enrichPassage dives bp (expandMarkings markings) (removeZeros ma)
+>
+> passageToMusic         :: VB.Vector MekNote → Music1
+> passageToMusic meksIn                    = foldl' finalFold (rest 0) meksIn
+>   where
 
 finalFold =============================================================================================================
       construct and enfix the note attributes that determine the "passage" input to the runtime synthesizer
@@ -150,9 +153,12 @@ enrichPassage ==================================================================
       Construct a vector of MekNotes called "enriched" then fold it into a Music1
 
 > enrichPassage          :: Directives → BandPart → VB.Vector Marking → Music Pitch → VB.Vector MekNote
-> enrichPassage dives bp markings musicIn  = enriched
+> enrichPassage dives bp markings musicIn 
+>   | traceIf trace_EP False               = undefined
+>   | otherwise                            = enriched
 >   where
 >     fName                                = "enrichPassage"
+>     trace_EP                             = unwords [fName, show mekFence, show markings]
 >
 >     enriched, rawMeks  :: VB.Vector MekNote
 >
@@ -186,8 +192,11 @@ makeMeks =======================================================================
 
 >     makeMeks                             =
 >       profess
->         (nPrims > 0 && (nPrims == nMarks))
->         (unwords ["bad lengths; prims, markings", show (nPrims, nMarks)])
+>         (nPrims > 0 && (nPrims == nMarks) && (not $ null evs))
+>         (unwords ["bad length(s) in; prims, markings, evs"
+>                 , "\nprims=", show $ length prims, show prims
+>                 , "\nmarks=", show $ VB.length markings, show markings
+>                 , "\nevs=", show $ length evs, show evs])
 >         (VB.zipWith4 makeMekNote
 >                        selfIndices
 >                        prims
@@ -202,12 +211,13 @@ makeMeks =======================================================================
 >         prims                            =
 >           let
 >             pFun (Note pP dP)            = VB.singleton (Note pP dP)
->             pFun (Rest dP)               = VB.singleton (Rest dP)
+>             pFun (Rest _)                = VB.empty
 >             noChords _ _                 = error "no chords in Passage input"
 >           in
 >             mFold pFun (VB.++) noChords undefined musicIn
 >
->         eTable                           = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 musicIn)
+>         eTable                           =
+>           VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 (removeZeros musicIn))
 >
 >         evs                              = 
 >           let

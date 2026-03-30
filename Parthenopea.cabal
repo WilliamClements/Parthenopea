@@ -57,7 +57,8 @@ library
                         Parthenopea.Repro.Modulation, Parthenopea.Repro.ModulationTest,
                         Parthenopea.Repro.Smashing, Parthenopea.Repro.SmashingTest,
                         Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest, Parthenopea.Repro.Zone,
-                        Parthenopea.SoundFont.BootTest, Parthenopea.SoundFont.RangesReport,
+                        Parthenopea.SoundFont.BootTest,
+                        Parthenopea.SoundFont.PassageReport, Parthenopea.SoundFont.RangesReport,
                         Parthenopea.SoundFont.ScanReport, Parthenopea.SoundFont.Scoring,
                         Parthenopea.SoundFont.TournamentReport
     build-depends:

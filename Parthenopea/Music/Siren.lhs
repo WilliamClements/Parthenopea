@@ -441,6 +441,7 @@ instrument range checking ======================================================
 >   , bpTranspose        :: AbsPitch
 >   , bpHomeVelocity     :: Velocity}
 >   deriving Show
+> defBandPart                              = BandPart ElectricGrandPiano 0 100
 > bandPartContext        :: BandPart → MContext
 > bandPartContext bp = MContext {mcTime = 0, mcInst = bp.bpInstrument, mcDur = metro 240 qn, mcVol=bp.bpHomeVelocity}
 > relativeRange          :: BandPart → (Pitch, Pitch)

@@ -1,62 +1,42 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
-RangesReport
+PassageReport
 William Clements
 October 5, 2025
 
-> module Parthenopea.SoundFont.RangesReport (
->        emitSongTime
->        , runUnitTests
->        , skipSong
->        , writeRangesReport ) where
+> module Parthenopea.SoundFont.PassageReport (
+>        summarizeOnePassage
+>        , writePassageReport ) where
 >
 > import qualified Control.Monad           as CM
-> import Data.Array.Unboxed ( inRange )
+> import Data.Array.Unboxed
 > import Data.Either
 > import Data.Map.Strict ( Map )
 > import qualified Data.Map.Strict         as Map
 > import Data.Maybe
-> import Data.Time
+> import qualified Data.Vector.Strict      as VB
 > import Debug.Trace ( traceIO )
-> import Euterpea.IO.MIDI.MEvent ( MEvent(ePitch) )
+> import Euterpea.IO.MIDI.MEvent ( MEvent(..) )
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Music.PassageTest ( passageTests )
+> import Parthenopea.Music.Passage
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
-> import Parthenopea.Repro.EnvelopesTest ( envelopesTests )
-> import Parthenopea.Repro.ModulationTest ( modulationTests )
-> import Parthenopea.Repro.SmashingTest ( smashingTests )
-> import Parthenopea.Repro.SynthesizerTest ( synthesizerTests )
-> import Parthenopea.SoundFont.BootTest ( bootTests )
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
 
-unit tests ============================================================================================================
+summarize incoming passage ============================================================================================
 
-> runUnitTests           :: IO ()
-> runUnitTests                             = do
->   resultBoot                             ← runTestsQuietly bootTests
->   resultEnvelopes                        ← runTestsQuietly envelopesTests
->   resultModulation                       ← runTestsQuietly modulationTests     
->   resultSmashing                         ← runTestsQuietly smashingTests
->   resultSynthesizer                      ← runTestsQuietly synthesizerTests
->   resultsPassage                         ← runTestsQuietly passageTests
->   let resultDiscrete                     = True -- runTestsQuietly discreteTests
->   let result                             =
->         profess
->           (and [resultSmashing, resultBoot, resultModulation, resultSynthesizer
->               , resultsPassage, resultEnvelopes, resultDiscrete])
->           (unwords ["one or more unit tests failed"])
->           True
->   CM.when result (putStr $ reapEmissions [Unblocked "Unit tests completed successfully", EndOfLine])
-
-check all the incoming music for instrument range violations ==========================================================
-
-> writeRangesReport      :: Directives → [Song] → Map GMKind Shred → IO ()
-> writeRangesReport dives songs ding       = do
+> summarizeOnePassage     :: VB.Vector MekNote → [Emission]
+> summarizeOnePassage meksIn               = concatMap summarize meksIn
+>   where
+>     summarize           :: MekNote → [Emission]
+>     summarize mek                        = [Unblocked (show (mek.mSelfIndex, mek.mParams, mek.mPrimitive)), EndOfLine]
+>
+> writePassageReport      :: Directives → [Song] → Map GMKind Shred → IO ()
+> writePassageReport dives songs ding      = do
 >   CM.when diagnosticsEnabled             (traceIO $ unwords [fName, "--", show $ length songs, "songs"])
 >   let rollup                             =
 >         Song "rollup" (foldr ((:+:) . songMusic) (rest 0) songs) ding
@@ -121,26 +101,5 @@ check all the incoming music for instrument range violations ===================
 >         indicator p                      = if isNothing mrange || inRange (deJust "range" mrange) p
 >                                              then "*in"
 >                                              else "*out!!"
->
-> emitSongTime           :: Double → ZonedTime → ZonedTime → [Emission]
-> emitSongTime durS tsStart tsFinish       =
->   [ ToFieldL "song time:"                      15
->   , ToFieldL (formatSeconds $ approx durS)     15
->   , ToFieldL "render time:"                    15
->   , ToFieldL (formatDiffTime tsFinish tsStart) 20
->   , ToFieldL "ratio:"                          15
->   , ToFieldL (show ratio)                      25
->   , EndOfLine, EndOfLine]
->   where
->     delta              :: Double
->     delta                                = diffZonedTime tsFinish tsStart
->     ratio                                =
->       profess
->         (durS /= 0)
->         (unwords ["bad division:", show delta, "over", show durS])
->         (delta / durS)
->
-> skipSong               :: [Emission]
-> skipSong                                 =  [Unblocked "skipping...", EndOfLine, EndOfLine]
 
 The End
