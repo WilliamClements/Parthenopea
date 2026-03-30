@@ -82,7 +82,9 @@ _Overall_                =
 >   where
 >     keyParam                             = meksIn VB.! 0
 >     nearlyEqual x y                      = abs (y - x) < epsilon
->
+
+      M.E.K. = Music Education for Kids
+
 > data MekNote                             =
 >   MekNote {
 >     mSelfIndex         :: SelfIndex
@@ -116,20 +118,41 @@ _Overall_                =
 > passage dives bp markings ma
 >   | not dives.synthSwitches.usePassages  = toMusic1 ma
 >   | null markings                        = error $ unwords ["empty markings"]
->   | otherwise                            =
->     removeZeros $ passageImpl dives bp (expandMarkings markings) (removeZeros ma)
-
-passageImpl ==========================================================================================================
-      Construct a vector of MekNotes called "enriched" then fold it into a Music1
-      M.E.K. = Music Education for Kids
-
-> passageImpl            :: Directives → BandPart → VB.Vector Marking → Music Pitch → Music1
-> passageImpl dives bp markings ma
->   | traceIf trace_IP False               = undefined
->   | otherwise                            = VB.foldl' finalFold (rest 0) enriched
+>   | otherwise                            = removeZeros musicOut
 >   where
->     fName_                               = "passageImpl"
->     trace_IP                             = unwords [fName_, show markings]
+>     meksIn                               = enrichPassage dives bp (expandMarkings markings) musicIn
+>     musicIn                              = removeZeros ma
+>     musicOut                             = foldl' finalFold (rest 0) meksIn
+
+finalFold =============================================================================================================
+      construct and enfix the note attributes that determine the "passage" input to the runtime synthesizer
+
+>     finalFold          :: Music1 → MekNote → Music1 
+>     finalFold music mek                  =
+>       music :+: case mek.mPrimitive of
+>                   Note durI pitchI       → mangleNote durI pitchI
+>                   Rest durI              → rest durI
+>       where
+>         fName                            = "finalFold"
+>
+>         mangleNote dM pM                 = note dM (pM, Dynamics fName : (makeNAs . deJust fName) mek.mParams)
+>
+>         makeNAs (Left homeVolume)        = [Volume homeVolume]
+>         makeNAs (Right sweeps)           =
+>           profess
+>             (not $ VB.null sweeps)
+>             (unwords [fName, "illegally null sweeps"])
+>             [(Volume . average) sweeps, (Params . VB.toList) sweeps]
+>         
+>         average sweeps                   = round $ VB.sum sweeps / (fromIntegral . VB.length) sweeps
+
+enrichPassage =========================================================================================================
+      Construct a vector of MekNotes called "enriched" then fold it into a Music1
+
+> enrichPassage          :: Directives → BandPart → VB.Vector Marking → Music Pitch → VB.Vector MekNote
+> enrichPassage dives bp markings musicIn  = enriched
+>   where
+>     fName                                = "enrichPassage"
 >
 >     enriched, rawMeks  :: VB.Vector MekNote
 >
@@ -149,28 +172,6 @@ passageImpl ====================================================================
 >                                              where enTag mek = (mek.mSelfIndex, mek)
 >       in
 >         (doUpdate enfill . doUpdate sewSeeds . doUpdate wearOveralls) rawMeks
-
-finalFold =============================================================================================================
-      construct and enfix the note attributes that determine the "passage" input to the runtime synthesizer
-
->     finalFold          :: Music1 → MekNote → Music1 
->     finalFold music mek                  =
->       music :+: case mek.mPrimitive of
->                   Note durI pitchI       → mangleNote durI pitchI
->                   Rest durI              → rest durI
->       where
->         fName                            = unwords [fName_, "final"]
->
->         mangleNote dM pM                 = note dM (pM, Dynamics fName_ : (makeNAs . deJust fName) mek.mParams)
->
->         makeNAs (Left homeVolume)        = [Volume homeVolume]
->         makeNAs (Right sweeps)           =
->           profess
->             (not $ VB.null sweeps)
->             (unwords [fName, "illegally null sweeps"])
->             [(Volume . average) sweeps, (Params . VB.toList) sweeps]
->         
->         average sweeps                   = round $ VB.sum sweeps / (fromIntegral . VB.length) sweeps
 
 makeMeks ==============================================================================================================
       quick-zip together the available heterogeneous data per primitive
@@ -204,9 +205,9 @@ makeMeks =======================================================================
 >             pFun (Rest dP)               = VB.singleton (Rest dP)
 >             noChords _ _                 = error "no chords in Passage input"
 >           in
->             mFold pFun (VB.++) noChords undefined ma
+>             mFold pFun (VB.++) noChords undefined musicIn
 >
->         eTable                           = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 ma)
+>         eTable                           = VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 musicIn)
 >
 >         evs                              = 
 >           let
@@ -254,7 +255,7 @@ sewSeeds =======================================================================
 >       where
 >         enseed         :: VB.Vector SelfIndex → VB.Vector MekNote
 >         enseed nodeGroup
->           | gLen == 0                    = error $ unwords [fName_, "no nodes in node group"]
+>           | gLen == 0                    = error $ unwords [fName, "no nodes in node group"]
 >           | gLen == 1                    = seedOne $ meksIn VB.! (nodeGroup VB.! 0)
 >           | otherwise                    =
 >           VB.concatMap (uncurry seeden) (VB.zip nodeGroup (VB.tail nodeGroup))
