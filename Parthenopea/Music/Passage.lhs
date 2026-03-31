@@ -36,7 +36,6 @@ _Overall_                =
 > data Marking                             =
 >   Mark StdLoudness
 >   | Inflect StdLoudness
->   | Rest1
 >   | Span1
 >   | SpanN Int
 >   | Tail StdLoudness
@@ -84,7 +83,7 @@ _Overall_                =
 >     keyParam                             = meksIn VB.! 0
 >     nearlyEqual x y                      = abs (y - x) < epsilon
 
-      M.E.K. = Music Education for Kids
+      M.E.K. = Music Education for Kids ===============================================================================
 
 > data MekNote                             =
 >   MekNote {
@@ -97,17 +96,12 @@ _Overall_                =
 >   deriving Show
 > makeMekNote            :: SelfIndex → Primitive Pitch → Marking → Maybe MEvent → MekNote
 > makeMekNote six prim marking mev         =
->   profess
->     (case prim of
->        Rest _                            → marking == Rest1
->        _                                 → True)
->     "Non-corresponding rests"
->     (MekNote 
->        six 
->        prim 
->        marking 
->        mev 
->        Nothing Nothing)
+>   MekNote 
+>      six 
+>      prim 
+>      marking 
+>      mev 
+>      Nothing Nothing
 > getMarkVelocity        :: MekNote → Velocity
 > getMarkVelocity mek                      =
 >   case mek.mMarking of
@@ -124,19 +118,18 @@ _Overall_                =
 >     meksIn                               = enrichPassage dives bp (expandMarkings markings) (removeZeros ma)
 >
 > passageToMusic         :: VB.Vector MekNote → Music1
-> passageToMusic meksIn                    = foldl' finalFold (rest 0) meksIn
+> passageToMusic meksIn                    = foldl' eachMek (rest 0) meksIn
 >   where
 
-finalFold =============================================================================================================
-      construct and enfix the note attributes that determine the "passage" input to the runtime synthesizer
+Enfix note attributes to send "passage" input to the runtime synthesizer ==============================================
 
->     finalFold          :: Music1 → MekNote → Music1 
->     finalFold music mek                  =
+>     eachMek            :: Music1 → MekNote → Music1 
+>     eachMek music mek                    =
 >       music :+: case mek.mPrimitive of
 >                   Note durI pitchI       → mangleNote durI pitchI
 >                   Rest durI              → rest durI
 >       where
->         fName                            = "finalFold"
+>         fName                            = "eachMek"
 >
 >         mangleNote dM pM                 = note dM (pM, Dynamics fName : (makeNAs . deJust fName) mek.mParams)
 >
@@ -149,11 +142,10 @@ finalFold ======================================================================
 >         
 >         average sweeps                   = round $ VB.sum sweeps / (fromIntegral . VB.length) sweeps
 
-enrichPassage =========================================================================================================
-      Construct a vector of MekNotes called "enriched" then fold it into a Music1
-
+Construct a vector of MekNotes, enriching them ========================================================================
+      
 > enrichPassage          :: Directives → BandPart → VB.Vector Marking → Music Pitch → VB.Vector MekNote
-> enrichPassage dives bp markings musicIn 
+> enrichPassage dives bp markings musicIn_ 
 >   | traceIf trace_EP False               = undefined
 >   | otherwise                            = enriched
 >   where
@@ -170,6 +162,7 @@ enrichPassage ==================================================================
 >     rawMeks                              = makeMeks    
 >     mekFence                             = VB.length rawMeks - 1
 >     (nodePairs, nodeGroups)              = formNodeGroups rawMeks
+>     musicIn                              = removeZeros musicIn_
 >
 >     enriched                             = notracer "enriched" $
 >       let
@@ -179,8 +172,9 @@ enrichPassage ==================================================================
 >       in
 >         (doUpdate enfill . doUpdate sewSeeds . doUpdate wearOveralls) rawMeks
 
-makeMeks ==============================================================================================================
-      quick-zip together the available heterogeneous data per primitive
+Initialize the MekNote vector ========================================================================================
+
+      quick-zip together the available heterogeneous data per primitive (notes only, no rests)
       1. (index)
       2. Music Primitive
       3. composer's velocity Marking
