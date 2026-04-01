@@ -81,7 +81,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >       100                                → apToHz reconL.rRootKey / apToHz noon.noteOnKey
 >       _                                  → microtoneRatio
 >                                              (reconL.rRootKey - noon.noteOnKey)
->                                              (fromIntegral reconL.rTuning)
+>                                              reconL.rTuning
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
 >     deltaCalc          :: Double         = 1 / (numPoints * freqFactor)
@@ -185,6 +185,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >         cAttenR                          = fromCentibels (attenR + evaluateMods ToInitAtten mmodsR noon)
 >         ampL                             = fromIntegral noon.noteOnVel / 100 / cAttenL
 >         ampR                             = fromIntegral noon.noteOnVel / 100 / cAttenR
+
+Microtones ============================================================================================================
 
 Account for custom frequency intervals = SoundFont scale tuning : 0 < x < 100 < 1200
 Clearly multiple root pitches are mutually incompatible, in general, for calculating frequency ratios

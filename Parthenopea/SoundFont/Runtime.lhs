@@ -244,7 +244,15 @@ zone selection for rendering ===================================================
 >
 >         pzL                              = deJust fName foundL
 >         pzR                              = deJust fName foundR
->
+
+flag to choose algorithm when preparing pzdb for Runtime use ==========================================================
+    True : copy all used pzs from old to new
+    False : do a deletion fold to erase unused pzs
+
+    Which is better? I did not measure anything, but recommend deploying the more space efficient method, especially
+    lower thunk bloat! (OTOH since I am using strict maps that part may be a wash.) I guessed deletion would be better.
+    Also keep in mind that the used portion will be generally much smaller than the unused. 
+
 > doCopyPzdb                               = False
 
 The End

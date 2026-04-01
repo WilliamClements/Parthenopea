@@ -308,6 +308,7 @@ enfill =========================================================================
 >               case mek.mMarking of
 >                 Mark x                   → stdVelocity x
 >                 Inflect x                → stdVelocity x
+>                 Tail x                   → stdVelocity x
 >                 _                        → velo
 >             updateOne                    =
 >               case mek.mParams of

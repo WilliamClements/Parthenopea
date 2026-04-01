@@ -523,7 +523,7 @@ examine song for instrument and percussion usage ===============================
 >           case eInst of
 >             Percussion                   → Right $ toEnum (ePitch - 35)
 >             _                            → Left eInst
->         upd shred _                      =
+>         upd _ shred                      =
 >           Shred
 >             (if ePitch mev < ePitch shred.shLowNote  then mev else shred.shLowNote)
 >             (if ePitch mev > ePitch shred.shHighNote then mev else shred.shHighNote)
