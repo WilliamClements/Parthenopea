@@ -22,11 +22,11 @@ June 16, 2025
 > import Data.Time ( getZonedTime )
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
-> import Euterpea.IO.Audio.Render ( renderSF )
 > import Euterpea.IO.MIDI ( fromMidi )
 > import Euterpea.Music ( InstrumentName, PercussionSound )
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
+> import Parthenopea.Repro.Render2 ( renderSF2 )
 > import Parthenopea.SoundFont.Boot
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.RangesReport
@@ -143,7 +143,7 @@ Implement PCommand =============================================================
 >     -- render song only if all OK
 >   if all fst esI && all fst esP
 >     then do
->       let (durS, s)                      = renderSF music runt.zInstrumentMap
+>       let (durS, s)                      = renderSF2 music runt.zInstrumentMap
 >       if sw.normalizingOutput
 >         then outFileNorm                 (name ++ ".wav") durS s
 >         else outFile                     (name ++ ".wav") durS s

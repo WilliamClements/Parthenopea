@@ -55,6 +55,7 @@ library
     other-modules:      Parthenopea.Music.PassageTest, Parthenopea.Repro.Chart, Parthenopea.Repro.DiscreteTest,
                         Parthenopea.Repro.Emission, Parthenopea.Repro.Envelopes, Parthenopea.Repro.EnvelopesTest,
                         Parthenopea.Repro.Modulation, Parthenopea.Repro.ModulationTest,
+                        Parthenopea.Repro.Render2,
                         Parthenopea.Repro.Smashing, Parthenopea.Repro.SmashingTest,
                         Parthenopea.Repro.Synthesizer, Parthenopea.Repro.SynthesizerTest, Parthenopea.Repro.Zone,
                         Parthenopea.SoundFont.BootTest,
