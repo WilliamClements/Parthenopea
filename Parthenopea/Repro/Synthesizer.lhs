@@ -40,9 +40,9 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                           → VB.Vector Double
 >                           → Double
 >                           → Dur
->                           → SFFileRuntime
+>                           → SampleArrays
 >                           → Signal p () (Double, Double)
-> eutSynthesize sw (reconL, mreconR) noon sweeps sr dur sffileRuntime
+> eutSynthesize sw (reconL, mreconR) noon sweeps sr dur samplea
 >   | traceIf trace_ES False               = undefined
 >   | otherwise                            =
 >   if isNothing mreconR
@@ -96,7 +96,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     pumpStereoSample   :: Signal p Double (Double, Double)
 >
 >     SampleArrays{ .. }                   
->                                          = sffileRuntime.zSample
+>                                          = samplea
 >     pumpMono                             =
 >       eutDriver
 >         >>> pumpMonoSample

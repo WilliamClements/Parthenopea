@@ -10,28 +10,22 @@ April 16, 2023
 > module Parthenopea.SoundFont.SFSpec where
 >
 > import qualified Codec.SoundFont         as F
-> import Control.Applicative
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Char
-> import Data.Foldable
 > import Data.Int ( Int8, Int16 )
-> import Data.IntMap.Strict (IntMap)
-> import qualified Data.IntMap.Strict      as IntMap
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
 > import Data.List
 > import qualified Data.Map.Lazy           as Lazy
 > import Data.Map.Strict ( Map )
 > import qualified Data.Map.Strict         as Map
-> import Data.Maybe
 > import Data.Ratio ( (%) )
 > import Data.Time
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
-> import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
   
@@ -83,18 +77,6 @@ implementing SoundFont spec ====================================================
 >     SampleTypeRomLeft      → 0x8004
 >     SampleTypeRomLinked    → 0x8008
 >
-> isStereoPZ, isLeftPZ, isRightPZ
->                        :: PreZone → Bool
-> isStereoPZ pz                            = isLeftPZ pz || isRightPZ pz
-> isLeftPZ pz                              = SampleTypeLeft == toSampleType (effPZShdr pz).sampleType
-> isRightPZ pz                             = SampleTypeRight == toSampleType (effPZShdr pz).sampleType
->
-> effPZShdr              :: PreZone → F.Shdr
-> effPZShdr PreZone{pzChanges}             =
->   if MakeMono `elem` pzChanges.ceChanges
->     then pzChanges.ceSource{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
->     else pzChanges.ceSource
->
 > data PerGMKey                            =
 >   PerGMKey {
 >     pgkwFile           :: !Int
@@ -122,6 +104,15 @@ implementing SoundFont spec ====================================================
 >   , pskwSampleIndex    :: !Word}
 >   deriving (Eq, Ord, Show)
 > type PreSample                           = ChangeName F.Shdr
+>
+>
+> data PreZoneKey                          =
+>   PreZoneKey {
+>     pzkwFile           :: !Int
+>   , pzkwInst           :: !Word
+>   , pzkwBag            :: !Word
+>   , pzkwSampleIndex    :: !Word}
+>   deriving (Eq, Ord, Show)
 >
 > data Disposition                         =
 >   Accepted | Modified | Violated | Rescued | Dropped | NoChange
@@ -166,21 +157,6 @@ implementing SoundFont spec ====================================================
 >   , ssIMods            :: Array Word F.Mod
 >   , ssShdrs            :: Array Word F.Shdr}
 >
-> extractSampleKey       :: PreZone → PreSampleKey
-> extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
-> extractInstKey         :: PreZone → PerGMKey
-> extractInstKey pz                        = stdPerGMKey pz.pzWordF (fromIntegral pz.pzWordI)
-> extractZoneKey         :: PreZone → PreZoneKey
-> extractZoneKey pz                        =
->   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
-> extractSpace           :: PreZone → [Maybe (Word, Word)]
-> extractSpace pz                          = [pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange, chans]
->   where
->     chans
->       | isLeftPZ pz                      = Just (0, 0)
->       | isRightPZ pz                     = Just (1, 1)
->       | otherwise                        = Just (0, 1)
->
 > effPSShdr              :: PreSample → F.Shdr
 > effPSShdr ps                             = ps.cnSource{F.sampleName = ps.cnName}
 > isLeftPS               :: PreSample → Bool
@@ -212,21 +188,6 @@ implementing SoundFont spec ====================================================
 >   SampleArrays {
 >     ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
-> data SFFileBoot                          =
->   SFFileBoot {
->     zWordFBoot         :: !Int
->   , zFilename          :: FilePath
->   , zFileArrays        :: FileArrays
->   , zPreZones          :: IntMap PreZone
->   , zSquirrelSample    :: SampleArrays}
->
-> accessPreZone          :: String → IntMap PreZone → Int → PreZone
-> accessPreZones         :: String → IntMap PreZone → IntSet → IntMap PreZone
->
-> accessPreZone tag pzs bix                =
->   fromJust $ (bix `IntMap.lookup` pzs) <|> error (unwords ["accessPreZone", tag, "Nothing at bix", show bix])
-> accessPreZones tag pzs                   = IntMap.fromSet (accessPreZone tag pzs)
->
 > data Matches                             =
 >   Matches {
 >     mSMatches          :: Lazy.Map PreSampleKey FFMatches
@@ -238,30 +199,6 @@ implementing SoundFont spec ====================================================
 >   m1{  mSMatches                         = Lazy.union m1.mSMatches    m2.mSMatches
 >      , mIMatches                         = Lazy.union m1.mIMatches    m2.mIMatches}
 >
-> data FileSurvey                          =
->   FileSurvey {
->     sPreZones          :: IntMap PreZone
->   , sPerInstruments    :: Map PerGMKey PerInstrument
->   , sMatches           :: Matches
->   , sDispositions      :: ResultDispositions}
-> defSurvey                                =
->   FileSurvey
->     IntMap.empty
->     Map.empty
->     defMatches
->     virginrd
->     
-> data SFFileRuntime                       =
->   SFFileRuntime {
->     zWordFRuntime      :: !Int
->   , zPerInstrument     :: IntMap PerInstrument
->   , zPreZone           :: IntMap PreZone
->   , zSample            :: SampleArrays}
-> instance Show SFFileRuntime where
->   show sffile                            =
->     unwords [  "SFFileRuntime"
->              , show sffile.zPerInstrument]
->
 > type AgainstKindResult                   = Double
 > 
 > data ArtifactGrade =
@@ -269,42 +206,6 @@ implementing SoundFont spec ====================================================
 >     pScore             :: !Int
 >   , pEmpiricals        :: [Double]}
 >   deriving (Show)
->
-> class GMPlayable a where
->   toGMKind             :: a → GMKind
->   select               :: ([InstrumentName], [PercussionSound]) → Bool → [a]
->   specialCase          :: a → Bool
->   getFuzzMap           :: FFMatches → Map a Fuzz
->
-> instance GMPlayable InstrumentName where
->   toGMKind                               = Left
->   select rost narrowInstrumentScope      =
->     if narrowInstrumentScope
->       then fst rost
->       else fst allKinds
->   specialCase kind                       = Percussion == kind
->   getFuzzMap                             = ffInst
->
-> instance GMPlayable PercussionSound where
->   toGMKind                               = Right
->   select rost narrowInstrumentScope      =
->     if narrowInstrumentScope
->       then snd rost
->       else snd allKinds
->   specialCase _                          = False
->   getFuzzMap                             = ffPerc
->
-> class GMPlayable a ⇒ SFScorable a where
->   splitScore           :: a → [PreZone] → Double
->   fuzzFactor           :: a → Double
->
-> instance SFScorable InstrumentName where
->   splitScore _ pzs                       = fromIntegral (length pzs)
->   fuzzFactor _                           = 7/8
->
-> instance SFScorable PercussionSound where
->   splitScore _ _                         = 1
->   fuzzFactor _                           = 3/4
 >
 > weighHints             :: Rational
 > weighStereo            :: Rational
@@ -379,74 +280,7 @@ bootstrapping ==================================================================
 > instance Show ResultDispositions where
 >   show rd                                =
 >     unwords [  "ResultDispositions"
->              , show (length rd.preSampleDispos, length rd.preInstDispos, length rd.preZoneDispos, rdCountScans rd)]
->
-> deadrd                 :: ∀ k . SFKeyType k ⇒ k → ResultDispositions → Bool
-> deadrd k rd                              = dead (inspect k rd)
-> emptyrd                :: ResultDispositions → Bool
-> emptyrd rd                               =    Lazy.null rd.preSampleDispos
->                                            && Lazy.null rd.preInstDispos
->                                            && Lazy.null rd.preZoneDispos
-> rdLengths              :: ResultDispositions → (Int, Int)
-> rdLengths rd                             = (Lazy.size rd.preSampleDispos, Lazy.size rd.preInstDispos)
-> countScans             :: ∀ k . SFKeyType k ⇒ Lazy.Map k [Scan] → Int
-> countScans                               = Lazy.foldl' (\n ss → n + length ss) 0
-> rdCountScans           :: ResultDispositions → (Int, Int)
-> rdCountScans rd                          = (countScans rd.preSampleDispos, countScans rd.preInstDispos)
-> combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
-> combinerd rd1 rd2                        =
->   rd1{  preSampleDispos                  = Lazy.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
->       , preInstDispos                    = Lazy.unionWith (++) rd1.preInstDispos   rd2.preInstDispos
->       , preZoneDispos                    = Lazy.unionWith (++) rd1.preZoneDispos   rd2.preZoneDispos}
->
-> class SFKeyType a where
->   sfkey                :: Int → Word → a
->   wfile                :: a → Int
->   wblob                :: a → Word
->   kname                :: a → SFFileBoot → [Emission]
->   inspect              :: a → ResultDispositions → [Scan]
->   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
->
-> instance SFKeyType PreSampleKey where
->   sfkey                                  = PreSampleKey
->   wfile k                                = k.pskwFile
->   wblob k                                = k.pskwSampleIndex
->   kname k sffile                         = [Unblocked (show (ssShdrs sffile.zFileArrays ! wblob k).sampleName)]
->   inspect presk rd                       = fromMaybe [] (Lazy.lookup presk rd.preSampleDispos)
->   dispose presk ss rd                    =
->     rd{preSampleDispos = Lazy.insertWith (flip (++)) presk ss rd.preSampleDispos}
->
-> instance SFKeyType PerGMKey where
->   sfkey wF wI                            = stdPerGMKey wF (fromIntegral wI)
->   wfile k                                = k.pgkwFile
->   wblob k                                = k.pgkwInst
->   kname k sffile                         = [Unblocked (show (ssInsts sffile.zFileArrays ! wblob k).instName)]
->   inspect pergm rd                       = fromMaybe [] (Lazy.lookup pergm rd.preInstDispos)
->   dispose pergm ss rd                    =
->     rd{preInstDispos = Lazy.insertWith (flip (++)) pergm ss rd.preInstDispos}
->
-> instance SFKeyType PreZoneKey where
->   sfkey _ _                              = error "sfkey not supported for PreZoneKey"
->   wfile k                                = k.pzkwFile
->   wblob k                                = k.pzkwInst
->   kname k sffile                         =    kname (stdPerGMKey k.pzkwFile (fromIntegral k.pzkwInst)) sffile
->                                            ++ [comma]
->                                            ++ kname (PreSampleKey k.pzkwFile k.pzkwSampleIndex) sffile
->   inspect prezk rd                       = fromMaybe [] (Lazy.lookup prezk rd.preZoneDispos)
->   dispose prezk ss rd                    =
->     rd{preZoneDispos = Lazy.insertWith (flip (++)) prezk ss rd.preZoneDispos}
-
-Note that harsher consequences of unacceptable sample header are enforced earlier. Logically, that would be
-sufficient to protect below code from bad data and document the situation. But ... mechanism such as putting
-out diagnostics might cause us to execute this code first. So, being crash-free/minimal in isStereoZone et al.
-
-> isStereoInst, is24BitInst
->                        :: [PreZone] → Bool
->
-> isStereoInst zs                          = isJust $ find isStereoPZ zs
->       
->
-> is24BitInst _                            = True -- was isJust $ ssM24 arrays       
+>              , show (length rd.preSampleDispos, length rd.preInstDispos, length rd.preZoneDispos)]
 >
 > writeReportBySections  :: Directives → FilePath → [[Emission]] → IO ()
 > writeReportBySections dives fp eSections   = do

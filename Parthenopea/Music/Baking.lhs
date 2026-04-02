@@ -28,7 +28,7 @@ December 16, 2022
 > import System.Random ( mkStdGen )
   
 Baking ================================================================================================================
-a framework for aleatory composition
+       a framework for aleatory composition
 
 > type Baking = (BakingMetrics, VB.Vector (Double, Music1))
 
@@ -123,10 +123,8 @@ accessed in end time order.
 >     acceptUrn urn urns inns baking       =
 >       profess
 >         (checkUrnOk urn)
->         (unwords [fName, "checkUrnOk"])
+>         "checkUrnOk rejected"
 >         (build urns (sortOn bOnset (urn:inns)) (acceptSection urn baking))
->       where
->         fName                            = "acceptUrn"
 >                 
 >     skipUrn urn urns inns baking         = build urns inns (skipSection urn baking)
 >               

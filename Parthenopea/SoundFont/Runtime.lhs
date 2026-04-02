@@ -8,9 +8,14 @@ William Clements
 February 1, 2025
 
 > module Parthenopea.SoundFont.Runtime
->        ( prepareRuntime
+>        ( accessPreZones
+>        , GMChoices(..)
+>        , prepareRuntime
+>        , SFFileBoot(..)
+>        , SFFileRuntime(..)
 >        , SFRuntime(..)) where
 >
+> import Control.Applicative
 > import qualified Data.Bifunctor          as BF
 > import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict      as IntMap
@@ -27,11 +32,11 @@ February 1, 2025
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
 > import Euterpea.Music
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Synthesizer ( eutSynthesize )
 > import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Directives
-> import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
   
@@ -44,6 +49,38 @@ February 1, 2025
 > instance Show SFRuntime where
 >   show runt                 =
 >     unwords ["SFRuntime", show (length runt.zRuntimeFiles, length runt.zInstrumentMap)]
+> data SFFileBoot                          =
+>   SFFileBoot {
+>     zWordFBoot         :: !Int
+>   , zFilename          :: FilePath
+>   , zFileArrays        :: FileArrays
+>   , zPreZonesBoot      :: IntMap PreZone
+>   , zSquirrelSample    :: SampleArrays}
+>
+> accessPreZone          :: String → IntMap PreZone → Int → PreZone
+> accessPreZones         :: String → IntMap PreZone → IntSet → IntMap PreZone
+>
+> accessPreZone tag pzs bix                =
+>   fromJust $ (bix `IntMap.lookup` pzs) <|> error (unwords ["accessPreZone", tag, "Nothing at bix", show bix])
+> accessPreZones tag pzs                   = IntMap.fromSet (accessPreZone tag pzs)
+>     
+> data SFFileRuntime                       =
+>   SFFileRuntime {
+>     zWordFRuntime      :: !Int
+>   , zPerInstrument     :: IntMap PerInstrument
+>   , zPreZonesRuntime   :: IntMap PreZone
+>   , ks                 :: SampleArrays}
+> instance Show SFFileRuntime where
+>   show sffile                            =
+>     unwords [  "SFFileRuntime"
+>              , show sffile.zPerInstrument]
+>
+> data GMChoices                           =
+>   GMChoices {
+>     gmFound          :: Bool
+>   , gmPerGMKey       :: Maybe PerGMKey
+>   , gmEmission       :: [Emission]}
+>   deriving (Eq, Ord)
 
 cache SoundFont data that is only needed for Runtime ==================================================================
 
@@ -93,16 +130,16 @@ cache SoundFont data that is only needed for Runtime ===========================
 >             pzdb                         = 
 >               if doCopyPzdb
 >                 then IntSet.foldl'       doSave   IntMap.empty     bixen
->                 else IntMap.foldlWithKey doUpdate sffile.zPreZones sffile.zPreZones
+>                 else IntMap.foldlWithKey doUpdate sffile.zPreZonesBoot sffile.zPreZonesBoot
 >               where
 >                 bixen                    = IntSet.foldl' lump IntSet.empty insts
 >                                              where lump m i = IntSet.union m (allBixen (newPerI IntMap.! i))
 >
->                 resolve pz               = pz{pzRecon = Just $ resolvePreZone dives pz (effPZShdr pz)}
+>                 resolve pz               = pz{pzRecon = Just $ resolvePreZone dives pz}
 >
 >                 doSave m bix             =
 >                   let
->                     pz                   = sffile.zPreZones IntMap.! bix
+>                     pz                   = sffile.zPreZonesBoot IntMap.! bix
 >                   in
 >                     IntMap.insert bix (resolve pz) m
 >
@@ -175,7 +212,7 @@ define signal functions and instrument maps to support rendering ===============
 > instrumentSF runt pergm durI pchIn volIn ps
 >   | traceIf trace_ISF False              = undefined
 >   | otherwise                            =
->   eutSynthesize sw (reconX, mreconX) noon (VB.fromList ps) reconX.rSampleRate durI sffile 
+>   eutSynthesize sw (reconX, mreconX) noon (VB.fromList ps) reconX.rSampleRate durI sffile.ks 
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =
@@ -239,8 +276,8 @@ zone selection for rendering ===================================================
 >                   (lvu == 2)
 >                   (unwords [fName, "Leaf dimension", show lvu, "not two!?!"])
 >                   (vu VU.! 0, vu VU.! 1)
->         foundL                           = fromIntegral spL `IntMap.lookup` sffile.zPreZone
->         foundR                           = fromIntegral spR `IntMap.lookup` sffile.zPreZone
+>         foundL                           = fromIntegral spL `IntMap.lookup` sffile.zPreZonesRuntime
+>         foundR                           = fromIntegral spR `IntMap.lookup` sffile.zPreZonesRuntime
 >
 >         pzL                              = deJust fName foundL
 >         pzR                              = deJust fName foundR

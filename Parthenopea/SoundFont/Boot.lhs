@@ -9,7 +9,15 @@ Boot
 William Clements
 January 21, 2025
 
-> module Parthenopea.SoundFont.Boot ( surveyInstruments, twoWay ) where
+> module Parthenopea.SoundFont.Boot
+>        (  deadrd
+>         , dispose
+>         , kname
+>         , FileSurvey(..)
+>         , SFKeyType
+>         , surveyInstruments
+>         , wfile
+>         ) where
 >
 > import qualified Codec.SoundFont         as F
 > import Control.Applicative
@@ -36,6 +44,7 @@ January 21, 2025
 > import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Scoring
+> import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
   
@@ -177,6 +186,19 @@ FileWork =======================================================================
 >     (fi.fiFw ^. fwPerInstruments)
 >     (fi.fiFw ^. fwMatches)
 >     (fi.fiFw ^. fwDispositions)
+>
+> data FileSurvey                          =
+>   FileSurvey {
+>     sPreZones          :: IntMap PreZone
+>   , sPerInstruments    :: Map PerGMKey PerInstrument
+>   , sMatches           :: Matches
+>   , sDispositions      :: ResultDispositions}
+> defSurvey                                =
+>   FileSurvey
+>     IntMap.empty
+>     Map.empty
+>     defMatches
+>     virginrd
 
 (Mostly ignoring dispo contribution as it is unproblematic)
 
@@ -273,7 +295,7 @@ Boot executive function ========================================================
 >             nextGen fiIn@FileIterate{ .. }
 >                                          = fiIn{ fiFw = (snd . head) fiTaskIfs fiFw
 >                                                , fiTaskIfs = tail fiTaskIfs}
->         vFiles'                          = vFiles `VB.snoc` sffile{zPreZones = sy.sPreZones}
+>         vFiles'                          = vFiles `VB.snoc` sffile{zPreZonesBoot = sy.sPreZones}
 >         sy'                              =
 >           sy{sPerInstruments             = Map.union cacheIn sy.sPerInstruments
 >            , sMatches                    = combineMatches matchesIn sy.sMatches
@@ -283,6 +305,51 @@ Boot executive function ========================================================
 
 support sample and instance ===========================================================================================
 
+> class SFKeyType a where
+>   sfkey                :: Int → Word → a
+>   wfile                :: a → Int
+>   wblob                :: a → Word
+>   kname                :: a → SFFileBoot → [Emission]
+>   inspect              :: a → ResultDispositions → [Scan]
+>   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
+>
+> instance SFKeyType PreSampleKey where
+>   sfkey                                  = PreSampleKey
+>   wfile k                                = k.pskwFile
+>   wblob k                                = k.pskwSampleIndex
+>   kname k sffile                         = [Unblocked (show (ssShdrs sffile.zFileArrays ! wblob k).sampleName)]
+>   inspect presk rd                       = fromMaybe [] (Lazy.lookup presk rd.preSampleDispos)
+>   dispose presk ss rd                    =
+>     rd{preSampleDispos = Lazy.insertWith (flip (++)) presk ss rd.preSampleDispos}
+>
+> instance SFKeyType PerGMKey where
+>   sfkey wF wI                            = stdPerGMKey wF (fromIntegral wI)
+>   wfile k                                = k.pgkwFile
+>   wblob k                                = k.pgkwInst
+>   kname k sffile                         = [Unblocked (show (ssInsts sffile.zFileArrays ! wblob k).instName)]
+>   inspect pergm rd                       = fromMaybe [] (Lazy.lookup pergm rd.preInstDispos)
+>   dispose pergm ss rd                    =
+>     rd{preInstDispos = Lazy.insertWith (flip (++)) pergm ss rd.preInstDispos}
+>
+> instance SFKeyType PreZoneKey where
+>   sfkey _ _                              = error "sfkey not supported for PreZoneKey"
+>   wfile k                                = k.pzkwFile
+>   wblob k                                = k.pzkwInst
+>   kname k sffile                         =    kname (stdPerGMKey k.pzkwFile (fromIntegral k.pzkwInst)) sffile
+>                                            ++ [comma]
+>                                            ++ kname (PreSampleKey k.pzkwFile k.pzkwSampleIndex) sffile
+>   inspect prezk rd                       = fromMaybe [] (Lazy.lookup prezk rd.preZoneDispos)
+>   dispose prezk ss rd                    =
+>     rd{preZoneDispos = Lazy.insertWith (flip (++)) prezk ss rd.preZoneDispos}
+>
+> deadrd                 :: ∀ k . SFKeyType k ⇒ k → ResultDispositions → Bool
+> deadrd k rd                              = dead (inspect k rd)
+> combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
+> combinerd rd1 rd2                        =
+>   rd1{  preSampleDispos                  = Lazy.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
+>       , preInstDispos                    = Lazy.unionWith (++) rd1.preInstDispos   rd2.preInstDispos
+>       , preZoneDispos                    = Lazy.unionWith (++) rd1.preZoneDispos   rd2.preZoneDispos}
+>
 > formComprehension      :: ∀ r a . SFKeyType r ⇒ SFFileBoot → (FileArrays → Array Word a) → [r]
 > formComprehension sffile blobfun         = map (sfkey sffile.zWordFBoot) bRange
 >   where

@@ -26,6 +26,7 @@ September 12, 2024
 >        , PerGMScored(..)
 >        , qqHints
 >        , scoreOnsets
+>        , SFScorable(..)
 >        , showPerGM
 >        , stands
 >        , stands'
@@ -52,6 +53,7 @@ September 12, 2024
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Directives
+> import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
 > import qualified Text.FuzzyFind          as FF
@@ -97,12 +99,41 @@ use "matching as" cache ========================================================
 >     showmZ                               = maybe [] showZ scored.mszP
 >     showZ name                           = [Unblocked name]
 >
-> data GMChoices                           =
->   GMChoices {
->     gmFound          :: Bool
->   , gmPerGMKey       :: Maybe PerGMKey
->   , gmEmission       :: [Emission]}
->   deriving (Eq, Ord)
+> class GMPlayable a where
+>   toGMKind             :: a → GMKind
+>   select               :: ([InstrumentName], [PercussionSound]) → Bool → [a]
+>   specialCase          :: a → Bool
+>   getFuzzMap           :: FFMatches → Map a Fuzz
+>
+> instance GMPlayable InstrumentName where
+>   toGMKind                               = Left
+>   select rost narrowInstrumentScope      =
+>     if narrowInstrumentScope
+>       then fst rost
+>       else fst allKinds
+>   specialCase kind                       = Percussion == kind
+>   getFuzzMap                             = ffInst
+>
+> instance GMPlayable PercussionSound where
+>   toGMKind                               = Right
+>   select rost narrowInstrumentScope      =
+>     if narrowInstrumentScope
+>       then snd rost
+>       else snd allKinds
+>   specialCase _                          = False
+>   getFuzzMap                             = ffPerc
+>
+> class GMPlayable a ⇒ SFScorable a where
+>   splitScore           :: a → [PreZone] → Double
+>   fuzzFactor           :: a → Double
+>
+> instance SFScorable InstrumentName where
+>   splitScore _ pzs                       = fromIntegral (length pzs)
+>   fuzzFactor _                           = 7/8
+>
+> instance SFScorable PercussionSound where
+>   splitScore _ _                         = 1
+>   fuzzFactor _                           = 3/4
 >
 > computeFFMatches       :: Rational → String → Bool → FFMatches
 > computeFFMatches conRatio inp narrow     = FFMatches 
@@ -273,7 +304,7 @@ tournament starts here =========================================================
 >       where
 >         fName_                           = unwords [fName__, "wiFolder"]
 >
->         sffile                           = vFiles VB.! pergmI.pgkwFile
+>         sffile         :: SFFileBoot     = vFiles VB.! pergmI.pgkwFile
 >
 >         decideInst     :: Map InstrumentName [PerGMScored]
 >         decideInst                       = proposeXAs iMatches wI pergmI
@@ -299,7 +330,7 @@ tournament starts here =========================================================
 >
 >                 mz     :: Maybe PreZone
 >                 mz                       =
->                   pergmP.pgkwBag >>= Just . (sffile.zPreZones IntMap.!) . fromIntegral
+>                   pergmP.pgkwBag >>= Just . (sffile.zPreZonesBoot IntMap.!) . fromIntegral
 >                 mkind  :: Maybe PercussionSound
 >                 mkind                    = mz >>= getAP >>= pitchToPerc
 >                 mffm   :: Maybe FFMatches
@@ -347,18 +378,18 @@ tournament starts here =========================================================
 >         trace_XAET                       =
 >           unwords [fName, iName, show pergm, show kind, show (ownedOnly perI)]
 >
->         sffile                           = vFiles VB.! pergm.pgkwFile
+>         sffile         :: SFFileBoot     = vFiles VB.! pergm.pgkwFile
 >         perI                             = cache Map.! pergm{pgkwBag = Nothing}
 >         iName                            = perI.piChanges.cnName
 >
 >         scope                            =
 >           let
->             oneZone bix                  = IntMap.singleton bix (sffile.zPreZones IntMap.! bix)
+>             oneZone bix                  = IntMap.singleton bix (sffile.zPreZonesBoot IntMap.! bix)
 >           in
->             maybe (accessPreZones "scope" sffile.zPreZones (ownedOnly perI)) (oneZone . fromIntegral) pergm.pgkwBag
+>             maybe (accessPreZones "scope" sffile.zPreZonesBoot (ownedOnly perI)) (oneZone . fromIntegral) pergm.pgkwBag
 >
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
->                                            >>= Just . (sffile.zPreZones IntMap.!) . fromIntegral
+>                                            >>= Just . (sffile.zPreZonesBoot IntMap.!) . fromIntegral
 >                                            >>= \q → Just (F.sampleName (effPZShdr q))
 >
 >         computeGrade   :: IntMap PreZone → ArtifactGrade
@@ -509,6 +540,7 @@ Utilities ======================================================================
 >       GuitarFretNoise           → Just            ["clean", "nylon"]
 >       HonkyTonkPiano            → Just            ["grand", "rhodes"]
 >       OrchestraHit              → Just $ singleton "kit"
+>       OverdrivenGuitar          → Just $ singleton "rever"
 >       RhodesPiano               → Just            ["upright", "grand"]
 >       SlapBass1                 → Just            ["brass", "bassoon"]
 >       SlapBass2                 → Just            ["brass", "bassoon"]

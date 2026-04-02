@@ -6,6 +6,7 @@ January 7, 2025
 
 > module Parthenopea.SoundFont.BootTest where
 >
+> import Parthenopea.SoundFont.Boot
 > import Parthenopea.SoundFont.SFSpec
 
 Boot-related tests ====================================================================================================

@@ -27,7 +27,7 @@ June 16, 2025
 > import Euterpea.Music ( InstrumentName, PercussionSound )
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
-> import Parthenopea.SoundFont.Boot ( surveyInstruments )
+> import Parthenopea.SoundFont.Boot
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.RangesReport
 > import Parthenopea.SoundFont.ScanReport ( writeScanReport )

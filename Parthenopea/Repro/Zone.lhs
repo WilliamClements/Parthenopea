@@ -13,13 +13,21 @@ February 15, 2026
 >        , ChangeEarItem(..)
 >        , defApplied
 >        , defZone
+>        , effPZShdr
+>        , extractSampleKey
+>        , extractSpace
+>        , extractZoneKey
 >        , formDigest
+>        , is24BitInst
+>        , isLeftPZ
+>        , isRightPZ
+>        , isStereoInst
+>        , isStereoPZ
 >        , makeMono
 >        , makePreZone
 >        , normalizeLooping
 >        , okGMRanges
 >        , PreZone(..)
->        , PreZoneKey(..)
 >        , receiveRecon
 >        , Recon(..)
 >        , resolvePreZone
@@ -31,12 +39,14 @@ February 15, 2026
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Data.Audio              as A
+> import Data.Foldable
 > import Data.Maybe
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Envelopes ( deriveEnvelope )
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.Directives
+> import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
 >
 > data SFZone =
@@ -147,19 +157,44 @@ February 15, 2026
 > wasSwitchedToMono PreZone{pzChanges}     = MakeMono `elem` pzChanges.ceChanges
 > showPreZones           :: [PreZone] → String
 > showPreZones pzs                         = show $ map pzWordB pzs
-> extractZoneKey         :: PreZone → PreZoneKey
-> extractZoneKey pz                        =
->   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
 > showBad                :: PreZone → String
 > showBad pz                               = show (pz.pzWordB, (pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange))
 >
-> data PreZoneKey                          =
->   PreZoneKey {
->     pzkwFile           :: !Int
->   , pzkwInst           :: !Word
->   , pzkwBag            :: !Word
->   , pzkwSampleIndex    :: !Word}
->   deriving (Eq, Ord, Show)
+> isStereoPZ, isLeftPZ, isRightPZ
+>                        :: PreZone → Bool
+> isStereoPZ pz                            = isLeftPZ pz || isRightPZ pz
+> isLeftPZ pz                              = SampleTypeLeft == toSampleType (effPZShdr pz).sampleType
+> isRightPZ pz                             = SampleTypeRight == toSampleType (effPZShdr pz).sampleType
+>
+>
+> extractSampleKey       :: PreZone → PreSampleKey
+> extractSampleKey pz                      = PreSampleKey pz.pzWordF pz.pzWordS
+> extractInstKey         :: PreZone → PerGMKey
+> extractInstKey pz                        = stdPerGMKey pz.pzWordF (fromIntegral pz.pzWordI)
+> extractZoneKey         :: PreZone → PreZoneKey
+> extractZoneKey pz                        =
+>   PreZoneKey pz.pzWordF pz.pzWordI pz.pzWordB pz.pzWordS
+> extractSpace           :: PreZone → [Maybe (Word, Word)]
+> extractSpace pz                          = [pz.pzDigest.zdKeyRange, pz.pzDigest.zdVelRange, chans]
+>   where
+>     chans
+>       | isLeftPZ pz                      = Just (0, 0)
+>       | isRightPZ pz                     = Just (1, 1)
+>       | otherwise                        = Just (0, 1)
+>
+> effPZShdr              :: PreZone → F.Shdr
+> effPZShdr PreZone{pzChanges}             =
+>   if MakeMono `elem` pzChanges.ceChanges
+>     then pzChanges.ceSource{F.sampleType = fromSampleType SampleTypeMono, F.sampleLink = 0}
+>     else pzChanges.ceSource
+>
+> isStereoInst, is24BitInst
+>                        :: [PreZone] → Bool
+>
+> isStereoInst zs                          = isJust $ find isStereoPZ zs
+>       
+>
+> is24BitInst _                            = True -- was isJust $ ssM24 arrays       
 >
 > data AppliedLimits                       =
 >   AppliedLimits {
@@ -267,8 +302,8 @@ reconcile zone and sample header ===============================================
 >   in
 >     recon{rEffects = Just $ deriveEffects sw recon.rM8n z.zChorus z.zReverb z.zPan noon}
 >
-> resolvePreZone         :: Directives → PreZone → F.Shdr → Recon
-> resolvePreZone dives pz shdr
+> resolvePreZone         :: Directives → PreZone → Recon
+> resolvePreZone dives pz
 >   | traceIf trace_RPZ False              = undefined
 >   | otherwise                            = reconL
 >   where
@@ -278,6 +313,7 @@ reconcile zone and sample header ===============================================
 >     sw                                   = dives.synthSwitches
 >     zd                                   = pz.pzDigest
 >     z                                    = pz.pzSFZone
+>     shdr                                 = effPZShdr pz
 >     
 >     m8n                                  = resolveModulation dives z
 >
