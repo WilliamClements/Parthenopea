@@ -1,3 +1,4 @@
+> {-# LANGUAGE Arrows #-}
 > {-# LANGUAGE NumericUnderscores #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
@@ -9,13 +10,18 @@ October 8, 2025
 > module Parthenopea.SoundFont.Utility where
 >
 > import Control.Arrow
+> import Control.Arrow.ArrowP
+> import Control.Arrow.Operations
 > import Data.Array.Unboxed
 > import Data.Complex
 > import Data.Graph (Graph)
+> import Data.IntMap.Strict ( IntMap )
+> import qualified Data.IntMap.Strict      as IntMap
 > import Data.Maybe
 > import Data.Ratio ( approxRational )
 > import Data.Time
 > import Data.Time.Clock.POSIX
+> import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( AudRate, Clock(..), CtrRate )
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music
@@ -237,7 +243,28 @@ Returns the amplitude ratio (based on input 10ths of a percent)
 >     else (1000 - jS) / 1000
 >   where
 >     jS                 :: Double         = maybe 0 fromIntegral iS
-   
+
+An adaptor to make CtlSF into AudSF
+
+> upsample2              :: forall a b d p1 p2 . (ArrowChoice a, ArrowCircuit a, Clock p1, Clock p2) ⇒
+>                           ArrowP a p1 b (IntMap d) → ArrowP a p2 b (IntMap d)
+> upsample2 f                              = g 
+>   where
+>     g                                    =
+>       proc x -> do
+>         rec
+>           cc <- delay 0 -< if cc >= r-1 then 0 else cc+1
+>           y <- if cc == 0 then ArrowP (strip f) -< x 
+>                           else delay IntMap.empty       -< y
+>         outA -< y
+>
+>     r                                    =
+>       if outRate < inRate 
+>         then error "Cannot upsample a signal of higher rate to lower rate" 
+>         else outRate / inRate
+>     inRate  = rate (undefined :: p1)
+>     outRate = rate (undefined :: p2)
+
 Raises 'a' to the power 'b' using logarithms
 
 > pow                    :: Floating a ⇒ a → a → a

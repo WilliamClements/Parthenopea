@@ -8,7 +8,7 @@
 -- manipulated or saved to a file.  It is channel-agnostic in that it is
 -- able to deal with instruments of arbitrary number of channels.
 
-> module Parthenopea.Repro.Render2(
+> module Parthenopea.Repro.Render2 (
 >        Instr
 >        , InstrMap
 >        , renderSF2) where
@@ -25,6 +25,7 @@
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.Music
+> import Parthenopea.Debug
 > import Parthenopea.SoundFont.Utility hiding (NoteOn)
 
 -- Every instrument is a function that takes a duration, absolute
@@ -78,33 +79,16 @@
 >   let
 >     evts                                 = sortBy (comparing fst) $ concat $ 
 >                                            zipWith (eventToEvtPair imap) pf [0..]
->      -- Sort all NoteOn/NoteOff events by timestamp.
+>         -- Sort all NoteOn/NoteOff events by timestamp.
 >   in
 >     proc _                               → do
 >       rec
 >         t                                ← integral ⤙ 1
 >         es                               ← delay evts ⤙ next
 >         let (evs, next)                  = span ((<= t) . fst) es
->      -- Trim events that are due off the list and output them,
->      -- retaining the rest
->       outA                               ⤙ evs
->
-> toEvtSF'               :: ∀ a p . Clock p ⇒ [MEvent] → InstrMap a → Signal p () [Evt a]
-> toEvtSF' pf imap                         = upsample2 sf
->   where
->     evts                                 = sortBy (comparing fst) $ concat $ 
->                                            zipWith (eventToEvtPair imap) pf [0..]
->      -- Sort all NoteOn/NoteOff events by timestamp.
->     sf                 :: CtrSF () [Evt a]
->     sf                                   =
->       proc _                             → do
->         rec
->           t                              ← integral ⤙ 1
->           es                             ← delay evts ⤙ next
->           let (evs, next)                = span ((<= t) . fst) es
 >           -- Trim events that are due off the list and output them,
 >           -- retaining the rest
->         outA                             ⤙ evs
+>       outA                               ⤙ evs
 
 -- Modify the collection upon receiving NoteEvts.  The timestamps 
 -- are not used here, but they are expected to be the same.
@@ -119,65 +103,62 @@
 -- Note that this is tied to the particular implementation of SF, as it
 -- needs to use runSF to run all the signal functions in the collection.
 
-> pSwitch                :: ∀ p col a. (Clock p, Functor col) ⇒
->                           col (Signal p () a)  -- Initial SF collection.
->                           → Signal p () [Evt (Signal p () a)]    -- Input event stream.
->                           → (col (Signal p () a) → [Evt (Signal p () a)] → col (Signal p () a))
+> pSwitchCtl             :: forall col a. (Functor col, Show a, Show (col a)) ⇒
+>                           col (AudSF () a)  -- Initial SF collection.
+>                           → CtrSF () [Evt (AudSF () a)]    -- Input event stream.
+>                           → (col (AudSF () a) → [Evt (AudSF () a)] → col (AudSF () a))
 >                           -- A Modifying function that modifies the collection of SF
 >                           --   based on the event that is occuring.
->                           → Signal p () (col a)  
+>                           → CtrSF () (col a)  
+>                           -- The resulting collection of output values obtained from
+>                           --   running all SFs in the collection.
+> 
+> pSwitchCtl col esig mod                  = 
+>   proc _ → do
+>     evts ← esig ⤙ ()
+>     rec
+>       -- perhaps this can be run at a lower rate using upsample
+>       sfcol ← delay col ⤙ mod sfcol' evts  
+>       let rs = fmap (\s → runSF (strip s) ()) sfcol :: col (a, SF () a)
+>           (as, sfcol' :: col (AudSF () a)) = (fmap fst rs, fmap (ArrowP . snd) rs)
+>     outA                                 ⤙ notracer "pSwitchCtl as" as
+>
+> pSwitch                :: forall col a. (Functor col, Show a, Show (col a)) ⇒
+>                           col (AudSF () a)  -- Initial SF collection.
+>                           → AudSF () [Evt (AudSF () a)]    -- Input event stream.
+>                           → (col (AudSF () a) → [Evt (AudSF () a)] → col (AudSF () a))
+>                           -- A Modifying function that modifies the collection of SF
+>                           --   based on the event that is occuring.
+>                           → AudSF () (col a)  
 >                           -- The resulting collection of output values obtained from
 >                           --   running all SFs in the collection.
 > 
 > pSwitch col esig mod                     = 
->   proc _                                 → do
->     evts                                 ← esig ⤙ ()
+>   proc _ → do
+>     evts ← esig ⤙ ()
 >     rec
 >       -- perhaps this can be run at a lower rate using upsample
->       sfcol                              ← delay col ⤙ mod sfcol' evts  
->       let rs                             = fmap (\s → runSF (strip s) ()) sfcol :: col (a, SF () a)
->           (as, sfcol' :: col (Signal p () a))
->                                          = (fmap fst rs, fmap (ArrowP . snd) rs)
->     outA                                 ⤙ as
->
-> renderSF2              :: ∀ p a b . (Clock p, ToMusic1 a, AudioSample b) ⇒ 
+>       sfcol ← delay col ⤙ mod sfcol' evts  
+>       let rs = fmap (\s → runSF (strip s) ()) sfcol :: col (a, SF () a)
+>           (as, sfcol' :: col (AudSF () a)) = (fmap fst rs, fmap (ArrowP . snd) rs)
+>     outA                                 ⤙ notracer "pSwitch as" as
+> 
+> renderSF2              :: (ToMusic1 a, AudioSample b, Show b) ⇒ 
 >                           Music a 
->                           → InstrMap (Signal p () b) 
->                           → (Double, Signal p () b)
+>                           → InstrMap (AudSF () b) 
+>                           → (Double, AudSF () b)
 >      -- ^ Duration of the music in seconds, 
 >      -- and a signal function that plays the music.
 > 
 > renderSF2 m im = 
 >   let (pf, d)                            = perform1Dur $ toMusic1 m
->       sr                                 = rate (undefined :: p)
->       evtsf                              = if useUptampling && nearlyEqual sr 44100
->                                              then toEvtSF' pf im
->                                              else toEvtSF pf im
->       nearlyEqual x y                    = abs (y - x) < epsilon
->       allsf                              = pSwitch IntMap.empty evtsf modSF
+>       allsf                              =
+>         if tryCtl
+>           then upsample2 $ pSwitchCtl IntMap.empty (toEvtSF pf im) modSF
+>           else pSwitch IntMap.empty (toEvtSF pf im) modSF
 >       sf                                 = allsf >>> arr (foldl' mix zero . IntMap.elems)  -- add up all samples
 >   in (fromRational d, sf)
 >
-> upsample2              :: ∀ a b c p1 p2. (ArrowChoice a, ArrowCircuit a, Clock p1, Clock p2) ⇒
->                           ArrowP a p1 b [Evt c] → ArrowP a p2 b [Evt c] 
-> upsample2 f                              = g 
->   where
->     g                                    =
->       proc x                             → do 
->         rec
->           cc ← delay 0                   ⤙ if cc >= r-1 then 0 else cc+1
->           y ← if cc == 0
->                 then ArrowP (strip f)    ⤙ x 
->                 else delay []            ⤙ y
->         outA                             ⤙ y
->
->     r                                    = profess
->                                              (outRate > inRate)
->                                              "Cannot upsample a signal of higher rate to lower rate" 
->                                              (outRate / inRate)
->     inRate  = rate (undefined :: p1)
->     outRate = rate (undefined :: p2)
->
-> useUptampling                            = False
+> tryCtl                                   = False
 
 The End

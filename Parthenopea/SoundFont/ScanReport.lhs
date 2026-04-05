@@ -54,7 +54,6 @@ executive ======================================================================
 >         histoFold ss mfold               = foldr (foldfun . getTriple) mfold ss
 >           where foldfun dispo            = Map.insertWith (+) dispo 1
 >             
->
 >         emitHisto      :: ((Disposition, Impact, String), Int) → [Emission]
 >         emitHisto ((dispo, impact, function), count)
 >                                          =
