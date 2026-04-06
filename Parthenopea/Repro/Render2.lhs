@@ -32,9 +32,9 @@
 -- pitch, volume, and a list of parameters (Doubles).  What the function 
 -- actually returns is implementation independent.
 
-> type Instr a = Dur → AbsPitch → Volume → [Double] → a
+> type Instr a                             = Dur → AbsPitch → Volume → [Double] → a
 > 
-> type InstrMap a = [(InstrumentName, Instr a)]
+> type InstrMap a                          = [(InstrumentName, Instr a)]
 > 
 > lookupInstr            :: InstrumentName → InstrMap a → Instr a
 > lookupInstr ins im                       =
@@ -115,10 +115,10 @@
 > 
 > pSwitchCtl col esig mod                  = 
 >   proc _ → do
->     evts ← esig ⤙ ()
+>     evts ← esig                          ⤙ ()
 >     rec
 >       -- perhaps this can be run at a lower rate using upsample
->       sfcol ← delay col ⤙ mod sfcol' evts  
+>       sfcol ← delay col                  ⤙ mod sfcol' evts  
 >       let rs = fmap (\s → runSF (strip s) ()) sfcol :: col (a, SF () a)
 >           (as, sfcol' :: col (AudSF () a)) = (fmap fst rs, fmap (ArrowP . snd) rs)
 >     outA                                 ⤙ notracer "pSwitchCtl as" as
@@ -155,7 +155,7 @@
 >       allsf                              =
 >         if tryCtl
 >           then upsample2 $ pSwitchCtl IntMap.empty (toEvtSF pf im) modSF
->           else pSwitch IntMap.empty (toEvtSF pf im) modSF
+>           else             pSwitch    IntMap.empty (toEvtSF pf im) modSF
 >       sf                                 = allsf >>> arr (foldl' mix zero . IntMap.elems)  -- add up all samples
 >   in (fromRational d, sf)
 >
