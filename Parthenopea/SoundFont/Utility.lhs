@@ -244,7 +244,7 @@ Returns the amplitude ratio (based on input 10ths of a percent)
 >   where
 >     jS                 :: Double         = maybe 0 fromIntegral iS
 
-An adaptor to make CtlSF into AudSF
+An adaptor to make CtlSF into AudSF, providing an IntMap
 
 > upsample2              :: forall a b d p1 p2 . (ArrowChoice a, ArrowCircuit a, Clock p1, Clock p2) ⇒
 >                           ArrowP a p1 b (IntMap d) → ArrowP a p2 b (IntMap d)

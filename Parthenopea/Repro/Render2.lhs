@@ -4,9 +4,9 @@
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
--- Render a Music object to a audio signal function that can be further
--- manipulated or saved to a file.  It is channel-agnostic in that it is
--- able to deal with instruments of arbitrary number of channels.
+Render a Music object to an audio signal function that can be further
+manipulated or saved to a file.  It is channel-agnostic in that it is
+able to deal with instruments of arbitrary number of channels.
 
 > module Parthenopea.Repro.Render2 (
 >        Instr
@@ -26,11 +26,10 @@
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.SoundFont.Utility hiding (NoteOn)
 
--- Every instrument is a function that takes a duration, absolute
--- pitch, volume, and a list of parameters (Doubles).  What the function 
--- actually returns is implementation independent.
+Every instrument is a function that takes a duration, absolute
+pitch, volume, and a list of parameters (Doubles).  What the function 
+actually returns is implementation independent.
 
 > type Instr a                             = Dur → AbsPitch → Volume → [Double] → a
 > 
@@ -43,20 +42,19 @@
 >     Nothing                              → error $ "Instrument " ++ show ins ++ 
 >                                             " does not have a matching Instr in the supplied InstrMap."
 
--- Each note in a Performance is tagged with a unique NoteId, which
--- helps us keep track of the signal function associated with a note.
+Each note in a Performance is tagged with a unique NoteId, which
+helps us keep track of the signal function associated with a note.
 
 > type NoteId                              = Int
 
--- In this particular implementation, 'a' is the signal function that
--- plays the given note.
+In this particular implementation, 'a' is the signal function that plays the given note.
 
 > data NoteEvt a                           =   NoteOn  NoteId a
 >                                            | NoteOff NoteId
 > 
 > type Evt a                               = (Double, NoteEvt a) -- Timestamp in seconds, and the note event
 
--- Turn an Event into a NoteOn and a matching NoteOff with the same NodeId.  
+Turn an Event into a NoteOn and a matching NoteOff with the same NodeId.  
 
 > eventToEvtPair         :: InstrMap a → MEvent → Int → [Evt a]
 > eventToEvtPair imap (MEvent {eTime, eInst, ePitch, eDur, eVol, eParams}) nid
@@ -69,16 +67,15 @@
 >   in
 >     [(tOn, NoteOn nid sf), (tOn + tDur, NoteOff nid)]
 
--- Turn a Performance into an SF of NoteOn/NoteOffs.  
--- For each note, generate a unique id to tag the NoteOn and NoteOffs.
--- The tag is used as the key to the collection of signal functions
--- for efficient insertion/removal.
+Turn a Performance into an SF of NoteOn/NoteOffs.  
+For each note, generate a unique id to tag the NoteOn and NoteOffs.
+The tag is used as the key to the collection of signal functions
+for efficient insertion/removal.
 
 > toEvtSF                :: Clock p ⇒ [MEvent] → InstrMap a → Signal p () [Evt a]
 > toEvtSF pf imap                          = 
 >   let
->     evts                                 = sortBy (comparing fst) $ concat $ 
->                                            zipWith (eventToEvtPair imap) pf [0..]
+>     evts                                 = sortBy (comparing fst) $ concat $ zipWith (eventToEvtPair imap) pf [0..]
 >         -- Sort all NoteOn/NoteOff events by timestamp.
 >   in
 >     proc _                               → do
@@ -90,8 +87,8 @@
 >           -- retaining the rest
 >       outA                               ⤙ evs
 
--- Modify the collection upon receiving NoteEvts.  The timestamps 
--- are not used here, but they are expected to be the same.
+Modify the collection upon receiving NoteEvts.  The timestamps 
+are not used here, but they are expected to be the same.
 
 > modSF                  :: IntMap a → [Evt a] → IntMap a
 > modSF                                    = foldl' mod
@@ -99,30 +96,10 @@
 >     mod m (_, NoteOn nid sf)             = IntMap.insert nid sf m
 >     mod m (_, NoteOff nid)               = IntMap.delete nid m
 
--- Simplified version of a parallel switcher.  
--- Note that this is tied to the particular implementation of SF, as it
--- needs to use runSF to run all the signal functions in the collection.
+Simplified version of a parallel switcher.  
+Note that this is tied to the particular implementation of SF, as it
+needs to use runSF to run all the signal functions in the collection.
 
-> pSwitchCtl             :: forall col a. (Functor col, Show a, Show (col a)) ⇒
->                           col (AudSF () a)  -- Initial SF collection.
->                           → CtrSF () [Evt (AudSF () a)]    -- Input event stream.
->                           → (col (AudSF () a) → [Evt (AudSF () a)] → col (AudSF () a))
->                           -- A Modifying function that modifies the collection of SF
->                           --   based on the event that is occuring.
->                           → CtrSF () (col a)  
->                           -- The resulting collection of output values obtained from
->                           --   running all SFs in the collection.
-> 
-> pSwitchCtl col esig mod                  = 
->   proc _ → do
->     evts ← esig                          ⤙ ()
->     rec
->       -- perhaps this can be run at a lower rate using upsample
->       sfcol ← delay col                  ⤙ mod sfcol' evts  
->       let rs = fmap (\s → runSF (strip s) ()) sfcol :: col (a, SF () a)
->           (as, sfcol' :: col (AudSF () a)) = (fmap fst rs, fmap (ArrowP . snd) rs)
->     outA                                 ⤙ notracer "pSwitchCtl as" as
->
 > pSwitch                :: forall col a. (Functor col, Show a, Show (col a)) ⇒
 >                           col (AudSF () a)  -- Initial SF collection.
 >                           → AudSF () [Evt (AudSF () a)]    -- Input event stream.
@@ -135,10 +112,9 @@
 > 
 > pSwitch col esig mod                     = 
 >   proc _ → do
->     evts ← esig ⤙ ()
+>     evts ← esig                          ⤙ ()
 >     rec
->       -- perhaps this can be run at a lower rate using upsample
->       sfcol ← delay col ⤙ mod sfcol' evts  
+>       sfcol ← delay col                  ⤙ mod sfcol' evts  
 >       let rs = fmap (\s → runSF (strip s) ()) sfcol :: col (a, SF () a)
 >           (as, sfcol' :: col (AudSF () a)) = (fmap fst rs, fmap (ArrowP . snd) rs)
 >     outA                                 ⤙ notracer "pSwitch as" as
@@ -152,13 +128,8 @@
 > 
 > renderSF2 m im = 
 >   let (pf, d)                            = perform1Dur $ toMusic1 m
->       allsf                              =
->         if tryCtl
->           then upsample2 $ pSwitchCtl IntMap.empty (toEvtSF pf im) modSF
->           else             pSwitch    IntMap.empty (toEvtSF pf im) modSF
+>       allsf                              = pSwitch IntMap.empty (toEvtSF pf im) modSF
 >       sf                                 = allsf >>> arr (foldl' mix zero . IntMap.elems)  -- add up all samples
 >   in (fromRational d, sf)
->
-> tryCtl                                   = False
 
 The End
