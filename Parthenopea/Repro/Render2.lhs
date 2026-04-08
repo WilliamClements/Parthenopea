@@ -13,7 +13,6 @@ able to deal with instruments of arbitrary number of channels.
 >        , InstrMap
 >        , renderSF2) where
 >
-> import Control.Arrow
 > import Control.Arrow.Operations
 > import Control.Arrow.ArrowP
 > import Control.SF.SF
@@ -25,7 +24,6 @@ able to deal with instruments of arbitrary number of channels.
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.Music
-> import Parthenopea.Debug
 
 Every instrument is a function that takes a duration, absolute
 pitch, volume, and a list of parameters (Doubles).  What the function 
@@ -100,13 +98,13 @@ Simplified version of a parallel switcher.
 Note that this is tied to the particular implementation of SF, as it
 needs to use runSF to run all the signal functions in the collection.
 
-> pSwitch                :: forall col a. (Functor col, Show a, Show (col a)) ⇒
->                           col (AudSF () a)  -- Initial SF collection.
->                           → AudSF () [Evt (AudSF () a)]    -- Input event stream.
->                           → (col (AudSF () a) → [Evt (AudSF () a)] → col (AudSF () a))
+> pSwitch                :: forall col p a. (Clock p, Functor col, Foldable col, AudioSample a, Show a, Show (col a)) ⇒
+>                           col (Signal p () a)  -- Initial SF collection.
+>                           → Signal p () [Evt (Signal p () a)]    -- Input event stream.
+>                           → (col (Signal p () a) → [Evt (Signal p () a)] → col (Signal p () a))
 >                           -- A Modifying function that modifies the collection of SF
 >                           --   based on the event that is occuring.
->                           → AudSF () (col a)  
+>                           → Signal p () a 
 >                           -- The resulting collection of output values obtained from
 >                           --   running all SFs in the collection.
 > 
@@ -116,20 +114,20 @@ needs to use runSF to run all the signal functions in the collection.
 >     rec
 >       sfcol ← delay col                  ⤙ mod sfcol' evts  
 >       let rs = fmap (\s → runSF (strip s) ()) sfcol :: col (a, SF () a)
->           (as, sfcol' :: col (AudSF () a)) = (fmap fst rs, fmap (ArrowP . snd) rs)
->     outA                                 ⤙ notracer "pSwitch as" as
+>           (as, sfcol' :: col (Signal p () a)) = (fmap fst rs, fmap (ArrowP . snd) rs)
+>       let aall                           = foldl' mix zero as
+>     outA                                 ⤙ aall
 > 
-> renderSF2              :: (ToMusic1 a, AudioSample b, Show b) ⇒ 
+> renderSF2              :: forall p a b. (Clock p, ToMusic1 a, AudioSample b, Show b) ⇒ 
 >                           Music a 
->                           → InstrMap (AudSF () b) 
->                           → (Double, AudSF () b)
+>                           → InstrMap (Signal p () b) 
+>                           → (Double, Signal p () b)
 >      -- ^ Duration of the music in seconds, 
 >      -- and a signal function that plays the music.
 > 
 > renderSF2 m im = 
 >   let (pf, d)                            = perform1Dur $ toMusic1 m
 >       allsf                              = pSwitch IntMap.empty (toEvtSF pf im) modSF
->       sf                                 = allsf >>> arr (foldl' mix zero . IntMap.elems)  -- add up all samples
->   in (fromRational d, sf)
+>   in (fromRational d, allsf)
 
 The End
