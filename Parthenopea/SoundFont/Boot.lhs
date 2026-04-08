@@ -568,7 +568,7 @@ capture task ===================================================================
 >
 >         (zrecs, ssCap)                   =
 >           if any (isLeft . snd) results
->             then (captOut ^. uZRecs,                                       ssInstrumentCaptured iName)
+>             then (captOut ^. uZRecs,                                              ssInstrumentCaptured iName)
 >             else (IntMap.update (const Nothing) zrec.zswInst (captOut ^. uZRecs), ssBadZones)
 >
 >         capturePreZone :: Word → (Word, Either PreZone (PreZoneKey, [Scan]))
@@ -645,8 +645,8 @@ produce and process capture results ============================================
 >                   where bz               = buildZone (captFold ^. uSFZone) (Just pz) bix
 >                 doError (k, ssZone)      =
 >                   if hasImpact GlobalZone ssZone
->                     then captFold{_uSFZone = bz}
->                     else captFold{_uDispo = dispose k ssZone (captFold ^. uDispo)}
+>                     then (uSFZone .~ bz) captFold
+>                     else (uDispo .~ dispose k ssZone (captFold ^. uDispo)) captFold
 >                   where bz               = buildZone defZone Nothing bix
 >               in
 >                 either doNormal doError eor
