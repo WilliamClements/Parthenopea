@@ -36,11 +36,7 @@ August 15, 2025
 > cSnippet                                 = line [c 4 hn, rest qn, d 4 qn, rest hn, b 3 qn, rest sn, a 3 sn]
 >
 > doEnrich               :: VB.Vector Marking → Music Pitch → VB.Vector MekNote
-> doEnrich marks snippet                   = enrichPassage
->                                              defDirectives
->                                              defBandPart
->                                              marks
->                                              snippet
+> doEnrich                                 = enrichPassage defDirectives defBandPart
 >                                              
 > twoNotesSameVelocity   :: IO Bool
 > twoNotesSameVelocity                     = do

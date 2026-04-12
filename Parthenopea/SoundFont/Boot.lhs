@@ -25,8 +25,8 @@ January 21, 2025
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Either
-> import Data.IntMap.Strict ( IntMap )
-> import qualified Data.IntMap.Strict      as IntMap
+> import Data.IntMap ( IntMap )
+> import qualified Data.IntMap             as IntMap
 > import Data.IntSet ( IntSet )
 > import qualified Data.IntSet             as IntSet
 > import Data.List 
@@ -407,7 +407,7 @@ pre-sample task ================================================================
 >           | not (sampleSizeOk shdr.start shdr.end)
 >                                          = violated BadSampleLimits (show (shdr.start, shdr.end))
 >           | not (goodName raw)           = badButMaybeFix fixBadNames BadName fName raw good
->           | otherwise                    = accepted Ok stereo
+>           | otherwise                    = accepted ToProgram stereo
 >
 >         (ssSample, changes, name)        = if wasRescued BadName ssSample_
 >                                              then (ssSample_, singleton FixBadName, good)
@@ -492,11 +492,6 @@ instrument task ================================================================
 >     Directives{ .. }
 >                                          = fWork ^. fwDirectives                     
 >
->     violated imp clue                    =
->       [Scan Violated imp fName clue]
->     accepted imp clue                    =
->       [Scan Accepted imp fName clue]
->
 >     processed          :: ZRec           = foldl' instInst (spawn fWork defZRec) (formComprehension sffile ssInsts)
 >     work               :: FileWork       = imbibe fWork processed
 >
@@ -533,7 +528,12 @@ instrument task ================================================================
 >           | iinst.instBagNdx == jinst.instBagNdx
 >                                          = violated NoZones (show iinst.instName)
 >           | not (goodName raw)           = badButMaybeFix fixBadNames BadName fName raw good
->           | otherwise                    = accepted Ok (show pergm.pgkwInst)
+>           | otherwise                    = accepted ToProgram (show pergm.pgkwInst)
+>
+>     violated imp clue                    =
+>       [Scan Violated imp fName clue]
+>     accepted imp clue                    =
+>       [Scan Accepted imp fName clue]
 
 capture task ==========================================================================================================
           populate zrecs with PreZones
@@ -546,15 +546,6 @@ capture task ===================================================================
 >                                          = fWork ^. fwDirectives
 >     SynthSwitches{ .. }                  
 >                                          = synthSwitches
->               
->     ssTempl8 dispo imp clue              = [Scan dispo imp fName_ clue]
->     ssGlobalZone                         = ssTempl8 Accepted   GlobalZone   noClue
->     ssOrphaned                           = ssTempl8 Dropped    Orphaned     noClue
->     ssInstrumentCaptured                 = ssTempl8 Modified   Captured
->     ssBadZones                           = ssTempl8 Violated   BadZones     "see PreZone dispositions"
->     ssBadGMRange                         = ssTempl8 Violated   BadGMRange
->     ssRom                                = ssTempl8 Violated   RomBased
->     ssApplied                            = ssTempl8 Violated   BadAppliedLimits
 >
 >     processed          :: Capture        = IntMap.foldl' capture (spawn fWork defCapture) (fWork ^. fwZRecs)
 >     work               :: FileWork       = imbibe fWork processed
@@ -760,6 +751,15 @@ consume zone ===================================================================
 >               >>= addSrc                   (fromJust modSrc)
 >               >>= addDest                  fmod.destOper
 >               >>= addAmount                (fromIntegral fmod.amount)
+>               
+>     ssTempl8 dispo imp clue              = [Scan dispo imp fName_ clue]
+>     ssGlobalZone                         = ssTempl8 Accepted   GlobalZone   noClue
+>     ssOrphaned                           = ssTempl8 Dropped    Orphaned     noClue
+>     ssInstrumentCaptured                 = ssTempl8 Modified   Captured
+>     ssBadZones                           = ssTempl8 Violated   BadZones     "see PreZone dispositions"
+>     ssBadGMRange                         = ssTempl8 Violated   BadGMRange
+>     ssRom                                = ssTempl8 Violated   RomBased
+>     ssApplied                            = ssTempl8 Violated   BadAppliedLimits
 
 pair task =============================================================================================================
           store (1) reject action map (dirty zs), (2) dispo (3) dirty is (4) crossers, to be used later on
@@ -1117,11 +1117,6 @@ To build the map
 >       where
 >         fName                            = "reorger"
 >
->         ssTempl8 dispo imp clue          = [Scan dispo imp fName clue]
->         scansIng                         = ssTempl8 Modified   Absorbing    noClue
->         scansEd                          = ssTempl8 Dropped    Absorbed     (show party)
->         scansBlocked                     = ssTempl8 NoChange   NoAbsorption (show disqualified)
->
 >         pergm                            = instKey zrec
 >
 >         dprobe                           = IntMap.lookup zrec.zswInst disqualMap
@@ -1129,6 +1124,11 @@ To build the map
 >
 >         disqualified                     = deJust "dprobe" dprobe
 >         party                            = deJust "aprobe" aprobe
+>
+>         ssTempl8 dispo imp clue          = [Scan dispo imp fName clue]
+>         scansIng                         = ssTempl8 Modified   Absorbing    noClue
+>         scansEd                          = ssTempl8 Dropped    Absorbed     (show party)
+>         scansBlocked                     = ssTempl8 NoChange   NoAbsorption (show disqualified)
 >
 >     headed, ready      :: IntMap IntSet                {- [InstIndex → [InstIndex]]              -}
 >
@@ -1142,7 +1142,7 @@ To build the map
 >         rewire ns                        =
 >           IntMap.insert ((snd . head) ns) (IntSet.fromList (map snd ns)) IntMap.empty
 >
->     holdMap            :: IntMap Int                   {- [InstIndex → smash]                    -}
+>     holdMap            :: IntMap Int                   {- [InstIndex → dummy]                    -}
 >     disqualMap         :: IntMap SmashStats            {- [InstIndex → stats]                    -}
 >     (holdMap, disqualMap)                = IntMap.mapEitherWithKey qualify headed
 >       where
@@ -1226,9 +1226,9 @@ shrink task ====================================================================
 > shrinkTaskIf _ _ fWork                   = zrecTask shrinker fWork
 >   where
 >     shrinker zrec rdFold                 =
->       case zrec.zswInst `IntSet.member` (fWork ^. fwDirtyIs) of
->         True                           → (Just zrec{zsSmashup = Nothing}, rdFold)
->         _                              → (Just zrec                     , rdFold)
+>       if zrec.zswInst `IntSet.member` (fWork ^. fwDirtyIs)
+>         then (Just zrec{zsSmashup = Nothing}, rdFold)
+>         else (Just zrec                     , rdFold)
 
 clean task ============================================================================================================
           1. repair owners
@@ -1250,7 +1250,7 @@ clean task =====================================================================
 >             Nothing                      → (Nothing,   dispose (instKey zrec) ssNoZones rdFold)
 >             _                            → (Just zrec, rdFold)
 >       in
->         zrecTask cleaner ((fwZoneOwners .~ owners') fWork)
+>         zrecTask cleaner $ fwZoneOwners .~ owners' $ fWork
 
 perI task =============================================================================================================
           generating PerInstrument map

@@ -119,11 +119,12 @@ implementing SoundFont spec ====================================================
 >   deriving (Eq, Ord, Show)
 >
 > data Impact                              =
->   Ok | NoZones | BadZones
+>   ToProgram | ToCache | Winner
+>      | NoZones | BadZones
 >      | BadName
 >      | BadSampleRate | BadSampleType | BadSampleLimits
 >      | BadAppliedLimits | BadStereoPartner | RomBased | BadGMRange 
->      | Paired | Orphaned | ToCache
+>      | Paired | Orphaned
 >      | Absorbing | Absorbed | NoAbsorption    
 >      | Unrecognized | Narrow | NoPercZones
 >      | Captured | Adopted | AdoptedAsMono | GlobalZone

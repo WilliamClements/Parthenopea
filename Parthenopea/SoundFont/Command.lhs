@@ -12,7 +12,6 @@ June 16, 2025
 >         , batchProcessor
 >         ) where
 >
-> import qualified Codec.Midi              as M
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
 > import Data.Either
@@ -22,7 +21,6 @@ June 16, 2025
 > import Data.Time ( getZonedTime )
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
-> import Euterpea.IO.MIDI ( fromMidi )
 > import Euterpea.Music ( InstrumentName, PercussionSound )
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
@@ -51,8 +49,8 @@ Implement PCommand =============================================================
 >   putStr $ reapEmissions $ openingRemarks timeThen
 >   CM.unless (okDirectives dives)         (error $ unwords[fName, "garbage in Directives", show dives])
 >
->   mids                                   ← FP.getDirectoryFiles "." ["*.mid", "*.midi"]
->   sf2s                                   ← FP.getDirectoryFiles "." ["*.sf2"]
+>   mids                                   ← FP.getDirectoryFilesIgnoreSlow "." ["*.mid", "*.midi"] []
+>   sf2s                                   ← FP.getDirectoryFilesIgnoreSlow "." ["*.sf2"] []
 >   putStr $ reapEmissions [msg mids sf2s, EndOfLine]
 >
 >   proceed dives isongs mids sf2s
@@ -152,22 +150,6 @@ Implement PCommand =============================================================
 >     else
 >       putStr $ reapEmissions skipSong
 >   return ()
-> 
-> convertFromMidi        :: FilePath → IO Song
-> convertFromMidi path                     = do
->   midi_                                  ← M.importFile path
->   let midi                               = case midi_ of
->                                              Left err → error err
->                                              Right m  → m
->   return $ Song (removeExtension path) (fromMidi midi) Map.empty
->   where
->     removeExtension fp                   =
->       let
->         fpRev                            = reverse fp
->         fpRev'                           = dropWhile (/= '.') fpRev
->         fpRev''                          = drop 1 fpRev'
->       in
->         reverse fpRev''
 >
 > openSoundFontFile      :: Int → FilePath → IO SFFileBoot
 > openSoundFontFile wFile filename         = do

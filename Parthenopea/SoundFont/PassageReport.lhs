@@ -30,7 +30,7 @@ October 5, 2025
 summarize incoming passage ============================================================================================
 
 > summarizeOnePassage     :: VB.Vector MekNote → [Emission]
-> summarizeOnePassage meksIn               = concatMap summarize meksIn
+> summarizeOnePassage                      = concatMap summarize
 >   where
 >     summarize           :: MekNote → [Emission]
 >     summarize mek                        = [Unblocked (show (mek.mSelfIndex, mek.mParams, mek.mPrimitive)), EndOfLine]

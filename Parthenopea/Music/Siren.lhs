@@ -9,6 +9,7 @@ December 12, 2022
 
 > module Parthenopea.Music.Siren where
 >
+> import qualified Codec.Midi              as M
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq ( NFData )
 > import Control.SF.SF ( unfold )
@@ -25,8 +26,10 @@ December 12, 2022
 > import qualified Data.Vector.Unboxed     as VU
 > import Data.Word ( Word8 )
 > import Euterpea.IO.Audio.Types
+> import Euterpea.IO.MIDI ( fromMidi )
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.IO.MIDI.MidiIO ( unsafeOutputID )
+> import Euterpea.IO.MIDI.ToMidi2
 > import Euterpea.IO.MIDI.Play
 > import Euterpea.Music
 > import Parthenopea.SoundFont.Directives
@@ -91,12 +94,13 @@ more than 16 instruments to be used in the source music.
 > playDM                 :: (NFData a, ToMusic1 a) ⇒ Maybe Int → Music a → IO ()
 > playDM mi                                =
 >   playC defParams
->     { strict=False
->     , chanPolicy = dynamicCP 16 9
+>     { strict                             = False
+>     , chanPolicy                         = dynamicCP 16 9
 >     , devID                              = case mi of
 >                                              Nothing → Nothing
 >                                              Just i → Just $ unsafeOutputID i
->     , perfAlg= map (\mev → mev{eDur = max 0 (eDur mev - 0.000_001)}) . perform}
+>     , perfAlg                            =
+>         map (\mev → mev{eDur = max 0 (eDur mev - 0.000_001)}) . perform}
 
 "triad" ===============================================================================================================
 
@@ -686,5 +690,25 @@ Returns sample point as (normalized) Double
 >     (s0, s1)           :: (Double, Double)
 >                                          = (  samplePoint s16 ms8 ix
 >                                             , samplePoint s16 ms8 (ix + 1))
+> 
+> convertFromMidi        :: FilePath → IO Song
+> convertFromMidi path                     = do
+>   midi_                                  ← M.importFile path
+>   let midi                               = case midi_ of
+>                                              Left err → error err
+>                                              Right m  → m
+>   return $ Song (removeExtension path) (fromMidi midi) Map.empty
+>   where
+>     removeExtension fp                   =
+>       let
+>         fpRev                            = reverse fp
+>         fpRev'                           = dropWhile (/= '.') fpRev
+>         fpRev''                          = drop 1 fpRev'
+>       in
+>         reverse fpRev''
+> 
+> convertToMidi        :: FilePath → Song → IO ()
+> convertToMidi path song                  = do
+>   writeMidi2 path song.songMusic
 
 The End

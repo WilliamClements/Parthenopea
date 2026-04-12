@@ -14,6 +14,7 @@ October 8, 2025
 > import Control.Arrow.Operations
 > import Data.Array.Unboxed
 > import Data.Complex
+> import Data.Foldable
 > import Data.Graph (Graph)
 > import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict      as IntMap
@@ -228,10 +229,9 @@ Returns the elapsed time in seconds
 
 Returns the amplitude ratio
 
-> fromCentibels          :: Double → Double
+> fromCentibels, toCentibels
+>                        :: Double → Double
 > fromCentibels centibels                  = pow 10 (centibels/1000)
->
-> toCentibels            :: Double → Double
 > toCentibels ratio                        = logBase 10 (ratio * 1000)
 
 Returns the amplitude ratio (based on input 10ths of a percent) 
@@ -244,26 +244,27 @@ Returns the amplitude ratio (based on input 10ths of a percent)
 >   where
 >     jS                 :: Double         = maybe 0 fromIntegral iS
 
-An adaptor to make CtlSF into AudSF, providing an IntMap
+An adaptor to make CtlSF into AudSF, communicating an IntMap
 
-> upsample2              :: forall a b d p1 p2 . (ArrowChoice a, ArrowCircuit a, Clock p1, Clock p2) ⇒
+> upsample2              :: ∀ a b d p1 p2 . (ArrowChoice a, ArrowCircuit a, Clock p1, Clock p2) ⇒
 >                           ArrowP a p1 b (IntMap d) → ArrowP a p2 b (IntMap d)
-> upsample2 f                              = g 
->   where
->     g                                    =
->       proc x -> do
->         rec
->           cc <- delay 0 -< if cc >= r-1 then 0 else cc+1
->           y <- if cc == 0 then ArrowP (strip f) -< x 
->                           else delay IntMap.empty       -< y
->         outA -< y
->
+> upsample2 f                              =
+>   let
 >     r                                    =
 >       if outRate < inRate 
 >         then error "Cannot upsample a signal of higher rate to lower rate" 
 >         else outRate / inRate
 >     inRate  = rate (undefined :: p1)
 >     outRate = rate (undefined :: p2)
+>   in    
+>     proc x                               → do
+>       rec
+>         cc ← delay 0                     ⤙ if cc >= r-1 then 0 else cc+1
+>         y ← if cc == 0
+>               then ArrowP (strip f)
+>                                          ⤙ x 
+>               else delay IntMap.empty    ⤙ y
+>       outA                               ⤙ y
 
 Raises 'a' to the power 'b' using logarithms
 

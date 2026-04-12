@@ -97,8 +97,8 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >   qv2p1000_004 = toMusic1 (line [rest (4 * wn), rest dhn]::Music Pitch)
 >   -- 4 % 1
 >   qv2p1005_008 =
->     line [p2 o131shape1 (line [cs 4 qn, es 4 hn, fs 4 hn, d 4 dhn
->                              , cs 4 qn, b 3 qn, d 4 qn, cs 4 qn, b 3 qn, a 3 qn, b 3 qn, cs 4 qn])]
+>     p2 o131shape1 (line [cs 4 qn, es 4 hn, fs 4 hn, d 4 dhn
+>                        , cs 4 qn, b 3 qn, d 4 qn, cs 4 qn, b 3 qn, a 3 qn, b 3 qn, cs 4 qn])
 >   -- 17 % 4
 >   qv2p1009_012 =
 >     line [p2 [Inflect P, SpanN 2, Inflect P] (line [bs 3 qn, ds 4 qn, gs 3 hn, gs 4 qn])

@@ -28,7 +28,7 @@ Boot-related tests =============================================================
 >                                             , orderIndependence2]
 >
 > nonFatalScanIsNotFatal                   = do
->   let ss                                 = [Scan Accepted Ok "nonFatalScanIsNotFatal" noClue]
+>   let ss                                 = [Scan Accepted ToProgram "nonFatalScanIsNotFatal" noClue]
 >   return $ not $ dead ss
 >
 > fatalScanIsFatal                         = do
@@ -60,13 +60,13 @@ Boot-related tests =============================================================
 > correctlyJudgesDispoNonFatal            = do
 >   let fName                              = "correctlyJudgesDispoNonFatal"
 >   let pergm                              = PerGMKey 0 0 Nothing
->   let rd                                 = dispose pergm [Scan Accepted Ok fName noClue] virginrd
+>   let rd                                 = dispose pergm [Scan Accepted ToProgram fName noClue] virginrd
 >   return $ not $ deadrd pergm rd
 >
 > orderIndependence1                       = do
 >   let fName                              = "orderIndependence1"
->   let order1                             = [Scan Accepted Ok      fName noClue,  Scan Violated NoZones fName noClue]
->   let order2                             = [Scan Violated NoZones fName noClue,  Scan Accepted Ok fName noClue]
+>   let order1                             = [Scan Accepted ToProgram      fName noClue,  Scan Violated NoZones fName noClue]
+>   let order2                             = [Scan Violated NoZones fName noClue,  Scan Accepted ToProgram fName noClue]
 >   return $ dead order1 && dead order2
 >
 > orderIndependence2                       = do

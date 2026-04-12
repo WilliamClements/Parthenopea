@@ -13,6 +13,7 @@ June 22, 2024
 > import Control.Arrow
 > import Data.Complex ( imagPart, realPart, Complex )
 > import Data.Time.Clock ( diffUTCTime, getCurrentTime )
+> import Data.Foldable
 > import qualified Data.Vector.Unboxed     as VU
 > import Diagrams.Prelude hiding ( fc )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )

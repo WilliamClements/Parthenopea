@@ -17,8 +17,9 @@ February 1, 2025
 >
 > import Control.Applicative
 > import qualified Data.Bifunctor          as BF
-> import Data.IntMap.Strict ( IntMap )
-> import qualified Data.IntMap.Strict      as IntMap
+> import Data.Foldable
+> import Data.IntMap        ( IntMap )
+> import qualified Data.IntMap             as IntMap
 > import Data.IntSet (IntSet )
 > import qualified Data.IntSet             as IntSet
 > import Data.Map.Strict ( Map )

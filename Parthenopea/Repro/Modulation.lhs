@@ -17,9 +17,10 @@ November 6, 2023
 > import qualified Data.Bifunctor          as BF
 > import Data.Bits
 > import Data.Complex
+> import Data.Foldable
 > import Data.Graph (Graph)
 > import qualified Data.Graph              as Graph
-> import Data.List ( iterate', find )
+> import Data.List ( iterate' )
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
 > import Data.Maybe
