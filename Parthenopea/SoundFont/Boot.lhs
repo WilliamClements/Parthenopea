@@ -1151,32 +1151,26 @@ To build the map
 >                           → Either Int SmashStats
 >         qualify leadI memberIs
 >           | null smashups                = error "null smashups?!?"
->           | 0 == osmashup.smashStats.countMultiples
->                                          = Left leadI
+>           | 0 == dupes                   = Left leadI
 >           | membersHaveVR memberIs       = Left leadI
 >           | otherwise                    = Right osmashup.smashStats
 >           where
 >             smashups                     = map (zrecSmash fWork) (IntSet.toList memberIs)
 >             osmashup                     = (foldl' smashSmashings (head smashups) (tail smashups))
 >                                              {smashTag = unwords [show (leadI, memberIs)]}
->             -- VR = Velocity Range(s)
->             membersHaveVR
->                        :: IntSet → Bool
->             membersHaveVR iset               =
->               let
->                 zoneHasVR bix            = 
->                   case pz.pzDigest.zdVelRange of
->                     Just rng             → rng /= (0, qMidiWord128 - 1)
->                     Nothing              → False
->                   where
->                     pz                   = (fWork ^. fwPreZones) IntMap.! bix
->                 zonesHaveVR
->                        :: Int → Bool
->                 zonesHaveVR inst         = any zoneHasVR (IntSet.toList bixen)
->                   where
->                     bixen                = (fWork ^. fwZoneOwners) IntMap.! inst
->               in
->                 all zonesHaveVR (IntSet.toList iset)
+>             dupes                        = osmashup.smashStats.countMultiples
+>
+>         -- VR = Velocity Range(s)
+>         membersHaveVR iset               = all zonesHaveVR (IntSet.toList iset)
+>         zonesHaveVR inst                 = any zoneHasVR (IntSet.toList bixen)
+>                                              where bixen = (fWork ^. fwZoneOwners) IntMap.! inst
+>         zoneHasVR bix                    = 
+>           let
+>             pz                           = (fWork ^. fwPreZones) IntMap.! bix
+>           in
+>             case pz.pzDigest.zdVelRange of
+>               Just rng                   → rng /= (0, qMidiWord128 - 1)
+>               Nothing                    → False
 >
 >     ready                                = IntMap.filterWithKey wasVetted headed
 >                                              where wasVetted k _ = IntMap.member k holdMap
@@ -1206,16 +1200,21 @@ match task =====================================================================
 
 > matchTaskIf _ _ fWork                    = (fwMatches .~ Matches sMatches iMatches) fWork
 >   where
->     Directives{ .. }
->                                          = fWork ^. fwDirectives                     
+>     dives                                = fWork ^. fwDirectives
+>     procon                               = dives.proConRatio
+>     narrow                               = dives.narrowRosterForBoot
+>
 >     sMatches                             =
->       Map.foldlWithKey compute Lazy.empty (fWork ^. fwPreSamples)
->         where compute m k v              = Lazy.insert k (computeFFMatches proConRatio v.cnName narrowRosterForBoot) m
+>       let
+>         computeFF m k v                  = Lazy.insert k (computem v) m
+>         computem v                       = computeFFMatches procon v.cnName narrow
+>       in
+>         Map.foldlWithKey computeFF Lazy.empty (fWork ^. fwPreSamples)
+>
 >     iMatches                             =
 >       let
->         computeFF      :: Lazy.Map PerGMKey FFMatches → InstZoneRecord → Lazy.Map PerGMKey FFMatches 
->         computeFF m zrec                 =
->           Lazy.insert (instKey zrec) (computeFFMatches proConRatio zrec.zswChanges.cnName narrowRosterForBoot) m
+>         computeFF m zrec                 = Lazy.insert (instKey zrec) (computem zrec) m
+>         computem zrec                    = computeFFMatches procon zrec.zswChanges.cnName narrow
 >       in
 >         IntMap.foldl' computeFF Lazy.empty (fWork ^. fwZRecs)    
 

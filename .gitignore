@@ -18,3 +18,5 @@ regex-base/
 *.ghci
 *.report
 cabal.project.local*
+*.eventlog
+*.prof

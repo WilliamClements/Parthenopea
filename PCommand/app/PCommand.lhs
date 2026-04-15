@@ -1,3 +1,4 @@
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
 > module Main where

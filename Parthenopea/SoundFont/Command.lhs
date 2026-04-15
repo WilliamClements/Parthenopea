@@ -27,6 +27,7 @@ June 16, 2025
 > import Parthenopea.Repro.Render2 ( renderSF2 )
 > import Parthenopea.SoundFont.Boot
 > import Parthenopea.SoundFont.Directives
+> import Parthenopea.SoundFont.PassageReport
 > import Parthenopea.SoundFont.RangesReport
 > import Parthenopea.SoundFont.ScanReport ( writeScanReport )
 > import Parthenopea.SoundFont.Runtime
@@ -77,6 +78,7 @@ Implement PCommand =============================================================
 >   CM.when (20 < nSongs && not (null sf2s)) runUnitTests
 >
 >   let ding                               = Map.unionsWith combineShreds (map shreds songs)
+>   CM.when (dForPassage > 0 && 0 < nSongs) (writePassageReport dives songs)
 >   CM.when (dForRanges > 0 && 0 < nSongs) (writeRangesReport dives songs ding)
 >
 >   rost                                   ← identifyRoster ding songs

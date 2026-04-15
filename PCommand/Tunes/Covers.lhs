@@ -3043,7 +3043,7 @@ Igor's Boogie ==================================================================
 > ibsEnabled = True
 > ibvEnabled = True    
 >
-> iboogie              :: Directives → Music (Pitch, [NoteAttribute])
+> iboogie                :: Directives → Music (Pitch, [NoteAttribute])
 > iboogie dives                            =
 >   removeZeros
 >   $ tempo ibTempo

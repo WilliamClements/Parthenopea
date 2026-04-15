@@ -16,21 +16,23 @@ configuration ("Directives") ===================================================
 
 > data ReportVerbosity                     =
 >   ReportVerbosity {
->     dForRanges         :: Rational
+>     dForPassage        :: Rational
+>   , dForRanges         :: Rational
 >   , dForScan           :: Rational
 >   , dForTournament     :: Rational} deriving (Eq, Show)
 > okReportVerbosity      :: ReportVerbosity → Bool
 > okReportVerbosity rv                     = 
->      inCanonicalRange rv.dForRanges
+>      inCanonicalRange rv.dForPassage
+>   && inCanonicalRange rv.dForRanges
 >   && inCanonicalRange rv.dForScan
 >   && inCanonicalRange rv.dForTournament
 >   where
 >     inCanonicalRange                     = inARange (0::Rational, 1::Rational)
 > allOn, allOff          :: ReportVerbosity
 > allOn                                    =
->   ReportVerbosity 1 1 1
+>   ReportVerbosity 1 1 1 1
 > allOff                                   =
->   ReportVerbosity 0 0 0
+>   ReportVerbosity 0 0 0 0
 >
 > data SynthSwitches                       =
 >   SynthSwitches {

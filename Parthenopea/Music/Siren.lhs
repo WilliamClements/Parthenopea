@@ -1,6 +1,7 @@
 > {-# LANGUAGE NumericUnderscores  #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE TemplateHaskell #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Siren
@@ -12,6 +13,7 @@ December 12, 2022
 > import qualified Codec.Midi              as M
 > import Control.Arrow.ArrowP
 > import Control.DeepSeq ( NFData )
+> import Control.Lens hiding ( element, strict )
 > import Control.SF.SF ( unfold )
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
@@ -55,6 +57,69 @@ Utilities ======================================================================
 >     
 > t32                    :: [Music a] → Music a
 > t32 notes                                = tempo (3/2) (foldr (:+:) (rest 0) notes)
+>
+> data NoteAttributeDigest                 =
+>   NoteAttributeDigest {
+>     jazzName           :: Maybe String
+>   , jazzParams         :: Maybe (VB.Vector Double)
+>   , jazzVolume         :: Maybe Volume}
+>   deriving (Eq, Show)
+> defNoteAttributeDigest                   = NoteAttributeDigest Nothing Nothing Nothing
+> slurpNas               :: [NoteAttribute] → NoteAttributeDigest
+> slurpNas                                 = foldl' slurpOne defNoteAttributeDigest
+>   where
+>     slurpOne nad (Dynamics s)            = nad{jazzName = Just s}
+>     slurpOne nad (Params ps)             = nad{jazzParams = Just (VB.fromList ps)}
+>     slurpOne nad (Volume v)              = nad{jazzVolume = Just v}
+>     slurpOne nad (Fingering _)           = nad
+>
+> metro                  :: Int → Dur → DurT
+> metro setting durM                       = 60 / (fromIntegral setting * durM)
+>
+> metro2                                   = metro 120 qn
+>
+> data PType                               =
+>     PTypeNone
+>   | PTypePassage
+>   deriving (Eq, Show)
+>
+> data PContext                            =
+>   PContext {
+>       _pcType          :: PType
+>     , _pcInst          :: InstrumentName
+>     , _pcXpo           :: AbsPitch}
+>   deriving Show
+> makeLenses ''PContext
+> defPContext                              = PContext PTypeNone AcousticGrandPiano 0
+>
+> goPassages             :: ∀ a. (PContext → NoteAttributeDigest → (DurT, Pitch) → [a]) → Music1 → [a]
+> goPassages fun ma                        = fst $ go defPContext [] ma
+>   where
+>     go                 :: PContext → [a] → Music1 → ([a], Double)
+>     go pc as (Prim (Note d (p, nas)))    =
+>       let
+>         nad                              = slurpNas nas
+>         as'                              = fun pc nad (d, p)
+>       in
+>         (as ++ as', fromRational (d * metro2))
+>     go _ as (Prim (Rest d))             =
+>       let
+>       in
+>         (as, fromRational (d * metro2))
+>
+>     go pc as (Modify (Transpose k) m)    = go ((pcXpo .~ ((pc ^. pcXpo) + k)) pc) as m
+>     go pc as (Modify (Instrument i) m)   = go ((pcInst .~ i) pc) as m
+>     go pc as (Modify (Phrase [Dyn (StdLoudness _)]) m) 
+>                                          = go ((pcType .~ PTypePassage) pc) as m
+>     go pc as (Modify _ m)                = go pc as m
+>
+>     go pc as (m1 :+: m2)                 = go' pc as (+) m1 m2
+>     go pc as (m1 :=: m2)                 = go' pc as max m1 m2
+>     go' pc as binfun m1 m2               =
+>       let
+>         (es1, dur1)                      = go pc as m1  
+>         (es2, dur2)                      = go pc as m2
+>       in (es1 ++ es2, binfun dur1 dur2)
 
 TODO: adjust loudness output based on "home velocity", which would be passed in from BandPart
 
@@ -409,9 +474,12 @@ also
 >           else Nothing
 >
 > selectRanged           :: [InstrumentName] → Array Int (InstrumentName, (AbsPitch, AbsPitch))
-> selectRanged is                          = listArray (1, length qual) qual
+> selectRanged is                          = listArray (1, nqual) qual
 >   where
 >     qual                                 = mapMaybe (\i → instrumentAbsPitchRange i >>= Just . (i,)) is
+>     nqual                                = if null qual
+>                                              then error "selectRanged empty"
+>                                              else length qual
 >
 > denormVector           :: Double → Array Int b → b
 > denormVector norm vect                   = profess
@@ -447,7 +515,7 @@ instrument range checking ======================================================
 >   deriving Show
 > defBandPart                              = BandPart ElectricGrandPiano 0 100
 > bandPartContext        :: BandPart → MContext
-> bandPartContext bp = MContext {mcTime = 0, mcInst = bp.bpInstrument, mcDur = metro 240 qn, mcVol=bp.bpHomeVelocity}
+> bandPartContext bp = MContext {mcTime = 0, mcInst = bp.bpInstrument, mcDur = metro2, mcVol=bp.bpHomeVelocity}
 > relativeRange          :: BandPart → (Pitch, Pitch)
 > relativeRange bp                         =
 >   let
@@ -471,24 +539,11 @@ instrument range checking ======================================================
 >   where
 >     oChanger (p, nas)                    =
 >       let
->         (hasDynamic, hasVolume)          = hasDynamicOrVolume nas
+>         digest                           = slurpNas nas
 >       in
->         (p, if hasDynamic then nas else map nasFun nas ++ ([Volume bp.bpHomeVelocity | not hasVolume]))
->
->     nasFun (Volume _)                    = Volume bp.bpHomeVelocity
->     nasFun na                            = na 
->
-> hasDynamicOrVolume     :: [NoteAttribute] → (Bool, Bool)
-> hasDynamicOrVolume nas                   = (any isDynamic nas, any isVolume nas)
->   where
->     isDynamic na                         =
->       case na of
->         Dynamics _                       → True
->         _                                → False
->     isVolume na                          =
->       case na of
->         Volume _                         → True
->         _                                → False
+>         (p, if isJust digest.jazzName
+>               then nas
+>               else nas ++ ([Volume bp.bpHomeVelocity | isNothing digest.jazzVolume]))
 >
 > bendNote               :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music1
 > bendNote bp pc o durB _                  =
@@ -574,9 +629,6 @@ music-related utilities ========================================================
 >      , mcInst = AcousticGrandPiano
 >      , mcDur = metro 120 qn
 >      , mcVol = 100}
->
-> metro                  :: Int → Dur → DurT
-> metro setting durM                       = 60 / (fromIntegral setting * durM)
 >
 > trill                  :: Int → Dur → Music Pitch → Music Pitch
 > trill i sDur (Prim (Note tDur p))        =

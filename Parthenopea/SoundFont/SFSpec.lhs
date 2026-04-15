@@ -312,11 +312,11 @@ bootstrapping ==================================================================
 
 Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 
-> reportRangesName       :: FilePath
+> reportPassageName, reportRangesName, reportScanName, reportTournamentName
+>                        :: FilePath
+> reportPassageName                        = "Passage.report"
 > reportRangesName                         = "Ranges.report"
-> reportScanName         :: FilePath
 > reportScanName                           = "Scan.report"
-> reportTournamentName   :: FilePath
 > reportTournamentName                     = "Tournament.report"
 
 The End

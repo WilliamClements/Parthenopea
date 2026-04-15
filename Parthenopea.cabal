@@ -28,6 +28,7 @@ common ghc-options-lib
   ghc-options:
       -fexcess-precision
       -funbox-strict-fields
+      -rtsopts=all
       -O2
       -W
       -Wno-x-partial
@@ -38,6 +39,7 @@ common ghc-options-exe
   ghc-options:
       -fexcess-precision
       -funbox-strict-fields
+      -rtsopts=all
       -O2
       -W
       -Wno-x-partial

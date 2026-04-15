@@ -15,7 +15,6 @@ August 15, 2025
 >        , MekNote(..)
 >        , passage) where
 >
-> import Control.Applicative
 > import Data.Foldable
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.MIDI.MEvent ( MEvent(eDur, eTime), musicToMEvents )
@@ -104,36 +103,42 @@ _Overall_                =
 >      marking 
 >      mev 
 >      Nothing Nothing
-> getMarkingVelocity     :: MekNote → Maybe Velocity
-> getMarkingVelocity mek                   =
+>
+> getMarkingLoudness     :: MekNote → StdLoudness
+> getMarkingLoudness mek                   =
 >   case mek.mMarking of
->     Mark x                               → Just $ stdVelocity x
->     Inflect x                            → Just $ stdVelocity x
->     Tail x                               → Just $ stdVelocity x
->     _                                    → Nothing
-> passage                :: Directives → BandPart → [Marking] → Music Pitch → Music1
-> passage dives bp markings ma
+>     Mark x                               → x
+>     Inflect x                            → x
+>     Tail x                               → x
+>     _                                    → error "expected Marking with loudness"
+>
+> npassage               :: Directives → String → BandPart → [Marking] → Music Pitch → Music1
+> npassage dives pname bp markings ma       
 >   | not dives.synthSwitches.usePassages  = toMusic1 ma
 >   | null markings                        = error $ unwords ["empty markings"]
->   | otherwise                            = (removeZeros . passageToMusic) meksIn
+>   | otherwise                            = (removeZeros . passageToMusic pname) meksIn
 >   where
 >     meksIn                               = enrichPassage dives bp (expandMarkings markings) (removeZeros ma)
 >
-> passageToMusic         :: VB.Vector MekNote → Music1
-> passageToMusic                           = foldl' eachMek (rest 0)
->   where
-
-Enfix note attributes to send "passage" input to the runtime synthesizer ==============================================
-
->     eachMek            :: Music1 → MekNote → Music1 
->     eachMek music mek                    =
->       music :+: case mek.mPrimitive of
->                   Note durI pitchI       → mangleNote durI pitchI
->                   Rest durI              → rest durI
->       where
->         fName                            = "eachMek"
+> passage                :: Directives → BandPart → [Marking] → Music Pitch → Music1
+> passage dives bp markings ma             = npassage dives "<passage>" bp markings ma
 >
->         mangleNote dM pM                 = note dM (pM, Dynamics fName : (makeNAs . deJust fName) mek.mParams)
+> passageToMusic         :: String → VB.Vector MekNote → Music1
+> passageToMusic pname meksIn              = phrase [Dyn (StdLoudness startLoudness)] music
+>   where
+>     startLoudness                        = getMarkingLoudness $ meksIn VB.! 0
+>     music                                = foldl' enFix (rest 0) meksIn
+
+Insert note attributes to define the later input to runtime synthesizer ===============================================
+
+>     enFix              :: Music1 → MekNote → Music1 
+>     enFix music mek                      = music :+: case mek.mPrimitive of
+>                                              Note durI pitchI       → mangleNote durI pitchI
+>                                              Rest durI              → rest durI
+>       where
+>         fName                            = "enFix"
+>
+>         mangleNote dM pM                 = note dM (pM, Dynamics pname : (makeNAs . deJust fName) mek.mParams)
 >
 >         makeNAs (Left homeVolume)        = [Volume homeVolume]
 >         makeNAs (Right sweeps)           =
@@ -147,7 +152,7 @@ Enfix note attributes to send "passage" input to the runtime synthesizer =======
 Construct a vector of MekNotes, enriching them ========================================================================
       
 > enrichPassage          :: Directives → BandPart → VB.Vector Marking → Music Pitch → VB.Vector MekNote
-> enrichPassage dives bp markings musicIn_ 
+> enrichPassage dives bp markings musicIn 
 >   | traceIf trace_EP False               = undefined
 >   | otherwise                            = enriched
 >   where
@@ -164,7 +169,6 @@ Construct a vector of MekNotes, enriching them =================================
 >     rawMeks                              = makeMeks    
 >     mekFence                             = VB.length rawMeks - 1
 >     (nodePairs, nodeGroups)              = formNodeGroups rawMeks
->     musicIn                              = removeZeros musicIn_
 >
 >     enriched                             = notracer "enriched" $
 >       let
@@ -213,7 +217,7 @@ Initialize the MekNote vector ==================================================
 >             mFold pFun (VB.++) noChords undefined musicIn
 >
 >         eTable                           =
->           VB.fromList $ fst $ musicToMEvents (bandPartContext bp) (toMusic1 (removeZeros musicIn))
+>           VB.fromList $ fst $ musicToMEvents (bandPartContext bp) ((removeZeros . toMusic1) musicIn)
 >
 >         evs                              = 
 >           let
@@ -250,8 +254,10 @@ wearOveralls ===================================================================
 >             ev0                          = deJust (unwords [fName, "ev0"]) mek0.mEvent
 >             ev1                          = deJust (unwords [fName, "ev1"]) mek1.mEvent
 >
->             loud0                        = (fromIntegral . deJust "loud0" . getMarkingVelocity) mek0
->             loud1                        = (fromIntegral . deJust "loud1" . getMarkingVelocity) mek1
+>             loud0, loud1
+>                        :: Double
+>             loud0                        = (fromIntegral . stdVelocity) (getMarkingLoudness mek0)
+>             loud1                        = (fromIntegral . stdVelocity) (getMarkingLoudness mek1)
 
 sewSeeds ==============================================================================================================
       infuse M.E.K. value of type Maybe (Either Velocity (Vector Double))
@@ -303,9 +309,9 @@ enfill =========================================================================
 >         fillOne        :: (VB.Vector MekNote, Velocity)
 >                           → MekNote
 >                           → (VB.Vector MekNote, Velocity)
->         fillOne (updates, velo) mek      =
+>         fillOne (updates, _) mek      =
 >           let
->             mvelo'     :: Maybe Velocity = getMarkingVelocity mek <|> Just velo
+>             mvelo'     :: Maybe Velocity = (Just . stdVelocity) (getMarkingLoudness mek)
 >             velo'      :: Velocity       = deJust fName mvelo'
 >             updateOne                    =
 >               case mek.mParams of
