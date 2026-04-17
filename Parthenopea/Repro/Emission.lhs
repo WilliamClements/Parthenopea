@@ -12,6 +12,7 @@ November 9, 2023
 >         , Emission(..)
 >         , emitComment
 >         , emitDefault
+>         , emitFields
 >         , emitLine
 >         , emitNextComment
 >         , emitShowL
@@ -68,6 +69,13 @@ Quick & dirty way to format strings into tabular form
 >   if nth == 0
 >     then ToFieldL ""  2
 >     else ToFieldL "," 2
+>
+> emitFields             :: [(Int, Maybe String)] → [Emission]
+> emitFields                               = concatMap (uncurry fun)
+>   where
+>     fun                :: Int → Maybe String → [Emission]
+>     fun sz                               = maybe [Blanks sz] (toField sz)
+>                                              where toField sz str = [ToFieldL str sz]
 >
 > parens                 :: [Emission] → [Emission]
 > parens ex                                = [Unblocked "("] ++ ex ++ [Unblocked ")"]

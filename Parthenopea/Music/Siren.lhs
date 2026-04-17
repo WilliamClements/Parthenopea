@@ -57,69 +57,93 @@ Utilities ======================================================================
 >     
 > t32                    :: [Music a] → Music a
 > t32 notes                                = tempo (3/2) (foldr (:+:) (rest 0) notes)
->
-> data NoteAttributeDigest                 =
->   NoteAttributeDigest {
->     jazzName           :: Maybe String
->   , jazzParams         :: Maybe (VB.Vector Double)
->   , jazzVolume         :: Maybe Volume}
->   deriving (Eq, Show)
-> defNoteAttributeDigest                   = NoteAttributeDigest Nothing Nothing Nothing
-> slurpNas               :: [NoteAttribute] → NoteAttributeDigest
-> slurpNas                                 = foldl' slurpOne defNoteAttributeDigest
->   where
->     slurpOne nad (Dynamics s)            = nad{jazzName = Just s}
->     slurpOne nad (Params ps)             = nad{jazzParams = Just (VB.fromList ps)}
->     slurpOne nad (Volume v)              = nad{jazzVolume = Just v}
->     slurpOne nad (Fingering _)           = nad
->
 > metro                  :: Int → Dur → DurT
 > metro setting durM                       = 60 / (fromIntegral setting * durM)
 >
 > metro2                                   = metro 120 qn
->
-> data PType                               =
->     PTypeNone
->   | PTypePassage
->   deriving (Eq, Show)
->
+  
+Extracting passage information from Music1 ============================================================================
+
 > data PContext                            =
 >   PContext {
->       _pcType          :: PType
->     , _pcInst          :: InstrumentName
+>       _pcInst          :: Maybe InstrumentName
 >     , _pcXpo           :: AbsPitch}
 >   deriving Show
 > makeLenses ''PContext
-> defPContext                              = PContext PTypeNone AcousticGrandPiano 0
+> defPContext                              = PContext Nothing 0
 >
-> goPassages             :: ∀ a. (PContext → NoteAttributeDigest → (DurT, Pitch) → [a]) → Music1 → [a]
-> goPassages fun ma                        = fst $ go defPContext [] ma
+> data NoteAttributeDigest                 =
+>   NoteAttributeDigest {
+>       _nadName        :: Maybe String
+>     , _nadParams      :: Maybe (VB.Vector Double)
+>     , _nadVolume      :: Maybe Volume}
+>   deriving (Eq, Show)
+> makeLenses ''NoteAttributeDigest
+> defNoteAttributeDigest                   = NoteAttributeDigest Nothing Nothing Nothing
+> slurpNas               :: [NoteAttribute] → NoteAttributeDigest
+> slurpNas                                 = foldl' slurpOne defNoteAttributeDigest
 >   where
->     go                 :: PContext → [a] → Music1 → ([a], Double)
->     go pc as (Prim (Note d (p, nas)))    =
->       let
->         nad                              = slurpNas nas
->         as'                              = fun pc nad (d, p)
->       in
->         (as ++ as', fromRational (d * metro2))
->     go _ as (Prim (Rest d))             =
->       let
->       in
->         (as, fromRational (d * metro2))
+>     slurpOne nad (Dynamics s)            = (nadName   ?~ s)              nad
+>     slurpOne nad (Params ps)             = (nadParams ?~ VB.fromList ps) nad
+>     slurpOne nad (Volume v)              = (nadVolume ?~ v)              nad
+>     slurpOne nad (Fingering _)           = nad
+>
+> data PassageNote                         =
+>   PassageNote {
+>       _pnContext       :: PContext
+>     , _pnNad           :: NoteAttributeDigest
+>     , _pnDur           :: DurT
+>     , _pnPitch         :: Pitch}
+>   deriving Show
+> makeLenses ''PassageNote
+>
+> suitable               :: Music1 → Bool
+> suitable                                 = mFold (const True) (&&) (\_ _ → False) (\_ _ → False)
+>
+> doSongPassages         :: ∀ a. (VB.Vector PassageNote → [a]) → Music1 → [a]
+> doSongPassages fun                       = go defPContext []
+>   where
+>     go, doPassage      :: PContext → [a] → Music1 → [a]
+>
+>     go _ as (Prim _)                     = as
 >
 >     go pc as (Modify (Transpose k) m)    = go ((pcXpo .~ ((pc ^. pcXpo) + k)) pc) as m
->     go pc as (Modify (Instrument i) m)   = go ((pcInst .~ i) pc) as m
+>     go pc as (Modify (Instrument i) m)   = go ((pcInst ?~ i) pc) as m
 >     go pc as (Modify (Phrase [Dyn (StdLoudness _)]) m) 
->                                          = go ((pcType .~ PTypePassage) pc) as m
+>                                          =
+>       if suitable m
+>         then as ++ doPassage pc as m
+>         else as
 >     go pc as (Modify _ m)                = go pc as m
 >
->     go pc as (m1 :+: m2)                 = go' pc as (+) m1 m2
->     go pc as (m1 :=: m2)                 = go' pc as max m1 m2
->     go' pc as binfun m1 m2               =
+>     go pc as (m1 :+: m2)                 = go' pc as m1 m2
+>     go pc as (m1 :=: m2)                 = go' pc as m1 m2
+>     go' pc as m1 m2               =
 >       let
->         (es1, dur1)                      = go pc as m1  
->         (es2, dur2)                      = go pc as m2
->       in (es1 ++ es2, binfun dur1 dur2)
+>         es1                              = go pc [] m1  
+>         es2                              = go pc [] m2
+>       in as ++ es1 ++ es2
+>
+>     doPassage pc as m                    = as ++ fun (VB.fromList cooked)
+>       where
+>         cooked                           = zipWith zipit [0..] (feed m [])
+>           where
+>             zipit      :: Int → PassageNote → PassageNote
+>             zipit k (PassageNote pc nad d p)
+>                                          = if k == 0
+>                                              then PassageNote pc nad d p
+>                                              else PassageNote pc' nad' d p
+>               where
+>                 pc'                      = (pcInst .~ Nothing) pc
+>                 nad'                     = (nadName .~ Nothing) nad
+>         feed           :: Music1 → [PassageNote] → [PassageNote]
+>         feed (Prim (Note d (p, nas))) pnIn
+>                                          = pnIn ++ [PassageNote pc nad d p | isJust (nad ^. nadName)]
+>           where
+>             nad                          = slurpNas nas
+>         feed (Prim _) as                 = feed m as
+>         feed (m1 :+: m2) as              = feed m1 as ++ feed m2 as
+>         feed _ _                         = error "splat"
 
 TODO: adjust loudness output based on "home velocity", which would be passed in from BandPart
 
@@ -541,9 +565,9 @@ instrument range checking ======================================================
 >       let
 >         digest                           = slurpNas nas
 >       in
->         (p, if isJust digest.jazzName
+>         (p, if isJust (digest ^. nadName)
 >               then nas
->               else nas ++ ([Volume bp.bpHomeVelocity | isNothing digest.jazzVolume]))
+>               else nas ++ ([Volume bp.bpHomeVelocity | isNothing (digest ^. nadVolume)]))
 >
 > bendNote               :: BandPart → PitchClass → Octave → Dur → AbsPitch → Music1
 > bendNote bp pc o durB _                  =

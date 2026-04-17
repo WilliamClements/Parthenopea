@@ -13,6 +13,7 @@ August 15, 2025
 >        , makeMekNote
 >        , Marking(..)
 >        , MekNote(..)
+>        , npassage
 >        , passage) where
 >
 > import Data.Foldable
@@ -57,7 +58,7 @@ _Overall_                =
 > makeOverall startV endV startEv endEv    = Overall changeRate startT startV
 >   where
 >     startT                               = fromRational startEv.eTime
->     endT                                 = fromRational endEv.eTime + fromRational endEv.eDur
+>     endT                                 = fromRational (endEv.eTime + endEv.eDur)
 >     changeRate                           = (endV - startV) / (endT - startT)
 > velocity               :: Double → Overall → Double
 > velocity tIn over                        =
@@ -84,7 +85,7 @@ _Overall_                =
 >     keyParam                             = meksIn VB.! 0
 >     nearlyEqual x y                      = abs (y - x) < epsilon
 
-      M.E.K. = Music Education for Kids ===============================================================================
+      M.E.K. = Music Education for Kids of all ages ===================================================================
 
 > data MekNote                             =
 >   MekNote {
@@ -121,7 +122,7 @@ _Overall_                =
 >     meksIn                               = enrichPassage dives bp (expandMarkings markings) (removeZeros ma)
 >
 > passage                :: Directives → BandPart → [Marking] → Music Pitch → Music1
-> passage dives bp markings ma             = npassage dives "<passage>" bp markings ma
+> passage dives                            = npassage dives "<passage>"
 >
 > passageToMusic         :: String → VB.Vector MekNote → Music1
 > passageToMusic pname meksIn              = phrase [Dyn (StdLoudness startLoudness)] music

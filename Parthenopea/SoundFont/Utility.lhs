@@ -22,6 +22,7 @@ October 8, 2025
 > import Data.Ratio ( approxRational )
 > import Data.Time
 > import Data.Time.Clock.POSIX
+> import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.Basics ( outA )
 > import Euterpea.IO.Audio.Types ( AudRate, Clock(..), CtrRate )
 > import Euterpea.IO.MIDI.GeneralMidi ( )
@@ -67,6 +68,9 @@ ranges/numerics ================================================================
 >   where
 >     rnd                :: Int
 >     rnd                                  = round (p10 * x)
+>
+> roundVectorBy          :: Double → VB.Vector Double → VB.Vector Double
+> roundVectorBy p10                      = VB.map (roundBy p10)
 >
 > inARange               :: (Ord a) ⇒ (a, a) → a → Bool
 > inARange (m, n) v                        = m <= v && v <= n

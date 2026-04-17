@@ -63,10 +63,10 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >                  , qvcp1025_028, qvcp1029_032, qvcp1033_036, qvcp1037_040, qvcp1041_044, qvcp1045_048
 >                  , qvcp1049_052, qvcp1053_056, qvcp1057_060, qvcp1061_064])]
 >
->   p1                                     = passage dives qv1
->   p2                                     = passage dives qv2
->   pa                                     = passage dives qva
->   pc                                     = passage dives qvc
+>   p1                                     = npassage dives "p1" qv1
+>   p2                                     = npassage dives "p2" qv2
+>   pa                                     = npassage dives "pa" qva
+>   pc                                     = npassage dives "pc" qvc
 
     Violin 1 Pt 1 Measure 0 → 16 --------------------------------------------------------------------------------------
    

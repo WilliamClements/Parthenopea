@@ -1,5 +1,4 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE RecordWildCards #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -32,6 +31,7 @@ April 16, 2023
 implementing SoundFont spec ===========================================================================================
 
 > type SampleIndex                         = Word
+> type InstIndex                           = Int
 > type BagIndex                            = Word
 > type Fuzz                                = Double
 >
@@ -132,9 +132,9 @@ implementing SoundFont spec ====================================================
 >
 > virginrd               :: ResultDispositions
 > virginrd                                 = ResultDispositions 
->                              Lazy.empty 
->                                Lazy.empty 
->                                Lazy.empty
+>                                              Lazy.empty 
+>                                              Lazy.empty 
+>                                              Lazy.empty
 >
 > data Scan                                =
 >   Scan {
@@ -172,10 +172,8 @@ implementing SoundFont spec ====================================================
 >   , pCrossing          :: IntSet
 >   , pSmashing          :: Smashing Word}
 > allBixen, ownedOnly    :: PerInstrument → IntSet
-> allBixen PerInstrument { .. }
->                                          = pOwned `IntSet.union` pCrossing
-> ownedOnly PerInstrument { .. }
->                                          = pOwned
+> allBixen perI                            = perI.pOwned `IntSet.union` perI.pCrossing
+> ownedOnly perI                           = perI.pOwned
 > instance Show PerInstrument where
 >   show perI                              = unwords ["PerInstrument", show (perI.pOwned, perI.pCrossing)]
 >

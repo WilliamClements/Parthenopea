@@ -39,6 +39,7 @@ September 12, 2024
 > import qualified Data.Bifunctor          as BF
 > import Data.IntMap.Strict (IntMap)
 > import qualified Data.IntMap             as IntMap
+> import Data.IntSet (IntSet)
 > import Data.List
 > import qualified Data.Map.Lazy           as Lazy
 > import Data.Map.Strict ( Map )
@@ -376,17 +377,18 @@ tournament starts here =========================================================
 >       where
 >         fName                            = unwords [fName__, "xaEnterTournament"]
 >         trace_XAET                       =
->           unwords [fName, iName, show pergm, show kind, show (ownedOnly perI)]
+>           unwords [fName, iName, show pergm, show kind, show owned]
 >
 >         sffile         :: SFFileBoot     = vFiles VB.! pergm.pgkwFile
 >         perI                             = cache Map.! pergm{pgkwBag = Nothing}
 >         iName                            = perI.piChanges.cnName
+>         owned          :: IntSet         = (ownedOnly perI)
 >
 >         scope                            =
 >           let
 >             oneZone bix                  = IntMap.singleton bix (sffile.zPreZonesBoot IntMap.! bix)
 >           in
->             maybe (accessPreZones "scope" sffile.zPreZonesBoot (ownedOnly perI)) (oneZone . fromIntegral) pergm.pgkwBag
+>             maybe (accessPreZones "scope" sffile.zPreZonesBoot owned) (oneZone . fromIntegral) pergm.pgkwBag
 >
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
 >                                            >>= Just . (sffile.zPreZonesBoot IntMap.!) . fromIntegral
