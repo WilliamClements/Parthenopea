@@ -66,17 +66,17 @@ Extracting passage information from Music1 =====================================
 
 > data PContext                            =
 >   PContext {
->       _pcInst          :: Maybe InstrumentName
->     , _pcXpo           :: AbsPitch}
+>     _pcInst            :: Maybe InstrumentName
+>   , _pcXpo             :: AbsPitch}
 >   deriving Show
 > makeLenses ''PContext
 > defPContext                              = PContext Nothing 0
 >
 > data NoteAttributeDigest                 =
 >   NoteAttributeDigest {
->       _nadName        :: Maybe String
->     , _nadParams      :: Maybe (VB.Vector Double)
->     , _nadVolume      :: Maybe Volume}
+>     _nadName           :: Maybe String
+>   , _nadParams         :: Maybe (VB.Vector Double)
+>   , _nadVolume         :: Maybe Volume}
 >   deriving (Eq, Show)
 > makeLenses ''NoteAttributeDigest
 > defNoteAttributeDigest                   = NoteAttributeDigest Nothing Nothing Nothing
@@ -90,15 +90,12 @@ Extracting passage information from Music1 =====================================
 >
 > data PassageNote                         =
 >   PassageNote {
->       _pnContext       :: PContext
->     , _pnNad           :: NoteAttributeDigest
->     , _pnDur           :: DurT
->     , _pnPitch         :: Pitch}
+>     _pnContext         :: PContext
+>   , _pnNad             :: NoteAttributeDigest
+>   , _pnDur             :: DurT
+>   , _pnPitch           :: Pitch}
 >   deriving Show
 > makeLenses ''PassageNote
->
-> suitable               :: Music1 → Bool
-> suitable                                 = mFold (const True) (&&) (\_ _ → False) (\_ _ → False)
 >
 > doSongPassages         :: ∀ a. (VB.Vector PassageNote → [a]) → Music1 → [a]
 > doSongPassages fun                       = go defPContext []
@@ -111,39 +108,50 @@ Extracting passage information from Music1 =====================================
 >     go pc as (Modify (Instrument i) m)   = go ((pcInst ?~ i) pc) as m
 >     go pc as (Modify (Phrase [Dyn (StdLoudness _)]) m) 
 >                                          =
->       if suitable m
->         then as ++ doPassage pc as m
->         else as
+>       let
+>         suitable                         = mFold (const True) (&&) (\_ _ → False) (\_ _ → False)
+>       in
+>         if suitable m
+>           then as ++ doPassage pc as m
+>           else go pc as m
 >     go pc as (Modify _ m)                = go pc as m
 >
 >     go pc as (m1 :+: m2)                 = go' pc as m1 m2
 >     go pc as (m1 :=: m2)                 = go' pc as m1 m2
->     go' pc as m1 m2               =
+>     go' pc as m1 m2                      =
 >       let
->         es1                              = go pc [] m1  
->         es2                              = go pc [] m2
->       in as ++ es1 ++ es2
+>         as1                              = go pc [] m1  
+>         as2                              = go pc [] m2
+>       in as ++ as1 ++ as2
 >
 >     doPassage pc as m                    = as ++ fun (VB.fromList cooked)
 >       where
->         cooked                           = zipWith zipit [0..] (feed m [])
->           where
+>         cooked         :: [PassageNote]  = 
+>           let
 >             zipit      :: Int → PassageNote → PassageNote
->             zipit k (PassageNote pc nad d p)
->                                          = if k == 0
->                                              then PassageNote pc nad d p
->                                              else PassageNote pc' nad' d p
->               where
->                 pc'                      = (pcInst .~ Nothing) pc
->                 nad'                     = (nadName .~ Nothing) nad
+>             zipit k pn                   =
+>               if k == 0
+>                 then pn
+>                 else (((pnContext . pcInst) .~ Nothing) . ((pnNad . nadName) .~ Nothing)) pn
+>           in
+>             zipWith zipit [0..] (feed m [])
+>
 >         feed           :: Music1 → [PassageNote] → [PassageNote]
 >         feed (Prim (Note d (p, nas))) pnIn
->                                          = pnIn ++ [PassageNote pc nad d p | isJust (nad ^. nadName)]
->           where
+>                                          = 
+>           let
 >             nad                          = slurpNas nas
->         feed (Prim _) as                 = feed m as
->         feed (m1 :+: m2) as              = feed m1 as ++ feed m2 as
->         feed _ _                         = error "splat"
+>             newpn                        = PassageNote pc nad d p
+>           in
+>              pnIn ++ [newpn | isJust (nad ^. nadName)]         
+>         feed (Prim _) as                 = as
+>         feed (m1 :+: m2) as              =
+>           let
+>             as1                          = feed m1 []
+>             as2                          = feed m2 []
+>           in
+>             as ++ as1 ++ as2
+>         feed _ _                         = error "unexpected flow"
 
 TODO: adjust loudness output based on "home velocity", which would be passed in from BandPart
 

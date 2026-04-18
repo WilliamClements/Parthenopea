@@ -511,8 +511,7 @@ instrument task ================================================================
 >
 >         zrecs'
 >           | dead ssSurvey                = inst ^. iZRecs
->           | otherwise                    =
->           IntMap.insert newZRec.zswInst newZRec (inst ^. iZRecs)
+>           | otherwise                    = IntMap.insert newZRec.zswInst newZRec (inst ^. iZRecs)
 >           where
 >             changes                      = if wasRescued BadName ssSurvey then singleton FixBadName else []
 >             finalName                    = if wasRescued BadName ssSurvey then good else raw

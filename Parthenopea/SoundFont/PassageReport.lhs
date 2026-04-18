@@ -13,7 +13,6 @@ October 5, 2025
 > import qualified Control.Monad           as CM
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.Music
-> import Parthenopea.Debug
 > import Parthenopea.Music.Passage
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
@@ -32,10 +31,9 @@ summarize incoming passage =====================================================
 >
 > writePassageReport      :: Directives → [Song] → IO ()
 > writePassageReport dives songs           = do
->   CM.unless (null esSongs)               (writeReportBySections dives reportPassageName sections)
+>   CM.unless (null esSongs)               (writeReportBySections dives reportPassageName [velos, esSongs])
 >   where
 >     esSongs                              = concatMap reportSong songs
->
 >     velos                                = concatMap describe [PPP .. FFF] ++ [EndOfLine]
 >       where
 >         describe       :: StdLoudness → [Emission]
@@ -45,9 +43,6 @@ summarize incoming passage =====================================================
 >            , ToFieldL " = " 4
 >            , emitShowL (stdVelocity loud) 10
 >            , EndOfLine]
->
->     sections           :: [[Emission]]
->     sections                             = [velos ++ esLegend ++ [EndOfLine] ++ esSongs]
 >
 >     reportSong         :: Song → [Emission]
 >     reportSong song                      =
@@ -59,26 +54,25 @@ summarize incoming passage =====================================================
 >           else 
 >             [ EndOfLine
 >             , ToFieldL song.songName 60
->             , EndOfLine, EndOfLine] ++ esSong
+>             , EndOfLine, EndOfLine] ++ esLegend ++ [EndOfLine] ++ esSong
 >
 >     doPassageNotes     :: VB.Vector PassageNote → [Emission]
->     doPassageNotes vpn                   = concat (VB.map doPassageNote vpn) ++ [EndOfLine]
+>     doPassageNotes vpn                   = if null vpn
+>                                              then []
+>                                              else concat (VB.map doPassageNote vpn) ++ [EndOfLine]
 >
 >     doPassageNote      :: PassageNote → [Emission]
 >     doPassageNote (PassageNote pc nad d pWritten)
->       | traceIf trace_E False            = undefined
->       | otherwise                        = esFields ++ [EndOfLine]
+>                                          = esFields ++ [EndOfLine]
 >       where
->         fName                            = "emitter"
->         trace_E                          = unwords [fName, show nad]
->
 >         pConcert                         = if 0 == pc ^. pcXpo
 >                                              then pWritten
 >                                              else (pitch . (+ pc ^. pcXpo) . absPitch) pWritten
 >
 >         esFields                         =
 >           emitFields 
->             [  (30, nad ^. nadName)
+>             [  (5, Nothing)
+>              , (30, nad ^. nadName)
 >              , (25, fmap show (pc ^. pcInst))
 >              , (14, Just (show d))
 >              , (10, Just (show pConcert))
@@ -87,7 +81,8 @@ summarize incoming passage =====================================================
 >              , (10, fmap show (nad ^. nadVolume))]
 >
 >     esLegend                             =
->         [ToFieldL "name"       30
+>         [Blanks                5
+>        , ToFieldL "name"       30
 >        , ToFieldL "instrument" 25
 >        , ToFieldL "duration"   14
 >        , ToFieldL "concert"    10

@@ -17,8 +17,9 @@ Chart ==========================================================================
 
 > data Section                             =
 >   Section {
->       section_color    :: AlphaColour Double
->     , section_points   :: [(Double, Double)]} deriving Show
+>     section_color    :: AlphaColour Double
+>   , section_points   :: [(Double, Double)]}
+>   deriving Show
 >
 > chartPoints            :: String → [Section] → IO ()
 > chartPoints tag sects                    =
@@ -35,10 +36,8 @@ Chart ==========================================================================
 >     putStrLn $ unwords ["rendered", path]
 >     return ()
 >   where
->     vals' = map padThem (concatMap section_points sects)
->
->     padThem            :: (Double, Double) → (Double, Double, Double, Double)
->     padThem (x, y) = (x, y, 0, 0)
+>     vals'                                = map padThem (concatMap section_points sects)
+>                                              where padThem (x, y) = (x, y, 0, 0)
 >
 >     stylize            :: Section → Plot Double Double
 >     stylize sect                         = 

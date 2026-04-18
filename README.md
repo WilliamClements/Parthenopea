@@ -91,7 +91,7 @@ Tools like <https://www.polyphone.io/> also function fine when opening those fla
 
 ### Instrument consolidation
 
-Sampling a **natural** Instrument over many small ranges of Pitch and/or Velocity yields nice spacious sound. But Authors often split Zones among distinct SoundFont Instruments. Naive implementations, mapping Instruments one to one, loses that sound advantage :worried: if Instrument is distributed. So prior to synthesis, *partial* Instruments are in effect combined into one that has all the Zones. :relieved:
+Sampling a **natural** Instrument over many small ranges of Pitch and/or Velocity yields nice spacious sound. But Authors often split Zones among distinct SoundFont Instruments. Naive implementation, mapping Instruments one to one, loses that sound advantage :worried: if Instrument is distributed. So prior to synthesis, *partial* Instruments are in effect combined into one that has all the Zones. :relieved:
 
 ### Zone selection
 

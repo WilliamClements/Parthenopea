@@ -8,7 +8,8 @@ William Clements
 Apr 26, 2025
 
 > module Parthenopea.Repro.Envelopes(
->          deriveEnvelope
+>          chartEnvelope
+>        , deriveEnvelope
 >        , doEnvelope
 >        , doSweepingEnvelope
 >        , proposeSegments
@@ -362,5 +363,23 @@ Three different ways of computing the envelope duration must all get same answer
 >     a                                    = feSum env
 >     b                                    = ee.eeTargetT
 >     c                                    = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
+>
+> chartEnvelope          :: String → TimeFrame → FEnvelope → Double → IO Bool
+> chartEnvelope tag tf fe clockRate         = do
+>   print segs
+>   print secs
+>   case mdsig of
+>     Nothing                              → return False
+>     Just dsig                            →
+>       do
+>         chartDiscreteSig clockRate nPoints dsig tag
+>         return True
+>   where
+>     (r, segs)                            = proposeSegments tf fe
+>     ee                                   = deJust "munch" r.fExtras
+>     secs                                 = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
+>     
+>     mdsig                                = vetAsDiscreteSig clockRate r segs
+>     nPoints            :: Int            = round $ clockRate * (tf.tfSecsScored + 0.5)
 
 The End

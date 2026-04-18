@@ -1,14 +1,9 @@
-> {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE UnicodeSyntax #-}
-
 EnvelopesTest
 William Clements
 June 22, 2024
 
 > module Parthenopea.Repro.EnvelopesTest ( envelopesTests ) where
 >
-> import Data.Foldable
-> import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Envelopes
 > import Parthenopea.SoundFont.Utility
 
@@ -23,7 +18,7 @@ Envelopes-related tests ========================================================
 >   , ctrRateWorksForShortNoteEnvelope
 >                        :: IO Bool
 >
-> envelopesTests        :: [IO Bool]
+> envelopesTests         :: [IO Bool]
 > envelopesTests                           = [ ctrRateWorksForde1Envelope
 >                                            , audRateWorksForde1Envelope
 >                                            , ctrRateWorksForde2Envelope
@@ -32,37 +27,19 @@ Envelopes-related tests ========================================================
 >                                            , audRateWorksForShortNoteEnvelope
 >                                            , ctrRateWorksForShortNoteEnvelope]
 >
-> munch                 :: String → TimeFrame → FEnvelope → Double → IO Bool
-> munch tag tf fe clockRate                = do
->   print segs
->   print secs
->   case mdsig of
->     Nothing                              → return False
->     Just dsig                            →
->       do
->         chartDiscreteSig clockRate nPoints dsig tag
->         return True
->   where
->     (r, segs)                            = proposeSegments tf fe
->     ee                                   = deJust "munch" r.fExtras
->     secs                                 = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
->     
->     mdsig                                = vetAsDiscreteSig clockRate r segs
->     nPoints            :: Int            = round $ clockRate * (tf.tfSecsScored + 0.5)
+> ctrRateWorksForde1Envelope               = chartEnvelope "ctrde1" defTimeFrame de1Envelope ctrRate
 >
-> ctrRateWorksForde1Envelope               = munch "ctrde1" defTimeFrame de1Envelope ctrRate
+> audRateWorksForde1Envelope               = chartEnvelope "audde1" defTimeFrame de1Envelope audRate
 >
-> audRateWorksForde1Envelope               = munch "audde1" defTimeFrame de1Envelope audRate
+> ctrRateWorksForde2Envelope               = chartEnvelope "ctrde2" defTimeFrame de2Envelope ctrRate
 >
-> ctrRateWorksForde2Envelope               = munch "ctrde2" defTimeFrame de2Envelope ctrRate
+> audRateWorksForde2Envelope               = chartEnvelope "audde2" defTimeFrame de2Envelope audRate
 >
-> audRateWorksForde2Envelope               = munch "audde2" defTimeFrame de2Envelope audRate
+> ctrRateWorksForLongNoteEnvelope          = chartEnvelope "ctrLongNote" eLongNoteTimeFrame eLongNoteEnvelope ctrRate
 >
-> ctrRateWorksForLongNoteEnvelope          = munch "ctrLongNote" eLongNoteTimeFrame eLongNoteEnvelope ctrRate
+> audRateWorksForShortNoteEnvelope         = chartEnvelope "audShortNote" eShortNoteTimeFrame eShortNoteEnvelope audRate
 >
-> audRateWorksForShortNoteEnvelope         = munch "audShortNote" eShortNoteTimeFrame eShortNoteEnvelope audRate
->
-> ctrRateWorksForShortNoteEnvelope         = munch "ctrShortNote" eShortNoteTimeFrame eShortNoteEnvelope ctrRate
+> ctrRateWorksForShortNoteEnvelope         = chartEnvelope "ctrShortNote" eShortNoteTimeFrame eShortNoteEnvelope ctrRate
 >
 > defTimeFrame :: TimeFrame
 > defTimeFrame                             =
