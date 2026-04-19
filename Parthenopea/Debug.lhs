@@ -33,18 +33,18 @@ Tracing ========================================================================
 > traceNever _ expr                        = expr
 > traceNot _ expr                          = expr
 >
-> tracer                 :: Show a ⇒ String → a → a
+> tracer                 :: ∀ a . Show a ⇒ String → a → a
 > tracer str x                             =
 >   if diagnosticsLevel > 0
 >     then traceNow (unwords [str, "=", show x]) x
 >     else x
 >
-> notracer               :: Show a ⇒ String → a → a
+> notracer               :: ∀ a . Show a ⇒ String → a → a
 > notracer _ x                             = x
 
 Test runner ===========================================================================================================
 
-> aEqual                 :: (Eq a, Show a) ⇒ a → a → Bool
+> aEqual                 :: ∀ a . (Eq a, Show a) ⇒ a → a → Bool
 > aEqual x y
 >   | x /= y                               = error (show x ++ " and " ++ show y ++ " had to be equal!?")
 >   | otherwise                            = True
