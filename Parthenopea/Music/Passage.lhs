@@ -92,17 +92,17 @@ _Overall_                =
 >     mSelfIndex         :: SelfIndex
 >   , mPrimitive         :: Primitive Pitch
 >   , mMarking           :: Marking
->   , mEvent             :: Maybe MEvent
+>   , mEvent             :: MEvent
 >   , mOverall           :: Maybe Overall
 >   , mParams            :: Maybe (Either Velocity (VB.Vector Double))}
 >   deriving Show
-> makeMekNote            :: SelfIndex → Primitive Pitch → Marking → Maybe MEvent → MekNote
-> makeMekNote six prim marking mev         =
+> makeMekNote            :: SelfIndex → Primitive Pitch → Marking → MEvent → MekNote
+> makeMekNote six prim marking ev          =
 >   MekNote 
 >      six 
 >      prim 
 >      marking 
->      mev 
+>      ev 
 >      Nothing Nothing
 >
 > getMarkingLoudness     :: MekNote → StdLoudness
@@ -169,12 +169,12 @@ Construct a vector of MekNotes, enriching them =================================
 >
 >     rawMeks                              = makeMeks    
 >     mekFence                             = VB.length rawMeks - 1
->     (nodePairs, nodeGroups)              = formNodeGroups rawMeks
+>     (nodeMates, nodeGroups)              = formNodeGroups rawMeks
 >
->     enriched                             = notracer "enriched" $
+>     enriched                             =
 >       let
 >         doUpdate       :: (VB.Vector MekNote → VB.Vector MekNote) → VB.Vector MekNote → VB.Vector MekNote
->         doUpdate updateIf meksIn         = VB.update meksIn $ VB.map enTag $ updateIf (notracer "meksIn" meksIn)
+>         doUpdate updateIf meksIn         = VB.update meksIn $ VB.map enTag $ updateIf meksIn
 >                                              where enTag mek = (mek.mSelfIndex, mek)
 >       in
 >         (doUpdate enfill . doUpdate sewSeeds . doUpdate wearOveralls) rawMeks
@@ -182,19 +182,19 @@ Construct a vector of MekNotes, enriching them =================================
 Initialize the MekNote vector ========================================================================================
 
       quick-zip together available data per primitive (notes only, no rests)
-      1. (index)
+      1. (self index)
       2. Music Primitive
       3. composer's velocity Marking
       4. Maybe MEvent from "performing" the music snippet
 
       later stages will compute and add following data to each M.E.K. note
-      1. transform = Overall
-      2. two ways of handling local velocity = Maybe (Either Velocity (VB.Vector Double))
+      5. transform = Overall
+      6. two ways of driving a velocity = Maybe (Either Velocity (VB.Vector Double))
 
 >     makeMeks                             =
 >       profess
 >         (nPrims > 0 && (nPrims == nMarks) && not (null evs))
->         (unwords ["bad length(s) in; prims, markings, evs"
+>         (unwords [fName, "bad length(s) in; prims, markings, evs"
 >                 , "\nprims=", show $ length prims, show prims
 >                 , "\nmarks=", show $ VB.length markings, show markings
 >                 , "\nevs=", show $ length evs, show evs])
@@ -213,21 +213,22 @@ Initialize the MekNote vector ==================================================
 >           let
 >             pFun (Note pP dP)            = VB.singleton (Note pP dP)
 >             pFun (Rest _)                = VB.empty
->             noChords _ _                 = error "no chords in Passage input"
+>             noChords _ _                 =
+>               error $ unwords [fName, "chords or controls found in Passage phrase", show musicIn]
 >           in
->             mFold pFun (VB.++) noChords undefined musicIn
+>             mFold pFun (VB.++) noChords noChords musicIn
 >
 >         eTable                           =
 >           VB.fromList $ fst $ musicToMEvents (bandPartContext bp) ((removeZeros . toMusic1) musicIn)
 >
 >         evs                              = 
 >           let
->             slotIn     :: (VB.Vector (Maybe MEvent), Int) → Primitive Pitch → (VB.Vector (Maybe MEvent), Int)
+>             slotIn     :: (VB.Vector MEvent, Int) → Primitive Pitch → (VB.Vector MEvent, Int)
 >             slotIn (pvec, soFar) prim    = (pvec VB.++ curEvents, soFar + mekWidth)
 >               where
 >                 (curEvents, mekWidth)    = 
 >                   case prim of
->                     Note _ _             → (VB.singleton (Just $ eTable VB.! soFar),    1)
+>                     Note _ _             → (VB.singleton (eTable VB.! soFar),           1)
 >                     Rest _               → (VB.empty,                                   0)
 >           in
 >             fst $ VB.foldl' slotIn (VB.empty, 0) prims
@@ -235,25 +236,23 @@ Initialize the MekNote vector ==================================================
 wearOveralls ==========================================================================================================
       compute transforms (Overalls) to thread the velocity changes through, irrespective of grouping
       the Overall is consumed in fourVelos or twoVelos - core dynamics functions
-      maps over nodePairs
+      (maps over nodeMates)
 
 >     wearOveralls meksIn                  =
->       VB.concatMap (uncurry computeOverall) nodePairs VB.++ computeOverall lastSi lastSi
+>       VB.concatMap (uncurry computeOverall) nodeMates VB.++ computeOverall lastSi lastSi
 >       where
->         lastSi                           = if null nodePairs
+>         lastSi                           = if null nodeMates
 >                                              then mekFence
->                                              else snd $ VB.last nodePairs
+>                                              else snd $ VB.last nodeMates
 >
 >         computeOverall si0 si1           =
 >           VB.singleton mek0{mOverall = Just $ makeOverall loud0 loud1 ev0 ev1}
 >           where
->             fName                        = "computeOverall"
->
 >             mek0                         = meksIn VB.! si0
 >             mek1                         = meksIn VB.! si1
 >
->             ev0                          = deJust (unwords [fName, "ev0"]) mek0.mEvent
->             ev1                          = deJust (unwords [fName, "ev1"]) mek1.mEvent
+>             ev0                          = mek0.mEvent
+>             ev1                          = mek1.mEvent
 >
 >             loud0, loud1
 >                        :: Double
@@ -262,7 +261,7 @@ wearOveralls ===================================================================
 
 sewSeeds ==============================================================================================================
       infuse M.E.K. value of type Maybe (Either Velocity (Vector Double))
-      folds on nodeGroups
+      (folds on nodeGroups)
 
 >     sewSeeds meksIn                      = VB.concat (map enseed nodeGroups)
 >       where
@@ -276,11 +275,8 @@ sewSeeds =======================================================================
 >           where
 >             gLen                         = VB.length nodeGroup  
 >
->             seeden si0_ si1_             = VB.map infuse seedMeks
+>             seeden si0 si1               = VB.map infuse seedMeks
 >               where
->                 si0                      = notracer "si0" si0_
->                 si1                      = notracer "si1" si1_
->
 >                 fName                    = "seeden"
 >
 >                 seedMeks                 = VB.slice si0 (si1 - si0 + 1 - fencePost) meksIn
@@ -291,55 +287,53 @@ sewSeeds =======================================================================
 >                     then mek{mParams = Just (fourVelos onset delta overPrev over)}
 >                     else mek{mParams = Just (twoVelos onset delta over)}
 >                   where
->                     ev                   = deJust fName mek.mEvent
+>                     ev                   = mek.mEvent
 >                     onset                = fromRational ev.eTime
 >                     delta                = fromRational ev.eDur
 >
 >                 over                     = deJust (unwords [fName, show si0]) (meksIn VB.! si0).mOverall
 >                 overPrev                 =
->                   case VB.find (\np → snd np == si0) nodePairs of
+>                   case VB.find (\np → snd np == si0) nodeMates of
 >                     Just np              → deJust (unwords [fName, show np]) (meksIn VB.! fst np).mOverall
 >                     Nothing              → error $ unwords [fName, "inflection has no previous node !?"]
 
 enfill ================================================================================================================
       fills in any as yet undetermined mParams with simple (Left) Velocity
-      folds on MekNotes
+      (folds on MekNotes)
 
 >     enfill meksIn                        = fst $ VB.foldl' fillOne (VB.empty, bp.bpHomeVelocity) meksIn
 >       where
->         fillOne        :: (VB.Vector MekNote, Velocity)
->                           → MekNote
->                           → (VB.Vector MekNote, Velocity)
->         fillOne (updates, _) mek      =
+>         fillOne (updates, _) mek         =
 >           let
->             mvelo'     :: Maybe Velocity = (Just . stdVelocity) (getMarkingLoudness mek)
->             velo'      :: Velocity       = deJust fName mvelo'
+>             velo       :: Velocity       = stdVelocity $ getMarkingLoudness mek
 >             updateOne                    =
 >               case mek.mParams of
->                 Nothing                  → VB.singleton $ mek{mParams = (Just . Left) velo'}
+>                 Nothing                  → VB.singleton $ mek{mParams = (Just . Left) velo}
 >                 _                        → VB.empty
 >           in
->             (updates VB.++ updateOne, velo')
+>             (updates VB.++ updateOne, velo)
 
 formNodeGroups ========================================================================================================
-      model the inflection/non-inflection sequence
-      each value in nodePairs is the SelfIndex pair identifying consecutive nodes of source vector
+      model the inflection/non-inflection sequence, only "note-bearing" self indices are considered
+      each element in nodeMates = pair of self indices
+      each member of nodeGroups = vector of self indices
 
 > formNodeGroups         :: VB.Vector MekNote
 >                           → (VB.Vector (SelfIndex, SelfIndex), [VB.Vector SelfIndex])
-> formNodeGroups meks                      = (nodePairs, nodeGroups)
+> formNodeGroups meks                      = (nodeMates, nodeGroups)
 >   where
->     getMarkingNode mek                   =
+>     getSelfIndex mek                     =
 >       case mek.mMarking of
 >         Mark _                           → VB.singleton mek.mSelfIndex
 >         Inflect _                        → VB.singleton mek.mSelfIndex
+>         Tail _                           → VB.singleton mek.mSelfIndex
 >         _                                → VB.empty
 >     nodes                                =
 >       let
->         append sis mek                   = sis VB.++ getMarkingNode mek
+>         append sis mek                   = sis VB.++ getSelfIndex mek
 >       in
 >         VB.foldl' append VB.empty meks
->     nodePairs                            = VB.zip nodes (VB.tail nodes)
+>     nodeMates                            = VB.zip nodes (VB.tail nodes)
 >     nodeGroups                           =
 >       let
 >         inflected _ si                   =

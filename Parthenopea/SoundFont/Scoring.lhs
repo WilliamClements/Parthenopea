@@ -382,7 +382,7 @@ tournament starts here =========================================================
 >         sffile         :: SFFileBoot     = vFiles VB.! pergm.pgkwFile
 >         perI                             = cache Map.! pergm{pgkwBag = Nothing}
 >         iName                            = perI.piChanges.cnName
->         owned          :: IntSet         = (ownedOnly perI)
+>         owned          :: IntSet         = ownedOnly perI
 >
 >         scope                            =
 >           let

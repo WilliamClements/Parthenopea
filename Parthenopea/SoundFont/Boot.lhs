@@ -1109,7 +1109,7 @@ To build the map
 >     closeEnough x y                      = absorbThreshold < howClose (fst x) (fst y)
 >
 >     reorger zrec rdFold
->       | isJust dprobe                    = (Just zrec,                          dispose pergm scansBlocked rdFold)
+>       | rprobe                           = (Just zrec,                          dispose pergm scansBlocked rdFold)
 >       | isNothing aprobe                 = (Just zrec,                          rdFold)
 >       | party == zrec.zswInst            = (Just zrec,                          dispose pergm scansIng rdFold)
 >       | otherwise                        = (Nothing,                            dispose pergm scansEd rdFold)
@@ -1118,18 +1118,17 @@ To build the map
 >
 >         pergm                            = instKey zrec
 >
->         dprobe                           = IntMap.lookup zrec.zswInst disqualMap
+>         rprobe                           = IntSet.member zrec.zswInst rejected
 >         aprobe                           = IntMap.lookup zrec.zswInst absorptionMap
 >
->         disqualified                     = deJust "dprobe" dprobe
 >         party                            = deJust "aprobe" aprobe
 >
 >         ssTempl8 dispo imp clue          = [Scan dispo imp fName clue]
 >         scansIng                         = ssTempl8 Modified   Absorbing    noClue
 >         scansEd                          = ssTempl8 Dropped    Absorbed     (show party)
->         scansBlocked                     = ssTempl8 NoChange   NoAbsorption (show disqualified)
+>         scansBlocked                     = ssTempl8 NoChange   NoAbsorption noClue
 >
->     headed, ready      :: IntMap IntSet                {- [InstIndex → [InstIndex]]              -}
+>     headed, ready, ng  :: IntMap IntSet                {- [InstIndex → [InstIndex]]              -}
 >
 >     headed                               = foldr (IntMap.union . rewire) IntMap.empty groups
 >       where
@@ -1141,18 +1140,14 @@ To build the map
 >         rewire ns                        =
 >           IntMap.insert ((snd . head) ns) (IntSet.fromList (map snd ns)) IntMap.empty
 >
->     holdMap            :: IntMap Int                   {- [InstIndex → dummy]                    -}
->     disqualMap         :: IntMap SmashStats            {- [InstIndex → stats]                    -}
->     (holdMap, disqualMap)                = IntMap.mapEitherWithKey qualify headed
+>     (ready, ng)                          = IntMap.partitionWithKey qualify headed
 >       where
->         qualify        :: Int                          {- InstIndex                              -}
->                           → IntSet                     {- [InstIndex]                            -}
->                           → Either Int SmashStats
+>         qualify        :: Int → IntSet → Bool
 >         qualify leadI memberIs
 >           | null smashups                = error "null smashups?!?"
->           | 0 == dupes                   = Left leadI
->           | membersHaveVR memberIs       = Left leadI
->           | otherwise                    = Right osmashup.smashStats
+>           | 0 == dupes                   = True
+>           | membersHaveVR memberIs       = True
+>           | otherwise                    = False
 >           where
 >             smashups                     = map (zrecSmash fWork) (IntSet.toList memberIs)
 >             osmashup                     = (foldl' smashSmashings (head smashups) (tail smashups))
@@ -1171,8 +1166,9 @@ To build the map
 >               Just rng                   → rng /= (0, qMidiWord128 - 1)
 >               Nothing                    → False
 >
->     ready                                = IntMap.filterWithKey wasVetted headed
->                                              where wasVetted k _ = IntMap.member k holdMap
+>     rejected           :: IntSet         =
+>       IntMap.foldl' combineMembers IntSet.empty ng
+>         where combineMembers m v         = m `IntSet.union` v
 >
 >     absorptionMap      :: IntMap Int                   {- [InstIndex → InstIndex]                -}
 >     absorptionMap                        = IntMap.foldlWithKey fold1Fun IntMap.empty ready

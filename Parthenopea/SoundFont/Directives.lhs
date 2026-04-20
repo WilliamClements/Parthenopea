@@ -71,7 +71,7 @@ useLFO
 >     True
 >     True
 >     True
->     False
+>     True
 >     True
 >     True
 >     True

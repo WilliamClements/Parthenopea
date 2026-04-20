@@ -12,7 +12,9 @@ October 5, 2025
 > import Control.Lens hiding ( element, strict )
 > import qualified Control.Monad           as CM
 > import qualified Data.Vector.Strict      as VB
+> import Debug.Trace ( traceIO )
 > import Euterpea.Music
+> import Parthenopea.Debug ( diagnosticsEnabled )
 > import Parthenopea.Music.Passage
 > import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Emission
@@ -31,8 +33,11 @@ summarize incoming passage =====================================================
 >
 > writePassageReport      :: Directives → [Song] → IO ()
 > writePassageReport dives songs           = do
+>   CM.when diagnosticsEnabled             (traceIO fName)
 >   CM.unless (null esSongs)               (writeReportBySections dives reportPassageName [velos, esSongs])
 >   where
+>     fName                                = "writePassageReport"
+>
 >     esSongs                              = concatMap reportSong songs
 >     velos                                = concatMap describe [PPP .. FFF] ++ [EndOfLine]
 >       where

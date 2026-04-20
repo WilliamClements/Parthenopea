@@ -24,7 +24,6 @@ able to deal with instruments of arbitrary number of channels.
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.Music
-> import Parthenopea.Debug
 
 Every instrument is a function that takes a duration, absolute
 pitch, volume, and a list of parameters (Doubles).  What the function 
@@ -115,7 +114,7 @@ needs to use runSF to run all the signal functions in the collection.
 >       sfcol ← delay col                  ⤙ mod sfcol' evts  
 >       let rs = fmap (\s → runSF (strip s) ()) sfcol :: col (a, SF () a)
 >           (as, sfcol' :: col (Signal p () a)) = (fmap fst rs, fmap (ArrowP . snd) rs)
->       let aall                           = foldl' mix zero (notracer "pSwitch" as)
+>       let aall                           = foldl' mix zero as
 >     outA                                 ⤙ aall
 > 
 > renderSF2              :: ∀ p a b. (Clock p, ToMusic1 a, AudioSample b, Show b) ⇒ 
