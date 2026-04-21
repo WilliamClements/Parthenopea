@@ -8,29 +8,7 @@ Scoring
 William Clements
 September 12, 2024
 
-> module Parthenopea.SoundFont.Scoring
->        ( adhocFuzz
->        , combineMatches
->        , computeFFMatches
->        , decideWinners
->        , defMatches
->        , establishWinners
->        , GMChoices(..)
->        , gradeEmpiricals
->        , isConfirmed
->        , isConfirmed'
->        , isPossible
->        , isPossible'
->        , Matches(..)
->        , myHints
->        , PerGMScored(..)
->        , qqHints
->        , scoreOnsets
->        , SFScorable(..)
->        , showPerGM
->        , stands
->        , stands'
->        ) where
+> module Parthenopea.SoundFont.Scoring where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
@@ -54,7 +32,6 @@ September 12, 2024
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Directives
-> import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
 > import qualified Text.FuzzyFind          as FF
@@ -197,6 +174,13 @@ use "matching as" cache ========================================================
 >         , shdr.end < shdr.start
 >         , shdr.endLoop < shdr.startLoop
 >       ]
+>
+> data GMChoices                           =
+>   GMChoices {
+>     gmFound          :: Bool
+>   , gmPerGMKey       :: Maybe PerGMKey
+>   , gmEmission       :: [Emission]}
+>   deriving (Eq, Ord)
 
 Scoring stuff =========================================================================================================
  
@@ -234,24 +218,36 @@ Scoring stuff ==================================================================
 >                           
 > qqHints                :: Map HintId HintBody
 > qqHints                                  = Map.fromList myHints
-
-tournament starts here ================================================================================================
-
+>
 > establishWinners       :: ([InstrumentName], [PercussionSound])
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->                           → IO (Map InstrumentName GMChoices, Map PercussionSound GMChoices)
-> establishWinners rost m2                 = do
->   let (hI, hP)                           = BF.bimap (Map.map head) (Map.map head) m2
->   let (cI, cP)                           = BF.bimap (foldl' (bump hI) Map.empty) (foldl' (bump hP) Map.empty) rost
->   return (cI, cP)
+>                           → ResultDispositions
+>                           → IO ((Map InstrumentName GMChoices, Map PercussionSound GMChoices), ResultDispositions)
+> establishWinners rost m2 rd              = do
+>   return ((cI, cP), rd'')
 >   where
->     bump ref m kind                      = Map.insert kind (kindChoices ref kind) m
+>     fName                                = "establishWinners"
+>
+>     (hI, hP)                             = BF.bimap (Map.map head)               (Map.map head)               m2
+>     (cI, cP)                             = BF.bimap (foldl' (bump hI) Map.empty) (foldl' (bump hP) Map.empty) rost
+>       where bump ref m kind              = Map.insert kind (kindChoices ref kind) m
+>
+>     rd'                                  = Map.foldlWithKey crown rd cI
+>     rd''                                 = Map.foldlWithKey crown rd' cP
+>
+>     crown              :: ∀ k . (SFScorable k, Show k) ⇒ ResultDispositions → k → GMChoices → ResultDispositions
+>     crown rdFold kind ch                 =
+>       let
+>         ssCrown                          = [Scan Modified Winner fName (show kind)] 
+>         doOne pergm                      = dispose pergm{pgkwBag = Nothing} ssCrown rdFold
+>       in maybe rdFold doOne ch.gmPerGMKey
+>         
 >     kindChoices m k
 >       | isJust pergm                     =
 >           GMChoices
 >             True
 >             pergm
->             (trueChoice k (deJust (unwords ["establishWinners kindChoices"]) mscored))
+>             (trueChoice k (deJust (unwords [fName, "kindChoices"]) mscored))
 >       | specialCase k                    =
 >           GMChoices
 >             True
@@ -270,68 +266,72 @@ tournament starts here =========================================================
 >           [Blanks 3, gmId kind, Unblocked " ... "] ++ showPerGM scored ++ [EndOfLine]
 >         falseChoice kind                 =
 >           [Blanks 3, gmId kind, Unblocked " not found", EndOfLine]
+
+tournament starts here ================================================================================================
+
 >
-> decideWinners          :: Directives
+> proposeCandidates      :: Directives
 >                           → ([InstrumentName], [PercussionSound]) 
->                           → VB.Vector SFFileBoot
+>                           → VB.Vector (IntMap PreZone)
 >                           → Map PerGMKey PerInstrument
 >                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
-> decideWinners dives rost vFiles cache matches
+> proposeCandidates dives rost vpzdbs cache matches
 >                                          = do
 >   CM.when
 >     diagnosticsEnabled
->     (traceIO $ unwords [fName__, show (length cache, Lazy.size matches.mIMatches, Lazy.size matches.mSMatches)])
+>     (traceIO $ unwords [fName, show (length cache, Lazy.size matches.mIMatches, Lazy.size matches.mSMatches)])
 >   return wiExec
->
 >   where
->     fName__                              = "decideWinners"
+>     fName                                = "proposeCandidates"
 >
 >     narrow                               = dives.narrowRosterForBoot
+>     competes                             = dives.multipleCompetes
 >
 >     wiExec             :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->     wiExec                               = (wI', wP')
->       where
->         (wI, wP)                         = Map.foldlWithKey wiFolder (Map.empty, Map.empty) cache    
+>     wiExec                               =
+>       let
+>         (wI, wP)                         = Map.foldlWithKey propose (Map.empty, Map.empty) cache    
 >         (wI', wP')                       = BF.bimap
 >                                              (Map.map (sortOn (Down . pScore . pArtifactGrade)))
 >                                              (Map.map (sortOn (Down . pScore . pArtifactGrade)))
 >                                              (wI, wP)
+>       in
+>         (wI', wP')
 >
->     wiFolder           :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
+>     propose            :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >                           → PerGMKey → PerInstrument
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->     wiFolder (wI, wP) pergmI perI        = (decideInst, decidePerc)
+>     propose (wI, wP) pergmI perI         = (proposeInst, proposePerc)
 >       where
->         fName_                           = unwords [fName__, "wiFolder"]
+>         pzdb           :: IntMap PreZone
+>         pzdb                            = vpzdbs VB.! pergmI.pgkwFile
 >
->         sffile         :: SFFileBoot     = vFiles VB.! pergmI.pgkwFile
->
->         decideInst     :: Map InstrumentName [PerGMScored]
->         decideInst                       = proposeXAs iMatches wI pergmI
->           where
+>         proposeInst    :: Map InstrumentName [PerGMScored]
+>         proposeInst                      =
+>           let
 >             iMatches = deJust "iMatches" (Lazy.lookup pergmI matches.mIMatches)
->     
->         decidePerc     :: Map PercussionSound [PerGMScored]
->         decidePerc                       = IntMap.foldl' propose wP pergmsP
+>           in
+>             proposeXAs iMatches wI pergmI
+>            
+>         proposePerc    :: Map PercussionSound [PerGMScored]
+>         proposePerc                      = IntMap.foldl' propose wP pergmsP
 >           where
 >             pergmsP                      = IntMap.fromSet cv (ownedOnly perI)
 >                                              where cv bix = pergmI {pgkwBag = (Just . fromIntegral) bix}
->
 >             propose wpFold pergmP
 >               | traceNot trace_PF False  = undefined
 >               | null mkind               = wpFold
 >               | null mffm                = wpFold
 >               | otherwise                = proposeXAs ffm wpFold pergmP
 >               where
->                 fName                    = unwords [fName_, "pFolder"]
 >                 trace_PF                 = unwords [fName, show pergmP, show mz
 >                                                   , show (mz >>= getAP)
 >                                                   , show (mz >>= getAP >>= pitchToPerc)]
 >
 >                 mz     :: Maybe PreZone
 >                 mz                       =
->                   pergmP.pgkwBag >>= Just . (sffile.zPreZonesBoot IntMap.!) . fromIntegral
+>                   pergmP.pgkwBag >>= Just . (pzdb IntMap.!) . fromIntegral
 >                 mkind  :: Maybe PercussionSound
 >                 mkind                    = mz >>= getAP >>= pitchToPerc
 >                 mffm   :: Maybe FFMatches
@@ -341,15 +341,15 @@ tournament starts here =========================================================
 >                      >>= (`Lazy.lookup` matches.mSMatches)
 >                 ffm                      = deJust (unwords [fName, "mffm"]) mffm
 >
->                 getAP  :: PreZone → Maybe AbsPitch
->                 getAP pz                 =
->                   pz.pzDigest.zdKeyRange
->                   >>= Just . singleton
->                   >>= Just . (++) (singleton percPitchRange)
->                   >>= intersectRanges
->                   >>= Just . fromIntegral . fst
+>     getAP  :: PreZone → Maybe AbsPitch
+>     getAP pz                             =
+>       pz.pzDigest.zdKeyRange
+>       >>= Just . singleton
+>       >>= Just . (++) (singleton percPitchRange)
+>       >>= intersectRanges
+>       >>= Just . fromIntegral . fst
 >
->     proposeXAs         :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
+>     proposeXAs         :: ∀ a. (Ord a, SFScorable a, Show a) ⇒
 >                           FFMatches
 >                           → Map a [PerGMScored]
 >                           → PerGMKey
@@ -359,7 +359,7 @@ tournament starts here =========================================================
 >         i2Fuzz                       = Map.filterWithKey isInRoster (getFuzzMap iMatches)
 >                                          where isInRoster k _ = k `elem` select rost narrow
 >         i2Fuzz'                      =
->           if dives.multipleCompetes
+>           if competes
 >             then Map.keys i2Fuzz
 >             else (singleton . fst) (Map.findMax i2Fuzz)
 >
@@ -371,27 +371,22 @@ tournament starts here =========================================================
 >                           → a
 >                           → Map a [PerGMScored]
 >     xaEnterTournament ffm pergm hints wins kind
->       | traceIf trace_XAET False         = undefined
 >       | goodScore scored                 = Map.insertWith (++) kind [scored] wins
 >       | otherwise                        = wins
 >       where
->         fName                            = unwords [fName__, "xaEnterTournament"]
->         trace_XAET                       =
->           unwords [fName, iName, show pergm, show kind, show owned]
->
->         sffile         :: SFFileBoot     = vFiles VB.! pergm.pgkwFile
+>         pzdb                             = vpzdbs VB.! pergm.pgkwFile
 >         perI                             = cache Map.! pergm{pgkwBag = Nothing}
 >         iName                            = perI.piChanges.cnName
 >         owned          :: IntSet         = ownedOnly perI
 >
 >         scope                            =
 >           let
->             oneZone bix                  = IntMap.singleton bix (sffile.zPreZonesBoot IntMap.! bix)
+>             oneZone bix                  = IntMap.singleton bix (pzdb IntMap.! bix)
 >           in
->             maybe (accessPreZones "scope" sffile.zPreZonesBoot owned) (oneZone . fromIntegral) pergm.pgkwBag
+>             maybe (accessPreZones "scope" pzdb owned) (oneZone . fromIntegral) pergm.pgkwBag
 >
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
->                                            >>= Just . (sffile.zPreZonesBoot IntMap.!) . fromIntegral
+>                                            >>= Just . (pzdb IntMap.!) . fromIntegral
 >                                            >>= \q → Just (F.sampleName (effPZShdr q))
 >
 >         computeGrade   :: IntMap PreZone → ArtifactGrade
@@ -449,6 +444,43 @@ tournament starts here =========================================================
 >                 xEnd   :: Word           = shdr.end + fromIntegral zd.zdEnd
 >
 >         akResult                         = fromMaybe 0 (Map.lookup kind (getFuzzMap ffm))
+>
+> class SFKeyType a where
+>   sfkey                :: Int → Word → a
+>   wfile                :: a → Int
+>   wblob                :: a → Word
+>   kname                :: a → FileArrays → [Emission]
+>   inspect              :: a → ResultDispositions → [Scan]
+>   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
+>
+> instance SFKeyType PreSampleKey where
+>   sfkey                                  = PreSampleKey
+>   wfile k                                = k.pskwFile
+>   wblob k                                = k.pskwSampleIndex
+>   kname k farr                           = [Unblocked (show (ssShdrs farr ! wblob k).sampleName)]
+>   inspect presk rd                       = fromMaybe [] (Lazy.lookup presk rd.preSampleDispos)
+>   dispose presk ss rd                    =
+>     rd{preSampleDispos = Lazy.insertWith (flip (++)) presk ss rd.preSampleDispos}
+>
+> instance SFKeyType PerGMKey where
+>   sfkey wF wI                            = stdPerGMKey wF (fromIntegral wI)
+>   wfile k                                = k.pgkwFile
+>   wblob k                                = k.pgkwInst
+>   kname k farr                           = [Unblocked (show (ssInsts farr ! wblob k).instName)]
+>   inspect pergm rd                       = fromMaybe [] (Lazy.lookup pergm rd.preInstDispos)
+>   dispose pergm ss rd                    =
+>     rd{preInstDispos = Lazy.insertWith (flip (++)) pergm ss rd.preInstDispos}
+>
+> instance SFKeyType PreZoneKey where
+>   sfkey _ _                              = error "sfkey not supported for PreZoneKey"
+>   wfile k                                = k.pzkwFile
+>   wblob k                                = k.pzkwInst
+>   kname k farr                           =    kname (stdPerGMKey k.pzkwFile (fromIntegral k.pzkwInst)) farr
+>                                            ++ [comma]
+>                                            ++ kname (PreSampleKey k.pzkwFile k.pzkwSampleIndex) farr
+>   inspect prezk rd                       = fromMaybe [] (Lazy.lookup prezk rd.preZoneDispos)
+>   dispose prezk ss rd                    =
+>     rd{preZoneDispos = Lazy.insertWith (flip (++)) prezk ss rd.preZoneDispos}
 
 Utilities =============================================================================================================
 

@@ -16,7 +16,6 @@ June 16, 2025
 > import qualified Control.Monad           as CM
 > import Data.Either
 > import qualified Data.IntMap.Strict      as IntMap
-> import Data.Map.Strict ( Map )
 > import qualified Data.Map.Strict         as Map
 > import Data.Time ( getZonedTime )
 > import qualified Data.Vector.Strict      as VB
@@ -91,9 +90,9 @@ Implement PCommand =============================================================
 >     then return ()
 >     else do
 >       putStrLn "extracted!"
->       (runt, choices)                    ← commandLogic dives rost vFilesBoot
+>       runt                               ← buildRuntime dives rost vFilesBoot
 >       -- here's the heart of the coconut
->       mapM_ (renderSong runt choices) songs
+>       mapM_ (renderSong runt) songs
 >   where
 >     captureSong (Song name music _)      = do
 >       ding                               ← shredMusic music
@@ -104,46 +103,41 @@ Implement PCommand =============================================================
 >     ReportVerbosity{ .. }               
 >                                          = dives.dReportVerbosity
 >
-> commandLogic           :: Directives → ([InstrumentName], [PercussionSound])
->                           → VB.Vector SFFileBoot
->                           → IO (SFRuntime, (Map InstrumentName GMChoices, Map PercussionSound GMChoices))
-> commandLogic dives rost vFilesBoot_      = do
->   putStrLn "commandLogic..."
+> buildRuntime           :: Directives → ([InstrumentName], [PercussionSound]) → VB.Vector SFFileBoot → IO SFRuntime
+> buildRuntime dives rost vFilesBoot_      = do
+>   putStrLn "buildRuntime..."
 >   (vFilesBoot, sy)                       ← surveyInstruments dives rost vFilesBoot_
 >
 >   let rd                                 = sy.sDispositions
->   let cache                              = sy.sPerInstruments
+>   let insts                              = sy.sPerInstruments
 >   let matches                            = sy.sMatches
 >
->   CM.when (dForScan > 0)                 (writeScanReport dives dForScan vFilesBoot rd)
->   (wI, wP)                               ← decideWinners dives rost vFilesBoot cache matches
->   CM.when (dForTournament > 0)           (writeTournamentReport dives vFilesBoot (wI, wP))
->   (zI, zP)                               ← establishWinners rost (wI, wP)
->   runt                                   ← prepareRuntime dives rost vFilesBoot cache (zI, zP)
->   return (runt, (zI, zP))
+>   (candI, candP)                         ← proposeCandidates dives rost (VB.map zPreZonesBoot vFilesBoot) insts matches
+>   CM.when (dForTournament > 0)           (writeTournamentReport dives vFilesBoot (candI, candP))
+>   ((wonI, wonP), rd')                    ← establishWinners rost (candI, candP) rd
+>   CM.when (dForScan > 0)                 (writeScanReport dives dForScan vFilesBoot rd')
+>   runt                                   ← prepareRuntime dives rost vFilesBoot insts (wonI, wonP)
+>   return runt{zWinners = (wonI, wonP)}
 >   where
 >     ReportVerbosity{ .. }
 >                                          = dives.dReportVerbosity
 >
-> renderSong             :: SFRuntime
->                           → (Map InstrumentName GMChoices, Map PercussionSound GMChoices)
->                           → Song
->                           → IO ()
-> renderSong runt choices (Song name music ding)
+> renderSong             :: SFRuntime → Song → IO ()
+> renderSong (SFRuntime dives _ choices _ imap) (Song name music shreds)
 >                                          = do
->   let sw                                 = runt.zDirectives.synthSwitches
+>   let sw                                 = dives.synthSwitches
 >
 >   tsStart                                ← getZonedTime
 >   putStr $ reapEmissions [Unblocked $ unwords ["renderSong", name], EndOfLine]
 >
->   let ks                                 = Map.keys ding
+>   let ks                                 = Map.keys shreds
 >   let (is, ps)                           = (lefts ks, rights ks)
 >   let (esI, esP)                         = printChoices choices is ps
 >   putStr $ reapEmissions (concatMap snd esI ++ concatMap snd esP)
 >     -- render song only if all OK
 >   if all fst esI && all fst esP
 >     then do
->       let (durS, s)                      = renderSF2 music runt.zInstrumentMap
+>       let (durS, s)                      = renderSF2 music imap
 >       if sw.normalizingOutput
 >         then outFileNorm                 (name ++ ".wav") durS s
 >         else outFile                     (name ++ ".wav") durS s

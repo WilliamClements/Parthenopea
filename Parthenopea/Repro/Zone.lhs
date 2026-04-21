@@ -7,39 +7,16 @@ Zone
 William Clements
 February 15, 2026
 
-> module Parthenopea.Repro.Zone
->        ( AppliedLimits(..)
->        , ChangeEar(..)
->        , ChangeEarItem(..)
->        , defApplied
->        , defZone
->        , effPZShdr
->        , extractSampleKey
->        , extractSpace
->        , extractZoneKey
->        , formDigest
->        , is24BitInst
->        , isLeftPZ
->        , isRightPZ
->        , isStereoInst
->        , isStereoPZ
->        , makeMono
->        , makePreZone
->        , normalizeLooping
->        , okGMRanges
->        , PreZone(..)
->        , receiveRecon
->        , Recon(..)
->        , resolvePreZone
->        , SFZone(..)
->        , wasSwitchedToMono
->        , wordS, wordI, wordB
->        , ZoneDigest(..)
->        ) where
+> module Parthenopea.Repro.Zone where
+
 >
 > import qualified Codec.SoundFont         as F
+> import Control.Applicative
 > import qualified Data.Audio              as A
 > import Data.Foldable
+> import Data.IntMap ( IntMap )
+> import Data.IntSet ( IntSet )
+> import qualified Data.IntMap             as IntMap
 > import Data.Maybe
 > import Euterpea.Music
 > import Parthenopea.Debug
@@ -147,6 +124,13 @@ February 15, 2026
 >     wF (fromJust digest.zdSampleIndex) wI bix 
 >      digest defZone (ChangeEar shdr [])
 >      Nothing
+>     
+> accessPreZone          :: String → IntMap PreZone → Int → PreZone
+> accessPreZones         :: String → IntMap PreZone → IntSet → IntMap PreZone
+> accessPreZone tag pzs bix                =
+>   fromJust $ (bix `IntMap.lookup` pzs) <|> error (unwords ["accessPreZone", tag, "Nothing at bix", show bix])
+> accessPreZones tag pzs                   = IntMap.fromSet (accessPreZone tag pzs)
+>
 > wordS, wordI, wordB    :: PreZone → Int
 > wordS pz                                 = fromIntegral pz.pzWordS
 > wordI pz                                 = fromIntegral pz.pzWordI

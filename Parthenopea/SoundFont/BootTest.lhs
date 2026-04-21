@@ -6,8 +6,11 @@ January 7, 2025
 
 > module Parthenopea.SoundFont.BootTest where
 >
-> import Parthenopea.SoundFont.Boot
 > import Parthenopea.SoundFont.SFSpec
+> import Parthenopea.SoundFont.Scoring
+>
+> deadrd                 :: ∀ k . SFKeyType k ⇒ k → ResultDispositions → Bool
+> deadrd k rd                              = dead (inspect k rd)
 
 Boot-related tests ====================================================================================================
 

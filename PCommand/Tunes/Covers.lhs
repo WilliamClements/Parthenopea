@@ -17,7 +17,6 @@ January 13, 2023
 >
 > import Euterpea.Music
 > import Parthenopea.Music.Passage
-> import Parthenopea.Music.Percussion
 > import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility

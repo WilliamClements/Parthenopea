@@ -11,7 +11,6 @@ November 11, 2022
 >                 , littleWay, pan ) where
 >
 > import Euterpea.Music
-> import Parthenopea.Music.Percussion
 > import Parthenopea.Music.Passage
 > import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.Directives

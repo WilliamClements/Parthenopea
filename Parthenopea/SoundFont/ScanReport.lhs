@@ -16,9 +16,9 @@ October 5, 2025
 > import Debug.Trace ( traceIO )
 > import Parthenopea.Debug
 > import Parthenopea.Repro.Emission
-> import Parthenopea.SoundFont.Boot
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Runtime
+> import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
   
 executive =============================================================================================================
@@ -78,7 +78,7 @@ executive ======================================================================
 >           [  Unblocked (show k)
 >            , Blanks 5
 >            , Unblocked sffileBoot.zFilename
->            , Blanks 5] ++ kname k sffileBoot
+>            , Blanks 5] ++ kname k sffileBoot.zFileArrays
 >
 >     procScan scan                    =
 >       [  emitShowL scan.sDisposition 24

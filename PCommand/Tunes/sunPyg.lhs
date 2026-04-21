@@ -7,7 +7,6 @@ March 20, 2023
 > module Tunes.SunPyg (sunPyg) where
 >
 > import Euterpea.Music
-> import Parthenopea.Music.Percussion
 > import Parthenopea.Music.Siren
 > import Parthenopea.SoundFont.Directives
   

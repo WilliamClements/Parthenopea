@@ -8,14 +8,11 @@ William Clements
 February 1, 2025
 
 > module Parthenopea.SoundFont.Runtime
->        ( accessPreZones
->        , GMChoices(..)
->        , prepareRuntime
+>        ( prepareRuntime
 >        , SFFileBoot(..)
 >        , SFFileRuntime(..)
 >        , SFRuntime(..)) where
 >
-> import Control.Applicative
 > import qualified Data.Bifunctor          as BF
 > import Data.Foldable
 > import Data.IntMap        ( IntMap )
@@ -33,11 +30,11 @@ February 1, 2025
 > import Euterpea.IO.Audio.Types ( AudRate, Stereo, Clock, Signal )
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.Repro.Synthesizer ( eutSynthesize )
 > import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Directives
+> import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Utility
   
@@ -45,6 +42,7 @@ February 1, 2025
 >   SFRuntime {
 >     zDirectives        :: Directives
 >   , zRoster            :: ([InstrumentName], [PercussionSound])
+>   , zWinners           :: (Map InstrumentName GMChoices, Map PercussionSound GMChoices)
 >   , zRuntimeFiles      :: IntMap SFFileRuntime         {- [FileIndex → SFFileRuntime]   -}
 >   , zInstrumentMap     :: [(InstrumentName, Instr (Stereo AudRate))]}
 > instance Show SFRuntime where
@@ -58,13 +56,6 @@ February 1, 2025
 >   , zPreZonesBoot      :: IntMap PreZone
 >   , zSquirrelSample    :: SampleArrays}
 >
-> accessPreZone          :: String → IntMap PreZone → Int → PreZone
-> accessPreZones         :: String → IntMap PreZone → IntSet → IntMap PreZone
->
-> accessPreZone tag pzs bix                =
->   fromJust $ (bix `IntMap.lookup` pzs) <|> error (unwords ["accessPreZone", tag, "Nothing at bix", show bix])
-> accessPreZones tag pzs                   = IntMap.fromSet (accessPreZone tag pzs)
->     
 > data SFFileRuntime                       =
 >   SFFileRuntime {
 >     zWordFRuntime      :: !Int
@@ -75,13 +66,6 @@ February 1, 2025
 >   show sffile                            =
 >     unwords [  "SFFileRuntime"
 >              , show sffile.zPerInstrument]
->
-> data GMChoices                           =
->   GMChoices {
->     gmFound          :: Bool
->   , gmPerGMKey       :: Maybe PerGMKey
->   , gmEmission       :: [Emission]}
->   deriving (Eq, Ord)
 
 cache SoundFont data that is only needed for Runtime ==================================================================
 
@@ -91,13 +75,14 @@ cache SoundFont data that is only needed for Runtime ===========================
 >                       → Map PerGMKey PerInstrument
 >                       → (Map InstrumentName GMChoices, Map PercussionSound GMChoices)
 >                       → IO SFRuntime
-> prepareRuntime dives rost vFilesBoot cache choices
+> prepareRuntime dives rost vFilesBoot perIs choices
 >                                          = do
 >   let runtimeFiles                       = IntMap.fromList $ mapMaybe supply (VB.toList vFilesBoot)
 >   let prerunt                            =
 >         SFRuntime
 >           dives
 >           rost
+>           choices
 >           runtimeFiles
 >           []
 >   instrumentMap                          ← prepareInstruments prerunt choices
@@ -122,10 +107,11 @@ cache SoundFont data that is only needed for Runtime ===========================
 >     supply             :: SFFileBoot → Maybe (Int, SFFileRuntime)
 >     supply sffile                        = sffile.zWordFBoot `IntMap.lookup` actions >>= runtimeFile
 >       where
+>         runtimeFile    :: IntSet → Maybe (Int, SFFileRuntime)
 >         runtimeFile insts                =    
 >           let
 >             getPerI inst                 =
->               cache Map.! stdPerGMKey sffile.zWordFBoot inst
+>               perIs Map.! stdPerGMKey sffile.zWordFBoot inst
 >
 >             newPerI                      = IntMap.fromSet getPerI insts
 >             pzdb                         = 

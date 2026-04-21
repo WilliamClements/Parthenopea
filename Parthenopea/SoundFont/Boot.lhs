@@ -10,13 +10,8 @@ William Clements
 January 21, 2025
 
 > module Parthenopea.SoundFont.Boot
->        (  deadrd
->         , dispose
->         , kname
->         , FileSurvey(..)
->         , SFKeyType
+>        (  FileSurvey(..)
 >         , surveyInstruments
->         , wfile
 >         ) where
 >
 > import qualified Codec.SoundFont         as F
@@ -305,45 +300,6 @@ Boot executive function ========================================================
 
 support sample and instance ===========================================================================================
 
-> class SFKeyType a where
->   sfkey                :: Int → Word → a
->   wfile                :: a → Int
->   wblob                :: a → Word
->   kname                :: a → SFFileBoot → [Emission]
->   inspect              :: a → ResultDispositions → [Scan]
->   dispose              :: a → [Scan] → ResultDispositions → ResultDispositions
->
-> instance SFKeyType PreSampleKey where
->   sfkey                                  = PreSampleKey
->   wfile k                                = k.pskwFile
->   wblob k                                = k.pskwSampleIndex
->   kname k sffile                         = [Unblocked (show (ssShdrs sffile.zFileArrays ! wblob k).sampleName)]
->   inspect presk rd                       = fromMaybe [] (Lazy.lookup presk rd.preSampleDispos)
->   dispose presk ss rd                    =
->     rd{preSampleDispos = Lazy.insertWith (flip (++)) presk ss rd.preSampleDispos}
->
-> instance SFKeyType PerGMKey where
->   sfkey wF wI                            = stdPerGMKey wF (fromIntegral wI)
->   wfile k                                = k.pgkwFile
->   wblob k                                = k.pgkwInst
->   kname k sffile                         = [Unblocked (show (ssInsts sffile.zFileArrays ! wblob k).instName)]
->   inspect pergm rd                       = fromMaybe [] (Lazy.lookup pergm rd.preInstDispos)
->   dispose pergm ss rd                    =
->     rd{preInstDispos = Lazy.insertWith (flip (++)) pergm ss rd.preInstDispos}
->
-> instance SFKeyType PreZoneKey where
->   sfkey _ _                              = error "sfkey not supported for PreZoneKey"
->   wfile k                                = k.pzkwFile
->   wblob k                                = k.pzkwInst
->   kname k sffile                         =    kname (stdPerGMKey k.pzkwFile (fromIntegral k.pzkwInst)) sffile
->                                            ++ [comma]
->                                            ++ kname (PreSampleKey k.pzkwFile k.pzkwSampleIndex) sffile
->   inspect prezk rd                       = fromMaybe [] (Lazy.lookup prezk rd.preZoneDispos)
->   dispose prezk ss rd                    =
->     rd{preZoneDispos = Lazy.insertWith (flip (++)) prezk ss rd.preZoneDispos}
->
-> deadrd                 :: ∀ k . SFKeyType k ⇒ k → ResultDispositions → Bool
-> deadrd k rd                              = dead (inspect k rd)
 > combinerd              :: ResultDispositions → ResultDispositions → ResultDispositions
 > combinerd rd1 rd2                        =
 >   rd1{  preSampleDispos                  = Lazy.unionWith (++) rd1.preSampleDispos rd2.preSampleDispos
