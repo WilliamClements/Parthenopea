@@ -11,9 +11,7 @@ Apr 26, 2025
 >          chartEnvelope
 >        , deriveEnvelope
 >        , doEnvelope
->        , doSweepingEnvelope
->        , proposeSegments
->        , vetAsDiscreteSig) where
+>        , doSweepingEnvelope) where
 >
 > import Data.Foldable
 > import Data.List

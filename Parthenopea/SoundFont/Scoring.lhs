@@ -8,7 +8,16 @@ Scoring
 William Clements
 September 12, 2024
 
-> module Parthenopea.SoundFont.Scoring where
+> module Parthenopea.SoundFont.Scoring
+>        ( computeFFMatches
+>        , establishWinners
+>        , GMChoices(..)
+>        , PerGMScored(..)
+>        , proposeCandidates
+>        , scoreOnsets
+>        , SFKeyType(..)
+>        , SFScorable(..)
+>        , showPerGM ) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM

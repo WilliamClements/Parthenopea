@@ -112,7 +112,8 @@ Implement PCommand =============================================================
 >   let insts                              = sy.sPerInstruments
 >   let matches                            = sy.sMatches
 >
->   (candI, candP)                         ← proposeCandidates dives rost (VB.map zPreZonesBoot vFilesBoot) insts matches
+>   (candI, candP)                         ← proposeCandidates dives rost (VB.map zPreZonesBoot vFilesBoot)
+>                                                            insts matches
 >   CM.when (dForTournament > 0)           (writeTournamentReport dives vFilesBoot (candI, candP))
 >   ((wonI, wonP), rd')                    ← establishWinners rost (candI, candP) rd
 >   CM.when (dForScan > 0)                 (writeScanReport dives dForScan vFilesBoot rd')

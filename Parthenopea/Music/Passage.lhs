@@ -9,8 +9,6 @@ August 15, 2025
 > module Parthenopea.Music.Passage(
 >        enrichPassage
 >        , expandMarkings
->        , formNodeGroups
->        , makeMekNote
 >        , Marking(..)
 >        , MekNote(..)
 >        , npassage

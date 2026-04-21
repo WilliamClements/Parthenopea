@@ -7,8 +7,37 @@ Zone
 William Clements
 February 15, 2026
 
-> module Parthenopea.Repro.Zone where
-
+> module Parthenopea.Repro.Zone
+>        ( accessPreZone
+>        , accessPreZones
+>        , AppliedLimits(..)
+>        , ChangeEar(..)
+>        , defApplied
+>        , defZone
+>        , effPZShdr
+>        , extractSampleKey
+>        , extractSpace
+>        , extractZoneKey
+>        , formDigest
+>        , is24BitInst
+>        , isLeftPZ
+>        , isRightPZ
+>        , isStereoInst
+>        , isStereoPZ
+>        , makeMono
+>        , makePreZone
+>        , normalizeLooping
+>        , okGMRanges
+>        , PreZone(..)
+>        , receiveRecon
+>        , Recon(..)
+>        , resolvePreZone
+>        , SFZone(..)
+>        , wasSwitchedToMono
+>        , wordB
+>        , wordI
+>        , wordS
+>        , ZoneDigest(..) ) where
 >
 > import qualified Codec.SoundFont         as F
 > import Control.Applicative

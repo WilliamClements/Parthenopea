@@ -8,7 +8,6 @@ October 5, 2025
 
 > module Parthenopea.SoundFont.TournamentReport
 >        ( printChoices
->        , showPerGM
 >        , writeTournamentReport
 >        ) where
 >
