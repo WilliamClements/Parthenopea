@@ -246,7 +246,7 @@ Amplification ==================================================================
 > eutAmplify timeFrame m8n volEnv sweeps noon
 >                                          =
 >   proc a1L → do
->     aSweep                               ← doSweepingEnvelope timeFrame eor                ⤙ ()
+>     aSweep                               ← doSweepingEnvelope timeFrame.tfSecsToPlay eor   ⤙ ()
 >     aenvL                                ← doEnvelope timeFrame volEnv                     ⤙ ()
 >     modSigL                              ← eutModSignals timeFrame m8n ToVolume            ⤙ ()
 >     let a2L                              =

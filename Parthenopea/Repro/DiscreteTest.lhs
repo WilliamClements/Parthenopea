@@ -22,7 +22,7 @@ June 22, 2024
 > import Euterpea.IO.Audio.Render ( Instr )
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock, Mono, AudRate )
 > import Parthenopea.Music.Siren ( maxSample )
-> import Parthenopea.Repro.Chart ( Section(Section), chartPoints )
+> import Parthenopea.Repro.Chart
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.Utility
@@ -51,16 +51,6 @@ Feed chart =====================================================================
 >
 > filterTestDur          :: Double
 > filterTestDur          :: Double         = 1
->
-> colors                 :: [AlphaColour Double]
-> colors                 :: [AlphaColour Double]
->                                          =
->   cycle
->     [  blue    `withOpacity` 2
->     ,  orange  `withOpacity` 2
->     ,  green   `withOpacity` 2
->     ,  red     `withOpacity` 2
->     ,  purple  `withOpacity` 2]
 >
 > bench, porch           :: IO ()
 > bench                                    = benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
@@ -121,8 +111,9 @@ Feed chart =====================================================================
 >             doQs       :: [Double] → IO ()
 >             doQs qs                      = do
 >               putStrLn $ unwords ["doQs", show qs]
->               let sects                  = zipWith Section colors (map calc qs)
+>               let sects                  = zipWith Section chartColors (map calc qs)
 >               chartPoints (concat [show currentRt, "_fc", show currentFc]) sects
+>               return ()
 >               where
 >                 calc   :: Double → [(Double, Double)]
 >                 calc currentQ            = fun bs m8n
@@ -149,7 +140,7 @@ Feed chart =====================================================================
 >             doFcs fcs                    = do
 >               putStrLn $ unwords ["doFcs", show fcs]
 >               ts1                        ← getCurrentTime
->               let sects                  = zipWith Section colors (map calc fcs)
+>               let sects                  = zipWith Section chartColors (map calc fcs)
 >               print sects
 >               chartPoints (concat [show currentRt, "_q", show currentQ]) sects
 >               ts2                        ← getCurrentTime 
@@ -172,6 +163,7 @@ Feed chart =====================================================================
 >   chartPoints
 >     (if useFastFourier then "freakResponse" else "impulseResponse")
 >     [Section (opaque blue) groutsR, Section (opaque orange) groutsI]
+>   return ()
 >   where
 >     targetFc, dataLen, sampleRate
 >                        :: Int

@@ -11,7 +11,8 @@ Apr 26, 2025
 >          chartEnvelope
 >        , deriveEnvelope
 >        , doEnvelope
->        , doSweepingEnvelope) where
+>        , doSweepingEnvelope
+>        , graphSF) where
 >
 > import Data.Foldable
 > import Data.List
@@ -98,11 +99,11 @@ Create a straight-line envelope generator with following phases:
 >     fSusLevel                            = clip (0, 1) r.fSustainLevel
 >     secs                                 = tf.tfSecsToPlay
 >
-> doSweepingEnvelope     :: ∀ p . Clock p ⇒ TimeFrame → Either Velocity (VB.Vector Double) → Signal p () Double
-> doSweepingEnvelope timeFrame             = either (constA . fromIntegral) (doSweeps timeFrame)
+> doSweepingEnvelope     :: ∀ p . Clock p ⇒ Double → Either Velocity (VB.Vector Double) → Signal p () Double
+> doSweepingEnvelope secs                  = either (constA . fromIntegral) (doSweeps secs)
 >
-> doSweeps               :: ∀ p . Clock p ⇒ TimeFrame → VB.Vector Double → Signal p () Double
-> doSweeps timeFrame sweeps                = envLineSeg segs.sAmps segs.sDeltaTs
+> doSweeps               :: ∀ p . Clock p ⇒ Double → VB.Vector Double → Signal p () Double
+> doSweeps secs sweeps                     = envLineSeg segs.sAmps segs.sDeltaTs
 >   where
 >     segs               :: Segments       =
 >       case VB.length sweeps of
@@ -113,7 +114,7 @@ Create a straight-line envelope generator with following phases:
 >
 >     step, midsection, leg
 >                        :: Double 
->     step                                 = timeFrame.tfSecsToPlay - 2 * minDeltaT
+>     step                                 = secs - 2 * minDeltaT
 >     midsection                           = step / 8
 >     leg                                  = step * 7 / 16
 >
@@ -316,8 +317,8 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >   where
 >     fName                                = "vetAsDiscreteSig"
 >
->     dsig                                 = discretizeEnvelope clockRate env segs
 >     targetT                              = (deJust fName env.fExtras).eeTargetT
+>     dsig                                 = discretizeEnvelope clockRate targetT segs
 >
 >     noisy             :: VU.Vector Double → Bool
 >     noisy air                            = VU.foldr ((+) . abs) 0 air > epsilon
@@ -362,10 +363,23 @@ Three different ways of computing the envelope duration must all get same answer
 >     b                                    = ee.eeTargetT
 >     c                                    = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
 >
+> graphSF                :: ∀ p . Clock p ⇒ Double → Double → Double → Signal p () Double → [(Double, Double)]
+> graphSF secs clock startT sf
+>   | nPoints >= 2 ^ (22::Int)             = error $ unwords [fName, "too large!"]
+>   | nActual /= nPoints                   = error $ unwords [fName, "nActual=", show nActual, "nPoints=", show nPoints]
+>   | otherwise                            = zip onsets (VU.toList vec)
+>   where
+>     fName                                = "graphSF"
+>
+>     nPoints            :: Int            = round (secs * clock)
+>     dsig                                 = deJust fName (fromSignal fName secs sf)
+>     vec                                  = VU.take nPoints dsig.dsigVec
+>     nActual            :: Int            = VU.length vec
+>     onsets             :: [Double]       = [startT + (fromIntegral i/clock) | i ← [0..]]
+>
 > chartEnvelope          :: String → TimeFrame → FEnvelope → Double → IO Bool
-> chartEnvelope tag tf fe clockRate         = do
+> chartEnvelope tag tf fe clockRate        = do
 >   print segs
->   print secs
 >   case mdsig of
 >     Nothing                              → return False
 >     Just dsig                            →
@@ -374,9 +388,6 @@ Three different ways of computing the envelope duration must all get same answer
 >         return True
 >   where
 >     (r, segs)                            = proposeSegments tf fe
->     ee                                   = deJust "munch" r.fExtras
->     secs                                 = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
->     
 >     mdsig                                = vetAsDiscreteSig clockRate r segs
 >     nPoints            :: Int            = round $ clockRate * (tf.tfSecsScored + 0.5)
 

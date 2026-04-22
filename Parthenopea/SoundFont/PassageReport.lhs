@@ -41,7 +41,7 @@ summarize incoming passage =====================================================
 >     esSongs                              = concatMap reportSong songs
 >     velos                                = concatMap describe [PPP .. FFF] ++ [EndOfLine]
 >       where
->         describe       :: StdLoudness → [Emission]
+>         describe       :: StdLoudness → [Emission]            
 >         describe loud                    =
 >           [  Blanks 9
 >            , ToFieldL (show loud) 10

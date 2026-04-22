@@ -10,16 +10,20 @@ August 15, 2025
 > import Euterpea.Music
 > import Parthenopea.Music.Passage
 > import Parthenopea.Music.Siren
+> import Parthenopea.Repro.Chart
 > import Parthenopea.Repro.Emission
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.PassageReport (summarizeOnePassage)
 >
 > passageTests           :: [IO Bool]
+> twoNotesSameVelocity, twoNotesDiffVelocity, threeNotesWithRests, fourMarksWork, fourInflectionsWork, tripletsWork
+>                        :: IO Bool
 > passageTests = [twoNotesSameVelocity
 >               , twoNotesDiffVelocity
 >               , threeNotesWithRests
 >               , fourMarksWork
->               , fourInflectionsWork ]
+>               , fourInflectionsWork
+>               , tripletsWork ]
 >
 > aMarkings, bMarkings, cMarkings, dMarkings
 >                        :: VB.Vector Marking
@@ -27,55 +31,31 @@ August 15, 2025
 > bMarkings                                = expandMarkings [Inflect PP, Inflect FF]
 > cMarkings                                = expandMarkings [Mark SF, Inflect FF, Mark P]
 > dMarkings                                = expandMarkings [Mark PPP, Mark P, Mark P, Mark FF]
-> eMarkings                                = expandMarkings [Inflect PPP, Inflect P, Inflect P, Inflect FF]
+> eMarkings                                = expandMarkings [Inflect PPP, Inflect PP, Inflect P, Inflect FF]
+> fMarkings                                = expandMarkings [Inflect SF, SpanN 2, Inflect FF, Inflect P, Inflect FF]
 >
-> aSnippet, bSnippet, cSnippet
+> aSnippet, bSnippet, cSnippet, dSnippet
 >                        :: Music Pitch
 > aSnippet                                 = line [a 4 qn, b 4 qn]
 > bSnippet                                 = line [c 3 hn, rest qn, g 3 qn, rest hn, b 3 qn]
 > cSnippet                                 = line [c 4 hn, rest qn, d 4 qn, rest hn, b 3 qn, rest sn, a 3 sn]
+> dSnippet                                 = line [d 5 qn, d 5 en, e 5 en, t32 [d 5 en, cs 5 en, b 4 en]]
 >
-> doEnrich               :: VB.Vector Marking → Music Pitch → VB.Vector MekNote
-> doEnrich                                 = enrichPassage defDirectives defBandPart
->                                              
-> twoNotesSameVelocity   :: IO Bool
-> twoNotesSameVelocity                     = do
->   putStrLn "twoNotesSameVelocity"
->   let meks                               = doEnrich aMarkings aSnippet
->   let summary          :: [Emission]     = summarizeOnePassage meks
->   putStrLn $ reapEmissions summary
->   return True
+> doPassageTest          :: String → VB.Vector Marking → Music Pitch → IO Bool
+> doPassageTest tName ms music             = do
+>   putStrLn tName
 >
-> twoNotesDiffVelocity   :: IO Bool
-> twoNotesDiffVelocity                     = do
->   putStrLn "twoNotesDiffVelocity"
->   let meks                               = doEnrich bMarkings aSnippet
->   let summary          :: [Emission]     = summarizeOnePassage meks
->   putStrLn $ reapEmissions summary
->   return True
+>   let meks                               = enrichPassage defDirectives defBandPart ms music
 >
-> threeNotesWithRests    :: IO Bool
-> threeNotesWithRests                      = do
->   putStrLn "threeNotesWithRests"
->   let meks                               = doEnrich cMarkings bSnippet
->   let summary          :: [Emission]     = summarizeOnePassage meks
->   putStrLn $ reapEmissions summary
+>   putStrLn $ reapEmissions (summarizeOnePassage meks)
+>   chartPoints tName (chartPassage meks)
 >   return True
->
-> fourMarksWork          :: IO Bool
-> fourMarksWork                            = do
->   putStrLn "fourMarksWork"
->   let meks                               = doEnrich dMarkings cSnippet
->   let summary          :: [Emission]     = summarizeOnePassage meks
->   putStrLn $ reapEmissions summary
->   return True
->
-> fourInflectionsWork    :: IO Bool
-> fourInflectionsWork                      = do
->   putStrLn "fourInflectionsWork"
->   let meks                               = doEnrich eMarkings cSnippet
->   let summary          :: [Emission]     = summarizeOnePassage meks
->   putStrLn $ reapEmissions summary
->   return True
+> 
+> twoNotesSameVelocity                     = doPassageTest "twoNotesSameVelocity" aMarkings aSnippet
+> twoNotesDiffVelocity                     = doPassageTest "twoNotesDiffVelocity" bMarkings aSnippet
+> threeNotesWithRests                      = doPassageTest "threeNotesWithRests" cMarkings bSnippet
+> fourMarksWork                            = doPassageTest "fourMarksWork" dMarkings cSnippet
+> fourInflectionsWork                      = doPassageTest "fourInflectionsWork" eMarkings cSnippet
+> tripletsWork                             = doPassageTest "tripletsWork" fMarkings dSnippet
 
 The End 

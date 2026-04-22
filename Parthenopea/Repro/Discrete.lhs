@@ -140,8 +140,8 @@ Discrete envelope checking =====================================================
 
 We realize/discretize the envelope's signal. The resulting block is checked for violations.
 
-> discretizeEnvelope     :: Double → FEnvelope → Segments → DiscreteSig Double
-> discretizeEnvelope clockRate env segs    =
+> discretizeEnvelope     :: Double → Double → Segments → DiscreteSig Double
+> discretizeEnvelope clockRate targetT segs    =
 >   if howMany < 5 && howNegative > -0.2
 >     then dsig
 >     else error $ unwords [fName, "too many negative values", show (howMany, howNegative)]
@@ -154,8 +154,6 @@ We realize/discretize the envelope's signal. The resulting block is checked for 
 >       | abs (clockRate - audRate) < epsilon
 >                                          = deJust fName $ fromSignal fName (targetT + minUseful) asignal
 >       | otherwise                        = error $ unwords [fName, show clockRate, "clockRate not supported"]
->
->     targetT                              = (deJust fName env.fExtras).eeTargetT
 >
 >     nindices                             = VU.findIndices (< 0) dsig.dsigVec
 >     nvalues                              = VU.map (dsig.dsigVec VU.!) nindices
@@ -495,7 +493,7 @@ Type declarations ==============================================================
 >     True
 >   where
 >     stats                                = dsig.dsigStats
-> chartDiscreteSig       :: Double → Int → DiscreteSig Double → String → IO ()
+> chartDiscreteSig       :: Double → Int → DiscreteSig Double → String → IO Bool
 > chartDiscreteSig clockRate nPoints dsig tag
 >                                          = chartPoints tag [sec]
 >   where

@@ -5,7 +5,11 @@ Chart
 William Clements
 November 9, 2023
 
-> module Parthenopea.Repro.Chart ( Section( .. ), chartPoints, table2vals ) where
+> module Parthenopea.Repro.Chart
+>        ( Section( .. )
+>        , chartColors
+>        , chartPoints
+>        , table2vals ) where
 >
 > import Control.Lens
 > import Data.Default.Class
@@ -21,7 +25,7 @@ Chart ==========================================================================
 >   , section_points   :: [(Double, Double)]}
 >   deriving Show
 >
-> chartPoints            :: String → [Section] → IO ()
+> chartPoints            :: String → [Section] → IO Bool
 > chartPoints tag sects                    =
 >   do
 >     let cars = plot_errbars_values .~ [symErrPoint x y dx dy | (x,y,dx,dy) ← vals']
@@ -34,7 +38,7 @@ Chart ==========================================================================
 >     putStrLn $ unwords ["rendering", path]
 >     _ ← renderableToFile def path chart'
 >     putStrLn $ unwords ["rendered", path]
->     return ()
+>     return True
 >   where
 >     vals'                                = map padThem (concatMap section_points sects)
 >                                              where padThem (x, y) = (x, y, 0, 0)
@@ -48,6 +52,15 @@ Chart ==========================================================================
 >                    $ def
 >       in
 >         toPlot noints
+>
+> chartColors            :: [AlphaColour Double]
+>                                          =
+>   cycle
+>     [  blue    `withOpacity` 2
+>     ,  orange  `withOpacity` 2
+>     ,  green   `withOpacity` 2
+>     ,  red     `withOpacity` 2
+>     ,  purple  `withOpacity` 2]
 >
 > table2vals             :: Double → [Double] → [(Double, Double, Double, Double)]
 > table2vals scalix                        = zipWith convFun [0..]

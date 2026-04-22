@@ -7,7 +7,8 @@ William Clements
 August 15, 2025
 
 > module Parthenopea.Music.Passage(
->        enrichPassage
+>        chartPassage
+>        , enrichPassage
 >        , expandMarkings
 >        , Marking(..)
 >        , MekNote(..)
@@ -16,10 +17,13 @@ August 15, 2025
 >
 > import Data.Foldable
 > import qualified Data.Vector.Strict      as VB
-> import Euterpea.IO.MIDI.MEvent ( MEvent(eDur, eTime), musicToMEvents )
+> import Euterpea.IO.Audio.Types
+> import Euterpea.IO.MIDI.MEvent
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Music.Siren ( bandPartContext, BandPart(..), stdVelocity)
+> import Parthenopea.Music.Siren
+> import Parthenopea.Repro.Chart
+> import Parthenopea.Repro.Envelopes
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
   
@@ -186,8 +190,8 @@ Initialize the MekNote vector ==================================================
       4. Maybe MEvent from "performing" the music snippet
 
       later stages will compute and add following data to each M.E.K. note
-      5. transform = Overall
-      6. two ways of driving a velocity = Maybe (Either Velocity (VB.Vector Double))
+      5. time to velocity transform = Overall
+      6. two ways of driving velocity = Maybe (Either Velocity (VB.Vector Double))
 
 >     makeMeks                             =
 >       profess
@@ -211,10 +215,15 @@ Initialize the MekNote vector ==================================================
 >           let
 >             pFun (Note pP dP)            = VB.singleton (Note pP dP)
 >             pFun (Rest _)                = VB.empty
+>
 >             noChords _ _                 =
->               error $ unwords [fName, "chords or controls found in Passage phrase", show musicIn]
+>               error $ unwords [fName, "no chords allowed in Passage phrase", show musicIn]
+>
+>             control (Tempo _) v          = v                                        
+>             control _ _                  =
+>               error $ unwords [fName, "no controls allowed in passge phrase, other than Tempo", show musicIn]
 >           in
->             mFold pFun (VB.++) noChords noChords musicIn
+>             mFold pFun (VB.++) noChords control musicIn
 >
 >         eTable                           =
 >           VB.fromList $ fst $ musicToMEvents (bandPartContext bp) ((removeZeros . toMusic1) musicIn)
@@ -340,5 +349,19 @@ formNodeGroups =================================================================
 >             _                            → True
 >       in
 >          VB.groupBy inflected nodes
+>
+> chartPassage           :: VB.Vector MekNote → [Section]
+> chartPassage meksIn                      = zipWith Section chartColors (VB.toList $ VB.map chartNote meksIn)
+>   where
+>     chartNote          :: MekNote → [(Double, Double)]
+>     chartNote mek                        =
+>       let
+>         startT, secs   :: Double
+>         startT                           = fromRational mek.mEvent.eTime
+>         secs                             = fromRational mek.mEvent.eDur
+>         ctrSF          :: CtrSF () Double
+>         ctrSF                            = doSweepingEnvelope secs (deJust "no mParams!?!" mek.mParams)
+>       in
+>         graphSF secs ctrRate startT ctrSF
 
 The End
