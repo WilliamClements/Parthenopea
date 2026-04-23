@@ -6,7 +6,7 @@ William Clements
 October 5, 2025
 
 > module Parthenopea.SoundFont.PassageReport (
->        summarizeOnePassage
+>          summarizeOnePassage
 >        , writePassageReport ) where
 >
 > import Control.Lens hiding ( element, strict )

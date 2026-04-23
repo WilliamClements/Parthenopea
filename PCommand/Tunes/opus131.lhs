@@ -26,13 +26,14 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >
 > qv1Enabled, qv2Enabled, qvaEnabled, qvcEnabled
 >                        :: Bool
-> qv1Enabled = True
-> qv2Enabled = True
-> qvaEnabled = True
-> qvcEnabled = True
+> qv1Enabled                               = True
+> qv2Enabled                               = True
+> qvaEnabled                               = True
+> qvcEnabled                               = True
 >
 > o131shape1             :: [Marking]
-> o131shape1                               = [Inflect PPP, Inflect PP, Inflect PP, Inflect FFF, Inflect PP, SpanN 6, Inflect PP]
+> o131shape1                               = [ Inflect PPP, Inflect PP, Inflect PP
+>                                            , Inflect FFF, Inflect PP, SpanN 6, Inflect PP]
 >
 > opus131                 :: Directives → Music (Pitch, [NoteAttribute])
 > opus131 dives                            =
@@ -41,6 +42,7 @@ Opus131 - the initial fugue section of Beethoven's String Quartet (op.131) in C 
 >   $ chord [qv1Music, qv2Music, qvaMusic, qvcMusic]
 >
 >   where
+>
 >   qv1Music                               =
 >     if qv1Enabled then keysig Cs Minor $ orchestraPart qv1 qv1Line else rest 0
 >   qv2Music                               =

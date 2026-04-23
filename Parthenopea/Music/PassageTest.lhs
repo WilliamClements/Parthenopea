@@ -25,7 +25,7 @@ August 15, 2025
 >               , fourInflectionsWork
 >               , tripletsWork ]
 >
-> aMarkings, bMarkings, cMarkings, dMarkings
+> aMarkings, bMarkings, cMarkings, dMarkings, eMarkings, fMarkings
 >                        :: VB.Vector Marking
 > aMarkings                                = expandMarkings [Mark SF, Mark SF]
 > bMarkings                                = expandMarkings [Inflect PP, Inflect FF]

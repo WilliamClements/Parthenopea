@@ -4,7 +4,7 @@ BootTest
 William Clements
 January 7, 2025
 
-> module Parthenopea.SoundFont.BootTest where
+> module Parthenopea.SoundFont.BootTest ( bootTests ) where
 >
 > import Parthenopea.SoundFont.SFSpec
 > import Parthenopea.SoundFont.Scoring

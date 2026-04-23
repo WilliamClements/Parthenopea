@@ -9,10 +9,9 @@ Boot
 William Clements
 January 21, 2025
 
-> module Parthenopea.SoundFont.Boot
->        (  FileSurvey(..)
->         , surveyInstruments
->         ) where
+> module Parthenopea.SoundFont.Boot (
+>           FileSurvey(..)
+>         , surveyInstruments ) where
 >
 > import qualified Codec.SoundFont         as F
 > import Control.Applicative

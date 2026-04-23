@@ -5,8 +5,8 @@ Chart
 William Clements
 November 9, 2023
 
-> module Parthenopea.Repro.Chart
->        ( Section( .. )
+> module Parthenopea.Repro.Chart (
+>          Section( .. )
 >        , chartColors
 >        , chartPoints
 >        , table2vals ) where

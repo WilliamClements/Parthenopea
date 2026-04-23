@@ -8,14 +8,14 @@ Smashing
 William Clements
 February 10, 2025
 
-> module Parthenopea.Repro.Smashing
->        ( allCellsEqualTo
+> module Parthenopea.Repro.Smashing (
+>          allCellsEqualTo
 >        , getLeafCells
 >        , lookupCell
 >        , Smashing(..)
 >        , smashSmashings
 >        , SmashStats(..)
->        , smashSubspaces) where
+>        , smashSubspaces ) where
 >
 > import Data.IntMap.Strict (IntMap)
 > import qualified Data.IntMap.Strict      as IntMap

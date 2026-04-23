@@ -7,16 +7,18 @@ Command
 William Clements
 June 16, 2025
 
-> module Parthenopea.SoundFont.Command
->        (  pCommand
->         , batchProcessor
->         ) where
+> module Parthenopea.SoundFont.Command (
+>           pCommand
+>         , batchProcessor ) where
 >
 > import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
+> import qualified Data.Bifunctor          as BF
 > import Data.Either
 > import qualified Data.IntMap.Strict      as IntMap
+> import Data.List
 > import qualified Data.Map.Strict         as Map
+> import Data.Ord ( Down(Down) )
 > import Data.Time ( getZonedTime )
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.IO ( outFile, outFileNorm )
@@ -114,8 +116,13 @@ Implement PCommand =============================================================
 >
 >   (candI, candP)                         ← proposeCandidates dives rost (VB.map zPreZonesBoot vFilesBoot)
 >                                                            insts matches
->   CM.when (dForTournament > 0)           (writeTournamentReport dives vFilesBoot (candI, candP))
->   ((wonI, wonP), rd')                    ← establishWinners rost (candI, candP) rd
+>   let (sortedI, sortedP)                 = BF.bimap
+>                                              (Map.map (sortOn (Down . pScore . pArtifactGrade)))
+>                                              (Map.map (sortOn (Down . pScore . pArtifactGrade)))
+>                                              (candI, candP)
+>
+>   CM.when (dForTournament > 0)           (writeTournamentReport dives vFilesBoot (sortedI, sortedP))
+>   ((wonI, wonP), rd')                    ← establishWinners rost (sortedI, sortedP) rd
 >   CM.when (dForScan > 0)                 (writeScanReport dives dForScan vFilesBoot rd')
 >   runt                                   ← prepareRuntime dives rost vFilesBoot insts (wonI, wonP)
 >   return runt{zWinners = (wonI, wonP)}

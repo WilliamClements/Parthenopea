@@ -7,8 +7,8 @@ Zone
 William Clements
 February 15, 2026
 
-> module Parthenopea.Repro.Zone
->        ( accessPreZone
+> module Parthenopea.Repro.Zone (
+>          accessPreZone
 >        , accessPreZones
 >        , AppliedLimits(..)
 >        , ChangeEar(..)

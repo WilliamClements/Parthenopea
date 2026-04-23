@@ -8,8 +8,7 @@ Synthesizer
 William Clements
 May 14, 2023
 
-> module Parthenopea.Repro.Synthesizer
->        ( eutSynthesize ) where
+> module Parthenopea.Repro.Synthesizer ( eutSynthesize ) where
 >
 > import Control.Arrow
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )

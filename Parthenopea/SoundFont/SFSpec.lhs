@@ -22,7 +22,6 @@ April 16, 2023
 > import Data.Ratio ( (%) )
 > import Data.Time
 > import Euterpea.IO.MIDI.GeneralMidi ( )
-> import Euterpea.Music
 > import Parthenopea.Repro.Emission
 > import Parthenopea.Repro.Smashing
 > import Parthenopea.SoundFont.Directives
@@ -177,58 +176,11 @@ implementing SoundFont spec ====================================================
 > instance Show PerInstrument where
 >   show perI                              = unwords ["PerInstrument", show (perI.pOwned, perI.pCrossing)]
 >
-> data FFMatches =
->   FFMatches {
->     ffInput            :: !String
->   , ffInst             :: Map InstrumentName Fuzz
->   , ffPerc             :: Map PercussionSound Fuzz} deriving Show
->
 > data SampleArrays                        = 
 >   SampleArrays {
 >     ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
-> data Matches                             =
->   Matches {
->     mSMatches          :: Lazy.Map PreSampleKey FFMatches
->   , mIMatches          :: Lazy.Map PerGMKey FFMatches}
-> defMatches             :: Matches
-> defMatches                               = Matches Lazy.empty Lazy.empty
-> combineMatches         :: Matches → Matches → Matches
-> combineMatches m1 m2                     =
->   m1{  mSMatches                         = Lazy.union m1.mSMatches    m2.mSMatches
->      , mIMatches                         = Lazy.union m1.mIMatches    m2.mIMatches}
->
 > type AgainstKindResult                   = Double
-> 
-> data ArtifactGrade =
->   ArtifactGrade {
->     pScore             :: !Int
->   , pEmpiricals        :: [Double]}
->   deriving (Show)
->
-> weighHints             :: Rational
-> weighStereo            :: Rational
-> weigh24Bit             :: Rational
-> weighResolution        :: Rational
-> weighConformance       :: Rational
-> weighFuzziness         :: Rational
->
-> ssWeights              :: [Double]
-> ssWeights                                = [ fromRational weighHints
->                                            , fromRational weighStereo
->                                            , fromRational weigh24Bit
->                                            , fromRational weighResolution
->                                            , fromRational weighConformance
->                                            , fromRational weighFuzziness ]
-> showWeights            :: Int → [Emission]
-> showWeights spacing                      = concatMap (\weight → [emitShowL weight spacing]) ssWeights
->
-> weighHints                               = 10
-> weighStereo                              = 2
-> weigh24Bit                               = 0
-> weighResolution                          = 3/2
-> weighConformance                         = 3
-> weighFuzziness                           = 3
 
 bootstrapping =========================================================================================================
 

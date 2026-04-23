@@ -6,7 +6,7 @@ William Clements
 October 5, 2025
 
 > module Parthenopea.SoundFont.RangesReport (
->        emitSongTime
+>          emitSongTime
 >        , runUnitTests
 >        , skipSong
 >        , writeRangesReport ) where

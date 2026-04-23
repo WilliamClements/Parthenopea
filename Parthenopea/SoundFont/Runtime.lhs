@@ -7,11 +7,11 @@ Runtime
 William Clements
 February 1, 2025
 
-> module Parthenopea.SoundFont.Runtime
->        ( prepareRuntime
+> module Parthenopea.SoundFont.Runtime (
+>          prepareRuntime
 >        , SFFileBoot(..)
 >        , SFFileRuntime(..)
->        , SFRuntime(..)) where
+>        , SFRuntime(..) ) where
 >
 > import qualified Data.Bifunctor          as BF
 > import Data.Foldable

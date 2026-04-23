@@ -759,24 +759,6 @@ music-related utilities ========================================================
 >       then Just (toEnum ad)
 >       else Nothing
 
-snippets to be used with "lake" =======================================================================================
-
-> pSnippet01, pSnippet02, defSnippet
->                        :: Music Pitch
-> pSnippet01                               = tempo (3/2) (line [ e 4 qn, e 4 en, e 4 qn, e 4 en])
->
-> pSnippet02                               = line [c 4 en, e 4 qn, bf 3 en, d 4 qn, f 4 en]
->
-> defSnippet                               = pSnippet01
->
-> stdMels                :: Music Pitch → [Music Pitch]
-> stdMels melInput                         = [mel0, mel1, mel2, mel3]
->   where 
->     mel0                                 = melInput
->     mel1                                 = retro melInput
->     mel2                                 = invert melInput
->     mel3                                 = (invert . retro) melInput
-
 Sampling ==============================================================================================================
 
 > toSamples              :: ∀ a p. (AudioSample a, VU.Unbox a, Clock p) ⇒

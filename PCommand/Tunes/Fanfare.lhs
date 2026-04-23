@@ -757,6 +757,14 @@ Roger ==========================================================================
 >                      ct__A wn, ct__E wn,  ct__A wn,  ct__E  wn]
 >   cTenorIIB = line [ ct__B wn, ct_cs wn,  ct__B hn,  ct__A wn]
 >   cTenorIIC = line [ ct__B wn]
+>
+> pSnippet01, pSnippet02, defSnippet
+>                        :: Music Pitch
+> pSnippet01                               = tempo (3/2) (line [ e 4 qn, e 4 en, e 4 qn, e 4 en])
+>
+> pSnippet02                               = line [c 4 en, e 4 qn, bf 3 en, d 4 qn, f 4 en]
+>
+> defSnippet                               = pSnippet01
 
 Way Pos' T' Purple ====================================================================================================
 

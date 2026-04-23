@@ -9,9 +9,9 @@ manipulated or saved to a file.  It is channel-agnostic in that it is
 able to deal with instruments of arbitrary number of channels.
 
 > module Parthenopea.Repro.Render2 (
->        Instr
+>          Instr
 >        , InstrMap
->        , renderSF2) where
+>        , renderSF2 ) where
 >
 > import Control.Arrow.Operations
 > import Control.Arrow.ArrowP

@@ -7,7 +7,14 @@ SFSpec
 William Clements
 April 16, 2023
 
-> module Parthenopea.SoundFont.Directives where
+> module Parthenopea.SoundFont.Directives (
+>          allOn
+>        , allOff
+>        , defDirectives
+>        , Directives(..)
+>        , okDirectives
+>        , ReportVerbosity(..)
+>        , SynthSwitches(..) ) where
 >
 > import Data.Ratio ( (%) )
 > import Parthenopea.SoundFont.Utility
@@ -165,6 +172,6 @@ Remarks on directives and defaults 18-Mar-2026:
    tradeoff is loss in diagnostic clarity when chasing actual bugs.
 2. dReportVerbosity is intended to be allOff by default for performance. Setting it to allOn for diagnostic value.
 3. synthSwitches are intended to be all on. Currently opting out of note bending. Troubleshooting experiments are
-   the usual reason for overriding.
+   the usual reason for overriding something in synthSwitches.
 
 The End

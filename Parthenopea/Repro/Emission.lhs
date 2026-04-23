@@ -4,8 +4,8 @@ Emission
 William Clements
 November 9, 2023
 
-> module Parthenopea.Repro.Emission
->        (  bracks
+> module Parthenopea.Repro.Emission (
+>           bracks
 >         , closingRemarks
 >         , comma
 >         , commaOrNot
@@ -24,9 +24,7 @@ November 9, 2023
 >         , parens
 >         , reapEmissions
 >         , theEnd
->         , writeFileBySections
->         )
->         where
+>         , writeFileBySections ) where
 >
 > import Data.List ( singleton )
 > import Data.Time

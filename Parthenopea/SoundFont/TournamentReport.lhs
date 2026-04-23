@@ -8,8 +8,7 @@ October 5, 2025
 
 > module Parthenopea.SoundFont.TournamentReport
 >        ( printChoices
->        , writeTournamentReport
->        ) where
+>        , writeTournamentReport ) where
 >
 > import qualified Control.Monad           as CM
 > import Data.List

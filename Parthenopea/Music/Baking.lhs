@@ -7,13 +7,13 @@ William Clements
 December 16, 2022
 
 > module Parthenopea.Music.Baking (
->                  bakedJingle
->                , measureBakes
->                , sampleBakes
->                , bake4Measuring
->                , bake4Sampling
->                , bakeOps
->                , checkMeasureOk) where
+>          bakedJingle
+>        , measureBakes
+>        , sampleBakes
+>        , bake4Measuring
+>        , bake4Sampling
+>        , bakeOps
+>        , checkMeasureOk ) where
 >
 > import Data.Array.Unboxed
 > import Data.List ( sortOn )

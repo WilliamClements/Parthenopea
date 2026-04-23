@@ -9,12 +9,17 @@ William Clements
 September 12, 2024
 
 > module Parthenopea.SoundFont.Scoring
->        ( computeFFMatches
+>        ( ArtifactGrade(..)
+>        , combineMatches
+>        , computeFFMatches
+>        , defMatches
 >        , establishWinners
 >        , GMChoices(..)
+>        , Matches(..)
 >        , PerGMScored(..)
 >        , proposeCandidates
 >        , scoreOnsets
+>        , showWeights
 >        , SFKeyType(..)
 >        , SFScorable(..)
 >        , showPerGM ) where
@@ -32,7 +37,6 @@ September 12, 2024
 > import Data.Map.Strict ( Map )
 > import qualified Data.Map.Strict         as Map
 > import Data.Maybe
-> import Data.Ord ( Down(Down) )
 > import qualified Data.Vector.Strict      as VB
 > import Debug.Trace ( traceIO )
 > import Euterpea.Music
@@ -122,6 +126,23 @@ use "matching as" cache ========================================================
 >   splitScore _ _                         = 1
 >   fuzzFactor _                           = 3/4
 >
+> data FFMatches =
+>   FFMatches {
+>     ffInput            :: !String
+>   , ffInst             :: Map InstrumentName Fuzz
+>   , ffPerc             :: Map PercussionSound Fuzz} deriving Show
+>
+> data Matches                             =
+>   Matches {
+>     mSMatches          :: Lazy.Map PreSampleKey FFMatches
+>   , mIMatches          :: Lazy.Map PerGMKey FFMatches}
+> defMatches             :: Matches
+> defMatches                               = Matches Lazy.empty Lazy.empty
+> combineMatches         :: Matches → Matches → Matches
+> combineMatches m1 m2                     =
+>   m1{  mSMatches                         = Lazy.union m1.mSMatches    m2.mSMatches
+>      , mIMatches                         = Lazy.union m1.mIMatches    m2.mIMatches}
+>
 > computeFFMatches       :: Rational → String → Bool → FFMatches
 > computeFFMatches conRatio inp narrow     = FFMatches 
 >                                              inp
@@ -154,6 +175,36 @@ use "matching as" cache ========================================================
 >
 >     pas = createFuzzMap percussionProFFKeys
 >     pbs = createFuzzMap percussionConFFKeys
+> 
+> data ArtifactGrade =
+>   ArtifactGrade {
+>     pScore             :: !Int
+>   , pEmpiricals        :: [Double]}
+>   deriving (Show)
+>
+> weighHints             :: Rational
+> weighStereo            :: Rational
+> weigh24Bit             :: Rational
+> weighResolution        :: Rational
+> weighConformance       :: Rational
+> weighFuzziness         :: Rational
+>
+> ssWeights              :: [Double]
+> ssWeights                                = [ fromRational weighHints
+>                                            , fromRational weighStereo
+>                                            , fromRational weigh24Bit
+>                                            , fromRational weighResolution
+>                                            , fromRational weighConformance
+>                                            , fromRational weighFuzziness ]
+> showWeights            :: Int → [Emission]
+> showWeights spacing                      = concatMap (\weight → [emitShowL weight spacing]) ssWeights
+>
+> weighHints                               = 10
+> weighStereo                              = 2
+> weigh24Bit                               = 0
+> weighResolution                          = 3/2
+> weighConformance                         = 3
+> weighFuzziness                           = 3
 >
 > zoneConforms           :: PreZone → Bool
 > zoneConforms pz                          = not $ or unsupported
@@ -278,7 +329,6 @@ Scoring stuff ==================================================================
 
 tournament starts here ================================================================================================
 
->
 > proposeCandidates      :: Directives
 >                           → ([InstrumentName], [PercussionSound]) 
 >                           → VB.Vector (IntMap PreZone)
@@ -290,23 +340,12 @@ tournament starts here =========================================================
 >   CM.when
 >     diagnosticsEnabled
 >     (traceIO $ unwords [fName, show (length cache, Lazy.size matches.mIMatches, Lazy.size matches.mSMatches)])
->   return wiExec
+>   return $ Map.foldlWithKey propose (Map.empty, Map.empty) cache
 >   where
 >     fName                                = "proposeCandidates"
 >
 >     narrow                               = dives.narrowRosterForBoot
 >     competes                             = dives.multipleCompetes
->
->     wiExec             :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
->     wiExec                               =
->       let
->         (wI, wP)                         = Map.foldlWithKey propose (Map.empty, Map.empty) cache    
->         (wI', wP')                       = BF.bimap
->                                              (Map.map (sortOn (Down . pScore . pArtifactGrade)))
->                                              (Map.map (sortOn (Down . pScore . pArtifactGrade)))
->                                              (wI, wP)
->       in
->         (wI', wP')
 >
 >     propose            :: (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >                           → PerGMKey → PerInstrument
