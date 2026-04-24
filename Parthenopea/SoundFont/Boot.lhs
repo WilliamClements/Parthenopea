@@ -891,18 +891,17 @@ pairing convenience functions ==================================================
 >                           → IntSet                     {- [BagIndex]                             -}
 > unpair                                   =
 >   let
->     ifolder iset ifrom ito               = (IntSet.insert ito . IntSet.insert ifrom) iset
+>     consume iset ifrom ito               = (IntSet.insert ito . IntSet.insert ifrom) iset
 >   in
->     IntMap.foldlWithKey ifolder IntSet.empty
+>     IntMap.foldlWithKey consume IntSet.empty
 >
 > twoWay                 :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
 >                           → IntMap Int                 {- [BagIndex → BagIndex]]                 -}
 > twoWay                                   =
 >   let
->     ifolder            :: IntMap Int → Int → Int → IntMap Int
->     ifolder imap ifrom ito               = (IntMap.insert ito ifrom . IntMap.insert ifrom ito) imap
+>     consume imap ifrom ito               = (IntMap.insert ito ifrom . IntMap.insert ifrom ito) imap
 >   in
->     IntMap.foldlWithKey ifolder IntMap.empty
+>     IntMap.foldlWithKey consume IntMap.empty
 >
 > makeActions            :: IntMap PreZone               {- [BagIndex → pz]                        -}
 >                           → IntSet                     {- [BagIndex]                             -}
@@ -1083,9 +1082,10 @@ To build the map
 >         scansEd                          = ssTempl8 Dropped    Absorbed     (show party)
 >         scansBlocked                     = ssTempl8 NoChange   NoAbsorption noClue
 >
->     headed, ready, ng  :: IntMap IntSet                {- [InstIndex → [InstIndex]]              -}
+>     unvetted, ready, nogood
+>                        :: IntMap IntSet                {- [InstIndex → [InstIndex]]              -}
 >
->     headed                               = foldr (IntMap.union . rewire) IntMap.empty groups
+>     unvetted                             = foldr (IntMap.union . rewire) IntMap.empty groups
 >       where
 >         groups                           = filter noSingletons (groupBy closeEnough instNames)
 >                                              where noSingletons x = 1 < length x
@@ -1095,7 +1095,7 @@ To build the map
 >         rewire ns                        =
 >           IntMap.insert ((snd . head) ns) (IntSet.fromList (map snd ns)) IntMap.empty
 >
->     (ready, ng)                          = IntMap.partitionWithKey qualify headed
+>     (ready, nogood)                      = IntMap.partitionWithKey qualify unvetted
 >       where
 >         qualify        :: Int → IntSet → Bool
 >         qualify leadI memberIs
@@ -1121,9 +1121,9 @@ To build the map
 >               Just rng                   → rng /= (0, qMidiWord128 - 1)
 >               Nothing                    → False
 >
->     rejected           :: IntSet         =
->       IntMap.foldl' combineMembers IntSet.empty ng
->         where combineMembers m v         = m `IntSet.union` v
+>     rejected           :: IntSet                       {- [InstIndex]                            -}
+>     rejected                             = IntMap.foldr combine IntSet.empty nogood
+>                                              where combine v m = m `IntSet.union` v
 >
 >     absorptionMap      :: IntMap Int                   {- [InstIndex → InstIndex]                -}
 >     absorptionMap                        = IntMap.foldlWithKey fold1Fun IntMap.empty ready
@@ -1194,10 +1194,10 @@ clean task =====================================================================
 >                                              (fWork ^. fwDirtyIs)
 >     work                                 =
 >       let      
->         cleaner zrec rdFold              =
->           case zrec.zswInst `IntMap.lookup` owners' of
->             Nothing                      → (Nothing,   dispose (instKey zrec) ssNoZones rdFold)
->             _                            → (Just zrec, rdFold)
+>         cleaner zrec rdFold              = maybe
+>                                              (Nothing, dispose (instKey zrec) ssNoZones rdFold)
+>                                              (const (Just zrec, rdFold))
+>                                              (zrec.zswInst `IntMap.lookup` owners')
 >       in
 >         zrecTask cleaner $ fwZoneOwners .~ owners' $ fWork
 

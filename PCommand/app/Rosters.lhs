@@ -22,6 +22,7 @@
 >      , ("+bjingles",       bjingles)
 >      , ("+cjingles",       cjingles)
 >      , ("+djingles",       djingles)
+>      , ("+ejingles",       ejingles)
 >      , ("+njingles",       njingles)
 >      , ("+xjingles",       xjingles)
 >      , ("+zjingles",       zjingles)

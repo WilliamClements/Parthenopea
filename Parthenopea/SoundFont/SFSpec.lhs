@@ -17,8 +17,6 @@ April 16, 2023
 > import qualified Data.IntSet             as IntSet
 > import Data.List
 > import qualified Data.Map.Lazy           as Lazy
-> import Data.Map.Strict ( Map )
-> import qualified Data.Map.Strict         as Map
 > import Data.Ratio ( (%) )
 > import Data.Time
 > import Euterpea.IO.MIDI.GeneralMidi ( )
@@ -184,55 +182,6 @@ implementing SoundFont spec ====================================================
 
 bootstrapping =========================================================================================================
 
-> getTriple              :: Scan → (Disposition, Impact, String)
-> getTriple s                              = (s.sDisposition, s.sImpact, s.sFunction)
->
-> noClue                 :: String
-> noClue                                   = ""
->
-> calcElideSet           :: Rational → [Disposition]
-> deadset, rescueset     :: [Disposition]    -- a given list is filtered down to the three Dispositions
->                                            -- then we count "membership" per distinct Impact
->                                            -- ...dead if any counts are odd
-> deadset                                  = [Violated, Dropped, Rescued]
->                                            -- the following only optionally appear in scan report
-> calcElideSet dive                        = if dive < (1/2)
->                                              then [Accepted, Modified, NoChange]
->                                              else []
-> rescueset                                = [Rescued]
->
-> surveyDispositions     :: [Disposition] → [Scan] → Map Impact Int
-> surveyDispositions dns                   = foldr survFold Map.empty
->   where
->     survFold           ::  Scan → Map Impact Int → Map Impact Int
->     survFold s m
->       | s.sDisposition `elem` dns        = Map.insertWith (+) s.sImpact 1 m
->       | otherwise                        = m
->
-> dead                   :: [Scan] → Bool
-> dead ss                                  =
->   surveyDispositions [Violated, Dropped] ss /= surveyDispositions [Rescued] ss
->
-> hasImpact              :: Impact → [Scan] → Bool
-> hasImpact impact                         = any (\s → s.sImpact == impact)
->
-> wasRescued             :: Impact → [Scan] → Bool
-> wasRescued impact                        = any (\s → s.sDisposition `elem` rescueset && s.sImpact == impact)
->
-> badButMaybeFix         :: ∀ a. (Show a) ⇒ Bool → Impact → String → a → a → [Scan]
-> badButMaybeFix doFix imp fName bad good  =
->   if doFix
->     then [viol, resc]
->     else [viol]
->   where
->     viol                                 = Scan Violated imp fName (show bad)
->     resc                                 = Scan Rescued imp fName (show good)
->
-> instance Show ResultDispositions where
->   show rd                                =
->     unwords [  "ResultDispositions"
->              , show (length rd.preSampleDispos, length rd.preInstDispos, length rd.preZoneDispos)]
->
 > writeReportBySections  :: Directives → FilePath → [[Emission]] → IO ()
 > writeReportBySections dives fp eSections   = do
 >   tsStarted                              ← getZonedTime

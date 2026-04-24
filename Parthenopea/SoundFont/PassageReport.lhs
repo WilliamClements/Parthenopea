@@ -52,7 +52,7 @@ summarize incoming passage =====================================================
 >     reportSong         :: Song → [Emission]
 >     reportSong song                      =
 >       let
->         esSong                           = doSongPassages doPassageNotes song.songMusic
+>         esSong                           = reportSongPassages reportPassageNotes song.songMusic
 >       in
 >         if null esSong
 >           then []
@@ -61,13 +61,13 @@ summarize incoming passage =====================================================
 >             , ToFieldL song.songName 60
 >             , EndOfLine, EndOfLine] ++ esLegend ++ [EndOfLine] ++ esSong
 >
->     doPassageNotes     :: VB.Vector PassageNote → [Emission]
->     doPassageNotes vpn                   = if null vpn
+>     reportPassageNotes :: VB.Vector PassageNote → [Emission]
+>     reportPassageNotes vpn               = if null vpn
 >                                              then []
->                                              else concat (VB.map doPassageNote vpn) ++ [EndOfLine]
+>                                              else concat (VB.map reportPassageNote vpn) ++ [EndOfLine]
 >
->     doPassageNote      :: PassageNote → [Emission]
->     doPassageNote (PassageNote pc nad d pWritten)
+>     reportPassageNote  :: PassageNote → [Emission]
+>     reportPassageNote (PassageNote pc nad d pWritten)
 >                                          = esFields ++ [EndOfLine]
 >       where
 >         pConcert                         = if 0 == pc ^. pcXpo

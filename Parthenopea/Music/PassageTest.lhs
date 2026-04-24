@@ -51,11 +51,11 @@ August 15, 2025
 >   chartPoints tName (chartPassage meks)
 >   return True
 > 
-> twoNotesSameVelocity                     = doPassageTest "twoNotesSameVelocity" aMarkings aSnippet
-> twoNotesDiffVelocity                     = doPassageTest "twoNotesDiffVelocity" bMarkings aSnippet
-> threeNotesWithRests                      = doPassageTest "threeNotesWithRests" cMarkings bSnippet
-> fourMarksWork                            = doPassageTest "fourMarksWork" dMarkings cSnippet
-> fourInflectionsWork                      = doPassageTest "fourInflectionsWork" eMarkings cSnippet
-> tripletsWork                             = doPassageTest "tripletsWork" fMarkings dSnippet
+> twoNotesSameVelocity                     = doPassageTest "twoNotesSameVelocity"      aMarkings      aSnippet
+> twoNotesDiffVelocity                     = doPassageTest "twoNotesDiffVelocity"      bMarkings      aSnippet
+> threeNotesWithRests                      = doPassageTest "threeNotesWithRests"       cMarkings      bSnippet
+> fourMarksWork                            = doPassageTest "fourMarksWork"             dMarkings      cSnippet
+> fourInflectionsWork                      = doPassageTest "fourInflectionsWork"       eMarkings      cSnippet
+> tripletsWork                             = doPassageTest "tripletsWork"              fMarkings      dSnippet
 
 The End 

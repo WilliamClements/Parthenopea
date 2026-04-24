@@ -49,11 +49,12 @@ executive ======================================================================
 >     summarize          :: ∀ r . (SFKeyType r) ⇒ Map r [Scan] → [Emission]
 >     summarize sm                         =
 >       let
->         hs                               = sortOn (Down . snd) $ Map.toList $ Map.foldr histoFold Map.empty sm
+>         hs                               = sortOn (Down . snd) $ Map.toList $ Map.foldr histo Map.empty sm
 >
->         histoFold ss mfold               = foldr (foldfun . getTriple) mfold ss
->           where foldfun dispo            = Map.insertWith (+) dispo 1
->             
+>         histo ss smFold                  = foldr (bump . get) smFold ss
+>         bump dispo                       = Map.insertWith (+) dispo 1
+>         get trip                         = (trip.sDisposition, trip.sImpact, trip.sFunction)
+>
 >         emitHisto      :: ((Disposition, Impact, String), Int) → [Emission]
 >         emitHisto ((dispo, impact, function), count)
 >                                          =

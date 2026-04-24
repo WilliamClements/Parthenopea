@@ -97,10 +97,10 @@ Extracting passage information from Music1 =====================================
 >   deriving Show
 > makeLenses ''PassageNote
 >
-> doSongPassages         :: ∀ a. (VB.Vector PassageNote → [a]) → Music1 → [a]
-> doSongPassages fun                       = go defPContext []
+> reportSongPassages     :: ∀ a. (VB.Vector PassageNote → [a]) → Music1 → [a]
+> reportSongPassages fun                   = go defPContext []
 >   where
->     go, doPassage      :: PContext → [a] → Music1 → [a]
+>     go, reportPassage  :: PContext → [a] → Music1 → [a]
 >
 >     go _ as (Prim _)                     = as
 >
@@ -112,7 +112,7 @@ Extracting passage information from Music1 =====================================
 >         suitable                         = mFold (const True) (&&) (\_ _ → False) (\_ _ → False)
 >       in
 >         if suitable m
->           then as ++ doPassage pc as m
+>           then as ++ reportPassage pc as m
 >           else go pc as m
 >     go pc as (Modify _ m)                = go pc as m
 >
@@ -124,7 +124,7 @@ Extracting passage information from Music1 =====================================
 >         as2                              = go pc [] m2
 >       in as ++ as1 ++ as2
 >
->     doPassage pc as m                    = as ++ fun (VB.fromList cooked)
+>     reportPassage pc as m                = as ++ fun (VB.fromList cooked)
 >       where
 >         cooked         :: [PassageNote]  = 
 >           let
@@ -820,9 +820,13 @@ Returns sample point as (normalized) Double
 >       let
 >         fpRev                            = reverse fp
 >         fpRev'                           = dropWhile (/= '.') fpRev
->         fpRev''                          = drop 1 fpRev'
+>         fpRev''                          = if null fpRev'
+>                                              then fpRev
+>                                              else drop 1 fpRev'
 >       in
->         reverse fpRev''
+>         if null fp
+>           then error "missing path"
+>           else reverse fpRev''
 > 
 > convertToMidi        :: FilePath → Song → IO ()
 > convertToMidi path song                  = do

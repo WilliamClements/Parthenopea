@@ -88,22 +88,28 @@ cache SoundFont data that is only needed for Runtime ===========================
 >   instrumentMap                          ← prepareInstruments prerunt choices
 >   return prerunt{zInstrumentMap = instrumentMap}
 >   where
+  
+"actions" =============================================================================================================
+           map FileIndex into [InstIndex] so we can tell:
+             1. which SoundFont files are actually needed
+             2. what instruments need to be preserved from each file
+
 >     actions            :: IntMap IntSet                {- [FileIndex → [InstIndex]]     -}
 >     actions                              =
 >       let
 >         extract m                        = Set.fromList $ foldl' buildUp [] m
 >           where
 >             buildUp s (GMChoices _ mpergm _)
->                                          =
->               case mpergm of
->                 Nothing                  → s
->                 Just pergm               → pergm : s
->
+>                                          = maybe s append mpergm
+>                                              where append pergm = pergm : s
 >         selectI m pergm                  =
 >           IntMap.insertWith IntSet.union pergm.pgkwFile ((IntSet.singleton . fromIntegral) pergm.pgkwInst) m
 >       in
 >         foldl' selectI IntMap.empty (extract (fst choices) `Set.union` extract (snd choices))
->
+  
+"supply" ==============================================================================================================
+           transfer data from SFFileBoot collection to SFFileRuntime collection
+
 >     supply             :: SFFileBoot → Maybe (Int, SFFileRuntime)
 >     supply sffile                        = sffile.zWordFBoot `IntMap.lookup` actions >>= runtimeFile
 >       where
