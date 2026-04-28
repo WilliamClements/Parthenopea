@@ -121,7 +121,7 @@ _Overall_                =
 >   | null markings                        = error $ unwords ["empty markings"]
 >   | otherwise                            = (removeZeros . passageToMusic pname) meksIn
 >   where
->     meksIn                               = enrichPassage dives bp (expandMarkings dives.synthSwitches.usePassages markings) (removeZeros ma)
+>     meksIn                               = enrichPassage dives bp (expandMarkings markings) (removeZeros ma)
 >
 > passage                :: Directives → BandPart → [Marking] → Music Pitch → Music1
 > passage dives                            = npassage dives "<passage>"
@@ -320,9 +320,9 @@ enfill =========================================================================
 >             (updates VB.++ updateOne, velo)
 
 formNodeGroups ========================================================================================================
-      model the inflection/non-inflection sequence, only "note-bearing" self indices are considered
-      each element in nodeMates = pair of self indices
-      each member of nodeGroups = vector of self indices
+      model the given MekNote sequence
+        nodeMates = all the pairs from given (vector of integer pairs)
+        nodeGroups = given grouped by inflection status (list of integer vectors)
 
 > formNodeGroups         :: VB.Vector MekNote
 >                           → (VB.Vector (SelfIndex, SelfIndex), [VB.Vector SelfIndex])
