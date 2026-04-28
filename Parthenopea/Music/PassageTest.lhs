@@ -15,11 +15,13 @@ August 15, 2025
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.PassageReport (summarizeOnePassage)
 >
+> useInflectionsInTests  :: Bool           = True
+>
 > passageTests           :: [IO Bool]
-> twoNotesSameVelocity, twoNotesDiffVelocity, threeNotesWithRests, fourMarksWork, fourInflectionsWork, tripletsWork
+> twoMarkedNotes, twoInflectedNotes, threeNotesWithRests, fourMarksWork, fourInflectionsWork, tripletsWork
 >                        :: IO Bool
-> passageTests = [twoNotesSameVelocity
->               , twoNotesDiffVelocity
+> passageTests = [twoMarkedNotes
+>               , twoInflectedNotes
 >               , threeNotesWithRests
 >               , fourMarksWork
 >               , fourInflectionsWork
@@ -27,12 +29,12 @@ August 15, 2025
 >
 > aMarkings, bMarkings, cMarkings, dMarkings, eMarkings, fMarkings
 >                        :: VB.Vector Marking
-> aMarkings                                = expandMarkings [Mark SF, Mark SF]
-> bMarkings                                = expandMarkings [Inflect PP, Inflect FF]
-> cMarkings                                = expandMarkings [Mark SF, Inflect FF, Mark P]
-> dMarkings                                = expandMarkings [Mark PPP, Mark P, Mark P, Mark FF]
-> eMarkings                                = expandMarkings [Inflect PPP, Inflect PP, Inflect P, Inflect FF]
-> fMarkings                                = expandMarkings [Inflect SF, SpanN 2, Inflect FF, Inflect P, Inflect FF]
+> aMarkings                                = expandMarkings useInflectionsInTests [Mark PP, Mark FF]
+> bMarkings                                = expandMarkings useInflectionsInTests [Inflect PP, Inflect FF]
+> cMarkings                                = expandMarkings useInflectionsInTests [Mark SF, Inflect FF, Mark P]
+> dMarkings                                = expandMarkings useInflectionsInTests [Mark PPP, Mark P, Mark P, Mark FF]
+> eMarkings                                = expandMarkings useInflectionsInTests [Inflect PPP, Inflect PP, Inflect P, Inflect FF]
+> fMarkings                                = expandMarkings useInflectionsInTests [Inflect SF, SpanN 2, Inflect FF, Inflect P, Inflect FF]
 >
 > aSnippet, bSnippet, cSnippet, dSnippet
 >                        :: Music Pitch
@@ -47,12 +49,13 @@ August 15, 2025
 >
 >   let meks                               = enrichPassage defDirectives defBandPart ms music
 >
->   putStrLn $ reapEmissions (summarizeOnePassage meks)
+>   let summs                              = reapEmissions (summarizeOnePassage meks)
 >   chartPoints tName (chartPassage meks)
+>   putStrLn summs
 >   return True
 > 
-> twoNotesSameVelocity                     = doPassageTest "twoNotesSameVelocity"      aMarkings      aSnippet
-> twoNotesDiffVelocity                     = doPassageTest "twoNotesDiffVelocity"      bMarkings      aSnippet
+> twoMarkedNotes                           = doPassageTest "twoMarkedNotes"            aMarkings      aSnippet
+> twoInflectedNotes                        = doPassageTest "twoInflectedNotes"         bMarkings      aSnippet
 > threeNotesWithRests                      = doPassageTest "threeNotesWithRests"       cMarkings      bSnippet
 > fourMarksWork                            = doPassageTest "fourMarksWork"             dMarkings      cSnippet
 > fourInflectionsWork                      = doPassageTest "fourInflectionsWork"       eMarkings      cSnippet

@@ -352,18 +352,6 @@ more than 16 instruments to be used in the source music.
 
 ranges ================================================================================================================
 
->   -- calibrate (0,1) to a desired range e.g. (24,92)
-> denorm                 :: Double → (Double, Double) → Double
-> denorm r (lo, up)                        = lo + r * (up-lo)
->
-> randomNorms            :: StdGen → [Double]
-> randomNorms genR                         = x : randomNorms genR'
->    where
->      (x, genR')                          = randomR (0,1) genR
->
-> randomNormSets         :: Int → StdGen → [[Double]]
-> randomNormSets n genR                    = takeWhile (not . null) $ unfoldr (Just . splitAt n) (randomNorms genR)
->
 > instrumentLimit :: Double
 > instrumentLimit = fromIntegral $ fromEnum Gunshot
 
@@ -513,6 +501,10 @@ also
 >                                              then error "selectRanged empty"
 >                                              else length qual
 >
+>   -- calibrate (0,1) to a desired range e.g. (24,92)
+> denorm                 :: Double → (Double, Double) → Double
+> denorm r (lo, up)                        = lo + r * (up-lo)
+>
 > denormVector           :: Double → Array Int b → b
 > denormVector norm vect                   = profess
 >                                              (norm >= 0 && norm <= 1)
@@ -521,6 +513,14 @@ also
 >   where
 >     (lo, hi)                             = bounds vect
 >     frange                               = (0, fromIntegral (hi - lo + 1) - 0.000_001)
+>
+> randomNorms            :: StdGen → [Double]
+> randomNorms genR                         = x : randomNorms genR'
+>    where
+>      (x, genR')                          = randomR (0,1) genR
+>
+> randomNormSets         :: Int → StdGen → [[Double]]
+> randomNormSets n genR                    = takeWhile (not . null) $ unfoldr (Just . splitAt n) (randomNorms genR)
 
 instrument range checking =============================================================================================
 

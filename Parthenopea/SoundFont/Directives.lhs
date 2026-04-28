@@ -108,8 +108,8 @@ useLFO
 >                        :: !Bool
 >   , skipGlissandi      :: !Bool
 >
->   , proConRatio        :: Rational
->   , absorbThreshold    :: Rational
+>   , proConRatio        :: !Rational
+>   , absorbThreshold    :: !Rational
 >
 >   , synthSwitches      :: !SynthSwitches
 >

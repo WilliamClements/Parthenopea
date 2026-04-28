@@ -109,6 +109,7 @@ cache SoundFont data that is only needed for Runtime ===========================
   
 "supply" ==============================================================================================================
            transfer data from SFFileBoot collection to SFFileRuntime collection
+           the former needs lots of space and the latter benefits from data compactness
 
 >     supply             :: SFFileBoot → Maybe (Int, SFFileRuntime)
 >     supply sffile                        = sffile.zWordFBoot `IntMap.lookup` actions >>= runtimeFile

@@ -70,7 +70,7 @@ ranges/numerics ================================================================
 >     rnd                                  = round (p10 * x)
 >
 > roundVectorBy          :: Double → VB.Vector Double → VB.Vector Double
-> roundVectorBy p10                      = VB.map (roundBy p10)
+> roundVectorBy p10                        = VB.map (roundBy p10)
 >
 > inARange               :: (Ord a) ⇒ (a, a) → a → Bool
 > inARange (m, n) v                        = m <= v && v <= n
@@ -97,7 +97,7 @@ note-on abstraction ============================================================
 >       in
 >         profess
 >           (hack || x == x')
->           (unwords [fName, "wild", show (volIn, pchIn)])
+>           (unwords [fName, "wild", show (volIn, pchIn), show (x, x')])
 >           x'
 >
 > noonAsCoords           :: NoteOn → ([Word], [Word])

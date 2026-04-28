@@ -194,7 +194,7 @@ For example, input of 3 = key interval, 50 = scale tuning, yields ratio of: 1.09
 Multiply the root frequency by that to give output frequency
 
 > microtoneRatio         :: AbsPitch → Int → Double
-> microtoneRatio apDelta tuning            = pow 2 (fromIntegral apDelta * fromIntegral tuning / 1_200)
+> microtoneRatio apDelta tuning            = pow 2 (fromIntegral (apDelta * tuning) / 1_200)
 
 Resonance =============================================================================================================
 
@@ -221,6 +221,8 @@ Modulation Signals =============================================================
 >     aL3 ← doLFO       kVibLfoL                       ⤙ ()
 >     outA                                             ⤙ ModSignals aL1 aL2 aL3
 >   where
+>     kModEnvL           :: Maybe FEnvelope
+>     kModLfoL, kVibLfoL :: Maybe LFO
 >     (kModEnvL, kModLfoL, kVibLfoL)       = case md of
 >       ToPitch                            → ( m8n.mModEnv, m8n.mModLfo, m8n.mVibLfo)
 >       ToFilterFc                         → ( m8n.mModEnv, m8n.mModLfo, Nothing)

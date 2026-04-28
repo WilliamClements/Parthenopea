@@ -28,8 +28,8 @@ August 15, 2025
 > import Parthenopea.SoundFont.Utility
   
 Notation-Driven Dynamics ==============================================================================================
-           When Passage is used, each note in a group is assigned a volume range versus time. Underlying synthesizer
-           interprets that to vary output volume accordingly -- across the whole phrase.
+           When Passage is used, each note in a group is assigned, in effect, a function from time to volume.
+           Underlying synthesizer, in effect, runs that function to compute the output volume.
 
 _Marking_                = composer's passage-shape directive, sequence
 _Overall_                = 
@@ -70,7 +70,7 @@ _Overall_                =
 >     (clip (0, 128) (over.oStartV + (tIn - over.oStartT) * over.oChangeRate))
 > twoVelos               :: Double → Double → Overall → Either Velocity (VB.Vector Double)
 > twoVelos onset delta over                = branchVelos $ VB.fromList
->                                            [ velocity onset               over
+>                                            [ velocity onset               (notracer "ZZover" over)
 >                                            , velocity (onset + delta)     over]
 > fourVelos              :: Double → Double → Overall → Overall → Either Velocity (VB.Vector Double)
 > fourVelos onset delta over0 over1        = branchVelos $ VB.fromList
@@ -79,12 +79,12 @@ _Overall_                =
 >                                            , velocity (onset + delta / 2) over1
 >                                            , velocity (onset + delta)     over1]
 > branchVelos            :: VB.Vector Double → Either Velocity (VB.Vector Double)
-> branchVelos meksIn                       =
->   if VB.all (nearlyEqual keyParam) meksIn
+> branchVelos params                       =
+>   if VB.all (nearlyEqual keyParam) (notracer "HHHparams" params)
 >     then (Left . round) keyParam
->     else Right meksIn
+>     else Right params
 >   where
->     keyParam                             = meksIn VB.! 0
+>     keyParam                             = params VB.! 0
 >     nearlyEqual x y                      = abs (y - x) < epsilon
 
       M.E.K. = Music Education for Kids of all ages ===================================================================
@@ -113,7 +113,7 @@ _Overall_                =
 >     Mark x                               → x
 >     Inflect x                            → x
 >     Tail x                               → x
->     _                                    → error "expected Marking with loudness"
+>     _                                    → error $ unwords ["expected Marking with loudness, not", show mek.mMarking]
 >
 > npassage               :: Directives → String → BandPart → [Marking] → Music Pitch → Music1
 > npassage dives pname bp markings ma       
@@ -121,7 +121,7 @@ _Overall_                =
 >   | null markings                        = error $ unwords ["empty markings"]
 >   | otherwise                            = (removeZeros . passageToMusic pname) meksIn
 >   where
->     meksIn                               = enrichPassage dives bp (expandMarkings markings) (removeZeros ma)
+>     meksIn                               = enrichPassage dives bp (expandMarkings dives.synthSwitches.usePassages markings) (removeZeros ma)
 >
 > passage                :: Directives → BandPart → [Marking] → Music Pitch → Music1
 > passage dives                            = npassage dives "<passage>"
@@ -200,7 +200,7 @@ Initialize the MekNote vector ==================================================
 >                 , "\nprims=", show $ length prims, show prims
 >                 , "\nmarks=", show $ VB.length markings, show markings
 >                 , "\nevs=", show $ length evs, show evs])
->         (VB.zipWith4 makeMekNote
+>         (tracer "[MekNote]" $ VB.zipWith4 makeMekNote
 >                        selfIndices
 >                        prims
 >                        markings
@@ -217,11 +217,11 @@ Initialize the MekNote vector ==================================================
 >             pFun (Rest _)                = VB.empty
 >
 >             noChords _ _                 =
->               error $ unwords [fName, "no chords allowed in Passage phrase", show musicIn]
+>               error $ unwords [fName, "no chords allowed in passage phrase", show musicIn]
 >
 >             control (Tempo _) v          = v                                        
 >             control _ _                  =
->               error $ unwords [fName, "no controls allowed in passge phrase, other than Tempo", show musicIn]
+>               error $ unwords [fName, "no controls allowed in passage phrase, other than Tempo", show musicIn]
 >           in
 >             mFold pFun (VB.++) noChords control musicIn
 >
@@ -246,17 +246,15 @@ wearOveralls ===================================================================
       (maps over nodeMates)
 
 >     wearOveralls meksIn                  =
->       VB.concatMap (uncurry computeOverall) nodeMates VB.++ computeOverall lastSi lastSi
+>       VB.concatMap (uncurry computeOverall) nodeMates VB.++ computeOverall lastSi lastLastSi
 >       where
->         lastSi                           = if null nodeMates
->                                              then mekFence
->                                              else snd $ VB.last nodeMates
+>         (lastSi, lastLastSi)             = tracer "last pair" $ VB.last nodeMates
 >
 >         computeOverall si0 si1           =
->           VB.singleton mek0{mOverall = Just $ makeOverall loud0 loud1 ev0 ev1}
+>           VB.singleton mek0{mOverall = Just $ makeOverall (notracer "loud0" loud0) (notracer "loud1" loud1) ev0 ev1}
 >           where
->             mek0                         = meksIn VB.! si0
->             mek1                         = meksIn VB.! si1
+>             mek0                         = meksIn VB.! notracer "si0" si0
+>             mek1                         = meksIn VB.! notracer "si1" si1
 >
 >             ev0                          = mek0.mEvent
 >             ev1                          = mek1.mEvent
@@ -267,8 +265,8 @@ wearOveralls ===================================================================
 >             loud1                        = (fromIntegral . stdVelocity) (getMarkingLoudness mek1)
 
 sewSeeds ==============================================================================================================
-      infuse M.E.K. value of type Maybe (Either Velocity (Vector Double))
-      (folds on nodeGroups)
+      infuse M.E.K. with a value of type Maybe (Either Velocity (Vector Double))
+      (maps on nodeGroups)
 
 >     sewSeeds meksIn                      = VB.concat (map enseed nodeGroups)
 >       where
@@ -278,10 +276,11 @@ sewSeeds =======================================================================
 >           | gLen == 1                    = VB.empty
 >           | otherwise                    =
 >           VB.concatMap (uncurry seeden) (VB.zip nodeGroup (VB.tail nodeGroup))
->                        VB.++ seeden (VB.last nodeGroup) (VB.last nodeGroup)
+>             VB.++ seeden ((VB.last . VB.init) nodeGroup) (VB.last nodeGroup)
 >           where
 >             gLen                         = VB.length nodeGroup  
 >
+>             seeden     :: Int → Int → VB.Vector MekNote
 >             seeden si0 si1               = VB.map infuse seedMeks
 >               where
 >                 fName                    = "seeden"
