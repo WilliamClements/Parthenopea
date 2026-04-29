@@ -307,7 +307,7 @@ accessed in end time order.
 >
 >       choices = [  Piccolo,         Oboe,      AltoSax,             Trumpet
 >                  , Trombone,        Marimba,   Vibraphone,          ElectricGuitarJazz
->                  , OrchestralHarp,  SlapBass1, RhodesPiano,         Harpsichord
+>                  , OrchestralHarp,  SlapBass1, HonkyTonkPiano,      Harpsichord
 >                  , HammondOrgan,    Violin,    Tuba]
 >       blacklist = [MuteCuica, OpenCuica, LongWhistle, ShortWhistle]
 >

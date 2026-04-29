@@ -377,9 +377,10 @@ smell task =====================================================================
 
 > smellTaskIf _ _ fWork                    = ((fwPairing . fwSamplePairings) .~ partnerMap) fWork
 >   where
->     partnerMap                           = Map.foldlWithKey smellFolder IntMap.empty allL
+>     partnerMap                           = Map.foldlWithKey smell IntMap.empty allL
 >                                              where allL = Map.filter isLeftPS (fWork ^. fwPreSamples)
->     smellFolder m presk pres             =
+>     smell              :: IntMap Int → PreSampleKey → PreSample → IntMap Int
+>     smell m presk pres                   =
 >       let
 >         siIn, siOut    :: Int
 >         siIn                             = fromIntegral presk.pskwSampleIndex
@@ -393,10 +394,10 @@ smell task =====================================================================
 >           if isRightPS opres && fromIntegral (effPSShdr opres).sampleLink == siIn
 >             then Just siOut
 >             else Nothing
+>
+>         enter siEnter                    = IntMap.insert siIn siEnter m
 >       in
->         case mback of
->           Nothing                        → m
->           Just siOther                   → IntMap.insert siIn siOther m
+>         maybe m enter mback
 
 InstZoneRecord administration =========================================================================================
 
@@ -1206,6 +1207,8 @@ perI task ======================================================================
 
 > perITaskIf _ _ fWork                     = ((fwPerInstruments .~ perIs) . (fwDispositions .~ rdOut)) fWork
 >   where
+>     fName                                = "perITaskIf"
+>
 >     (perIs, rdOut)                       =
 >       IntMap.foldl' (uncurry makePerI) (Map.empty, fWork ^. fwDispositions) (fWork ^. fwZRecs)   
 >
@@ -1213,8 +1216,6 @@ perI task ======================================================================
 >                           → InstZoneRecord → (Map PerGMKey PerInstrument, ResultDispositions)
 >     makePerI m rdFold zrec               = (Map.insert pergm perI m, dispose pergm ssInstrument rdFold')
 >       where
->         fName                            = "perIFolder"
->
 >         pergm          :: PerGMKey       = instKey zrec
 >
 >         owned                            =

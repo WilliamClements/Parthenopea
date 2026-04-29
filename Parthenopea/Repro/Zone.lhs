@@ -46,6 +46,7 @@ February 15, 2026
 > import Data.IntMap ( IntMap )
 > import Data.IntSet ( IntSet )
 > import qualified Data.IntMap             as IntMap
+> import qualified Data.Map.Strict         as Map
 > import Data.Maybe
 > import Euterpea.Music
 > import Parthenopea.Debug
@@ -366,16 +367,15 @@ reconcile zone and sample header ===============================================
 >                                              (if sw.useDefModulators then defaultMods else [])
 >   where
 >     sw                                   = dives.synthSwitches
->     m8n                :: Modulation     =
->       defModulation{
->         mLowpass                         = Lowpass resonanceType curKernelSpec
->       , mModEnv                          = nModEnv
->       , mModLfo                          = nModLfo
->       , mVibLfo                          = nVibLfo
->       , toPitchCo                        = summarize ToPitch
->       , toFilterFcCo                     = summarize ToFilterFc
->       , toVolumeCo                       = summarize ToVolume}
->
+>     m8n                                  = Modulation
+>                                              (Lowpass resonanceType curKernelSpec)
+>                                              nModEnv
+>                                              nModLfo
+>                                              nVibLfo
+>                                              (summarize ToPitch)
+>                                              (summarize ToFilterFc)
+>                                              (summarize ToVolume)
+>                                              Map.empty
 >     curKernelSpec                        =
 >       KernelSpec
 >         (fromMaybe 13_500 z.zInitFc)

@@ -45,7 +45,7 @@ _Overall_                =
 >   | Tail StdLoudness
 >   deriving (Eq, Show)
 > expandMarkings         :: [Marking] → VB.Vector Marking
-> expandMarkings ms                        = VB.fromList $ concatMap expand ms
+> expandMarkings ms                        = VB.fromList $ tracer "expanded" $ concatMap expand ms
 >   where
 >     expand (SpanN n)                     = replicate n Span1
 >     expand x                             = [x]
@@ -65,7 +65,7 @@ _Overall_                =
 > velocity               :: Double → Overall → Double
 > velocity tIn over                        =
 >   profess
->     (tIn >= (over.oStartT - epsilon))
+>     (tIn > (over.oStartT - epsilon))
 >     (unwords ["velocity: input tIn out of range", show (tIn, over)])
 >     (clip (0, 128) (over.oStartV + (tIn - over.oStartT) * over.oChangeRate))
 > twoVelos               :: Double → Double → Overall → Either Velocity (VB.Vector Double)
@@ -119,28 +119,28 @@ _Overall_                =
 > npassage dives pname bp markings ma       
 >   | not dives.synthSwitches.usePassages  = toMusic1 ma
 >   | null markings                        = error $ unwords ["empty markings"]
->   | otherwise                            = (removeZeros . passageToMusic pname) meksIn
+>   | otherwise                            = (removeZeros . enrichedToMusic pname) enriched
 >   where
->     meksIn                               = enrichPassage dives bp (expandMarkings markings) (removeZeros ma)
+>     enriched                             = enrichPassage dives bp (expandMarkings markings) (removeZeros ma)
 >
 > passage                :: Directives → BandPart → [Marking] → Music Pitch → Music1
 > passage dives                            = npassage dives "<passage>"
 >
-> passageToMusic         :: String → VB.Vector MekNote → Music1
-> passageToMusic pname meksIn              = phrase [Dyn (StdLoudness startLoudness)] music
+> enrichedToMusic        :: String → VB.Vector MekNote → Music1
+> enrichedToMusic pname enriched           = phrase [Dyn (StdLoudness startLoudness)] music
 >   where
->     startLoudness                        = getMarkingLoudness $ meksIn VB.! 0
->     music                                = foldl' enFix (rest 0) meksIn
+>     fName                                = "enrichedToMusic"
+>
+>     startLoudness                        = getMarkingLoudness $ enriched VB.! 0
+>     music                                = foldl' enFix (rest 0) enriched
 
 Insert note attributes to define the later input to runtime synthesizer ===============================================
 
 >     enFix              :: Music1 → MekNote → Music1 
 >     enFix music mek                      = music :+: case mek.mPrimitive of
 >                                              Note durI pitchI       → mangleNote durI pitchI
->                                              Rest durI              → rest durI
+>                                              Rest durI              → error $ restsError durI 
 >       where
->         fName                            = "enFix"
->
 >         mangleNote dM pM                 = note dM (pM, Dynamics pname : (makeNAs . deJust fName) mek.mParams)
 >
 >         makeNAs (Left homeVolume)        = [Volume homeVolume]
@@ -151,26 +151,24 @@ Insert note attributes to define the later input to runtime synthesizer ========
 >             [(Volume . average) sweeps, (Params . VB.toList) sweeps]
 >         
 >         average sweeps                   = round $ VB.sum sweeps / (fromIntegral . VB.length) sweeps
+>
+>         restsError d                     = unwords [fName, "no rests in MekNotes", show d]
 
 Construct a vector of MekNotes, enriching them ========================================================================
       
 > enrichPassage          :: Directives → BandPart → VB.Vector Marking → Music Pitch → VB.Vector MekNote
-> enrichPassage dives bp markings musicIn 
->   | traceIf trace_EP False               = undefined
->   | otherwise                            = enriched
+> enrichPassage dives bp markings musicIn  = enriched
 >   where
 >     fName                                = "enrichPassage"
->     trace_EP                             = unwords [fName, show mekFence, show markings]
 >
 >     enriched, rawMeks  :: VB.Vector MekNote
 >
->     -- stepwise evolution of enriched note/rest (MekNote) vector via these functions
+>     -- stepwise evolution of enriched note (MekNote) vector via these functions
 >     -- each function produces an update vector with elements that are to be changed
 >     wearOveralls, sewSeeds, enfill
 >                        :: VB.Vector MekNote → VB.Vector MekNote
 >
 >     rawMeks                              = makeMeks    
->     mekFence                             = VB.length rawMeks - 1
 >     (nodeMates, nodeGroups)              = formNodeGroups rawMeks
 >
 >     enriched                             =
@@ -187,7 +185,7 @@ Initialize the MekNote vector ==================================================
       1. (self index)
       2. Music Primitive
       3. composer's velocity Marking
-      4. Maybe MEvent from "performing" the music snippet
+      4. MEvent from "performing" particular note
 
       later stages will compute and add following data to each M.E.K. note
       5. time to velocity transform = Overall
@@ -200,7 +198,7 @@ Initialize the MekNote vector ==================================================
 >                 , "\nprims=", show $ length prims, show prims
 >                 , "\nmarks=", show $ VB.length markings, show markings
 >                 , "\nevs=", show $ length evs, show evs])
->         (tracer "[MekNote]" $ VB.zipWith4 makeMekNote
+>         (notracer "[MekNote]" $ VB.zipWith4 makeMekNote
 >                        selfIndices
 >                        prims
 >                        markings
@@ -230,7 +228,7 @@ Initialize the MekNote vector ==================================================
 >
 >         evs                              = 
 >           let
->             slotIn     :: (VB.Vector MEvent, Int) → Primitive Pitch → (VB.Vector MEvent, Int)
+>             slotIn     :: (VB.Vector MEvent, SelfIndex) → Primitive Pitch → (VB.Vector MEvent, SelfIndex)
 >             slotIn (pvec, soFar) prim    = (pvec VB.++ curEvents, soFar + mekWidth)
 >               where
 >                 (curEvents, mekWidth)    = 
@@ -246,47 +244,47 @@ wearOveralls ===================================================================
       (maps over nodeMates)
 
 >     wearOveralls meksIn                  =
->       VB.concatMap (uncurry computeOverall) nodeMates VB.++ computeOverall lastSi lastLastSi
+>       VB.concatMap (uncurry computeOverall) nodeMates -- WOX VB.++ computeOverall lastSi lastLastSi
 >       where
->         (lastSi, lastLastSi)             = tracer "last pair" $ VB.last nodeMates
->
->         computeOverall si0 si1           =
->           VB.singleton mek0{mOverall = Just $ makeOverall (notracer "loud0" loud0) (notracer "loud1" loud1) ev0 ev1}
+>         computeOverall si0 si1
+>           | traceNow trace_CO False      = undefined
+>           | otherwise                    = 
+>           VB.singleton mek0{mOverall = Just $ makeOverall loud0 loud1 ev0 ev1}
 >           where
->             mek0                         = meksIn VB.! notracer "si0" si0
->             mek1                         = meksIn VB.! notracer "si1" si1
+>             trace_CO                     = unwords [fName, "Overall", show (si0, si1), show (loud0, loud1)]
+>
+>             mek0                         = meksIn VB.! si0
+>             mek1                         = meksIn VB.! si1
 >
 >             ev0                          = mek0.mEvent
 >             ev1                          = mek1.mEvent
 >
 >             loud0, loud1
 >                        :: Double
->             loud0                        = (fromIntegral . stdVelocity) (getMarkingLoudness mek0)
->             loud1                        = (fromIntegral . stdVelocity) (getMarkingLoudness mek1)
+>             loud0                        = (fromIntegral . stdVelocity . getMarkingLoudness) mek0
+>             loud1                        = (fromIntegral . stdVelocity . getMarkingLoudness) mek1
 
 sewSeeds ==============================================================================================================
       infuse M.E.K. with a value of type Maybe (Either Velocity (Vector Double))
       (maps on nodeGroups)
 
->     sewSeeds meksIn                      = VB.concat (map enseed nodeGroups)
+>     sewSeeds meksIn                      = VB.concat (map seedGroup nodeGroups)
 >       where
->         enseed         :: VB.Vector SelfIndex → VB.Vector MekNote
->         enseed nodeGroup
+>         seedGroup         :: VB.Vector SelfIndex → VB.Vector MekNote
+>         seedGroup nodeGroup
 >           | gLen == 0                    = error $ unwords [fName, "no nodes in node group"]
 >           | gLen == 1                    = VB.empty
 >           | otherwise                    =
->           VB.concatMap (uncurry seeden) (VB.zip nodeGroup (VB.tail nodeGroup))
->             VB.++ seeden ((VB.last . VB.init) nodeGroup) (VB.last nodeGroup)
+>             VB.concatMap (uncurry seedSlice) (VB.zip nodeGroup (VB.tail nodeGroup))
 >           where
 >             gLen                         = VB.length nodeGroup  
 >
->             seeden     :: Int → Int → VB.Vector MekNote
->             seeden si0 si1               = VB.map infuse seedMeks
+>             seedSlice  :: SelfIndex → SelfIndex → VB.Vector MekNote
+>             seedSlice si0 si1            = VB.map infuse sliceMeks
 >               where
->                 fName                    = "seeden"
+>                 fName                    = "seedSlice"
 >
->                 seedMeks                 = VB.slice si0 (si1 - si0 + 1 - fencePost) meksIn
->                                              where fencePost = if si1 == mekFence then 0 else 1
+>                 sliceMeks                = VB.slice si0 (si1 - si0 + 1) meksIn
 >
 >                 infuse mek               =
 >                   if dives.synthSwitches.useInflections && si0 == mek.mSelfIndex && si0 /= VB.head nodeGroup
@@ -294,6 +292,8 @@ sewSeeds =======================================================================
 >                     else mek{mParams = Just (twoVelos onset delta over)}
 >                   where
 >                     ev                   = mek.mEvent
+>                     onset, delta
+>                        :: Double
 >                     onset                = fromRational ev.eTime
 >                     delta                = fromRational ev.eDur
 >
@@ -312,7 +312,8 @@ enfill =========================================================================
 >         fillOne (updates, _) mek         =
 >           let
 >             velo       :: Velocity       = stdVelocity $ getMarkingLoudness mek
->             updateOne                    =
+>             updateOne  :: VB.Vector MekNote
+>                                          =
 >               case mek.mParams of
 >                 Nothing                  → VB.singleton $ mek{mParams = (Just . Left) velo}
 >                 _                        → VB.empty
@@ -320,12 +321,11 @@ enfill =========================================================================
 >             (updates VB.++ updateOne, velo)
 
 formNodeGroups ========================================================================================================
-      model the given MekNote sequence
-        nodeMates = all the pairs from given (vector of integer pairs)
-        nodeGroups = given grouped by inflection status (list of integer vectors)
+      model the topology of given MekNote sequence, using SelfIndex to identify nodes
+        nodeMates  = all the consecutive pairs from given           -- (vector of integer pairs)
+        nodeGroups = given grouped by inflection status             -- (list of integer vectors)
 
-> formNodeGroups         :: VB.Vector MekNote
->                           → (VB.Vector (SelfIndex, SelfIndex), [VB.Vector SelfIndex])
+> formNodeGroups         :: VB.Vector MekNote → (VB.Vector (SelfIndex, SelfIndex), [VB.Vector SelfIndex])
 > formNodeGroups meks                      = (nodeMates, nodeGroups)
 >   where
 >     getSelfIndex mek                     =
