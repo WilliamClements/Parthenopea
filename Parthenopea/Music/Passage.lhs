@@ -59,6 +59,8 @@ _Overall_                =
 > makeOverall            :: Double → Double → MEvent → MEvent → Overall
 > makeOverall startV endV startEv endEv    = Overall changeRate startT startV
 >   where
+>     startT, endT, changeRate
+>                        :: Double
 >     startT                               = fromRational startEv.eTime
 >     endT                                 = fromRational (endEv.eTime + endEv.eDur)
 >     changeRate                           = (endV - startV) / (endT - startT)
@@ -189,7 +191,7 @@ Initialize the MekNote vector ==================================================
 
       later stages will compute and add following data to each M.E.K. note
       5. time to velocity transform = Overall
-      6. two ways of driving velocity = Maybe (Either Velocity (VB.Vector Double))
+      6. two ways of driving velocity = Either Velocity (VB.Vector Double)
 
 >     makeMeks                             =
 >       profess
@@ -229,7 +231,7 @@ Initialize the MekNote vector ==================================================
 >         evs                              = 
 >           let
 >             slotIn     :: (VB.Vector MEvent, SelfIndex) → Primitive Pitch → (VB.Vector MEvent, SelfIndex)
->             slotIn (pvec, soFar) prim    = (pvec VB.++ curEvents, soFar + mekWidth)
+>             slotIn (mvec, soFar) prim    = (mvec VB.++ curEvents, soFar + mekWidth)
 >               where
 >                 (curEvents, mekWidth)    = 
 >                   case prim of
@@ -249,15 +251,12 @@ wearOveralls ===================================================================
 >         computeOverall si0 si1
 >           | traceNow trace_CO False      = undefined
 >           | otherwise                    = 
->           VB.singleton mek0{mOverall = Just $ makeOverall loud0 loud1 ev0 ev1}
+>           VB.singleton mek0{mOverall = Just $ makeOverall loud0 loud1 mek0.mEvent mek1.mEvent}
 >           where
 >             trace_CO                     = unwords [fName, "Overall", show (si0, si1), show (loud0, loud1)]
 >
 >             mek0                         = meksIn VB.! si0
 >             mek1                         = meksIn VB.! si1
->
->             ev0                          = mek0.mEvent
->             ev1                          = mek1.mEvent
 >
 >             loud0, loud1
 >                        :: Double

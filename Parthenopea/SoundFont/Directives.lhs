@@ -11,6 +11,7 @@ April 16, 2023
 >          allOn
 >        , allOff
 >        , defDirectives
+>        , defSynthSwitches
 >        , Directives(..)
 >        , okDirectives
 >        , ReportVerbosity(..)

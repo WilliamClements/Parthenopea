@@ -16,7 +16,6 @@ April 16, 2023
 > import Data.IntSet (IntSet)
 > import qualified Data.IntSet             as IntSet
 > import Data.List
-> import qualified Data.Map.Lazy           as Lazy
 > import Data.Ratio ( (%) )
 > import Data.Time
 > import Euterpea.IO.MIDI.GeneralMidi ( )
@@ -49,30 +48,30 @@ implementing SoundFont spec ====================================================
 > toMaybeSampleType      :: Word → Maybe SampleType
 > toMaybeSampleType n                      =
 >   case n of
->     0x0                    → Just SampleTypeMono
->     0x1                    → Just SampleTypeMono
->     0x2                    → Just SampleTypeRight
->     0x4                    → Just SampleTypeLeft
->     0x8                    → Just SampleTypeLinked
->     0x10                   → Just SampleTypeOggVorbis
->     0x8001                 → Just SampleTypeRomMono
->     0x8002                 → Just SampleTypeRomRight
->     0x8004                 → Just SampleTypeRomLeft
->     0x8008                 → Just SampleTypeRomLinked
->     _                      → Nothing
+>     0x0                                  → Just SampleTypeMono
+>     0x1                                  → Just SampleTypeMono
+>     0x2                                  → Just SampleTypeRight
+>     0x4                                  → Just SampleTypeLeft
+>     0x8                                  → Just SampleTypeLinked
+>     0x10                                 → Just SampleTypeOggVorbis
+>     0x8001                               → Just SampleTypeRomMono
+>     0x8002                               → Just SampleTypeRomRight
+>     0x8004                               → Just SampleTypeRomLeft
+>     0x8008                               → Just SampleTypeRomLinked
+>     _                                    → Nothing
 >
 > fromSampleType             :: SampleType → Word
 > fromSampleType stype =
 >   case stype of
->     SampleTypeMono         → 0x1
->     SampleTypeRight        → 0x2
->     SampleTypeLeft         → 0x4
->     SampleTypeLinked       → 0x8
->     SampleTypeOggVorbis    → 0x10
->     SampleTypeRomMono      → 0x8001
->     SampleTypeRomRight     → 0x8002
->     SampleTypeRomLeft      → 0x8004
->     SampleTypeRomLinked    → 0x8008
+>     SampleTypeMono                       → 0x1
+>     SampleTypeRight                      → 0x2
+>     SampleTypeLeft                       → 0x4
+>     SampleTypeLinked                     → 0x8
+>     SampleTypeOggVorbis                  → 0x10
+>     SampleTypeRomMono                    → 0x8001
+>     SampleTypeRomRight                   → 0x8002
+>     SampleTypeRomLeft                    → 0x8004
+>     SampleTypeRomLinked                  → 0x8008
 >
 > data PerGMKey                            =
 >   PerGMKey {
@@ -110,42 +109,6 @@ implementing SoundFont spec ====================================================
 >   , pzkwBag            :: !Word
 >   , pzkwSampleIndex    :: !Word}
 >   deriving (Eq, Ord, Show)
->
-> data Disposition                         =
->   Accepted | Modified | Violated | Rescued | Dropped | NoChange
->   deriving (Eq, Ord, Show)
->
-> data Impact                              =
->   ToProgram | ToCache | Winner
->      | NoZones | BadZones
->      | BadName
->      | BadSampleRate | BadSampleType | BadSampleLimits
->      | BadAppliedLimits | BadStereoPartner | RomBased | BadGMRange 
->      | Paired | Orphaned
->      | Absorbing | Absorbed | NoAbsorption    
->      | Unrecognized | Narrow | NoPercZones
->      | Captured | Adopted | AdoptedAsMono | GlobalZone
->   deriving (Eq, Ord, Show)
->
-> virginrd               :: ResultDispositions
-> virginrd                                 = ResultDispositions 
->                                              Lazy.empty 
->                                              Lazy.empty 
->                                              Lazy.empty
->
-> data Scan                                =
->   Scan {
->     sDisposition       :: !Disposition
->   , sImpact            :: !Impact
->   , sFunction          :: !String
->   , sClue              :: !String}
->   deriving (Eq, Show)
->
-> data ResultDispositions                  =
->   ResultDispositions {
->     preSampleDispos    :: Lazy.Map PreSampleKey     [Scan]
->   , preInstDispos      :: Lazy.Map PerGMKey         [Scan]
->   , preZoneDispos      :: Lazy.Map PreZoneKey       [Scan]}
 >
 > data FileArrays                          = 
 >   FileArrays {

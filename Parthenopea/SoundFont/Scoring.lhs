@@ -16,18 +16,23 @@ September 12, 2024
 >        , computeFFMatches
 >        , dead
 >        , defMatches
+>        , Disposition(..)
 >        , establishWinners
 >        , GMChoices(..)
 >        , hasImpact
+>        , Impact(..)
 >        , Matches(..)
 >        , noClue
 >        , PerGMScored(..)
 >        , proposeCandidates
+>        , ResultDispositions(..)
+>        , Scan(..)
 >        , scoreOnsets
 >        , showWeights
 >        , SFKeyType(..)
 >        , SFScorable(..)
 >        , showPerGM
+>        , virginrd
 >        , wasRescued ) where
 >
 > import qualified Codec.SoundFont         as F
@@ -544,6 +549,42 @@ tournament starts here =========================================================
 >                 xEnd   :: Word           = shdr.end + fromIntegral zd.zdEnd
 >
 >         akResult                         = fromMaybe 0 (Map.lookup kind (getFuzzMap ffm))
+>
+> data Disposition                         =
+>   Accepted | Modified | Violated | Rescued | Dropped | NoChange
+>   deriving (Eq, Ord, Show)
+>
+> data Impact                              =
+>   ToProgram | ToCache | Winner
+>      | NoZones | BadZones
+>      | BadName
+>      | BadSampleRate | BadSampleType | BadSampleLimits
+>      | BadAppliedLimits | BadStereoPartner | RomBased | BadGMRange 
+>      | Paired | Orphaned
+>      | Absorbing | Absorbed | NoAbsorption    
+>      | Unrecognized | Narrow | NoPercZones
+>      | Captured | Adopted | AdoptedAsMono | GlobalZone
+>   deriving (Eq, Ord, Show)
+>
+> virginrd               :: ResultDispositions
+> virginrd                                 = ResultDispositions 
+>                                              Lazy.empty 
+>                                              Lazy.empty 
+>                                              Lazy.empty
+>
+> data Scan                                =
+>   Scan {
+>     sDisposition       :: !Disposition
+>   , sImpact            :: !Impact
+>   , sFunction          :: !String
+>   , sClue              :: !String}
+>   deriving (Eq, Show)
+>
+> data ResultDispositions                  =
+>   ResultDispositions {
+>     preSampleDispos    :: Lazy.Map PreSampleKey     [Scan]
+>   , preInstDispos      :: Lazy.Map PerGMKey         [Scan]
+>   , preZoneDispos      :: Lazy.Map PreZoneKey       [Scan]}
 >
 > class SFKeyType a where
 >   sfkey                :: Int → Word → a

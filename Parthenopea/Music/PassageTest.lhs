@@ -16,8 +16,6 @@ August 15, 2025
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.PassageReport (summarizeOnePassage)
 >
-> useInflectionsInTests  :: Bool           = True
->
 > passageTests           :: [IO Bool]
 > twoMarkedNotes, twoInflectedNotes, threeNotesWithRests, fourMarksWork, fourInflectionsWork, tripletsWork, bellCurve
 >                        :: IO Bool
@@ -29,7 +27,7 @@ August 15, 2025
 >               , tripletsWork
 >               , bellCurve ]
 >
-> aMarkings, bMarkings, cMarkings, dMarkings, eMarkings, fMarkings
+> aMarkings, bMarkings, cMarkings, dMarkings, eMarkings, fMarkings, gMarkings
 >                        :: VB.Vector Marking
 > aMarkings                                = expandMarkings [Mark PP, Mark FF]
 > bMarkings                                = expandMarkings [Inflect PP, Inflect FF]
@@ -39,7 +37,7 @@ August 15, 2025
 > fMarkings                                = expandMarkings [Inflect SF, SpanN 2, Inflect FF, Inflect P, Inflect FF]
 > gMarkings                                = expandMarkings [Inflect PP, SpanN 2, Inflect FF, SpanN 2, Inflect PP]
 >
-> aSnippet, bSnippet, cSnippet, dSnippet
+> aSnippet, bSnippet, cSnippet, dSnippet, eSnippet
 >                        :: Music Pitch
 > aSnippet                                 = line [a 4 qn, b 4 qn]
 > bSnippet                                 = line [c 3 hn, rest qn, g 3 qn, rest hn, b 3 qn]
@@ -47,11 +45,14 @@ August 15, 2025
 > dSnippet                                 = line [d 5 qn, d 5 en, e 5 en, t32 [d 5 en, cs 5 en, b 4 en]]
 > eSnippet                                 = line [addDur qn [c 4, d 4, e 4, f 4], addDur (2 % 3) [e 4, d 4, c 4]]
 >
+> testDirectives         :: Directives
+> testDirectives                           = defDirectives{synthSwitches = defSynthSwitches{useInflections = False}}
+>
 > doPassageTest          :: String → VB.Vector Marking → Music Pitch → IO Bool
 > doPassageTest tName ms music             = do
 >   putStrLn tName
 >
->   let meks                               = enrichPassage defDirectives defBandPart ms music
+>   let meks                               = enrichPassage testDirectives defBandPart ms music
 >
 >   let summs                              = reapEmissions (summarizeOnePassage meks)
 >   chartPoints tName (chartPassage meks)
