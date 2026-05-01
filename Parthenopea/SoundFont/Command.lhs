@@ -53,7 +53,7 @@ Implement PCommand =============================================================
 >
 >   mids                                   ← FP.getDirectoryFilesIgnoreSlow "." ["*.mid", "*.midi"] []
 >   sf2s                                   ← FP.getDirectoryFilesIgnoreSlow "." ["*.sf2"] []
->   putStr $ reapEmissions [msg mids sf2s, EndOfLine]
+>   putStr $ reapEmissions [shareIntention mids sf2s, EndOfLine]
 >
 >   proceed dives isongs mids sf2s
 >
@@ -62,8 +62,8 @@ Implement PCommand =============================================================
 >   where
 >     fName                                = "batchProcessor"
 >
->     msg                :: [FilePath] → [FilePath] → Emission
->     msg ms ss
+>     shareIntention     :: [FilePath] → [FilePath] → Emission
+>     shareIntention ms ss
 >       | null ms && null isongs && null ss
 >                                          = Unblocked "no *.mid or *.sf2 files found: nothing to do"
 >       | null ss                          = Unblocked "no *.sf2 files found: proceeding to survey mids"
@@ -85,7 +85,7 @@ Implement PCommand =============================================================
 >   rost                                   ← identifyRoster ding songs
 >
 >   CM.unless (null sf2s)
->             (putStr $ reapEmissions [  Unblocked $ unwords ["surveySoundFonts"], EndOfLine])
+>             (putStr $ reapEmissions [Unblocked $ unwords ["surveySoundFonts"], EndOfLine])
 >   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
 >   let vFilesBoot                         = VB.fromList extraction
 >   if VB.null vFilesBoot
@@ -107,7 +107,7 @@ Implement PCommand =============================================================
 >
 > buildRuntime           :: Directives → ([InstrumentName], [PercussionSound]) → VB.Vector SFFileBoot → IO SFRuntime
 > buildRuntime dives rost vFilesBoot_      = do
->   putStrLn "buildRuntime..."
+>   putStrLn fName
 >   (vFilesBoot, sy)                       ← surveyInstruments dives rost vFilesBoot_
 >
 >   let rd                                 = sy.sDispositions
@@ -127,6 +127,8 @@ Implement PCommand =============================================================
 >   runt                                   ← prepareRuntime dives rost vFilesBoot insts (wonI, wonP)
 >   return runt{zWinners = (wonI, wonP)}
 >   where
+>     fName                                = "buildRuntime"
+>
 >     ReportVerbosity{ .. }
 >                                          = dives.dReportVerbosity
 >

@@ -15,17 +15,20 @@ August 15, 2025
 > import Parthenopea.Repro.Emission
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.PassageReport (summarizeOnePassage)
->
+  
+Implement Passage Test ================================================================================================
+
 > passageTests           :: [IO Bool]
 > twoMarkedNotes, twoInflectedNotes, threeNotesWithRests, fourMarksWork, fourInflectionsWork, tripletsWork, bellCurve
 >                        :: IO Bool
-> passageTests = [twoMarkedNotes
->               , twoInflectedNotes
->               , threeNotesWithRests
->               , fourMarksWork
->               , fourInflectionsWork
->               , tripletsWork
->               , bellCurve ]
+> passageTests                             =
+>    [twoMarkedNotes
+>   , twoInflectedNotes
+>   , threeNotesWithRests
+>   , fourMarksWork
+>   , fourInflectionsWork
+>   , tripletsWork
+>   , bellCurve]
 >
 > aMarkings, bMarkings, cMarkings, dMarkings, eMarkings, fMarkings, gMarkings
 >                        :: VB.Vector Marking
@@ -46,7 +49,7 @@ August 15, 2025
 > eSnippet                                 = line [addDur qn [c 4, d 4, e 4, f 4], addDur (2 % 3) [e 4, d 4, c 4]]
 >
 > testDirectives         :: Directives
-> testDirectives                           = defDirectives{synthSwitches = defSynthSwitches{useInflections = False}}
+> testDirectives                           = defDirectives{synthSwitches = defSynthSwitches{useInflections = True}}
 >
 > doPassageTest          :: String → VB.Vector Marking → Music Pitch → IO Bool
 > doPassageTest tName ms music             = do

@@ -198,7 +198,7 @@ FileWork =======================================================================
 
 Task *preSample*    caches file's Sample Headers
 Task *smell*        creates sample-level Partner map, based on preSampleCache
-Task *instrument*   creates the zrec collection (IntMap) based on file's Instrument data
+Task *instrument*   creates the zrec collection (IntMap InstZoneRecord) based on file's Instrument data
 Task *capture*      creates pzdb, based on file's Zone data, and generates zone owners
 Task *clean*
       processes the dirty instrument list
@@ -588,14 +588,17 @@ produce and process capture results ============================================
 >           where
 >             process captFold (bix, eor)  =
 >               let
->                 doNormal pz              =
->                   captFold{_uPzs = IntMap.insert (wordB pz) pz{pzSFZone = bz} (captFold ^. uPzs)}
->                   where bz               = buildZone (captFold ^. uSFZone) (Just pz) bix
+>                 doNormal pz              = (uPzs .~ upzs') captFold
+>                   where
+>                     bz                   = buildZone (captFold ^. uSFZone) (Just pz) bix
+>                     upzs'                = IntMap.insert (wordB pz) pz{pzSFZone = bz} (captFold ^. uPzs)
+>
 >                 doError (k, ssZone)      =
 >                   if hasImpact GlobalZone ssZone
 >                     then (uSFZone .~ bz) captFold
 >                     else (uDispo .~ dispose k ssZone (captFold ^. uDispo)) captFold
->                   where bz               = buildZone defZone Nothing bix
+>                   where
+>                     bz                   = buildZone defZone Nothing bix
 >               in
 >                 either doNormal doError eor
 >
@@ -862,34 +865,22 @@ Pairing algorithm phases =======================================================
 >                                            == (pzdb IntMap.! bixR).pzWordI   
 
 Pairing book-keeping ==================================================================================================
+          identify crossers from among all pairs by filtering zone pairs that do not share an instrument owner
 
 >     dirtyZs                              = makeActions pzdb (sy ^. psUnpaired)
 >     dirtyIs                              = IntMap.keysSet dirtyZs `IntSet.union` IntMap.keysSet crossers
->     crossers                             = IntMap.foldlWithKey sniffOut IntMap.empty (fWork ^. fwZoneOwners)
+>     crossers                             = IntMap.foldlWithKey marry IntMap.empty (sy ^. psPaired)
 >       where
->         allStereo      :: IntSet         = unpair (sy ^. psPaired)
->         mirror                           =
->           let
->             reverser m iLeft iRight      = IntMap.insert iRight iLeft m
->             oneWay                       = sy ^. psPaired
->           in
->             IntMap.foldlWithKey reverser oneWay oneWay
->
->         sniffOut       :: IntMap IntSet                {- [InstIndex → [BagIndex]]               -}
->                           → Int                        {- InstIndex                              -}
->                           → IntSet                     {- [BagIndex]                             -}
->                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
->         sniffOut m iinst iset            =
->           if not (IntSet.null residue)
->             then IntMap.insert iinst residue m 
->             else m
+>         marry m bixL bixR
+>           | instL == instR               = m
+>           | otherwise                    = include instL bixL (include instR bixR m)
 >           where
->             allFound                     = IntSet.map (mirror IntMap.!) (iset `IntSet.intersection` allStereo)
->             residue    :: IntSet         = allFound `IntSet.difference` iset
+>             include k v                  = IntMap.insertWith IntSet.union k (IntSet.singleton v)
+>
+>             (instL, instR)               = (wordI (pzdb IntMap.! bixL), wordI (pzdb IntMap.! bixR))
 
 pairing convenience functions =========================================================================================
           unpair           - cram all Ls and Rs from partner map into single set
-          twoWay           - complete the map (add R → L)
           makeActions      - turn input set of bixen into instrument-based actions list
 
 > unpair                 :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
@@ -899,14 +890,6 @@ pairing convenience functions ==================================================
 >     consume iset ifrom ito               = (IntSet.insert ito . IntSet.insert ifrom) iset
 >   in
 >     IntMap.foldlWithKey consume IntSet.empty
->
-> twoWay                 :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
->                           → IntMap Int                 {- [BagIndex → BagIndex]]                 -}
-> twoWay                                   =
->   let
->     consume imap ifrom ito               = (IntMap.insert ito ifrom . IntMap.insert ifrom ito) imap
->   in
->     IntMap.foldlWithKey consume IntMap.empty
 >
 > makeActions            :: IntMap PreZone               {- [BagIndex → pz]                        -}
 >                           → IntSet                     {- [BagIndex]                             -}
@@ -1060,7 +1043,7 @@ To build the map
 > reorgTaskIf _ _ fWork                    =
 >   if not doAbsorption
 >     then fWork
->     else ((fwPreZones  .~ rebaseAbsorbed)
+>     else ((fwPreZones  .~ rebased)
 >           . (fwDirtyIs .~ IntMap.keysSet absorptionMap)) work
 >   where
 >     Directives{ .. }  
@@ -1079,7 +1062,7 @@ To build the map
 >
 >         pergm                            = instKey zrec
 >
->         rprobe                           = IntSet.member zrec.zswInst rejected
+>         rprobe                           = IntSet.member zrec.zswInst dismissed
 >         aprobe                           = IntMap.lookup zrec.zswInst absorptionMap
 >
 >         party                            = deJust "aprobe" aprobe
@@ -1107,15 +1090,14 @@ To build the map
 >         qualify        :: Int → IntSet → Bool
 >         qualify leadI memberIs
 >           | null smashups                = error "null smashups?!?"
->           | 0 == dupes                   = True
+>           | 0 == osmashup.smashStats.countMultiples
+>                                          = True
 >           | membersHaveVR memberIs       = True
 >           | otherwise                    = False
 >           where
 >             smashups                     = map (zrecSmash fWork) (IntSet.toList memberIs)
 >             osmashup                     = (foldl' smashSmashings (head smashups) (tail smashups))
 >                                              {smashTag = unwords [show (leadI, memberIs)]}
->             dupes                        = osmashup.smashStats.countMultiples
->
 >         -- VR = Velocity Range(s)
 >         membersHaveVR iset               = all zonesHaveVR (IntSet.toList iset)
 >         zonesHaveVR inst                 = any zoneHasVR (IntSet.toList bixen)
@@ -1128,8 +1110,8 @@ To build the map
 >               Just rng                   → rng /= (0, qMidiWord128 - 1)
 >               Nothing                    → False
 >
->     rejected           :: IntSet                       {- [InstIndex]                            -}
->     rejected                             = IntMap.foldr combine IntSet.empty nogood
+>     dismissed          :: IntSet                       {- [InstIndex]                            -}
+>     dismissed                            = IntMap.foldr combine IntSet.empty nogood
 >                                              where combine v m = m `IntSet.union` v
 >
 >     absorptionMap      :: IntMap Int                   {- [InstIndex → InstIndex]                -}
@@ -1141,15 +1123,15 @@ To build the map
 >           in
 >             IntSet.foldl' fold2Fun qIn
 >
->     rebaseAbsorbed     :: IntMap PreZone               {- [BagIndex → pz]                        -}
->     rebaseAbsorbed                       = IntMap.foldlWithKey ufold pzdb pzdb
+>     rebased            :: IntMap PreZone               {- [BagIndex → pz]                        -}
+>     rebased                              = IntMap.foldlWithKey rebase pzdb pzdb
 >       where
->         ufold m k pz                     =
+>         rebase m k pz                    =
 >           let
->             rebase leadI                 = IntMap.update change k m
+>             bang leadI                   = IntMap.update change k m
 >                                              where change _ = Just pz{pzWordI = fromIntegral leadI}
 >           in
->             maybe m rebase (IntMap.lookup (wordI pz) absorptionMap)
+>             maybe m bang (IntMap.lookup (wordI pz) absorptionMap)
 
 match task ============================================================================================================
           accumulate all fuzzy matches
@@ -1205,7 +1187,7 @@ clean task =====================================================================
 >                                              (const (Just zrec, rdFold))
 >                                              (zrec.zswInst `IntMap.lookup` owners')
 >       in
->         zrecTask cleaner $ fwZoneOwners .~ owners' $ fWork
+>         zrecTask cleaner ((fwZoneOwners .~ owners') fWork)
 
 perI task =============================================================================================================
           generating PerInstrument map
