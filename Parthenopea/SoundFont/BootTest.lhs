@@ -10,7 +10,7 @@ January 7, 2025
 > import Parthenopea.SoundFont.Scoring
 >
 > deadrd                 :: ∀ k . SFKeyType k ⇒ k → ResultDispositions → Bool
-> deadrd k rd                              = dead (inspect k rd)
+> deadrd k rd                              = dropped (inspect k rd)
 
 Boot-related tests ====================================================================================================
 
@@ -32,37 +32,37 @@ Boot-related tests =============================================================
 >
 > nonFatalScanIsNotFatal                   = do
 >   let ss                                 = [Scan Accepted ToProgram "nonFatalScanIsNotFatal" noClue]
->   return $ not $ dead ss
+>   return $ not $ dropped ss
 >
 > fatalScanIsFatal                         = do
 >   let ss                                 = [Scan Violated NoZones "fatalScanIsFatal" noClue]
->   return $ dead ss
+>   return $ dropped ss
 >
 > rescuedScanIsNotFatal                    = do
 >   let fName                              = "rescuedScanIsNotFatal"
 >   let viol                               = Scan Violated NoZones fName noClue
 >   let resc                               = Scan Rescued  NoZones fName noClue
 >   let ss                                 = [viol, resc]
->   return $ not $ dead ss
+>   return $ not $ dropped ss
 >
 > noNewsIsGoodNews1                        = do
->   let pergm                              = PerGMKey 0 0 Nothing
+>   let pergm                              = stdPerGMKey 0 0
 >   return $ not $ deadrd pergm virginrd
 >
 > noNewsIsGoodNews2                        = do
->   let pergm                              = PerGMKey 0 0 Nothing
+>   let pergm                              = stdPerGMKey 0 0
 >   let rd                                 = dispose pergm [] virginrd
 >   return $ not $ deadrd pergm rd
 >
 > correctlyJudgesDispoFatal               = do
 >   let fName                              = "correctlyJudgesDispoFatal"
->   let pergm                              = PerGMKey 0 0 Nothing
+>   let pergm                              = stdPerGMKey 0 0
 >   let rd                                 = dispose pergm [Scan Violated NoZones fName noClue] virginrd
 >   return $ deadrd pergm rd
 >
 > correctlyJudgesDispoNonFatal            = do
 >   let fName                              = "correctlyJudgesDispoNonFatal"
->   let pergm                              = PerGMKey 0 0 Nothing
+>   let pergm                              = stdPerGMKey 0 0
 >   let rd                                 = dispose pergm [Scan Accepted ToProgram fName noClue] virginrd
 >   return $ not $ deadrd pergm rd
 >
@@ -70,12 +70,12 @@ Boot-related tests =============================================================
 >   let fName                              = "orderIndependence1"
 >   let order1                             = [Scan Accepted ToProgram      fName noClue,  Scan Violated NoZones fName noClue]
 >   let order2                             = [Scan Violated NoZones fName noClue,  Scan Accepted ToProgram fName noClue]
->   return $ dead order1 && dead order2
+>   return $ dropped order1 && dropped order2
 >
 > orderIndependence2                       = do
 >   let fName                              = "orderIndependence2"
 >   let order1                             = [Scan Violated NoZones fName noClue,  Scan Rescued NoZones fName noClue]
 >   let order2                             = [Scan Rescued NoZones fName noClue,   Scan Violated NoZones fName noClue]
->   return $ not (dead order1) && not (dead order2)
+>   return $ not (dropped order1) && not (dropped order2)
 
 The End

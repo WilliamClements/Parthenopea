@@ -16,7 +16,6 @@ June 17, 2024
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
 > import Data.Complex
-> import Data.Foldable
 > import Data.Int ( Int32 )
 > import Data.MemoTrie ( memo )
 > import qualified Data.Vector.Unboxed     as VU

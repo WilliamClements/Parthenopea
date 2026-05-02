@@ -141,7 +141,6 @@ implementing SoundFont spec ====================================================
 >   SampleArrays {
 >     ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
-> type AgainstKindResult                   = Double
 
 bootstrapping =========================================================================================================
 

@@ -193,11 +193,10 @@ more than 16 instruments to be used in the source music.
 >   playC defParams
 >     { strict                             = False
 >     , chanPolicy                         = dynamicCP 16 9
->     , devID                              = case mi of
->                                              Nothing → Nothing
->                                              Just i → Just $ unsafeOutputID i
->     , perfAlg                            =
->         map (\mev → mev{eDur = max 0 (eDur mev - 0.000_001)}) . perform}
+>     , devID                              = fmap unsafeOutputID mi
+>     , perfAlg                            = map tweeze . perform}                                              
+>   where
+>     tweeze mev                           = mev{eDur = max 0 (eDur mev - 0.000_001)}
 
 "triad" ===============================================================================================================
 
@@ -606,9 +605,9 @@ examine song for instrument and percussion usage ===============================
 >
 > shredMusic             :: ToMusic1 a ⇒ Music a → IO (Map GMKind Shred)
 > shredMusic m                             =
->   return $ foldl' shFolder Map.empty $ fst (musicToMEvents defaultContext (toMusic1 m))
+>   return $ foldl' shredder Map.empty $ fst (musicToMEvents defaultContext (toMusic1 m))
 >   where
->     shFolder ding mev                    =
+>     shredder ding mev                    =
 >       let
 >         getGMKind MEvent{eInst, ePitch}  =
 >           case eInst of

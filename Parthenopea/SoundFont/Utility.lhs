@@ -14,7 +14,6 @@ October 8, 2025
 > import Control.Arrow.Operations
 > import Data.Array.Unboxed
 > import Data.Complex
-> import Data.Foldable
 > import Data.Graph (Graph)
 > import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict      as IntMap

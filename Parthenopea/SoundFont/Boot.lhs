@@ -338,7 +338,7 @@ pre-sample task ================================================================
 >       let
 >         preSamples                       = fwForm ^. fwPreSamples
 >         preSampleCache                   =
->           if dead ssSample
+>           if dropped ssSample
 >             then preSamples
 >             else Map.insert presk ps preSamples
 >         ps                               = ChangeName shdr changes name
@@ -468,7 +468,7 @@ instrument task ================================================================
 >         good                             = fixName raw
 >
 >         zrecs'
->           | dead ssSurvey                = inst ^. iZRecs
+>           | dropped ssSurvey             = inst ^. iZRecs
 >           | otherwise                    = IntMap.insert newZRec.zswInst newZRec (inst ^. iZRecs)
 >           where
 >             changes                      = if wasRescued BadName ssSurvey then singleton FixBadName else []
@@ -776,13 +776,10 @@ Pairing algorithm phases =======================================================
       Each of these three functions operates on unpaired set. They are invoked, in sequence, during iterate'.
 
 >     nominal sy                            =
->       IntMap.foldlWithKey
->         (conducePairing False (sy ^. psUnpaired))
->         IntMap.empty
->         (fWork ^. (fwPairing . fwSamplePairings))
+>       IntMap.foldlWithKey (conduce False (sy ^. psUnpaired)) IntMap.empty (fWork ^. (fwPairing . fwSamplePairings))
 >     exotic sy                             =
 >       IntMap.foldlWithKey
->         (conducePairing True (sy ^. psUnpaired))
+>         (conduce True (sy ^. psUnpaired))
 >         IntMap.empty
 >         (fWork ^. (fwPairing . fwSamplePairings))
 >     linkless sy                           =
@@ -805,14 +802,13 @@ Pairing algorithm phases =======================================================
 >         putMembers pz                    =
 >           IntMap.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
 >
->     conducePairing     :: Bool                         {- exotic                                 -}
+>     conduce            :: Bool                         {- exotic                                 -}
 >                           → IntSet                     {- [BagIndex]                             -}
 >                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
 >                           → Int                        {- SampleIndex                            -}
 >                           → Int                        {- SampleIndex                            -}
 >                           → IntMap Int                 {- [BagIndex → BagIndex]                  -}
->     conducePairing exo unp soFar siFrom siTo
->                                          = soFar `IntMap.union` inducePairs exo bsL bsR
+>     conduce exo unp soFar siFrom siTo    = soFar `IntMap.union` inducePairs exo bsL bsR
 >       where
 >         bsL, bsR       :: IntSet                       {- [BagIndex]                             -}             
 >         bsL                              =
@@ -881,7 +877,7 @@ Pairing book-keeping ===========================================================
 
 pairing convenience functions =========================================================================================
           unpair           - cram all Ls and Rs from partner map into single set
-          makeActions      - turn input set of bixen into instrument-based actions list
+          makeActions      - turn input set of bixen into instrument-to-zones "actions list"
 
 > unpair                 :: IntMap Int                   {- [BagIndex → BagIndex]                  -}
 >                           → IntSet                     {- [BagIndex]                             -}
@@ -955,13 +951,13 @@ vet task =======================================================================
 >                        :: IntMap PreZone → ResultDispositions → Int → (IntMap PreZone, ResultDispositions)
 >         makeThemMono pzdb rd bix         =
 >           let
->             pz                           = (fWork ^. fwPreZones) IntMap.! bix
+>             pz                           = pzdb IntMap.! bix
 >           in
 >             (IntMap.update (Just . makeMono) (wordB pz) pzdb, rd)
 >             
 >         killThem pzdb rd bix             = 
 >           let
->             pz                           = (fWork ^. fwPreZones) IntMap.! bix
+>             pz                           = pzdb IntMap.! bix
 >             ssKill                       =
 >               [Scan Violated BadStereoPartner fName zrec.zswChanges.cnName]
 >           in

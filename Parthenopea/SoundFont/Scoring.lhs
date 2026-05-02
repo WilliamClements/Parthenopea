@@ -11,12 +11,11 @@ September 12, 2024
 > module Parthenopea.SoundFont.Scoring
 >        ( ArtifactGrade(..)
 >        , badButMaybeFix
->        , calcElideSet
 >        , combineMatches
 >        , computeFFMatches
->        , dead
 >        , defMatches
 >        , Disposition(..)
+>        , dropped
 >        , establishWinners
 >        , GMChoices(..)
 >        , hasImpact
@@ -73,7 +72,7 @@ In order of when they occur in the overall process:
   
 2. artifact grading - Before rendering, we bind the tournament winner (highest grade) to each GM InstrumentName or
                       PercussionSound. Empirically measured attributes (stereo, number of splits, fuzziness, etc.)
-                      are weighted and summed.
+                      are weighted, summed, and compared.
 
 3. zone scoring     - Nowadays  we just crunch all the pitch and velocity ranges so that incoming notes are
                       immediately mapped to suitable Zones.
@@ -82,6 +81,8 @@ In order of when they occur in the overall process:
 > adhocFuzz inp                            = map (`FF.bestMatch` inp)
 
 use "matching as" cache ===============================================================================================
+
+> type AgainstKindResult                   = Double
 
 > data PerGMScored                         =
 >   PerGMScored {
@@ -258,15 +259,11 @@ Scoring stuff ==================================================================
 > noClue                 :: String
 > noClue                                   = ""
 >
-> calcElideSet           :: Rational → [Disposition]
 > deadset, rescueset     :: [Disposition]    -- a given list is filtered down to the three Dispositions
 >                                            -- then we count "membership" per distinct Impact
 >                                            -- ...dead if any counts are odd
 > deadset                                  = [Violated, Dropped, Rescued]
 >                                            -- the following only optionally appear in scan report
-> calcElideSet dive                        = if dive < (1/2)
->                                              then [Accepted, Modified, NoChange]
->                                              else []
 > rescueset                                = [Rescued]
 >
 > surveyDispositions     :: [Disposition] → [Scan] → Map Impact Int
@@ -277,8 +274,8 @@ Scoring stuff ==================================================================
 >       | s.sDisposition `elem` dns        = Map.insertWith (+) s.sImpact 1 m
 >       | otherwise                        = m
 >
-> dead                   :: [Scan] → Bool
-> dead ss                                  =
+> dropped                :: [Scan] → Bool
+> dropped ss                               =
 >   surveyDispositions [Violated, Dropped] ss /= surveyDispositions [Rescued] ss
 >
 > hasImpact              :: Impact → [Scan] → Bool
@@ -392,12 +389,12 @@ tournament starts here =========================================================
 >                           → Map PerGMKey PerInstrument
 >                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
-> proposeCandidates dives rost vpzdbs cache matches
+> proposeCandidates dives rost vpzdbs perIs matches
 >                                          = do
 >   CM.when
 >     diagnosticsEnabled
->     (traceIO $ unwords [fName, show (length cache, Lazy.size matches.mIMatches, Lazy.size matches.mSMatches)])
->   return $ Map.foldlWithKey propose (Map.empty, Map.empty) cache
+>     (traceIO $ unwords [fName, show (length perIs, Lazy.size matches.mIMatches, Lazy.size matches.mSMatches)])
+>   return $ Map.foldlWithKey propose (Map.empty, Map.empty) perIs
 >   where
 >     fName                                = "proposeCandidates"
 >
@@ -410,7 +407,7 @@ tournament starts here =========================================================
 >     propose (wI, wP) pergmI perI         = (proposeInst, proposePerc)
 >       where
 >         pzdb           :: IntMap PreZone
->         pzdb                            = vpzdbs VB.! pergmI.pgkwFile
+>         pzdb                             = vpzdbs VB.! pergmI.pgkwFile
 >
 >         proposeInst    :: Map InstrumentName [PerGMScored]
 >         proposeInst                      =
@@ -468,7 +465,7 @@ tournament starts here =========================================================
 >             then Map.keys i2Fuzz
 >             else (singleton . fst) (Map.findMax i2Fuzz)
 >
->     xaEnterTournament  :: ∀ a. (Ord a, Show a, SFScorable a) ⇒
+>     xaEnterTournament  :: ∀ a. (Ord a, SFScorable a, Show a) ⇒
 >                           FFMatches
 >                           → PerGMKey
 >                           → [SSHint]
@@ -480,7 +477,7 @@ tournament starts here =========================================================
 >       | otherwise                        = wins
 >       where
 >         pzdb                             = vpzdbs VB.! pergm.pgkwFile
->         perI                             = cache Map.! pergm{pgkwBag = Nothing}
+>         perI                             = perIs Map.! pergm{pgkwBag = Nothing}
 >         iName                            = perI.piChanges.cnName
 >         owned          :: IntSet         = ownedOnly perI
 >
@@ -563,7 +560,7 @@ tournament starts here =========================================================
 >      | Paired | Orphaned
 >      | Absorbing | Absorbed | NoAbsorption    
 >      | Unrecognized | Narrow | NoPercZones
->      | Captured | Adopted | AdoptedAsMono | GlobalZone
+>      | Captured | Adopted | SwitchedToMono | AdoptedAsMono | GlobalZone
 >   deriving (Eq, Ord, Show)
 >
 > virginrd               :: ResultDispositions

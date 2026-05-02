@@ -15,7 +15,6 @@ August 15, 2025
 >        , npassage
 >        , passage) where
 >
-> import Data.Foldable
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MEvent

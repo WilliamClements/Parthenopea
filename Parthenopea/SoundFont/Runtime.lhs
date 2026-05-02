@@ -123,7 +123,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >             newPerI                      = IntMap.fromSet getPerI insts
 >             pzdb                         = 
 >               if doCopyPzdb
->                 then IntSet.foldl'       doSave   IntMap.empty     bixen
+>                 then IntSet.foldl'       doSave   IntMap.empty         bixen
 >                 else IntMap.foldlWithKey doUpdate sffile.zPreZonesBoot sffile.zPreZonesBoot
 >               where
 >                 bixen                    = IntSet.foldl' lump IntSet.empty insts
@@ -205,8 +205,14 @@ define signal functions and instrument maps to support rendering ===============
 >                           → Signal p () (Double, Double)
 > instrumentSF runt pergm durI pchIn volIn ps
 >   | traceIf trace_ISF False              = undefined
->   | otherwise                            =
->   eutSynthesize sw (reconX, mreconX) noon (VB.fromList ps) reconX.rSampleRate durI sffile.ks 
+>   | otherwise                            = eutSynthesize
+>                                              sw
+>                                              (reconX, mreconX)
+>                                              noon
+>                                              (VB.fromList ps)
+>                                              reconX.rSampleRate
+>                                              durI
+>                                              sffile.ks 
 >   where
 >     fName_                               = "instrumentSF"
 >     trace_ISF                            =

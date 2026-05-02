@@ -76,11 +76,9 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 >     freqRatio          :: Double         =
 >       case reconL.rTuning of
->       0                                  → 1
->       100                                → apToHz reconL.rRootKey / apToHz noon.noteOnKey
->       _                                  → microtoneRatio
->                                              (reconL.rRootKey - noon.noteOnKey)
->                                              reconL.rTuning
+>         0                                → 1
+>         100                              → apToHz reconL.rRootKey / apToHz noon.noteOnKey
+>         _                                → microtoneRatio (reconL.rRootKey - noon.noteOnKey) reconL.rTuning
 >     rateRatio          :: Double         = rate (undefined::p) / sr
 >     freqFactor         :: Double         = freqRatio * rateRatio / fromMaybe 1 reconL.rPitchCorrection
 >     deltaCalc          :: Double         = 1 / (numPoints * freqFactor)
@@ -118,6 +116,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
 >       where
+>         lst, len       :: Double
 >         (lst, len)                       = normalizeLooping reconL
 >
 >         calcLooping, calcNotLooping
@@ -188,7 +187,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 Microtones ============================================================================================================
 
 Account for custom frequency intervals = SoundFont scale tuning : 0 < x < 100 < 1200
-Clearly multiple root pitches are mutually incompatible, in general, for calculating frequency ratios
+In this path to non-12-tones-to-the-octave music, multiple root pitches are incompatible.
+So handle the current note's pitch only.
 
 For example, input of 3 = key interval, 50 = scale tuning, yields ratio of: 1.09
 Multiply the root frequency by that to give output frequency

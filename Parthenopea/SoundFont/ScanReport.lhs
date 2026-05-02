@@ -72,7 +72,10 @@ executive ======================================================================
 >                                              then []
 >                                              else prolog ++ [EndOfLine] ++ concatMap procScan ssIn ++ [EndOfLine]
 >       where
->         ssOut                            = filter (\s → s.sDisposition `notElem` calcElideSet verbosity) ssIn
+>         skipList                         = if verbosity < (1/2)
+>                                              then [Accepted, Modified, NoChange]
+>                                              else []
+>         ssOut                            = filter (\s → s.sDisposition `notElem` skipList) ssIn
 >         sffileBoot                       = bootFiles VB.! wfile k
 >
 >         prolog                           = 
