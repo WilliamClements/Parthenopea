@@ -365,9 +365,8 @@ Three different ways of computing the envelope duration must all get same answer
 >
 > graphSF                :: ∀ p . Clock p ⇒ Double → Double → Double → Signal p () Double → [(Double, Double)]
 > graphSF secs clock startT sf
->   | abs (clock - sr) > epsilon
->                                          = error $ unwords [fName, "(clock,sr)=", show (clock, sr)]
->   | nPoints >= 2 ^ (22::Int)             = error $ unwords [fName, "too large!"]
+>   | abs (clock - sr) > epsilon           = error $ unwords [fName, "(clock,sr)=", show (clock, sr)]
+>   | nPoints >= 2 ^ (22::Int)             = error $ unwords [fName, show nPoints, "is too large!"]
 >   | nActual /= nPoints                   = error $ unwords [fName, "(nPoints, nActual)=", show (nPoints, nActual)]
 >   | otherwise                            = zip onsets (VU.toList vec)
 >   where
@@ -375,8 +374,8 @@ Three different ways of computing the envelope duration must all get same answer
 >     sr                                   = rate (undefined::p)
 >
 >     nPoints            :: Int            = round (secs * clock)
->     dsig                                 = deJust fName (fromSignal fName secs sf)
->     vec                                  = VU.take nPoints dsig.dsigVec
+>     vec                :: VU.Vector Double
+>                                          = VU.take nPoints (deJust fName (fromSignal fName secs sf)).dsigVec
 >     nActual            :: Int            = VU.length vec
 >     onsets             :: [Double]       = [startT + (fromIntegral i/clock) | i ← [0..]]
 >

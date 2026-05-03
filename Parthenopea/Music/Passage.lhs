@@ -15,8 +15,8 @@ August 15, 2025
 >        , npassage
 >        , passage) where
 >
+> import Data.Maybe
 > import qualified Data.Vector.Strict      as VB
-> import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MEvent
 > import Euterpea.Music
 > import Parthenopea.Debug
@@ -74,11 +74,8 @@ _Overall_                =
 >                                            [ velocity onset               (notracer "ZZover" over)
 >                                            , velocity (onset + delta)     over]
 > fourVelos              :: Double → Double → Overall → Overall → Either Velocity (VB.Vector Double)
-> fourVelos onset delta over0 over1        = branchVelos $ VB.fromList
->                                            [ velocity onset  over0
->                                            , velocity (onset + delta / 2) over0
->                                            , velocity (onset + delta / 2) over1
->                                            , velocity (onset + delta)     over1]
+> fourVelos onset delta over0 over1        = branchVelos $ VB.fromList $ computeFourVelos onset delta over0 over1
+>
 > branchVelos            :: VB.Vector Double → Either Velocity (VB.Vector Double)
 > branchVelos params                       =
 >   if VB.all (nearlyEqual keyParam) (notracer "HHHparams" params)
@@ -297,9 +294,12 @@ sewSeeds =======================================================================
 >
 >                 over                     = deJust (unwords [fName, show si0]) (meksIn VB.! si0).mOverall
 >                 overPrev                 =
->                   case VB.find (\np → snd np == si0) nodeMates of
->                     Just np              → deJust (unwords [fName, show np]) (meksIn VB.! fst np).mOverall
->                     Nothing              → error $ unwords [fName, "inflection has no previous node !?"]
+>                   fromMaybe 
+>                     (error $ unwords [fName, "missing Overall"])
+>                     (VB.find isPrev nodeMates >>= getOverall)
+>                   where
+>                     isPrev nodePair      = snd nodePair == si0
+>                     getOverall nodePair  = (meksIn VB.! fst nodePair).mOverall
 
 enfill ================================================================================================================
       fills in any as yet undetermined mParams with simple (Left) Velocity
@@ -318,10 +318,9 @@ enfill =========================================================================
 >           in
 >             (updates VB.++ updateOne, velo)
 
-formNodeGroups ========================================================================================================
-      model the topology of given MekNote sequence, using SelfIndex to identify nodes
-        nodeMates  = all the consecutive pairs from given           -- (vector of integer pairs)
-        nodeGroups = given grouped by inflection status             -- (list of integer vectors)
+Model the topology of given MekNote sequence, using SelfIndex to identify nodes =======================================
+   nodeMates  = all the consecutive pairs from given           -- (vector of integer pairs)
+   nodeGroups = given grouped by inflection status             -- (list of integer vectors)
 
 > formNodeGroups         :: VB.Vector MekNote → (VB.Vector (SelfIndex, SelfIndex), [VB.Vector SelfIndex])
 > formNodeGroups meks                      = (nodeMates, nodeGroups)
@@ -346,7 +345,21 @@ formNodeGroups =================================================================
 >             _                            → True
 >       in
 >          VB.groupBy inflected nodes
->
+
+We want to play with time as x and velocity as y. The Overall function applied to time values drives the sequence of
+velocities to be produced.
+
+For one note, "blend" its Overall with the previous one, producing four velocities.
+
+> computeFourVelos       :: Double → Double → Overall → Overall → [Double]
+> computeFourVelos onset delta over0 over1 = 
+>   [          velocity onset                     over0                                                                  
+>    , (2/3) * velocity (onset + delta / 3)       over0      +    (1/3) * velocity (onset + delta / 3)        over1
+>    , (1/3) * velocity (onset + delta * 2 / 3)   over0      +    (2/3) * velocity (onset + delta * 2/ 3)     over1
+>    ,                                                                    velocity (onset + delta)            over1]
+
+Plot an entire passage for viewing the dynamics in action, so to speak.
+
 > chartPassage           :: VB.Vector MekNote → [Section]
 > chartPassage meksIn                      = zipWith Section chartColors (VB.toList $ VB.map chartNote meksIn)
 >   where
@@ -356,9 +369,9 @@ formNodeGroups =================================================================
 >         startT, secs   :: Double
 >         startT                           = fromRational mek.mEvent.eTime
 >         secs                             = fromRational mek.mEvent.eDur
->         ctrSF          :: CtrSF () Double
->         ctrSF                            = doSweepingEnvelope secs (deJust "no mParams!?!" mek.mParams)
+>         slwSF          :: SlwSF () Double
+>         slwSF                            = doSweepingEnvelope secs (deJust "no mParams!?!" mek.mParams)
 >       in
->         graphSF secs ctrRate startT ctrSF
+>         graphSF secs slwRate startT slwSF
 
 The End

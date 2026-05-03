@@ -765,7 +765,7 @@ Sampling =======================================================================
 > toSamples secs sig                       = VU.fromList $ take numSamples $ unfold $ strip sig
 >   where
 >     sr                                   = rate     (undefined :: p)
->     numSamples                           = truncate (secs * sr)
+>     numSamples                           = round (secs * sr)
 >
 > toFftSamples           :: ∀ a p. (AudioSample a, VU.Unbox a, Clock p) ⇒
 >                           Int → Signal p () a → VU.Vector a
@@ -781,11 +781,6 @@ Sampling =======================================================================
 >
 > maxSample              :: ∀ p. (Clock p) ⇒ Double → Signal p () Double → Double
 > maxSample durS sf                        = VU.maximum $ VU.map abs (toSamples durS sf)
->
-> data SlwRate
-> instance Clock SlwRate where
->   rate _                                 = 4.41
-> type SlwSF a b                           = SigFun SlwRate a b
 
 Conversion functions and general helpers ==============================================================================
 

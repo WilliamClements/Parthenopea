@@ -14,7 +14,6 @@ February 1, 2025
 >        , SFRuntime(..) ) where
 >
 > import qualified Data.Bifunctor          as BF
-> import Data.Foldable
 > import Data.IntMap        ( IntMap )
 > import qualified Data.IntMap             as IntMap
 > import Data.IntSet (IntSet )

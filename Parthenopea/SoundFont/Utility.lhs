@@ -23,7 +23,7 @@ October 8, 2025
 > import Data.Time.Clock.POSIX
 > import qualified Data.Vector.Strict      as VB
 > import Euterpea.IO.Audio.Basics ( outA )
-> import Euterpea.IO.Audio.Types ( AudRate, Clock(..), CtrRate )
+> import Euterpea.IO.Audio.Types ( AudRate, Clock(..), CtrRate, SigFun )
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music
 >
@@ -143,7 +143,14 @@ time ===========================================================================
 >   in
 >     formatTime defaultTimeLocale "%H:%M:%S%Q" (posixSecondsToUTCTime utcDiff)
 >
-> ctrRate, audRate       :: Double
+> data SlwRate
+> instance Clock SlwRate where
+>   rate _                                 = 441
+> type SlwSF a b                           = SigFun SlwRate a b
+>
+> slwRate, ctrRate, audRate
+>                        :: Double
+> slwRate                                  = rate (undefined :: SlwRate)
 > ctrRate                                  = rate (undefined :: CtrRate)
 > audRate                                  = rate (undefined :: AudRate)
 

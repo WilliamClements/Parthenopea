@@ -19,7 +19,7 @@ able to deal with instruments of arbitrary number of channels.
 > import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict      as IntMap
 > import Data.List
-> import Data.Ord (comparing)
+> import Data.Ord ( comparing )
 > import Euterpea.IO.Audio.Basics
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI.MEvent
