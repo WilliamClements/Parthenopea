@@ -366,12 +366,12 @@ Plot an entire passage for viewing the dynamics in action, so to speak.
 >     chartNote          :: MekNote → [(Double, Double)]
 >     chartNote mek                        =
 >       let
->         startT, secs   :: Double
+>         startT, deltaT :: Double
 >         startT                           = fromRational mek.mEvent.eTime
->         secs                             = fromRational mek.mEvent.eDur
+>         deltaT                           = fromRational mek.mEvent.eDur
 >         slwSF          :: SlwSF () Double
->         slwSF                            = doSweepingEnvelope secs (deJust "no mParams!?!" mek.mParams)
+>         slwSF                            = doSweepingEnvelope deltaT (deJust "no mParams!?!" mek.mParams)
 >       in
->         graphSF secs slwRate startT slwSF
+>         graphSF deltaT slwRate startT slwSF
 
 The End

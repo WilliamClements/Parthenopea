@@ -531,7 +531,7 @@ We Hate Her ====================================================================
 > whhTranspose                             = 0
 >
 > whhLead                :: BandPart
-> whhLead                                  = makePitched Harmonica     whhTranspose        0        100
+> whhLead                                  = makePitched HammondOrgan     whhTranspose        0        100
 >
 > weHateHer              :: Music (Pitch, [NoteAttribute])
 > weHateHer                                =

@@ -1213,7 +1213,8 @@ perI task ======================================================================
 >             (deJust fName zrec.zsSmashup)
 >
 >         ssInstrument                     =
->           [Scan Accepted ToCache fName (show $ IntSet.size owned)]
+>           [Scan Accepted ToCache fName 
+>              (show (IntSet.size owned, IntSet.size crossing))]
 >         ssPreZone                        =
 >           [Scan Accepted ToCache fName (show zrec.zswInst)]
 >

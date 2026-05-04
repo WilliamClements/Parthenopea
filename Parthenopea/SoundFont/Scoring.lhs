@@ -712,14 +712,15 @@ Utilities ======================================================================
 >       FrenchHorn                → Just $ singleton "english"
 >       FretlessBass              → Just            ["brass", "bassoon"]
 >       GuitarFretNoise           → Just            ["clean", "nylon"]
+>       HammondOrgan              → Just            ["church", "rock", "rotary"]
 >       HonkyTonkPiano            → Just            ["grand", "rhodes"]
 >       OrchestraHit              → Just $ singleton "kit"
 >       OverdrivenGuitar          → Just $ singleton "rever"
 >       RhodesPiano               → Just            ["upright", "grand"]
->       SlapBass1                 → Just            ["brass", "bassoon"]
->       SlapBass2                 → Just            ["brass", "bassoon"]
->       SynthBass1                → Just            ["brass", "bassoon"]
->       SynthBass2                → Just            ["brass", "bassoon"]
+>       SlapBass1                 → Just            ["brass", "bassoon", "synth"]
+>       SlapBass2                 → Just            ["brass", "bassoon", "synth"]
+>       SynthBass1                → Just            ["brass", "bassoon", "slap"]
+>       SynthBass2                → Just            ["brass", "bassoon", "slap"]
 >       SynthDrum                 → Just            ["bass"]
 >       TelephoneRing             → Just $ singleton "string"
 >       Trombone                  → Just            ["elec", "tom"]
