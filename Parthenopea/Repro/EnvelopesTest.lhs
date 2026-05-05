@@ -9,37 +9,25 @@ June 22, 2024
 
 Envelopes-related tests ===============================================================================================
 
-> ctrRateWorksForde1Envelope
->   , audRateWorksForde1Envelope
->   , ctrRateWorksForde2Envelope
->   , audRateWorksForde2Envelope
->   , ctrRateWorksForLongNoteEnvelope
->   , audRateWorksForShortNoteEnvelope
->   , ctrRateWorksForShortNoteEnvelope
+> testDe1Envelope
+>   , testDe2Envelope
+>   , testLongNoteEnvelope
+>   , testShortNoteEnvelope
 >                        :: IO Bool
 >
 > envelopesTests         :: [IO Bool]
-> envelopesTests                           = [ ctrRateWorksForde1Envelope
->                                            , audRateWorksForde1Envelope
->                                            , ctrRateWorksForde2Envelope
->                                            , audRateWorksForde2Envelope
->                                            , ctrRateWorksForLongNoteEnvelope
->                                            , audRateWorksForShortNoteEnvelope
->                                            , ctrRateWorksForShortNoteEnvelope]
+> envelopesTests                           = [ testDe1Envelope
+>                                            , testDe2Envelope
+>                                            , testLongNoteEnvelope
+>                                            , testShortNoteEnvelope]
 >
-> ctrRateWorksForde1Envelope               = chartEnvelope "ctrde1" defTimeFrame de1Envelope ctrRate
+> testDe1Envelope                          = chartEnvelope "slwde1" defTimeFrame de1Envelope slwRate
 >
-> audRateWorksForde1Envelope               = chartEnvelope "audde1" defTimeFrame de1Envelope audRate
+> testDe2Envelope                          = chartEnvelope "slwde2" defTimeFrame de2Envelope slwRate
 >
-> ctrRateWorksForde2Envelope               = chartEnvelope "ctrde2" defTimeFrame de2Envelope ctrRate
+> testLongNoteEnvelope                     = chartEnvelope "ctrLongNote" eLongNoteTimeFrame eLongNoteEnvelope ctrRate
 >
-> audRateWorksForde2Envelope               = chartEnvelope "audde2" defTimeFrame de2Envelope audRate
->
-> ctrRateWorksForLongNoteEnvelope          = chartEnvelope "ctrLongNote" eLongNoteTimeFrame eLongNoteEnvelope ctrRate
->
-> audRateWorksForShortNoteEnvelope         = chartEnvelope "audShortNote" eShortNoteTimeFrame eShortNoteEnvelope audRate
->
-> ctrRateWorksForShortNoteEnvelope         = chartEnvelope "ctrShortNote" eShortNoteTimeFrame eShortNoteEnvelope ctrRate
+> testShortNoteEnvelope                    = chartEnvelope "slwShortNote" eShortNoteTimeFrame eShortNoteEnvelope slwRate
 >
 > defTimeFrame :: TimeFrame
 > defTimeFrame                             =

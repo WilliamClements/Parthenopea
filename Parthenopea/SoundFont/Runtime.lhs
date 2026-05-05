@@ -116,8 +116,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >         runtimeFile    :: IntSet → Maybe (Int, SFFileRuntime)
 >         runtimeFile insts                =    
 >           let
->             getPerI inst                 =
->               perIs Map.! stdPerGMKey sffile.zWordFBoot inst
+>             getPerI inst                 = perIs Map.! stdPerGMKey sffile.zWordFBoot inst
 >
 >             newPerI                      = IntMap.fromSet getPerI insts
 >             pzdb                         = 

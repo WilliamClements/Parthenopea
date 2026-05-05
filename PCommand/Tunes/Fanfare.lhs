@@ -6,9 +6,9 @@ William Clements
 November 11, 2022
 
 > module Tunes.Fanfare (
->                   theFanfare, kit, pit, dit, rattan, bill, roger, waypostpurple, deyDumpDum, getCITM, gold, silver
->                 , whelpNarp, alice, bob, copper, dadadada, snake, littlePendingtonArnt, pendingtonArnt
->                 , littleWay, pan ) where
+>          theFanfare, kit, pit, dit, rattan, bill, roger, waypostpurple, deyDumpDum, getCITM, gold, silver
+>        , whelpNarp, alice, bob, copper, dadadada, snake, littlePendingtonArnt, pendingtonArnt
+>        , littleWay, pan ) where
 >
 > import Euterpea.Music
 > import Parthenopea.Music.Passage

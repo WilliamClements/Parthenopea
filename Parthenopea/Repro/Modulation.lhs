@@ -527,8 +527,8 @@ Type declarations ==============================================================
 >   , lowpassKs          :: KernelSpec
 >   } deriving (Eq, Show)
 > lowpassFc, lowpassQ    :: Lowpass → Double
-> lowpassFc lp                             = fromAbsoluteCents lp.lowpassKs.ksFc -- (ksFc $ lowpassKs lp)
-> lowpassQ lp                              = fromIntegral      (ksQ $ lowpassKs lp)
+> lowpassFc lp                             = fromAbsoluteCents lp.lowpassKs.ksFc
+> lowpassQ lp                              = fromIntegral      lp.lowpassKs.ksQ
 >
 > data CoeffsM2N2                          =
 >   CoeffsM2N2 {

@@ -148,6 +148,8 @@ We realize/discretize the envelope's signal. The resulting block is checked for 
 >     fName                                = "discretizeEnvelope"
 >
 >     dsig
+>       | abs (clockRate - slwRate) < epsilon
+>                                          = deJust fName $ fromSignal fName (targetT + minUseful) ssignal
 >       | abs (clockRate - ctrRate) < epsilon
 >                                          = deJust fName $ fromSignal fName (targetT + minUseful) csignal
 >       | abs (clockRate - audRate) < epsilon
@@ -158,6 +160,12 @@ We realize/discretize the envelope's signal. The resulting block is checked for 
 >     nvalues                              = VU.map (dsig.dsigVec VU.!) nindices
 >     howMany                              = VU.length nindices
 >     howNegative                          = VU.sum nvalues
+>
+>     ssignal            :: SlwSF () Double
+>     ssignal                              =
+>       proc () → do
+>         slw ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
+>         outA ⤙ slw
 >
 >     csignal            :: CtrSF () Double
 >     csignal                              =
