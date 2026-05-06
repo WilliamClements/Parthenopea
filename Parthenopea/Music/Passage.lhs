@@ -249,7 +249,7 @@ wearOveralls ===================================================================
 >       VB.concatMap (uncurry computeOverall) nodeMates -- WOX VB.++ computeOverall lastSi lastLastSi
 >       where
 >         computeOverall si0 si1
->           | traceNow trace_CO False      = undefined
+>           | traceNot trace_CO False      = undefined
 >           | otherwise                    = 
 >           VB.singleton mek0{mOverall = Just $ makeOverall loud0 loud1 mek0.mEvent mek1.mEvent}
 >           where

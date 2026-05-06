@@ -1,3 +1,4 @@
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 >
 > module Main where
@@ -19,10 +20,12 @@ Jingle-list will be rendered also if named in the plus argument.
 >   args                                   ← getArgs
 >   either doNormal doError (massage args)
 >   where
+>     sw                                   = defDirectives.synthSwitches
 >     dives                                =
 >       defDirectives
->         {   client = "PCommand"
->           , dReportVerbosity = allOn}
+>         {   client                       = "PCommand"
+>           , dReportVerbosity             = allOn
+>           , synthSwitches                = sw{useReverb = False}}
 >
 >     jingleDB           :: Map String [Song]
 >     jingleDB                             = makeJingleDB dives
