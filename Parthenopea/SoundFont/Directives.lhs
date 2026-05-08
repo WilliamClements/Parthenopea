@@ -3,9 +3,9 @@
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
-SFSpec
+Directives
 William Clements
-April 16, 2023
+December 12, 2025
 
 > module Parthenopea.SoundFont.Directives (
 >          allOn
