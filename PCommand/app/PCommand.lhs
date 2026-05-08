@@ -25,7 +25,7 @@ Jingle-list will be rendered also if named in the plus argument.
 >       defDirectives
 >         {   client                       = "PCommand"
 >           , dReportVerbosity             = allOn
->           , synthSwitches                = sw{useReverb = False}}
+>           , synthSwitches                = sw{useReverb = True}}
 >
 >     jingleDB           :: Map String [Song]
 >     jingleDB                             = makeJingleDB dives

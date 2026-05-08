@@ -778,10 +778,7 @@ Pairing algorithm phases =======================================================
 >     nominal sy                            =
 >       IntMap.foldlWithKey (conduce False (sy ^. psUnpaired)) IntMap.empty (fWork ^. (fwPairing . fwSamplePairings))
 >     exotic sy                             =
->       IntMap.foldlWithKey
->         (conduce True (sy ^. psUnpaired))
->         IntMap.empty
->         (fWork ^. (fwPairing . fwSamplePairings))
+>       IntMap.foldlWithKey (conduce  True (sy ^. psUnpaired)) IntMap.empty (fWork ^. (fwPairing . fwSamplePairings))
 >     linkless sy                           =
 >       let
 >         (bixenL, bixenR)                  = IntSet.partition isLeft (sy ^. psUnpaired)
@@ -912,10 +909,10 @@ owners husbandry ===============================================================
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
 >                           → IntSet                     {- [InstIndex]                            -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
-> repairOwners pzdb owners dirtyIs         = invalidated `IntMap.union` makeOwners (IntMap.filter isInteresting pzdb) 
+> repairOwners pzdb owners dirtyIs         = invalidated `IntMap.union` makeOwners (IntMap.filter wasDirty pzdb) 
 >   where
 >     invalidated                          = IntSet.foldl' (flip IntMap.delete) owners dirtyIs
->     isInteresting pz                     = wordI pz `IntSet.member` dirtyIs
+>     wasDirty pz                          = wordI pz `IntSet.member` dirtyIs
 
 vet task ==============================================================================================================
           switch bad stereo zones to mono, or off altogether (modifies pzdb)
@@ -985,8 +982,8 @@ adopt task =====================================================================
 >         dispose (extractSampleKey pz) ssAdopt rdFold
 
 smash task ============================================================================================================
-          compute smashups for each instrument
-          this is initiated multiple times, and only redoes the zrec's smashup if it currently contains Nothing
+          Lazy-compute smashups for each instrument.
+          Initiated multiple times, only Lazy-computes the zrec's smashup if it currently contains Nothing.
 
 > smashTaskIf _ _ fWork                    = zrecTask smasher fWork
 >   where

@@ -22,8 +22,9 @@ October 8, 2025
 > import Data.Time
 > import Data.Time.Clock.POSIX
 > import qualified Data.Vector.Strict      as VB
+> import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.Basics ( outA )
-> import Euterpea.IO.Audio.Types ( AudRate, Clock(..), CtrRate, SigFun )
+> import Euterpea.IO.Audio.Types ( AudRate, Clock(..), CtrRate, SigFun, Signal )
 > import Euterpea.IO.MIDI.GeneralMidi ( )
 > import Euterpea.Music
 >
@@ -275,6 +276,21 @@ An adaptor to make CtlSF into AudSF, communicating an IntMap
 >                                          ⤙ x 
 >               else delay IntMap.empty    ⤙ y
 >       outA                               ⤙ y
+
+A delay line that doesn't use unsafePerformIO. To do: implement the delay line variants
+
+> vuDelayLine            :: ∀ p . Clock p ⇒ Double → Signal p Double Double
+> vuDelayLine maxdel                       =
+>     let sr                               = rate (undefined :: p)
+>         sz                               = truncate (sr * maxdel)
+>     in proc x → do
+>       rec
+>         let ix' = if ix == sz-1 then 0 else ix+1
+>         ix ← delay 0 ⤙ ix'
+>         buf ← delay (VU.replicate sz 0) ⤙ buf'
+>         let next = buf VU.! ix
+>         let buf' = VU.update buf (VU.singleton (ix, x))
+>       outA ⤙ next
 
 Raises 'a' to the power 'b' using logarithms
 

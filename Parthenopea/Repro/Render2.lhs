@@ -1,6 +1,4 @@
 > {-# LANGUAGE Arrows #-}
-> {-# LANGUAGE FlexibleContexts #-}
-> {-# LANGUAGE NamedFieldPuns #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -19,6 +17,7 @@ able to deal with instruments of arbitrary number of channels.
 > import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict      as IntMap
 > import Data.List
+> import Data.Maybe
 > import Data.Ord ( comparing )
 > import Euterpea.IO.Audio.Basics
 > import Euterpea.IO.Audio.Types
@@ -34,11 +33,10 @@ actually returns is implementation independent.
 > type InstrMap a                          = [(InstrumentName, Instr a)]
 > 
 > lookupInstr            :: InstrumentName → InstrMap a → Instr a
-> lookupInstr ins im                       =
->   case lookup ins im of
->     Just i                               → i
->     Nothing                              → error $ "Instrument " ++ show ins ++ 
->                                             " does not have a matching Instr in the supplied InstrMap."
+> lookupInstr ins im                       = fromMaybe (error msg) (lookup ins im)
+>   where
+>     msg                                  =
+>       unwords ["Instrument", show ins, "does not have a matching Instr in the supplied InstrMap."]
 
 Each note in a Performance is tagged with a unique NoteId, which
 helps us keep track of the signal function associated with a note.

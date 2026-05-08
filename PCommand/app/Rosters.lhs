@@ -65,7 +65,7 @@
 >        , Song    "opus131"         (opus131 dives)             Map.empty
 >        , Song    "bake"            (bakedJingle dives 93)      Map.empty]
 >     xjingles                             =
->        [ Song    "weHateHer"       weHateHer                   Map.empty]
+>        [ Song    "pit"             pit                         Map.empty]
 >     zjingles                             =
 >        [ Song    "deathlessHorsie" (deathlessHorsie dives)     Map.empty
 >        , Song    "basicLick"       (basicLick dives)           Map.empty

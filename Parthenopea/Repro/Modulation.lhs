@@ -418,7 +418,7 @@ Miscellaneous ==================================================================
 >     makeSF o                             = 
 >       proc _ → do
 >         y ← triangleWave o.lfoFrequency  ⤙ ()
->         z ← delayLine    o.lfoDelay      ⤙ y
+>         z ← vuDelayLine    o.lfoDelay   ⤙ y
 >         outA                             ⤙ z
 >
 > triangleWave           :: ∀ p . Clock p ⇒ Double → Signal p () Double
@@ -682,9 +682,6 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >                [b0]
 >                [a0, a1]
 >
-> windices               :: [Word]
-> windices                                 = [0..7]
->
 > makeFreeVerb           :: Double → Double → Double → FreeVerb
 > makeFreeVerb roomSize damp width
 >   | traceIf trace_MFV False = undefined
@@ -699,6 +696,8 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >     initCombDelay, initAllpassDelay
 >                        :: Array Word Word64
 >     initCombFilter     :: Array Word FilterData
+>     windices           :: [Word]         = [0..7]
+>
 >     initCombDelay    = array (0,7) $ zip windices fvCombDelays
 >     initAllpassDelay = array (0,3) $ zip windices fvAllpassDelays
 >     initCombFilter =   array (0,7) $ zip windices (replicate 8 $ newOnePole 0.9)
@@ -731,11 +730,11 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >                  initAllpassDelay
 >                  initAllpassDelay
 >   where
->     trace_MFV =
->       unwords [
->           "makeFreeVerb roomSize",       show roomSize
->         , "damp",                        show damp
->         , "width",                       show width]
+>     fName                                = "makeFreeVerb"
+>     trace_MFV                            = unwords [fName 
+>                                              , "roomSize",        show roomSize
+>                                              , "damp",            show damp
+>                                              , "width",           show width]
 >   
 > eatFreeVerb            :: ∀ p . Clock p ⇒ FreeVerb → Signal p Double Double
 > eatFreeVerb fv                           =
@@ -764,7 +763,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > comb maxDel stkFilter                    =
 >   proc sIn → do
 >     rec
->       sOut ← delayLine secs ⤙ sIn + sOut * jGain stkFilter
+>       sOut ← vuDelayLine secs ⤙ sIn + sOut * jGain stkFilter
 >     outA ⤙ sOut
 >   where
 >     sr                                   = rate (undefined :: p)
@@ -773,7 +772,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > allpass                :: ∀ p . Clock p ⇒ Word64 → Signal p Double Double
 > allpass maxDel                           =
 >   proc sIn → do
->     sOut ← delayLine secs ⤙ sIn
+>     sOut ← vuDelayLine secs ⤙ sIn
 >     outA ⤙ sOut
 >   where
 >     sr                                   = rate (undefined :: p)
