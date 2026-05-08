@@ -51,8 +51,7 @@ struct sfInstModList
 >   , mrModSrc           :: ModSrc
 >   , mrModDest          :: ModDestType
 >   , mrModAmount        :: Double
->   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)
->    
+>   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)  
 > defModulator           :: Modulator
 > defModulator                             =
 >   Modulator
@@ -119,6 +118,9 @@ struct sfInstModList
 Modulator management is complex considering small impact ==============================================================
 
 Nonetheless, trying hard here for 100 percent correctness and support, even with high numbers of mods.
+
+The function renumberMods called by resolveMods is used to force Modulator identifiers into a canonical form, in
+order to successfully support the Eq instance.
 
 > resolveMods            :: Modulation → [Modulator] → [Modulator] → Modulation
 > resolveMods m8n m8rs dm8rs               = m8n{mModsMap = compileMods checked}
@@ -433,14 +435,14 @@ Miscellaneous ==================================================================
 >     sOut   ← delayLine1 0.2              ⤙ (sIn,0.1+depth*vib)
 >     outA                                 ⤙ sOut
 >
-> echo                   :: ∀ p . Clock p ⇒ Signal p  Double Double
+> echo                   :: ∀ p . Clock p ⇒ Signal p Double Double
 > echo                                     =
 >   proc sIn → do
 >     rec
->       fb   ← delayLine 0.04            ⤙ sIn + 0.7*fb   -- 0.7*fb
->       fb'  ← delayLine 0.06            ⤙ sIn + 0.7*fb'  -- 0.7*fb
->       fb'' ← delayLine 0.1             ⤙ sIn + 0.7*fb'' -- 0.7*fb
->     outA ⤙ (fb + fb' + fb'')                           -- fb/3
+>       fb   ← vuDelayLine 0.04            ⤙ sIn + 0.7*fb
+>       fb'  ← vuDelayLine 0.06            ⤙ sIn + 0.7*fb'
+>       fb'' ← vuDelayLine 0.1             ⤙ sIn + 0.7*fb''
+>     outA ⤙ (fb + fb' + fb'')                           -- WOX fb/3?
 >
 > sawtooth               :: ∀ p . Clock p ⇒  Double → Signal p () Double
 > sawtooth freq                           = 
@@ -454,8 +456,9 @@ Controller Curves ==============================================================
 >                                              then controlBiPolar ping dNorm
 >                                              else controlUniPolar ping dNorm
 >   where
->     scale                                = profess (lo < hi) "inverted range in controlDenormal" (hi - lo)
+>     scale                                = profess (lo < hi) msg (hi - lo)
 >     dNorm                                = (dIn - lo) / scale
+>     msg                                  = unwords ["invalid range in controlDenormal", show (lo, hi)]
 >
 > controlUniPolar        :: Mapping → Double → Double
 > controlUniPolar ping dIn                 = if ping.msMax2Min
