@@ -7,9 +7,13 @@ November 24, 2023
 > module Parthenopea.Repro.ModulationTest ( modulationTests ) where
 >
 > import Control.Exception ( try, ErrorCall )
+> import Control.Monad
 > import Data.Either ( isLeft )
+> import Data.List
 > import qualified Data.Map.Strict         as Map
+> import Diagrams.Prelude
 > import Parthenopea.Debug ( aEqual )
+> import Parthenopea.Repro.Chart
 > import Parthenopea.Repro.Modulation
 
 Modulation-related tests ==============================================================================================
@@ -28,6 +32,7 @@ Modulation-related tests =======================================================
 >   , supercededModulatorWillBeEliminated
 >   , unsupercededModulatorWillNotBeEliminated
 >   , canonicalOrderingWorks
+>   , allMappingsOk
 >                        :: IO Bool
 >
 > modulationTests        :: [IO Bool]
@@ -38,7 +43,8 @@ Modulation-related tests =======================================================
 >                                         ,   mutuallyCyclicModulatorsWillBeRejected
 >                                         ,   supercededModulatorWillBeEliminated
 >                                         ,   unsupercededModulatorWillNotBeEliminated
->                                         ,   canonicalOrderingWorks]
+>                                         ,   canonicalOrderingWorks
+>                                         ,   allMappingsOk]
 >
 > vanillaModulatorWillNotBeEliminated      = do
 >   let m8r                                = defModulator{
@@ -140,5 +146,26 @@ Modulation-related tests =======================================================
 >   let m8n0                               = resolveMods defModulation [m8r00, m8r01] []
 >   let m8n1                               = resolveMods defModulation [m8r10, m8r11] []
 >   return $ aEqual m8n0 m8n1
+
+In SoundFont spec, https://www.synthfont.com/SFSPEC21.PDF, see 9.5.2 Pictorial Examples of Source Types
+
+> allMappingsOk                            = do
+>   drawings                               ← zipWithM drawOne [0..] allMappings
+>   mapM_ chartOne drawings
+>   return True
+>
+>   where
+>
+>   drawOne              :: Int → Mapping → IO (Section, String, FilePath)
+>   drawOne iter ping                      =
+>     let section                          = Section (opaque blue) (zip xs ys)
+>     in return (section, show ping, show iter)
+>     where
+>       xs, ys           :: [Double]
+>       xs                                 = [fromIntegral x / 128 | x ← [0..127]]
+>       ys                                 = map (controlDenormal ping (0, 1)) xs
+>
+>   chartOne             :: (Section, String, FilePath) → IO Bool
+>   chartOne (section, title, path)        = chartPoints title ("ping" ++ path) (singleton section)
 
 The End

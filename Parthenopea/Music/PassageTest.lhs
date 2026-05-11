@@ -58,7 +58,7 @@ Implement Passage Test =========================================================
 >   let meks                               = enrichPassage testDirectives defBandPart ms music
 >
 >   let summs                              = reapEmissions (summarizeOnePassage meks)
->   chartPoints tName (chartPassage meks)
+>   chartPoints "PassageTest" tName (chartPassage meks)
 >   putStrLn summs
 >   return True
 > 

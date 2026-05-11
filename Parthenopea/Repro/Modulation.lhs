@@ -98,8 +98,7 @@ struct sfInstModList
 >   Mapping {
 >     msContinuity     :: Continuity
 >   , msBiPolar        :: Bool  
->   , msMax2Min        :: Bool
->   , msCCBit          :: Bool} deriving (Eq, Ord, Show)
+>   , msMax2Min        :: Bool} deriving (Eq, Ord, Show)
 >
 > data Continuity =
 >     Linear
@@ -108,9 +107,9 @@ struct sfInstModList
 >   | Switch deriving (Eq, Ord, Show, Enum)
 >
 > defMapping             :: Mapping
-> defMapping                               = Mapping Linear False False False
+> defMapping                               = Mapping Linear False False 
 > allMappings            :: [Mapping]
-> allMappings                              = [Mapping cont bipolar max2min False
+> allMappings                              = [Mapping cont bipolar max2min 
 >                                                   | cont                  ← [Linear, Concave, Convex, Switch]
 >                                                        , bipolar          ← [False, True]
 >                                                              , max2min    ← [False, True]]                                          
@@ -244,14 +243,12 @@ order to successfully support the Eq instance.
 >                                              >>= addContinuity
 >                                              >>= addBiPolar
 >                                              >>= addMax2Min
->                                              >>= addCCBit
 >
->     cont, bipolar, max2Min, ccBit, src
+>     cont, bipolar, max2Min, src
 >                        :: Int
 >     cont                                 = fromIntegral   (wIn `shift` (-10))    `mod` 64
 >     bipolar                              = fromIntegral   (wIn `shift` (-9))     `mod` 2
 >     max2Min                              = fromIntegral   (wIn `shift` (-8))     `mod` 2
->     ccBit                                = fromIntegral   (wIn `shift` (-7))     `mod` 2
 >     src                                  = fromIntegral   wIn                    `mod` 128
 >
 >     addContinuity from                   = if cont < 16    then Just from{msContinuity = toEnum cont}
@@ -260,8 +257,6 @@ order to successfully support the Eq instance.
 >                                                            else Just from{msBiPolar = False}
 >     addMax2Min from                      = if max2Min /= 0 then Just from{msMax2Min = True}
 >                                                            else Just from{msMax2Min = False}
->     addCCBit from                        = if ccBit /= 0   then Nothing
->                                                            else Just from{msCCBit = False}
 >     addMapping m                         = Just defModSrc{msMapping = m}
 >     addSource from                       = result
 >       where
@@ -301,10 +296,10 @@ order to successfully support the Eq instance.
 >                                            , makeDefaultMod 1 ms1  8 (-2400) ms2 ]
 >  -- all three of these are negative unipolar, continuity varying                                                            
 >   where
->     ms0                                  = ModSrc   (Mapping Concave   False  True False) FromNoteOnVel
->     ms1                                  = ModSrc   (Mapping Linear    False  True False) FromNoteOnVel
+>     ms0                                  = ModSrc   (Mapping Concave   False  True) FromNoteOnVel
+>     ms1                                  = ModSrc   (Mapping Linear    False  True) FromNoteOnVel
 >  -- some implementations do not include the amount source below in the second default modulator
->     ms2                                  = ModSrc   (Mapping Switch    False  True False) FromNoteOnVel
+>     ms2                                  = ModSrc   (Mapping Switch    False  True) FromNoteOnVel
 >
 >     makeDefaultMod     :: Node → ModSrc → Word → Double → ModSrc → Modulator
 >     makeDefaultMod mId ms igen amt aSrc  = deJust
@@ -334,7 +329,7 @@ order to successfully support the Eq instance.
 >         evalResult                       = getValue m8r.mrModSrc * m8r.mrModAmount * getValue m8r.mrAmountSrc
 >
 > evaluateNoteOn         :: Int → Mapping → Double
-> evaluateNoteOn n ping                    = controlDenormal ping (fromIntegral n / qMidiDouble128) (0, 1)
+> evaluateNoteOn n ping                    = controlDenormal ping (0, 1) (fromIntegral n / qMidiDouble128)
 >
 > evaluateModSignals     :: String → Modulation → ModDestType → NoteOn → ModSignals → Double
 > evaluateModSignals tag m8n md noon (ModSignals xenv xlfo xvib)
@@ -451,8 +446,8 @@ Miscellaneous ==================================================================
 
 Controller Curves =====================================================================================================
 
-> controlDenormal        :: Mapping → Double → (Double, Double) → Double
-> controlDenormal ping dIn (lo, hi)        = if ping.msBiPolar
+> controlDenormal        :: Mapping → (Double, Double) → Double → Double
+> controlDenormal ping (lo, hi) dIn        = if ping.msBiPolar
 >                                              then controlBiPolar ping dNorm
 >                                              else controlUniPolar ping dNorm
 >   where
@@ -496,8 +491,8 @@ Controller Curves ==============================================================
 >                                              else (-1, 0)
 >     dOut
 >       | ping.msContinuity == Switch      = (controlUniPolar ping dIn * 2) - 1
->       | dIn < 0.5                        = controlDenormal pingL dIn (0.0, 0.5) + addL
->       | otherwise                        = controlDenormal pingR dIn (0.5, 1.0) + addR
+>       | dIn < 0.5                        = controlDenormal pingL (0.0, 0.5) dIn + addL
+>       | otherwise                        = controlDenormal pingR (0.5, 1.0) dIn + addR
 >
 
 Type declarations =====================================================================================================

@@ -305,14 +305,12 @@ Need this definition
 Constants
 
 > theE, epsilon, upsilon :: Double
-> theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7
-> epsilon                                  = 1e-8               -- a generous little epsilon
-> upsilon                                  = 1e10               -- a scrawny  big    upsilon
+> theE                                     = 2.718_281_828_459_045_235_360_287_471_352_7 -- just kiddin'
+> epsilon                                  = 1e-8                                        -- a generous little epsilon
+> upsilon                                  = 1e10                                        -- a scrawny  big    upsilon
 >    
-> theE' :: Complex Double
+> theE', theJ            :: Complex Double
 > theE' = theE :+ 0
->
-> theJ :: Complex Double
 > theJ = 0 :+ 1
 
 The End

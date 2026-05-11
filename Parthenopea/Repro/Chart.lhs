@@ -25,14 +25,14 @@ Chart ==========================================================================
 >   , section_points   :: [(Double, Double)]}
 >   deriving Show
 >
-> chartPoints            :: String → [Section] → IO Bool
-> chartPoints tag sects                    =
+> chartPoints            :: String → String → [Section] → IO Bool
+> chartPoints title tag sects              =
 >   do
 >     let cars = plot_errbars_values .~ [symErrPoint x y dx dy | (x,y,dx,dy) ← vals']
 >                    $ plot_errbars_title .~ "test"
 >                    $ def
 >     let plotVector = map (toPlot . stylize) sects
->     let layout' = layout_title .~ "SFEnvelope" $ layout_plots .~ toPlot cars : plotVector $ def
+>     let layout' = layout_title .~ title $ layout_plots .~ toPlot cars : plotVector $ def
 >     let chart' = toRenderable layout'
 >     let path = concat ["chaP", tag, ".svg"]
 >     putStrLn $ unwords ["rendering", path]

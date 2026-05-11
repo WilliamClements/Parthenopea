@@ -242,7 +242,7 @@ wearOveralls ===================================================================
       (maps over nodeMates)
 
 >     wearOveralls meksIn                  =
->       VB.concatMap (uncurry computeOverall) nodeMates -- WOX VB.++ computeOverall lastSi lastLastSi
+>       VB.concatMap (uncurry computeOverall) nodeMates
 >       where
 >         computeOverall si0 si1
 >           | traceNot trace_CO False      = undefined

@@ -502,7 +502,7 @@ Type declarations ==============================================================
 >     stats                                = dsig.dsigStats
 > chartDiscreteSig       :: Double → Int → DiscreteSig Double → String → IO Bool
 > chartDiscreteSig clockRate nPoints dsig tag
->                                          = chartPoints tag [sec]
+>                                          = chartPoints "Discrete" tag [sec]
 >   where
 >     sec                                  = Section (opaque blue) (zip xs ys)
 >     xs, ys             :: [Double]

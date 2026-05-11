@@ -111,7 +111,7 @@ Feed chart =====================================================================
 >             doQs qs                      = do
 >               putStrLn $ unwords ["doQs", show qs]
 >               let sects                  = zipWith Section chartColors (map calc qs)
->               chartPoints (concat [show currentRt, "_fc", show currentFc]) sects
+>               chartPoints "doFilters" (concat [show currentRt, "_fc", show currentFc]) sects
 >               return ()
 >               where
 >                 calc   :: Double → [(Double, Double)]
@@ -141,7 +141,7 @@ Feed chart =====================================================================
 >               ts1                        ← getCurrentTime
 >               let sects                  = zipWith Section chartColors (map calc fcs)
 >               print sects
->               chartPoints (concat [show currentRt, "_q", show currentQ]) sects
+>               chartPoints "doQ" (concat [show currentRt, "_q", show currentQ]) sects
 >               ts2                        ← getCurrentTime 
 >               putStrLn $ unwords ["doFcs elapsed=: ", show (diffUTCTime ts2 ts1)]
 >               where
@@ -160,6 +160,7 @@ Feed chart =====================================================================
 > chartIr                :: Bool → IO ()
 > chartIr useFastFourier                   = do
 >   chartPoints
+>     "chartIr"
 >     (if useFastFourier then "freakResponse" else "impulseResponse")
 >     [Section (opaque blue) groutsR, Section (opaque orange) groutsI]
 >   return ()
@@ -261,7 +262,7 @@ Feed chart =====================================================================
 >   let sects                              = [Section (opaque blue) rpairs, Section (opaque orange) cpairs]
 >   
 >   -- print pairs
->   chartPoints ("ResonanceConvo_fc" ++ show qIter) sects
+>   chartPoints "DiscreteTest" ("ResonanceConvo_fc" ++ show qIter) sects
 >   
 >   return 0
 >
