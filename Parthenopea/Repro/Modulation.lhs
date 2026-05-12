@@ -415,7 +415,7 @@ Miscellaneous ==================================================================
 >     makeSF o                             = 
 >       proc _ → do
 >         y ← triangleWave o.lfoFrequency  ⤙ ()
->         z ← vuDelayLine    o.lfoDelay   ⤙ y
+>         z ← delayLine    o.lfoDelay      ⤙ y
 >         outA                             ⤙ z
 >
 > triangleWave           :: ∀ p . Clock p ⇒ Double → Signal p () Double
@@ -434,9 +434,9 @@ Miscellaneous ==================================================================
 > echo                                     =
 >   proc sIn → do
 >     rec
->       fb   ← vuDelayLine 0.04            ⤙ sIn + 0.7*fb
->       fb'  ← vuDelayLine 0.06            ⤙ sIn + 0.7*fb'
->       fb'' ← vuDelayLine 0.1             ⤙ sIn + 0.7*fb''
+>       fb   ← delayLine 0.04              ⤙ sIn + 0.7*fb
+>       fb'  ← delayLine 0.06              ⤙ sIn + 0.7*fb'
+>       fb'' ← delayLine 0.1               ⤙ sIn + 0.7*fb''
 >     outA ⤙ (fb + fb' + fb'')                           -- WOX fb/3?
 >
 > sawtooth               :: ∀ p . Clock p ⇒  Double → Signal p () Double
@@ -761,7 +761,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > comb maxDel stkFilter                    =
 >   proc sIn → do
 >     rec
->       sOut ← vuDelayLine secs ⤙ sIn + sOut * jGain stkFilter
+>       sOut ← delayLine secs ⤙ sIn + sOut * jGain stkFilter
 >     outA ⤙ sOut
 >   where
 >     sr                                   = rate (undefined :: p)
@@ -770,7 +770,7 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > allpass                :: ∀ p . Clock p ⇒ Word64 → Signal p Double Double
 > allpass maxDel                           =
 >   proc sIn → do
->     sOut ← vuDelayLine secs ⤙ sIn
+>     sOut ← delayLine secs ⤙ sIn
 >     outA ⤙ sOut
 >   where
 >     sr                                   = rate (undefined :: p)

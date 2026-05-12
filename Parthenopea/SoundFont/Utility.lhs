@@ -277,7 +277,7 @@ An adaptor to make CtlSF into AudSF, communicating an IntMap
 >               else delay IntMap.empty    ⤙ y
 >       outA                               ⤙ y
 
-A delay line that doesn't use unsafePerformIO. To do: implement the delay line variants
+A delay line that doesn't use unsafePerformIO. It is way too slow. No reason to implement the delay line variants
 
 > vuDelayLine            :: ∀ p . Clock p ⇒ Double → Signal p Double Double
 > vuDelayLine maxdel                       =

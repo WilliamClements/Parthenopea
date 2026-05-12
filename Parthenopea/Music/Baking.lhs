@@ -309,7 +309,7 @@ accessed in end time order.
 >                  , Trombone,        Marimba,   Vibraphone,          ElectricGuitarJazz
 >                  , OrchestralHarp,  SlapBass1, HonkyTonkPiano,      Harpsichord
 >                  , HammondOrgan,    Violin,    Tuba]
->       blacklist = [MuteCuica, OpenCuica, LongWhistle, ShortWhistle]
+>       blacklist = [MuteCuica, OpenCuica, LongWhistle, ShortWhistle, Vibraslap]
 >
 > computeEnd             :: Double → Double → Double
 > computeEnd onset durE                    = min songLength (onset + durE)

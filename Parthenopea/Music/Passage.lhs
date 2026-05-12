@@ -196,11 +196,7 @@ Initialize the MekNote vector ==================================================
 >                 , "\nprims=", show $ length prims, show prims
 >                 , "\nmarks=", show $ VB.length markings, show markings
 >                 , "\nevs=", show $ length evs, show evs])
->         (notracer "[MekNote]" $ VB.zipWith4 makeMekNote
->                        selfIndices
->                        prims
->                        markings
->                        evs)
+>         (VB.zipWith4 makeMekNote selfIndices prims markings evs)
 >       where
 >         nPrims                           = VB.length prims
 >         nMarks                           = VB.length markings
@@ -241,23 +237,16 @@ wearOveralls ===================================================================
       the Overall is consumed in fourVelos or twoVelos - core dynamics functions
       (maps over nodeMates)
 
->     wearOveralls meksIn                  =
->       VB.concatMap (uncurry computeOverall) nodeMates
+>     wearOveralls meksIn                  = VB.concatMap (uncurry computeOverall) nodeMates
 >       where
->         computeOverall si0 si1
->           | traceNot trace_CO False      = undefined
->           | otherwise                    = 
->           VB.singleton mek0{mOverall = Just $ makeOverall loud0 loud1 mek0.mEvent mek1.mEvent}
->           where
->             trace_CO                     = unwords [fName, "Overall", show (si0, si1), show (loud0, loud1)]
->
+>         computeOverall si0 si1           = 
+>           let
 >             mek0                         = meksIn VB.! si0
 >             mek1                         = meksIn VB.! si1
->
->             loud0, loud1
->                        :: Double
 >             loud0                        = (fromIntegral . stdVelocity . getMarkingLoudness) mek0
 >             loud1                        = (fromIntegral . stdVelocity . getMarkingLoudness) mek1
+>           in
+>             VB.singleton mek0{mOverall = Just $ makeOverall loud0 loud1 mek0.mEvent mek1.mEvent}
 
 sewSeeds ==============================================================================================================
       infuse M.E.K. with a value of type Maybe (Either Velocity (Vector Double))

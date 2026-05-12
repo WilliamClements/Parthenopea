@@ -39,8 +39,8 @@ September 12, 2024
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.IntMap.Strict (IntMap)
-> import qualified Data.IntMap             as IntMap
+> import qualified Data.IntMap.Lazy as LazyI
+> import qualified Data.IntMap.Strict      as IntMap
 > import Data.IntSet (IntSet)
 > import Data.List
 > import qualified Data.Map.Lazy           as Lazy
@@ -385,7 +385,7 @@ tournament starts here =========================================================
 
 > proposeCandidates      :: Directives
 >                           → ([InstrumentName], [PercussionSound]) 
->                           → VB.Vector (IntMap PreZone)
+>                           → VB.Vector (LazyI.IntMap PreZone)
 >                           → Map PerGMKey PerInstrument
 >                           → Matches
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
@@ -406,7 +406,7 @@ tournament starts here =========================================================
 >                           → (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 >     propose (wI, wP) pergmI perI         = (proposeInst, proposePerc)
 >       where
->         pzdb           :: IntMap PreZone
+>         pzdb           :: LazyI.IntMap PreZone
 >         pzdb                             = vpzdbs VB.! pergmI.pgkwFile
 >
 >         proposeInst    :: Map InstrumentName [PerGMScored]
@@ -433,7 +433,7 @@ tournament starts here =========================================================
 >
 >                 mz     :: Maybe PreZone
 >                 mz                       =
->                   pergmP.pgkwBag >>= Just . (pzdb IntMap.!) . fromIntegral
+>                   pergmP.pgkwBag >>= Just . (pzdb LazyI.!) . fromIntegral
 >                 mkind  :: Maybe PercussionSound
 >                 mkind                    = mz >>= getAP >>= pitchToPerc
 >                 mffm   :: Maybe FFMatches
@@ -483,18 +483,18 @@ tournament starts here =========================================================
 >
 >         scope                            =
 >           let
->             oneZone bix                  = IntMap.singleton bix (pzdb IntMap.! bix)
+>             oneZone bix                  = LazyI.singleton bix (pzdb LazyI.! bix)
 >           in
 >             maybe (accessPreZones "scope" pzdb owned) (oneZone . fromIntegral) pergm.pgkwBag
 >
 >         mnameZ         :: Maybe String   = pergm.pgkwBag
->                                            >>= Just . (pzdb IntMap.!) . fromIntegral
+>                                            >>= Just . (pzdb LazyI.!) . fromIntegral
 >                                            >>= \q → Just (F.sampleName (effPZShdr q))
 >
->         computeGrade   :: IntMap PreZone → ArtifactGrade
+>         computeGrade   :: LazyI.IntMap PreZone → ArtifactGrade
 >         computeGrade pzs                 = gradeEmpiricals (Grader ssWeights 500) empiricals
 >           where
->             zs                           = IntMap.elems pzs
+>             zs                           = LazyI.elems pzs
 >             empiricals :: [Double]       = [   foldHints hints
 >                                              , fromRational $ scoreBool $ isStereoInst zs
 >                                              , fromRational $ scoreBool $ is24BitInst zs

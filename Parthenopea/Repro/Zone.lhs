@@ -43,9 +43,8 @@ February 15, 2026
 > import Control.Applicative
 > import qualified Data.Audio              as A
 > import Data.Foldable
-> import Data.IntMap ( IntMap )
+> import qualified Data.IntMap.Lazy        as LazyI
 > import Data.IntSet ( IntSet )
-> import qualified Data.IntMap             as IntMap
 > import qualified Data.Map.Strict         as Map
 > import Data.Maybe
 > import Euterpea.Music
@@ -155,11 +154,11 @@ February 15, 2026
 >      digest defZone (ChangeEar shdr [])
 >      Nothing
 >     
-> accessPreZone          :: String → IntMap PreZone → Int → PreZone
-> accessPreZones         :: String → IntMap PreZone → IntSet → IntMap PreZone
+> accessPreZone          :: String → LazyI.IntMap PreZone → Int → PreZone
+> accessPreZones         :: String → LazyI.IntMap PreZone → IntSet → LazyI.IntMap PreZone
 > accessPreZone tag pzs bix                =
->   fromJust $ (bix `IntMap.lookup` pzs) <|> error (unwords ["accessPreZone", tag, "Nothing at bix", show bix])
-> accessPreZones tag pzs                   = IntMap.fromSet (accessPreZone tag pzs)
+>   fromJust $ (bix `LazyI.lookup` pzs) <|> error (unwords ["accessPreZone", tag, "Nothing at bix", show bix])
+> accessPreZones tag pzs                   = LazyI.fromSet (accessPreZone tag pzs)
 >
 > wordS, wordI, wordB    :: PreZone → Int
 > wordS pz                                 = fromIntegral pz.pzWordS

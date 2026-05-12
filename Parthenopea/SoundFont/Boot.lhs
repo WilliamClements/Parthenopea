@@ -15,12 +15,13 @@ January 21, 2025
 >
 > import qualified Codec.SoundFont         as F
 > import Control.Applicative
-> import Control.Lens hiding (element)
+> import Control.Lens hiding ( element )
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Either
-> import Data.IntMap ( IntMap )
-> import qualified Data.IntMap             as IntMap
+> import qualified Data.IntMap.Lazy as LazyI
+> import Data.IntMap.Strict ( IntMap )
+> import qualified Data.IntMap.Strict      as IntMap
 > import Data.IntSet ( IntSet )
 > import qualified Data.IntSet             as IntSet
 > import Data.List 
@@ -46,19 +47,16 @@ a Boot problematic =============================================================
 
 Each stage interface function takes FileWork and returns modified FileWork. 
 
-(1) reorg stage depends on previously computed smashups, but then recreates absorption leaders' smashups to reflect
-the new zonage.
+(1) reorg stage depends on previously computed smashups, but, for the absorption leader, arranges to later generate
+smashup to reflect the new zonage.
 
 (2) Fast to modify smashups when incrementally adding zones. But to REMOVE a zone means expensively recomputing.
 
-(3) two resources in jeopardy - zone owners and instrument smashups
-    a. reorg goes ahead and patches up both
-    b. vet patches up owners map explicitly
-    c. what makes the smashups go wonky?
-       1. deleting zones at pair → vet
-       2. adding the cross instrument pairings
+(3) two resources in jeopardy - zone owners and instrument smashups - see clean and shrink tasks
 
-(4) How does _crossInstrumentPairing_ interact with _doAbsorption_?
+(4) supporting cross instrument pairing byadds complexity
+
+(5) How does _crossInstrumentPairing_ interact with _doAbsorption_?
 a...If both True, a valid cross instrument pairing can still work even if absorption didn't fix it
 b...If both False, easy, just don't do either
 c...If cross True, absorption False, cross pairing only accomplished explicitly (honoring well-formed crossings)
@@ -84,16 +82,16 @@ Runners keep stage interface functions as a simple fold ========================
 > data Capture                             =
 >   Capture {
 >     _uZRecs            :: IntMap InstZoneRecord
->  ,  _uPzs              :: IntMap PreZone
+>  ,  _uPzs              :: LazyI.IntMap PreZone
 >  ,  _uSFZone           :: SFZone
 >  ,  _uDispo            :: ResultDispositions}
-> defCapture                               = Capture IntMap.empty IntMap.empty defZone virginrd
+> defCapture                               = Capture IntMap.empty LazyI.empty defZone virginrd
 >
 > data Vet                                 =
 >   Vet {
->     _ipzdb             :: IntMap PreZone
+>     _ipzdb             :: LazyI.IntMap PreZone
 >  ,  _ipDispo           :: ResultDispositions}
-> defVet                                   = Vet IntMap.empty virginrd
+> defVet                                   = Vet LazyI.empty virginrd
 >
 > data PairsSurvey                         =
 >   PairsSurvey {
@@ -121,7 +119,7 @@ FileWork =======================================================================
 >   FileWork {
 >     _fwDirectives      :: Directives
 >   , _fwZRecs           :: IntMap InstZoneRecord        {- [InstIndex → zrec]                     -}
->   , _fwPreZones        :: IntMap PreZone               {- [BagIndex → pz]                        -}
+>   , _fwPreZones        :: LazyI.IntMap PreZone         {- [BagIndex → pz]                        -}
 >
 >   , _fwZoneOwners      :: IntMap IntSet                {- [InstIndex → [BagIndex]]               -}
 >   , _fwZoneCrossing    :: IntMap IntSet                {- [InstIndex → [BagIndex]]               -}
@@ -137,7 +135,7 @@ FileWork =======================================================================
 >   FileWork
 >    dives 
 >    IntMap.empty
->    IntMap.empty
+>    LazyI.empty
 >    IntMap.empty 
 >    IntMap.empty
 >    Map.empty
@@ -183,13 +181,13 @@ FileWork =======================================================================
 >
 > data FileSurvey                          =
 >   FileSurvey {
->     sPreZones          :: IntMap PreZone
+>     sPreZones          :: LazyI.IntMap PreZone
 >   , sPerInstruments    :: Map PerGMKey PerInstrument
 >   , sMatches           :: Matches
 >   , sDispositions      :: ResultDispositions}
 > defSurvey                                =
 >   FileSurvey
->     IntMap.empty
+>     LazyI.empty
 >     Map.empty
 >     defMatches
 >     virginrd
@@ -504,7 +502,7 @@ capture task ===================================================================
 >     SynthSwitches{ .. }                  
 >                                          = synthSwitches
 >
->     processed          :: Capture        = IntMap.foldl' capture (spawn fWork defCapture) (fWork ^. fwZRecs)
+>     processed          :: Capture        = LazyI.foldl' capture (spawn fWork defCapture) (fWork ^. fwZRecs)
 >     work               :: FileWork       = imbibe fWork processed
 >
 >     capture            :: Capture → InstZoneRecord → Capture
@@ -591,7 +589,7 @@ produce and process capture results ============================================
 >                 doNormal pz              = (uPzs .~ upzs') captFold
 >                   where
 >                     bz                   = buildZone (captFold ^. uSFZone) (Just pz) bix
->                     upzs'                = IntMap.insert (wordB pz) pz{pzSFZone = bz} (captFold ^. uPzs)
+>                     upzs'                = LazyI.insert (wordB pz) pz{pzSFZone = bz} (captFold ^. uPzs)
 >
 >                 doError (k, ssZone)      =
 >                   if hasImpact GlobalZone ssZone
@@ -747,7 +745,7 @@ pairing approach ===============================================================
 >       where
 >         sinit                            =
 >           PairsSurvey 
->             (IntMap.keysSet $ IntMap.filter isStereoPZ pzdb) 
+>             (LazyI.keysSet $ LazyI.filter isStereoPZ pzdb) 
 >             IntMap.empty
 >             (fWork ^. fwDispositions)
 >             [("nominal", nominal), ("exotic", exotic), ("linkless", linkless)]
@@ -759,8 +757,8 @@ pairing approach ===============================================================
 >             dispos'                      = IntMap.foldlWithKey' announce (sy ^. psDispos) newPairs
 >             announce rdFold ifrom ito    = (dispose pzkFrom ssFrom . dispose pzkTo ssTo) rdFold
 >               where
->                 pzkFrom                  = extractZoneKey $ pzdb IntMap.! ifrom
->                 pzkTo                    = extractZoneKey $ pzdb IntMap.! ito
+>                 pzkFrom                  = extractZoneKey $ pzdb LazyI.! ifrom
+>                 pzkTo                    = extractZoneKey $ pzdb LazyI.! ito
 >                 clueFrom                 = unwords [pFunction, show ito]
 >                 clueTo                   = unwords [pFunction, show ifrom]
 >                 ssFrom                   = [Scan Modified Paired fName__ clueFrom] 
@@ -782,7 +780,7 @@ Pairing algorithm phases =======================================================
 >     linkless sy                           =
 >       let
 >         (bixenL, bixenR)                  = IntSet.partition isLeft (sy ^. psUnpaired)
->         isLeft bix                        = isLeftPZ $ pzdb IntMap.! bix 
+>         isLeft bix                        = isLeftPZ $ pzdb LazyI.! bix 
 >       in
 >         if linklessPairing
 >           then inducePairs False bixenL bixenR
@@ -790,14 +788,14 @@ Pairing algorithm phases =======================================================
 >
 >     mLeft, mRight      :: IntMap IntSet                {- [SampleIndex → [BagIndex]]             -}
 >     (mLeft, mRight)                      =
->       IntMap.foldl' (uncurry fFolder) (IntMap.empty, IntMap.empty) pzdb
+>       LazyI.foldl' (uncurry fFolder) (IntMap.empty, IntMap.empty) pzdb
 >       where
 >         fFolder mleft mright pz
 >           | isLeftPZ pz                  = (putMembers pz mleft, mright)
 >           | isRightPZ pz                 = (mleft, putMembers pz mright)
 >           | otherwise                    = (mleft, mright)
 >         putMembers pz                    =
->           IntMap.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
+>           LazyI.insertWith IntSet.union (wordS pz) (IntSet.singleton $ wordB pz)
 >
 >     conduce            :: Bool                         {- exotic                                 -}
 >                           → IntSet                     {- [BagIndex]                             -}
@@ -828,7 +826,7 @@ Pairing algorithm phases =======================================================
 >           where
 >             pegBix m bix                 = 
 >               let
->                 pz                       = pzdb IntMap.! bix
+>                 pz                       = pzdb LazyI.! bix
 >                 iSlot                    = PairingSlot
 >                                              (if allowCross || allowParallel then Nothing else Just pz.pzWordI)
 >                                              (fromMaybe (0, qMidiWord128 - 1) pz.pzDigest.zdKeyRange)
@@ -854,8 +852,8 @@ Pairing algorithm phases =======================================================
 >
 >             (zipParallel, zipCross)      = partition (uncurry areParallel) zipped
 >               where
->                 areParallel bixL bixR    =    (pzdb IntMap.! bixL).pzWordI
->                                            == (pzdb IntMap.! bixR).pzWordI   
+>                 areParallel bixL bixR    =    (pzdb LazyI.! bixL).pzWordI
+>                                            == (pzdb LazyI.! bixR).pzWordI   
 
 Pairing book-keeping ==================================================================================================
           identify crossers from among all pairs by filtering zone pairs that do not share an instrument owner
@@ -870,7 +868,7 @@ Pairing book-keeping ===========================================================
 >           where
 >             include k v                  = IntMap.insertWith IntSet.union k (IntSet.singleton v)
 >
->             (instL, instR)               = (wordI (pzdb IntMap.! bixL), wordI (pzdb IntMap.! bixR))
+>             (instL, instR)               = (wordI (pzdb LazyI.! bixL), wordI (pzdb LazyI.! bixR))
 
 pairing convenience functions =========================================================================================
           unpair           - cram all Ls and Rs from partner map into single set
@@ -884,13 +882,13 @@ pairing convenience functions ==================================================
 >   in
 >     IntMap.foldlWithKey consume IntSet.empty
 >
-> makeActions            :: IntMap PreZone               {- [BagIndex → pz]                        -}
+> makeActions            :: LazyI.IntMap PreZone         {- [BagIndex → pz]                        -}
 >                           → IntSet                     {- [BagIndex]                             -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
 > makeActions pzdb                         =
 >   let
 >     make actions bix                     = IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton bix) actions
->                                              where pz = pzdb IntMap.! bix
+>                                              where pz = pzdb LazyI.! bix
 >   in
 >     IntSet.foldl' make IntMap.empty
 
@@ -898,18 +896,18 @@ owners husbandry ===============================================================
           makeOwners       - generate owners map from raw PreZones
           repairOwners     - fix owners map after modifying zones
 
-> makeOwners             :: IntMap PreZone               {- [BagIndex → pz]                       -}
+> makeOwners             :: LazyI.IntMap PreZone         {- [BagIndex → pz]                       -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]              -}
-> makeOwners                               = IntMap.foldl' build IntMap.empty
+> makeOwners                               = LazyI.foldl' build IntMap.empty
 >   where
 >     build m pz                           =
 >       IntMap.insertWith IntSet.union (wordI pz) (IntSet.singleton (wordB pz)) m
 >
-> repairOwners           :: IntMap PreZone               {- [BagIndex → pz]                        -}
+> repairOwners           :: LazyI.IntMap PreZone         {- [BagIndex → pz]                        -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
 >                           → IntSet                     {- [InstIndex]                            -}
 >                           → IntMap IntSet              {- [InstIndex → [BagIndex]]               -}
-> repairOwners pzdb owners dirtyIs         = invalidated `IntMap.union` makeOwners (IntMap.filter wasDirty pzdb) 
+> repairOwners pzdb owners dirtyIs         = invalidated `IntMap.union` makeOwners (LazyI.filter wasDirty pzdb) 
 >   where
 >     invalidated                          = IntSet.foldl' (flip IntMap.delete) owners dirtyIs
 >     wasDirty pz                          = wordI pz `IntSet.member` dirtyIs
@@ -945,20 +943,20 @@ vet task =======================================================================
 >           IntSet.foldl' (uncurry actionFun) (vetIn ^. ipzdb, vetIn ^. ipDispo) actions
 >
 >         makeThemMono, killThem, actionFun
->                        :: IntMap PreZone → ResultDispositions → Int → (IntMap PreZone, ResultDispositions)
+>                        :: LazyI.IntMap PreZone → ResultDispositions → Int → (LazyI.IntMap PreZone, ResultDispositions)
 >         makeThemMono pzdb rd bix         =
 >           let
->             pz                           = pzdb IntMap.! bix
+>             pz                           = pzdb LazyI.! bix
 >           in
->             (IntMap.update (Just . makeMono) (wordB pz) pzdb, rd)
+>             (LazyI.update (Just . makeMono) (wordB pz) pzdb, rd)
 >             
 >         killThem pzdb rd bix             = 
 >           let
->             pz                           = pzdb IntMap.! bix
+>             pz                           = pzdb LazyI.! bix
 >             ssKill                       =
 >               [Scan Violated BadStereoPartner fName zrec.zswChanges.cnName]
 >           in
->             (IntMap.update (const Nothing) (wordB pz) pzdb, dispose (extractZoneKey pz) ssKill rd)
+>             (LazyI.update (const Nothing) (wordB pz) pzdb, dispose (extractZoneKey pz) ssKill rd)
 
 adopt task ============================================================================================================
           mark adoption
@@ -974,7 +972,7 @@ adopt task =====================================================================
 >       let
 >         fName                            = "adopt"
 >
->         pz                               = (fWork ^. fwPreZones) IntMap.! bix
+>         pz                               = (fWork ^. fwPreZones) LazyI.! bix
 >         imp                              = if wasSwitchedToMono pz then AdoptedAsMono else Adopted
 >         ssAdopt                          =
 >           [Scan Modified imp fName zrec.zswChanges.cnName]
@@ -1002,17 +1000,17 @@ smash task =====================================================================
 >       in
 >         (Just zrec{zsSmashup = smashVar}, rdFold)
 >
-> computeInstSmashup     :: String → IntMap PreZone → IntSet → Smashing Word
+> computeInstSmashup     :: String → LazyI.IntMap PreZone → IntSet → Smashing Word
 > computeInstSmashup tag pzdb bixen
 >   | traceIf trace_CIS False              = undefined
 >   | otherwise                            =
 >   profess
->     (not (IntMap.null pzdb) && not (IntSet.null bixen))
+>     (not (LazyI.null pzdb) && not (IntSet.null bixen))
 >     (unwords [fName, tag, "no zones"])
->     (smashSubspaces tag [qMidiWord128, qMidiWord128, 2] (IntMap.map extractSpace pzs))
+>     (smashSubspaces tag [qMidiWord128, qMidiWord128, 2] (LazyI.map extractSpace pzs))
 >   where
 >     fName                                = "computeInstSmashup"
->     trace_CIS                            = unwords [fName, tag, show (IntMap.keys pzs)]
+>     trace_CIS                            = unwords [fName, tag, show (LazyI.keys pzs)]
 >
 >     pzs                                  = accessPreZones fName pzdb bixen
 
@@ -1097,7 +1095,7 @@ To build the map
 >                                              where bixen = (fWork ^. fwZoneOwners) IntMap.! inst
 >         zoneHasVR bix                    = 
 >           let
->             pz                           = (fWork ^. fwPreZones) IntMap.! bix
+>             pz                           = (fWork ^. fwPreZones) LazyI.! bix
 >           in
 >             case pz.pzDigest.zdVelRange of
 >               Just rng                   → rng /= (0, qMidiWord128 - 1)
@@ -1116,12 +1114,12 @@ To build the map
 >           in
 >             IntSet.foldl' fold2Fun qIn
 >
->     rebased            :: IntMap PreZone               {- [BagIndex → pz]                        -}
->     rebased                              = IntMap.foldlWithKey rebase pzdb pzdb
+>     rebased            :: LazyI.IntMap PreZone         {- [BagIndex → pz]                        -}
+>     rebased                              = LazyI.foldlWithKey rebase pzdb pzdb
 >       where
 >         rebase m k pz                    =
 >           let
->             bang leadI                   = IntMap.update change k m
+>             bang leadI                   = LazyI.update change k m
 >                                              where change _ = Just pz{pzWordI = fromIntegral leadI}
 >           in
 >             maybe m bang (IntMap.lookup (wordI pz) absorptionMap)
@@ -1218,7 +1216,7 @@ perI task ======================================================================
 >         rdFold'                          =
 >           let
 >             blessZone rd bix             = dispose (extractZoneKey pz) ssPreZone rd
->                                              where pz = (fWork ^. fwPreZones) IntMap.! bix
+>                                              where pz = (fWork ^. fwPreZones) LazyI.! bix
 >           in
 >             IntSet.foldl' blessZone rdFold (allBixen perI)
 
@@ -1252,7 +1250,7 @@ Runner boilerplate =============================================================
 > instance Show Capture where
 >   show capt                              =
 >     unwords [  "Capture"
->              , show (IntMap.map pzWordB (capt ^. uPzs))]
+>              , show (LazyI.map pzWordB (capt ^. uPzs))]
 >
 > instance Runner Vet where
 >   spawn fWork                            =

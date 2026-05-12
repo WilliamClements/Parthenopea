@@ -14,8 +14,9 @@ February 1, 2025
 >        , SFRuntime(..) ) where
 >
 > import qualified Data.Bifunctor          as BF
-> import Data.IntMap        ( IntMap )
-> import qualified Data.IntMap             as IntMap
+> import qualified Data.IntMap.Lazy as LazyI
+> import Data.IntMap.Strict ( IntMap )
+> import qualified Data.IntMap.Strict      as IntMap
 > import Data.IntSet (IntSet )
 > import qualified Data.IntSet             as IntSet
 > import Data.Map.Strict ( Map )
@@ -52,14 +53,14 @@ February 1, 2025
 >     zWordFBoot         :: !Int
 >   , zFilename          :: FilePath
 >   , zFileArrays        :: FileArrays
->   , zPreZonesBoot      :: IntMap PreZone
+>   , zPreZonesBoot      :: LazyI.IntMap PreZone
 >   , zSquirrelSample    :: SampleArrays}
 >
 > data SFFileRuntime                       =
 >   SFFileRuntime {
 >     zWordFRuntime      :: !Int
 >   , zPerInstrument     :: IntMap PerInstrument
->   , zPreZonesRuntime   :: IntMap PreZone
+>   , zPreZonesRuntime   :: LazyI.IntMap PreZone
 >   , ks                 :: SampleArrays}
 > instance Show SFFileRuntime where
 >   show sffile                            =
@@ -121,8 +122,8 @@ cache SoundFont data that is only needed for Runtime ===========================
 >             newPerI                      = IntMap.fromSet getPerI insts
 >             pzdb                         = 
 >               if doCopyPzdb
->                 then IntSet.foldl'       doSave   IntMap.empty         bixen
->                 else IntMap.foldlWithKey doUpdate sffile.zPreZonesBoot sffile.zPreZonesBoot
+>                 then IntSet.foldl'       doSave   LazyI.empty         bixen
+>                 else LazyI.foldlWithKey doUpdate sffile.zPreZonesBoot sffile.zPreZonesBoot
 >               where
 >                 bixen                    = IntSet.foldl' lump IntSet.empty insts
 >                                              where lump m i = IntSet.union m (allBixen (newPerI IntMap.! i))
@@ -131,9 +132,9 @@ cache SoundFont data that is only needed for Runtime ===========================
 >
 >                 doSave m bix             =
 >                   let
->                     pz                   = sffile.zPreZonesBoot IntMap.! bix
+>                     pz                   = sffile.zPreZonesBoot LazyI.! bix
 >                   in
->                     IntMap.insert bix (resolve pz) m
+>                     LazyI.insert bix (resolve pz) m
 >
 >                 doUpdate m bix pz        =
 >                   let
@@ -141,7 +142,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >                                              then (Just . resolve) pz
 >                                              else Nothing
 >                   in
->                     IntMap.update keep bix m
+>                     LazyI.update keep bix m
 >           in
 >             Just ( sffile.zWordFBoot
 >                  , SFFileRuntime 
@@ -274,8 +275,8 @@ zone selection for rendering ===================================================
 >                   (lvu == 2)
 >                   (unwords [fName, "Leaf dimension", show lvu, "not two!?!"])
 >                   (vu VU.! 0, vu VU.! 1)
->         foundL                           = fromIntegral spL `IntMap.lookup` sffile.zPreZonesRuntime
->         foundR                           = fromIntegral spR `IntMap.lookup` sffile.zPreZonesRuntime
+>         foundL                           = fromIntegral spL `LazyI.lookup` sffile.zPreZonesRuntime
+>         foundR                           = fromIntegral spR `LazyI.lookup` sffile.zPreZonesRuntime
 >
 >         pzL                              = deJust fName foundL
 >         pzR                              = deJust fName foundR
