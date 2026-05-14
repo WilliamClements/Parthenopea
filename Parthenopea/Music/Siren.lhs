@@ -26,7 +26,6 @@ December 12, 2022
 > import Data.Ord ( comparing )
 > import qualified Data.Vector.Strict      as VB
 > import qualified Data.Vector.Unboxed     as VU
-> import Data.Word ( Word8 )
 > import Euterpea.IO.Audio.Types
 > import Euterpea.IO.MIDI ( fromMidi )
 > import Euterpea.IO.MIDI.MEvent
@@ -41,8 +40,11 @@ December 12, 2022
 Utilities =============================================================================================================
 
 > addDur                 :: Dur → [Dur → Music a] → Music a
-> addDur durA ns  =  let fun n = n durA
->                    in line (map fun ns)
+> addDur durA ns                           =
+>   let
+>     fun n                                = n durA
+>   in
+>     line (map fun ns)
 >
 > grace                  :: Int → Music Pitch → Music Pitch
 > grace n (Prim (Note durG p))             = note (est * durG) (trans n p) :+: note ((1 - est) * durG) p
@@ -786,14 +788,11 @@ Conversion functions and general helpers =======================================
 
 Returns sample point as (normalized) Double
 
-> sample24               :: Int16 → Word8 → Double
-> sample24 i16 w8                          = fromIntegral (f16to32 i16 * 256 + f8to32 w8) / 8_388_608.0 -- 1_048_576
->   where
->     f8to32             :: Word8 → Int32  = fromIntegral
->     f16to32            :: Int16 → Int32  = fromIntegral
->      
 > samplePoint            :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Int → Double
-> samplePoint s16 ms8 ix                   = sample24 (s16 ! ix) (fromIntegral (maybe 0 (! ix) ms8))
+> samplePoint s16 ms8 ix                   = maybe (A.toSample n16) (const $ A.toSample n32) ms8
+>   where
+>     n16                :: Int16          = s16 ! ix
+>     n32                :: Int32          = fromIntegral n16 * 2 ^ 16 + fromIntegral (fromJust ms8 ! ix)
 >
 > samplePointInterp      :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Double → Int → Double
 > samplePointInterp s16 ms8 offs ix        = s0 + offs * (s1 - s0)

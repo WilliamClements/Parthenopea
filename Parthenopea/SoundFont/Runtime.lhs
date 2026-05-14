@@ -122,7 +122,7 @@ cache SoundFont data that is only needed for Runtime ===========================
 >             newPerI                      = IntMap.fromSet getPerI insts
 >             pzdb                         = 
 >               if doCopyPzdb
->                 then IntSet.foldl'       doSave   LazyI.empty         bixen
+>                 then IntSet.foldl'      doSave   LazyI.empty          bixen
 >                 else LazyI.foldlWithKey doUpdate sffile.zPreZonesBoot sffile.zPreZonesBoot
 >               where
 >                 bixen                    = IntSet.foldl' lump IntSet.empty insts

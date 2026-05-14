@@ -739,8 +739,6 @@ pairing approach ===============================================================
           After somehow generating the pair list for this sffile, reject all other stereo zones - they failed to pair!
           The "somehow" is to make pairs if and only if L and R's zones produce identical "pair slots".
 
-          And remember: peg 'em and pin 'em! I.E. collate (peg) candidates to push (pin) matchers to pairs list.
-
 >     sy                 :: PairsSurvey    = head $ dropWhile unfinished $ iterate' nextGen sinit
 >       where
 >         sinit                            =
@@ -773,6 +771,8 @@ pairing approach ===============================================================
 Pairing algorithm phases ==============================================================================================
       Each of these three functions operates on unpaired set. They are invoked, in sequence, during iterate'.
 
+>     nominal, exotic, linkless
+>                        :: PairsSurvey → IntMap Int
 >     nominal sy                            =
 >       IntMap.foldlWithKey (conduce False (sy ^. psUnpaired)) IntMap.empty (fWork ^. (fwPairing . fwSamplePairings))
 >     exotic sy                             =
@@ -810,6 +810,10 @@ Pairing algorithm phases =======================================================
 >           unp `IntSet.intersection` fromMaybe IntSet.empty (siFrom `IntMap.lookup` mLeft)
 >         bsR                              =
 >           unp `IntSet.intersection` fromMaybe IntSet.empty (siTo   `IntMap.lookup` mRight)
+
+Induce Pairs ==========================================================================================================
+      Peg 'em and pin 'em! I.E. collate (peg) candidates to push (pin) matchers to pairs list.
+
 >
 >     inducePairs        :: Bool                         {- exotic                                 -}
 >                           → IntSet                     {- [BagIndex]                             -}

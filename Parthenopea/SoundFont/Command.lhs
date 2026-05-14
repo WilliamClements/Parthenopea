@@ -34,7 +34,7 @@ June 16, 2025
 > import Parthenopea.SoundFont.Runtime
 > import Parthenopea.SoundFont.Scoring
 > import Parthenopea.SoundFont.SFSpec
-> import Parthenopea.SoundFont.TournamentReport
+> import Parthenopea.SoundFont.TournamentReport ( printChoices, writeTournamentReport )
 > import Parthenopea.SoundFont.Utility
 > import qualified System.FilePattern.Directory
 >                                          as FP

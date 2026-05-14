@@ -35,7 +35,6 @@ September 12, 2024
 >        , wasRescued ) where
 >
 > import qualified Codec.SoundFont         as F
-> import qualified Control.Monad           as CM
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
@@ -48,7 +47,6 @@ September 12, 2024
 > import qualified Data.Map.Strict         as Map
 > import Data.Maybe
 > import qualified Data.Vector.Strict      as VB
-> import Debug.Trace ( traceIO )
 > import Euterpea.Music
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
@@ -391,9 +389,6 @@ tournament starts here =========================================================
 >                           → IO (Map InstrumentName [PerGMScored], Map PercussionSound [PerGMScored])
 > proposeCandidates dives rost vpzdbs perIs matches
 >                                          = do
->   CM.when
->     diagnosticsEnabled
->     (traceIO $ unwords [fName, show (length perIs, Lazy.size matches.mIMatches, Lazy.size matches.mSMatches)])
 >   return $ Map.foldlWithKey propose (Map.empty, Map.empty) perIs
 >   where
 >     fName                                = "proposeCandidates"

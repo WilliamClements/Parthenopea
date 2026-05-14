@@ -71,21 +71,21 @@ _Overall_                =
 >     (clip (0, 128) (over.oStartV + (tIn - over.oStartT) * over.oChangeRate))
 > twoVelos               :: Double → Double → Overall → Either Velocity (VB.Vector Double)
 > twoVelos onset delta over                = branchVelos $ VB.fromList
->                                            [ velocity onset               (notracer "ZZover" over)
+>                                            [ velocity onset               over
 >                                            , velocity (onset + delta)     over]
 > fourVelos              :: Double → Double → Overall → Overall → Either Velocity (VB.Vector Double)
 > fourVelos onset delta over0 over1        = branchVelos $ VB.fromList $ computeFourVelos onset delta over0 over1
 >
 > branchVelos            :: VB.Vector Double → Either Velocity (VB.Vector Double)
 > branchVelos params                       =
->   if VB.all (nearlyEqual keyParam) (notracer "HHHparams" params)
+>   if VB.all (nearlyEqual keyParam) params
 >     then (Left . round) keyParam
 >     else Right params
 >   where
 >     keyParam                             = params VB.! 0
 >     nearlyEqual x y                      = abs (y - x) < epsilon
 
-      M.E.K. = Music Education for Kids of all ages ===================================================================
+      M.E.K. = Music Education for Kids (of all ages) =================================================================
 
 > data MekNote                             =
 >   MekNote {
@@ -137,9 +137,10 @@ Insert note attributes to define the later input to runtime synthesizer ========
 >     enFix              :: Music1 → MekNote → Music1 
 >     enFix music mek                      = music :+: case mek.mPrimitive of
 >                                              Note durI pitchI       → mangleNote durI pitchI
->                                              Rest durI              → error $ restsError durI 
+>                                              Rest _                 → error $ unwords [fName, "no rests in MekNotes"]
 >       where
->         mangleNote dM pM                 = note dM (pM, Dynamics pname : (makeNAs . deJust fName) mek.mParams)
+>         mangleNote dM pM                 = note dM (pM, Dynamics pname : makeNAs params)
+>                                              where params = deJust fName mek.mParams
 >
 >         makeNAs (Left homeVolume)        = [Volume homeVolume]
 >         makeNAs (Right sweeps)           =
@@ -149,8 +150,6 @@ Insert note attributes to define the later input to runtime synthesizer ========
 >             [(Volume . average) sweeps, (Params . VB.toList) sweeps]
 >         
 >         average sweeps                   = round $ VB.sum sweeps / (fromIntegral . VB.length) sweeps
->
->         restsError d                     = unwords [fName, "no rests in MekNotes", show d]
 
 Construct a vector of MekNotes, enriching them ========================================================================
       
