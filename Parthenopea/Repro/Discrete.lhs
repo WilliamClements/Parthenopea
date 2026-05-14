@@ -21,11 +21,9 @@ June 17, 2024
 > import qualified Data.Vector.Unboxed     as VU
 > import Diagrams.Prelude hiding ( fc )
 > import Euterpea.IO.Audio.Basics ( outA )
-> import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
-> import Euterpea.IO.Audio.Types ( AudSF, AudioSample(..), Clock(..), CtrSF, Signal)
+> import Euterpea.IO.Audio.Types ( AudioSample(..), Clock(..), Signal )
 > import Numeric.FFT ( fft, ifft )
 > import Parthenopea.Music.Siren
-> import Parthenopea.Repro.Chart ( Section(Section), chartPoints )
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.Utility
   
@@ -134,50 +132,6 @@ Applying this filter to input signals is accomplished by sample point-wise multi
 >
 > fromRawVector          :: (Coeff a, VU.Unbox a) ⇒ String → VU.Vector a → DiscreteSig a
 > fromRawVector tag vec                    = DiscreteSig tag (measureDiscreteSig vec) vec
-  
-Discrete envelope checking ============================================================================================
-
-We realize/discretize the envelope's signal. The resulting block is checked for violations.
-
-> discretizeEnvelope     :: Double → Double → Segments → DiscreteSig Double
-> discretizeEnvelope clockRate targetT segs    =
->   if howMany < 5 && howNegative > -0.2
->     then dsig
->     else error $ unwords [fName, "too many negative values", show (howMany, howNegative)]
->   where
->     fName                                = "discretizeEnvelope"
->
->     dsig
->       | abs (clockRate - slwRate) < epsilon
->                                          = deJust fName $ fromSignal fName (targetT + minUseful) ssignal
->       | abs (clockRate - ctrRate) < epsilon
->                                          = deJust fName $ fromSignal fName (targetT + minUseful) csignal
->       | abs (clockRate - audRate) < epsilon
->                                          = deJust fName $ fromSignal fName (targetT + minUseful) asignal
->       | otherwise                        = error $ unwords [fName, show clockRate, "clockRate not supported"]
->
->     nindices                             = VU.findIndices (< 0) dsig.dsigVec
->     nvalues                              = VU.map (dsig.dsigVec VU.!) nindices
->     howMany                              = VU.length nindices
->     howNegative                          = VU.sum nvalues
->
->     ssignal            :: SlwSF () Double
->     ssignal                              =
->       proc () → do
->         slw ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
->         outA ⤙ slw
->
->     csignal            :: CtrSF () Double
->     csignal                              =
->       proc () → do
->         ctr ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
->         outA ⤙ ctr
->
->     asignal            :: AudSF () Double
->     asignal                              =
->       proc () → do
->         aud ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
->         outA ⤙ aud
 >
 > measureDiscreteSig     :: (Coeff a, VU.Unbox a) ⇒ VU.Vector a → DiscreteStats a
 > measureDiscreteSig vec                   = finished
@@ -500,15 +454,6 @@ Type declarations ==============================================================
 >     True
 >   where
 >     stats                                = dsig.dsigStats
-> chartDiscreteSig       :: Double → Int → DiscreteSig Double → String → IO Bool
-> chartDiscreteSig clockRate nPoints dsig tag
->                                          = chartPoints "Discrete" tag [sec]
->   where
->     sec                                  = Section (opaque blue) (zip xs ys)
->     xs, ys             :: [Double]
->     xs                                   = map ((/ clockRate) . fromIntegral) [0::Int ..]
->     ys                                   = take nPoints (VU.toList dsig.dsigVec)
->
 > data ResponseShape                       =
 >     Block
 >   | Bulge

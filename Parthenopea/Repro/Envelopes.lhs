@@ -7,23 +7,15 @@ Envelopes
 William Clements
 Apr 26, 2025
 
-> module Parthenopea.Repro.Envelopes (
->          chartEnvelope
->        , deriveEnvelope
->        , doEnvelope
->        , doSweepingEnvelope
->        , graphSF ) where
+> module Parthenopea.Repro.Envelopes where
 >
-> import Data.Foldable
 > import Data.List
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
-> import Data.Maybe ( isJust, isNothing, fromJust, fromMaybe )
+> import Data.Maybe ( isJust, isNothing, fromJust )
 > import qualified Data.Vector.Strict      as VB
-> import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.BasicSigFuns ( envLineSeg )
 > import Euterpea.IO.Audio.Types ( Clock(..), Signal )
-> import Parthenopea.Repro.Discrete
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.Utility
   
@@ -52,21 +44,6 @@ Create a straight-line envelope generator with following phases:
    sustain
    release  
 
-> doEnvelope             :: ∀ p . Clock p ⇒ TimeFrame → Maybe FEnvelope → Signal p () Double
-> doEnvelope timeFrame                     = maybe (constA 1) makeSF
->   where
->     fName                                = "doEnvelope"
->
->     makeSF             :: FEnvelope → Signal p () Double
->     makeSF envIn                         =
->       let
->         (envNow, segs)                   = proposeSegments timeFrame envIn
->         ok                               = vetEnvelope envNow segs
->       in
->         if ok
->           then envLineSeg segs.sAmps segs.sDeltaTs
->           else error $ unwords [fName, "computed envelope rejected", show segs]
->
 > proposeSegments        :: TimeFrame → FEnvelope → (FEnvelope, Segments)
 > proposeSegments tf envRaw                = (r, segs)
 >   where
@@ -295,102 +272,33 @@ interpret them somehow.
 >     makeModTriple                        = maybe Nothing (uncurry go)
 >       where
 >         go toPitch toFilterFc            = Just (deriveModTriple toPitch toFilterFc Nothing)
-
-Emphasis on vetting ===================================================================================================
-
-Viability of the envelope "proposal" is checked for a few conditions not easily diagnosed when listening to produced
-audio. For example, there should always be zeros at the beginning and end of every note envelope.
-
-> maybeVetAsDiscreteSig  :: FEnvelope → Segments → Bool
-> maybeVetAsDiscreteSig env segs           = (dt /= clip (1/32, 2) dt) || isJust (vetAsDiscreteSig ctrRate env segs)
->   where
->     dt                                   = maybe minDeltaT eeTargetT env.fExtras
 >
-> vetAsDiscreteSig       :: Double → FEnvelope → Segments → Maybe (DiscreteSig Double)
-> vetAsDiscreteSig clockRate env segs
->   | noisy prolog                         = error $ unwords [fName, "non-zero prolog", show prolog]
->   | noisy epilog                         = error $ unwords [fName, "non-zero epilog", show epilog]
->   | isNothing env.fModTriple && dipix < (kSig' `div` 5)
->                                          =
->     error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show (kSig, kVec)]
->   | otherwise                            = Just dsig
->   where
->     fName                                = "vetAsDiscreteSig"
+> data TimeFrame                           =
+>   TimeFrame {
+>     tfSecsSampled      :: Double
+>   , tfSecsScored       :: Double
+>   , tfSecsToPlay       :: Double
+>   , tfLooping          :: Bool} deriving (Eq, Show)
+> data EnvelopeExtras                      =
+>   EnvelopeExtras {
+>     eeTargetT          :: Double
+>   , eeReleaseT         :: Double
+>   , eePostT            :: Double} deriving (Eq, Show)
+> data FEnvelope                           =
+>   FEnvelope {
+>     fExtras            :: Maybe EnvelopeExtras
+>   , fSustainLevel      :: Double
+>   , fModTriple         :: Maybe ModTriple
 >
->     targetT                              = (deJust fName env.fExtras).eeTargetT
->     dsig                                 = discretizeEnvelope clockRate targetT segs
->
->     noisy             :: VU.Vector Double → Bool
->     noisy air                            = VU.foldr ((+) . abs) 0 air > epsilon
->
->     dipThresh          :: Double         = 1/10
->
->     kVec, kSig, kSig'  :: Int
->     kVec                                 = VU.length dsig.dsigVec
->     kSig                                 = truncate $ clockRate * targetT
->     kSig'                                = truncate $ clockRate * min targetT 0.5
->     kSkip                                = round    $ clockRate * (env.fDelayT + env.fAttackT)
->     kCheck                               = truncate $ clockRate * 0.75 * minDeltaT
->
->     prolog, epilog, afterAttack
->                         :: VU.Vector Double
->     prolog                               = VU.slice 0               kCheck dsig.dsigVec
->     epilog                               = VU.slice (kSig - kCheck) kCheck dsig.dsigVec
->     afterAttack                          = VU.slice kSkip (kSig - kSkip)   dsig.dsigVec
->     dipix                                = kSkip + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
->       
-> vetEnvelope            :: FEnvelope → Segments → Bool
-> vetEnvelope env segs
->   | badAmp || badDeltaT                  = error $ unwords [fName, "negative amp or deltaT", show segs]
->   | abs (a - b) > 0.01 || abs (b - c) > 0.01
->                                          = error $ unwords [fName, "doesn't add up", show (a, b, c)]
->   | otherwise                            = maybeVetAsDiscreteSig env segs
->   where
->     fName                                = "vetEnvelope"
->
->     ee                                   = deJust fName env.fExtras
-
-Negative values fatal for amps or deltaTs
-
->     badAmp, badDeltaT  :: Bool
->     badAmp                               = isJust $ find (< 0) segs.sAmps
->     badDeltaT                            = isJust $ find (< 0) segs.sDeltaTs
-
-Three different ways of computing the envelope duration must all get same answer (within 1/100 seconds)
-
->     a, b, c            :: Double
->     a                                    = feSum env
->     b                                    = ee.eeTargetT
->     c                                    = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
->
-> graphSF                :: ∀ p . Clock p ⇒ Double → Double → Double → Signal p () Double → [(Double, Double)]
-> graphSF secs clock startT sf
->   | abs (clock - sr) > epsilon           = error $ unwords [fName, "(clock,sr)=", show (clock, sr)]
->   | nPoints >= 2 ^ (22::Int)             = error $ unwords [fName, show nPoints, "is too large!"]
->   | nActual /= nPoints                   = error $ unwords [fName, "(nPoints, nActual)=", show (nPoints, nActual)]
->   | otherwise                            = zip onsets (VU.toList vec)
->   where
->     fName                                = "graphSF"
->     sr                                   = rate (undefined::p)
->
->     nPoints            :: Int            = round (secs * clock)
->     vec                :: VU.Vector Double
->                                          = VU.take nPoints (deJust fName (fromSignal fName secs sf)).dsigVec
->     nActual            :: Int            = VU.length vec
->     onsets             :: [Double]       = [startT + (fromIntegral i/clock) | i ← [0..]]
->
-> chartEnvelope          :: String → TimeFrame → FEnvelope → Double → IO Bool
-> chartEnvelope tag tf fe clockRate        = do
->   print segs
->   case mdsig of
->     Nothing                              → return False
->     Just dsig                            →
->       do
->         chartDiscreteSig clockRate nPoints dsig tag
->         return True
->   where
->     (r, segs)                            = proposeSegments tf fe
->     mdsig                                = vetAsDiscreteSig clockRate r segs
->     nPoints            :: Int            = round $ clockRate * (tf.tfSecsScored + 0.5)
+>   , fDelayT            :: Double
+>   , fAttackT           :: Double
+>   , fHoldT             :: Double
+>   , fDecayT            :: Double
+>   , fSustainT          :: Double}
+>   deriving (Eq, Show)
+> data Segments                            =
+>   Segments {
+>     sAmps              :: [Double]
+>   , sDeltaTs           :: [Double]} deriving Show
 
 The End

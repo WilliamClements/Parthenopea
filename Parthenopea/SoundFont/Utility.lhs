@@ -176,34 +176,6 @@ time ===========================================================================
 >     (maybe 0 fromIntegral toPitch)
 >     (maybe 0 fromIntegral toFilterFc)
 >     (maybe 0 fromIntegral toVolume)
->
-> data TimeFrame                           =
->   TimeFrame {
->     tfSecsSampled      :: Double
->   , tfSecsScored       :: Double
->   , tfSecsToPlay       :: Double
->   , tfLooping          :: Bool} deriving (Eq, Show)
-> data EnvelopeExtras                      =
->   EnvelopeExtras {
->     eeTargetT          :: Double
->   , eeReleaseT         :: Double
->   , eePostT            :: Double} deriving (Eq, Show)
-> data FEnvelope                           =
->   FEnvelope {
->     fExtras            :: Maybe EnvelopeExtras
->   , fSustainLevel      :: Double
->   , fModTriple         :: Maybe ModTriple
->
->   , fDelayT            :: Double
->   , fAttackT           :: Double
->   , fHoldT             :: Double
->   , fDecayT            :: Double
->   , fSustainT          :: Double}
->   deriving (Eq, Show)
-> data Segments                            =
->   Segments {
->     sAmps              :: [Double]
->   , sDeltaTs           :: [Double]} deriving Show
 
 Returns the frequency ratio
 

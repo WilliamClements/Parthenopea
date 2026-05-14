@@ -8,19 +8,22 @@ Synthesizer
 William Clements
 May 14, 2023
 
-> module Parthenopea.Repro.Synthesizer ( eutSynthesize ) where
+> module Parthenopea.Repro.Synthesizer ( eutSynthesize, vetAsDiscreteSig ) where
 >
 > import Control.Arrow
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )
 > import qualified Data.Audio              as A
+> import Data.List
 > import Data.Maybe
 > import qualified Data.Vector.Strict      as VB
+> import qualified Data.Vector.Unboxed     as VU
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
 > import Euterpea.IO.Audio.BasicSigFuns
-> import Euterpea.IO.Audio.Types ( Signal, Clock(..) )
+> import Euterpea.IO.Audio.Types
 > import Euterpea.Music ( Dur, AbsPitch )
 > import Parthenopea.Debug
 > import Parthenopea.Music.Siren
+> import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Zone
@@ -239,6 +242,132 @@ Modulation =====================================================================
 >     modSigL                              ← eutModSignals timeFrame m8n ToFilterFc         ⤙ ()
 >     a2L                                  ← addResonance m8n noon                          ⤙ (a1L, modSigL)
 >     outA                                                                                  ⤙ a2L
+>
+> doEnvelope             :: ∀ p . Clock p ⇒ TimeFrame → Maybe FEnvelope → Signal p () Double
+> doEnvelope timeFrame                     = maybe (constA 1) makeSF
+>   where
+>     fName                                = "doEnvelope"
+>
+>     makeSF             :: FEnvelope → Signal p () Double
+>     makeSF envIn                         =
+>       let
+>         (envNow, segs)                   = proposeSegments timeFrame envIn
+>         ok                               = vetEnvelope envNow segs
+>       in
+>         if ok
+>           then envLineSeg segs.sAmps segs.sDeltaTs
+>           else error $ unwords [fName, "computed envelope rejected", show segs]
+
+Emphasis on vetting ===================================================================================================
+
+Viability of the envelope "proposal" is checked for a few conditions not easily diagnosed when listening to produced
+audio. For example, there should always be zeros at the beginning and end of every note envelope.
+
+> maybeVetAsDiscreteSig  :: FEnvelope → Segments → Bool
+> maybeVetAsDiscreteSig env segs           = (dt /= clip (1/32, 2) dt) || isJust (vetAsDiscreteSig ctrRate env segs)
+>   where
+>     dt                                   = maybe minDeltaT eeTargetT env.fExtras
+>
+> vetAsDiscreteSig       :: Double → FEnvelope → Segments → Maybe (DiscreteSig Double)
+> vetAsDiscreteSig clockRate env segs
+>   | noisy prolog                         = error $ unwords [fName, "non-zero prolog", show prolog]
+>   | noisy epilog                         = error $ unwords [fName, "non-zero epilog", show epilog]
+>   | isNothing env.fModTriple && dipix < (kSig' `div` 5)
+>                                          =
+>     error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show (kSig, kVec)]
+>   | otherwise                            = Just dsig
+>   where
+>     fName                                = "vetAsDiscreteSig"
+>
+>     targetT                              = (deJust fName env.fExtras).eeTargetT
+>     dsig                                 = discretizeEnvelope clockRate targetT segs
+>
+>     noisy             :: VU.Vector Double → Bool
+>     noisy air                            = VU.foldr ((+) . abs) 0 air > epsilon
+>
+>     dipThresh          :: Double         = 1/10
+>
+>     kVec, kSig, kSig'  :: Int
+>     kVec                                 = VU.length dsig.dsigVec
+>     kSig                                 = truncate $ clockRate * targetT
+>     kSig'                                = truncate $ clockRate * min targetT 0.5
+>     kSkip                                = round    $ clockRate * (env.fDelayT + env.fAttackT)
+>     kCheck                               = truncate $ clockRate * 0.75 * minDeltaT
+>
+>     prolog, epilog, afterAttack
+>                         :: VU.Vector Double
+>     prolog                               = VU.slice 0               kCheck dsig.dsigVec
+>     epilog                               = VU.slice (kSig - kCheck) kCheck dsig.dsigVec
+>     afterAttack                          = VU.slice kSkip (kSig - kSkip)   dsig.dsigVec
+>     dipix                                = kSkip + fromMaybe kSig (VU.findIndex (< dipThresh) afterAttack)
+  
+Discrete envelope checking ============================================================================================
+
+We realize/discretize the envelope's signal. The resulting block is checked for violations.
+
+> discretizeEnvelope     :: Double → Double → Segments → DiscreteSig Double
+> discretizeEnvelope clockRate targetT segs    =
+>   if howMany < 5 && howNegative > -0.2
+>     then dsig
+>     else error $ unwords [fName, "too many negative values", show (howMany, howNegative)]
+>   where
+>     fName                                = "discretizeEnvelope"
+>
+>     dsig
+>       | abs (clockRate - slwRate) < epsilon
+>                                          = deJust fName $ fromSignal fName (targetT + minUseful) ssignal
+>       | abs (clockRate - ctrRate) < epsilon
+>                                          = deJust fName $ fromSignal fName (targetT + minUseful) csignal
+>       | abs (clockRate - audRate) < epsilon
+>                                          = deJust fName $ fromSignal fName (targetT + minUseful) asignal
+>       | otherwise                        = error $ unwords [fName, show clockRate, "clockRate not supported"]
+>
+>     nindices                             = VU.findIndices (< 0) dsig.dsigVec
+>     nvalues                              = VU.map (dsig.dsigVec VU.!) nindices
+>     howMany                              = VU.length nindices
+>     howNegative                          = VU.sum nvalues
+>
+>     ssignal            :: SlwSF () Double
+>     ssignal                              =
+>       proc () → do
+>         slw ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
+>         outA ⤙ slw
+>
+>     csignal            :: CtrSF () Double
+>     csignal                              =
+>       proc () → do
+>         ctr ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
+>         outA ⤙ ctr
+>
+>     asignal            :: AudSF () Double
+>     asignal                              =
+>       proc () → do
+>         aud ← envLineSeg segs.sAmps segs.sDeltaTs ⤙ ()
+>         outA ⤙ aud
+>       
+> vetEnvelope            :: FEnvelope → Segments → Bool
+> vetEnvelope env segs
+>   | badAmp || badDeltaT                  = error $ unwords [fName, "negative amp or deltaT", show segs]
+>   | abs (a - b) > 0.01 || abs (b - c) > 0.01
+>                                          = error $ unwords [fName, "doesn't add up", show (a, b, c)]
+>   | otherwise                            = maybeVetAsDiscreteSig env segs
+>   where
+>     fName                                = "vetEnvelope"
+>
+>     ee                                   = deJust fName env.fExtras
+
+Negative values fatal for amps or deltaTs
+
+>     badAmp, badDeltaT  :: Bool
+>     badAmp                               = isJust $ find (< 0) segs.sAmps
+>     badDeltaT                            = isJust $ find (< 0) segs.sDeltaTs
+
+Three different ways of computing the envelope duration must all get same answer (within 1/100 seconds)
+
+>     a, b, c            :: Double
+>     a                                    = feSum env
+>     b                                    = ee.eeTargetT
+>     c                                    = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
 
 Amplification =========================================================================================================
 

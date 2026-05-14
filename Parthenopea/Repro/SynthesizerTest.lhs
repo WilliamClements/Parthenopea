@@ -13,6 +13,7 @@ March 2, 2024
 > import Euterpea.IO.Audio.Types ( Clock(..), AudRate, Signal )
 > import Parthenopea.Debug ( aEqual )
 > import Parthenopea.Music.Siren
+> import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.Repro.Zone
 > import Parthenopea.SoundFont.Utility

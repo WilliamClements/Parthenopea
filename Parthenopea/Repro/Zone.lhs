@@ -49,7 +49,7 @@ February 15, 2026
 > import Data.Maybe
 > import Euterpea.Music
 > import Parthenopea.Debug
-> import Parthenopea.Repro.Envelopes ( deriveEnvelope )
+> import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
 > import Parthenopea.SoundFont.Directives
 > import Parthenopea.SoundFont.SFSpec

@@ -8,14 +8,21 @@ November 9, 2023
 > module Parthenopea.Repro.Chart (
 >          Section( .. )
 >        , chartColors
+>        , chartEnvelope
 >        , chartPoints
->        , table2vals ) where
+>        , graphSF ) where
 >
 > import Control.Lens
 > import Data.Default.Class
+> import qualified Data.Vector.Unboxed     as VU
 > import Diagrams.Prelude
+> import Euterpea.IO.Audio.Types
 > import Graphics.Rendering.Chart
 > import Graphics.Rendering.Chart.Backend.Diagrams
+> import Parthenopea.Repro.Discrete
+> import Parthenopea.Repro.Envelopes
+> import Parthenopea.Repro.Synthesizer
+> import Parthenopea.SoundFont.Utility
 
 Chart =================================================================================================================
 
@@ -62,10 +69,42 @@ Chart ==========================================================================
 >     ,  red     `withOpacity` 2
 >     ,  purple  `withOpacity` 2]
 >
-> table2vals             :: Double → [Double] → [(Double, Double, Double, Double)]
-> table2vals scalix                        = zipWith convFun [0..]
+> chartEnvelope          :: String → TimeFrame → FEnvelope → Double → IO Bool
+> chartEnvelope tag tf fe clockRate        = do
+>   print segs
+>   case mdsig of
+>     Nothing                              → return False
+>     Just dsig                            →
+>       do
+>         chartDiscreteSig clockRate nPoints dsig tag
+>         return True
 >   where
->     convFun            :: Int → Double → (Double, Double, Double, Double)
->     convFun i y                          = (fromIntegral i / scalix, y, 0, 0)
+>     (r, segs)                            = proposeSegments tf fe
+>     mdsig                                = vetAsDiscreteSig clockRate r segs
+>     nPoints            :: Int            = round $ clockRate * (tf.tfSecsScored + 0.5)
+> chartDiscreteSig       :: Double → Int → DiscreteSig Double → String → IO Bool
+> chartDiscreteSig clockRate nPoints dsig tag
+>                                          = chartPoints "Discrete" tag [sec]
+>   where
+>     sec                                  = Section (opaque blue) (zip xs ys)
+>     xs, ys             :: [Double]
+>     xs                                   = map ((/ clockRate) . fromIntegral) [0::Int ..]
+>     ys                                   = take nPoints (VU.toList dsig.dsigVec)
+>
+> graphSF                :: ∀ p . Clock p ⇒ Double → Double → Double → Signal p () Double → [(Double, Double)]
+> graphSF secs clock startT sf
+>   | abs (clock - sr) > epsilon           = error $ unwords [fName, "(clock,sr)=", show (clock, sr)]
+>   | nPoints >= 2 ^ (22::Int)             = error $ unwords [fName, show nPoints, "is too large!"]
+>   | nActual /= nPoints                   = error $ unwords [fName, "(nPoints, nActual)=", show (nPoints, nActual)]
+>   | otherwise                            = zip onsets (VU.toList vec)
+>   where
+>     fName                                = "graphSF"
+>     sr                                   = rate (undefined::p)
+>
+>     nPoints            :: Int            = round (secs * clock)
+>     vec                :: VU.Vector Double
+>                                          = VU.take nPoints (deJust fName (fromSignal fName secs sf)).dsigVec
+>     nActual            :: Int            = VU.length vec
+>     onsets             :: [Double]       = [startT + (fromIntegral i/clock) | i ← [0..]]
 
 The End

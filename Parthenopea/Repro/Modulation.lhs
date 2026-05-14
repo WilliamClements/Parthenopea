@@ -31,6 +31,7 @@ November 6, 2023
 > import Euterpea.IO.Audio.Types
 > import GHC.Generics ( Generic ) 
 > import Parthenopea.Debug
+> import Parthenopea.Repro.Envelopes
 > import Parthenopea.SoundFont.Utility
 
 "A modulator is defined by its sfModSrcOper, its sfModDestOper, and its sfModSrcAmtOper"
