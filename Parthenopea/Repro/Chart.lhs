@@ -6,11 +6,11 @@ William Clements
 November 9, 2023
 
 > module Parthenopea.Repro.Chart (
->          Section( .. )
->        , chartColors
+>          chartColors
 >        , chartEnvelope
 >        , chartPoints
->        , graphSF ) where
+>        , graphSF
+>        , Section( .. ) ) where
 >
 > import Control.Lens
 > import Data.Default.Class

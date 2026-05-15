@@ -52,7 +52,8 @@ struct sfInstModList
 >   , mrModSrc           :: ModSrc
 >   , mrModDest          :: ModDestType
 >   , mrModAmount        :: Double
->   , mrAmountSrc        :: ModSrc} deriving (Eq, Show)  
+>   , mrAmountSrc        :: ModSrc}
+>   deriving (Eq, Show)  
 > defModulator           :: Modulator
 > defModulator                             =
 >   Modulator
@@ -66,7 +67,8 @@ struct sfInstModList
 >   ModKey {
 >     krSrc              :: ModSrc
 >   , krDest             :: ModDestType
->   , krAmtSrc           :: ModSrc} deriving (Eq, Ord, Show)
+>   , krAmtSrc           :: ModSrc}
+>   deriving (Eq, Ord)
 > modKey                 :: Modulator → ModKey
 > modKey m8r                               =
 >   ModKey m8r.mrModSrc m8r.mrModDest m8r.mrAmountSrc
@@ -79,18 +81,21 @@ struct sfInstModList
 >   | ToInitAtten
 >   | ToChorus
 >   | ToReverb
->   | ToLink Node deriving (Eq, Ord, Show)
+>   | ToLink Node
+>   deriving (Eq, Ord, Show)
 >
 > data ModSrcSource                        =
 >     FromNoController
 >   | FromNoteOnVel
 >   | FromNoteOnKey
->   | FromLinked deriving (Eq, Ord, Show)
+>   | FromLinked
+>   deriving (Eq, Ord, Show)
 >
 > data ModSrc                              =
 >   ModSrc {
 >     msMapping          :: Mapping
->   , msSource           :: ModSrcSource} deriving (Eq, Ord, Show)
+>   , msSource           :: ModSrcSource}
+>   deriving (Eq, Ord, Show)
 >
 > defModSrc              :: ModSrc
 > defModSrc                                = ModSrc defMapping FromNoController
@@ -99,13 +104,15 @@ struct sfInstModList
 >   Mapping {
 >     msContinuity     :: Continuity
 >   , msBiPolar        :: Bool  
->   , msMax2Min        :: Bool} deriving (Eq, Ord, Show)
+>   , msMax2Min        :: Bool}
+>   deriving (Eq, Ord, Show)
 >
 > data Continuity =
 >     Linear
 >   | Concave
 >   | Convex
->   | Switch deriving (Eq, Ord, Show, Enum)
+>   | Switch
+>   deriving (Eq, Ord, Show, Enum)
 >
 > defMapping             :: Mapping
 > defMapping                               = Mapping Linear False False 
@@ -119,30 +126,33 @@ Modulator management is complex considering small impact =======================
 
 Nonetheless, trying hard here for 100 percent correctness and support, even with high numbers of mods.
 
-The function renumberMods called by resolveMods is used to force Modulator identifiers into a canonical form, in
-order to successfully support the Eq instance.
+Function renumberMods called by resolveMods forces Modulator identifiers into a canonical sequence, as required by
+Modulator's Eq instance.
 
 > resolveMods            :: Modulation → [Modulator] → [Modulator] → Modulation
 > resolveMods m8n m8rs dm8rs               = m8n{mModsMap = compileMods checked}
 >   where
+>     sifted, checked    :: [Modulator]
 >     sifted                               = renumberMods $ siftMods $ Map.elems uniqued 
 >     checked                              = profess
 >                                              (freeOfCycles sifted)
 >                                              "cycles in modulator graph"
->                                              sifted        
+>                                              sifted    
+
+Only one Modulator may occupy a spot for its ModKey per the opening slogan.
+
 >     uniqued            :: Map ModKey Modulator
->     uniqued                              = foldl' ufolder Map.empty (dm8rs ++ m8rs)
->                                              where ufolder m m8r = Map.insert (modKey m8r) m8r m
+>     uniqued                              = foldl' occupy Map.empty (dm8rs ++ m8rs)
+>                                              where occupy m m8r = Map.insert (modKey m8r) m8r m
 >
 > freeOfCycles           :: [Modulator] → Bool
 > freeOfCycles m8rs                        = null $ cyclicNodes $ makeGraph edgeList
 >   where
 >     nodeList           :: Map ModDestType [Modulator]
->     nodeList                             = Map.filterWithKey (\k _ → (isJust . outGoing) k) (compileMods m8rs)
->
+>     nodeList                             = Map.filterWithKey winnow (compileMods m8rs)
+>                                              where winnow k _ = (isJust . outGoing) k
 >     edgeList           :: [(Node, [Node])]
 >     edgeList                             = map (BF.bimap nodeFrom (map mrModId)) (Map.toList nodeList)
->
 >     nodeFrom           :: ModDestType → Node
 >     nodeFrom mdt                         =
 >       maybe
@@ -192,7 +202,7 @@ order to successfully support the Eq instance.
 >       profess
 >         (ting.ssCounter <= 10)
 >         "maximum of 10 tries exceeded..."
->         filter shouldStay ting.ssCurrent
+>         (filter shouldStay ting.ssCurrent)
 >
 >     shouldStay m8r                       = linkageInOk && linkageOutOk
 >       where
@@ -209,8 +219,7 @@ order to successfully support the Eq instance.
 > siftMods               :: [Modulator] → [Modulator]
 > siftMods m8rs                            = (head $ dropWhile unfinished generations).ssCurrent
 >   where
->     generations                          =
->       iterate' eliminateDanglingMods (Sifting 0 m8rs [])
+>     generations        :: [Sifting]      = iterate' eliminateDanglingMods (Sifting 0 m8rs [])
 >     unfinished Sifting{ssCurrent, ssPrevious}
 >                                          = ssCurrent /= ssPrevious
 >
@@ -319,7 +328,7 @@ order to successfully support the Eq instance.
 >       | otherwise                        = evalResult
 >       where
 >         fName                            = "evaluateMod"
->         trace_EM                         = unwords [fName, show md, show graph, show noon]
+>         trace_EM                         = unwords [fName, show m8r.mrModId, show md, show noon]
 >
 >         getValue modSrc                  =
 >           case modSrc.msSource of
@@ -589,7 +598,8 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 > defModCoefficients                       = ModCoefficients 0 0 0
 >
 > coAccess               :: ModDestType → ModTriple → Double
-> coAccess md (ModTriple coPitch coFilterFc coVolume)                      =
+> coAccess md (ModTriple coPitch coFilterFc coVolume)
+>                                          =
 >   case md of
 >     ToPitch            → coPitch
 >     ToFilterFc         → coFilterFc

@@ -361,9 +361,9 @@ Shelby Parsley =================================================================
 >
 > spVibes, spBass, dihtRhodes
 >                        :: BandPart
-> spVibes                                  = makePitched Vibraphone          spTranspose 0  90
+> spVibes                                  = makePitched Vibraphone          spTranspose 0  80
 > spBass                                   = makePitched ElectricBassPicked  spTranspose 0  75
-> dihtRhodes                               = makePitched RhodesPiano         spTranspose 0  90
+> dihtRhodes                               = makePitched RhodesPiano         spTranspose 0  80
 > 
 > shelby                 :: Music (Pitch, [NoteAttribute])
 > shelby                                   =

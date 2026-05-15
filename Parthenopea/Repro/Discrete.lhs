@@ -29,8 +29,8 @@ June 17, 2024
   
 Discrete filtering ====================================================================================================
 
-The KernelSpec values configure a lowpass filter without resonance - no sweeping of cutoff frequency supported. From
-that, we generate a "discrete signal" - a block of complex numbers - for the Frequency Response of the filter.
+The KernelSpec values configure a lowpass filter with resonance, but without supporting sweeping of cutoff frequency.
+From that, we generate a "discrete signal" - a block of complex numbers - for the Frequency Response of the filter.
 Applying this filter to input signals is accomplished by sample point-wise multiplication, not slow convolution.
 
 > computeFR          :: KernelSpec → DiscreteSig (Complex Double)

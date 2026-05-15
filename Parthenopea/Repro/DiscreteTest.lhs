@@ -12,7 +12,6 @@ June 22, 2024
 >
 > import Control.Arrow
 > import Data.Complex ( imagPart, realPart, Complex )
-> import Data.Time.Clock ( diffUTCTime, getCurrentTime )
 > import qualified Data.Vector.Unboxed     as VU
 > import Diagrams.Prelude hiding ( fc )
 > import Euterpea.IO.Audio.Basics ( outA, apToHz )
@@ -20,40 +19,16 @@ June 22, 2024
 > import Euterpea.IO.Audio.IO ( outFile )
 > import Euterpea.IO.Audio.Render ( Instr )
 > import Euterpea.IO.Audio.Types ( AudSF, Signal, Clock, Mono, AudRate )
-> import Parthenopea.Music.Siren ( maxSample )
 > import Parthenopea.Repro.Chart
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Modulation
+> import Parthenopea.Repro.ModulationTest
 > import Parthenopea.SoundFont.Utility
 
 Feed chart ============================================================================================================
 
 > allFilterTypes         :: [ResonanceType]
 > allFilterTypes                           = [minBound..maxBound]
->
-> nKews                  :: Int
-> nKews                                    = 4
-> kews                   :: [Int]
-> kews                                     = [0, 120, 240, 480] -- breakUp (0, 480) 0 nKews
-> nCutoffs               :: Int
-> nCutoffs                                 = 4
-> cutoffs                :: [Int]
-> cutoffs                                  = [2_000, 4_000, 8_000, 15_353]
->                                            -- 9_370, 9_373, 9_3274]
->                                           -- [9_300, 9_371, 9_380, 9_200, 9_300, 9_365]
->                                           -- [9_350, 9_360, 9_380, 9_400]
-> -- cutoffs                                  = [9_350, 9_400, 9_425, 9_500]
-> nFreaks                :: Int
-> nFreaks                                  = 23
-> freaks                 :: [Int]
-> freaks                                   = breakUp (25, 22_000) 0 nFreaks
->
-> filterTestDur          :: Double
-> filterTestDur          :: Double         = 1
->
-> bench, porch           :: IO ()
-> bench                                    = benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
-> porch                                    = benchFilters measureResponse [ResonanceSVF] cutoffs kews freaks
 >
 > checkGrouts            ::  [(Double, Double)] → IO String
 > checkGrouts grouts                       = do
@@ -72,90 +47,6 @@ Feed chart =====================================================================
 >         octaves                          = c / a / 2
 >         amps                             = toCentibels (d / b)
 >         rate                             = amps / octaves
->
-> measureResponse        :: BenchSpec → Modulation → [(Double, Double)]
-> measureResponse BenchSpec{ .. } Modulation{ .. }
->                                          = map doFk bench_fks
->   where
->     doFk               :: Double → (Double, Double)
->     doFk fk                              = (fk, maxSample filterTestDur sf)
->       where
->         sf             :: AudSF () Double
->         sf                               = createFilterTest sineTable mLowpass fk
-> 
-> benchFilters           :: (BenchSpec → Modulation → [(Double, Double)]) → [ResonanceType] → [Int] → [Int] → [Int] → IO ()
-> benchFilters fun rts fcs qs fks          = doFilters fun bRanges
->   where
->     bRanges                              = 
->       BenchRanges
->         rts
->         (map fromIntegral fcs) 
->         (map fromIntegral qs)
->         (map fromIntegral fks)
->
-> doFilters              :: (BenchSpec → Modulation → [(Double, Double)]) → BenchRanges → IO ()
-> doFilters fun BenchRanges{ .. }          = mapM_ doRt ranges_rts
->   where
->     doRt               :: ResonanceType → IO ()
->     doRt currentRt                       =
->       if varyFc
->         then mapM_ doQ ranges_qs
->         else mapM_ doFc ranges_fcs
->       where
->         doFc           :: Double → IO ()
->         doFc currentFc                   = do
->           putStrLn $ unwords ["doFc", show currentFc]
->           doQs ranges_qs
->           where
->             doQs       :: [Double] → IO ()
->             doQs qs                      = do
->               putStrLn $ unwords ["doQs", show qs]
->               let sects                  = zipWith Section chartColors (map calc qs)
->               chartPoints "doFilters" (concat [show currentRt, "_fc", show currentFc]) sects
->               return ()
->               where
->                 calc   :: Double → [(Double, Double)]
->                 calc currentQ            = fun bs m8n
->                   where
->                     bs@BenchSpec{ .. }   = BenchSpec currentRt filterTestDur currentFc currentQ ranges_fks
->                     ks                   = KernelSpec
->                                              (toAbsoluteCents bench_fc)
->                                              (round currentQ)
->                                              44_100
->                                              True
->                                              256
->
->                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks}
->
->         doQ           :: Double → IO ()
->         doQ currentQ                     = do
->           putStrLn $ unwords ["doQ", show currentQ]
->           ts1                            ← getCurrentTime
->           doFcs ranges_fcs
->           ts2                            ← getCurrentTime 
->           putStrLn $ unwords ["doQ elapsed=: ", show (diffUTCTime ts2 ts1)]
->           where
->             doFcs     :: [Double] → IO ()
->             doFcs fcs                    = do
->               putStrLn $ unwords ["doFcs", show fcs]
->               ts1                        ← getCurrentTime
->               let sects                  = zipWith Section chartColors (map calc fcs)
->               print sects
->               chartPoints "doQ" (concat [show currentRt, "_q", show currentQ]) sects
->               ts2                        ← getCurrentTime 
->               putStrLn $ unwords ["doFcs elapsed=: ", show (diffUTCTime ts2 ts1)]
->               where
->                 calc   :: Double → [(Double, Double)]
->                 calc currentFc           = fun bs m8n
->                   where
->                     bs@BenchSpec{ .. }   = BenchSpec currentRt filterTestDur currentFc currentQ ranges_fks
->                     ks                   = KernelSpec
->                                              (toAbsoluteCents bench_fc)
->                                              (round currentQ)
->                                              44_100
->                                              True
->                                              256
->                     m8n                  = defModulation{mLowpass = Lowpass bench_rt ks}
 >
 > chartIr                :: Bool → IO ()
 > chartIr useFastFourier                   = do
@@ -200,17 +91,6 @@ Feed chart =====================================================================
 >       proc () → do
 >         a1 ← osc waveTable 0 ⤙ freq
 >         outA ⤙ a1
->
-> createFilterTest       :: ∀ p . Clock p ⇒ Table → Lowpass → Double → Signal p () Double
-> createFilterTest waveTable lp freq       =
->   proc () → do
->     a1 ← osc waveTable 0                 ⤙ freq
->     a2 ← filtersf                        ⤙ (a1, fc)
->     outA                                 ⤙ a2 * 100 / qMidiDouble128
->   where
->     fc                                   = fromAbsoluteCents lp.lowpassKs.ksFc                     
->
->     filtersf                             = procFilter lp
 >
 > env1                   :: AudSF () Double
 > env1                                     = envExpon 20 10 10_000
@@ -265,24 +145,6 @@ Feed chart =====================================================================
 >   chartPoints "DiscreteTest" ("ResonanceConvo_fc" ++ show qIter) sects
 >   
 >   return 0
->
-> data BenchRanges                         =
->   BenchRanges {
->       ranges_rts       :: [ResonanceType]
->     , ranges_fcs       :: [Double]
->     , ranges_qs        :: [Double]
->     , ranges_fks       :: [Double]} deriving Show
->
-> data BenchSpec                           =
->   BenchSpec {
->       bench_rt         :: ResonanceType
->     , bench_dur        :: Double
->     , bench_fc         :: Double
->     , bench_q          :: Double
->     , bench_fks        :: [Double]} deriving Show
->
-> varyFc                 :: Bool
-> varyFc                                   = False
 >
 > testDecline            :: Double → Double → IO ()
 > testDecline freakStart _                 = do
