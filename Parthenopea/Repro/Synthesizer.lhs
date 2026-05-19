@@ -12,7 +12,9 @@ May 14, 2023
 >
 > import Control.Arrow
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )
+> import Data.Array.Unboxed
 > import qualified Data.Audio              as A
+> import Data.Int ( Int16, Int32 )
 > import Data.List
 > import Data.Maybe
 > import qualified Data.Vector.Strict      as VB
@@ -22,7 +24,6 @@ May 14, 2023
 > import Euterpea.IO.Audio.Types
 > import Euterpea.Music ( Dur, AbsPitch )
 > import Parthenopea.Debug
-> import Parthenopea.Music.Siren
 > import Parthenopea.Repro.Discrete
 > import Parthenopea.Repro.Envelopes
 > import Parthenopea.Repro.Modulation
@@ -157,7 +158,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >         let ix         :: Int            = truncate pos'
 >         let offset     :: Double         = pos' - fromIntegral ix
 >
->         let a1L                          = samplePointInterp ssData ssM24 offset (fromIntegral rStart + ix)
+>         let a1L                          = samplePointInterp offset (fromIntegral rStart + ix)
 >         outA                             ⤙ a1L * ampL
 >       where
 >         AppliedLimits{ .. }
@@ -172,8 +173,8 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >         let ix         :: Int            = truncate pos'
 >         let offset     :: Double         = pos' - fromIntegral ix
 >
->         let a1L        :: Double         = samplePointInterp ssData ssM24 offset (fromIntegral appliedL.rStart + ix) 
->         let a1R        :: Double         = samplePointInterp ssData ssM24 offset (fromIntegral appliedR.rStart + ix)
+>         let a1L        :: Double         = samplePointInterp offset (appliedL.rStart + ix) 
+>         let a1R        :: Double         = samplePointInterp offset (appliedR.rStart + ix)
 >         outA                             ⤙ (a1L * ampL, a1R * ampR)
 >       where
 >         Recon{rAttenuation = attenL, rApplied = appliedL}
@@ -186,6 +187,22 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >         cAttenR                          = fromCentibels (attenR + evaluateMods ToInitAtten mmodsR noon)
 >         ampL                             = fromIntegral noon.noteOnVel / 100 / cAttenL
 >         ampR                             = fromIntegral noon.noteOnVel / 100 / cAttenR
+
+Returns sample point as (normalized) Double
+
+>     {-# INLINE samplePoint #-}
+>     samplePoint        ::Int → Double
+>     samplePoint ix                       = maybe (A.toSample n16) (const $ A.toSample n32) ssM24
+>       where
+>         n16            :: Int16          = ssData ! ix
+>         n32            :: Int32          = fromIntegral n16 * 2 ^ 16 + fromIntegral (fromJust ssM24 ! ix)
+>
+>     {-# INLINE samplePointInterp #-}
+>     samplePointInterp  :: Double → Int → Double
+>     samplePointInterp offs ix            = s0 + offs * (s1 - s0)
+>       where
+>         s0, s1         :: Double
+>         (s0, s1)                         = (samplePoint ix, samplePoint (ix + 1))
 
 Microtones ============================================================================================================
 

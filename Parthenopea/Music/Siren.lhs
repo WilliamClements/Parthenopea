@@ -16,9 +16,7 @@ December 12, 2022
 > import Control.Lens hiding ( element, strict )
 > import Control.SF.SF ( unfold )
 > import Data.Array.Unboxed
-> import qualified Data.Audio              as A
 > import qualified Data.Bifunctor          as BF
-> import Data.Int ( Int8, Int16, Int32 )
 > import Data.List hiding (transpose)
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
@@ -784,23 +782,8 @@ Sampling =======================================================================
 > maxSample              :: ∀ p. (Clock p) ⇒ Double → Signal p () Double → Double
 > maxSample durS sf                        = VU.maximum $ VU.map abs (toSamples durS sf)
 
-Conversion functions and general helpers ==============================================================================
-
-Returns sample point as (normalized) Double
-
-> samplePoint            :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Int → Double
-> samplePoint s16 ms8 ix                   = maybe (A.toSample n16) (const $ A.toSample n32) ms8
->   where
->     n16                :: Int16          = s16 ! ix
->     n32                :: Int32          = fromIntegral n16 * 2 ^ 16 + fromIntegral (fromJust ms8 ! ix)
->
-> samplePointInterp      :: A.SampleData Int16 → Maybe (A.SampleData Int8) → Double → Int → Double
-> samplePointInterp s16 ms8 offs ix        = s0 + offs * (s1 - s0)
->   where
->     (s0, s1)           :: (Double, Double)
->                                          = (  samplePoint s16 ms8 ix
->                                             , samplePoint s16 ms8 (ix + 1))
-> 
+Conversion functions between midi file path and Song ==================================================================
+ 
 > convertFromMidi        :: FilePath → IO Song
 > convertFromMidi path                     = do
 >   midi_                                  ← M.importFile path

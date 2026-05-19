@@ -92,15 +92,13 @@ Feed chart =====================================================================
 >         a1 ← osc waveTable 0 ⤙ freq
 >         outA ⤙ a1
 >
-> env1                   :: AudSF () Double
-> env1                                     = envExpon 20 10 10_000
->
 > sfTest1                :: AudSF (Double,Double) Double → Instr (Mono AudRate)
 >                        -- AudSF (Double,Double) Double → 
 >                        -- Dur → AbsPitch → Volume → [Double] → AudSF () Double
 > sfTest1 sf _ ap vol _                    =
 >   let f = apToHz ap
 >       v = fromIntegral vol / 100
+>       env1 = envExpon 20 10 10_000
 >   in proc () → do
 >        a1 ← osc sineTable 0 <<< env1 -< () 
 >        a2 ← sf ⤙ (a1,f)

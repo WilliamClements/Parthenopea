@@ -325,7 +325,7 @@ Only one Modulator may occupy a spot for its ModKey per the opening slogan.
 >   where
 >     evaluateMod m8r
 >       | traceNot trace_EM False          = undefined
->       | otherwise                        = evalResult
+>       | otherwise                        = getValue m8r.mrModSrc * m8r.mrModAmount * getValue m8r.mrAmountSrc
 >       where
 >         fName                            = "evaluateMod"
 >         trace_EM                         = unwords [fName, show m8r.mrModId, show md, show noon]
@@ -333,13 +333,11 @@ Only one Modulator may occupy a spot for its ModKey per the opening slogan.
 >         getValue modSrc                  =
 >           case modSrc.msSource of
 >             FromNoController             → 1
->             FromNoteOnVel                → evaluateNoteOn noon.noteOnVel modSrc.msMapping
->             FromNoteOnKey                → evaluateNoteOn noon.noteOnKey modSrc.msMapping
+>             FromNoteOnVel                → evaluateNoteOn modSrc.msMapping noon.noteOnVel 
+>             FromNoteOnKey                → evaluateNoteOn modSrc.msMapping noon.noteOnKey 
 >             FromLinked                   → evaluateMods (ToLink m8r.mrModId) graph noon
->         evalResult                       = getValue m8r.mrModSrc * m8r.mrModAmount * getValue m8r.mrAmountSrc
 >
-> evaluateNoteOn         :: Int → Mapping → Double
-> evaluateNoteOn n ping                    = controlDenormal ping (0, 1) (fromIntegral n / qMidiDouble128)
+>     evaluateNoteOn ping n                = controlDenormal ping (0, 1) (fromIntegral n / qMidiDouble128)
 >
 > evaluateModSignals     :: String → Modulation → ModDestType → NoteOn → ModSignals → Double
 > evaluateModSignals tag m8n md noon (ModSignals xenv xlfo xvib)
@@ -394,7 +392,7 @@ see source https://karmafx.net/docs/karmafx_digitalfilters.pdf
 >   where
 >     damp                                 = 1 / fromCentibels (lowpassQ lp)
 >     theta c                              = pi * c / rate (undefined :: p)
->     fudge                                = 1.0
+>     fudge                                = 1.0 -- WOX 1.8 -- WOX
 
 see source https://ccrma.stanford.edu/~jos/svf/svf.pdf
 
@@ -591,9 +589,10 @@ r is the resonance radius, w0 is the angle of the poles and b0 is the gain facto
 >     
 > data ModCoefficients                     =
 >   ModCoefficients {
->     xModEnvCo          :: Double
->   , xModLfoCo          :: Double
->   , xVibLfoCo          :: Double} deriving (Eq, Show)
+>     xModEnvCo          :: !Double
+>   , xModLfoCo          :: !Double
+>   , xVibLfoCo          :: !Double}
+>   deriving (Eq, Show)
 > defModCoefficients     :: ModCoefficients
 > defModCoefficients                       = ModCoefficients 0 0 0
 >
@@ -857,7 +856,7 @@ The use of following functions requires that their input is normalized between 0
 > controlLinear                            = id
 >
 > quarterCircleTable     :: Array Int Double
->                                            -- TODO: use Table
+>                                            -- TODO: use Table or unboxed Vector
 > quarterCircleTable                       =
 >   array (0, qTableSize1024 - 1) [(x, calc x) | x ← [0..(qTableSize1024 - 1)]]
 >   where

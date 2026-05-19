@@ -31,7 +31,7 @@ implementing SoundFont spec ====================================================
 > type BagIndex                            = Word
 > type Fuzz                                = Double
 >
-> data SampleType =
+> data SampleType                          =
 >   SampleTypeMono
 >   | SampleTypeRight
 >   | SampleTypeLeft
@@ -40,7 +40,8 @@ implementing SoundFont spec ====================================================
 >   | SampleTypeRomMono
 >   | SampleTypeRomRight
 >   | SampleTypeRomLeft
->   | SampleTypeRomLinked deriving (Eq, Show)
+>   | SampleTypeRomLinked
+>   deriving (Eq, Show)
 >
 > toSampleType           :: Word → SampleType
 > toSampleType hex                         = deJust "toMaybeSampleType" (toMaybeSampleType hex)
@@ -171,7 +172,7 @@ bootstrapping ==================================================================
 >   | null name                            = "<noname>"
 >   | otherwise                            = map (\cN → if goodChar cN then cN else '_') name
 
-Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
+Returning rarely-changed hard-coded report names ======================================================================
 
 > reportPassageName, reportRangesName, reportScanName, reportTournamentName
 >                        :: FilePath
