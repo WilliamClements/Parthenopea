@@ -18,6 +18,7 @@ April 16, 2023
 > import Data.List
 > import Data.Maybe
 > import Data.Ratio ( (%) )
+> import qualified Data.Vector.Strict      as VB
   
 implementing SoundFont spec ===========================================================================================
 
@@ -105,6 +106,13 @@ implementing SoundFont spec ====================================================
 >   , pzkwSampleIndex    :: !Word}
 >   deriving (Eq, Ord, Show)
 >
+> data SFFileBoot                          =
+>   SFFileBoot {
+>     zWordFBoot         :: !Int
+>   , zFilename          :: FilePath
+>   , zFileArrays        :: FileArrays
+>   , zSample            :: SampleArrays}
+>
 > data FileArrays                          = 
 >   FileArrays {
 >     ssInsts            :: Array Word F.Inst
@@ -164,5 +172,67 @@ Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
 > reportRangesName                         = "Ranges.report"
 > reportScanName                           = "Scan.report"
 > reportTournamentName                     = "Tournament.report"
+>
+> teclip, tfclip, tqclip, tvclip, ticlip, tpclip, tcclip, tbclip, taclip, tkclip, tdclip,
+>   t1clip, t2clip, t3clip, tmclip, tnclip
+>                      :: (Int, Int)
+>
+> teclip                                   = (-12_000, 12_000)
+> tfclip                                   = (1_500, 13_500)
+> tqclip                                   = (0, 960)
+> tvclip                                   = (-960, 960)
+> ticlip                                   = (0, 1_000)
+> tpclip                                   = (-500, 500)
+> tcclip                                   = (-12_000, 5_000)
+> tbclip                                   = (-12_000, 8_000)
+> taclip                                   = (-16_000, 4_500)
+> tkclip                                   = (-1_200, 1_200)
+> tdclip                                   = (0, 1_440)
+> tmclip                                   = (0, 127)
+> tnclip                                   = (1, 127) 
+> t1clip                                   = (-120, 120)
+> t2clip                                   = (-99, 99)
+> t3clip                                   = (0, 1_200)
+>
+> allClipVector          :: VB.Vector (Maybe (Int, Int))
+> allClipVector                            = VB.fromList allClip
+> allClip                :: [Maybe (Int, Int)]
+> allClip                                  =
+>   [ Nothing, Nothing, Nothing, Nothing, Nothing          -- StartAddressOffset
+>                                                          --  | EndAddressOffset
+>                                                          --  | LoopStartAddressOffset
+>                                                          --  | LoopEndAddressOffset
+>                                                          --  | StartAddressCoarseOffset
+>   , Just teclip, Just teclip, Just teclip                -- ModLfoToPitch | VibLfoToPitch | ModEnvToPitch
+>   , Just tfclip                                          -- InitFc
+>   , Just tqclip                                          -- InitQ
+>   , Just teclip, Just teclip                             -- ModLfoToFc | ModEnvToFc
+>   , Nothing                                              -- EndAddressCoarseOffset
+>   , Just tvclip                                          -- ModLfoToVol
+>   , Nothing                                              -- Unused1
+>   , Just ticlip, Just ticlip                             -- Chorus | Reverb
+>   , Just tpclip                                          -- Pan
+>   , Nothing, Nothing, Nothing                            -- Unused2 | Unused3 | Unused4
+>   , Just tcclip, Just taclip                             -- DelayModLfo | FreqModLfo
+>   , Just tcclip, Just taclip                             -- DelayVibLfo | FreqVibLfo
+>   , Just tcclip, Just tbclip, Just tcclip                -- DelayModEnv | AttackModEnv | HoldModEnv
+>   , Just tbclip, Just ticlip, Just tbclip                -- DecayModEnv | SustainModEnv | ReleaseModEnv
+>   , Just tkclip, Just tkclip                             -- KeyToModEnvHold | KeyToModEnvDecay
+>   , Just tcclip, Just tbclip, Just tcclip                -- DelayVolEnv | AttackVolEnv | HoldVolEnv
+>   , Just tbclip, Just tdclip, Just tbclip                -- DecayVolEnv | SustainVolEnv | ReleaseVolEnv
+>   , Just tkclip, Just tkclip                             -- KeyToVolEnvHold | KeyToVolEnvDecay
+>   , Nothing, Nothing                                     -- InstIndex | Reserved1
+>   , Nothing, Nothing                                     -- KeyRange | VelRange
+>   , Nothing                                              -- LoopStartAddressCoarseOffset
+>   , Just tmclip, Just tnclip                             -- Key | Vel
+>   , Just tdclip                                          -- InitAtten
+>   , Nothing, Nothing                                     -- Reserved2 | LoopEndAddressCoarseOffset
+>   , Just t1clip, Just t2clip                             -- CoarseTune | FineTune
+>   , Nothing, Nothing, Nothing                            -- SampleIndex | SampleMode | Reserved3
+>   , Just t3clip                                          -- ScaleTuning
+>   , Just tnclip                                          -- ExclusiveClass
+>   , Just tmclip                                          -- RootKey
+>   , Nothing, Nothing                                     -- Unused5 | ReservedGen
+>   ]
 
 The End
