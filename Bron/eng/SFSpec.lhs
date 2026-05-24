@@ -97,7 +97,6 @@ implementing SoundFont spec ====================================================
 >   deriving (Eq, Ord, Show)
 > type PreSample                           = ChangeName F.Shdr
 >
->
 > data PreZoneKey                          =
 >   PreZoneKey {
 >     pzkwFile           :: !Int
@@ -163,15 +162,6 @@ bootstrapping ==================================================================
 > fixName name
 >   | null name                            = "<noname>"
 >   | otherwise                            = map (\cN → if goodChar cN then cN else '_') name
-
-Returning rarely-changed but otherwise hard-coded names; e.g. Tournament Report.
-
-> reportPassageName, reportRangesName, reportScanName, reportTournamentName
->                        :: FilePath
-> reportPassageName                        = "Passage.report"
-> reportRangesName                         = "Ranges.report"
-> reportScanName                           = "Scan.report"
-> reportTournamentName                     = "Tournament.report"
 >
 > teclip, tfclip, tqclip, tvclip, ticlip, tpclip, tcclip, tbclip, taclip, tkclip, tdclip,
 >   t1clip, t2clip, t3clip, tmclip, tnclip

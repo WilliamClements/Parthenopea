@@ -39,20 +39,20 @@ The Generator types are numbered 0 to 60. ======================================
 >   | Reserved3 | ScaleTuning | ExclusiveClass | RootKey | Unused5 | ReservedGen
 >   deriving (Enum, Eq, Show)
 
-The per-file telemetry data includes:
+The per-file diagnostic data includes:
 1. vector of 61 per-generator infos - each with
    a. occurrence count
    b. out-of-range values encountered, if any
 2. envelope statistics summed up over all instruments in the file
 
-We list out both sets of data for each file, then combine them across files, and list out the rollup.
+We list out both sets of data for each file, then list out the rollup sets.
 
 > data GenData                             =
 >   GenData {
->       _genEnum         :: GenEnum
->     , _genRange        :: Maybe (Int, Int)
->     , _genOccur        :: Int
->     , _genOutOfRange   :: IntSet}
+>     _genEnum           :: GenEnum
+>   , _genRange          :: Maybe (Int, Int)
+>   , _genOccur          :: Int
+>   , _genOutOfRange     :: IntSet}
 >   deriving (Eq, Show)
 > makeGenData            :: GenEnum → GenData
 > makeGenData ge                           =
@@ -60,14 +60,6 @@ We list out both sets of data for each file, then combine them across files, and
 >     mclip                                = allClipVector VB.! fromEnum ge
 >   in
 >     GenData ge mclip  0 IntSet.empty
-> addTwoGenDatas         :: GenData → GenData → GenData
-> addTwoGenDatas (GenData ge1 mclip1 k1 c1) (GenData _ _ k2 c2)
->                                          =
->   GenData
->     ge1
->     mclip1 
->     (k1 + k2)
->     (c1 `IntSet.union` c2)
 >
 > data EnvData                             =
 >   EnvData {
@@ -75,7 +67,7 @@ We list out both sets of data for each file, then combine them across files, and
 >   , edTime             :: String}
 >   deriving (Eq, Show)
 > defEnvData            :: EnvData
-> defEnvData                             = EnvData "" ""
+> defEnvData                               = EnvData "" ""
 >
 > data GenSum                              =
 >   GenSum {
@@ -84,14 +76,10 @@ We list out both sets of data for each file, then combine them across files, and
 >   , _gsEnvData         :: EnvData}
 >   deriving (Eq, Show)
 > defGenSum             :: GenSum
-> defGenSum                              = GenSum "" VB.empty defEnvData
+> defGenSum                                = GenSum "" VB.empty defEnvData
 > makeGenSum             :: FilePath → VB.Vector GenData → GenSum
 > makeGenSum filename genData =
 >   GenSum filename genData defEnvData
-> addTwoGenSums          :: GenSum → GenSum → GenSum
-> addTwoGenSums (GenSum _ gd1 ed1) (GenSum _ gd2 ed2)     -- WOX must combine ed2 with ed1
->                                          =
->   GenSum "<rollup" (VB.zipWith addTwoGenDatas gd1 gd2) ed1
 >
 > openSoundFontFile      :: Int → FilePath → IO SFFileBoot
 > openSoundFontFile wFile filename         = do
@@ -138,17 +126,17 @@ We list out both sets of data for each file, then combine them across files, and
 >     then return ()
 >     else do
 >       fData                              ← openInvestigation vFilesBoot
->       putStrLn $ unwords ["check 61 =", show (VB.length fData)]
->       return ()
+>       mapM_ putStrLn fData
+>       putStrLn $ unwords ["numFiles=", show (VB.length fData)]
 >
-> shredOneFile           :: SFFileBoot → IO GenSum
-> shredOneFile sffile                      =
+> shredFile              :: SFFileBoot → IO GenSum
+> shredFile sffile                         =
 >   return $ makeGenSum sffile.zFilename vGenData'
 >   where
 >     vGenData           :: VB.Vector GenData
 >     vGenData                             = VB.generate 61 (makeGenData . toEnum)
 >     vGenData'          :: VB.Vector GenData
->     vGenData'                            = foldl' shredOne vGenData sffile.zFileArrays.ssIGens
+>     vGenData'                            = foldl' shredGen vGenData sffile.zFileArrays.ssIGens
 >
 >     upd                :: VB.Vector GenData → GenEnum → Maybe Int → VB.Vector GenData
 >     upd is ge val                        = 
@@ -168,148 +156,162 @@ We list out both sets of data for each file, then combine them across files, and
 >       in
 >         VB.update is $ VB.singleton (i, fileData')
 >
->     shredOne       :: VB.Vector GenData → F.Generator → VB.Vector GenData
+>     shredGen       :: VB.Vector GenData → F.Generator → VB.Vector GenData
 >         
 >     -- 0..4
->     shredOne is (F.StartAddressOffset _)
+>     shredGen is (F.StartAddressOffset _)
 >                                          = upd is StartAddressOffset Nothing
->     shredOne is (F.EndAddressOffset _)
+>     shredGen is (F.EndAddressOffset _)
 >                                          = upd is EndAddressOffset Nothing
->     shredOne is (F.LoopStartAddressOffset _)
+>     shredGen is (F.LoopStartAddressOffset _)
 >                                          = upd is LoopStartAddressOffset Nothing
->     shredOne is (F.LoopEndAddressOffset _)
+>     shredGen is (F.LoopEndAddressOffset _)
 >                                          = upd is LoopEndAddressOffset Nothing
->     shredOne is (F.StartAddressCoarseOffset _)
+>     shredGen is (F.StartAddressCoarseOffset _)
 >                                          = upd is StartAddressCoarseOffset Nothing
 >         
 >         -- 5..9
->     shredOne is (F.ModLfoToPitch val)
+>     shredGen is (F.ModLfoToPitch val)
 >                                          = upd is ModLfoToPitch (Just val)
->     shredOne is (F.VibLfoToPitch val)
+>     shredGen is (F.VibLfoToPitch val)
 >                                          = upd is VibLfoToPitch (Just val)
->     shredOne is (F.ModEnvToPitch val)
+>     shredGen is (F.ModEnvToPitch val)
 >                                          = upd is ModEnvToPitch (Just val)
->     shredOne is (F.InitFc val)
+>     shredGen is (F.InitFc val)
 >                                          = upd is InitFc (Just val)
->     shredOne is (F.InitQ val)
+>     shredGen is (F.InitQ val)
 >                                          = upd is InitQ (Just val)
 >         
 >         -- 10..13
->     shredOne is (F.ModLfoToFc val)
+>     shredGen is (F.ModLfoToFc val)
 >                                          = upd is ModLfoToFc (Just val)
->     shredOne is (F.ModEnvToFc val)
+>     shredGen is (F.ModEnvToFc val)
 >                                          = upd is ModEnvToFc (Just val)
->     shredOne is (F.EndAddressCoarseOffset _)
+>     shredGen is (F.EndAddressCoarseOffset _)
 >                                          = upd is EndAddressCoarseOffset Nothing
->     shredOne is (F.ModLfoToVol val)
+>     shredGen is (F.ModLfoToVol val)
 >                                          = upd is ModLfoToVol (Just val)
 >         
 >         -- 15..17
->     shredOne is (F.Chorus val)
+>     shredGen is (F.Chorus val)
 >                                          = upd is Chorus (Just val)
->     shredOne is (F.Reverb val)
+>     shredGen is (F.Reverb val)
 >                                          = upd is Reverb (Just val)
->     shredOne is (F.Pan val)
+>     shredGen is (F.Pan val)
 >                                          = upd is Pan (Just val)
 >         
 >         -- 21..24
->     shredOne is (F.DelayModLfo val)
+>     shredGen is (F.DelayModLfo val)
 >                                          = upd is DelayModLfo (Just val)
->     shredOne is (F.FreqModLfo val)
+>     shredGen is (F.FreqModLfo val)
 >                                          = upd is FreqModLfo (Just val)
->     shredOne is (F.DelayVibLfo val)
+>     shredGen is (F.DelayVibLfo val)
 >                                          = upd is DelayVibLfo (Just val)
->     shredOne is (F.FreqVibLfo val)
+>     shredGen is (F.FreqVibLfo val)
 >                                          = upd is FreqVibLfo (Just val)
 >         
 >         -- 25..30
->     shredOne is (F.DelayModEnv val)
+>     shredGen is (F.DelayModEnv val)
 >                                          = upd is DelayModEnv (Just val)
->     shredOne is (F.AttackModEnv val)
+>     shredGen is (F.AttackModEnv val)
 >                                          = upd is AttackModEnv (Just val)
->     shredOne is (F.HoldModEnv val)
+>     shredGen is (F.HoldModEnv val)
 >                                          = upd is HoldModEnv (Just val)
->     shredOne is (F.DecayModEnv val)
+>     shredGen is (F.DecayModEnv val)
 >                                          = upd is DecayModEnv (Just val)
->     shredOne is (F.SustainModEnv val)
+>     shredGen is (F.SustainModEnv val)
 >                                          = upd is SustainModEnv (Just val)
->     shredOne is (F.ReleaseModEnv val)
+>     shredGen is (F.ReleaseModEnv val)
 >                                          = upd is ReleaseModEnv (Just val)
 >         
 >         -- 31..41
->     shredOne is (F.KeyToModEnvHold val)
+>     shredGen is (F.KeyToModEnvHold val)
 >                                          = upd is KeyToModEnvHold (Just val)
->     shredOne is (F.KeyToModEnvDecay val)
+>     shredGen is (F.KeyToModEnvDecay val)
 >                                          = upd is KeyToModEnvDecay (Just val)
->     shredOne is (F.DelayVolEnv val)
+>     shredGen is (F.DelayVolEnv val)
 >                                          = upd is DelayVolEnv (Just val)
->     shredOne is (F.AttackVolEnv val)
+>     shredGen is (F.AttackVolEnv val)
 >                                          = upd is AttackVolEnv (Just val)
->     shredOne is (F.HoldVolEnv val)
+>     shredGen is (F.HoldVolEnv val)
 >                                          = upd is HoldVolEnv (Just val)
->     shredOne is (F.DecayVolEnv val)
+>     shredGen is (F.DecayVolEnv val)
 >                                          = upd is DecayVolEnv (Just val)
->     shredOne is (F.SustainVolEnv val)
+>     shredGen is (F.SustainVolEnv val)
 >                                          = upd is SustainVolEnv (Just val)
->     shredOne is (F.ReleaseVolEnv val)
+>     shredGen is (F.ReleaseVolEnv val)
 >                                          = upd is ReleaseVolEnv (Just val)
->     shredOne is (F.KeyToVolEnvHold val)
+>     shredGen is (F.KeyToVolEnvHold val)
 >                                          = upd is KeyToVolEnvHold (Just val)
->     shredOne is (F.KeyToVolEnvDecay val)
+>     shredGen is (F.KeyToVolEnvDecay val)
 >                                          = upd is KeyToVolEnvDecay (Just val)
->     shredOne is (F.InstIndex _)
+>     shredGen is (F.InstIndex _)
 >                                          = upd is InstIndex Nothing
 >         
 >         -- 43..48
->     shredOne is (F.KeyRange _ _)
+>     shredGen is (F.KeyRange _ _)
 >                                          = upd is KeyRange Nothing
->     shredOne is (F.VelRange _ _)
+>     shredGen is (F.VelRange _ _)
 >                                          = upd is VelRange Nothing
->     shredOne is (F.LoopStartAddressCoarseOffset _)
+>     shredGen is (F.LoopStartAddressCoarseOffset _)
 >                                          = upd is LoopStartAddressCoarseOffset Nothing
->     shredOne is (F.Key val)
+>     shredGen is (F.Key val)
 >                                          = upd is Key ((Just . fromIntegral) val)
->     shredOne is (F.Vel val)
+>     shredGen is (F.Vel val)
 >                                          = upd is Vel ((Just . fromIntegral) val)
->     shredOne is (F.InitAtten val)
+>     shredGen is (F.InitAtten val)
 >                                          = upd is InitAtten (Just val)
 >         
 >         -- 50..54
->     shredOne is (F.LoopEndAddressCoarseOffset _)
+>     shredGen is (F.LoopEndAddressCoarseOffset _)
 >                                          = upd is LoopEndAddressCoarseOffset Nothing
->     shredOne is (F.CoarseTune val)
+>     shredGen is (F.CoarseTune val)
 >                                          = upd is CoarseTune (Just val)
->     shredOne is (F.FineTune val)
+>     shredGen is (F.FineTune val)
 >                                          = upd is FineTune (Just val)
->     shredOne is (F.SampleIndex _)
+>     shredGen is (F.SampleIndex _)
 >                                          = upd is SampleIndex Nothing
->     shredOne is (F.SampleMode _)
+>     shredGen is (F.SampleMode _)
 >                                          = upd is SampleMode Nothing
 >         
 >         -- 56..58
->     shredOne is (F.ScaleTuning val)
+>     shredGen is (F.ScaleTuning val)
 >                                          = upd is ScaleTuning (Just val)
->     shredOne is (F.ExclusiveClass val)
+>     shredGen is (F.ExclusiveClass val)
 >                                          = upd is ExclusiveClass (Just val)
->     shredOne is (F.RootKey val)
+>     shredGen is (F.RootKey val)
 >                                          = upd is RootKey ((Just . fromIntegral) val)
 >         
 >         -- 60
->     shredOne is (F.ReservedGen _ _)
+>     shredGen is (F.ReservedGen _ _)
 >                                          = upd is ReservedGen Nothing
 >
-> openInvestigation      :: VB.Vector SFFileBoot → IO (VB.Vector GenSum)
-> openInvestigation vFilesBoot             = do
->   vGenSum                                ← CM.mapM shredOneFile vFilesBoot
->   mapM_ showOneFile vGenSum
+> addGenDatas            :: GenData → GenData → GenData
+> addGenDatas gd1 gd2
+>                                          =
+>   GenData
+>     (gd1 ^. genEnum)
+>     (gd1 ^. genRange)
+>     ((gd1 ^. genOccur) + (gd1 ^. genOccur))
+>     ((gd1 ^. genOutOfRange) `IntSet.union` (gd2 ^. genOutOfRange))
 >
->   let vData                              = VB.foldl' addTwoGenSums defGenSum vGenSum
->   showOneFile vData
->   return vGenSum
+> addGenSums             :: GenSum → GenSum → GenSum
+> addGenSums (GenSum _ gd1 ed1) (GenSum _ gd2 ed2)     -- WOX must combine ed2 with ed1
+>                                          =
+>   GenSum "<rollup>" (VB.zipWith addGenDatas gd1 gd2) ed1
+>
+> openInvestigation      :: VB.Vector SFFileBoot → IO (VB.Vector String)
+> openInvestigation vFilesBoot             = do
+>   vGenSum                                ← CM.mapM shredFile vFilesBoot
+>   let vRollup                            = VB.foldl' addGenSums defGenSum vGenSum
+>   let filesOutput                        = VB.concatMap showFile vGenSum
+>   let rollupOutput                       = showFile vRollup
+>   putStr "\nRollup:"
+>   print $ length rollupOutput
+>   return $ filesOutput VB.++ rollupOutput
 >   where
->     showOneFile        :: GenSum → IO ()
->     showOneFile sData                      = do
->       putStrLn (sData ^. gsFilename)
->       mapM_ print (sData ^. gsGenData)
+>     showFile           :: GenSum → VB.Vector String
+>     showFile gensum                   =
+>       VB.singleton (gensum ^. gsFilename) VB.++ VB.map show (gensum ^. gsGenData)
 
 The End
