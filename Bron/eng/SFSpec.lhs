@@ -184,8 +184,8 @@ bootstrapping ==================================================================
 > t2clip                                   = (-99, 99)
 > t3clip                                   = (0, 1_200)
 >
-> allClipVector          :: VB.Vector (Maybe (Int, Int))
-> allClipVector                            = VB.fromList allClip
+> allClipVector          :: VB.Vector (Maybe (Int, Int), Int)
+> allClipVector                            = VB.fromList $ zip allClip allDefault
 > allClip                :: [Maybe (Int, Int)]
 > allClip                                  =
 >   [ Nothing, Nothing, Nothing, Nothing, Nothing          -- StartAddressOffset
@@ -194,8 +194,7 @@ bootstrapping ==================================================================
 >                                                          --  | LoopEndAddressOffset
 >                                                          --  | StartAddressCoarseOffset
 >   , Just teclip, Just teclip, Just teclip                -- ModLfoToPitch | VibLfoToPitch | ModEnvToPitch
->   , Just tfclip                                          -- InitFc
->   , Just tqclip                                          -- InitQ
+>   , Just tfclip, Just tqclip                             -- InitFc | InitQ
 >   , Just teclip, Just teclip                             -- ModLfoToFc | ModEnvToFc
 >   , Nothing                                              -- EndAddressCoarseOffset
 >   , Just tvclip                                          -- ModLfoToVol
@@ -224,5 +223,75 @@ bootstrapping ==================================================================
 >   , Just tmclip                                          -- RootKey
 >   , Nothing, Nothing                                     -- Unused5 | ReservedGen
 >   ]
+>
+> allDefaultVector    :: VB.Vector Int
+> allDefaultVector                      = VB.fromList allDefault
+
+> data GenEnum                             =
+>     StartAddressOffset | EndAddressOffset | LoopStartAddressOffset | LoopEndAddressOffset
+>   | StartAddressCoarseOffset | ModLfoToPitch | VibLfoToPitch | ModEnvToPitch | InitFc | InitQ
+>   | ModLfoToFc | ModEnvToFc | EndAddressCoarseOffset | ModLfoToVol | Unused1 | Chorus | Reverb
+>   | Pan | Unused2 | Unused3 | Unused4 | DelayModLfo | FreqModLfo | DelayVibLfo | FreqVibLfo
+>   | DelayModEnv | AttackModEnv | HoldModEnv | DecayModEnv | SustainModEnv | ReleaseModEnv
+>   | KeyToModEnvHold | KeyToModEnvDecay | DelayVolEnv | AttackVolEnv | HoldVolEnv | DecayVolEnv
+>   | SustainVolEnv | ReleaseVolEnv | KeyToVolEnvHold | KeyToVolEnvDecay | InstIndex | Reserved1
+>   | KeyRange | VelRange | LoopStartAddressCoarseOffset | Key | Vel | InitAtten | Reserved2
+>   | LoopEndAddressCoarseOffset | CoarseTune | FineTune | SampleIndex | SampleMode
+>   | Reserved3 | ScaleTuning | ExclusiveClass | RootKey | Unused5 | ReservedGen
+>   deriving (Enum, Eq, Show)
+>
+> valueBearing        :: VB.Vector GenEnum
+> valueBearing                          = VB.fromList
+>   [ ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
+>   , InitFc, InitQ
+>   , ModLfoToFc, ModEnvToFc
+>   , ModLfoToVol
+>   , Chorus, Reverb, Pan
+>   , DelayModLfo, FreqModLfo
+>   , DelayVibLfo, FreqVibLfo
+>   , DelayModEnv, AttackModEnv, HoldModEnv
+>   , DecayModEnv, SustainModEnv, ReleaseModEnv
+>   , KeyToModEnvHold, KeyToModEnvDecay
+>   , DelayVolEnv, AttackVolEnv, HoldVolEnv
+>   , DecayVolEnv, SustainVolEnv, ReleaseVolEnv
+>   , KeyToVolEnvHold, KeyToVolEnvDecay
+>   , Key, Vel
+>   , InitAtten
+>   , CoarseTune, FineTune
+>   , ScaleTuning
+>   , ExclusiveClass
+>   , RootKey]
+>
+> allDefault          :: [Int]
+> allDefault                            =
+>  [ 0, 0, 0, 0, 0                         -- (addresses)
+>  , 0, 0, 0                               -- ModLfoToPitch, VibLfoToPitch, ModEnvToPitch        
+>  , 13_500, 0                             -- InitFc, InitQ
+>  , 0, 0                                  -- ModLfoToFc, ModEnvToFc
+>  , 0                                     -- EndAddressCoarseOffset
+>  , 0                                     -- ModLfoToVol
+>  , 0                                     -- Unused1
+>  , 0, 0, 0                               -- Chorus, Reverb, Pan
+>  , 0, 0, 0                               -- Unused2, Unused3, Unused4
+>  , -12_000, 0                            -- DelayModLfo, FreqModLfo
+>  , -12_000, 0
+>  , -12_000, -12_000, -12_000             -- DelayModEnv, AttackModEnv, HoldModEnv
+>  , -12_000, 0, -12_000                   -- DecayModEnv, SustainModEnv, ReleaseModEnv
+>  , 0, 0                                  -- KeyToModEnvHold, KeyToModEnvDecay
+>  , -12_000, -12_000, -12_000             -- DelayVolEnv, AttackVolEnv, HoldVolEnv
+>  , -12_000, 0, -12_000                   -- DecayVolEnv, SustainVolEnv, ReleaseVolEnv
+>  , 0, 0                                  -- KeyToVolEnvHold, KeyToVolEnvDecay
+>  , 0, 0                                  -- InstIndex, Reserved1
+>  , 0, 0                                  -- KeyRange, VelRange
+>  , 0                                     -- LoopStartAddressCoarseOffset
+>  , -1, -1                                -- Key, Vel
+>  , 0                                     -- InitAtten
+>  , 0, 0                                  -- Reserved2, LoopEndAddressCoarseOffset
+>  , 0, 0                                  -- CoarseTune, FineTune
+>  , 0, 0, 0                               -- SampleModes
+>  , 100                                   -- ScaleTuning
+>  , 0                                     -- ExclusiveClass
+>  , -1                                    -- RootKey
+>  , 0, 0]                                 -- Unused5, ReservedGen
 
 The End

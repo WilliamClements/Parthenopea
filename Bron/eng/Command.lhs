@@ -11,11 +11,10 @@ June 16, 2025
 >         batchProcessor ) where
 >
 > import qualified Codec.SoundFont         as F
-> import Control.Lens hiding ( element )
+> import Control.Lens hiding ( element, ix )
 > import qualified Control.Monad           as CM
 > import Data.IntSet ( IntSet )
 > import qualified Data.IntSet             as IntSet
-> import Data.List
 > import Data.Maybe
 > import Data.Time ( getZonedTime )
 > import qualified Data.Vector.Strict      as VB
@@ -25,19 +24,6 @@ June 16, 2025
 >                                          as FP
   
 The Generator types are numbered 0 to 60. =============================================================================
-
-> data GenEnum                             =
->     StartAddressOffset | EndAddressOffset | LoopStartAddressOffset | LoopEndAddressOffset
->   | StartAddressCoarseOffset | ModLfoToPitch | VibLfoToPitch | ModEnvToPitch | InitFc | InitQ
->   | ModLfoToFc | ModEnvToFc | EndAddressCoarseOffset | ModLfoToVol | Unused1 | Chorus | Reverb
->   | Pan | Unused2 | Unused3 | Unused4 | DelayModLfo | FreqModLfo | DelayVibLfo | FreqVibLfo
->   | DelayModEnv | AttackModEnv | HoldModEnv | DecayModEnv | SustainModEnv | ReleaseModEnv
->   | KeyToModEnvHold | KeyToModEnvDecay | DelayVolEnv | AttackVolEnv | HoldVolEnv | DecayVolEnv
->   | SustainVolEnv | ReleaseVolEnv | KeyToVolEnvHold | KeyToVolEnvDecay | InstIndex | Reserved1
->   | KeyRange | VelRange | LoopStartAddressCoarseOffset | Key | Vel | InitAtten | Reserved2
->   | LoopEndAddressCoarseOffset | CoarseTune | FineTune | SampleIndex | SampleMode
->   | Reserved3 | ScaleTuning | ExclusiveClass | RootKey | Unused5 | ReservedGen
->   deriving (Enum, Eq, Show)
 
 The per-file diagnostic data includes:
 1. vector of 61 per-generator infos - each with
@@ -49,17 +35,20 @@ We list out both sets of data for each file, then list out the rollup sets.
 
 > data GenData                             =
 >   GenData {
->     _genEnum           :: GenEnum
->   , _genRange          :: Maybe (Int, Int)
->   , _genOccur          :: Int
->   , _genOutOfRange     :: IntSet}
+>     _gId               :: GenEnum
+>   , _gOccur            :: Int
+>   , _gClip             :: Maybe (Int, Int)
+>   , _gDefault          :: Int
+>   , _gAccum            :: Int
+>   , _gValues           :: IntSet
+>   , _gWild             :: IntSet}
 >   deriving (Eq, Show)
 > makeGenData            :: GenEnum → GenData
 > makeGenData ge                           =
 >   let
->     mclip                                = allClipVector VB.! fromEnum ge
+>     (mclip, def)                         = allClipVector VB.! fromEnum ge
 >   in
->     GenData ge mclip  0 IntSet.empty
+>     GenData ge 0 mclip def 0 IntSet.empty IntSet.empty
 >
 > data EnvData                             =
 >   EnvData {
@@ -75,8 +64,6 @@ We list out both sets of data for each file, then list out the rollup sets.
 >   , _gsGenData         :: VB.Vector GenData
 >   , _gsEnvData         :: EnvData}
 >   deriving (Eq, Show)
-> defGenSum             :: GenSum
-> defGenSum                                = GenSum "" VB.empty defEnvData
 > makeGenSum             :: FilePath → VB.Vector GenData → GenSum
 > makeGenSum filename genData =
 >   GenSum filename genData defEnvData
@@ -109,13 +96,13 @@ We list out both sets of data for each file, then list out the rollup sets.
 > batchProcessor         :: IO ()
 > batchProcessor                           = do
 >   timeThen                               ← getZonedTime
->   print timeThen
+>   putStrLn $ show timeThen ++ "\n"
 >   sf2s                                   ← FP.getDirectoryFilesIgnoreSlow "." ["*.sf2"] []
 >
 >   proceed sf2s
 >
 >   timeNow                                ← getZonedTime
->   print timeNow
+>   putStrLn $ "\n" ++ show timeNow
 >   putStrLn "\nThe End"
 >
 > proceed                :: [FilePath] → IO ()
@@ -127,8 +114,33 @@ We list out both sets of data for each file, then list out the rollup sets.
 >     else do
 >       fData                              ← openInvestigation vFilesBoot
 >       mapM_ putStrLn fData
->       putStrLn $ unwords ["numFiles=", show (VB.length fData)]
 >
+> openInvestigation      :: VB.Vector SFFileBoot → IO (VB.Vector String)
+> openInvestigation vFilesBoot             = do
+>   vGenSum                                ← CM.mapM shredFile vFilesBoot
+>   let vRollup                            = VB.foldl' addGenSums (VB.head vGenSum) (VB.tail vGenSum)
+>   let filesOutput                        = VB.concatMap showFile vGenSum
+>   let rollupOutput                       = showFile vRollup VB.++ showStats vRollup
+>   return $ filesOutput VB.++ rollupOutput
+>   where
+>     showFile           :: GenSum → VB.Vector String
+>     showFile gensum                      =
+>       VB.fromList ["", gensum ^. gsFilename] VB.++ VB.map show (gensum ^. gsGenData)
+>     showStats          :: GenSum → VB.Vector String
+>     showStats gensum                   = VB.map showOneGen valueBearing
+>       where
+>         showOneGen ge                    = showTwoStats ((gensum ^. gsGenData) VB.! fromEnum ge)
+>         showTwoStats genData             =
+>           if IntSet.null (genData ^. gWild)
+>              then s1
+>              else unwords [s1, "   (", s2, ")"]
+>           where
+>             s1                           = unwords [show (genData ^. gId), showStat (genData ^. gValues)]
+>             s2                           = showStat ((genData ^. gValues) `IntSet.union` (genData ^. gWild))
+>         showStat is                      = if IntSet.null is then [] else unwords [show m, "+-", show s]
+>           where
+>             (m, s)                       = getStats (IntSet.toList is)
+>             
 > shredFile              :: SFFileBoot → IO GenSum
 > shredFile sffile                         =
 >   return $ makeGenSum sffile.zFilename vGenData'
@@ -139,22 +151,24 @@ We list out both sets of data for each file, then list out the rollup sets.
 >     vGenData'                            = foldl' shredGen vGenData sffile.zFileArrays.ssIGens
 >
 >     upd                :: VB.Vector GenData → GenEnum → Maybe Int → VB.Vector GenData
->     upd is ge val                        = 
+>     upd is ge val_                       = 
 >       let
->         i                                = fromEnum ge
->         genData                          = is VB.! i
->         mclip                            = allClipVector VB.! i
->         inrange                          = maybe True probe mclip
+>         ix                               = fromEnum ge
+>         val                              = fromMaybe 0 val_
+>         genData                          = is VB.! ix
+>         inrange                          = maybe True probe (genData ^. gClip)
 >           where
 >             probe      :: (Int, Int) → Bool
->             probe clip = inRange clip (fromJust val)
->         collect k                    = IntSet.insert k (genData ^. genOutOfRange)
->         outOfRange'                  = if inrange
->                                          then genData ^. genOutOfRange
->                                          else collect $ fromJust val
->         fileData'                    = ((genOccur +~ 1) . (genOutOfRange .~ outOfRange')) genData
+>             probe clip               = inRange clip val
+>         (values, wild)               = if inrange
+>                                          then (IntSet.insert val (genData ^. gValues), genData ^. gWild)
+>                                          else (genData ^. gValues, IntSet.insert val (genData ^. gWild))
+>         genData'                     = (  (gOccur +~ 1)
+>                                         . (gAccum +~ val)
+>                                         . (gValues .~ values)
+>                                         . (gWild .~ wild)) genData
 >       in
->         VB.update is $ VB.singleton (i, fileData')
+>         VB.update is $ VB.singleton (ix, genData')
 >
 >     shredGen       :: VB.Vector GenData → F.Generator → VB.Vector GenData
 >         
@@ -290,28 +304,27 @@ We list out both sets of data for each file, then list out the rollup sets.
 > addGenDatas gd1 gd2
 >                                          =
 >   GenData
->     (gd1 ^. genEnum)
->     (gd1 ^. genRange)
->     ((gd1 ^. genOccur) + (gd1 ^. genOccur))
->     ((gd1 ^. genOutOfRange) `IntSet.union` (gd2 ^. genOutOfRange))
+>     (gd1 ^. gId)
+>     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
+>     (gd1 ^. gClip)
+>     (gd1 ^. gDefault)
+>     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
+>     ((gd1 ^. gValues) `IntSet.union` (gd2 ^. gValues))
+>     ((gd1 ^. gWild) `IntSet.union` (gd2 ^. gWild))
 >
 > addGenSums             :: GenSum → GenSum → GenSum
 > addGenSums (GenSum _ gd1 ed1) (GenSum _ gd2 ed2)     -- WOX must combine ed2 with ed1
 >                                          =
 >   GenSum "<rollup>" (VB.zipWith addGenDatas gd1 gd2) ed1
 >
-> openInvestigation      :: VB.Vector SFFileBoot → IO (VB.Vector String)
-> openInvestigation vFilesBoot             = do
->   vGenSum                                ← CM.mapM shredFile vFilesBoot
->   let vRollup                            = VB.foldl' addGenSums defGenSum vGenSum
->   let filesOutput                        = VB.concatMap showFile vGenSum
->   let rollupOutput                       = showFile vRollup
->   putStr "\nRollup:"
->   print $ length rollupOutput
->   return $ filesOutput VB.++ rollupOutput
+> getStats               :: [Int] → (Double, Double)
+> getStats vals                            = (mean dubs, stdDevP dubs)
 >   where
->     showFile           :: GenSum → VB.Vector String
->     showFile gensum                   =
->       VB.singleton (gensum ^. gsFilename) VB.++ VB.map show (gensum ^. gsGenData)
+>     dubs               :: [Double]       = map fromIntegral vals
+>
+>     mean               :: Fractional a => [a] → a
+>     mean xs                              = sum xs / realToFrac (length xs)
+>     stdDevP            :: Floating a => [a] → a
+>     stdDevP xs                           = sqrt (sum (map (\x -> (x - mean xs) ** 2) xs) / realToFrac (length xs))
 
 The End
