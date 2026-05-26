@@ -1,5 +1,6 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE TemplateHaskell #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 SFSpec
@@ -9,6 +10,7 @@ April 16, 2023
 > module Eng.SFSpec where
 >
 > import qualified Codec.SoundFont         as F
+> import Control.Lens hiding ( element, ix )
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Char
@@ -142,6 +144,48 @@ implementing SoundFont spec ====================================================
 >   SampleArrays {
 >     ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
+>
+> data EState                              =
+>   EOff | EOnSmall | EOnLarge
+>   deriving (Eq, Ord, Show)
+> addEStates              :: EState → EState → EState
+> addEStates EOff es                       = es
+> addEStates es EOff                       = es
+> addEStates _ es                          = es
+>
+> data EConfig                             =
+>   EConfig {
+>     _eConfigDelay      :: EState
+>   , _eConfigAttack     :: EState
+>   , _eConfigHold       :: EState
+>   , _eConfigDecay      :: EState
+>   , _eConfigRelease    :: EState}
+>   deriving (Eq, Ord, Show)
+> makeLenses ''EConfig
+> makeEConfig            :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → EConfig
+> makeEConfig delay attack hold decay release
+>                                          =
+>   EConfig 
+>     (categorize delay) 
+>     (categorize attack)
+>     (categorize hold)
+>     (categorize decay) 
+>     (categorize release)
+> addEConfigs            :: EConfig → EConfig → EConfig
+> addEConfigs ec1 ec2                      =
+>   EConfig
+>     (addEStates (ec1 ^. eConfigDelay) (ec2 ^. eConfigDelay))
+>     (addEStates (ec1 ^. eConfigAttack) (ec2 ^. eConfigAttack))
+>     (addEStates (ec1 ^. eConfigHold) (ec2 ^. eConfigHold))
+>     (addEStates (ec1 ^. eConfigDecay) (ec2 ^. eConfigDecay))
+>     (addEStates (ec1 ^. eConfigRelease) (ec2 ^. eConfigRelease))
+> categorize             :: Maybe Int → EState
+> categorize mint                          =
+>   case mint of
+>     Nothing            → EOff
+>     Just n             → if n < 0
+>                            then EOnSmall
+>                            else EOnLarge
 
 bootstrapping =========================================================================================================
 
@@ -224,9 +268,6 @@ bootstrapping ==================================================================
 >   , Nothing, Nothing                                     -- Unused5 | ReservedGen
 >   ]
 >
-> allDefaultVector    :: VB.Vector Int
-> allDefaultVector                      = VB.fromList allDefault
-
 > data GenEnum                             =
 >     StartAddressOffset | EndAddressOffset | LoopStartAddressOffset | LoopEndAddressOffset
 >   | StartAddressCoarseOffset | ModLfoToPitch | VibLfoToPitch | ModEnvToPitch | InitFc | InitQ
