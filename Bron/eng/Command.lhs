@@ -40,12 +40,16 @@ The per-file diagnostic data includes:
 
 We list out both sets of data for each file, then list out the rollup sets.
 
+> data StaticData where
+>   StaticData :: {_gClip :: Maybe (Int, Int)
+>                , _gDefault :: Int} → StaticData
+>   deriving (Eq, Show)
+>
 > data GenData                             =
 >   GenData {
 >     _gId               :: GenEnum
 >   , _gOccur            :: Int
->   , _gClip             :: Maybe (Int, Int)
->   , _gDefault          :: Int
+>   , _gStatic           :: StaticData
 >   , _gAccum            :: Int
 >   , _gValues           :: IntSet
 >   , _gWild             :: IntSet}
@@ -55,12 +59,11 @@ We list out both sets of data for each file, then list out the rollup sets.
 >   let
 >     (mclip, def)                         = allClipVector VB.! fromEnum ge
 >   in
->     GenData ge 0 mclip def 0 IntSet.empty IntSet.empty
->
-> data InstData                            =
->   InstData {
->     _instOwners        :: IntMap IntSet
->   , _instEnv           :: Map EConfig Int}
+>     GenData ge 0 (StaticData mclip def) 0 IntSet.empty IntSet.empty
+
+> data InstData where
+>   InstData :: {_instOwners :: IntMap IntSet
+>              ,  _instEnv :: Map EConfig Int} → InstData
 >   deriving (Eq, Show)
 >
 > data GenSum                              =
@@ -94,6 +97,7 @@ We list out both sets of data for each file, then list out the rollup sets.
 >                  boota 
 >                  samplea
 >
+> makeLenses ''StaticData
 > makeLenses ''InstData
 > makeLenses ''GenData
 > makeLenses ''GenSum
@@ -161,7 +165,7 @@ We list out both sets of data for each file, then list out the rollup sets.
 >             
 > shredFile              :: SFFileBoot → IO GenSum
 > shredFile sffile                         =
->   return $ makeGenSum sffile.zFilename vFinal (InstData IntMap.empty env)
+>   return $ makeGenSum sffile.zFilename vFinal (InstData IntMap.empty idata)
 >   where
 >     vInit              :: VB.Vector GenData
 >     vInit                                = VB.generate 61 (makeGenData . toEnum)
@@ -218,8 +222,8 @@ We list out both sets of data for each file, then list out the rollup sets.
 >                                          = (b, (eConfigRelease .~ categorize (Just val)) ec)
 >     examine (b, ec) _                    = (b, ec)
 >
->     env                :: Map EConfig Int
->     env                                  = IntMap.foldr populate Map.empty owners
+>     idata              :: Map EConfig Int
+>     idata                                = IntMap.foldr populate Map.empty owners
 >       where
 >         populate       :: IntSet → Map EConfig Int → Map EConfig Int
 >         populate bags m                  =
@@ -253,7 +257,7 @@ We list out both sets of data for each file, then list out the rollup sets.
 >         ix                               = fromEnum ge
 >         val                              = fromMaybe 0 val_
 >         genData                          = is VB.! ix
->         inrange                          = maybe True probe (genData ^. gClip)
+>         inrange                          = maybe True probe (genData ^. (gStatic . gClip))
 >           where
 >             probe      :: (Int, Int) → Bool
 >             probe clip                   = inRange clip val
@@ -403,8 +407,7 @@ We list out both sets of data for each file, then list out the rollup sets.
 >   GenData
 >     (gd1 ^. gId)
 >     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
->     (gd1 ^. gClip)
->     (gd1 ^. gDefault)
+>     (StaticData (gd1 ^. (gStatic . gClip)) (gd1 ^. (gStatic . gDefault)))
 >     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
 >     ((gd1 ^. gValues) `IntSet.union` (gd2 ^. gValues))
 >     ((gd1 ^. gWild) `IntSet.union` (gd2 ^. gWild))
