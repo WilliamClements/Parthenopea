@@ -34,8 +34,9 @@ The Generator types are numbered 0 to 60. ======================================
 
 The per-file diagnostic data includes:
 1. vector of 61 per-generator infos - each with
-   a. occurrence count
-   b. out-of-range values encountered, if any
+   a. static data from the spec (clip and default)
+   b. occurrence count
+   c. all values encountered, partitioned by out-of-range
 2. envelope statistics summed up over all instruments in the file
 
 We list out both sets of data for each file, then list out the rollup sets.
@@ -48,9 +49,10 @@ We list out both sets of data for each file, then list out the rollup sets.
 > data GenData                             =
 >   GenData {
 >     _gId               :: GenEnum
->   , _gOccur            :: Int
 >   , _gStatic           :: StaticData
+>   , _gOccur            :: Int
 >   , _gAccum            :: Int
+>   , _gAccumWith        :: Int
 >   , _gValues           :: IntSet
 >   , _gWild             :: IntSet}
 >   deriving (Eq, Show)
@@ -59,21 +61,45 @@ We list out both sets of data for each file, then list out the rollup sets.
 >   let
 >     (mclip, def)                         = allClipVector VB.! fromEnum ge
 >   in
->     GenData ge 0 (StaticData mclip def) 0 IntSet.empty IntSet.empty
-
-> data InstData where
->   InstData :: {_instOwners :: IntMap IntSet
->              ,  _instEnv :: Map EConfig Int} → InstData
->   deriving (Eq, Show)
+>     GenData ge (StaticData mclip def) 0 0 0 IntSet.empty IntSet.empty
 >
 > data GenSum                              =
 >   GenSum {
 >     _gsFilename        :: FilePath
 >   , _gsGenData         :: VB.Vector GenData
->   , _gsInstData        :: InstData}
+>   , _gsModEnvMap       :: Map EConfig Int
+>   , _gsVolEnvMap       :: Map EConfig Int}
 >   deriving (Eq, Show)
-> makeGenSum             :: FilePath → VB.Vector GenData → InstData → GenSum
+> makeGenSum             :: FilePath → VB.Vector GenData → Map EConfig Int → Map EConfig Int → GenSum
 > makeGenSum                               = GenSum
+>
+> makeLenses ''StaticData
+> makeLenses ''GenData
+> makeLenses ''GenSum
+  
+Executive =============================================================================================================
+
+> batchProcessor         :: IO ()
+> batchProcessor                           = do
+>   timeThen                               ← getZonedTime
+>   putStrLn $ show timeThen ++ "\n"
+>   sf2s                                   ← FP.getDirectoryFilesIgnoreSlow "." ["*.sf2"] []
+>
+>   proceed sf2s
+>
+>   timeNow                                ← getZonedTime
+>   putStrLn $ "\n" ++ show timeNow
+>   putStrLn "\nThe End"
+>
+> proceed                :: [FilePath] → IO ()
+> proceed sf2s                             = do
+>   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
+>   let vFilesBoot                         = VB.fromList extraction
+>   if VB.null vFilesBoot
+>     then return ()
+>     else do
+>       fData                              ← openInvestigation vFilesBoot
+>       mapM_ putStrLn fData
 >
 > openSoundFontFile      :: Int → FilePath → IO SFFileBoot
 > openSoundFontFile wFile filename         = do
@@ -97,33 +123,6 @@ We list out both sets of data for each file, then list out the rollup sets.
 >                  boota 
 >                  samplea
 >
-> makeLenses ''StaticData
-> makeLenses ''InstData
-> makeLenses ''GenData
-> makeLenses ''GenSum
->
-> batchProcessor         :: IO ()
-> batchProcessor                           = do
->   timeThen                               ← getZonedTime
->   putStrLn $ show timeThen ++ "\n"
->   sf2s                                   ← FP.getDirectoryFilesIgnoreSlow "." ["*.sf2"] []
->
->   proceed sf2s
->
->   timeNow                                ← getZonedTime
->   putStrLn $ "\n" ++ show timeNow
->   putStrLn "\nThe End"
->
-> proceed                :: [FilePath] → IO ()
-> proceed sf2s                             = do
->   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
->   let vFilesBoot                         = VB.fromList extraction
->   if VB.null vFilesBoot
->     then return ()
->     else do
->       fData                              ← openInvestigation vFilesBoot
->       mapM_ putStrLn fData
->
 > openInvestigation      :: VB.Vector SFFileBoot → IO (VB.Vector String)
 > openInvestigation vFilesBoot             = do
 >   vGenSum                                ← CM.mapM shredFile vFilesBoot
@@ -136,20 +135,21 @@ We list out both sets of data for each file, then list out the rollup sets.
 >     showFile gensum                      = VB.concat [
 >       VB.fromList ["", gensum ^. gsFilename]
 >       , VB.map show (gensum ^. gsGenData)
->       , showInstData (gensum ^. gsInstData)]
->     showInstData       :: InstData → VB.Vector String
->     showInstData idata
->       | Map.null (idata ^. instEnv)       = VB.empty
->       | otherwise                         = VB.fromList (map (uncurry showMe) arrivals)
+>       , showInstData (gensum ^. gsModEnvMap)
+>       , showInstData (gensum ^. gsVolEnvMap)]
+>     showInstData       :: Map EConfig Int → VB.Vector String
+>     showInstData envMap
+>       | Map.null envMap                  = VB.empty
+>       | otherwise                        = VB.fromList (map (uncurry showMe) arrivals)
 >         where
 >           arrivals     :: [(Int, EConfig)]    
->           arrivals                        = sortBy (comparing Down) (Map.foldrWithKey shuffle [] (idata ^. instEnv))
+>           arrivals                       = sortBy (comparing Down) (Map.foldrWithKey shuffle [] envMap)
 >                                               where shuffle ec count acc = (count, ec) : acc
 >           showMe       :: Int → EConfig → String
->           showMe count ec                 = unwords [show count, show ec]
+>           showMe count ec                = unwords [show count, show ec]
 >
 >     showStats          :: GenSum → VB.Vector String
->     showStats gensum                   = VB.map showOneGen valueBearing
+>     showStats gensum                     = VB.map showOneGen valueBearing
 >       where
 >         showOneGen ge                    = showTwoStats ((gensum ^. gsGenData) VB.! fromEnum ge)
 >         showTwoStats genData             =
@@ -165,22 +165,16 @@ We list out both sets of data for each file, then list out the rollup sets.
 >             
 > shredFile              :: SFFileBoot → IO GenSum
 > shredFile sffile                         =
->   return $ makeGenSum sffile.zFilename vFinal (InstData IntMap.empty idata)
+>   return $ makeGenSum sffile.zFilename v2 modMap volMap
 >   where
->     vInit              :: VB.Vector GenData
->     vInit                                = VB.generate 61 (makeGenData . toEnum)
->     vFinal             :: VB.Vector GenData
->     vFinal                               = foldl' shredGen vInit sffile.zFileArrays.ssIGens
->
->     wi, wj             :: Word
->     ii, ij             :: Int
->     (wi, wj)                             = bounds sffile.zFileArrays.ssInsts
->     (ii, ij)                             = BF.bimap fromIntegral fromIntegral (wi, wj)
+>     loadInst kinst                       = sffile.zFileArrays.ssInsts ! fromIntegral kinst
+>     loadBag kbag                         = sffile.zFileArrays.ssIBags ! fromIntegral kbag
+>     loadGen kgen                         = sffile.zFileArrays.ssIGens ! fromIntegral kgen
 >
 >     owners             :: IntMap IntSet
->     owners                               = foldl' populate IntMap.empty [ii..(ij-1)]
+>     owners                               = foldl' erect IntMap.empty [ii..(ij-1)]
 >       where
->         populate m kinst                 =
+>         erect m kinst                    =
 >           let
 >             iinst, jinst
 >                        :: F.Inst
@@ -194,6 +188,37 @@ We list out both sets of data for each file, then list out the rollup sets.
 >             if ibag == jbag
 >               then m
 >               else IntMap.insert kinst (IntSet.fromList [ibag..(jbag - 1)]) m
+>
+>     populate           :: IntSet → Map EConfig Int → Map EConfig Int
+>     populate bags m                      =
+>       let
+>         result, result'
+>                        :: [(Bool, EConfig)]
+>         result                           = map examineGens (IntSet.toList bags)
+>
+>         gz             :: EConfig
+>         (gz, result')                    = if (fst . head) result
+>                                             then ((snd . head) result, tail result)
+>                                             else (makeEConfig Nothing Nothing Nothing Nothing Nothing, result)
+>
+>         mark           :: Map EConfig Int → (Bool, EConfig) → Map EConfig Int
+>         mark mc (_, ec)                  = Map.insertWith (+) (addEConfigs gz ec) 1 mc
+>       in
+>         foldl' mark m result'
+>
+>     v0, v1, v2         :: VB.Vector GenData
+>     v0                                   = VB.generate 61 (makeGenData . toEnum)
+>     v1                                   = foldl' shredGen v0 sffile.zFileArrays.ssIGens
+>     v2                                   = v1 -- WOX  VB.generate 61 (makeGenData . toEnum)
+>
+>     wi, wj             :: Word
+>     ii, ij             :: Int
+>     (wi, wj)                             = bounds sffile.zFileArrays.ssInsts
+>     (ii, ij)                             = BF.bimap fromIntegral fromIntegral (wi, wj)
+>
+>     modMap, volMap     :: Map EConfig Int
+>     modMap                               = IntMap.foldr populate Map.empty owners
+>     volMap                               = IntMap.foldr populate Map.empty owners
 >
 >     examineGens        :: Int → (Bool, EConfig)
 >     examineGens ibag                           =
@@ -221,35 +246,6 @@ We list out both sets of data for each file, then list out the rollup sets.
 >     examine (b, ec) (F.ReleaseModEnv val)
 >                                          = (b, (eConfigRelease .~ categorize (Just val)) ec)
 >     examine (b, ec) _                    = (b, ec)
->
->     idata              :: Map EConfig Int
->     idata                                = IntMap.foldr populate Map.empty owners
->       where
->         populate       :: IntSet → Map EConfig Int → Map EConfig Int
->         populate bags m                  =
->           let
->             result, result'
->                        :: [(Bool, EConfig)]
->             result                       = map examineGens (IntSet.toList bags)
->
->             gz         :: EConfig
->             (gz, result')                = if (fst . head) result
->                                             then ((snd . head) result, tail result)
->                                             else (makeEConfig Nothing Nothing Nothing Nothing Nothing, result)
->
->             mark       :: Map EConfig Int → (Bool, EConfig) → Map EConfig Int
->             mark mc (_, ec)              = Map.insertWith (+) (addEConfigs gz ec) 1 mc
->           in
->             foldl' mark m result'
->
->     loadInst           :: Int → F.Inst     
->     loadInst kinst                       = sffile.zFileArrays.ssInsts ! fromIntegral kinst
->
->     loadBag            :: Int → F.Bag     
->     loadBag kbag                         = sffile.zFileArrays.ssIBags ! fromIntegral kbag
->
->     loadGen            :: Int → F.Generator
->     loadGen kgen                         = sffile.zFileArrays.ssIGens ! fromIntegral kgen
 >
 >     upd                :: VB.Vector GenData → GenEnum → Maybe Int → VB.Vector GenData
 >     upd is ge val_                       = 
@@ -406,26 +402,24 @@ We list out both sets of data for each file, then list out the rollup sets.
 >                                          =
 >   GenData
 >     (gd1 ^. gId)
->     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
 >     (StaticData (gd1 ^. (gStatic . gClip)) (gd1 ^. (gStatic . gDefault)))
+>     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
 >     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
+>     ((gd1 ^. gAccumWith) + (gd2 ^. gAccumWith))
 >     ((gd1 ^. gValues) `IntSet.union` (gd2 ^. gValues))
 >     ((gd1 ^. gWild) `IntSet.union` (gd2 ^. gWild))
 >
-> addInstDatas           :: InstData → InstData → InstData
-> addInstDatas id1 id2
->                                          =
->   InstData
->     ((id1 ^. instOwners) `IntMap.union` (id2 ^. instOwners))
->     (Map.unionWith (+) (id1 ^. instEnv) (id2 ^. instEnv))
+> addInstDatas           :: Map EConfig Int → Map EConfig Int → Map EConfig Int
+> addInstDatas                             = Map.unionWith (+)
 >
 > addGenSums             :: GenSum → GenSum → GenSum
-> addGenSums (GenSum _ gd1 id1) (GenSum _ gd2 id2)
+> addGenSums (GenSum _ gd1 mod1 vol1) (GenSum _ gd2 mod2 vol2)
 >                                          =
 >   GenSum
 >      "<rollup>"
 >      (VB.zipWith addGenDatas gd1 gd2)
->      (addInstDatas id1 id2)
+>      (addInstDatas mod1 mod2)
+>      (addInstDatas vol1 vol2)
 >
 > getStats               :: [Int] → (Double, Double)
 > getStats vals                            = (mean dubs, stdDevP dubs)
