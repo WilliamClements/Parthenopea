@@ -1,5 +1,3 @@
-> {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TemplateHaskell #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -18,11 +16,28 @@ April 16, 2023
   
 implementing SoundFont spec ===========================================================================================
 
-> type SampleIndex                         = Word
-> type InstIndex                           = Int
-> type BagIndex                            = Word
-> type Fuzz                                = Double
->
+> openSoundFontFile      :: Int → FilePath → IO SFFileBoot
+> openSoundFontFile wFile filename         = do
+>   putStrLn filename
+>   result                                 ← F.importFile filename
+>   case result of
+>     Left s                               →
+>       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
+>     Right soundFont                      → do
+>       let pdata                          = F.pdta soundFont
+>       let sdata                          = F.sdta soundFont
+>       let boota                          =
+>             FileArrays
+>               (F.insts pdata) (F.ibags pdata)
+>               (F.igens pdata) (F.imods pdata)
+>               (F.shdrs pdata)
+>       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
+>       return $ SFFileBoot 
+>                  wFile 
+>                  filename 
+>                  boota 
+>                  samplea
+
 > data SFFileBoot                          =
 >   SFFileBoot {
 >     zWordFBoot         :: !Int

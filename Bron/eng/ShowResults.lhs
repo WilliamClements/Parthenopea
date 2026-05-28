@@ -50,14 +50,14 @@ May 28, 2026
 >             s2                           = showStat ((genData ^. gGoodValues) `IntSet.union` (genData ^. gWildValues))
 >         showStat is                      = if IntSet.null is then [] else unwords [show m, "+-", show s]
 >           where
->             (m, s)                       = getStats (IntSet.toList is)
->     getStats vals                        = (mean dubs, stdDevP dubs)
+>             (m, s)                       = dispersion (IntSet.toList is)
+>     dispersion         :: [Int] -> (Double, Double)
+>     dispersion vals                      = (mean, stdDev)
 >       where
 >         dubs           :: [Double]       = map fromIntegral vals
->
->         mean           :: Fractional a => [a] → a
->         mean xs                          = sum xs / realToFrac (length xs)
->         stdDevP        :: Floating a => [a] → a
->         stdDevP xs                       = sqrt (sum (map (\x -> (x - mean xs) ** 2) xs) / realToFrac (length xs))
+>         denom          :: Double         = realToFrac (length vals)
+>         mean           :: Double         = sum dubs / denom
+>         stdDev         :: Double         = sqrt (sum (map dev dubs) / denom)
+>                                              where dev x = (x - mean) ** 2
 
 The End

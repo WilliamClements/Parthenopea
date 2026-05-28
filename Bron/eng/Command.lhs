@@ -8,7 +8,6 @@ May 18, 2026
 > module Eng.Command (
 >         batchProcessor ) where
 >
-> import qualified Codec.SoundFont         as F
 > import qualified Control.Monad           as CM
 > import Data.Time ( getZonedTime )
 > import qualified Data.Vector.Strict      as VB
@@ -41,27 +40,5 @@ Executive ======================================================================
 >   vGenSum                                ← CM.mapM shredFile vFilesBoot
 >   fData                                  ← showResults vGenSum
 >   mapM_ putStrLn fData
->
-> openSoundFontFile      :: Int → FilePath → IO SFFileBoot
-> openSoundFontFile wFile filename         = do
->   putStrLn filename
->   result                                 ← F.importFile filename
->   case result of
->     Left s                               →
->       error $ unwords ["openSoundFontFile", "decoding error", s, show filename]
->     Right soundFont                      → do
->       let pdata                          = F.pdta soundFont
->       let sdata                          = F.sdta soundFont
->       let boota                          =
->             FileArrays
->               (F.insts pdata) (F.ibags pdata)
->               (F.igens pdata) (F.imods pdata)
->               (F.shdrs pdata)
->       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
->       return $ SFFileBoot 
->                  wFile 
->                  filename 
->                  boota 
->                  samplea
 
 The End
