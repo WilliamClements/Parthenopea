@@ -56,6 +56,48 @@ We list out both sets of data for each file, then list out the rollup sets.
 >   in
 >     GenData ge (StaticData mclip def) 0 0 0 IntSet.empty IntSet.empty
 >
+> data EState                              =
+>   EOff | EOnSmall | EOnLarge
+>   deriving (Eq, Ord, Show)
+> addEStates              :: EState → EState → EState
+> addEStates EOff es                       = es
+> addEStates es EOff                       = es
+> addEStates _ es                          = es
+>
+> data EConfig                             =
+>   EConfig {
+>     _eConfigDelay      :: EState
+>   , _eConfigAttack     :: EState
+>   , _eConfigHold       :: EState
+>   , _eConfigDecay      :: EState
+>   , _eConfigRelease    :: EState}
+>   deriving (Eq, Ord, Show)
+> makeLenses ''EConfig
+> makeEConfig            :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → EConfig
+> makeEConfig delay attack hold decay release
+>                                          =
+>   EConfig 
+>     (categorize delay) 
+>     (categorize attack)
+>     (categorize hold)
+>     (categorize decay) 
+>     (categorize release)
+> addEConfigs            :: EConfig → EConfig → EConfig
+> addEConfigs ec1 ec2                      =
+>   EConfig
+>     (addEStates (ec1 ^. eConfigDelay) (ec2 ^. eConfigDelay))
+>     (addEStates (ec1 ^. eConfigAttack) (ec2 ^. eConfigAttack))
+>     (addEStates (ec1 ^. eConfigHold) (ec2 ^. eConfigHold))
+>     (addEStates (ec1 ^. eConfigDecay) (ec2 ^. eConfigDecay))
+>     (addEStates (ec1 ^. eConfigRelease) (ec2 ^. eConfigRelease))
+> categorize             :: Maybe Int → EState
+> categorize mint                          =
+>   case mint of
+>     Nothing            → EOff
+>     Just n             → if n < 0
+>                            then EOnSmall
+>                            else EOnLarge
+>
 > data GenSum                              =
 >   GenSum {
 >     _gsFilename        :: FilePath
