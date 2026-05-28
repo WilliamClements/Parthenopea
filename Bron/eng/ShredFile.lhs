@@ -46,8 +46,8 @@ We list out both sets of data for each file, then list out the rollup sets.
 >   , _gOccur            :: Int
 >   , _gAccum            :: Int
 >   , _gAccumWith        :: Int
->   , _gValues           :: IntSet
->   , _gWild             :: IntSet}
+>   , _gGoodValues       :: IntSet
+>   , _gWildValues       :: IntSet}
 >   deriving (Eq, Show)
 > makeGenData            :: GenEnum → GenData
 > makeGenData ge                           =
@@ -164,13 +164,13 @@ We list out both sets of data for each file, then list out the rollup sets.
 >           where
 >             probe      :: (Int, Int) → Bool
 >             probe clip                   = inRange clip val
->         (values, wild)                   = if inrange
->                                              then (IntSet.insert val (genData ^. gValues), genData ^. gWild)
->                                              else (genData ^. gValues, IntSet.insert val (genData ^. gWild))
+>         (good, wild)                     = if inrange
+>                                              then (IntSet.insert val (genData ^. gGoodValues), genData ^. gWildValues)
+>                                              else (genData ^. gGoodValues, IntSet.insert val (genData ^. gWildValues))
 >         genData'                         = (  (gOccur +~ 1)
 >                                             . (gAccum +~ val)
->                                             . (gValues .~ values)
->                                             . (gWild .~ wild)) genData
+>                                             . (gGoodValues .~ good)
+>                                             . (gWildValues .~ wild)) genData
 >       in
 >         VB.update is $ VB.singleton (ix, genData')
 >
@@ -313,8 +313,8 @@ We list out both sets of data for each file, then list out the rollup sets.
 >     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
 >     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
 >     ((gd1 ^. gAccumWith) + (gd2 ^. gAccumWith))
->     ((gd1 ^. gValues) `IntSet.union` (gd2 ^. gValues))
->     ((gd1 ^. gWild) `IntSet.union` (gd2 ^. gWild))
+>     ((gd1 ^. gGoodValues) `IntSet.union` (gd2 ^. gGoodValues))
+>     ((gd1 ^. gWildValues) `IntSet.union` (gd2 ^. gWildValues))
 >
 > addInstDatas           :: Map EConfig Int → Map EConfig Int → Map EConfig Int
 > addInstDatas                             = Map.unionWith (+)
