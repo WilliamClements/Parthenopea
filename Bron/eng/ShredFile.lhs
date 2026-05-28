@@ -27,7 +27,7 @@ The Generator types are numbered 0 to 60. ======================================
 
 The per-file diagnostic data includes:
 1. vector of 61 per-generator infos - each with
-   a. static data from the spec (clip and default)
+   a. static data from the spec (clip ranges and defaults)
    b. occurrence count
    c. all values encountered, partitioned by out-of-range
 2. envelope statistics summed up over all instruments in the file
@@ -59,7 +59,7 @@ We list out both sets of data for each file, then list out the rollup sets.
 > data EState                              =
 >   EOff | EOnSmall | EOnLarge
 >   deriving (Eq, Ord, Show)
-> addEStates              :: EState → EState → EState
+> addEStates             :: EState → EState → EState
 > addEStates EOff es                       = es
 > addEStates es EOff                       = es
 > addEStates _ es                          = es
@@ -107,11 +107,17 @@ We list out both sets of data for each file, then list out the rollup sets.
 >   deriving (Eq, Show)
 > makeGenSum             :: FilePath → VB.Vector GenData → Map EConfig Int → Map EConfig Int → GenSum
 > makeGenSum                               = GenSum
+> initGensum             :: FilePath → GenSum
+> initGensum fp                            = makeGenSum fp (VB.generate 61 (makeGenData . toEnum)) Map.empty Map.empty
 >
 > makeLenses ''StaticData
 > makeLenses ''GenData
 > makeLenses ''GenSum
->
+
+For one SoundFont file we produce one GenSum, which includes the filename, the vector of per-generator data,
+and maps of envelope configurations to counts for both modulation and volume envelopes. The rollup GenSum
+is just a GenSum with the filename "<rollup>" and the per-file GenSums added together.
+
 > shredFile              :: SFFileBoot → IO GenSum
 > shredFile sffile                         =
 >   return $ makeGenSum sffile.zFilename v2 modMap volMap
@@ -362,10 +368,10 @@ We list out both sets of data for each file, then list out the rollup sets.
 > addInstDatas                             = Map.unionWith (+)
 >
 > addGenSums             :: GenSum → GenSum → GenSum
-> addGenSums (GenSum _ gd1 mod1 vol1) (GenSum _ gd2 mod2 vol2)
+> addGenSums (GenSum fp gd1 mod1 vol1) (GenSum _ gd2 mod2 vol2)
 >                                          =
 >   GenSum
->      "<rollup>"
+>      fp
 >      (VB.zipWith addGenDatas gd1 gd2)
 >      (addInstDatas mod1 mod2)
 >      (addInstDatas vol1 vol2)

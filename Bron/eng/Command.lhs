@@ -27,14 +27,14 @@ Executive ======================================================================
 >
 >   if null sf2s
 >     then putStrLn "No .sf2 files found."
->     else proceed sf2s
+>     else proceedWith sf2s
 >
 >   timeNow                                ← getZonedTime
 >   putStrLn $ "\n" ++ show timeNow
 >   putStrLn "\nThe End"
 >
-> proceed                :: [FilePath] → IO ()
-> proceed sf2s                             = do
+> proceedWith            :: [FilePath] → IO ()
+> proceedWith sf2s                         = do
 >   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
 >   let vFilesBoot                         = VB.fromList extraction
 >   vGenSum                                ← CM.mapM shredFile vFilesBoot

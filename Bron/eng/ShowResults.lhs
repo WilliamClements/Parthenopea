@@ -20,7 +20,8 @@ May 28, 2026
 > showResults       :: VB.Vector GenSum → IO (VB.Vector String)
 > showResults vGenSum                      = do
 >   let gensOutput                         = VB.concatMap showFile vGenSum
->   let vRollup                            = VB.foldl' addGenSums (VB.head vGenSum) (VB.tail vGenSum)
+>   let vRollup                            =
+>         (gsFilename .~ "<rollup>") (VB.foldl' addGenSums (VB.head vGenSum) (VB.tail vGenSum))
 >   let rollupOutput                       = showFile vRollup VB.++ showStats vRollup
 >   return $ gensOutput VB.++ rollupOutput
 >   where
@@ -29,6 +30,7 @@ May 28, 2026
 >       , VB.map show (gensum ^. gsGenData)
 >       , showInstData (gensum ^. gsModEnvMap)
 >       , showInstData (gensum ^. gsVolEnvMap)]
+>
 >     showInstData envMap
 >       | Map.null envMap                  = VB.empty
 >       | otherwise                        = VB.fromList (map (uncurry showEC) arrivals)
@@ -38,6 +40,7 @@ May 28, 2026
 >                                               where shuffle ec count acc = (count, ec) : acc
 >           showEC       :: Int → EConfig → String
 >           showEC count ec                = unwords [show count, show ec]
+>
 >     showStats gensum                     = VB.map showOneGen valueBearing
 >       where
 >         showOneGen ge                    = showTwoStats ((gensum ^. gsGenData) VB.! fromEnum ge)
@@ -51,13 +54,19 @@ May 28, 2026
 >         showStat is                      = if IntSet.null is then [] else unwords [show m, "+-", show s]
 >           where
 >             (m, s)                       = dispersion (IntSet.toList is)
->     dispersion         :: [Int] -> (Double, Double)
->     dispersion vals                      = (mean, stdDev)
+>
+>     dispersion         :: [Int] → (Double, Double)
+>     dispersion vals                      = if null vals
+>                                              then error "dispersion: empty list (avoid divide by zero)"
+>                                              else (mean, stdDev)
 >       where
 >         dubs           :: [Double]       = map fromIntegral vals
->         denom          :: Double         = realToFrac (length vals)
->         mean           :: Double         = sum dubs / denom
->         stdDev         :: Double         = sqrt (sum (map dev dubs) / denom)
+>
+>         denom, mean, stdDev
+>                        :: Double
+>         denom                            = realToFrac (length vals)
+>         mean                             = sum dubs / denom
+>         stdDev                           = sqrt (sum (map dev dubs) / denom)
 >                                              where dev x = (x - mean) ** 2
 
 The End
