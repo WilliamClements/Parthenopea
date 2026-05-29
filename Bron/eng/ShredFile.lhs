@@ -34,11 +34,6 @@ The per-file diagnostic data includes:
 
 We list out both sets of data for each file, then list out the rollup sets.
 
-> data StaticData where
->   StaticData :: {_gClip :: Maybe (Int, Int)
->                , _gDefault :: Int} → StaticData
->   deriving (Eq, Show)
->
 > data GenData                             =
 >   GenData {
 >     _gId               :: GenEnum
@@ -52,9 +47,9 @@ We list out both sets of data for each file, then list out the rollup sets.
 > makeGenData            :: GenEnum → GenData
 > makeGenData ge                           =
 >   let
->     (mclip, def)                         = allClipVector VB.! fromEnum ge
+>     static                         = staticDataVector VB.! fromEnum ge
 >   in
->     GenData ge (StaticData mclip def) 0 0 0 IntSet.empty IntSet.empty
+>     GenData ge static 0 0 0 IntSet.empty IntSet.empty
 >
 > data EState                              =
 >   EOff | EOnSmall | EOnLarge
@@ -105,23 +100,25 @@ We list out both sets of data for each file, then list out the rollup sets.
 >   , _gsModEnvMap       :: Map EConfig Int
 >   , _gsVolEnvMap       :: Map EConfig Int}
 >   deriving (Eq, Show)
-> makeGenSum             :: FilePath → VB.Vector GenData → Map EConfig Int → Map EConfig Int → GenSum
-> makeGenSum                               = GenSum
-> initGensum             :: FilePath → GenSum
-> initGensum fp                            = makeGenSum fp (VB.generate 61 (makeGenData . toEnum)) Map.empty Map.empty
->
-> makeLenses ''StaticData
 > makeLenses ''GenData
 > makeLenses ''GenSum
+>
+> makeGenSum             :: FilePath → VB.Vector GenData → Map EConfig Int → Map EConfig Int → GenSum
+> makeGenSum                               = GenSum
+> initGenSum             :: FilePath → GenSum
+> initGenSum fp                            = makeGenSum fp (VB.generate 61 (makeGenData . toEnum)) Map.empty Map.empty
 
-For one SoundFont file we produce one GenSum, which includes the filename, the vector of per-generator data,
-and maps of envelope configurations to counts for both modulation and volume envelopes. The rollup GenSum
-is just a GenSum with the filename "<rollup>" and the per-file GenSums added together.
+Getting down to business ==============================================================================================
+   
+From one SoundFont file we produce one GenSum, to collect interesting aspects about Generators.
+Later on, a rollup GenSum will be produced - per-file GenSums added together.
 
 > shredFile              :: SFFileBoot → IO GenSum
 > shredFile sffile                         =
->   return $ makeGenSum sffile.zFilename v2 modMap volMap
+>   return $ foldr mictorate (initGenSum sffile.zFilename) owners
 >   where
+>     mictorate          :: IntSet → GenSum → GenSum
+>     mictorate bags gensum                = gensum & gsGenData %~ VB.foldl' shredGen id
 >     loadInst kinst                       = sffile.zFileArrays.ssInsts ! fromIntegral kinst
 >     loadBag kbag                         = sffile.zFileArrays.ssIBags ! fromIntegral kbag
 >     loadGen kgen                         = sffile.zFileArrays.ssIGens ! fromIntegral kgen
@@ -144,6 +141,11 @@ is just a GenSum with the filename "<rollup>" and the per-file GenSums added tog
 >               then m
 >               else IntMap.insert kinst (IntSet.fromList [ibag..(jbag - 1)]) m
 >
+>         wi, wj         :: Word
+>         ii, ij         :: Int
+>         (wi, wj)                         = bounds sffile.zFileArrays.ssInsts
+>         (ii, ij)                         = BF.bimap fromIntegral fromIntegral (wi, wj)
+>
 >     populate           :: IntSet → Map EConfig Int → Map EConfig Int
 >     populate bags m                      =
 >       let
@@ -165,11 +167,6 @@ is just a GenSum with the filename "<rollup>" and the per-file GenSums added tog
 >     v0                                   = VB.generate 61 (makeGenData . toEnum)
 >     v1                                   = foldl' shredGen v0 sffile.zFileArrays.ssIGens
 >     v2                                   = v1 -- WOX  VB.generate 61 (makeGenData . toEnum)
->
->     wi, wj             :: Word
->     ii, ij             :: Int
->     (wi, wj)                             = bounds sffile.zFileArrays.ssInsts
->     (ii, ij)                             = BF.bimap fromIntegral fromIntegral (wi, wj)
 >
 >     modMap, volMap     :: Map EConfig Int
 >     modMap                               = IntMap.foldr populate Map.empty owners
@@ -208,6 +205,7 @@ is just a GenSum with the filename "<rollup>" and the per-file GenSums added tog
 >         ix                               = fromEnum ge
 >         val                              = fromMaybe 0 val_
 >         genData                          = is VB.! ix
+>
 >         inrange                          = maybe True probe (genData ^. (gStatic . gClip))
 >           where
 >             probe      :: (Int, Int) → Bool
