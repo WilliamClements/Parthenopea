@@ -36,9 +36,13 @@ Executive ======================================================================
 > proceedWith            :: [FilePath] → IO ()
 > proceedWith sf2s                         = do
 >   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
+>   putStrLn "extracted\n"
 >   let vFilesBoot                         = VB.fromList extraction
 >   vGenSum                                ← CM.mapM shredFile vFilesBoot
 >   fData                                  ← showResults vGenSum
->   mapM_ putStrLn fData
+>   putStrVector fData
+>   where
+>     putStrVector :: VB.Vector (VB.Vector String) → IO ()
+>     putStrVector                         = VB.mapM_ (VB.mapM_ putStrLn)
 
 The End

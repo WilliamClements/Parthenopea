@@ -14,24 +14,42 @@ May 28, 2026
 > import qualified Data.Map.Strict         as Map
 > import Data.Ord
 > import qualified Data.Vector.Strict      as VB
+> import Debug.Trace
 > import Eng.SFSpec
 > import Eng.ShredFile
 >
-> showResults       :: VB.Vector GenSum → IO (VB.Vector String)
+> skipFileOutput         :: Bool
+> skipFileOutput                           = False
+>
+> showResults       :: VB.Vector GenSum → IO (VB.Vector (VB.Vector String))
 > showResults vGenSum                      = do
->   let gensOutput                         = VB.concatMap showFile vGenSum
+>   let gensOutput                         = if skipFileOutput || VB.length vGenSum <= 1
+>                                              then VB.empty
+>                                              else VB.concatMap showFile vGenSum
 >   let vRollup                            =
->         (gsFilename .~ "<rollup>") (VB.foldl' addGenSums (VB.head vGenSum) (VB.tail vGenSum))
->   let rollupOutput                       = showFile vRollup VB.++ showStats vRollup
+>         (gsTag .~ "<summary>") (VB.foldl' addGenSums (VB.head vGenSum) (VB.tail vGenSum))
+>   let rollupOutput                       = showFile vRollup
 >   return $ gensOutput VB.++ rollupOutput
 >   where
->     showFile gensum                      = VB.concat [
->       VB.fromList ["", gensum ^. gsFilename]
->       , VB.map show (gensum ^. gsGenData)
->       , showInstData (gensum ^. gsModEnvMap)
->       , showInstData (gensum ^. gsVolEnvMap)]
+>     showFile           :: GenSum → VB.Vector (VB.Vector String)
+>     showFile gensum                      =
+>       let
+>         headerOutput                     = VB.fromList ["", show (gensum ^. gsTag)]
+>         slateOutput                      = VB.map show (gensum ^. gsGenSlate)
+>         envOutput                        =
+>           VB.fromList ["\nModulation Envelope configurations:\n"]
+>           VB.++ showEnvMap (gensum ^. gsModEnvMap)
+>           VB.++ VB.fromList ["\nVolume Envelope configurations:\n"]
+>           VB.++ showEnvMap (gensum ^. gsVolEnvMap)
+>           VB.++ VB.fromList ["\n\n"]
+>         statsOutput                       =
+>           VB.fromList ["\nGenerator statistics:\n"]
+>           VB.++ showStats gensum
+>           VB.++ VB.fromList ["\n\n"]
+>       in
+>         VB.fromList [headerOutput, slateOutput, envOutput, statsOutput]
 >
->     showInstData envMap
+>     showEnvMap envMap
 >       | Map.null envMap                  = VB.empty
 >       | otherwise                        = VB.fromList (map (uncurry showEC) arrivals)
 >         where
@@ -43,7 +61,7 @@ May 28, 2026
 >
 >     showStats gensum                     = VB.map showOneGen valueBearing
 >       where
->         showOneGen ge                    = showTwoStats ((gensum ^. gsGenData) VB.! fromEnum ge)
+>         showOneGen ge                    = showTwoStats ((gensum ^. gsGenSlate) VB.! fromEnum ge)
 >         showTwoStats genData             =
 >           if IntSet.null (genData ^. gWildValues)
 >              then s1
@@ -57,14 +75,14 @@ May 28, 2026
 >
 >     dispersion         :: [Int] → (Double, Double)
 >     dispersion vals                      = if null vals
->                                              then error "dispersion: empty list (avoid divide by zero)"
+>                                              then error "dispersion: empty list would cause divide-by-zero"
 >                                              else (mean, stdDev)
 >       where
->         dubs           :: [Double]       = map fromIntegral vals
+>         dubs           :: [Double]       = map fromIntegral (traceShowId vals)
 >
 >         denom, mean, stdDev
 >                        :: Double
->         denom                            = realToFrac (length vals)
+>         denom                            = fromIntegral (length vals)
 >         mean                             = sum dubs / denom
 >         stdDev                           = sqrt (sum (map dev dubs) / denom)
 >                                              where dev x = (x - mean) ** 2
