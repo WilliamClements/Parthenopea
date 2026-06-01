@@ -1,5 +1,4 @@
 > {-# LANGUAGE OverloadedRecordDot #-}
-> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE TemplateHaskell #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -26,18 +25,18 @@ May 28, 2026
 The Generator types are numbered 0 to 60. =============================================================================
 
 The per-file diagnostic data includes:
-1. vector of 61 per-generator infos - each with
+1. (raw data) vector of 61 per-generator infos - each with
    a. static data from the spec (clip ranges and defaults)
    b. occurrence count
    c. all values encountered, partitioned by out-of-range
 2. envelope statistics summed up over all instruments in the file
+3. numerical dispersion for found values of each Generator type
 
-We list out both sets of data for each file, then list out the rollup sets.
+Optionally list out these datasets for each file, but always list out the rollup sets.
 
 > data GenData                             =
 >   GenData {
 >     _gId               :: GenEnum
->   , _gStatic           :: StaticData
 >   , _gOccur            :: Int
 >   , _gAccum            :: Int
 >   , _gAccumWith        :: Int
@@ -46,20 +45,13 @@ We list out both sets of data for each file, then list out the rollup sets.
 >   deriving (Eq, Show)
 > makeLenses ''GenData
 > makeGenData            :: GenEnum → GenData
-> makeGenData ge                           =
->   let
->     static                               = staticDataVector VB.! fromEnum ge
->   in
->     GenData ge static 0 0 0 IntSet.empty IntSet.empty
+> makeGenData ge                           = GenData ge 0 0 0 IntSet.empty IntSet.empty     
 > isEmptyGenData       :: GenData → Bool
 > isEmptyGenData gd                        = (gd ^. gOccur) == 0
->
 > addGenDatas            :: GenData → GenData → GenData
-> addGenDatas gd1 gd2
->                                          =
+> addGenDatas gd1 gd2                      =
 >   GenData
 >     (gd1 ^. gId)
->     (StaticData (gd1 ^. (gStatic . gClip)) (gd1 ^. (gStatic . gDefault)))
 >     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
 >     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
 >     ((gd1 ^. gAccumWith) + (gd2 ^. gAccumWith))
@@ -71,9 +63,6 @@ We list out both sets of data for each file, then list out the rollup sets.
 >
 > initGenSlate           :: GenSlate
 > initGenSlate                             = VB.generate 61 (makeGenData . toEnum)
->
-> addGenSlates           :: GenSlate → GenSlate → GenSlate
-> addGenSlates                            = VB.zipWith addGenDatas
 >
 > data EState                              =
 >   EOff | EOnSmall | EOnLarge
@@ -109,13 +98,13 @@ We list out both sets of data for each file, then list out the rollup sets.
 > mark                   :: Map EConfig Int → EConfig → Map EConfig Int
 > mark mc ec                               = Map.insertWith (+) ec 1 mc
 >
-> data GenSumType                          =
+> data GenSumLevel                         =
 >  GSTZone | GSTInst | GSTFile | GSTRollup
 >  deriving (Enum, Eq, Show)
 >
 > data GenSum                              =
 >   GenSum {
->     _gsType            :: GenSumType
+>     _gsLevel           :: GenSumLevel
 >   , _gsTag             :: String
 >   , _gsGenSlate        :: GenSlate
 >   , _gsSubSums         :: VB.Vector GenSum
@@ -123,10 +112,34 @@ We list out both sets of data for each file, then list out the rollup sets.
 >   , _gsVolEnvMap       :: Map EConfig Int}
 >   deriving (Eq, Show)
 > makeLenses ''GenSum
-> makeGenSum             :: GenSumType → String → VB.Vector GenData → VB.Vector GenSum → Map EConfig Int → Map EConfig Int → GenSum
+> makeGenSum             :: GenSumLevel → String → VB.Vector GenData → VB.Vector GenSum → Map EConfig Int → Map EConfig Int → GenSum
 > makeGenSum                               = GenSum
 > initGenSum             :: String → GenSum
 > initGenSum tag                           = makeGenSum GSTZone tag initGenSlate VB.empty Map.empty Map.empty
+> addGenSums             :: GenSum → GenSum → GenSum
+> addGenSums (GenSum level tag slate1 _ mod1 vol1) (GenSum _ _ slate2 _ mod2 vol2)
+>                                          =
+>   GenSum
+>     level 
+>     tag
+>     (VB.zipWith addGenDatas slate1 slate2)
+>     VB.empty -- assigned later in rollupGenSums
+>     (Map.unionWith (+) mod1 mod2)
+>     (Map.unionWith (+) vol1 vol2)
+> rollupGenSums          :: GenSumLevel → String → VB.Vector GenSum → GenSum
+> rollupGenSums toLevel tag vGenSum                =
+>   let
+>     subtype            :: GenSumLevel            = toEnum (fromEnum toLevel - 1)
+>
+>     chadd              :: GenSum → GenSum → GenSum
+>     chadd gensum1 gensum2
+>       | gensum1 ^. gsLevel /= subtype || gensum2 ^. gsLevel /= subtype
+>                                          = error "rollupGenSums: bad bookkeeping"
+>       | otherwise                        = addGenSums gensum1 gensum2
+>   in
+>       ((gsLevel .~ toLevel)
+>     .  (gsTag .~ tag))
+>     .  (gsSubSums .~ vGenSum) $ VB.foldl' chadd (VB.head vGenSum) (VB.tail vGenSum)
 
 Getting down to business ==============================================================================================
    
@@ -135,17 +148,18 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 
 > shredFile              :: SFFileBoot → IO GenSum
 > shredFile sffile                         = do
->   return $ IntMap.foldlWithKey shredInst (initGenSum sffile.zFilename) owners
+>   return $ rollupGenSums GSTFile sffile.zFilename vInstGenSum
 >   where
->     loadInst k                   = sffile.zFileArrays.ssInsts ! fromIntegral k
+>     loadInst kinst                       = sffile.zFileArrays.ssInsts ! fromIntegral kinst
+>     loadBag kbag                         = sffile.zFileArrays.ssIBags ! fromIntegral kbag
+>     loadShdr kshdr                       = sffile.zFileArrays.ssShdrs ! fromIntegral kshdr
+>     loadGen kgen                         = sffile.zFileArrays.ssIGens ! fromIntegral kgen
 >
->     shredInst          :: GenSum → Int → IntSet → GenSum
->     shredInst genSumIn _ bags            = genSumOut
+>     vInstGenSum                          = VB.fromList (IntMap.elems (IntMap.mapWithKey shredInst owners))
+>
+>     shredInst          :: Int → IntSet → GenSum
+>     shredInst _ bags                     = rollupGenSums GSTInst "InstDrQ" vZoneGenSum
 >       where
->         genSumOut      :: GenSum         = genSumIn & gsGenSlate  .~ foldl' addGenSlates initGenSlate slates
->                                                     & gsModEnvMap .~ addEnvMaps (genSumIn ^. gsModEnvMap) modMap
->                                                     & gsVolEnvMap .~ addEnvMaps (genSumIn ^. gsVolEnvMap) volMap
->
 >         slates_, slates
 >                        :: [GenSlate]
 >         slates_                          =
@@ -157,14 +171,10 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >                        :: Int
 >                 igen                     = fromIntegral $ F.genNdx (loadBag ibag)
 >                 jgen                     = fromIntegral $ F.genNdx (loadBag (ibag + 1))
->                 loadBag kbag             = sffile.zFileArrays.ssIBags ! fromIntegral kbag
->                 loadGen kgen             = sffile.zFileArrays.ssIGens ! fromIntegral kgen
 >
 >                 gens                     = VB.generate (jgen - igen) (loadGen . (+ igen))
->
->             zones                    = map shredBag (IntSet.toList bags)
 >           in
->             zones
+>             map shredBag (IntSet.toList bags)
 >
 >         slates                           = 
 >           let
@@ -184,10 +194,18 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >               then map (VB.zipWith replace firstZone) (tail slates_)
 >               else slates_        
 >
->         cfgs           :: [(EConfig, EConfig)]
->         cfgs                             = map (VB.foldl' examineIf (initConfig, initConfig)) slates
->         modMap, volMap :: Map EConfig Int
->         (modMap, volMap)                = (foldl' mark Map.empty (map fst cfgs), foldl' mark Map.empty (map snd cfgs))
+>         vZoneGenSum                      = VB.fromList $ map shredSlate slates
+>           where
+>             shredSlate :: GenSlate → GenSum
+>             shredSlate slate             =
+>               let
+>                 modConfig, volConfig
+>                                :: EConfig
+>                 (modConfig, volConfig)   = VB.foldl' examineIf (initConfig, initConfig) slate
+>                 modMap, volMap :: Map EConfig Int
+>                 (modMap, volMap)         = (mark Map.empty modConfig, mark Map.empty volConfig)
+>               in
+>                 makeGenSum GSTZone "zoneDrQ" slate VB.empty modMap volMap
 > 
 >     owners             :: IntMap IntSet
 >     owners                               = foldl' erect IntMap.empty [ii..(ij-1)]
@@ -238,19 +256,24 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >     examine (ecMod, ecVol) _             = (ecMod, ecVol)
 >
 >     upd                :: VB.Vector GenData → GenEnum → Maybe Int → VB.Vector GenData
->     upd is ge val_                       = 
+>     upd is ge valMaybe                   = 
 >       let
 >         ix                               = fromEnum ge
->         val                              = fromMaybe 0 val_
 >         genData                          = is VB.! ix
+>         staticData                       = staticDataVector VB.! ix
 >
->         inrange                          = maybe True probe (genData ^. (gStatic . gClip))
->           where
->             probe      :: (Int, Int) → Bool
->             probe clip                   = inRange clip val
->         (good, wild)                     = if inrange
+>         staticClip                       = fromMaybe
+>                                              (error "staticClip")
+>                                              (staticData ^. gClip)
+>
+>         (good, wild)                     = if isNothing valMaybe || (valRaw == valClipped)
 >                                              then (IntSet.insert val (genData ^. gGoodValues), genData ^. gWildValues)
 >                                              else (genData ^. gGoodValues, IntSet.insert val (genData ^. gWildValues))
+>
+>         valRaw                           = fromJust valMaybe
+>         valClipped                       = clip staticClip valRaw
+>         val                              = fromMaybe (error "val") valMaybe
+>
 >         genData'                         = (  (gOccur +~ 1)
 >                                             . (gAccum +~ val)
 >                                             . (gGoodValues .~ good)
@@ -312,7 +335,7 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >     shredGen is (F.FreqVibLfo val)
 >                                          = upd is FreqVibLfo (Just val)
 >         
->         -- 25..30
+>         -- 25..32
 >     shredGen is (F.DelayModEnv val)
 >                                          = upd is DelayModEnv (Just val)
 >     shredGen is (F.AttackModEnv val)
@@ -325,12 +348,12 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >                                          = upd is SustainModEnv (Just val)
 >     shredGen is (F.ReleaseModEnv val)
 >                                          = upd is ReleaseModEnv (Just val)
->         
->         -- 31..41
 >     shredGen is (F.KeyToModEnvHold val)
 >                                          = upd is KeyToModEnvHold (Just val)
 >     shredGen is (F.KeyToModEnvDecay val)
 >                                          = upd is KeyToModEnvDecay (Just val)
+>         
+>         -- 33..41
 >     shredGen is (F.DelayVolEnv val)
 >                                          = upd is DelayVolEnv (Just val)
 >     shredGen is (F.AttackVolEnv val)
@@ -387,19 +410,5 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >         -- 60
 >     shredGen is (F.ReservedGen _ _)
 >                                          = upd is ReservedGen Nothing
->
-> addEnvMaps             :: Map EConfig Int → Map EConfig Int → Map EConfig Int
-> addEnvMaps                               = Map.unionWith (+)
->
-> addGenSums             :: GenSum → GenSum → GenSum
-> addGenSums (GenSum typ tag gd1 _ mod1 vol1) (GenSum _ _ gd2 _ mod2 vol2)
->                                          =
->   GenSum
->      typ 
->      tag
->      (VB.zipWith addGenDatas gd1 gd2)
->      VB.empty -- WOX
->      (addEnvMaps mod1 mod2)
->      (addEnvMaps vol1 vol2)
 
 The End

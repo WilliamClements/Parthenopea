@@ -60,6 +60,9 @@ implementing SoundFont spec ====================================================
 
 Generator Shredding ===================================================================================================
 
+> clip                   :: Ord n ⇒ (n, n) → n → n
+> clip (lower, upper) val                  = min upper (max lower val)
+>
 > teclip, tfclip, tqclip, tvclip, ticlip, tpclip, tcclip, tbclip, taclip, tkclip, tdclip,
 >   t1clip, t2clip, t3clip, tmclip, tnclip
 >                      :: (Int, Int)

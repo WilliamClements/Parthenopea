@@ -1,3 +1,4 @@
+> {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
@@ -11,43 +12,52 @@ May 28, 2026
 > import Control.Lens hiding ( element, ix )
 > import qualified Data.IntSet             as IntSet
 > import Data.List
+> import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
 > import Data.Ord
 > import qualified Data.Vector.Strict      as VB
-> import Debug.Trace
 > import Eng.SFSpec
 > import Eng.ShredFile
 >
-> skipFileOutput         :: Bool
-> skipFileOutput                           = False
+> showLevel              :: GenSumLevel
+> showLevel                                = GSTRollup
 >
-> showResults       :: VB.Vector GenSum → IO (VB.Vector (VB.Vector String))
-> showResults vGenSum                      = do
->   let gensOutput                         = if skipFileOutput || VB.length vGenSum <= 1
->                                              then VB.empty
->                                              else VB.concatMap showFile vGenSum
->   let vRollup                            =
->         (gsTag .~ "<summary>") (VB.foldl' addGenSums (VB.head vGenSum) (VB.tail vGenSum))
->   let rollupOutput                       = showFile vRollup
->   return $ gensOutput VB.++ rollupOutput
+> skipRaw                :: Bool
+> skipRaw                                  = True
+>
+> showResults       :: GenSum → IO (VB.Vector (VB.Vector String))
+> showResults rootGenSum                   = do
+>   let (i, j, k)                          = overallCounts rootGenSum
+>   putStrLn $ unwords ["num Files", show i]
+>   putStrLn $ unwords ["num Insts", show j]
+>   putStrLn $ unwords ["num Zones", show k]
+>   return $ showGenSum rootGenSum
 >   where
->     showFile           :: GenSum → VB.Vector (VB.Vector String)
->     showFile gensum                      =
+>     showGenSum         :: GenSum → VB.Vector (VB.Vector String)
+>     showGenSum gensum                    =
 >       let
->         headerOutput                     = VB.fromList ["", show (gensum ^. gsTag)]
->         slateOutput                      = VB.map show (gensum ^. gsGenSlate)
+>         recurseOutput                    = if fromEnum showLevel >= fromEnum (gensum ^. gsLevel)
+>                                              then VB.empty
+>                                              else VB.concatMap showGenSum (gensum ^. gsSubSums)
+>         headerOutput                     = VB.fromList ["", unwords [show (gensum ^. gsLevel), gensum ^. gsTag]]
+>         slateOutput                      = if skipRaw
+>                                              then VB.empty
+>                                              else VB.map show (gensum ^. gsGenSlate)
 >         envOutput                        =
->           VB.fromList ["\nModulation Envelope configurations:\n"]
+>           VB.singleton (unwords ["\nModulation Envelope configs (out of total", show (total (gensum ^. gsModEnvMap)), "):\n"])
 >           VB.++ showEnvMap (gensum ^. gsModEnvMap)
->           VB.++ VB.fromList ["\nVolume Envelope configurations:\n"]
+>           VB.++ VB.singleton (unwords ["\nVolume Envelope configs (out of total", show (total (gensum ^. gsVolEnvMap)), "):\n"])
 >           VB.++ showEnvMap (gensum ^. gsVolEnvMap)
 >           VB.++ VB.fromList ["\n\n"]
 >         statsOutput                       =
 >           VB.fromList ["\nGenerator statistics:\n"]
 >           VB.++ showStats gensum
 >           VB.++ VB.fromList ["\n\n"]
+>
+>         total          :: Map EConfig Int → Int
+>         total                            = sum . Map.elems
 >       in
->         VB.fromList [headerOutput, slateOutput, envOutput, statsOutput]
+>         recurseOutput VB.++ VB.fromList [headerOutput, slateOutput, envOutput, statsOutput]
 >
 >     showEnvMap envMap
 >       | Map.null envMap                  = VB.empty
@@ -59,17 +69,20 @@ May 28, 2026
 >           showEC       :: Int → EConfig → String
 >           showEC count ec                = unwords [show count, show ec]
 >
->     showStats gensum                     = VB.map showOneGen valueBearing
+>     showStats          :: GenSum → VB.Vector String
+>     showStats gensum                     = VB.concatMap showOneGen valueBearing
 >       where
+>
+>         showOneGen     :: GenEnum → VB.Vector String
 >         showOneGen ge                    = showTwoStats ((gensum ^. gsGenSlate) VB.! fromEnum ge)
->         showTwoStats genData             =
->           if IntSet.null (genData ^. gWildValues)
->              then s1
->              else unwords [s1, "   (", s2, ")"]
+>         showTwoStats   :: GenData → VB.Vector String
+>         showTwoStats genData             = VB.fromList $ s0 : (if (genData ^. gOccur) == 0 then [] else [s1, s2])
 >           where
->             s1                           = unwords [show (genData ^. gId), showStat (genData ^. gGoodValues)]
+>             ix                           = fromEnum (genData ^. gId)
+>             s0                           = unwords [show (genData ^. gId), "...", show ix, "...", show (staticDataVector VB.! ix)]
+>             s1                           = showStat (genData ^. gGoodValues)
 >             s2                           = showStat ((genData ^. gGoodValues) `IntSet.union` (genData ^. gWildValues))
->         showStat is                      = if IntSet.null is then [] else unwords [show m, "+-", show s]
+>         showStat is                      = if IntSet.null is then [] else unwords ["  dispersion", show m, "+-", show s]
 >           where
 >             (m, s)                       = dispersion (IntSet.toList is)
 >
@@ -78,7 +91,7 @@ May 28, 2026
 >                                              then error "dispersion: empty list would cause divide-by-zero"
 >                                              else (mean, stdDev)
 >       where
->         dubs           :: [Double]       = map fromIntegral (traceShowId vals)
+>         dubs           :: [Double]       = map fromIntegral vals
 >
 >         denom, mean, stdDev
 >                        :: Double
@@ -86,5 +99,19 @@ May 28, 2026
 >         mean                             = sum dubs / denom
 >         stdDev                           = sqrt (sum (map dev dubs) / denom)
 >                                              where dev x = (x - mean) ** 2
+>
+>     overallCounts      :: GenSum → (Int, Int, Int)
+>     overallCounts gensum                 = foldl' shredCounts (0, 0, 0) (flatten gensum)
+>       where
+>         flatten        :: GenSum → [GenSum]
+>         flatten leaf                     = leaf : concatMap flatten (VB.toList (leaf ^. gsSubSums))
+>
+>         shredCounts    :: (Int, Int, Int) → GenSum → (Int, Int, Int)
+>         shredCounts (x, y, z) eachGenSum =
+>           case eachGenSum ^. gsLevel of
+>             GSTFile    → (x + 1, y, z)
+>             GSTInst    → (x, y + 1, z)
+>             GSTZone    → (x, y, z + 1)
+>             _          → (x, y, z)
 
 The End

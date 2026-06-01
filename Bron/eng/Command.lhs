@@ -1,4 +1,3 @@
-> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Command
@@ -36,10 +35,10 @@ Executive ======================================================================
 > proceedWith            :: [FilePath] → IO ()
 > proceedWith sf2s                         = do
 >   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
->   putStrLn "extracted\n"
+>   putStrLn $ unwords [show (length extraction), "extracted\n"]
 >   let vFilesBoot                         = VB.fromList extraction
 >   vGenSum                                ← CM.mapM shredFile vFilesBoot
->   fData                                  ← showResults vGenSum
+>   fData                                  ← showResults $ rollupGenSums GSTRollup "<summary>" vGenSum
 >   putStrVector fData
 >   where
 >     putStrVector :: VB.Vector (VB.Vector String) → IO ()
