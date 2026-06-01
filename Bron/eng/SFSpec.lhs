@@ -84,17 +84,23 @@ Generator Shredding ============================================================
 > t2clip                                   = (-99, 99)
 > t3clip                                   = (0, 1_200)
 >
-> data StaticData where
->   StaticData :: {_gClip :: Maybe (Int, Int)
->                , _gDefault :: Int} → StaticData
+> data Unit                                = NoUnit | Cents | CentsPerKey | Absolute
 >   deriving (Eq, Show)
-> makeLenses ''StaticData
+> makePrisms ''Unit
 >
-> staticDataVector       :: VB.Vector StaticData
-> staticDataVector                         = VB.fromList $ zipWith StaticData allClip allDefault
+> data Spec where
+>   Spec       :: {_gClip :: Maybe (Int, Int)
+>                , _gDefault :: Int
+>                , _gUnit :: Unit
+>                } → Spec
+>   deriving (Eq, Show)
+> makeLenses ''Spec
+>
+> specVector             :: VB.Vector Spec
+> specVector                               = VB.zipWith3 Spec allClip allDefault allUnits
 >   where
->     allClip            :: [Maybe (Int, Int)]
->     allClip                              =
+>     allClip            :: VB.Vector (Maybe (Int, Int))
+>     allClip                              = VB.fromList
 >       [ Nothing, Nothing, Nothing, Nothing, Nothing          -- StartAddressOffset
 >                                                              --  | EndAddressOffset
 >                                                              --  | LoopStartAddressOffset
@@ -130,8 +136,8 @@ Generator Shredding ============================================================
 >       , Just tmclip                                          -- RootKey
 >       , Nothing, Nothing                                     -- Unused5 | ReservedGen
 >       ]
->     allDefault      :: [Int]
->     allDefault                        =
+>     allDefault      :: VB.Vector Int
+>     allDefault                        = VB.fromList 
 >       [ 0, 0, 0, 0, 0                         -- (addresses)
 >       , 0, 0, 0                               -- ModLfoToPitch, VibLfoToPitch, ModEnvToPitch        
 >       , 13_500, 0                             -- InitFc, InitQ
@@ -161,6 +167,9 @@ Generator Shredding ============================================================
 >       , 0                                     -- ExclusiveClass
 >       , -1                                    -- RootKey
 >       , 0, 0]                                 -- Unused5, ReservedGen
+>
+> allUnits           :: VB.Vector Unit
+> allUnits                            = VB.replicate 61 NoUnit
 >
 > data GenEnum                             =
 >     StartAddressOffset | EndAddressOffset | LoopStartAddressOffset | LoopEndAddressOffset
@@ -196,5 +205,8 @@ Generator Shredding ============================================================
 >   , ScaleTuning
 >   , ExclusiveClass
 >   , RootKey]
+>
+> noNumericDefault       :: VB.Vector GenEnum
+> noNumericDefault                         = VB.fromList [ExclusiveClass, Key, RootKey, Vel]
 
 The End

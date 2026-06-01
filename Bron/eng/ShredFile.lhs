@@ -39,13 +39,12 @@ Optionally list out these datasets for each file, but always list out the rollup
 >     _gId               :: GenEnum
 >   , _gOccur            :: Int
 >   , _gAccum            :: Int
->   , _gAccumWith        :: Int
 >   , _gGoodValues       :: IntSet
 >   , _gWildValues       :: IntSet}
 >   deriving (Eq, Show)
 > makeLenses ''GenData
 > makeGenData            :: GenEnum → GenData
-> makeGenData ge                           = GenData ge 0 0 0 IntSet.empty IntSet.empty     
+> makeGenData ge                           = GenData ge 0 0 IntSet.empty IntSet.empty     
 > isEmptyGenData       :: GenData → Bool
 > isEmptyGenData gd                        = (gd ^. gOccur) == 0
 > addGenDatas            :: GenData → GenData → GenData
@@ -54,7 +53,6 @@ Optionally list out these datasets for each file, but always list out the rollup
 >     (gd1 ^. gId)
 >     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
 >     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
->     ((gd1 ^. gAccumWith) + (gd2 ^. gAccumWith))
 >     ((gd1 ^. gGoodValues) `IntSet.union` (gd2 ^. gGoodValues))
 >     ((gd1 ^. gWildValues) `IntSet.union` (gd2 ^. gWildValues))
 >
@@ -116,29 +114,30 @@ Optionally list out these datasets for each file, but always list out the rollup
 > makeGenSum                               = GenSum
 > initGenSum             :: String → GenSum
 > initGenSum tag                           = makeGenSum GSTZone tag initGenSlate VB.empty Map.empty Map.empty
-> addGenSums             :: GenSum → GenSum → GenSum
-> addGenSums (GenSum level tag slate1 _ mod1 vol1) (GenSum _ _ slate2 _ mod2 vol2)
->                                          =
->   GenSum
->     level 
->     tag
->     (VB.zipWith addGenDatas slate1 slate2)
->     VB.empty -- assigned later in rollupGenSums
->     (Map.unionWith (+) mod1 mod2)
->     (Map.unionWith (+) vol1 vol2)
 > rollupGenSums          :: GenSumLevel → String → VB.Vector GenSum → GenSum
-> rollupGenSums toLevel tag vGenSum                =
+> rollupGenSums toLevel tagRollup vGenSum  =
 >   let
->     subtype            :: GenSumLevel            = toEnum (fromEnum toLevel - 1)
+>     subtype            :: GenSumLevel    = toEnum (fromEnum toLevel - 1)
 >
 >     chadd              :: GenSum → GenSum → GenSum
 >     chadd gensum1 gensum2
 >       | gensum1 ^. gsLevel /= subtype || gensum2 ^. gsLevel /= subtype
 >                                          = error "rollupGenSums: bad bookkeeping"
 >       | otherwise                        = addGenSums gensum1 gensum2
+>
+>     addGenSums         :: GenSum → GenSum → GenSum
+>     addGenSums (GenSum level tagAdd slate1 _ mod1 vol1) (GenSum _ _ slate2 _ mod2 vol2)
+>                                          =
+>       GenSum
+>         level 
+>         tagAdd
+>         (VB.zipWith addGenDatas slate1 slate2)
+>         VB.empty -- assigned later in rollupGenSums
+>         (Map.unionWith (+) mod1 mod2)
+>         (Map.unionWith (+) vol1 vol2)
 >   in
 >       ((gsLevel .~ toLevel)
->     .  (gsTag .~ tag))
+>     .  (gsTag .~ tagRollup))
 >     .  (gsSubSums .~ vGenSum) $ VB.foldl' chadd (VB.head vGenSum) (VB.tail vGenSum)
 
 Getting down to business ==============================================================================================
@@ -256,30 +255,29 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >     examine (ecMod, ecVol) _             = (ecMod, ecVol)
 >
 >     upd                :: VB.Vector GenData → GenEnum → Maybe Int → VB.Vector GenData
->     upd is ge valMaybe                   = 
->       let
+>     upd is ge valMaybe                   = VB.update is $ VB.singleton (ix, genData')
+>       where
 >         ix                               = fromEnum ge
 >         genData                          = is VB.! ix
->         staticData                       = staticDataVector VB.! ix
+>         spec                             = specVector VB.! ix
 >
 >         staticClip                       = fromMaybe
 >                                              (error "staticClip")
->                                              (staticData ^. gClip)
+>                                              (spec ^. gClip)
+>         staticDefault                    = spec ^. gDefault
 >
->         (good, wild)                     = if isNothing valMaybe || (valRaw == valClipped)
->                                              then (IntSet.insert val (genData ^. gGoodValues), genData ^. gWildValues)
->                                              else (genData ^. gGoodValues, IntSet.insert val (genData ^. gWildValues))
->
->         valRaw                           = fromJust valMaybe
->         valClipped                       = clip staticClip valRaw
->         val                              = fromMaybe (error "val") valMaybe
+>         (good, wild)
+>            | isNothing valMaybe          = (genData ^. gGoodValues, genData ^. gWildValues)
+>            | valClipped == valRaw        = (IntSet.insert valRaw (genData ^. gGoodValues), genData ^. gWildValues)
+>            | otherwise                   = (genData ^. gGoodValues, IntSet.insert valRaw (genData ^. gWildValues))
+>            where
+>              valRaw                      = fromJust valMaybe
+>              valClipped                  = clip staticClip valRaw
 >
 >         genData'                         = (  (gOccur +~ 1)
->                                             . (gAccum +~ val)
+>                                             . (gAccum +~ maybe staticDefault (clip staticClip) valMaybe)
 >                                             . (gGoodValues .~ good)
 >                                             . (gWildValues .~ wild)) genData
->       in
->         VB.update is $ VB.singleton (ix, genData')
 >
 >     shredGen           :: VB.Vector GenData → F.Generator → VB.Vector GenData
 >         
