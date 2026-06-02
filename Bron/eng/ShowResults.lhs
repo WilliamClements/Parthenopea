@@ -71,12 +71,13 @@ May 28, 2026
 >           showEC       :: Int → EConfig → String
 >           showEC count ec                = unwords [show count, show ec]
 >
->     showStats          :: GenSum → VB.Vector String
 >     showStats gensum                     = VB.concatMap showOneGen valueBearing
 >       where
 >         showOneGen ge                    = showTwoStats ((gensum ^. gsGenSlate) VB.! fromEnum ge)
->         showTwoStats genData             = VB.fromList $ s0 : (if (genData ^. gOccur) == 0 then [] else [s1, s2])
->           where
+>         showTwoStats genData             =
+>           let
+>             twoStats   :: [String]       = s0 : (if (genData ^. gOccur) == 0 then [] else [s1, s2])
+>
 >             gen        :: GenEnum        = genData ^. gId
 >             ix                           = fromEnum gen
 >             spec                         = specVector VB.! ix
@@ -86,17 +87,35 @@ May 28, 2026
 >             sflat                        = unwords [sindent, "flat"]
 >             semph                        = unwords [sindent, "emph"]
 >
->             dflat                        = dispersion goods (kZone - (genData ^. gOccur)) (spec ^. gDefault)
->             demph                        = dispersion goods 0                             (spec ^. gDefault)
+>             (dMean, dStdDev)             = dispersion goods (kZone - (genData ^. gOccur)) (spec ^. gDefault)
+>             (eMean, eStdDev)             = dispersion goods 0                             (spec ^. gDefault)
 >
 >             s0                           = unwords [show ix, show gen, show spec]
 >             s1                           = if VB.notElem gen noNumericDefault
->                                              then unwords [sflat, showStat dflat]
+>                                              then unwords [sflat, showStat (dMean, dStdDev)]
 >                                              else unwords [sflat, "n/a"]
->             s2                           = unwords [semph, showStat demph]
+>             s2                           = unwords [semph, showStat (eMean, eStdDev)]
 >
 >             showStat   :: (Double, Double) → String
 >             showStat (m, s)              = unwords [show m, "+-", show s]
+>
+>             means      :: VB.Vector String
+>             means                        = if spec ^. gUnit /= NoUnit
+>                                              then showMeans
+>                                              else VB.empty
+>
+>             (strUnit, action)           = unitAction (spec ^. gUnit)
+>
+>             showMeans  :: VB.Vector String
+>             showMeans                    = VB.singleton (unwords [sindent, show struct])
+>               where
+>                 struct                   = Means
+>                                              strUnit
+>                                              ((action . fromIntegral) (spec ^. gDefault))
+>                                              (action dMean)
+>                                              (action eMean)
+>           in
+>             means VB.++ VB.fromList twoStats          
 >
 > dispersion             :: [Int] → Int → Int → (Double, Double)
 > dispersion vals nDef valDef              = if null vals && nDef == 0
@@ -111,9 +130,9 @@ May 28, 2026
 >     (dubNDef, dubValDef)                 = (fromIntegral nDef, fromIntegral valDef)
 >
 >     mean                                 = (sum dubs + dubNDef * dubValDef) / denom
->     c1                                   = sum $ map dev dubs
->                                              where dev x = (x - mean) ** 2
->     c2                                   = dubNDef * (dubValDef - mean) ** 2 
+>     deviate x                            = (x - mean) ** 2
+>     c1                                   = sum $ map deviate dubs
+>     c2                                   = dubNDef * deviate dubValDef
 >     stdDev                               = sqrt ((c1 + c2) / denom)
 >
 > overallCounts          :: GenSum → (Int, Int, Int)

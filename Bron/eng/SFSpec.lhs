@@ -12,6 +12,7 @@ April 16, 2023
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Int ( Int8, Int16 )
+> import Data.Maybe
 > import qualified Data.Vector.Strict      as VB
   
 implementing SoundFont spec ===========================================================================================
@@ -58,6 +59,58 @@ implementing SoundFont spec ====================================================
 >     ssData             :: A.SampleData Int16
 >   , ssM24              :: Maybe (A.SampleData Int8)}
 
+Returns the frequency ratio
+
+> fromCents              :: Double → Double
+> fromCents cents                          = pow 2 (cents/12/100)
+>
+> fromCents'             :: Maybe Int → Maybe Int → Maybe Double
+> fromCents' mcoarse mfine
+>   | isNothing mcoarse && isNothing mfine = Nothing
+>   | otherwise                            = Just $ fromCents $ coarse * 100 + fine
+>   where
+>     coarse, fine       :: Double
+>     coarse                               = maybe 0 fromIntegral mcoarse
+>     fine                                 = maybe 0 fromIntegral mfine
+
+Returns the frequency
+
+> fromAbsoluteCents      :: Double → Double
+> fromAbsoluteCents acents                 = 8.176 * fromCents acents
+>
+> toAbsoluteCents        :: Double → Int
+> toAbsoluteCents freq                     = round $ 100 * 12 * logBase 2 (freq / 8.176)
+
+Returns the elapsed time in seconds
+
+> fromTimecents          :: Double → Double
+> fromTimecents timecents                  = pow 2 (timecents / 1_200)
+>
+> toTimecents            :: Double → Int
+> toTimecents secs                         = round $ logBase 2 secs * 1_200
+
+Returns the amplitude ratio
+
+> fromCentibels, toCentibels
+>                        :: Double → Double
+> fromCentibels centibels                  = pow 10 (centibels/1000)
+> toCentibels ratio                        = logBase 10 (ratio * 1000)
+
+Returns the amplitude ratio (based on input 10ths of a percent) 
+
+> fromTithe              :: Maybe Int → Bool → Double
+> fromTithe iS isVol                       =
+>   if isVol
+>     then 1 / fromCentibels jS
+>     else (1000 - jS) / 1000
+>   where
+>     jS                 :: Double         = maybe 0 fromIntegral iS
+
+Raises 'a' to the power 'b' using logarithms
+
+> pow                    :: Floating a ⇒ a → a → a
+> pow x y                                  = exp (log x * y)
+
 Generator Shredding ===================================================================================================
 
 > clip                   :: Ord n ⇒ (n, n) → n → n
@@ -84,7 +137,7 @@ Generator Shredding ============================================================
 > t2clip                                   = (-99, 99)
 > t3clip                                   = (0, 1_200)
 >
-> data Unit                                = NoUnit | Cents | CentsPerKey | Absolute
+> data Unit                                = NoUnit | Centibels | Cents | AbsoluteCents | TimeCents
 >   deriving (Eq, Show)
 > makePrisms ''Unit
 >
@@ -95,6 +148,14 @@ Generator Shredding ============================================================
 >                } → Spec
 >   deriving (Eq, Show)
 > makeLenses ''Spec
+>
+> data Means where
+>   Means       :: {mUnit :: String
+>                , mDefault :: Double
+>                , mFlat :: Double
+>                , mEmph :: Double
+>                } → Means
+>   deriving (Eq, Show)
 >
 > specVector             :: VB.Vector Spec
 > specVector                               = VB.zipWith3 Spec allClip allDefault allUnits
@@ -168,8 +229,25 @@ Generator Shredding ============================================================
 >       , -1                                    -- RootKey
 >       , 0, 0]                                 -- Unused5, ReservedGen
 >
-> allUnits           :: VB.Vector Unit
-> allUnits                            = VB.replicate 61 NoUnit
+> allUnits               :: VB.Vector Unit
+> allUnits                                 = VB.update clear changes
+>   where
+>     clear                                = VB.replicate 61 NoUnit
+>
+>     makeUpdate         :: Unit → VB.Vector GenEnum → VB.Vector (Int, Unit)
+>     makeUpdate unit                      = VB.map disperse
+>                                              where disperse gen = (fromEnum gen, unit)
+>     changes            :: VB.Vector (Int, Unit)
+>     changes                              =       makeUpdate Centibels        usesCentibels
+>                                            VB.++ makeUpdate Cents            usesCents
+>                                            VB.++ makeUpdate AbsoluteCents    usesAbsoluteCents
+>
+> unitAction              :: Unit → (String, Double → Double)
+> unitAction Centibels                     = ("centibels to ratio",            fromCentibels)
+> unitAction Cents                         = ("cents to Hz ratio",             fromCents)
+> unitAction AbsoluteCents                 = ("absolute cents to Hz",          fromAbsoluteCents)
+> unitAction TimeCents                     = ("time cents to seconds",         fromTimecents)
+> unitAction unit                          = error $ unwords ["no action for", show unit]
 >
 > data GenEnum                             =
 >     StartAddressOffset | EndAddressOffset | LoopStartAddressOffset | LoopEndAddressOffset
@@ -184,8 +262,8 @@ Generator Shredding ============================================================
 >   | Reserved3 | ScaleTuning | ExclusiveClass | RootKey | Unused5 | ReservedGen
 >   deriving (Enum, Eq, Show)
 >
-> valueBearing        :: VB.Vector GenEnum
-> valueBearing                          = VB.fromList
+> valueBearing           :: VB.Vector GenEnum
+> valueBearing                             = VB.fromList
 >   [ ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
 >   , InitFc, InitQ
 >   , ModLfoToFc, ModEnvToFc
@@ -206,7 +284,16 @@ Generator Shredding ============================================================
 >   , ExclusiveClass
 >   , RootKey]
 >
-> noNumericDefault       :: VB.Vector GenEnum
-> noNumericDefault                         = VB.fromList [ExclusiveClass, Key, RootKey, Vel]
+> noNumericDefault, usesCentibels, usesCents, usesAbsoluteCents, usesTimeCents
+>                        :: VB.Vector GenEnum
+> noNumericDefault                         = VB.fromList [  ExclusiveClass, Key, RootKey, Vel]
+> usesCentibels                            = VB.fromList [  InitQ, ModLfoToVol, SustainModEnv, SustainVolEnv]
+> usesCents                                = VB.fromList [  ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
+>                                                         , ModLfoToFc, ModEnvToFc, FreqVibLfo, FineTune]
+> usesAbsoluteCents                        = VB.fromList [  InitFc] 
+> usesTimeCents                            = VB.fromList [  DelayModLfo, DelayVibLfo
+>                                                         , DelayModEnv, AttackModEnv, HoldModEnv, DecayModEnv, ReleaseModEnv
+>                                                         , DelayVolEnv, AttackVolEnv, HoldVolEnv, DecayVolEnv, ReleaseVolEnv]
+>
 
 The End

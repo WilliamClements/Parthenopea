@@ -181,13 +181,12 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >             globalZone :: Bool           = isEmptyGenData $ firstZone VB.! fromEnum SampleIndex
 >
 >             replace    :: GenData → GenData → GenData
->             replace gd1 gd2
->               | gd1E && not gd2E         = gd2
->               | not gd1E && gd2E         = gd1
->               | otherwise                = gd2
+>             replace gz oz
+>               | not gzE && ozE           = gz
+>               | otherwise                = oz
 >               where
->                 gd1E                     = isEmptyGenData gd1
->                 gd2E                     = isEmptyGenData gd2
+>                 gzE                      = isEmptyGenData gz
+>                 ozE                      = isEmptyGenData oz
 >           in
 >             if globalZone
 >               then map (VB.zipWith replace firstZone) (tail slates_)
@@ -225,7 +224,7 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >               else IntMap.insert kinst (IntSet.fromList [ibag..(jbag - 1)]) m
 >
 >     examineIf          :: (EConfig, EConfig) → GenData → (EConfig, EConfig)
->     examineIf acc genData                = if isEmptyGenData genData
+>     examineIf acc genData                = if isEmptyGenData genData || IntSet.null (genData ^. gGoodValues)
 >                                               then acc
 >                                               else examine acc (genData ^. gId, head (IntSet.toList (genData ^. gGoodValues)))
 >
