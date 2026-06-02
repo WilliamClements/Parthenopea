@@ -98,8 +98,11 @@ Returns the amplitude ratio
 
 Returns the amplitude ratio (based on input 10ths of a percent) 
 
-> fromTithe              :: Maybe Int → Bool → Double
-> fromTithe iS isVol                       =
+> fromTithe              :: Double → Double
+> fromTithe x                              = x / 1000
+
+> fromTithe'              :: Maybe Int → Bool → Double
+> fromTithe' iS isVol                      =
 >   if isVol
 >     then 1 / fromCentibels jS
 >     else (1000 - jS) / 1000
@@ -137,7 +140,7 @@ Generator Shredding ============================================================
 > t2clip                                   = (-99, 99)
 > t3clip                                   = (0, 1_200)
 >
-> data Unit                                = NoUnit | Centibels | Cents | AbsoluteCents | TimeCents
+> data Unit                                = NoUnit | Centibels | Cents | AbsoluteCents | TimeCents | Tenths
 >   deriving (Eq, Show)
 > makePrisms ''Unit
 >
@@ -242,12 +245,14 @@ Generator Shredding ============================================================
 >                                            VB.++ makeUpdate Cents            usesCents
 >                                            VB.++ makeUpdate AbsoluteCents    usesAbsoluteCents
 >                                            VB.++ makeUpdate TimeCents        usesTimeCents
+>                                            VB.++ makeUpdate Tenths           usesTenths
 >
 > unitAction              :: Unit → (String, Double → Double)
 > unitAction Centibels                     = ("centibels to volume ratio",     fromCentibels)
 > unitAction Cents                         = ("cents to Hz ratio",             fromCents)
 > unitAction AbsoluteCents                 = ("absolute cents to Hz",          fromAbsoluteCents)
 > unitAction TimeCents                     = ("time cents to seconds",         fromTimecents)
+> unitAction Tenths                        = ("from tenths",                   fromTithe)
 > unitAction unit                          = error $ unwords ["no action for", show unit]
 >
 > data GenEnum                             =
@@ -285,16 +290,16 @@ Generator Shredding ============================================================
 >   , ExclusiveClass
 >   , RootKey]
 >
-> noNumericDefault, usesCentibels, usesCents, usesAbsoluteCents, usesTimeCents
+> noNumericDefault, usesCentibels, usesCents, usesAbsoluteCents, usesTimeCents, usesTenths
 >                        :: VB.Vector GenEnum
 > noNumericDefault                         = VB.fromList [  ExclusiveClass, Key, RootKey, Vel]
-> usesCentibels                            = VB.fromList [  InitQ, ModLfoToVol, SustainModEnv, SustainVolEnv]
+> usesCentibels                            = VB.fromList [  InitQ, ModLfoToVol, SustainModEnv, SustainVolEnv, InitAtten]
 > usesCents                                = VB.fromList [  ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
 >                                                         , ModLfoToFc, ModEnvToFc, FreqVibLfo, FineTune]
 > usesAbsoluteCents                        = VB.fromList [  InitFc] 
 > usesTimeCents                            = VB.fromList [  DelayModLfo, DelayVibLfo
 >                                                         , DelayModEnv, AttackModEnv, HoldModEnv, DecayModEnv, ReleaseModEnv
 >                                                         , DelayVolEnv, AttackVolEnv, HoldVolEnv, DecayVolEnv, ReleaseVolEnv]
->
+> usesTenths                              = VB.fromList [  Chorus, Reverb, Pan]
 
 The End
