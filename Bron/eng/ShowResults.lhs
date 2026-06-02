@@ -9,7 +9,6 @@ May 28, 2026
 >         showResults ) where
 >
 > import Control.Lens hiding ( element, ix )
-> import qualified Data.IntSet             as IntSet
 > import Data.List
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
@@ -19,7 +18,7 @@ May 28, 2026
 > import Eng.ShredFile
 >
 > showLevel              :: GenSumLevel
-> showLevel                                = GSTRollup
+> showLevel                                = GSRollLevel
 >
 > skipRaw                :: Bool
 > skipRaw                                  = False
@@ -60,80 +59,97 @@ May 28, 2026
 >         total                            = sum . Map.elems
 >       in
 >         recurseOutput VB.++ VB.fromList [headerOutput, slateOutput, envOutput, statsOutput]
->
+
+Collate (modulation or volume) envelope configurations by occurrence ==================================================
+
 >     showEnvMap envMap
 >       | Map.null envMap                  = VB.empty
->       | otherwise                        = VB.fromList (map (uncurry showEC) arrivals)
+>       | otherwise                        = VB.fromList (map (uncurry showEConfig) arrivals)
 >         where
 >           arrivals     :: [(Int, EConfig)]    
 >           arrivals                       = sortBy (comparing Down) (Map.foldrWithKey shuffle [] envMap)
 >                                               where shuffle ec count acc = (count, ec) : acc
->           showEC       :: Int → EConfig → String
->           showEC count ec                = unwords [show count, show ec]
->
+>           showEConfig  :: Int → EConfig → String
+>           showEConfig count ec           = unwords [percent count kZone, show count, show ec]
+>             where
+>               percent  :: Int → Int → String
+>               percent n denom           =
+>                 let
+>                   frac :: Double        = fromIntegral n / fromIntegral denom
+>                 in
+>                   show (round (frac * 100)::Int) ++ "%"
+
+Compute and show numerical statistics for each value-bearing generator type ===========================================
+
 >     showStats gensum                     = VB.concatMap showOneGen valueBearing
 >       where
->         showOneGen ge                    = showTwoStats ((gensum ^. gsGenSlate) VB.! fromEnum ge)
->         showTwoStats genData             =
+>         showOneGen genOne                = showOneGenData ((gensum ^. gsGenSlate) VB.! fromEnum genOne)
+>         showOneGenData genData           =
 >           let
->             twoStats   :: [String]       = s0 : (if (genData ^. gOccur) == 0 then [] else [s1, s2])
+>             stats   :: [String]          = s0 : if isEmptyGenData genData then [] else [s1, s2]
+>               where
+>                 s0                       = unwords [show ix, show gen, show spec]
+>                 s1                       = if VB.notElem gen noNumericDefault
+>                                              then unwords [spop, showStat (pMean, pStdDev)]
+>                                              else unwords [spop, "n/a"]
+>                 s2                       = unwords [ssample, showStat (sMean, sStdDev)]
 >
 >             gen        :: GenEnum        = genData ^. gId
 >             ix                           = fromEnum gen
 >             spec                         = specVector VB.! ix
->             goods      :: [Int]          = IntSet.toList (genData ^. gGoodValues)
 >
 >             sindent                      = replicate 4 ' '
->             sflat                        = unwords [sindent, "flat"]
->             semph                        = unwords [sindent, "emph"]
+>             spop                         = unwords [sindent, "   pop"]
+>             ssample                      = unwords [sindent, "sample"]
 >
->             (dMean, dStdDev)             = dispersion goods (kZone - (genData ^. gOccur)) (spec ^. gDefault)
->             (eMean, eStdDev)             = dispersion goods 0                             (spec ^. gDefault)
->
->             s0                           = unwords [show ix, show gen, show spec]
->             s1                           = if VB.notElem gen noNumericDefault
->                                              then unwords [sflat, showStat (dMean, dStdDev)]
->                                              else unwords [sflat, "n/a"]
->             s2                           = unwords [semph, showStat (eMean, eStdDev)]
+>             (pMean, pStdDev)             = dispersion
+>                                              (genData ^. gOccur)
+>                                              (genData ^. gAccum)
+>                                              (genData ^. gAccumSquares)
+>                                              (kZone - (genData ^. gOccur))
+>                                              (spec ^. gDefault)
+>             (sMean, sStdDev)             = dispersion
+>                                              (genData ^. gOccur)
+>                                              (genData ^. gAccum)
+>                                              (genData ^. gAccumSquares)
+>                                              0
+>                                              (spec ^. gDefault)
 >
 >             showStat   :: (Double, Double) → String
 >             showStat (m, s)              = unwords [show m, "+-", show s]
 >
 >             means      :: VB.Vector String
 >             means                        = if spec ^. gUnit /= NoUnit
->                                              then showMeans
+>                                              then VB.singleton (unwords [sindent, show packet])
 >                                              else VB.empty
->
->             (strUnit, action)           = unitAction (spec ^. gUnit)
->
->             showMeans  :: VB.Vector String
->             showMeans                    = VB.singleton (unwords [sindent, show struct])
 >               where
->                 struct                   = Means
+>                 packet                   = Means
 >                                              strUnit
 >                                              ((action . fromIntegral) (spec ^. gDefault))
->                                              (action dMean)
->                                              (action eMean)
+>                                              (action pMean)
+>                                              (action sMean)
+>
+>                 (strUnit, action)       = unitAction (spec ^. gUnit)
 >           in
->             means VB.++ VB.fromList twoStats          
+>             VB.fromList stats VB.++ means
 >
-> dispersion             :: [Int] → Int → Int → (Double, Double)
-> dispersion vals nDef valDef              = if null vals && nDef == 0
->                                              then error "dispersion: absence of vals would cause divide-by-zero"
->                                              else (mean, stdDev)
+> dispersion             :: Int → Int → Int → Int → Int → (Double, Double)
+> dispersion nVals accum__ accumSquares__ nDef valDef
+>   | (nVals + nDef) == 0                   = error "dispersion: absence of vals would cause divide-by-zero"
+>   | (nVals + nDef) == 1                   = (accum, 0)
+>   | otherwise                             = (mean, stdDev)
 >   where
->     denom, mean, stdDev, dubNDef, dubValDef
+>     denom, mean, stdDev, dubNDef, dubValDef, accum, accumSquares
 >                        :: Double
->     denom                                = fromIntegral (length vals) + dubNDef
->
->     dubs               :: [Double]       = map fromIntegral vals
+>     denom                                = fromIntegral (nVals + nDef)
 >     (dubNDef, dubValDef)                 = (fromIntegral nDef, fromIntegral valDef)
+>     (accum_, accumSquares_)              = (fromIntegral accum__, fromIntegral accumSquares__)
+>     accum                                = accum_ + (dubNDef * dubValDef)
+>     accumSquares                         = accumSquares_ + (dubNDef * (dubValDef * dubValDef))
 >
->     mean                                 = (sum dubs + dubNDef * dubValDef) / denom
->     deviate x                            = (x - mean) ** 2
->     c1                                   = sum $ map deviate dubs
->     c2                                   = dubNDef * deviate dubValDef
->     stdDev                               = sqrt ((c1 + c2) / denom)
+>     mean                                 = accum / denom
+>     ss                                   = accumSquares - ((accum * accum) / denom)
+>     stdDev                               = sqrt (ss / (denom - 1))
 >
 > overallCounts          :: GenSum → (Int, Int, Int)
 > overallCounts gensum                     = foldl' shredCounts (0, 0, 0) (flatten gensum)
@@ -144,9 +160,9 @@ May 28, 2026
 >     shredCounts        :: (Int, Int, Int) → GenSum → (Int, Int, Int)
 >     shredCounts (x, y, z) eachGenSum     =
 >       case eachGenSum ^. gsLevel of
->         GSTFile        → (x + 1, y, z)
->         GSTInst        → (x, y + 1, z)
->         GSTZone        → (x, y, z + 1)
+>         GSFileLevel    → (x + 1,     y,     z)
+>         GSInstLevel    → (x,     y + 1,     z)
+>         GSZoneLevel    → (x,          y,    z + 1)
 >         _              → (x, y, z)
 
 The End

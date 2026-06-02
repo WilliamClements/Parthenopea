@@ -24,11 +24,11 @@ May 28, 2026
   
 The Generator types are numbered 0 to 60. =============================================================================
 
-The per-file diagnostic data includes:
-1. (raw data) vector of 61 per-generator infos - each with
-   a. static data from the spec (clip ranges and defaults)
-   b. occurrence count
-   c. all values encountered, partitioned by out-of-range
+The per-file diagnostic data (GenSum)includes:
+1. (raw data) vector (GenData)of 61 per-generator infos - each with
+   a. occurrence count
+   b. all values encountered, partitioned by out-of-range
+   c. point accumulator
 2. envelope statistics summed up over all instruments in the file
 3. numerical dispersion for found values of each Generator type
 
@@ -39,13 +39,13 @@ Optionally list out these datasets for each file, but always list out the rollup
 >     _gId               :: GenEnum
 >   , _gOccur            :: Int
 >   , _gAccum            :: Int
->   , _gGoodValues       :: IntSet
+>   , _gAccumSquares     :: Int
 >   , _gWildValues       :: IntSet}
 >   deriving (Eq, Show)
 > makeLenses ''GenData
 > makeGenData            :: GenEnum → GenData
-> makeGenData ge                           = GenData ge 0 0 IntSet.empty IntSet.empty     
-> isEmptyGenData       :: GenData → Bool
+> makeGenData gen                          = GenData gen 0 0 0  IntSet.empty     
+> isEmptyGenData         :: GenData → Bool
 > isEmptyGenData gd                        = (gd ^. gOccur) == 0
 > addGenDatas            :: GenData → GenData → GenData
 > addGenDatas gd1 gd2                      =
@@ -53,7 +53,7 @@ Optionally list out these datasets for each file, but always list out the rollup
 >     (gd1 ^. gId)
 >     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
 >     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
->     ((gd1 ^. gGoodValues) `IntSet.union` (gd2 ^. gGoodValues))
+>     ((gd1 ^. gAccumSquares) + (gd2 ^. gAccumSquares))
 >     ((gd1 ^. gWildValues) `IntSet.union` (gd2 ^. gWildValues))
 >
 > type BagIndex                            = Int
@@ -94,10 +94,10 @@ Optionally list out these datasets for each file, but always list out the rollup
 > initConfig             :: EConfig
 > initConfig                               = makeEConfig Nothing Nothing Nothing Nothing Nothing
 > mark                   :: Map EConfig Int → EConfig → Map EConfig Int
-> mark mc ec                               = Map.insertWith (+) ec 1 mc
+> mark m ec                                = Map.insertWith (+) ec 1 m
 >
 > data GenSumLevel                         =
->  GSTZone | GSTInst | GSTFile | GSTRollup
+>  GSZoneLevel | GSInstLevel | GSFileLevel | GSRollLevel
 >  deriving (Enum, Eq, Show)
 >
 > data GenSum                              =
@@ -113,15 +113,15 @@ Optionally list out these datasets for each file, but always list out the rollup
 > makeGenSum             :: GenSumLevel → String → VB.Vector GenData → VB.Vector GenSum → Map EConfig Int → Map EConfig Int → GenSum
 > makeGenSum                               = GenSum
 > initGenSum             :: String → GenSum
-> initGenSum tag                           = makeGenSum GSTZone tag initGenSlate VB.empty Map.empty Map.empty
+> initGenSum tag                           = makeGenSum GSZoneLevel tag initGenSlate VB.empty Map.empty Map.empty
 > rollupGenSums          :: GenSumLevel → String → VB.Vector GenSum → GenSum
 > rollupGenSums toLevel tagRollup vGenSum  =
 >   let
->     subtype            :: GenSumLevel    = toEnum (fromEnum toLevel - 1)
+>     sublevel           :: GenSumLevel    = toEnum (fromEnum toLevel - 1)
 >
 >     chadd              :: GenSum → GenSum → GenSum
 >     chadd gensum1 gensum2
->       | gensum1 ^. gsLevel /= subtype || gensum2 ^. gsLevel /= subtype
+>       | gensum1 ^. gsLevel /= sublevel || gensum2 ^. gsLevel /= sublevel
 >                                          = error "rollupGenSums: bad bookkeeping"
 >       | otherwise                        = addGenSums gensum1 gensum2
 >
@@ -147,7 +147,7 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 
 > shredFile              :: SFFileBoot → IO GenSum
 > shredFile sffile                         = do
->   return $ rollupGenSums GSTFile sffile.zFilename vInstGenSum
+>   return $ rollupGenSums GSFileLevel sffile.zFilename vInstGenSum
 >   where
 >     loadInst kinst                       = sffile.zFileArrays.ssInsts ! fromIntegral kinst
 >     loadBag kbag                         = sffile.zFileArrays.ssIBags ! fromIntegral kbag
@@ -157,7 +157,7 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >     vInstGenSum                          = VB.fromList (IntMap.elems (IntMap.mapWithKey shredInst owners))
 >
 >     shredInst          :: Int → IntSet → GenSum
->     shredInst _ bags                     = rollupGenSums GSTInst "InstDrQ" vZoneGenSum
+>     shredInst _ bags                     = rollupGenSums GSInstLevel "InstDrQ" vZoneGenSum
 >       where
 >         slates_, slates
 >                        :: [GenSlate]
@@ -203,19 +203,22 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >                 modMap, volMap :: Map EConfig Int
 >                 (modMap, volMap)         = (mark Map.empty modConfig, mark Map.empty volConfig)
 >               in
->                 makeGenSum GSTZone "zoneDrQ" slate VB.empty modMap volMap
+>                 makeGenSum GSZoneLevel "zoneDrQ" slate VB.empty modMap volMap
 > 
 >     owners             :: IntMap IntSet
 >     owners                               = foldl' erect IntMap.empty [ii..(ij-1)]
 >       where
 >         (wi, wj)                         = bounds sffile.zFileArrays.ssInsts
->         (ii, ij)                         = BF.bimap fromIntegral fromIntegral (wi, wj)
+>         (ii, ij)       :: (Int, Int)     = BF.bimap fromIntegral fromIntegral (wi, wj)
 >
 >         erect m kinst                    =
 >           let
+>             iinst, jinst
+>                        :: F.Inst
 >             iinst                        = loadInst kinst
 >             jinst                        = loadInst (kinst + 1)
 >
+>             ibag, jbag :: Int
 >             ibag                         = fromIntegral (F.instBagNdx iinst)
 >             jbag                         = fromIntegral (F.instBagNdx jinst)
 >           in
@@ -224,9 +227,9 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >               else IntMap.insert kinst (IntSet.fromList [ibag..(jbag - 1)]) m
 >
 >     examineIf          :: (EConfig, EConfig) → GenData → (EConfig, EConfig)
->     examineIf acc genData                = if isEmptyGenData genData || IntSet.null (genData ^. gGoodValues)
+>     examineIf acc genData                = if isEmptyGenData genData
 >                                               then acc
->                                               else examine acc (genData ^. gId, head (IntSet.toList (genData ^. gGoodValues)))
+>                                               else examine acc (genData ^. gId, genData ^. gAccum)
 >
 >     examine            :: (EConfig, EConfig) → (GenEnum, Int) → (EConfig, EConfig)
 >     examine (ecMod, ecVol) (DelayModEnv, val)
@@ -259,23 +262,24 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >         ix                               = fromEnum ge
 >         genData                          = is VB.! ix
 >         spec                             = specVector VB.! ix
+>         staticClip_                      = spec ^. gClip
+>         staticClip                       = fromJust staticClip_
 >
->         staticClip                       = fromMaybe
->                                              (error "staticClip")
->                                              (spec ^. gClip)
->         staticDefault                    = spec ^. gDefault
+>         val_                             = fromJust valMaybe
+>         val
+>           | isNothing valMaybe           = spec ^. gDefault
+>           | isNothing staticClip_        = val_
+>           | otherwise                    = clip staticClip val_
 >
->         (good, wild)
->            | isNothing valMaybe          = (genData ^. gGoodValues, genData ^. gWildValues)
->            | valClipped == valRaw        = (IntSet.insert valRaw (genData ^. gGoodValues), genData ^. gWildValues)
->            | otherwise                   = (genData ^. gGoodValues, IntSet.insert valRaw (genData ^. gWildValues))
->            where
->              valRaw                      = fromJust valMaybe
->              valClipped                  = clip staticClip valRaw
+>         wild_                            = genData ^. gWildValues
+>         wild
+>            | isNothing valMaybe          = wild_
+>            | val == val_                 = wild_
+>            | otherwise                   = IntSet.insert val_ wild_
 >
 >         genData'                         = (  (gOccur +~ 1)
->                                             . (gAccum +~ maybe staticDefault (clip staticClip) valMaybe)
->                                             . (gGoodValues .~ good)
+>                                             . (gAccum +~ val)
+>                                             . (gAccumSquares +~ (val * val))
 >                                             . (gWildValues .~ wild)) genData
 >
 >     shredGen           :: VB.Vector GenData → F.Generator → VB.Vector GenData

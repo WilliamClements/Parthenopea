@@ -152,8 +152,8 @@ Generator Shredding ============================================================
 > data Means where
 >   Means       :: {mUnit :: String
 >                , mDefault :: Double
->                , mFlat :: Double
->                , mEmph :: Double
+>                , mPopulationMean :: Double
+>                , mSampleMean :: Double
 >                } → Means
 >   deriving (Eq, Show)
 >
@@ -241,9 +241,10 @@ Generator Shredding ============================================================
 >     changes                              =       makeUpdate Centibels        usesCentibels
 >                                            VB.++ makeUpdate Cents            usesCents
 >                                            VB.++ makeUpdate AbsoluteCents    usesAbsoluteCents
+>                                            VB.++ makeUpdate TimeCents        usesTimeCents
 >
 > unitAction              :: Unit → (String, Double → Double)
-> unitAction Centibels                     = ("centibels to ratio",            fromCentibels)
+> unitAction Centibels                     = ("centibels to volume ratio",     fromCentibels)
 > unitAction Cents                         = ("cents to Hz ratio",             fromCents)
 > unitAction AbsoluteCents                 = ("absolute cents to Hz",          fromAbsoluteCents)
 > unitAction TimeCents                     = ("time cents to seconds",         fromTimecents)

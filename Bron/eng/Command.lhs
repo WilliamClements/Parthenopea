@@ -38,7 +38,7 @@ Executive ======================================================================
 >   putStrLn $ unwords [show (length extraction), "extracted\n"]
 >   let vFilesBoot                         = VB.fromList extraction
 >   vGenSum                                ← CM.mapM shredFile vFilesBoot
->   fData                                  ← showResults $ rollupGenSums GSTRollup "<summary>" vGenSum
+>   fData                                  ← showResults $ rollupGenSums GSRollLevel "<summary>" vGenSum
 >   putStrVector fData
 >   where
 >     putStrVector :: VB.Vector (VB.Vector String) → IO ()
