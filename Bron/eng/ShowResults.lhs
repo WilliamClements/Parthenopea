@@ -104,7 +104,7 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >
 >             (pMean, pStdDev)             = dispersion
 >                                              (genData ^. gOccur)
->                                              (genData ^. gAccum)
+>                                              (fromIntegral (genData ^. gAccum))
 >                                              (genData ^. gAccumSquares)
 >                                              (kZone - (genData ^. gOccur))
 >                                              (spec ^. gDefault)
@@ -133,7 +133,7 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >           in
 >             VB.fromList stats VB.++ means
 >
-> dispersion             :: Int → Int → Int → Int → Int → (Double, Double)
+> dispersion             :: Int → Int → Double → Int → Int → (Double, Double)
 > dispersion nVals accum__ accumSquares__ nDef valDef
 >   | (nVals + nDef) == 0                   = error "dispersion: absence of vals would cause divide-by-zero"
 >   | (nVals + nDef) == 1                   = (accum, 0)
@@ -143,13 +143,14 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                        :: Double
 >     denom                                = fromIntegral (nVals + nDef)
 >     (dubNDef, dubValDef)                 = (fromIntegral nDef, fromIntegral valDef)
->     (accum_, accumSquares_)              = (fromIntegral accum__, fromIntegral accumSquares__)
+>     (accum_, accumSquares_)              = (fromIntegral accum__, accumSquares__)
 >     accum                                = accum_ + (dubNDef * dubValDef)
 >     accumSquares                         = accumSquares_ + (dubNDef * (dubValDef * dubValDef))
 >
 >     mean                                 = accum / denom
->     ss                                   = accumSquares - ((accum * accum) / denom)
 >     stdDev                               = sqrt (ss / (denom - 1))
+>       where
+>         ss                               = accumSquares - ((accum * accum) / denom)
 >
 > overallCounts          :: GenSum → (Int, Int, Int)
 > overallCounts gensum                     = foldl' shredCounts (0, 0, 0) (flatten gensum)

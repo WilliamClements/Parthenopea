@@ -39,7 +39,7 @@ Optionally list out these datasets for each file, but always list out the rollup
 >     _gId               :: GenEnum
 >   , _gOccur            :: Int
 >   , _gAccum            :: Int
->   , _gAccumSquares     :: Int
+>   , _gAccumSquares     :: Double
 >   , _gWildValues       :: IntSet}
 >   deriving (Eq, Show)
 > makeLenses ''GenData
@@ -270,6 +270,7 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >           | isNothing valMaybe           = spec ^. gDefault
 >           | isNothing staticClip_        = val_
 >           | otherwise                    = clip staticClip val_
+>         dVal           :: Double         = fromIntegral val
 >
 >         wild_                            = genData ^. gWildValues
 >         wild
@@ -279,7 +280,7 @@ Later on, a rollup GenSum will be produced - per-file GenSums added together.
 >
 >         genData'                         = (  (gOccur +~ 1)
 >                                             . (gAccum +~ val)
->                                             . (gAccumSquares +~ (val * val))
+>                                             . (gAccumSquares +~ (dVal * dVal))
 >                                             . (gWildValues .~ wild)) genData
 >
 >     shredGen           :: VB.Vector GenData → F.Generator → VB.Vector GenData
