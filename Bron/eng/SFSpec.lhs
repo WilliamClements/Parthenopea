@@ -296,10 +296,10 @@ Generator Shredding ============================================================
 > usesCentibels                            = VB.fromList [  InitQ, ModLfoToVol, SustainModEnv, SustainVolEnv, InitAtten]
 > usesCents                                = VB.fromList [  ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
 >                                                         , ModLfoToFc, ModEnvToFc, FreqVibLfo, FineTune]
-> usesAbsoluteCents                        = VB.fromList [  InitFc] 
+> usesAbsoluteCents                        = VB.fromList [  InitFc, FreqModLfo, FreqVibLfo] 
 > usesTimeCents                            = VB.fromList [  DelayModLfo, DelayVibLfo
 >                                                         , DelayModEnv, AttackModEnv, HoldModEnv, DecayModEnv, ReleaseModEnv
 >                                                         , DelayVolEnv, AttackVolEnv, HoldVolEnv, DecayVolEnv, ReleaseVolEnv]
-> usesTenths                              = VB.fromList [  Chorus, Reverb, Pan]
+> usesTenths                               = VB.fromList [  Chorus, Reverb, Pan]
 
 The End
