@@ -12,11 +12,109 @@ April 16, 2023
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Int ( Int8, Int16 )
+> import Data.IntSet ( IntSet )
+> import qualified Data.IntSet             as IntSet
+> import Data.Map.Strict (Map)
+> import qualified Data.Map.Strict         as Map
 > import Data.Maybe
 > import qualified Data.Vector.Strict      as VB
   
 implementing SoundFont spec ===========================================================================================
 
+> data GenEnum                             =
+>     StartAddressOffset | EndAddressOffset | LoopStartAddressOffset | LoopEndAddressOffset
+>   | StartAddressCoarseOffset | ModLfoToPitch | VibLfoToPitch | ModEnvToPitch | InitFc | InitQ
+>   | ModLfoToFc | ModEnvToFc | EndAddressCoarseOffset | ModLfoToVol | Unused1 | Chorus | Reverb
+>   | Pan | Unused2 | Unused3 | Unused4 | DelayModLfo | FreqModLfo | DelayVibLfo | FreqVibLfo
+>   | DelayModEnv | AttackModEnv | HoldModEnv | DecayModEnv | SustainModEnv | ReleaseModEnv
+>   | KeyToModEnvHold | KeyToModEnvDecay | DelayVolEnv | AttackVolEnv | HoldVolEnv | DecayVolEnv
+>   | SustainVolEnv | ReleaseVolEnv | KeyToVolEnvHold | KeyToVolEnvDecay | InstIndex | Reserved1
+>   | KeyRange | VelRange | LoopStartAddressCoarseOffset | Key | Vel | InitAtten | Reserved2
+>   | LoopEndAddressCoarseOffset | CoarseTune | FineTune | SampleIndex | SampleMode
+>   | Reserved3 | ScaleTuning | ExclusiveClass | RootKey | Unused5 | ReservedGen
+>   deriving (Enum, Eq, Show)
+>
+> data GenData                             =
+>   GenData {
+>     _gId               :: GenEnum
+>   , _gOccur            :: Int
+>   , _gAccum            :: Int
+>   , _gAccumSquares     :: Double
+>   , _gWildValues       :: IntSet}
+>   deriving (Eq, Show)
+> makeLenses ''GenData
+> makeGenData            :: GenEnum → GenData
+> makeGenData gen                          = GenData gen 0 0 0  IntSet.empty     
+> isEmptyGenData         :: GenData → Bool
+> isEmptyGenData gd                        = (gd ^. gOccur) == 0
+> addGenDatas            :: GenData → GenData → GenData
+> addGenDatas gd1 gd2                      =
+>   GenData
+>     (gd1 ^. gId)
+>     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
+>     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
+>     ((gd1 ^. gAccumSquares) + (gd2 ^. gAccumSquares))
+>     ((gd1 ^. gWildValues) `IntSet.union` (gd2 ^. gWildValues))
+>
+> type BagIndex                            = Int
+> type GenSlate                            = VB.Vector GenData
+>
+> initGenSlate           :: GenSlate
+> initGenSlate                             = VB.generate 61 (makeGenData . toEnum)
+>
+> data EState                              =
+>   EOff | EOnSmall | EOnLarge
+>   deriving (Eq, Ord, Show)
+> categorize             :: Maybe Int → EState
+> categorize mint                          =
+>   case mint of
+>     Nothing            → EOff
+>     Just n             → if n < 0
+>                            then EOnSmall
+>                            else EOnLarge
+>
+> data EConfig                             =
+>   EConfig {
+>     _eConfigDelay      :: EState
+>   , _eConfigAttack     :: EState
+>   , _eConfigHold       :: EState
+>   , _eConfigDecay      :: EState
+>   , _eConfigRelease    :: EState}
+>   deriving (Eq, Ord, Show)
+> makeLenses ''EConfig
+> makeEConfig            :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → EConfig
+> makeEConfig delay attack hold decay release
+>                                          =
+>   EConfig 
+>     (categorize delay) 
+>     (categorize attack)
+>     (categorize hold)
+>     (categorize decay) 
+>     (categorize release)
+> initEC                 :: EConfig
+> initEC                                   = makeEConfig Nothing Nothing Nothing Nothing Nothing
+> mark                   :: Map EConfig Int → EConfig → Map EConfig Int
+> mark m ec                                = Map.insertWith (+) ec 1 m
+>
+> data GenSumLevel                         =
+>  GSZoneLevel | GSInstLevel | GSFileLevel | GSRollLevel
+>  deriving (Enum, Eq, Show)
+>
+> data GenSum                              =
+>   GenSum {
+>     _gsLevel           :: GenSumLevel
+>   , _gsTag             :: String
+>   , _gsGenSlate        :: GenSlate
+>   , _gsSubSums         :: VB.Vector GenSum
+>   , _gsModEnvMap       :: Map EConfig Int
+>   , _gsVolEnvMap       :: Map EConfig Int}
+>   deriving (Eq, Show)
+> makeLenses ''GenSum
+> makeGenSum             :: GenSumLevel → String → VB.Vector GenData → VB.Vector GenSum → Map EConfig Int → Map EConfig Int → GenSum
+> makeGenSum                               = GenSum
+> initGenSum             :: String → GenSum
+> initGenSum tag                           = makeGenSum GSZoneLevel tag initGenSlate VB.empty Map.empty Map.empty
+>
 > openSoundFontFile      :: Int → FilePath → IO SFFileBoot
 > openSoundFontFile wFile filename         = do
 >   putStrLn filename
@@ -254,19 +352,6 @@ Generator Shredding ============================================================
 > unitAction TimeCents                     = ("time cents to seconds",         fromTimecents)
 > unitAction Tenths                        = ("from tenths",                   fromTithe)
 > unitAction unit                          = error $ unwords ["no action for", show unit]
->
-> data GenEnum                             =
->     StartAddressOffset | EndAddressOffset | LoopStartAddressOffset | LoopEndAddressOffset
->   | StartAddressCoarseOffset | ModLfoToPitch | VibLfoToPitch | ModEnvToPitch | InitFc | InitQ
->   | ModLfoToFc | ModEnvToFc | EndAddressCoarseOffset | ModLfoToVol | Unused1 | Chorus | Reverb
->   | Pan | Unused2 | Unused3 | Unused4 | DelayModLfo | FreqModLfo | DelayVibLfo | FreqVibLfo
->   | DelayModEnv | AttackModEnv | HoldModEnv | DecayModEnv | SustainModEnv | ReleaseModEnv
->   | KeyToModEnvHold | KeyToModEnvDecay | DelayVolEnv | AttackVolEnv | HoldVolEnv | DecayVolEnv
->   | SustainVolEnv | ReleaseVolEnv | KeyToVolEnvHold | KeyToVolEnvDecay | InstIndex | Reserved1
->   | KeyRange | VelRange | LoopStartAddressCoarseOffset | Key | Vel | InitAtten | Reserved2
->   | LoopEndAddressCoarseOffset | CoarseTune | FineTune | SampleIndex | SampleMode
->   | Reserved3 | ScaleTuning | ExclusiveClass | RootKey | Unused5 | ReservedGen
->   deriving (Enum, Eq, Show)
 >
 > valueBearing           :: VB.Vector GenEnum
 > valueBearing                             = VB.fromList

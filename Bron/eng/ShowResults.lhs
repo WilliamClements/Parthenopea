@@ -15,14 +15,17 @@ May 28, 2026
 > import Data.Ord
 > import qualified Data.Vector.Strict      as VB
 > import Eng.SFSpec
-> import Eng.ShredFile
->
+
+Modifiers to filter ouput =============================================================================================
+
 > showLevel              :: GenSumLevel
 > showLevel                                = GSRollLevel
 >
 > skipRaw                :: Bool
 > skipRaw                                  = False
->
+
+Start with the overall rollup and recurse down ========================================================================
+
 > showResults       :: GenSum → IO (VB.Vector (VB.Vector String))
 > showResults rootGenSum                   = do
 >   putStrLn $ unwords ["num Files", show iFile]
@@ -86,7 +89,8 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >         showOneGen genOne                = showOneGenData ((gensum ^. gsGenSlate) VB.! fromEnum genOne)
 >         showOneGenData genData           =
 >           let
->             stats   :: [String]          = s0 : if isEmptyGenData genData then [] else [s1, s2]
+>             skip       :: Bool           = isEmptyGenData genData
+>             stats      :: [String]       = s0 : (if skip then [] else [s1, s2])
 >               where
 >                 s0                       = unwords [show ix, show gen, show spec]
 >                 s1                       = if VB.notElem gen noNumericDefault
@@ -104,7 +108,7 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >
 >             (pMean, pStdDev)             = dispersion
 >                                              (genData ^. gOccur)
->                                              (fromIntegral (genData ^. gAccum))
+>                                              (genData ^. gAccum)
 >                                              (genData ^. gAccumSquares)
 >                                              (kZone - (genData ^. gOccur))
 >                                              (spec ^. gDefault)
