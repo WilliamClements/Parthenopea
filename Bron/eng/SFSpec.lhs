@@ -258,12 +258,13 @@ Generator Shredding ============================================================
 >   deriving (Eq, Show)
 > makeLenses ''Spec
 >
-> data Means where
->   Means       :: {mUnit :: String
->                , mDefault :: Double
->                , mPopulationMean :: Double
->                , mSampleMean :: Maybe Double
->                } → Means
+> data GenResult where
+>   GenResult   :: {rUnit :: String
+>                , rDefault :: Double
+>                , rPopMean :: Double
+>                , rOccur :: Int
+>                , rSampleMean :: Maybe Double
+>                } → GenResult
 >   deriving (Eq, Show)
 >
 > specVector             :: VB.Vector Spec

@@ -123,18 +123,19 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >
 >             means      :: VB.Vector String
 >             means                        = if spec ^. gUnit /= NoUnit
->                                              then VB.singleton (unwords [sindent, show packet])
+>                                              then VB.singleton (unwords [sindent, show gresult])
 >                                              else VB.empty
 >               where
->                 packet                   = Means
+>                 gresult                  = GenResult
 >                                              strUnit
->                                              ((action . fromIntegral) (spec ^. gDefault))
->                                              (action pMean)
->                                              (if genData ^. gAccum == 0
+>                                              ((convert . fromIntegral) (spec ^. gDefault))
+>                                              (convert pMean)
+>                                              (genData ^. gOccur)
+>                                              (if genData ^. gOccur == 0
 >                                                then Nothing
->                                                else Just (action sMean))
+>                                                else Just (convert sMean))
 >
->                 (strUnit, action)       = unitAction (spec ^. gUnit)
+>                 (strUnit, convert)       = unitAction (spec ^. gUnit)
 >           in
 >             VB.fromList stats VB.++ means
 >
