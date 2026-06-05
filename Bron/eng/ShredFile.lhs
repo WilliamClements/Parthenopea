@@ -25,10 +25,10 @@ May 28, 2026
 
 Getting down to business ==============================================================================================
    
-From one SoundFont file we produce one GenSum, to collect interesting aspects about Generators.
+From one SoundFont file we produce one GenSum, to collect interesting data about Generators.
 
 Later on, a rollup GenSum will be produced - per-file GenSums added together. Similarly, GenSums 
-for Zones are rolledup to Instrument GenSums, and Instrument GenSums are rolled up to File GenSums.
+for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled up to File GenSums.
 
 > shredFile              :: SFFileBoot → IO GenSum
 > shredFile sffile                         = return $ rollupGenSums GSFileLevel sffile.zFilename vInstGenSum
@@ -48,8 +48,8 @@ for Zones are rolledup to Instrument GenSums, and Instrument GenSums are rolled 
 >             (modMap, volMap)             = (mark Map.empty modEC, mark Map.empty volEC)
 >                                              where (modEC, volEC) = VB.foldl' examineIf (initEC, initEC) slate
 >
->             kzone      :: Int            = (slate VB.! fromEnum SampleIndex) ^. gAccum
->             ztag       :: String         = fixName (F.sampleName (loadShdr kzone))
+>             ksample    :: Int            = (slate VB.! fromEnum SampleIndex) ^. gAccum
+>             ztag       :: String         = fixName (F.sampleName (loadShdr ksample))
 >           in
 >             makeGenSum GSZoneLevel ztag slate VB.empty modMap volMap
 >

@@ -1,4 +1,3 @@
-> {-# LANGUAGE ScopedTypeVariables #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 ShowResults
@@ -131,7 +130,9 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                                              strUnit
 >                                              ((action . fromIntegral) (spec ^. gDefault))
 >                                              (action pMean)
->                                              (action sMean)
+>                                              (if genData ^. gAccum == 0
+>                                                then Nothing
+>                                                else Just (action sMean))
 >
 >                 (strUnit, action)       = unitAction (spec ^. gUnit)
 >           in
@@ -168,6 +169,6 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >         GSFileLevel    → (x + 1,     y,     z)
 >         GSInstLevel    → (x,     y + 1,     z)
 >         GSZoneLevel    → (x,          y,    z + 1)
->         _              → (x, y, z)
+>         _              → (x,          y,    z)
 
 The End

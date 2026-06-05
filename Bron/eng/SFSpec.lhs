@@ -262,7 +262,7 @@ Generator Shredding ============================================================
 >   Means       :: {mUnit :: String
 >                , mDefault :: Double
 >                , mPopulationMean :: Double
->                , mSampleMean :: Double
+>                , mSampleMean :: Maybe Double
 >                } → Means
 >   deriving (Eq, Show)
 >
