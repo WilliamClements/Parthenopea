@@ -19,8 +19,16 @@ April 16, 2023
 > import Data.Maybe
 > import qualified Data.Vector.Strict      as VB
   
-implementing SoundFont spec ===========================================================================================
+The Generator types are numbered 0 to 60. =============================================================================
 
+The per-file diagnostic data (GenSum)includes:
+1. (raw data) vector (GenData)of 61 per-generator infos - each with
+   a. occurrence count
+   b. all values encountered, partitioned by out-of-range
+   c. point accumulator
+2. envelope statistics summed up over all instruments in the file
+3. numerical dispersion for found values of each Generator type
+  
 > data GenEnum                             =
 >     StartAddressOffset | EndAddressOffset | LoopStartAddressOffset | LoopEndAddressOffset
 >   | StartAddressCoarseOffset | ModLfoToPitch | VibLfoToPitch | ModEnvToPitch | InitFc | InitQ
