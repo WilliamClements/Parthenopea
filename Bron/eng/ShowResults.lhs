@@ -29,18 +29,19 @@ Start with the overall rollup and recurse down =================================
 
 > showResults       :: GenSum → IO (VB.Vector (VB.Vector Text))
 > showResults rootGenSum                   = do
->   putStrLn $ unwords ["num Files", show iFile]
->   putStrLn $ unwords ["num Insts", show jInst]
->   putStrLn $ unwords ["num Zones", show kZone]
+>   putStrLn $ unwords ["num Files", show nFiles]
+>   putStrLn $ unwords ["num Insts", show nInsts]
+>   putStrLn $ unwords ["num Zones", show nZones]
 >   return $ showGenSum rootGenSum
 >   where
->     iFile, jInst, kZone
+>     nFiles, nInsts, nZones
 >                        :: Int
->     (iFile, jInst, kZone)                = overallCounts rootGenSum
+>     (nFiles, nInsts, nZones)             = overallCounts rootGenSum
 >
 >     showGenSum         :: GenSum → VB.Vector (VB.Vector Text)
 >     showGenSum gensum                    =
->       let
+>       recurseOutput VB.++ VB.fromList [headerOutput, slateOutput, envOutput, statsOutput]
+>       where
 >         headerOutput                     = VB.fromList [Text.empty, Text.pack $ unwords [show (gensum ^. gsLevel), gensum ^. gsTag]]
 >         slateOutput                      = if skipRaw
 >                                              then VB.empty
@@ -52,21 +53,19 @@ Start with the overall rollup and recurse down =================================
 >           VB.++ VB.singleton (Text.pack $ unwords ["\nVolume Envelope configs (out of total=", show (total (gensum ^. gsVolEnvMap)), "):\n"])
 >           VB.++ showEnvMap (gensum ^. gsVolEnvMap)
 >           VB.++ VB.fromList [Text.pack "\n\n"]
+>           where
+>             total      :: Map EConfig Int → Int
+>             total                        = sum . Map.elems
 >         statsOutput                       =
 >           VB.fromList [Text.pack "\nGenerator statistics:\n"]
 >           VB.++ showStats gensum
 >           VB.++ VB.singleton (Text.pack "\n\n")
 
-Recurse down to the next level ========================================================================================
+Conditionally propagate showGenSum to subservients ====================================================================
 
 >         recurseOutput                    = if fromEnum showLevel >= fromEnum (gensum ^. gsLevel)
 >                                              then VB.empty
 >                                              else VB.concatMap showGenSum (gensum ^. gsSubSums)
->
->         total          :: Map EConfig Int → Int
->         total                            = sum . Map.elems
->       in
->         recurseOutput VB.++ VB.fromList [headerOutput, slateOutput, envOutput, statsOutput]
 
 Collate (modulation or volume) envelope configurations by occurrence ==================================================
 
@@ -78,7 +77,7 @@ Collate (modulation or volume) envelope configurations by occurrence ===========
 >           arrivals                       = sortBy (comparing Down) (Map.foldrWithKey shuffle [] envMap)
 >                                               where shuffle ec count acc = (count, ec) : acc
 >           showEConfig  :: Int → EConfig → Text
->           showEConfig count ec           = Text.pack $ unwords [percent count kZone, show count, show ec]
+>           showEConfig count ec           = Text.pack $ unwords [percent count nZones, show count, show ec]
 >             where
 >               percent  :: Int → Int → String
 >               percent n denom           =
@@ -118,7 +117,7 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                                              (genData ^. gOccur)
 >                                              (genData ^. gAccum)
 >                                              (genData ^. gAccumSquares)
->                                              (kZone - (genData ^. gOccur))
+>                                              (nZones - (genData ^. gOccur))
 >                                              (spec ^. gDefault)
 >             (sMean, sStdDev)             = dispersion
 >                                              (genData ^. gOccur)
