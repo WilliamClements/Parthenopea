@@ -12,7 +12,6 @@ May 28, 2026
 > import qualified Data.Bifunctor          as BF
 > import Control.Lens hiding ( element, ix )
 > import Data.Array.Unboxed
-> import Data.Char
 > import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict      as IntMap
 > import Data.IntSet ( IntSet )
@@ -20,6 +19,7 @@ May 28, 2026
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
 > import Data.Maybe
+> import qualified Data.Text               as Text
 > import qualified Data.Vector.Strict      as VB
 > import Eng.SFSpec
 
@@ -27,14 +27,17 @@ Getting down to business =======================================================
    
 From one SoundFont file we produce one GenSum, to collect interesting data about Generators.
 
-Later on, a rollup GenSum will be produced - per-file GenSums added together. Similarly, GenSums 
+Later on, a rollup GenSum will be produced - i. e.,per-file GenSums added together. Similarly, GenSums 
 for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled up to File GenSums.
 
 > shredFile              :: SFFileBoot → IO GenSum
-> shredFile sffile                         = return $ rollupGenSums GSFileLevel sffile.zFilename vInstGenSum
+> shredFile sffile                         = do
+>   putStrLn sffile.zFilename
+>   let vInstGenSum                        = VB.fromList ((IntMap.elems . IntMap.mapWithKey shredInst) owners)
+>   let myTag                              = (vInstGenSum VB.! 0) ^. gsTag
+>   putStrLn myTag
+>   return $ rollupGenSums GSFileLevel sffile.zFilename vInstGenSum
 >   where
->     vInstGenSum                          = VB.fromList ((IntMap.elems . IntMap.mapWithKey shredInst) owners)
->
 >     shredInst          :: Int → IntSet → GenSum
 >     shredInst kinst bags                 = rollupGenSums GSInstLevel itag vZoneGenSum
 >       where
@@ -49,7 +52,7 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                              where (modEC, volEC) = VB.foldl' examineIf (initEC, initEC) slate
 >
 >             ksample    :: Int            = (slate VB.! fromEnum SampleIndex) ^. gAccum
->             ztag       :: String         = fixName (F.sampleName (loadShdr ksample))
+>             ztag       :: String         = Text.unpack $ Text.pack $ fixName $ F.sampleName (loadShdr ksample)
 >           in
 >             makeGenSum GSZoneLevel ztag slate VB.empty modMap volMap
 >
@@ -86,19 +89,12 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >               then map (VB.zipWith replace firstZone) (tail slates_)
 >               else slates_        
 >
->         itag           :: String         = fixName (F.instName (loadInst kinst))
+>         itag           :: String         = Text.unpack $ Text.pack $ fixName $ F.instName (loadInst kinst)
 > 
 >     loadInst kinst                       = sffile.zFileArrays.ssInsts ! fromIntegral kinst
 >     loadBag kbag                         = sffile.zFileArrays.ssIBags ! fromIntegral kbag
 >     loadShdr kshdr                       = sffile.zFileArrays.ssShdrs ! fromIntegral kshdr
 >     loadGen kgen                         = sffile.zFileArrays.ssIGens ! fromIntegral kgen
->
->     fixName            :: String → String
->     fixName name
->       | null name                        = "<noname>"
->       | otherwise                        = map maybeFix name
->       where
->         maybeFix cN = if isAscii cN && not (isControl cN) then cN else '_'
 >
 >     owners             :: IntMap IntSet
 >     owners                               = foldl' erect IntMap.empty [ii..(ij-1)]
@@ -311,14 +307,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 > rollupGenSums          :: GenSumLevel → String → VB.Vector GenSum → GenSum
 > rollupGenSums toLevel tagRollup vGenSum  =
 >   let
->     sublevel           :: GenSumLevel    = toEnum (fromEnum toLevel - 1)
->
->     chadd              :: GenSum → GenSum → GenSum
->     chadd gensum1 gensum2
->       | gensum1 ^. gsLevel /= sublevel || gensum2 ^. gsLevel /= sublevel
->                                          = error "rollupGenSums: bad bookkeeping"
->       | otherwise                        = addGenSums gensum1 gensum2
->
 >     addGenSums         :: GenSum → GenSum → GenSum
 >     addGenSums (GenSum level tagAdd slate1 _ mod1 vol1) (GenSum _ _ slate2 _ mod2 vol2)
 >                                          =
@@ -326,12 +314,19 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >         level 
 >         tagAdd
 >         (VB.zipWith addGenDatas slate1 slate2)
->         VB.empty -- assigned later in rollupGenSums
+>         VB.empty
 >         (Map.unionWith (+) mod1 mod2)
 >         (Map.unionWith (+) vol1 vol2)
+>
+>     sublevel           :: GenSumLevel    = toEnum (fromEnum toLevel - 1)
+>     chadd              :: GenSum → GenSum → GenSum
+>     chadd gensum1 gensum2
+>       | gensum1 ^. gsLevel /= sublevel || gensum2 ^. gsLevel /= sublevel
+>                                          = error "rollupGenSums: bad bookkeeping"
+>       | otherwise                        = addGenSums gensum1 gensum2
 >   in
->       ((gsLevel .~ toLevel)
->     .  (gsTag .~ tagRollup))
+>     ((    gsLevel .~ toLevel)
+>         .  (gsTag .~ tagRollup))
 >     .  (gsSubSums .~ vGenSum) $ VB.foldl' chadd (VB.head vGenSum) (VB.tail vGenSum)
 
 The End

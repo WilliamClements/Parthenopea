@@ -11,12 +11,15 @@ April 16, 2023
 > import Control.Lens hiding ( element, ix )
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
+> import Data.Char
 > import Data.Int ( Int8, Int16 )
 > import Data.IntSet ( IntSet )
 > import qualified Data.IntSet             as IntSet
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
 > import Data.Maybe
+> import qualified Data.Text               as Text
+> import Data.Text (Text)
 > import qualified Data.Vector.Strict      as VB
   
 The Generator types are numbered 0 to 60. =============================================================================
@@ -145,6 +148,14 @@ The per-file diagnostic data (GenSum)includes:
 >                  boota 
 >                  samplea
 >
+> goodChar               :: Char → Bool
+> goodChar cN                              = isAscii cN && not (isControl cN)
+>
+> fixName                :: String → String
+> fixName name
+>   | null name                            = "<noname>"
+>   | otherwise                            = map (\cN → if goodChar cN then cN else '_') name
+>
 > data SFFileBoot                          =
 >   SFFileBoot {
 >     zWordFBoot         :: !Int
@@ -259,7 +270,7 @@ Generator Shredding ============================================================
 > makeLenses ''Spec
 >
 > data GenResult where
->   GenResult   :: {rUnit :: String
+>   GenResult   :: {rUnit :: Text
 >                , rDefault :: Double
 >                , rPopMean :: Double
 >                , rOccur :: Int
@@ -354,12 +365,12 @@ Generator Shredding ============================================================
 >                                            VB.++ makeUpdate TimeCents        usesTimeCents
 >                                            VB.++ makeUpdate Tenths           usesTenths
 >
-> unitAction              :: Unit → (String, Double → Double)
-> unitAction Centibels                     = ("centibels to volume ratio",     fromCentibels)
-> unitAction Cents                         = ("cents to Hz ratio",             fromCents)
-> unitAction AbsoluteCents                 = ("absolute cents to Hz",          fromAbsoluteCents)
-> unitAction TimeCents                     = ("time cents to seconds",         fromTimecents)
-> unitAction Tenths                        = ("from tenths",                   fromTithe)
+> unitAction              :: Unit → (Text, Double → Double)
+> unitAction Centibels                     = (Text.pack "centibels to volume ratio",     fromCentibels)
+> unitAction Cents                         = (Text.pack "cents to Hz ratio",             fromCents)
+> unitAction AbsoluteCents                 = (Text.pack "absolute cents to Hz",          fromAbsoluteCents)
+> unitAction TimeCents                     = (Text.pack "time cents to seconds",         fromTimecents)
+> unitAction Tenths                        = (Text.pack "from tenths",                   fromTithe)
 > unitAction unit                          = error $ unwords ["no action for", show unit]
 >
 > valueBearing           :: VB.Vector GenEnum

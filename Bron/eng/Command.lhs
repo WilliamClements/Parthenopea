@@ -8,6 +8,8 @@ May 18, 2026
 >         batchProcessor ) where
 >
 > import qualified Control.Monad           as CM
+> import qualified Data.Text               as Text
+> import Data.Text (Text)
 > import Data.Time ( getZonedTime )
 > import qualified Data.Vector.Strict      as VB
 > import Eng.SFSpec
@@ -41,7 +43,7 @@ Executive ======================================================================
 >   fData                                  ← showResults $ rollupGenSums GSRollLevel "<summary>" vGenSum
 >   putStrVector fData
 >   where
->     putStrVector :: VB.Vector (VB.Vector String) → IO ()
->     putStrVector                         = VB.mapM_ (VB.mapM_ putStrLn)
+>     putStrVector :: VB.Vector (VB.Vector Text) → IO ()
+>     putStrVector                         = VB.mapM_ (VB.mapM_ (putStrLn . Text.unpack))
 
 The End
