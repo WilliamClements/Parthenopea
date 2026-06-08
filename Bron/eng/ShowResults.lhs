@@ -90,23 +90,33 @@ Collate (modulation or volume) envelope configurations by occurrence ===========
 Compute and show numerical statistics for each value-bearing generator type ===========================================
 
 >     showStats          :: GenSum → VB.Vector Text
->     showStats gensum                     = VB.concatMap showOneGen valueBearing
+>     showStats gensum                     = VB.concatMap showOneGen allGens
 >       where
 >         showOneGen genOne                = showOneGenData ((gensum ^. gsGenSlate) VB.! fromEnum genOne)
->         showOneGenData genData           =
->           let
->             skip       :: Bool           = isEmptyGenData genData
->             stats      :: [Text]         = [s0, s1, s2]
->               where
->                 s0                       = Text.pack $ unwords [show ix, show gen, show spec]
->                 s1                       = if Set.notMember gen noNumericDefault
->                                              then Text.unwords [spop, showStat (pMean, pStdDev)]
->                                              else Text.unwords [spop, Text.pack "n/a"]
->                 s2                       = Text.unwords [ssample, showStat (sMean, sStdDev)]
->
+>         showOneGenData genData           = if noData
+>                                              then VB.empty
+>                                              else VB.fromList (stats ++ [results])
+>           where
 >             gen        :: GenEnum        = genData ^. gId
 >             ix                           = fromEnum gen
 >             spec                         = specVector VB.! ix
+>
+>             noData, noDefault
+>                        :: Bool
+>             noData                       = isEmptyGenData genData
+>             noDefault                    = Set.member gen noNumericDefault
+>
+>             stats      :: [Text]         =
+>               let
+>                 s0                       = Text.unwords [Text.show ix, Text.show gen, Text.show spec]
+>                 spMean                   = if noDefault
+>                                              then Text.unwords [spop, Text.pack "n/a"]
+>                                              else Text.unwords [spop, showStat (pMean, pStdDev)]
+>                 ssMean                   = if noData
+>                                              then Text.unwords [ssample, Text.pack "n/a"]
+>                                              else Text.unwords [ssample, showStat (sMean, sStdDev)]
+>               in
+>                 [s0, spMean, ssMean]
 >
 >             sindent, spop, ssample, popMean, sampleMean
 >                        :: Text
@@ -131,38 +141,35 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                                              (genData ^. gAccum)
 >                                              (genData ^. gAccumSquares)
 >                                              ((gensum ^. gsZoneCount) - (genData ^. gOccur))
->                                              (spec ^. gDefault)
+>                                              (fromIntegral (spec ^. gDefault))
 >             (sMean, sStdDev)             = dispersion
 >                                              (genData ^. gOccur)
 >                                              (genData ^. gAccum)
 >                                              (genData ^. gAccumSquares)
 >                                              0
->                                              (spec ^. gDefault)
+>                                              (fromIntegral (spec ^. gDefault))
 >
 >             showStat   :: (Double, Double) → Text
 >             showStat (m, s)              = Text.unwords [Text.show m, Text.pack "+-", Text.show s]
 >
->             means      :: VB.Vector Text
->             means                        = if spec ^. gUnit /= NoUnit
->                                              then VB.singleton (Text.unwords [sindent, Text.show gresult])
->                                              else VB.empty
+>             results    :: Text
+>             results                      = if False
+>                                              then Text.empty
+>                                              else Text.unwords [sindent, Text.show gresult]
 >               where
 >                 gresult                  = GenResult
 >                                              strUnit
 >                                              ((convert . fromIntegral) (spec ^. gDefault))
->                                              (convert pMean)
->                                              (genData ^. gOccur)
->                                              (if genData ^. gOccur == 0
+>                                              (if noDefault
+>                                                then Nothing
+>                                                else Just (convert pMean))
+>                                              (if noData
 >                                                then Nothing
 >                                                else Just (convert sMean))
 >
 >                 (strUnit, convert)       = unitAction (spec ^. gUnit)
->           in
->             if skip
->               then VB.empty
->               else VB.fromList stats VB.++ means
 >
-> dispersion             :: Int → Double → Double → Int → Int → (Double, Double)
+> dispersion             :: Int → Double → Double → Int → Double → (Double, Double)
 > dispersion nVals accum_ accumSquares_ nDef valDef
 >   | (nVals + nDef) == 0                   = error "dispersion: absence of vals would cause divide-by-zero"
 >   | (nVals + nDef) == 1                   = (accum, 0)
@@ -171,7 +178,7 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >     denom, mean, stdDev, dubNDef, dubValDef, accum, accumSquares
 >                        :: Double
 >     denom                                = fromIntegral (nVals + nDef)
->     (dubNDef, dubValDef)                 = (fromIntegral nDef, fromIntegral valDef)
+>     (dubNDef, dubValDef)                 = (fromIntegral nDef, valDef)
 >     accum                                = accum_ + (dubNDef * dubValDef)
 >     accumSquares                         = accumSquares_ + (dubNDef * (dubValDef * dubValDef))
 >

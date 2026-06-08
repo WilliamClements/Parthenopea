@@ -26,11 +26,11 @@ April 16, 2023
   
 The Generator types are numbered 0 to 60. =============================================================================
 
-The per-file diagnostic data (GenSum)includes:
-1. (raw data) vector (GenData)of 61 per-generator infos - each with
+The per-file diagnostic data (GenSum) includes:
+1. (raw data) vector (GenData) of 61 per-generator infos - each with
    a. occurrence count
-   b. all values encountered, partitioned by out-of-range
-   c. point accumulator
+   b. point accumulator
+   c. all out-of-range values encountered
 2. envelope statistics summed up over all instruments in the file
 3. numerical dispersion for found values of each Generator type
   
@@ -149,13 +149,11 @@ The per-file diagnostic data (GenSum)includes:
 >                  boota 
 >                  samplea
 >
-> goodChar               :: Char → Bool
-> goodChar cN                              = isAscii cN && not (isControl cN)
->
 > fixName                :: String → String
 > fixName name
 >   | null name                            = "<noname>"
 >   | otherwise                            = map (\cN → if goodChar cN then cN else '_') name
+>                                              where goodChar cN = isAscii cN && not (isControl cN)
 >
 > data SFFileBoot                          =
 >   SFFileBoot {
@@ -246,7 +244,7 @@ Generator Shredding ============================================================
 > t3clip                                   = (0, 1_200)
 >
 > data Unit                                = NoUnit | Centibels | Cents | AbsoluteCents | TimeCents
->                                                   | Tenths | Points | CoarsePoints | Keys
+>                                                   | Tenths | Points | CoarsePoints | Keys | Semitones
 >   deriving (Eq, Show)
 > makePrisms ''Unit
 >
@@ -261,8 +259,7 @@ Generator Shredding ============================================================
 > data GenResult where
 >   GenResult   :: {rUnit :: Text
 >                , rDefault :: Double
->                , rPopMean :: Double
->                , rOccur :: Int
+>                , rPopMean :: Maybe Double
 >                , rSampleMean :: Maybe Double
 >                } → GenResult
 >   deriving (Eq, Show)
@@ -355,6 +352,8 @@ Generator Shredding ============================================================
 >                                            VB.++ makeUpdate Tenths           usesTenths
 >                                            VB.++ makeUpdate Points           usesPoints
 >                                            VB.++ makeUpdate CoarsePoints     usesCoarsePoints
+>                                            VB.++ makeUpdate Keys             usesKeys
+>                                            VB.++ makeUpdate Semitones        usesSemitones
 >
 > unitAction              :: Unit → (Text, Double → Double)
 > unitAction Centibels                     = (Text.pack "centibels to volume ratio",     fromCentibels)
@@ -365,36 +364,31 @@ Generator Shredding ============================================================
 > unitAction Points                        = (Text.pack "sample points",                 id)
 > unitAction CoarsePoints                  = (Text.pack "32768 sample points",           (* 32768))
 > unitAction Keys                          = (Text.pack "MIDI keys",                     id)
-> unitAction unit                          = error $ unwords ["no action for", show unit]
+> unitAction Semitones                     = (Text.pack "semitones",                     id)
+> unitAction NoUnit                        = (Text.pack "no unit",                       id)
 >
-> allGens, valueBearing  :: VB.Vector GenEnum
-> noValue                :: Set GenEnum
+> allGens                :: VB.Vector GenEnum
 >
 > allGens                                  = VB.generate 61 toEnum
-> noValue                                  = Set.fromList [  Unused1, Unused2, Unused3, Unused4
->                                                         , Reserved1, KeyRange, VelRange, Reserved2
->                                                         , SampleMode, Reserved3, Unused5
->                                                         , ReservedGen]
-> valueBearing                             = VB.filter hasValue allGens
->                                              where hasValue gen = gen `Set.notMember` noValue
 >
 > noNumericDefault, usesCentibels, usesCents, usesAbsoluteCents, usesTimeCents
->  , usesTenths, usesPoints, usesCoarsePoints, usesKeys 
+>  , usesTenths, usesPoints, usesCoarsePoints, usesKeys, usesSemitones 
 >                        :: Set GenEnum
 > noNumericDefault                         = Set.fromList [  ExclusiveClass, Key, RootKey, Vel]
 >
 > usesCentibels                            = Set.fromList [  InitQ, ModLfoToVol, SustainModEnv, SustainVolEnv, InitAtten]
 > usesCents                                = Set.fromList [  ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
->                                                         , ModLfoToFc, ModEnvToFc, FreqVibLfo, FineTune]
+>                                                          , ModLfoToFc, ModEnvToFc, FreqVibLfo, FineTune]
 > usesAbsoluteCents                        = Set.fromList [  InitFc, FreqModLfo, FreqVibLfo] 
 > usesTimeCents                            = Set.fromList [  DelayModLfo, DelayVibLfo
->                                                         , DelayModEnv, AttackModEnv, HoldModEnv, DecayModEnv, ReleaseModEnv
->                                                         , DelayVolEnv, AttackVolEnv, HoldVolEnv, DecayVolEnv, ReleaseVolEnv]
+>                                                          , DelayModEnv, AttackModEnv, HoldModEnv, DecayModEnv, ReleaseModEnv
+>                                                          , DelayVolEnv, AttackVolEnv, HoldVolEnv, DecayVolEnv, ReleaseVolEnv]
 > usesTenths                               = Set.fromList [  Chorus, Reverb, Pan]
 > usesPoints                               = Set.fromList [  StartAddressOffset, EndAddressOffset
->                                                         , LoopStartAddressOffset, LoopEndAddressOffset]
+>                                                          , LoopStartAddressOffset, LoopEndAddressOffset]
 > usesCoarsePoints                         = Set.fromList [  StartAddressCoarseOffset, EndAddressCoarseOffset
->                                                         , LoopStartAddressCoarseOffset, LoopEndAddressCoarseOffset]
+>                                                          , LoopStartAddressCoarseOffset, LoopEndAddressCoarseOffset]
 > usesKeys                                 = Set.fromList [  Key, RootKey, Vel]
+> usesSemitones                            = Set.fromList [  CoarseTune]
 
 The End

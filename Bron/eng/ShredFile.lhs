@@ -9,9 +9,9 @@ May 28, 2026
 >         rollupGenSums, shredFile ) where
 >
 > import qualified Codec.SoundFont         as F
-> import qualified Data.Bifunctor          as BF
 > import Control.Lens hiding ( element, ix )
 > import Data.Array.Unboxed
+> import qualified Data.Bifunctor          as BF
 > import Data.IntMap.Strict ( IntMap )
 > import qualified Data.IntMap.Strict      as IntMap
 > import Data.IntSet ( IntSet )
@@ -287,8 +287,8 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is CoarseTune (Just val)
 >     shredGen is (F.FineTune val)
 >                                          = upd is FineTune (Just val)
->     shredGen is (F.SampleIndex _)
->                                          = upd is SampleIndex Nothing
+>     shredGen is (F.SampleIndex val)
+>                                          = upd is SampleIndex ((Just . fromIntegral) val)
 >     shredGen is (F.SampleMode _)
 >                                          = upd is SampleMode Nothing
 >         
@@ -326,8 +326,8 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = error "rollupGenSums: bad bookkeeping"
 >       | otherwise                        = addGenSums gensum1 gensum2
 >   in
->     ((    gsLevel .~ toLevel)
->         .  (gsTag .~ tagRollup))
->     .  (gsSubSums .~ vGenSum) $ VB.foldl' chadd (VB.head vGenSum) (VB.tail vGenSum)
+>     (    (gsLevel .~ toLevel)
+>     .      (gsTag .~ tagRollup)
+>     .  (gsSubSums .~ vGenSum)) $ VB.foldl' chadd (VB.head vGenSum) (VB.tail vGenSum)
 
 The End
