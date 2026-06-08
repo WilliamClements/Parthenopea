@@ -17,6 +17,8 @@ April 16, 2023
 > import qualified Data.IntSet             as IntSet
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
+> import Data.Set (Set)
+> import qualified Data.Set                as Set
 > import Data.Maybe
 > import qualified Data.Text               as Text
 > import Data.Text (Text)
@@ -43,13 +45,13 @@ The per-file diagnostic data (GenSum)includes:
 >   | KeyRange | VelRange | LoopStartAddressCoarseOffset | Key | Vel | InitAtten | Reserved2
 >   | LoopEndAddressCoarseOffset | CoarseTune | FineTune | SampleIndex | SampleMode
 >   | Reserved3 | ScaleTuning | ExclusiveClass | RootKey | Unused5 | ReservedGen
->   deriving (Enum, Eq, Show)
+>   deriving (Enum, Eq, Ord, Show)
 >
 > data GenData                             =
 >   GenData {
 >     _gId               :: GenEnum
 >   , _gOccur            :: Int
->   , _gAccum            :: Int
+>   , _gAccum            :: Double
 >   , _gAccumSquares     :: Double
 >   , _gWildValues       :: IntSet}
 >   deriving (Eq, Show)
@@ -76,7 +78,7 @@ The per-file diagnostic data (GenSum)includes:
 > data EState                              =
 >   EOff | EOnSmall | EOnLarge
 >   deriving (Eq, Ord, Show)
-> categorize             :: Maybe Int → EState
+> categorize             :: Maybe Double → EState
 > categorize mint                          =
 >   case mint of
 >     Nothing            → EOff
@@ -93,7 +95,7 @@ The per-file diagnostic data (GenSum)includes:
 >   , _eConfigRelease    :: EState}
 >   deriving (Eq, Ord, Show)
 > makeLenses ''EConfig
-> makeEConfig            :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → EConfig
+> makeEConfig            :: Maybe Double → Maybe Double → Maybe Double → Maybe Double → Maybe Double → EConfig
 > makeEConfig delay attack hold decay release
 >                                          =
 >   EConfig 
@@ -117,14 +119,13 @@ The per-file diagnostic data (GenSum)includes:
 >   , _gsTag             :: String
 >   , _gsGenSlate        :: GenSlate
 >   , _gsSubSums         :: VB.Vector GenSum
+>   , _gsZoneCount       :: Int
 >   , _gsModEnvMap       :: Map EConfig Int
 >   , _gsVolEnvMap       :: Map EConfig Int}
 >   deriving (Eq, Show)
 > makeLenses ''GenSum
-> makeGenSum             :: GenSumLevel → String → VB.Vector GenData → VB.Vector GenSum → Map EConfig Int → Map EConfig Int → GenSum
+> makeGenSum             :: GenSumLevel → String → VB.Vector GenData → VB.Vector GenSum → Int → Map EConfig Int → Map EConfig Int → GenSum
 > makeGenSum                               = GenSum
-> initGenSum             :: String → GenSum
-> initGenSum tag                           = makeGenSum GSZoneLevel tag initGenSlate VB.empty Map.empty Map.empty
 >
 > openSoundFontFile      :: Int → FilePath → IO SFFileBoot
 > openSoundFontFile wFile filename         = do
@@ -213,19 +214,6 @@ Returns the amplitude ratio
 > fromCentibels centibels                  = pow 10 (centibels/1000)
 > toCentibels ratio                        = logBase 10 (ratio * 1000)
 
-Returns the amplitude ratio (based on input 10ths of a percent) 
-
-> fromTithe              :: Double → Double
-> fromTithe x                              = x / 1000
-
-> fromTithe'              :: Maybe Int → Bool → Double
-> fromTithe' iS isVol                      =
->   if isVol
->     then 1 / fromCentibels jS
->     else (1000 - jS) / 1000
->   where
->     jS                 :: Double         = maybe 0 fromIntegral iS
-
 Raises 'a' to the power 'b' using logarithms
 
 > pow                    :: Floating a ⇒ a → a → a
@@ -257,7 +245,8 @@ Generator Shredding ============================================================
 > t2clip                                   = (-99, 99)
 > t3clip                                   = (0, 1_200)
 >
-> data Unit                                = NoUnit | Centibels | Cents | AbsoluteCents | TimeCents | Tenths
+> data Unit                                = NoUnit | Centibels | Cents | AbsoluteCents | TimeCents
+>                                                   | Tenths | Points | CoarsePoints | Keys
 >   deriving (Eq, Show)
 > makePrisms ''Unit
 >
@@ -355,56 +344,57 @@ Generator Shredding ============================================================
 >   where
 >     clear                                = VB.replicate 61 NoUnit
 >
->     makeUpdate         :: Unit → VB.Vector GenEnum → VB.Vector (Int, Unit)
->     makeUpdate unit                      = VB.map disperse
->                                              where disperse gen = (fromEnum gen, unit)
+>     makeUpdate         :: Unit → Set GenEnum → VB.Vector (Int, Unit)
+>     makeUpdate unit gset                 = VB.fromList (Set.foldl disperse [] gset)
+>                                              where disperse i gen = (fromEnum gen, unit) : i
 >     changes            :: VB.Vector (Int, Unit)
 >     changes                              =       makeUpdate Centibels        usesCentibels
 >                                            VB.++ makeUpdate Cents            usesCents
 >                                            VB.++ makeUpdate AbsoluteCents    usesAbsoluteCents
 >                                            VB.++ makeUpdate TimeCents        usesTimeCents
 >                                            VB.++ makeUpdate Tenths           usesTenths
+>                                            VB.++ makeUpdate Points           usesPoints
+>                                            VB.++ makeUpdate CoarsePoints     usesCoarsePoints
 >
 > unitAction              :: Unit → (Text, Double → Double)
 > unitAction Centibels                     = (Text.pack "centibels to volume ratio",     fromCentibels)
 > unitAction Cents                         = (Text.pack "cents to Hz ratio",             fromCents)
 > unitAction AbsoluteCents                 = (Text.pack "absolute cents to Hz",          fromAbsoluteCents)
 > unitAction TimeCents                     = (Text.pack "time cents to seconds",         fromTimecents)
-> unitAction Tenths                        = (Text.pack "from tenths",                   fromTithe)
+> unitAction Tenths                        = (Text.pack "from tenths",                   (/ 1000))
+> unitAction Points                        = (Text.pack "sample points",                 id)
+> unitAction CoarsePoints                  = (Text.pack "32768 sample points",           (* 32768))
+> unitAction Keys                          = (Text.pack "MIDI keys",                     id)
 > unitAction unit                          = error $ unwords ["no action for", show unit]
 >
-> valueBearing           :: VB.Vector GenEnum
-> valueBearing                             = VB.fromList
->   [ ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
->   , InitFc, InitQ
->   , ModLfoToFc, ModEnvToFc
->   , ModLfoToVol
->   , Chorus, Reverb, Pan
->   , DelayModLfo, FreqModLfo
->   , DelayVibLfo, FreqVibLfo
->   , DelayModEnv, AttackModEnv, HoldModEnv
->   , DecayModEnv, SustainModEnv, ReleaseModEnv
->   , KeyToModEnvHold, KeyToModEnvDecay
->   , DelayVolEnv, AttackVolEnv, HoldVolEnv
->   , DecayVolEnv, SustainVolEnv, ReleaseVolEnv
->   , KeyToVolEnvHold, KeyToVolEnvDecay
->   , Key, Vel
->   , InitAtten
->   , CoarseTune, FineTune
->   , ScaleTuning
->   , ExclusiveClass
->   , RootKey]
+> allGens, valueBearing  :: VB.Vector GenEnum
+> noValue                :: Set GenEnum
 >
-> noNumericDefault, usesCentibels, usesCents, usesAbsoluteCents, usesTimeCents, usesTenths
->                        :: VB.Vector GenEnum
-> noNumericDefault                         = VB.fromList [  ExclusiveClass, Key, RootKey, Vel]
-> usesCentibels                            = VB.fromList [  InitQ, ModLfoToVol, SustainModEnv, SustainVolEnv, InitAtten]
-> usesCents                                = VB.fromList [  ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
+> allGens                                  = VB.generate 61 toEnum
+> noValue                                  = Set.fromList [  Unused1, Unused2, Unused3, Unused4
+>                                                         , Reserved1, KeyRange, VelRange, Reserved2
+>                                                         , SampleMode, Reserved3, Unused5
+>                                                         , ReservedGen]
+> valueBearing                             = VB.filter hasValue allGens
+>                                              where hasValue gen = gen `Set.notMember` noValue
+>
+> noNumericDefault, usesCentibels, usesCents, usesAbsoluteCents, usesTimeCents
+>  , usesTenths, usesPoints, usesCoarsePoints, usesKeys 
+>                        :: Set GenEnum
+> noNumericDefault                         = Set.fromList [  ExclusiveClass, Key, RootKey, Vel]
+>
+> usesCentibels                            = Set.fromList [  InitQ, ModLfoToVol, SustainModEnv, SustainVolEnv, InitAtten]
+> usesCents                                = Set.fromList [  ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
 >                                                         , ModLfoToFc, ModEnvToFc, FreqVibLfo, FineTune]
-> usesAbsoluteCents                        = VB.fromList [  InitFc, FreqModLfo, FreqVibLfo] 
-> usesTimeCents                            = VB.fromList [  DelayModLfo, DelayVibLfo
+> usesAbsoluteCents                        = Set.fromList [  InitFc, FreqModLfo, FreqVibLfo] 
+> usesTimeCents                            = Set.fromList [  DelayModLfo, DelayVibLfo
 >                                                         , DelayModEnv, AttackModEnv, HoldModEnv, DecayModEnv, ReleaseModEnv
 >                                                         , DelayVolEnv, AttackVolEnv, HoldVolEnv, DecayVolEnv, ReleaseVolEnv]
-> usesTenths                               = VB.fromList [  Chorus, Reverb, Pan]
+> usesTenths                               = Set.fromList [  Chorus, Reverb, Pan]
+> usesPoints                               = Set.fromList [  StartAddressOffset, EndAddressOffset
+>                                                         , LoopStartAddressOffset, LoopEndAddressOffset]
+> usesCoarsePoints                         = Set.fromList [  StartAddressCoarseOffset, EndAddressCoarseOffset
+>                                                         , LoopStartAddressCoarseOffset, LoopEndAddressCoarseOffset]
+> usesKeys                                 = Set.fromList [  Key, RootKey, Vel]
 
 The End

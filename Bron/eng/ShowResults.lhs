@@ -12,6 +12,7 @@ May 28, 2026
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
 > import Data.Ord
+> import qualified Data.Set                as Set
 > import qualified Data.Text               as Text
 > import Data.Text (Text)
 > import qualified Data.Vector.Strict      as VB
@@ -20,7 +21,7 @@ May 28, 2026
 Modifiers to filter ouput =============================================================================================
 
 > showLevel              :: GenSumLevel
-> showLevel                                = GSInstLevel
+> showLevel                                = GSRollLevel
 >
 > skipRaw                :: Bool
 > skipRaw                                  = False
@@ -48,10 +49,10 @@ Start with the overall rollup and recurse down =================================
 >                                              else VB.map (Text.pack . show) (VB.filter scoop (gensum ^. gsGenSlate))
 >                                                where scoop genData = not (isEmptyGenData genData)
 >         envOutput                        =
->           VB.singleton (Text.pack $ unwords ["\nModulation Envelope configs (out of total=", show (total (gensum ^. gsModEnvMap)), "):\n"])
->           VB.++ showEnvMap (gensum ^. gsModEnvMap)
->           VB.++ VB.singleton (Text.pack $ unwords ["\nVolume Envelope configs (out of total=", show (total (gensum ^. gsVolEnvMap)), "):\n"])
->           VB.++ showEnvMap (gensum ^. gsVolEnvMap)
+>           VB.singleton (Text.pack $ unwords ["\nModulation Envelope configs (total=", show (total (gensum ^. gsModEnvMap)), "):\n"])
+>           VB.++ showEnvMap (gensum ^. gsModEnvMap) (gensum ^. gsZoneCount)
+>           VB.++ VB.singleton (Text.pack $ unwords ["\nVolume Envelope configs (total=", show (total (gensum ^. gsVolEnvMap)), "):\n"])
+>           VB.++ showEnvMap (gensum ^. gsVolEnvMap) (gensum ^. gsZoneCount)
 >           VB.++ VB.fromList [Text.pack "\n\n"]
 >           where
 >             total      :: Map EConfig Int → Int
@@ -69,7 +70,7 @@ Conditionally propagate showGenSum to subservients =============================
 
 Collate (modulation or volume) envelope configurations by occurrence ==================================================
 
->     showEnvMap envMap
+>     showEnvMap envMap zcount
 >       | Map.null envMap                  = VB.empty
 >       | otherwise                        = VB.fromList (map (uncurry showEConfig) arrivals)
 >         where
@@ -77,7 +78,7 @@ Collate (modulation or volume) envelope configurations by occurrence ===========
 >           arrivals                       = sortBy (comparing Down) (Map.foldrWithKey shuffle [] envMap)
 >                                               where shuffle ec count acc = (count, ec) : acc
 >           showEConfig  :: Int → EConfig → Text
->           showEConfig count ec           = Text.pack $ unwords [percent count nZones, show count, show ec]
+>           showEConfig count ec           = Text.pack $ unwords [percent count zcount, show count, show ec]
 >             where
 >               percent  :: Int → Int → String
 >               percent n denom           =
@@ -98,26 +99,38 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >             stats      :: [Text]         = [s0, s1, s2]
 >               where
 >                 s0                       = Text.pack $ unwords [show ix, show gen, show spec]
->                 s1                       = if VB.notElem gen noNumericDefault
->                                              then Text.pack $ unwords [spop, showStat (pMean, pStdDev)]
->                                              else Text.pack $ unwords [spop, "n/a"]
->                 s2                       = Text.pack $ unwords [ssample, showStat (sMean, sStdDev)]
+>                 s1                       = if Set.notMember gen noNumericDefault
+>                                              then Text.unwords [spop, showStat (pMean, pStdDev)]
+>                                              else Text.unwords [spop, Text.pack "n/a"]
+>                 s2                       = Text.unwords [ssample, showStat (sMean, sStdDev)]
 >
 >             gen        :: GenEnum        = genData ^. gId
 >             ix                           = fromEnum gen
 >             spec                         = specVector VB.! ix
 >
->             sindent, spop, ssample
->                        :: String
->             sindent                      = replicate 4 ' '
->             spop                         = unwords [sindent, "   pop"]
->             ssample                      = unwords [sindent, "sample"]
+>             sindent, spop, ssample, popMean, sampleMean
+>                        :: Text
+>             sindent                      = Text.replicate 4 (Text.singleton ' ')
+>
+>             spop                         =
+>               Text.unwords [sindent
+>                           , Text.justifyRight 15 ' ' (Text.show (gensum ^. gsZoneCount))
+>                           , sindent
+>                           , Text.justifyRight 15 ' ' popMean]
+>             ssample                      =
+>               Text.unwords [sindent
+>                           , Text.justifyRight 15 ' ' (Text.show (genData ^. gOccur))
+>                           , sindent
+>                           , Text.justifyRight 15 ' ' sampleMean]
+>
+>             popMean                      = Text.pack "pop.mean"
+>             sampleMean                   = Text.pack "sample.mean"
 >
 >             (pMean, pStdDev)             = dispersion
 >                                              (genData ^. gOccur)
 >                                              (genData ^. gAccum)
 >                                              (genData ^. gAccumSquares)
->                                              (nZones - (genData ^. gOccur))
+>                                              ((gensum ^. gsZoneCount) - (genData ^. gOccur))
 >                                              (spec ^. gDefault)
 >             (sMean, sStdDev)             = dispersion
 >                                              (genData ^. gOccur)
@@ -126,12 +139,12 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                                              0
 >                                              (spec ^. gDefault)
 >
->             showStat   :: (Double, Double) → String
->             showStat (m, s)              = unwords [show m, "+-", show s]
+>             showStat   :: (Double, Double) → Text
+>             showStat (m, s)              = Text.unwords [Text.show m, Text.pack "+-", Text.show s]
 >
 >             means      :: VB.Vector Text
 >             means                        = if spec ^. gUnit /= NoUnit
->                                              then VB.singleton (Text.pack $ unwords [sindent, show gresult])
+>                                              then VB.singleton (Text.unwords [sindent, Text.show gresult])
 >                                              else VB.empty
 >               where
 >                 gresult                  = GenResult
@@ -149,8 +162,8 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >               then VB.empty
 >               else VB.fromList stats VB.++ means
 >
-> dispersion             :: Int → Int → Double → Int → Int → (Double, Double)
-> dispersion nVals accum__ accumSquares__ nDef valDef
+> dispersion             :: Int → Double → Double → Int → Int → (Double, Double)
+> dispersion nVals accum_ accumSquares_ nDef valDef
 >   | (nVals + nDef) == 0                   = error "dispersion: absence of vals would cause divide-by-zero"
 >   | (nVals + nDef) == 1                   = (accum, 0)
 >   | otherwise                             = (mean, stdDev)
@@ -159,7 +172,6 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                        :: Double
 >     denom                                = fromIntegral (nVals + nDef)
 >     (dubNDef, dubValDef)                 = (fromIntegral nDef, fromIntegral valDef)
->     (accum_, accumSquares_)              = (fromIntegral accum__, accumSquares__)
 >     accum                                = accum_ + (dubNDef * dubValDef)
 >     accumSquares                         = accumSquares_ + (dubNDef * (dubValDef * dubValDef))
 >

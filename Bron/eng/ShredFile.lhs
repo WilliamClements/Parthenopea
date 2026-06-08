@@ -32,29 +32,31 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 
 > shredFile              :: SFFileBoot → IO GenSum
 > shredFile sffile                         = do
->   putStrLn sffile.zFilename
 >   let vInstGenSum                        = VB.fromList ((IntMap.elems . IntMap.mapWithKey shredInst) owners)
->   let myTag                              = (vInstGenSum VB.! 0) ^. gsTag
->   putStrLn myTag
->   return $ rollupGenSums GSFileLevel sffile.zFilename vInstGenSum
+>   return $ rollupGenSums GSFileLevel ftag vInstGenSum
 >   where
+>     ftag                                 = "f " ++ sffile.zFilename
+>
 >     shredInst          :: Int → IntSet → GenSum
 >     shredInst kinst bags                 = rollupGenSums GSInstLevel itag vZoneGenSum
 >       where
+>         itag           :: String         = "i " ++ Text.unpack (Text.pack $ fixName $ F.instName (loadInst kinst))
+> 
 >         vZoneGenSum                      = VB.fromList $ map shredSlate slates
 >
 >         shredSlate     :: GenSlate → GenSum
 >         shredSlate slate                 =
 >           let
+>             ztag       :: String         = "z " ++ Text.unpack (Text.pack $ fixName $ F.sampleName (loadShdr ksample))
+>
 >             modMap, volMap
 >                        :: Map EConfig Int
 >             (modMap, volMap)             = (mark Map.empty modEC, mark Map.empty volEC)
 >                                              where (modEC, volEC) = VB.foldl' examineIf (initEC, initEC) slate
 >
->             ksample    :: Int            = (slate VB.! fromEnum SampleIndex) ^. gAccum
->             ztag       :: String         = Text.unpack $ Text.pack $ fixName $ F.sampleName (loadShdr ksample)
+>             ksample    :: Int            = round $ (slate VB.! fromEnum SampleIndex) ^. gAccum
 >           in
->             makeGenSum GSZoneLevel ztag slate VB.empty modMap volMap
+>             makeGenSum GSZoneLevel ztag slate VB.empty 1 modMap volMap
 >
 >         slates_, slates
 >                        :: [GenSlate]
@@ -89,8 +91,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >               then map (VB.zipWith replace firstZone) (tail slates_)
 >               else slates_        
 >
->         itag           :: String         = Text.unpack $ Text.pack $ fixName $ F.instName (loadInst kinst)
-> 
 >     loadInst kinst                       = sffile.zFileArrays.ssInsts ! fromIntegral kinst
 >     loadBag kbag                         = sffile.zFileArrays.ssIBags ! fromIntegral kbag
 >     loadShdr kshdr                       = sffile.zFileArrays.ssShdrs ! fromIntegral kshdr
@@ -122,7 +122,7 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                               then acc
 >                                               else examine acc (genData ^. gId, genData ^. gAccum)
 >
->     examine            :: (EConfig, EConfig) → (GenEnum, Int) → (EConfig, EConfig)
+>     examine            :: (EConfig, EConfig) → (GenEnum, Double) → (EConfig, EConfig)
 >     examine (ecMod, ecVol) (DelayModEnv, val)
 >                                          = ((eConfigDelay .~ categorize (Just val)) ecMod, ecVol)
 >     examine (ecMod, ecVol) (AttackModEnv, val)
@@ -170,23 +170,23 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >            | otherwise                   = IntSet.insert val_ wild_
 >
 >         genData'                         = (  (gOccur +~ 1)
->                                             . (gAccum +~ val)
+>                                             . (gAccum +~ fromIntegral val)
 >                                             . (gAccumSquares +~ (dVal * dVal))
 >                                             . (gWildValues .~ wild)) genData
 >
 >     shredGen           :: VB.Vector GenData → F.Generator → VB.Vector GenData
 >         
 >     -- 0..4
->     shredGen is (F.StartAddressOffset _)
->                                          = upd is StartAddressOffset Nothing
->     shredGen is (F.EndAddressOffset _)
->                                          = upd is EndAddressOffset Nothing
->     shredGen is (F.LoopStartAddressOffset _)
->                                          = upd is LoopStartAddressOffset Nothing
->     shredGen is (F.LoopEndAddressOffset _)
->                                          = upd is LoopEndAddressOffset Nothing
->     shredGen is (F.StartAddressCoarseOffset _)
->                                          = upd is StartAddressCoarseOffset Nothing
+>     shredGen is (F.StartAddressOffset val)
+>                                          = upd is StartAddressOffset (Just val)
+>     shredGen is (F.EndAddressOffset val)
+>                                          = upd is EndAddressOffset (Just val)
+>     shredGen is (F.LoopStartAddressOffset val)
+>                                          = upd is LoopStartAddressOffset (Just val)
+>     shredGen is (F.LoopEndAddressOffset val)
+>                                          = upd is LoopEndAddressOffset (Just val)
+>     shredGen is (F.StartAddressCoarseOffset val)
+>                                          = upd is StartAddressCoarseOffset (Just val)
 >         
 >         -- 5..9
 >     shredGen is (F.ModLfoToPitch val)
@@ -205,8 +205,8 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is ModLfoToFc (Just val)
 >     shredGen is (F.ModEnvToFc val)
 >                                          = upd is ModEnvToFc (Just val)
->     shredGen is (F.EndAddressCoarseOffset _)
->                                          = upd is EndAddressCoarseOffset Nothing
+>     shredGen is (F.EndAddressCoarseOffset val)
+>                                          = upd is EndAddressCoarseOffset (Just val)
 >     shredGen is (F.ModLfoToVol val)
 >                                          = upd is ModLfoToVol (Just val)
 >         
@@ -271,8 +271,8 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is KeyRange Nothing
 >     shredGen is (F.VelRange _ _)
 >                                          = upd is VelRange Nothing
->     shredGen is (F.LoopStartAddressCoarseOffset _)
->                                          = upd is LoopStartAddressCoarseOffset Nothing
+>     shredGen is (F.LoopStartAddressCoarseOffset val)
+>                                          = upd is LoopStartAddressCoarseOffset (Just val)
 >     shredGen is (F.Key val)
 >                                          = upd is Key ((Just . fromIntegral) val)
 >     shredGen is (F.Vel val)
@@ -281,8 +281,8 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is InitAtten (Just val)
 >         
 >         -- 50..54
->     shredGen is (F.LoopEndAddressCoarseOffset _)
->                                          = upd is LoopEndAddressCoarseOffset Nothing
+>     shredGen is (F.LoopEndAddressCoarseOffset val)
+>                                          = upd is LoopEndAddressCoarseOffset (Just val)
 >     shredGen is (F.CoarseTune val)
 >                                          = upd is CoarseTune (Just val)
 >     shredGen is (F.FineTune val)
@@ -308,13 +308,14 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 > rollupGenSums toLevel tagRollup vGenSum  =
 >   let
 >     addGenSums         :: GenSum → GenSum → GenSum
->     addGenSums (GenSum level tagAdd slate1 _ mod1 vol1) (GenSum _ _ slate2 _ mod2 vol2)
+>     addGenSums (GenSum level tagAdd slate1 _ nz1 mod1 vol1) (GenSum _ _ slate2 _ nz2 mod2 vol2)
 >                                          =
 >       GenSum
 >         level 
 >         tagAdd
 >         (VB.zipWith addGenDatas slate1 slate2)
 >         VB.empty
+>         (nz1 + nz2)
 >         (Map.unionWith (+) mod1 mod2)
 >         (Map.unionWith (+) vol1 vol2)
 >
