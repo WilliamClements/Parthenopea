@@ -17,7 +17,7 @@ May 28, 2026
 > import Data.Text (Text)
 > import qualified Data.Vector.Strict      as VB
 > import Eng.SFSpec
-
+  
 Modifiers to filter ouput =============================================================================================
 
 > showLevel              :: GenSumLevel
@@ -97,7 +97,7 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                                              then VB.empty
 >                                              else VB.fromList (stats ++ [results])
 >           where
->             gen        :: GenEnum        = genData ^. gId
+>             gen        :: GenEnum        = genData ^. gGen
 >             ix                           = fromEnum gen
 >             spec                         = specVector VB.! ix
 >
@@ -153,9 +153,7 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >             showStat (m, s)              = Text.unwords [Text.show m, Text.pack "+-", Text.show s]
 >
 >             results    :: Text
->             results                      = if False
->                                              then Text.empty
->                                              else Text.unwords [sindent, Text.show gresult]
+>             results                      = Text.unwords [sindent, Text.show gresult]
 >               where
 >                 gresult                  = GenResult
 >                                              strUnit

@@ -20,19 +20,17 @@ April 16, 2023
 > import Data.Set (Set)
 > import qualified Data.Set                as Set
 > import Data.Maybe
-> import qualified Data.Text               as Text
-> import Data.Text (Text)
 > import qualified Data.Vector.Strict      as VB
   
 The Generator types are numbered 0 to 60. =============================================================================
 
 The per-file diagnostic data (GenSum) includes:
-1. (raw data) vector (GenData) of 61 per-generator infos - each with
+1. numerical dispersion for found values of each Generator type
+2. envelope statistics summed up over all instruments in the file
+3. (raw data) vector (GenData) of 61 per-generator infos - each with
    a. occurrence count
    b. point accumulator
    c. all out-of-range values encountered
-2. envelope statistics summed up over all instruments in the file
-3. numerical dispersion for found values of each Generator type
   
 > data GenEnum                             =
 >     StartAddressOffset | EndAddressOffset | LoopStartAddressOffset | LoopEndAddressOffset
@@ -49,7 +47,7 @@ The per-file diagnostic data (GenSum) includes:
 >
 > data GenData                             =
 >   GenData {
->     _gId               :: GenEnum
+>     _gGen              :: GenEnum
 >   , _gOccur            :: Int
 >   , _gAccum            :: Double
 >   , _gAccumSquares     :: Double
@@ -63,7 +61,7 @@ The per-file diagnostic data (GenSum) includes:
 > addGenDatas            :: GenData → GenData → GenData
 > addGenDatas gd1 gd2                      =
 >   GenData
->     (gd1 ^. gId)
+>     (gd1 ^. gGen)
 >     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
 >     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
 >     ((gd1 ^. gAccumSquares) + (gd2 ^. gAccumSquares))
@@ -124,7 +122,8 @@ The per-file diagnostic data (GenSum) includes:
 >   , _gsVolEnvMap       :: Map EConfig Int}
 >   deriving (Eq, Show)
 > makeLenses ''GenSum
-> makeGenSum             :: GenSumLevel → String → VB.Vector GenData → VB.Vector GenSum → Int → Map EConfig Int → Map EConfig Int → GenSum
+> makeGenSum             :: GenSumLevel → String → VB.Vector GenData → VB.Vector GenSum
+>                           → Int → Map EConfig Int → Map EConfig Int → GenSum
 > makeGenSum                               = GenSum
 >
 > openSoundFontFile      :: Int → FilePath → IO SFFileBoot
@@ -180,6 +179,9 @@ Returns the frequency ratio
 > fromCents              :: Double → Double
 > fromCents cents                          = pow 2 (cents/12/100)
 >
+> fromSemitones          :: Double → Double
+> fromSemitones semitones                  = pow 2 (semitones/12)
+>
 > fromCents'             :: Maybe Int → Maybe Int → Maybe Double
 > fromCents' mcoarse mfine
 >   | isNothing mcoarse && isNothing mfine = Nothing
@@ -226,27 +228,30 @@ Generator Shredding ============================================================
 >   t1clip, t2clip, t3clip, tmclip, tnclip
 >                      :: (Int, Int)
 >
-> teclip                                   = (-12_000, 12_000)
-> tfclip                                   = (1_500, 13_500)
-> tqclip                                   = (0, 960)
-> tvclip                                   = (-960, 960)
-> ticlip                                   = (0, 1_000)
-> tpclip                                   = (-500, 500)
-> tcclip                                   = (-12_000, 5_000)
-> tbclip                                   = (-12_000, 8_000)
-> taclip                                   = (-16_000, 4_500)
-> tkclip                                   = (-1_200, 1_200)
-> tdclip                                   = (0, 1_440)
-> tmclip                                   = (0, 127)
-> tnclip                                   = (1, 127) 
-> t1clip                                   = (-120, 120)
-> t2clip                                   = (-99, 99)
-> t3clip                                   = (0, 1_200)
+> teclip                                   = (-12_000, 12_000) -- ModLfoToPitch | VibLfoToPitch | ModEnvToPitch
+>                                                              -- | ModLfoToFc | ModEnvToFc
+> tfclip                                   = (1_500, 13_500)   -- InitFc
+> tqclip                                   = (0, 960)          -- InitQ
+> tvclip                                   = (-960, 960)       -- ModLfoToVol
+> ticlip                                   = (0, 1_000)        -- Chorus | Reverb | SustainModEnv
+> tpclip                                   = (-500, 500)       -- Pan
+> tcclip                                   = (-12_000, 5_000)  -- DelayModLfo | DelayVibLfo | DelayModEnv | HoldModEnv
+>                                                              -- | DelayVolEnv | HoldVolEnv
+> tbclip                                   = (-12_000, 8_000)  -- AttackModEnv
+> taclip                                   = (-16_000, 4_500)  -- DelayModEnv | AttackModEnv | DecayModEnv
+>                                                              -- | ReleaseModEnv
+> tkclip                                   = (-1_200, 1_200)   -- KeyToModEnvHold | KeyToModEnvDecay
+>                                                              -- | KeyToVolEnvHold | KeyToVolEnvDecay
+> tdclip                                   = (0, 1_440)        -- SustainVolEnv | InitAtten
+> tmclip                                   = (0, 127)          -- Key | RootKey
+> tnclip                                   = (1, 127)          -- Vel | ExclusiveClass
+> t1clip                                   = (-120, 120)       -- CoarseTune
+> t2clip                                   = (-99, 99)         -- FineTune
+> t3clip                                   = (0, 1_200)        -- ScaleTuning
 >
 > data Unit                                = NoUnit | Centibels | Cents | AbsoluteCents | TimeCents
 >                                                   | Tenths | Points | CoarsePoints | Keys | Semitones
 >   deriving (Eq, Show)
-> makePrisms ''Unit
 >
 > data Spec where
 >   Spec       :: {_gClip :: Maybe (Int, Int)
@@ -257,7 +262,7 @@ Generator Shredding ============================================================
 > makeLenses ''Spec
 >
 > data GenResult where
->   GenResult   :: {rUnit :: Text
+>   GenResult   :: {rUnit :: String
 >                , rDefault :: Double
 >                , rPopMean :: Maybe Double
 >                , rSampleMean :: Maybe Double
@@ -355,17 +360,17 @@ Generator Shredding ============================================================
 >                                            VB.++ makeUpdate Keys             usesKeys
 >                                            VB.++ makeUpdate Semitones        usesSemitones
 >
-> unitAction              :: Unit → (Text, Double → Double)
-> unitAction Centibels                     = (Text.pack "centibels to volume ratio",     fromCentibels)
-> unitAction Cents                         = (Text.pack "cents to Hz ratio",             fromCents)
-> unitAction AbsoluteCents                 = (Text.pack "absolute cents to Hz",          fromAbsoluteCents)
-> unitAction TimeCents                     = (Text.pack "time cents to seconds",         fromTimecents)
-> unitAction Tenths                        = (Text.pack "from tenths",                   (/ 1000))
-> unitAction Points                        = (Text.pack "sample points",                 id)
-> unitAction CoarsePoints                  = (Text.pack "32768 sample points",           (* 32768))
-> unitAction Keys                          = (Text.pack "MIDI keys",                     id)
-> unitAction Semitones                     = (Text.pack "semitones",                     id)
-> unitAction NoUnit                        = (Text.pack "no unit",                       id)
+> unitAction              :: Unit → (String, Double → Double)
+> unitAction Centibels                     = ("centibels to volume ratio",     fromCentibels)
+> unitAction Cents                         = ("cents to Hz ratio",             fromCents)
+> unitAction AbsoluteCents                 = ("absolute cents to Hz",          fromAbsoluteCents)
+> unitAction TimeCents                     = ("time cents to seconds",         fromTimecents)
+> unitAction Tenths                        = ("from tenths",                   (/ 1000))
+> unitAction Points                        = ("sample points",                 id)
+> unitAction CoarsePoints                  = ("32768 sample points",           (* 32768))
+> unitAction Keys                          = ("MIDI keys",                     id)
+> unitAction Semitones                     = ("semitones",                     fromSemitones)
+> unitAction NoUnit                        = ("no unit",                       id)
 >
 > allGens                :: VB.Vector GenEnum
 >

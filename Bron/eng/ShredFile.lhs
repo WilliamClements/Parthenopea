@@ -120,7 +120,7 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >     examineIf          :: (EConfig, EConfig) → GenData → (EConfig, EConfig)
 >     examineIf acc genData                = if isEmptyGenData genData
 >                                               then acc
->                                               else examine acc (genData ^. gId, genData ^. gAccum)
+>                                               else examine acc (genData ^. gGen, genData ^. gAccum)
 >
 >     examine            :: (EConfig, EConfig) → (GenEnum, Double) → (EConfig, EConfig)
 >     examine (ecMod, ecVol) (DelayModEnv, val)
