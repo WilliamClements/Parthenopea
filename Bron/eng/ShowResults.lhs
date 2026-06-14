@@ -9,9 +9,11 @@ May 28, 2026
 >
 > import Control.Lens hiding ( element, ix )
 > import Control.Monad                     as CM
+> import qualified Data.Bifunctor          as BF
 > import Data.List
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
+> import Data.Maybe
 > import Data.Ord
 > import qualified Data.Set                as Set
 > import qualified Data.Text               as Text
@@ -52,8 +54,8 @@ Start with the overall rollup and recurse down =================================
 >                        :: IO ()
 >     outputHeader                         = putStrLn $ unwords [show (gensum ^. gsLevel), gensum ^. gsTag]
 >     outputStats                          = do
->       putStrLn $ unwords ["\nGenerator statistics:\n"]
->       CM.mapM_ showOneGen allGens
+>       putStrLn $ unwords ["\nGenerator statistics:", show (gensum ^. gsZoneCount), "zones \n"]
+>       CM.mapM_ statsOneGen allGens
 >       putStrLn $ unwords ["\n\n"]
 >     outputEnv                            = do
 >       putStrLn $ unwords ["\nModulation Envelope configs (total=", show (total (gensum ^. gsModEnvMap)), "):\n"]
@@ -91,8 +93,8 @@ Collate (modulation or volume) envelope configurations by occurrence ===========
 
 Compute and show numerical statistics for each value-bearing generator type ===========================================
 
->     showOneGen genOne                    = showOneGenData ((gensum ^. gsGenSlate) VB.! fromEnum genOne)
->     showOneGenData genData               = do
+>     statsOneGen genOne                   = statsOneGenData ((gensum ^. gsGenSlate) VB.! fromEnum genOne)
+>     statsOneGenData genData              = do
 >       CM.unless noData (putStrLn $ Text.unpack stats)
 >       where
 >         gen            :: GenEnum        = genData ^. gGen
@@ -103,44 +105,51 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                        :: Bool
 >         noData                           = isEmptyGenData genData
 >         noDefault                        = Set.member gen noNumericDefault
+>         noStats                          = isNothing (spec ^. gClip) || (spec ^. gUnit) == NoUnit
+>         readyClip                        = fromJust $ spec ^. gClip
 >
 >         (strUnit, convert)               = unitAction (spec ^. gUnit)
 >
 >         stats          :: Text           =
 >           let
->             showStat mean stdDev         = Text.unwords [Text.show mean, Text.pack "+-", Text.show stdDev]
+>             showStat mean stdDev         = Text.unwords [showMean, Text.pack "+-", showStdDev]
+>               where
+>                 showMean                 = Text.justifyRight 32 ' ' (Text.show mean)
+>                 showStdDev               = Text.justifyLeft 32 ' ' (Text.show stdDev)
+>             indent     :: Text           = Text.pack "      "
 >
->             s0         :: Text           = Text.unwords [  Text.justifyLeft 5 ' ' (Text.show ix)
+>             sHead      :: Text           = Text.unwords [  Text.justifyLeft 3 ' ' (Text.show ix)
 >                                                          , Text.justifyLeft 32 ' ' (Text.show gen)
 >                                                          , Text.show spec]
+>
+>             sPercent                     = percent (genData ^. gOccur) (gensum ^. gsZoneCount)
 >             spMean     :: Text           = if noDefault
 >                                              then Text.unwords [spop, Text.pack "n/a"]
 >                                              else Text.unwords [spop, showStat pMean pStdDev]
 >             ssMean     :: Text           = if noData
 >                                              then Text.unwords [ssample, Text.pack "n/a"]
 >                                              else Text.unwords [ssample, showStat sMean sStdDev]
->             indent     :: Text           = Text.pack "      "
 >             genResult                    = GenResult
 >                                              strUnit
+>                                              (BF.bimap (convert . fromIntegral) (convert . fromIntegral) readyClip)
 >                                              ((convert . fromIntegral) (spec ^. gDefault))
->                                              (if noDefault then Nothing else Just (convert pMean))
->                                              (if noData then Nothing else Just (convert sMean))
+>             sResult                      = indent `Text.append` Text.show genResult
+>
+>             sOccur     :: Text           = indent `Text.append` Text.pack (unwords ["Occurence:", sPercent])
 >           in
->             Text.unlines [s0, spMean, ssMean, indent `Text.append` Text.show genResult]
+>             if noStats
+>               then Text.unlines [sHead, sOccur]
+>               else Text.unlines [sHead, sOccur, spMean, ssMean, sResult]
 >
 >         sindent, spop, ssample, popMean, sampleMean
 >                        :: Text
 >         sindent                          = Text.replicate 4 (Text.singleton ' ')
 >
 >         spop                             =
->           Text.unwords [sindent
->                       , Text.justifyRight 15 ' ' (Text.show (gensum ^. gsZoneCount))
->                       , sindent
+>           Text.unwords [sindent, sindent
 >                       , Text.justifyRight 15 ' ' popMean]
 >         ssample                          =
->           Text.unwords [sindent
->                       , Text.justifyRight 15 ' ' (Text.show (genData ^. gOccur))
->                       , sindent
+>           Text.unwords [sindent, sindent
 >                       , Text.justifyRight 15 ' ' sampleMean]
 >
 >         popMean                          = Text.pack "pop.mean"
@@ -197,8 +206,8 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >     frac               :: Double         = fromIntegral n / fromIntegral denom
 >     nPercent           :: Int            = round (frac * 100)
 >     tPercent           :: Text           = Text.justifyRight 8 ' ' (Text.pack $ show nPercent ++ "%")
->     tTotal             :: Text           = Text.justifyRight 12 ' ' (Text.pack $ "(" ++ show n ++ ")")
+>     tOccur             :: Text           = Text.justifyRight 12 ' ' (Text.pack $ "(" ++ show n ++ ")")
 >   in
->     Text.unpack $ tPercent `Text.append` tTotal
+>     Text.unpack $ tPercent `Text.append` tOccur
 
 The End

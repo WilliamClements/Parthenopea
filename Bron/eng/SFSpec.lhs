@@ -267,17 +267,9 @@ Generator Shredding ============================================================
 >
 > data GenResult where
 >   GenResult   :: {rUnit :: String
+>                 , rClip    :: (Double, Double)
 >                 , rDefault :: Double
->                 , rPopMean :: Maybe Double
->                 , rSampleMean :: Maybe Double
 >                } → GenResult
->   deriving (Eq, Show)
->
-> data GenOccur where
->   GenOccur    :: {oTotal  :: Int
->                 , oOccur   :: Int
->                 , oPercent :: String
->                } → GenOccur
 >   deriving (Eq, Show)
 >
 > specVector             :: VB.Vector Spec
