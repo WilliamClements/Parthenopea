@@ -49,13 +49,13 @@ The per-file diagnostic data (GenSum) includes:
 >   GenData {
 >     _gGen              :: GenEnum
 >   , _gOccur            :: Int
+>   , _gWildValues       :: IntSet
 >   , _gAccum            :: Double
->   , _gAccumSquares     :: Double
->   , _gWildValues       :: IntSet}
+>   , _gAccumSquares     :: Double}
 >   deriving (Eq, Show)
 > makeLenses ''GenData
 > makeGenData            :: GenEnum → GenData
-> makeGenData gen                          = GenData gen 0 0 0  IntSet.empty     
+> makeGenData gen                          = GenData gen 0 IntSet.empty 0 0       
 > isEmptyGenData         :: GenData → Bool
 > isEmptyGenData gd                        = (gd ^. gOccur) == 0
 > addGenDatas            :: GenData → GenData → GenData
@@ -63,10 +63,10 @@ The per-file diagnostic data (GenSum) includes:
 >   GenData
 >     (gd1 ^. gGen)
 >     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
+>     ((gd1 ^. gWildValues) `IntSet.union` (gd2 ^. gWildValues))
 >     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
 >     ((gd1 ^. gAccumSquares) + (gd2 ^. gAccumSquares))
->     ((gd1 ^. gWildValues) `IntSet.union` (gd2 ^. gWildValues))
->
+>     
 > type BagIndex                            = Int
 > type GenSlate                            = VB.Vector GenData
 >
@@ -190,6 +190,9 @@ Returns the frequency ratio
 >     coarse, fine       :: Double
 >     coarse                               = maybe 0 fromIntegral mcoarse
 >     fine                                 = maybe 0 fromIntegral mfine
+>
+> fromMicrotones         :: Double → Double
+> fromMicrotones centsPerKey               = pow 2 (centsPerKey / 1_200)
 
 Returns the frequency
 
@@ -249,8 +252,9 @@ Generator Shredding ============================================================
 > t2clip                                   = (-99, 99)         -- FineTune
 > t3clip                                   = (0, 1_200)        -- ScaleTuning
 >
-> data Unit                                = NoUnit | Centibels | Cents | AbsoluteCents | TimeCents
+> data Unit                                = NoUnit | Centibels | Cents | AbsoluteCents | Timecents
 >                                                   | Tenths | Points | CoarsePoints | Keys | Semitones
+>                                                   | CentsPerKey | TimecentsPerKey
 >   deriving (Eq, Show)
 >
 > data Spec where
@@ -353,23 +357,27 @@ Generator Shredding ============================================================
 >     changes                              =       makeUpdate Centibels        usesCentibels
 >                                            VB.++ makeUpdate Cents            usesCents
 >                                            VB.++ makeUpdate AbsoluteCents    usesAbsoluteCents
->                                            VB.++ makeUpdate TimeCents        usesTimeCents
+>                                            VB.++ makeUpdate Timecents        usesTimeCents
 >                                            VB.++ makeUpdate Tenths           usesTenths
 >                                            VB.++ makeUpdate Points           usesPoints
 >                                            VB.++ makeUpdate CoarsePoints     usesCoarsePoints
 >                                            VB.++ makeUpdate Keys             usesKeys
 >                                            VB.++ makeUpdate Semitones        usesSemitones
+>                                            VB.++ makeUpdate CentsPerKey      usesCentsPerKey
+>                                            VB.++ makeUpdate TimecentsPerKey  usesTimecentsPerKey
 >
 > unitAction              :: Unit → (String, Double → Double)
 > unitAction Centibels                     = ("centibels to volume ratio",     fromCentibels)
 > unitAction Cents                         = ("cents to Hz ratio",             fromCents)
 > unitAction AbsoluteCents                 = ("absolute cents to Hz",          fromAbsoluteCents)
-> unitAction TimeCents                     = ("time cents to seconds",         fromTimecents)
+> unitAction Timecents                     = ("time cents to seconds",         fromTimecents)
 > unitAction Tenths                        = ("from tenths",                   (/ 1000))
 > unitAction Points                        = ("sample points",                 id)
 > unitAction CoarsePoints                  = ("32768 sample points",           (* 32768))
 > unitAction Keys                          = ("MIDI keys",                     id)
 > unitAction Semitones                     = ("semitones",                     fromSemitones)
+> unitAction CentsPerKey                   = ("cents per MIDI key",            fromMicrotones)
+> unitAction TimecentsPerKey               = ("time cents per MIDI key",       fromTimecents)
 > unitAction NoUnit                        = ("no unit",                       id)
 >
 > allGens                :: VB.Vector GenEnum
@@ -377,7 +385,8 @@ Generator Shredding ============================================================
 > allGens                                  = VB.generate 61 toEnum
 >
 > noNumericDefault, usesCentibels, usesCents, usesAbsoluteCents, usesTimeCents
->  , usesTenths, usesPoints, usesCoarsePoints, usesKeys, usesSemitones 
+>  , usesTenths, usesPoints, usesCoarsePoints, usesKeys, usesSemitones, usesCentsPerKey
+>  , usesTimecentsPerKey
 >                        :: Set GenEnum
 > noNumericDefault                         = Set.fromList [  ExclusiveClass, Key, RootKey, Vel]
 >
@@ -395,5 +404,7 @@ Generator Shredding ============================================================
 >                                                          , LoopStartAddressCoarseOffset, LoopEndAddressCoarseOffset]
 > usesKeys                                 = Set.fromList [  Key, RootKey, Vel]
 > usesSemitones                            = Set.fromList [  CoarseTune]
+> usesCentsPerKey                          = Set.fromList [  ScaleTuning]
+> usesTimecentsPerKey                      = Set.fromList [  KeyToVolEnvHold, KeyToVolEnvDecay]
 
 The End

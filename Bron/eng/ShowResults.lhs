@@ -8,6 +8,7 @@ May 28, 2026
 >         showResults ) where
 >
 > import Control.Lens hiding ( element, ix )
+> import Control.Monad                     as CM
 > import Data.List
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
@@ -28,74 +29,83 @@ Modifiers to filter ouput ======================================================
 
 Start with the overall rollup and recurse down ========================================================================
 
-> showResults       :: GenSum → IO (VB.Vector (VB.Vector Text))
+> showResults       :: GenSum → IO ()
 > showResults rootGenSum                   = do
 >   putStrLn $ unwords ["num Files", show nFiles]
 >   putStrLn $ unwords ["num Insts", show nInsts]
 >   putStrLn $ unwords ["num Zones", show nZones]
->   return $ showGenSum rootGenSum
+>   showGenSum rootGenSum
 >   where
 >     nFiles, nInsts, nZones
 >                        :: Int
 >     (nFiles, nInsts, nZones)             = overallCounts rootGenSum
 >
->     showGenSum         :: GenSum → VB.Vector (VB.Vector Text)
->     showGenSum gensum                    =
->       recurseOutput VB.++ VB.fromList [headerOutput, slateOutput, envOutput, statsOutput]
+>     showGenSum         :: GenSum → IO ()
+>     showGenSum gensum                    = do
+>       outputHeader
+>       outputSlate
+>       outputEnv
+>       outputStats
+>       recurseOutput
 >       where
->         headerOutput                     = VB.fromList [Text.empty, Text.pack $ unwords [show (gensum ^. gsLevel), gensum ^. gsTag]]
->         slateOutput                      = if skipRaw
->                                              then VB.empty
->                                              else VB.map (Text.pack . show) (VB.filter scoop (gensum ^. gsGenSlate))
->                                                where scoop genData = not (isEmptyGenData genData)
->         envOutput                        =
->           VB.singleton (Text.pack $ unwords ["\nModulation Envelope configs (total=", show (total (gensum ^. gsModEnvMap)), "):\n"])
->           VB.++ showEnvMap (gensum ^. gsModEnvMap) (gensum ^. gsZoneCount)
->           VB.++ VB.singleton (Text.pack $ unwords ["\nVolume Envelope configs (total=", show (total (gensum ^. gsVolEnvMap)), "):\n"])
->           VB.++ showEnvMap (gensum ^. gsVolEnvMap) (gensum ^. gsZoneCount)
->           VB.++ VB.fromList [Text.pack "\n\n"]
+>         outputHeader, outputSlate, outputEnv, outputStats, recurseOutput
+>                        :: IO ()
+>         outputHeader                     = putStrLn $ unwords [show (gensum ^. gsLevel), gensum ^. gsTag]
+>         outputSlate                      = do
+>           CM.unless skipRaw
+>             (do
+>                let genDatas              = VB.filter (not . isEmptyGenData) (gensum ^. gsGenSlate)
+>                CM.mapM_ (putStrLn . show) genDatas)
+>         outputEnv                        = do
+>           putStrLn $ unwords ["\nModulation Envelope configs (total=", show (total (gensum ^. gsModEnvMap)), "):\n"]
+>           showEnvMap (gensum ^. gsModEnvMap) (gensum ^. gsZoneCount)
+>           putStrLn $ unwords ["\nVolume Envelope configs (total=", show (total (gensum ^. gsVolEnvMap)), "):\n"]
+>           showEnvMap (gensum ^. gsVolEnvMap) (gensum ^. gsZoneCount)
+>           putStrLn "\n\n"
 >           where
 >             total      :: Map EConfig Int → Int
 >             total                        = sum . Map.elems
->         statsOutput                       =
->           VB.fromList [Text.pack "\nGenerator statistics:\n"]
->           VB.++ showStats gensum
->           VB.++ VB.singleton (Text.pack "\n\n")
+>         outputStats                      = do
+>           putStrLn $ unwords ["\nGenerator statistics:\n"]
+>           showStats gensum
+>           putStrLn $ unwords ["\n\n"]
 
 Conditionally propagate showGenSum to subservients ====================================================================
 
->         recurseOutput                    = if fromEnum showLevel >= fromEnum (gensum ^. gsLevel)
->                                              then VB.empty
->                                              else VB.concatMap showGenSum (gensum ^. gsSubSums)
+>         recurseOutput                    = do
+>           CM.unless
+>             (fromEnum showLevel >= fromEnum (gensum ^. gsLevel))
+>             (CM.mapM_ showGenSum (gensum ^. gsSubSums))
 
 Collate (modulation or volume) envelope configurations by occurrence ==================================================
 
->     showEnvMap envMap zcount
->       | Map.null envMap                  = VB.empty
->       | otherwise                        = VB.fromList (map (uncurry showEConfig) arrivals)
->         where
->           arrivals     :: [(Int, EConfig)]    
->           arrivals                       = sortBy (comparing Down) (Map.foldrWithKey shuffle [] envMap)
+>     showEnvMap         :: Map EConfig Int → Int → IO ()
+>     showEnvMap envMap zcount             = do
+>       CM.unless (Map.null envMap) (CM.mapM_ (uncurry showEConfig) arrivals)
+>       where
+>         arrivals       :: [(Int, EConfig)]    
+>         arrivals                         = sortBy (comparing Down) (Map.foldrWithKey shuffle [] envMap)
 >                                               where shuffle ec count acc = (count, ec) : acc
->           showEConfig  :: Int → EConfig → Text
->           showEConfig count ec           = Text.pack $ unwords [percent count zcount, show count, show ec]
->             where
->               percent  :: Int → Int → String
->               percent n denom           =
->                 let
->                   frac :: Double        = fromIntegral n / fromIntegral denom
->                 in
->                   show (round (frac * 100)::Int) ++ "%"
+>         showEConfig    :: Int → EConfig → IO ()
+>         showEConfig count ec             = 
+>           let
+>             percent    :: Int → Int → String
+>             percent n denom              = show (round (frac * 100)::Int) ++ "%"
+>               where
+>                 frac :: Double           = fromIntegral n / fromIntegral denom
+>           in
+>             putStrLn $ unwords [percent count zcount, show count, show ec]
 
 Compute and show numerical statistics for each value-bearing generator type ===========================================
 
->     showStats          :: GenSum → VB.Vector Text
->     showStats gensum                     = VB.concatMap showOneGen allGens
+>     showStats          :: GenSum → IO ()
+>     showStats gensum                     = CM.mapM_ showOneGen allGens
 >       where
+>         showOneGen     :: GenEnum → IO ()
 >         showOneGen genOne                = showOneGenData ((gensum ^. gsGenSlate) VB.! fromEnum genOne)
->         showOneGenData genData           = if noData
->                                              then VB.empty
->                                              else VB.fromList (stats ++ [results])
+>         showOneGenData :: GenData → IO ()
+>         showOneGenData genData           = do
+>           CM.unless noData (putStrLn $ Text.unpack stats)
 >           where
 >             gen        :: GenEnum        = genData ^. gGen
 >             ix                           = fromEnum gen
@@ -106,17 +116,27 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >             noData                       = isEmptyGenData genData
 >             noDefault                    = Set.member gen noNumericDefault
 >
->             stats      :: [Text]         =
+>             (strUnit, convert)           = unitAction (spec ^. gUnit)
+>
+>             stats      :: Text           =
 >               let
->                 s0                       = Text.unwords [Text.show ix, Text.show gen, Text.show spec]
->                 spMean                   = if noDefault
+>                 s0     :: Text           = Text.unwords [  Text.justifyLeft 5 ' ' (Text.show ix)
+>                                                          , Text.justifyLeft 32 ' ' (Text.show gen)
+>                                                          , Text.show spec]
+>                 spMean :: Text           = if noDefault
 >                                              then Text.unwords [spop, Text.pack "n/a"]
 >                                              else Text.unwords [spop, showStat (pMean, pStdDev)]
->                 ssMean                   = if noData
+>                 ssMean :: Text           = if noData
 >                                              then Text.unwords [ssample, Text.pack "n/a"]
 >                                              else Text.unwords [ssample, showStat (sMean, sStdDev)]
+>                 indent :: Text           = Text.pack "      "
+>                 genResult                = GenResult
+>                                              strUnit
+>                                              ((convert . fromIntegral) (spec ^. gDefault))
+>                                              (if noDefault then Nothing else Just (convert pMean))
+>                                              (if noData then Nothing else Just (convert sMean))
 >               in
->                 [s0, spMean, ssMean]
+>                 Text.unlines [s0, spMean, ssMean, indent `Text.append` Text.show genResult]
 >
 >             sindent, spop, ssample, popMean, sampleMean
 >                        :: Text
@@ -151,21 +171,6 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >
 >             showStat   :: (Double, Double) → Text
 >             showStat (m, s)              = Text.unwords [Text.show m, Text.pack "+-", Text.show s]
->
->             results    :: Text
->             results                      = Text.unwords [sindent, Text.show gresult]
->               where
->                 gresult                  = GenResult
->                                              strUnit
->                                              ((convert . fromIntegral) (spec ^. gDefault))
->                                              (if noDefault
->                                                then Nothing
->                                                else Just (convert pMean))
->                                              (if noData
->                                                then Nothing
->                                                else Just (convert sMean))
->
->                 (strUnit, convert)       = unitAction (spec ^. gUnit)
 >
 > dispersion             :: Int → Double → Double → Int → Double → (Double, Double)
 > dispersion nVals accum_ accumSquares_ nDef valDef
