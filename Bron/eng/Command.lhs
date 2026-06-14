@@ -36,8 +36,7 @@ Executive ======================================================================
 > proceedWith sf2s                         = do
 >   extraction                             ← CM.zipWithM openSoundFontFile [0..] sf2s
 >   putStrLn $ unwords [show (length extraction), "extracted\n"]
->   let vFilesBoot                         = VB.fromList extraction
->   vGenSum                                ← CM.mapM shredFile vFilesBoot
+>   let vGenSum                            = VB.map shredFile (VB.fromList extraction)
 >   showResults $ rollupGenSums GSRollLevel "<summary>" vGenSum
 
 The End

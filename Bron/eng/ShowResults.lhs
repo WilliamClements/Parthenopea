@@ -40,42 +40,42 @@ Start with the overall rollup and recurse down =================================
 >                        :: Int
 >     (nFiles, nInsts, nZones)             = overallCounts rootGenSum
 >
->     showGenSum         :: GenSum → IO ()
->     showGenSum gensum                    = do
->       outputHeader
->       outputSlate
->       outputEnv
->       outputStats
->       recurseOutput
->       where
->         outputHeader, outputSlate, outputEnv, outputStats, recurseOutput
+> showGenSum             :: GenSum → IO ()
+> showGenSum gensum                        = do
+>   outputHeader
+>   outputStats
+>   outputEnv
+>   outputSlate
+>   recurseOutput
+>   where
+>     outputHeader, outputStats, outputEnv, outputSlate, recurseOutput
 >                        :: IO ()
->         outputHeader                     = putStrLn $ unwords [show (gensum ^. gsLevel), gensum ^. gsTag]
->         outputSlate                      = do
->           CM.unless skipRaw
->             (do
->                let genDatas              = VB.filter (not . isEmptyGenData) (gensum ^. gsGenSlate)
->                CM.mapM_ (putStrLn . show) genDatas)
->         outputEnv                        = do
->           putStrLn $ unwords ["\nModulation Envelope configs (total=", show (total (gensum ^. gsModEnvMap)), "):\n"]
->           showEnvMap (gensum ^. gsModEnvMap) (gensum ^. gsZoneCount)
->           putStrLn $ unwords ["\nVolume Envelope configs (total=", show (total (gensum ^. gsVolEnvMap)), "):\n"]
->           showEnvMap (gensum ^. gsVolEnvMap) (gensum ^. gsZoneCount)
->           putStrLn "\n\n"
->           where
->             total      :: Map EConfig Int → Int
->             total                        = sum . Map.elems
->         outputStats                      = do
->           putStrLn $ unwords ["\nGenerator statistics:\n"]
->           showStats gensum
->           putStrLn $ unwords ["\n\n"]
+>     outputHeader                         = putStrLn $ unwords [show (gensum ^. gsLevel), gensum ^. gsTag]
+>     outputStats                          = do
+>       putStrLn $ unwords ["\nGenerator statistics:\n"]
+>       CM.mapM_ showOneGen allGens
+>       putStrLn $ unwords ["\n\n"]
+>     outputEnv                            = do
+>       putStrLn $ unwords ["\nModulation Envelope configs (total=", show (total (gensum ^. gsModEnvMap)), "):\n"]
+>       showEnvMap (gensum ^. gsModEnvMap) (gensum ^. gsZoneCount)
+>       putStrLn $ unwords ["\nVolume Envelope configs (total=", show (total (gensum ^. gsVolEnvMap)), "):\n"]
+>       showEnvMap (gensum ^. gsVolEnvMap) (gensum ^. gsZoneCount)
+>       putStrLn "\n\n"
+>       where
+>         total          :: Map EConfig Int → Int
+>         total                            = sum . Map.elems
+>     outputSlate                          = do
+>       CM.unless skipRaw
+>         (do
+>            let genDatas                  = VB.filter (not . isEmptyGenData) (gensum ^. gsGenSlate)
+>            CM.mapM_ print genDatas)
 
 Conditionally propagate showGenSum to subservients ====================================================================
 
->         recurseOutput                    = do
->           CM.unless
->             (fromEnum showLevel >= fromEnum (gensum ^. gsLevel))
->             (CM.mapM_ showGenSum (gensum ^. gsSubSums))
+>     recurseOutput                        = do
+>       CM.unless
+>         (fromEnum showLevel >= fromEnum (gensum ^. gsLevel))
+>         (CM.mapM_ showGenSum (gensum ^. gsSubSums))
 
 Collate (modulation or volume) envelope configurations by occurrence ==================================================
 
@@ -87,90 +87,77 @@ Collate (modulation or volume) envelope configurations by occurrence ===========
 >         arrivals                         = sortBy (comparing Down) (Map.foldrWithKey shuffle [] envMap)
 >                                               where shuffle ec count acc = (count, ec) : acc
 >         showEConfig    :: Int → EConfig → IO ()
->         showEConfig count ec             = 
->           let
->             percent    :: Int → Int → String
->             percent n denom              = show (round (frac * 100)::Int) ++ "%"
->               where
->                 frac :: Double           = fromIntegral n / fromIntegral denom
->           in
->             putStrLn $ unwords [percent count zcount, show count, show ec]
+>         showEConfig count ec             = putStrLn $ unwords [percent count zcount, show ec]
 
 Compute and show numerical statistics for each value-bearing generator type ===========================================
 
->     showStats          :: GenSum → IO ()
->     showStats gensum                     = CM.mapM_ showOneGen allGens
+>     showOneGen genOne                    = showOneGenData ((gensum ^. gsGenSlate) VB.! fromEnum genOne)
+>     showOneGenData genData               = do
+>       CM.unless noData (putStrLn $ Text.unpack stats)
 >       where
->         showOneGen     :: GenEnum → IO ()
->         showOneGen genOne                = showOneGenData ((gensum ^. gsGenSlate) VB.! fromEnum genOne)
->         showOneGenData :: GenData → IO ()
->         showOneGenData genData           = do
->           CM.unless noData (putStrLn $ Text.unpack stats)
->           where
->             gen        :: GenEnum        = genData ^. gGen
->             ix                           = fromEnum gen
->             spec                         = specVector VB.! ix
+>         gen            :: GenEnum        = genData ^. gGen
+>         ix                               = fromEnum gen
+>         spec                             = specVector VB.! ix
 >
->             noData, noDefault
+>         noData, noDefault
 >                        :: Bool
->             noData                       = isEmptyGenData genData
->             noDefault                    = Set.member gen noNumericDefault
+>         noData                           = isEmptyGenData genData
+>         noDefault                        = Set.member gen noNumericDefault
 >
->             (strUnit, convert)           = unitAction (spec ^. gUnit)
+>         (strUnit, convert)               = unitAction (spec ^. gUnit)
 >
->             stats      :: Text           =
->               let
->                 s0     :: Text           = Text.unwords [  Text.justifyLeft 5 ' ' (Text.show ix)
+>         stats          :: Text           =
+>           let
+>             showStat mean stdDev         = Text.unwords [Text.show mean, Text.pack "+-", Text.show stdDev]
+>
+>             s0         :: Text           = Text.unwords [  Text.justifyLeft 5 ' ' (Text.show ix)
 >                                                          , Text.justifyLeft 32 ' ' (Text.show gen)
 >                                                          , Text.show spec]
->                 spMean :: Text           = if noDefault
+>             spMean     :: Text           = if noDefault
 >                                              then Text.unwords [spop, Text.pack "n/a"]
->                                              else Text.unwords [spop, showStat (pMean, pStdDev)]
->                 ssMean :: Text           = if noData
+>                                              else Text.unwords [spop, showStat pMean pStdDev]
+>             ssMean     :: Text           = if noData
 >                                              then Text.unwords [ssample, Text.pack "n/a"]
->                                              else Text.unwords [ssample, showStat (sMean, sStdDev)]
->                 indent :: Text           = Text.pack "      "
->                 genResult                = GenResult
+>                                              else Text.unwords [ssample, showStat sMean sStdDev]
+>             indent     :: Text           = Text.pack "      "
+>             genResult                    = GenResult
 >                                              strUnit
 >                                              ((convert . fromIntegral) (spec ^. gDefault))
 >                                              (if noDefault then Nothing else Just (convert pMean))
 >                                              (if noData then Nothing else Just (convert sMean))
->               in
->                 Text.unlines [s0, spMean, ssMean, indent `Text.append` Text.show genResult]
+>           in
+>             Text.unlines [s0, spMean, ssMean, indent `Text.append` Text.show genResult]
 >
->             sindent, spop, ssample, popMean, sampleMean
+>         sindent, spop, ssample, popMean, sampleMean
 >                        :: Text
->             sindent                      = Text.replicate 4 (Text.singleton ' ')
+>         sindent                          = Text.replicate 4 (Text.singleton ' ')
 >
->             spop                         =
->               Text.unwords [sindent
->                           , Text.justifyRight 15 ' ' (Text.show (gensum ^. gsZoneCount))
->                           , sindent
->                           , Text.justifyRight 15 ' ' popMean]
->             ssample                      =
->               Text.unwords [sindent
->                           , Text.justifyRight 15 ' ' (Text.show (genData ^. gOccur))
->                           , sindent
->                           , Text.justifyRight 15 ' ' sampleMean]
+>         spop                             =
+>           Text.unwords [sindent
+>                       , Text.justifyRight 15 ' ' (Text.show (gensum ^. gsZoneCount))
+>                       , sindent
+>                       , Text.justifyRight 15 ' ' popMean]
+>         ssample                          =
+>           Text.unwords [sindent
+>                       , Text.justifyRight 15 ' ' (Text.show (genData ^. gOccur))
+>                       , sindent
+>                       , Text.justifyRight 15 ' ' sampleMean]
 >
->             popMean                      = Text.pack "pop.mean"
->             sampleMean                   = Text.pack "sample.mean"
+>         popMean                          = Text.pack "pop.mean"
+>         sampleMean                       = Text.pack "sample.mean"
 >
->             (pMean, pStdDev)             = dispersion
+>         (pMean, pStdDev)                 = dispersion
 >                                              (genData ^. gOccur)
 >                                              (genData ^. gAccum)
 >                                              (genData ^. gAccumSquares)
 >                                              ((gensum ^. gsZoneCount) - (genData ^. gOccur))
 >                                              (fromIntegral (spec ^. gDefault))
->             (sMean, sStdDev)             = dispersion
+>         (sMean, sStdDev)                 = dispersion
 >                                              (genData ^. gOccur)
 >                                              (genData ^. gAccum)
 >                                              (genData ^. gAccumSquares)
 >                                              0
 >                                              (fromIntegral (spec ^. gDefault))
->
->             showStat   :: (Double, Double) → Text
->             showStat (m, s)              = Text.unwords [Text.show m, Text.pack "+-", Text.show s]
 >
 > dispersion             :: Int → Double → Double → Int → Double → (Double, Double)
 > dispersion nVals accum_ accumSquares_ nDef valDef
@@ -203,5 +190,15 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >         GSInstLevel    → (x,     y + 1,     z)
 >         GSZoneLevel    → (x,         y,     z + 1)
 >         _              → (x,         y,     z)
+>
+> percent                :: Int → Int → String
+> percent n denom                          =
+>   let
+>     frac               :: Double         = fromIntegral n / fromIntegral denom
+>     nPercent           :: Int            = round (frac * 100)
+>     tPercent           :: Text           = Text.justifyRight 8 ' ' (Text.pack $ show nPercent ++ "%")
+>     tTotal             :: Text           = Text.justifyRight 12 ' ' (Text.pack $ "(" ++ show n ++ ")")
+>   in
+>     Text.unpack $ tPercent `Text.append` tTotal
 
 The End

@@ -126,7 +126,7 @@ The per-file diagnostic data (GenSum) includes:
 >                           → Int → Map EConfig Int → Map EConfig Int → GenSum
 > makeGenSum                               = GenSum
 >
-> openSoundFontFile      :: Int → FilePath → IO SFFileBoot
+> openSoundFontFile      :: Int → FilePath → IO SF2
 > openSoundFontFile wFile filename         = do
 >   putStrLn filename
 >   result                                 ← F.importFile filename
@@ -142,7 +142,7 @@ The per-file diagnostic data (GenSum) includes:
 >               (F.igens pdata) (F.imods pdata)
 >               (F.shdrs pdata)
 >       let samplea                        = SampleArrays (F.smpl  sdata) (F.sm24  sdata)
->       return $ SFFileBoot 
+>       return $ SF2 
 >                  wFile 
 >                  filename 
 >                  boota 
@@ -154,8 +154,8 @@ The per-file diagnostic data (GenSum) includes:
 >   | otherwise                            = map (\cN → if goodChar cN then cN else '_') name
 >                                              where goodChar cN = isAscii cN && not (isControl cN)
 >
-> data SFFileBoot                          =
->   SFFileBoot {
+> data SF2                                 =
+>   SF2 {
 >     zWordFBoot         :: !Int
 >   , zFilename          :: FilePath
 >   , zFileArrays        :: FileArrays
@@ -253,7 +253,7 @@ Generator Shredding ============================================================
 > t3clip                                   = (0, 1_200)        -- ScaleTuning
 >
 > data Unit                                = NoUnit | Centibels | Cents | AbsoluteCents | Timecents
->                                                   | Tenths | Points | CoarsePoints | Keys | Semitones
+>                                                   | TenthsOfAPercent | Points | CoarsePoints | Keys | Semitones
 >                                                   | CentsPerKey | TimecentsPerKey
 >   deriving (Eq, Show)
 >
@@ -267,10 +267,17 @@ Generator Shredding ============================================================
 >
 > data GenResult where
 >   GenResult   :: {rUnit :: String
->                , rDefault :: Double
->                , rPopMean :: Maybe Double
->                , rSampleMean :: Maybe Double
+>                 , rDefault :: Double
+>                 , rPopMean :: Maybe Double
+>                 , rSampleMean :: Maybe Double
 >                } → GenResult
+>   deriving (Eq, Show)
+>
+> data GenOccur where
+>   GenOccur    :: {oTotal  :: Int
+>                 , oOccur   :: Int
+>                 , oPercent :: String
+>                } → GenOccur
 >   deriving (Eq, Show)
 >
 > specVector             :: VB.Vector Spec
@@ -354,31 +361,31 @@ Generator Shredding ============================================================
 >     makeUpdate unit gset                 = VB.fromList (Set.foldl disperse [] gset)
 >                                              where disperse i gen = (fromEnum gen, unit) : i
 >     changes            :: VB.Vector (Int, Unit)
->     changes                              =       makeUpdate Centibels        usesCentibels
->                                            VB.++ makeUpdate Cents            usesCents
->                                            VB.++ makeUpdate AbsoluteCents    usesAbsoluteCents
->                                            VB.++ makeUpdate Timecents        usesTimeCents
->                                            VB.++ makeUpdate Tenths           usesTenths
->                                            VB.++ makeUpdate Points           usesPoints
->                                            VB.++ makeUpdate CoarsePoints     usesCoarsePoints
->                                            VB.++ makeUpdate Keys             usesKeys
->                                            VB.++ makeUpdate Semitones        usesSemitones
->                                            VB.++ makeUpdate CentsPerKey      usesCentsPerKey
->                                            VB.++ makeUpdate TimecentsPerKey  usesTimecentsPerKey
+>     changes                              =       makeUpdate Centibels            usesCentibels
+>                                            VB.++ makeUpdate Cents                usesCents
+>                                            VB.++ makeUpdate AbsoluteCents        usesAbsoluteCents
+>                                            VB.++ makeUpdate Timecents            usesTimeCents
+>                                            VB.++ makeUpdate TenthsOfAPercent     usesTenths
+>                                            VB.++ makeUpdate Points               usesPoints
+>                                            VB.++ makeUpdate CoarsePoints         usesCoarsePoints
+>                                            VB.++ makeUpdate Keys                 usesKeys
+>                                            VB.++ makeUpdate Semitones            usesSemitones
+>                                            VB.++ makeUpdate CentsPerKey          usesCentsPerKey
+>                                            VB.++ makeUpdate TimecentsPerKey      usesTimecentsPerKey
 >
 > unitAction              :: Unit → (String, Double → Double)
-> unitAction Centibels                     = ("centibels to volume ratio",     fromCentibels)
-> unitAction Cents                         = ("cents to Hz ratio",             fromCents)
-> unitAction AbsoluteCents                 = ("absolute cents to Hz",          fromAbsoluteCents)
-> unitAction Timecents                     = ("time cents to seconds",         fromTimecents)
-> unitAction Tenths                        = ("from tenths",                   (/ 1000))
-> unitAction Points                        = ("sample points",                 id)
-> unitAction CoarsePoints                  = ("32768 sample points",           (* 32768))
-> unitAction Keys                          = ("MIDI keys",                     id)
-> unitAction Semitones                     = ("semitones",                     fromSemitones)
-> unitAction CentsPerKey                   = ("cents per MIDI key",            fromMicrotones)
-> unitAction TimecentsPerKey               = ("time cents per MIDI key",       fromTimecents)
-> unitAction NoUnit                        = ("no unit",                       id)
+> unitAction Centibels                     = ("centibels to volume ratio",         fromCentibels)
+> unitAction Cents                         = ("cents to Hz ratio",                 fromCents)
+> unitAction AbsoluteCents                 = ("absolute cents to Hz",              fromAbsoluteCents)
+> unitAction Timecents                     = ("time cents to seconds",             fromTimecents)
+> unitAction TenthsOfAPercent              = ("tenths of a percent",               (/ 1000))
+> unitAction Points                        = ("sample points",                     id)
+> unitAction CoarsePoints                  = ("32768 sample points",               (* 32768))
+> unitAction Keys                          = ("MIDI keys",                         id)
+> unitAction Semitones                     = ("semitones",                         fromSemitones)
+> unitAction CentsPerKey                   = ("cents per key",                     fromMicrotones)
+> unitAction TimecentsPerKey               = ("time cents per key to seconds",     fromTimecents)
+> unitAction NoUnit                        = ("no unit",                           id)
 >
 > allGens                :: VB.Vector GenEnum
 >
@@ -405,6 +412,6 @@ Generator Shredding ============================================================
 > usesKeys                                 = Set.fromList [  Key, RootKey, Vel]
 > usesSemitones                            = Set.fromList [  CoarseTune]
 > usesCentsPerKey                          = Set.fromList [  ScaleTuning]
-> usesTimecentsPerKey                      = Set.fromList [  KeyToVolEnvHold, KeyToVolEnvDecay]
+> usesTimecentsPerKey                      = Set.fromList [  KeyToModEnvHold, KeyToModEnvDecay, KeyToVolEnvHold, KeyToVolEnvDecay]
 
 The End

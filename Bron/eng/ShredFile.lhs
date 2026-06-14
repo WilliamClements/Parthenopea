@@ -30,12 +30,10 @@ From one SoundFont file we produce one GenSum, to collect interesting data about
 Later on, a rollup GenSum will be produced - i. e.,per-file GenSums added together. Similarly, GenSums 
 for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled up to File GenSums.
 
-> shredFile              :: SFFileBoot → IO GenSum
-> shredFile sffile                         = do
->   let vInstGenSum                        = VB.fromList ((IntMap.elems . IntMap.mapWithKey shredInst) owners)
->   return $ rollupGenSums GSFileLevel ftag vInstGenSum
+> shredFile              :: SF2 → GenSum
+> shredFile sffile                         = rollupGenSums GSFileLevel ("f " ++ sffile.zFilename) vInstGenSum
 >   where
->     ftag                                 = "f " ++ sffile.zFilename
+>     vInstGenSum                          = VB.fromList ((IntMap.elems . IntMap.mapWithKey shredInst) owners)
 >
 >     shredInst          :: Int → IntSet → GenSum
 >     shredInst kinst bags                 = rollupGenSums GSInstLevel itag vZoneGenSum
