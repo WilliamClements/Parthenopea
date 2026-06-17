@@ -45,16 +45,34 @@ Start with the overall rollup and recurse down =================================
 > showGenSum             :: GenSum → IO ()
 > showGenSum gensum                        = do
 >   outputHeader
+>   outputLeaders
 >   outputStats
 >   outputEnv
 >   outputSlate
 >   recurseOutput
 >   where
->     outputHeader, outputStats, outputEnv, outputSlate, recurseOutput
+>     outputHeader, outputStats, outputEnv, outputSlate, recurseOutput, outputLeaders
 >                        :: IO ()
 >     outputHeader                         = putStrLn $ unwords [show (gensum ^. gsLevel), gensum ^. gsTag]
+>     outputLeaders                        = do
+>       putStrLn $ unwords ["\nGenerators by popularity:", show (gensum ^. gsZoneCount), "zones"]
+>       let genDatas                       = VB.toList $ VB.filter (not . isEmptyGenData) (gensum ^. gsGenSlate)
+>       let leaders                        = sortOn (Down . evalEach) genDatas
+>                                              where evalEach gd = gd ^. gOccur
+>       CM.mapM_ printLeader leaders
+>       where
+>         printLeader gd                   =
+>           let
+>             gen            :: GenEnum        = gd ^. gGen
+>             ix                               = fromEnum gen
+>             sout           :: Text           = Text.unwords [  Text.justifyLeft 3 ' ' (Text.show ix)
+>                                                          , Text.justifyLeft 32 ' ' (Text.show gen)
+>                                                          , sPercent]
+>             sPercent       :: Text           = Text.pack $ percent (gd ^. gOccur) (gensum ^. gsZoneCount)
+>           in
+>             putStrLn $ Text.unpack sout
 >     outputStats                          = do
->       putStrLn $ unwords ["\nGenerator statistics:", show (gensum ^. gsZoneCount), "zones \n"]
+>       putStrLn $ unwords ["\nGenerator statistics:"]
 >       CM.mapM_ statsOneGen allGens
 >       putStrLn $ unwords ["\n\n"]
 >     outputEnv                            = do
