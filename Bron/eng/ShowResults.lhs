@@ -53,7 +53,9 @@ Start with the overall rollup and recurse down =================================
 >   where
 >     outputHeader, outputStats, outputEnv, outputSlate, recurseOutput, outputLeaders
 >                        :: IO ()
->     outputHeader                         = putStrLn $ unwords [show (gensum ^. gsLevel), gensum ^. gsTag]
+>     outputHeader                         = do
+>       putStrLn ""
+>       putStrLn $ unwords [show (gensum ^. gsLevel), gensum ^. gsTag]
 >     outputLeaders                        = do
 >       putStrLn $ unwords ["\nGenerators by popularity:", show (gensum ^. gsZoneCount), "zones"]
 >       let genDatas                       = VB.toList $ VB.filter (not . isEmptyGenData) (gensum ^. gsGenSlate)
@@ -66,8 +68,8 @@ Start with the overall rollup and recurse down =================================
 >             gen            :: GenEnum        = gd ^. gGen
 >             ix                               = fromEnum gen
 >             sout           :: Text           = Text.unwords [  Text.justifyLeft 3 ' ' (Text.show ix)
->                                                          , Text.justifyLeft 32 ' ' (Text.show gen)
->                                                          , sPercent]
+>                                                              , Text.justifyLeft 32 ' ' (Text.show gen)
+>                                                              , sPercent]
 >             sPercent       :: Text           = Text.pack $ percent (gd ^. gOccur) (gensum ^. gsZoneCount)
 >           in
 >             putStrLn $ Text.unpack sout
@@ -80,7 +82,7 @@ Start with the overall rollup and recurse down =================================
 >       showEnvMap (gensum ^. gsModEnvMap) (gensum ^. gsZoneCount)
 >       putStrLn $ unwords ["\nVolume Envelope configs (total=", show (total (gensum ^. gsVolEnvMap)), "):\n"]
 >       showEnvMap (gensum ^. gsVolEnvMap) (gensum ^. gsZoneCount)
->       putStrLn "\n\n"
+>       putStrLn "\n"
 >       where
 >         total          :: Map EConfig Int → Int
 >         total                            = sum . Map.elems
@@ -141,43 +143,44 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                                              0
 >                                              (fromIntegral (spec ^. gDefault))
 >
->         package        :: Bool → [Text]
->         package isUnit                   =
->           let
+>         sindent        :: Text           = Text.replicate 4 (Text.singleton ' ')
+>
+>         makeLabel      :: Bool → Bool → Text
+>         makeLabel pop u                  = (if pop then Text.pack "pop." else Text.pack "sample.")
+>                                            `Text.append`
+>                                            (if u then Text.pack "unit" else Text.pack "raw")
+>
+>         oneDis         :: Bool → Text → Double → Double → Text
+>         oneDis isUnit label mean stdDev  = Text.unwords [oneLabel, showMean, Text.pack "+-", showStdDev]
+>           where
 >             cv         :: Double → Double
 >             cv                           = if isUnit then convert else id
 >
+>             oneLabel                     = Text.justifyLeft 16 ' ' label 
+>             showMean                     = Text.justifyRight 32 ' ' (Text.show $ cv mean)
+>             showStdDev                   = Text.justifyLeft 32 ' ' (Text.show $ cv stdDev)
+>
+>         noDis          :: Text → Text
+>         noDis label                      = Text.unwords [oneLabel, showNA]
+>           where
+>             oneLabel                     = Text.justifyLeft 16 ' ' label 
+>             showNA                       = Text.justifyRight 32 ' ' (Text.pack "n/a")
+>
+>         package        :: Bool → [Text]
+>         package isUnit                   =
+>           let
 >             pDispersion, sDispersion
 >                        :: Text
 >             pDispersion                  = if noDefault
 >                                              then Text.unwords [  sindent, sindent
->                                                                 , noD (makeLabel True isUnit)]
+>                                                                 , noDis (makeLabel True isUnit)]
 >                                              else Text.unwords [  sindent, sindent
->                                                                 , oneD (makeLabel True isUnit) pMean pStdDev]
+>                                                                 , oneDis isUnit (makeLabel True isUnit) pMean pStdDev]
 >             sDispersion                  = if noData
 >                                              then Text.unwords [  sindent, sindent
->                                                                 , noD (makeLabel False isUnit)]
+>                                                                 , noDis (makeLabel False isUnit)]
 >                                              else Text.unwords [  sindent, sindent
->                                                                 , oneD (makeLabel False isUnit) sMean sStdDev]
->
->             makeLabel :: Bool → Bool → Text
->             makeLabel pop u              = (if pop then Text.pack "pop." else Text.pack "sample.")
->                                            `Text.append`
->                                            (if u then Text.pack "unit" else Text.pack "raw")
->
->             oneD       :: Text → Double → Double → Text
->             oneD label mean stdDev       = Text.unwords [oneLabel, showMean, Text.pack "+-", showStdDev]
->               where
->                 oneLabel                 = Text.justifyLeft 16 ' ' label 
->                 showMean                 = Text.justifyRight 32 ' ' (Text.show $ cv mean)
->                 showStdDev               = Text.justifyLeft 32 ' ' (Text.show $ cv stdDev)
->
->             noD        :: Text → Text
->             noD label                    = Text.unwords [oneLabel, showNA]
->               where
->                 oneLabel                 = Text.justifyLeft 16 ' ' label 
->                 showNA                   = Text.justifyRight 32 ' ' (Text.pack "n/a")
->
+>                                                                 , oneDis isUnit (makeLabel False isUnit) sMean sStdDev]
 >           in
 >             [pDispersion, sDispersion]
 >              
@@ -201,8 +204,6 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >             if noStats
 >               then [sHead, sOccur]
 >               else [sHead, sOccur] ++ package False ++ [sResult] ++ package True
->
->         sindent        :: Text           = Text.replicate 4 (Text.singleton ' ')
 >
 > dispersion             :: Int → Double → Double → Int → Double → (Double, Double)
 > dispersion nVals accum_ accumSquares_ nDef valDef

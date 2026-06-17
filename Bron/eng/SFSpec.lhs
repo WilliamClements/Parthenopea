@@ -109,7 +109,7 @@ The per-file diagnostic data (GenSum) includes:
 >
 > data GenSumLevel                         =
 >  GSZoneLevel | GSInstLevel | GSFileLevel | GSRollLevel
->  deriving (Enum, Eq, Show)
+>  deriving (Enum, Eq, Ord, Show)
 >
 > data GenSum                              =
 >   GenSum {
