@@ -95,13 +95,13 @@ Compute and show numerical statistics for each value-bearing generator type ====
 
 >     statsOneGen genOne                   = statsOneGenData ((gensum ^. gsGenSlate) VB.! fromEnum genOne)
 >     statsOneGenData genData              = do
->       CM.unless noData (putStrLn $ Text.unpack stats)
+>       CM.unless noData (putStrLn $ Text.unpack $ Text.unlines stats)
 >       where
 >         gen            :: GenEnum        = genData ^. gGen
 >         ix                               = fromEnum gen
 >         spec                             = specVector VB.! ix
 >
->         noData, noDefault
+>         noData, noDefault, noStats
 >                        :: Bool
 >         noData                           = isEmptyGenData genData
 >         noDefault                        = Set.member gen noNumericDefault
@@ -109,51 +109,6 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >         readyClip                        = fromJust $ spec ^. gClip
 >
 >         (strUnit, convert)               = unitAction (spec ^. gUnit)
->
->         stats          :: Text           =
->           let
->             showStat mean stdDev         = Text.unwords [showMean, Text.pack "+-", showStdDev]
->               where
->                 showMean                 = Text.justifyRight 32 ' ' (Text.show mean)
->                 showStdDev               = Text.justifyLeft 32 ' ' (Text.show stdDev)
->             indent     :: Text           = Text.pack "      "
->
->             sHead      :: Text           = Text.unwords [  Text.justifyLeft 3 ' ' (Text.show ix)
->                                                          , Text.justifyLeft 32 ' ' (Text.show gen)
->                                                          , Text.show spec]
->
->             sPercent                     = percent (genData ^. gOccur) (gensum ^. gsZoneCount)
->             spMean     :: Text           = if noDefault
->                                              then Text.unwords [spop, Text.pack "n/a"]
->                                              else Text.unwords [spop, showStat pMean pStdDev]
->             ssMean     :: Text           = if noData
->                                              then Text.unwords [ssample, Text.pack "n/a"]
->                                              else Text.unwords [ssample, showStat sMean sStdDev]
->             genResult                    = GenResult
->                                              strUnit
->                                              (BF.bimap (convert . fromIntegral) (convert . fromIntegral) readyClip)
->                                              ((convert . fromIntegral) (spec ^. gDefault))
->             sResult                      = indent `Text.append` Text.show genResult
->
->             sOccur     :: Text           = indent `Text.append` Text.pack (unwords ["Occurence:", sPercent])
->           in
->             if noStats
->               then Text.unlines [sHead, sOccur]
->               else Text.unlines [sHead, sOccur, spMean, ssMean, sResult]
->
->         sindent, spop, ssample, popMean, sampleMean
->                        :: Text
->         sindent                          = Text.replicate 4 (Text.singleton ' ')
->
->         spop                             =
->           Text.unwords [sindent, sindent
->                       , Text.justifyRight 15 ' ' popMean]
->         ssample                          =
->           Text.unwords [sindent, sindent
->                       , Text.justifyRight 15 ' ' sampleMean]
->
->         popMean                          = Text.pack "pop.mean"
->         sampleMean                       = Text.pack "sample.mean"
 >
 >         (pMean, pStdDev)                 = dispersion
 >                                              (genData ^. gOccur)
@@ -167,6 +122,69 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                                              (genData ^. gAccumSquares)
 >                                              0
 >                                              (fromIntegral (spec ^. gDefault))
+>
+>         package        :: Bool → [Text]
+>         package isUnit                   =
+>           let
+>             cv         :: Double → Double
+>             cv                           = if isUnit then convert else id
+>
+>             pDispersion, sDispersion
+>                        :: Text
+>             pDispersion                  = if noDefault
+>                                              then Text.unwords [  sindent, sindent
+>                                                                 , noD (makeLabel True isUnit)]
+>                                              else Text.unwords [  sindent, sindent
+>                                                                 , oneD (makeLabel True isUnit) pMean pStdDev]
+>             sDispersion                  = if noData
+>                                              then Text.unwords [  sindent, sindent
+>                                                                 , noD (makeLabel False isUnit)]
+>                                              else Text.unwords [  sindent, sindent
+>                                                                 , oneD (makeLabel False isUnit) sMean sStdDev]
+>
+>             makeLabel :: Bool → Bool → Text
+>             makeLabel pop u              = (if pop then Text.pack "pop." else Text.pack "sample.")
+>                                            `Text.append`
+>                                            (if u then Text.pack "unit" else Text.pack "raw")
+>
+>             oneD       :: Text → Double → Double → Text
+>             oneD label mean stdDev       = Text.unwords [oneLabel, showMean, Text.pack "+-", showStdDev]
+>               where
+>                 oneLabel                 = Text.justifyLeft 16 ' ' label 
+>                 showMean                 = Text.justifyRight 32 ' ' (Text.show $ cv mean)
+>                 showStdDev               = Text.justifyLeft 32 ' ' (Text.show $ cv stdDev)
+>
+>             noD        :: Text → Text
+>             noD label                    = Text.unwords [oneLabel, showNA]
+>               where
+>                 oneLabel                 = Text.justifyLeft 16 ' ' label 
+>                 showNA                   = Text.justifyRight 32 ' ' (Text.pack "n/a")
+>
+>           in
+>             [pDispersion, sDispersion]
+>              
+>         stats          :: [Text]         =
+>           let
+>             indent     :: Text           = Text.pack "      "
+>
+>             sHead      :: Text           = Text.unwords [  Text.justifyLeft 3 ' ' (Text.show ix)
+>                                                          , Text.justifyLeft 32 ' ' (Text.show gen)
+>                                                          , Text.show spec]
+>
+>             sPercent                     = percent (genData ^. gOccur) (gensum ^. gsZoneCount)
+>             genResult                    = GenResult
+>                                              strUnit
+>                                              (BF.bimap (convert . fromIntegral) (convert . fromIntegral) readyClip)
+>                                              ((convert . fromIntegral) (spec ^. gDefault))
+>             sResult                      = indent `Text.append` Text.show genResult
+>
+>             sOccur     :: Text           = indent `Text.append` Text.pack (unwords ["Occurence:", sPercent])
+>           in
+>             if noStats
+>               then [sHead, sOccur]
+>               else [sHead, sOccur] ++ package False ++ [sResult] ++ package True
+>
+>         sindent        :: Text           = Text.replicate 4 (Text.singleton ' ')
 >
 > dispersion             :: Int → Double → Double → Int → Double → (Double, Double)
 > dispersion nVals accum_ accumSquares_ nDef valDef

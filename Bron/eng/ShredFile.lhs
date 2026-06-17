@@ -33,26 +33,30 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 > shredFile              :: SF2 → GenSum
 > shredFile sffile                         = rollupGenSums GSFileLevel ("f " ++ sffile.zFilename) vInstGenSum
 >   where
->     vInstGenSum                          = VB.fromList ((IntMap.elems . IntMap.mapWithKey shredInst) owners)
+>     vInstGenSum                          = VB.fromList ((IntMap.elems . IntMap.mapMaybeWithKey shredInst) owners)
 >
->     shredInst          :: Int → IntSet → GenSum
->     shredInst kinst bags                 = rollupGenSums GSInstLevel itag vZoneGenSum
+>     shredInst          :: Int → IntSet → Maybe GenSum
+>     shredInst kinst bags                 =
+>       let
+>         zones                            = rollupGenSums GSInstLevel itag (VB.fromList lGenSum)
+>         lGenSum                          = map shredSlate slates
+>       in
+>         if null lGenSum
+>           then Nothing
+>           else Just zones 
 >       where
 >         itag           :: String         = "i " ++ Text.unpack (Text.pack $ fixName $ F.instName (loadInst kinst))
 > 
->         vZoneGenSum                      = VB.fromList $ map shredSlate slates
->
 >         shredSlate     :: GenSlate → GenSum
 >         shredSlate slate                 =
 >           let
->             ztag       :: String         = "z " ++ Text.unpack (Text.pack $ fixName $ F.sampleName (loadShdr ksample))
+>             ksamp      :: Int            = round $ (slate VB.! fromEnum SampleIndex) ^. gAccum
+>             ztag       :: String         = "z " ++ Text.unpack (Text.pack $ fixName $ F.sampleName (loadShdr ksamp))
 >
 >             modMap, volMap
 >                        :: Map EConfig Int
 >             (modMap, volMap)             = (mark Map.empty modEC, mark Map.empty volEC)
 >                                              where (modEC, volEC) = VB.foldl' examineIf (initEC, initEC) slate
->
->             ksample    :: Int            = round $ (slate VB.! fromEnum SampleIndex) ^. gAccum
 >           in
 >             makeGenSum GSZoneLevel ztag slate VB.empty 1 modMap volMap
 >
@@ -60,21 +64,24 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                        :: [GenSlate]
 >         slates_                          =
 >           let
->             shredBag   :: BagIndex → GenSlate
->             shredBag ibag                = foldl' shredGen initGenSlate gens
+>             shredBag   :: BagIndex → Maybe GenSlate
+>             shredBag ibag                = if igen >= jgen
+>                                              then Nothing
+>                                              else (Just . foldl' shredGen initGenSlate) gens
 >               where
 >                 igen, jgen
 >                        :: Int
->                 igen                     = fromIntegral $ F.genNdx (loadBag ibag)
->                 jgen                     = fromIntegral $ F.genNdx (loadBag (ibag + 1))
+>                 igen                     = fromIntegral (loadBag ibag).genNdx 
+>                 jgen                     = fromIntegral (loadBag (ibag + 1)).genNdx
 >
 >                 gens                     = VB.generate (jgen - igen) (loadGen . (+ igen))
 >           in
->             map shredBag (IntSet.toList bags)
+>             mapMaybe shredBag (IntSet.toList bags)
 >
 >         slates                           = 
 >           let
 >             firstZone  :: GenSlate       = head slates_
+>             others     :: [GenSlate]     = tail slates_
 >             globalZone :: Bool           = isEmptyGenData $ firstZone VB.! fromEnum SampleIndex
 >
 >             replace    :: GenData → GenData → GenData
@@ -86,7 +93,9 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                 ozE                      = isEmptyGenData oz
 >           in
 >             if globalZone
->               then map (VB.zipWith replace firstZone) (tail slates_)
+>               then if null others
+>                       then error "goofy"
+>                       else map (VB.zipWith replace firstZone) others
 >               else slates_        
 >
 >     loadInst kinst                       = sffile.zFileArrays.ssInsts ! fromIntegral kinst
@@ -94,8 +103,7 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >     loadShdr kshdr                       = sffile.zFileArrays.ssShdrs ! fromIntegral kshdr
 >     loadGen kgen                         = sffile.zFileArrays.ssIGens ! fromIntegral kgen
 >
->     owners             :: IntMap IntSet
->     owners                               = foldl' erect IntMap.empty [ii..(ij-1)]
+>     owners             :: IntMap IntSet  = foldl' erect IntMap.empty [ii..(ij-1)]
 >       where
 >         (wi, wj)                         = bounds sffile.zFileArrays.ssInsts
 >         (ii, ij)       :: (Int, Int)     = BF.bimap fromIntegral fromIntegral (wi, wj)
@@ -107,13 +115,22 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >             iinst                        = loadInst kinst
 >             jinst                        = loadInst (kinst + 1)
 >
->             ibag, jbag :: Int
->             ibag                         = fromIntegral (F.instBagNdx iinst)
->             jbag                         = fromIntegral (F.instBagNdx jinst)
+>             ibag, jbag :: Word
+>             ibag                         = F.instBagNdx iinst
+>             jbag                         = F.instBagNdx jinst
+>
+>             igen, jgen :: Word
+>             igen                         = F.instBagNdx iinst
+>             jgen                         = F.instBagNdx jinst
+>
+>             ist, ien   :: Int
+>             ist                          = fromIntegral ibag
+>             ien                          = fromIntegral jbag - 1
+>             
 >           in
->             if ibag == jbag
+>             if ist >= ien || igen >= jgen
 >               then m
->               else IntMap.insert kinst (IntSet.fromList [ibag..(jbag - 1)]) m
+>               else IntMap.insert kinst (IntSet.fromList [ist..ien]) m
 >
 >     examineIf          :: (EConfig, EConfig) → GenData → (EConfig, EConfig)
 >     examineIf acc genData                = if isEmptyGenData genData
@@ -161,11 +178,12 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >           | otherwise                    = clip staticClip val_
 >         dVal           :: Double         = fromIntegral val
 >
+>         
 >         wild_                            = genData ^. gWildValues
->         wild
->            | isNothing valMaybe          = wild_
->            | val == val_                 = wild_
->            | otherwise                   = IntSet.insert val_ wild_
+>         wild                             = maybe wild_ (`IntSet.insert` wild_) (valMaybe >>= isWild)
+>                                              where isWild v = if v /= val
+>                                                                 then Just v
+>                                                                 else Nothing
 >
 >         genData'                         = (  (gOccur +~ 1)
 >                                             . (gAccum +~ fromIntegral val)

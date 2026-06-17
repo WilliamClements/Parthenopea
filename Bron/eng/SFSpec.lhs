@@ -375,12 +375,11 @@ Generator Shredding ============================================================
 > unitAction CoarsePoints                  = ("32768 sample points",               (* 32768))
 > unitAction Keys                          = ("MIDI keys",                         id)
 > unitAction Semitones                     = ("semitones",                         fromSemitones)
-> unitAction CentsPerKey                   = ("cents per key",                     fromMicrotones)
+> unitAction CentsPerKey                   = ("cents per key to Hz ratio",         fromMicrotones)
 > unitAction TimecentsPerKey               = ("time cents per key to seconds",     fromTimecents)
 > unitAction NoUnit                        = ("no unit",                           id)
 >
 > allGens                :: VB.Vector GenEnum
->
 > allGens                                  = VB.generate 61 toEnum
 >
 > noNumericDefault, usesCentibels, usesCents, usesAbsoluteCents, usesTimeCents
