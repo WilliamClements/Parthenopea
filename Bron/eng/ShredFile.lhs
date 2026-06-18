@@ -84,18 +84,17 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >             others     :: [GenSlate]     = tail slates_
 >             globalZone :: Bool           = isEmptyGenData $ firstZone VB.! fromEnum SampleIndex
 >
->             replace    :: GenData → GenData → GenData
->             replace gz oz
->               | not gzE && ozE           = gz
+>             applyGlobalZone
+>                        :: GenData → GenData → GenData
+>             applyGlobalZone gz oz
+>               | not (isEmptyGenData gz) && isEmptyGenData oz
+>                                          = gz
 >               | otherwise                = oz
->               where
->                 gzE                      = isEmptyGenData gz
->                 ozE                      = isEmptyGenData oz
 >           in
 >             if globalZone
 >               then if null others
->                       then error "goofy"
->                       else map (VB.zipWith replace firstZone) others
+>                       then error "shredInst: file corrupt"
+>                       else map (VB.zipWith applyGlobalZone firstZone) others
 >               else slates_        
 >
 >     loadInst kinst                       = sffile.zFileArrays.ssInsts ! fromIntegral kinst
@@ -115,20 +114,11 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >             iinst                        = loadInst kinst
 >             jinst                        = loadInst (kinst + 1)
 >
->             ibag, jbag :: Word
->             ibag                         = F.instBagNdx iinst
->             jbag                         = F.instBagNdx jinst
->
->             igen, jgen :: Word
->             igen                         = F.instBagNdx iinst
->             jgen                         = F.instBagNdx jinst
->
->             ist, ien   :: Int
->             ist                          = fromIntegral ibag
->             ien                          = fromIntegral jbag - 1
->             
+>             ist, ien :: Int
+>             ist                         = fromIntegral (F.instBagNdx iinst)
+>             ien                         = fromIntegral (F.instBagNdx jinst) - 1
 >           in
->             if ist >= ien || igen >= jgen
+>             if ist >= ien
 >               then m
 >               else IntMap.insert kinst (IntSet.fromList [ist..ien]) m
 >
@@ -323,18 +313,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 > rollupGenSums          :: GenSumLevel → String → VB.Vector GenSum → GenSum
 > rollupGenSums toLevel tagRollup vGenSum  =
 >   let
->     addGenSums         :: GenSum → GenSum → GenSum
->     addGenSums (GenSum level tagAdd slate1 _ nz1 mod1 vol1) (GenSum _ _ slate2 _ nz2 mod2 vol2)
->                                          =
->       GenSum
->         level 
->         tagAdd
->         (VB.zipWith addGenDatas slate1 slate2)
->         VB.empty
->         (nz1 + nz2)
->         (Map.unionWith (+) mod1 mod2)
->         (Map.unionWith (+) vol1 vol2)
->
 >     sublevel           :: GenSumLevel    = toEnum (fromEnum toLevel - 1)
 >     chadd              :: GenSum → GenSum → GenSum
 >     chadd gensum1 gensum2

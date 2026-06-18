@@ -65,12 +65,12 @@ Start with the overall rollup and recurse down =================================
 >       where
 >         printLeader gd                   =
 >           let
->             gen            :: GenEnum        = gd ^. gGen
->             ix                               = fromEnum gen
->             sout           :: Text           = Text.unwords [  Text.justifyLeft 3 ' ' (Text.show ix)
->                                                              , Text.justifyLeft 32 ' ' (Text.show gen)
->                                                              , sPercent]
->             sPercent       :: Text           = Text.pack $ percent (gd ^. gOccur) (gensum ^. gsZoneCount)
+>             gen        :: GenEnum        = gd ^. gGen
+>             ix                           = fromEnum gen
+>             sout       :: Text           = Text.unwords [  Text.justifyLeft 3 ' ' (Text.show ix)
+>                                                          , Text.justifyLeft 32 ' ' (Text.show gen)
+>                                                          , sPercent]
+>             sPercent   :: Text           = Text.pack $ percent (gd ^. gOccur) (gensum ^. gsZoneCount)
 >           in
 >             putStrLn $ Text.unpack sout
 >     outputStats                          = do

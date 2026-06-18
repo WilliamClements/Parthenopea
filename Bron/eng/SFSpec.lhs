@@ -125,6 +125,17 @@ The per-file diagnostic data (GenSum) includes:
 > makeGenSum             :: GenSumLevel → String → VB.Vector GenData → VB.Vector GenSum
 >                           → Int → Map EConfig Int → Map EConfig Int → GenSum
 > makeGenSum                               = GenSum
+> addGenSums         :: GenSum → GenSum → GenSum
+> addGenSums (GenSum level tagAdd slate1 _ nz1 mod1 vol1) (GenSum _ _ slate2 _ nz2 mod2 vol2)
+>                                          =
+>   GenSum
+>     level 
+>     tagAdd
+>     (VB.zipWith addGenDatas slate1 slate2)
+>     VB.empty
+>     (nz1 + nz2)
+>     (Map.unionWith (+) mod1 mod2)
+>     (Map.unionWith (+) vol1 vol2)
 >
 > openSoundFontFile      :: Int → FilePath → IO SF2
 > openSoundFontFile wFile filename         = do
