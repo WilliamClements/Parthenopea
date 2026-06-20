@@ -158,6 +158,7 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >         ix                               = fromEnum ge
 >         genData                          = is VB.! ix
 >         spec                             = specVector VB.! ix
+>         (_, convert)                     = unitAction (spec ^. gUnit)
 >         staticClip_                      = spec ^. gClip
 >         staticClip                       = fromJust staticClip_
 >
@@ -166,7 +167,9 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >           | isNothing valMaybe           = spec ^. gDefault
 >           | isNothing staticClip_        = val_
 >           | otherwise                    = clip staticClip val_
->         dVal           :: Double         = fromIntegral val
+>         dVal, uVal     :: Double
+>         dVal                             = fromIntegral val
+>         uVal                             = convert dVal
 >
 >         
 >         wild_                            = genData ^. gWildValues
@@ -176,8 +179,12 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                                                 else Nothing
 >
 >         genData'                         = (  (gOccur +~ 1)
->                                             . (gAccum +~ fromIntegral val)
->                                             . (gAccumSquares +~ (dVal * dVal))
+>
+>                                             . (gAccum +~ dVal)
+>                                             . (gSquares +~ (dVal * dVal))
+>                                             . (gUnitAccum +~ uVal)
+>                                             . (gUnitSquares +~ (uVal * uVal))
+>
 >                                             . (gWildValues .~ wild)) genData
 >
 >     shredGen           :: VB.Vector GenData → F.Generator → VB.Vector GenData

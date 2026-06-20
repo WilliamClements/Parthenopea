@@ -51,11 +51,13 @@ The per-file diagnostic data (GenSum) includes:
 >   , _gOccur            :: Int
 >   , _gWildValues       :: IntSet
 >   , _gAccum            :: Double
->   , _gAccumSquares     :: Double}
+>   , _gSquares          :: Double
+>   , _gUnitAccum        :: Double
+>   , _gUnitSquares      :: Double}
 >   deriving (Eq, Show)
 > makeLenses ''GenData
 > makeGenData            :: GenEnum → GenData
-> makeGenData gen                          = GenData gen 0 IntSet.empty 0 0       
+> makeGenData gen                          = GenData gen 0 IntSet.empty 0 0 0 0      
 > isEmptyGenData         :: GenData → Bool
 > isEmptyGenData gd                        = (gd ^. gOccur) == 0
 > addGenDatas            :: GenData → GenData → GenData
@@ -65,7 +67,9 @@ The per-file diagnostic data (GenSum) includes:
 >     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
 >     ((gd1 ^. gWildValues) `IntSet.union` (gd2 ^. gWildValues))
 >     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
->     ((gd1 ^. gAccumSquares) + (gd2 ^. gAccumSquares))
+>     ((gd1 ^. gSquares) + (gd2 ^. gSquares))
+>     ((gd1 ^. gUnitAccum) + (gd2 ^. gUnitAccum))
+>     ((gd1 ^. gUnitSquares) + (gd2 ^. gUnitSquares))
 >     
 > type BagIndex                            = Int
 > type GenSlate                            = VB.Vector GenData
@@ -360,60 +364,67 @@ Generator Shredding ============================================================
 >   where
 >     clear                                = VB.replicate 61 NoUnit
 >
->     makeUpdate         :: Unit → Set GenEnum → VB.Vector (Int, Unit)
->     makeUpdate unit gset                 = VB.fromList (Set.foldl disperse [] gset)
->                                              where disperse i gen = (fromEnum gen, unit) : i
+>     makeUpdate         :: Unit → Set GenEnum → [(Int, Unit)]
+>     makeUpdate unit                      =
+>       let
+>         erect          :: [(Int, Unit)] → GenEnum → [(Int, Unit)]
+>         erect ius gen                    = (fromEnum gen, unit) : ius
+>       in
+>         Set.foldl erect []
+>
 >     changes            :: VB.Vector (Int, Unit)
->     changes                              =       makeUpdate Centibels            usesCentibels
->                                            VB.++ makeUpdate Cents                usesCents
->                                            VB.++ makeUpdate AbsoluteCents        usesAbsoluteCents
->                                            VB.++ makeUpdate Timecents            usesTimeCents
->                                            VB.++ makeUpdate TenthsOfAPercent     usesTenths
->                                            VB.++ makeUpdate Points               usesPoints
->                                            VB.++ makeUpdate CoarsePoints         usesCoarsePoints
->                                            VB.++ makeUpdate Keys                 usesKeys
->                                            VB.++ makeUpdate Semitones            usesSemitones
->                                            VB.++ makeUpdate CentsPerKey          usesCentsPerKey
->                                            VB.++ makeUpdate TimecentsPerKey      usesTimecentsPerKey
+>     changes                              =
+>       VB.fromList $ concat [
+>           makeUpdate Centibels            centibelsUsers
+>         , makeUpdate Cents                centsUsers
+>         , makeUpdate AbsoluteCents        absoluteCentsUsers
+>         , makeUpdate Timecents            timeCentsUsers
+>         , makeUpdate TenthsOfAPercent     tenthsUsers
+>         , makeUpdate Points               pointsUsers
+>         , makeUpdate CoarsePoints         coarsePointsUsers
+>         , makeUpdate Keys                 keysUsers
+>         , makeUpdate Semitones            semitonesUsers
+>         , makeUpdate CentsPerKey          centsPerKeyUsers
+>         , makeUpdate TimecentsPerKey      timecentsPerKeyUsers]
 >
 > unitAction              :: Unit → (String, Double → Double)
-> unitAction Centibels                     = ("centibels to volume ratio",         fromCentibels)
-> unitAction Cents                         = ("cents to Hz ratio",                 fromCents)
-> unitAction AbsoluteCents                 = ("absolute cents to Hz",              fromAbsoluteCents)
-> unitAction Timecents                     = ("time cents to seconds",             fromTimecents)
+> unitAction Centibels                     = ("volume ratio (from centibels)",     fromCentibels)
+> unitAction Cents                         = ("Hz ratio (from cents)",             fromCents)
+> unitAction AbsoluteCents                 = ("Hz (from absolute cents)",          fromAbsoluteCents)
+> unitAction Timecents                     = ("seconds (from time cents)",         fromTimecents)
 > unitAction TenthsOfAPercent              = ("tenths of a percent",               (/ 1000))
-> unitAction Points                        = ("sample points",                     id)
+> unitAction Points                        = ("sample points (no conversion)",     id)
 > unitAction CoarsePoints                  = ("32768 sample points",               (* 32768))
 > unitAction Keys                          = ("MIDI keys",                         id)
 > unitAction Semitones                     = ("semitones",                         fromSemitones)
-> unitAction CentsPerKey                   = ("cents per key to Hz ratio",         fromMicrotones)
-> unitAction TimecentsPerKey               = ("time cents per key to seconds",     fromTimecents)
+> unitAction CentsPerKey                   = ("Hz ratio (from cents per key)",     fromMicrotones)
+> unitAction TimecentsPerKey               = ("seconds (from time cents per key)", fromTimecents)
 > unitAction NoUnit                        = ("no unit",                           id)
 >
 > allGens                :: VB.Vector GenEnum
 > allGens                                  = VB.generate 61 toEnum
 >
-> noNumericDefault, usesCentibels, usesCents, usesAbsoluteCents, usesTimeCents
->  , usesTenths, usesPoints, usesCoarsePoints, usesKeys, usesSemitones, usesCentsPerKey
->  , usesTimecentsPerKey
+> centibelsUsers, centsUsers, absoluteCentsUsers, timeCentsUsers
+>  , tenthsUsers, pointsUsers, coarsePointsUsers, keysUsers
+>  , semitonesUsers, centsPerKeyUsers
+>  , timecentsPerKeyUsers
 >                        :: Set GenEnum
-> noNumericDefault                         = Set.fromList [  ExclusiveClass, Key, RootKey, Vel]
->
-> usesCentibels                            = Set.fromList [  InitQ, ModLfoToVol, SustainModEnv, SustainVolEnv, InitAtten]
-> usesCents                                = Set.fromList [  ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
->                                                          , ModLfoToFc, ModEnvToFc, FreqVibLfo, FineTune]
-> usesAbsoluteCents                        = Set.fromList [  InitFc, FreqModLfo, FreqVibLfo] 
-> usesTimeCents                            = Set.fromList [  DelayModLfo, DelayVibLfo
+> centibelsUsers                           = Set.fromList [  InitQ, ModLfoToVol, SustainModEnv, SustainVolEnv, InitAtten]
+> centsUsers                               = Set.fromList [  ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
+>                                                          , ModLfoToFc, ModEnvToFc, FineTune]
+> absoluteCentsUsers                       = Set.fromList [  InitFc, FreqModLfo, FreqVibLfo] 
+> timeCentsUsers                           = Set.fromList [  DelayModLfo, DelayVibLfo
 >                                                          , DelayModEnv, AttackModEnv, HoldModEnv, DecayModEnv, ReleaseModEnv
 >                                                          , DelayVolEnv, AttackVolEnv, HoldVolEnv, DecayVolEnv, ReleaseVolEnv]
-> usesTenths                               = Set.fromList [  Chorus, Reverb, Pan]
-> usesPoints                               = Set.fromList [  StartAddressOffset, EndAddressOffset
+> tenthsUsers                              = Set.fromList [  Chorus, Reverb, Pan]
+> pointsUsers                              = Set.fromList [  StartAddressOffset, EndAddressOffset
 >                                                          , LoopStartAddressOffset, LoopEndAddressOffset]
-> usesCoarsePoints                         = Set.fromList [  StartAddressCoarseOffset, EndAddressCoarseOffset
+> coarsePointsUsers                        = Set.fromList [  StartAddressCoarseOffset, EndAddressCoarseOffset
 >                                                          , LoopStartAddressCoarseOffset, LoopEndAddressCoarseOffset]
-> usesKeys                                 = Set.fromList [  Key, RootKey, Vel]
-> usesSemitones                            = Set.fromList [  CoarseTune]
-> usesCentsPerKey                          = Set.fromList [  ScaleTuning]
-> usesTimecentsPerKey                      = Set.fromList [  KeyToModEnvHold, KeyToModEnvDecay, KeyToVolEnvHold, KeyToVolEnvDecay]
+> keysUsers                                = Set.fromList [  Key, RootKey, Vel]
+> semitonesUsers                           = Set.fromList [  CoarseTune]
+> centsPerKeyUsers                         = Set.fromList [  ScaleTuning]
+> timecentsPerKeyUsers                     = Set.fromList [  KeyToModEnvHold, KeyToModEnvDecay
+>                                                          , KeyToVolEnvHold, KeyToVolEnvDecay]
 
 The End
