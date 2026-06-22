@@ -162,9 +162,10 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >         staticClip_                      = spec ^. gClip
 >         staticClip                       = fromJust staticClip_
 >
+>         val_, val      :: Int
 >         val_                             = fromJust valMaybe
 >         val
->           | isNothing valMaybe           = spec ^. gDefault
+>           | isNothing valMaybe           = fromMaybe 0 (spec ^. gDefault)
 >           | isNothing staticClip_        = val_
 >           | otherwise                    = clip staticClip val_
 >         dVal, uVal     :: Double

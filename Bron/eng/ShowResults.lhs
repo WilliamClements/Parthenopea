@@ -123,9 +123,11 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >         noData, noDefault, noStats
 >                        :: Bool
 >         noData                           = isEmptyGenData genData
->         noDefault                        = isNothing (spec ^. gClip)
+>         noDefault                        = isNothing (spec ^. gDefault)
+>         noClip                           = isNothing (spec ^. gClip)
 >         noStats                          = (spec ^. gUnit) == NoUnit
->         readyClip                        = fromJust $ spec ^. gClip
+>         safeDefault    :: Double         = maybe 0 fromIntegral (spec ^. gDefault)
+>         safeClip       :: (Int, Int)     = fromMaybe (0, 0) (spec ^. gClip)
 >
 >         (strUnit, convert)               = unitAction (spec ^. gUnit)
 >
@@ -134,121 +136,94 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                                              (genData ^. gAccum)
 >                                              (genData ^. gSquares)
 >                                              ((gensum ^. gsZoneCount) - (genData ^. gOccur))
->                                              (fromIntegral (spec ^. gDefault))
+>                                              safeDefault
 >         (sMean, sStdDev)                 = dispersion
 >                                              (genData ^. gOccur)
 >                                              (genData ^. gAccum)
 >                                              (genData ^. gSquares)
 >                                              0
->                                              (fromIntegral (spec ^. gDefault))
+>                                              safeDefault
 >         (uMean, uStdDev)                 = dispersion
 >                                              (genData ^. gOccur)
 >                                              (genData ^. gUnitAccum)
 >                                              (genData ^. gUnitSquares)
 >                                              ((gensum ^. gsZoneCount) - (genData ^. gOccur))
->                                              (fromIntegral (spec ^. gDefault))
+>                                              safeDefault
 >         (vMean, vStdDev)                 = dispersion
 >                                              (genData ^. gOccur)
 >                                              (genData ^. gUnitAccum)
 >                                              (genData ^. gUnitSquares)
 >                                              0
->                                              (fromIntegral (spec ^. gDefault))
+>                                              safeDefault
 >
->         sindent        :: Text           = Text.replicate 4 (Text.singleton ' ')
->
->         makeLabel      :: Bool → Bool → Text
->         makeLabel pop u                  = (if pop then Text.pack "pop." else Text.pack "sample.")
->                                            `Text.append`
->                                            (if u then Text.pack "unit" else Text.pack "raw")
->
->         oneDis         :: Bool → Text → Double → Double → Text
->         oneDis isUnit label mean stdDev  = Text.unwords [oneLabel, showMean, Text.pack "+-", showStdDev]
->           where
->             cv         :: Double → Double
->             cv                           = if isUnit then convert else id
->
->             oneLabel                     = Text.justifyLeft 16 ' ' label 
->             showMean                     = Text.justifyRight 32 ' ' (Text.show $ cv mean)
->             showStdDev                   = Text.justifyLeft 32 ' ' (Text.show $ cv stdDev)
->
->         noDis          :: Text → Text
->         noDis label                      = Text.unwords [oneLabel, showNA]
->           where
->             oneLabel                     = Text.justifyLeft 16 ' ' label 
->             showNA                       = Text.justifyRight 32 ' ' (Text.pack "n/a")
->
->         package        :: Bool → [Text]
->         package isUnit                   =
+>         stats          :: [Text]
+>         stats                            =
 >           let
->             pDispersion, sDispersion
->                        :: Text
->             pDispersion                  = if noDefault
->                                              then Text.unwords [  sindent, sindent
->                                                                 , noDis (makeLabel True isUnit)]
->                                              else Text.unwords [  sindent, sindent
->                                                                 , oneDis isUnit (makeLabel True isUnit) pMean pStdDev]
->             sDispersion                  = if noData
->                                              then Text.unwords [  sindent, sindent
->                                                                 , noDis (makeLabel False isUnit)]
->                                              else Text.unwords [  sindent, sindent
->                                                                 , oneDis isUnit (makeLabel False isUnit) sMean sStdDev]
->             uDispersion, vDispersion
->                        :: Text
->             uDispersion                  = if noDefault
->                                              then Text.unwords [  sindent, sindent
->                                                                 , noDis (makeLabel True isUnit)]
->                                              else Text.unwords [  sindent, sindent
->                                                                 , oneDis isUnit (makeLabel True isUnit) uMean uStdDev]
->             vDispersion                  = if noData
->                                              then Text.unwords [  sindent, sindent
->                                                                 , noDis (makeLabel False isUnit)]
->                                              else Text.unwords [  sindent, sindent
->                                                                 , oneDis isUnit (makeLabel False isUnit) vMean vStdDev]
->           in
->             if isUnit
->               then [uDispersion, vDispersion]
->               else [pDispersion, sDispersion]
->              
->         stats          :: [Text]         =
->           let
->             indent     :: Text           = Text.pack "      "
->
->             sHead      :: Text           = Text.unwords [  Text.justifyLeft 3 ' ' (Text.show ix)
+>             tHead      :: Text           = Text.unwords [  Text.justifyLeft 3 ' ' (Text.show ix)
 >                                                          , Text.justifyLeft 32 ' ' (Text.show gen)
 >                                                          , Text.show spec]
->
+>             tOccur     :: Text           = Text.justifyRight 68 ' ' (Text.pack (unwords ["Occurence:", sPercent]))
 >             sPercent                     = percent (genData ^. gOccur) (gensum ^. gsZoneCount)
->             genResult                    = GenResult
+>             slurp                        = convert . fromIntegral
+>             genResult                    = InUnits
 >                                              strUnit
->                                              (BF.bimap (convert . fromIntegral) (convert . fromIntegral) readyClip)
->                                              ((convert . fromIntegral) (spec ^. gDefault))
->             sResult                      = if noDefault
+>                                              (BF.bimap slurp slurp safeClip)
+>                                              (convert safeDefault)
+>             tResult    :: Text           = if noDefault || noClip
 >                                              then Text.empty
->                                              else indent `Text.append` Text.show genResult
+>                                              else largeIndent `Text.append` Text.show genResult
 >
->             sOccur     :: Text           = Text.justifyRight 68 ' ' (Text.pack (unwords ["Occurence:", sPercent]))
 >           in
 >             if noStats
->               then [sHead, sOccur]
->               else [sHead, sOccur] ++ package False ++ [sResult] ++ package True
+>               then    [tHead, tOccur]
+>               else    [tHead, tOccur]
+>                    ++ [showDispersion convert noDefault    False True  (pMean, pStdDev)]
+>                    ++ [showDispersion convert noData       False False (sMean, sStdDev)]
+>                    ++ [tResult]
+>                    ++ [showDispersion convert noDefault    True True  (uMean, uStdDev)]
+>                    ++ [showDispersion convert noData       True False (vMean, vStdDev)]
+>
+>         largeIndent                      = Text.pack (replicate 37 ' ')
+>
+> showDispersion         :: (Double → Double) → Bool → Bool → Bool → (Double, Double) → Text
+> showDispersion convert noDispersion isUnit isPop (mean, stdDev)
+>                                          =
+>   if noDispersion
+>     then showNa
+>     else showDis
+>   where
+>     tLabel                               = Text.justifyLeft 16 ' ' makeLabel
+>     showNa                               = Text.unwords [tLabel, Text.justifyRight 32 ' ' (Text.pack "n/a")]
+>     showDis                              = Text.unwords [tLabel, showMean, Text.pack "+-", showStdDev]
+>       where
+>         cv                               = if isUnit then convert else id
+>         showMean                         = Text.justifyRight 24 ' ' (Text.show $ cv mean)
+>         showStdDev                       = Text.justifyLeft  24 ' ' (Text.show $ cv stdDev)
+>
+>     makeLabel                            = smallIndent
+>                                              `Text.append`
+>                                              (if isPop then Text.pack "pop." else Text.pack "sample.")
+>                                              `Text.append`
+>                                              (if isUnit then Text.pack "unit" else Text.pack "raw")
+>     smallIndent                          = Text.pack (replicate 5 ' ')
 >
 > dispersion             :: Int → Double → Double → Int → Double → (Double, Double)
 > dispersion nVals accum_ accumSquares_ nDef valDef
->   | (nVals + nDef) == 0                   = error "dispersion: absence of vals would cause divide-by-zero"
->   | (nVals + nDef) == 1                   = (accum, 0)
->   | otherwise                             = (mean, stdDev)
+>   | (nVals + nDef) == 0                  = error "dispersion: absence of vals would cause divide-by-zero"
+>   | (nVals + nDef) == 1                  = (accum, 0)
+>   | otherwise                            = (mean, stdDev)
 >   where
+>     mean                                 = accum / denom
+>     stdDev                               = sqrt (max 0 ss / (denom - 1))
+>       where
+>         ss                               = accumSquares - ((accum * accum) / denom)
+>
 >     denom, mean, stdDev, dubNDef, dubValDef, accum, accumSquares
 >                        :: Double
 >     denom                                = fromIntegral (nVals + nDef)
 >     (dubNDef, dubValDef)                 = (fromIntegral nDef, valDef)
 >     accum                                = accum_ + (dubNDef * dubValDef)
 >     accumSquares                         = accumSquares_ + (dubNDef * (dubValDef * dubValDef))
->
->     mean                                 = accum / denom
->     stdDev                               = sqrt (max 0 ss / (denom - 1))
->       where
->         ss                               = accumSquares - ((accum * accum) / denom)
 >
 > testDis                :: [Int] → (Double, Double)
 > testDis is                               =

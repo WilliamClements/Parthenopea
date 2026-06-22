@@ -273,18 +273,18 @@ Generator Shredding ============================================================
 >   deriving (Eq, Show)
 >
 > data Spec where
->   Spec       :: {_gClip :: Maybe (Int, Int)
->                , _gDefault :: Int
->                , _gUnit :: Unit
+>   Spec       :: {_gClip    :: Maybe (Int, Int)
+>                , _gDefault :: Maybe Int
+>                , _gUnit    :: Unit
 >                } → Spec
 >   deriving (Eq, Show)
 > makeLenses ''Spec
 >
-> data GenResult where
->   GenResult   :: {rUnit :: String
+> data InUnits where
+>   InUnits    ::  {rUnit    :: String
 >                 , rClip    :: (Double, Double)
 >                 , rDefault :: Double
->                } → GenResult
+>                } → InUnits
 >   deriving (Eq, Show)
 >
 > specVector             :: VB.Vector Spec
@@ -327,8 +327,11 @@ Generator Shredding ============================================================
 >       , Just tmclip                                          -- RootKey
 >       , Nothing, Nothing                                     -- Unused5 | ReservedGen
 >       ]
->     allDefault      :: VB.Vector Int
->     allDefault                        = VB.fromList 
+>     allDefault       :: VB.Vector (Maybe Int)
+>     allDefault                        = VB.map maybeize allDefault_
+>                                           where maybeize d = if d == -1 then Nothing else Just d
+>     allDefault_      :: VB.Vector Int
+>     allDefault_                       = VB.fromList 
 >       [ 0, 0, 0, 0, 0                         -- (addresses)
 >       , 0, 0, 0                               -- ModLfoToPitch, VibLfoToPitch, ModEnvToPitch        
 >       , 13_500, 0                             -- InitFc, InitQ
@@ -365,13 +368,8 @@ Generator Shredding ============================================================
 >     clear                                = VB.replicate 61 NoUnit
 >
 >     makeUpdate         :: Unit → Set GenEnum → [(Int, Unit)]
->     makeUpdate unit                      =
->       let
->         erect          :: [(Int, Unit)] → GenEnum → [(Int, Unit)]
->         erect ius gen                    = (fromEnum gen, unit) : ius
->       in
->         Set.foldl erect []
->
+>     makeUpdate unit                      = Set.foldl erect []
+>                                              where erect ius gen = (fromEnum gen, unit) : ius
 >     changes            :: VB.Vector (Int, Unit)
 >     changes                              =
 >       VB.fromList $ concat [
@@ -396,7 +394,7 @@ Generator Shredding ============================================================
 > unitAction Points                        = ("sample points (no conversion)",     id)
 > unitAction CoarsePoints                  = ("32768 sample points",               (* 32768))
 > unitAction Keys                          = ("MIDI keys",                         id)
-> unitAction Semitones                     = ("semitones",                         fromSemitones)
+> unitAction Semitones                     = ("Hz ratio (from semitones)",         fromSemitones)
 > unitAction CentsPerKey                   = ("Hz ratio (from cents per key)",     fromMicrotones)
 > unitAction TimecentsPerKey               = ("seconds (from time cents per key)", fromTimecents)
 > unitAction NoUnit                        = ("no unit",                           id)
