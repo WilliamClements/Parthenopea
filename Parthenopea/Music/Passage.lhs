@@ -160,8 +160,8 @@ Construct a vector of MekNotes, enriching them =================================
 >
 >     enriched, rawMeks  :: VB.Vector MekNote
 >
->     -- stepwise evolution of enriched note (MekNote) vector via these functions
->     -- each function produces an update vector with elements that are to be changed
+>     -- stepwise evolution of enriched note (MekNote) vector
+>     -- framework applies the update vectors produced by: 
 >     wearOveralls, sewSeeds, enfill
 >                        :: VB.Vector MekNote → VB.Vector MekNote
 >
@@ -319,20 +319,17 @@ Model the topology of given MekNote sequence, using SelfIndex to identify nodes 
 >         Inflect _                        → VB.singleton mek.mSelfIndex
 >         Tail _                           → VB.singleton mek.mSelfIndex
 >         _                                → VB.empty
->     nodes                                =
->       let
->         append sis mek                   = sis VB.++ getSelfIndex mek
->       in
->         VB.foldl' append VB.empty meks
+>     nodes                                = VB.foldl' append VB.empty meks
+>                                              where append sis mek = sis VB.++ getSelfIndex mek
+>
 >     nodeMates                            = VB.zip nodes (VB.tail nodes)
->     nodeGroups                           =
->       let
+>
+>     nodeGroups                           = VB.groupBy inflected nodes
+>       where
 >         inflected _ si                   =
 >           case (meks VB.! si).mMarking of
 >             Mark _                       → False
 >             _                            → True
->       in
->          VB.groupBy inflected nodes
 
 We want to play with time as x and velocity as y. The Overall function applied to time values drives the sequence of
 velocities to be produced.

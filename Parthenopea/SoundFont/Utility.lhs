@@ -187,8 +187,9 @@ Returns the frequency ratio
 >   | isNothing mcoarse && isNothing mfine = Nothing
 >   | otherwise                            = Just $ fromCents $ coarse * 100 + fine
 >   where
->     coarse = maybe 0 fromIntegral mcoarse
->     fine   = maybe 0 fromIntegral mfine
+>     coarse, fine       :: Double
+>     coarse                               = maybe 0 fromIntegral mcoarse
+>     fine                                 = maybe 0 fromIntegral mfine
 
 Returns the frequency
 
@@ -237,8 +238,8 @@ An adaptor to make CtlSF into AudSF, communicating an IntMap
 >       if outRate < inRate 
 >         then error "Cannot upsample a signal of higher rate to lower rate" 
 >         else outRate / inRate
->     inRate  = rate (undefined :: p1)
->     outRate = rate (undefined :: p2)
+>     inRate                               = rate (undefined :: p1)
+>     outRate                              = rate (undefined :: p2)
 >   in    
 >     proc x                               → do
 >       rec

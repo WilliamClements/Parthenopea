@@ -10,7 +10,7 @@ November 24, 2023
 > module Parthenopea.Repro.ModulationTest ( modulationTests, filterTestDur ) where
 >
 > import Control.Exception ( try, ErrorCall )
-> import Control.Monad
+> import qualified Control.Monad           as CM
 > import Data.Either ( isLeft )
 > import Data.List
 > import qualified Data.Map.Strict         as Map
@@ -159,7 +159,7 @@ Modulation-related tests =======================================================
 In SoundFont spec, https://www.synthfont.com/SFSPEC21.PDF, see 9.5.2 Pictorial Examples of Source Types
 
 > allMappingsOk                            = do
->   drawings                               ← zipWithM drawOne [0..] allMappings
+>   drawings                               ← CM.zipWithM drawOne [0..] allMappings
 >   mapM_ chartOne drawings
 >   return True
 >

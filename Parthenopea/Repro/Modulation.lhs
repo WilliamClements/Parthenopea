@@ -872,12 +872,11 @@ The use of following functions requires that their input is normalized between 0
 > tableSize1024          :: Double
 > tableSize1024                            = fromIntegral qTableSize1024
 >
-> controlConcave         :: Double → Double
+> controlConcave, controlConvex
+>                        :: Double → Double
 > controlConcave doub
 >   | doub >= 1                            = 1
 >   | otherwise                            = quarterCircleTable ! truncate (doub * tableSize1024)
->
-> controlConvex          :: Double → Double
 > controlConvex doub
 >   | (1 - doub) >= 1                      = 1
 >   | otherwise                            = 1 - (quarterCircleTable ! truncate ((1 - doub) * tableSize1024))
