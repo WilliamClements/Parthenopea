@@ -104,7 +104,7 @@ Extracting passage information from Music1 =====================================
 >
 >     go _ as (Prim _)                     = as
 >
->     go pc as (Modify (Transpose k) m)    = go ((pcXpo .~ ((pc ^. pcXpo) + k)) pc) as m
+>     go pc as (Modify (Transpose k) m)    = go ((pcXpo +~ k) pc) as m
 >     go pc as (Modify (Instrument i) m)   = go ((pcInst ?~ i) pc) as m
 >     go pc as (Modify (Phrase [Dyn (StdLoudness _)]) m) 
 >                                          =
