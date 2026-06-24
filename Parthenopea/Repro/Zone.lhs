@@ -401,9 +401,9 @@ reconcile zone and sample header ===============================================
 >     summarize          :: ModDestType → ModCoefficients
 >     summarize toWhich                    =
 >       ModCoefficients
->         (coAccess toWhich $ maybe defModTriple (fromJust . fModTriple) nModEnv)
->         (coAccess toWhich $ maybe defModTriple lfoModTriple            nModLfo)
->         (coAccess toWhich $ maybe defModTriple lfoModTriple            nVibLfo)
+>         (coAccess toWhich $ maybe defModTriple (fromJust . _fModTriple) nModEnv)
+>         (coAccess toWhich $ maybe defModTriple lfoModTriple             nModLfo)
+>         (coAccess toWhich $ maybe defModTriple lfoModTriple             nVibLfo)
 >
 >     deriveLFO          :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe LFO
 >     deriveLFO del mfreq toPitch toFilterFc toVolume

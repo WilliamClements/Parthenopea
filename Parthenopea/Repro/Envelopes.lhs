@@ -1,6 +1,7 @@
 > {-# LANGUAGE LambdaCase #-}
 > {-# LANGUAGE OverloadedRecordDot #-}
 > {-# LANGUAGE ScopedTypeVariables #-}
+> {-# LANGUAGE TemplateHaskell #-}
 > {-# LANGUAGE UnicodeSyntax #-}
 
 Envelopes
@@ -9,6 +10,7 @@ Apr 26, 2025
 
 > module Parthenopea.Repro.Envelopes where
 >
+> import Control.Lens hiding ( element, strict )
 > import Data.List
 > import Data.Map.Strict (Map)
 > import qualified Data.Map.Strict         as Map
@@ -44,6 +46,54 @@ Create a straight-line envelope generator with following phases:
    sustain
    release  
 
+> data TimeFrame                           =
+>   TimeFrame {
+>     _tfSecsSampled     :: Double
+>   , _tfSecsScored      :: Double
+>   , _tfSecsToPlay      :: Double
+>   , _tfLooping         :: Bool} deriving (Eq, Show)
+> makeLenses ''TimeFrame
+> data EnvelopeExtras                      =
+>   EnvelopeExtras {
+>     _eeTargetT         :: Double
+>   , _eeReleaseT        :: Double
+>   , _eePostT           :: Double} deriving (Eq, Show)
+> makeLenses ''EnvelopeExtras
+> data FEnvelope                           =
+>   FEnvelope {
+>     _fExtras           :: Maybe EnvelopeExtras
+>   , _fSustainLevel     :: Double
+>   , _fModTriple        :: Maybe ModTriple
+>
+>   , _fDelayT           :: Double
+>   , _fAttackT          :: Double
+>   , _fHoldT            :: Double
+>   , _fDecayT           :: Double
+>   , _fSustainT         :: Double}
+>   deriving (Eq, Show)
+> makeLenses ''FEnvelope
+> data FIterate                            =
+>   FIterate {
+>     _fiFun             :: FIterate → FIterate
+>   , _fiEnvWork         :: FEnvelope
+>   , _fiDone            :: Bool}
+> makeLenses ''FIterate
+>
+> data Segments                            =
+>   Segments {
+>     sAmps              :: [Double]
+>   , sDeltaTs           :: [Double]} deriving Show
+>
+> data FCase                               =
+>   FCase {
+>     fcDAH              :: Bool
+>   , fcDecay            :: Bool} deriving (Eq, Ord, Show)
+> evaluateCase           :: FEnvelope → FCase
+> evaluateCase fe                          =
+>   FCase
+>     ((fe ^. fDelayT + fe ^. fAttackT + fe ^. fHoldT) >= (9/10) * feTarget fe)
+>     (fe ^. fDecayT >= (7/10) * feTarget fe)
+>
 > proposeSegments        :: TimeFrame → FEnvelope → (FEnvelope, Segments)
 > proposeSegments tf envRaw                = (r, segs)
 >   where
@@ -54,14 +104,14 @@ Create a straight-line envelope generator with following phases:
 >         extras                           =
 >           EnvelopeExtras secs releaseT releaseT
 >       in
->         refineEnvelope envRaw{fExtras = Just extras}
+>         refineEnvelope ((fExtras ?~ extras) envRaw)
 >
 >     segs                                 =
 >       let
 >         amps                             =
->           [0,            0,             1,          1,       fSusLevel,     fSusLevel,      0,       0]
+>           [0,            0,                1,           1,         fSusLevel,        fSusLevel,      0,         0]
 >         deltaTs                          =
->           [   r.fDelayT,    r.fAttackT,    r.fHoldT,   r.fDecayT,  r.fSustainT,    releaseT,     1]
+>           [   r ^. fDelayT,  r ^. fAttackT,   r ^. fHoldT,   r ^. fDecayT,  r ^. fSustainT,   releaseT,     1]
 >       in
 >         Segments amps deltaTs
 >
@@ -73,8 +123,30 @@ Create a straight-line envelope generator with following phases:
 >                                          = minUseful / 4
 >       | otherwise                        = minUseful
 >           
->     fSusLevel                            = clip (0, 1) r.fSustainLevel
->     secs                                 = tf.tfSecsToPlay
+>     fSusLevel                            = clip (0, 1) (r ^. fSustainLevel)
+>     secs                                 = tf ^. tfSecsToPlay
+>
+>     refineEnvelope         :: FEnvelope → FEnvelope
+>     refineEnvelope fEnvIn                = result ^. fiEnvWork
+>       where
+>         result                           = head $ dropWhile unfinished $ iterate' nextGen fiInit
+>
+>         fiInit                           =
+>           FIterate 
+>             (caseActions Map.! evaluateCase fEnvIn) 
+>             fEnvIn
+>             False
+>         nextGen fi                       = (fi ^. fiFun) fi
+>         unfinished fi                    = not (fi ^. fiDone)
+>
+>         caseActions    :: Map FCase (FIterate → FIterate)
+>         caseActions                      =
+>           Map.fromList [
+>               (FCase False False, faceValue)
+>             , (FCase False True, decayTooLong)
+>
+>             , (FCase True False, dahTooLong)
+>             , (FCase True True, dahTooLong)]
 >
 > doSweepingEnvelope     :: ∀ p . Clock p ⇒ Double → Either Velocity (VB.Vector Double) → Signal p () Double
 > doSweepingEnvelope secs                  = either (constA . fromIntegral) (doSweeps secs)
@@ -114,48 +186,11 @@ interpret them somehow.
 > feSum, feRemaining, feTarget
 >                        :: FEnvelope → Double
 > feSum fe                                 =
->   fe.fDelayT + fe.fAttackT + fe.fHoldT + fe.fDecayT + fe.fSustainT + ee.eeReleaseT + ee.eePostT
+>   fe ^. fDelayT + fe ^. fAttackT + fe ^. fHoldT + fe ^. fDecayT + fe ^. fSustainT + ee ^. eeReleaseT + ee ^. eePostT
 >   where
->     ee                                   = fromJust fe.fExtras
+>     ee                                   = fromJust (fe ^. fExtras)
 > feRemaining work                         = feTarget work - feSum work
-> feTarget work                            = (fromJust work.fExtras).eeTargetT
->
-> data FIterate                            =
->   FIterate {
->     fiFun              :: FIterate → FIterate
->   , fiEnvWork          :: FEnvelope
->   , fiDone             :: Bool}
-> data FCase                               =
->   FCase {
->     fcDAH              :: Bool
->   , fcDecay            :: Bool} deriving (Eq, Ord, Show)
-> evaluateCase           :: FEnvelope → FCase
-> evaluateCase fe                          =
->   FCase
->     ((fe.fDelayT + fe.fAttackT + fe.fHoldT) >= (9/10) * feTarget fe)
->     (fe.fDecayT >= (7/10) * feTarget fe)
->
-> refineEnvelope         :: FEnvelope → FEnvelope
-> refineEnvelope fEnvIn                    = result.fiEnvWork
->   where
->     result                               = head $ dropWhile unfinished $ iterate' nextGen fiInit
->
->     fiInit                               =
->       FIterate 
->         (caseActions Map.! evaluateCase fEnvIn) 
->         fEnvIn
->         False
->     nextGen fi                           = fi.fiFun fi
->     unfinished fi                        = not fi.fiDone
->
->     caseActions        :: Map FCase (FIterate → FIterate)
->     caseActions                          =
->       Map.fromList [
->           (FCase False False, faceValue)
->         , (FCase False True, decayTooLong)
->
->         , (FCase True False, dahTooLong)
->         , (FCase True True, dahTooLong)]
+> feTarget work                            = fromJust (work ^. fExtras) ^. eeTargetT
 >
 > feCheckFinal           :: FIterate → FIterate
 > feCheckFinal iterIn                      =
@@ -164,80 +199,80 @@ interpret them somehow.
 >     (unwords ["feCheckFinal failure: sum, target", show (theSum, targetT)])
 >     iterIn
 >   where
->     theSum                               = feSum iterIn.fiEnvWork
->     targetT                              = feTarget iterIn.fiEnvWork
+>     theSum                               = feSum (iterIn ^. fiEnvWork)
+>     targetT                              = feTarget (iterIn ^. fiEnvWork)
 >
 > feFinish               :: FIterate → FEnvelope → FIterate
 > feFinish iterIn workee                   =
->   feCheckFinal iterIn{fiFun = id, fiEnvWork = workee, fiDone = True}
+>   feCheckFinal $ ((fiFun .~ id) . (fiEnvWork .~ workee) . (fiDone .~ True)) iterIn
 >
 > feContinue             :: FIterate → FEnvelope → (FIterate → FIterate) → FIterate
-> feContinue iterIn workee fun             = iterIn{fiFun = fun, fiEnvWork = workee}
+> feContinue iterIn workee fun             = ((fiFun .~ fun) . (fiEnvWork .~ workee)) iterIn
 >
 > faceValue, dahTooLong, decayTooLong, reduceSustain, reduceDecay, reduceHold, reduceAttack, reduceDelay
 >                        :: FIterate → FIterate
 >
 > faceValue iterIn
 >   | remaining < minDeltaT                = feContinue iterIn work reduceSustain
->   | otherwise                            = feFinish iterIn work{fSustainT = remaining + work.fSustainT}
+>   | otherwise                            = feFinish iterIn ((fSustainT +~ remaining) work)
 >   where
->     work                                 = iterIn.fiEnvWork
+>     work                                 = iterIn ^. fiEnvWork
 >     remaining                            = feRemaining work
 >
 > dahTooLong iterIn                        = feContinue iterIn work reduceHold
 >   where
 >     work                                 =
->       iterIn.fiEnvWork{fDecayT = minDeltaT, fSustainT = minDeltaT}
+>       ((fDecayT .~ minDeltaT) . (fSustainT .~ minDeltaT)) (iterIn ^.fiEnvWork)
 >
 > decayTooLong iterIn
 >   | remaining < 0                        = feContinue iterIn work dahTooLong
->   | otherwise                            = feFinish iterIn work{fDecayT = remaining + work.fDecayT}
+>   | otherwise                            = feFinish iterIn ((fDecayT +~ remaining) work)
 >   where
->     work                                 = iterIn.fiEnvWork{fDecayT = minDeltaT}
+>     work                                 = (fDecayT .~ minDeltaT) (iterIn ^. fiEnvWork)
 >     remaining                            = feRemaining work
 >
 > reduceSustain iterIn                     =
 >   let
->     work                                 = iterIn.fiEnvWork{fSustainT = minDeltaT}
+>     work                                 = (fSustainT .~ minDeltaT) (iterIn ^. fiEnvWork)
 >     remaining                            = feRemaining work
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceDecay
->       else feFinish iterIn work{fSustainT = remaining + work.fSustainT}
+>       else feFinish iterIn ((fSustainT +~ remaining) work)
 >
 > reduceDecay iterIn                       =
 >   let
->     work                                 = iterIn.fiEnvWork{fDecayT = minDeltaT}
+>     work                                 = (fDecayT .~ minDeltaT) (iterIn ^. fiEnvWork)
 >     remaining                            = feRemaining work
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceHold
->       else feFinish iterIn work{fDecayT = remaining + work.fDecayT}
+>       else feFinish iterIn ((fDecayT +~ remaining) work)
 >
 > reduceHold iterIn                        = 
 >   let
->     work                                 = iterIn.fiEnvWork{fHoldT = minDeltaT}
+>     work                                 = (fHoldT .~ minDeltaT) (iterIn ^. fiEnvWork)
 >     remaining                            = feRemaining work
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceAttack
->       else feFinish iterIn work{fHoldT = remaining + work.fHoldT}
+>       else feFinish iterIn ((fHoldT +~ remaining) work)
 >
 > reduceAttack iterIn                      =
 >   let
->     work                                 = iterIn.fiEnvWork{fAttackT = minDeltaT}
+>     work                                 = (fAttackT .~ minDeltaT) (iterIn ^. fiEnvWork)
 >     remaining                            = feRemaining work
 >   in
 >     if remaining < minDeltaT
 >       then feContinue iterIn work reduceDelay
->       else feFinish iterIn work{fAttackT = remaining + work.fAttackT}
+>       else feFinish iterIn ((fAttackT +~ remaining) work)
 >
 > reduceDelay iterIn                       =
 >   let
->     work                                 = iterIn.fiEnvWork{fDelayT = minDeltaT}
+>     work                                 = (fDelayT .~ minDeltaT) (iterIn ^. fiEnvWork)
 >     remaining                            = feRemaining work
 >   in
->     feFinish iterIn work{fDelayT = remaining + work.fDelayT}
+>     feFinish iterIn ((fDelayT +~ remaining) work)
 >
 > deriveEnvelope         :: SynthSwitches
 >                           → Maybe Int
@@ -272,33 +307,5 @@ interpret them somehow.
 >     makeModTriple                        = maybe Nothing (uncurry go)
 >       where
 >         go toPitch toFilterFc            = Just (deriveModTriple toPitch toFilterFc Nothing)
->
-> data TimeFrame                           =
->   TimeFrame {
->     tfSecsSampled      :: Double
->   , tfSecsScored       :: Double
->   , tfSecsToPlay       :: Double
->   , tfLooping          :: Bool} deriving (Eq, Show)
-> data EnvelopeExtras                      =
->   EnvelopeExtras {
->     eeTargetT          :: Double
->   , eeReleaseT         :: Double
->   , eePostT            :: Double} deriving (Eq, Show)
-> data FEnvelope                           =
->   FEnvelope {
->     fExtras            :: Maybe EnvelopeExtras
->   , fSustainLevel      :: Double
->   , fModTriple         :: Maybe ModTriple
->
->   , fDelayT            :: Double
->   , fAttackT           :: Double
->   , fHoldT             :: Double
->   , fDecayT            :: Double
->   , fSustainT          :: Double}
->   deriving (Eq, Show)
-> data Segments                            =
->   Segments {
->     sAmps              :: [Double]
->   , sDeltaTs           :: [Double]} deriving Show
 
 The End

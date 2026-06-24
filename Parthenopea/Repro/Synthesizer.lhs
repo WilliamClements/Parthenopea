@@ -12,6 +12,7 @@ May 14, 2023
 >
 > import Control.Arrow
 > import Control.Arrow.Operations ( ArrowCircuit(delay) )
+> import Control.Lens hiding ( element, strict )
 > import Data.Array.Unboxed
 > import qualified Data.Audio              as A
 > import Data.Int ( Int16, Int32 )
@@ -71,7 +72,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     secsToPlay         :: Double         = if looping
 >                                              then secsScored
 >                                              else min secsSampled secsScored
->     timeFrame                            =
+>     tf                                   =
 >       TimeFrame
 >         secsSampled
 >         secsScored
@@ -101,9 +102,9 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >     pumpMono                             =
 >       eutDriver
 >         >>> pumpMonoSample
->         >>> eutModulate         timeFrame m8nL noon
+>         >>> eutModulate         tf m8nL noon
 >         >>> eutEffectsMono      sw (deJust fName reconL.rEffects)
->         >>> eutAmplify          timeFrame reconL.rM8n reconL.rVolEnv sweeps noon
+>         >>> eutAmplify          tf reconL.rM8n reconL.rVolEnv sweeps noon
 >
 >     pumpStereo                           = 
 >       eutDriver
@@ -116,7 +117,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >       proc sIn → do
 >         outA                             ⤙ (sIn, sIn)
 >
->     eutDriver                            = if timeFrame.tfLooping
+>     eutDriver                            = if tf ^. tfLooping
 >                                              then procDriver calcLooping
 >                                              else procDriver calcNotLooping
 >       where
@@ -130,7 +131,7 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >                                              where frac = snd . properFraction
 >
 >         procDriver calcPhase             = proc () → do
->           modSig                         ← eutModSignals timeFrame reconL.rM8n ToPitch     ⤙ ()
+>           modSig                         ← eutModSignals tf reconL.rM8n ToPitch     ⤙ ()
 >           let delta                      =
 >                 deltaCalc * evaluateModSignals "procDriver" reconL.rM8n ToPitch noon modSig
 >           rec
@@ -140,15 +141,15 @@ Euterpea provides call back mechanism for rendering. Each Midi note, fully speci
 >
 >     modulateStereo                       =
 >       proc (sL, sR) → do
->         mL                               ← eutModulate timeFrame m8nL noon                 ⤙ sL
->         mR                               ← eutModulate timeFrame m8nR noon                 ⤙ sR
+>         mL                               ← eutModulate tf m8nL noon                 ⤙ sL
+>         mR                               ← eutModulate tf m8nR noon                 ⤙ sR
 >         outA                                                                               ⤙ (mL, mR)
 >
 >     ampStereo                            =
 >       proc (tL, tR) → do
->         mL                               ← eutAmplify timeFrame reconL.rM8n reconL.rVolEnv sweeps noon
+>         mL                               ← eutAmplify tf reconL.rM8n reconL.rVolEnv sweeps noon
 >                                                                                            ⤙ tL
->         mR                               ← eutAmplify timeFrame reconR.rM8n reconR.rVolEnv sweeps noon
+>         mR                               ← eutAmplify tf reconR.rM8n reconR.rVolEnv sweeps noon
 >                                                                                            ⤙ tR
 >         outA                                                                               ⤙ (mL, mR)
 >
@@ -234,9 +235,9 @@ Modulation Signals =============================================================
 
 > eutModSignals          :: ∀ p . Clock p ⇒ TimeFrame → Modulation → ModDestType
 >                           → Signal p () ModSignals
-> eutModSignals timeFrame m8n md           =
+> eutModSignals tf m8n md                  =
 >   proc _                                 → do
->     aL1 ← doEnvelope  timeFrame kModEnvL             ⤙ ()
+>     aL1 ← doEnvelope  tf kModEnvL                    ⤙ ()
 >     aL2 ← doLFO       kModLfoL                       ⤙ ()
 >     aL3 ← doLFO       kVibLfoL                       ⤙ ()
 >     outA                                             ⤙ ModSignals aL1 aL2 aL3
@@ -254,21 +255,21 @@ Modulation =====================================================================
 
 > eutModulate            :: ∀ p . Clock p ⇒ TimeFrame → Modulation → NoteOn
 >                           → Signal p Double Double
-> eutModulate timeFrame m8n noon           =
+> eutModulate tf m8n noon                  =
 >   proc a1L                               → do
->     modSigL                              ← eutModSignals timeFrame m8n ToFilterFc         ⤙ ()
+>     modSigL                              ← eutModSignals tf m8n ToFilterFc                ⤙ ()
 >     a2L                                  ← addResonance m8n noon                          ⤙ (a1L, modSigL)
 >     outA                                                                                  ⤙ a2L
 >
 > doEnvelope             :: ∀ p . Clock p ⇒ TimeFrame → Maybe FEnvelope → Signal p () Double
-> doEnvelope timeFrame                     = maybe (constA 1) makeSF
+> doEnvelope tf                            = maybe (constA 1) makeSF
 >   where
 >     fName                                = "doEnvelope"
 >
 >     makeSF             :: FEnvelope → Signal p () Double
 >     makeSF envIn                         =
 >       let
->         (envNow, segs)                   = proposeSegments timeFrame envIn
+>         (envNow, segs)                   = proposeSegments tf envIn
 >         ok                               = vetEnvelope envNow segs
 >       in
 >         if ok
@@ -283,20 +284,20 @@ audio. For example, there should always be zeros at the beginning and end of eve
 > maybeVetAsDiscreteSig  :: FEnvelope → Segments → Bool
 > maybeVetAsDiscreteSig env segs           = (dt /= clip (1/32, 2) dt) || isJust (vetAsDiscreteSig ctrRate env segs)
 >   where
->     dt                                   = maybe minDeltaT eeTargetT env.fExtras
+>     dt                                   = maybe minDeltaT _eeTargetT (env ^. fExtras)
 >
 > vetAsDiscreteSig       :: Double → FEnvelope → Segments → Maybe (DiscreteSig Double)
 > vetAsDiscreteSig clockRate env segs
 >   | noisy prolog                         = error $ unwords [fName, "non-zero prolog", show prolog]
 >   | noisy epilog                         = error $ unwords [fName, "non-zero epilog", show epilog]
->   | isNothing env.fModTriple && dipix < (kSig' `div` 5)
+>   | isNothing (env ^. fModTriple) && dipix < (kSig' `div` 5)
 >                                          =
 >     error $ unwords [fName, "under", show dipThresh, "at", show dipix, "of", show (kSig, kVec)]
 >   | otherwise                            = Just dsig
 >   where
 >     fName                                = "vetAsDiscreteSig"
 >
->     targetT                              = (deJust fName env.fExtras).eeTargetT
+>     targetT                              = deJust fName (env ^. fExtras) ^. eeTargetT
 >     dsig                                 = discretizeEnvelope clockRate targetT segs
 >
 >     noisy             :: VU.Vector Double → Bool
@@ -308,7 +309,7 @@ audio. For example, there should always be zeros at the beginning and end of eve
 >     kVec                                 = VU.length dsig.dsigVec
 >     kSig                                 = truncate $ clockRate * targetT
 >     kSig'                                = truncate $ clockRate * min targetT 0.5
->     kSkip                                = round    $ clockRate * (env.fDelayT + env.fAttackT)
+>     kSkip                                = round    $ clockRate * ((env ^. fDelayT) + (env ^. fAttackT))
 >     kCheck                               = truncate $ clockRate * 0.75 * minDeltaT
 >
 >     prolog, epilog, afterAttack
@@ -371,7 +372,7 @@ We realize/discretize the envelope's signal. The resulting block is checked for 
 >   where
 >     fName                                = "vetEnvelope"
 >
->     ee                                   = deJust fName env.fExtras
+>     ee                                   = deJust fName (env ^. fExtras)
 
 Negative values fatal for amps or deltaTs
 
@@ -383,19 +384,18 @@ Three different ways of computing the envelope duration must all get same answer
 
 >     a, b, c            :: Double
 >     a                                    = feSum env
->     b                                    = ee.eeTargetT
->     c                                    = foldl' (+) (ee.eePostT - 1) segs.sDeltaTs
+>     b                                    = ee ^. eeTargetT
+>     c                                    = foldl' (+) (ee ^. eePostT - 1) segs.sDeltaTs
 
 Amplification =========================================================================================================
 
 > eutAmplify             :: ∀ p . Clock p ⇒ TimeFrame → Modulation → Maybe FEnvelope → VB.Vector Double → NoteOn
 >                           → Signal p Double Double
-> eutAmplify timeFrame m8n volEnv sweeps noon
->                                          =
+> eutAmplify tf m8n volEnv sweeps noon     =
 >   proc a1L → do
->     aSweep                               ← doSweepingEnvelope timeFrame.tfSecsToPlay eor   ⤙ ()
->     aenvL                                ← doEnvelope timeFrame volEnv                     ⤙ ()
->     modSigL                              ← eutModSignals timeFrame m8n ToVolume            ⤙ ()
+>     aSweep                               ← doSweepingEnvelope (tf ^. tfSecsToPlay) eor   ⤙ ()
+>     aenvL                                ← doEnvelope tf volEnv                          ⤙ ()
+>     modSigL                              ← eutModSignals tf m8n ToVolume                 ⤙ ()
 >     let a2L                              =
 >           a1L * aenvL * (aSweep / 100) * evaluateModSignals fName m8n ToVolume noon modSigL
 >     outA                                 ⤙ a2L

@@ -81,7 +81,7 @@ Chart ==========================================================================
 >   where
 >     (r, segs)                            = proposeSegments tf fe
 >     mdsig                                = vetAsDiscreteSig clockRate r segs
->     nPoints            :: Int            = round $ clockRate * (tf.tfSecsScored + 0.5)
+>     nPoints            :: Int            = round $ clockRate * (tf ^. tfSecsScored + 0.5)
 > chartDiscreteSig       :: Double → Int → DiscreteSig Double → String → IO Bool
 > chartDiscreteSig clockRate nPoints dsig tag
 >                                          = chartPoints "Discrete" tag [sec]
