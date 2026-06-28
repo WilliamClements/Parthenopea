@@ -30,7 +30,7 @@ Modifiers to filter ouput ======================================================
 
 Start with the overall rollup and recurse down ========================================================================
 
-> showResults       :: GenSum → IO ()
+> showResults            :: GenSum → IO ()
 > showResults rootGenSum                   = do
 >   putStrLn $ unwords ["num Files", show nFiles]
 >   putStrLn $ unwords ["num Insts", show nInsts]
