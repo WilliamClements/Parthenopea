@@ -45,6 +45,9 @@ The per-file diagnostic data (GenSum) includes:
 >   | Reserved3 | ScaleTuning | ExclusiveClass | RootKey | Unused5 | ReservedGen
 >   deriving (Enum, Eq, Ord, Show)
 >
+> allGens                :: VB.Vector GenEnum
+> allGens                                  = VB.generate 61 toEnum
+>
 > data GenData                             =
 >   GenData {
 >     _gGen              :: GenEnum
@@ -56,11 +59,9 @@ The per-file diagnostic data (GenSum) includes:
 >   , _gUnitSquares      :: Double}
 >   deriving (Eq, Show)
 > makeLenses ''GenData
-> makeGenData            :: GenEnum → GenData
-> makeGenData gen                          = GenData gen 0 IntSet.empty 0 0 0 0      
-> isEmptyGenData         :: GenData → Bool
+> initGenData            :: GenEnum → GenData
+> initGenData gen                          = GenData gen 0 IntSet.empty 0 0 0 0      
 > isEmptyGenData gd                        = (gd ^. gOccur) == 0
-> addGenDatas            :: GenData → GenData → GenData
 > addGenDatas gd1 gd2                      =
 >   GenData
 >     (gd1 ^. gGen)
@@ -75,7 +76,7 @@ The per-file diagnostic data (GenSum) includes:
 > type GenSlate                            = VB.Vector GenData
 >
 > initGenSlate           :: GenSlate
-> initGenSlate                             = VB.generate 61 (makeGenData . toEnum)
+> initGenSlate                             = VB.generate 61 (initGenData . toEnum)
 >
 > data EState                              =
 >   EOff | EOnSmall | EOnLarge
@@ -399,30 +400,32 @@ Generator Shredding ============================================================
 > unitAction TimecentsPerKey               = ("seconds (from time cents per key)", fromTimecents)
 > unitAction NoUnit                        = ("no unit",                           id)
 >
-> allGens                :: VB.Vector GenEnum
-> allGens                                  = VB.generate 61 toEnum
->
-> centibelsUsers, centsUsers, absoluteCentsUsers, timeCentsUsers
->  , tenthsUsers, pointsUsers, coarsePointsUsers, keysUsers
->  , semitonesUsers, centsPerKeyUsers
->  , timecentsPerKeyUsers
+> centibelsUsers, centsUsers, absoluteCentsUsers, timeCentsUsers, tenthsUsers, pointsUsers, coarsePointsUsers
+>  , keysUsers, semitonesUsers, centsPerKeyUsers, timecentsPerKeyUsers
 >                        :: Set GenEnum
-> centibelsUsers                           = Set.fromList [  InitQ, ModLfoToVol, SustainModEnv, SustainVolEnv, InitAtten]
-> centsUsers                               = Set.fromList [  ModLfoToPitch, VibLfoToPitch, ModEnvToPitch
->                                                          , ModLfoToFc, ModEnvToFc, FineTune]
-> absoluteCentsUsers                       = Set.fromList [  InitFc, FreqModLfo, FreqVibLfo] 
-> timeCentsUsers                           = Set.fromList [  DelayModLfo, DelayVibLfo
->                                                          , DelayModEnv, AttackModEnv, HoldModEnv, DecayModEnv, ReleaseModEnv
->                                                          , DelayVolEnv, AttackVolEnv, HoldVolEnv, DecayVolEnv, ReleaseVolEnv]
-> tenthsUsers                              = Set.fromList [  Chorus, Reverb, Pan]
-> pointsUsers                              = Set.fromList [  StartAddressOffset, EndAddressOffset
->                                                          , LoopStartAddressOffset, LoopEndAddressOffset]
-> coarsePointsUsers                        = Set.fromList [  StartAddressCoarseOffset, EndAddressCoarseOffset
->                                                          , LoopStartAddressCoarseOffset, LoopEndAddressCoarseOffset]
-> keysUsers                                = Set.fromList [  Key, RootKey, Vel]
-> semitonesUsers                           = Set.fromList [  CoarseTune]
-> centsPerKeyUsers                         = Set.fromList [  ScaleTuning]
-> timecentsPerKeyUsers                     = Set.fromList [  KeyToModEnvHold, KeyToModEnvDecay
->                                                          , KeyToVolEnvHold, KeyToVolEnvDecay]
+> centibelsUsers                           =
+>   Set.fromList [  InitQ, ModLfoToVol, SustainModEnv, SustainVolEnv, InitAtten]
+> centsUsers                               =
+>   Set.fromList [  ModLfoToPitch, VibLfoToPitch, ModEnvToPitch, ModLfoToFc, ModEnvToFc, FineTune]
+> absoluteCentsUsers                       =
+>   Set.fromList [  InitFc, FreqModLfo, FreqVibLfo] 
+> timeCentsUsers                           =
+>   Set.fromList [  DelayModLfo, DelayVibLfo, DelayModEnv, AttackModEnv, HoldModEnv, DecayModEnv, ReleaseModEnv
+>                 , DelayVolEnv, AttackVolEnv, HoldVolEnv, DecayVolEnv, ReleaseVolEnv]
+> tenthsUsers                              =
+>   Set.fromList [  Chorus, Reverb, Pan]
+> pointsUsers                              =
+>   Set.fromList [  StartAddressOffset, EndAddressOffset, LoopStartAddressOffset, LoopEndAddressOffset]
+> coarsePointsUsers                        =
+>   Set.fromList [  StartAddressCoarseOffset, EndAddressCoarseOffset
+>                 , LoopStartAddressCoarseOffset, LoopEndAddressCoarseOffset]
+> keysUsers                                =
+>   Set.fromList [  Key, RootKey, Vel]
+> semitonesUsers                           =
+>   Set.fromList [  CoarseTune]
+> centsPerKeyUsers                         =
+>   Set.fromList [  ScaleTuning]
+> timecentsPerKeyUsers                     =
+>   Set.fromList [  KeyToModEnvHold, KeyToModEnvDecay, KeyToVolEnvHold, KeyToVolEnvDecay]
 
 The End

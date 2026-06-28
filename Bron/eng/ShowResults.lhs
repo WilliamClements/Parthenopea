@@ -209,6 +209,7 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >
 > dispersion             :: Int → Double → Double → Int → Double → (Double, Double)
 > dispersion nVals accum_ accumSquares_ nDef valDef
+>   | nVals < 0 || nDef < 0                = error "dispersion: negative count"
 >   | (nVals + nDef) == 0                  = error "dispersion: absence of vals would cause divide-by-zero"
 >   | (nVals + nDef) == 1                  = (accum, 0)
 >   | otherwise                            = (mean, stdDev)

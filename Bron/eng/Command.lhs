@@ -5,7 +5,7 @@ William Clements
 May 18, 2026
 
 > module Eng.Command (
->         batchProcessor ) where
+>         bron ) where
 >
 > import qualified Control.Monad           as CM
 > import Data.Time ( getZonedTime )
@@ -18,12 +18,12 @@ May 18, 2026
 
 Executive =============================================================================================================
 
-> batchProcessor         :: IO ()
-> batchProcessor                           = do
+> bron                   :: IO ()
+> bron                                     = do
 >   timeThen                               ← getZonedTime
 >   putStrLn $ show timeThen ++ "\n"
->   sf2s                                   ← FP.getDirectoryFilesIgnoreSlow "." ["*.sf2"] []
 >
+>   sf2s                                   ← FP.getDirectoryFilesIgnoreSlow "." ["*.sf2"] []
 >   if null sf2s
 >     then putStrLn "No .sf2 files found."
 >     else proceedWith sf2s

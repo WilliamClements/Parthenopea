@@ -57,6 +57,11 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                        :: Map EConfig Int
 >             (modMap, volMap)             = (mark Map.empty modEC, mark Map.empty volEC)
 >                                              where (modEC, volEC) = VB.foldl' examineIf (initEC, initEC) slate
+>
+>             examineIf  :: (EConfig, EConfig) → GenData → (EConfig, EConfig)
+>             examineIf acc genData        = if isEmptyGenData genData
+>                                               then acc
+>                                               else examine acc (genData ^. gGen, genData ^. gAccum)
 >           in
 >             makeGenSum GSZoneLevel ztag slate VB.empty 1 modMap volMap
 >
@@ -83,9 +88,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >             firstZone  :: GenSlate       = head slates_
 >             others     :: [GenSlate]     = tail slates_
 >             globalZone :: Bool           = isEmptyGenData $ firstZone VB.! fromEnum SampleIndex
->
->             applyGlobalZone
->                        :: GenData → GenData → GenData
 >             applyGlobalZone gz oz
 >               | not (isEmptyGenData gz) && isEmptyGenData oz
 >                                          = gz
@@ -122,11 +124,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >               then m
 >               else IntMap.insert kinst (IntSet.fromList [ist..ien]) m
 >
->     examineIf          :: (EConfig, EConfig) → GenData → (EConfig, EConfig)
->     examineIf acc genData                = if isEmptyGenData genData
->                                               then acc
->                                               else examine acc (genData ^. gGen, genData ^. gAccum)
->
 >     examine            :: (EConfig, EConfig) → (GenEnum, Double) → (EConfig, EConfig)
 >     examine (ecMod, ecVol) (DelayModEnv, val)
 >                                          = ((eConfigDelay .~ categorize (Just val)) ecMod, ecVol)
@@ -149,7 +146,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = (ecMod, (eConfigDecay .~ categorize (Just val)) ecVol)
 >     examine (ecMod, ecVol) (ReleaseVolEnv, val)
 >                                          = (ecMod, (eConfigRelease .~ categorize (Just val)) ecVol)
->
 >     examine (ecMod, ecVol) _             = (ecMod, ecVol)
 >
 >     upd                :: VB.Vector GenData → GenEnum → Maybe Int → VB.Vector GenData
@@ -188,8 +184,7 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >
 >                                             . (gWildValues .~ wild)) genData
 >
->     shredGen           :: VB.Vector GenData → F.Generator → VB.Vector GenData
->         
+>     shredGen           :: VB.Vector GenData → F.Generator → VB.Vector GenData   
 >     -- 0..4
 >     shredGen is (F.StartAddressOffset val)
 >                                          = upd is StartAddressOffset (Just val)
@@ -201,7 +196,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is LoopEndAddressOffset (Just val)
 >     shredGen is (F.StartAddressCoarseOffset val)
 >                                          = upd is StartAddressCoarseOffset (Just val)
->         
 >         -- 5..9
 >     shredGen is (F.ModLfoToPitch val)
 >                                          = upd is ModLfoToPitch (Just val)
@@ -213,7 +207,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is InitFc (Just val)
 >     shredGen is (F.InitQ val)
 >                                          = upd is InitQ (Just val)
->         
 >         -- 10..13
 >     shredGen is (F.ModLfoToFc val)
 >                                          = upd is ModLfoToFc (Just val)
@@ -223,7 +216,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is EndAddressCoarseOffset (Just val)
 >     shredGen is (F.ModLfoToVol val)
 >                                          = upd is ModLfoToVol (Just val)
->         
 >         -- 15..17
 >     shredGen is (F.Chorus val)
 >                                          = upd is Chorus (Just val)
@@ -231,7 +223,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is Reverb (Just val)
 >     shredGen is (F.Pan val)
 >                                          = upd is Pan (Just val)
->         
 >         -- 21..24
 >     shredGen is (F.DelayModLfo val)
 >                                          = upd is DelayModLfo (Just val)
@@ -241,7 +232,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is DelayVibLfo (Just val)
 >     shredGen is (F.FreqVibLfo val)
 >                                          = upd is FreqVibLfo (Just val)
->         
 >         -- 25..32
 >     shredGen is (F.DelayModEnv val)
 >                                          = upd is DelayModEnv (Just val)
@@ -259,7 +249,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is KeyToModEnvHold (Just val)
 >     shredGen is (F.KeyToModEnvDecay val)
 >                                          = upd is KeyToModEnvDecay (Just val)
->         
 >         -- 33..41
 >     shredGen is (F.DelayVolEnv val)
 >                                          = upd is DelayVolEnv (Just val)
@@ -279,7 +268,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is KeyToVolEnvDecay (Just val)
 >     shredGen is (F.InstIndex _)
 >                                          = upd is InstIndex Nothing
->         
 >         -- 43..48
 >     shredGen is (F.KeyRange _ _)
 >                                          = upd is KeyRange Nothing
@@ -293,7 +281,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                          = upd is Vel ((Just . fromIntegral) val)
 >     shredGen is (F.InitAtten val)
 >                                          = upd is InitAtten (Just val)
->         
 >         -- 50..54
 >     shredGen is (F.LoopEndAddressCoarseOffset val)
 >                                          = upd is LoopEndAddressCoarseOffset (Just val)
@@ -304,16 +291,14 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >     shredGen is (F.SampleIndex val)
 >                                          = upd is SampleIndex ((Just . fromIntegral) val)
 >     shredGen is (F.SampleMode _)
->                                          = upd is SampleMode Nothing
->         
+>                                          = upd is SampleMode Nothing         
 >         -- 56..58
 >     shredGen is (F.ScaleTuning val)
 >                                          = upd is ScaleTuning (Just val)
 >     shredGen is (F.ExclusiveClass val)
 >                                          = upd is ExclusiveClass (Just val)
 >     shredGen is (F.RootKey val)
->                                          = upd is RootKey ((Just . fromIntegral) val)
->         
+>                                          = upd is RootKey ((Just . fromIntegral) val)        
 >         -- 60
 >     shredGen is (F.ReservedGen _ _)
 >                                          = upd is ReservedGen Nothing

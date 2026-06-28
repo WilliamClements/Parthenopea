@@ -5,4 +5,4 @@
 > import Eng.Command
 >
 > main :: IO ()
-> main = batchProcessor
+> main = bron
