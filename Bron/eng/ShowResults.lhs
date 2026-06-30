@@ -207,15 +207,15 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >
 >     denom, mean, stdDev, accum, accumSquares
 >                        :: Double
->     denom                                = fromIntegral (IntMap.foldlWithKey grow 0 m)
->                                              where grow soFar _ v = soFar + v
->     accum                                = IntMap.foldlWithKey cumul8 0 m
->     accumSquares                         = IntMap.foldlWithKey devi8 0 m
->
->     cumul8, devi8      :: Double → Int → Int → Double
->     cumul8 soFar k v                     = soFar + fromIntegral v * converti mcv k
->     devi8 soFar k v                      = soFar + fromIntegral v * devi * devi
->                                              where devi = converti mcv k - mean
+>     (denom, accum, accumSquares)         =
+>       let
+>         grow (dF, aF, sF) i v            = (dF + vF, aF + vF * iF, sF + vF * deltaF * deltaF)
+>           where
+>             iF                           = converti mcv i
+>             vF                           = fromIntegral v
+>             deltaF                       = mean - iF
+>       in
+>         IntMap.foldlWithKey grow (0, 0, 0) m
 >
 > testDis                :: [Int] → (Double, Double)
 > testDis is                               = dispersion histo Nothing
