@@ -50,7 +50,7 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >         shredSlate     :: GenSlate → GenSum
 >         shredSlate slate                 =
 >           let
->             ksamp      :: Int            = round $ (slate VB.! fromEnum SampleIndex) ^. gAccum
+>             ksamp      :: Int            = getAccum (slate VB.! fromEnum SampleIndex)
 >             ztag       :: String         = "z " ++ Text.unpack (Text.pack $ fixName $ F.sampleName (loadShdr ksamp))
 >
 >             modMap, volMap
@@ -61,7 +61,7 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >             examineIf  :: (EConfig, EConfig) → GenData → (EConfig, EConfig)
 >             examineIf acc genData        = if isEmptyGenData genData
 >                                               then acc
->                                               else examine acc (genData ^. gGen, genData ^. gAccum)
+>                                               else examine acc (genData ^. gGen, getAccum genData)
 >           in
 >             makeGenSum GSZoneLevel ztag slate VB.empty 1 modMap volMap
 >
@@ -124,7 +124,7 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >               then m
 >               else IntMap.insert kinst (IntSet.fromList [ist..ien]) m
 >
->     examine            :: (EConfig, EConfig) → (GenEnum, Double) → (EConfig, EConfig)
+>     examine            :: (EConfig, EConfig) → (GenEnum, Int) → (EConfig, EConfig)
 >     examine (ecMod, ecVol) (DelayModEnv, val)
 >                                          = ((eConfigDelay .~ categorize (Just val)) ecMod, ecVol)
 >     examine (ecMod, ecVol) (AttackModEnv, val)
@@ -154,7 +154,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >         ix                               = fromEnum ge
 >         genData                          = is VB.! ix
 >         spec                             = specVector VB.! ix
->         (_, convert)                     = unitAction (spec ^. gUnit)
 >         staticClip_                      = spec ^. gClip
 >         staticClip                       = fromJust staticClip_
 >
@@ -164,9 +163,6 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >           | isNothing valMaybe           = fromMaybe 0 (spec ^. gDefault)
 >           | isNothing staticClip_        = val_
 >           | otherwise                    = clip staticClip val_
->         dVal, uVal     :: Double
->         dVal                             = fromIntegral val
->         uVal                             = convert dVal
 >
 >         
 >         wild_                            = genData ^. gWildValues
@@ -176,12 +172,7 @@ for Zones are rolled up to Instrument GenSums, and Instrument GenSums are rolled
 >                                                                 else Nothing
 >
 >         genData'                         = (  (gOccur +~ 1)
->
->                                             . (gAccum +~ dVal)
->                                             . (gSquares +~ (dVal * dVal))
->                                             . (gUnitAccum +~ uVal)
->                                             . (gUnitSquares +~ (uVal * uVal))
->
+>                                             . (gHisto .~ IntMap.insertWith (+) val 1 (genData ^. gHisto))
 >                                             . (gWildValues .~ wild)) genData
 >
 >     shredGen           :: VB.Vector GenData → F.Generator → VB.Vector GenData   

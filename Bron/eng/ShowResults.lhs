@@ -10,6 +10,8 @@ May 28, 2026
 > import Control.Lens hiding ( element, ix )
 > import Control.Monad                     as CM
 > import qualified Data.Bifunctor          as BF
+> import Data.IntMap.Strict ( IntMap )
+> import qualified Data.IntMap.Strict      as IntMap
 > import Data.List
 > import Data.Map.Strict ( Map )
 > import qualified Data.Map.Strict         as Map
@@ -126,35 +128,20 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >         noDefault                        = isNothing (spec ^. gDefault)
 >         noClip                           = isNothing (spec ^. gClip)
 >         noStats                          = (spec ^. gUnit) == NoUnit
->         safeDefault    :: Double         = maybe 0 fromIntegral (spec ^. gDefault)
+>         safeDefault    :: Int            = fromMaybe 0 (spec ^. gDefault)
 >         safeClip       :: (Int, Int)     = fromMaybe (0, 0) (spec ^. gClip)
 >
->         (strUnit, convert)               = unitAction (spec ^. gUnit)
+>         mcv            :: Maybe (Double → Double)
+>         (strUnit, mcv)                   = unitAction (spec ^. gUnit)
 >
->         (pMean, pStdDev)                 = dispersion
->                                              (genData ^. gOccur)
->                                              (genData ^. gAccum)
->                                              (genData ^. gSquares)
->                                              ((gensum ^. gsZoneCount) - (genData ^. gOccur))
->                                              safeDefault
->         (sMean, sStdDev)                 = dispersion
->                                              (genData ^. gOccur)
->                                              (genData ^. gAccum)
->                                              (genData ^. gSquares)
->                                              0
->                                              safeDefault
->         (uMean, uStdDev)                 = dispersion
->                                              (genData ^. gOccur)
->                                              (genData ^. gUnitAccum)
->                                              (genData ^. gUnitSquares)
->                                              ((gensum ^. gsZoneCount) - (genData ^. gOccur))
->                                              safeDefault
->         (vMean, vStdDev)                 = dispersion
->                                              (genData ^. gOccur)
->                                              (genData ^. gUnitAccum)
->                                              (genData ^. gUnitSquares)
->                                              0
->                                              safeDefault
+>         m              :: IntMap Int     = genData ^. gHisto
+>         n              :: Int            = (gensum ^. gsZoneCount) - (genData ^. gOccur) 
+>         defaults       :: IntMap Int     = IntMap.fromList [(safeDefault, n)]
+>
+>         (pMean, pStdDev)                 = dispersion (IntMap.unionWith (+) m defaults) Nothing
+>         (sMean, sStdDev)                 = dispersion m                                 Nothing
+>         (uMean, uStdDev)                 = dispersion (IntMap.unionWith (+) m defaults) mcv
+>         (vMean, vStdDev)                 = dispersion m                                 mcv
 >
 >         stats          :: [Text]
 >         stats                            =
@@ -164,29 +151,32 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                                                          , Text.show spec]
 >             tOccur     :: Text           = Text.justifyRight 68 ' ' (Text.pack (unwords ["Occurence:", sPercent]))
 >             sPercent                     = percent (genData ^. gOccur) (gensum ^. gsZoneCount)
->             slurp                        = convert . fromIntegral
 >             genResult                    = InUnits
 >                                              strUnit
->                                              (BF.bimap slurp slurp safeClip)
->                                              (convert safeDefault)
+>                                              (BF.bimap (converti mcv) (converti mcv) safeClip)
+>                                              (converti mcv safeDefault)
 >             tResult    :: Text           = if noDefault || noClip
 >                                              then Text.empty
 >                                              else largeIndent `Text.append` Text.show genResult
+>             t1, t2, u1, u2, tt, uu
+>                        :: [Text]
+>             t1                           = [showDispersion noDefault    False True  (pMean, pStdDev)]
+>             t2                           = [showDispersion noData       False False (sMean, sStdDev)]
+>             u1                           = [showDispersion noDefault    True True   (uMean, uStdDev)]
+>             u2                           = [showDispersion noData       True False  (vMean, vStdDev)]
+>
+>             tt                           = t1 ++ t2
+>             uu                           = if isNothing mcv then [] else u1 ++ u2
 >
 >           in
 >             if noStats
 >               then    [tHead, tOccur]
->               else    [tHead, tOccur]
->                    ++ [showDispersion convert noDefault    False True  (pMean, pStdDev)]
->                    ++ [showDispersion convert noData       False False (sMean, sStdDev)]
->                    ++ [tResult]
->                    ++ [showDispersion convert noDefault    True True  (uMean, uStdDev)]
->                    ++ [showDispersion convert noData       True False (vMean, vStdDev)]
+>               else    [tHead, tOccur] ++ tt ++ [tResult] ++ uu
 >
 >         largeIndent                      = Text.pack (replicate 37 ' ')
 >
-> showDispersion         :: (Double → Double) → Bool → Bool → Bool → (Double, Double) → Text
-> showDispersion convert noDispersion isUnit isPop (mean, stdDev)
+> showDispersion         :: Bool → Bool → Bool → (Double, Double) → Text
+> showDispersion noDispersion isUnit isPop (mean, stdDev)
 >                                          =
 >   if noDispersion
 >     then showNa
@@ -196,9 +186,8 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >     showNa                               = Text.unwords [tLabel, Text.justifyRight 32 ' ' (Text.pack "n/a")]
 >     showDis                              = Text.unwords [tLabel, showMean, Text.pack "+-", showStdDev]
 >       where
->         cv                               = if isUnit then convert else id
->         showMean                         = Text.justifyRight 24 ' ' (Text.show $ cv mean)
->         showStdDev                       = Text.justifyLeft  24 ' ' (Text.show $ cv stdDev)
+>         showMean                         = Text.justifyRight 24 ' ' (Text.show mean)
+>         showStdDev                       = Text.justifyLeft  24 ' ' (Text.show stdDev)
 >
 >     makeLabel                            = smallIndent
 >                                              `Text.append`
@@ -207,58 +196,37 @@ Compute and show numerical statistics for each value-bearing generator type ====
 >                                              (if isUnit then Text.pack "unit" else Text.pack "raw")
 >     smallIndent                          = Text.pack (replicate 5 ' ')
 >
-> dispersion             :: Int → Double → Double → Int → Double → (Double, Double)
-> dispersion nVals accum_ accumSquares_ nDef valDef
->   | nVals < 0 || nDef < 0                = error "dispersion: negative count"
->   | (nVals + nDef) == 0                  = error "dispersion: absence of vals would cause divide-by-zero"
->   | (nVals + nDef) == 1                  = (accum, 0)
+> dispersion             :: IntMap Int → Maybe (Double → Double) → (Double, Double)
+> dispersion m mcv
+>   | null m                               = error "dispersion: absence of vals would cause divide-by-zero"
+>   | round denom == (1::Int)              = (accum, 0)
 >   | otherwise                            = (mean, stdDev)
 >   where
 >     mean                                 = accum / denom
->     stdDev                               = sqrt (max 0 ss / (denom - 1))
->       where
->         ss                               = accumSquares - ((accum * accum) / denom)
+>     stdDev                               = sqrt (accumSquares / (denom - 1))
 >
->     denom, mean, stdDev, dubNDef, dubValDef, accum, accumSquares
+>     denom, mean, stdDev, accum, accumSquares
 >                        :: Double
->     denom                                = fromIntegral (nVals + nDef)
->     (dubNDef, dubValDef)                 = (fromIntegral nDef, valDef)
->     accum                                = accum_ + (dubNDef * dubValDef)
->     accumSquares                         = accumSquares_ + (dubNDef * (dubValDef * dubValDef))
+>     denom                                = fromIntegral (IntMap.foldlWithKey grow 0 m)
+>                                              where grow soFar _ v = soFar + v
+>     accum                                = IntMap.foldlWithKey cumul8 0 m
+>     accumSquares                         = IntMap.foldlWithKey devi8 0 m
+>
+>     cumul8, devi8      :: Double → Int → Int → Double
+>     cumul8 soFar k v                     = soFar + fromIntegral v * converti mcv k
+>     devi8 soFar k v                      = soFar + fromIntegral v * devi * devi
+>                                              where devi = converti mcv k - mean
 >
 > testDis                :: [Int] → (Double, Double)
-> testDis is                               =
->   let
->     square             :: Int → Double
->     square x                             = fromIntegral x * fromIntegral x
->   in
->     dispersion
->       (length is)
->       ((fromIntegral . sum) is)
->       (sum $ map square is)
->       0
->       0
->
-> testDat                :: [Double] → (Double, Double)
-> testDat xs                               =
->   let
->     square             :: Double → Double
->     square x                             = x * x
->   in
->     dispersion
->       (length xs)
->       (sum xs)
->       (sum $ map square xs)
->       0
->       0
+> testDis is                               = dispersion histo Nothing
+>   where
+>     histo                                = foldl' groove IntMap.empty is
+>                                              where groove m i = IntMap.insertWith (+) i 1 m
 >
 > overallCounts          :: GenSum → (Int, Int, Int)
 > overallCounts gensum                     = foldl' shredCounts (0, 0, 0) (flatten gensum)
 >   where
->     flatten            :: GenSum → [GenSum]
 >     flatten leaf                         = leaf : concatMap flatten (VB.toList (leaf ^. gsSubSums))
->
->     shredCounts        :: (Int, Int, Int) → GenSum → (Int, Int, Int)
 >     shredCounts (x, y, z) eachGenSum     =
 >       case eachGenSum ^. gsLevel of
 >         GSFileLevel    → (x + 1,     y,     z)

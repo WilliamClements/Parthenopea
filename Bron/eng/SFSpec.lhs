@@ -13,6 +13,8 @@ April 16, 2023
 > import qualified Data.Audio              as A
 > import Data.Char
 > import Data.Int ( Int8, Int16 )
+> import Data.IntMap.Strict ( IntMap )
+> import qualified Data.IntMap.Strict      as IntMap
 > import Data.IntSet ( IntSet )
 > import qualified Data.IntSet             as IntSet
 > import Data.Map.Strict (Map)
@@ -52,25 +54,20 @@ The per-file diagnostic data (GenSum) includes:
 >   GenData {
 >     _gGen              :: GenEnum
 >   , _gOccur            :: Int
->   , _gWildValues       :: IntSet
->   , _gAccum            :: Double
->   , _gSquares          :: Double
->   , _gUnitAccum        :: Double
->   , _gUnitSquares      :: Double}
+>   , _gHisto            :: IntMap Int
+>   , _gWildValues       :: IntSet}
 >   deriving (Eq, Show)
 > makeLenses ''GenData
 > initGenData            :: GenEnum → GenData
-> initGenData gen                          = GenData gen 0 IntSet.empty 0 0 0 0      
+> initGenData gen                          = GenData gen 0 IntMap.empty IntSet.empty
 > isEmptyGenData gd                        = (gd ^. gOccur) == 0
+> getAccum gd                              = maybe 0 fst (IntMap.lookupMin (gd ^. gHisto))
 > addGenDatas gd1 gd2                      =
 >   GenData
 >     (gd1 ^. gGen)
 >     ((gd1 ^. gOccur) + (gd2 ^. gOccur))
+>     (IntMap.unionWith (+) (gd1 ^. gHisto) (gd2 ^. gHisto))
 >     ((gd1 ^. gWildValues) `IntSet.union` (gd2 ^. gWildValues))
->     ((gd1 ^. gAccum) + (gd2 ^. gAccum))
->     ((gd1 ^. gSquares) + (gd2 ^. gSquares))
->     ((gd1 ^. gUnitAccum) + (gd2 ^. gUnitAccum))
->     ((gd1 ^. gUnitSquares) + (gd2 ^. gUnitSquares))
 >     
 > type BagIndex                            = Int
 > type GenSlate                            = VB.Vector GenData
@@ -81,7 +78,7 @@ The per-file diagnostic data (GenSum) includes:
 > data EState                              =
 >   EOff | EOnSmall | EOnLarge
 >   deriving (Eq, Ord, Show)
-> categorize             :: Maybe Double → EState
+> categorize             :: Maybe Int → EState
 > categorize mint                          =
 >   case mint of
 >     Nothing            → EOff
@@ -98,7 +95,7 @@ The per-file diagnostic data (GenSum) includes:
 >   , _eConfigRelease    :: EState}
 >   deriving (Eq, Ord, Show)
 > makeLenses ''EConfig
-> makeEConfig            :: Maybe Double → Maybe Double → Maybe Double → Maybe Double → Maybe Double → EConfig
+> makeEConfig            :: Maybe Int → Maybe Int → Maybe Int → Maybe Int → Maybe Int → EConfig
 > makeEConfig delay attack hold decay release
 >                                          =
 >   EConfig 
@@ -386,19 +383,27 @@ Generator Shredding ============================================================
 >         , makeUpdate CentsPerKey          centsPerKeyUsers
 >         , makeUpdate TimecentsPerKey      timecentsPerKeyUsers]
 >
-> unitAction              :: Unit → (String, Double → Double)
-> unitAction Centibels                     = ("volume ratio (from centibels)",     fromCentibels)
-> unitAction Cents                         = ("Hz ratio (from cents)",             fromCents)
-> unitAction AbsoluteCents                 = ("Hz (from absolute cents)",          fromAbsoluteCents)
-> unitAction Timecents                     = ("seconds (from time cents)",         fromTimecents)
-> unitAction TenthsOfAPercent              = ("tenths of a percent",               (/ 1000))
-> unitAction Points                        = ("sample points (no conversion)",     id)
-> unitAction CoarsePoints                  = ("32768 sample points",               (* 32768))
-> unitAction Keys                          = ("MIDI keys",                         id)
-> unitAction Semitones                     = ("Hz ratio (from semitones)",         fromSemitones)
-> unitAction CentsPerKey                   = ("Hz ratio (from cents per key)",     fromMicrotones)
-> unitAction TimecentsPerKey               = ("seconds (from time cents per key)", fromTimecents)
-> unitAction NoUnit                        = ("no unit",                           id)
+> unitAction              :: Unit → (String, Maybe (Double → Double))
+> unitAction Centibels                     = ("volume ratio (from centibels)",     Just fromCentibels)
+> unitAction Cents                         = ("Hz ratio (from cents)",             Just fromCents)
+> unitAction AbsoluteCents                 = ("Hz (from absolute cents)",          Just fromAbsoluteCents)
+> unitAction Timecents                     = ("seconds (from time cents)",         Just fromTimecents)
+> unitAction TenthsOfAPercent              = ("tenths of a percent",               Just (/ 1000))
+> unitAction Points                        = ("sample points (no conversion)",     Nothing)
+> unitAction CoarsePoints                  = ("32768 sample points",               Just (* 32768))
+> unitAction Keys                          = ("MIDI keys",                         Nothing)
+> unitAction Semitones                     = ("Hz ratio (from semitones)",         Just fromSemitones)
+> unitAction CentsPerKey                   = ("Hz ratio (from cents per key)",     Just fromMicrotones)
+> unitAction TimecentsPerKey               = ("seconds (from time cents per key)", Just fromTimecents)
+> unitAction NoUnit                        = ("no unit",                           Nothing)
+>
+> converti               :: Maybe (Double → Double) → Int → Double
+> converti mcv iIn                         = maybe (fromIntegral iIn) cvIt mcv
+>                                              where cvIt cv = (cv . fromIntegral) iIn
+>
+> convertf               :: Maybe (Double → Double) → Double → Double
+> convertf mcv fIn                         = maybe fIn cvIt mcv
+>                                              where cvIt cv = cv fIn
 >
 > centibelsUsers, centsUsers, absoluteCentsUsers, timeCentsUsers, tenthsUsers, pointsUsers, coarsePointsUsers
 >  , keysUsers, semitonesUsers, centsPerKeyUsers, timecentsPerKeyUsers
